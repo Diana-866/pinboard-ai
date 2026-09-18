@@ -1,6 +1,8 @@
 const express = require('express');
 const app = express();
 const { generateText, generateImage } = require('./gptunnel');
+const { register, login, verifyToken } = require('./auth');
+const supabase = require('./supabase');
 
 app.get('/test-text', async (req, res) => {
   try {
@@ -19,6 +21,50 @@ app.get('/test-image', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+app.use(express.json());
+
+app.post('/register', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const result = await register(email, password);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const result = await login(email, password);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.get('/me', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) throw new Error('Нет токена');
+
+    const decoded = verifyToken(authHeader);
+
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, email, credits_balance, subscription_tier')
+      .eq('id', decoded.userId)
+      .single();
+
+    if (error || !user) throw new Error('Пользователь не найден');
+
+    res.json(user);
+  } catch (e) {
+    res.status(401).json({ error: e.message });
+  }
+});
+
 
 app.get('/list-models', async (req, res) => {
   try {
