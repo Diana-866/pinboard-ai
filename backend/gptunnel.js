@@ -12,6 +12,14 @@ async function generateText(prompt) {
   return response.data.choices[0].message.content;
 }
 
+async function listModels() {
+  const response = await axios.get(
+    'https://gptunnel.ru/api/v2/media/models?type=IMAGE',
+    { headers: { Authorization: process.env.GPTUNNEL_API_KEY } }
+  );
+  return response.data.models.map((m) => ({ id: m.id, price: m.price, price_unit: m.price_unit }));
+}
+
 async function generateImage(prompt) {
   const createResponse = await axios.post(
     'https://gptunnel.ru/api/v2/media/tasks',
@@ -35,8 +43,8 @@ async function generateImage(prompt) {
 
   const taskId = task.id;
 
-  for (let i = 0; i < 15; i++) {
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+  for (let i = 0; i < 30; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
 
     const checkResponse = await axios.get(
       `https://gptunnel.ru/api/v2/media/tasks/${taskId}`,
@@ -54,7 +62,15 @@ async function generateImage(prompt) {
     }
   }
 
-  throw new Error('Генерация не завершилась за отведённое время');
+  return { pending: true, taskId, message: 'Ещё генерируется, проверь позже через /check-image/' + taskId };
 }
 
-module.exports = { generateText, generateImage };
+async function checkImage(taskId) {
+  const response = await axios.get(
+    `https://gptunnel.ru/api/v2/media/tasks/${taskId}`,
+    { headers: { Authorization: process.env.GPTUNNEL_API_KEY } }
+  );
+  return response.data;
+}
+
+module.exports = { generateText, generateImage, listModels, checkImage };

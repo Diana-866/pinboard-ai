@@ -20,6 +20,26 @@ app.get('/test-image', async (req, res) => {
   }
 });
 
+app.get('/list-models', async (req, res) => {
+  try {
+    const { listModels } = require('./gptunnel');
+    const result = await listModels();
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/check-image/:id', async (req, res) => {
+  try {
+    const { checkImage } = require('./gptunnel');
+    const result = await checkImage(req.params.id);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
