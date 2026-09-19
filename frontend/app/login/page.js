@@ -25,13 +25,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded-lg border bg-white p-6">
-        <h1 className="text-xl font-semibold">Вход</h1>
-        {error && <p className="text-sm text-red-500">{error}</p>}
-        <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded border p-2" required />
-        <input type="password" placeholder="Пароль" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded border p-2" required />
-        <button type="submit" className="w-full rounded bg-black p-2 text-white">Войти</button>
+    <div className="flex min-h-screen items-center justify-center bg-paper">
+      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded-sm border border-border bg-white p-8">
+        <h1 className="font-display text-2xl font-semibold text-ink">Вход</h1>
+        {error && <p className="text-sm text-berry">{error}</p>}
+        <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-sm border border-border bg-paper/40 p-2 text-ink outline-none focus:border-berry" required />
+        <input type="password" placeholder="Пароль" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-sm border border-border bg-paper/40 p-2 text-ink outline-none focus:border-berry" required />
+        <button type="submit" className="w-full rounded-sm bg-berry p-2 text-white transition hover:bg-berry-dark">Войти</button>
       </form>
     </div>
   );
