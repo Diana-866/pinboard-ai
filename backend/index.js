@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const { generateBoards } = require("./boards");
 
 const app = express();
 
@@ -166,6 +167,58 @@ app.post("/projects/:id/analyze", requireAuth, async (req, res) => {
     if (updateError) throw new Error(updateError.message);
 
     res.json(updated);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post("/projects/:id/boards/generate", requireAuth, async (req, res) => {
+  try {
+    const { data: project, error: fetchError } = await supabase
+      .from("projects")
+      .select("*")
+      .eq("id", req.params.id)
+      .eq("user_id", req.userId)
+      .single();
+    if (fetchError || !project) throw new Error("Проект не найден");
+
+    const ideas = await generateBoards(project);
+
+    const rows = ideas.map((b) => ({
+      project_id: project.id,
+      title: b.title,
+      description: b.description,
+      status: "new",
+    }));
+
+    const { data: inserted, error: insertError } = await supabase.from("boards").insert(rows).select();
+
+    if (insertError) throw new Error(insertError.message);
+
+    res.json(inserted);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.get("/projects/:id/boards", requireAuth, async (req, res) => {
+  try {
+    const { data: project, error: fetchError } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("id", req.params.id)
+      .eq("user_id", req.userId)
+      .single();
+    if (fetchError || !project) throw new Error("Проект не найден");
+
+    const { data, error } = await supabase
+      .from("boards")
+      .select("*")
+      .eq("project_id", req.params.id)
+      .order("created_at", { ascending: false });
+
+    if (error) throw new Error(error.message);
+    res.json(data);
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
