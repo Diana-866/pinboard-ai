@@ -23,5 +23,5 @@ export default function DashboardLayout({ children }) {
       <main className="flex-1 p-8">{children}</main>
     </div>
   );
-}
+
 }
