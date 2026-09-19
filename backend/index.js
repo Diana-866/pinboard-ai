@@ -5,6 +5,7 @@ app.use(cors());
 const { generateText, generateImage } = require('./gptunnel');
 const { register, login, verifyToken } = require('./auth');
 const supabase = require('./supabase');
+const { analyzeSite } = require('./analyze');
 
 app.get('/test-text', async (req, res) => {
   try {
@@ -72,6 +73,54 @@ app.get('/projects', requireAuth, async (req, res) => {
       .eq('user_id', req.userId);
     if (error) throw new Error(error.message);
     res.json(data);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+
+app.get('/projects/:id', requireAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('user_id', req.userId)
+      .single();
+    if (error) throw new Error(error.message);
+    res.json(data);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post('/projects/:id/analyze', requireAuth, async (req, res) => {
+  try {
+    const { data: project, error: fetchError } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('user_id', req.userId)
+      .single();
+
+    if (fetchError || !project) throw new Error('Проект не найден');
+
+    const analysis = await analyzeSite(project.website_url);
+
+    const { data: updated, error: updateError } = await supabase
+      .from('projects')
+      .update({
+        niche: analysis.niche,
+        site_summary: analysis.summary,
+        analyzed_at: new Date().toISOString(),
+      })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (updateError) throw new Error(updateError.message);
+
+    res.json(updated);
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
