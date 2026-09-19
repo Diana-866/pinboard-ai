@@ -1,37 +1,74 @@
-'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { apiRequest } from '../../lib/api';
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { apiRequest } from "../../lib/api";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setError('');
+    setError("");
+    setLoading(true);
     try {
-      const data = await apiRequest('/login', {
-        method: 'POST',
+      const data = await apiRequest("/login", {
+        method: "POST",
         body: JSON.stringify({ email, password }),
       });
-      localStorage.setItem('token', data.token);
-      router.push('/dashboard');
+      localStorage.setItem("token", data.token);
+      router.push("/dashboard");
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-paper">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded-sm border border-border bg-white p-8">
-        <h1 className="font-display text-2xl font-semibold text-ink">Вход</h1>
-        {error && <p className="text-sm text-berry">{error}</p>}
-        <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-sm border border-border bg-paper/40 p-2 text-ink outline-none focus:border-berry" required />
-        <input type="password" placeholder="Пароль" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-sm border border-border bg-paper/40 p-2 text-ink outline-none focus:border-berry" required />
-        <button type="submit" className="w-full rounded-sm bg-berry p-2 text-white transition hover:bg-berry-dark">Войти</button>
+    <div className="flex min-h-screen items-center justify-center bg-canvas px-4">
+      <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-2xl border border-border bg-surface p-10 shadow-sm">
+        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Вход</h1>
+        <p className="mb-6 text-sm text-ink-soft">Рады видеть вас снова</p>
+
+        {error && <p className="mb-4 text-sm text-red-500">{error}</p>}
+
+        <div className="space-y-3">
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full rounded-xl border border-border bg-canvas px-4 py-3 text-sm text-ink outline-none transition focus:border-accent"
+            required
+          />
+          <input
+            type="password"
+            placeholder="Пароль"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full rounded-xl border border-border bg-canvas px-4 py-3 text-sm text-ink outline-none transition focus:border-accent"
+            required
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="mt-6 w-full rounded-xl bg-accent py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
+        >
+          {loading ? "Входим..." : "Войти"}
+        </button>
+
+        <p className="mt-6 text-center text-sm text-ink-soft">
+          Нет аккаунта?{" "}
+          <a href="/register" className="font-medium text-accent">
+            Создать
+          </a>
+        </p>
       </form>
     </div>
   );

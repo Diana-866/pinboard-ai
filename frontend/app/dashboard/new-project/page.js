@@ -1,11 +1,13 @@
-'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { apiRequest } from '../../../lib/api';
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { apiRequest } from "../../../lib/api";
+
+const steps = ["Сайт", "Ниша", "Язык", "Цель", "Стиль"];
 
 export default function NewProjectPage() {
   const [step, setStep] = useState(1);
-  const [form, setForm] = useState({ website_url: '', niche: '', language: 'ru', goal: '', tone: '' });
+  const [form, setForm] = useState({ website_url: "", niche: "", language: "ru", goal: "", tone: "" });
   const router = useRouter();
 
   function update(field, value) {
@@ -13,57 +15,107 @@ export default function NewProjectPage() {
   }
 
   async function handleFinish() {
-    await apiRequest('/projects', { method: 'POST', body: JSON.stringify(form) });
-    router.push('/dashboard');
+    await apiRequest("/projects", { method: "POST", body: JSON.stringify(form) });
+    router.push("/dashboard");
   }
+
+  const inputClass =
+    "w-full rounded-xl border border-border bg-canvas px-4 py-3 text-sm text-ink outline-none transition focus:border-accent";
 
   return (
     <div className="mx-auto max-w-md">
-      <h1 className="mb-6 font-display text-2xl font-semibold text-ink">Новый проект — шаг {step} из 5</h1>
+      <div className="mb-8 flex items-center gap-2">
+        {steps.map((label, i) => (
+          <div key={label} className="flex flex-1 flex-col gap-2">
+            <div className={`h-1 rounded-full ${i < step ? "bg-accent" : "bg-border"}`} />
+            <p className={`text-xs ${i < step ? "text-ink" : "text-ink-soft"}`}>{label}</p>
+          </div>
+        ))}
+      </div>
 
-      {step === 1 && (
-        <div className="space-y-3">
-          <label className="block text-sm">Ссылка на сайт</label>
-          <input className="w-full rounded-sm border border-border bg-white p-2 text-ink outline-none focus:border-berry" value={form.website_url} onChange={(e) => update('website_url', e.target.value)} placeholder="https://..." />
-        </div>
-      )}
-      {step === 2 && (
-        <div className="space-y-3">
-          <label className="block text-sm">Ниша</label>
-          <input className="w-full rounded-sm border border-border bg-white p-2 text-ink outline-none focus:border-berry" value={form.niche} onChange={(e) => update('niche', e.target.value)} placeholder="Например: рецепты" />
-        </div>
-      )}
-      {step === 3 && (
-        <div className="space-y-3">
-          <label className="block text-sm">Язык контента</label>
-          <select className="w-full rounded-sm border border-border bg-white p-2 text-ink outline-none focus:border-berry" value={form.language} onChange={(e) => update('language', e.target.value)}>
-            <option value="ru">Русский</option>
-            <option value="en">Английский</option>
-          </select>
-        </div>
-      )}
-      {step === 4 && (
-        <div className="space-y-3">
-          <label className="block text-sm">Цель</label>
-          <select className="w-full rounded-sm border border-border bg-white p-2 text-ink outline-none focus:border-berry" value={form.goal} onChange={(e) => update('goal', e.target.value)}>
-            <option value="">Выбери цель</option>
-            <option value="traffic">Трафик на сайт</option>
-            <option value="sales">Продажи</option>
-            <option value="reach">Охват</option>
-          </select>
-        </div>
-      )}
-      {step === 5 && (
-        <div className="space-y-3">
-          <label className="block text-sm">Тон и стиль (свободное описание)</label>
-          <textarea className="w-full rounded-sm border border-border bg-white p-2 text-ink outline-none focus:border-berry" value={form.tone} onChange={(e) => update('tone', e.target.value)} placeholder="Например: тёплый, продающий, для аудитории 25-40 лет" />
-        </div>
-      )}
+      <div className="rounded-2xl border border-border bg-surface p-8">
+        {step === 1 && (
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-ink">Ссылка на сайт</label>
+            <input
+              className={inputClass}
+              value={form.website_url}
+              onChange={(e) => update("website_url", e.target.value)}
+              placeholder="https://..."
+            />
+          </div>
+        )}
+        {step === 2 && (
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-ink">Ниша</label>
+            <input
+              className={inputClass}
+              value={form.niche}
+              onChange={(e) => update("niche", e.target.value)}
+              placeholder="Например: рецепты"
+            />
+          </div>
+        )}
+        {step === 3 && (
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-ink">Язык контента</label>
+            <select className={inputClass} value={form.language} onChange={(e) => update("language", e.target.value)}>
+              <option value="ru">Русский</option>
+              <option value="en">Английский</option>
+            </select>
+          </div>
+        )}
+        {step === 4 && (
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-ink">Цель</label>
+            <select className={inputClass} value={form.goal} onChange={(e) => update("goal", e.target.value)}>
+              <option value="">Выберите цель</option>
+              <option value="traffic">Трафик на сайт</option>
+              <option value="sales">Продажи</option>
+              <option value="reach">Охват</option>
+            </select>
+          </div>
+        )}
+        {step === 5 && (
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-ink">Тон и стиль</label>
+            <textarea
+              className={inputClass}
+              rows={4}
+              value={form.tone}
+              onChange={(e) => update("tone", e.target.value)}
+              placeholder="Например: тёплый, продающий, для аудитории 25-40 лет"
+            />
+          </div>
+        )}
 
-      <div className="mt-6 flex justify-between">
-        {step > 1 && <button onClick={() => setStep(step - 1)} className="rounded-sm border border-border px-4 py-2">Назад</button>}
-        {step < 5 && <button onClick={() => setStep(step + 1)} className="ml-auto rounded-sm bg-berry px-4 py-2 text-white transition hover:bg-berry-dark">Далее</button>}
-        {step === 5 && <button onClick={handleFinish} className="ml-auto rounded-sm bg-berry px-4 py-2 text-white transition hover:bg-berry-dark">Создать проект</button>}
+        <div className="mt-8 flex justify-between">
+          {step > 1 ? (
+            <button
+              onClick={() => setStep(step - 1)}
+              className="rounded-xl border border-border px-5 py-2.5 text-sm font-medium text-ink transition hover:border-ink"
+            >
+              Назад
+            </button>
+          ) : (
+            <span />
+          )}
+          {step < 5 ? (
+            <button
+              onClick={() => setStep(step + 1)}
+              className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark"
+            >
+              Далее
+            </button>
+          ) : (
+            <button
+              onClick={handleFinish}
+              className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark"
+            >
+              Создать проект
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
