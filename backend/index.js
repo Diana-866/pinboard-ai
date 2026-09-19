@@ -1,10 +1,10 @@
 const express = require('express');
+const cors = require('cors');
 const app = express();
 app.use(cors());
 const { generateText, generateImage } = require('./gptunnel');
 const { register, login, verifyToken } = require('./auth');
 const supabase = require('./supabase');
-const cors = require('cors');
 
 app.get('/test-text', async (req, res) => {
   try {
