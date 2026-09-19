@@ -1,8 +1,10 @@
 const express = require('express');
 const app = express();
+app.use(cors());
 const { generateText, generateImage } = require('./gptunnel');
 const { register, login, verifyToken } = require('./auth');
 const supabase = require('./supabase');
+const cors = require('cors');
 
 app.get('/test-text', async (req, res) => {
   try {
@@ -29,6 +31,47 @@ app.post('/register', async (req, res) => {
     const { email, password } = req.body;
     const result = await register(email, password);
     res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+
+function requireAuth(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) throw new Error('Нет токена');
+    const decoded = verifyToken(authHeader);
+    req.userId = decoded.userId;
+    next();
+  } catch (e) {
+    res.status(401).json({ error: 'Не авторизован' });
+  }
+}
+
+app.post('/projects', requireAuth, async (req, res) => {
+  try {
+    const { website_url, niche, language, goal, tone } = req.body;
+    const { data, error } = await supabase
+      .from('projects')
+      .insert({ user_id: req.userId, website_url, niche, language, goal, tone })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    res.json(data);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.get('/projects', requireAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('user_id', req.userId);
+    if (error) throw new Error(error.message);
+    res.json(data);
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
