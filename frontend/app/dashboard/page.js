@@ -27,10 +27,10 @@ export default function DashboardPage() {
       ) : (
         <div className="grid grid-cols-3 gap-4">
           {projects.map((p) => (
-            <div key={p.id} className="rounded border p-4">
+            <Link key={p.id} href={`/dashboard/project/${p.id}`} className="rounded border p-4 hover:bg-gray-50">
               <p className="font-medium">{p.niche || 'Без ниши'}</p>
               <p className="text-sm text-gray-500">{p.website_url}</p>
-            </div>
+            </Link>
           ))}
         </div>
       )}
