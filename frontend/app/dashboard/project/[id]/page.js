@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { apiRequest } from "../../../../lib/api";
+import Link from "next/link";
 
 export default function ProjectDetailPage() {
   const { id } = useParams();
@@ -86,11 +87,15 @@ export default function ProjectDetailPage() {
       ) : (
         <div className="mt-4 grid grid-cols-2 gap-4">
           {boards.map((b) => (
-            <div key={b.id} className="rounded-2xl border border-border bg-surface p-5">
-              <p className="text-sm font-medium text-ink">{b.title}</p>
-              <p className="mt-1 text-sm text-ink-soft">{b.description}</p>
-            </div>
-          ))}
+  <Link
+    key={b.id}
+    href={`/dashboard/board/${b.id}`}
+    className="rounded-2xl border border-border bg-surface p-5 transition hover:border-accent hover:shadow-md"
+  >
+    <p className="text-sm font-medium text-ink">{b.title}</p>
+    <p className="mt-1 text-sm text-ink-soft">{b.description}</p>
+  </Link>
+))}
         </div>
       )}
     </div>
