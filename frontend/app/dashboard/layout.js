@@ -62,7 +62,7 @@ export default function DashboardLayout({ children }) {
   return (
     <div className="flex min-h-screen bg-canvas">
       <aside className="flex w-60 flex-col border-r border-border bg-surface px-4 py-8">
-        <p className="mb-8 px-2 text-lg font-semibold tracking-tight text-ink">PinBoard</p>
+        <p className="mb-8 px-2 text-lg font-semibold tracking-tight text-ink">PinSprig</p>
         <nav className="flex flex-col gap-1">
           {navItems.map((item) => {
             const active = pathname === item.href;
