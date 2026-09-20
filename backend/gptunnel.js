@@ -1,12 +1,11 @@
 const axios = require("axios");
 
-async function generateImage(prompt, model = "nano-banana-2-lite") {
-  const createResponse = await axios.post(
-    "https://gptunnel.ru/api/v2/media/tasks",
+async function generateText(prompt) {
+  const response = await axios.post(
+    "https://gptunnel.ru/v1/chat/completions",
     {
-      model: model,
-      prompt: prompt,
-      wait: true,
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }],
     },
     { headers: { Authorization: process.env.GPTUNNEL_API_KEY } }
   );
@@ -27,11 +26,11 @@ async function checkImage(taskId) {
   return response.data;
 }
 
-async function generateImage(prompt) {
+async function generateImage(prompt, model = "flux-schnell") {
   const createResponse = await axios.post(
     "https://gptunnel.ru/api/v2/media/tasks",
     {
-      model: "nano-banana-pro",
+      model: model,
       prompt: prompt,
       wait: true,
     },
