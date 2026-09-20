@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const { generateBoards } = require("./boards");
+const { generatePins } = require("./pins");
 
 const app = express();
 
@@ -220,6 +221,58 @@ app.get("/projects/:id/boards", requireAuth, async (req, res) => {
 
     if (error) throw new Error(error.message);
     res.json(data);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+async function getBoardWithOwnerCheck(boardId, userId) {
+  const { data: board, error } = await supabase
+    .from("boards")
+    .select("*, projects(user_id, niche, tone, goal)")
+    .eq("id", boardId)
+    .single();
+  if (error || !board) throw new Error("Доска не найдена");
+  if (board.projects.user_id !== userId) throw new Error("Доска не найдена");
+  return board;
+}
+
+app.get("/boards/:id", requireAuth, async (req, res) => {
+  try {
+    const board = await getBoardWithOwnerCheck(req.params.id, req.userId);
+    res.json(board);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.get("/boards/:id/pins", requireAuth, async (req, res) => {
+  try {
+    await getBoardWithOwnerCheck(req.params.id, req.userId);
+    const { data, error } = await supabase
+      .from("pins")
+      .select("*")
+      .eq("board_id", req.params.id)
+      .order("created_at", { ascending: true });
+    if (error) throw new Error(error.message);
+    res.json(data);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post("/boards/:id/pins/generate", requireAuth, async (req, res) => {
+  try {
+    const board = await getBoardWithOwnerCheck(req.params.id, req.userId);
+    const model = req.body.model || "flux-schnell";
+    const count = Math.min(req.body.count || 6, 10);
+
+    const pinsData = await generatePins(board, board.projects, model, count);
+
+    const { data: inserted, error } = await supabase.from("pins").insert(pinsData).select();
+    if (error) throw new Error(error.message);
+
+    res.json(inserted);
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
