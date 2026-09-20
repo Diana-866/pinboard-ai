@@ -1,11 +1,12 @@
 const axios = require("axios");
 
-async function generateText(prompt) {
-  const response = await axios.post(
-    "https://gptunnel.ru/v1/chat/completions",
+async function generateImage(prompt, model = "nano-banana-2-lite") {
+  const createResponse = await axios.post(
+    "https://gptunnel.ru/api/v2/media/tasks",
     {
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
+      model: model,
+      prompt: prompt,
+      wait: true,
     },
     { headers: { Authorization: process.env.GPTUNNEL_API_KEY } }
   );

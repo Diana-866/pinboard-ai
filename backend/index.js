@@ -39,7 +39,8 @@ app.get("/test-text", async (req, res) => {
 
 app.get("/test-image", async (req, res) => {
   try {
-    const result = await generateImage("милый кот в стиле акварели");
+    const model = req.query.model || "flux-schnell";
+    const result = await generateImage("милый кот в стиле акварели", model);
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: e.message });
