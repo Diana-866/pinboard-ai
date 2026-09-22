@@ -1,17 +1,39 @@
 const express = require("express");
 const cors = require("cors");
-const { generateBoards } = require("./boards");
-const { generatePins } = require("./pins");
+const rateLimit = require("express-rate-limit");
 
 const app = express();
 
-app.use(cors());
+const allowedOrigins = [
+  process.env.FRONTEND_URL || "https://pinboard-ai-web.vercel.app",
+  "http://localhost:3000",
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+  })
+);
 app.use(express.json());
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: "Слишком много попыток. Попробуйте через 15 минут." },
+});
 
 const { generateText, generateImage, listModels, checkImage } = require("./gptunnel");
 const { register, login, verifyToken } = require("./auth");
 const supabase = require("./supabase");
 const { analyzeSite } = require("./analyze");
+const { generateBoards } = require("./boards");
+const { generatePins } = require("./pins");
 
 function requireAuth(req, res, next) {
   try {
@@ -25,64 +47,69 @@ function requireAuth(req, res, next) {
   }
 }
 
+function handleError(res, e, publicMessage) {
+  console.error(e);
+  res.status(400).json({ error: publicMessage || "Произошла ошибка, попробуйте ещё раз" });
+}
+
 app.get("/", (req, res) => {
   res.send("OK");
 });
 
-app.get("/test-text", async (req, res) => {
+app.get("/test-text", requireAuth, async (req, res) => {
   try {
     const result = await generateText("Скажи привет одним словом");
     res.json({ result });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleError(res, e);
   }
 });
 
-app.get("/test-image", async (req, res) => {
+app.get("/test-image", requireAuth, async (req, res) => {
   try {
     const model = req.query.model || "flux-schnell";
     const result = await generateImage("милый кот в стиле акварели", model);
     res.json(result);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleError(res, e);
   }
 });
 
-app.get("/list-models", async (req, res) => {
+app.get("/list-models", requireAuth, async (req, res) => {
   try {
     const result = await listModels();
     res.json(result);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleError(res, e);
   }
 });
 
-app.get("/check-image/:id", async (req, res) => {
+app.get("/check-image/:id", requireAuth, async (req, res) => {
   try {
     const result = await checkImage(req.params.id);
     res.json(result);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    handleError(res, e);
   }
 });
 
-app.post("/register", async (req, res) => {
+app.post("/register", authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     const result = await register(email, password);
     res.json(result);
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    handleError(res, e, e.message.includes("уже существует") ? e.message : undefined);
   }
 });
 
-app.post("/login", async (req, res) => {
+app.post("/login", authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     const result = await login(email, password);
     res.json(result);
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    handleError(res, e, "Неверный email или пароль");
   }
 });
 
@@ -98,7 +125,7 @@ app.get("/me", requireAuth, async (req, res) => {
 
     res.json(user);
   } catch (e) {
-    res.status(401).json({ error: e.message });
+    handleError(res, e, "Пользователь не найден");
   }
 });
 
@@ -110,20 +137,20 @@ app.post("/projects", requireAuth, async (req, res) => {
       .insert({ user_id: req.userId, website_url, niche, language, goal, tone })
       .select()
       .single();
-    if (error) throw new Error(error.message);
+    if (error) throw error;
     res.json(data);
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    handleError(res, e);
   }
 });
 
 app.get("/projects", requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase.from("projects").select("*").eq("user_id", req.userId);
-    if (error) throw new Error(error.message);
+    if (error) throw error;
     res.json(data);
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    handleError(res, e);
   }
 });
 
@@ -135,10 +162,10 @@ app.get("/projects/:id", requireAuth, async (req, res) => {
       .eq("id", req.params.id)
       .eq("user_id", req.userId)
       .single();
-    if (error) throw new Error(error.message);
+    if (error) throw error;
     res.json(data);
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    handleError(res, e, "Проект не найден");
   }
 });
 
@@ -166,11 +193,11 @@ app.post("/projects/:id/analyze", requireAuth, async (req, res) => {
       .select()
       .single();
 
-    if (updateError) throw new Error(updateError.message);
+    if (updateError) throw updateError;
 
     res.json(updated);
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    handleError(res, e, e.message === "Проект не найден" ? e.message : undefined);
   }
 });
 
@@ -194,12 +221,11 @@ app.post("/projects/:id/boards/generate", requireAuth, async (req, res) => {
     }));
 
     const { data: inserted, error: insertError } = await supabase.from("boards").insert(rows).select();
-
-    if (insertError) throw new Error(insertError.message);
+    if (insertError) throw insertError;
 
     res.json(inserted);
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    handleError(res, e, e.message === "Проект не найден" ? e.message : undefined);
   }
 });
 
@@ -219,10 +245,10 @@ app.get("/projects/:id/boards", requireAuth, async (req, res) => {
       .eq("project_id", req.params.id)
       .order("created_at", { ascending: false });
 
-    if (error) throw new Error(error.message);
+    if (error) throw error;
     res.json(data);
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    handleError(res, e, e.message === "Проект не найден" ? e.message : undefined);
   }
 });
 
@@ -242,7 +268,7 @@ app.get("/boards/:id", requireAuth, async (req, res) => {
     const board = await getBoardWithOwnerCheck(req.params.id, req.userId);
     res.json(board);
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    handleError(res, e, "Доска не найдена");
   }
 });
 
@@ -254,10 +280,10 @@ app.get("/boards/:id/pins", requireAuth, async (req, res) => {
       .select("*")
       .eq("board_id", req.params.id)
       .order("created_at", { ascending: true });
-    if (error) throw new Error(error.message);
+    if (error) throw error;
     res.json(data);
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    handleError(res, e, "Доска не найдена");
   }
 });
 
@@ -270,11 +296,11 @@ app.post("/boards/:id/pins/generate", requireAuth, async (req, res) => {
     const pinsData = await generatePins(board, board.projects, model, count);
 
     const { data: inserted, error } = await supabase.from("pins").insert(pinsData).select();
-    if (error) throw new Error(error.message);
+    if (error) throw error;
 
     res.json(inserted);
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    handleError(res, e, "Доска не найдена");
   }
 });
 
