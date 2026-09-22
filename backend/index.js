@@ -1,6 +1,15 @@
 const express = require("express");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
+const { getBalance, adjustBalance } = require("./credits");
+
+const MODEL_PRICES = {
+  "flux-schnell": 0.6,
+  "grom-nova": 1.5,
+  "nano-banana-2-lite": 9.6,
+  "nano-banana-pro": 15,
+};
+const MARKUP = 1.5;
 
 const app = express();
 
@@ -293,14 +302,66 @@ app.post("/boards/:id/pins/generate", requireAuth, async (req, res) => {
     const model = req.body.model || "flux-schnell";
     const count = Math.min(req.body.count || 6, 10);
 
+    const estimatedCost = Math.ceil((MODEL_PRICES[model] || 15) * count * MARKUP);
+    const balance = await getBalance(req.userId);
+
+    if (balance < estimatedCost) {
+      return res.status(402).json({
+        error: "Недостаточно кредитов для этой генерации",
+        required: estimatedCost,
+        balance,
+      });
+    }
+
     const pinsData = await generatePins(board, board.projects, model, count);
 
-    const { data: inserted, error } = await supabase.from("pins").insert(pinsData).select();
+    const markedUpPins = pinsData.map((p) => ({
+      ...p,
+      credits_cost: Math.ceil(p.credits_cost * MARKUP),
+    }));
+    const totalCharge = markedUpPins.reduce((sum, p) => sum + p.credits_cost, 0);
+
+    await adjustBalance(req.userId, -totalCharge, "generation", `Генерация ${count} пинов (${model})`);
+
+    const { data: inserted, error } = await supabase.from("pins").insert(markedUpPins).select();
     if (error) throw error;
 
     res.json(inserted);
   } catch (e) {
     handleError(res, e, "Доска не найдена");
+  }
+});
+
+
+app.get("/credits", requireAuth, async (req, res) => {
+  try {
+    const balance = await getBalance(req.userId);
+    const { data: transactions, error } = await supabase
+      .from("credit_transactions")
+      .select("*")
+      .eq("user_id", req.userId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    res.json({ balance, transactions });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+
+app.post("/credits/dev-topup", async (req, res) => {
+  try {
+    const { email, amount, adminSecret } = req.body;
+    if (adminSecret !== process.env.ADMIN_SECRET) throw new Error("Не авторизован");
+
+    const { data: user, error } = await supabase.from("users").select("id").eq("email", email).single();
+    if (error || !user) throw new Error("Пользователь не найден");
+
+    const newBalance = await adjustBalance(user.id, amount, "topup", "Тестовое пополнение");
+    res.json({ balance: newBalance });
+  } catch (e) {
+    handleError(res, e);
   }
 });
 
