@@ -28,20 +28,20 @@ export default function BoardDetailPage() {
   }
 
   async function handleGeneratePins() {
-    setGenerating(true);
-    setError("");
-    try {
-      await apiRequest(`/boards/${id}/pins/generate`, {
-        method: "POST",
-        body: JSON.stringify({ model, count: 6 }),
-      });
-      loadPins();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setGenerating(false);
-    }
+  setGenerating(true);
+  setError("");
+  try {
+    await apiRequest(`/boards/${id}/pins/generate`, {
+      method: "POST",
+      body: JSON.stringify({ model, count: 6 }),
+    });
+    loadPins();
+  } catch (e) {
+    setError(e.message);
+  } finally {
+    setGenerating(false);
   }
+}
 
   if (!board) return <p className="text-sm text-ink-soft">Загрузка...</p>;
 
