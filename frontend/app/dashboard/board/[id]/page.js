@@ -69,6 +69,12 @@ export default function BoardDetailPage() {
           disabled={generating}
           className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
         >
+	<a
+  href={`/dashboard/board/${id}/review`}
+  className="rounded-xl border border-border px-5 py-2.5 text-sm font-medium text-ink transition hover:border-accent hover:text-accent"
+>
+  Проверить пины
+</a>
           {generating ? "Генерируем 6 пинов..." : "Сгенерировать пины"}
         </button>
       </div>
