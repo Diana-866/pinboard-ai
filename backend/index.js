@@ -272,6 +272,86 @@ async function getBoardWithOwnerCheck(boardId, userId) {
   return board;
 }
 
+async function getPinWithOwnerCheck(pinId, userId) {
+  const { data: pin, error } = await supabase
+    .from("pins")
+    .select("*, boards(id, title, description, projects(user_id, niche, tone))")
+    .eq("id", pinId)
+    .single();
+  if (error || !pin) throw new Error("Пин не найден");
+  if (pin.boards.projects.user_id !== userId) throw new Error("Пин не найден");
+  return pin;
+}
+
+app.patch("/pins/:id", requireAuth, async (req, res) => {
+  try {
+    await getPinWithOwnerCheck(req.params.id, req.userId);
+    const { title, description } = req.body;
+    const { data, error } = await supabase
+      .from("pins")
+      .update({ title, description })
+      .eq("id", req.params.id)
+      .select()
+      .single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
+    handleError(res, e, "Пин не найден");
+  }
+});
+
+
+app.post("/pins/:id/status", requireAuth, async (req, res) => {
+  try {
+    await getPinWithOwnerCheck(req.params.id, req.userId);
+    const { status } = req.body;
+    if (!["approved", "rejected"].includes(status)) throw new Error("Некорректный статус");
+    const { data, error } = await supabase
+      .from("pins")
+      .update({ status })
+      .eq("id", req.params.id)
+      .select()
+      .single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
+    handleError(res, e, "Пин не найден");
+  }
+});
+
+
+app.post("/pins/:id/regenerate", requireAuth, async (req, res) => {
+  try {
+    const pin = await getPinWithOwnerCheck(req.params.id, req.userId);
+    const instruction = req.body.instruction || "";
+    const model = pin.model_used || "flux-schnell";
+
+    const cost = Math.ceil((MODEL_PRICES[model] || 15) * MARKUP);
+    const balance = await getBalance(req.userId);
+    if (balance < cost) {
+      return res.status(402).json({ error: "Недостаточно кредитов", required: cost, balance });
+    }
+
+    const prompt = `${pin.title}. ${pin.description}. ${instruction}`.trim();
+    const image = await generateImage(prompt, model);
+
+    await adjustBalance(req.userId, -cost, "regeneration", `Перегенерация пина (${model})`);
+
+    const { data: updated, error } = await supabase
+      .from("pins")
+      .update({ image_url: image.url, credits_cost: cost })
+      .eq("id", req.params.id)
+      .select()
+      .single();
+    if (error) throw error;
+
+    res.json(updated);
+  } catch (e) {
+    handleError(res, e, "Пин не найден");
+  }
+});
+
+
 app.get("/boards/:id", requireAuth, async (req, res) => {
   try {
     const board = await getBoardWithOwnerCheck(req.params.id, req.userId);
