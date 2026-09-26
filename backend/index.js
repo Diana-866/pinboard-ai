@@ -407,6 +407,7 @@ app.post("/boards/:id/pins/generate", requireAuth, async (req, res) => {
     const model = req.body.model || "flux-schnell";
     const count = Math.min(req.body.count || 6, 10);
     const aspectRatio = req.body.aspect_ratio || "mixed";
+    const mixedRatios = Array.isArray(req.body.mixed_ratios) ? req.body.mixed_ratios : undefined;
 
     const estimatedCost = Math.ceil((MODEL_PRICES[model] || 15) * count * MARKUP);
     const balance = await getBalance(req.userId);
@@ -419,7 +420,7 @@ app.post("/boards/:id/pins/generate", requireAuth, async (req, res) => {
       });
     }
 
-        const pinsData = await generatePins(board, board.projects, model, count, aspectRatio);
+        const pinsData = await generatePins(board, board.projects, model, count, aspectRatio, mixedRatios);
 
     const markedUpPins = pinsData.map((p) => ({
       ...p,

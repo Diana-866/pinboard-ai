@@ -39,6 +39,7 @@ async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3"
   );
 
   let task = createResponse.data;
+  console.log("GPTunnel task result:", JSON.stringify(task));
 
   if (task.status === "done") {
     return { url: task.result[0].url, price: task.price };
