@@ -406,6 +406,7 @@ app.post("/boards/:id/pins/generate", requireAuth, async (req, res) => {
     const board = await getBoardWithOwnerCheck(req.params.id, req.userId);
     const model = req.body.model || "flux-schnell";
     const count = Math.min(req.body.count || 6, 10);
+    const aspectRatio = req.body.aspect_ratio || "mixed";
 
     const estimatedCost = Math.ceil((MODEL_PRICES[model] || 15) * count * MARKUP);
     const balance = await getBalance(req.userId);
@@ -418,7 +419,7 @@ app.post("/boards/:id/pins/generate", requireAuth, async (req, res) => {
       });
     }
 
-    const pinsData = await generatePins(board, board.projects, model, count);
+        const pinsData = await generatePins(board, board.projects, model, count, aspectRatio);
 
     const markedUpPins = pinsData.map((p) => ({
       ...p,
@@ -457,6 +458,9 @@ app.get("/credits", requireAuth, async (req, res) => {
 
 app.post("/credits/dev-topup", async (req, res) => {
   try {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Этот эндпоинт недоступен в продакшене");
+    }
     const { email, amount, adminSecret } = req.body;
     if (adminSecret !== process.env.ADMIN_SECRET) throw new Error("Не авторизован");
 

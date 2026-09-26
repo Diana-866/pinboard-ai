@@ -1,20 +1,11 @@
 const supabase = require("./supabase");
 
-async function getBalance(userId) {
-  const { data, error } = await supabase.from("users").select("credits_balance").eq("id", userId).single();
-  if (error) throw error;
-  return data.credits_balance;
-}
-
 async function adjustBalance(userId, amount, type, description) {
-  const balance = await getBalance(userId);
-  const newBalance = balance + amount;
-
-  const { error: updateError } = await supabase
-    .from("users")
-    .update({ credits_balance: newBalance })
-    .eq("id", userId);
-  if (updateError) throw updateError;
+  const { data: newBalance, error: rpcError } = await supabase.rpc("adjust_credits_balance", {
+    p_user_id: userId,
+    p_amount: amount,
+  });
+  if (rpcError) throw new Error(rpcError.message || "Не удалось изменить баланс");
 
   const { error: txError } = await supabase.from("credit_transactions").insert({
     user_id: userId,

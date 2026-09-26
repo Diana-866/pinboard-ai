@@ -26,12 +26,13 @@ async function checkImage(taskId) {
   return response.data;
 }
 
-async function generateImage(prompt, model = "flux-schnell") {
+async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3") {
   const createResponse = await axios.post(
     "https://gptunnel.ru/api/v2/media/tasks",
     {
       model: model,
       prompt: prompt,
+      aspect_ratio: aspectRatio,
       wait: true,
     },
     { headers: { Authorization: process.env.GPTUNNEL_API_KEY } }

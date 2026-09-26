@@ -1,6 +1,8 @@
 const { generateText, generateImage } = require("./gptunnel");
 
-async function generatePins(board, project, model, count) {
+const ASPECT_RATIOS = ["2:3", "9:16", "4:5", "3:4"];
+
+async function generatePins(board, project, model, count, aspectRatio = "mixed") {
   const prompt = `Ты придумываешь пины для Pinterest-доски.
 Доска: ${board.title}
 Описание доски: ${board.description}
@@ -22,9 +24,13 @@ async function generatePins(board, project, model, count) {
     throw new Error("Не удалось разобрать идеи пинов от нейросети");
   }
 
-  const pins = [];
+    const pins = [];
   for (const idea of ideas) {
-    const image = await generateImage(idea.image_prompt, model);
+    const ratio =
+      aspectRatio === "mixed"
+        ? ASPECT_RATIOS[Math.floor(Math.random() * ASPECT_RATIOS.length)]
+        : aspectRatio;
+    const image = await generateImage(idea.image_prompt, model, ratio);
     pins.push({
       board_id: board.id,
       image_url: image.url,
@@ -32,6 +38,7 @@ async function generatePins(board, project, model, count) {
       description: idea.description,
       status: "pending",
       model_used: model,
+      aspect_ratio: ratio,
       credits_cost: image.price,
     });
   }
