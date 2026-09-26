@@ -41,8 +41,45 @@ function CreditIcon({ className }) {
   );
 }
 
+function useColumnCount() {
+  const [cols, setCols] = useState(4);
+  useEffect(() => {
+    function calc() {
+      const w = window.innerWidth;
+      if (w < 640) setCols(2);
+      else if (w < 900) setCols(3);
+      else if (w < 1200) setCols(4);
+      else if (w < 1600) setCols(5);
+      else setCols(6);
+    }
+    calc();
+    window.addEventListener("resize", calc);
+    return () => window.removeEventListener("resize", calc);
+  }, []);
+  return cols;
+}
+
+function PinCard({ pin }) {
+  return (
+    <div className="group relative overflow-hidden rounded-2xl">
+      {pin.image_url && (
+        <img
+          src={pin.image_url}
+          alt={pin.title}
+          className="w-full transform-gpu object-cover transition duration-300 group-hover:scale-[1.03]"
+        />
+      )}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent p-4 pt-10 opacity-0 transition duration-200 group-hover:opacity-100">
+        <p className="text-sm font-semibold text-white">{pin.title}</p>
+        <p className="mt-1 text-xs text-white/80">{pin.description}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function BoardDetailPage() {
   const { id } = useParams();
+  const numCols = useColumnCount();
   const [board, setBoard] = useState(null);
   const [pins, setPins] = useState([]);
   const [model, setModel] = useState("flux-schnell");
@@ -176,23 +213,17 @@ export default function BoardDetailPage() {
         </div>
       )}
 
-      {pins.length === 0 ? (
+            {pins.length === 0 ? (
         <p className="mt-6 text-sm text-ink-soft">Пинов пока нет.</p>
       ) : (
-        <div className="mt-6 columns-[190px] gap-4">
-          {pins.map((p) => (
-            <div key={p.id} className="group relative mb-4 break-inside-avoid overflow-hidden rounded-2xl">
-              {p.image_url && (
-                <img
-                  src={p.image_url}
-                  alt={p.title}
-                  className="w-full transform-gpu object-cover transition duration-300 group-hover:scale-[1.03]"
-                />
-              )}
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent p-4 pt-10 opacity-0 transition duration-200 group-hover:opacity-100">
-                <p className="text-sm font-semibold text-white">{p.title}</p>
-                <p className="mt-1 text-xs text-white/80">{p.description}</p>
-              </div>
+        <div className="mt-6 flex gap-4">
+          {Array.from({ length: numCols }, (_, colIndex) =>
+            pins.filter((_, i) => i % numCols === colIndex)
+          ).map((column, colIndex) => (
+            <div key={colIndex} className="flex flex-1 flex-col gap-4">
+              {column.map((p) => (
+                <PinCard key={p.id} pin={p} />
+              ))}
             </div>
           ))}
         </div>

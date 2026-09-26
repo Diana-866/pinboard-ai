@@ -1,5 +1,11 @@
 const supabase = require("./supabase");
 
+async function getBalance(userId) {
+  const { data, error } = await supabase.from("users").select("credits_balance").eq("id", userId).single();
+  if (error) throw error;
+  return data.credits_balance;
+}
+
 async function adjustBalance(userId, amount, type, description) {
   const { data: newBalance, error: rpcError } = await supabase.rpc("adjust_credits_balance", {
     p_user_id: userId,
