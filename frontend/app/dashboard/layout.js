@@ -24,16 +24,7 @@ const navItems = [
       </svg>
     ),
   },
-  {
-    href: "/dashboard/plan",
-    label: "План",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="3" y="5" width="18" height="16" rx="2" />
-        <path d="M3 10h18M8 3v4M16 3v4" />
-      </svg>
-    ),
-  },
+  
   {
     href: "/dashboard/credits",
     label: "Кредиты",

@@ -8,6 +8,8 @@ const steps = ["Сайт", "Ниша", "Язык", "Цель", "Стиль"];
 export default function NewProjectPage() {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({ website_url: "", niche: "", language: "ru", goal: "", tone: "" });
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
 
   function update(field, value) {
@@ -15,8 +17,16 @@ export default function NewProjectPage() {
   }
 
   async function handleFinish() {
-    await apiRequest("/projects", { method: "POST", body: JSON.stringify(form) });
-    router.push("/dashboard");
+    setSubmitting(true);
+    setError("");
+    try {
+      await apiRequest("/projects", { method: "POST", body: JSON.stringify(form) });
+      router.push("/dashboard");
+    } catch (e) {
+      setError(e.message || "Не удалось создать проект. Попробуйте ещё раз.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const inputClass =
@@ -89,6 +99,8 @@ export default function NewProjectPage() {
           </div>
         )}
 
+                {error && <p className="mt-4 text-sm text-red-500">{error}</p>}
+
         <div className="mt-8 flex justify-between">
           {step > 1 ? (
             <button
@@ -110,9 +122,10 @@ export default function NewProjectPage() {
           ) : (
             <button
               onClick={handleFinish}
-              className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark"
+              disabled={submitting}
+              className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
             >
-              Создать проект
+              {submitting ? "Создаём..." : "Создать проект"}
             </button>
           )}
         </div>

@@ -352,6 +352,31 @@ app.post("/pins/:id/regenerate", requireAuth, async (req, res) => {
 });
 
 
+app.get("/boards", requireAuth, async (req, res) => {
+  try {
+    const { data: projects, error: projectsError } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("user_id", req.userId);
+
+    if (projectsError) throw projectsError;
+
+    const projectIds = (projects || []).map((p) => p.id);
+    if (projectIds.length === 0) return res.json([]);
+
+    const { data, error } = await supabase
+      .from("boards")
+      .select("*, projects(niche, website_url)")
+      .in("project_id", projectIds)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 app.get("/boards/:id", requireAuth, async (req, res) => {
   try {
     const board = await getBoardWithOwnerCheck(req.params.id, req.userId);

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { apiRequest } from "../../../../lib/api";
 
 const MODELS = [
@@ -64,19 +65,19 @@ export default function BoardDetailPage() {
             </option>
           ))}
         </select>
-        <button
+                <button
           onClick={handleGeneratePins}
           disabled={generating}
           className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
         >
-	<a
-  href={`/dashboard/board/${id}/review`}
-  className="rounded-xl border border-border px-5 py-2.5 text-sm font-medium text-ink transition hover:border-accent hover:text-accent"
->
-  Проверить пины
-</a>
           {generating ? "Генерируем 6 пинов..." : "Сгенерировать пины"}
         </button>
+        <Link
+          href={`/dashboard/board/${id}/review`}
+          className="rounded-xl border border-border px-5 py-2.5 text-sm font-medium text-ink transition hover:border-accent hover:text-accent"
+        >
+          Проверить пины
+        </Link>
       </div>
 
       {pins.length === 0 ? (
