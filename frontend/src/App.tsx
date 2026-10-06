@@ -373,6 +373,8 @@ export default function App() {
   return (
     <ThemeProvider>
       <I18nProvider>
+        <NotificationProvider>
+        <AuthProvider>
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
@@ -389,6 +391,8 @@ export default function App() {
             />
           </Routes>
         </BrowserRouter>
+        </AuthProvider>
+        </NotificationProvider>
       </I18nProvider>
     </ThemeProvider>
   );
