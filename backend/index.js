@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const { getBalance, adjustBalance } = require("./credits");
+const { requireAdmin, getStats } = require("./admin");
 
 const MODEL_PRICES = {
   "flux-schnell": 0.6,
@@ -126,7 +127,7 @@ app.get("/me", requireAuth, async (req, res) => {
   try {
     const { data: user, error } = await supabase
       .from("users")
-      .select("id, email, credits_balance, subscription_tier")
+      .select("id, email, name, credits_balance, subscription_tier, is_admin")
       .eq("id", req.userId)
       .single();
 
@@ -470,6 +471,15 @@ app.post("/credits/dev-topup", async (req, res) => {
 
     const newBalance = await adjustBalance(user.id, amount, "topup", "Тестовое пополнение");
     res.json({ balance: newBalance });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+app.get("/admin/stats", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const stats = await getStats();
+    res.json(stats);
   } catch (e) {
     handleError(res, e);
   }
