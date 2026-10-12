@@ -12,7 +12,6 @@ import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { FloatingStrategistBot } from './components/bot/FloatingStrategistBot';
 import { AdminPanel } from './components/admin/AdminPanel';
-import { AuthModal } from './components/auth/AuthModal';
 import { PrivacyPolicyModal } from './components/auth/PrivacyPolicyModal';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { PinGenerator } from './components/pins/PinGenerator';
@@ -53,7 +52,7 @@ const MainApp: React.FC = () => {
   const [isBotOpen, setIsBotOpen] = useState<boolean>(false);
 
   const { toast, clearToast } = useNotifications();
-  const { activeViewMode, setActiveViewMode, isPrivacyModalOpen, closePrivacyModal } = useAuth();
+ const { activeViewMode, setActiveViewMode, isPrivacyModalOpen, closePrivacyModal, isAdmin } = useAuth();
 
   // Dedicated /admin URL route detection (User request: only accessible via domain/admin)
   const [isAdminRoute, setIsAdminRoute] = useState<boolean>(() => {
@@ -193,14 +192,29 @@ const MainApp: React.FC = () => {
   };
 
   if (isAdminRoute || activeViewMode === 'admin') {
+  if (!isAdmin) {
     return (
-      <>
-        <AdminPanel onBackToApp={handleBackToPublicSite} />
-        <AuthModal />
-        <PrivacyPolicyModal isOpen={isPrivacyModalOpen} onClose={closePrivacyModal} />
-      </>
+      <div className="min-h-screen flex items-center justify-center bg-page">
+        <div className="text-center">
+          <p className="text-lg font-semibold text-primary-theme">Доступ запрещён</p>
+          <p className="mt-2 text-sm text-secondary-theme">У вас нет прав администратора.</p>
+          <button
+            onClick={handleBackToPublicSite}
+            className="mt-4 rounded-xl bg-accent px-4 py-2 text-sm text-white"
+          >
+            Вернуться в приложение
+          </button>
+        </div>
+      </div>
     );
   }
+  return (
+    <>
+      <AdminPanel onBackToApp={handleBackToPublicSite} />
+      <PrivacyPolicyModal isOpen={isPrivacyModalOpen} onClose={closePrivacyModal} />
+    </>
+  );
+}
 
   return (
     <div className="min-h-screen bg-page text-primary-theme flex transition-colors">
@@ -356,7 +370,6 @@ const MainApp: React.FC = () => {
       )}
 
       {/* Authentication Modal & Privacy Policy Modal */}
-      <AuthModal />
       <PrivacyPolicyModal isOpen={isPrivacyModalOpen} onClose={closePrivacyModal} />
     </div>
   );
