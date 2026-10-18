@@ -2,8 +2,8 @@ import { TranslationSchema } from '../types';
 
 export const ru: TranslationSchema = {
   brand: {
-    name: 'PinSprig',
-    tagline: 'PinSprig — AI-платформа аналитики Pinterest и автоматизации контента.',
+    name: 'PinPosy',
+    tagline: 'PinPosy — AI-платформа аналитики Pinterest и автоматизации контента.',
     taglineShort: 'Аналитика Pinterest и генерация контента',
     description: 'Масштабируйте органический трафик Pinterest, находите трендовые поисковые запросы, анализируйте конкурентов и создавайте конвертящие пины с помощью ИИ.',
   },
@@ -296,7 +296,7 @@ export const ru: TranslationSchema = {
   },
 
   pricing: {
-    title: 'Тарифы и кредиты PinSprig',
+    title: 'Тарифы и кредиты PinPosy',
     subtitle: 'Прозрачная модель: регулярная подписка для ведения аккаунтов плюс бессрочные пакеты дополнительных кредитов.',
     currencyRub: '₽ Рубли',
     currencyUsd: '$ USD',
@@ -349,7 +349,7 @@ export const ru: TranslationSchema = {
     thNetProfit: 'Чистая прибыль',
     thMargin: 'Маржа',
     thAction: 'Действие',
-    aiBotTitle: 'Диалоговый AI-стратег PinSprig (помощник по выбору тарифа)',
+    aiBotTitle: 'Диалоговый AI-стратег PinPosy (помощник по выбору тарифа)',
     aiBotSubtitle: 'Задайте вопрос: например, сколько кредитов нужно на 5 досок, или какой тариф выгоднее под ваши задачи.',
     aiBotPlaceholder: 'Спросить: «Сколько кредитов нужно на 1 месяц ведения 3 досок?»...',
     aiBotAsk: 'Спросить',
@@ -374,7 +374,7 @@ export const ru: TranslationSchema = {
 
   bot: {
     floatingButton: 'ИИ-стратег Pinterest',
-    title: 'ИИ-стратег PinSprig',
+    title: 'ИИ-стратег PinPosy',
     subtitle: 'Анализ аналитики, трендов и досок @botanika_nordic',
     statusOnline: 'Онлайн · анализирует аккаунт',
     disclaimerPeak: 'При пиковой нагрузке генерация очередей может длиться до 24-48ч, а чат-стратег отвечает мгновенно.',

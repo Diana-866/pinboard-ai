@@ -46,7 +46,7 @@ export async function generatePinterestPinBatch(
   if (apiKey && apiKey !== 'MY_GEMINI_API_KEY') {
     try {
       const ai = new GoogleGenAI({ apiKey });
-      const prompt = `You are PinSprig's expert Pinterest SEO and visual content strategist.
+      const prompt = `You are PinPosy's expert Pinterest SEO and visual content strategist.
 Task: Generate ${count} distinct Pinterest Pin variations for the topic: "${topic}".
 Tone: ${tone}.
 Target Board: "${targetBoard}".
@@ -98,7 +98,7 @@ Return ONLY raw JSON without markdown code fences if possible.`;
         }));
       }
     } catch (err) {
-      console.warn('Gemini API call failed, switching to algorithmic PinSprig engine:', err);
+      console.warn('Gemini API call failed, switching to algorithmic PinPosy engine:', err);
     }
   }
 

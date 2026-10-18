@@ -2,8 +2,8 @@ import { TranslationSchema } from '../types';
 
 export const fr: TranslationSchema = {
   brand: {
-    name: 'PinSprig',
-    tagline: 'PinSprig — Plateforme d’intelligence Pinterest et d’automatisation de contenu propulsée par l’IA.',
+    name: 'PinPosy',
+    tagline: 'PinPosy — Plateforme d’intelligence Pinterest et d’automatisation de contenu propulsée par l’IA.',
     taglineShort: 'Intelligence et automatisation Pinterest',
     description: 'Développez votre trafic organique Pinterest, découvrez les tendances de recherche, analysez vos concurrents et générez des épingles à fort taux de conversion grâce à l’IA.',
   },
@@ -296,7 +296,7 @@ export const fr: TranslationSchema = {
   },
 
   pricing: {
-    title: 'Offres & Packs de Crédits PinSprig',
+    title: 'Offres & Packs de Crédits PinPosy',
     subtitle: 'Modèle transparent : abonnement mensuel de gestion de compte plus recharges de crédits sans date d’expiration.',
     currencyRub: '₽ Roubles',
     currencyUsd: '$ USD',
@@ -349,7 +349,7 @@ export const fr: TranslationSchema = {
     thNetProfit: 'Bénéfice Net',
     thMargin: 'Marge',
     thAction: 'Action',
-    aiBotTitle: 'Bot Stratège IA PinSprig (Conseiller Forfaits)',
+    aiBotTitle: 'Bot Stratège IA PinPosy (Conseiller Forfaits)',
     aiBotSubtitle: 'Posez vos questions : combien de crédits pour 5 tableaux ou quel forfait convient le mieux à vos objectifs.',
     aiBotPlaceholder: 'Demander : «Combien de crédits pour animer 3 tableaux par mois ?»...',
     aiBotAsk: 'Demander',
@@ -374,7 +374,7 @@ export const fr: TranslationSchema = {
 
   bot: {
     floatingButton: 'Stratège IA Pinterest',
-    title: 'Stratège IA PinSprig',
+    title: 'Stratège IA PinPosy',
     subtitle: 'Analyse des statistiques, tendances et tableaux de @botanika_nordic',
     statusOnline: 'En ligne · Analyse du compte',
     disclaimerPeak: 'En période de forte affluence, la génération peut prendre 24 à 48h en file d’attente ; le chat IA répond immédiatement.',

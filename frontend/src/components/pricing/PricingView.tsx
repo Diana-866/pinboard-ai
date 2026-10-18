@@ -61,7 +61,7 @@ export const PricingView: React.FC = () => {
       features: [
         '1 connected account',
         '0 credits included',
-        'PinSprig AI Strategist Bot 24/7',
+        'PinPosy AI Strategist Bot 24/7',
         'Pinterest Trend Radar',
         'Competitor monitoring & content gaps',
         'Keyword explorer & CSV export',
@@ -225,7 +225,7 @@ export const PricingView: React.FC = () => {
     setChatInput('');
 
     setTimeout(() => {
-      let reply = `PinSprig AI: «${userText}». `;
+      let reply = `PinPosy AI: «${userText}». `;
       if (userText.toLowerCase().includes('аккаунт') || userText.toLowerCase().includes('account')) {
         reply += 'Для ведения нескольких клиентов или досок рекомендуем тариф «Про» (до 10 аккаунтов) или «Agency» (без ограничений).';
       } else if (userText.toLowerCase().includes('сгора') || userText.toLowerCase().includes('burn') || userText.toLowerCase().includes('expire')) {

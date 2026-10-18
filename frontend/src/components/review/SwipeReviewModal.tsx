@@ -49,7 +49,7 @@ const INITIAL_REVIEW_PINS: PendingReviewPin[] = [
     reason: 'Поисковый интерес к "рецепты курочки в духовке" вырос на 38% за 7 дней. Конкуренты фиксируют +42,000 сохранений на схожих пинах.',
     trendMetric: '+38% рост поисковых сохранений',
     scheduledTime: '20:30',
-    destinationUrl: 'https://pinsprig.com/recipes/baked-chicken-secrets',
+    destinationUrl: 'https://pinposy.com/recipes/baked-chicken-secrets',
   },
   {
     id: 'rev-2',
@@ -62,7 +62,7 @@ const INITIAL_REVIEW_PINS: PendingReviewPin[] = [
     reason: 'Твоя доска по скандинавскому интерьеру имеет 94% SEO-балл. Свежий пин позволит удержать 1-ю страницу в поиске Pinterest.',
     trendMetric: 'Удержание топ-1 в категории',
     scheduledTime: '21:15',
-    destinationUrl: 'https://pinsprig.com/blog/warm-minimalist-living',
+    destinationUrl: 'https://pinposy.com/blog/warm-minimalist-living',
   },
   {
     id: 'rev-3',
@@ -75,7 +75,7 @@ const INITIAL_REVIEW_PINS: PendingReviewPin[] = [
     reason: 'Запрос "уход за барьером кожи" вошел в топ-3 трендов недели. Формат 9:16 Idea Pin привлекает в 2.4 раза больше сохранений.',
     trendMetric: '+51% кликабельность формата 9:16',
     scheduledTime: '19:45',
-    destinationUrl: 'https://pinsprig.com/beauty/barrier-repair-morning',
+    destinationUrl: 'https://pinposy.com/beauty/barrier-repair-morning',
   },
   {
     id: 'rev-4',
@@ -88,7 +88,7 @@ const INITIAL_REVIEW_PINS: PendingReviewPin[] = [
     reason: 'Сезонный пик запросов на летние путешествия по Италии. Рекомендуем выложить пин в вечерний прайм-тайм.',
     trendMetric: 'Сезонный всплеск спроса',
     scheduledTime: '20:15',
-    destinationUrl: 'https://pinsprig.com/travel/amalfi-secret-viewpoints',
+    destinationUrl: 'https://pinposy.com/travel/amalfi-secret-viewpoints',
   },
   {
     id: 'rev-5',
@@ -101,7 +101,7 @@ const INITIAL_REVIEW_PINS: PendingReviewPin[] = [
     reason: 'Новый тренд "осенние крем-супы" (+44% запросов). Рекомендуем создать отдельную доску "Уютные осенние супы".',
     trendMetric: 'Новая ниша: +44% прирост',
     scheduledTime: '21:00',
-    destinationUrl: 'https://pinsprig.com/recipes/pumpkin-cream-soup',
+    destinationUrl: 'https://pinposy.com/recipes/pumpkin-cream-soup',
     suggestedNewBoard: 'Уютные осенние супы',
   },
 ];

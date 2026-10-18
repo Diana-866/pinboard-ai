@@ -91,7 +91,7 @@ const MainApp: React.FC = () => {
   // Pinterest Accounts state (User requested fix: "ботаника Nordic подключена 1 из 3")
   const [accounts, setAccounts] = useState<PinterestAccount[]>(() => {
     try {
-      const saved = localStorage.getItem('pinsprig_accounts');
+      const saved = localStorage.getItem('pinposy_accounts');
       if (saved) return JSON.parse(saved);
     } catch {
       // ignore
@@ -104,7 +104,7 @@ const MainApp: React.FC = () => {
   // Synchronized Pending Review Pins queue (Shared between Dashboard, Calendar, Sidebar & ManualApprovalDesk)
   const [pendingReviewPins, setPendingReviewPins] = useState<PendingReviewPin[]>(() => {
     try {
-      const saved = localStorage.getItem('pinsprig_pending_pins');
+      const saved = localStorage.getItem('pinposy_pending_pins');
       if (saved) return JSON.parse(saved);
     } catch {
       // ignore
@@ -116,7 +116,7 @@ const MainApp: React.FC = () => {
     setPendingReviewPins((prev) => {
       const next = updater(prev);
       try {
-        localStorage.setItem('pinsprig_pending_pins', JSON.stringify(next));
+        localStorage.setItem('pinposy_pending_pins', JSON.stringify(next));
       } catch {
         // ignore
       }
@@ -128,7 +128,7 @@ const MainApp: React.FC = () => {
     setAccounts((prev) => {
       const next = prev.map((a) => (a.id === accountId ? { ...a, autoTime, nightlyAuto } : a));
       try {
-        localStorage.setItem('pinsprig_accounts', JSON.stringify(next));
+        localStorage.setItem('pinposy_accounts', JSON.stringify(next));
       } catch {
         // ignore
       }
@@ -140,7 +140,7 @@ const MainApp: React.FC = () => {
     setAccounts((prev) => {
       const next = [...prev, acc];
       try {
-        localStorage.setItem('pinsprig_accounts', JSON.stringify(next));
+        localStorage.setItem('pinposy_accounts', JSON.stringify(next));
       } catch {
         // ignore
       }
@@ -153,7 +153,7 @@ const MainApp: React.FC = () => {
     setAccounts((prev) => {
       const next = prev.filter((a) => a.id !== id);
       try {
-        localStorage.setItem('pinsprig_accounts', JSON.stringify(next));
+        localStorage.setItem('pinposy_accounts', JSON.stringify(next));
       } catch {
         // ignore
       }

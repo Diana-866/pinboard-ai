@@ -2,8 +2,8 @@ import { TranslationSchema } from '../types';
 
 export const de: TranslationSchema = {
   brand: {
-    name: 'PinSprig',
-    tagline: 'PinSprig — KI-gestützte Pinterest-Intelligence- und Content-Automatisierungsplattform.',
+    name: 'PinPosy',
+    tagline: 'PinPosy — KI-gestützte Pinterest-Intelligence- und Content-Automatisierungsplattform.',
     taglineShort: 'Pinterest-Intelligence & Content-Automatisierung',
     description: 'Skalieren Sie organischen Pinterest-Traffic, identifizieren Sie profitable Suchtrends, analysieren Sie Mitbewerber und erstellen Sie hochkonvertierende visuelle Pins mit KI.',
   },
@@ -296,7 +296,7 @@ export const de: TranslationSchema = {
   },
 
   pricing: {
-    title: 'PinSprig Tarife & Credit-Pakete',
+    title: 'PinPosy Tarife & Credit-Pakete',
     subtitle: 'Transparentes Preismodell: Monatstarife für Account-Management plus dauerhaft gültige Credit-Pakete.',
     currencyRub: '₽ Rubel',
     currencyUsd: '$ USD',
@@ -349,7 +349,7 @@ export const de: TranslationSchema = {
     thNetProfit: 'Nettogewinn',
     thMargin: 'Marge',
     thAction: 'Aktion',
-    aiBotTitle: 'PinSprig KI-Stratege (Tarifberater)',
+    aiBotTitle: 'PinPosy KI-Stratege (Tarifberater)',
     aiBotSubtitle: 'Stellen Sie Fragen: Wie viele Credits für 5 Pinnwände benötigt werden oder welcher Tarif am besten passt.',
     aiBotPlaceholder: 'Frage: «Wie viele Credits brauche ich für 3 Pinnwände im Monat?»...',
     aiBotAsk: 'Fragen',
@@ -374,7 +374,7 @@ export const de: TranslationSchema = {
 
   bot: {
     floatingButton: 'Pinterest KI-Stratege',
-    title: 'PinSprig KI-Stratege',
+    title: 'PinPosy KI-Stratege',
     subtitle: 'Analyse von Statistiken, Trends & Pinnwänden für @botanika_nordic',
     statusOnline: 'Online · Analysiert Account',
     disclaimerPeak: 'Bei hoher Nachfrage kann die Batch-Generierung 24-48 Std. dauern; der KI-Chat antwortet sofort.',

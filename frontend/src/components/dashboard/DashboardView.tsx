@@ -283,7 +283,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-accent-ghost" />
             <h2 className="text-base font-bold text-primary-theme font-heading">
-              Рекомендации стратега PinSprig
+              Рекомендации стратега PinPosy
             </h2>
             <span className="px-2 py-0.5 rounded-full text-[11px] font-bold accent-pill font-mono">
               5 сигналов ИИ
@@ -558,7 +558,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </span>
                   </div>
                   <p className="text-[10px] text-secondary-theme pt-1 border-t border-accent/15 leading-relaxed">
-                    Серверы PinSprig в России автоматически запустят генерацию в {convertLocalToMoscow(selectedAutoTime, userTimezone)} МСК, чтобы пины были готовы ровно к {selectedAutoTime} вашего местного времени.
+                    Серверы PinPosy в России автоматически запустят генерацию в {convertLocalToMoscow(selectedAutoTime, userTimezone)} МСК, чтобы пины были готовы ровно к {selectedAutoTime} вашего местного времени.
                   </p>
                 </div>
               )}

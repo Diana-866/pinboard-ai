@@ -148,7 +148,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   }, [recommendedBoard]);
 
   const [tone, setTone] = useState<string>('inspirational');
-  const [destinationUrl, setDestinationUrl] = useState('https://pinsprig.com/blog/scandinavian-interior-styling');
+  const [destinationUrl, setDestinationUrl] = useState('https://pinposy.com/blog/scandinavian-interior-styling');
   const [canvasStyle, setCanvasStyle] = useState<'minimal' | 'glass' | 'split'>('glass');
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -312,7 +312,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     imageUrl: currentPin?.imageUrl || '/src/assets/images/pin_home_decor_1790670043705.jpg',
     headline: currentPin?.headlineOverlay || currentPin?.selectedTitle || topic,
     subheadline: currentPin?.subheadlineOverlay || 'Essential tips and aesthetic breakdown',
-    brandText: 'pinsprig.com',
+    brandText: 'pinposy.com',
     style: canvasStyle,
     destinationUrl,
     aspectRatio: activeRatio,

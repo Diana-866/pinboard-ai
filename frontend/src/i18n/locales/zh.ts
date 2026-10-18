@@ -2,8 +2,8 @@ import { TranslationSchema } from '../types';
 
 export const zh: TranslationSchema = {
   brand: {
-    name: 'PinSprig',
-    tagline: 'PinSprig — AI 驱动的 Pinterest 智能洞察与内容自动化平台。',
+    name: 'PinPosy',
+    tagline: 'PinPosy — AI 驱动的 Pinterest 智能洞察与内容自动化平台。',
     taglineShort: 'Pinterest 智能洞察与内容自动化',
     description: '快速拓展 Pinterest 自然流量，挖掘高潜搜索趋势，监控竞争对手，并通过 AI 生成高转化率的视觉 Pin 图钉。',
   },
@@ -296,7 +296,7 @@ export const zh: TranslationSchema = {
   },
 
   pricing: {
-    title: 'PinSprig 订阅套餐与积分包',
+    title: 'PinPosy 订阅套餐与积分包',
     subtitle: '透明定价体系：账号管理月度订阅 + 永不过期的按需积分充值包。',
     currencyRub: '₽ 卢布',
     currencyUsd: '$ 美元',
@@ -349,7 +349,7 @@ export const zh: TranslationSchema = {
     thNetProfit: '净利润',
     thMargin: '毛利率',
     thAction: '操作',
-    aiBotTitle: 'PinSprig AI 增长专家（套餐选型顾问）',
+    aiBotTitle: 'PinPosy AI 增长专家（套餐选型顾问）',
     aiBotSubtitle: '欢迎随时提问：例如运营 5 个画板需要多少积分，或哪种方案最适合您的业务需求。',
     aiBotPlaceholder: '向 AI 顾问提问：“运营 3 个画板每月建议买哪种方案？”...',
     aiBotAsk: '提问咨询',
@@ -374,7 +374,7 @@ export const zh: TranslationSchema = {
 
   bot: {
     floatingButton: 'Pinterest AI 策略顾问',
-    title: 'PinSprig AI 策略顾问',
+    title: 'PinPosy AI 策略顾问',
     subtitle: '实时分析 @botanika_nordic 的数据指标、趋势与画板',
     statusOnline: '在线 · 正在分析账号数据',
     disclaimerPeak: '在高峰期批量生成可能需要排队 24-48 小时；AI 咨询助理始终即时响应。',

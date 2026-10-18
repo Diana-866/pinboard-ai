@@ -103,10 +103,10 @@ export const PinCanvas: React.FC<PinCanvasProps> = ({
       // Brand URL
       ctx.font = '600 22px "Plus Jakarta Sans", sans-serif';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-      ctx.fillText(data.brandText || 'pinsprig.com', width / 2, brandY);
+      ctx.fillText(data.brandText || 'pinposy.com', width / 2, brandY);
 
       const a = document.createElement('a');
-      a.download = `pinsprig-${ratio.replace(':', 'x')}-${spec.width}x${spec.height}-${Date.now()}.png`;
+      a.download = `pinposy-${ratio.replace(':', 'x')}-${spec.width}x${spec.height}-${Date.now()}.png`;
       a.href = canvas.toDataURL('image/png');
       a.click();
 
@@ -179,7 +179,7 @@ export const PinCanvas: React.FC<PinCanvasProps> = ({
         {/* Brand / Watermark top or bottom */}
         <div className="absolute top-3.5 left-3.5 z-10">
           <span className="text-[10px] font-semibold tracking-wider uppercase text-white/90 bg-black/40 backdrop-blur-md px-2 py-0.5 rounded-md border border-white/10">
-            {data.brandText || 'PinSprig'}
+            {data.brandText || 'PinPosy'}
           </span>
         </div>
 

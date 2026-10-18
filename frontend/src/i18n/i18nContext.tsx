@@ -30,8 +30,8 @@ const translationsMap: Record<SupportedLanguage, TranslationSchema> = {
   zh,
 };
 
-const LANG_STORAGE_KEY = 'pinsprig_lang';
-const AI_CONTENT_LANG_KEY = 'pinsprig_ai_content_lang';
+const LANG_STORAGE_KEY = 'pinposy_lang';
+const AI_CONTENT_LANG_KEY = 'pinposy_ai_content_lang';
 
 interface I18nContextType {
   language: SupportedLanguage;

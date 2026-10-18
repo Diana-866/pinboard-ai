@@ -191,7 +191,7 @@ export const KeywordExplorer: React.FC<KeywordExplorerProps> = ({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `pinsprig-keywords-${Date.now()}.csv`);
+    link.setAttribute('download', `pinposy-keywords-${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

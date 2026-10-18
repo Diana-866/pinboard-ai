@@ -63,7 +63,7 @@ export const INITIAL_QUEUE_PINS: PendingReviewPin[] = [
     trendMetric: '+42% рост поискового спроса',
     scheduledDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
     scheduledTime: '20:15',
-    destinationUrl: 'https://pinsprig.com/blog/warm-minimalist-living',
+    destinationUrl: 'https://pinposy.com/blog/warm-minimalist-living',
     accountHandle: '@botanica_nordic',
   },
   {
@@ -78,7 +78,7 @@ export const INITIAL_QUEUE_PINS: PendingReviewPin[] = [
     trendMetric: '+38% сохранений в категории напитков',
     scheduledDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
     scheduledTime: '21:30',
-    destinationUrl: 'https://pinsprig.com/recipes/iced-matcha-cloud',
+    destinationUrl: 'https://pinposy.com/recipes/iced-matcha-cloud',
     accountHandle: '@botanica_nordic',
   },
   {
@@ -93,7 +93,7 @@ export const INITIAL_QUEUE_PINS: PendingReviewPin[] = [
     trendMetric: '+51% охват в Smart Feed',
     scheduledDate: new Date(Date.now() + 172800000).toISOString().split('T')[0],
     scheduledTime: '19:45',
-    destinationUrl: 'https://pinsprig.com/skincare/am-barrier-repair',
+    destinationUrl: 'https://pinposy.com/skincare/am-barrier-repair',
     accountHandle: '@botanica_nordic',
   },
   {
@@ -108,7 +108,7 @@ export const INITIAL_QUEUE_PINS: PendingReviewPin[] = [
     trendMetric: 'Высокий сезонный интерес',
     scheduledDate: new Date(Date.now() + 172800000).toISOString().split('T')[0],
     scheduledTime: '20:30',
-    destinationUrl: 'https://pinsprig.com/travel/amalfi-secret-viewpoints',
+    destinationUrl: 'https://pinposy.com/travel/amalfi-secret-viewpoints',
     accountHandle: '@botanica_nordic',
   },
   {
@@ -123,7 +123,7 @@ export const INITIAL_QUEUE_PINS: PendingReviewPin[] = [
     trendMetric: '+29% виральность тем порядка',
     scheduledDate: new Date(Date.now() + 259200000).toISOString().split('T')[0],
     scheduledTime: '21:00',
-    destinationUrl: 'https://pinsprig.com/blog/japandi-closet-storage',
+    destinationUrl: 'https://pinposy.com/blog/japandi-closet-storage',
     accountHandle: '@botanica_nordic',
   },
   {
@@ -138,7 +138,7 @@ export const INITIAL_QUEUE_PINS: PendingReviewPin[] = [
     trendMetric: '+64% сохранения в категории напитков',
     scheduledDate: new Date(Date.now() + 259200000).toISOString().split('T')[0],
     scheduledTime: '15:30',
-    destinationUrl: 'https://pinsprig.com/recipes/coconut-cloud-matcha',
+    destinationUrl: 'https://pinposy.com/recipes/coconut-cloud-matcha',
     accountHandle: '@botanica_nordic',
   },
   {
@@ -153,7 +153,7 @@ export const INITIAL_QUEUE_PINS: PendingReviewPin[] = [
     trendMetric: '+47% рост спроса в декоре',
     scheduledDate: new Date(Date.now() + 345600000).toISOString().split('T')[0],
     scheduledTime: '18:15',
-    destinationUrl: 'https://pinsprig.com/decor/wabi-sabi-ceramics',
+    destinationUrl: 'https://pinposy.com/decor/wabi-sabi-ceramics',
     accountHandle: '@botanica_nordic',
   },
   {
@@ -168,7 +168,7 @@ export const INITIAL_QUEUE_PINS: PendingReviewPin[] = [
     trendMetric: '+36% вовлеченность аудитории',
     scheduledDate: new Date(Date.now() + 345600000).toISOString().split('T')[0],
     scheduledTime: '21:45',
-    destinationUrl: 'https://pinsprig.com/skincare/pm-retinol-routine',
+    destinationUrl: 'https://pinposy.com/skincare/pm-retinol-routine',
     accountHandle: '@botanica_nordic',
   },
   {
@@ -183,7 +183,7 @@ export const INITIAL_QUEUE_PINS: PendingReviewPin[] = [
     trendMetric: '+55% кликабельность пинов',
     scheduledDate: new Date(Date.now() + 432000000).toISOString().split('T')[0],
     scheduledTime: '14:20',
-    destinationUrl: 'https://pinsprig.com/travel/capri-day-guide',
+    destinationUrl: 'https://pinposy.com/travel/capri-day-guide',
     accountHandle: '@botanica_nordic',
   },
   {
@@ -198,7 +198,7 @@ export const INITIAL_QUEUE_PINS: PendingReviewPin[] = [
     trendMetric: '+40% сезонный тренд',
     scheduledDate: new Date(Date.now() + 432000000).toISOString().split('T')[0],
     scheduledTime: '20:45',
-    destinationUrl: 'https://pinsprig.com/decor/bedroom-lighting-guide',
+    destinationUrl: 'https://pinposy.com/decor/bedroom-lighting-guide',
     accountHandle: '@botanica_nordic',
   },
   {
@@ -213,7 +213,7 @@ export const INITIAL_QUEUE_PINS: PendingReviewPin[] = [
     trendMetric: '+44% годовой рост',
     scheduledDate: new Date(Date.now() + 518400000).toISOString().split('T')[0],
     scheduledTime: '13:00',
-    destinationUrl: 'https://pinsprig.com/recipes/yuzu-matcha-spritz',
+    destinationUrl: 'https://pinposy.com/recipes/yuzu-matcha-spritz',
     accountHandle: '@botanica_nordic',
   },
   {
@@ -228,7 +228,7 @@ export const INITIAL_QUEUE_PINS: PendingReviewPin[] = [
     trendMetric: '+58% сохранения в закладки',
     scheduledDate: new Date(Date.now() + 518400000).toISOString().split('T')[0],
     scheduledTime: '09:15',
-    destinationUrl: 'https://pinsprig.com/skincare/guasha-morning-guide',
+    destinationUrl: 'https://pinposy.com/skincare/guasha-morning-guide',
     accountHandle: '@botanica_nordic',
   },
   {
@@ -243,7 +243,7 @@ export const INITIAL_QUEUE_PINS: PendingReviewPin[] = [
     trendMetric: '+31% коммерческий интерес',
     scheduledDate: new Date(Date.now() + 604800000).toISOString().split('T')[0],
     scheduledTime: '19:30',
-    destinationUrl: 'https://pinsprig.com/decor/washed-linen-bedroom',
+    destinationUrl: 'https://pinposy.com/decor/washed-linen-bedroom',
     accountHandle: '@botanica_nordic',
   },
   {
@@ -258,7 +258,7 @@ export const INITIAL_QUEUE_PINS: PendingReviewPin[] = [
     trendMetric: '+49% вирусный охват',
     scheduledDate: new Date(Date.now() + 604800000).toISOString().split('T')[0],
     scheduledTime: '17:45',
-    destinationUrl: 'https://pinsprig.com/travel/ravello-villa-rufolo',
+    destinationUrl: 'https://pinposy.com/travel/ravello-villa-rufolo',
     accountHandle: '@botanica_nordic',
   },
   {
@@ -273,7 +273,7 @@ export const INITIAL_QUEUE_PINS: PendingReviewPin[] = [
     trendMetric: '+37% рост сохранений',
     scheduledDate: new Date(Date.now() + 691200000).toISOString().split('T')[0],
     scheduledTime: '21:15',
-    destinationUrl: 'https://pinsprig.com/decor/home-fragrance-rituals',
+    destinationUrl: 'https://pinposy.com/decor/home-fragrance-rituals',
     accountHandle: '@botanica_nordic',
   },
 ];

@@ -65,7 +65,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
     Record<string, { min: number; max: number; nightlyAuto: boolean; autoTime: string }>
   >(() => {
     try {
-      const saved = localStorage.getItem('pinsprig_account_cadence');
+      const saved = localStorage.getItem('pinposy_account_cadence');
       if (saved) return JSON.parse(saved);
     } catch {
       // ignore
@@ -118,7 +118,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
         [selectedAccountId]: updated,
       };
       try {
-        localStorage.setItem('pinsprig_account_cadence', JSON.stringify(next));
+        localStorage.setItem('pinposy_account_cadence', JSON.stringify(next));
       } catch {
         // ignore
       }

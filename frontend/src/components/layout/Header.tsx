@@ -19,7 +19,7 @@ import { useI18n, AI_CONTENT_LANGUAGES } from '../../i18n/i18nContext';
 import { useNotifications, TaskStatus } from '../../context/NotificationContext';
 import { ThemeMode } from '../../theme/types';
 import { SupportedLanguage } from '../../i18n/types';
-import { PinSprigLogo } from '../common/PinSprigLogo';
+import { PinPosyLogo } from '../common/PinPosyLogo';
 
 interface HeaderProps {
   activeTab: string;
@@ -109,9 +109,9 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
 
         <div className="flex items-center gap-2 text-sm">
-          <PinSprigLogo size={22} />
+          <PinPosyLogo size={22} />
           <span className="font-semibold text-primary-theme tracking-tight font-heading">
-            PinSprig
+            PinPosy
           </span>
           <span className="text-muted-theme">/</span>
           <span className="text-secondary-theme font-medium truncate max-w-[160px] md:max-w-none">
@@ -420,7 +420,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onOpenBot}
             className="p-2 rounded-lg text-secondary-theme hover:text-primary-theme hover:bg-subtle border border-subtle transition-colors cursor-pointer hidden xs:flex items-center"
-            title="Открыть ИИ-стратега PinSprig"
+            title="Открыть ИИ-стратега PinPosy"
           >
             <Bot className="w-4 h-4 text-accent-ghost" />
           </button>

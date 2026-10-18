@@ -1,33 +1,45 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { apiRequest } from "../lib/api";
 
-interface User {
+export interface User {
   id: string;
   email: string;
   name?: string;
   credits_balance: number;
   subscription_tier: string;
   is_admin?: boolean;
+  /** Совместимость с компонентами, проверяющими тариф по названию */
+  plan?: string;
+  avatar?: string;
 }
 
 interface AuthContextType {
   user: User | null;
+  isAuthenticated: boolean;
   isAdmin: boolean;
   activeViewMode: "client" | "admin";
   setActiveViewMode: (mode: "client" | "admin") => void;
   isPrivacyModalOpen: boolean;
   closePrivacyModal: () => void;
   openPrivacyModal: () => void;
+  isAuthModalOpen: boolean;
+  openAuthModal: (mode?: string) => void;
+  closeAuthModal: () => void;
   refreshUser: () => Promise<void>;
   logout: () => void;
+  updateUserAvatar: (url: string) => void;
+  updateUser: (patch: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const AVATAR_KEY = "pinposy_avatar";
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [activeViewMode, setActiveViewMode] = useState<"client" | "admin">("client");
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   async function refreshUser() {
     const token = localStorage.getItem("token");
@@ -37,7 +49,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     try {
       const data = await apiRequest("/me");
-      setUser(data);
+      let avatar: string | undefined;
+      try {
+        avatar = localStorage.getItem(AVATAR_KEY) || undefined;
+      } catch {
+        avatar = undefined;
+      }
+      setUser({
+        ...data,
+        plan: data.subscription_tier || "free",
+        avatar,
+      });
     } catch (e) {
       localStorage.removeItem("token");
       setUser(null);
@@ -54,18 +76,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.location.href = "/login";
   }
 
+  function updateUserAvatar(url: string) {
+    setUser((prev) => (prev ? { ...prev, avatar: url } : prev));
+    try {
+      localStorage.setItem(AVATAR_KEY, url);
+    } catch {
+      // localStorage может быть недоступен — не критично
+    }
+  }
+
+  function updateUser(patch: Partial<User>) {
+    setUser((prev) => (prev ? { ...prev, ...patch } : prev));
+  }
+
+  function openAuthModal(mode?: string) {
+    // Модальной регистрации больше нет — есть отдельные страницы /login и /register
+    if (mode === "signup") window.location.href = "/register";
+    else window.location.href = "/login";
+  }
+
   return (
     <AuthContext.Provider
       value={{
         user,
+        isAuthenticated: !!user,
         isAdmin: !!user?.is_admin,
         activeViewMode,
         setActiveViewMode,
         isPrivacyModalOpen,
         closePrivacyModal: () => setIsPrivacyModalOpen(false),
         openPrivacyModal: () => setIsPrivacyModalOpen(true),
+        isAuthModalOpen,
+        openAuthModal,
+        closeAuthModal: () => setIsAuthModalOpen(false),
         refreshUser,
         logout,
+        updateUserAvatar,
+        updateUser,
       }}
     >
       {children}

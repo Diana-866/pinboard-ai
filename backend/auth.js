@@ -1,12 +1,25 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const supabase = require("./supabase");
+const { httpError, validateEmail, validatePassword } = require("./validate");
 
-async function register(email, password) {
-  const { data: existing } = await supabase.from("users").select("id").eq("email", email).single();
+const TOKEN_TTL = "7d";
 
+// Заглушка для сравнения пароля, когда пользователя нет —
+// защита от тайминг-атак (ответ всегда одинаково долгий)
+const DUMMY_HASH = bcrypt.hashSync("invalid-placeholder-password", 10);
+
+async function register(rawEmail, rawPassword) {
+  const email = validateEmail(rawEmail);
+  const password = validatePassword(rawPassword);
+
+  const { data: existing } = await supabase
+    .from("users")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle();
   if (existing) {
-    throw new Error("Пользователь с таким email уже существует");
+    throw httpError(409, "Пользователь с таким email уже существует");
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
@@ -19,24 +32,30 @@ async function register(email, password) {
 
   if (error) throw new Error(error.message);
 
-  const token = jwt.sign({ userId: data.id }, process.env.JWT_SECRET, { expiresIn: "30d" });
+  const token = jwt.sign({ userId: data.id }, process.env.JWT_SECRET, { expiresIn: TOKEN_TTL });
   return { token, user: { id: data.id, email: data.email } };
 }
 
-async function login(email, password) {
-  const { data: user, error } = await supabase.from("users").select("*").eq("email", email).single();
+async function login(rawEmail, rawPassword) {
+  const email = validateEmail(rawEmail);
+  validatePassword(rawPassword); // единая проверка формата, чтобы не раскрывать наличие аккаунта
 
-  if (error || !user) {
-    throw new Error("Неверный email или пароль");
+  const { data: user } = await supabase
+    .from("users")
+    .select("*")
+    .eq("email", email)
+    .maybeSingle();
+
+  const isValid = await bcrypt.compare(rawPassword, user?.password_hash || DUMMY_HASH);
+  if (!user || !isValid) {
+    throw httpError(401, "Неверный email или пароль");
   }
 
-  const isValid = await bcrypt.compare(password, user.password_hash);
-  if (!isValid) {
-    throw new Error("Неверный email или пароль");
-  }
-
-  const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: "30d" });
-  return { token, user: { id: user.id, email: user.email, credits_balance: user.credits_balance } };
+  const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: TOKEN_TTL });
+  return {
+    token,
+    user: { id: user.id, email: user.email, credits_balance: user.credits_balance },
+  };
 }
 
 function verifyToken(token) {

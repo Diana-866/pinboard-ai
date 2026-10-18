@@ -1,0 +1,412 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState } from 'react';
+import { ThemeProvider } from './theme/themeContext';
+import { I18nProvider } from './i18n/i18nContext';
+import { NotificationProvider, useNotifications } from './context/NotificationContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { Header } from './components/layout/Header';
+import { Sidebar } from './components/layout/Sidebar';
+import { FloatingStrategistBot } from './components/bot/FloatingStrategistBot';
+import { AdminPanel } from './components/admin/AdminPanel';
+import { PrivacyPolicyModal } from './components/auth/PrivacyPolicyModal';
+import { DashboardView } from './components/dashboard/DashboardView';
+import { PinGenerator } from './components/pins/PinGenerator';
+import { KeywordExplorer } from './components/keywords/KeywordExplorer';
+import { CompetitorAudit } from './components/competitors/CompetitorAudit';
+import { PublishingCalendar } from './components/calendar/PublishingCalendar';
+import { BoardsManager } from './components/boards/BoardsManager';
+import { AnalyticsView } from './components/analytics/AnalyticsView';
+import { PricingView } from './components/pricing/PricingView';
+import { SettingsView } from './components/settings/SettingsView';
+import {
+  ManualApprovalDesk,
+  INITIAL_QUEUE_PINS,
+  PendingReviewPin,
+} from './components/review/ManualApprovalDesk';
+import {
+  INITIAL_BOARDS,
+  INITIAL_SCHEDULED_PINS,
+  INITIAL_ACCOUNTS,
+  BoardItem,
+  ScheduledPinItem,
+  PinterestAccount,
+} from './data/mockData';
+
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Login } from './pages/Login';
+import { Register } from './pages/Register';
+import { PrivacyPolicy } from './pages/PrivacyPolicy';
+import { TermsOfService } from './pages/TermsOfService';
+
+const MainApp: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const [boards, setBoards] = useState<BoardItem[]>(INITIAL_BOARDS);
+  const [scheduledPins, setScheduledPins] = useState<ScheduledPinItem[]>(INITIAL_SCHEDULED_PINS);
+  const [prefilledTopic, setPrefilledTopic] = useState<string>('');
+  const [prefilledDate, setPrefilledDate] = useState<string>('');
+  const [isBotOpen, setIsBotOpen] = useState<boolean>(false);
+
+  const { toast, clearToast } = useNotifications();
+ const { activeViewMode, setActiveViewMode, isPrivacyModalOpen, closePrivacyModal, isAdmin } = useAuth();
+
+  // Dedicated /admin URL route detection (User request: only accessible via domain/admin)
+  const [isAdminRoute, setIsAdminRoute] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    return path.startsWith('/admin') || hash === '#admin';
+  });
+
+  React.useEffect(() => {
+    const handleUrlChange = () => {
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      setIsAdminRoute(path.startsWith('/admin') || hash === '#admin');
+    };
+
+    window.addEventListener('popstate', handleUrlChange);
+    window.addEventListener('hashchange', handleUrlChange);
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange);
+      window.removeEventListener('hashchange', handleUrlChange);
+    };
+  }, []);
+
+  const handleBackToPublicSite = () => {
+    if (window.location.pathname.toLowerCase().startsWith('/admin')) {
+      window.history.pushState(null, '', '/');
+    }
+    if (window.location.hash.toLowerCase() === '#admin') {
+      window.location.hash = '';
+    }
+    setIsAdminRoute(false);
+    setActiveViewMode('client');
+  };
+
+  // Pinterest Accounts state (User requested fix: "ботаника Nordic подключена 1 из 3")
+  const [accounts, setAccounts] = useState<PinterestAccount[]>(() => {
+    try {
+      const saved = localStorage.getItem('pinsprig_accounts');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // ignore
+    }
+    return INITIAL_ACCOUNTS;
+  });
+  const [activeAccountId, setActiveAccountId] = useState<string>(INITIAL_ACCOUNTS[0]?.id || 'acc-1');
+  const [maxAccounts] = useState<number>(3); // Plan: Start allows up to 3 accounts
+
+  // Synchronized Pending Review Pins queue (Shared between Dashboard, Calendar, Sidebar & ManualApprovalDesk)
+  const [pendingReviewPins, setPendingReviewPins] = useState<PendingReviewPin[]>(() => {
+    try {
+      const saved = localStorage.getItem('pinsprig_pending_pins');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // ignore
+    }
+    return INITIAL_QUEUE_PINS;
+  });
+
+  const handleUpdatePendingPins = (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => {
+    setPendingReviewPins((prev) => {
+      const next = updater(prev);
+      try {
+        localStorage.setItem('pinsprig_pending_pins', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const handleUpdateAccountAutoTime = (accountId: string, autoTime: string, nightlyAuto: boolean) => {
+    setAccounts((prev) => {
+      const next = prev.map((a) => (a.id === accountId ? { ...a, autoTime, nightlyAuto } : a));
+      try {
+        localStorage.setItem('pinsprig_accounts', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const handleAddAccount = (acc: PinterestAccount) => {
+    setAccounts((prev) => {
+      const next = [...prev, acc];
+      try {
+        localStorage.setItem('pinsprig_accounts', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+    setActiveAccountId(acc.id);
+  };
+
+  const handleRemoveAccount = (id: string) => {
+    setAccounts((prev) => {
+      const next = prev.filter((a) => a.id !== id);
+      try {
+        localStorage.setItem('pinsprig_accounts', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      if (activeAccountId === id && next.length > 0) {
+        setActiveAccountId(next[0].id);
+      }
+      return next;
+    });
+  };
+
+  const currentAccount = accounts.find((a) => a.id === activeAccountId) || accounts[0];
+  const pendingCount = pendingReviewPins.length;
+
+  const handleSchedulePin = (pin: ScheduledPinItem) => {
+    setScheduledPins((prev) => [pin, ...prev]);
+  };
+
+  const handleAddBoard = (board: BoardItem) => {
+    setBoards((prev) => [board, ...prev]);
+  };
+
+  const handleOptimizeBoard = (boardId: string) => {
+    setBoards((prev) =>
+      prev.map((b) => (b.id === boardId ? { ...b, seoScore: 98 } : b))
+    );
+  };
+
+  const handleGenerateFromTopic = (topic?: string, date?: string) => {
+    if (topic) {
+      setPrefilledTopic(topic);
+    }
+    if (date) {
+      setPrefilledDate(date);
+    }
+    setActiveTab('generator');
+  };
+
+  if (isAdminRoute || activeViewMode === 'admin') {
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-page">
+        <div className="text-center">
+          <p className="text-lg font-semibold text-primary-theme">Доступ запрещён</p>
+          <p className="mt-2 text-sm text-secondary-theme">У вас нет прав администратора.</p>
+          <button
+            onClick={handleBackToPublicSite}
+            className="mt-4 rounded-xl bg-accent px-4 py-2 text-sm text-white"
+          >
+            Вернуться в приложение
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <>
+      <AdminPanel onBackToApp={handleBackToPublicSite} />
+      <PrivacyPolicyModal isOpen={isPrivacyModalOpen} onClose={closePrivacyModal} />
+    </>
+  );
+}
+
+  return (
+    <div className="min-h-screen bg-page text-primary-theme flex transition-colors">
+      {/* Sidebar Navigation - Flush to left edge with enterprise flat border */}
+      <Sidebar
+        activeTab={activeTab}
+        onTabChange={(tab) => {
+          setActiveTab(tab);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        mobileOpen={mobileMenuOpen}
+        onMobileClose={() => setMobileMenuOpen(false)}
+        accounts={accounts}
+        activeAccountId={activeAccountId}
+        onSelectAccount={setActiveAccountId}
+        onAddAccountClick={() => setActiveTab('settings')}
+        onGoToPricing={() => setActiveTab('pricing')}
+        maxAccounts={maxAccounts}
+        pendingCount={pendingCount}
+      />
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header Bar */}
+        <Header
+          activeTab={activeTab}
+          onNewPinClick={() => handleGenerateFromTopic()}
+          onMobileMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}
+          onNavigateTab={(tab) => {
+            setActiveTab(tab);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onOpenBot={() => setIsBotOpen(true)}
+        />
+
+        {/* Viewport Content */}
+        <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-28 sm:pb-32">
+          {activeTab === 'dashboard' && (
+            <DashboardView
+              boards={boards}
+              scheduledPins={scheduledPins}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+              onQuickGenerate={handleGenerateFromTopic}
+              onOpenReview={() => setActiveTab('review')}
+              pendingCount={pendingCount}
+              currentAccount={currentAccount}
+              onUpdateAccountAutoTime={handleUpdateAccountAutoTime}
+            />
+          )}
+
+          {activeTab === 'review' && (
+            <ManualApprovalDesk
+              boards={boards}
+              pendingPins={pendingReviewPins}
+              onUpdatePendingPins={handleUpdatePendingPins}
+              onApprovePin={handleSchedulePin}
+              onGoToCalendar={() => setActiveTab('calendar')}
+              onGoToDashboard={() => setActiveTab('dashboard')}
+              onGoToGenerator={(topic?: string) => handleGenerateFromTopic(topic)}
+            />
+          )}
+
+          {activeTab === 'generator' && (
+            <PinGenerator
+              boards={boards}
+              initialTopic={prefilledTopic}
+              initialDate={prefilledDate}
+              onSchedulePin={handleSchedulePin}
+              onGoToCalendar={() => setActiveTab('calendar')}
+            />
+          )}
+
+          {activeTab === 'keywords' && (
+            <KeywordExplorer
+              onGenerateFromKeyword={(kw) => handleGenerateFromTopic(kw)}
+            />
+          )}
+
+          {activeTab === 'competitors' && (
+            <CompetitorAudit
+              onGenerateFromGap={(gap) => handleGenerateFromTopic(gap)}
+            />
+          )}
+
+          {activeTab === 'calendar' && (
+            <PublishingCalendar
+              scheduledPins={scheduledPins}
+              boards={boards}
+              onAddPin={handleSchedulePin}
+              onGoToGenerator={(topic, date) => handleGenerateFromTopic(topic, date)}
+              onOpenReview={() => setActiveTab('review')}
+              accounts={accounts}
+              pendingCount={pendingCount}
+              onUpdateAccountAutoTime={handleUpdateAccountAutoTime}
+            />
+          )}
+
+          {activeTab === 'boards' && (
+            <BoardsManager
+              boards={boards}
+              onAddBoard={handleAddBoard}
+              onOptimizeBoard={handleOptimizeBoard}
+            />
+          )}
+
+          {activeTab === 'analytics' && <AnalyticsView />}
+
+          {activeTab === 'pricing' && <PricingView />}
+
+          {activeTab === 'settings' && (
+            <SettingsView
+              onGoToPricing={() => setActiveTab('pricing')}
+              accounts={accounts}
+              activeAccountId={activeAccountId}
+              onSelectAccount={setActiveAccountId}
+              onAddAccount={handleAddAccount}
+              onRemoveAccount={handleRemoveAccount}
+              maxAccounts={maxAccounts}
+              onUpdateAccountAutoTime={handleUpdateAccountAutoTime}
+            />
+          )}
+        </main>
+      </div>
+
+      {/* Floating AI Strategist Bot (Bottom Right - User Requested) */}
+      <FloatingStrategistBot
+        onNavigateTab={(tab) => {
+          setActiveTab(tab);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        isOpen={isBotOpen}
+        onToggleOpen={() => setIsBotOpen(!isBotOpen)}
+      />
+
+      {/* Real-time Toast Queue Notification */}
+      {toast && (
+        <div className="fixed top-20 right-4 sm:right-6 z-50 p-4 rounded-2xl custom-card border border-strong shadow-2xl flex items-start gap-3 max-w-sm animate-in slide-in-from-top-2 duration-200">
+          <div className="w-8 h-8 rounded-xl bg-accent-light text-accent flex items-center justify-center shrink-0">
+            <span className="text-sm">✨</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <h5 className="text-xs font-bold text-primary-theme font-heading">{toast.title}</h5>
+            <p className="text-[11px] text-secondary-theme mt-0.5 leading-snug">{toast.message}</p>
+          </div>
+          <button
+            onClick={clearToast}
+            className="text-muted-theme hover:text-primary-theme text-xs p-1 rounded-md transition-colors cursor-pointer"
+            aria-label="Close notification"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Authentication Modal & Privacy Policy Modal */}
+      <PrivacyPolicyModal isOpen={isPrivacyModalOpen} onClose={closePrivacyModal} />
+    </div>
+  );
+};
+
+
+function RequireAuth({ children }: { children: React.ReactElement }) {
+  const token = localStorage.getItem('token');
+  if (!token) return <Navigate to="/login" replace />;
+  return children;
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <I18nProvider>
+        <NotificationProvider>
+        <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfService />} />
+            <Route
+              path="/*"
+              element={
+                <RequireAuth>
+                  <MainApp />
+                </RequireAuth>
+              }
+            />
+          </Routes>
+        </BrowserRouter>
+        </AuthProvider>
+        </NotificationProvider>
+      </I18nProvider>
+    </ThemeProvider>
+  );
+}

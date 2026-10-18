@@ -1,4 +1,4 @@
-// Timezone Utilities for PinSprig
+// Timezone Utilities for PinPosy
 // Supports localized user time and transparent Russian server execution (MSK, UTC+3)
 
 export interface TimezoneOption {
@@ -89,7 +89,7 @@ export const SUPPORTED_TIMEZONES: TimezoneOption[] = [
   },
 ];
 
-const TIMEZONE_STORAGE_KEY = 'pinsprig_user_timezone';
+const TIMEZONE_STORAGE_KEY = 'pinposy_user_timezone';
 
 export const getDefaultTimezone = (lang?: string): string => {
   try {
@@ -266,7 +266,7 @@ export const formatTimeDisplay = (
     badgeText: `${cleanTime} ${tzInfo.abbr}`,
     serverText: `${mskServerTime} MSK`,
     descriptionText: isRussianLang
-      ? `Генерация запускается в ${cleanTime} по вашему времени (${tzInfo.abbr}), что соответствует ${mskServerTime} МСК на серверах PinSprig.`
-      : `Executes at ${cleanTime} in your local timezone (${tzInfo.abbr}). Synced to ${mskServerTime} MSK on Russian PinSprig servers.`,
+      ? `Генерация запускается в ${cleanTime} по вашему времени (${tzInfo.abbr}), что соответствует ${mskServerTime} МСК на серверах PinPosy.`
+      : `Executes at ${cleanTime} in your local timezone (${tzInfo.abbr}). Synced to ${mskServerTime} MSK on Russian PinPosy servers.`,
   };
 };

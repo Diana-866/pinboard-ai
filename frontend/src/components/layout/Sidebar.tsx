@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
 import { useAuth } from '../../context/AuthContext';
-import { PinSprigLogo } from '../common/PinSprigLogo';
+import { PinPosyLogo } from '../common/PinPosyLogo';
 import { PinterestAccount } from '../../data/mockData';
 
 interface SidebarProps {
@@ -67,7 +67,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
   const [useLetterAvatar, setUseLetterAvatar] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('pinsprig_use_letter_avatar') === 'true';
+      return localStorage.getItem('pinposy_use_letter_avatar') === 'true';
     } catch {
       return false;
     }
@@ -96,7 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           updateUserAvatar(resultUrl);
           setUseLetterAvatar(false);
           try {
-            localStorage.setItem('pinsprig_use_letter_avatar', 'false');
+            localStorage.setItem('pinposy_use_letter_avatar', 'false');
           } catch {
             // ignore
           }
@@ -111,7 +111,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     updateUserAvatar(url);
     setUseLetterAvatar(false);
     try {
-      localStorage.setItem('pinsprig_use_letter_avatar', 'false');
+      localStorage.setItem('pinposy_use_letter_avatar', 'false');
     } catch {
       // ignore
     }
@@ -121,7 +121,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const handleSetLetterMode = () => {
     setUseLetterAvatar(true);
     try {
-      localStorage.setItem('pinsprig_use_letter_avatar', 'true');
+      localStorage.setItem('pinposy_use_letter_avatar', 'true');
     } catch {
       // ignore
     }
@@ -176,10 +176,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Brand Area */}
         <div className="h-16 shrink-0 px-5 flex items-center justify-between border-b border-subtle">
           <div className="flex items-center gap-2.5">
-            <PinSprigLogo size={34} />
+            <PinPosyLogo size={34} />
             <div>
               <span className="text-xl font-bold tracking-tight text-primary-theme font-heading block leading-none">
-                PinSprig
+                PinPosy
               </span>
               <span className="text-[10px] text-muted-theme tracking-wide uppercase font-semibold">
                 Intelligence & Automation

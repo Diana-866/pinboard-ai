@@ -73,7 +73,7 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
     try {
-      const saved = localStorage.getItem('pinsprig_notifications');
+      const saved = localStorage.getItem('pinposy_notifications');
       if (saved) {
         return JSON.parse(saved);
       }
@@ -87,7 +87,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   useEffect(() => {
     try {
-      localStorage.setItem('pinsprig_notifications', JSON.stringify(notifications));
+      localStorage.setItem('pinposy_notifications', JSON.stringify(notifications));
     } catch {
       // ignore
     }

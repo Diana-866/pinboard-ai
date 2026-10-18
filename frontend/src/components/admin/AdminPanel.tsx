@@ -42,7 +42,7 @@ import {
   calculateTax,
   exportTransactionsToCsv,
 } from '../../data/adminMockData';
-import { PinSprigLogo } from '../common/PinSprigLogo';
+import { PinPosyLogo } from '../common/PinPosyLogo';
 
 interface AdminPanelProps {
   onBackToApp: () => void;
@@ -67,7 +67,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
   // Admin Session Authentication State
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
     try {
-      return sessionStorage.getItem('pinsprig_admin_session_auth') === 'true';
+      return sessionStorage.getItem('pinposy_admin_session_auth') === 'true';
     } catch {
       return false;
     }
@@ -88,15 +88,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
     const password = adminPasswordInput.trim();
 
     // Accepted complex credentials:
-    // Login: admin@pinsprig.internal OR sdreimei@gmail.com OR admin
-    // Complex password: PinSprig#Admin2026!Secured
+    // Login: admin@pinposy.internal OR sdreimei@gmail.com OR admin
+    // Complex password: PinPosy#Admin2026!Secured
     const isValidLogin =
-      trimmedLogin === 'admin@pinsprig.internal' ||
+      trimmedLogin === 'admin@pinposy.internal' ||
       trimmedLogin === 'sdreimei@gmail.com' ||
       trimmedLogin === 'admin';
     const isValidPassword =
-      password === 'PinSprig#Admin2026!Secured' ||
-      password === 'PinSprig#Admin2026!' ||
+      password === 'PinPosy#Admin2026!Secured' ||
+      password === 'PinPosy#Admin2026!' ||
       password === 'Admin#9842$SecurePin';
 
     if (!isValidLogin || !isValidPassword) {
@@ -107,7 +107,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
     setAuthSuccess(true);
     setTimeout(() => {
       try {
-        sessionStorage.setItem('pinsprig_admin_session_auth', 'true');
+        sessionStorage.setItem('pinposy_admin_session_auth', 'true');
       } catch {
         // ignore
       }
@@ -118,7 +118,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
 
   const handleAdminLogout = () => {
     try {
-      sessionStorage.removeItem('pinsprig_admin_session_auth');
+      sessionStorage.removeItem('pinposy_admin_session_auth');
     } catch {
       // ignore
     }
@@ -208,7 +208,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
     link.href = url;
     link.setAttribute(
       'download',
-      `PinSprig_Accounting_Taxes_${selectedRegime}_${accountingPeriod}.csv`
+      `PinPosy_Accounting_Taxes_${selectedRegime}_${accountingPeriod}.csv`
     );
     document.body.appendChild(link);
     link.click();
@@ -246,7 +246,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
               <ShieldCheck className="w-8 h-8" />
             </div>
             <h1 className="text-xl font-bold font-heading tracking-tight text-white">
-              PinSprig Admin Gateway
+              PinPosy Admin Gateway
             </h1>
             <p className="text-xs text-zinc-400">
               Закрытый доступ к статистике пользователей, очередям и налогам
@@ -282,7 +282,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                   type="text"
                   value={adminLoginInput}
                   onChange={(e) => setAdminLoginInput(e.target.value)}
-                  placeholder="admin@pinsprig.internal или sdreimei@gmail.com"
+                  placeholder="admin@pinposy.internal или sdreimei@gmail.com"
                   className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-500"
                   required
                 />
@@ -332,8 +332,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
               <button
                 type="button"
                 onClick={() => {
-                  setAdminLoginInput('admin@pinsprig.internal');
-                  setAdminPasswordInput('PinSprig#Admin2026!Secured');
+                  setAdminLoginInput('admin@pinposy.internal');
+                  setAdminPasswordInput('PinPosy#Admin2026!Secured');
                 }}
                 className="text-[10px] font-bold text-amber-400 hover:underline cursor-pointer"
               >
@@ -341,8 +341,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
               </button>
             </div>
             <div className="font-mono text-[11px] text-zinc-400 space-y-0.5">
-              <p>Логин: <span className="text-zinc-200">admin@pinsprig.internal</span> (или <span className="text-zinc-200">sdreimei@gmail.com</span>)</p>
-              <p>Пароль: <span className="text-amber-300">PinSprig#Admin2026!Secured</span></p>
+              <p>Логин: <span className="text-zinc-200">admin@pinposy.internal</span> (или <span className="text-zinc-200">sdreimei@gmail.com</span>)</p>
+              <p>Пароль: <span className="text-amber-300">PinPosy#Admin2026!Secured</span></p>
             </div>
           </div>
 
@@ -353,7 +353,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
               onClick={onBackToApp}
               className="text-xs text-zinc-400 hover:text-zinc-200 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <span>← Вернуться на главный сайт PinSprig</span>
+              <span>← Вернуться на главный сайт PinPosy</span>
             </button>
           </div>
         </div>
@@ -366,11 +366,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
       {/* Top Admin Navigation Header */}
       <header className="h-16 px-4 md:px-8 border-b border-subtle bg-surface sticky top-0 z-40 flex items-center justify-between gap-4 shadow-xs">
         <div className="flex items-center gap-3">
-          <PinSprigLogo size={26} />
+          <PinPosyLogo size={26} />
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-primary-theme font-heading tracking-tight text-base sm:text-lg">
-                PinSprig Admin
+                PinPosy Admin
               </span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 uppercase tracking-wider">
                 Единственный администратор
@@ -393,7 +393,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
             onClick={onBackToApp}
             className="px-3.5 py-1.5 rounded-xl border border-subtle bg-subtle hover:bg-surface text-secondary-theme hover:text-primary-theme text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <span>← На сайт PinSprig</span>
+            <span>← На сайт PinPosy</span>
           </button>
 
           <button
@@ -1204,7 +1204,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-primary-theme font-heading">
-                      Статистика обращений к ИИ-стратегу PinSprig
+                      Статистика обращений к ИИ-стратегу PinPosy
                     </h3>
                     <p className="text-xs text-muted-theme">
                       Анализ популярных пользовательских запросов и конверсий в действия
@@ -1315,7 +1315,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
             {/* Official Paper Receipt Replica */}
             <div className="p-5 sm:p-6 bg-app-input font-mono text-xs space-y-3.5 border-b border-subtle">
               <div className="text-center space-y-0.5 border-b border-dashed border-subtle pb-3">
-                <p className="font-bold text-sm tracking-wider">PINSPRIG INTELLIGENCE</p>
+                <p className="font-bold text-sm tracking-wider">PINPOSY INTELLIGENCE</p>
                 <p className="text-[11px] text-secondary-theme">ИНН: {selectedReceipt.inn}</p>
                 <p className="text-[10px] text-muted-theme">{selectedReceipt.taxPayerName}</p>
                 <p className="text-[10px] text-muted-theme">
@@ -1345,7 +1345,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
               {/* Position */}
               <div className="border-t border-b border-dashed border-subtle py-2.5 space-y-1">
                 <div className="flex justify-between font-bold">
-                  <span>Доступ к ПО PinSprig ({selectedReceipt.planName})</span>
+                  <span>Доступ к ПО PinPosy ({selectedReceipt.planName})</span>
                   <span>{selectedReceipt.amountRub.toLocaleString()} ₽</span>
                 </div>
                 <div className="flex justify-between text-[10px] text-muted-theme">

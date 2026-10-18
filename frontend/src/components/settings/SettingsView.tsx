@@ -70,65 +70,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const isLimitReached = accounts.length >= maxAccounts;
 
   // Handle OAuth flow
+  // Этап 1.1 (planning.md): фейковое OAuth удалено — ревьюер Pinterest не должен видеть выдуманные данные.
+  // Настоящее подключение добавим после одобрения заявки на Pinterest API (Этап 6).
   const handleStartOAuth = () => {
     setIsAuthorizing(true);
     setTimeout(() => {
       setIsAuthorizing(false);
-      const name = businessName.trim() || 'My Pinterest Studio';
-      const handle = businessHandle.startsWith('@')
-        ? businessHandle.trim()
-        : `@${businessHandle.trim() || 'my_official_studio'}`;
-
-      const newAcc: PinterestAccount = {
-        id: `acc-${Date.now()}`,
-        name,
-        handle,
-        avatar: '/src/assets/images/pin_home_decor_1790670043705.jpg',
-        boardsCount: 3,
-        monthlyViews: '42,5K',
-        minDailyPins: 6,
-        maxDailyPins: 12,
-        nightlyAuto: true,
-        status: 'active',
-        niche: businessNiche,
-      };
-
-      if (onAddAccount) onAddAccount(newAcc);
-      setBusinessName('');
-      setBusinessHandle('');
       setShowAddModal(false);
-      setSuccessToast(`Бизнес-аккаунт ${handle} успешно авторизован через Pinterest OAuth API!`);
-      setTimeout(() => setSuccessToast(null), 3500);
-    }, 1200);
+      setSuccessToast('Подключение Pinterest появится после одобрения доступа к API. Функция сейчас в разработке.');
+      setTimeout(() => setSuccessToast(null), 4000);
+    }, 600);
   };
 
   // Handle Token flow
+  // Этап 1.1 (planning.md): фейковое подключение по токену удалено по той же причине.
   const handleSaveTokenAccount = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!businessHandle.trim()) return;
-
-    const formattedHandle = businessHandle.startsWith('@') ? businessHandle.trim() : `@${businessHandle.trim()}`;
-    const newAcc: PinterestAccount = {
-      id: `acc-${Date.now()}`,
-      name: businessName.trim() || formattedHandle,
-      handle: formattedHandle,
-      avatar: '/src/assets/images/pin_home_decor_1790670043705.jpg',
-      boardsCount: 2,
-      monthlyViews: '28,1K',
-      minDailyPins: 5,
-      maxDailyPins: 10,
-      nightlyAuto: true,
-      status: 'active',
-      niche: businessNiche,
-    };
-
-    if (onAddAccount) onAddAccount(newAcc);
-    setBusinessName('');
-    setBusinessHandle('');
-    setBusinessToken('');
     setShowAddModal(false);
-    setSuccessToast(`Бизнес-аккаунт ${formattedHandle} успешно подключён по API-токену!`);
-    setTimeout(() => setSuccessToast(null), 3500);
+    setSuccessToast('Подключение Pinterest появится после одобрения доступа к API. Функция сейчас в разработке.');
+    setTimeout(() => setSuccessToast(null), 4000);
   };
 
   return (

@@ -2,8 +2,8 @@ import { TranslationSchema } from '../types';
 
 export const en: TranslationSchema = {
   brand: {
-    name: 'PinSprig',
-    tagline: 'PinSprig — AI-powered Pinterest intelligence and content automation platform.',
+    name: 'PinPosy',
+    tagline: 'PinPosy — AI-powered Pinterest intelligence and content automation platform.',
     taglineShort: 'Pinterest intelligence & content automation',
     description: 'Grow organic Pinterest traffic, discover untapped search trends, benchmark competitors, and generate high-converting visual pins with AI.',
   },
@@ -296,7 +296,7 @@ export const en: TranslationSchema = {
   },
 
   pricing: {
-    title: 'PinSprig Plans & Credit Packages',
+    title: 'PinPosy Plans & Credit Packages',
     subtitle: 'Transparent pricing: monthly plans for account management plus non-expiring credit packs.',
     currencyRub: '₽ Rubles',
     currencyUsd: '$ USD',
@@ -349,7 +349,7 @@ export const en: TranslationSchema = {
     thNetProfit: 'Net Profit',
     thMargin: 'Margin',
     thAction: 'Action',
-    aiBotTitle: 'PinSprig AI Strategist Bot (Plan Advisor)',
+    aiBotTitle: 'PinPosy AI Strategist Bot (Plan Advisor)',
     aiBotSubtitle: 'Ask any question: how many credits do you need for 5 boards, or which plan best suits your workflow.',
     aiBotPlaceholder: 'Ask: "How many credits do I need for 3 boards per month?"...',
     aiBotAsk: 'Ask',
@@ -374,7 +374,7 @@ export const en: TranslationSchema = {
 
   bot: {
     floatingButton: 'Pinterest AI Strategist',
-    title: 'PinSprig AI Strategist',
+    title: 'PinPosy AI Strategist',
     subtitle: 'Analyzing metrics, trends & boards for @botanika_nordic',
     statusOnline: 'Online · Analyzing account',
     disclaimerPeak: 'During peak traffic, batch generation may take 24–48h in Smart Queue; your AI chat remains instantly responsive.',

@@ -21,25 +21,41 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
     const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
     ideas = JSON.parse(jsonMatch ? jsonMatch[0] : aiResponse);
   } catch (e) {
-    throw new Error("Не удалось разобрать идеи пинов от нейросети");
+    const err = new Error("Не удалось разобрать идеи пинов от нейросети");
+    err.httpStatus = 502;
+    throw err;
+  }
+
+  if (!Array.isArray(ideas) || ideas.length === 0) {
+    const err = new Error("Нейросеть не вернула ни одной идеи — попробуйте ещё раз");
+    err.httpStatus = 502;
+    throw err;
   }
 
   const pool = Array.isArray(ratioPool) && ratioPool.length > 0 ? ratioPool : DEFAULT_ASPECT_RATIOS;
 
   const pins = [];
-  for (const idea of ideas) {
+  for (const idea of ideas.slice(0, count)) {
+    if (!idea || !idea.title || !idea.image_prompt) continue;
     const ratio = aspectRatio === "mixed" ? pool[Math.floor(Math.random() * pool.length)] : aspectRatio;
-    const image = await generateImage(idea.image_prompt, model, ratio);
-    pins.push({
-      board_id: board.id,
-      image_url: image.url,
-      title: idea.title,
-      description: idea.description,
-      status: "pending",
-      model_used: model,
-      aspect_ratio: ratio,
-      credits_cost: image.price,
-    });
+    try {
+      const image = await generateImage(idea.image_prompt, model, ratio);
+      if (!image || !image.url || image.price == null) continue; // незавершённая генерация — пропускаем (B8)
+      pins.push({
+        board_id: board.id,
+        image_url: image.url,
+        title: idea.title,
+        description: idea.description || "",
+        status: "pending",
+        model_used: model,
+        aspect_ratio: ratio,
+        credits_cost: image.price,
+      });
+    } catch (e) {
+      // одна неудачная картинка не должна валить всю партию
+      console.error(`[pins] изображение не сгенерировалось: ${e && e.message}`);
+      continue;
+    }
   }
 
   return pins;
