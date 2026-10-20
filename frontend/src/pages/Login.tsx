@@ -23,7 +23,7 @@ export const Login: React.FC = () => {
       });
       localStorage.setItem('token', data.token);
       await refreshUser();
-      navigate('/');
+      navigate('/app');
     } catch (err: any) {
       setError(err.message || 'Не удалось войти. Попробуйте ещё раз.');
     } finally {

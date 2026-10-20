@@ -53,7 +53,7 @@ export const Register: React.FC = () => {
       });
       localStorage.setItem('token', data.token);
       await refreshUser();
-      navigate('/');
+      navigate('/app');
     } catch (err: any) {
       setError(err.message || 'Не удалось создать аккаунт. Попробуйте ещё раз.');
     } finally {

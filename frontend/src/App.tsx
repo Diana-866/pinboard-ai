@@ -37,6 +37,7 @@ import {
 } from './data/mockData';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Landing } from './pages/Landing';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
@@ -59,14 +60,14 @@ const MainApp: React.FC = () => {
     if (typeof window === 'undefined') return false;
     const path = window.location.pathname.toLowerCase();
     const hash = window.location.hash.toLowerCase();
-    return path.startsWith('/admin') || hash === '#admin';
+    return path.startsWith('/admin') || path.startsWith('/app/admin') || hash === '#admin';
   });
 
   React.useEffect(() => {
     const handleUrlChange = () => {
       const path = window.location.pathname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
-      setIsAdminRoute(path.startsWith('/admin') || hash === '#admin');
+      setIsAdminRoute(path.startsWith('/admin') || path.startsWith('/app/admin') || hash === '#admin');
     };
 
     window.addEventListener('popstate', handleUrlChange);
@@ -390,18 +391,20 @@ export default function App() {
         <AuthProvider>
         <BrowserRouter>
           <Routes>
+            <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route
-              path="/*"
+              path="/app/*"
               element={
                 <RequireAuth>
                   <MainApp />
                 </RequireAuth>
               }
             />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
         </AuthProvider>
