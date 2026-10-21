@@ -147,23 +147,23 @@ export const Register: React.FC = () => {
           />
           <span>
             Я принимаю{' '}
-            <Link to="/terms" className="text-accent hover:underline" target="_blank">Условия использования</Link>{' '}
+            <Link to="/terms" className="text-[#C25E6F] hover:underline" target="_blank">Условия использования</Link>{' '}
             и{' '}
-            <Link to="/privacy" className="text-accent hover:underline" target="_blank">Политику конфиденциальности</Link>
+            <Link to="/privacy" className="text-[#C25E6F] hover:underline" target="_blank">Политику конфиденциальности</Link>
           </span>
         </label>
 
         <button
           type="submit"
           disabled={!canSubmit}
-          className="mt-5 w-full rounded-xl bg-accent py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+          className="mt-5 w-full rounded-xl bg-[#C25E6F] py-3 text-sm font-bold text-white hover:bg-[#B14E60] transition hover:opacity-90 disabled:opacity-50"
         >
           {loading ? 'Создаём…' : 'Создать аккаунт'}
         </button>
 
         <p className="mt-5 text-center text-sm text-secondary-theme">
           Уже есть аккаунт?{' '}
-          <Link to="/login" className="font-medium text-accent">Войти</Link>
+          <Link to="/login" className="font-medium text-[#C25E6F]">Войти</Link>
         </p>
       </form>
     </div>

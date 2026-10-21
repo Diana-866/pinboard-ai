@@ -6,7 +6,7 @@ These Terms govern your use of PinPosy ("the Service"). By creating an account o
 
 ## 1. Operator
 
-The Service is operated by a self-employed individual [FULL LEGAL NAME — to be added], registered in the Russian Federation. Contact: **d65gng532k@gmail.com**.
+The Service is operated by a self-employed individual [FULL LEGAL NAME — to be added], registered in the Russian Federation. Contact: **support@pinposy.com**.
 
 ## 2. What the Service Does
 
@@ -73,4 +73,4 @@ These Terms are governed by the laws of the Russian Federation, except for manda
 
 ## 14. Contact
 
-Questions about these Terms: **d65gng532k@gmail.com**
+Questions about these Terms: **support@pinposy.com**

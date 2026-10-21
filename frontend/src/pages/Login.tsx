@@ -86,20 +86,20 @@ export const Login: React.FC = () => {
         <button
           type="submit"
           disabled={loading}
-          className="mt-6 w-full rounded-xl bg-accent py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+          className="mt-6 w-full rounded-xl bg-[#C25E6F] py-3 text-sm font-bold text-white hover:bg-[#B14E60] transition hover:opacity-90 disabled:opacity-50"
         >
           {loading ? 'Входим…' : 'Войти'}
         </button>
 
         <p className="mt-4 text-center text-xs text-secondary-theme">
           Продолжая, вы соглашаетесь с{' '}
-          <Link to="/terms" className="text-accent hover:underline">Условиями использования</Link> и{' '}
-          <Link to="/privacy" className="text-accent hover:underline">Политикой конфиденциальности</Link>.
+          <Link to="/terms" className="text-[#C25E6F] hover:underline">Условиями использования</Link> и{' '}
+          <Link to="/privacy" className="text-[#C25E6F] hover:underline">Политикой конфиденциальности</Link>.
         </p>
 
         <p className="mt-4 text-center text-sm text-secondary-theme">
           Нет аккаунта?{' '}
-          <Link to="/register" className="font-medium text-accent">Создайте его</Link>
+          <Link to="/register" className="font-medium text-[#C25E6F]">Создайте его</Link>
         </p>
       </form>
     </div>

@@ -10,7 +10,7 @@ This policy explains what data we collect, why, how we protect it, and what righ
 ## 1. Data Controller
 
 - Operator: self-employed individual [FULL LEGAL NAME — to be added], Russian Federation.
-- Privacy contact: **d65gng532k@gmail.com**
+- Privacy contact: **support@pinposy.com**
 
 ## 2. Data We Collect
 
@@ -107,7 +107,7 @@ We may update this policy — for example, when adding features or changing prov
 
 ## 12. Contact
 
-Questions about this policy and data processing: **d65gng532k@gmail.com**
+Questions about this policy and data processing: **support@pinposy.com**
 
 ## Appendix A. EEA Users (GDPR)
 

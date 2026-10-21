@@ -40,5 +40,5 @@ To publish the pins the user has approved to the user's own boards, and to show 
 - Terms of Service: https://pinposy.com/terms
 
 ## Contact
-d65gng532k@gmail.com
+support@pinposy.com
 Operator: self-employed (самозанятый), Russian Federation.

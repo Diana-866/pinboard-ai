@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { AdminMail } from './AdminMail';
 import {
   Users,
   DollarSign,
@@ -6,6 +7,7 @@ import {
   Bot,
   BarChart3,
   Moon,
+  Mail,
   ShieldCheck,
   Search,
   Filter,
@@ -50,7 +52,7 @@ interface AdminPanelProps {
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
   // Navigation tabs within Admin Panel
-  const [adminTab, setAdminTab] = useState<'users' | 'accounting' | 'night_and_bot'>('users');
+  const [adminTab, setAdminTab] = useState<'users' | 'accounting' | 'night_and_bot' | 'mail'>('users');
 
   // Search & Filter for Users tab
   const [userSearch, setUserSearch] = useState('');
@@ -445,11 +447,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
             <Moon className="w-4 h-4" />
             <span>3. Ночная генерация и ИИ-бот</span>
           </button>
+
+          <button
+            onClick={() => setAdminTab('mail')}
+            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              adminTab === 'mail'
+                ? 'accent-btn shadow-xs'
+                : 'text-secondary-theme hover:text-primary-theme hover:bg-subtle'
+            }`}
+          >
+            <Mail className="w-4 h-4" />
+            <span>4. Почта поддержки</span>
+          </button>
         </div>
       </div>
 
       {/* Main Admin Content Container */}
       <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto space-y-6 pb-24">
+        {adminTab === 'mail' && <AdminMail />}
         {/* ============================================================ */}
         {/* TAB 1: USERS & DETAILED GENERATION STATS                     */}
         {/* ============================================================ */}

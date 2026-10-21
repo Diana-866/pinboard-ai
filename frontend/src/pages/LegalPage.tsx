@@ -101,13 +101,17 @@ export const LegalPage: React.FC<LegalPageProps> = ({ ru, en }) => {
           <div className="flex rounded-lg border border-subtle overflow-hidden text-xs">
             <button
               onClick={() => setLang('ru')}
-              className={`px-3 py-1.5 ${lang === 'ru' ? 'bg-accent text-white' : 'text-secondary-theme'}`}
+              className={`px-3 py-1.5 font-bold transition-colors ${
+                lang === 'ru' ? 'bg-accent text-white' : 'text-primary-theme hover:bg-accent/5'
+              }`}
             >
               RU
             </button>
             <button
               onClick={() => setLang('en')}
-              className={`px-3 py-1.5 ${lang === 'en' ? 'bg-accent text-white' : 'text-secondary-theme'}`}
+              className={`px-3 py-1.5 font-bold transition-colors ${
+                lang === 'en' ? 'bg-accent text-white' : 'text-primary-theme hover:bg-accent/5'
+              }`}
             >
               EN
             </button>

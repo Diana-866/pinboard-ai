@@ -59,7 +59,17 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {
       // ignore
     }
-    return 'en';
+    // Автоопределение языка браузера при первом визите
+    try {
+      const browser = (navigator.languages?.[0] || navigator.language || '').toLowerCase();
+      const short = browser.split('-')[0];
+      const supported: SupportedLanguage[] = ['en', 'ru', 'es', 'pt', 'de', 'fr', 'zh'];
+      const match = supported.find((l) => l === short || browser.startsWith(l));
+      if (match) return match;
+    } catch {
+      // ignore
+    }
+    return 'ru';
   });
 
   const [aiContentLanguage, setAiContentLanguageState] = useState<string>(() => {

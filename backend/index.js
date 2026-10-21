@@ -30,9 +30,15 @@ app.use(helmet()); // безопасные HTTP-заголовки (B12)
 app.use(
   cors({
     origin: function (origin, callback) {
+      // Домены, которые всегда разрешены (включая новый pinposy.com) + все из FRONTEND_URL через запятую
       const allowedOrigins = [
-        process.env.FRONTEND_URL || "https://pinboard-ai-web.vercel.app",
+        "https://pinposy.com",
+        "https://www.pinposy.com",
+        "https://pinboard-ai-web.vercel.app",
         "http://localhost:3000",
+        ...(process.env.FRONTEND_URL
+          ? process.env.FRONTEND_URL.split(",").map((s) => s.trim()).filter(Boolean)
+          : []),
       ];
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
@@ -46,7 +52,7 @@ app.use(express.json({ limit: "100kb" })); // ограничение разме�
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  limit: 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Слишком много попыток. Попробуйте через 15 минут." },
@@ -55,7 +61,7 @@ const authLimiter = rateLimit({
 // Лимит для дорогих AI-эндпоинтов: генерация тратит реальный баланс GPTunnel (B12)
 const aiLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 12,
+  limit: 12,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Слишком много запросов. Подождите минуту." },
@@ -67,6 +73,16 @@ const supabase = require("./supabase");
 const { analyzeSite } = require("./analyze");
 const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
+const { uploadPinImage } = require("./storage");
+const mail = require("./mail");
+
+// Загрузка своих изображений пинов (замена временных ссылок GPTunnel на постоянные)
+const multer = require("multer");
+const imageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => cb(null, /^image\//.test(file.mimetype)),
+});
 
 if (!process.env.JWT_SECRET) {
   console.warn("[startup] JWT_SECRET не задан — регистрация и вход работать не будут");
@@ -355,6 +371,25 @@ app.post("/pins/:id/status", requireAuth, async (req, res) => {
   }
 });
 
+// Своя картинка пина: постоянное хранилище вместо временных ссылок GPTunnel
+app.post("/pins/:id/image", requireAuth, imageUpload.single("image"), async (req, res) => {
+  try {
+    await getPinWithOwnerCheck(req.params.id, req.userId);
+    if (!req.file) throw httpError(422, "Передайте файл в поле image (PNG/JPG/WebP, до 5 МБ)");
+    const url = await uploadPinImage(req.file);
+    const { data, error } = await supabase
+      .from("pins")
+      .update({ image_url: url })
+      .eq("id", req.params.id)
+      .select()
+      .single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 app.post("/pins/:id/regenerate", aiLimiter, requireAuth, async (req, res) => {
   try {
     const pin = await getPinWithOwnerCheck(req.params.id, req.userId);
@@ -374,6 +409,13 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, async (req, res) => {
 
     const prompt = `${pin.title}. ${pin.description}. ${instruction}`.trim();
     const image = await generateImage(prompt, model);
+    if (image && image.url) {
+      try {
+        image.url = await rehostImage(image.url);
+      } catch (reErr) {
+        console.error(`[regenerate] ре-хостинг не удался: ${reErr && reErr.message}`);
+      }
+    }
     if (!image || !image.url || image.price == null) {
       throw httpError(502, "Изображение ещё не готово — попробуйте позже, кредиты не списаны");
     }
@@ -556,6 +598,38 @@ app.get("/admin/stats", requireAuth, requireAdmin, async (req, res) => {
   try {
     const stats = await getStats();
     res.json(stats);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// Почта поддержки в админке (нужны MAIL_* переменные окружения)
+app.get("/admin/mail", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const messages = await mail.listInbox(Number(req.query.limit) || 30);
+    res.json({ messages });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+app.get("/admin/mail/:uid", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const message = await mail.fetchMessageBody(req.params.uid);
+    res.json(message);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+app.post("/admin/mail/reply", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const to = String((req.body && req.body.to) || "").trim();
+    const subject = String((req.body && req.body.subject) || "").trim();
+    const text = String((req.body && req.body.text) || "").trim();
+    if (!to || !subject || !text) throw httpError(422, "Нужны поля to, subject, text");
+    const result = await mail.replyToMessage(to, subject, text);
+    res.json(result);
   } catch (e) {
     handleError(res, e);
   }

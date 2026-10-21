@@ -23,7 +23,7 @@ export async function apiRequest(path: string, options: RequestInit = {}) {
     });
   } catch {
     // обрыв сети / сервер спит — понятное сообщение вместо краша res.json() (E9)
-    throw new ApiError("Нет связи с сервером. Проверьте интернет и попробуйте ещё раз.", 0);
+    throw new ApiError("Сервер не отвечает. Возможно, он просыпается после простоя — подождите минуту и попробуйте снова.", 0);
   }
 
   let data: any = null;

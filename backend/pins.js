@@ -1,4 +1,5 @@
 const { generateText, generateImage } = require("./gptunnel");
+const { rehostImage } = require("./storage");
 
 const DEFAULT_ASPECT_RATIOS = ["2:3", "9:16", "4:5", "3:4"];
 
@@ -41,6 +42,12 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
     try {
       const image = await generateImage(idea.image_prompt, model, ratio);
       if (!image || !image.url || image.price == null) continue; // незавершённая генерация — пропускаем (B8)
+      try {
+        // Переносим картинку в постоянное хранилище (ссылки GPTunnel временные)
+        image.url = await rehostImage(image.url);
+      } catch (reErr) {
+        console.error(`[pins] ре-хостинг не удался, оставляем исходный URL: ${reErr && reErr.message}`);
+      }
       pins.push({
         board_id: board.id,
         image_url: image.url,

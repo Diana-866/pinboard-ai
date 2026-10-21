@@ -616,6 +616,44 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
               className="w-full h-full object-cover pointer-events-none"
             />
 
+            {/* Своя картинка пина: заменяет временную сгенерированную на постоянную загрузку */}
+            <label
+              className="absolute bottom-3 right-3 z-10 rounded-xl bg-black/60 text-white text-[10px] font-bold px-3 py-2 cursor-pointer hover:bg-black/80 transition-colors"
+              title="Загрузить свою картинку — она сохранится навсегда"
+            >
+              ⬆ Своё фото
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const dataUrl = await new Promise<string>((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result as string);
+                    reader.readAsDataURL(file);
+                  });
+                  onUpdatePendingPins?.((prev) =>
+                    prev.map((p) => (p.id === currentPin.id ? { ...p, imageUrl: dataUrl } : p))
+                  );
+                  try {
+                    const fd = new FormData();
+                    fd.append('image', file);
+                    const API = (import.meta as any).env?.VITE_API_URL || 'https://pinboard-ai-backend.onrender.com';
+                    await fetch(`${API}/pins/${currentPin.id}/image`, {
+                      method: 'POST',
+                      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+                      body: fd,
+                    });
+                  } catch {
+                    // у мок-пинов нет id в БД — остаётся визуальная замена
+                  }
+                  e.target.value = '';
+                }}
+              />
+            </label>
+
             {/* Stamp Overlay: APPROVED (Green) */}
             <div
               style={{ opacity: opacityStampApprove }}
