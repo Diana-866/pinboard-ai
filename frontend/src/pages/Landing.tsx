@@ -736,12 +736,17 @@ export const Landing: React.FC = () => {
 
           {/* Бегущая строка — бесшовная (у каждого элемента свой отступ, половины равны) */}
           <div className="relative border-t border-white/15 py-3.5 overflow-hidden" style={{ background: 'rgba(126,59,76,0.55)' }}>
-            <div className="pinposy-marquee-track flex whitespace-nowrap w-max">
-              {[...s.marquee, ...s.marquee].map((item, i) => (
-                <span key={i} className="flex items-center text-xs font-bold uppercase tracking-widest text-[#FFDCE4]">
-                  <span className="px-5">{item}</span>
-                  <Flower2 className="w-3 h-3 text-white/70" />
-                </span>
+            {/* Бесшовность: два атомарных одинаковых набора, -50% попадает ровно на стык */}
+            <div className="pinposy-marquee-track flex w-max">
+              {[0, 1].map((set) => (
+                <div key={set} aria-hidden={set === 1} className="flex shrink-0 items-center">
+                  {s.marquee.map((item, i) => (
+                    <span key={i} className="flex items-center text-xs font-bold uppercase tracking-widest text-[#FFDCE4]">
+                      <span className="px-5">{item}</span>
+                      <Flower2 className="w-3 h-3 text-white/70" />
+                    </span>
+                  ))}
+                </div>
               ))}
             </div>
           </div>

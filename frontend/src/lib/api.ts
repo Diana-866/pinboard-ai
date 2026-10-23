@@ -35,8 +35,12 @@ export async function apiRequest(path: string, options: RequestInit = {}) {
   }
 
   if (!res.ok) {
-    // просроченный/битый токен: разлогиниваем и отправляем на вход (E8)
-    if (res.status === 401 && typeof window !== "undefined") {
+    // Просроченный/битый токен: разлогиниваем и отправляем на вход (E8).
+    // НО 401 от самих /login и /register — это ошибка ввода (неверный пароль),
+    // а не повод для редиректа: раньше страница молча перезагружалась и
+    // пользователь не видел сообщение «Неверный email или пароль».
+    const isAuthAttempt = path === "/login" || path === "/register";
+    if (res.status === 401 && !isAuthAttempt && typeof window !== "undefined") {
       localStorage.removeItem("token");
       if (!window.location.pathname.startsWith("/login")) {
         window.location.href = "/login";
