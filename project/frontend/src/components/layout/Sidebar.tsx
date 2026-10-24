@@ -181,9 +181,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="text-xl font-bold tracking-tight text-primary-theme font-heading block leading-none">
                 PinSprig
               </span>
-              <span className="text-[10px] text-muted-theme tracking-wide uppercase font-semibold">
-                Intelligence & Automation
-              </span>
             </div>
           </div>
 
