@@ -995,7 +995,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                   {taxSummary.netProfit.toLocaleString()} ₽
                 </span>
                 <span className="text-[11px] text-emerald-500 font-semibold font-mono mt-1 block">
-                  Маржа: {taxSummary.marginPercent}%
                 </span>
               </div>
             </div>

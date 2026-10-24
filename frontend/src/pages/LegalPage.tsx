@@ -98,19 +98,20 @@ export const LegalPage: React.FC<LegalPageProps> = ({ ru, en }) => {
           <Link to="/" onClick={(e) => { e.preventDefault(); back(); }} className="text-sm text-accent">
             ← Назад
           </Link>
-          <div className="flex rounded-lg border border-subtle overflow-hidden text-xs">
+          <div className="flex items-center gap-1 text-sm font-extrabold">
             <button
               onClick={() => setLang('ru')}
-              className={`px-3 py-1.5 font-bold transition-colors ${
-                lang === 'ru' ? 'bg-accent text-white' : 'text-primary-theme hover:bg-accent/5'
+              className={`px-2.5 py-1 rounded-lg transition-colors ${
+                lang === 'ru' ? 'bg-[#B96B7C] text-white shadow' : 'text-[#111827] hover:bg-black/5'
               }`}
             >
               RU
             </button>
+            <span className="text-[#111827]">/</span>
             <button
               onClick={() => setLang('en')}
-              className={`px-3 py-1.5 font-bold transition-colors ${
-                lang === 'en' ? 'bg-accent text-white' : 'text-primary-theme hover:bg-accent/5'
+              className={`px-2.5 py-1 rounded-lg transition-colors ${
+                lang === 'en' ? 'bg-[#B96B7C] text-white shadow' : 'text-[#111827] hover:bg-black/5'
               }`}
             >
               EN

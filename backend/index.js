@@ -75,6 +75,7 @@ const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
 const { uploadPinImage } = require("./storage");
 const mail = require("./mail");
+const passwordReset = require("./password-reset");
 
 // Загрузка своих изображений пинов (замена временных ссылок GPTunnel на постоянные)
 const multer = require("multer");
@@ -133,7 +134,7 @@ app.post("/register", authLimiter, async (req, res) => {
   try {
     const email = validateEmail(req.body && req.body.email);
     const password = validatePassword(req.body && req.body.password);
-    const result = await register(email, password);
+    const result = await register(email, password, req.body && req.body.name, req.body && req.body.surname);
     res.json(result);
   } catch (e) {
     handleError(res, e);
@@ -151,17 +152,73 @@ app.post("/login", authLimiter, async (req, res) => {
   }
 });
 
+// Забыли пароль: одинаковый ответ для всех email (защита от перебора)
+app.post("/forgot-password", authLimiter, async (req, res) => {
+  try {
+    const result = await passwordReset.requestReset(
+      req.body && req.body.email,
+      req.body && req.body.frontendUrl
+    );
+    res.json(result);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// Смена пароля по одноразовому токену
+app.post("/reset-password", authLimiter, async (req, res) => {
+  try {
+    const result = await passwordReset.applyReset(
+      req.body && req.body.token,
+      req.body && req.body.password
+    );
+    res.json(result);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 app.get("/me", requireAuth, async (req, res) => {
   try {
-    const { data: user, error } = await supabase
+    // select("*") — не падает, если какой-то колонки нет в схеме (причина 404 на /me)
+    const { data: row, error } = await supabase
       .from("users")
-      .select("id, email, name, credits_balance, subscription_tier, is_admin")
+      .select("*")
       .eq("id", req.userId)
       .single();
 
-    if (error || !user) throw httpError(404, "Пользователь не найден");
+    if (error || !row) throw httpError(404, "Пользователь не найден");
 
-    res.json(user);
+    res.json({
+      id: row.id,
+      email: row.email,
+      name: row.name ?? null,
+      surname: row.surname ?? null,
+      credits_balance: row.credits_balance ?? 0,
+      subscription_tier: row.subscription_tier ?? "free",
+      is_admin: !!row.is_admin,
+    });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// Обновление профиля: имя и фамилия
+app.patch("/me", requireAuth, async (req, res) => {
+  try {
+    const { validateLen } = require("./validate");
+    const upd = {};
+    if (req.body && req.body.name !== undefined) upd.name = validateLen(req.body.name, 80, "Имя");
+    if (req.body && req.body.surname !== undefined) upd.surname = validateLen(req.body.surname, 80, "Фамилия");
+    if (Object.keys(upd).length === 0) throw httpError(422, "Нечего обновлять");
+    const { data, error } = await supabase
+      .from("users")
+      .update(upd)
+      .eq("id", req.userId)
+      .select("id, email, name, surname, credits_balance, subscription_tier, is_admin")
+      .single();
+    if (error) throw httpError(500, "Не удалось обновить профиль — нужно применить миграцию 003");
+    res.json(data);
   } catch (e) {
     handleError(res, e);
   }

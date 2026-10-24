@@ -64,7 +64,15 @@ function validateInt(raw, { min, max, def, name = "Значение" } = {}) {
   return n;
 }
 
-module.exports = {
+function validateLen(raw, max, label) {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== "string") throw httpError(422, `${label}: некорректный формат`);
+  const v = raw.trim();
+  if (!v) return null;
+  return v.slice(0, max);
+}
+
+module.exports = { validateLen,
   httpError,
   validateEmail,
   validatePassword,

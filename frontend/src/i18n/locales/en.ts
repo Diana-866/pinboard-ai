@@ -359,8 +359,8 @@ export const en: TranslationSchema = {
   review: {
     title: 'Review Generated Pins',
     subtitle: 'Swipe right to approve to publishing queue, or swipe left to reject.',
-    approveBtn: 'Approve to Schedule (→)',
-    rejectBtn: 'Reject (←)',
+    approveBtn: 'Approve',
+    rejectBtn: 'Reject',
     keyboardTip: 'Use keyboard Left/Right arrows or swipe buttons',
     approvedCount: 'Approved',
     rejectedCount: 'Rejected',

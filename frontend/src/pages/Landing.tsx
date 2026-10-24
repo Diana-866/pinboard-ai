@@ -26,7 +26,7 @@ import imgTravel from '../assets/images/pin_travel_amalfi_1790670078173.jpg';
 /* ── Цвета розовой полосы: белый текст читается при любой теме ── */
 const ROSE_DEEP = '#A95668';
 const ROSE_MID = '#C67B8C';
-const ROSE_CTA = '#C25E6F';
+const ROSE_CTA = '#B96B7C';
 
 /* ── Переводы лендинга на все языки интерфейса ── */
 interface LandingStrings {
@@ -563,11 +563,11 @@ const FEATURES_ICONS = [Globe2, LayoutGrid, Wand2, CheckSquare, CalendarClock, B
 
 export const Landing: React.FC = () => {
   const { user } = useAuth();
-  const { language } = useI18n();
+  const { language: lang } = useI18n();
   const navigate = useNavigate();
   const [avatarError, setAvatarError] = useState(false);
 
-  const s = L[language] || L.en;
+  const s = L[lang] || L.en;
 
   // Параллакс за курсором
   const mx = useMotionValue(0);
@@ -656,7 +656,7 @@ export const Landing: React.FC = () => {
                     className="px-4 sm:px-5 py-2.5 rounded-xl bg-white text-sm font-extrabold shadow-lg hover:shadow-xl transition-shadow"
                     style={{ color: ROSE_CTA }}
                   >
-                    {s.badge === L.ru.badge ? 'Начать' : language === 'de' ? 'Los geht’s' : language === 'fr' ? 'Commencer' : language === 'es' ? 'Empezar' : language === 'pt' ? 'Começar' : language === 'zh' ? '开始' : 'Start'}
+                    {s.badge === L.ru.badge ? 'Начать' : lang === 'de' ? 'Los geht’s' : lang === 'fr' ? 'Commencer' : lang === 'es' ? 'Empezar' : lang === 'pt' ? 'Começar' : lang === 'zh' ? '开始' : 'Start'}
                   </Link>
                 </>
               )}
@@ -991,6 +991,45 @@ export const Landing: React.FC = () => {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ── Тарифы ── */}
+      <section className="border-y border-[#F2DFE4] bg-white/60">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
+          <motion.h2 initial={{opacity:0,y:20}} whileInView={{opacity:1,y:0}} viewport={{once:true}} transition={{duration:0.6}} className="text-3xl sm:text-4xl font-extrabold tracking-tight text-center font-heading text-[#2A1F24]">
+            {lang === 'ru' ? 'Тарифы' : 'Pricing'}
+          </motion.h2>
+          <p className="mt-3 text-sm sm:text-base text-[#8A6E76] text-center max-w-xl mx-auto">
+            {lang === 'ru' ? 'Прозрачные планы под любой размер проекта. Точные цены появятся вместе с запуском платежей.' : 'Transparent plans for any project size. Exact prices arrive with the payment launch.'}
+          </p>
+          <div className="mt-12 grid sm:grid-cols-3 gap-5">
+            {(lang === 'ru' ? [
+              { n: 'Пробный', p: '0 ₽', f: ['Пробные кредиты', 'Анализ сайта', 'Генерация досок и пинов', 'Ручное утверждение'] },
+              { n: 'Стандарт', p: 'скоро', f: ['Всё из Пробного', 'Больше кредитов', 'Планировщик публикаций', 'Аналитика пинов'] },
+              { n: 'Про', p: 'скоро', f: ['Всё из Стандарт', 'Несколько проектов', 'Приоритетная генерация', 'Расширенная аналитика'] },
+            ] : [
+              { n: 'Trial', p: '$0', f: ['Trial credits', 'Website analysis', 'Board & pin generation', 'Manual approval'] },
+              { n: 'Standard', p: 'soon', f: ['Everything in Trial', 'More credits', 'Publishing planner', 'Pin analytics'] },
+              { n: 'Pro', p: 'soon', f: ['Everything in Standard', 'Multiple projects', 'Priority generation', 'Advanced analytics'] },
+            ]).map((pl, i) => (
+              <motion.div key={pl.n} initial={{opacity:0,y:24}} whileInView={{opacity:1,y:0}} viewport={{once:true}} transition={{duration:0.55, delay:i*0.12}}
+                className={`relative rounded-2xl border bg-white p-6 shadow-sm ${i===1?'border-[#B96B7C] shadow-lg':''}`}>
+                {i===1 && <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full text-white text-[10px] font-extrabold px-3 py-1" style={{background:'#B96B7C'}}>{lang==='ru'?'Выбор большинства':'Most popular'}</span>}
+                <h3 className="text-lg font-extrabold font-heading text-[#2A1F24]">{pl.n}</h3>
+                <p className="mt-2 text-3xl font-extrabold text-[#B96B7C] font-heading">{pl.p}</p>
+                <ul className="mt-4 space-y-2">
+                  {pl.f.map((x)=>(<li key={x} className="flex items-start gap-2 text-[13px] text-[#8A6E76]"><CheckCircle2 className="w-4 h-4 text-[#B96B7C] shrink-0 mt-0.5"/>{x}</li>))}
+                </ul>
+                <Link to={user?'/app':'/register'} className={`mt-6 block text-center rounded-xl py-3 text-sm font-extrabold transition-colors ${i===1?'bg-[#B96B7C] text-white hover:bg-[#A95668]':'border border-[#F2DFE4] text-[#7A3B47] hover:border-[#B96B7C]'}`}>
+                  {lang==='ru'?(i===0?'Попробовать бесплатно':'Начать'):(i===0?'Try free':'Start')}
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+          <p className="mt-5 text-center text-[11px] text-[#B29AA1]">
+            {lang==='ru'?'Базовый тариф включает только аналитику — генерация доступна на платных планах.':'The base plan includes analytics only — generation is available on paid plans.'}
+          </p>
         </div>
       </section>
 

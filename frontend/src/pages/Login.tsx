@@ -91,6 +91,10 @@ export const Login: React.FC = () => {
           {loading ? 'Входим…' : 'Войти'}
         </button>
 
+        <p className="mt-3 text-center text-xs text-secondary-theme">
+          <Link to="/forgot-password" className="font-medium text-[#C25E6F]">Забыли пароль?</Link>
+        </p>
+
         <p className="mt-4 text-center text-xs text-secondary-theme">
           Продолжая, вы соглашаетесь с{' '}
           <Link to="/terms" className="text-[#C25E6F] hover:underline">Условиями использования</Link> и{' '}

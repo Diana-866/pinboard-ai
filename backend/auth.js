@@ -9,7 +9,7 @@ const TOKEN_TTL = "7d";
 // защита от тайминг-атак (ответ всегда одинаково долгий)
 const DUMMY_HASH = bcrypt.hashSync("invalid-placeholder-password", 10);
 
-async function register(rawEmail, rawPassword) {
+async function register(rawEmail, rawPassword, rawName, rawSurname) {
   const email = validateEmail(rawEmail);
   const password = validatePassword(rawPassword);
 
@@ -24,12 +24,26 @@ async function register(rawEmail, rawPassword) {
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  const { data, error } = await supabase
-    .from("users")
-    .insert({ email, password_hash: passwordHash, credits_balance: 0 })
-    .select()
-    .single();
+  const profile = {};
+  if ((rawName || '').trim()) profile.name = rawName.trim().slice(0, 80);
+  if ((rawSurname || '').trim()) profile.surname = rawSurname.trim().slice(0, 80);
 
+  // Если миграция 003 (колонки name/surname) ещё не применена — регистрируем без профиля
+  let data, error;
+  try {
+    ({ data, error } = await supabase
+      .from("users")
+      .insert({ email, password_hash: passwordHash, credits_balance: 0, ...profile })
+      .select()
+      .single());
+    if (error) throw error;
+  } catch (eCol) {
+    ({ data, error } = await supabase
+      .from("users")
+      .insert({ email, password_hash: passwordHash, credits_balance: 0 })
+      .select()
+      .single());
+  }
   if (error) throw new Error(error.message);
 
   const token = jwt.sign({ userId: data.id }, process.env.JWT_SECRET, { expiresIn: TOKEN_TTL });

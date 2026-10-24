@@ -18,6 +18,8 @@ function passwordStrength(p: string): { score: number; label: string } {
 
 export const Register: React.FC = () => {
   const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [surname, setSurname] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -49,7 +51,7 @@ export const Register: React.FC = () => {
     try {
       const data = await apiRequest('/register', {
         method: 'POST',
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ email: email.trim(), password, name: name.trim() || undefined, surname: surname.trim() || undefined }),
       });
       localStorage.setItem('token', data.token);
       await refreshUser();
@@ -87,6 +89,16 @@ export const Register: React.FC = () => {
               required
               autoFocus
             />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="name" className="mb-1 block text-xs font-medium text-secondary-theme">Имя</label>
+              <input id="name" type="text" autoComplete="given-name" placeholder="Анна" value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-xl border border-subtle bg-page px-4 py-3 text-sm text-primary-theme outline-none transition focus:border-accent" />
+            </div>
+            <div>
+              <label htmlFor="surname" className="mb-1 block text-xs font-medium text-secondary-theme">Фамилия</label>
+              <input id="surname" type="text" autoComplete="family-name" placeholder="Иванова" value={surname} onChange={(e) => setSurname(e.target.value)} className="w-full rounded-xl border border-subtle bg-page px-4 py-3 text-sm text-primary-theme outline-none transition focus:border-accent" />
+            </div>
           </div>
           <div>
             <label htmlFor="password" className="mb-1 block text-xs font-medium text-secondary-theme">Пароль</label>
