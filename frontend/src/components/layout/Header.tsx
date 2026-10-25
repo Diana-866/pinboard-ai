@@ -19,7 +19,6 @@ import { useI18n, AI_CONTENT_LANGUAGES } from '../../i18n/i18nContext';
 import { useNotifications, TaskStatus } from '../../context/NotificationContext';
 import { ThemeMode } from '../../theme/types';
 import { SupportedLanguage } from '../../i18n/types';
-import { PinPosyLogo } from '../common/PinPosyLogo';
 
 interface HeaderProps {
   activeTab: string;
@@ -109,12 +108,7 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
 
         <div className="flex items-center gap-2 text-sm">
-          <PinPosyLogo size={22} />
-          <span className="font-semibold text-primary-theme tracking-tight font-heading">
-            PinPosy
-          </span>
-          <span className="text-muted-theme">/</span>
-          <span className="text-secondary-theme font-medium truncate max-w-[160px] md:max-w-none">
+          <span className="font-semibold text-primary-theme tracking-tight font-heading truncate max-w-[160px] md:max-w-none">
             {getModuleTitle()}
           </span>
         </div>

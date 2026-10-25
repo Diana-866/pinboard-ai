@@ -177,14 +177,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="h-16 shrink-0 px-5 flex items-center justify-between border-b border-subtle">
           <div className="flex items-center gap-2.5">
             <PinPosyLogo size={34} />
-            <div>
-              <span className="text-xl font-bold tracking-tight text-primary-theme font-heading block leading-none">
-                PinPosy
-              </span>
-              <span className="text-[10px] text-muted-theme tracking-wide uppercase font-semibold">
-                Intelligence & Automation
-              </span>
-            </div>
           </div>
 
           <button
