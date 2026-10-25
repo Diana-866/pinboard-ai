@@ -27,10 +27,11 @@ import pin4 from '../assets/images/4.png';
 
 import pin5 from '../assets/images/5.png';
 import pin6 from '../assets/images/7.png';
-import pin7 from '../assets/images/8.png';
+import pin7 from '../assets/images/10.png';
 import pin8 from '../assets/images/9.png';
 import pin9 from '../assets/images/6.png';
-import pin10 from '../assets/images/10.png';
+import pin10 from '../assets/images/8.png';
+
 import pin11 from '../assets/images/11.png';
 import pin12 from '../assets/images/12.png';
 import pin13 from '../assets/images/13.png';
