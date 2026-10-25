@@ -13,8 +13,6 @@ import {
   Flower2,
   MousePointer2,
   CheckCircle2,
-  Check,
-  X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/i18nContext';
@@ -570,197 +568,6 @@ export const Landing: React.FC = () => {
   const [avatarError, setAvatarError] = useState(false);
 
   const s = L[lang] || L.en;
-  const ru = lang === 'ru';
-  const [tariffCurrency, setTariffCurrency] = useState<'rub' | 'usd'>('rub');
-
-  const tariffPlans = ru
-    ? [
-        {
-          id: 'analytics',
-          category: 'Без генерации',
-          name: 'Аналитика',
-          desc: 'Чат с ботом, Trend Radar, просмотр конкурентов, идеи для досок — без генерации изображений и автоматизации.',
-          priceRub: '990 ₽',
-          priceUsd: '$11,9',
-          credits: '0',
-          accounts: '1',
-          popular: false,
-          badge: null as string | null,
-          included: [
-            '1 подключённый аккаунт',
-            '0 кредитов включено',
-            'PinPosy AI-стратег 24/7',
-            'Pinterest Trend Radar',
-            'Мониторинг конкурентов и пробелы в контенте',
-            'Keyword explorer и экспорт в CSV',
-            'SEO-аудит здоровья досок',
-          ],
-          excluded: [
-            'Генерация пинов',
-            'Ночная автогенерация в 01:00',
-            'Swipe-согласование пинов',
-            'Автопостинг по расписанию',
-          ],
-        },
-        {
-          id: 'start',
-          category: 'Генерация подключена',
-          name: 'Старт',
-          desc: 'Генерация подключена, до 3 аккаунтов. 400 кредитов в месяц сгорают при продлении подписки.',
-          priceRub: '1 990 ₽',
-          priceUsd: '$24,0',
-          credits: '400',
-          accounts: 'до 3',
-          popular: false,
-          badge: null as string | null,
-          included: [
-            'Всё из тарифа «Аналитика»',
-            'До 3 подключённых аккаунтов Pinterest',
-            '400 кредитов в месяц (сгорают при продлении)',
-            'Все 5 форматов (2:3, 9:16, 3:4, 4:5, 1:1)',
-            'Экспорт Full HD до 1080×1920',
-            'Умные тайм-слоты публикаций',
-            'Покупка бессрочных пакетов кредитов',
-          ],
-          excluded: ['Ночная автогенерация в 01:00', 'Swipe-согласование пинов'],
-        },
-        {
-          id: 'pro',
-          category: 'Хит продаж',
-          name: 'Про',
-          desc: 'До 10 аккаунтов, кредитов больше. Включает ночную автогенерацию и Swipe-согласование пинов.',
-          priceRub: '4 990 ₽',
-          priceUsd: '$60,1',
-          credits: '1 500',
-          accounts: 'до 10',
-          popular: true,
-          badge: 'Популярный выбор',
-          included: [
-            'Всё из тарифа «Старт»',
-            'До 10 подключённых аккаунтов Pinterest',
-            '1 500 кредитов в месяц (сгорают при продлении)',
-            'Ночная автогенерация в 01:00 с AI-рассуждением',
-            'Интерактивное Swipe-согласование пинов',
-            'Приоритетный рендер графики на GPU',
-            'Реверс-инжиниринг топовых пинов конкурентов',
-            'Приоритетный чат поддержки',
-          ],
-          excluded: ['Неограниченное число аккаунтов'],
-        },
-        {
-          id: 'agency',
-          category: 'Безлимит аккаунтов',
-          name: 'Agency',
-          desc: 'Неограниченное количество аккаунтов, максимум кредитов. Полная инфраструктура для команд и агентств.',
-          priceRub: '12 990 ₽',
-          priceUsd: '$156,5',
-          credits: '6 000',
-          accounts: 'безлимит*',
-          popular: false,
-          badge: 'Agency Pro',
-          included: [
-            'Всё из тарифа «Про»',
-            'Без ограничений подключённых аккаунтов',
-            '6 000 кредитов в месяц (сгорают при продлении)',
-            'Выделенный рендер-кластер без очереди',
-            'Командный доступ и роли модераторов',
-            'Персональный Pinterest-стратег',
-            'White-label PDF-отчёты для клиентов',
-          ],
-          excluded: [],
-        },
-      ]
-    : [
-        {
-          id: 'analytics',
-          category: 'No generation',
-          name: 'Analytics',
-          desc: 'Bot chat, Trend Radar, competitor research, board ideas — no image generation or automation.',
-          priceRub: '990 ₽',
-          priceUsd: '$11.9',
-          credits: '0',
-          accounts: '1',
-          popular: false,
-          badge: null as string | null,
-          included: [
-            '1 connected account',
-            '0 credits included',
-            'PinPosy AI Strategist 24/7',
-            'Pinterest Trend Radar',
-            'Competitor monitoring & content gaps',
-            'Keyword explorer & CSV export',
-            'Board SEO health audit',
-          ],
-          excluded: ['Visual pin generation', 'Nightly 01:00 auto-generation', 'Swipe-deck approval', 'Smart schedule auto-posting'],
-        },
-        {
-          id: 'start',
-          category: 'Generation included',
-          name: 'Start',
-          desc: 'Generation included, up to 3 accounts. 400 credits per month burn on renewal.',
-          priceRub: '1 990 ₽',
-          priceUsd: '$24.0',
-          credits: '400',
-          accounts: 'up to 3',
-          popular: false,
-          badge: null as string | null,
-          included: [
-            'Everything in Analytics',
-            'Up to 3 connected Pinterest accounts',
-            '400 monthly credits (burn on renewal)',
-            'All 5 aspect ratios (2:3, 9:16, 3:4, 4:5, 1:1)',
-            'Full HD export up to 1080×1920',
-            'Smart timing slots',
-            'Non-expiring credit packs',
-          ],
-          excluded: ['Nightly 01:00 auto-generation', 'Swipe-deck approval'],
-        },
-        {
-          id: 'pro',
-          category: 'Best seller',
-          name: 'Pro',
-          desc: 'Up to 10 accounts and more credits. Includes nightly auto-generation and swipe approval.',
-          priceRub: '4 990 ₽',
-          priceUsd: '$60.1',
-          credits: '1 500',
-          accounts: 'up to 10',
-          popular: true,
-          badge: 'Most popular',
-          included: [
-            'Everything in Start',
-            'Up to 10 connected Pinterest accounts',
-            '1,500 monthly credits (burn on renewal)',
-            'Nightly 01:00 auto-generation with AI reasoning',
-            'Interactive swipe-deck approval',
-            'Priority GPU rendering',
-            'Reverse-engineering top competitor pins',
-            'Priority support chat',
-          ],
-          excluded: ['Unlimited accounts'],
-        },
-        {
-          id: 'agency',
-          category: 'Unlimited accounts',
-          name: 'Agency',
-          desc: 'Unlimited accounts and maximum credits. Full infrastructure for teams and agencies.',
-          priceRub: '12 990 ₽',
-          priceUsd: '$156.5',
-          credits: '6 000',
-          accounts: 'unlimited*',
-          popular: false,
-          badge: 'Agency Pro',
-          included: [
-            'Everything in Pro',
-            'Unlimited connected accounts',
-            '6,000 monthly credits (burn on renewal)',
-            'Dedicated render cluster, instant queue',
-            'Team access & moderator roles',
-            'Dedicated Pinterest strategist',
-            'White-label client PDF reports',
-          ],
-          excluded: [],
-        },
-      ];
 
   // Параллакс за курсором
   const mx = useMotionValue(0);
@@ -1189,148 +996,40 @@ export const Landing: React.FC = () => {
 
       {/* ── Тарифы ── */}
       <section className="border-y border-[#F2DFE4] bg-white/60">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
-          <motion.h2
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-3xl sm:text-4xl font-extrabold tracking-tight text-center font-heading text-[#2A1F24]"
-          >
-            {ru ? 'Тарифы' : 'Pricing'}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
+          <motion.h2 initial={{opacity:0,y:20}} whileInView={{opacity:1,y:0}} viewport={{once:true}} transition={{duration:0.6}} className="text-3xl sm:text-4xl font-extrabold tracking-tight text-center font-heading text-[#2A1F24]">
+            {lang === 'ru' ? 'Тарифы' : 'Pricing'}
           </motion.h2>
-          <p className="mt-3 text-sm sm:text-base text-[#8A6E76] text-center max-w-2xl mx-auto">
-            {ru
-              ? 'Прозрачная модель: подписка для ведения аккаунтов плюс бессрочные пакеты дополнительных кредитов.'
-              : 'A transparent model: a subscription for running your accounts plus non-expiring credit packs.'}
+          <p className="mt-3 text-sm sm:text-base text-[#8A6E76] text-center max-w-xl mx-auto">
+            {lang === 'ru' ? 'Прозрачные планы под любой размер проекта. Точные цены появятся вместе с запуском платежей.' : 'Transparent plans for any project size. Exact prices arrive with the payment launch.'}
           </p>
-
-          {/* Переключатель валюты */}
-          <div className="mt-7 flex justify-center">
-            <div className="inline-flex items-center gap-1 rounded-full border border-[#F2DFE4] bg-white p-1 shadow-sm">
-              <button
-                type="button"
-                onClick={() => setTariffCurrency('rub')}
-                className={`px-4 py-1.5 rounded-full text-xs font-extrabold transition-colors cursor-pointer ${
-                  tariffCurrency === 'rub' ? 'text-white' : 'text-[#8A6E76] hover:text-[#7A3B47]'
-                }`}
-                style={tariffCurrency === 'rub' ? { background: ROSE_CTA } : undefined}
-              >
-                {ru ? '₽ Рубли' : '₽ Rubles'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setTariffCurrency('usd')}
-                className={`px-4 py-1.5 rounded-full text-xs font-extrabold transition-colors cursor-pointer ${
-                  tariffCurrency === 'usd' ? 'text-white' : 'text-[#8A6E76] hover:text-[#7A3B47]'
-                }`}
-                style={tariffCurrency === 'usd' ? { background: ROSE_CTA } : undefined}
-              >
-                $ USD
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
-            {tariffPlans.map((plan, i) => (
-              <motion.div
-                key={plan.id}
-                initial={{ opacity: 0, y: 24 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: i * 0.09 }}
-                className={`relative flex flex-col rounded-2xl border bg-white p-5 pt-6 shadow-sm transition-shadow ${
-                  plan.popular
-                    ? 'border-[#B96B7C] ring-1 ring-[#B96B7C]/25 shadow-xl'
-                    : 'border-[#F2DFE4] hover:shadow-md'
-                }`}
-              >
-                {plan.badge && (
-                  <span
-                    className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-3 py-1 text-[9.5px] font-extrabold uppercase tracking-[0.1em] text-white shadow-md"
-                    style={{ background: ROSE_CTA }}
-                  >
-                    {plan.badge}
-                  </span>
-                )}
-
-                {/* Категория + название */}
-                <span className="text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-[#B29AA1]">
-                  {plan.category}
-                </span>
-                <h3 className="mt-1.5 text-xl font-extrabold font-heading text-[#2A1F24]">{plan.name}</h3>
-                <p className="mt-1.5 text-[11.5px] leading-relaxed text-[#8A6E76] min-h-[58px]">{plan.desc}</p>
-
-                {/* Цена */}
-                <div className="mt-3 flex items-baseline gap-1.5">
-                  <span className="text-[28px] leading-none font-extrabold font-heading text-[#2A1F24]">
-                    {tariffCurrency === 'rub' ? plan.priceRub : plan.priceUsd}
-                  </span>
-                  <span className="text-[11px] font-bold text-[#B29AA1]">{ru ? '/ мес' : '/ mo'}</span>
-                </div>
-                <span className="mt-1 block text-[11px] font-bold text-[#C9B8BD]">
-                  {tariffCurrency === 'rub' ? plan.priceUsd : plan.priceRub}
-                </span>
-
-                {/* Кредиты и аккаунты */}
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <div className="rounded-xl border border-[#F2DFE4] bg-[#FDF6F7] px-2.5 py-2">
-                    <span className="block text-[8.5px] font-extrabold uppercase tracking-wider text-[#B29AA1]">
-                      {ru ? 'Кредиты/мес' : 'Credits/mo'}
-                    </span>
-                    <span className="mt-0.5 block text-[13px] font-extrabold text-[#2A1F24]">{plan.credits}</span>
-                    <span className="block text-[8.5px] font-bold text-[#D98A3D]">
-                      {ru ? 'сгорают' : 'burn'}
-                    </span>
-                  </div>
-                  <div className="rounded-xl border border-[#F2DFE4] bg-[#FDF6F7] px-2.5 py-2">
-                    <span className="block text-[8.5px] font-extrabold uppercase tracking-wider text-[#B29AA1]">
-                      {ru ? 'Аккаунты' : 'Accounts'}
-                    </span>
-                    <span className="mt-0.5 block text-[13px] font-extrabold text-[#2A1F24]">{plan.accounts}</span>
-                  </div>
-                </div>
-
-                {/* Что входит */}
-                <div className="mt-4 flex-1 border-t border-[#F2DFE4] pt-3">
-                  <span className="block text-[9px] font-extrabold uppercase tracking-[0.12em] text-[#B29AA1]">
-                    {ru ? 'Что входит в тариф:' : "What's included:"}
-                  </span>
-                  <ul className="mt-2 space-y-1.5">
-                    {plan.included.map((f) => (
-                      <li key={f} className="flex items-start gap-1.5 text-[11px] leading-snug text-[#5F4A51]">
-                        <Check className="w-3.5 h-3.5 mt-[1px] shrink-0 text-[#4FA98E]" strokeWidth={3} />
-                        <span>{f}</span>
-                      </li>
-                    ))}
-                    {plan.excluded.map((f) => (
-                      <li key={f} className="flex items-start gap-1.5 text-[11px] leading-snug text-[#C0AEB3]">
-                        <X className="w-3.5 h-3.5 mt-[1px] shrink-0 text-[#D8C7CC]" strokeWidth={3} />
-                        <span>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <Link
-                  to={user ? '/app' : '/register'}
-                  className={`mt-5 block text-center rounded-xl py-2.5 text-[12px] font-extrabold transition-all ${
-                    plan.popular
-                      ? 'text-white shadow-md hover:shadow-lg'
-                      : 'border border-[#F2DFE4] text-[#7A3B47] hover:border-[#B96B7C] hover:bg-[#FDF6F7]'
-                  }`}
-                  style={plan.popular ? { background: ROSE_CTA } : undefined}
-                >
-                  {(ru ? 'Выбрать тариф «' : 'Choose «') + plan.name + '»'}
+          <div className="mt-12 grid sm:grid-cols-3 gap-5">
+            {(lang === 'ru' ? [
+              { n: 'Старт', p: '390 ₽', sub: '$4.9 / мес', f: ['Только аналитика пинов', '1 проект', 'Мониторинг охватов', 'Поддержка по email'] },
+              { n: 'Стандарт', p: '890 ₽', sub: '$9.9 / мес', f: ['Всё из Старт', 'Генерация досок и пинов', 'Ручное утверждение', 'Планировщик публикаций'] },
+              { n: 'Про', p: '1 690 ₽', sub: '$18.9 / мес', f: ['Всё из Стандарт', '3 проекта', 'Приоритетная генерация', 'Расширенная аналитика'] },
+            ] : [
+              { n: 'Start', p: '$4.9', sub: '390 ₽ / mo', f: ['Pin analytics only', '1 project', 'Reach monitoring', 'Email support'] },
+              { n: 'Standard', p: '$9.9', sub: '890 ₽ / mo', f: ['Everything in Start', 'Board & pin generation', 'Manual approval', 'Publishing planner'] },
+              { n: 'Pro', p: '$18.9', sub: '1 690 ₽ / mo', f: ['Everything in Standard', '3 projects', 'Priority generation', 'Advanced analytics'] },
+            ]).map((pl, i) => (
+              <motion.div key={pl.n} initial={{opacity:0,y:24}} whileInView={{opacity:1,y:0}} viewport={{once:true}} transition={{duration:0.55, delay:i*0.12}}
+                className={`relative rounded-2xl border bg-white p-6 shadow-sm ${i===1?'border-[#B96B7C] shadow-lg':''}`}>
+                {i===1 && <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full text-white text-[10px] font-extrabold px-3 py-1" style={{background:'#B96B7C'}}>{lang==='ru'?'Выбор большинства':'Most popular'}</span>}
+                <h3 className="text-lg font-extrabold font-heading text-[#2A1F24]">{pl.n}</h3>
+                <p className="mt-2 text-3xl font-extrabold text-[#B96B7C] font-heading">{pl.p}</p>
+                <p className="text-[11px] font-bold text-[#B29AA1]">{pl.sub}</p>
+                <ul className="mt-4 space-y-2">
+                  {pl.f.map((x)=>(<li key={x} className="flex items-start gap-2 text-[13px] text-[#8A6E76]"><CheckCircle2 className="w-4 h-4 text-[#B96B7C] shrink-0 mt-0.5"/>{x}</li>))}
+                </ul>
+                <Link to={user?'/app':'/register'} className={`mt-6 block text-center rounded-xl py-3 text-sm font-extrabold transition-colors ${i===1?'bg-[#B96B7C] text-white hover:bg-[#A95668]':'border border-[#F2DFE4] text-[#7A3B47] hover:border-[#B96B7C]'}`}>
+                  {lang==='ru'?(i===0?'Перейти к тарифу':'Начать'):(i===0?'Choose plan':'Start')}
                 </Link>
               </motion.div>
             ))}
           </div>
-
-          <p className="mt-6 text-center text-[11px] text-[#B29AA1]">
-            {ru
-              ? 'Оплата картами РФ и зарубежными. Отмена в один клик. Кредиты тарифа сгорают при продлении, докупленные пакеты — никогда.'
-              : 'Pay with Russian or international cards. Cancel anytime. Plan credits burn on renewal, purchased packs never do.'}
+          <p className="mt-5 text-center text-[11px] text-[#B29AA1]">
+            {lang==='ru'?'Оплата картами РФ и зарубежными. Первые 7 дней Стандарта — бесплатно, отмена в один клик.':'Pay with Russian or international cards. First 7 days of Standard are free, cancel anytime.'}
           </p>
         </div>
       </section>
