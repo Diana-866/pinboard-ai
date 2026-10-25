@@ -20,10 +20,21 @@ import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/i18nContext';
 import { SupportedLanguage } from '../i18n/types';
 
-import imgDecor from '../assets/images/pin_home_decor_1790670043705.jpg';
-import imgSkincare from '../assets/images/pin_skincare_routine_1790670067721.jpg';
-import imgMatcha from '../assets/images/pin_matcha_latte_1790670057380.jpg';
-import imgTravel from '../assets/images/pin_travel_amalfi_1790670078173.jpg';
+import pin1 from '../assets/images/1.png';
+import pin2 from '../assets/images/2.png';
+import pin3 from '../assets/images/3.png';
+import pin4 from '../assets/images/4.png';
+import pin5 from '../assets/images/5.png';
+import pin6 from '../assets/images/6.png';
+import pin7 from '../assets/images/7.png';
+import pin8 from '../assets/images/8.png';
+import pin9 from '../assets/images/9.png';
+import pin10 from '../assets/images/10.png';
+import pin11 from '../assets/images/11.png';
+import pin12 from '../assets/images/12.png';
+import pin13 from '../assets/images/13.png';
+import pin14 from '../assets/images/14.png';
+import pin15 from '../assets/images/15.png';
 
 /* ── Цвета розовой полосы: белый текст читается при любой теме ── */
 const ROSE_DEEP = '#A95668';
@@ -770,8 +781,8 @@ export const Landing: React.FC = () => {
 
   const handleMouse = (e: React.MouseEvent<HTMLDivElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
-    mx.set(((e.clientX - r.left) / r.width - 0.5) * 30);
-    my.set(((e.clientY - r.top) / r.height - 0.5) * 30);
+    mx.set(((e.clientX - r.left) / r.width - 0.5) * 15);
+    my.set(((e.clientY - r.top) / r.height - 0.5) * 15);
   };
 
   const letter = (user?.name || user?.email || 'P').charAt(0).toUpperCase();
@@ -868,10 +879,10 @@ export const Landing: React.FC = () => {
         >
           <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-20 sm:pb-28 text-center">
             <motion.div style={{ x: sx, y: sy }} className="absolute inset-0 pointer-events-none">
-              <FloatCard src={imgDecor} label={s.marquee[0]} className="left-[2%] top-[14%]" depth={-1.4} sx={sx} sy={sy} />
-              <FloatCard src={imgSkincare} label={s.marquee[6]} className="right-[3%] top-[10%]" delay={0.6} depth={1.2} sx={sx} sy={sy} />
-              <FloatCard src={imgMatcha} label={s.marquee[1]} className="left-[6%] bottom-[2%]" delay={1.1} depth={1.7} sx={sx} sy={sy} />
-              <FloatCard src={imgTravel} label={s.marquee[2]} className="right-[7%] bottom-[6%]" delay={1.6} depth={-1.1} sx={sx} sy={sy} />
+              <FloatCard src={pin1} label={s.marquee[1]} className="left-[2%] top-[14%]" depth={-1.4} sx={sx} sy={sy} />
+              <FloatCard src={pin2} label={s.marquee[7]} className="right-[3%] top-[10%]" delay={0.6} depth={1.2} sx={sx} sy={sy} />
+              <FloatCard src={pin3} label={s.marquee[3]} className="left-[6%] bottom-[2%]" delay={1.1} depth={1.7} sx={sx} sy={sy} />
+              <FloatCard src={pin4} label={s.marquee[5]} className="right-[7%] bottom-[6%]" delay={1.6} depth={-1.1} sx={sx} sy={sy} />
             </motion.div>
 
             <motion.div
@@ -1062,7 +1073,7 @@ export const Landing: React.FC = () => {
                 <span className="text-[11px] sm:text-xs text-[#8A6E76] truncate">{s.win1Prompt}</span>
               </div>
               <div className="mt-4 grid grid-cols-3 gap-2.5">
-                {[imgMatcha, imgSkincare, imgDecor, imgTravel, imgMatcha, imgSkincare].map((src, i) => (
+                {[pin5, pin6, pin7, pin8, pin9, pin10].map((src, i) => (
                   <motion.div
                     key={i}
                     initial={{ opacity: 0, scale: 0.9 }}
@@ -1111,7 +1122,7 @@ export const Landing: React.FC = () => {
             </div>
             <div className="p-4 sm:p-5">
               <div className="rounded-xl border border-[#F2DFE4] bg-[#FDF6F7] overflow-hidden flex">
-                <img src={imgDecor} alt="pin" className="w-24 sm:w-28 aspect-[2/3] object-cover shrink-0" />
+                <img src={pin11} alt="pin" className="w-24 sm:w-28 aspect-[2/3] object-cover shrink-0" />
                 <div className="flex-1 p-3.5 min-w-0">
                   <p className="text-xs font-extrabold text-[#2A1F24] leading-snug">{s.win2PinTitle}</p>
                   <p className="mt-1 text-[10px] text-[#8A6E76] line-clamp-2 leading-snug">{s.win2PinText}</p>
@@ -1131,7 +1142,7 @@ export const Landing: React.FC = () => {
                 </div>
               </div>
               <div className="mt-3 grid grid-cols-4 gap-2.5">
-                {[imgSkincare, imgTravel, imgMatcha, imgDecor].map((src, i) => (
+                {[pin12, pin13, pin14, pin15].map((src, i) => (
                   <div key={i} className="rounded-lg overflow-hidden border border-[#F2DFE4] opacity-70">
                     <img src={src} alt="pin" className="w-full aspect-[2/3] object-cover" />
                   </div>
