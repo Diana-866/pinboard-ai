@@ -7,6 +7,10 @@ export interface User {
   name?: string;
   credits_balance: number;
   subscription_tier: string;
+  /** Прошёл ли пользователь онбординг-визард (колонка users.onboarded, миграция 004) */
+  onboarded?: boolean;
+  /** Тариф для «замочков»: none | start | standard | pro (колонка users.tariff_plan, миграция 004) */
+  tariff_plan?: 'none' | 'start' | 'standard' | 'pro';
   is_admin?: boolean;
   /** Совместимость с компонентами, проверяющими тариф по названию */
   plan?: string;
@@ -58,6 +62,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser({
         ...data,
         plan: data.subscription_tier || "free",
+        onboarded: data.onboarded ?? false,
+        tariff_plan: data.tariff_plan ?? "none",
         avatar,
       });
     } catch (e) {

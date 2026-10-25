@@ -197,6 +197,30 @@
   color: var(--accent-hover);
 }
 
+/* Онбординг-визард и тарифные оверлеи: фирменный шрифт лендинга и CTA #B96B7C */
+.font-outfit {
+  font-family: 'Outfit', sans-serif;
+}
+
+.wizard-cta {
+  background-color: #B96B7C;
+  color: #FFFFFF;
+  font-weight: 700;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+.wizard-cta:hover {
+  background-color: #A95668;
+  transform: translateY(-0.5px);
+}
+.wizard-cta:active {
+  transform: translateY(0);
+}
+.wizard-cta:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .custom-card {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);

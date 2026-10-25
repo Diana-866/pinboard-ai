@@ -196,6 +196,8 @@ app.get("/me", requireAuth, async (req, res) => {
       surname: row.surname ?? null,
       credits_balance: row.credits_balance ?? 0,
       subscription_tier: row.subscription_tier ?? "free",
+      onboarded: row.onboarded ?? false,
+      tariff_plan: row.tariff_plan ?? "none",
       is_admin: !!row.is_admin,
     });
   } catch (e) {
@@ -218,6 +220,76 @@ app.patch("/me", requireAuth, async (req, res) => {
       .select("id, email, name, surname, credits_balance, subscription_tier, is_admin")
       .single();
     if (error) throw httpError(500, "Не удалось обновить профиль — нужно применить миграцию 003");
+    res.json(data);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// Онбординг: финал визарда — сайт + комментарий о продукте + первая запись проекта
+app.patch("/me/onboarding", requireAuth, async (req, res) => {
+  try {
+    // Ссылку можно пропустить (пустая допустима), но непустая — только http/https
+    const websiteUrl = optionalString(req.body && req.body.websiteUrl, { max: 2048 });
+    const productComment =
+      optionalString(req.body && req.body.productComment, { max: 2000 }) || "";
+
+    const upd = { onboarded: true };
+    if (websiteUrl) upd.website_url = validateUrl(websiteUrl);
+
+    const { data, error } = await supabase
+      .from("users")
+      .update(upd)
+      .eq("id", req.userId)
+      .select("id, email, onboarded, tariff_plan")
+      .single();
+
+    if (error) {
+      throw httpError(500, "Не удалось сохранить онбординг — нужно применить миграцию 004 (db/migrations/004_onboarding.sql)");
+    }
+
+    // Первая запись проекта: user_id, website_url, goal = комментарий о продукте
+    const { data: existing } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("user_id", req.userId)
+      .limit(1);
+    if (!existing || existing.length === 0) {
+      const { error: projError } = await supabase.from("projects").insert({
+        user_id: req.userId,
+        website_url: upd.website_url || null,
+        goal: productComment,
+        language: "ru",
+      });
+      if (projError) {
+        // онбординг уже сохранён — проект можно создать позже из кабинета
+        console.error("[onboarding] не удалось создать первую запись проекта:", projError.message);
+      }
+    }
+
+    res.json(data);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// ВРЕМЕННО (до запуска платежей): выбор тарифа для проверки «замочков».
+// При подключении платёжки заменить на webhook платёжного провайдера.
+app.patch("/me/tariff", requireAuth, async (req, res) => {
+  try {
+    const plan = req.body && req.body.plan;
+    if (!["none", "start", "standard", "pro"].includes(plan)) {
+      throw httpError(422, "plan: допустимые значения — none, start, standard, pro");
+    }
+    const { data, error } = await supabase
+      .from("users")
+      .update({ tariff_plan: plan })
+      .eq("id", req.userId)
+      .select("id, email, onboarded, tariff_plan")
+      .single();
+    if (error) {
+      throw httpError(500, "Не удалось сохранить тариф — нужно применить миграцию 004 (db/migrations/004_onboarding.sql)");
+    }
     res.json(data);
   } catch (e) {
     handleError(res, e);

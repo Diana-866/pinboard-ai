@@ -47,7 +47,10 @@ async function register(rawEmail, rawPassword, rawName, rawSurname) {
   if (error) throw new Error(error.message);
 
   const token = jwt.sign({ userId: data.id }, process.env.JWT_SECRET, { expiresIn: TOKEN_TTL });
-  return { token, user: { id: data.id, email: data.email } };
+  return {
+    token,
+    user: { id: data.id, email: data.email, onboarded: false, tariff_plan: "none" },
+  };
 }
 
 async function login(rawEmail, rawPassword) {
@@ -68,7 +71,13 @@ async function login(rawEmail, rawPassword) {
   const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: TOKEN_TTL });
   return {
     token,
-    user: { id: user.id, email: user.email, credits_balance: user.credits_balance },
+    user: {
+      id: user.id,
+      email: user.email,
+      credits_balance: user.credits_balance,
+      onboarded: user.onboarded ?? false,
+      tariff_plan: user.tariff_plan ?? "none",
+    },
   };
 }
 

@@ -22,6 +22,8 @@ import { BoardsManager } from './components/boards/BoardsManager';
 import { AnalyticsView } from './components/analytics/AnalyticsView';
 import { PricingView } from './components/pricing/PricingView';
 import { SettingsView } from './components/settings/SettingsView';
+import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
+import { LockedSection } from './components/common/LockedSection';
 import {
   ManualApprovalDesk,
   INITIAL_QUEUE_PINS,
@@ -55,7 +57,29 @@ const MainApp: React.FC = () => {
   const [isBotOpen, setIsBotOpen] = useState<boolean>(false);
 
   const { toast, clearToast } = useNotifications();
- const { activeViewMode, setActiveViewMode, isPrivacyModalOpen, closePrivacyModal, isAdmin } = useAuth();
+ const { activeViewMode, setActiveViewMode, isPrivacyModalOpen, closePrivacyModal, isAdmin, user } = useAuth();
+
+  // Тарифные «замочки»: пока план не standard/pro, все разделы кроме
+  // «Аналитика» (и самого экрана тарифов) закрыты оверлеем (миграция 004)
+  const tariffPlan = user?.tariff_plan || 'none';
+  const isTariffUnlocked = tariffPlan === 'standard' || tariffPlan === 'pro';
+  const isSectionLocked = !isTariffUnlocked && activeTab !== 'analytics' && activeTab !== 'pricing';
+
+  // Онбординг: визард показываем, пока пользователь его не прошёл
+  const needsOnboarding = !!user && user.onboarded === false;
+
+  // Событие от визарда/оверлея: перейти в раздел (например, «Тарифы»)
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      const tab = (e as CustomEvent<string>).detail;
+      if (tab) {
+        setActiveTab(tab);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    };
+    window.addEventListener('pinposy:navigate-tab', handler);
+    return () => window.removeEventListener('pinposy:navigate-tab', handler);
+  }, []);
 
   // Dedicated /admin URL route detection (User request: only accessible via domain/admin)
   const [isAdminRoute, setIsAdminRoute] = useState<boolean>(() => {
@@ -219,6 +243,16 @@ const MainApp: React.FC = () => {
   );
 }
 
+  // Полноэкранный онбординг-визард для новых пользователей
+  if (needsOnboarding) {
+    return (
+      <>
+        <OnboardingWizard />
+        <PrivacyPolicyModal isOpen={isPrivacyModalOpen} onClose={closePrivacyModal} />
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-page text-primary-theme flex transition-colors">
       {/* Sidebar Navigation - Flush to left edge with enterprise flat border */}
@@ -255,6 +289,7 @@ const MainApp: React.FC = () => {
 
         {/* Viewport Content */}
         <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-28 sm:pb-32">
+          <LockedSection locked={isSectionLocked} onGoToPricing={() => setActiveTab('pricing')}>
           {activeTab === 'dashboard' && (
             <DashboardView
               boards={boards}
@@ -339,6 +374,7 @@ const MainApp: React.FC = () => {
               onUpdateAccountAutoTime={handleUpdateAccountAutoTime}
             />
           )}
+          </LockedSection>
         </main>
       </div>
 
