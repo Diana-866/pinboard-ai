@@ -2,7 +2,7 @@ import React from 'react';
 import { Lock } from 'lucide-react';
 
 interface LockedSectionProps {
-  /** true — показать замочек вместо контента (тариф не standard/pro) */
+  /** true — показать замочек вместо контента (тариф не start/pro/agency) */
   locked: boolean;
   /** переход на экран тарифов */
   onGoToPricing: () => void;
@@ -19,7 +19,7 @@ const SkeletonCard: React.FC = () => (
 
 /**
  * Оверлей-замочек для разделов, закрытых тарифом.
- * Пока тариф не standard/pro, все разделы кроме «Аналитика» и «Тарифы»
+ * Пока тариф не start/pro/agency, все разделы кроме «Аналитика» и «Тарифы»
  * показывают этот оверлей вместо контента (миграция 004_onboarding.sql).
  */
 export const LockedSection: React.FC<LockedSectionProps> = ({ locked, onGoToPricing, children }) => {

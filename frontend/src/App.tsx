@@ -59,10 +59,10 @@ const MainApp: React.FC = () => {
   const { toast, clearToast } = useNotifications();
  const { activeViewMode, setActiveViewMode, isPrivacyModalOpen, closePrivacyModal, isAdmin, user } = useAuth();
 
-  // Тарифные «замочки»: пока план не standard/pro, все разделы кроме
-  // «Аналитика» (и самого экрана тарифов) закрыты оверлеем (миграция 004)
+  // Тарифные «замочки»: генерацию и разделы открывают Старт/Про/Agency;
+  // тариф «Аналитика» (990₽) и «нет тарифа» оставляют замочки (миграция 004)
   const tariffPlan = user?.tariff_plan || 'none';
-  const isTariffUnlocked = tariffPlan === 'standard' || tariffPlan === 'pro';
+  const isTariffUnlocked = tariffPlan === 'start' || tariffPlan === 'pro' || tariffPlan === 'agency';
   const isSectionLocked = !isTariffUnlocked && activeTab !== 'analytics' && activeTab !== 'pricing';
 
   // Онбординг: визард показываем, пока пользователь его не прошёл

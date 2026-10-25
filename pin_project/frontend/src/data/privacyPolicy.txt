@@ -1,0 +1,97 @@
+# PINSPRIG PRIVACY POLICY
+Last Updated: October 4, 2026
+Effective Date: October 4, 2026
+
+Welcome to PinSprig ("Service", "we", "us", or "our"), an AI-powered visual automation, marketing strategy, and analytics intelligence platform tailored for Pinterest creators, brands, and agencies.
+
+We are committed to protecting your privacy and complying with global privacy laws, including the European General Data Protection Regulation (GDPR), the California Consumer Privacy Act (CCPA/CPRA), the Brazilian General Data Protection Law (LGPD), and the Pinterest Developer Platform Terms of Service.
+
+This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website, use our web application, connect your Pinterest accounts, and subscribe to our services.
+
+---
+
+## 1. INFORMATION WE COLLECT
+
+### 1.1 Information You Provide Directly to Us
+- Account Information: When you register via email, Google Sign-In, or Apple ID, we collect your name, email address, password (stored in salted hashed format), and account preferences.
+- Billing and Payment Data: When you purchase subscriptions or credit packs, transactions are processed by PCI-DSS Level 1 certified payment partners (Stripe, Tinkoff, etc.). We store billing contact details, invoice history, tax identifiers, and transaction amounts. We never store raw credit card numbers.
+- User Content and Preferences: Topics, keywords, image assets, board titles, scheduled pins, and custom branding rules submitted to the generator.
+- AI Strategist Chat Queries: Questions, queries, and feedback submitted to the PinSprig AI Strategist Bot to provide customized analytical recommendations.
+
+### 1.2 Information Collected via Pinterest API Integration
+When you link one or more Pinterest business accounts to PinSprig:
+- Public Profile Data: Account handle, username, display name, profile avatar URL.
+- Board and Pin Metadata: Board names, categories, descriptions, pin count, scheduled publication slots.
+- Aggregated Analytics Data: Impressions, saves, outbound clicks, pin engagement velocity, and save rates provided through authorized OAuth tokens.
+- Important: PinSprig requests only the minimum necessary OAuth scopes (`boards:read,write`, `pins:read,write`, `user_accounts:read`). We never access private personal Pinterest direct messages or personal browsing feeds outside of your authorized business workspace.
+
+### 1.3 Automatically Collected Technical Data
+- Device and browser characteristics (user-agent, browser language, screen resolution, operating system).
+- IP address, approximate geographical region (country/city level for tax compliance and localized latency).
+- Usage telemetry: Feature adoption, night generation queue toggles, and generation frequency.
+
+---
+
+## 2. HOW WE USE YOUR INFORMATION
+
+We use the collected information for the following legitimate business purposes:
+1. Providing Core Services: Generating high-converting pins, automated image collages, SEO descriptions, and scheduling pins to your selected boards.
+2. AI Contextual Recommendations: Supplying the AI Strategist Bot with your account's public metric trends to answer strategic questions accurately.
+3. Queue Processing & Background Execution: Processing batch generations and scheduling night queues according to optimal engagement intervals.
+4. Billing, Fiscal Invoicing & Tax Accounting: Calculating regional taxes (self-employed NPD, simplified USN, VAT), generating legal fiscal receipts, and maintaining audit logs.
+5. Account Security: Detecting and preventing spam, fraud, abusive automation, and unauthorized account access.
+6. Customer Support & Product Improvement: Resolving technical tickets and optimizing interface responsiveness.
+
+---
+
+## 3. HOW WE SHARE AND DISCLOSE INFORMATION
+
+We never sell, rent, or trade your personal data or Pinterest analytics to third-party data brokers or advertisers. We share information only under strict confidentiality and technical safeguards:
+- Pinterest Platform: Transmitting authorized pins, images, and descriptions to your boards via the official Pinterest API upon your schedule approval.
+- AI Computing Providers (e.g. Gemini API, GPT-Tunnel): Transmitting prompt topics and keywords to generate metadata and design text. Prompts sent to our enterprise AI models are processed securely and are never used to train public foundation models without consent.
+- Payment & Invoicing Processors: Processing encrypted payment tokens and generating fiscal receipts.
+- Legal & Compliance Authorities: If required by law, subpoena, or valid government audit request.
+
+---
+
+## 4. DATA RETENTION & SECURITY
+
+- Data Retention: We retain your account data and scheduled pin history as long as your account remains active. If you delete your account, all connected Pinterest access tokens and personal identifiers are permanently purged within 30 days.
+- Data Encryption: All communication in transit is encrypted using TLS 1.3. Stored database credentials, tokens, and sensitive keys are encrypted at rest using AES-256.
+
+---
+
+## 5. YOUR RIGHTS & CHOICES (GDPR & CCPA)
+
+Depending on your country or state of residence, you have the following rights:
+- Access & Portability: Request an export of your account data, generation logs, and fiscal invoices.
+- Rectification: Correct inaccurate personal details in your workspace settings.
+- Revocation of Access: Disconnect your Pinterest account at any time in Workspace Settings or directly via Pinterest's "Apps & Permissions" page.
+- Right to Erasure ("Right to be Forgotten"): Request full deletion of your user account and associated history.
+- Opt-out of Marketing Communications: Unsubscribe from feature updates via email footer links.
+
+---
+
+## 6. COOKIES & LOCAL STORAGE
+
+PinSprig uses essential local storage keys to preserve:
+- Your active UI theme (Light/Dark Rose or Monochrome).
+- Your preferred interface language (RU, EN, DE, ES, FR, PT, ZH).
+- Authentication tokens and session verification.
+We do not use invasive third-party cross-site advertising trackers.
+
+---
+
+## 7. CONTACT US & DATA CONTROLLER
+
+If you have questions, feedback, or wish to exercise your privacy rights, please reach out to our privacy team:
+
+PinSprig Compliance & Data Protection
+Email: privacy@pinsprig.com
+Support & Inquiries: sdreimei@gmail.com
+Operational Address: Moscow, Russian Federation / Remote EU Operations
+Operating Entity: IP Smirnova E.A. (Sole Proprietor)
+Tax Identifier (INN): 772819401823
+
+You may replace, amend, or update this text file anytime at:
+`/src/data/privacyPolicy.txt`

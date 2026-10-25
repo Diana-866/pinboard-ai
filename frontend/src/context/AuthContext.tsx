@@ -9,8 +9,8 @@ export interface User {
   subscription_tier: string;
   /** Прошёл ли пользователь онбординг-визард (колонка users.onboarded, миграция 004) */
   onboarded?: boolean;
-  /** Тариф для «замочков»: none | start | standard | pro (колонка users.tariff_plan, миграция 004) */
-  tariff_plan?: 'none' | 'start' | 'standard' | 'pro';
+  /** Тариф для «замочков»: none | analytics | start | pro | agency (колонка users.tariff_plan, миграция 004) */
+  tariff_plan?: 'none' | 'analytics' | 'start' | 'pro' | 'agency';
   is_admin?: boolean;
   /** Совместимость с компонентами, проверяющими тариф по названию */
   plan?: string;

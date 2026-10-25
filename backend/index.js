@@ -278,8 +278,8 @@ app.patch("/me/onboarding", requireAuth, async (req, res) => {
 app.patch("/me/tariff", requireAuth, async (req, res) => {
   try {
     const plan = req.body && req.body.plan;
-    if (!["none", "start", "standard", "pro"].includes(plan)) {
-      throw httpError(422, "plan: допустимые значения — none, start, standard, pro");
+    if (!["none", "analytics", "start", "pro", "agency"].includes(plan)) {
+      throw httpError(422, "plan: допустимые значения — none, analytics, start, pro, agency");
     }
     const { data, error } = await supabase
       .from("users")

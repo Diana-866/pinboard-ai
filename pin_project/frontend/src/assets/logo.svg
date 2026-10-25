@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Rounded Squircle Background -->
+  <rect width="64" height="64" rx="18" fill="#BA6472"/>
+  
+  <!-- Top Sprig Leaves -->
+  <!-- Left Leaf -->
+  <path d="M31.2 16.2C29.2 13.8 26.2 13.2 24.2 14.2C23.6 16.5 25.0 19.8 27.5 20.8C29.5 21.6 31.4 19.5 31.2 16.2Z" fill="white"/>
+  <!-- Right Leaf -->
+  <path d="M32.8 16.2C34.8 13.8 37.8 13.2 39.8 14.2C40.4 16.5 39.0 19.8 36.5 20.8C34.5 21.6 32.6 19.5 32.8 16.2Z" fill="white"/>
+  <!-- Little Stem Center -->
+  <path d="M32 17.5V20.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- The Pin Body with center cutout -->
+  <path fill-rule="evenodd" clip-rule="evenodd" d="M32 20C24.8 20 19 25.8 19 33C19 41.2 29.5 50.8 31.1 52.2C31.6 52.7 32.4 52.7 32.9 52.2C34.5 50.8 45 41.2 45 33C45 25.8 39.2 20 32 20ZM32 37.5C29.5 37.5 27.5 35.5 27.5 33C27.5 30.5 29.5 28.5 32 28.5C34.5 28.5 36.5 30.5 36.5 33C36.5 35.5 34.5 37.5 32 37.5Z" fill="white"/>
+</svg>

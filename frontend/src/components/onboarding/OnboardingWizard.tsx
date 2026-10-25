@@ -12,8 +12,10 @@ import { useAuth } from '../../context/AuthContext';
 const ROSE = '#B96B7C';
 const ROSE_LIGHT = '#F4E1E6';
 
+type PlanId = 'analytics' | 'start' | 'pro' | 'agency';
+
 interface PlanCard {
-  id: 'start' | 'standard' | 'pro';
+  id: PlanId;
   name: string;
   price: string;
   tagline: string;
@@ -21,33 +23,48 @@ interface PlanCard {
   highlight?: boolean;
 }
 
+/** 4 реальных тарифа — как на лендинге и в разделе «Тарифы» кабинета */
 const PLANS: PlanCard[] = [
+  {
+    id: 'analytics',
+    name: 'Аналитика',
+    price: '990 ₽',
+    tagline: 'Без генерации',
+    features: ['Чат с AI-стратегом 24/7', 'Trend Radar и конкуренты', 'Без генерации изображений'],
+  },
   {
     id: 'start',
     name: 'Старт',
-    price: '390 ₽',
-    tagline: 'Посмотреть, что происходит',
-    features: ['Только аналитика', 'Статистика пинов и досок', 'Тренды Pinterest'],
-  },
-  {
-    id: 'standard',
-    name: 'Стандарт',
-    price: '890 ₽',
-    tagline: 'Всё, чтобы работать каждый день',
+    price: '1 990 ₽',
+    tagline: 'Генерация подключена',
     features: [
-      'Генерация пинов и досок',
-      'Утверждение пинов (свайп-дека)',
-      'Планировщик публикаций',
-      'Аналитика включена',
+      'Всё из «Аналитики»',
+      'До 3 аккаунтов, 400 кредитов/мес',
+      'Генерация пинов, все 5 форматов',
     ],
-    highlight: true,
   },
   {
     id: 'pro',
     name: 'Про',
-    price: '1690 ₽',
-    tagline: 'Максимум для роста',
-    features: ['Всё из тарифа «Стандарт»', 'Приоритетная генерация', 'Приоритетная поддержка'],
+    price: '4 990 ₽',
+    tagline: 'Хит продаж',
+    features: [
+      'Всё из «Старта»',
+      'До 10 аккаунтов, 1 500 кредитов/мес',
+      'Ночная автогенерация и Swipe-согласование',
+    ],
+    highlight: true,
+  },
+  {
+    id: 'agency',
+    name: 'Agency',
+    price: '12 990 ₽',
+    tagline: 'Безлимит аккаунтов',
+    features: [
+      'Всё из «Про»',
+      'Безлимит аккаунтов, 6 000 кредитов/мес',
+      'Командный доступ и white-label отчёты',
+    ],
   },
 ];
 
@@ -58,7 +75,7 @@ export const OnboardingWizard: React.FC = () => {
   const [step, setStep] = useState<Step>(1);
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [productComment, setProductComment] = useState('');
-  const [selectedPlan, setSelectedPlan] = useState<'start' | 'standard' | 'pro'>('standard');
+  const [selectedPlan, setSelectedPlan] = useState<PlanId>('pro');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState<null | 'later' | 'pay'>(null);
@@ -301,7 +318,7 @@ export const OnboardingWizard: React.FC = () => {
                 Выбери тариф
               </h2>
               <p className="mt-2 text-sm text-secondary-theme">
-                Можно начать с аналитики — генерация откроется на платном тарифе.
+                Генерация изображений открывается с тарифа «Старт» — «Аналитика» работает без неё.
               </p>
 
               <div className="mt-6 space-y-3">
