@@ -234,8 +234,10 @@ app.patch("/me/onboarding", requireAuth, async (req, res) => {
     const productComment =
       optionalString(req.body && req.body.productComment, { max: 2000 }) || "";
 
+    // website_url belongs to projects, not users. Writing it to users caused
+    // HTTP 500 on installations where that optional column does not exist.
+    const normalizedWebsiteUrl = websiteUrl ? validateUrl(websiteUrl) : null;
     const upd = { onboarded: true };
-    if (websiteUrl) upd.website_url = validateUrl(websiteUrl);
 
     const { data, error } = await supabase
       .from("users")
@@ -245,25 +247,44 @@ app.patch("/me/onboarding", requireAuth, async (req, res) => {
       .single();
 
     if (error) {
-      throw httpError(500, "Не удалось сохранить онбординг — нужно применить миграцию 004 (db/migrations/004_onboarding.sql)");
+      console.error("[onboarding] не удалось обновить users:", error.message, error.code || "");
+      throw httpError(500, "Не удалось сохранить онбординг. Проверьте, что миграция 004 применена в Supabase.");
     }
 
     // Первая запись проекта: user_id, website_url, goal = комментарий о продукте
-    const { data: existing } = await supabase
+    const { data: existing, error: lookupError } = await supabase
       .from("projects")
       .select("id")
       .eq("user_id", req.userId)
       .limit(1);
-    if (!existing || existing.length === 0) {
+    if (lookupError) {
+      console.error("[onboarding] не удалось проверить проекты:", lookupError.message, lookupError.code || "");
+    } else if (!existing || existing.length === 0) {
       const { error: projError } = await supabase.from("projects").insert({
         user_id: req.userId,
-        website_url: upd.website_url || null,
+        website_url: normalizedWebsiteUrl,
         goal: productComment,
         language: "ru",
       });
       if (projError) {
-        // онбординг уже сохранён — проект можно создать позже из кабинета
-        console.error("[onboarding] не удалось создать первую запись проекта:", projError.message);
+        // Онбординг уже сохранён — проект можно создать позже из кабинета.
+        console.error("[onboarding] не удалось создать первую запись проекта:", projError.message, projError.code || "");
+      }
+    } else {
+      // Пользователь мог создать проект до завершения онбординга — обновляем его,
+      // вместо того чтобы молча терять введённые на визарде сайт и описание.
+      const projectPatch = {};
+      if (normalizedWebsiteUrl) projectPatch.website_url = normalizedWebsiteUrl;
+      if (productComment) projectPatch.goal = productComment;
+      if (Object.keys(projectPatch).length > 0) {
+        const { error: projectUpdateError } = await supabase
+          .from("projects")
+          .update(projectPatch)
+          .eq("id", existing[0].id)
+          .eq("user_id", req.userId);
+        if (projectUpdateError) {
+          console.error("[onboarding] не удалось обновить первый проект:", projectUpdateError.message, projectUpdateError.code || "");
+        }
       }
     }
 

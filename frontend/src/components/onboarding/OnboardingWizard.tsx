@@ -151,8 +151,8 @@ export const OnboardingWizard: React.FC = () => {
                 Платежи скоро запустятся
               </h2>
               <p className="mt-3 text-sm text-secondary-theme">
-                Тариф «{PLANS.find((p) => p.id === selectedPlan)?.name}» мы запомнили — как только
-                оплату включим, первыми сообщим вам на почту.
+                Вы выбрали тариф «{PLANS.find((p) => p.id === selectedPlan)?.name}», но оплата пока
+                не подключена. Подписка не оформлена и деньги не списаны.
               </p>
             </>
           ) : (

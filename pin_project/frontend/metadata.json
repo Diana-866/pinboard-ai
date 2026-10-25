@@ -1,6 +1,0 @@
-{
-  "name": "PinSprig",
-  "description": "AI-powered Pinterest intelligence and content automation platform. Advanced keyword research, competitor benchmarking, visual pin generation, and multi-lingual scheduling.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
