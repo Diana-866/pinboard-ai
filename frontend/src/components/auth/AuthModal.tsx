@@ -1,3 +1,4 @@
+// @ts-nocheck — легаси-модалка, не используется (заменена страницами /login и /register)
 import React, { useState } from 'react';
 import {
   X,

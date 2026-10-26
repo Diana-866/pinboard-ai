@@ -13,6 +13,7 @@ export const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [unverified, setUnverified] = useState(false); // 403: email не подтверждён
   const [resent, setResent] = useState(false);
+  const [resendWait, setResendWait] = useState(0);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { refreshUser } = useAuth();
@@ -35,8 +36,11 @@ export const Login: React.FC = () => {
       const message = err?.message || 'Не удалось войти. Попробуйте ещё раз.';
       // Бэкенд отвечает 403 «Подтвердите email…», если users.email_verified=false,
       // и при этом сам высылает письмо повторно (не чаще раза в 5 минут).
-      if (err?.status === 403 && /подтвердите email/i.test(message)) {
+      if (err?.status === 403 && (err?.data?.code === 'email_not_verified' || /подтвердите email/i.test(message))) {
         setUnverified(true);
+        // emailSent=true — письмо уже ушло этим запросом; иначе показываем, через сколько ждать
+        setResent(!!err?.data?.emailSent);
+        setResendWait(Number(err?.data?.retryAfterSeconds) || 0);
       }
       setError(message);
     } finally {
@@ -87,14 +91,21 @@ export const Login: React.FC = () => {
                 Письмо отправлено ещё раз. Проверьте почту (и папку «Спам»).
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={handleResend}
-                disabled={loading}
-                className="w-full rounded-xl border border-subtle py-2.5 text-sm font-semibold text-primary-theme hover:bg-page transition-colors disabled:opacity-50"
-              >
-                {loading ? 'Отправляем…' : 'Отправить письмо снова'}
-              </button>
+              <>
+                {resendWait > 0 && (
+                  <p className="mb-2 text-xs text-secondary-theme">
+                    Повторная отправка будет доступна через {Math.max(1, Math.ceil(resendWait / 60))} мин.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={loading || resendWait > 0}
+                  className="w-full rounded-xl border border-subtle py-2.5 text-sm font-semibold text-primary-theme hover:bg-page transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'Отправляем…' : 'Отправить письмо снова'}
+                </button>
+              </>
             )}
           </div>
         )}

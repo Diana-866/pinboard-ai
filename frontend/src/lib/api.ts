@@ -2,9 +2,13 @@ const API_URL = (import.meta as any).env?.VITE_API_URL || "https://pinboard-ai-b
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  /** Доп. поля ответа: например 403 при неподтверждённом email содержит
+   *  { code: 'email_not_verified', emailSent, retryAfterSeconds, email } */
+  data: any;
+  constructor(message: string, status: number, data: any = null) {
     super(message);
     this.status = status;
+    this.data = data;
   }
 }
 
@@ -46,7 +50,7 @@ export async function apiRequest(path: string, options: RequestInit = {}) {
         window.location.href = "/login";
       }
     }
-    throw new ApiError(data?.error || "Произошла ошибка. Попробуйте ещё раз.", res.status);
+    throw new ApiError(data?.error || "Произошла ошибка. Попробуйте ещё раз.", res.status, data);
   }
 
   return data;

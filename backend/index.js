@@ -121,12 +121,19 @@ function handleError(res, e, publicMessage, status) {
   if (code >= 500) console.error(e);
   else console.error(`[warn] ${code}: ${e && e.message}`);
 
+  // Дополнительные поля (например, 403 email_not_verified: retryAfterSeconds/emailSent)
+  // отдаём рядом с error — фронт показывает точное сообщение без повторных запросов.
+  const extra = e && e.details && typeof e.details === "object" ? e.details : null;
+
   if (code >= 500) {
     return res.status(code).json({
       error: publicMessage || "Внутренняя ошибка сервера, попробуйте позже",
     });
   }
-  return res.status(code).json({ error: publicMessage || (e && e.message) || "Ошибка запроса" });
+  return res.status(code).json({
+    error: publicMessage || (e && e.message) || "Ошибка запроса",
+    ...(extra || {}),
+  });
 }
 
 app.get("/", (req, res) => {
@@ -169,7 +176,7 @@ app.post("/login", authLimiter, async (req, res) => {
 //  - вызов со страницы VerifyEmail.tsx (Accept: application/json) — JSON-ответ,
 //    страница сама показывает успех/ошибку и делает переход ко входу.
 app.get("/verify-email", verifyLimiter, async (req, res) => {
-  const base = process.env.FRONTEND_URL || "https://pinposy.com";
+  const base = (process.env.FRONTEND_URL || "https://pinposy.com").split(",")[0].trim();
   const wantsJson = String(req.headers.accept || "").includes("application/json");
   try {
     await emailVerify.applyVerification(req.query.token);
@@ -181,7 +188,7 @@ app.get("/verify-email", verifyLimiter, async (req, res) => {
       code >= 500 ? "Внутренняя ошибка сервера, попробуйте позже" : (e && e.message) || "Ошибка подтверждения";
     if (code >= 500) console.error("[verify-email]", e);
     else console.error(`[warn] ${code}: ${e && e.message}`);
-    if (wantsJson) return res.status(code).json({ error: publicMessage });
+    if (wantsJson) return res.status(code).json({ error: publicMessage, code: "email_verify_failed" });
     // Фронт покажет человекочитаемое сообщение на странице VerifyEmail
     return res.redirect(302, `${base}/verify-email?status=error`);
   }
