@@ -44,8 +44,11 @@ import { Login } from './pages/Login';
 import { ForgotPassword } from './pages/ForgotPassword';
 import { ResetPassword } from './pages/ResetPassword';
 import { Register } from './pages/Register';
+import { VerifyEmail } from './pages/VerifyEmail';
+import { CheckEmail } from './pages/CheckEmail';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsOfService } from './pages/TermsOfService';
+import { EmailVerifyBanner } from './components/auth/EmailVerifyBanner';
 
 const MainApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
@@ -289,6 +292,8 @@ const MainApp: React.FC = () => {
 
         {/* Viewport Content */}
         <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-28 sm:pb-32">
+          {/* Баннер «Подтвердите email» — виден, пока users.email_verified=false (миграция 005) */}
+          <EmailVerifyBanner />
           <LockedSection locked={isSectionLocked} onGoToPricing={() => setActiveTab('pricing')}>
           {activeTab === 'dashboard' && (
             <DashboardView
@@ -434,6 +439,8 @@ export default function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/check-email" element={<CheckEmail />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route

@@ -11,6 +11,8 @@ export interface User {
   onboarded?: boolean;
   /** Тариф для «замочков»: none | analytics | start | pro | agency (колонка users.tariff_plan, миграция 004) */
   tariff_plan?: 'none' | 'analytics' | 'start' | 'pro' | 'agency';
+  /** Подтверждён ли email (колонка users.email_verified, миграция 005). undefined — миграция не применена */
+  email_verified?: boolean;
   is_admin?: boolean;
   /** Совместимость с компонентами, проверяющими тариф по названию */
   plan?: string;

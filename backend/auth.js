@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const supabase = require("./supabase");
 const { httpError, validateEmail, validatePassword } = require("./validate");
+const emailVerify = require("./email-verify");
 
 const TOKEN_TTL = "7d";
 
@@ -9,6 +10,9 @@ const TOKEN_TTL = "7d";
 // защита от тайминг-атак (ответ всегда одинаково долгий)
 const DUMMY_HASH = bcrypt.hashSync("invalid-placeholder-password", 10);
 
+// Регистрация: аккаунт создаётся НЕподтверждённым, JWT не выдаётся.
+// Вместо токена — письмо со ссылкой подтверждения (миграция 005: users.email_verified).
+// Почтовый сбой не ломает регистрацию: письмо можно запросить повторно на /login.
 async function register(rawEmail, rawPassword, rawName, rawSurname) {
   const email = validateEmail(rawEmail);
   const password = validatePassword(rawPassword);
@@ -46,9 +50,18 @@ async function register(rawEmail, rawPassword, rawName, rawSurname) {
   }
   if (error) throw new Error(error.message);
 
-  const token = jwt.sign({ userId: data.id }, process.env.JWT_SECRET, { expiresIn: TOKEN_TTL });
+  // Письмо со ссылкой подтверждения (TTL 24 часа). Регистрация успешна и без письма,
+  // но войти пользователь сможет только после подтверждения — письмо высылается повторно на /login.
+  const sent = await emailVerify.issueVerificationToken(data);
+  if (!sent) {
+    console.warn(`[register] письмо подтверждения не отправлено для ${email} — пользователь сможет запросить повторно`);
+  }
+
   return {
-    token,
+    ok: true,
+    needVerification: true,
+    message:
+      "Аккаунт создан. Мы отправили письмо со ссылкой подтверждения на ваш email — перейдите по ней, чтобы войти.",
     user: { id: data.id, email: data.email, onboarded: false, tariff_plan: "none" },
   };
 }
@@ -66,6 +79,26 @@ async function login(rawEmail, rawPassword) {
   const isValid = await bcrypt.compare(rawPassword, user?.password_hash || DUMMY_HASH);
   if (!user || !isValid) {
     throw httpError(401, "Неверный email или пароль");
+  }
+
+  // Email не подтверждён: вход запрещён, письмо высылаем повторно
+  // (не чаще раза в 5 минут — троттлинг по последнему email_verify токену).
+  // Строгая проверка === false: если миграция 005 ещё не применена, колонки нет —
+  // не блокируем всех подряд, а просто предупреждаем в лог (как с 003/004 выше).
+  if (user.email_verified === false) {
+    const allowed = await emailVerify.canResend(user.id);
+    if (allowed) {
+      await emailVerify.issueVerificationToken(user);
+    }
+    throw httpError(
+      403,
+      allowed
+        ? "Подтвердите email — письмо отправлено повторно"
+        : "Подтвердите email — письмо уже отправлено, повторная отправка будет доступна через несколько минут"
+    );
+  }
+  if (user.email_verified == null) {
+    console.warn("[login] users.email_verified отсутствует — примените миграцию 005 (вход без подтверждения)");
   }
 
   const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: TOKEN_TTL });

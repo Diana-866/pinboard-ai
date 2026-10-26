@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiRequest } from '../lib/api';
-import { useAuth } from '../context/AuthContext';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -27,7 +26,6 @@ export const Register: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { refreshUser } = useAuth();
 
   const strength = passwordStrength(password);
   const canSubmit = agree && email && password.length >= 8 && password === confirm && !loading;
@@ -49,16 +47,15 @@ export const Register: React.FC = () => {
     }
     setLoading(true);
     try {
-      const data = await apiRequest('/register', {
+      await apiRequest('/register', {
         method: 'POST',
         body: JSON.stringify({ email: email.trim(), password, name: name.trim() || undefined, surname: surname.trim() || undefined }),
       });
-      localStorage.setItem('token', data.token);
-      await refreshUser();
-      navigate('/app');
+      // JWT при регистрации не выдаётся: сначала подтверждение email.
+      // Экран «Проверьте почту» с кнопкой повторной отправки.
+      navigate(`/check-email?email=${encodeURIComponent(email.trim())}`, { replace: true });
     } catch (err: any) {
       setError(err.message || 'Не удалось создать аккаунт. Попробуйте ещё раз.');
-    } finally {
       setLoading(false);
     }
   }

@@ -67,6 +67,15 @@ const aiLimiter = rateLimit({
   message: { error: "Слишком много запросов. Подождите минуту." },
 });
 
+// Лимит для одноразовых ссылок из писем: попыток перебора токенов быть не должно
+const verifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Слишком много запросов. Попробуйте через 15 минут." },
+});
+
 const { generateImage } = require("./gptunnel");
 const { register, login, verifyToken } = require("./auth");
 const supabase = require("./supabase");
@@ -76,6 +85,7 @@ const { generatePins } = require("./pins");
 const { uploadPinImage } = require("./storage");
 const mail = require("./mail");
 const passwordReset = require("./password-reset");
+const emailVerify = require("./email-verify");
 
 // Загрузка своих изображений пинов (замена временных ссылок GPTunnel на постоянные)
 const multer = require("multer");
@@ -152,6 +162,54 @@ app.post("/login", authLimiter, async (req, res) => {
   }
 });
 
+// Подтверждение email: переход по ссылке из письма (применяем токен).
+// Два режима одного роута:
+//  - прямой переход по ссылке (Accept: text/html) — классический 302-редирект
+//    на фронт: успех → /login?verified=1, ошибка → /verify-email?status=error;
+//  - вызов со страницы VerifyEmail.tsx (Accept: application/json) — JSON-ответ,
+//    страница сама показывает успех/ошибку и делает переход ко входу.
+app.get("/verify-email", verifyLimiter, async (req, res) => {
+  const base = process.env.FRONTEND_URL || "https://pinposy.com";
+  const wantsJson = String(req.headers.accept || "").includes("application/json");
+  try {
+    await emailVerify.applyVerification(req.query.token);
+    if (wantsJson) return res.json({ ok: true, redirect: `${base}/login?verified=1` });
+    return res.redirect(302, `${base}/login?verified=1`);
+  } catch (e) {
+    const code = e && e.httpStatus ? e.httpStatus : 500;
+    const publicMessage =
+      code >= 500 ? "Внутренняя ошибка сервера, попробуйте позже" : (e && e.message) || "Ошибка подтверждения";
+    if (code >= 500) console.error("[verify-email]", e);
+    else console.error(`[warn] ${code}: ${e && e.message}`);
+    if (wantsJson) return res.status(code).json({ error: publicMessage });
+    // Фронт покажет человекочитаемое сообщение на странице VerifyEmail
+    return res.redirect(302, `${base}/verify-email?status=error`);
+  }
+});
+
+// Повторная отправка письма подтверждения.
+// Два режима: с Authorization-токеном (кабинет) или с { email } в теле (страница входа).
+// Ответ всегда ok:true — эндпоинт не раскрывает, существует ли такой email.
+app.post("/resend-verification", verifyLimiter, async (req, res) => {
+  try {
+    let userIdFromToken = null;
+    try {
+      const header = req.headers.authorization || "";
+      const token = header.replace(/^Bearer\s+/i, "").trim();
+      if (token) userIdFromToken = verifyToken(token).userId;
+    } catch {
+      userIdFromToken = null; // невалидный токен — просто отвечаем анонимно
+    }
+    const result = await emailVerify.resendVerification(
+      req.body && req.body.email,
+      userIdFromToken
+    );
+    res.json(result);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 // Забыли пароль: одинаковый ответ для всех email (защита от перебора)
 app.post("/forgot-password", authLimiter, async (req, res) => {
   try {
@@ -198,6 +256,7 @@ app.get("/me", requireAuth, async (req, res) => {
       subscription_tier: row.subscription_tier ?? "free",
       onboarded: row.onboarded ?? false,
       tariff_plan: row.tariff_plan ?? "none",
+      email_verified: row.email_verified ?? true, // миграция 005; нет колонки — считаем подтверждённым
       is_admin: !!row.is_admin,
     });
   } catch (e) {

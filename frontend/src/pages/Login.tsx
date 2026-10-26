@@ -1,13 +1,18 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { apiRequest } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
 export const Login: React.FC = () => {
+  const [params] = useSearchParams();
+  const justVerified = params.get('verified') === '1';
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [unverified, setUnverified] = useState(false); // 403: email не подтверждён
+  const [resent, setResent] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { refreshUser } = useAuth();
@@ -15,6 +20,8 @@ export const Login: React.FC = () => {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    setUnverified(false);
+    setResent(false);
     setLoading(true);
     try {
       const data = await apiRequest('/login', {
@@ -25,7 +32,31 @@ export const Login: React.FC = () => {
       await refreshUser();
       navigate('/app');
     } catch (err: any) {
-      setError(err.message || 'Не удалось войти. Попробуйте ещё раз.');
+      const message = err?.message || 'Не удалось войти. Попробуйте ещё раз.';
+      // Бэкенд отвечает 403 «Подтвердите email…», если users.email_verified=false,
+      // и при этом сам высылает письмо повторно (не чаще раза в 5 минут).
+      if (err?.status === 403 && /подтвердите email/i.test(message)) {
+        setUnverified(true);
+      }
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Повторная отправка письма подтверждения по email из формы
+  async function handleResend() {
+    setError('');
+    setResent(false);
+    setLoading(true);
+    try {
+      await apiRequest('/resend-verification', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      });
+      setResent(true);
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось отправить письмо. Попробуйте позже.');
     } finally {
       setLoading(false);
     }
@@ -37,9 +68,34 @@ export const Login: React.FC = () => {
         <h1 className="mb-1 text-2xl font-semibold tracking-tight text-primary-theme">Вход</h1>
         <p className="mb-6 text-sm text-secondary-theme">С возвращением! Войдите в свой аккаунт.</p>
 
+        {justVerified && !error && (
+          <div className="mb-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+            Email подтверждён ✓ Теперь войдите в свой аккаунт.
+          </div>
+        )}
+
         {error && (
           <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
             {error}
+          </div>
+        )}
+
+        {unverified && (
+          <div className="mb-4">
+            {resent ? (
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+                Письмо отправлено ещё раз. Проверьте почту (и папку «Спам»).
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={loading}
+                className="w-full rounded-xl border border-subtle py-2.5 text-sm font-semibold text-primary-theme hover:bg-page transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Отправляем…' : 'Отправить письмо снова'}
+              </button>
+            )}
           </div>
         )}
 
