@@ -48,6 +48,21 @@ app.use(
     },
   })
 );
+// Вебхук Prodamus приходит как application/x-www-form-urlencoded — парсим его
+// отдельным middleware ровно на своём пути, до json-парсера и до CORS-ответов.
+app.post(
+  "/billing/webhook",
+  express.urlencoded({ extended: true, limit: "100kb", type: () => true }),
+  async (req, res) => {
+    try {
+      await billing.handleWebhook(req, res);
+    } catch (e) {
+      console.error("[billing] ошибка обработки вебхука:", e && e.message);
+      if (!res.headersSent) res.status(500).json({ ok: false, error: "internal" });
+    }
+  }
+);
+
 app.use(express.json({ limit: "100kb" })); // ограничение размера тела (B12)
 
 const authLimiter = rateLimit({
@@ -86,6 +101,9 @@ const { uploadPinImage } = require("./storage");
 const mail = require("./mail");
 const passwordReset = require("./password-reset");
 const emailVerify = require("./email-verify");
+const billing = require("./billing");
+const prodamus = require("./prodamus");
+const { requireTariff, getTariffState } = require("./tariff");
 
 // Загрузка своих изображений пинов (замена временных ссылок GPTunnel на постоянные)
 const multer = require("multer");
@@ -263,6 +281,13 @@ app.get("/me", requireAuth, async (req, res) => {
       subscription_tier: row.subscription_tier ?? "free",
       onboarded: row.onboarded ?? false,
       tariff_plan: row.tariff_plan ?? "none",
+      // Дата окончания оплаченного периода (миграция 006). null — тариф без срока/не оплачен.
+      tariff_period_end: row.tariff_period_end ?? null,
+      // Активна ли подписка прямо сейчас: кабинет по этому полю снимает «замочки».
+      subscription_active:
+        (row.tariff_plan || "none") !== "none" &&
+        (!row.tariff_period_end || new Date(row.tariff_period_end).getTime() > Date.now()),
+      payment_provider: "prodamus",
       email_verified: row.email_verified ?? true, // миграция 005; нет колонки — считаем подтверждённым
       is_admin: !!row.is_admin,
     });
@@ -364,6 +389,18 @@ app.patch("/me/onboarding", requireAuth, async (req, res) => {
 // При подключении платёжки заменить на webhook платёжного провайдера.
 app.patch("/me/tariff", requireAuth, async (req, res) => {
   try {
+    // В продакшене тариф меняется только вебхуком Prodamus.
+    // Ручная подмена остаётся для локальной разработки (ALLOW_TARIFF_SELF_SELECT=1)
+    // и для администратора (выдать тариф вручную без оплаты).
+    if (process.env.ALLOW_TARIFF_SELF_SELECT !== "1" && process.env.NODE_ENV === "production") {
+      const { data: me } = await supabase.from("users").select("is_admin").eq("id", req.userId).single();
+      if (!me || !me.is_admin) {
+        throw httpError(
+          403,
+          "Тариф меняется после оплаты. Выберите тариф на странице «Тарифы» — ссылка на оплату придёт с сервера."
+        );
+      }
+    }
     const plan = req.body && req.body.plan;
     if (!["none", "analytics", "start", "pro", "agency"].includes(plan)) {
       throw httpError(422, "plan: допустимые значения — none, analytics, start, pro, agency");
@@ -469,7 +506,7 @@ app.post("/projects/:id/analyze", aiLimiter, requireAuth, async (req, res) => {
 
 // --- Доски ---
 
-app.post("/projects/:id/boards/generate", aiLimiter, requireAuth, async (req, res) => {
+app.post("/projects/:id/boards/generate", aiLimiter, requireAuth, requireTariff(["standard", "pro", "agency", "start"]), async (req, res) => {
   try {
     const { data: project, error: fetchError } = await supabase
       .from("projects")
@@ -606,7 +643,7 @@ app.post("/pins/:id/image", requireAuth, imageUpload.single("image"), async (req
   }
 });
 
-app.post("/pins/:id/regenerate", aiLimiter, requireAuth, async (req, res) => {
+app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standard", "pro", "agency", "start"]), async (req, res) => {
   try {
     const pin = await getPinWithOwnerCheck(req.params.id, req.userId);
     const instruction = optionalString(req.body && req.body.instruction, { max: 300 }) || "";
@@ -707,7 +744,7 @@ app.get("/boards/:id/pins", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, async (req, res) => {
+app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["standard", "pro", "agency", "start"]), async (req, res) => {
   try {
     const board = await getBoardWithOwnerCheck(req.params.id, req.userId);
     const model = validateEnum(req.body && req.body.model, Object.keys(MODEL_PRICES), "flux-schnell", "Модель");
@@ -808,6 +845,44 @@ app.post("/credits/dev-topup", async (req, res) => {
   }
 });
 
+// --- Биллинг (Prodamus) ---
+
+// Каталог тарифов с ценами — фронт берёт сумму из одного источника
+app.get("/billing/plans", (req, res) => {
+  res.json({ provider: "prodamus", demo: prodamus.isDemo(), configured: prodamus.isConfigured(), plans: billing.planCatalog() });
+});
+
+// Создание платежа: pending-запись в subscriptions + ссылка на оплату Prodamus
+app.post("/billing/create-payment", requireAuth, async (req, res) => {
+  try {
+    const result = await billing.createPayment(req.userId, req.body);
+    res.status(201).json(result);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// История подписок текущего пользователя (кабинет → «Тарифы»)
+app.get("/billing/subscriptions", requireAuth, async (req, res) => {
+  try {
+    const state = await getTariffState(req.userId);
+    const subscriptions = await billing.listUserSubscriptions(req.userId);
+    res.json({ tariff: state, subscriptions });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// Служебная проверка конфигурации: удобно дёрнуть после деплоя на Render
+app.get("/billing/health", (req, res) => {
+  res.json({
+    configured: prodamus.isConfigured(),
+    demo: prodamus.isDemo(),
+    offline: prodamus.isOffline(),
+    webhook_url: (process.env.PUBLIC_BACKEND_URL || process.env.BACKEND_URL || "не задан PUBLIC_BACKEND_URL") + "/billing/webhook",
+  });
+});
+
 // --- Админка ---
 
 app.get("/admin/stats", requireAuth, requireAdmin, async (req, res) => {
@@ -846,6 +921,16 @@ app.post("/admin/mail/reply", requireAuth, requireAdmin, async (req, res) => {
     if (!to || !subject || !text) throw httpError(422, "Нужны поля to, subject, text");
     const result = await mail.replyToMessage(to, subject, text);
     res.json(result);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// Список подписок и платежей для админки
+app.get("/admin/subscriptions", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const data = await billing.listAllSubscriptions(Number(req.query.limit) || 200);
+    res.json(data);
   } catch (e) {
     handleError(res, e);
   }

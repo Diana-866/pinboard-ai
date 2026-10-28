@@ -60,13 +60,38 @@ const MainApp: React.FC = () => {
   const [isBotOpen, setIsBotOpen] = useState<boolean>(false);
 
   const { toast, clearToast } = useNotifications();
+  const { refreshUser } = useAuth();
  const { activeViewMode, setActiveViewMode, isPrivacyModalOpen, closePrivacyModal, isAdmin, user } = useAuth();
 
   // Тарифные «замочки»: генерацию и разделы открывают Старт/Про/Agency;
   // тариф «Аналитика» (990₽) и «нет тарифа» оставляют замочки (миграция 004)
   const tariffPlan = user?.tariff_plan || 'none';
-  const isTariffUnlocked = tariffPlan === 'start' || tariffPlan === 'pro' || tariffPlan === 'agency';
+  // Тариф «standard» — старое имя «Про» (алиас миграции 004). Считаем его активным.
+  const normalizedPlan = tariffPlan === 'standard' ? 'pro' : tariffPlan;
+  // subscription_active приходит из /me (миграция 006): false, если оплаченный период истёк.
+  // Если поле не пришло (старый бэкенд) — доверяем самому tariff_plan.
+  const subscriptionActive = user?.subscription_active !== false;
+  const isTariffUnlocked =
+    subscriptionActive && ['start', 'pro', 'agency'].includes(normalizedPlan);
   const isSectionLocked = !isTariffUnlocked && activeTab !== 'analytics' && activeTab !== 'pricing';
+
+  // Возврат со страницы оплаты Prodamus: ?payment=success (urlReturn в billing.js).
+  // Вебхук и редирект идут параллельно, поэтому обновляем /me несколько раз:
+  // 0 c, 3 c, 8 c, 15 c — замочки снимаются, как только Prodamus подтвердит платёж.
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment') !== 'success') return;
+    const timers = [0, 3000, 8000, 15000].map((ms) =>
+      window.setTimeout(() => {
+        refreshUser().catch(() => {});
+      }, ms)
+    );
+    // Чистим query, чтобы обновление страницы не запускало опрос заново
+    const url = new URL(window.location.href);
+    url.searchParams.delete('payment');
+    window.history.replaceState({}, '', url.toString());
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, [refreshUser]);
 
   // Онбординг: визард показываем, пока пользователь его не прошёл
   const needsOnboarding = !!user && user.onboarded === false;

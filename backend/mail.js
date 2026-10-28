@@ -116,4 +116,39 @@ async function replyToMessage(to, subject, text) {
   return { ok: true };
 }
 
-module.exports = { listInbox, fetchMessageBody, replyToMessage, mailConfigured };
+// Универсальная отправка письма (используется биллингом: «Тариф активирован»).
+// Не бросает исключение наружу без needThrow — вызывающий код сам решает, критично ли это.
+async function sendMail({ to, subject, text }, { needThrow = true } = {}) {
+  if (!process.env.MAIL_SMTP_HOST || !process.env.MAIL_USER || !process.env.MAIL_PASS) {
+    if (!needThrow) {
+      console.warn("[mail] SMTP не настроен — письмо не отправлено:", subject);
+      return { ok: false, skipped: true };
+    }
+    throw httpError(503, "SMTP не настроен: задайте MAIL_SMTP_HOST, MAIL_USER, MAIL_PASS на сервере");
+  }
+  const nodemailer = require("nodemailer");
+  const transporter = nodemailer.createTransport({
+    host: process.env.MAIL_SMTP_HOST,
+    port: Number(process.env.MAIL_SMTP_PORT || 465),
+    secure: Number(process.env.MAIL_SMTP_PORT || 465) === 465,
+    auth: { user: process.env.MAIL_USER, pass: process.env.MAIL_PASS },
+  });
+
+  try {
+    await transporter.sendMail({
+      from: process.env.MAIL_FROM || process.env.MAIL_USER,
+      to,
+      subject,
+      text,
+    });
+    return { ok: true };
+  } catch (e) {
+    if (!needThrow) {
+      console.error("[mail] письмо не отправлено:", e.message);
+      return { ok: false, error: e.message };
+    }
+    throw e;
+  }
+}
+
+module.exports = { listInbox, fetchMessageBody, replyToMessage, mailConfigured, sendMail };

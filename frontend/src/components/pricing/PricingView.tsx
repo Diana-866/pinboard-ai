@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   CreditCard,
   Sparkles,
@@ -20,13 +20,47 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
+import { useAuth } from '../../context/AuthContext';
+import { payAndRedirect, PayablePlan, SubscriptionRow } from '../../lib/billing';
+import { apiRequest } from '../../lib/api';
 
 export const PricingView: React.FC = () => {
   const { t } = useI18n();
+  const { user, refreshUser } = useAuth();
+  // Реальная оплата: создаём платёж на бэкенде и уводим на страницу Prodamus
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const [payError, setPayError] = useState<string | null>(null);
+  const [history, setHistory] = useState<SubscriptionRow[]>([]);
+  const [tariffEnd, setTariffEnd] = useState<string | null>(null);
+
+  // История платежей пользователя — доказательство, что вебхук сработал
+  const loadHistory = () => {
+    if (!user) return;
+    apiRequest('/billing/subscriptions')
+      .then((res: any) => {
+        setHistory(res?.subscriptions || []);
+        setTariffEnd(res?.tariff?.periodEnd || null);
+      })
+      .catch(() => {});
+  };
+  useEffect(() => {
+    loadHistory();
+  }, [user?.id, user?.tariff_plan]);
+
+  const handlePay = async (planId: string) => {
+    setPayError(null);
+    setPayingId(planId);
+    try {
+      await payAndRedirect(planId as PayablePlan, currency);
+    } catch (e: any) {
+      setPayError(e?.message || t.pricing.paymentError || 'Не удалось создать платёж');
+      setPayingId(null);
+    }
+  };
 
   const [activeTab, setActiveTab] = useState<'plans' | 'credits'>('plans');
   const [currency, setCurrency] = useState<'rub' | 'usd'>('rub');
-  const [currentPlanId, setCurrentPlanId] = useState<string>('pro');
+  const [currentPlanId, setCurrentPlanId] = useState<string>(user?.tariff_plan && user.tariff_plan !== 'none' ? user.tariff_plan : 'none');
 
   // Realistic dual-counter credit state based on user's exact specification
   const [subscriptionCredits, setSubscriptionCredits] = useState<number>(340);
@@ -455,16 +489,21 @@ export const PricingView: React.FC = () => {
 
                   {/* Select Plan Button */}
                   <button
-                    onClick={() => setCurrentPlanId(plan.id)}
-                    className={`w-full py-2.5 px-4 rounded-xl text-xs md:text-sm font-semibold transition-all cursor-pointer shadow-xs ${
+                    onClick={() => handlePay(plan.id)}
+                    disabled={payingId === plan.id}
+                    className={`w-full py-2.5 px-4 rounded-xl text-xs md:text-sm font-semibold transition-all cursor-pointer shadow-xs disabled:opacity-60 disabled:cursor-wait ${
                       isCurrent
-                        ? 'bg-subtle text-primary-theme border border-accent font-bold'
+                        ? 'bg-surface text-primary-theme border border-accent font-bold hover:bg-subtle'
                         : plan.popular
                         ? 'accent-btn'
                         : 'border border-subtle bg-surface hover:bg-subtle text-primary-theme'
                     }`}
                   >
-                    {isCurrent ? t.pricing.activePlan : `${t.pricing.choosePlan} «${plan.name}»`}
+                    {payingId === plan.id
+                      ? t.pricing.paymentCreating || 'Создаём счёт…'
+                      : isCurrent
+                      ? t.pricing.renewPlan || 'Продлить тариф'
+                      : `${t.pricing.choosePlan} «${plan.name}»`}
                   </button>
                 </div>
               );
