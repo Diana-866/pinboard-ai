@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Mail, Receipt, ShieldCheck, FileText, Globe2 } from 'lucide-react';
+import { ArrowLeft, Mail, Receipt, ShieldCheck, FileText, Globe2, Coins } from 'lucide-react';
 import { useI18n } from '../i18n/i18nContext';
 
 const ROSE_CTA = '#B96B7C';
@@ -15,6 +15,17 @@ export const SELLER = {
   email: 'support@pinposy.com',
   site: 'https://pinposy.com',
 };
+
+/* Актуальные цены. Должны совпадать с:
+ *   - лендингом (frontend/src/pages/Landing.tsx, tariffPlans),
+ *   - кабинетом (frontend/src/components/pricing/PricingView.tsx, plans),
+ *   - бэкендом (backend/billing.js, PLANS) — именно эти суммы уходят в Prodamus. */
+const PLANS = [
+  { id: 'analytics', ru: 'Аналитика', en: 'Analytics', rub: '990 ₽', usd: '$11.9' },
+  { id: 'start', ru: 'Старт', en: 'Start', rub: '1 990 ₽', usd: '$24.0' },
+  { id: 'pro', ru: 'Про', en: 'Pro', rub: '4 990 ₽', usd: '$60.1' },
+  { id: 'agency', ru: 'Agency', en: 'Agency', rub: '12 990 ₽', usd: '$156.5' },
+];
 
 export const Contacts: React.FC = () => {
   const { language } = useI18n();
@@ -90,6 +101,48 @@ export const Contacts: React.FC = () => {
               support@pinposy.com
             </a>
             {ru ? '. Отвечаем в течение одного рабочего дня.' : '. We reply within one business day.'}
+          </p>
+        </section>
+
+        {/* Тарифы и стоимость — третий пункт проверки сайта в Prodamus */}
+        <section className="mt-8">
+          <h2 className="flex items-center gap-2 font-heading text-sm font-extrabold text-[#2A1F24]">
+            <Coins className="h-4 w-4" style={{ color: ROSE_CTA }} />
+            {ru ? 'Тарифы и стоимость' : 'Plans and pricing'}
+          </h2>
+          <p className="mt-2 text-[13px] leading-relaxed text-[#8A6E76]">
+            {ru
+              ? 'Подписка оформляется на 30 дней с момента подтверждения оплаты. Автоматического продления и списаний без вашего действия нет — по окончании периода тариф продлевается вручную в разделе «Тарифы».'
+              : 'A subscription runs for 30 days from payment confirmation. There is no automatic renewal or charge without your action — it is renewed manually in the Pricing section.'}
+          </p>
+
+          <div className="mt-3 rounded-2xl border border-[#F2DFE4] bg-white px-4 py-2">
+            {PLANS.map((p) => (
+              <div
+                key={p.id}
+                className="flex items-baseline justify-between gap-3 border-b border-[#F2DFE4] py-2.5 last:border-0"
+              >
+                <span className="text-[13.5px] font-semibold text-[#2A1F24]">{ru ? p.ru : p.en}</span>
+                <span className="whitespace-nowrap text-[13.5px] font-semibold text-[#A94D5F]">
+                  {p.rub} <span className="font-normal text-[#8A6E76]">{ru ? '/ мес' : '/ mo'}</span>
+                  <span className="ml-2 font-normal text-[#B29AA1]">{p.usd}</span>
+                </span>
+              </div>
+            ))}
+            <div className="flex items-baseline justify-between gap-3 py-2.5">
+              <span className="text-[13.5px] font-semibold text-[#2A1F24]">
+                {ru ? 'Пакеты кредитов (бессрочные)' : 'Credit packs (non-expiring)'}
+              </span>
+              <span className="whitespace-nowrap text-[13.5px] font-semibold text-[#A94D5F]">
+                {ru ? 'от 550 ₽' : 'from 550 ₽'}
+              </span>
+            </div>
+          </div>
+
+          <p className="mt-2 text-[11.5px] leading-relaxed text-[#B29AA1]">
+            {ru
+              ? 'В рублях для карт РФ, в долларах США для зарубежных карт (комиссия платёжного сервиса за зарубежные платежи — 10%). Цены одинаковы на лендинге, в кабинете и на этой странице.'
+              : 'Charged in RUB for Russian cards and in USD for international cards (the payment provider charges a 10% fee on cross-border payments). Prices are identical on the landing page, in the app and on this page.'}
           </p>
         </section>
 

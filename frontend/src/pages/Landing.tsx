@@ -1470,6 +1470,20 @@ export const Landing: React.FC = () => {
             <p className="mt-0.5">
               ИНН: <span className="font-mono font-semibold text-[#5F4A51]">231294708907</span>
             </p>
+            {/* Актуальные тарифы и стоимость — третий пункт проверки сайта в Prodamus */}
+            <p className="mt-3 font-extrabold text-[#7A3B47]">
+              {ru ? 'Тарифы и стоимость' : 'Plans and pricing'}
+            </p>
+            <p className="mt-1">
+              {ru
+                ? 'Аналитика — 990 ₽/мес · Старт — 1 990 ₽/мес · Про — 4 990 ₽/мес · Agency — 12 990 ₽/мес'
+                : 'Analytics — 990 ₽/mo · Start — 1 990 ₽/mo · Pro — 4 990 ₽/mo · Agency — 12 990 ₽/mo'}
+            </p>
+            <p className="mt-0.5">
+              {ru
+                ? 'Цены в долларах: $11,9 / $24,0 / $60,1 / $156,5 в месяц. Оплата за 30 дней доступа, без автосписаний.'
+                : 'USD prices: $11.9 / $24.0 / $60.1 / $156.5 per month. One payment covers 30 days, no auto-charges.'}
+            </p>
             <p className="mt-1.5">
               <a href="mailto:support@pinposy.com" className="font-semibold text-[#A94D5F] hover:underline">
                 support@pinposy.com
