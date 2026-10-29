@@ -98,12 +98,16 @@ function safeEqual(a, b) {
  * Подпись приходит в заголовке `Sign` и считается по тем же правилам, что и для REST API.
  * Возвращает { ok, reason }.
  */
+
 function verifyWebhook(body, headers) {
-  // В кабинете Prodamus может быть ДВА секретных ключа: «для формирования платёжной ссылки»
-  // и «для уведомлений об оплате». Уведомления подписываются вторым. Поэтому:
-  //   PRODAMUS_SECRET_WEBHOOK — ключ уведомлений (если он отдельный),
-  //   PRODAMUS_SECRET         — ключ платёжной формы (используется, если первый не задан).
-  const secret = process.env.PRODAMUS_SECRET_WEBHOOK || process.env.PRODAMUS_SECRET;
+  // Отдельный секрет для уведомлений об оплате, если он настроен.
+  const secret =
+    process.env.PRODAMUS_SECRET_WEBHOOK || process.env.PRODAMUS_SECRET;
+
+  if (!secret) {
+    return { ok: false, reason: "PRODAMUS_SECRET не задан" };
+  }
+
   if (!secret) {
     // Без секрета проверить нельзя. В продакшене это фатально, но не роняем сервер:
     // в лог попадает явная ошибка, вебхук отклоняется (см. handleWebhook).
