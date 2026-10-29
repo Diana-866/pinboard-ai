@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { payAndRedirect, PayablePlan } from '../lib/billing';
 import { useI18n } from '../i18n/i18nContext';
 import { SupportedLanguage } from '../i18n/types';
 
@@ -585,6 +586,24 @@ export const Landing: React.FC = () => {
   const s = L[lang] || L.en;
   const ru = lang === 'ru';
   const [tariffCurrency, setTariffCurrency] = useState<'rub' | 'usd'>('rub');
+  const [payingPlan, setPayingPlan] = useState<string | null>(null);
+  const [payError, setPayError] = useState<string | null>(null);
+
+  // Кнопка тарифа: гость → регистрация, авторизованный → ссылка на оплату Prodamus
+  const handleSelectPlan = async (planId: string) => {
+    setPayError(null);
+    if (!user) {
+      navigate('/register?plan=' + planId);
+      return;
+    }
+    setPayingPlan(planId);
+    try {
+      await payAndRedirect(planId as PayablePlan, tariffCurrency);
+    } catch (e: any) {
+      setPayError(e?.message || 'Не удалось создать платёж. Попробуйте ещё раз.');
+      setPayingPlan(null);
+    }
+  };
 
   const tariffPlans = ru
     ? [
@@ -1325,20 +1344,30 @@ export const Landing: React.FC = () => {
                   </ul>
                 </div>
 
-                <Link
-                  to={user ? '/app' : '/register'}
-                  className={`mt-5 block text-center rounded-xl py-2.5 text-[12px] font-extrabold transition-all ${
+                <button
+                  type="button"
+                  onClick={() => handleSelectPlan(plan.id)}
+                  disabled={payingPlan === plan.id}
+                  className={`mt-5 block w-full text-center rounded-xl py-2.5 text-[12px] font-extrabold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-wait ${
                     plan.popular
                       ? 'text-white shadow-md hover:shadow-lg'
                       : 'border border-[#F2DFE4] text-[#7A3B47] hover:border-[#B96B7C] hover:bg-[#FDF6F7]'
                   }`}
                   style={plan.popular ? { background: ROSE_CTA } : undefined}
                 >
-                  {(ru ? 'Выбрать тариф «' : 'Choose «') + plan.name + '»'}
-                </Link>
+                  {payingPlan === plan.id
+                    ? (ru ? 'Создаём счёт…' : 'Creating invoice…')
+                    : (ru ? 'Выбрать тариф «' : 'Choose «') + plan.name + '»'}
+                </button>
               </motion.div>
             ))}
           </div>
+
+          {payError && (
+            <p className="mt-4 rounded-xl border border-[#F0C7CE] bg-[#FDF2F4] px-4 py-2.5 text-center text-[11.5px] font-semibold text-[#A94D5F]">
+              {payError}
+            </p>
+          )}
 
           <p className="mt-6 text-center text-[11px] text-[#B29AA1]">
             {ru
@@ -1425,6 +1454,31 @@ export const Landing: React.FC = () => {
             <Link to="/privacy" className="hover:text-[#C25E6F] transition-colors">{s.footerPrivacy}</Link>
             <Link to="/terms" className="hover:text-[#C25E6F] transition-colors">{s.footerTerms}</Link>
             <a href="mailto:support@pinposy.com" className="hover:text-[#C25E6F] transition-colors">{s.footerSupport}</a>
+          </div>
+        </div>
+        {/* Реквизиты исполнителя — обязательный блок для проверки сайта в Prodamus */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-10">
+          <div className="rounded-2xl border border-[#F2DFE4] bg-white/70 px-4 py-4 text-center text-[11.5px] leading-relaxed text-[#8A6E76]">
+            <p className="font-extrabold text-[#7A3B47]">
+              {ru ? 'Исполнитель услуг' : 'Service provider'}
+            </p>
+            <p className="mt-1">
+              {ru
+                ? 'Баннова Диана Александровна — плательщик налога на профессиональный доход (самозанятая)'
+                : 'Bannova Diana Aleksandrovna — self-employed (Russian professional income tax)'}
+            </p>
+            <p className="mt-0.5">
+              ИНН: <span className="font-mono font-semibold text-[#5F4A51]">231294708907</span>
+            </p>
+            <p className="mt-1.5">
+              <a href="mailto:support@pinposy.com" className="font-semibold text-[#A94D5F] hover:underline">
+                support@pinposy.com
+              </a>
+              {' · '}
+              <Link to="/contacts" className="font-semibold text-[#A94D5F] hover:underline">
+                {ru ? 'Контакты и реквизиты' : 'Contacts & details'}
+              </Link>
+            </p>
           </div>
         </div>
       </footer>

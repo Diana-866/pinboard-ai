@@ -23,6 +23,20 @@
   <body class="antialiased">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-  </body>
+    <!-- Реквизиты исполнителя статическим HTML: видны без исполнения JS.
+       Это требование проверки сайта в Prodamus (ФИО + ИНН в подвале или на «Контактах»)
+       и заодно корректное поведение для посетителей с отключённым JavaScript. -->
+  <noscript>
+    <div style="max-width:720px;margin:24px auto;padding:16px;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:13px;line-height:1.7;color:#5F4A51;border:1px solid #F2DFE4;border-radius:12px;background:#FDF6F7">
+      <strong style="color:#7A3B47">PinPosy</strong> — облачный сервис планирования и автоматизации Pinterest-контента.<br>
+      Исполнитель услуг: <strong>Баннова Диана Александровна</strong> — плательщик налога на профессиональный доход (самозанятая).<br>
+      ИНН: <strong>231294708907</strong><br>
+      E-mail: <a href="mailto:support@pinposy.com" style="color:#A94D5F">support@pinposy.com</a> ·
+      <a href="/contacts" style="color:#A94D5F">Контакты и реквизиты</a> ·
+      <a href="/terms" style="color:#A94D5F">Условия использования</a>
+    </div>
+  </noscript>
+
+</body>
 </html>
 
