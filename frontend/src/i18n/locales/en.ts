@@ -354,6 +354,8 @@ export const en: TranslationSchema = {
     aiBotPlaceholder: 'Ask: "How many credits do I need for 3 boards per month?"...',
     aiBotAsk: 'Ask',
     aiBotOnline: 'Online 24/7',
+    paymentError: 'Could not create the payment. Please try again or contact support.',
+    paymentCreating: 'Creating invoice…',
   },
 
   review: {

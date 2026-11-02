@@ -354,6 +354,8 @@ export const fr: TranslationSchema = {
     aiBotPlaceholder: 'Demander : «Combien de crédits pour animer 3 tableaux par mois ?»...',
     aiBotAsk: 'Demander',
     aiBotOnline: 'En ligne 24h/7j',
+    paymentError: "Impossible de créer le paiement. Réessayez ou contactez le support.",
+    paymentCreating: 'Création de la facture…',
   },
 
   review: {

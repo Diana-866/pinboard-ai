@@ -354,6 +354,8 @@ export const de: TranslationSchema = {
     aiBotPlaceholder: 'Frage: «Wie viele Credits brauche ich für 3 Pinnwände im Monat?»...',
     aiBotAsk: 'Fragen',
     aiBotOnline: 'Online 24/7',
+    paymentError: 'Zahlung konnte nicht erstellt werden. Bitte erneut versuchen oder den Support kontaktieren.',
+    paymentCreating: 'Rechnung wird erstellt…',
   },
 
   review: {

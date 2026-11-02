@@ -55,7 +55,12 @@ app.post(
   express.urlencoded({ extended: true, limit: "100kb", type: () => true }),
   async (req, res) => {
     try {
-      await billing.handleWebhook(req, res);
+      // Диспетчер по префиксу order_id: "ppc-…" — пакеты кредитов, остальные — подписки.
+      // Подпись и формат вебхука одинаковые, обработка разная.
+      const isCreditsOrder = String((req.body && req.body.order_id) || "").startsWith(
+        creditsBilling.ORDER_PREFIX + "-"
+      );
+      await (isCreditsOrder ? creditsBilling.handleCreditsWebhook : billing.handleWebhook)(req, res);
     } catch (e) {
       console.error("[billing] ошибка обработки вебхука:", e && e.message);
       if (!res.headersSent) res.status(500).json({ ok: false, error: "internal" });
@@ -102,6 +107,8 @@ const mail = require("./mail");
 const passwordReset = require("./password-reset");
 const emailVerify = require("./email-verify");
 const billing = require("./billing");
+const creditsBilling = require("./creditsBilling");
+const creditPacks = require("./creditPacks");
 const prodamus = require("./prodamus");
 const { requireTariff, getTariffState } = require("./tariff");
 
@@ -868,6 +875,39 @@ app.get("/billing/subscriptions", requireAuth, async (req, res) => {
     const state = await getTariffState(req.userId);
     const subscriptions = await billing.listUserSubscriptions(req.userId);
     res.json({ tariff: state, subscriptions });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// --- Пакеты кредитов (разовые покупки, НЕ сгорают) ---
+
+// Каталог пакетов с ценами — фронт берёт суммы из одного источника с вебхуком
+app.get("/billing/credit-packs", (req, res) => {
+  res.json({
+    provider: "prodamus",
+    demo: prodamus.isDemo(),
+    configured: prodamus.isConfigured(),
+    packs: creditPacks.packCatalog(),
+  });
+});
+
+// Создание покупки пакета: pending-запись в credit_purchases + ссылка на оплату Prodamus
+app.post("/billing/credits", requireAuth, async (req, res) => {
+  try {
+    const result = await creditsBilling.createCreditsPayment(req.userId, req.body);
+    res.status(201).json(result);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// История покупок пакетов + баланс (кабинет → «Тарифы» → «Кредиты»)
+app.get("/billing/credit-purchases", requireAuth, async (req, res) => {
+  try {
+    const purchases = await creditsBilling.listUserCreditPurchases(req.userId);
+    const balance = await getBalance(req.userId);
+    res.json({ balance, purchases });
   } catch (e) {
     handleError(res, e);
   }

@@ -354,6 +354,8 @@ export const pt: TranslationSchema = {
     aiBotPlaceholder: 'Perguntar: «De quantos créditos preciso para gerenciar 3 pastas por mês?»...',
     aiBotAsk: 'Perguntar',
     aiBotOnline: 'Online 24/7',
+    paymentError: 'Não foi possível criar o pagamento. Tente novamente ou contacte o suporte.',
+    paymentCreating: 'A criar fatura…',
   },
 
   review: {

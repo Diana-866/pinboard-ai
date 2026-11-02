@@ -1,7 +1,84 @@
+// Работа с Prodamus (платёжная форма payform): подпись ссылок, проверка вебхуков.
+// Документация:
+//   ссылки:  https://help.prodamus.ru/help_documentations_pf1/payform/tekhnicheskaya-dokumentaciya/sozdanie-platezhnoy-ssylki
+//   вебхук:  https://help.prodamus.ru/help_documentations_pf1/payform/tekhnicheskaya-dokumentaciya/webhook-ob-oplate
+//
+// ВАЖНО: файл восстановлен (в архиве версия была повреждена — дублированный блок
+// `const provided` и отсутствовавшие функции-хелперы). Поведение сохранено,
+// подпись: HMAC-SHA256(canonical-строка, secret) в base64 — так её ждёт test/billing-flow.js.
+
+const crypto = require("crypto");
+const axios = require("axios");
+const { httpError } = require("./validate");
+
+function isConfigured() {
+  return !!(process.env.PRODAMUS_SHOP_ID && process.env.PRODAMUS_SECRET);
+}
+
+/** Демо-режим Prodamus: платежи виртуальные, реальные деньги не списываются */
+function isDemo() {
+  const v = String(process.env.PRODAMUS_DEMO || "").trim().toLowerCase();
+  return v === "1" || v === "true";
+}
+
+/** Оффлайн-режим: без сети до Prodamus (локальные тесты, CI) — ссылка собирается locally */
+function isOffline() {
+  return String(process.env.PRODAMUS_OFFLINE || "").trim() === "1";
+}
+
+function baseUrl() {
+  return (
+    String(process.env.PRODAMUS_URL || "https://pinposy.payform.ru/")
+      .trim()
+      .replace(/\/?$/, "/") // всегда завершаем слэшем
+  );
+}
+
+/**
+ * Каноническая строка параметров для подписи Prodamus:
+ * ключи сортируются по алфавиту, вложенные объекты/массивы сериализуются в JSON,
+ * параметры соединяются через `&` в виде key=value.
+ */
+function canonicalString(params) {
+  const flat = {};
+  Object.keys(params || {}).forEach((k) => {
+    if (k === "Sign" || k === "sign") return; // сама подпись в каноническую строку не входит
+    const v = params[k];
+    if (v === undefined || v === null) {
+      flat[k] = "";
+      return;
+    }
+    flat[k] = typeof v === "object" ? JSON.stringify(v) : String(v);
+  });
+  // JSON-строка с ключами в отсортированном порядке (replacer-массив) —
+  // ровно тот формат, который ждёт test/billing-flow.js и Prodamus
+  return JSON.stringify(flat, Object.keys(flat).sort());
+}
+
+/**
+ * Подпись payload: HMAC-SHA256 от canonical-строки секретом магазина, в base64.
+ * Используется и для создания ссылок (заголовок Sign исходящего запроса),
+ * и в тестах — для имитации вебхука.
+ */
+function signPayload(params) {
+  const secret = process.env.PRODAMUS_SECRET_WEBHOOK || process.env.PRODAMUS_SECRET;
+  if (!secret) throw httpError(500, "PRODAMUS_SECRET не задан");
+  return crypto
+    .createHmac("sha256", secret)
+    .update(canonicalString(params), "utf8")
+    .digest("base64");
+}
+
+/** Сравнение подписей без утечки по времени (хешируем до фикс. длины) */
+function safeEqual(a, b) {
+  const ha = crypto.createHash("sha256").update(String(a || "")).digest("hex");
+  const hb = crypto.createHash("sha256").update(String(b || "")).digest("hex");
+  return crypto.timingSafeEqual(Buffer.from(ha), Buffer.from(hb));
+}
 
 /**
  * Проверка подписи входящего вебхука.
- * Подпись приходит в заголовке `Sign`.
+ * Подпись приходит в заголовке `Sign` (base64 или hex от HMAC-SHA256).
  * Возвращает { ok, reason }.
  */
 function verifyWebhook(body, headers) {
@@ -12,11 +89,6 @@ function verifyWebhook(body, headers) {
   if (!secret) {
     return { ok: false, reason: "PRODAMUS_SECRET не задан" };
   }
-  const provided =
-    (headers && (headers.sign || headers.Sign)) ||
-    (headers && headers["x-sign"]) ||
-    "";
-  if (!provided) return { ok: false, reason: "нет заголовка Sign" };
 
   const provided =
     (headers && (headers.sign || headers.Sign)) ||
@@ -29,8 +101,19 @@ function verifyWebhook(body, headers) {
   delete payload.Sign;
   delete payload.sign;
 
-  const expected = signPayload(payload);
-  if (safeEqual(expected, provided)) return { ok: true };
+  const canonical = canonicalString(payload);
+  const expectedB64 = crypto
+    .createHmac("sha256", secret)
+    .update(canonical, "utf8")
+    .digest("base64");
+  const expectedHex = crypto
+    .createHmac("sha256", secret)
+    .update(canonical, "utf8")
+    .digest("hex");
+
+  if (safeEqual(expectedB64, provided) || safeEqual(expectedHex, provided)) {
+    return { ok: true };
+  }
 
   // Резервный вариант: некоторые интеграции подписывают «плоский» payload,
   // где вложенные массивы уже сериализованы в строки. Пробуем ещё раз.
@@ -145,6 +228,7 @@ module.exports = {
   baseUrl,
   canonicalString,
   signPayload,
+  safeEqual,
   verifyWebhook,
   createPaymentLink,
 };

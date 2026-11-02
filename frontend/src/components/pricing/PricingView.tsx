@@ -18,10 +18,12 @@ import {
   Flame,
   Infinity as InfinityIcon,
   CheckCircle,
+  History,
+  ReceiptText,
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
 import { useAuth } from '../../context/AuthContext';
-import { payAndRedirect, PayablePlan, SubscriptionRow } from '../../lib/billing';
+import { payAndRedirect, PayablePlan, SubscriptionRow, buyCreditsAndRedirect, CreditPurchaseRow } from '../../lib/billing';
 import { apiRequest } from '../../lib/api';
 
 export const PricingView: React.FC = () => {
@@ -43,6 +45,25 @@ export const PricingView: React.FC = () => {
       })
       .catch(() => {});
   };
+  // История покупок пакетов (credit_purchases, миграция 007): видно, что вебхук зачислил баланс
+  const [purchases, setPurchases] = useState<CreditPurchaseRow[]>([]);
+  const loadPurchases = () => {
+    if (!user) return;
+    apiRequest('/billing/credit-purchases')
+      .then((res: any) => setPurchases(res?.purchases || []))
+      .catch(() => {});
+  };
+  const purchaseStatusLabels: Record<string, string> = {
+    success: t.purchases?.statusSuccess || 'Оплачено',
+    pending: t.purchases?.statusPending || 'Ожидает оплаты',
+    canceled: t.purchases?.statusCanceled || 'Отменён',
+    denied: t.purchases?.statusDenied || 'Отклонён',
+  };
+
+  useEffect(() => {
+    loadPurchases();
+  }, [user?.id, user?.credits_balance]);
+
   useEffect(() => {
     loadHistory();
   }, [user?.id, user?.tariff_plan]);
@@ -62,12 +83,12 @@ export const PricingView: React.FC = () => {
   const [currency, setCurrency] = useState<'rub' | 'usd'>('rub');
   const [currentPlanId, setCurrentPlanId] = useState<string>(user?.tariff_plan && user.tariff_plan !== 'none' ? user.tariff_plan : 'none');
 
-  // Realistic dual-counter credit state based on user's exact specification
-  const [subscriptionCredits, setSubscriptionCredits] = useState<number>(340);
-  const [topupCredits, setTopupCredits] = useState<number>(500);
-  const totalBalance = subscriptionCredits + topupCredits;
+  // Реальный баланс кредитов (users.credits_balance из /me).
+  // Докупленные пакеты зачисляются вебхуком Prodamus и НЕ сгорают.
+  const totalBalance = user?.credits_balance ?? 0;
 
-  const [purchasedSuccess, setPurchasedSuccess] = useState<string | null>(null);
+  // Покупка пакета: создаём платёж на бэкенде и уводим на страницу Prodamus
+  const [payingPackId, setPayingPackId] = useState<string | null>(null);
 
   // AI Strategist Bot Chat Demo state
   const [chatMessages, setChatMessages] = useState<Array<{ sender: 'ai' | 'user'; text: string }>>([
@@ -185,69 +206,49 @@ export const PricingView: React.FC = () => {
     },
   ];
 
-  // Credit Packs table based on exact user specification
+  // Пакеты кредитов (НЕ сгорают). Цены задаёт серверный каталог backend/creditPacks.js —
+  // клиент присылает только package_id, суммы приходят с бэкенда.
   const creditPacks = [
     {
-      id: 'pack-s',
+      id: 'pack_100',
       name: 'Пакет S',
       credits: 100,
-      pricePerCredit: '5,5 ₽',
-      priceRub: '550 ₽',
-      priceUsd: '$6,6',
-      cost: '65 ₽',
-      netProfit: '485 ₽ ($5,8)',
-      margin: '88%',
+      pricePerCredit: '1,90 ₽',
+      priceRub: '190 ₽',
       badge: null,
       popular: false,
     },
     {
-      id: 'pack-m',
+      id: 'pack_500',
       name: 'Пакет M',
       credits: 500,
-      pricePerCredit: '4,5 ₽',
-      priceRub: '2 250 ₽',
-      priceUsd: '$27,1',
-      cost: '325 ₽',
-      netProfit: '1 925 ₽ ($23,2)',
-      margin: '86%',
+      pricePerCredit: '1,58 ₽',
+      priceRub: '790 ₽',
       badge: t.pricing.popularBadge,
       popular: true,
     },
     {
-      id: 'pack-l',
+      id: 'pack_1000',
       name: 'Пакет L',
-      credits: 1500,
-      pricePerCredit: '3,8 ₽',
-      priceRub: '5 700 ₽',
-      priceUsd: '$68,7',
-      cost: '975 ₽',
-      netProfit: '4 725 ₽ ($56,9)',
-      margin: '83%',
+      credits: 1000,
+      pricePerCredit: '1,29 ₽',
+      priceRub: '1 290 ₽',
       badge: 'Выгодно',
-      popular: false,
-    },
-    {
-      id: 'pack-xl',
-      name: 'Пакет XL',
-      credits: 5000,
-      pricePerCredit: '3,2 ₽',
-      priceRub: '16 000 ₽',
-      priceUsd: '$192,8',
-      cost: '3 250 ₽',
-      netProfit: '12 750 ₽ ($153,6)',
-      margin: '80%',
-      badge: 'Макс. выгода',
       popular: false,
     },
   ];
 
-  const handleBuyCredits = (packName: string, amount: number) => {
-    setTopupCredits((prev) => prev + amount);
-    const msg = t.pricing.creditsBoughtSuccess
-      .replace('{amount}', amount.toLocaleString())
-      .replace('{pack}', packName);
-    setPurchasedSuccess(msg);
-    setTimeout(() => setPurchasedSuccess(null), 6000);
+  // Реальная покупка пакета кредитов: POST /billing/credits → оплата Prodamus.
+  // После оплаты вебхук зачисляет кредиты на баланс (пакеты не сгорают).
+  const handleBuyCredits = async (packId: string) => {
+    setPayError(null);
+    setPayingPackId(packId);
+    try {
+      await buyCreditsAndRedirect(packId);
+    } catch (e: any) {
+      setPayError(e?.message || t.pricing.paymentError || 'Не удалось создать платёж');
+      setPayingPackId(null);
+    }
   };
 
   const handleSendMessage = (e: React.FormEvent) => {
@@ -350,23 +351,6 @@ export const PricingView: React.FC = () => {
             </span>
           </div>
 
-          {/* Dual Counter Breakdown */}
-          <div className="flex items-center gap-4 text-xs flex-wrap pt-1">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface border border-subtle">
-              <Flame className="w-3.5 h-3.5 text-amber-500" />
-              <span className="text-secondary-theme">{t.pricing.subscriptionCreditsNotice}</span>
-              <span className="font-mono font-bold text-primary-theme">{subscriptionCredits}</span>
-            </div>
-
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface border border-subtle">
-              <InfinityIcon className="w-3.5 h-3.5 text-emerald-500" />
-              <span className="text-secondary-theme">{t.pricing.topupCreditsNotice}</span>
-              <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                {topupCredits}
-              </span>
-            </div>
-          </div>
-
           <p className="text-[11px] text-muted-theme leading-relaxed pt-0.5">
             {t.pricing.deductionRule}
           </p>
@@ -381,11 +365,11 @@ export const PricingView: React.FC = () => {
         </button>
       </div>
 
-      {/* Success Banner */}
-      {purchasedSuccess && (
-        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs md:text-sm font-semibold flex items-center gap-2.5 animate-in fade-in">
-          <CheckCircle className="w-5 h-5 shrink-0 text-emerald-500" />
-          <span>{purchasedSuccess}</span>
+      {/* Error Banner (ошибка создания платежа — подписки и пакеты) */}
+      {payError && (
+        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-300 text-xs md:text-sm font-semibold flex items-center gap-2.5">
+          <X className="w-5 h-5 shrink-0 text-red-500" />
+          <span>{payError}</span>
         </div>
       )}
 
@@ -502,7 +486,7 @@ export const PricingView: React.FC = () => {
                     {payingId === plan.id
                       ? t.pricing.paymentCreating || 'Создаём счёт…'
                       : isCurrent
-                      ? t.pricing.renewPlan || 'Продлить тариф'
+                      ? 'Продлить тариф'
                       : `${t.pricing.choosePlan} «${plan.name}»`}
                   </button>
                 </div>
@@ -587,8 +571,8 @@ export const PricingView: React.FC = () => {
           {/* Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {creditPacks.map((pack) => {
-              const displayPrice = currency === 'rub' ? pack.priceRub : pack.priceUsd;
-              const secondaryPrice = currency === 'rub' ? pack.priceUsd : pack.priceRub;
+              // Пакеты продаются только за рубли (цены — серверный каталог)
+              const displayPrice = pack.priceRub;
 
               return (
                 <div
@@ -629,34 +613,28 @@ export const PricingView: React.FC = () => {
                         <span className="text-2xl font-bold font-mono text-primary-theme">
                           {displayPrice}
                         </span>
-                        <span className="text-xs text-muted-theme font-mono">
-                          ({secondaryPrice})
-                        </span>
                       </div>
                       <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block mt-0.5 font-semibold">
-                        {t.pricing.neverBurnBadge} · Roll-over 100%
+                        {t.pricing.neverBurnBadge}
                       </span>
-                    </div>
-
-                    {/* Unit Economics details */}
-                    <div className="p-2.5 rounded-xl bg-subtle text-[10px] text-muted-theme space-y-1">
-                      <div className="flex justify-between">
-                        <span>{t.pricing.thPricePerCredit}:</span>
+                      <div className="text-[10px] text-muted-theme mt-1">
+                        {t.pricing.thPricePerCredit}:{' '}
                         <span className="font-mono font-bold text-primary-theme">{pack.pricePerCredit}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>{t.pricing.thMargin}:</span>
-                        <span className="font-mono text-secondary-theme">{pack.margin}</span>
                       </div>
                     </div>
                   </div>
 
                   <button
-                    onClick={() => handleBuyCredits(pack.name, pack.credits)}
-                    className="w-full accent-btn py-2.5 px-3 rounded-xl text-xs font-semibold cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
+                    onClick={() => handleBuyCredits(pack.id)}
+                    disabled={payingPackId === pack.id}
+                    className="w-full accent-btn py-2.5 px-3 rounded-xl text-xs font-semibold cursor-pointer shadow-xs flex items-center justify-center gap-1.5 disabled:opacity-60 disabled:cursor-wait"
                   >
                     <Coins className="w-3.5 h-3.5" />
-                    <span>{t.pricing.buyCreditsBtn} (+{pack.credits})</span>
+                    <span>
+                      {payingPackId === pack.id
+                        ? t.pricing.paymentCreating || 'Создаём счёт…'
+                        : `${t.pricing.buyCreditsBtn} (+${pack.credits})`}
+                    </span>
                   </button>
                 </div>
               );
@@ -678,10 +656,6 @@ export const PricingView: React.FC = () => {
                     <th className="py-2.5 px-3">{t.pricing.thCredits}</th>
                     <th className="py-2.5 px-3">{t.pricing.thPricePerCredit}</th>
                     <th className="py-2.5 px-3">{t.pricing.thPriceRub}</th>
-                    <th className="py-2.5 px-3">{t.pricing.thPriceUsd}</th>
-                    <th className="py-2.5 px-3">{t.pricing.thCost}</th>
-                    <th className="py-2.5 px-3">{t.pricing.thNetProfit}</th>
-                    <th className="py-2.5 px-3">{t.pricing.thMargin}</th>
                     <th className="py-2.5 px-3 text-right">{t.pricing.thAction}</th>
                   </tr>
                 </thead>
@@ -694,16 +668,11 @@ export const PricingView: React.FC = () => {
                       </td>
                       <td className="py-3 px-3 font-mono text-secondary-theme">{row.pricePerCredit}</td>
                       <td className="py-3 px-3 font-mono font-semibold text-primary-theme">{row.priceRub}</td>
-                      <td className="py-3 px-3 font-mono text-secondary-theme">{row.priceUsd}</td>
-                      <td className="py-3 px-3 font-mono text-muted-theme">{row.cost}</td>
-                      <td className="py-3 px-3 font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
-                        {row.netProfit}
-                      </td>
-                      <td className="py-3 px-3 font-mono text-secondary-theme">{row.margin}</td>
                       <td className="py-3 px-3 text-right">
                         <button
-                          onClick={() => handleBuyCredits(row.name, row.credits)}
-                          className="accent-btn px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer shadow-xs"
+                          onClick={() => handleBuyCredits(row.id)}
+                          disabled={payingPackId === row.id}
+                          className="accent-btn px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer shadow-xs disabled:opacity-60 disabled:cursor-wait"
                         >
                           {t.pricing.buyCreditsBtn}
                         </button>
@@ -714,6 +683,64 @@ export const PricingView: React.FC = () => {
               </table>
             </div>
           </div>
+
+          {/* История покупок кредитов (credit_purchases, миграция 007) */}
+          {purchases.length > 0 && (
+            <div className="custom-card p-5 rounded-2xl space-y-3">
+              <h4 className="text-xs font-bold text-primary-theme uppercase tracking-wider flex items-center gap-2">
+                <ReceiptText className="w-4 h-4 text-accent-ghost" />
+                <span>{t.purchases?.purchasesHistoryTitle || 'История покупок кредитов'}</span>
+              </h4>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[560px] text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-subtle text-muted-theme uppercase tracking-wider text-[10px]">
+                      <th className="py-2.5 px-3">{t.purchases?.thPack || 'Пакет'}</th>
+                      <th className="py-2.5 px-3">{t.purchases?.thCredits || 'Кредитов'}</th>
+                      <th className="py-2.5 px-3">{t.purchases?.thAmount || 'Сумма'}</th>
+                      <th className="py-2.5 px-3">{t.purchases?.thStatus || 'Статус'}</th>
+                      <th className="py-2.5 px-3">{t.purchases?.thDate || 'Дата'}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-subtle">
+                    {purchases.map((p) => (
+                      <tr key={p.id} className="hover:bg-subtle/50 transition-colors">
+                        <td className="py-3 px-3 font-bold text-primary-theme">
+                          {p.pack_title || p.package_id}
+                        </td>
+                        <td className="py-3 px-3 font-mono font-bold text-primary-theme">
+                          +{p.credits.toLocaleString()}
+                        </td>
+                        <td className="py-3 px-3 font-mono font-semibold text-primary-theme">
+                          {Number(p.amount).toFixed(0)} ₽
+                        </td>
+                        <td className="py-3 px-3">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              p.status === 'success'
+                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                : p.status === 'pending'
+                                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                : 'bg-red-500/10 text-red-600 dark:text-red-400'
+                            }`}
+                          >
+                            {purchaseStatusLabels[p.status] || p.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 font-mono text-secondary-theme">
+                          {p.paid_at ? new Date(p.paid_at).toLocaleDateString() : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[11px] text-muted-theme flex items-center gap-1.5">
+                <History className="w-3.5 h-3.5" />
+                {t.purchases?.neverBurn || 'Кредиты из оплаченных пакетов зачислены на баланс и не сгорают.'}
+              </p>
+            </div>
+          )}
         </div>
       )}
 

@@ -354,6 +354,8 @@ export const es: TranslationSchema = {
     aiBotPlaceholder: 'Preguntar: «¿Cuántos créditos necesito para 3 tableros al mes?»...',
     aiBotAsk: 'Preguntar',
     aiBotOnline: 'En línea 24/7',
+    paymentError: 'No se pudo crear el pago. Inténtalo de nuevo o contacta con soporte.',
+    paymentCreating: 'Creando factura…',
   },
 
   review: {

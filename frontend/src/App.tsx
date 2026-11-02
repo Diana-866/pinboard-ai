@@ -68,7 +68,8 @@ const MainApp: React.FC = () => {
   // тариф «Аналитика» (990₽) и «нет тарифа» оставляют замочки (миграция 004)
   const tariffPlan = user?.tariff_plan || 'none';
   // Тариф «standard» — старое имя «Про» (алиас миграции 004). Считаем его активным.
-  const normalizedPlan = tariffPlan === 'standard' ? 'pro' : tariffPlan;
+  // Алиас 'standard' — старое имя тарифа «Про» в ранних данных (миграция 004)
+  const normalizedPlan = (tariffPlan as string) === 'standard' ? 'pro' : tariffPlan;
   // subscription_active приходит из /me (миграция 006): false, если оплаченный период истёк.
   // Если поле не пришло (старый бэкенд) — доверяем самому tariff_plan.
   const subscriptionActive = user?.subscription_active !== false;

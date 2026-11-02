@@ -354,6 +354,8 @@ export const zh: TranslationSchema = {
     aiBotPlaceholder: '向 AI 顾问提问：“运营 3 个画板每月建议买哪种方案？”...',
     aiBotAsk: '提问咨询',
     aiBotOnline: '24/7 全天候在线',
+    paymentError: '无法创建支付订单，请重试或联系客服。',
+    paymentCreating: '正在创建订单…',
   },
 
   review: {

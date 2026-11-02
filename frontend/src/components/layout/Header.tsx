@@ -17,6 +17,7 @@ import {
 import { useTheme } from '../../theme/themeContext';
 import { useI18n, AI_CONTENT_LANGUAGES } from '../../i18n/i18nContext';
 import { useNotifications, TaskStatus } from '../../context/NotificationContext';
+import { useAuth } from '../../context/AuthContext';
 import { ThemeMode } from '../../theme/types';
 import { SupportedLanguage } from '../../i18n/types';
 
@@ -36,6 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenBot,
 }) => {
   const { theme, setTheme, allThemes } = useTheme();
+  const { user } = useAuth();
   const { language, setLanguage, t, supportedLanguages } = useI18n();
   const {
     notifications,
@@ -119,7 +121,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Credits Badge */}
         <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono tabular-nums bg-subtle border border-subtle text-secondary-theme">
           <Sparkles className="w-3.5 h-3.5 text-accent-ghost" />
-          <span className="font-semibold text-primary-theme">840</span>
+          <span className="font-semibold text-primary-theme">{user?.credits_balance ?? 0}</span>
           <span className="text-muted-theme font-sans text-[11px]">{t.nav.creditsLeft}</span>
         </div>
 

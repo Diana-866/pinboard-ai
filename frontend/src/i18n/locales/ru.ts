@@ -354,6 +354,22 @@ export const ru: TranslationSchema = {
     aiBotPlaceholder: 'Спросить: «Сколько кредитов нужно на 1 месяц ведения 3 досок?»...',
     aiBotAsk: 'Спросить',
     aiBotOnline: 'Онлайн 24/7',
+    paymentError: 'Не удалось создать платёж. Попробуйте ещё раз или напишите в поддержку.',
+    paymentCreating: 'Создаём счёт…',
+  },
+
+  purchases: {
+    purchasesHistoryTitle: 'История покупок кредитов',
+    thPack: 'Пакет',
+    thCredits: 'Кредитов',
+    thAmount: 'Сумма',
+    thStatus: 'Статус',
+    thDate: 'Дата',
+    statusSuccess: 'Оплачено',
+    statusPending: 'Ожидает оплаты',
+    statusCanceled: 'Отменён',
+    statusDenied: 'Отклонён',
+    neverBurn: 'Кредиты из оплаченных пакетов зачислены на баланс и не сгорают.',
   },
 
   review: {

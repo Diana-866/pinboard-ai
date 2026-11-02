@@ -384,7 +384,25 @@ export interface TranslationSchema {
     aiBotPlaceholder: string;
     aiBotAsk: string;
     aiBotOnline: string;
+    paymentError: string;
+    paymentCreating: string;
   };
+
+  // История покупок пакетов кредитов (переводится только в ru; остальные локали берут фолбэк в UI)
+  purchases?: {
+    purchasesHistoryTitle: string;
+    thPack: string;
+    thCredits: string;
+    thAmount: string;
+    thStatus: string;
+    thDate: string;
+    statusSuccess: string;
+    statusPending: string;
+    statusCanceled: string;
+    statusDenied: string;
+    neverBurn: string;
+  };
+
 
   // Swipe Review & Approval Deck
   review: {

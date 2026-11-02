@@ -52,3 +52,68 @@ export interface SubscriptionRow {
   email?: string | null;
   user_id?: string;
 }
+
+// --- Пакеты кредитов (разовые покупки, НЕ сгорают) ---
+
+export interface CreditPack {
+  id: string;
+  title: string;
+  credits: number;
+  amount: { rub: number };
+}
+
+export interface CreditsPaymentIntent {
+  ok: boolean;
+  purchase_id: string;
+  order_id: string;
+  package_id: string;
+  credits: number;
+  amount: number;
+  currency: string;
+  payment_url: string;
+  demo: boolean;
+}
+
+export interface CreditPurchaseRow {
+  id: string;
+  package_id: string;
+  pack_title: string | null;
+  credits: number;
+  status: 'pending' | 'success' | 'canceled' | 'denied';
+  amount: number;
+  currency: string;
+  paid_at: string | null;
+  balance_credited_at: string | null;
+  created_at: string;
+  provider_payment_id: string | null;
+}
+
+/** Каталог пакетов кредитов с ценами (GET /billing/credit-packs) */
+export async function fetchCreditPacks(): Promise<CreditPack[]> {
+  const data = await apiRequest('/billing/credit-packs');
+  return data?.packs || [];
+}
+
+/** Покупка пакета: POST /billing/credits { package_id } → pending-покупка + ссылка Prodamus */
+export async function startCreditsPurchase(packageId: string): Promise<CreditsPaymentIntent> {
+  const data: CreditsPaymentIntent = await apiRequest('/billing/credits', {
+    method: 'POST',
+    body: JSON.stringify({ package_id: packageId }),
+  });
+  if (!data?.payment_url) {
+    throw new Error('Сервер не вернул ссылку на оплату. Попробуйте ещё раз или напишите в поддержку.');
+  }
+  return data;
+}
+
+/** Покупка пакета + немедленный переход к оплате */
+export async function buyCreditsAndRedirect(packageId: string) {
+  const data = await startCreditsPurchase(packageId);
+  window.location.href = data.payment_url;
+  return data;
+}
+
+/** История покупок пакетов и текущий баланс (GET /billing/credit-purchases) */
+export async function fetchCreditPurchases(): Promise<{ balance: number; purchases: CreditPurchaseRow[] }> {
+  return apiRequest('/billing/credit-purchases');
+}
