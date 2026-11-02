@@ -30,6 +30,8 @@ import {
   convertLocalToMoscow,
 } from '../../utils/timezone';
 
+import { PinterestCard } from './PinterestCard';
+
 interface SettingsViewProps {
   onGoToPricing?: () => void;
   accounts?: PinterestAccount[];
@@ -558,6 +560,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         )}
       </section>
+
+      {/* Pinterest */}
+      <PinterestCard />
+
+
 
       {/* 2. THEME SELECTION */}
       <section className="custom-card p-6 space-y-4">

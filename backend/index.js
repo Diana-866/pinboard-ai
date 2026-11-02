@@ -922,6 +922,7 @@ app.get("/billing/health", (req, res) => {
     webhook_url: (process.env.PUBLIC_BACKEND_URL || process.env.BACKEND_URL || "не задан PUBLIC_BACKEND_URL") + "/billing/webhook",
   });
 });
+require("./pinterest").registerRoutes(app, { requireAuth, requireTariff, handleError });
 
 // --- Админка ---
 
