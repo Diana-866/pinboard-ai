@@ -79,7 +79,7 @@ restic snapshots >/dev/null
 printf '[backup] Uploading encrypted backup...\n'
 restic backup "$PAYLOAD_DIR" --host "${BACKUP_HOST:-pinposy-backup}" --tag pinposy --tag database-storage
 
-printf '[backup] Verifying that a snapshot is readable...\n'
+printf '[backup] Confirming that the new snapshot is registered...\n'
 restic snapshots --latest 1 >/dev/null
 
 printf '[backup] SUCCESS: encrypted database and Storage snapshot saved.\n'
