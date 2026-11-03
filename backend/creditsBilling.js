@@ -201,6 +201,15 @@ async function handleCreditsWebhook(req, res) {
     console.error(
       `[credits-billing] сумма не совпадает для ${orderId}: webhook=${body.sum}, ожидали=${expected}`
     );
+    const { error: mismatchError } = await supabase
+      .from("credit_purchases")
+      .update({ status: "denied" })
+      .eq("id", purchase.id)
+      .is("balance_credited_at", null);
+    if (mismatchError) {
+      console.error("[credits-billing] не удалось отметить покупку с неверной суммой:", mismatchError.message);
+      return res.status(500).json({ ok: false, error: "db error" });
+    }
     return res.json({ ok: true, ignored: "amount mismatch" });
   }
 
