@@ -47,6 +47,10 @@ function table(name) {
       state.filters[col] = val;
       return api;
     },
+    is(col, val) {
+      state.filters[col] = val;
+      return api;
+    },
     in(col, values) {
       state.filters[col] = { __in: values };
       return api;
@@ -102,12 +106,44 @@ function exec(name, state, single) {
 // users.credits_balance обслуживается через RPC adjust_credits_balance — эмулируем
 const fakeClient = {
   from: (name) => table(name),
-  rpc: async (fn, { p_user_id, p_amount }) => {
-    if (fn !== "adjust_credits_balance") throw new Error("unknown rpc: " + fn);
-    const user = db.users.find((u) => String(u.id) === String(p_user_id));
-    if (!user) throw new Error("user not found");
-    user.credits_balance = (user.credits_balance || 0) + Number(p_amount);
-    return { data: user.credits_balance, error: null };
+  rpc: async (fn, args) => {
+    if (fn === "adjust_credits_balance_and_log") {
+      const user = db.users.find((u) => String(u.id) === String(args.p_user_id));
+      if (!user) return { data: null, error: { message: "user not found" } };
+      const next = (user.credits_balance || 0) + Number(args.p_amount);
+      if (next < 0) return { data: null, error: { message: "insufficient credits" } };
+      user.credits_balance = next;
+      db.credit_transactions.push({
+        user_id: args.p_user_id,
+        amount: args.p_amount,
+        type: args.p_type,
+        description: args.p_description,
+      });
+      return { data: next, error: null };
+    }
+    if (fn === "credit_paid_purchase") {
+      const purchase = db.credit_purchases.find((p) => String(p.id) === String(args.p_purchase_id));
+      if (!purchase) return { data: null, error: { message: "purchase not found" } };
+      const user = db.users.find((u) => String(u.id) === String(purchase.user_id));
+      if (!user) return { data: null, error: { message: "user not found" } };
+      if (purchase.balance_credited_at) return { data: user.credits_balance, error: null };
+      if (!["pending", "denied", "success"].includes(purchase.status)) {
+        return { data: null, error: { message: "purchase not eligible" } };
+      }
+      user.credits_balance = (user.credits_balance || 0) + purchase.credits;
+      db.credit_transactions.push({
+        user_id: purchase.user_id,
+        amount: purchase.credits,
+        type: "topup",
+        description: args.p_description,
+        purchase_id: purchase.id,
+      });
+      purchase.status = "success";
+      purchase.paid_at = args.p_paid_at;
+      purchase.balance_credited_at = args.p_paid_at;
+      return { data: user.credits_balance, error: null };
+    }
+    return { data: null, error: { message: "unknown rpc: " + fn } };
   },
 };
 const supabasePath = require.resolve(path.join(__dirname, "..", "backend", "supabase.js"));
