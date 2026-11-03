@@ -1,5 +1,6 @@
 const { generateText, generateImage } = require("./gptunnel");
 const { rehostImage } = require("./storage");
+const { persistGeneratedImage } = require("./image-persistence");
 
 const DEFAULT_ASPECT_RATIOS = ["2:3", "9:16", "4:5", "3:4"];
 
@@ -41,24 +42,17 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
     const ratio = aspectRatio === "mixed" ? pool[Math.floor(Math.random() * pool.length)] : aspectRatio;
     try {
       const image = await generateImage(idea.image_prompt, model, ratio);
-      if (!image || !image.url || image.price == null) continue; // незавершённая генерация — пропускаем (B8)
-      try {
-        // Переносим картинку в постоянное хранилище (ссылки GPTunnel временные).
-        // Не сохраняем временный URL: он может истечь и сломать просмотр/публикацию пина.
-        image.url = await rehostImage(image.url);
-      } catch (reErr) {
-        console.error(`[pins] ре-хостинг не удался, изображение пропущено: ${reErr && reErr.message}`);
-        continue;
-      }
+      const persistedImage = await persistGeneratedImage(image, rehostImage);
+      if (!persistedImage) continue; // незавершённая генерация — пропускаем (B8)
       pins.push({
         board_id: board.id,
-        image_url: image.url,
+        image_url: persistedImage.url,
         title: idea.title,
         description: idea.description || "",
         status: "pending",
         model_used: model,
         aspect_ratio: ratio,
-        credits_cost: image.price,
+        credits_cost: persistedImage.price,
       });
     } catch (e) {
       // одна неудачная картинка не должна валить всю партию
