@@ -158,3 +158,52 @@ backend/admin.js                      getStats читает tariff_plan + tariff
 backend/index.js                      /me и PATCH /me читают тариф из tariff_plan (normalizePlan)
 HANDOFF.md                            Этот файл
 ```
+
+
+## 6. Дополнение 2026-11-03 — атомарность кредитов (ветка infra/postgresql-s3-migration)
+
+После повторного аудита найден дефект в старой реализации: `adjust_credits_balance`
+менял `users.credits_balance`, а JavaScript отдельно вставлял строку
+`credit_transactions`. Ошибка между запросами оставляла баланс без записи
+в журнале. В вебхуке кредитных покупок статус `success`, баланс и
+`balance_credited_at` также менялись отдельными запросами; откат статуса
+после уже успешного изменения баланса мог привести к повторному начислению.
+
+Добавлено на рабочую ветку:
+
+- `db/migrations/010_atomic_credit_ledger.sql` — добавляет `purchase_id`
+  в журнал и уникальный частичный индекс; добавляет RPC
+  `adjust_credits_balance_and_log` (баланс + журнал в одной транзакции) и
+  `credit_paid_purchase` (блокировка строки покупки `FOR UPDATE`, баланс,
+  запись журнала с purchase_id и отметка зачисления — одной транзакцией).
+  Повторная обработка той же покупки проверяет `balance_credited_at` и
+  не начисляет повторно. Функции SECURITY DEFINER с фиксированным
+  `search_path = pg_catalog, public`, EXECUTE только у service_role.
+- `backend/credits.js` переведён на `adjust_credits_balance_and_log`.
+- `backend/creditsBilling.js` переведён на `credit_paid_purchase`;
+  убраны раздельные UPDATE/зачисление/маркер и опасный откат статуса.
+  Вебхук теперь требует присутствия суммы и её точного совпадения с заказом.
+  Покупка со статусом success, но без balance_credited_at (возможное
+  состояние от старой версии) может быть восстановлена через RPC.
+- `test/credits-flow.js` обновлён под новые RPC и проверку потока.
+
+### Порядок применения
+
+Только после резервной копии и проверки фактического состояния схемы:
+`001_baseline.sql` → `009_hardening.sql` → `010_atomic_credit_ledger.sql`.
+На production ничего не применялось. Не запускать 010 до 009: функция
+ожидает UUID в `credit_purchases.user_id` и `credit_transactions.user_id`.
+
+### Проверки и ограничения
+
+- Файлы закоммичены в рабочую ветку, не в `main`.
+- Тесты после изменения через GitHub connector не исполнялись; обновлённый
+  mock-тест не является заменой интеграционного теста на PostgreSQL.
+- Перед merge обязательно прогнать `node test/credits-flow.js`,
+  `node test/billing-flow.js`, затем добавить PostgreSQL integration tests
+  на rollback при ошибке INSERT журнала, повторный и параллельный webhook.
+- Существующий `test/credits-flow.js` использует фиктивный user id
+  `user-1`, поэтому он не проверяет реальное UUID-приведение миграций.
+- Текущая миграция не исправляет автоматически все исторические расхождения
+  между балансами и журналом. Перед production rollout нужна сверка
+  `users.credits_balance` с суммой операций и аудит незакрытых покупок.
