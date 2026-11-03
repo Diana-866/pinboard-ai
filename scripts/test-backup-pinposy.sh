@@ -99,9 +99,3 @@ grep -q '^restic <snapshots> <--latest> <1>' "$TEST_DIR/calls.log"
 [[ -z "$(find "$MOCK_TMP" -mindepth 1 -print -quit)" ]]
 
 printf '[backup-test] SUCCESS: exports, Storage copy, Restic upload, verification and cleanup passed.\n'
- "$TEST_DIR/calls.log")" -eq 1 ]]
-grep -q '^restic <backup>' "$TEST_DIR/calls.log"
-grep -q '^restic <snapshots> <--latest> <1>' "$TEST_DIR/calls.log"
-[[ -z "$(find "$MOCK_TMP" -mindepth 1 -print -quit)" ]]
-
-printf '[backup-test] SUCCESS: exports, Storage copy, Restic upload, verification and cleanup passed.\n'
