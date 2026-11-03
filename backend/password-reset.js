@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const supabase = require("./supabase");
 const { httpError } = require("./validate");
+const { frontendBaseUrl } = require("./frontend-url");
 
 const TTL_MINUTES = 60;
 
@@ -33,7 +34,7 @@ async function sendResetEmail(to, resetUrl) {
 }
 
 // Просьба сброса: ответ всегда одинаковый (не раскрываем, есть ли такой email)
-async function requestReset(rawEmail, frontendUrl) {
+async function requestReset(rawEmail) {
   const { validateEmail } = require("./validate");
   const email = validateEmail(rawEmail);
 
@@ -54,7 +55,7 @@ async function requestReset(rawEmail, frontendUrl) {
     if (error) throw httpError(500, "Не удалось создать ссылку восстановления");
 
     if (mailConfigured()) {
-      const base = frontendUrl || process.env.FRONTEND_URL || "https://pinposy.com";
+      const base = frontendBaseUrl();
       try {
         await sendResetEmail(email, `${base}/reset-password?token=${token}`);
       } catch (e) {
