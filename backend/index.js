@@ -52,7 +52,15 @@ app.use(
 // отдельным middleware ровно на своём пути, до json-парсера и до CORS-ответов.
 app.post(
   "/billing/webhook",
-  express.urlencoded({ extended: true, limit: "100kb", type: () => true }),
+  (req, res, next) => {
+    // Prodamus sends a flat URL-encoded form. Do not parse arbitrary content
+    // types as forms; reject unexpected JSON/multipart payloads explicitly.
+    if (!req.is("application/x-www-form-urlencoded")) {
+      return res.status(415).json({ ok: false, error: "unsupported content type" });
+    }
+    next();
+  },
+  express.urlencoded({ extended: false, limit: "32kb" }),
   async (req, res) => {
     try {
       // Диспетчер по префиксу order_id: "ppc-…" — пакеты кредитов, остальные — подписки.
