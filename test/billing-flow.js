@@ -87,7 +87,43 @@ function exec(name, state, single) {
   return { data: hit, error: null };
 }
 
-const fakeClient = { from: (name) => table(name) };
+const fakeClient = {
+  from: (name) => table(name),
+  rpc: async (fn, args) => {
+    if (fn !== "activate_paid_subscription") {
+      return { data: null, error: { message: "unknown rpc: " + fn } };
+    }
+    const sub = db.subscriptions.find((row) => row.id === args.p_subscription_id);
+    if (!sub) return { data: null, error: { message: "subscription not found" } };
+    const user = db.users.find((row) => row.id === sub.user_id);
+    if (!user) return { data: null, error: { message: "subscription user not found" } };
+
+    const already = sub.status === "success" && !!sub.period_end;
+    let start;
+    let end;
+    if (already) {
+      end = sub.period_end;
+      start = sub.period_start || new Date(new Date(end).getTime() - 30 * 86400000).toISOString();
+    } else {
+      start = new Date(Math.max(
+        new Date(args.p_paid_at).getTime(),
+        user.tariff_period_end ? new Date(user.tariff_period_end).getTime() : 0
+      )).toISOString();
+      end = new Date(new Date(start).getTime() + 30 * 86400000).toISOString();
+      sub.status = "success";
+      sub.period_start = start;
+      sub.period_end = end;
+    }
+    if (!user.tariff_period_end || new Date(user.tariff_period_end) <= new Date(end)) {
+      user.tariff_plan = sub.plan;
+      user.tariff_period_end = end;
+    }
+    return { data: {
+      subscription_id: sub.id, plan: sub.plan, period_start: start,
+      period_end: end, email: user.email, already_activated: already
+    }, error: null };
+  }
+};
 const supabasePath = require.resolve(path.join(__dirname, "..", "backend", "supabase.js"));
 require.cache[supabasePath] = {
   id: supabasePath,
