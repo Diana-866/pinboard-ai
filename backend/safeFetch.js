@@ -12,7 +12,7 @@ function isBlockedIp(ip) {
       (a === 100 && b >= 64 && b <= 127) ||
       (a === 169 && b === 254) ||
       (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && (b === 168 || (b === 0 && c === 0) || (b === 0 && c === 2) || (b === 88 && c === 99))) ||
+      (a === 192 && (b === 168 || (b === 0) || (b === 88 && c === 99))) ||
       (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) ||
       (a === 203 && b === 0 && c === 113);
   }
@@ -22,7 +22,7 @@ function isBlockedIp(ip) {
     // Permit only global unicast 2000::/3; deny ULA, link-local, loopback,
     // unspecified, multicast, and documentation range.
     if (!/^2[0-9a-f]{3}:/.test(v)) return true;
-    if (v.startsWith("2001:db8:")) return true;
+    if (v.startsWith("2001:") || v.startsWith("2002:") || v.startsWith("3fff:")) return true;
     return false;
   }
   return true;
