@@ -49,6 +49,8 @@ jobs:
           PGPASSWORD: postgres
         run: |
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/001_baseline.sql
+          # Audit must run on the pre-hardening TEXT user_id schema, before 009 changes it.
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/preflight_009_audit.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/009_hardening.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/010_atomic_credit_ledger.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/011_atomic_subscription_activation.sql
