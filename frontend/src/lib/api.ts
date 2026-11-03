@@ -1,4 +1,4 @@
-const API_URL = (import.meta as any).env?.VITE_API_URL || "https://pinboard-ai-backend.onrender.com";
+const API_URL = (import.meta as any).env?.VITE_API_URL || "https://api.pinposy.com";
 
 export class ApiError extends Error {
   status: number;
