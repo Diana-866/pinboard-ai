@@ -43,10 +43,12 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
       const image = await generateImage(idea.image_prompt, model, ratio);
       if (!image || !image.url || image.price == null) continue; // незавершённая генерация — пропускаем (B8)
       try {
-        // Переносим картинку в постоянное хранилище (ссылки GPTunnel временные)
+        // Переносим картинку в постоянное хранилище (ссылки GPTunnel временные).
+        // Не сохраняем временный URL: он может истечь и сломать просмотр/публикацию пина.
         image.url = await rehostImage(image.url);
       } catch (reErr) {
-        console.error(`[pins] ре-хостинг не удался, оставляем исходный URL: ${reErr && reErr.message}`);
+        console.error(`[pins] ре-хостинг не удался, изображение пропущено: ${reErr && reErr.message}`);
+        continue;
       }
       pins.push({
         board_id: board.id,
