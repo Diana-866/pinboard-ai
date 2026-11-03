@@ -93,7 +93,13 @@ bash "$ROOT_DIR/scripts/backup-pinposy.sh"
 
 [[ "$(grep -c '^supabase ' "$TEST_DIR/calls.log")" -eq 3 ]]
 grep -q '^rclone <supabase-test:pin-images>' "$TEST_DIR/calls.log"
-[[ "$(grep -c '^restic <snapshots>' "$TEST_DIR/calls.log")" -eq 1 ]]
+[[ "$(grep -c '^restic <snapshots>)" -eq 1 ]]
+grep -q '^restic <backup>' "$TEST_DIR/calls.log"
+grep -q '^restic <snapshots> <--latest> <1>' "$TEST_DIR/calls.log"
+[[ -z "$(find "$MOCK_TMP" -mindepth 1 -print -quit)" ]]
+
+printf '[backup-test] SUCCESS: exports, Storage copy, Restic upload, verification and cleanup passed.\n'
+ "$TEST_DIR/calls.log")" -eq 1 ]]
 grep -q '^restic <backup>' "$TEST_DIR/calls.log"
 grep -q '^restic <snapshots> <--latest> <1>' "$TEST_DIR/calls.log"
 [[ -z "$(find "$MOCK_TMP" -mindepth 1 -print -quit)" ]]
