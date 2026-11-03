@@ -260,10 +260,7 @@ app.post("/resend-verification", verifyLimiter, async (req, res) => {
 // Забыли пароль: одинаковый ответ для всех email (защита от перебора)
 app.post("/forgot-password", authLimiter, async (req, res) => {
   try {
-    const result = await passwordReset.requestReset(
-      req.body && req.body.email,
-      req.body && req.body.frontendUrl
-    );
+    const result = await passwordReset.requestReset(req.body && req.body.email);
     res.json(result);
   } catch (e) {
     handleError(res, e);
