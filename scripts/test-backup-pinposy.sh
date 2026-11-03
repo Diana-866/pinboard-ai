@@ -33,7 +33,7 @@ while (($#)); do
   fi
 done
 [[ -n "$output" ]] || exit 20
-printf '-- mock SQL export --\n' > "$output"
+printf '%s\n' '-- mock SQL export --' > "$output"
 MOCK
 cat > "$MOCK_BIN/rclone" <<'MOCK'
 #!/usr/bin/env bash
