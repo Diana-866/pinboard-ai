@@ -61,8 +61,17 @@ function canonicalString(params) {
  * и в тестах — для имитации вебхука.
  */
 function signPayload(params) {
-  const secret = process.env.PRODAMUS_SECRET_WEBHOOK || process.env.PRODAMUS_SECRET;
+  // Исходящая ссылка магазина подписывается секретом магазина.
+  // Секрет вебхуков может быть отдельным и не должен подменять этот ключ.
+  const secret = process.env.PRODAMUS_SECRET;
   if (!secret) throw httpError(500, "PRODAMUS_SECRET не задан");
+  return crypto
+    .createHmac("sha256", secret)
+    .update(canonicalString(params), "utf8")
+    .digest("base64");
+}
+
+function signWebhookPayload(params, secret) {
   return crypto
     .createHmac("sha256", secret)
     .update(canonicalString(params), "utf8")
@@ -102,10 +111,7 @@ function verifyWebhook(body, headers) {
   delete payload.sign;
 
   const canonical = canonicalString(payload);
-  const expectedB64 = crypto
-    .createHmac("sha256", secret)
-    .update(canonical, "utf8")
-    .digest("base64");
+  const expectedB64 = signWebhookPayload(payload, secret);
   const expectedHex = crypto
     .createHmac("sha256", secret)
     .update(canonical, "utf8")
@@ -122,7 +128,7 @@ function verifyWebhook(body, headers) {
     const v = payload[k];
     flat[k] = typeof v === "object" && v !== null ? JSON.stringify(v) : v;
   });
-  const expectedFlat = signPayload(flat);
+  const expectedFlat = signWebhookPayload(flat, secret);
   if (safeEqual(expectedFlat, provided)) return { ok: true };
 
   return { ok: false, reason: "подпись не совпадает" };
