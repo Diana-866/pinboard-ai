@@ -75,11 +75,12 @@ function table(name) {
 }
 
 function matches(row, filters) {
-  return Object.entries(filters).every(([k, v]) =>
-    v && typeof v === "object" && Array.isArray(v.__in)
+  return Object.entries(filters).every(([k, v]) => {
+    if (v === null) return row[k] == null;
+    return v && typeof v === "object" && Array.isArray(v.__in)
       ? v.__in.map(String).includes(String(row[k]))
-      : String(row[k]) === String(v)
-  );
+      : String(row[k]) === String(v);
+  });
 }
 
 function exec(name, state, single) {
