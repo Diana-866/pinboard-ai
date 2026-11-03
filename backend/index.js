@@ -165,9 +165,16 @@ app.get("/", (req, res) => {
   res.send("OK");
 });
 
-// Health-check для мониторинга/автопробуждения (B15)
-app.get("/health", (req, res) => {
-  res.json({ ok: true });
+// Readiness-check: процесс жив и может выполнить запрос к основной БД.
+app.get("/health", async (req, res) => {
+  try {
+    const { error } = await supabase.from("users").select("id").limit(1);
+    if (error) throw error;
+    return res.json({ ok: true, services: { database: true } });
+  } catch (e) {
+    console.error("[health] database check failed:", e && e.message);
+    return res.status(503).json({ ok: false, services: { database: false } });
+  }
 });
 
 // --- Аутентификация ---
