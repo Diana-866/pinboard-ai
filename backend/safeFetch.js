@@ -22,7 +22,11 @@ function isBlockedIp(ip) {
     // Permit only global unicast 2000::/3; deny ULA, link-local, loopback,
     // unspecified, multicast, and documentation range.
     if (!/^2[0-9a-f]{3}:/.test(v)) return true;
-    if (v.startsWith("2001:") || v.startsWith("2002:") || v.startsWith("3fff:")) return true;
+    if (v.startsWith("2002:") || v.startsWith("3fff:")) return true;
+    if (v.startsWith("2001:")) {
+      const second = parseInt(v.split(":")[1] || "0", 16);
+      if (second <= 0x01ff || v.startsWith("2001:db8:")) return true;
+    }
     return false;
   }
   return true;
