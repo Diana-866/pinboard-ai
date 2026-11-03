@@ -3,7 +3,7 @@
 AI-сервис планирования и создания контента для Pinterest: анализ сайта, генерация идей досок и пинов, изображения, ручное утверждение и публикация через официальный Pinterest API.
 
 **Сайт:** https://pinposy.com
-**Бэкенд:** https://pinboard-ai-backend.onrender.com
+**API:** https://api.pinposy.com
 
 ## Структура
 
