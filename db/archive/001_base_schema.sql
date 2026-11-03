@@ -4,65 +4,81 @@
 -- + функция adjust_credits_balance(p_user_id text, p_amount integer)
 --
 -- ИДЕМПОТЕНТНЫЙ: можно запускать повторно в Supabase SQL Editor как есть.
--- Порядок применения: 000_check → 001 → 002 → ... → 008 (см. docs/database.md)
+-- Порядок применения: 000_check → 001 → 002 → … → 008 (см. docs/database.md)
 --
--- ВАЖНО (осознанные решения, см. docs/database.md, раздел «Решения»):
+-- ВАЖНО (осознанные решения, подробно в docs/database.md, раздел «Решения»):
 --  1. Колонки users.name / users.surname НЕ создаются здесь — их добавляет
---     003_users_profile.sql. onboarded — 004_onboarding.sql,
---     email_verified — 005_email_verified.sql (по правилу №3 из ТЗ,
---     чтобы повторный запуск цепочки не конфликтовал).
---  2. credit_transactions.user_id — TEXT (так пишет код: backend/credits.js
+--     003_users_profile.sql; onboarded и tariff_plan — 004_onboarding.sql;
+--     email_verified — 005_email_verified.sql; tariff_period_end —
+--     006_subscriptions.sql (все — «add column if not exists», конфликтов нет).
+--  2. subscription_tier НЕ добавляет ни одна миграция 002–008, но код её
+--     читает (backend/admin.js, backend/index.js) — поэтому она создаётся здесь.
+--  3. projects содержит goal, language, site_summary, analyzed_at — их пишет
+--     backend/index.js (онбординг, POST /projects, POST /projects/:id/analyze),
+--     и их тоже НЕТ в миграциях 002–008. boards.status ('new') — аналогично.
+--  4. credit_transactions.user_id — TEXT (так пишет код: backend/credits.js
 --     вставляет text и вызывает rpc с p_user_id text), поэтому на него НЕ
 --     вешается FK на users.id (uuid). Целостность обеспечивает приложение.
---  3. У типа credit_transactions.type НЕТ CHECK-ограничения: код и миграция
---     007_credit_purchases могут писать значения за пределами перечисленных
---     в ТЗ (generation | topup | refund | admin) — CHECK сломал бы их.
---  4. RLS включён на всех таблицах с политикой «только своя строка» по
---     auth.uid()::text = user_id. В PinPosy авторизация — собственный JWT,
---     а НЕ Supabase Auth, поэтому auth.uid() для реальных запросов всегда
---     NULL и эти политики фактически блокируют anon/authenticated; весь
---     доступ идёт сервисным ключом (service_role), который RLS обходит.
+--  5. У типов credit_transactions.type / pins.status / boards.status НЕТ
+--     CHECK-ограничений: код пишет значения за пределами любого перечня
+--     (например pins.status: pending|approved|rejected) — CHECK сломал бы их.
+--  6. RLS включён на всех таблицах с политикой «только своя строка» по
+--     auth.uid()::text = user_id. PinPosy авторизует СВОИМ JWT, а не Supabase
+--     Auth, поэтому auth.uid() для реальных запросов всегда NULL и эти
+--     политики блокируют anon/authenticated; весь доступ идёт сервисным
+--     ключом (service_role, bypassrls), который RLS обходит. Прямой доступ
+--     anon/authenticated к таблицам дополнительно отозван (revoke).
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
 -- users
 -- ----------------------------------------------------------------------------
 create table if not exists public.users (
-  id             uuid primary key default gen_random_uuid(),
-  email          text unique not null,
-  password_hash  text,
-  credits_balance integer not null default 0,
-  tariff_plan     text not null default 'none',
-  tariff_period_end timestamptz,
+  id                uuid primary key default gen_random_uuid(),
+  email             text unique not null,
+  password_hash     text,
+  credits_balance   integer not null default 0,
   subscription_tier text,
-  is_admin       boolean not null default false,
-  created_at     timestamptz not null default now()
-  -- НЕ создаются здесь (добавляют более поздние миграции):
-  --   name, surname          -> 003_users_profile.sql
-  --   onboarded              -> 004_onboarding.sql
-  --   email_verified         -> 005_email_verified.sql
+  is_admin          boolean not null default false,
+  created_at        timestamptz not null default now()
+  -- НЕ создаются здесь (добавляют более поздние миграции, все идемпотентны):
+  --   name, surname    -> 003_users_profile.sql
+  --   onboarded,
+  --   tariff_plan      -> 004_onboarding.sql (default 'none', + CHECK-констрейнт)
+  --   email_verified   -> 005_email_verified.sql (default false)
+  --   tariff_period_end -> 006_subscriptions.sql
 );
 
 -- projects
+-- goal/language/site_summary/analyzed_at пишет бэкенд (index.js):
+--   goal, language  — POST /projects и онбординг;
+--   site_summary, analyzed_at — POST /projects/:id/analyze.
 create table if not exists public.projects (
-  id          uuid primary key default gen_random_uuid(),
-  user_id     uuid not null references public.users(id) on delete cascade,
-  website_url text,
-  niche       text,
-  tone        text,
-  created_at  timestamptz not null default now()
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references public.users(id) on delete cascade,
+  website_url  text,
+  niche        text,
+  tone         text,
+  goal         text,
+  language     text,
+  site_summary text,
+  analyzed_at  timestamptz,
+  created_at   timestamptz not null default now()
 );
 
 -- boards
+-- status пишет бэкенд при генерации идей (index.js: status: 'new').
 create table if not exists public.boards (
   id          uuid primary key default gen_random_uuid(),
   project_id  uuid not null references public.projects(id) on delete cascade,
   title       text,
   description text,
+  status      text,
   created_at  timestamptz not null default now()
 );
 
 -- pins
+-- Точный набор колонок из backend/pins.js (insert) и index.js (update/select).
 create table if not exists public.pins (
   id           uuid primary key default gen_random_uuid(),
   board_id     uuid not null references public.boards(id) on delete cascade,
@@ -79,7 +95,7 @@ create table if not exists public.pins (
 -- credit_transactions
 -- user_id — TEXT намеренно: код (backend/credits.js) пишет сюда text и не
 -- делает join по FK. FK на users.id (uuid) невозможен без изменения типа
--- колонки, менять схему существующих полей запрещено ТЗ (правило №3).
+-- колонки, менять схему существующих полей запрещено (правило №3).
 create table if not exists public.credit_transactions (
   id          uuid primary key default gen_random_uuid(),
   user_id     text not null,
@@ -108,6 +124,9 @@ create index if not exists idx_users_id_text           on public.users ((id::tex
 --    всей транзакцией, т.к. исключение не перехватывается внутри функции)
 --  * security definer, search_path зафиксирован
 --  * execute только у service_role
+--  * сравнение id::text = p_user_id (а не cast p_user_id::uuid): код передаёт
+--    uuid в виде text; текстовое сравнение не падает на не-uuid входе
+--    (например при опечатке/старом id) и опирается на выражение-индекс выше.
 -- ----------------------------------------------------------------------------
 create or replace function public.adjust_credits_balance(p_user_id text, p_amount integer)
 returns integer
@@ -118,8 +137,8 @@ as $$
 declare
   v_new_balance integer;
 begin
-  if p_amount is null then
-    raise exception 'p_amount is required';
+  if p_user_id is null or p_amount is null then
+    raise exception 'p_user_id and p_amount are required';
   end if;
 
   update public.users
@@ -146,7 +165,8 @@ grant execute on function public.adjust_credits_balance(text, integer)
 
 -- ----------------------------------------------------------------------------
 -- RLS: включить на всех таблицах, политики «только своя строка».
--- Всё re-runnable: drop policy if exists перед созданием.
+-- Всё re-runnable: drop policy if exists перед созданием (у create policy
+-- нет if not exists).
 -- boards/pins не имеют user_id — доступ через EXISTS-джойн по projects.
 -- ----------------------------------------------------------------------------
 alter table public.users                enable row level security;

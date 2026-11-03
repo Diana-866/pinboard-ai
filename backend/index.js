@@ -110,7 +110,7 @@ const billing = require("./billing");
 const creditsBilling = require("./creditsBilling");
 const creditPacks = require("./creditPacks");
 const prodamus = require("./prodamus");
-const { requireTariff, getTariffState } = require("./tariff");
+const { requireTariff, getTariffState, normalizePlan } = require("./tariff");
 
 // Загрузка своих изображений пинов (замена временных ссылок GPTunnel на постоянные)
 const multer = require("multer");
@@ -285,7 +285,9 @@ app.get("/me", requireAuth, async (req, res) => {
       name: row.name ?? null,
       surname: row.surname ?? null,
       credits_balance: row.credits_balance ?? 0,
-      subscription_tier: row.subscription_tier ?? "free",
+      // LEGACY migration: тариф теперь читается из tariff_plan (backend/tariff.js
+      // нормализует алиасы); legacy-поле subscription_tier больше не отдаётся.
+      subscription_tier: normalizePlan(row.tariff_plan) === "none" ? "free" : normalizePlan(row.tariff_plan),
       onboarded: row.onboarded ?? false,
       tariff_plan: row.tariff_plan ?? "none",
       // Дата окончания оплаченного периода (миграция 006). null — тариф без срока/не оплачен.
@@ -315,7 +317,7 @@ app.patch("/me", requireAuth, async (req, res) => {
       .from("users")
       .update(upd)
       .eq("id", req.userId)
-      .select("id, email, name, surname, credits_balance, subscription_tier, is_admin")
+      .select("id, email, name, surname, credits_balance, tariff_plan, is_admin")
       .single();
     if (error) throw httpError(500, "Не удалось обновить профиль — нужно применить миграцию 003");
     res.json(data);
