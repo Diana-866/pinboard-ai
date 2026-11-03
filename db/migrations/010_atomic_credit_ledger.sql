@@ -32,7 +32,7 @@ create or replace function public.adjust_credits_balance_and_log(
 returns integer
 language plpgsql
 security definer
-set search_path = public
+set search_path = pg_catalog, public
 as $$
 declare
   v_balance integer;
@@ -72,7 +72,7 @@ create or replace function public.credit_paid_purchase(
 returns integer
 language plpgsql
 security definer
-set search_path = public
+set search_path = pg_catalog, public
 as $$
 declare
   v_purchase public.credit_purchases%rowtype;
