@@ -210,72 +210,61 @@ async function handleWebhook(req, res) {
     return res.json({ ok: true, ignored: "unknown order_id" });
   }
 
-  // Идемпотентность: повторный success по уже активированной подписке ничего не меняет
-  if (sub.status === "success" && status === "success") {
-    return res.json({ ok: true, idempotent: true, period_end: sub.period_end });
+  // Сумма обязательна: не активируем подписку по вебхуку без суммы.
+  const expected = Number(sub.amount);
+  if (sum == null || !Number.isFinite(sum) || Math.abs(sum - expected) > 0.01) {
+    console.error(`[billing] сумма не совпадает для ${orderId}: webhook=${body.sum}, ожидали=${expected}`);
+    return res.json({ ok: true, ignored: "amount mismatch" });
   }
 
   if (status !== "success") {
     const mapped = status === "order_canceled" ? "canceled" : "denied";
-    await supabase.from("subscriptions").update({ status: mapped }).eq("id", sub.id);
+    const { error: statusError } = await supabase
+      .from("subscriptions")
+      .update({ status: mapped })
+      .eq("id", sub.id)
+      .neq("status", "success");
+    if (statusError) {
+      console.error("[billing] не удалось обновить статус:", statusError.message);
+      return res.status(500).json({ ok: false, error: "db error" });
+    }
     console.warn(`[billing] платёж ${orderId}: ${status} (${body.payment_status_description || ""})`);
     return res.json({ ok: true, status: mapped });
   }
 
-  // Проверка суммы: если провайдер прислал другую сумму — фиксируем, но не активируем молча
-  const expected = Number(sub.amount);
-  if (sum != null && Number.isFinite(sum) && Math.abs(sum - expected) > 0.01) {
-    console.error(`[billing] сумма не совпадает для ${orderId}: webhook=${sum}, ожидали=${expected}`);
-    await supabase
-      .from("subscriptions")
-      .update({ status: "denied" })
-      .eq("id", sub.id);
-    return res.json({ ok: true, ignored: "amount mismatch" });
+  // Статус платежа, период подписки и тариф пользователя меняются атомарно.
+  // Повторный вебхук не продлевает уже активированный заказ повторно.
+  const { data: activation, error: activationError } = await supabase.rpc("activate_paid_subscription", {
+    p_subscription_id: sub.id,
+    p_paid_at: new Date().toISOString(),
+  });
+
+  if (activationError || !activation) {
+    console.error("[billing] атомарная активация не выполнена:", activationError && activationError.message);
+    return res.status(500).json({ ok: false, error: "activation failed" });
   }
 
-  // Активация: 30 дней с текущего момента
-  const periodStart = new Date();
-  const periodEnd = addDays(periodStart, PERIOD_DAYS);
-
-  const { error: subError } = await supabase
-    .from("subscriptions")
-    .update({
-      status: "success",
-      period_start: periodStart.toISOString(),
-      period_end: periodEnd.toISOString(),
-      ...(sum != null && Number.isFinite(sum) ? { amount: sum } : {}),
-    })
-    .eq("id", sub.id);
-  if (subError) {
-    console.error("[billing] не удалось обновить подписку:", subError.message);
-    return res.status(500).json({ ok: false, error: "db error" });
-  }
-
-  const { data: user, error: userError } = await supabase
-    .from("users")
-    .update({ tariff_plan: sub.plan, tariff_period_end: periodEnd.toISOString() })
-    .eq("id", sub.user_id)
-    .select("id, email")
-    .single();
-
-  if (userError) {
-    console.error("[billing] не удалось обновить users.tariff_plan:", userError.message);
-    // Подписка уже success — вернём 500, чтобы Prodamus повторил и мы догнали users
-    return res.status(500).json({ ok: false, error: "user update failed" });
-  }
-
-  console.log(`[billing] тариф «${sub.plan}» активирован для ${user.email} до ${periodEnd.toISOString()}`);
-
-  // Письмо не должно ломать вебхук: тариф уже активирован
-  sendTariffActivatedEmail(user, { ...sub, amount: sum ?? sub.amount }, periodEnd).catch((e) =>
-    console.error("[billing] письмо о тарифе не отправлено:", e && e.message)
+  console.log(
+    `[billing] тариф «${activation.plan}» активирован для ${activation.email} до ${activation.period_end}`
   );
+
+  // Письмо отправляется после commit и не влияет на состояние подписки.
+  if (!activation.already_activated) {
+    sendTariffActivatedEmail(
+      { email: activation.email },
+      { ...sub, amount: sum },
+      activation.period_end
+    ).catch((e) =>
+      console.error("[billing] письмо о тарифе не отправлено:", e && e.message)
+    );
+  }
 
   return res.json({
     ok: true,
     status: "success",
-    plan: sub.plan,
-    period_end: periodEnd.toISOString(),
+    plan: activation.plan,
+    period_end: activation.period_end,
+    idempotent: activation.already_activated,
   });
 }
 
