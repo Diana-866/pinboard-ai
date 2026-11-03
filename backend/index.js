@@ -110,7 +110,8 @@ const supabase = require("./supabase");
 const { analyzeSite } = require("./analyze");
 const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
-const { uploadPinImage } = require("./storage");
+const { uploadPinImage, rehostImage } = require("./storage");
+const { persistGeneratedImage } = require("./image-persistence");
 const mail = require("./mail");
 const passwordReset = require("./password-reset");
 const emailVerify = require("./email-verify");
@@ -682,15 +683,15 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
     }
 
     const prompt = `${pin.title}. ${pin.description}. ${instruction}`.trim();
-    const image = await generateImage(prompt, model);
-    if (image && image.url) {
-      try {
-        image.url = await rehostImage(image.url);
-      } catch (reErr) {
-        console.error(`[regenerate] ре-хостинг не удался: ${reErr && reErr.message}`);
-      }
+    const generatedImage = await generateImage(prompt, model);
+    let image;
+    try {
+      image = await persistGeneratedImage(generatedImage, rehostImage);
+    } catch (rehostError) {
+      console.error(`[regenerate] ре-хостинг не удался: ${rehostError && rehostError.message}`);
+      throw httpError(502, "Не удалось сохранить изображение — попробуйте позже, кредиты не списаны");
     }
-    if (!image || !image.url || image.price == null) {
+    if (!image) {
       throw httpError(502, "Изображение ещё не готово — попробуйте позже, кредиты не списаны");
     }
 
