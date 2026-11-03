@@ -22,7 +22,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Validate backup script syntax
-        run: bash -n ../scripts/backup-pinposy.sh
+        run: bash -n ../scripts/backup-pinposy.sh ../scripts/test-backup-pinposy.sh && bash ../scripts/test-backup-pinposy.sh
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
