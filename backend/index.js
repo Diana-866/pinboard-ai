@@ -842,12 +842,16 @@ app.post("/credits/dev-topup", async (req, res) => {
       throw httpError(404, "Не найдено");
     }
     const { email, amount, adminSecret } = req.body;
-    if (adminSecret !== process.env.ADMIN_SECRET) throw httpError(401, "Не авторизован");
+    if (!process.env.ADMIN_SECRET || adminSecret !== process.env.ADMIN_SECRET) {
+      throw httpError(401, "Не авторизован");
+    }
+    const safeAmount = validateInt(amount, { min: 1, max: 10000, name: "Сумма пополнения" });
+    const safeEmail = validateEmail(email);
 
-    const { data: user, error } = await supabase.from("users").select("id").eq("email", email).single();
+    const { data: user, error } = await supabase.from("users").select("id").eq("email", safeEmail).single();
     if (error || !user) throw httpError(404, "Пользователь не найден");
 
-    const newBalance = await adjustBalance(user.id, amount, "topup", "Тестовое пополнение");
+    const newBalance = await adjustBalance(user.id, safeAmount, "topup", "Тестовое пополнение");
     res.json({ balance: newBalance });
   } catch (e) {
     handleError(res, e);
