@@ -32,7 +32,7 @@ begin
 
   if not found then raise exception 'subscription user not found'; end if;
 
-  if v_sub.status not in ('pending', 'denied', 'success') then
+  if v_sub.status not in ('pending', 'denied', 'canceled', 'success') then
     raise exception 'subscription is not eligible for activation (status=%)', v_sub.status;
   end if;
 
