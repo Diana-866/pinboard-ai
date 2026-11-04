@@ -101,7 +101,7 @@ export const zh: TranslationSchema = {
 
   dashboard: {
     title: 'Pinterest 数据表现总览',
-    subtitle: '实时账户指标、算法流行趋势及排期自动化队列。',
+    subtitle: '管理您的画板和计划发布的 Pin。Pinterest 数据分析尚未接入。',
     monthlyViews: '月度浏览量',
     pinImpressions: '总展现量',
     outboundClicks: '站外出链点击',
@@ -126,6 +126,8 @@ export const zh: TranslationSchema = {
     serverExecutionNote: '按您所在当地时区设定，并由云端服务器准时同步执行',
     dataNoticeTitle: "Pinterest 分析功能暂不可用",
     dataNoticeDescription: "Pinterest 分析集成完成后，这里将显示账号表现指标和 AI 建议。",
+    boardMetricsUnavailable: "数据指标尚未同步",
+    emptyBoards: "目前还没有画板。创建第一个画板即可开始。",
   },
 
   generator: {
