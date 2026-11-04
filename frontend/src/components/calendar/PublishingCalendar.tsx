@@ -162,15 +162,18 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
 
   // Generate days for week and month view
   const today = new Date();
+  const weekDayLabels = Array.from({ length: 7 }).map((_, index) =>
+    formatDate(new Date(Date.UTC(2024, 0, 7 + index)), { weekday: 'short', timeZone: 'UTC' })
+  );
   const weekDays = Array.from({ length: 7 }).map((_, i) => {
     const d = new Date();
     d.setDate(today.getDate() + i);
     return {
       dateObj: d,
       dateStr: formatLocalDate(d),
-      dayName: d.toLocaleDateString('ru-RU', { weekday: 'short' }),
+      dayName: formatDate(d, { weekday: 'short' }),
       dayNumber: d.getDate(),
-      monthName: d.toLocaleDateString('ru-RU', { month: 'short' }),
+      monthName: formatDate(d, { month: 'short' }),
     };
   });
 
@@ -199,7 +202,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
             {t.calendar.title}
           </h1>
           <p className="text-xs md:text-sm text-secondary-theme mt-1">
-            Интерактивный Smart Schedule: управляйте расписанием публикаций, очередью и авто-слотами по всем профилям.
+            {t.calendar.scheduleDescription}
           </p>
         </div>
 
@@ -210,7 +213,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
               className="px-3.5 py-2 rounded-xl text-xs md:text-sm font-semibold border border-accent bg-subtle text-primary-theme hover:bg-surface flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
             >
               <Sparkles className="w-4 h-4 text-accent-ghost" />
-              <span>На проверке: {pendingCount} пинов</span>
+              <span>{t.calendar.reviewQueueLabel}: {formatNumber(pendingCount)}</span>
             </button>
           )}
 
@@ -230,10 +233,10 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
           <div>
             <h3 className="text-sm font-bold text-primary-theme font-heading flex items-center gap-2">
               <Clock className="w-4 h-4 text-accent-ghost" />
-              <span>Настройки лимитов и авто-генерации для аккаунтов</span>
+              <span>{t.calendar.cadenceSettingsTitle}</span>
             </h3>
             <p className="text-xs text-secondary-theme mt-0.5">
-              Сервис ежедневно генерирует пины в рамках минимума и максимума с учетом анализа досок и хайпа ниши.
+              {t.calendar.cadenceSettingsDescription}
             </p>
           </div>
 
@@ -248,7 +251,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                 style={{ accentColor: 'var(--accent)' }}
               />
               <span className="text-xs font-semibold text-primary-theme">
-                Авто-генерация:
+                {t.calendar.autoGenerationLabel}
               </span>
             </label>
 
@@ -261,7 +264,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                 onChange={(e) => handleUpdateCurrentCadence({ autoTime: e.target.value })}
                 disabled={!currentCadence.nightlyAuto}
                 className="text-xs font-mono font-bold bg-transparent text-primary-theme focus:outline-none cursor-pointer disabled:opacity-40"
-                title="Нажмите, чтобы настроить индивидуальное время генерации пинов"
+                title={t.calendar.autoGenerationTitle}
               />
               <span className={`text-[10px] font-mono font-bold ${userTimezone === 'Europe/Moscow' ? 'text-muted-theme' : 'text-accent-ghost'}`}>
                 {getTimezoneInfo(userTimezone).abbr}
@@ -274,7 +277,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                 type="button"
                 onClick={() => setShowTzPicker(!showTzPicker)}
                 className="px-2 py-1 rounded-lg text-[11px] font-medium border border-subtle bg-subtle hover:bg-surface text-secondary-theme hover:text-primary-theme flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
-                title="Нажмите, чтобы выбрать ваш часовой пояс (например, для США или Европы)"
+                title={t.calendar.chooseTimezone}
               >
                 <Globe className="w-3 h-3 text-accent-ghost" />
                 <span>{getTimezoneInfo(userTimezone).abbr}</span>
@@ -283,7 +286,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
               {showTzPicker && (
                 <div className="absolute right-0 top-full mt-1 w-64 p-2 bg-surface border border-strong rounded-xl shadow-xl z-50 animate-in fade-in zoom-in-95 duration-100 text-xs">
                   <div className="px-2 py-1 text-[10px] font-bold text-muted-theme uppercase border-b border-subtle mb-1">
-                    Выберите ваш часовой пояс:
+                    {t.calendar.timezonePickerTitle}
                   </div>
                   <div className="max-h-48 overflow-y-auto space-y-0.5">
                     {SUPPORTED_TIMEZONES.map((tz) => (
@@ -313,9 +316,12 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
             <span className={`text-[11px] font-semibold ${currentCadence.nightlyAuto ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-theme'}`}>
               {currentCadence.nightlyAuto
                 ? userTimezone === 'Europe/Moscow' || (language === 'ru' && userTimezone === 'Europe/Moscow')
-                  ? `в ${currentCadence.autoTime || '01:00'} МСК`
-                  : `в ${currentCadence.autoTime || '01:00'} ${getTimezoneInfo(userTimezone).abbr} (${convertLocalToMoscow(currentCadence.autoTime || '01:00', userTimezone)} МСК на сервере)`
-                : 'Выключена'}
+                  ? `${currentCadence.autoTime || '01:00'} ${getTimezoneInfo(userTimezone).abbr}`
+                  : t.calendar.autoTimeMoscowTemplate
+                      .replace('{time}', currentCadence.autoTime || '01:00')
+                      .replace('{timezone}', getTimezoneInfo(userTimezone).abbr)
+                      .replace('{moscowTime}', convertLocalToMoscow(currentCadence.autoTime || '01:00', userTimezone))
+                : t.common.inactive}
             </span>
           </div>
         </div>
@@ -323,7 +329,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
         {/* Account Switcher for Limits */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
           <span className="text-muted-theme font-semibold uppercase text-[10px] shrink-0">
-            Настройки для:
+            {t.calendar.settingsForLabel}
           </span>
           {accounts.map((acc) => (
             <button
@@ -344,7 +350,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
         {/* Inputs: Minimum and Maximum */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
           <div className="flex items-center justify-between p-3 rounded-xl bg-subtle border border-subtle">
-            <span className="text-muted-theme">Минимум публикаций / день:</span>
+            <span className="text-muted-theme">{t.calendar.minPerDayLabel}</span>
             <input
               type="number"
               min={1}
@@ -356,7 +362,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
           </div>
 
           <div className="flex items-center justify-between p-3 rounded-xl bg-subtle border border-subtle">
-            <span className="text-muted-theme">Максимум публикаций / день:</span>
+            <span className="text-muted-theme">{t.calendar.maxPerDayLabel}</span>
             <input
               type="number"
               min={currentCadence.min}
@@ -372,16 +378,16 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
             type="button"
             onClick={() => onOpenReview && onOpenReview()}
             className="flex items-center justify-between p-3 rounded-xl bg-subtle border border-subtle hover:border-accent hover:bg-surface transition-all cursor-pointer group text-left shadow-xs"
-            title={`Нажмите, чтобы перейти на страницу проверки и утверждения ${pendingCount} пинов`}
+            title={`${formatNumber(pendingCount)} ${t.calendar.reviewQueueLabel}`}
           >
             <div className="min-w-0 pr-2">
-              <span className="text-muted-theme block truncate text-[11px]">Очередь для {targetAccount.name || targetAccount.handle}:</span>
+              <span className="text-muted-theme block truncate text-[11px]">{t.calendar.queueForAccountLabel} {targetAccount.name || targetAccount.handle}:</span>
               <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-1 group-hover:underline">
-                <span>{pendingCount} {pendingCount === 1 ? 'пин ждет' : pendingCount >= 2 && pendingCount <= 4 ? 'пина ждут' : 'пинов ждут'} подтверждения</span>
+                <span>{formatNumber(pendingCount)} {t.calendar.reviewQueueLabel}</span>
               </span>
             </div>
             <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold accent-btn text-white flex items-center gap-1 group-hover:scale-105 transition-transform shrink-0">
-              <span>Проверить</span>
+              <span>{t.calendar.reviewButton}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </span>
           </button>
@@ -391,7 +397,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
         {currentCadence.nightlyAuto && (
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-subtle text-xs">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] text-muted-theme">Быстрый выбор времени:</span>
+              <span className="text-[11px] text-muted-theme">{t.calendar.quickTimePresetsLabel}</span>
               {['00:30', '01:00', '02:00', '08:00', '14:30', '19:30', '21:00', '23:00'].map((preset) => (
                 <button
                   key={preset}
@@ -409,7 +415,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
             </div>
 
             <span className="text-[11px] text-secondary-theme font-medium">
-              Каждый день в {currentCadence.autoTime || '01:00'} генерируется пакет пинов с учетом трендов Pinterest
+              {t.calendar.dailyGenerationHint}
             </span>
           </div>
         )}
@@ -427,7 +433,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                 : 'text-secondary-theme hover:text-primary-theme'
             }`}
           >
-            Неделя (Слоты)
+            {t.calendar.weekTab}
           </button>
           <button
             onClick={() => setActiveView('month')}
@@ -437,7 +443,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                 : 'text-secondary-theme hover:text-primary-theme'
             }`}
           >
-            Месяц
+            {t.calendar.monthTab}
           </button>
           <button
             onClick={() => setActiveView('queue')}
@@ -447,7 +453,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                 : 'text-secondary-theme hover:text-primary-theme'
             }`}
           >
-            Список очереди ({filteredPins.length})
+            {t.calendar.queueTab} ({formatNumber(filteredPins.length)})
           </button>
         </div>
 
@@ -455,13 +461,13 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
         <div className="flex items-center gap-2 text-xs flex-wrap">
           {/* Account Filter */}
           <div className="flex items-center gap-1.5 border border-subtle rounded-xl px-3 py-1.5 bg-surface">
-            <span className="text-muted-theme text-[11px]">Аккаунт:</span>
+            <span className="text-muted-theme text-[11px]">{t.terminology.account}:</span>
             <select
               value={filterAccount}
               onChange={(e) => setFilterAccount(e.target.value)}
               className="bg-transparent font-semibold text-primary-theme text-xs focus:outline-none cursor-pointer"
             >
-              <option value="all">Все профили</option>
+              <option value="all">{t.calendar.allAccounts}</option>
               {accounts.map((a) => (
                 <option key={a.id} value={a.handle}>
                   {a.handle}
@@ -472,12 +478,12 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
 
           {/* Status Filter */}
           {[
-            { value: 'all', label: 'Все' },
-            { value: 'scheduled', label: 'Запланировано' },
-            { value: 'publishing', label: 'Публикуется' },
-            { value: 'published', label: 'Опубликовано' },
-            { value: 'failed', label: 'Ошибки' },
-            { value: 'unknown', label: 'Нужна проверка' },
+            { value: 'all', label: t.common.all },
+            { value: 'scheduled', label: t.calendar.statusScheduled },
+            { value: 'publishing', label: t.calendar.statusPublishing },
+            { value: 'published', label: t.calendar.statusPublished },
+            { value: 'failed', label: t.calendar.statusFailed },
+            { value: 'unknown', label: t.calendar.statusUnknown },
           ].map(({ value, label }) => (
             <button
               key={value}
@@ -498,8 +504,8 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
       {activeView === 'week' && (
         <div className="custom-card p-5 rounded-2xl space-y-4">
           <div className="flex items-center justify-between text-xs text-secondary-theme">
-            <span>Кликните на любой пустой слот или день, чтобы сгенерировать пины на эту дату.</span>
-            <span className="font-mono text-muted-theme">Часовой пояс: МСК (UTC+3)</span>
+            <span>{t.calendar.weekInstruction}</span>
+            <span className="font-mono text-muted-theme">{t.calendar.timezoneLabel}: {getTimezoneInfo(userTimezone).abbr}</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
@@ -525,7 +531,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                     <button
                       onClick={() => handleSlotClick(day.dateStr)}
                       className="p-1 rounded-lg border border-subtle bg-surface hover:bg-subtle text-primary-theme cursor-pointer transition-colors shadow-2xs"
-                      title="Сгенерировать пины на эту дату"
+                      title={t.calendar.generateDateTitle}
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
@@ -556,15 +562,15 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                         className="w-full p-2 rounded-xl border border-dashed border-subtle hover:border-accent bg-surface/60 text-[11px] text-muted-theme hover:text-primary-theme transition-all flex items-center justify-center gap-1 cursor-pointer"
                       >
                         <Plus className="w-3 h-3" />
-                        <span>Слот 20:15 (Prime)</span>
+                        <span>{t.calendar.primeSlotLabel}</span>
                       </button>
                     )}
                   </div>
 
                   {/* Bottom Day Cadence Pill */}
                   <div className="pt-2 border-t border-subtle text-[10px] text-muted-theme font-mono flex items-center justify-between">
-                    <span>{pinsForDay.length} пинов</span>
-                    <span className="text-emerald-600 font-semibold">Оптимально</span>
+                    <span>{formatNumber(pinsForDay.length)} {t.calendar.pinCountLabel}</span>
+                    <span className="text-emerald-600 font-semibold">{t.calendar.optimalLabel}</span>
                   </div>
                 </div>
               );
@@ -577,13 +583,9 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
       {activeView === 'month' && (
         <div className="custom-card p-5 rounded-2xl space-y-4">
           <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold text-muted-theme uppercase tracking-wider pb-2 border-b border-subtle">
-            <span>Вс</span>
-            <span>Пн</span>
-            <span>Вт</span>
-            <span>Ср</span>
-            <span>Чт</span>
-            <span>Пт</span>
-            <span>Сб</span>
+            {weekDayLabels.map((day) => (
+              <span key={day}>{day}</span>
+            ))}
           </div>
 
           <div className="grid grid-cols-7 gap-2 min-h-[300px]">
@@ -614,7 +616,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                     ))}
                     {pins.length > 1 && (
                       <span className="text-[9px] font-mono text-muted-theme block">
-                        +{pins.length - 1} ещё
+                        +{formatNumber(pins.length - 1)} {t.calendar.moreLabel}
                       </span>
                     )}
                   </div>
@@ -658,7 +660,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
 
                 <div className="flex items-center gap-3 sm:self-center">
                   <span className="text-xs font-mono font-semibold text-primary-theme">
-                    {formatDate(pin.scheduledDate, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {formatDate(pin.scheduledDate, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}
                   </span>
                   <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                     pin.status === 'published'
@@ -672,21 +674,21 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                       : 'bg-accent-pill text-primary-theme'
                   }`}>
                     {pin.status === 'published'
-                      ? 'Опубликован'
+                      ? t.calendar.statusPublished
                       : pin.status === 'failed'
-                      ? 'Ошибка публикации'
+                      ? t.calendar.statusFailed
                       : pin.status === 'publishing'
-                      ? 'Публикуется'
+                      ? t.calendar.statusPublishing
                       : pin.status === 'unknown'
-                      ? 'Нужна проверка'
-                      : 'В очереди'}
+                      ? t.calendar.statusUnknown
+                      : t.calendar.statusQueued}
                   </span>
                 </div>
               </div>
             ))
           ) : (
             <div className="p-8 text-center text-xs text-muted-theme">
-              Очередь публикаций пуста.
+              {t.calendar.emptyQueue}
             </div>
           )}
         </div>
@@ -705,7 +707,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
             <div className="flex items-center justify-between border-b border-subtle pb-3">
               <div>
                 <h3 className="text-base font-bold text-primary-theme font-heading">
-                  Сгенерировать пины на дату
+                  {t.calendar.generateDateTitle}
                 </h3>
                 <span className="text-xs font-mono text-accent-ghost font-semibold">
                   {slotModalData.date} · Слот {slotModalData.time} (Prime Time)
@@ -722,21 +724,21 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
             <form onSubmit={handleConfirmSlotGenerate} className="space-y-3.5 text-xs">
               <div>
                 <label className="font-semibold text-primary-theme block mb-1">
-                  Тема пина или идея для ИИ:
+                  {t.calendar.topicLabel}
                 </label>
                 <textarea
                   rows={2}
                   required
                   value={slotTopic}
                   onChange={(e) => setSlotTopic(e.target.value)}
-                  placeholder="Например: Скандинавские идеи декора для спальни..."
+                  placeholder={t.calendar.topicPlaceholder}
                   className="w-full px-3 py-2 bg-app-input border border-subtle rounded-xl text-xs text-primary-theme focus:outline-none focus:border-accent"
                 />
               </div>
 
               <div>
                 <label className="font-semibold text-primary-theme block mb-1">
-                  Целевая доска Pinterest:
+                  {t.calendar.targetBoardLabel}
                 </label>
                 <select
                   value={slotModalData.boardId}
@@ -754,7 +756,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
               </div>
 
               <div className="p-3 rounded-xl bg-subtle text-[11px] text-secondary-theme">
-                ⚡ Дата <b>{slotModalData.date}</b> будет автоматически передана в генератор и зафиксирована в умном расписании.
+                ⚡ {t.calendar.dateSavedHint}
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-subtle">
@@ -763,13 +765,13 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                   onClick={() => setSlotModalData(null)}
                   className="px-4 py-2 rounded-xl text-xs font-semibold text-secondary-theme hover:text-primary-theme cursor-pointer"
                 >
-                  Отмена
+                  {t.common.cancel}
                 </button>
                 <button
                   type="submit"
                   className="accent-btn px-4 py-2 text-xs font-semibold cursor-pointer shadow-xs"
                 >
-                  Перейти к генерации на эту дату
+                  {t.calendar.generateDateButton}
                 </button>
               </div>
             </form>
@@ -815,7 +817,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                   {selectedPin.boardName} · {selectedPin.accountHandle}
                 </p>
                 <p className="text-xs font-mono font-bold text-accent-ghost">
-                  {selectedPin.scheduledDate} в {selectedPin.scheduledTime}
+                  {selectedPin.scheduledDate} · {selectedPin.scheduledTime}
                 </p>
               </div>
             </div>
@@ -825,7 +827,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                 onClick={() => setSelectedPin(null)}
                 className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-subtle text-primary-theme cursor-pointer hover:bg-surface border border-subtle"
               >
-                Закрыть
+                {t.common.close}
               </button>
             </div>
           </div>
