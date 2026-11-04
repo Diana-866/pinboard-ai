@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layers, ChevronRight, Plus, Globe } from 'lucide-react';
+import { Layers, ChevronRight, Plus, Globe, Clock, Sparkles } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 
@@ -18,9 +18,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigateTab,
   onQuickGenerate,
   onOpenReview,
-  pendingCount = 15,
+  pendingCount = 0,
 }) => {
-  const { t, formatNumber, formatPercent, formatDate, language } = useI18n();
+  const { t, formatNumber, formatDate } = useI18n();
 
 
 
@@ -44,10 +44,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <button
               onClick={onOpenReview}
               className="px-3.5 py-2 rounded-xl text-xs md:text-sm font-semibold border border-accent bg-subtle text-primary-theme hover:bg-surface flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
-              title="Перейти к проверке и подтверждению пинов"
+              title={t.dashboard.startReviewBtn}
             >
               <Sparkles className="w-4 h-4 text-accent-ghost" />
-              <span>На проверке: {pendingCount} {pendingCount === 1 ? 'пин' : pendingCount >= 2 && pendingCount <= 4 ? 'пина' : 'пинов'}</span>
+              <span>{pendingCount} · {t.dashboard.startReviewBtn}</span>
             </button>
           )}
 
@@ -56,7 +56,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             className="accent-btn px-4 py-2 rounded-xl text-xs md:text-sm font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Сгенерировать пины</span>
+            <span>{t.dashboard.generateBatch}</span>
           </button>
         </div>
       </div>
@@ -113,7 +113,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       <span className="font-mono">{pin.scheduledTime}</span>
                       {pin.isOptimalSlot && (
                         <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-accent-pill">
-                          Оптимальный слот
+                          {t.calendar.optimalSlotBadge}
                         </span>
                       )}
                     </div>
