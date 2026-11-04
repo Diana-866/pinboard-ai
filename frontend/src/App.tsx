@@ -121,7 +121,7 @@ const MainApp: React.FC = () => {
             imageUrl: row.pins?.image_url || '',
             scheduledDate: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
             scheduledTime: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
-            status: row.status === 'published' ? 'published' : row.status === 'failed' ? 'failed' : row.status === 'publishing' ? 'publishing' : 'scheduled',
+            status: row.status === 'published' ? 'published' : row.status === 'failed' ? 'failed' : row.status === 'publishing' ? 'publishing' : row.status === 'unknown' ? 'unknown' : 'scheduled',
             destinationUrl: row.destination_url || '',
             pinterestBoardId: row.pinterest_board_id || undefined,
             isOptimalSlot: false,
