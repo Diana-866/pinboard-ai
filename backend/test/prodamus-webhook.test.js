@@ -52,6 +52,21 @@ test("encodes nested Prodamus product fields as bracketed form keys", () => {
   assert.equal(form.has("products"), false);
 });
 
+test("uses the configured Prodamus shop ID when no explicit form URL is set", () => {
+  const previousUrl = process.env.PRODAMUS_URL;
+  const previousShop = process.env.PRODAMUS_SHOP_ID;
+  try {
+    delete process.env.PRODAMUS_URL;
+    process.env.PRODAMUS_SHOP_ID = "pinposy-test";
+    assert.equal(prodamus.baseUrl(), "https://pinposy-test.payform.ru/");
+  } finally {
+    if (previousUrl === undefined) delete process.env.PRODAMUS_URL;
+    else process.env.PRODAMUS_URL = previousUrl;
+    if (previousShop === undefined) delete process.env.PRODAMUS_SHOP_ID;
+    else process.env.PRODAMUS_SHOP_ID = previousShop;
+  }
+});
+
 test("always sends the required empty SYS field for a self-written integration", async () => {
   const previous = {
     PRODAMUS_SECRET: process.env.PRODAMUS_SECRET,
