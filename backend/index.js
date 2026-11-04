@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
+const { parseMultipartFields } = require("./prodamusWebhookBody");
 
 const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
@@ -48,25 +49,39 @@ app.use(
     },
   })
 );
-// Вебхук Prodamus приходит как application/x-www-form-urlencoded — парсим его
-// отдельным middleware ровно на своём пути, до json-парсера и до CORS-ответов.
-app.post(
-  "/billing/webhook",
-  express.urlencoded({ extended: true, limit: "100kb", type: () => true }),
-  async (req, res) => {
-    try {
-      // Диспетчер по префиксу order_id: "ppc-…" — пакеты кредитов, остальные — подписки.
-      // Подпись и формат вебхука одинаковые, обработка разная.
-      const isCreditsOrder = String((req.body && req.body.order_id) || "").startsWith(
-        creditsBilling.ORDER_PREFIX + "-"
-      );
-      await (isCreditsOrder ? creditsBilling.handleCreditsWebhook : billing.handleWebhook)(req, res);
-    } catch (e) {
-      console.error("[billing] ошибка обработки вебхука:", e && e.message);
-      if (!res.headersSent) res.status(500).json({ ok: false, error: "internal" });
-    }
+// Prodamus may send multipart/form-data (default), urlencoded, or JSON callbacks.
+function parseProdamusWebhook(req, res, next) {
+  if (req.is("multipart/form-data")) {
+    return webhookMultipart(req, res, (error) => {
+      if (error) return res.status(400).json({ ok: false, error: "invalid webhook form" });
+      try {
+        req.body = parseMultipartFields(req.body);
+        next();
+      } catch {
+        res.status(400).json({ ok: false, error: "invalid webhook fields" });
+      }
+    });
   }
-);
+  if (req.is("application/x-www-form-urlencoded")) {
+    return express.urlencoded({ extended: true, limit: "32kb" })(req, res, next);
+  }
+  if (req.is("application/json")) {
+    return express.json({ limit: "32kb" })(req, res, next);
+  }
+  return res.status(415).json({ ok: false, error: "unsupported content type" });
+}
+
+app.post("/billing/webhook", parseProdamusWebhook, async (req, res) => {
+  try {
+    const isCreditsOrder = String((req.body && req.body.order_id) || "").startsWith(
+      creditsBilling.ORDER_PREFIX + "-"
+    );
+    await (isCreditsOrder ? creditsBilling.handleCreditsWebhook : billing.handleWebhook)(req, res);
+  } catch (e) {
+    console.error("[billing] ошибка обработки вебхука:", e && e.message);
+    if (!res.headersSent) res.status(500).json({ ok: false, error: "internal" });
+  }
+});
 
 app.use(express.json({ limit: "100kb" })); // ограничение размера тела (B12)
 
@@ -114,6 +129,10 @@ const { requireTariff, getTariffState, normalizePlan } = require("./tariff");
 
 // Загрузка своих изображений пинов (замена временных ссылок GPTunnel на постоянные)
 const multer = require("multer");
+const webhookMultipart = multer({
+  storage: multer.memoryStorage(),
+  limits: { fields: 80, fieldSize: 16 * 1024, files: 0 },
+}).none();
 const imageUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
