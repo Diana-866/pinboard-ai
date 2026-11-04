@@ -14,6 +14,8 @@ declare
   v_pin uuid;
   v_result jsonb;
   v_before integer;
+  v_schedule uuid;
+  v_schedule_count integer;
 
 begin
   insert into public.users(id, email, credits_balance, tariff_plan)
@@ -123,6 +125,27 @@ begin
   if (select period_start from public.subscriptions where id = v_sub) < v_first_end then
     raise exception 'next subscription overlaps existing entitlement';
   end if;
+
+  -- Persistent schedule records remain scheduled until a publisher confirms success.
+  insert into public.pin_schedules(user_id, pin_id, scheduled_at, timezone)
+  values (v_user::text, v_pin, now() + interval '1 day', 'Europe/Moscow')
+  returning id into v_schedule;
+  if (select status from public.pin_schedules where id=v_schedule) <> 'scheduled' then
+    raise exception 'new schedule must start as scheduled';
+  end if;
+  begin
+    insert into public.pin_schedules(user_id, pin_id, scheduled_at, timezone)
+    values (v_user::text, v_pin, now() + interval '2 days', 'Europe/Moscow');
+    raise exception 'expected duplicate active schedule to be rejected';
+  exception when unique_violation then
+    null;
+  end;
+  update public.pin_schedules set status='cancelled' where id=v_schedule;
+  insert into public.pin_schedules(user_id, pin_id, scheduled_at, timezone)
+  values (v_user::text, v_pin, now() + interval '2 days', 'Europe/Moscow');
+  select count(*) into v_schedule_count from public.pin_schedules
+    where user_id=v_user::text and pin_id=v_pin and status='scheduled';
+  if v_schedule_count <> 1 then raise exception 'rescheduling after cancellation failed'; end if;
 
   delete from public.pins where board_id = v_board;
   delete from public.boards where id = v_board;
