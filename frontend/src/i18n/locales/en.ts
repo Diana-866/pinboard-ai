@@ -124,8 +124,8 @@ export const en: TranslationSchema = {
     autoScheduleTitle: 'Pin Auto-Generation',
     configureTimeBtn: 'Configure Auto-Time',
     serverExecutionNote: 'Scheduled in your local timezone with synced Russian server execution',
-    dataNoticeTitle: "Pinterest performance data is not connected yet",
-    dataNoticeDescription: "Connect and sync a Pinterest account to see real metrics and account-specific recommendations.",
+    dataNoticeTitle: "Pinterest analytics are not available yet",
+    dataNoticeDescription: "Account performance metrics and AI recommendations will appear here after the Pinterest analytics integration is implemented.",
   },
 
   generator: {
