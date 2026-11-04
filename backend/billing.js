@@ -210,12 +210,13 @@ async function handleWebhook(req, res) {
     return res.json({ ok: true, ignored: "unknown order_id" });
   }
 
-  if (status !== "success") {
-    if (status !== "order_canceled" && status !== "order_denied") {
+  const normalizedStatus = prodamus.normalizePaymentStatus(status);
+  if (normalizedStatus !== "success") {
+    if (!normalizedStatus) {
       console.warn("[billing] неизвестный статус Prodamus:", status || "(empty)");
       return res.json({ ok: true, ignored: "unsupported payment_status" });
     }
-    const mapped = status === "order_canceled" ? "canceled" : "denied";
+    const mapped = normalizedStatus;
     const { error: statusError } = await supabase.from("subscriptions")
       .update({ status: mapped }).eq("id", sub.id).neq("status", "success");
     if (statusError) return res.status(500).json({ ok: false, error: "db error" });
