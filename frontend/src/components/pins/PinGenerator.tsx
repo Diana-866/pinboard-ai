@@ -408,12 +408,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   <input
                     type="number"
                     min={1}
-                    max={25}
+                    max={10}
                     value={pinCount}
                     onChange={(e) => {
                       const val = parseInt(e.target.value, 10);
                       if (!isNaN(val)) {
-                        setPinCount(Math.min(25, Math.max(1, val)));
+                        setPinCount(Math.min(10, Math.max(1, val)));
                       }
                     }}
                     className="w-12 text-center text-xs font-mono font-bold text-primary-theme bg-transparent border-0 focus:outline-none"
@@ -421,8 +421,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
                   <button
                     type="button"
-                    onClick={() => setPinCount((prev) => Math.min(25, prev + 1))}
-                    disabled={pinCount >= 25}
+                    onClick={() => setPinCount((prev) => Math.min(10, prev + 1))}
+                    disabled={pinCount >= 10}
                     className="p-1 rounded hover:bg-subtle text-secondary-theme disabled:opacity-30 cursor-pointer"
                     title="Увеличить"
                   >
@@ -433,7 +433,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
               {/* Quick Presets Row */}
               <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                {[1, 2, 3, 4, 5, 8, 10, 15, 20].map((cnt) => (
+                {[1, 2, 3, 4, 5, 8, 10].map((cnt) => (
                   <button
                     key={cnt}
                     type="button"
@@ -452,7 +452,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               <input
                 type="range"
                 min={1}
-                max={25}
+                max={10}
                 value={pinCount}
                 onChange={(e) => setPinCount(Number(e.target.value))}
                 className="w-full cursor-pointer pt-1"
