@@ -474,6 +474,11 @@ export const zh: TranslationSchema = {
     statusInProgress: '正在生成',
     statusReady: '已完成',
     viewResult: '前往查看',
+    smartQueueCount: "Smart Queue 中有 {count} 项任务",
+    allTasksSynced: "所有任务均已同步",
+    strategistPrompt: "需要帮助解读数据分析吗？",
+    askStrategist: "咨询 AI 策略助手 →",
+    strategistTitle: "打开 PinPosy AI 策略助手",
   },
 
   terms: {
