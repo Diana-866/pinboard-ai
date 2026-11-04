@@ -79,10 +79,8 @@ export const zh: TranslationSchema = {
     logout: '退出登录',
     login: '登录',
     changeAvatar: '修改头像',
-    reviewPins: "审核 Pin",
     planLabel: "套餐：",
     plans: "套餐",
-    pinterestAccounts: "Pinterest 账号",
     accountCountTemplate: "已连接 {count}/{max} 个账号",
     connectPinterestAccount: "连接 Pinterest 账号",
     accountLimitTemplate: "已达到上限（{count}/{max}）",
@@ -97,7 +95,8 @@ export const zh: TranslationSchema = {
     uploadCustomImage: "1. 上传自己的图片：",
     chooseFile: "从设备选择文件",
     useNameInitial: "2. 使用个性化首字母：",
-    choosePresetAvatar: "使用姓名首字母（“{letter}”）",
+    useInitialAvatar: "使用姓名首字母（“{letter}”）",
+    choosePresetAvatar: "3. 或选择预设头像：",
   },
 
   dashboard: {
