@@ -590,7 +590,7 @@ app.get("/projects/:id/boards", requireAuth, async (req, res) => {
 async function getBoardWithOwnerCheck(boardId, userId) {
   const { data: board, error } = await supabase
     .from("boards")
-    .select("*, projects(user_id, niche, tone, goal)")
+    .select("*, projects(user_id, niche, tone, goal, language)")
     .eq("id", boardId)
     .single();
   if (error || !board) throw httpError(404, "Доска не найдена");
