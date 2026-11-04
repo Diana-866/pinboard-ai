@@ -101,7 +101,7 @@ export const pt: TranslationSchema = {
 
   dashboard: {
     title: 'Visão Geral do Pinterest',
-    subtitle: 'Métricas da conta em tempo real, tendências do algoritmo e fila de automação programada.',
+    subtitle: 'Gerencie suas pastas e pins programados. As análises do Pinterest ainda não estão conectadas.',
     monthlyViews: 'Visualizações Mensais',
     pinImpressions: 'Total de Impressões',
     outboundClicks: 'Cliques de Saída',
@@ -126,6 +126,8 @@ export const pt: TranslationSchema = {
     serverExecutionNote: 'Programado no seu fuso horário com execução sincronizada no servidor',
     dataNoticeTitle: "As análises do Pinterest ainda não estão disponíveis",
     dataNoticeDescription: "As métricas da conta e as recomendações de IA aparecerão aqui quando a integração de análise do Pinterest for implementada.",
+    boardMetricsUnavailable: "As métricas ainda não estão sincronizadas",
+    emptyBoards: "Ainda não há pastas. Crie sua primeira pasta para começar.",
   },
 
   generator: {
