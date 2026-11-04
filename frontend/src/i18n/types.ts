@@ -523,6 +523,11 @@ export interface TranslationSchema {
     statusInProgress: string;
     statusReady: string;
     viewResult: string;
+    smartQueueCount: string;
+    allTasksSynced: string;
+    strategistPrompt: string;
+    askStrategist: string;
+    strategistTitle: string;
   };
 
   // Terms & Peak Load Policy
