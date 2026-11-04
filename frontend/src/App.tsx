@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { apiRequest } from './lib/api';
 import { ThemeProvider } from './theme/themeContext';
 import { I18nProvider } from './i18n/i18nContext';
 import { NotificationProvider, useNotifications } from './context/NotificationContext';
@@ -54,11 +55,48 @@ import { EmailVerifyBanner } from './components/auth/EmailVerifyBanner';
 const MainApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
-  const [boards, setBoards] = useState<BoardItem[]>(INITIAL_BOARDS);
+  const [boards, setBoards] = useState<BoardItem[]>([]);
+  const [boardsLoaded, setBoardsLoaded] = useState(false);
   const [scheduledPins, setScheduledPins] = useState<ScheduledPinItem[]>(INITIAL_SCHEDULED_PINS);
   const [prefilledTopic, setPrefilledTopic] = useState<string>('');
   const [prefilledDate, setPrefilledDate] = useState<string>('');
   const [isBotOpen, setIsBotOpen] = useState<boolean>(false);
+
+  // Доски загружаются из API, а не из демонстрационного массива браузера.
+  React.useEffect(() => {
+    let cancelled = false;
+    async function loadBoards() {
+      if (!user?.id) {
+        setBoards([]);
+        setBoardsLoaded(false);
+        return;
+      }
+      setBoardsLoaded(false);
+      try {
+        const rows = await apiRequest('/boards');
+        if (cancelled) return;
+        const mapped: BoardItem[] = (Array.isArray(rows) ? rows : []).map((row: any) => ({
+          id: String(row.id),
+          name: row.title || 'Без названия',
+          category: row.projects?.niche || row.description || 'Без категории',
+          pinCount: 0,
+          monthlyViews: 0,
+          seoScore: 0,
+          missingKeywords: [],
+          targetWeeklyPins: 7,
+          coverImage: '/src/assets/images/pin_home_decor_1790670043705.jpg',
+        }));
+        setBoards(mapped);
+      } catch (error) {
+        console.error('[boards] Не удалось загрузить доски:', error);
+        if (!cancelled) setBoards([]);
+      } finally {
+        if (!cancelled) setBoardsLoaded(true);
+      }
+    }
+    loadBoards();
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   const { toast, clearToast } = useNotifications();
   const { refreshUser } = useAuth();
@@ -228,8 +266,35 @@ const MainApp: React.FC = () => {
     setScheduledPins((prev) => [pin, ...prev]);
   };
 
-  const handleAddBoard = (board: BoardItem) => {
-    setBoards((prev) => [board, ...prev]);
+  const handleAddBoard = async (board: BoardItem) => {
+    try {
+      let projects = await apiRequest('/projects');
+      if (!Array.isArray(projects) || projects.length === 0) {
+        const project = await apiRequest('/projects', {
+          method: 'POST',
+          body: JSON.stringify({ niche: board.category, language: 'ru' }),
+        });
+        projects = [project];
+      }
+      const saved = await apiRequest('/boards', {
+        method: 'POST',
+        body: JSON.stringify({
+          project_id: projects[0].id,
+          title: board.name,
+          description: board.category,
+        }),
+      });
+      const persisted: BoardItem = {
+        ...board,
+        id: String(saved.id),
+        name: saved.title || board.name,
+        category: board.category,
+      };
+      setBoards((prev) => [persisted, ...prev]);
+    } catch (error) {
+      console.error('[boards] Не удалось создать доску:', error);
+      window.alert(error instanceof Error ? error.message : 'Не удалось сохранить доску');
+    }
   };
 
   const handleOptimizeBoard = (boardId: string) => {
