@@ -79,6 +79,28 @@ jobs:
             aspect_ratio text default '2:3',
             created_at timestamp without time zone default now()
           );
+          create table public.pinterest_accounts (
+            id uuid primary key default gen_random_uuid(),
+            user_id text not null unique,
+            pinterest_user_id text,
+            username text,
+            access_token text not null,
+            refresh_token text,
+            scopes text,
+            expires_at timestamptz,
+            created_at timestamptz not null default now(),
+            updated_at timestamptz not null default now()
+          );
+          create table public.pinterest_publications (
+            id uuid primary key default gen_random_uuid(),
+            user_id text not null,
+            pin_id uuid not null,
+            pinterest_pin_id text not null,
+            pinterest_board_id text not null,
+            created_at timestamptz not null default now()
+          );
+          create unique index uniq_pinterest_publications_pin on public.pinterest_publications(pin_id);
+          create unique index uniq_pinterest_publications_remote on public.pinterest_publications(pinterest_pin_id);
           create table public.credit_transactions (
             id uuid primary key default gen_random_uuid(),
             user_id text,
