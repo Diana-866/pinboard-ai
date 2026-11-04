@@ -1,0 +1,60 @@
+# Миграции базы данных PinPosy
+
+База данных PinPosy — PostgreSQL (текущая конфигурация использует Supabase).
+Ниже приведён единый порядок файлов для создания схемы на **чистой базе**.
+
+> Важно: `001_baseline.sql` — каноническая базовая схема. Она уже включает объекты,
+> которые исторически добавлялись файлами `002`–`008`. Эти миграции оставлены
+> в цепочке для воспроизводимости и совместимости с существующей историей.
+> `000_check_schema.sql` — диагностический скрипт, а не миграция; он находится
+> в `db/archive/` и в чистую базу в рамках цепочки не запускается.
+>
+> Выполняйте цепочку только на новой/подготовленной базе. Не запускайте её
+> поверх рабочей базы без резервной копии и проверки текущей схемы.
+
+## Таблица миграций
+
+| Файл | Что делает | Идемпотентен | Требует предыдущего |
+|---|---|---:|---|
+| `001_baseline.sql` | Создаёт базовую схему PinPosy: таблицы пользователей, проектов, досок, пинов, кредитных операций, токенов, подписок, покупок кредитов и Pinterest; индексы, ограничения, RPC `adjust_credits_balance`, RLS и политики. | Да | Нет |
+| `002_auth_tokens.sql` | Создаёт таблицу одноразовых токенов и индексы; включает RLS. | Да | `001_baseline.sql` |
+| `003_users_profile.sql` | Добавляет имя и фамилию пользователя. | Да | `001_baseline.sql` |
+| `004_onboarding.sql` | Добавляет поля прохождения онбординга и тарифного плана; нормализует старое значение тарифа и пересоздаёт CHECK. | Да | `001_baseline.sql` |
+| `005_email_verified.sql` | Добавляет признак подтверждения email, однократно подтверждает существующие аккаунты при первом добавлении колонки и создаёт индексы. | Да | `001_baseline.sql`, `002_auth_tokens.sql` |
+| `006_subscriptions.sql` | Создаёт таблицу подписок Prodamus, индексы, ограничения, RLS и поле окончания тарифа пользователя. | Да | `001_baseline.sql` |
+| `007_credit_purchases.sql` | Создаёт учёт разовых покупок пакетов кредитов, защиту от повторного зачисления, индексы, ограничения и RLS. | Да | `001_baseline.sql` |
+| `008_pinterest_accounts.sql` | Создаёт таблицы подключённых Pinterest-аккаунтов и журнала публикаций, уникальные индексы и RLS. | Да | `001_baseline.sql` |
+| `009_hardening.sql` | Ужесточает RLS, приводит пользовательские ссылки к UUID, добавляет внешние ключи с каскадным удалением, триггер и ограничения статусов, создаёт индексы; при необходимости очищает некорректные/осиротевшие ссылки и проверяет преобразование суммы транзакций. | Да* | `001_baseline.sql`–`008_pinterest_accounts.sql` |
+| `010_atomic_credit_ledger.sql` | Добавляет связь транзакции с покупкой и атомарные RPC для изменения баланса, записи журнала и зачисления оплаченной покупки. | Да | `007_credit_purchases.sql`, `009_hardening.sql` |
+| `011_atomic_subscription_activation.sql` | Добавляет атомарную RPC-активацию оплаченной подписки с защитой от повторного продления и отката тарифа запоздавшим вебхуком. | Да | `006_subscriptions.sql`, `009_hardening.sql` |
+
+`* Да, повторный запуск рассчитан на безопасное применение уже созданной схемы. Однако
+первое применение `009_hardening.sql` может удалить некорректные или осиротевшие
+строки перед созданием внешних ключей. Перед запуском на базе с данными обязательно
+сделайте резервную копию и просмотрите NOTICE-сообщения.`
+
+## Порядок применения на чистой базе
+
+Подключите `DATABASE_URL` к целевой PostgreSQL-базе. Команды ниже предназначены
+для Bash / Git Bash; `ON_ERROR_STOP=1` останавливает применение при первой SQL-ошибке.
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/001_baseline.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/002_auth_tokens.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/003_users_profile.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/004_onboarding.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/005_email_verified.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/006_subscriptions.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/007_credit_purchases.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/008_pinterest_accounts.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/009_hardening.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/010_atomic_credit_ledger.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/011_atomic_subscription_activation.sql
+```
+
+## Архив
+
+- `db/archive/000_check_schema.sql` — диагностический запрос для проверки состояния схемы; не входит в последовательность изменений.
+- `db/archive/001_base_schema.sql` — прежняя базовая миграция, оставлена для истории. Для новой базы вместо неё используется `001_baseline.sql`.
+
+Архивные файлы не следует запускать как часть новой последовательности миграций.
