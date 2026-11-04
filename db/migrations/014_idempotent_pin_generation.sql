@@ -7,6 +7,7 @@ create table if not exists public.pin_generation_requests (
   idempotency_key varchar(128) not null,
   status text not null check (status in ('processing','completed','failed')),
   pins jsonb,
+  request_fingerprint text not null,
   error_code text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -22,13 +23,14 @@ grant select, insert, update, delete on public.pin_generation_requests to servic
 grant usage, select on sequence public.pin_generation_requests_id_seq to service_role;
 
 create or replace function public.begin_pin_generation_request(
-  p_user_id text, p_board_id uuid, p_idempotency_key text
+  p_user_id text, p_board_id uuid, p_idempotency_key text, p_fingerprint text
 ) returns jsonb
 language plpgsql security definer
 set search_path = pg_catalog, public
 as $$
 declare
   v_request public.pin_generation_requests%rowtype;
+  v_inserted integer;
 begin
   if p_user_id is null or p_board_id is null or p_idempotency_key is null
      or length(p_idempotency_key) < 16 or length(p_idempotency_key) > 128 then
@@ -40,16 +42,22 @@ begin
   ) then raise exception 'board not found or not owned by user'; end if;
 
   insert into public.pin_generation_requests(user_id,board_id,idempotency_key,status)
-  values(p_user_id,p_board_id,p_idempotency_key,'processing')
+  values(p_user_id,p_board_id,p_idempotency_key,'processing',p_fingerprint)
   on conflict (user_id,idempotency_key) do nothing;
+  get diagnostics v_inserted = row_count;
 
   select * into v_request from public.pin_generation_requests
   where user_id=p_user_id and idempotency_key=p_idempotency_key
   for update;
 
   if v_request.board_id <> p_board_id then raise exception 'idempotency key already used for another board'; end if;
+  if v_request.request_fingerprint <> p_fingerprint then raise exception 'idempotency key reused with different request'; end if;
+  if v_inserted = 1 then return jsonb_build_object('status','started'); end if;
   if v_request.status='completed' then
     return jsonb_build_object('status','completed','pins',v_request.pins);
+  elsif v_request.status='processing' and v_request.updated_at < now() - interval '30 minutes' then
+    update public.pin_generation_requests set updated_at=now() where id=v_request.id;
+    return jsonb_build_object('status','started');
   elsif v_request.status='processing' then
     return jsonb_build_object('status','processing');
   else
@@ -102,9 +110,9 @@ begin
 end;
 $$;
 
-revoke all on function public.begin_pin_generation_request(text,uuid,text) from public,anon,authenticated;
+revoke all on function public.begin_pin_generation_request(text,uuid,text,text) from public,anon,authenticated;
 revoke all on function public.complete_pin_generation_request(text,uuid,text,jsonb,integer) from public,anon,authenticated;
 revoke all on function public.fail_pin_generation_request(text,text,text) from public,anon,authenticated;
-grant execute on function public.begin_pin_generation_request(text,uuid,text) to service_role;
+grant execute on function public.begin_pin_generation_request(text,uuid,text,text) to service_role;
 grant execute on function public.complete_pin_generation_request(text,uuid,text,jsonb,integer) to service_role;
 grant execute on function public.fail_pin_generation_request(text,text,text) to service_role;
