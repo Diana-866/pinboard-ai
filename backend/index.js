@@ -614,14 +614,19 @@ async function getPinWithOwnerCheck(pinId, userId) {
 app.patch("/pins/:id", requireAuth, async (req, res) => {
   try {
     await getPinWithOwnerCheck(req.params.id, req.userId);
-    const title = optionalString(req.body && req.body.title, { max: 100 });
-    const description = optionalString(req.body && req.body.description, { max: 500 });
-    if (title === null && description === null) {
+    const body = req.body || {};
+    const update = {};
+    if (Object.prototype.hasOwnProperty.call(body, "title")) {
+      const title = optionalString(body.title, { max: 100 });
+      if (!title) throw httpError(422, "Название пина не может быть пустым");
+      update.title = title;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "description")) {
+      update.description = optionalString(body.description, { max: 500 }) || "";
+    }
+    if (Object.keys(update).length === 0) {
       throw httpError(422, "Нечего обновлять: передайте title и/или description");
     }
-    const update = {};
-    if (title !== null) update.title = title;
-    if (description !== null) update.description = description;
 
     const { data, error } = await supabase
       .from("pins")
