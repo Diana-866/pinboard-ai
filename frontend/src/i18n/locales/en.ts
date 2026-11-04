@@ -101,7 +101,7 @@ export const en: TranslationSchema = {
 
   dashboard: {
     title: 'Pinterest Performance Overview',
-    subtitle: 'Real-time account intelligence, algorithm trends, and scheduled automation queues.',
+    subtitle: 'Manage your boards and scheduled pins. Pinterest performance analytics are not connected yet.',
     monthlyViews: 'Monthly Views',
     pinImpressions: 'Total Impressions',
     outboundClicks: 'Outbound Clicks',
@@ -126,6 +126,8 @@ export const en: TranslationSchema = {
     serverExecutionNote: 'Scheduled in your local timezone with synced Russian server execution',
     dataNoticeTitle: "Pinterest analytics are not available yet",
     dataNoticeDescription: "Account performance metrics and AI recommendations will appear here after the Pinterest analytics integration is implemented.",
+    boardMetricsUnavailable: "Performance metrics are not synced yet",
+    emptyBoards: "No boards yet. Create your first board to get started.",
   },
 
   generator: {
