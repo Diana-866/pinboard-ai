@@ -41,7 +41,7 @@ begin
     where b.id=p_board_id and p.user_id::text=p_user_id
   ) then raise exception 'board not found or not owned by user'; end if;
 
-  insert into public.pin_generation_requests(user_id,board_id,idempotency_key,status)
+  insert into public.pin_generation_requests(user_id,board_id,idempotency_key,status,request_fingerprint)
   values(p_user_id,p_board_id,p_idempotency_key,'processing',p_fingerprint)
   on conflict (user_id,idempotency_key) do nothing;
   get diagnostics v_inserted = row_count;
