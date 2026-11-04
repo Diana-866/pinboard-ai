@@ -247,6 +247,7 @@ export const ru: TranslationSchema = {
     cadenceSettingsDescription: "Ежедневная генерация пинов в пределах заданного минимума и максимума с учётом анализа досок и трендов ниши.",
     autoGenerationLabel: "Автогенерация:",
     autoGenerationTitle: "Настроить ежедневное время генерации пинов",
+    autoGenerationOff: "Выключена",
     timezonePickerTitle: "Выберите часовой пояс:",
     settingsForLabel: "Настройки для:",
     minPerDayLabel: "Минимум публикаций в день:",
