@@ -125,7 +125,7 @@ export const de: TranslationSchema = {
     configureTimeBtn: 'Uhrzeit konfigurieren',
     serverExecutionNote: 'Geplant in Ihrer Zeitzone mit synchroner Ausführung auf dem Server',
     dataNoticeTitle: "Pinterest-Analysen sind noch nicht verfügbar",
-    dataNoticeDescription: "Kontokennzahlen und KI-Empfehlungen werden hier angezeigt, sobald die Pinterest-Analyseintegration umgesetzt ist.", um echte Kennzahlen und kontoabhängige Empfehlungen zu sehen.",
+    dataNoticeDescription: "Kontokennzahlen und KI-Empfehlungen werden hier angezeigt, sobald die Pinterest-Analyseintegration umgesetzt ist.",
   },
 
   generator: {
