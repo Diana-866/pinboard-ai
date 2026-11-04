@@ -247,6 +247,7 @@ export const es: TranslationSchema = {
     cadenceSettingsDescription: "Genera pines a diario dentro de los límites establecidos, teniendo en cuenta el análisis de tableros y las tendencias del nicho.",
     autoGenerationLabel: "Generación automática:",
     autoGenerationTitle: "Configurar la hora diaria de generación de pines",
+    autoGenerationOff: "Desactivada",
     timezonePickerTitle: "Elige tu zona horaria:",
     settingsForLabel: "Configuración para:",
     minPerDayLabel: "Mínimo de pines al día:",
