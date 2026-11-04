@@ -151,6 +151,20 @@ export interface TranslationSchema {
     topicPlaceholder: string;
     targetBoardLabel: string;
     contentLanguageLabel: string;
+    schedulingSectionTitle: string;
+    autoPostingLabel: string;
+    publishNowLabel: string;
+    publishNowDescription: string;
+    smartQueueLabel: string;
+    smartQueueDescription: string;
+    customDateTimeLabel: string;
+    customDateTimeDescription: string;
+    publishDateLabel: string;
+    publishTimeLabel: string;
+    pinterestBoardForPublishingLabel: string;
+    noBoardOption: string;
+    noBoardWarning: string;
+    recommendedBadge: string;
     pinToneLabel: string;
     tones: {
       inspirational: string;
