@@ -966,6 +966,94 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
   }
 });
 
+// --- Постоянное расписание публикаций ---
+// Запись в очереди не считается опубликованной: статус published появится
+// только после успешного ответа Pinterest от отдельного worker.
+app.get("/schedule", requireAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("pin_schedules")
+      .select("*, pins(id, board_id, title, description, image_url, boards(id, title))")
+      .eq("user_id", String(req.userId))
+      .neq("status", "cancelled")
+      .order("scheduled_at", { ascending: true });
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+app.post("/pins/:id/schedule", requireAuth, async (req, res) => {
+  try {
+    const pin = await getPinWithOwnerCheck(req.params.id, req.userId);
+    if (!pin.image_url) throw httpError(422, "У пина нет сохранённого изображения");
+    const scheduledAtRaw = String((req.body && req.body.scheduled_at) || "").trim();
+    const scheduledAt = new Date(scheduledAtRaw);
+    if (!scheduledAtRaw || Number.isNaN(scheduledAt.getTime())) {
+      throw httpError(422, "Укажите корректные дату и время публикации");
+    }
+    if (scheduledAt.getTime() < Date.now() - 10 * 60 * 1000) {
+      throw httpError(422, "Время публикации не может быть в прошлом");
+    }
+    if (scheduledAt.getTime() > Date.now() + 366 * 24 * 60 * 60 * 1000) {
+      throw httpError(422, "Нельзя планировать публикацию более чем на год вперёд");
+    }
+    const timezone = String((req.body && req.body.timezone) || "Europe/Moscow").trim();
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: timezone });
+    } catch {
+      throw httpError(422, "Некорректный часовой пояс");
+    }
+    let destinationUrl = null;
+    if (req.body && req.body.destination_url) {
+      destinationUrl = String(req.body.destination_url).trim();
+      if (destinationUrl.length > 2048) throw httpError(422, "Ссылка слишком длинная");
+      let parsed;
+      try { parsed = new URL(destinationUrl); } catch { throw httpError(422, "Некорректная ссылка"); }
+      if (!["http:", "https:"].includes(parsed.protocol)) throw httpError(422, "Разрешены только HTTP- и HTTPS-ссылки");
+    }
+
+    const { data, error } = await supabase
+      .from("pin_schedules")
+      .insert({
+        user_id: String(req.userId),
+        pin_id: pin.id,
+        scheduled_at: scheduledAt.toISOString(),
+        timezone,
+        destination_url: destinationUrl,
+        status: "scheduled",
+      })
+      .select("*, pins(id, board_id, title, description, image_url, boards(id, title))")
+      .single();
+    if (error && error.code === "23505") {
+      throw httpError(409, "Этот пин уже находится в расписании или был опубликован");
+    }
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+app.post("/schedule/:id/cancel", requireAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("pin_schedules")
+      .update({ status: "cancelled", updated_at: new Date().toISOString() })
+      .eq("id", req.params.id)
+      .eq("user_id", String(req.userId))
+      .eq("status", "scheduled")
+      .select("*")
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw httpError(404, "Запланированная публикация не найдена или уже обрабатывается");
+    res.json(data);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 // --- Кредиты ---
 
 app.get("/credits", requireAuth, async (req, res) => {
