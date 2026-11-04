@@ -273,6 +273,7 @@ export interface TranslationSchema {
     cadenceSettingsDescription: string;
     autoGenerationLabel: string;
     autoGenerationTitle: string;
+    autoGenerationOff: string;
     timezonePickerTitle: string;
     settingsForLabel: string;
     minPerDayLabel: string;
