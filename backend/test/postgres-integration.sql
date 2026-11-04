@@ -97,6 +97,23 @@ begin
   select tariff_plan into v_plan from public.users where id = v_user;
   if v_plan <> 'start' then raise exception 'expected tariff start, got %', v_plan; end if;
 
+
+  -- Idempotency: completed generation returns stored pins without charging again.
+  v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-key-0001');
+  if v_result->>'status' <> 'started' then raise exception 'first generation request must start'; end if;
+  v_result := public.complete_pin_generation_request(
+    v_user::text, v_board, 'ci-generation-key-0001',
+    '[{"image_url":"https://cdn.example.invalid/idempotent.png","title":"Idempotent","description":"","model_used":"flux-schnell","aspect_ratio":"2:3","credits_cost":5}]'::jsonb,
+    5
+  );
+  if (v_result->>'balance')::integer <> 75 then raise exception 'idempotent first charge incorrect'; end if;
+  v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-key-0001');
+  if v_result->>'status' <> 'completed' then raise exception 'duplicate generation must return completed'; end if;
+  if jsonb_array_length(v_result->'pins') <> 1 then raise exception 'duplicate generation did not return cached pins'; end if;
+  if (select credits_balance from public.users where id=v_user) <> 75 then
+    raise exception 'duplicate generation charged credits twice';
+  end if;
+
   -- A second paid order must start after the current paid entitlement.
   insert into public.subscriptions(user_id, plan, status, provider_payment_id, amount, currency)
   values (v_user::text, 'pro', 'pending', 'ci-sub-next-' || v_user, 4990, 'rub')
