@@ -79,10 +79,8 @@ export const fr: TranslationSchema = {
     logout: 'Déconnexion',
     login: 'Connexion',
     changeAvatar: 'Changer d’avatar',
-    reviewPins: "Vérifier les épingles",
     planLabel: "Offre :",
     plans: "Offres",
-    pinterestAccounts: "Comptes Pinterest",
     accountCountTemplate: "{count} comptes sur {max} connectés",
     connectPinterestAccount: "Connecter un compte Pinterest",
     accountLimitTemplate: "Limite atteinte ({count} sur {max})",
@@ -97,7 +95,8 @@ export const fr: TranslationSchema = {
     uploadCustomImage: "1. Importer votre image :",
     chooseFile: "Choisir un fichier sur l’appareil",
     useNameInitial: "2. Utiliser une initiale stylisée :",
-    choosePresetAvatar: "Utiliser l’initiale du nom (« {letter} »)",
+    useInitialAvatar: "Utiliser l’initiale du nom (« {letter} »)",
+    choosePresetAvatar: "3. Ou choisir un avatar prédéfini :",
   },
 
   dashboard: {
