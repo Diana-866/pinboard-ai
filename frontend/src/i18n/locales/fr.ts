@@ -124,6 +124,8 @@ export const fr: TranslationSchema = {
     autoScheduleTitle: 'Auto-génération d’épingles',
     configureTimeBtn: 'Configurer l’horaire',
     serverExecutionNote: 'Programmé selon votre fuseau local avec synchronisation sur le serveur',
+    dataNoticeTitle: "Les données Pinterest ne sont pas encore connectées",
+    dataNoticeDescription: "Connectez et synchronisez un compte Pinterest pour afficher des statistiques réelles et des recommandations personnalisées.",
   },
 
   generator: {
@@ -351,6 +353,8 @@ export const fr: TranslationSchema = {
     topPerformingPins: 'Top épingles virales',
     seoHealthIndex: 'Score de confiance algorithmique',
     growthOpportunities: '3 opportunités d’accélération à fort impact',
+    dataUnavailableTitle: "Les données analytiques ne sont pas encore disponibles",
+    dataUnavailableDescription: "PinPosy ne récupère pas encore les statistiques du compte depuis Pinterest. Les indicateurs apparaîtront une fois l’intégration analytique mise en place et les données synchronisées.",
   },
 
   settings: {
