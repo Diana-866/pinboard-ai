@@ -101,7 +101,7 @@ export const ru: TranslationSchema = {
 
   dashboard: {
     title: 'Обзор показателей Pinterest',
-    subtitle: 'Аналитика аккаунта в реальном времени, тренды алгоритмов и очередь автоматических публикаций.',
+    subtitle: 'Управляйте досками и запланированными пинами. Аналитика Pinterest пока не подключена.',
     monthlyViews: 'Просмотры за месяц',
     pinImpressions: 'Всего показов',
     outboundClicks: 'Внешние переходы',
@@ -126,6 +126,8 @@ export const ru: TranslationSchema = {
     serverExecutionNote: 'Время запуска по вашему часовому поясу с синхронизацией на сервере',
     dataNoticeTitle: "Аналитика Pinterest пока недоступна",
     dataNoticeDescription: "Показатели аккаунта и рекомендации ИИ появятся здесь после реализации интеграции с аналитикой Pinterest.",
+    boardMetricsUnavailable: "Показатели ещё не синхронизируются",
+    emptyBoards: "Пока нет досок. Создайте первую доску, чтобы начать.",
   },
 
   generator: {
