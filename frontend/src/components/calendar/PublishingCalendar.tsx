@@ -39,6 +39,13 @@ interface PublishingCalendarProps {
   onUpdateAccountAutoTime?: (accountId: string, autoTime: string, nightlyAuto: boolean) => void;
 }
 
+const formatLocalDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
   scheduledPins,
   boards,
@@ -160,7 +167,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
     d.setDate(today.getDate() + i);
     return {
       dateObj: d,
-      dateStr: d.toISOString().split('T')[0],
+      dateStr: formatLocalDate(d),
       dayName: d.toLocaleDateString('ru-RU', { weekday: 'short' }),
       dayNumber: d.getDate(),
       monthName: d.toLocaleDateString('ru-RU', { month: 'short' }),
@@ -172,7 +179,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
     d.setDate(today.getDate() - 3 + i);
     return {
       dateObj: d,
-      dateStr: d.toISOString().split('T')[0],
+      dateStr: formatLocalDate(d),
       dayNumber: d.getDate(),
     };
   });
@@ -464,21 +471,24 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
           </div>
 
           {/* Status Filter */}
-          {['all', 'scheduled', 'published'].map((st) => (
+          {[
+            { value: 'all', label: 'Все' },
+            { value: 'scheduled', label: 'Запланировано' },
+            { value: 'publishing', label: 'Публикуется' },
+            { value: 'published', label: 'Опубликовано' },
+            { value: 'failed', label: 'Ошибки' },
+            { value: 'unknown', label: 'Нужна проверка' },
+          ].map(({ value, label }) => (
             <button
-              key={st}
-              onClick={() => setFilterStatus(st)}
+              key={value}
+              onClick={() => setFilterStatus(value)}
               className={`px-2.5 py-1.5 rounded-lg border border-subtle cursor-pointer transition-colors ${
-                filterStatus === st
+                filterStatus === value
                   ? 'bg-subtle text-primary-theme font-semibold'
                   : 'bg-surface text-secondary-theme hover:text-primary-theme'
               }`}
             >
-              {st === 'all'
-                ? 'Все'
-                : st === 'scheduled'
-                ? 'Запланировано'
-                : 'Опубликовано'}
+              {label}
             </button>
           ))}
         </div>
@@ -786,7 +796,17 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
               />
               <div className="space-y-1.5 flex-1 min-w-0">
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full accent-pill">
-                  {selectedPin.status}
+                  {selectedPin.status === 'published'
+                    ? 'Опубликован'
+                    : selectedPin.status === 'failed'
+                    ? 'Ошибка публикации'
+                    : selectedPin.status === 'publishing'
+                    ? 'Публикуется'
+                    : selectedPin.status === 'unknown'
+                    ? 'Нужна проверка'
+                    : selectedPin.status === 'draft'
+                    ? 'Черновик'
+                    : 'В очереди'}
                 </span>
                 <h3 className="text-base font-bold text-primary-theme font-heading leading-snug">
                   {selectedPin.title}
