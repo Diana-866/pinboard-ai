@@ -100,6 +100,25 @@ export interface TranslationSchema {
     logout: string;
     login: string;
     changeAvatar: string;
+    reviewPins: string;
+    planLabel: string;
+    plans: string;
+    pinterestAccounts: string;
+    accountCountTemplate: string;
+    connectPinterestAccount: string;
+    accountLimitTemplate: string;
+    removeLimit: string;
+    syncStatus: string;
+    avatarClickTitle: string;
+    configureAvatar: string;
+    avatarModalTitle: string;
+    currentAvatarAlt: string;
+    avatarLetterTemplate: string;
+    customPhoto: string;
+    uploadCustomImage: string;
+    chooseFile: string;
+    useNameInitial: string;
+    choosePresetAvatar: string;
   };
 
   // Dashboard
