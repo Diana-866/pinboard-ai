@@ -5,7 +5,7 @@
 //
 // ВАЖНО: файл восстановлен (в архиве версия была повреждена — дублированный блок
 // `const provided` и отсутствовавшие функции-хелперы). Поведение сохранено,
-// подпись: HMAC-SHA256(canonical-строка, secret) в base64 — так её ждёт test/billing-flow.js.
+// подпись: HMAC-SHA256(canonical-строка, secret), hex в поле signature запроса.
 
 const crypto = require("crypto");
 const axios = require("axios");
@@ -89,9 +89,9 @@ function toFormEncoded(params) {
 }
 
 /**
- * Подпись payload: HMAC-SHA256 от canonical-строки секретом магазина, в base64.
- * Используется и для создания ссылок (заголовок Sign исходящего запроса),
- * и в тестах — для имитации вебхука.
+ * Подпись исходящего запроса: HMAC-SHA256 от canonical-строки, hex.
+ * Prodamus ожидает её в параметре signature тела запроса; заголовок Sign
+ * используется для обратных вебхуков.
  */
 function signPayload(params) {
   const secret = process.env.PRODAMUS_SECRET;
@@ -99,7 +99,7 @@ function signPayload(params) {
   return crypto
     .createHmac("sha256", secret)
     .update(canonicalString(params), "utf8")
-    .digest("base64");
+    .digest("hex");
 }
 
 /** Сравнение подписей без утечки по времени (хешируем до фикс. длины) */
@@ -221,23 +221,23 @@ async function createPaymentLink({
   };
 
   const signature = signPayload(payload);
+  const signedPayload = { ...payload, signature };
 
   // Оффлайн-режим: собираем ссылку сами (локальные тесты, нет сети до Prodamus).
   if (isOffline()) {
-    const qs = toFormEncoded(payload);
+    const qs = toFormEncoded(signedPayload);
     return {
       url: `${baseUrl()}?${qs.toString()}`,
-      payload,
+      payload: signedPayload,
       raw: { offline: true },
     };
   }
 
   let res;
   try {
-    res = await axios.post(baseUrl(), toFormEncoded(payload), {
+    res = await axios.post(baseUrl(), toFormEncoded(signedPayload), {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        Sign: signature,
         Accept: "application/json",
       },
       timeout: 20000,
@@ -260,7 +260,7 @@ async function createPaymentLink({
       "Prodamus не вернул ссылку на оплату. Проверьте PRODAMUS_SHOP_ID / PRODAMUS_SECRET / PRODAMUS_URL."
     );
   }
-  return { url, payload, raw: data || res.data };
+  return { url, payload: signedPayload, raw: data || res.data };
 }
 
 module.exports = {
