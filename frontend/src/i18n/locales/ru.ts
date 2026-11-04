@@ -124,8 +124,8 @@ export const ru: TranslationSchema = {
     autoScheduleTitle: 'Авто-генерация пинов',
     configureTimeBtn: 'Настроить время автогенерации',
     serverExecutionNote: 'Время запуска по вашему часовому поясу с синхронизацией на сервере',
-    dataNoticeTitle: "Данные Pinterest пока не подключены",
-    dataNoticeDescription: "Подключите и синхронизируйте аккаунт Pinterest, чтобы увидеть реальные показатели и рекомендации для своего аккаунта.",
+    dataNoticeTitle: "Аналитика Pinterest пока недоступна",
+    dataNoticeDescription: "Показатели аккаунта и рекомендации ИИ появятся здесь после реализации интеграции с аналитикой Pinterest.", чтобы увидеть реальные показатели и рекомендации для своего аккаунта.",
   },
 
   generator: {
