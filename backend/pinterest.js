@@ -531,7 +531,7 @@ function registerRoutes(app, deps) {
             .select("status")
             .eq("pin_id", schedule.pin_id)
             .maybeSingle();
-          const finalStatus = attempt && attempt.status === "unknown" ? "unknown" : "failed";
+          const finalStatus = attempt && ["unknown", "processing"].includes(attempt.status) ? "unknown" : "failed";
           const message = String(e && e.message || "Publication failed").slice(0, 500);
           await supabase
             .from("pin_schedules")
