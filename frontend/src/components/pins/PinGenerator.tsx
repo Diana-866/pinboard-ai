@@ -18,7 +18,7 @@ import {
   Clock,
   Zap,
 } from 'lucide-react';
-import { useI18n } from '../../i18n/i18nContext';
+import { AI_CONTENT_LANGUAGES, useI18n } from '../../i18n/i18nContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
@@ -64,7 +64,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   onSchedulePin,
   onGoToCalendar,
 }) => {
-  const { t, aiContentLanguage, language } = useI18n();
+  const { t, aiContentLanguage, setAiContentLanguage, language } = useI18n();
   const { enqueueTask } = useNotifications();
 
   const [pinCount, setPinCount] = useState<number>(5);
@@ -652,7 +652,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             </div>
 
             {/* Editorial Tone & Outbound URL */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-secondary-theme uppercase tracking-wider mb-1.5">
                   {t.generator.pinToneLabel}
@@ -681,6 +681,23 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   placeholder={t.generator.targetUrlPlaceholder}
                   className="w-full px-3 py-2 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-secondary-theme uppercase tracking-wider mb-1.5">
+                  {t.generator.contentLanguageLabel}
+                </label>
+                <select
+                  value={aiContentLanguage}
+                  onChange={(e) => setAiContentLanguage(e.target.value)}
+                  className="w-full px-3 py-2 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
+                >
+                  {AI_CONTENT_LANGUAGES.map((item) => (
+                    <option key={item.code} value={item.code}>
+                      {item.native}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
