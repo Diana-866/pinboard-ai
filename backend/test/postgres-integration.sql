@@ -155,6 +155,17 @@ begin
     raise exception 'uncertain Pinterest result must block duplicate retry';
   end if;
 
+  -- An unknown publication outcome must block a second schedule for the same pin.
+  insert into public.pin_schedules(user_id,pin_id,scheduled_at,timezone,pinterest_board_id,status)
+  values (v_user::text,v_uncertain_pin,now() + interval '1 day','Europe/Moscow','pinterest-board-ci','unknown');
+  begin
+    insert into public.pin_schedules(user_id,pin_id,scheduled_at,timezone,pinterest_board_id)
+    values (v_user::text,v_uncertain_pin,now() + interval '2 days','Europe/Moscow','pinterest-board-ci');
+    raise exception 'expected unknown publication schedule to block rescheduling';
+  exception when unique_violation then
+    null;
+  end;
+
   -- Due schedule rows are claimed atomically and not returned twice.
   insert into public.pin_schedules(user_id,pin_id,scheduled_at,timezone,pinterest_board_id)
   values (v_user::text,v_pin,now() - interval '1 minute','Europe/Moscow','pinterest-board-ci')
