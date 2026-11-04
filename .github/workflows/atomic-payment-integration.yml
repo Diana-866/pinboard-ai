@@ -50,6 +50,28 @@ jobs:
             tariff_plan text not null default 'none',
             tariff_period_end timestamptz
           );
+          create table public.projects (
+            id uuid primary key default gen_random_uuid(),
+            user_id uuid not null references public.users(id),
+            niche text
+          );
+          create table public.boards (
+            id uuid primary key default gen_random_uuid(),
+            project_id uuid not null references public.projects(id)
+          );
+          create table public.pins (
+            id uuid primary key default gen_random_uuid(),
+            board_id uuid not null references public.boards(id),
+            image_url text,
+            title text,
+            description text,
+            status text default 'pending',
+            model_used text,
+            credits_cost numeric,
+            scheduled_date date,
+            aspect_ratio text default '2:3',
+            created_at timestamp without time zone default now()
+          );
           create table public.credit_transactions (
             id uuid primary key default gen_random_uuid(),
             user_id text,
@@ -91,6 +113,8 @@ jobs:
         run: |
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/010_atomic_credit_ledger.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/011_atomic_subscription_activation.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/012_atomic_generation_charge.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/013_atomic_pin_regeneration.sql
       - name: Verify duplicate webhooks and ledger consistency
         env:
           PGPASSWORD: postgres
