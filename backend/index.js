@@ -843,7 +843,12 @@ app.get("/boards/:id/pins", requireAuth, async (req, res) => {
 });
 
 app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["standard", "pro", "agency", "start"]), async (req, res) => {
+  let idempotencyKey = req.get("Idempotency-Key");
+  let generationRequestStarted = false;
   try {
+    if (typeof idempotencyKey !== "string" || !/^[A-Za-z0-9_-]{16,128}$/.test(idempotencyKey)) {
+      throw httpError(422, "Для генерации требуется корректный Idempotency-Key");
+    }
     const board = await getBoardWithOwnerCheck(req.params.id, req.userId);
     const model = validateEnum(req.body && req.body.model, Object.keys(MODEL_PRICES), "flux-schnell", "Модель");
     const count = validateInt(req.body && req.body.count, { min: 1, max: 10, def: 6, name: "Количество" });
@@ -860,6 +865,19 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
     if (Array.isArray(mixedRatios)) {
       mixedRatios = mixedRatios.filter((r) => ASPECT_RATIOS.includes(r)).slice(0, 10);
     }
+
+    const { data: requestState, error: requestError } = await supabase.rpc("begin_pin_generation_request", {
+      p_user_id: String(req.userId),
+      p_board_id: board.id,
+      p_idempotency_key: idempotencyKey,
+    });
+    if (requestError) throw requestError;
+    if (requestState.status === "completed") return res.status(200).json(requestState.pins || []);
+    if (requestState.status === "processing") {
+      res.set("Retry-After", "5");
+      return res.status(409).json({ error: "Такая генерация уже выполняется. Повторите запрос с тем же ключом через несколько секунд.", code: "generation_in_progress" });
+    }
+    generationRequestStarted = true;
 
     const estimatedCost = Math.ceil((MODEL_PRICES[model] || 15) * count * MARKUP);
     const balance = await getBalance(req.userId);
@@ -898,9 +916,10 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
     }));
     const totalCharge = markedUpPins.reduce((sum, p) => sum + p.credits_cost, 0);
 
-    const { data: savedResult, error: saveError } = await supabase.rpc("save_generated_pins_and_charge", {
+    const { data: savedResult, error: saveError } = await supabase.rpc("complete_pin_generation_request", {
       p_user_id: String(req.userId),
       p_board_id: board.id,
+      p_idempotency_key: idempotencyKey,
       p_pins: markedUpPins.map((p) => ({
         image_url: p.image_url,
         title: p.title,
@@ -923,8 +942,20 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
     if (!Array.isArray(inserted) || inserted.length === 0) {
       throw httpError(500, "Не удалось сохранить сгенерированные пины");
     }
+    generationRequestStarted = false;
     res.status(201).json(inserted);
   } catch (e) {
+    if (generationRequestStarted && idempotencyKey) {
+      try {
+        await supabase.rpc("fail_pin_generation_request", {
+          p_user_id: String(req.userId),
+          p_idempotency_key: idempotencyKey,
+          p_error_code: e && e.httpStatus === 402 ? "insufficient_credits" : "generation_failed",
+        });
+      } catch (markError) {
+        console.error("[generation] не удалось отметить запрос как failed:", markError && markError.message);
+      }
+    }
     handleError(res, e);
   }
 });
