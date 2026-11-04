@@ -69,7 +69,8 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {
       // ignore
     }
-    return 'ru';
+    // Unsupported browser languages should fall back to English, not Russian.
+    return 'en';
   });
 
   const [aiContentLanguage, setAiContentLanguageState] = useState<string>(() => {
