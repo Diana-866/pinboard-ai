@@ -124,8 +124,8 @@ export const zh: TranslationSchema = {
     autoScheduleTitle: 'Pin 自动生成排期',
     configureTimeBtn: '配置生成时间',
     serverExecutionNote: '按您所在当地时区设定，并由云端服务器准时同步执行',
-    dataNoticeTitle: "Pinterest 数据尚未连接",
-    dataNoticeDescription: "连接并同步 Pinterest 账号后，即可查看真实数据和针对该账号的建议。",
+    dataNoticeTitle: "Pinterest 分析功能暂不可用",
+    dataNoticeDescription: "Pinterest 分析集成完成后，这里将显示账号表现指标和 AI 建议。",
   },
 
   generator: {
