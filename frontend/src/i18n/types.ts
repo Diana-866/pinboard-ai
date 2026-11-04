@@ -146,6 +146,8 @@ export interface TranslationSchema {
     autoScheduleTitle: string;
     configureTimeBtn: string;
     serverExecutionNote: string;
+    dataNoticeTitle: string;
+    dataNoticeDescription: string;
   };
 
   // Pin Generator
@@ -379,6 +381,8 @@ export interface TranslationSchema {
     topPerformingPins: string;
     seoHealthIndex: string;
     growthOpportunities: string;
+    dataUnavailableTitle: string;
+    dataUnavailableDescription: string;
   };
 
   // Settings
