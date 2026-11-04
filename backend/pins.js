@@ -6,13 +6,25 @@ const DEFAULT_ASPECT_RATIOS = ["2:3", "9:16", "4:5", "3:4"];
 async function generatePins(board, project, model, count, aspectRatio = "mixed", ratioPool, options = {}) {
   const topic = typeof options.topic === "string" ? options.topic.slice(0, 500) : "";
   const tone = typeof options.tone === "string" ? options.tone.slice(0, 80) : project.tone || "нейтральный";
-  const language = typeof options.language === "string" ? options.language.slice(0, 12) : project.language || "ru";
+  const language = typeof options.language === "string" ? options.language.slice(0, 12) : project.language || "en";
+  const languageNames = {
+    ru: "русский (Russian)",
+    en: "английский (English)",
+    de: "немецкий (German)",
+    fr: "французский (French)",
+    es: "испанский (Spanish)",
+    pt: "португальский (Portuguese)",
+    zh: "китайский (Chinese)",
+    it: "итальянский (Italian)",
+    ja: "японский (Japanese)",
+  };
+  const outputLanguage = languageNames[language] || language;
   const prompt = `Ты придумываешь пины для Pinterest-доски.
 Доска: ${board.title}
 Описание доски: ${board.description}
 Ниша: ${project.niche || "не указана"}
 Тема текущей генерации: ${topic || board.title}
-Язык результата: ${language}
+Язык результата: ${outputLanguage}
 Тон: ${tone}
 
 Придумай ${count} уникальных идей пинов строго на указанном языке. Для каждого пина: короткий заголовок (до 60 символов), описание для поиска на Pinterest (1-2 предложения, с ключевыми словами) и image_prompt — подробное описание изображения на английском языке для генерации через AI (стиль, композиция, объект). Не выдумывай статистику и факты.
