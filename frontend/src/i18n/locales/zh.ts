@@ -247,6 +247,7 @@ export const zh: TranslationSchema = {
     cadenceSettingsDescription: "根据画板分析和细分领域趋势，在设定的每日数量范围内生成 Pin。",
     autoGenerationLabel: "自动生成：",
     autoGenerationTitle: "设置每日 Pin 生成时间",
+    autoGenerationOff: "已关闭",
     timezonePickerTitle: "选择您的时区：",
     settingsForLabel: "设置对象：",
     minPerDayLabel: "每日最少发布数：",
