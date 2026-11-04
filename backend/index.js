@@ -732,6 +732,66 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
 
 // --- Генерация пинов ---
 
+// Создание доски в постоянной базе данных. project_id проверяется по владельцу.
+app.post("/boards", requireAuth, async (req, res) => {
+  try {
+    const projectId = optionalString(req.body && req.body.project_id, { max: 64 });
+    const title = optionalString(req.body && req.body.title, { max: 100 });
+    const description = optionalString(req.body && req.body.description, { max: 500 }) || "";
+
+    if (!projectId) throw httpError(422, "Укажите project_id");
+    if (!title) throw httpError(422, "Название доски обязательно");
+
+    const { data: project, error: projectError } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("id", projectId)
+      .eq("user_id", req.userId)
+      .single();
+
+    if (projectError || !project) throw httpError(404, "Проект не найден");
+
+    const { data, error } = await supabase
+      .from("boards")
+      .insert({ project_id: project.id, title, description, status: "new" })
+      .select("*")
+      .single();
+
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// Обновление названия/описания доски с обязательной проверкой владельца.
+app.patch("/boards/:id", requireAuth, async (req, res) => {
+  try {
+    await getBoardWithOwnerCheck(req.params.id, req.userId);
+    const title = optionalString(req.body && req.body.title, { max: 100 });
+    const description = optionalString(req.body && req.body.description, { max: 500 });
+    if (title === null && description === null) {
+      throw httpError(422, "Передайте title и/или description");
+    }
+
+    const patch = {};
+    if (title !== null) patch.title = title;
+    if (description !== null) patch.description = description;
+
+    const { data, error } = await supabase
+      .from("boards")
+      .update(patch)
+      .eq("id", req.params.id)
+      .select("*")
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 app.get("/boards", requireAuth, async (req, res) => {
   try {
     const { data: projects, error: projectsError } = await supabase
