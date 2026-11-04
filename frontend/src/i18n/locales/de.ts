@@ -474,6 +474,11 @@ export const de: TranslationSchema = {
     statusInProgress: 'Wird verarbeitet',
     statusReady: 'Bereit',
     viewResult: 'Details ansehen',
+    smartQueueCount: "{count} Aufgaben in der Smart Queue",
+    allTasksSynced: "Alle Aufgaben sind synchronisiert",
+    strategistPrompt: "Benötigen Sie Hilfe beim Verständnis Ihrer Analysen?",
+    askStrategist: "KI-Strategen fragen →",
+    strategistTitle: "PinPosy-KI-Strategen öffnen",
   },
 
   terms: {
