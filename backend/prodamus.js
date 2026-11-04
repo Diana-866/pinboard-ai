@@ -62,6 +62,33 @@ function canonicalString(params) {
 }
 
 /**
+ * Prodamus expects nested form fields (products[0][name]), not JSON.stringify
+ * or URLSearchParams' default "[object Object]" conversion.
+ * Signature calculation stays on the original nested payload.
+ */
+function appendFormField(form, key, value) {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => appendFormField(form, `${key}[${index}]`, item));
+    return;
+  }
+  if (value && typeof value === "object") {
+    for (const childKey of Object.keys(value).sort()) {
+      appendFormField(form, `${key}[${childKey}]`, value[childKey]);
+    }
+    return;
+  }
+  form.append(key, value === undefined || value === null ? "" : String(value));
+}
+
+function toFormEncoded(params) {
+  const form = new URLSearchParams();
+  for (const key of Object.keys(params || {}).sort()) {
+    appendFormField(form, key, params[key]);
+  }
+  return form.toString();
+}
+
+/**
  * Подпись payload: HMAC-SHA256 от canonical-строки секретом магазина, в base64.
  * Используется и для создания ссылок (заголовок Sign исходящего запроса),
  * и в тестах — для имитации вебхука.
@@ -185,14 +212,7 @@ async function createPaymentLink({
 
   // Оффлайн-режим: собираем ссылку сами (локальные тесты, нет сети до Prodamus).
   if (isOffline()) {
-    const qs = new URLSearchParams({
-      do: "link",
-      order_id: payload.order_id,
-      products: JSON.stringify(payload.products),
-      customer_email: payload.customer_email,
-      currency: payload.currency,
-      ...(payload.demo_mode ? { demo_mode: "1" } : {}),
-    });
+    const qs = toFormEncoded(payload);
     return {
       url: `${baseUrl()}?${qs.toString()}`,
       payload,
@@ -202,7 +222,7 @@ async function createPaymentLink({
 
   let res;
   try {
-    res = await axios.post(baseUrl(), new URLSearchParams(payload).toString(), {
+    res = await axios.post(baseUrl(), toFormEncoded(payload), {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         Sign: signature,
@@ -237,6 +257,7 @@ module.exports = {
   isOffline,
   baseUrl,
   canonicalString,
+  toFormEncoded,
   signPayload,
   safeEqual,
   verifyWebhook,
