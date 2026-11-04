@@ -152,6 +152,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [canvasStyle, setCanvasStyle] = useState<'minimal' | 'glass' | 'split'>('glass');
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const generationKeyRef = React.useRef<string | null>(null);
   const [generatedPins, setGeneratedPins] = useState<GeneratedPinVariation[]>([]);
   const [activePinIndex, setActivePinIndex] = useState(0);
   const [scheduledSuccess, setScheduledSuccess] = useState(false);
@@ -199,8 +200,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       }
 
       const aspectRatio = aspectMode === 'single' ? selectedSingleRatio : 'mixed';
+      if (!generationKeyRef.current) {
+        generationKeyRef.current = globalThis.crypto.randomUUID().replace(/-/g, '_');
+      }
       const rows = await apiRequest(`/boards/${encodeURIComponent(selectedBoard.id)}/pins/generate`, {
         method: 'POST',
+        headers: { 'Idempotency-Key': generationKeyRef.current },
         body: JSON.stringify({
           topic: currentTopic,
           tone,
@@ -233,6 +238,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
       setGeneratedPins(results);
       setActivePinIndex(0);
+      generationKeyRef.current = null;
     } catch (err) {
       console.error('Error generating pins:', err);
       window.alert(err instanceof Error ? err.message : 'Не удалось создать пины. Попробуйте ещё раз позже.');
