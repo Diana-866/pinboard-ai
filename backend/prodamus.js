@@ -27,11 +27,10 @@ function isOffline() {
 }
 
 function baseUrl() {
-  return (
-    String(process.env.PRODAMUS_URL || "https://pinposy.payform.ru/")
-      .trim()
-      .replace(/\/?$/, "/") // всегда завершаем слэшем
-  );
+  const configuredUrl = String(process.env.PRODAMUS_URL || "").trim();
+  const shopId = String(process.env.PRODAMUS_SHOP_ID || "pinposy").trim();
+  const value = configuredUrl || `https://${shopId}.payform.ru/`;
+  return value.replace(/\/?$/, "/"); // всегда завершаем слэшем
 }
 
 /**
