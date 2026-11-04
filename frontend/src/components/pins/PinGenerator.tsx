@@ -200,20 +200,27 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       }
 
       const aspectRatio = aspectMode === 'single' ? selectedSingleRatio : 'mixed';
-      if (!generationKeyRef.current) {
+      const requestBody = {
+        topic: currentTopic,
+        tone,
+        content_language: aiContentLanguage || 'en',
+        count: pinCount,
+        aspect_ratio: aspectRatio,
+        mixed_ratios: targetRatios,
+      };
+      const requestFingerprint = JSON.stringify({ boardId: selectedBoard.id, ...requestBody });
+      const storedFingerprint = sessionStorage.getItem('pinposy_generation_fingerprint');
+      if (!generationKeyRef.current || storedFingerprint !== requestFingerprint) {
         generationKeyRef.current = globalThis.crypto.randomUUID().replace(/-/g, '_');
+        sessionStorage.setItem('pinposy_generation_fingerprint', requestFingerprint);
+        sessionStorage.setItem('pinposy_generation_key', generationKeyRef.current);
+      } else {
+        generationKeyRef.current = sessionStorage.getItem('pinposy_generation_key');
       }
       const rows = await apiRequest(`/boards/${encodeURIComponent(selectedBoard.id)}/pins/generate`, {
         method: 'POST',
-        headers: { 'Idempotency-Key': generationKeyRef.current },
-        body: JSON.stringify({
-          topic: currentTopic,
-          tone,
-          content_language: aiContentLanguage || 'en',
-          count: pinCount,
-          aspect_ratio: aspectRatio,
-          mixed_ratios: targetRatios,
-        }),
+        headers: { 'Idempotency-Key': generationKeyRef.current || '' },
+        body: JSON.stringify(requestBody),
       });
 
       if (!Array.isArray(rows) || rows.length === 0) {
@@ -239,6 +246,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       setGeneratedPins(results);
       setActivePinIndex(0);
       generationKeyRef.current = null;
+      sessionStorage.removeItem('pinposy_generation_fingerprint');
+      sessionStorage.removeItem('pinposy_generation_key');
     } catch (err) {
       console.error('Error generating pins:', err);
       window.alert(err instanceof Error ? err.message : 'Не удалось создать пины. Попробуйте ещё раз позже.');
