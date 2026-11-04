@@ -1,7 +1,7 @@
 import React from 'react';
 import { Layers, ChevronRight, Plus, Globe, Clock, Sparkles } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
-import { BoardItem, ScheduledPinItem } from '../../data/mockData';
+import { BoardItem, ScheduledPinItem, PinterestAccount } from '../../data/mockData';
 
 interface DashboardViewProps {
   boards: BoardItem[];
@@ -10,6 +10,8 @@ interface DashboardViewProps {
   onQuickGenerate: (topic?: string) => void;
   onOpenReview?: () => void;
   pendingCount?: number;
+  currentAccount?: PinterestAccount;
+  onUpdateAccountAutoTime?: (accountId: string, autoTime: string, nightlyAuto: boolean) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
