@@ -53,6 +53,7 @@ export interface KeywordItem {
 
 export interface ScheduledPinItem {
   id: string;
+  pinId?: string;
   title: string;
   boardId: string;
   boardName: string;
