@@ -100,7 +100,6 @@ export interface TranslationSchema {
     logout: string;
     login: string;
     changeAvatar: string;
-    reviewPins: string;
     planLabel: string;
     plans: string;
     pinterestAccounts: string;
@@ -118,6 +117,7 @@ export interface TranslationSchema {
     uploadCustomImage: string;
     chooseFile: string;
     useNameInitial: string;
+    useInitialAvatar: string;
     choosePresetAvatar: string;
   };
 
