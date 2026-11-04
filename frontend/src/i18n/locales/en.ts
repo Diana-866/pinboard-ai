@@ -127,6 +127,7 @@ export const en: TranslationSchema = {
     topicLabel: 'Pin Topic or Target Product URL',
     topicPlaceholder: 'e.g. Minimalist Scandinavian living room styling tips and cozy decor ideas',
     targetBoardLabel: 'Destination Board',
+    contentLanguageLabel: "Generated content language",
     pinToneLabel: 'Editorial Tone',
     tones: {
       inspirational: 'Inspirational & Aesthetic',
