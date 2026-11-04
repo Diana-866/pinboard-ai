@@ -297,7 +297,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     setGeneratedPins(updated);
   };
 
-  const handlePushToCalendar = () => {
+  const handlePushToCalendar = async () => {
     if (!currentPin) return;
 
     const board = boards.find((b) => b.id === selectedBoardId) || boards[0];
@@ -316,10 +316,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         ? customScheduleTime
         : '20:15';
 
-    const status = schedulingMode === 'publish_now' ? 'published' : 'scheduled';
+    // До подтверждения Pinterest любой элемент остаётся запланированным, не published.
+    const status = 'scheduled' as const;
 
     const newScheduledPin: ScheduledPinItem = {
-      id: `sched-${Date.now()}`,
+      id: `pending-${Date.now()}`,
+      pinId: currentPin.id,
       title: currentPin.selectedTitle,
       boardId: board.id,
       boardName: board.name,
@@ -331,7 +333,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       destinationUrl,
     };
 
-    onSchedulePin(newScheduledPin);
+    try {
+      await onSchedulePin(newScheduledPin);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Не удалось сохранить расписание');
+      return;
+    }
     setScheduledSuccess(true);
     setTimeout(() => setScheduledSuccess(false), 4000);
 
@@ -341,8 +348,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       type: 'generation',
       actionTab: 'calendar',
       durationMs: 2500,
-      completionTitle: `Пин успешно запланирован!`,
-      completionMessage: `Пин привязан к доске «${board.name}» и выйдет в прайм-тайм вовлеченности.`,
+      completionTitle: `Пин сохранён в расписании`,
+      completionMessage: `Пин привязан к доске «${board.name}». Автоматическая публикация пока не запущена: он не считается опубликованным.`,
     });
   };
 
