@@ -6,6 +6,12 @@ alter table public.pin_schedules
   add constraint pin_schedules_status_check
   check (status in ('scheduled','publishing','published','failed','unknown','cancelled'));
 
+-- An uncertain outcome must block a second schedule until it is reconciled.
+drop index if exists public.pin_schedules_one_active_per_pin;
+create unique index pin_schedules_one_active_per_pin
+  on public.pin_schedules(pin_id)
+  where status in ('scheduled','publishing','published','unknown');
+
 create or replace function public.claim_due_pin_schedules(p_limit integer default 10)
 returns setof public.pin_schedules
 language plpgsql
