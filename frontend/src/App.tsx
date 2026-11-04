@@ -31,7 +31,6 @@ import {
   PendingReviewPin,
 } from './components/review/ManualApprovalDesk';
 import {
-  INITIAL_BOARDS,
   INITIAL_SCHEDULED_PINS,
   INITIAL_ACCOUNTS,
   BoardItem,
@@ -56,7 +55,6 @@ const MainApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [boards, setBoards] = useState<BoardItem[]>([]);
-  const [boardsLoaded, setBoardsLoaded] = useState(false);
   const [scheduledPins, setScheduledPins] = useState<ScheduledPinItem[]>(INITIAL_SCHEDULED_PINS);
   const [prefilledTopic, setPrefilledTopic] = useState<string>('');
   const [prefilledDate, setPrefilledDate] = useState<string>('');
@@ -68,10 +66,8 @@ const MainApp: React.FC = () => {
     async function loadBoards() {
       if (!user?.id) {
         setBoards([]);
-        setBoardsLoaded(false);
         return;
       }
-      setBoardsLoaded(false);
       try {
         const rows = await apiRequest('/boards');
         if (cancelled) return;
@@ -91,7 +87,6 @@ const MainApp: React.FC = () => {
         console.error('[boards] Не удалось загрузить доски:', error);
         if (!cancelled) setBoards([]);
       } finally {
-        if (!cancelled) setBoardsLoaded(true);
       }
     }
     loadBoards();
