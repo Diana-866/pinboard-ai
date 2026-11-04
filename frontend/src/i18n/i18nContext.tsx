@@ -80,7 +80,19 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {
       // ignore
     }
-    // Match generated content to the selected interface language on first use.
+    try {
+      const savedInterfaceLanguage = localStorage.getItem(LANG_STORAGE_KEY);
+      if (savedInterfaceLanguage && AI_CONTENT_LANGUAGES.some((item) => item.code === savedInterfaceLanguage)) {
+        return savedInterfaceLanguage;
+      }
+      const browserLanguage = (navigator.languages?.[0] || navigator.language || '')
+        .toLowerCase()
+        .split('-')[0];
+      if (AI_CONTENT_LANGUAGES.some((item) => item.code === browserLanguage)) return browserLanguage;
+    } catch {
+      // ignore
+    }
+    // Match generated content to the interface language when no content locale is available.
     return AI_CONTENT_LANGUAGES.some((item) => item.code === language) ? language : 'en';
   });
 
