@@ -871,7 +871,19 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
       });
     }
 
-    const pinsData = await generatePins(board, board.projects, model, count, aspectRatio, mixedRatios);
+    const topic = optionalString(req.body && req.body.topic, { max: 500 }) || board.title;
+    const tone = optionalString(req.body && req.body.tone, { max: 80 }) || board.projects.tone || "нейтральный";
+    const contentLanguage = validateEnum(
+      req.body && req.body.content_language,
+      ["ru", "en", "de", "fr", "es", "pt", "zh"],
+      board.projects.language || "ru",
+      "Язык"
+    );
+    const pinsData = await generatePins(board, board.projects, model, count, aspectRatio, mixedRatios, {
+      topic,
+      tone,
+      language: contentLanguage,
+    });
 
     // B8: вставляем только пины с готовой картинкой и известной ценой
     const okPins = pinsData.filter((p) => p && p.image_url && p.credits_cost != null);
