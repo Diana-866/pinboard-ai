@@ -210,15 +210,6 @@ async function handleWebhook(req, res) {
     return res.json({ ok: true, ignored: "unknown order_id" });
   }
 
-  const expected = Number(sub.amount);
-  if (sum == null || !Number.isFinite(sum) || Math.abs(sum - expected) > 0.01) {
-    console.error(`[billing] сумма не совпадает для ${orderId}: webhook=${body.sum}, ожидали=${expected}`);
-    const { error: mismatchError } = await supabase.from("subscriptions")
-      .update({ status: "denied" }).eq("id", sub.id).neq("status", "success");
-    if (mismatchError) return res.status(500).json({ ok: false, error: "db error" });
-    return res.json({ ok: true, ignored: "amount mismatch" });
-  }
-
   if (status !== "success") {
     const mapped = status === "order_canceled" ? "canceled" : "denied";
     const { error: statusError } = await supabase.from("subscriptions")
@@ -226,6 +217,15 @@ async function handleWebhook(req, res) {
     if (statusError) return res.status(500).json({ ok: false, error: "db error" });
     console.warn(`[billing] платёж ${orderId}: ${status} (${body.payment_status_description || ""})`);
     return res.json({ ok: true, status: mapped });
+  }
+
+  const expected = Number(sub.amount);
+  if (sum == null || !Number.isFinite(sum) || Math.abs(sum - expected) > 0.01) {
+    console.error(`[billing] сумма не совпадает для ${orderId}: webhook=${body.sum}, ожидали=${expected}`);
+    const { error: mismatchError } = await supabase.from("subscriptions")
+      .update({ status: "denied" }).eq("id", sub.id).neq("status", "success");
+    if (mismatchError) return res.status(500).json({ ok: false, error: "db error" });
+    return res.json({ ok: true, ignored: "amount mismatch" });
   }
 
   // Подписка, период и тариф пользователя активируются одной транзакцией PostgreSQL.
