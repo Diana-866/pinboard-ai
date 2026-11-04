@@ -25,6 +25,8 @@ import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 
 export interface PendingReviewPin {
   id: string;
+  /** ID of a real pin already persisted by the backend. Demo queue entries do not have one. */
+  pinId?: string;
   title: string;
   description: string;
   boardName: string;
@@ -362,12 +364,17 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
   const handleApprove = () => {
     if (!currentPin) return;
+    if (!currentPin.pinId) {
+      window.alert('Эта карточка — демонстрационный пример, а не сохранённый пин. Сначала создайте и сохраните пин в генераторе — только после этого его можно добавить в расписание.');
+      return;
+    }
 
     setSwipeDirection('right');
     setTimeout(() => {
       const selectedBoard = boards.find((b) => b.id === editBoardId) || boards[0];
       const scheduledItem: ScheduledPinItem = {
         id: `pin-${Date.now()}`,
+        pinId: currentPin.pinId,
         title: editTitle,
         boardId: editBoardId,
         boardName: selectedBoard?.name || currentPin.boardName,
@@ -401,10 +408,15 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   };
 
   const handleApproveAll = () => {
+    if (queue.some((pin) => !pin.pinId)) {
+      window.alert('В очереди есть демонстрационные карточки без сохранённых пинов. Создайте и сохраните реальные пины в генераторе, прежде чем добавлять их в расписание.');
+      return;
+    }
     queue.forEach((p, idx) => {
       const selectedBoard = boards.find((b) => b.id === p.boardId) || boards[0];
       const scheduledItem: ScheduledPinItem = {
         id: `pin-${Date.now()}-${idx}`,
+        pinId: p.pinId,
         title: p.title,
         boardId: p.boardId,
         boardName: selectedBoard?.name || p.boardName,
