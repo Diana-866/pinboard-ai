@@ -14,9 +14,21 @@ set search_path = public
 as $$
 begin
   -- A worker crash after contacting Pinterest is ambiguous. Never auto-retry it.
+  update public.pin_schedules s
+    set status='published',
+        pinterest_pin_id=a.pinterest_pin_id,
+        published_at=coalesce(s.published_at, a.updated_at),
+        last_error=null,
+        updated_at=now()
+    from public.pinterest_publish_attempts a
+    where s.pin_id=a.pin_id
+      and a.status='published'
+      and s.status='publishing'
+      and s.updated_at < now() - interval '20 minutes';
+
   update public.pin_schedules
     set status='unknown',
-        last_error='Worker stopped while publication was in progress; manual reconciliation required',
+        last_error='Worker stopped while publication outcome was not confirmed; manual reconciliation required',
         updated_at=now()
     where status='publishing'
       and updated_at < now() - interval '20 minutes';
