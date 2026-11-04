@@ -280,7 +280,7 @@ export const OnboardingWizard: React.FC = () => {
               </p>
 
               <div className="mt-6 space-y-3">
-                {PLANS.map((plan) => {
+                {plans.map((plan) => {
                   const isSelected = selectedPlan === plan.id;
                   return (
                     <button
