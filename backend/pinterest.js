@@ -11,6 +11,7 @@
 
 const axios = require("axios");
 const crypto = require("crypto");
+const { hasEncryptionKey, isEncryptedToken, encryptToken, decryptToken } = require("./pinterestTokenCrypto");
 const jwt = require("jsonwebtoken");
 const supabase = require("./supabase");
 const { httpError } = require("./validate");
@@ -37,13 +38,13 @@ function redirectUri() {
   return String(process.env.PINTEREST_REDIRECT_URI || "").trim();
 }
 function isConfigured() {
-  return !!(clientId() && clientSecret() && redirectUri());
+  return !!(clientId() && clientSecret() && redirectUri() && hasEncryptionKey());
 }
 function requireConfigured() {
   if (!isConfigured()) {
     throw httpError(
       503,
-      "Интеграция с Pinterest не настроена: задайте PINTEREST_CLIENT_ID, PINTEREST_CLIENT_SECRET и PINTEREST_REDIRECT_URI в переменных окружения Render"
+      "Интеграция Pinterest не настроена: проверьте PINTEREST_CLIENT_ID, PINTEREST_CLIENT_SECRET, PINTEREST_REDIRECT_URI и задайте PINTEREST_TOKEN_ENCRYPTION_KEY (32 случайных байта, base64 или 64 символа hex) в переменных окружения backend"
     );
   }
 }
@@ -121,7 +122,32 @@ async function getAccount(userId) {
     .eq("user_id", userId)
     .maybeSingle();
   if (error) throw error;
-  return data || null;
+  if (!data) return null;
+
+  let stored = data;
+  // Мигрируем старые plaintext-токены при первом чтении после установки ключа.
+  if (hasEncryptionKey() && (!isEncryptedToken(data.access_token) || (data.refresh_token && !isEncryptedToken(data.refresh_token)))) {
+    const encrypted = {
+      access_token: encryptToken(data.access_token),
+      refresh_token: encryptToken(data.refresh_token),
+      updated_at: new Date().toISOString(),
+    };
+    const { data: updated, error: updateError } = await supabase
+      .from("pinterest_accounts")
+      .update(encrypted)
+      .eq("user_id", userId)
+      .eq("access_token", data.access_token)
+      .select("*")
+      .maybeSingle();
+    if (updateError) throw updateError;
+    stored = updated || data;
+  }
+
+  return {
+    ...stored,
+    access_token: decryptToken(stored.access_token),
+    refresh_token: decryptToken(stored.refresh_token),
+  };
 }
 
 async function saveAccount(userId, tokenResponse, profile) {
@@ -135,8 +161,8 @@ async function saveAccount(userId, tokenResponse, profile) {
     user_id: userId,
     pinterest_user_id: profile && profile.id ? String(profile.id) : null,
     username: profile && profile.username ? String(profile.username) : null,
-    access_token: tokenResponse.access_token,
-    refresh_token: tokenResponse.refresh_token || null,
+    access_token: encryptToken(tokenResponse.access_token),
+    refresh_token: encryptToken(tokenResponse.refresh_token || null),
     scopes: tokenResponse.scope || SCOPES.join(","),
     expires_at: expiresAt,
     updated_at: new Date(now).toISOString(),
