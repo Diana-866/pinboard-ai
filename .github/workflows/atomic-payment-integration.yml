@@ -124,6 +124,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/013_atomic_pin_regeneration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/014_idempotent_pin_generation.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/015_persistent_pin_schedule.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/016_pinterest_publish_idempotency.sql
       - name: Verify duplicate webhooks and ledger consistency
         env:
           PGPASSWORD: postgres
