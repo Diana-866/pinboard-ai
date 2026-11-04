@@ -53,3 +53,12 @@ test("verifies Prodamus signatures for nested multipart payloads", () => {
     .update(prodamus.canonicalString(payload), "utf8").digest("hex");
   assert.deepEqual(prodamus.verifyWebhook(payload, { sign: signature }), { ok: true });
 });
+
+test("outgoing payment links use the shop secret, not the webhook secret", () => {
+  process.env.PRODAMUS_SECRET = "shop-secret-test";
+  process.env.PRODAMUS_SECRET_WEBHOOK = "different-webhook-secret";
+  const payload = { order_id: "order-123", sum: "1990.00" };
+  const expected = crypto.createHmac("sha256", process.env.PRODAMUS_SECRET)
+    .update(prodamus.canonicalString(payload), "utf8").digest("base64");
+  assert.equal(prodamus.signPayload(payload), expected);
+});
