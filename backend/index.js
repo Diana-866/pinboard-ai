@@ -117,7 +117,8 @@ const supabase = require("./supabase");
 const { analyzeSite } = require("./analyze");
 const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
-const { uploadPinImage } = require("./storage");
+const { uploadPinImage, rehostImage } = require("./storage");
+const { validateDevTopupRequest } = require("./devTopup");
 const mail = require("./mail");
 const passwordReset = require("./password-reset");
 const emailVerify = require("./email-verify");
@@ -857,12 +858,7 @@ app.get("/credits", requireAuth, async (req, res) => {
 // Тестовое пополнение: только при ENABLE_DEV_TOPUP=true вне production (B11)
 app.post("/credits/dev-topup", async (req, res) => {
   try {
-    if (process.env.NODE_ENV === "production" || process.env.ENABLE_DEV_TOPUP !== "true") {
-      throw httpError(404, "Не найдено");
-    }
-    const { email, amount, adminSecret } = req.body;
-    if (adminSecret !== process.env.ADMIN_SECRET) throw httpError(401, "Не авторизован");
-
+    const { email, amount } = validateDevTopupRequest(req.body);
     const { data: user, error } = await supabase.from("users").select("id").eq("email", email).single();
     if (error || !user) throw httpError(404, "Пользователь не найден");
 
