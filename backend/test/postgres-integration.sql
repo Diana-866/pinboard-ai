@@ -169,6 +169,8 @@ begin
     raise exception 'claimed schedule status was not updated';
   end if;
 
+  update public.pin_schedules set status='cancelled' where id=v_schedule;
+
   -- Persistent schedule records remain scheduled until a publisher confirms success.
   insert into public.pin_schedules(user_id, pin_id, scheduled_at, timezone)
   values (v_user::text, v_pin, now() + interval '1 day', 'Europe/Moscow')
