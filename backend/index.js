@@ -867,13 +867,6 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
       mixedRatios = mixedRatios.filter((r) => ASPECT_RATIOS.includes(r)).slice(0, 10);
     }
 
-    const estimatedCost = Math.ceil((MODEL_PRICES[model] || 15) * count * MARKUP);
-    const balance = await getBalance(req.userId);
-
-    if (balance < estimatedCost) {
-      throw httpError(402, "Недостаточно кредитов для этой генерации");
-    }
-
     const topic = optionalString(req.body && req.body.topic, { max: 500 }) || board.title;
     const tone = optionalString(req.body && req.body.tone, { max: 80 }) || board.projects.tone || "нейтральный";
     const contentLanguage = validateEnum(
@@ -899,6 +892,12 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
       return res.status(409).json({ error: "Такая генерация уже выполняется. Повторите запрос с тем же ключом через несколько секунд.", code: "generation_in_progress" });
     }
     generationRequestStarted = true;
+
+    const estimatedCost = Math.ceil((MODEL_PRICES[model] || 15) * count * MARKUP);
+    const balance = await getBalance(req.userId);
+    if (balance < estimatedCost) {
+      throw httpError(402, "Недостаточно кредитов для этой генерации");
+    }
 
     const pinsData = await generatePins(board, board.projects, model, count, aspectRatio, mixedRatios, {
       topic,
