@@ -31,7 +31,6 @@ import {
   PendingReviewPin,
 } from './components/review/ManualApprovalDesk';
 import {
-  INITIAL_SCHEDULED_PINS,
   INITIAL_ACCOUNTS,
   BoardItem,
   ScheduledPinItem,
@@ -55,7 +54,7 @@ const MainApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [boards, setBoards] = useState<BoardItem[]>([]);
-  const [scheduledPins, setScheduledPins] = useState<ScheduledPinItem[]>(INITIAL_SCHEDULED_PINS);
+  const [scheduledPins, setScheduledPins] = useState<ScheduledPinItem[]>([]);
   const [prefilledTopic, setPrefilledTopic] = useState<string>('');
   const [prefilledDate, setPrefilledDate] = useState<string>('');
   const [isBotOpen, setIsBotOpen] = useState<boolean>(false);
@@ -98,6 +97,44 @@ const MainApp: React.FC = () => {
   }, [user?.id]);
 
 
+
+  // Расписание загружается из БД; демонстрационные публикации не показываем.
+  React.useEffect(() => {
+    let cancelled = false;
+    async function loadSchedule() {
+      if (!user?.id) {
+        setScheduledPins([]);
+        return;
+      }
+      try {
+        const rows = await apiRequest('/schedule');
+        if (cancelled) return;
+        const mapped: ScheduledPinItem[] = (Array.isArray(rows) ? rows : []).map((row: any) => {
+          const date = new Date(row.scheduled_at);
+          const pad = (value: number) => String(value).padStart(2, '0');
+          return {
+            id: String(row.id),
+            pinId: String(row.pin_id),
+            title: row.pins?.title || 'Без названия',
+            boardId: String(row.pins?.board_id || ''),
+            boardName: row.pins?.boards?.title || 'Без доски',
+            imageUrl: row.pins?.image_url || '',
+            scheduledDate: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
+            scheduledTime: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+            status: row.status === 'published' ? 'published' : 'scheduled',
+            destinationUrl: row.destination_url || '',
+            isOptimalSlot: false,
+          };
+        });
+        setScheduledPins(mapped);
+      } catch (error) {
+        console.error('[schedule] Не удалось загрузить расписание:', error);
+        if (!cancelled) setScheduledPins([]);
+      }
+    }
+    loadSchedule();
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   // Тарифные «замочки»: генерацию и разделы открывают Старт/Про/Agency;
   // тариф «Аналитика» (990₽) и «нет тарифа» оставляют замочки (миграция 004)
@@ -259,8 +296,35 @@ const MainApp: React.FC = () => {
   const currentAccount = accounts.find((a) => a.id === activeAccountId) || accounts[0];
   const pendingCount = pendingReviewPins.length;
 
-  const handleSchedulePin = (pin: ScheduledPinItem) => {
-    setScheduledPins((prev) => [pin, ...prev]);
+  const handleSchedulePin = async (pin: ScheduledPinItem) => {
+    if (!pin.pinId) {
+      window.alert('Не найден ID сохранённого пина. Сначала сохраните пин в генераторе.');
+      return;
+    }
+    const localDateTime = new Date(`${pin.scheduledDate}T${pin.scheduledTime}:00`);
+    if (Number.isNaN(localDateTime.getTime())) {
+      window.alert('Проверьте дату и время публикации.');
+      return;
+    }
+    const saved = await apiRequest(`/pins/${encodeURIComponent(pin.pinId)}/schedule`, {
+      method: 'POST',
+      body: JSON.stringify({
+        scheduled_at: localDateTime.toISOString(),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Moscow',
+        destination_url: pin.destinationUrl || undefined,
+      }),
+    });
+    const date = new Date(saved.scheduled_at);
+    const pad = (value: number) => String(value).padStart(2, '0');
+    const persisted: ScheduledPinItem = {
+      ...pin,
+      id: String(saved.id),
+      pinId: String(saved.pin_id),
+      scheduledDate: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
+      scheduledTime: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+      status: 'scheduled',
+    };
+    setScheduledPins((prev) => [persisted, ...prev.filter((item) => item.id !== persisted.id)]);
   };
 
   const handleAddBoard = async (board: BoardItem) => {
