@@ -9,6 +9,12 @@ declare
   v_first_end timestamptz;
   v_second_end timestamptz;
   v_plan text;
+  v_project uuid;
+  v_board uuid;
+  v_pin uuid;
+  v_result jsonb;
+  v_before integer;
+
 begin
   insert into public.users(id, email, credits_balance, tariff_plan)
   values (v_user, 'atomic-test-' || v_user || '@example.invalid', 10, 'none');
@@ -35,6 +41,45 @@ begin
   if v_balance <> 100 then raise exception 'expected adjusted balance 100, got %', v_balance; end if;
   select count(*) into v_count from public.credit_transactions where user_id = v_user::text;
   if v_count <> 2 then raise exception 'expected two total ledger entries, got %', v_count; end if;
+
+  insert into public.projects(user_id, niche) values (v_user, 'test') returning id into v_project;
+  insert into public.boards(project_id) values (v_project) returning id into v_board;
+
+  -- Generated pin rows and the corresponding credit debit must commit together.
+  v_result := public.save_generated_pins_and_charge(
+    v_user::text, v_board,
+    '[{"image_url":"https://cdn.example.invalid/a.png","title":"A","description":"A","model_used":"flux-schnell","aspect_ratio":"2:3","credits_cost":5},
+      {"image_url":"https://cdn.example.invalid/b.png","title":"B","description":"B","model_used":"flux-schnell","aspect_ratio":"2:3","credits_cost":5}]'::jsonb,
+    10
+  );
+  if (v_result->>'balance')::integer <> 90 then raise exception 'generation debit was not applied'; end if;
+  if jsonb_array_length(v_result->'pins') <> 2 then raise exception 'expected two persisted pins'; end if;
+  select id into v_pin from public.pins where board_id=v_board order by created_at limit 1;
+
+  -- Regeneration updates the image and debit as one transaction.
+  v_result := public.update_pin_image_and_charge(
+    v_user::text, v_pin, 'https://cdn.example.invalid/a-new.png', 10
+  );
+  if (v_result->>'balance')::integer <> 80 then raise exception 'regeneration debit was not applied'; end if;
+  if (select image_url from public.pins where id=v_pin) <> 'https://cdn.example.invalid/a-new.png' then
+    raise exception 'regenerated image was not saved';
+  end if;
+
+  -- Insufficient balance must roll back without inserting any pins or ledger rows.
+  select credits_balance into v_before from public.users where id=v_user;
+  begin
+    perform public.save_generated_pins_and_charge(
+      v_user::text, v_board,
+      '[{"image_url":"https://cdn.example.invalid/c.png","title":"C","description":"C","model_used":"flux-schnell","aspect_ratio":"2:3","credits_cost":999}]'::jsonb,
+      999
+    );
+    raise exception 'expected insufficient credits error';
+  exception when others then
+    if sqlerrm = 'expected insufficient credits error' then raise; end if;
+  end;
+  if (select credits_balance from public.users where id=v_user) <> v_before then
+    raise exception 'failed generation changed user balance';
+  end if;
 
   insert into public.subscriptions(user_id, plan, status, provider_payment_id, amount, currency)
   values (v_user::text, 'start', 'pending', 'ci-sub-' || v_user, 1990, 'rub')
