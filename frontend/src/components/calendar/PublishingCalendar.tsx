@@ -657,6 +657,8 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                       ? 'bg-red-500/10 text-red-600 dark:text-red-400'
                       : pin.status === 'publishing'
                       ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                      : pin.status === 'unknown'
+                      ? 'bg-orange-500/10 text-orange-700 dark:text-orange-400'
                       : 'bg-accent-pill text-primary-theme'
                   }`}>
                     {pin.status === 'published'
@@ -665,6 +667,8 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                       ? 'Ошибка публикации'
                       : pin.status === 'publishing'
                       ? 'Публикуется'
+                      : pin.status === 'unknown'
+                      ? 'Нужна проверка'
                       : 'В очереди'}
                   </span>
                 </div>
