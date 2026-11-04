@@ -1,4 +1,3 @@
-import { PublishPinButton } from './PublishPinButton';
 import React, { useEffect, useState } from 'react';
 import { Send, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { apiRequest, ApiError } from '../../lib/api';
