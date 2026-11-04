@@ -127,6 +127,7 @@ export const de: TranslationSchema = {
     topicLabel: 'Thema oder Produkt-URL',
     topicPlaceholder: 'z.B. Minimalistische skandinavische Wohnzimmer-Ideen und Deko-Tipps',
     targetBoardLabel: 'Ziel-Pinnwand',
+    contentLanguageLabel: "Sprache der generierten Inhalte",
     pinToneLabel: 'Tonalität',
     tones: {
       inspirational: 'Inspirierend & Ästhetisch',
