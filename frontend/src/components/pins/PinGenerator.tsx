@@ -344,6 +344,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       title: currentPin.selectedTitle,
       boardId: board.id,
       boardName: board.name,
+      pinterestBoardId: selectedPinterestBoardId || undefined,
       imageUrl: currentPin.imageUrl,
       scheduledDate,
       scheduledTime,
