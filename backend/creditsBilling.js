@@ -179,6 +179,10 @@ async function handleCreditsWebhook(req, res) {
   }
 
   if (status !== "success") {
+    if (status !== "order_canceled" && status !== "order_denied") {
+      console.warn("[credits-billing] неизвестный статус Prodamus:", status || "(empty)");
+      return res.json({ ok: true, ignored: "unsupported payment_status" });
+    }
     const mapped = status === "order_canceled" ? "canceled" : "denied";
     const { error: statusError } = await supabase.from("credit_purchases")
       .update({ status: mapped }).eq("id", purchase.id)
