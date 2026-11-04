@@ -5,11 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useI18n } from '../../i18n/i18nContext';
 import { getOnboardingCopy } from '../../i18n/onboardingCopy';
 
-/**
- * Полноэкранный 3-шаговый онбординг в стиле лендинга
- * (грязно-розовый #B96B7C, скругления 16–24px, шрифт Outfit).
- * Показывается в /app, пока user.onboarded === false.
- */
+/** Three-step onboarding shown until the user's profile is configured. */
 
 const ROSE = '#B96B7C';
 const ROSE_LIGHT = '#F4E1E6';
@@ -48,13 +44,13 @@ export const OnboardingWizard: React.FC = () => {
 
   const URL_RE = /^https?:\/\/.+/i;
 
-  /** Сохраняет онбординг на бэке (PATCH /me/onboarding) и обновляет user */
+  /** Persist onboarding details and refresh the authenticated user. */
   async function completeOnboarding(intent: 'later' | 'pay') {
     setError('');
     setSaving(true);
     try {
       const url = websiteUrl.trim();
-      // Шаг 1 можно пропустить: пустая ссылка допустима, но непустая — только http/https
+      // The website field is optional; non-empty values must use HTTP or HTTPS.
       if (url && !URL_RE.test(url)) {
         setError(t.urlError);
         setSaving(false);
@@ -92,7 +88,7 @@ export const OnboardingWizard: React.FC = () => {
     window.dispatchEvent(new CustomEvent('pinposy:navigate-tab', { detail: 'pricing' }));
   };
 
-  // --- Экран успеха / заглушка платежей ---
+  // --- Confirmation after saving onboarding details ---
   if (done) {
     const isPay = done === 'pay';
     return (
@@ -355,7 +351,7 @@ export const OnboardingWizard: React.FC = () => {
                   type="button"
                   onClick={() => setStep(2)}
                   className="secondary-btn rounded-2xl px-5 py-3.5 text-sm"
-                  aria-label="Назад"
+                  aria-label={t.back}
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
