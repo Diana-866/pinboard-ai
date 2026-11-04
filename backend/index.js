@@ -695,7 +695,8 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
       try {
         image.url = await rehostImage(image.url);
       } catch (reErr) {
-        console.error(`[regenerate] ре-хостинг не удался: ${reErr && reErr.message}`);
+        // Не сохраняем временную ссылку GPTunnel: иначе изображение пропадёт после её истечения.
+        throw httpError(502, "Не удалось сохранить изображение в постоянное хранилище. Кредиты за пин не списаны.");
       }
     }
     if (!image || !image.url || image.price == null) {
