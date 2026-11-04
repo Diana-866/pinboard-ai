@@ -79,10 +79,8 @@ export const ru: TranslationSchema = {
     logout: 'Выйти из аккаунта',
     login: 'Войти',
     changeAvatar: 'Сменить аватарку',
-    reviewPins: "Проверка пинов",
     planLabel: "Тариф:",
     plans: "Тарифы",
-    pinterestAccounts: "Pinterest аккаунты",
     accountCountTemplate: "Подключено {count} из {max} аккаунтов",
     connectPinterestAccount: "Подключить аккаунт Pinterest",
     accountLimitTemplate: "Лимит ({count} из {max})",
@@ -97,7 +95,8 @@ export const ru: TranslationSchema = {
     uploadCustomImage: "1. Загрузить свою картинку:",
     chooseFile: "Выбрать файл с устройства",
     useNameInitial: "2. Поставить стильную букву (инициал):",
-    choosePresetAvatar: "Использовать букву имени («{letter}»)",
+    useInitialAvatar: "Использовать букву имени («{letter}»)",
+    choosePresetAvatar: "3. Или выбрать готовую аватарку:",
   },
 
   dashboard: {
