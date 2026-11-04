@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { ArrowRight, ArrowLeft, Check, Sparkles, Rocket, PartyPopper, CreditCard } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import { useI18n } from '../../i18n/i18nContext';
+import { getOnboardingCopy } from '../../i18n/onboardingCopy';
 
 /**
  * Полноэкранный 3-шаговый онбординг в стиле лендинга
@@ -23,55 +25,19 @@ interface PlanCard {
   highlight?: boolean;
 }
 
-/** 4 реальных тарифа — как на лендинге и в разделе «Тарифы» кабинета */
-const PLANS: PlanCard[] = [
-  {
-    id: 'analytics',
-    name: 'Аналитика',
-    price: '990 ₽',
-    tagline: 'Без генерации',
-    features: ['Чат с AI-стратегом 24/7', 'Trend Radar и конкуренты', 'Без генерации изображений'],
-  },
-  {
-    id: 'start',
-    name: 'Старт',
-    price: '1 990 ₽',
-    tagline: 'Генерация подключена',
-    features: [
-      'Всё из «Аналитики»',
-      'До 3 аккаунтов, 400 кредитов/мес',
-      'Генерация пинов, все 5 форматов',
-    ],
-  },
-  {
-    id: 'pro',
-    name: 'Про',
-    price: '4 990 ₽',
-    tagline: 'Хит продаж',
-    features: [
-      'Всё из «Старта»',
-      'До 10 аккаунтов, 1 500 кредитов/мес',
-      'Ночная автогенерация и Swipe-согласование',
-    ],
-    highlight: true,
-  },
-  {
-    id: 'agency',
-    name: 'Agency',
-    price: '12 990 ₽',
-    tagline: 'Безлимит аккаунтов',
-    features: [
-      'Всё из «Про»',
-      'Безлимит аккаунтов, 6 000 кредитов/мес',
-      'Командный доступ и white-label отчёты',
-    ],
-  },
-];
 
 type Step = 1 | 2 | 3;
 
 export const OnboardingWizard: React.FC = () => {
   const { refreshUser, user } = useAuth();
+  const { language } = useI18n();
+  const t = getOnboardingCopy(language);
+  const plans: PlanCard[] = [
+    { id: 'analytics', name: t.planAnalytics, price: '990 ₽', tagline: t.planAnalyticsTag, features: [...t.planAnalyticsFeatures] },
+    { id: 'start', name: t.planStart, price: '1 990 ₽', tagline: t.planStartTag, features: [...t.planStartFeatures] },
+    { id: 'pro', name: t.planPro, price: '4 990 ₽', tagline: t.planProTag, features: [...t.planProFeatures], highlight: true },
+    { id: 'agency', name: t.planAgency, price: '12 990 ₽', tagline: t.planAgencyTag, features: [...t.planAgencyFeatures] },
+  ];
   const [step, setStep] = useState<Step>(1);
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [productComment, setProductComment] = useState('');
@@ -90,13 +56,13 @@ export const OnboardingWizard: React.FC = () => {
       const url = websiteUrl.trim();
       // Шаг 1 можно пропустить: пустая ссылка допустима, но непустая — только http/https
       if (url && !URL_RE.test(url)) {
-        setError('Ссылка должна начинаться с http:// или https://');
+        setError(t.urlError);
         setSaving(false);
         setStep(1);
         return;
       }
       if (productComment.length > 2000) {
-        setError('Комментарий о продукте — до 2000 символов');
+        setError(t.commentError);
         setSaving(false);
         setStep(2);
         return;
@@ -111,7 +77,7 @@ export const OnboardingWizard: React.FC = () => {
       await refreshUser();
       setDone(intent);
     } catch (e: any) {
-      setError(e?.message || 'Не удалось сохранить. Попробуйте ещё раз.');
+      setError(t.saveError);
       setSaving(false);
     }
   }
@@ -148,11 +114,10 @@ export const OnboardingWizard: React.FC = () => {
                 className="text-2xl font-bold text-primary-theme"
                 style={{ fontFamily: "'Outfit', sans-serif" }}
               >
-                Платежи скоро запустятся
+                {t.paymentTitle}
               </h2>
               <p className="mt-3 text-sm text-secondary-theme">
-                Вы выбрали тариф «{PLANS.find((p) => p.id === selectedPlan)?.name}», но оплата пока
-                не подключена. Подписка не оформлена и деньги не списаны.
+                {t.paymentBody}
               </p>
             </>
           ) : (
@@ -161,23 +126,22 @@ export const OnboardingWizard: React.FC = () => {
                 className="text-2xl font-bold text-primary-theme"
                 style={{ fontFamily: "'Outfit', sans-serif" }}
               >
-                Готово{user?.name ? `, ${user.name}` : ''}! 🎉
+                {t.readyTitle.replace('{ name }', user?.name ? `, ${user.name}` : '')} 🎉
               </h2>
               <p className="mt-3 text-sm text-secondary-theme">
-                Мы запомнили, что вы продвигаете. Пока тариф не выбран, открыт раздел
-                «Аналитика» — остальное откроется после выбора тарифа.
+                {t.readyBody}
               </p>
             </>
           )}
           <button type="button" onClick={goPricing} className="wizard-cta mt-6 w-full rounded-2xl py-3.5 text-sm font-bold">
-            Перейти к тарифам
+            {t.pricingButton}
           </button>
           <button
             type="button"
             onClick={closeWizard}
             className="mt-2 w-full rounded-2xl py-3 text-sm font-semibold text-secondary-theme hover:text-primary-theme"
           >
-            В кабинет
+            {t.workspaceButton}
           </button>
         </div>
       </div>
@@ -238,17 +202,16 @@ export const OnboardingWizard: React.FC = () => {
                 className="text-2xl font-bold tracking-tight text-primary-theme"
                 style={{ fontFamily: "'Outfit', sans-serif" }}
               >
-                Ссылка на то, что продвигаешь
+                {t.linkTitle}
               </h2>
               <p className="mt-2 text-sm text-secondary-theme">
-                Сайт, блог или товар на маркетплейсе — так мы поймём нишу и стиль вашего контента.
-                Можно пропустить и добавить позже.
+                {t.linkBody}
               </p>
               <input
                 type="url"
                 value={websiteUrl}
                 onChange={(e) => setWebsiteUrl(e.target.value)}
-                placeholder="https://мой-магазин.ру"
+                placeholder={t.linkPlaceholder}
                 className="mt-6 w-full rounded-2xl border border-subtle bg-page px-4 py-3.5 text-sm text-primary-theme outline-none transition focus:border-accent"
                 autoFocus
               />
@@ -257,7 +220,7 @@ export const OnboardingWizard: React.FC = () => {
                 onClick={() => setStep(2)}
                 className="wizard-cta mt-8 w-full rounded-2xl py-3.5 text-sm font-bold"
               >
-                {websiteUrl.trim() ? 'Дальше' : 'Пропустить'}
+                {websiteUrl.trim() ? t.next : t.skip}
                 <ArrowRight className="ml-1.5 inline h-4 w-4" />
               </button>
             </div>
@@ -270,16 +233,15 @@ export const OnboardingWizard: React.FC = () => {
                 className="text-2xl font-bold tracking-tight text-primary-theme"
                 style={{ fontFamily: "'Outfit', sans-serif" }}
               >
-                Расскажи о продукте
+                {t.aboutTitle}
               </h2>
               <p className="mt-2 text-sm text-secondary-theme">
-                Что продвигать и ваши пожелания: ниша, сколько пинов в день, стиль — всё, что
-                поможет ИИ делать пины точнее.
+                {t.aboutBody}
               </p>
               <textarea
                 value={productComment}
                 onChange={(e) => setProductComment(e.target.value.slice(0, 2000))}
-                placeholder="Например: продаю свечи ручной работы, аудитория — женщины 25–40, хочу 3 пина в день, стиль — уютный минимализм…"
+                placeholder={t.aboutPlaceholder}
                 rows={6}
                 className="mt-6 w-full resize-none rounded-2xl border border-subtle bg-page px-4 py-3.5 text-sm text-primary-theme outline-none transition focus:border-accent"
                 autoFocus
@@ -292,7 +254,7 @@ export const OnboardingWizard: React.FC = () => {
                   type="button"
                   onClick={() => setStep(1)}
                   className="secondary-btn rounded-2xl px-5 py-3.5 text-sm"
-                  aria-label="Назад"
+                  aria-label={t.back}
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
@@ -301,7 +263,7 @@ export const OnboardingWizard: React.FC = () => {
                   onClick={() => setStep(3)}
                   className="wizard-cta flex-1 rounded-2xl py-3.5 text-sm font-bold"
                 >
-                  Дальше
+                  {t.next}
                   <ArrowRight className="ml-1.5 inline h-4 w-4" />
                 </button>
               </div>
@@ -315,10 +277,10 @@ export const OnboardingWizard: React.FC = () => {
                 className="text-2xl font-bold tracking-tight text-primary-theme"
                 style={{ fontFamily: "'Outfit', sans-serif" }}
               >
-                Выбери тариф
+                {t.planTitle}
               </h2>
               <p className="mt-2 text-sm text-secondary-theme">
-                Генерация изображений открывается с тарифа «Старт» — «Аналитика» работает без неё.
+                {t.planBody}
               </p>
 
               <div className="mt-6 space-y-3">
@@ -356,7 +318,7 @@ export const OnboardingWizard: React.FC = () => {
                                 className="rounded-full px-2 py-0.5 text-[10px] font-bold text-white"
                                 style={{ backgroundColor: ROSE }}
                               >
-                                Популярный
+                                {t.popular}
                               </span>
                             )}
                           </div>
@@ -380,7 +342,7 @@ export const OnboardingWizard: React.FC = () => {
                           >
                             {plan.price}
                           </div>
-                          <div className="text-[11px] text-muted-theme">/ мес</div>
+                          <div className="text-[11px] text-muted-theme">{t.perMonth}</div>
                         </div>
                       </div>
                     </button>
@@ -403,7 +365,7 @@ export const OnboardingWizard: React.FC = () => {
                   disabled={saving}
                   className="secondary-btn flex-1 rounded-2xl py-3.5 text-sm font-semibold disabled:opacity-50"
                 >
-                  {saving ? 'Сохраняем…' : 'Позже'}
+                  {saving ? t.save : t.later}
                 </button>
                 <button
                   type="button"
@@ -412,7 +374,7 @@ export const OnboardingWizard: React.FC = () => {
                   className="wizard-cta flex-1 rounded-2xl py-3.5 text-sm font-bold disabled:opacity-50"
                 >
                   <Rocket className="mr-1.5 inline h-4 w-4" />
-                  {saving ? 'Сохраняем…' : 'Оплатить'}
+                  {saving ? t.save : t.viewPlans}
                 </button>
               </div>
             </div>
