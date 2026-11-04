@@ -1,4 +1,5 @@
 const express = require("express");
+const crypto = require("crypto");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
@@ -866,28 +867,11 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
       mixedRatios = mixedRatios.filter((r) => ASPECT_RATIOS.includes(r)).slice(0, 10);
     }
 
-    const { data: requestState, error: requestError } = await supabase.rpc("begin_pin_generation_request", {
-      p_user_id: String(req.userId),
-      p_board_id: board.id,
-      p_idempotency_key: idempotencyKey,
-    });
-    if (requestError) throw requestError;
-    if (requestState.status === "completed") return res.status(200).json(requestState.pins || []);
-    if (requestState.status === "processing") {
-      res.set("Retry-After", "5");
-      return res.status(409).json({ error: "Такая генерация уже выполняется. Повторите запрос с тем же ключом через несколько секунд.", code: "generation_in_progress" });
-    }
-    generationRequestStarted = true;
-
     const estimatedCost = Math.ceil((MODEL_PRICES[model] || 15) * count * MARKUP);
     const balance = await getBalance(req.userId);
 
     if (balance < estimatedCost) {
-      return res.status(402).json({
-        error: "Недостаточно кредитов для этой генерации",
-        required: estimatedCost,
-        balance,
-      });
+      throw httpError(402, "Недостаточно кредитов для этой генерации");
     }
 
     const topic = optionalString(req.body && req.body.topic, { max: 500 }) || board.title;
@@ -898,6 +882,24 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
       board.projects.language || "ru",
       "Язык"
     );
+    const requestFingerprint = crypto.createHash("sha256").update(JSON.stringify({
+      boardId: board.id, model, count, aspectRatio, mixedRatios: mixedRatios || [],
+      topic, tone, contentLanguage,
+    })).digest("hex");
+    const { data: requestState, error: requestError } = await supabase.rpc("begin_pin_generation_request", {
+      p_user_id: String(req.userId),
+      p_board_id: board.id,
+      p_idempotency_key: idempotencyKey,
+      p_fingerprint: requestFingerprint,
+    });
+    if (requestError) throw requestError;
+    if (requestState.status === "completed") return res.status(200).json(requestState.pins || []);
+    if (requestState.status === "processing") {
+      res.set("Retry-After", "5");
+      return res.status(409).json({ error: "Такая генерация уже выполняется. Повторите запрос с тем же ключом через несколько секунд.", code: "generation_in_progress" });
+    }
+    generationRequestStarted = true;
+
     const pinsData = await generatePins(board, board.projects, model, count, aspectRatio, mixedRatios, {
       topic,
       tone,
