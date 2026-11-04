@@ -52,6 +52,45 @@ test("encodes nested Prodamus product fields as bracketed form keys", () => {
   assert.equal(form.has("products"), false);
 });
 
+test("always sends the required empty SYS field for a self-written integration", async () => {
+  const previous = {
+    PRODAMUS_SECRET: process.env.PRODAMUS_SECRET,
+    PRODAMUS_OFFLINE: process.env.PRODAMUS_OFFLINE,
+    PRODAMUS_URL: process.env.PRODAMUS_URL,
+    PRODAMUS_SYS: process.env.PRODAMUS_SYS,
+  };
+  try {
+    process.env.PRODAMUS_SECRET = "shop-secret-test";
+    process.env.PRODAMUS_OFFLINE = "1";
+    process.env.PRODAMUS_URL = "https://example.payform.ru/";
+    delete process.env.PRODAMUS_SYS;
+    const result = await prodamus.createPaymentLink({
+      orderId: "pp-start-test",
+      amount: 1990,
+      description: "PinPosy / Старт",
+      urlNotification: "https://api.pinposy.com/billing/webhook",
+    });
+    const params = new URL(result.url).searchParams;
+    assert.equal(params.get("sys"), "");
+    assert.equal(params.get("urlNotification"), "https://api.pinposy.com/billing/webhook");
+    assert.equal(params.get("products[0][name]"), "PinPosy / Старт");
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+test("normalizes only documented final Prodamus webhook statuses", () => {
+  assert.equal(prodamus.normalizePaymentStatus("success"), "success");
+  assert.equal(prodamus.normalizePaymentStatus("order_canceled"), "canceled");
+  assert.equal(prodamus.normalizePaymentStatus("order_denied"), "denied");
+  assert.equal(prodamus.normalizePaymentStatus("processing"), null);
+  assert.equal(prodamus.normalizePaymentStatus(""), null);
+  assert.equal(prodamus.normalizePaymentStatus("unknown_future_status"), null);
+});
+
 test("canonicalizes nested objects recursively and escapes forward slashes", () => {
   const payload = {
     products: [{ price: 1990, name: "PinPosy / Start", tax: { type: 0, code: "x" } }],
