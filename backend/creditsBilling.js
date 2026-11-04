@@ -178,12 +178,13 @@ async function handleCreditsWebhook(req, res) {
     return res.json({ ok: true, idempotent: true, credits: purchase.credits });
   }
 
-  if (status !== "success") {
-    if (status !== "order_canceled" && status !== "order_denied") {
+  const normalizedStatus = prodamus.normalizePaymentStatus(status);
+  if (normalizedStatus !== "success") {
+    if (!normalizedStatus) {
       console.warn("[credits-billing] неизвестный статус Prodamus:", status || "(empty)");
       return res.json({ ok: true, ignored: "unsupported payment_status" });
     }
-    const mapped = status === "order_canceled" ? "canceled" : "denied";
+    const mapped = normalizedStatus;
     const { error: statusError } = await supabase.from("credit_purchases")
       .update({ status: mapped }).eq("id", purchase.id)
       .is("balance_credited_at", null).neq("status", "success");
