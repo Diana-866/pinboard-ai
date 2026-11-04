@@ -21,10 +21,10 @@ import {
 import { useI18n } from '../../i18n/i18nContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
+import { apiRequest } from '../../lib/api';
 import {
   GeneratedPinVariation,
   SupportedAspectRatio,
-  generatePinterestPinBatch,
 } from '../../services/gemini';
 import { PinCanvas, PinCanvasData, ASPECT_RATIO_SPECS } from './PinCanvas';
 
@@ -182,12 +182,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     const currentTopic = topic.trim() || 'Aesthetic Minimalist Inspiration';
     enqueueTask({
       title: `Пакет (${pinCount} пинов): ${currentTopic.slice(0, 24)}...`,
-      message: `Запрос на генерацию ${pinCount} пинов поставлен в Smart Queue.`,
+      message: `Сервер создаёт ${pinCount} изображений и сохранит готовые пины на выбранной доске.`,
       type: 'generation',
       actionTab: 'generator',
       durationMs: 4000,
-      completionTitle: `Пакет (${pinCount} пинов) готов!`,
-      completionMessage: `Сгенерировано ${pinCount} пинов по теме «${currentTopic}». Все заголовки и SEO-описания готовы.`,
+      completionTitle: `Пины сохранены!`,
+      completionMessage: `Готовые изображения и описания сохранены на выбранной доске.`,
     });
 
     try {
@@ -204,20 +204,48 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         if (targetRatios.length === 0) targetRatios = ['2:3'];
       }
 
-      const results = await generatePinterestPinBatch({
-        topic: topic.trim() || 'Aesthetic Minimalist Inspiration',
-        tone,
-        targetBoard: selectedBoard?.name || 'Aesthetic Boards',
-        contentLanguage: aiContentLanguage || 'en',
-        count: pinCount,
-        customUrl: destinationUrl,
-        aspectRatios: targetRatios,
+      if (!selectedBoard) {
+        throw new Error('Сначала создайте и выберите доску — результат будет сохранён в ней.');
+      }
+
+      const aspectRatio = aspectMode === 'single' ? selectedSingleRatio : 'mixed';
+      const rows = await apiRequest(`/boards/${encodeURIComponent(selectedBoard.id)}/pins/generate`, {
+        method: 'POST',
+        body: JSON.stringify({
+          topic: currentTopic,
+          tone,
+          content_language: aiContentLanguage || 'en',
+          count: pinCount,
+          aspect_ratio: aspectRatio,
+          mixed_ratios: targetRatios,
+        }),
       });
+
+      if (!Array.isArray(rows) || rows.length === 0) {
+        throw new Error('Сервер не вернул готовые пины. Кредиты не должны быть списаны.');
+      }
+
+      const results: GeneratedPinVariation[] = rows.map((row: any) => ({
+        id: String(row.id),
+        titles: [row.title || currentTopic],
+        selectedTitle: row.title || currentTopic,
+        description: row.description || '',
+        altText: '',
+        suggestedBoard: selectedBoard.name,
+        keywords: [],
+        headlineOverlay: row.title || currentTopic,
+        subheadlineOverlay: '',
+        ctaText: '',
+        imageUrl: row.image_url,
+        tone,
+        aspectRatio: row.aspect_ratio || selectedSingleRatio,
+      }));
 
       setGeneratedPins(results);
       setActivePinIndex(0);
     } catch (err) {
       console.error('Error generating pins:', err);
+      enqueueTask({ title: 'Не удалось создать пины', message: err instanceof Error ? err.message : 'Попробуйте ещё раз позже.', type: 'generation', actionTab: 'generator', durationMs: 5000 });
     } finally {
       setIsGenerating(false);
     }
