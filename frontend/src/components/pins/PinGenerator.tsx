@@ -180,16 +180,6 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     setScheduledSuccess(false);
 
     const currentTopic = topic.trim() || 'Aesthetic Minimalist Inspiration';
-    enqueueTask({
-      title: `Пакет (${pinCount} пинов): ${currentTopic.slice(0, 24)}...`,
-      message: `Сервер создаёт ${pinCount} изображений и сохранит готовые пины на выбранной доске.`,
-      type: 'generation',
-      actionTab: 'generator',
-      durationMs: 4000,
-      completionTitle: `Пины сохранены!`,
-      completionMessage: `Готовые изображения и описания сохранены на выбранной доске.`,
-    });
-
     try {
       const selectedBoard = boards.find((b) => b.id === selectedBoardId);
 
@@ -245,7 +235,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       setActivePinIndex(0);
     } catch (err) {
       console.error('Error generating pins:', err);
-      enqueueTask({ title: 'Не удалось создать пины', message: err instanceof Error ? err.message : 'Попробуйте ещё раз позже.', type: 'generation', actionTab: 'generator', durationMs: 5000 });
+      window.alert(err instanceof Error ? err.message : 'Не удалось создать пины. Попробуйте ещё раз позже.');
     } finally {
       setIsGenerating(false);
     }
