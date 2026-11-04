@@ -341,7 +341,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
     const scheduledTime =
       schedulingMode === 'publish_now'
-        ? new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+        ? new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit' }).format(new Date())
         : schedulingMode === 'custom_datetime'
         ? customScheduleTime
         : '20:15';
