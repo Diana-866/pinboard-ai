@@ -127,6 +127,7 @@ export const es: TranslationSchema = {
     topicLabel: 'Tema del Pin o URL del Producto',
     topicPlaceholder: 'Ej: Ideas de decoración de salas minimalistas estilo escandinavo',
     targetBoardLabel: 'Tablero de Destino',
+    contentLanguageLabel: "Idioma del contenido generado",
     pinToneLabel: 'Tono Editorial',
     tones: {
       inspirational: 'Inspirador y Estético',
