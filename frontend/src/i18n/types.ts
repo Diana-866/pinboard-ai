@@ -283,7 +283,6 @@ export interface TranslationSchema {
     quickTimePresetsLabel: string;
     dailyGenerationHint: string;
     weekInstruction: string;
-    accountLabel: string;
     allAccounts: string;
     statusPublishing: string;
     statusFailed: string;
@@ -300,7 +299,6 @@ export interface TranslationSchema {
     targetBoardLabel: string;
     dateSavedHint: string;
     generateDateButton: string;
-    moscowServerSuffix: string;
     autoTimeMoscowTemplate: string;
   };
 
