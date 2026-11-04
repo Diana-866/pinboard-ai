@@ -77,6 +77,25 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   });
   const [customScheduleTime, setCustomScheduleTime] = useState('20:15');
 
+  const [pinterestBoards, setPinterestBoards] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedPinterestBoardId, setSelectedPinterestBoardId] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    apiRequest('/integrations/pinterest/boards')
+      .then((data) => {
+        if (!active) return;
+        const rows = Array.isArray(data?.boards) ? data.boards : [];
+        setPinterestBoards(rows);
+        if (rows.length === 1) setSelectedPinterestBoardId(rows[0].id);
+      })
+      .catch(() => {
+        if (active) setPinterestBoards([]);
+      });
+    return () => { active = false; };
+  }, []);
+
+
   useEffect(() => {
     if (initialDate) {
       setCustomScheduleDate(initialDate);
@@ -918,6 +937,27 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   </div>
                 </div>
               )}
+
+              <div className="pt-3 border-t border-subtle space-y-2">
+                <label className="block text-[11px] font-bold text-primary-theme">
+                  Доска Pinterest для автоматической публикации
+                </label>
+                <select
+                  value={selectedPinterestBoardId}
+                  onChange={(e) => setSelectedPinterestBoardId(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-app-input border border-subtle rounded-xl text-primary-theme"
+                >
+                  <option value="">Не выбрана — сохранить только в календаре</option>
+                  {pinterestBoards.map((item) => (
+                    <option key={item.id} value={item.id}>{item.name}</option>
+                  ))}
+                </select>
+                {!selectedPinterestBoardId && (
+                  <p className="text-[10px] text-muted-theme">
+                    Без выбранной доски PinPosy не сможет автоматически отправить этот пин в Pinterest.
+                  </p>
+                )}
+              </div>
 
               {/* Action Buttons: Schedule to Calendar */}
               <div className="pt-3 border-t border-subtle flex flex-col sm:flex-row items-center gap-3">
