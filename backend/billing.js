@@ -211,6 +211,10 @@ async function handleWebhook(req, res) {
   }
 
   if (status !== "success") {
+    if (status !== "order_canceled" && status !== "order_denied") {
+      console.warn("[billing] неизвестный статус Prodamus:", status || "(empty)");
+      return res.json({ ok: true, ignored: "unsupported payment_status" });
+    }
     const mapped = status === "order_canceled" ? "canceled" : "denied";
     const { error: statusError } = await supabase.from("subscriptions")
       .update({ status: mapped }).eq("id", sub.id).neq("status", "success");
