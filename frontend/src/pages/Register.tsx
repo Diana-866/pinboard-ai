@@ -12,7 +12,7 @@ function passwordStrength(p: string): { score: number; label: string } {
   if (p.length >= 12) score++;
   if (/\p{Lu}/u.test(p) && /\p{Ll}/u.test(p)) score++;
   if (/\d/.test(p)) score++;
-  if (/[^^\p{L}\p{N}]/u.test(p)) score++;
+  if (/[^\p{L}\p{N}]/u.test(p)) score++;
   const labels = ['very weak', 'weak', 'fair', 'good', 'strong', 'excellent'];
   return { score, label: labels[Math.min(score, 5)] };
 }
