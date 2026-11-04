@@ -3,17 +3,22 @@ const { rehostImage } = require("./storage");
 
 const DEFAULT_ASPECT_RATIOS = ["2:3", "9:16", "4:5", "3:4"];
 
-async function generatePins(board, project, model, count, aspectRatio = "mixed", ratioPool) {
+async function generatePins(board, project, model, count, aspectRatio = "mixed", ratioPool, options = {}) {
+  const topic = typeof options.topic === "string" ? options.topic.slice(0, 500) : "";
+  const tone = typeof options.tone === "string" ? options.tone.slice(0, 80) : project.tone || "нейтральный";
+  const language = typeof options.language === "string" ? options.language.slice(0, 12) : project.language || "ru";
   const prompt = `Ты придумываешь пины для Pinterest-доски.
 Доска: ${board.title}
 Описание доски: ${board.description}
 Ниша: ${project.niche || "не указана"}
-Тон: ${project.tone || "нейтральный"}
+Тема текущей генерации: ${topic || board.title}
+Язык результата: ${language}
+Тон: ${tone}
 
-Придумай ${count} идей пинов для этой доски. Для каждого пина: короткий заголовок (до 60 символов), описание для поиска на Pinterest (1-2 предложения, с ключевыми словами) и image_prompt — подробное описание изображения на английском языке для генерации через AI (стиль, композиция, объект).
+Придумай ${count} уникальных идей пинов строго на указанном языке. Для каждого пина: короткий заголовок (до 60 символов), описание для поиска на Pinterest (1-2 предложения, с ключевыми словами) и image_prompt — подробное описание изображения на английском языке для генерации через AI (стиль, композиция, объект). Не выдумывай статистику и факты.
 
 Ответь строго в формате JSON-массива без лишнего текста:
-[{"title": "...", "description": "...", "image_prompt": "..."}, ...]`;
+[{"title": "...", "description": "...", "image_prompt": "..."}]`;
 
   const aiResponse = await generateText(prompt);
 
