@@ -39,20 +39,26 @@ function baseUrl() {
  * ключи сортируются по алфавиту, вложенные объекты/массивы сериализуются в JSON,
  * параметры соединяются через `&` в виде key=value.
  */
-function canonicalString(params) {
-  const flat = {};
-  Object.keys(params || {}).forEach((k) => {
-    if (k === "Sign" || k === "sign") return; // сама подпись в каноническую строку не входит
-    const v = params[k];
-    if (v === undefined || v === null) {
-      flat[k] = "";
-      return;
+function normalizeSignatureValue(value) {
+  if (Array.isArray(value)) return value.map(normalizeSignatureValue);
+  if (value && typeof value === "object") {
+    const normalized = {};
+    for (const key of Object.keys(value).sort()) {
+      normalized[key] = normalizeSignatureValue(value[key]);
     }
-    flat[k] = typeof v === "object" ? JSON.stringify(v) : String(v);
-  });
-  // JSON-строка с ключами в отсортированном порядке (replacer-массив) —
-  // ровно тот формат, который ждёт test/billing-flow.js и Prodamus
-  return JSON.stringify(flat, Object.keys(flat).sort());
+    return normalized;
+  }
+  return value === undefined || value === null ? "" : String(value);
+}
+
+function canonicalString(params) {
+  const payload = {};
+  for (const key of Object.keys(params || {}).sort()) {
+    if (key === "Sign" || key === "sign") continue;
+    payload[key] = normalizeSignatureValue(params[key]);
+  }
+  // Prodamus требует рекурсивную сортировку ключей и экранирование символа "/".
+  return JSON.stringify(payload).replace(/\//g, "\\/");
 }
 
 /**
@@ -61,7 +67,7 @@ function canonicalString(params) {
  * и в тестах — для имитации вебхука.
  */
 function signPayload(params) {
-  const secret = process.env.PRODAMUS_SECRET_WEBHOOK || process.env.PRODAMUS_SECRET;
+  const secret = process.env.PRODAMUS_SECRET;
   if (!secret) throw httpError(500, "PRODAMUS_SECRET не задан");
   return crypto
     .createHmac("sha256", secret)
@@ -122,7 +128,10 @@ function verifyWebhook(body, headers) {
     const v = payload[k];
     flat[k] = typeof v === "object" && v !== null ? JSON.stringify(v) : v;
   });
-  const expectedFlat = signPayload(flat);
+  const expectedFlat = crypto
+    .createHmac("sha256", secret)
+    .update(canonicalString(flat), "utf8")
+    .digest("base64");
   if (safeEqual(expectedFlat, provided)) return { ok: true };
 
   return { ok: false, reason: "подпись не совпадает" };
