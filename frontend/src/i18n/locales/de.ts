@@ -124,8 +124,8 @@ export const de: TranslationSchema = {
     autoScheduleTitle: 'Pin-Autogenerierung',
     configureTimeBtn: 'Uhrzeit konfigurieren',
     serverExecutionNote: 'Geplant in Ihrer Zeitzone mit synchroner Ausführung auf dem Server',
-    dataNoticeTitle: "Pinterest-Daten sind noch nicht verbunden",
-    dataNoticeDescription: "Verbinde und synchronisiere ein Pinterest-Konto, um echte Kennzahlen und kontoabhängige Empfehlungen zu sehen.",
+    dataNoticeTitle: "Pinterest-Analysen sind noch nicht verfügbar",
+    dataNoticeDescription: "Kontokennzahlen und KI-Empfehlungen werden hier angezeigt, sobald die Pinterest-Analyseintegration umgesetzt ist.", um echte Kennzahlen und kontoabhängige Empfehlungen zu sehen.",
   },
 
   generator: {
