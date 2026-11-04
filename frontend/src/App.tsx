@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { apiRequest } from './lib/api';
 import { ThemeProvider } from './theme/themeContext';
-import { I18nProvider } from './i18n/i18nContext';
+import { I18nProvider, useI18n } from './i18n/i18nContext';
 import { NotificationProvider, useNotifications } from './context/NotificationContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Header } from './components/layout/Header';
@@ -60,6 +60,7 @@ const MainApp: React.FC = () => {
   const [isBotOpen, setIsBotOpen] = useState<boolean>(false);
 
   const { toast, clearToast } = useNotifications();
+  const { aiContentLanguage } = useI18n();
   const { refreshUser } = useAuth();
  const { activeViewMode, setActiveViewMode, isPrivacyModalOpen, closePrivacyModal, isAdmin, user } = useAuth();
 
@@ -335,7 +336,7 @@ const MainApp: React.FC = () => {
       if (!Array.isArray(projects) || projects.length === 0) {
         const project = await apiRequest('/projects', {
           method: 'POST',
-          body: JSON.stringify({ niche: board.category, language: 'ru' }),
+          body: JSON.stringify({ niche: board.category, language: aiContentLanguage }),
         });
         projects = [project];
       }
