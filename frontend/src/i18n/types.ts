@@ -148,6 +148,8 @@ export interface TranslationSchema {
     serverExecutionNote: string;
     dataNoticeTitle: string;
     dataNoticeDescription: string;
+    boardMetricsUnavailable: string;
+    emptyBoards: string;
   };
 
   // Pin Generator
