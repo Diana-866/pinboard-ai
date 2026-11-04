@@ -150,6 +150,7 @@ export interface TranslationSchema {
     topicLabel: string;
     topicPlaceholder: string;
     targetBoardLabel: string;
+    contentLanguageLabel: string;
     pinToneLabel: string;
     tones: {
       inspirational: string;
