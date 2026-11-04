@@ -94,7 +94,6 @@ export interface TranslationSchema {
     connected: string;
     switchTheme: string;
     userProfile: string;
-    pinterestAccounts: string;
     connectAccount: string;
     unlimited: string;
     logout: string;
