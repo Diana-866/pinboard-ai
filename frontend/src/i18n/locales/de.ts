@@ -124,6 +124,8 @@ export const de: TranslationSchema = {
     autoScheduleTitle: 'Pin-Autogenerierung',
     configureTimeBtn: 'Uhrzeit konfigurieren',
     serverExecutionNote: 'Geplant in Ihrer Zeitzone mit synchroner Ausführung auf dem Server',
+    dataNoticeTitle: "Pinterest-Daten sind noch nicht verbunden",
+    dataNoticeDescription: "Verbinde und synchronisiere ein Pinterest-Konto, um echte Kennzahlen und kontoabhängige Empfehlungen zu sehen.",
   },
 
   generator: {
@@ -351,6 +353,8 @@ export const de: TranslationSchema = {
     topPerformingPins: 'Top virale Pins',
     seoHealthIndex: 'Algorithmischer Vertrauenswert',
     growthOpportunities: '3 wirkungsvolle Wachstumschancen',
+    dataUnavailableTitle: "Analysedaten sind noch nicht verfügbar",
+    dataUnavailableDescription: "PinPosy ruft derzeit noch keine Kontostatistiken von Pinterest ab. Kennzahlen werden angezeigt, sobald die Analyseintegration implementiert und die Daten synchronisiert sind.",
   },
 
   settings: {
