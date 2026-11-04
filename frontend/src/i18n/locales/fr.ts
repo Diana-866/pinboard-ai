@@ -247,6 +247,7 @@ export const fr: TranslationSchema = {
     cadenceSettingsDescription: "Générez des épingles chaque jour dans les limites définies, selon l’analyse des tableaux et les tendances de votre niche.",
     autoGenerationLabel: "Génération automatique :",
     autoGenerationTitle: "Définir l’heure quotidienne de génération des épingles",
+    autoGenerationOff: "Désactivée",
     timezonePickerTitle: "Choisissez votre fuseau horaire :",
     settingsForLabel: "Paramètres pour :",
     minPerDayLabel: "Minimum d’épingles par jour :",
