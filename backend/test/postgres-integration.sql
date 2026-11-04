@@ -16,6 +16,8 @@ declare
   v_before integer;
   v_schedule uuid;
   v_schedule_count integer;
+  v_publish_result jsonb;
+  v_uncertain_pin uuid;
 
 begin
   insert into public.users(id, email, credits_balance, tariff_plan)
@@ -126,6 +128,33 @@ begin
     raise exception 'next subscription overlaps existing entitlement';
   end if;
 
+  -- Pinterest publish reservation: concurrent/repeated calls cannot start a second request.
+  v_publish_result := public.begin_pinterest_publish(v_user::text, v_pin, 'pinterest-board-ci');
+  if v_publish_result->>'status' <> 'started' then
+    raise exception 'first Pinterest publish reservation must start';
+  end if;
+  v_publish_result := public.begin_pinterest_publish(v_user::text, v_pin, 'pinterest-board-ci');
+  if v_publish_result->>'status' <> 'processing' then
+    raise exception 'duplicate Pinterest publish must be blocked while processing';
+  end if;
+  perform public.complete_pinterest_publish(v_user::text, v_pin, 'remote-pin-ci-001', 'pinterest-board-ci');
+  v_publish_result := public.begin_pinterest_publish(v_user::text, v_pin, 'pinterest-board-ci');
+  if v_publish_result->>'status' <> 'published' or v_publish_result->>'pinterest_pin_id' <> 'remote-pin-ci-001' then
+    raise exception 'completed Pinterest publish must return the stored remote pin';
+  end if;
+
+  -- An uncertain external result must remain blocked, never auto-retried.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/uncertain.png', 'Uncertain', '', 'pending', 'flux-schnell', 0)
+  returning id into v_uncertain_pin;
+  v_publish_result := public.begin_pinterest_publish(v_user::text, v_uncertain_pin, 'pinterest-board-ci');
+  if v_publish_result->>'status' <> 'started' then raise exception 'uncertain test reservation did not start'; end if;
+  perform public.fail_pinterest_publish(v_user::text, v_uncertain_pin, 'simulated timeout', true);
+  v_publish_result := public.begin_pinterest_publish(v_user::text, v_uncertain_pin, 'pinterest-board-ci');
+  if v_publish_result->>'status' <> 'unknown' then
+    raise exception 'uncertain Pinterest result must block duplicate retry';
+  end if;
+
   -- Persistent schedule records remain scheduled until a publisher confirms success.
   insert into public.pin_schedules(user_id, pin_id, scheduled_at, timezone)
   values (v_user::text, v_pin, now() + interval '1 day', 'Europe/Moscow')
@@ -147,6 +176,7 @@ begin
     where user_id=v_user::text and pin_id=v_pin and status='scheduled';
   if v_schedule_count <> 1 then raise exception 'rescheduling after cancellation failed'; end if;
 
+  delete from public.pinterest_publish_attempts where user_id=v_user::text;
   delete from public.pins where board_id = v_board;
   delete from public.boards where id = v_board;
   delete from public.projects where id = v_project;
