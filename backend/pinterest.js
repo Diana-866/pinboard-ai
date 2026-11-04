@@ -306,13 +306,16 @@ async function publishPin(userId, pinId, pinterestBoardId) {
   try {
     result = await withAccount(userId, (token) => callPinterest("POST", "/pins", { token, body }));
   } catch (e) {
-    // Сетевой сбой/таймаут после отправки запроса неоднозначен:
-    // не повторяем его автоматически, так как удалённый пин мог быть создан.
+    // 409/422/403/404/503 означают, что запрос на создание пина не дошёл
+    // до успешного вызова Pinterest (например, аккаунт не подключён).
+    // Сетевые 502/таймауты остаются неоднозначными и требуют сверки.
+    const status = Number(e && e.httpStatus);
+    const outcomeUnknown = ![403, 404, 409, 422, 503].includes(status);
     await supabase.rpc("fail_pinterest_publish", {
       p_user_id: String(userId),
       p_pin_id: pinId,
-      p_error: "Pinterest request outcome is unknown: " + String(e && e.message || "network error"),
-      p_outcome_unknown: true,
+      p_error: "Pinterest request failed: " + String(e && e.message || "unknown error"),
+      p_outcome_unknown: outcomeUnknown,
     }).catch(() => {});
     throw e;
   }
