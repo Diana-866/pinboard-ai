@@ -150,7 +150,7 @@ const MainApp: React.FC = () => {
     subscriptionActive && ['start', 'pro', 'agency'].includes(normalizedPlan);
   const isSectionLocked = !isTariffUnlocked && activeTab !== 'analytics' && activeTab !== 'pricing';
 
-  // Возврат со страницы оплаты Prodamus: ?payment=success (urlReturn в billing.js).
+  // Возврат со страницы оплаты Prodamus: ?payment=success (urlSuccess в billing.js).
   // Вебхук и редирект идут параллельно, поэтому обновляем /me несколько раз:
   // 0 c, 3 c, 8 c, 15 c — замочки снимаются, как только Prodamus подтвердит платёж.
   React.useEffect(() => {
