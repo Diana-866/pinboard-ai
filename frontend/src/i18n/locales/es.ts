@@ -124,6 +124,8 @@ export const es: TranslationSchema = {
     autoScheduleTitle: 'Autogeneración de Pines',
     configureTimeBtn: 'Configurar Hora de Generación',
     serverExecutionNote: 'Programado en su zona horaria local con sincronización en el servidor',
+    dataNoticeTitle: "Los datos de Pinterest aún no están conectados",
+    dataNoticeDescription: "Conecta y sincroniza una cuenta de Pinterest para ver métricas reales y recomendaciones específicas.",
   },
 
   generator: {
@@ -351,6 +353,8 @@ export const es: TranslationSchema = {
     topPerformingPins: 'Top Pines Virales',
     seoHealthIndex: 'Puntuación de Confianza Algorítmica',
     growthOpportunities: '3 Oportunidades Clave de Crecimiento',
+    dataUnavailableTitle: "Los datos analíticos aún no están disponibles",
+    dataUnavailableDescription: "PinPosy todavía no obtiene estadísticas de la cuenta desde Pinterest. Las métricas aparecerán cuando se implemente la integración de analítica y se sincronicen los datos.",
   },
 
   settings: {
