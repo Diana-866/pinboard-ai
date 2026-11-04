@@ -101,7 +101,7 @@ export const de: TranslationSchema = {
 
   dashboard: {
     title: 'Pinterest Leistungsübersicht',
-    subtitle: 'Echtzeit-Kennzahlen, algorithmische Trends und automatisierte Veröffentlichungs-Warteschlange.',
+    subtitle: 'Verwalten Sie Ihre Pinnwände und geplanten Pins. Pinterest-Analysen sind noch nicht verbunden.',
     monthlyViews: 'Monatliche Aufrufe',
     pinImpressions: 'Gesamte Impressionen',
     outboundClicks: 'Ausgehende Klicks',
@@ -126,6 +126,8 @@ export const de: TranslationSchema = {
     serverExecutionNote: 'Geplant in Ihrer Zeitzone mit synchroner Ausführung auf dem Server',
     dataNoticeTitle: "Pinterest-Analysen sind noch nicht verfügbar",
     dataNoticeDescription: "Kontokennzahlen und KI-Empfehlungen werden hier angezeigt, sobald die Pinterest-Analyseintegration umgesetzt ist.",
+    boardMetricsUnavailable: "Leistungsdaten sind noch nicht synchronisiert",
+    emptyBoards: "Noch keine Pinnwände vorhanden. Erstellen Sie Ihre erste Pinnwand.",
   },
 
   generator: {
