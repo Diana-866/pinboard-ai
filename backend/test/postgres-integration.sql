@@ -155,6 +155,20 @@ begin
     raise exception 'uncertain Pinterest result must block duplicate retry';
   end if;
 
+  -- Due schedule rows are claimed atomically and not returned twice.
+  insert into public.pin_schedules(user_id,pin_id,scheduled_at,timezone,pinterest_board_id)
+  values (v_user::text,v_pin,now() - interval '1 minute','Europe/Moscow','pinterest-board-ci')
+  returning id into v_schedule;
+  select count(*) into v_schedule_count
+    from public.claim_due_pin_schedules(10)
+    where id=v_schedule;
+  if v_schedule_count <> 1 then raise exception 'due schedule was not claimed'; end if;
+  select count(*) into v_schedule_count from public.claim_due_pin_schedules(10);
+  if v_schedule_count <> 0 then raise exception 'claimed schedule was returned twice'; end if;
+  if (select status from public.pin_schedules where id=v_schedule) <> 'publishing' then
+    raise exception 'claimed schedule status was not updated';
+  end if;
+
   -- Persistent schedule records remain scheduled until a publisher confirms success.
   insert into public.pin_schedules(user_id, pin_id, scheduled_at, timezone)
   values (v_user::text, v_pin, now() + interval '1 day', 'Europe/Moscow')
