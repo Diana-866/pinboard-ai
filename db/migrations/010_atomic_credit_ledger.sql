@@ -97,7 +97,7 @@ begin
     return v_balance;
   end if;
 
-  if v_purchase.status not in ('pending', 'denied', 'success') then
+  if v_purchase.status not in ('pending', 'denied', 'canceled', 'success') then
     raise exception 'purchase is not eligible for crediting (status=%)', v_purchase.status;
   end if;
   if v_purchase.credits is null or v_purchase.credits <= 0 then
