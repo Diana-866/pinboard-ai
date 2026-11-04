@@ -165,6 +165,23 @@ export interface TranslationSchema {
     noBoardOption: string;
     noBoardWarning: string;
     recommendedBadge: string;
+    errorNoBoard: string;
+    errorNoPins: string;
+    errorGeneratePins: string;
+    errorSaveTitle: string;
+    errorSaveSchedule: string;
+    errorSaveDescription: string;
+    scheduledToastTitle: string;
+    scheduledToastMessageTemplate: string;
+    scheduledCompletionTitle: string;
+    scheduledCompletionMessageTemplate: string;
+    decreasePinsTitle: string;
+    increasePinsTitle: string;
+    pinCounterTemplate: string;
+    aspectGuideStandard: string;
+    aspectGuideStory: string;
+    aspectGuideEditorial: string;
+    aspectGuideSquare: string;
     pinToneLabel: string;
     tones: {
       inspirational: string;
