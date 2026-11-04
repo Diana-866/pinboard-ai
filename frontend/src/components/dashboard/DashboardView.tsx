@@ -133,7 +133,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Right: Active Pinterest Boards Health (5 cols) */}
+        {/* Right: Board list only; live performance metrics are intentionally hidden until Pinterest analytics is connected. */}
         <div className="lg:col-span-5 custom-card p-5 rounded-2xl space-y-4">
           <div className="flex items-center justify-between border-b border-subtle pb-3">
             <div className="flex items-center gap-2">
