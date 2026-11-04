@@ -60,7 +60,7 @@ export interface ScheduledPinItem {
   imageUrl: string;
   scheduledDate: string; // ISO date string
   scheduledTime: string;
-  status: 'scheduled' | 'publishing' | 'published' | 'failed' | 'draft';
+  status: 'scheduled' | 'publishing' | 'published' | 'failed' | 'unknown' | 'draft';
   impressions?: number;
   saves?: number;
   clicks?: number;
