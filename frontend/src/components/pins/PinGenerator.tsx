@@ -278,6 +278,13 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       headlineOverlay: title.length > 36 ? title.slice(0, 36) + '...' : title,
     };
     setGeneratedPins(updated);
+    void apiRequest(`/pins/${encodeURIComponent(currentPin.id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ title }),
+    }).catch((error) => {
+      console.error('[pins] Не удалось сохранить название:', error);
+      window.alert(error instanceof Error ? error.message : 'Не удалось сохранить название пина');
+    });
   };
 
   const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -871,6 +878,15 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   <textarea
                     value={currentPin.description}
                     onChange={handleDescriptionChange}
+                    onBlur={() => {
+                      void apiRequest(`/pins/${encodeURIComponent(currentPin.id)}`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ description: currentPin.description }),
+                      }).catch((error) => {
+                        console.error('[pins] Не удалось сохранить описание:', error);
+                        window.alert(error instanceof Error ? error.message : 'Не удалось сохранить описание пина');
+                      });
+                    }}
                     rows={4}
                     className="w-full p-3 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent leading-relaxed"
                   />
