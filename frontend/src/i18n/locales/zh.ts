@@ -127,6 +127,7 @@ export const zh: TranslationSchema = {
     topicLabel: 'Pin 主题或产品链接',
     topicPlaceholder: '例如：极简北欧风温馨客厅软装指南与搭配灵感',
     targetBoardLabel: '目标发布画板',
+    contentLanguageLabel: "生成内容的语言",
     pinToneLabel: '文案风格调性',
     tones: {
       inspirational: '灵感与美学风',
