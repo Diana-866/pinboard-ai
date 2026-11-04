@@ -124,8 +124,8 @@ export const es: TranslationSchema = {
     autoScheduleTitle: 'Autogeneración de Pines',
     configureTimeBtn: 'Configurar Hora de Generación',
     serverExecutionNote: 'Programado en su zona horaria local con sincronización en el servidor',
-    dataNoticeTitle: "Los datos de Pinterest aún no están conectados",
-    dataNoticeDescription: "Conecta y sincroniza una cuenta de Pinterest para ver métricas reales y recomendaciones específicas.",
+    dataNoticeTitle: "Las analíticas de Pinterest aún no están disponibles",
+    dataNoticeDescription: "Las métricas de la cuenta y las recomendaciones de IA aparecerán aquí cuando se implemente la integración de analítica de Pinterest.",
   },
 
   generator: {
