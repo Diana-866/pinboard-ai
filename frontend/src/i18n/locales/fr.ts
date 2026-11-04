@@ -127,6 +127,7 @@ export const fr: TranslationSchema = {
     topicLabel: 'Sujet de l’épingle ou URL produit',
     topicPlaceholder: 'Ex: Idées d’aménagement salon scandinave minimaliste et chaleureux',
     targetBoardLabel: 'Tableau de destination',
+    contentLanguageLabel: "Langue du contenu généré",
     pinToneLabel: 'Tonalité éditoriale',
     tones: {
       inspirational: 'Inspirant & Esthétique',
