@@ -164,6 +164,16 @@ function verifyWebhook(body, headers) {
   return { ok: false, reason: "подпись не совпадает" };
 }
 
+/** Map only documented final Prodamus webhook states. Unknown/in-progress
+ * states must not downgrade a pending order to denied. */
+function normalizePaymentStatus(status) {
+  const value = String(status || "").trim().toLowerCase();
+  if (value === "success") return "success";
+  if (value === "order_canceled") return "canceled";
+  if (value === "order_denied") return "denied";
+  return null;
+}
+
 function formatAmount(amount) {
   const n = Number(amount);
   if (!Number.isFinite(n) || n <= 0) throw httpError(422, "Некорректная сумма платежа");
@@ -262,6 +272,7 @@ module.exports = {
   toFormEncoded,
   signPayload,
   safeEqual,
+  normalizePaymentStatus,
   verifyWebhook,
   createPaymentLink,
 };
