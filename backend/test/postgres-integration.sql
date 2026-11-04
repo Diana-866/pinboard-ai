@@ -107,6 +107,9 @@ begin
     raise exception 'next subscription overlaps existing entitlement';
   end if;
 
+  delete from public.pins where board_id = v_board;
+  delete from public.boards where id = v_board;
+  delete from public.projects where id = v_project;
   delete from public.users where id = v_user;
 end;
 $$;
