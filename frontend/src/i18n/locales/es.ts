@@ -474,6 +474,11 @@ export const es: TranslationSchema = {
     statusInProgress: 'Procesando',
     statusReady: 'Listo',
     viewResult: 'Ver Detalles',
+    smartQueueCount: "{count} tareas en Smart Queue",
+    allTasksSynced: "Todas las tareas están sincronizadas",
+    strategistPrompt: "¿Necesitas ayuda para entender tus analíticas?",
+    askStrategist: "Preguntar al estratega de IA →",
+    strategistTitle: "Abrir el estratega de IA de PinPosy",
   },
 
   terms: {
