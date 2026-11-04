@@ -284,13 +284,38 @@ async function getPinWithOwner(pinId, userId) {
   return data;
 }
 
-async function publishPin(userId, pinId, pinterestBoardId) {
+async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationUrl) {
   const boardId = String(pinterestBoardId || "").trim();
   if (!boardId) throw httpError(422, "board_id обязателен: выберите доску Pinterest");
 
-  // Проверяем владельца до создания резерва, чтобы нельзя было блокировать чужие пины.
+  // Проверяем владельца локального пина и выбранной доски до резервации.
   const pin = await getPinWithOwner(pinId, userId);
   if (!pin.image_url) throw httpError(422, "У пина нет изображения — сначала сгенерируйте картинку");
+
+  const boardResult = await withAccount(userId, (token) =>
+    callPinterest("GET", `/boards/${encodeURIComponent(boardId)}`, { token })
+  );
+  if (!boardResult.ok) {
+    if ([403, 404].includes(boardResult.status)) {
+      throw httpError(422, "Выбранная доска не найдена или недоступна подключённому Pinterest-аккаунту");
+    }
+    throw httpError(502, "Не удалось проверить выбранную доску Pinterest. Попробуйте позже.");
+  }
+  const verifiedBoardId = String((boardResult.data && boardResult.data.id) || "");
+  if (verifiedBoardId !== boardId) {
+    throw httpError(422, "Pinterest не подтвердил принадлежность выбранной доски аккаунту");
+  }
+
+  let destinationUrl = null;
+  if (scheduledDestinationUrl) {
+    try {
+      const parsed = new URL(String(scheduledDestinationUrl).trim());
+      if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("invalid protocol");
+      destinationUrl = parsed.toString();
+    } catch {
+      throw httpError(422, "Ссылка для публикации должна быть корректным HTTP- или HTTPS-адресом");
+    }
+  }
 
   // Атомарная резервация в БД не позволяет двум запросам одновременно
   // отправить один и тот же локальный пин в Pinterest.
@@ -321,12 +346,13 @@ async function publishPin(userId, pinId, pinterestBoardId) {
   }
 
   const projectUrl = pin.boards && pin.boards.projects ? pin.boards.projects.website_url : null;
+  const link = destinationUrl || projectUrl;
   const body = {
     board_id: boardId,
     title: String(pin.title || "").slice(0, 100),
     description: String(pin.description || "").slice(0, 800),
     media_source: { source_type: "image_url", url: pin.image_url },
-    ...(projectUrl ? { link: projectUrl } : {}),
+    ...(link ? { link } : {}),
   };
 
   let result;
@@ -533,7 +559,8 @@ function registerRoutes(app, deps) {
           const published = await publishPin(
             schedule.user_id,
             schedule.pin_id,
-            schedule.pinterest_board_id
+            schedule.pinterest_board_id,
+            schedule.destination_url
           );
           const remoteId = String(published.pinterest_pin_id || "");
           if (!remoteId) throw new Error("Pinterest publication returned no remote ID");
