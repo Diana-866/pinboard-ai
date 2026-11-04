@@ -36,6 +36,7 @@ as $$
 declare
   v_attempt public.pinterest_publish_attempts%rowtype;
   v_publication public.pinterest_publications%rowtype;
+  v_inserted integer := 0;
 begin
   select * into v_publication
     from public.pinterest_publications
@@ -51,6 +52,10 @@ begin
   insert into public.pinterest_publish_attempts(user_id,pin_id,pinterest_board_id,status)
   values (p_user_id,p_pin_id,p_pinterest_board_id,'processing')
   on conflict (pin_id) do nothing;
+  get diagnostics v_inserted = row_count;
+  if v_inserted = 1 then
+    return jsonb_build_object('status','started');
+  end if;
 
   select * into v_attempt
     from public.pinterest_publish_attempts
