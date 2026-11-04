@@ -222,7 +222,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       }
 
       if (!selectedBoard) {
-        throw new Error('Сначала создайте и выберите доску — результат будет сохранён в ней.');
+        throw new Error(t.generator.errorNoBoard);
       }
 
       const aspectRatio = aspectMode === 'single' ? selectedSingleRatio : 'mixed';
@@ -250,7 +250,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       });
 
       if (!Array.isArray(rows) || rows.length === 0) {
-        throw new Error('Сервер не вернул готовые пины. Кредиты не должны быть списаны.');
+        throw new Error(t.generator.errorNoPins);
       }
 
       const results: GeneratedPinVariation[] = rows.map((row: any) => ({
@@ -276,7 +276,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       sessionStorage.removeItem('pinposy_generation_key');
     } catch (err) {
       console.error('Error generating pins:', err);
-      window.alert(err instanceof Error ? err.message : 'Не удалось создать пины. Попробуйте ещё раз позже.');
+      window.alert(err instanceof Error ? err.message : t.generator.errorGeneratePins);
     } finally {
       setIsGenerating(false);
     }
@@ -309,7 +309,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       body: JSON.stringify({ title }),
     }).catch((error) => {
       console.error('[pins] Не удалось сохранить название:', error);
-      window.alert(error instanceof Error ? error.message : 'Не удалось сохранить название пина');
+      window.alert(error instanceof Error ? error.message : t.generator.errorSaveTitle);
     });
   };
 
@@ -367,20 +367,23 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     try {
       await onSchedulePin(newScheduledPin);
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : 'Не удалось сохранить расписание');
+      window.alert(error instanceof Error ? error.message : t.generator.errorSaveSchedule);
       return;
     }
     setScheduledSuccess(true);
     setTimeout(() => setScheduledSuccess(false), 4000);
 
     enqueueTask({
-      title: `Пин добавлен в расписание`,
-      message: `«${currentPin.selectedTitle.slice(0, 32)}...» запланирован на ${scheduledDate} в ${scheduledTime}.`,
+      title: t.generator.scheduledToastTitle,
+      message: t.generator.scheduledToastMessageTemplate
+        .replace('{title}', currentPin.selectedTitle.slice(0, 32))
+        .replace('{date}', scheduledDate)
+        .replace('{time}', scheduledTime),
       type: 'generation',
       actionTab: 'calendar',
       durationMs: 2500,
-      completionTitle: `Пин сохранён в расписании`,
-      completionMessage: `Пин привязан к доске «${board.name}». Автоматическая публикация пока не запущена: он не считается опубликованным.`,
+      completionTitle: t.generator.scheduledCompletionTitle,
+      completionMessage: t.generator.scheduledCompletionMessageTemplate.replace('{board}', board.name),
     });
   };
 
@@ -460,7 +463,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     onClick={() => setPinCount((prev) => Math.max(1, prev - 1))}
                     disabled={pinCount <= 1}
                     className="p-1 rounded hover:bg-subtle text-secondary-theme disabled:opacity-30 cursor-pointer"
-                    title="Уменьшить"
+                    title={t.generator.decreasePinsTitle}
                   >
                     <Minus className="w-3.5 h-3.5" />
                   </button>
@@ -484,7 +487,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     onClick={() => setPinCount((prev) => Math.min(10, prev + 1))}
                     disabled={pinCount >= 10}
                     className="p-1 rounded hover:bg-subtle text-secondary-theme disabled:opacity-30 cursor-pointer"
-                    title="Увеличить"
+                    title={t.generator.increasePinsTitle}
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
@@ -504,7 +507,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                         : 'bg-surface border-subtle text-secondary-theme hover:text-primary-theme hover:bg-surface/80'
                     }`}
                   >
-                    {cnt} {cnt === 1 ? 'пин' : cnt < 5 ? 'пина' : 'пинов'}
+                    {cnt}
                   </button>
                 ))}
               </div>
@@ -812,7 +815,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   <>
                     <Sparkles className="w-4 h-4" />
                     <span>
-                      {t.generator.generateBtn} ({pinCount} {pinCount === 1 ? 'пин' : pinCount < 5 ? 'пина' : 'пинов'})
+                      {t.generator.generateBtn} ({pinCount})
                     </span>
                   </>
                 )}
@@ -828,7 +831,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   {t.generator.resultsTitle}
                 </h3>
                 <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-subtle text-secondary-theme">
-                  Пин {activePinIndex + 1} из {generatedPins.length} · {currentPin?.aspectRatio || selectedSingleRatio} ({ASPECT_RATIO_SPECS[currentPin?.aspectRatio || selectedSingleRatio]?.desc})
+                  {t.generator.pinCounterTemplate.replace('{current}', String(activePinIndex + 1)).replace('{total}', String(generatedPins.length))} · {currentPin?.aspectRatio || selectedSingleRatio} ({ASPECT_RATIO_SPECS[currentPin?.aspectRatio || selectedSingleRatio]?.desc})
                 </span>
               </div>
 
@@ -939,7 +942,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                         body: JSON.stringify({ description: currentPin.description }),
                       }).catch((error) => {
                         console.error('[pins] Не удалось сохранить описание:', error);
-                        window.alert(error instanceof Error ? error.message : 'Не удалось сохранить описание пина');
+                        window.alert(error instanceof Error ? error.message : t.generator.errorSaveDescription);
                       });
                     }}
                     rows={4}
@@ -1078,19 +1081,19 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-secondary-theme leading-relaxed">
               <div className="p-2 rounded-lg bg-surface border border-subtle">
                 <span className="font-bold text-primary-theme block font-mono">2:3 (1000 × 1500)</span>
-                <span>Стандартный пин. Максимальная площадь в поисковой выдаче Pinterest.</span>
+                <span>{t.generator.aspectGuideStandard}</span>
               </div>
               <div className="p-2 rounded-lg bg-surface border border-subtle">
                 <span className="font-bold text-primary-theme block font-mono">9:16 (1080 × 1920)</span>
-                <span>Idea Pin & Stories. 3.2x больше комментариев и вовлеченности на смартфонах.</span>
+                <span>{t.generator.aspectGuideStory}</span>
               </div>
               <div className="p-2 rounded-lg bg-surface border border-subtle">
                 <span className="font-bold text-primary-theme block font-mono">3:4 (1080 × 1440)</span>
-                <span>Editorial. Идеально для рецептов, чек-листов и интерьерных подборок.</span>
+                <span>{t.generator.aspectGuideEditorial}</span>
               </div>
               <div className="p-2 rounded-lg bg-surface border border-subtle">
                 <span className="font-bold text-primary-theme block font-mono">1:1 & 4:5</span>
-                <span>Квадрат и соц. портрет. Универсально для каталогов и кросс-постинга.</span>
+                <span>{t.generator.aspectGuideSquare}</span>
               </div>
             </div>
           </div>
