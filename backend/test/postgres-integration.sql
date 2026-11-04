@@ -177,6 +177,7 @@ begin
   if v_schedule_count <> 1 then raise exception 'rescheduling after cancellation failed'; end if;
 
   delete from public.pinterest_publish_attempts where user_id=v_user::text;
+  delete from public.pinterest_publications where user_id=v_user::text;
   delete from public.pins where board_id = v_board;
   delete from public.boards where id = v_board;
   delete from public.projects where id = v_project;
