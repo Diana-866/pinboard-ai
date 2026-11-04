@@ -76,11 +76,12 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [aiContentLanguage, setAiContentLanguageState] = useState<string>(() => {
     try {
       const saved = localStorage.getItem(AI_CONTENT_LANG_KEY);
-      if (saved) return saved;
+      if (saved && AI_CONTENT_LANGUAGES.some((item) => item.code === saved)) return saved;
     } catch {
       // ignore
     }
-    return 'en';
+    // Match generated content to the selected interface language on first use.
+    return AI_CONTENT_LANGUAGES.some((item) => item.code === language) ? language : 'en';
   });
 
   const setLanguage = (lang: SupportedLanguage) => {
