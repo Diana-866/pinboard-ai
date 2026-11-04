@@ -53,11 +53,16 @@ jobs:
           create table public.projects (
             id uuid primary key default gen_random_uuid(),
             user_id uuid not null references public.users(id),
-            niche text
+            niche text,
+            tone text,
+            language text
           );
           create table public.boards (
             id uuid primary key default gen_random_uuid(),
-            project_id uuid not null references public.projects(id)
+            project_id uuid not null references public.projects(id),
+            title text,
+            description text,
+            status text
           );
           create table public.pins (
             id uuid primary key default gen_random_uuid(),
@@ -115,6 +120,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/011_atomic_subscription_activation.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/012_atomic_generation_charge.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/013_atomic_pin_regeneration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/014_idempotent_pin_generation.sql
       - name: Verify duplicate webhooks and ledger consistency
         env:
           PGPASSWORD: postgres
