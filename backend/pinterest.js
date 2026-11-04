@@ -203,7 +203,14 @@ async function refreshAccessToken(account) {
     console.error("[pinterest] обновление токена не удалось:", res.status);
     throw httpError(409, "Pinterest-доступ истёк. Подключите аккаунт заново.");
   }
-  const saved = await saveAccount(account.user_id, res.data, {
+  // Pinterest может не вернуть новый refresh_token при каждом обновлении.
+  // Не затираем действующий токен null-значением.
+  const refreshedTokens = {
+    ...res.data,
+    access_token: res.data.access_token || account.access_token,
+    refresh_token: res.data.refresh_token || account.refresh_token,
+  };
+  const saved = await saveAccount(account.user_id, refreshedTokens, {
     id: account.pinterest_user_id,
     username: account.username,
   });
@@ -254,19 +261,37 @@ async function publishPin(userId, pinId, pinterestBoardId) {
   const boardId = String(pinterestBoardId || "").trim();
   if (!boardId) throw httpError(422, "board_id обязателен: выберите доску Pinterest");
 
-  // Идемпотентность: повторный клик не создаёт второй пин в Pinterest
-  const { data: existing, error: existingError } = await supabase
-    .from("pinterest_publications")
-    .select("pinterest_pin_id, pinterest_board_id, created_at")
-    .eq("pin_id", pinId)
-    .maybeSingle();
-  if (existingError) throw existingError;
-  if (existing) {
-    return { ok: true, already_published: true, pinterest_pin_id: existing.pinterest_pin_id, board_id: existing.pinterest_board_id };
-  }
-
+  // Проверяем владельца до создания резерва, чтобы нельзя было блокировать чужие пины.
   const pin = await getPinWithOwner(pinId, userId);
   if (!pin.image_url) throw httpError(422, "У пина нет изображения — сначала сгенерируйте картинку");
+
+  // Атомарная резервация в БД не позволяет двум запросам одновременно
+  // отправить один и тот же локальный пин в Pinterest.
+  const { data: reservation, error: reservationError } = await supabase.rpc("begin_pinterest_publish", {
+    p_user_id: String(userId),
+    p_pin_id: pinId,
+    p_pinterest_board_id: boardId,
+  });
+  if (reservationError) throw reservationError;
+
+  const reservationStatus = reservation && reservation.status;
+  if (reservationStatus === "published") {
+    return {
+      ok: true,
+      already_published: true,
+      pinterest_pin_id: reservation.pinterest_pin_id,
+      board_id: reservation.pinterest_board_id || boardId,
+    };
+  }
+  if (reservationStatus === "processing") {
+    throw httpError(409, "Публикация уже выполняется. Не запускайте её повторно.");
+  }
+  if (reservationStatus === "unknown") {
+    throw httpError(409, "Pinterest мог уже создать этот пин, но результат не подтверждён. Повторная публикация заблокирована во избежание дубликата.");
+  }
+  if (reservationStatus !== "started") {
+    throw httpError(503, "Не удалось безопасно зарезервировать публикацию. Попробуйте позже.");
+  }
 
   const projectUrl = pin.boards && pin.boards.projects ? pin.boards.projects.website_url : null;
   const body = {
@@ -277,24 +302,62 @@ async function publishPin(userId, pinId, pinterestBoardId) {
     ...(projectUrl ? { link: projectUrl } : {}),
   };
 
-  const result = await withAccount(userId, (token) => callPinterest("POST", "/pins", { token, body }));
+  let result;
+  try {
+    result = await withAccount(userId, (token) => callPinterest("POST", "/pins", { token, body }));
+  } catch (e) {
+    // Сетевой сбой/таймаут после отправки запроса неоднозначен:
+    // не повторяем его автоматически, так как удалённый пин мог быть создан.
+    await supabase.rpc("fail_pinterest_publish", {
+      p_user_id: String(userId),
+      p_pin_id: pinId,
+      p_error: "Pinterest request outcome is unknown: " + String(e && e.message || "network error"),
+      p_outcome_unknown: true,
+    }).catch(() => {});
+    throw e;
+  }
+
   if (!result.ok) {
+    const outcomeUnknown = result.status === 408 || result.status >= 500;
+    await supabase.rpc("fail_pinterest_publish", {
+      p_user_id: String(userId),
+      p_pin_id: pinId,
+      p_error: "Pinterest HTTP " + result.status + ": " + pinterestMessage(result.data, "unknown error"),
+      p_outcome_unknown: outcomeUnknown,
+    });
     console.error("[pinterest] публикация не удалась:", result.status, pinterestMessage(result.data, ""));
+    if (outcomeUnknown) {
+      throw httpError(502, "Pinterest не подтвердил результат. Повторная публикация заблокирована во избежание дубликата.");
+    }
     throw httpError(502, `Pinterest отклонил публикацию: ${pinterestMessage(result.data, "неизвестная ошибка")}`);
   }
 
   const remoteId = String((result.data && result.data.id) || "");
-  if (!remoteId) throw httpError(502, "Pinterest вернул пустой ответ при создании пина");
+  if (!remoteId) {
+    await supabase.rpc("fail_pinterest_publish", {
+      p_user_id: String(userId),
+      p_pin_id: pinId,
+      p_error: "Pinterest returned success without a pin id",
+      p_outcome_unknown: true,
+    });
+    throw httpError(502, "Pinterest не вернул ID созданного пина. Повторная публикация заблокирована.");
+  }
 
-  const { error: logError } = await supabase.from("pinterest_publications").insert({
-    user_id: userId,
-    pin_id: pin.id,
-    pinterest_pin_id: remoteId,
-    pinterest_board_id: boardId,
+  const { error: completeError } = await supabase.rpc("complete_pinterest_publish", {
+    p_user_id: String(userId),
+    p_pin_id: pinId,
+    p_pinterest_pin_id: remoteId,
+    p_pinterest_board_id: boardId,
   });
-  if (logError) {
-    // Пин уже создан в Pinterest — не роняем ответ, только пишем в лог
-    console.error("[pinterest] пин создан, но журнал не записан:", logError.message);
+  if (completeError) {
+    await supabase.rpc("fail_pinterest_publish", {
+      p_user_id: String(userId),
+      p_pin_id: pinId,
+      p_error: "Pinterest created pin " + remoteId + " but local commit failed: " + completeError.message,
+      p_outcome_unknown: true,
+    }).catch(() => {});
+    console.error("[pinterest] пин создан, но не удалось сохранить подтверждение:", completeError.message);
+    throw httpError(503, "Pinterest создал пин, но PinPosy не смог сохранить подтверждение. Повторная публикация заблокирована; требуется сверка.");
   }
 
   return { ok: true, pinterest_pin_id: remoteId, board_id: boardId };
