@@ -124,6 +124,8 @@ export const zh: TranslationSchema = {
     autoScheduleTitle: 'Pin 自动生成排期',
     configureTimeBtn: '配置生成时间',
     serverExecutionNote: '按您所在当地时区设定，并由云端服务器准时同步执行',
+    dataNoticeTitle: "Pinterest 数据尚未连接",
+    dataNoticeDescription: "连接并同步 Pinterest 账号后，即可查看真实数据和针对该账号的建议。",
   },
 
   generator: {
@@ -351,6 +353,8 @@ export const zh: TranslationSchema = {
     topPerformingPins: '爆款 Pin 表现排行',
     seoHealthIndex: '账户算法信任权重分',
     growthOpportunities: '3 项核心增长优化建议',
+    dataUnavailableTitle: "分析数据暂不可用",
+    dataUnavailableDescription: "PinPosy 目前尚未从 Pinterest 获取账号统计数据。分析集成完成并同步数据后，这里才会显示指标。",
   },
 
   settings: {
