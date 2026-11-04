@@ -96,22 +96,15 @@ export const getDefaultTimezone = (lang?: string): string => {
     const saved = localStorage.getItem(TIMEZONE_STORAGE_KEY);
     if (saved) return saved;
 
-    if (lang === 'ru') return 'Europe/Moscow';
-
-    // Auto-detect browser timezone
+    // Preserve the browser's exact IANA timezone. Region-level fallbacks
+    // (for example, mapping every European city to London) shift local times.
     const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (detected) {
-      const match = SUPPORTED_TIMEZONES.find((t) => t.value === detected);
-      if (match) return match.value;
-      if (detected.startsWith('America/')) return 'America/New_York';
-      if (detected.startsWith('Europe/')) return 'Europe/London';
-      if (detected.startsWith('Asia/')) return 'Asia/Singapore';
-    }
+    if (detected) return detected;
   } catch {
     // ignore
   }
 
-  return lang === 'ru' ? 'Europe/Moscow' : 'America/New_York';
+  return lang === 'ru' ? 'Europe/Moscow' : 'Etc/UTC';
 };
 
 export const saveUserTimezone = (tz: string) => {
