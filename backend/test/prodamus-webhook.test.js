@@ -29,6 +29,29 @@ test("rejects prototype-polluting and conflicting multipart fields", () => {
   assert.throws(() => parseMultipartFields({ order_id: "x", "order_id[child]": "y" }));
 });
 
+test("encodes nested Prodamus product fields as bracketed form keys", () => {
+  const encoded = prodamus.toFormEncoded({
+    do: "link",
+    order_id: "pp-start-123",
+    products: [{
+      name: "PinPosy / Старт",
+      price: "1990.00",
+      quantity: "1",
+      sku: "start",
+      tax: { tax_type: 0 },
+    }],
+  });
+  const form = new URLSearchParams(encoded);
+  assert.equal(form.get("products[0][name]"), "PinPosy / Старт");
+  assert.equal(form.get("products[0][price]"), "1990.00");
+  assert.equal(form.get("products[0][quantity]"), "1");
+  assert.equal(form.get("products[0][sku]"), "start");
+  assert.equal(form.get("products[0][tax][tax_type]"), "0");
+  assert.equal(form.get("order_id"), "pp-start-123");
+  assert.equal(encoded.includes("[object Object]"), false);
+  assert.equal(form.has("products"), false);
+});
+
 test("canonicalizes nested objects recursively and escapes forward slashes", () => {
   const payload = {
     products: [{ price: 1990, name: "PinPosy / Start", tax: { type: 0, code: "x" } }],
