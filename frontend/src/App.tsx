@@ -60,6 +60,10 @@ const MainApp: React.FC = () => {
   const [prefilledDate, setPrefilledDate] = useState<string>('');
   const [isBotOpen, setIsBotOpen] = useState<boolean>(false);
 
+  const { toast, clearToast } = useNotifications();
+  const { refreshUser } = useAuth();
+ const { activeViewMode, setActiveViewMode, isPrivacyModalOpen, closePrivacyModal, isAdmin, user } = useAuth();
+
   // Доски загружаются из API, а не из демонстрационного массива браузера.
   React.useEffect(() => {
     let cancelled = false;
@@ -93,9 +97,7 @@ const MainApp: React.FC = () => {
     return () => { cancelled = true; };
   }, [user?.id]);
 
-  const { toast, clearToast } = useNotifications();
-  const { refreshUser } = useAuth();
- const { activeViewMode, setActiveViewMode, isPrivacyModalOpen, closePrivacyModal, isAdmin, user } = useAuth();
+
 
   // Тарифные «замочки»: генерацию и разделы открывают Старт/Про/Agency;
   // тариф «Аналитика» (990₽) и «нет тарифа» оставляют замочки (миграция 004)
