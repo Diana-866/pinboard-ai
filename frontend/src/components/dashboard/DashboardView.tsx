@@ -152,7 +152,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="space-y-2.5">
-            {boards.slice(0, 4).map((board) => (
+            {boards.length > 0 ? boards.slice(0, 4).map((board) => (
               <div
                 key={board.id}
                 onClick={() => onNavigateTab('boards')}
@@ -163,17 +163,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     {board.name}
                   </h4>
                   <p className="text-[11px] text-muted-theme mt-0.5">
-                    {board.pinCount} {t.boards.totalPins} · {formatNumber(board.monthlyViews)} {t.dashboard.monthlyViews}
+                    {t.dashboard.boardMetricsUnavailable}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
                   <span className="font-mono text-xs font-bold text-primary-theme">
-                    {board.seoScore}%
+                    —
                   </span>
-                  <span className="text-[10px] text-muted-theme block">{t.boards.averageSeoScore}</span>
+                  <span className="text-[10px] text-muted-theme block">{t.dashboard.boardMetricsUnavailable}</span>
                 </div>
               </div>
-            ))}
+            )) : (
+              <p className="py-6 text-center text-xs text-muted-theme">{t.dashboard.emptyBoards}</p>
+            )}
           </div>
         </div>
       </div>
