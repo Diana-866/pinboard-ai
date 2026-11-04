@@ -1021,7 +1021,7 @@ app.post("/pins/:id/schedule", requireAuth, async (req, res) => {
         pin_id: pin.id,
         scheduled_at: scheduledAt.toISOString(),
         timezone,
-        destination_url: destinationUrl,
+        destination_url: destinationUrl,\n        pinterest_board_id: req.body && req.body.pinterest_board_id ? String(req.body.pinterest_board_id).trim() : null,
         status: "scheduled",
       })
       .select("*, pins(id, board_id, title, description, image_url, boards(id, title))")
