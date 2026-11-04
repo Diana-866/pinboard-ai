@@ -127,6 +127,7 @@ export const ru: TranslationSchema = {
     topicLabel: 'Тема пина или URL товара/статьи',
     topicPlaceholder: 'Например: Идеи минималистичного скандинавского интерьера для уютной гостиной',
     targetBoardLabel: 'Целевая доска',
+    contentLanguageLabel: "Язык создаваемого контента",
     pinToneLabel: 'Тональность текста',
     tones: {
       inspirational: 'Вдохновляющий и эстетичный',
