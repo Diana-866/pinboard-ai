@@ -51,7 +51,8 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
         // Переносим картинку в постоянное хранилище (ссылки GPTunnel временные)
         image.url = await rehostImage(image.url);
       } catch (reErr) {
-        console.error(`[pins] ре-хостинг не удался, оставляем исходный URL: ${reErr && reErr.message}`);
+        // Не сохраняем временную ссылку GPTunnel: после истечения срока она перестанет работать.
+        throw reErr;
       }
       pins.push({
         board_id: board.id,
