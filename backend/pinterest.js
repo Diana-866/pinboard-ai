@@ -10,6 +10,7 @@
 //   3. Один локальный пин публикуется ровно один раз (unique index в миграции 008).
 
 const axios = require("axios");
+const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const supabase = require("./supabase");
 const { httpError } = require("./validate");
@@ -479,6 +480,85 @@ function registerRoutes(app, deps) {
       }
     }
   );
+
+  // Внутренний worker. Вызывается внешним cron только с отдельным секретом.
+  app.post("/internal/pinterest/schedule/run", async (req, res) => {
+    const expected = Buffer.from(String(process.env.PINPOSY_SCHEDULER_SECRET || ""));
+    const provided = Buffer.from(String(req.get("x-pinposy-scheduler-secret") || ""));
+    if (
+      expected.length < 32 ||
+      provided.length !== expected.length ||
+      !crypto.timingSafeEqual(expected, provided)
+    ) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    try {
+      requireConfigured();
+      const limit = Math.max(1, Math.min(Number(req.body && req.body.limit) || 10, 50));
+      const { data: dueRows, error: claimError } = await supabase.rpc("claim_due_pin_schedules", {
+        p_limit: limit,
+      });
+      if (claimError) throw claimError;
+
+      const results = [];
+      for (const schedule of dueRows || []) {
+        try {
+          const published = await publishPin(
+            schedule.user_id,
+            schedule.pin_id,
+            schedule.pinterest_board_id
+          );
+          const remoteId = String(published.pinterest_pin_id || "");
+          if (!remoteId) throw new Error("Pinterest publication returned no remote ID");
+
+          const { error: updateError } = await supabase
+            .from("pin_schedules")
+            .update({
+              status: "published",
+              pinterest_pin_id: remoteId,
+              published_at: new Date().toISOString(),
+              last_error: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", schedule.id)
+            .eq("status", "publishing");
+          if (updateError) throw updateError;
+          results.push({ schedule_id: schedule.id, status: "published" });
+        } catch (e) {
+          const { data: attempt } = await supabase
+            .from("pinterest_publish_attempts")
+            .select("status")
+            .eq("pin_id", schedule.pin_id)
+            .maybeSingle();
+          const finalStatus = attempt && attempt.status === "unknown" ? "unknown" : "failed";
+          const message = String(e && e.message || "Publication failed").slice(0, 500);
+          await supabase
+            .from("pin_schedules")
+            .update({
+              status: finalStatus,
+              last_error: message,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", schedule.id)
+            .eq("status", "publishing");
+          results.push({ schedule_id: schedule.id, status: finalStatus, error: message });
+        }
+      }
+
+      res.json({
+        ok: true,
+        claimed: (dueRows || []).length,
+        published: results.filter((r) => r.status === "published").length,
+        failed: results.filter((r) => r.status === "failed").length,
+        unknown: results.filter((r) => r.status === "unknown").length,
+        results,
+      });
+    } catch (e) {
+      console.error("[pinterest-worker] run failed:", e && e.message);
+      res.status(500).json({ error: "Pinterest schedule worker failed" });
+    }
+  });
 
   console.log(`[pinterest] роуты подключены, интеграция ${isConfigured() ? "настроена" : "НЕ настроена (нет PINTEREST_*)"}`);
 }
