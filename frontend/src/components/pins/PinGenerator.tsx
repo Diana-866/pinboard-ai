@@ -645,7 +645,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               >
                 {boards.map((b) => (
                   <option key={b.id} value={b.id}>
-                    {b.name} ({b.pinCount} pins) {b.id === recommendedBoard?.id ? '★ Рекомендуется' : ''}
+                    {b.name} ({b.pinCount} pins) {b.id === recommendedBoard?.id ? `★ ${t.generator.recommendedBadge}` : ''}
                   </option>
                 ))}
               </select>
@@ -706,9 +706,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-primary-theme uppercase tracking-wider flex items-center gap-1.5">
                   <CalendarDays className="w-4 h-4 text-accent-ghost" />
-                  <span>Планирование (Scheduling)</span>
+                  <span>{t.generator.schedulingSectionTitle}</span>
                 </label>
-                <span className="text-[11px] font-mono text-muted-theme">Авто-постинг</span>
+                <span className="text-[11px] font-mono text-muted-theme">{t.generator.autoPostingLabel}</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -726,8 +726,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     <Zap className="w-4 h-4 text-accent-ghost" />
                     <span className={`w-2 h-2 rounded-full ${schedulingMode === 'publish_now' ? 'bg-accent' : 'bg-transparent border border-subtle'}`} />
                   </div>
-                  <span className="text-xs font-bold text-primary-theme block">Опубликовать сразу</span>
-                  <span className="text-[10px] text-muted-theme leading-tight mt-0.5">Мгновенная отправка в Pinterest API</span>
+                  <span className="text-xs font-bold text-primary-theme block">{t.generator.publishNowLabel}</span>
+                  <span className="text-[10px] text-muted-theme leading-tight mt-0.5">{t.generator.publishNowDescription}</span>
                 </button>
 
                 {/* 2. Добавить в умную очередь */}
@@ -744,8 +744,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     <Clock className="w-4 h-4 text-accent-ghost" />
                     <span className={`w-2 h-2 rounded-full ${schedulingMode === 'smart_queue' ? 'bg-accent' : 'bg-transparent border border-subtle'}`} />
                   </div>
-                  <span className="text-xs font-bold text-primary-theme block">В умную очередь</span>
-                  <span className="text-[10px] text-muted-theme leading-tight mt-0.5">Ближайший слот прайм-тайма (20:15)</span>
+                  <span className="text-xs font-bold text-primary-theme block">{t.generator.smartQueueLabel}</span>
+                  <span className="text-[10px] text-muted-theme leading-tight mt-0.5">{t.generator.smartQueueDescription}</span>
                 </button>
 
                 {/* 3. Выбрать конкретную дату и время */}
@@ -762,8 +762,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     <Calendar className="w-4 h-4 text-accent-ghost" />
                     <span className={`w-2 h-2 rounded-full ${schedulingMode === 'custom_datetime' ? 'bg-accent' : 'bg-transparent border border-subtle'}`} />
                   </div>
-                  <span className="text-xs font-bold text-primary-theme block">Выбрать дату и время</span>
-                  <span className="text-[10px] text-muted-theme leading-tight mt-0.5">Точный слот выхода пинов</span>
+                  <span className="text-xs font-bold text-primary-theme block">{t.generator.customDateTimeLabel}</span>
+                  <span className="text-[10px] text-muted-theme leading-tight mt-0.5">{t.generator.customDateTimeDescription}</span>
                 </button>
               </div>
 
@@ -772,7 +772,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                 <div className="grid grid-cols-2 gap-3 pt-2 border-t border-subtle animate-in fade-in">
                   <div>
                     <label className="text-[11px] font-bold text-primary-theme block mb-1">
-                      Дата публикации:
+                      {t.generator.publishDateLabel}
                     </label>
                     <input
                       type="date"
@@ -783,7 +783,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   </div>
                   <div>
                     <label className="text-[11px] font-bold text-primary-theme block mb-1">
-                      Время выхода (слот):
+                      {t.generator.publishTimeLabel}
                     </label>
                     <input
                       type="time"
@@ -969,21 +969,21 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
               <div className="pt-3 border-t border-subtle space-y-2">
                 <label className="block text-[11px] font-bold text-primary-theme">
-                  Доска Pinterest для автоматической публикации
+                  {t.generator.pinterestBoardForPublishingLabel}
                 </label>
                 <select
                   value={selectedPinterestBoardId}
                   onChange={(e) => setSelectedPinterestBoardId(e.target.value)}
                   className="w-full px-3 py-2 text-xs bg-app-input border border-subtle rounded-xl text-primary-theme"
                 >
-                  <option value="">Не выбрана — сохранить только в календаре</option>
+                  <option value="">{t.generator.noBoardOption}</option>
                   {pinterestBoards.map((item) => (
                     <option key={item.id} value={item.id}>{item.name}</option>
                   ))}
                 </select>
                 {!selectedPinterestBoardId && (
                   <p className="text-[10px] text-muted-theme">
-                    Без выбранной доски PinPosy не сможет автоматически отправить этот пин в Pinterest.
+                    {t.generator.noBoardWarning}
                   </p>
                 )}
               </div>
