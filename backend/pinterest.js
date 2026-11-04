@@ -237,11 +237,13 @@ async function refreshAccessToken(account) {
     access_token: res.data.access_token || account.access_token,
     refresh_token: res.data.refresh_token || account.refresh_token,
   };
-  const saved = await saveAccount(account.user_id, refreshedTokens, {
+  await saveAccount(account.user_id, refreshedTokens, {
     id: account.pinterest_user_id,
     username: account.username,
   });
-  return saved;
+  // saveAccount returns the encrypted database row; API calls must receive plaintext
+  // only in memory, after the authenticated decryption path.
+  return getAccount(account.user_id);
 }
 
 /**
