@@ -202,13 +202,10 @@ async function createPaymentLink({
         sku: String(plan || ""),
       },
     ],
-    // Prodamus only applies urlNotification when sys is present.
-    // For a self-written integration the docs allow sys to be an empty string.
-    ...(urlNotification
-      ? { sys: String(process.env.PRODAMUS_SYS || ""), urlNotification }
-      : process.env.PRODAMUS_SYS
-      ? { sys: process.env.PRODAMUS_SYS }
-      : {}),
+    // SYS is a required Prodamus request parameter. For a self-written
+    // integration the documentation explicitly allows an empty value.
+    sys: String(process.env.PRODAMUS_SYS || ""),
+    ...(urlNotification ? { urlNotification } : {}),
     ...(urlSuccess ? { urlSuccess } : {}),
     ...(isDemo() ? { demo_mode: "1" } : {}),
   };
