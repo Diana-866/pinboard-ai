@@ -166,6 +166,7 @@ async function createPaymentLink({
     order_id: String(orderId),
     customer_email: email || "",
     currency: String(currency || "rub").toLowerCase(),
+    callbackType: "json",
     products: [
       {
         name: String(description || "Подписка PinPosy").slice(0, 250),
