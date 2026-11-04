@@ -122,7 +122,8 @@ const MainApp: React.FC = () => {
             scheduledDate: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
             scheduledTime: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
             status: row.status === 'published' ? 'published' : 'scheduled',
-            destinationUrl: row.destination_url || '',\n            pinterestBoardId: row.pinterest_board_id || undefined,
+            destinationUrl: row.destination_url || '',
+            pinterestBoardId: row.pinterest_board_id || undefined,
             isOptimalSlot: false,
           };
         });
@@ -311,7 +312,8 @@ const MainApp: React.FC = () => {
       body: JSON.stringify({
         scheduled_at: localDateTime.toISOString(),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Moscow',
-        destination_url: pin.destinationUrl || undefined,\n        pinterest_board_id: pin.pinterestBoardId || undefined,
+        destination_url: pin.destinationUrl || undefined,
+        pinterest_board_id: pin.pinterestBoardId || undefined,
       }),
     });
     const date = new Date(saved.scheduled_at);
