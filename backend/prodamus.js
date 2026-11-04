@@ -183,7 +183,7 @@ async function createPaymentLink({
   description,
   plan,
   urlNotification,
-  urlReturn,
+  urlSuccess,
 }) {
   if (!orderId) throw httpError(500, "Не удалось создать платёж: нет order_id");
   const price = formatAmount(amount);
@@ -209,7 +209,7 @@ async function createPaymentLink({
       : process.env.PRODAMUS_SYS
       ? { sys: process.env.PRODAMUS_SYS }
       : {}),
-    ...(urlReturn ? { urlReturn } : {}),
+    ...(urlSuccess ? { urlSuccess } : {}),
     ...(isDemo() ? { demo_mode: "1" } : {}),
   };
 
