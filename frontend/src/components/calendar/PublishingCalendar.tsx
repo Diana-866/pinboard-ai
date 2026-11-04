@@ -653,9 +653,19 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                   <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                     pin.status === 'published'
                       ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                      : pin.status === 'failed'
+                      ? 'bg-red-500/10 text-red-600 dark:text-red-400'
+                      : pin.status === 'publishing'
+                      ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
                       : 'bg-accent-pill text-primary-theme'
                   }`}>
-                    {pin.status === 'published' ? 'Опубликован' : 'В очереди'}
+                    {pin.status === 'published'
+                      ? 'Опубликован'
+                      : pin.status === 'failed'
+                      ? 'Ошибка публикации'
+                      : pin.status === 'publishing'
+                      ? 'Публикуется'
+                      : 'В очереди'}
                   </span>
                 </div>
               </div>
