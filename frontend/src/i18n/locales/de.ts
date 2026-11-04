@@ -247,6 +247,7 @@ export const de: TranslationSchema = {
     cadenceSettingsDescription: "Pins werden täglich innerhalb der festgelegten Mindest- und Höchstwerte anhand von Board-Analysen und Nischentrends generiert.",
     autoGenerationLabel: "Automatische Generierung:",
     autoGenerationTitle: "Tägliche Uhrzeit für die Pin-Generierung festlegen",
+    autoGenerationOff: "Aus",
     timezonePickerTitle: "Wählen Sie Ihre Zeitzone:",
     settingsForLabel: "Einstellungen für:",
     minPerDayLabel: "Mindestens Pins pro Tag:",
