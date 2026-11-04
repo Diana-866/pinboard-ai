@@ -457,7 +457,7 @@ app.post("/projects", requireAuth, async (req, res) => {
     let website_url = optionalString(req.body && req.body.website_url, { max: 2048 });
     if (website_url) website_url = validateUrl(website_url);
     const niche = optionalString(req.body && req.body.niche, { max: 120 }) || "";
-    const language = optionalString(req.body && req.body.language, { max: 10 }) || "ru";
+    const language = optionalString(req.body && req.body.language, { max: 10 }) || "en";
     const goal = optionalString(req.body && req.body.goal, { max: 500 }) || "";
     const tone = optionalString(req.body && req.body.tone, { max: 500 }) || "";
 
@@ -876,8 +876,8 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
     const tone = optionalString(req.body && req.body.tone, { max: 80 }) || board.projects.tone || "нейтральный";
     const contentLanguage = validateEnum(
       req.body && req.body.content_language,
-      ["ru", "en", "de", "fr", "es", "pt", "zh"],
-      board.projects.language || "ru",
+      ["ru", "en", "de", "fr", "es", "pt", "zh", "it", "ja"],
+      board.projects.language || "en",
       "Язык"
     );
     const requestFingerprint = crypto.createHash("sha256").update(JSON.stringify({
