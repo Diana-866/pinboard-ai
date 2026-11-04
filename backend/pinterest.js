@@ -502,12 +502,31 @@ function registerRoutes(app, deps) {
     }
   });
 
-  // Доски пользователя в Pinterest — для выбора, куда публиковать
+  // Доски пользователя в Pinterest — для выбора, куда публиковать.
+  // Pinterest допускает до 2 000 досок; page_size ограничен 250.
+  // Повторный проход целиком безопасен при 401/429: withAccount обновит токен
+  // или повторит чтение, не создавая никаких удалённых объектов.
   app.get("/integrations/pinterest/boards", requireAuth, async (req, res) => {
     try {
-      const result = await withAccount(req.userId, (token) =>
-        callPinterest("GET", "/boards?page_size=100", { token })
-      );
+      const result = await withAccount(req.userId, async (token) => {
+        const items = [];
+        let bookmark = null;
+        for (let page = 0; page < 8; page += 1) {
+          const params = new URLSearchParams({ page_size: "250" });
+          if (bookmark) params.set("bookmark", bookmark);
+          const pageResult = await callPinterest("GET", `/boards?${params.toString()}`, { token });
+          if (!pageResult.ok) return pageResult;
+          items.push(...((pageResult.data && pageResult.data.items) || []));
+          bookmark = pageResult.data && pageResult.data.bookmark;
+          if (!bookmark) return { ...pageResult, data: { items } };
+        }
+        // Не отдаём незаметно неполный список, если Pinterest изменит лимиты.
+        return {
+          ok: false,
+          status: 502,
+          data: { message: "Pinterest вернул больше страниц досок, чем поддерживает текущая загрузка" },
+        };
+      });
       if (!result.ok) {
         throw httpError(502, `Pinterest не отдал доски: ${pinterestMessage(result.data, "неизвестная ошибка")}`);
       }
