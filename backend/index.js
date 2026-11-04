@@ -702,20 +702,28 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
       throw httpError(502, "Изображение ещё не готово — попробуйте позже, кредиты не списаны");
     }
 
-    await adjustBalance(req.userId, -cost, "regeneration", `Перегенерация пина (${model})`);
-
-    const { data: updated, error } = await supabase
-      .from("pins")
-      .update({ image_url: image.url, credits_cost: cost })
-      .eq("id", req.params.id)
-      .select()
-      .single();
-    if (error) {
-      // возврат кредитов, если пин не сохранился (частичный фикс B6)
-      await adjustBalance(req.userId, cost, "refund", "Возврат кредитов: перегенерация не сохранена").catch(() => {});
-      throw httpError(500, "Не удалось сохранить пин, кредиты возвращены на баланс");
+    const { data: chargeResult, error: chargeError } = await supabase.rpc("update_pin_image_and_charge", {
+      p_user_id: String(req.userId),
+      p_pin_id: req.params.id,
+      p_image_url: image.url,
+      p_amount: cost,
+    });
+    if (chargeError) {
+      if (/insufficient credits/i.test(chargeError.message || "")) {
+        throw httpError(402, "Недостаточно кредитов для перегенерации");
+      }
+      if (/not found or not owned/i.test(chargeError.message || "")) {
+        throw httpError(404, "Пин не найден");
+      }
+      throw chargeError;
     }
 
+    const { data: updated, error: readError } = await supabase
+      .from("pins")
+      .select("*")
+      .eq("id", req.params.id)
+      .single();
+    if (readError || !updated) throw httpError(500, "Изображение обновлено, но не удалось получить результат");
     res.json(updated);
   } catch (e) {
     handleError(res, e);
@@ -817,20 +825,31 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
     }));
     const totalCharge = markedUpPins.reduce((sum, p) => sum + p.credits_cost, 0);
 
-    await adjustBalance(
-      req.userId,
-      -totalCharge,
-      "generation",
-      `Генерация ${markedUpPins.length} пинов (${model})`
-    );
+    const { data: savedResult, error: saveError } = await supabase.rpc("save_generated_pins_and_charge", {
+      p_user_id: String(req.userId),
+      p_board_id: board.id,
+      p_pins: markedUpPins.map((p) => ({
+        image_url: p.image_url,
+        title: p.title,
+        description: p.description || "",
+        model_used: p.model_used,
+        aspect_ratio: p.aspect_ratio,
+        credits_cost: p.credits_cost,
+      })),
+      p_amount: totalCharge,
+    });
 
-    const { data: inserted, error } = await supabase.from("pins").insert(markedUpPins).select();
-    if (error) {
-      // возврат кредитов, если пины не сохранились (частичный фикс B6)
-      await adjustBalance(req.userId, totalCharge, "refund", "Возврат кредитов: генерация не сохранена").catch(() => {});
-      throw httpError(500, "Не удалось сохранить пины, кредиты возвращены на баланс");
+    if (saveError) {
+      if (/insufficient credits/i.test(saveError.message || "")) {
+        throw httpError(402, "Баланс изменился во время генерации. Недостаточно кредитов для сохранения результата.");
+      }
+      throw saveError;
     }
 
+    const inserted = savedResult && savedResult.pins;
+    if (!Array.isArray(inserted) || inserted.length === 0) {
+      throw httpError(500, "Не удалось сохранить сгенерированные пины");
+    }
     res.status(201).json(inserted);
   } catch (e) {
     handleError(res, e);
