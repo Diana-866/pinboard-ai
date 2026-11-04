@@ -99,7 +99,7 @@ begin
 
 
   -- Idempotency: completed generation returns stored pins without charging again.
-  v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-key-0001');
+  v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-key-0001', repeat('a',64));
   if v_result->>'status' <> 'started' then raise exception 'first generation request must start'; end if;
   v_result := public.complete_pin_generation_request(
     v_user::text, v_board, 'ci-generation-key-0001',
@@ -107,7 +107,7 @@ begin
     5
   );
   if (v_result->>'balance')::integer <> 75 then raise exception 'idempotent first charge incorrect'; end if;
-  v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-key-0001');
+  v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-key-0001', repeat('a',64));
   if v_result->>'status' <> 'completed' then raise exception 'duplicate generation must return completed'; end if;
   if jsonb_array_length(v_result->'pins') <> 1 then raise exception 'duplicate generation did not return cached pins'; end if;
   if (select credits_balance from public.users where id=v_user) <> 75 then
