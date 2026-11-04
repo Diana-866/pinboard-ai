@@ -124,8 +124,8 @@ export const fr: TranslationSchema = {
     autoScheduleTitle: 'Auto-génération d’épingles',
     configureTimeBtn: 'Configurer l’horaire',
     serverExecutionNote: 'Programmé selon votre fuseau local avec synchronisation sur le serveur',
-    dataNoticeTitle: "Les données Pinterest ne sont pas encore connectées",
-    dataNoticeDescription: "Connectez et synchronisez un compte Pinterest pour afficher des statistiques réelles et des recommandations personnalisées.",
+    dataNoticeTitle: "Les statistiques Pinterest ne sont pas encore disponibles",
+    dataNoticeDescription: "Les indicateurs du compte et les recommandations de l’IA apparaîtront ici une fois l’intégration des statistiques Pinterest mise en place.",
   },
 
   generator: {
