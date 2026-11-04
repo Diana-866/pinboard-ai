@@ -36,6 +36,13 @@ interface PinGeneratorProps {
   onGoToCalendar: () => void;
 }
 
+const formatLocalDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const ALL_ASPECT_RATIOS: {
   id: SupportedAspectRatio;
   label: string;
@@ -73,7 +80,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     if (initialDate) return initialDate;
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
+    return formatLocalDate(tomorrow);
   });
   const [customScheduleTime, setCustomScheduleTime] = useState('20:15');
 
@@ -323,10 +330,14 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
     const scheduledDate =
       schedulingMode === 'publish_now'
-        ? new Date().toISOString().split('T')[0]
+        ? formatLocalDate(new Date())
         : schedulingMode === 'custom_datetime'
         ? customScheduleDate
-        : new Date(Date.now() + 86400000).toISOString().split('T')[0];
+        : (() => {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            return formatLocalDate(tomorrow);
+          })();
 
     const scheduledTime =
       schedulingMode === 'publish_now'
