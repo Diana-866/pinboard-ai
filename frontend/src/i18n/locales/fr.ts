@@ -101,7 +101,7 @@ export const fr: TranslationSchema = {
 
   dashboard: {
     title: 'Vue d’ensemble des performances Pinterest',
-    subtitle: 'Métriques en temps réel, tendances de l’algorithme et file d’attente automatisée.',
+    subtitle: 'Gérez vos tableaux et vos épingles programmées. Les statistiques Pinterest ne sont pas encore connectées.',
     monthlyViews: 'Vues mensuelles',
     pinImpressions: 'Impressions totales',
     outboundClicks: 'Clics sortants',
@@ -126,6 +126,8 @@ export const fr: TranslationSchema = {
     serverExecutionNote: 'Programmé selon votre fuseau local avec synchronisation sur le serveur',
     dataNoticeTitle: "Les statistiques Pinterest ne sont pas encore disponibles",
     dataNoticeDescription: "Les indicateurs du compte et les recommandations de l’IA apparaîtront ici une fois l’intégration des statistiques Pinterest mise en place.",
+    boardMetricsUnavailable: "Les statistiques ne sont pas encore synchronisées",
+    emptyBoards: "Aucun tableau pour le moment. Créez votre premier tableau pour commencer.",
   },
 
   generator: {
