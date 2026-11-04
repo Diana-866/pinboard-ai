@@ -14,6 +14,7 @@ const crypto = require("crypto");
 const { hasEncryptionKey, isEncryptedToken, encryptToken, decryptToken } = require("./pinterestTokenCrypto");
 const jwt = require("jsonwebtoken");
 const supabase = require("./supabase");
+const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
 const { httpError } = require("./validate");
 
 const AUTHORIZE_URL = "https://www.pinterest.com/oauth/";
@@ -558,6 +559,14 @@ function registerRoutes(app, deps) {
       const results = [];
       for (const schedule of dueRows || []) {
         try {
+          // Background jobs must enforce the same paid-plan gate as manual publishing.
+          const tariff = await getTariffState(schedule.user_id);
+          const activeGenerationPlan =
+            tariff.active && GENERATION_PLANS.includes(normalizePlan(tariff.plan));
+          if (!activeGenerationPlan) {
+            throw httpError(403, "Для автоматической публикации нужна активная подписка «Старт» или выше");
+          }
+
           const published = await publishPin(
             schedule.user_id,
             schedule.pin_id,
