@@ -24,7 +24,6 @@ import {
   getDefaultTimezone,
   saveUserTimezone,
   SUPPORTED_TIMEZONES,
-  getTimezoneInfo,
   convertLocalToMoscow,
 } from '../../utils/timezone';
 
@@ -104,6 +103,41 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
   } | null>(null);
 
   const [slotTopic, setSlotTopic] = useState('');
+
+  const getLocalizedTimezoneName = (timeZone: string): string => {
+    try {
+      return new Intl.DateTimeFormat(language, {
+        timeZone,
+        timeZoneName: 'long',
+      }).formatToParts(new Date()).find((part) => part.type === 'timeZoneName')?.value || timeZone;
+    } catch {
+      return timeZone;
+    }
+  };
+
+  const getLocalizedTimezoneAbbr = (timeZone: string): string => {
+    try {
+      return new Intl.DateTimeFormat(language, {
+        timeZone,
+        timeZoneName: 'short',
+      }).formatToParts(new Date()).find((part) => part.type === 'timeZoneName')?.value || timeZone;
+    } catch {
+      return timeZone;
+    }
+  };
+
+  const timezoneOptions = SUPPORTED_TIMEZONES.some((tz) => tz.value === userTimezone)
+    ? SUPPORTED_TIMEZONES
+    : [
+        {
+          value: userTimezone,
+          nameEn: userTimezone,
+          nameRu: userTimezone,
+          abbr: userTimezone,
+          offsetHoursFromUtc: 0,
+        },
+        ...SUPPORTED_TIMEZONES,
+      ];
 
   const currentCadence = accountCadence[selectedAccountId] || {
     min: 8,
@@ -267,7 +301,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                 title={t.calendar.autoGenerationTitle}
               />
               <span className={`text-[10px] font-mono font-bold ${userTimezone === 'Europe/Moscow' ? 'text-muted-theme' : 'text-accent-ghost'}`}>
-                {getTimezoneInfo(userTimezone).abbr}
+                {getLocalizedTimezoneAbbr(userTimezone)}
               </span>
             </div>
 
@@ -280,7 +314,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                 title={t.calendar.chooseTimezone}
               >
                 <Globe className="w-3 h-3 text-accent-ghost" />
-                <span>{getTimezoneInfo(userTimezone).abbr}</span>
+                <span>{getLocalizedTimezoneAbbr(userTimezone)}</span>
               </button>
 
               {showTzPicker && (
@@ -289,7 +323,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                     {t.calendar.timezonePickerTitle}
                   </div>
                   <div className="max-h-48 overflow-y-auto space-y-0.5">
-                    {SUPPORTED_TIMEZONES.map((tz) => (
+                    {timezoneOptions.map((tz) => (
                       <button
                         key={tz.value}
                         type="button"
@@ -304,8 +338,8 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                             : 'text-secondary-theme hover:bg-subtle hover:text-primary-theme'
                         }`}
                       >
-                        <span className="truncate">{language === 'ru' ? tz.nameRu : tz.nameEn}</span>
-                        <span className="font-mono text-[10px] text-muted-theme shrink-0 ml-1">{tz.abbr}</span>
+                        <span className="truncate">{getLocalizedTimezoneName(tz.value)}</span>
+                        <span className="font-mono text-[10px] text-muted-theme shrink-0 ml-1">{getLocalizedTimezoneAbbr(tz.value)}</span>
                       </button>
                     ))}
                   </div>
@@ -316,12 +350,12 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
             <span className={`text-[11px] font-semibold ${currentCadence.nightlyAuto ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-theme'}`}>
               {currentCadence.nightlyAuto
                 ? userTimezone === 'Europe/Moscow' || (language === 'ru' && userTimezone === 'Europe/Moscow')
-                  ? `${currentCadence.autoTime || '01:00'} ${getTimezoneInfo(userTimezone).abbr}`
+                  ? `${currentCadence.autoTime || '01:00'} ${getLocalizedTimezoneAbbr(userTimezone)}`
                   : t.calendar.autoTimeMoscowTemplate
                       .replace('{time}', currentCadence.autoTime || '01:00')
-                      .replace('{timezone}', getTimezoneInfo(userTimezone).abbr)
+                      .replace('{timezone}', getLocalizedTimezoneAbbr(userTimezone))
                       .replace('{moscowTime}', convertLocalToMoscow(currentCadence.autoTime || '01:00', userTimezone))
-                : t.common.inactive}
+                : t.calendar.autoGenerationOff}
             </span>
           </div>
         </div>
@@ -505,7 +539,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
         <div className="custom-card p-5 rounded-2xl space-y-4">
           <div className="flex items-center justify-between text-xs text-secondary-theme">
             <span>{t.calendar.weekInstruction}</span>
-            <span className="font-mono text-muted-theme">{t.calendar.timezoneLabel}: {getTimezoneInfo(userTimezone).abbr}</span>
+            <span className="font-mono text-muted-theme">{t.calendar.timezoneLabel}: {getLocalizedTimezoneAbbr(userTimezone)}</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
@@ -710,7 +744,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                   {t.calendar.generateDateTitle}
                 </h3>
                 <span className="text-xs font-mono text-accent-ghost font-semibold">
-                  {slotModalData.date} · Слот {slotModalData.time} (Prime Time)
+                  {slotModalData.date} · {slotModalData.time}
                 </span>
               </div>
               <button
@@ -799,16 +833,16 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
               <div className="space-y-1.5 flex-1 min-w-0">
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full accent-pill">
                   {selectedPin.status === 'published'
-                    ? 'Опубликован'
+                    ? t.calendar.statusPublished
                     : selectedPin.status === 'failed'
-                    ? 'Ошибка публикации'
+                    ? t.calendar.statusFailed
                     : selectedPin.status === 'publishing'
-                    ? 'Публикуется'
+                    ? t.calendar.statusPublishing
                     : selectedPin.status === 'unknown'
-                    ? 'Нужна проверка'
+                    ? t.calendar.statusUnknown
                     : selectedPin.status === 'draft'
-                    ? 'Черновик'
-                    : 'В очереди'}
+                    ? t.calendar.statusDraft
+                    : t.calendar.statusQueued}
                 </span>
                 <h3 className="text-base font-bold text-primary-theme font-heading leading-snug">
                   {selectedPin.title}
