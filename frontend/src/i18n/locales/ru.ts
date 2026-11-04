@@ -488,6 +488,11 @@ export const ru: TranslationSchema = {
     statusInProgress: 'Выполняется',
     statusReady: 'Готово',
     viewResult: 'Посмотреть',
+    smartQueueCount: "Задач в очереди Smart Queue: {count}",
+    allTasksSynced: "Все задачи синхронизированы",
+    strategistPrompt: "Нужен разбор аналитики?",
+    askStrategist: "Спросить ИИ-стратега →",
+    strategistTitle: "Открыть ИИ-стратега PinPosy",
   },
 
   terms: {
