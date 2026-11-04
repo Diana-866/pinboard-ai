@@ -528,21 +528,27 @@ function registerRoutes(app, deps) {
         } catch (e) {
           const { data: attempt } = await supabase
             .from("pinterest_publish_attempts")
-            .select("status")
+            .select("status, pinterest_pin_id")
             .eq("pin_id", schedule.pin_id)
             .maybeSingle();
-          const finalStatus = attempt && ["unknown", "processing"].includes(attempt.status) ? "unknown" : "failed";
+          const finalStatus = attempt && attempt.status === "published"
+            ? "published"
+            : attempt && ["unknown", "processing"].includes(attempt.status)
+              ? "unknown"
+              : "failed";
           const message = String(e && e.message || "Publication failed").slice(0, 500);
           await supabase
             .from("pin_schedules")
             .update({
               status: finalStatus,
-              last_error: message,
+              pinterest_pin_id: finalStatus === "published" ? attempt.pinterest_pin_id : null,
+              published_at: finalStatus === "published" ? new Date().toISOString() : null,
+              last_error: finalStatus === "published" ? null : message,
               updated_at: new Date().toISOString(),
             })
             .eq("id", schedule.id)
             .eq("status", "publishing");
-          results.push({ schedule_id: schedule.id, status: finalStatus, error: message });
+          results.push({ schedule_id: schedule.id, status: finalStatus, error: finalStatus === "published" ? undefined : message });
         }
       }
 
