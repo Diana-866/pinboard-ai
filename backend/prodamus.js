@@ -42,7 +42,7 @@ function baseUrl() {
 function normalizeSignatureValue(value) {
   if (Array.isArray(value)) return value.map(normalizeSignatureValue);
   if (value && typeof value === "object") {
-    const normalized = {};
+    const normalized = Object.create(null);
     for (const key of Object.keys(value).sort()) {
       normalized[key] = normalizeSignatureValue(value[key]);
     }
@@ -52,7 +52,7 @@ function normalizeSignatureValue(value) {
 }
 
 function canonicalString(params) {
-  const payload = {};
+  const payload = Object.create(null);
   for (const key of Object.keys(params || {}).sort()) {
     if (key === "Sign" || key === "sign") continue;
     payload[key] = normalizeSignatureValue(params[key]);
