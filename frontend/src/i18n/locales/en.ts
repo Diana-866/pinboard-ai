@@ -124,6 +124,8 @@ export const en: TranslationSchema = {
     autoScheduleTitle: 'Pin Auto-Generation',
     configureTimeBtn: 'Configure Auto-Time',
     serverExecutionNote: 'Scheduled in your local timezone with synced Russian server execution',
+    dataNoticeTitle: "Pinterest performance data is not connected yet",
+    dataNoticeDescription: "Connect and sync a Pinterest account to see real metrics and account-specific recommendations.",
   },
 
   generator: {
@@ -351,6 +353,8 @@ export const en: TranslationSchema = {
     topPerformingPins: 'Top Viral Pins',
     seoHealthIndex: 'Account Algorithmic Trust Score',
     growthOpportunities: '3 High-Impact Growth Opportunities',
+    dataUnavailableTitle: "Analytics data is not available yet",
+    dataUnavailableDescription: "PinPosy does not currently retrieve account analytics from Pinterest. This page will show metrics after the analytics integration is implemented and data is synced.",
   },
 
   settings: {
