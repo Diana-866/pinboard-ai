@@ -191,10 +191,6 @@ async function handleCreditsWebhook(req, res) {
     return res.json({ ok: true, ignored: "unknown order_id" });
   }
 
-  if (purchase.balance_credited_at && status === "success") {
-    return res.json({ ok: true, idempotent: true, credits: purchase.credits });
-  }
-
   const normalizedStatus = prodamus.normalizePaymentStatus(status);
   if (normalizedStatus !== "success") {
     if (!normalizedStatus) {
@@ -238,6 +234,12 @@ async function handleCreditsWebhook(req, res) {
       .is("balance_credited_at", null).neq("status", "success");
     if (mismatchError) return res.status(500).json({ ok: false, error: "db error" });
     return res.json({ ok: true, ignored: "amount mismatch", review_required: true });
+  }
+
+  // Validate every signed success callback, even after a prior credit, so a later
+  // duplicate with an unexpected amount is still durably recorded for reconciliation.
+  if (purchase.balance_credited_at) {
+    return res.json({ ok: true, idempotent: true, credits: purchase.credits });
   }
 
   // Баланс, журнал и отметка покупки фиксируются в одной транзакции PostgreSQL.
