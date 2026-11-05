@@ -61,7 +61,7 @@ async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage)
   if (result.error) {
     const missingOptionalColumn =
       ["42703", "PGRST204"].includes(result.error.code) &&
-      /\\b(name|surname|preferred_language)\\b/i.test(result.error.message || "");
+      /\b(name|surname|preferred_language)\b/i.test(result.error.message || "");
 
     if (result.error.code === "23505") {
       throw httpError(409, "Пользователь с таким email уже существует");
