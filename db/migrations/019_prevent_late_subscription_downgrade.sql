@@ -20,6 +20,7 @@ declare
   v_already_activated boolean;
   v_latest_success_created_at timestamptz;
   v_latest_success_id uuid;
+  v_effective_plan text;
 begin
   select * into v_sub
     from public.subscriptions
@@ -90,9 +91,13 @@ begin
     end if;
   end if;
 
+  select tariff_plan into v_effective_plan from public.users where id = v_user.id;
+
   return jsonb_build_object(
     'subscription_id', v_sub.id,
     'plan', v_sub.plan,
+    'current_plan', v_effective_plan,
+    'plan_applied', (v_effective_plan = v_sub.plan),
     'period_start', v_start,
     'period_end', v_end,
     'email', v_user.email,
