@@ -232,8 +232,8 @@ export const Contacts: React.FC = () => {
             <li>
               <b>{ru ? 'Возврат.' : 'Refunds.'}</b>{' '}
               {ru
-                ? 'Если сервис не работает, доступ не был предоставлен или платёж прошёл ошибочно — напишите на support@pinposy.com с номером платежа. Мы рассмотрим обращение; если основания для возврата подтвердятся, оформим заявку на возврат в Prodamus в срок до 10 рабочих дней после одобрения. Фактический срок поступления денег зависит от платёжного провайдера и банка и может составлять до 30 рабочих дней. Условия возврата также описаны в '
-                : 'If the Service is unavailable, paid access was not provided, or you were charged in error, e-mail support@pinposy.com with your payment ID. We will review your request; if a refund is approved, we will submit a refund request to Prodamus within 10 business days after approval. The time it takes for the funds to reach you depends on the payment provider and your bank and may take up to 30 business days. Refund terms are also described in the '}
+                ? 'Если сервис не работает, доступ не был предоставлен или платёж прошёл ошибочно — напишите на support@pinposy.com с номером платежа. Мы рассмотрим обращение; если основания для возврата подтвердятся, после одобрения оформим заявку на возврат в Prodamus. Фактический срок поступления денег зависит от платёжного провайдера и банка и может составлять до 30 рабочих дней. Условия возврата также описаны в '
+                : 'If the Service is unavailable, paid access was not provided, or you were charged in error, e-mail support@pinposy.com with your payment ID. We will review your request; if a refund is approved, after approval, we will submit a refund request to Prodamus. The time it takes for the funds to reach you depends on the payment provider and your bank and may take up to 30 business days. Refund terms are also described in the '}
               <Link to="/terms" className="font-semibold text-[#A94D5F] hover:underline">
                 {ru ? 'Условиях использования' : 'Terms of Service'}
               </Link>
