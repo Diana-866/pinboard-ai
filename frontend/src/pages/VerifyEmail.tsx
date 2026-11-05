@@ -18,6 +18,8 @@ export const VerifyEmail: React.FC = () => {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const token = params.get('token') || '';
+  // Keep the one-time credential after navigate() removes it from the URL.
+  const tokenRef = useRef(token);
   const urlError = params.get('status') === 'error';
   const [status, setStatus] = useState<Status>('ready');
   const [errorMessage, setErrorMessage] = useState('');
@@ -58,12 +60,13 @@ export const VerifyEmail: React.FC = () => {
   }, []);
 
   const confirmEmail = async () => {
-    if (!token || status !== 'ready') return;
+    const verificationToken = tokenRef.current;
+    if (!verificationToken || status !== 'ready') return;
     setStatus('working');
     try {
       await apiRequest('/verify-email', {
         method: 'POST',
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token: verificationToken }),
       });
       setStatus('success');
     } catch (err: any) {
