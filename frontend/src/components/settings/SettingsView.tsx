@@ -79,7 +79,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setTimeout(() => {
       setIsAuthorizing(false);
       setShowAddModal(false);
-      setSuccessToast('Подключение Pinterest появится после одобрения доступа к API. Функция сейчас в разработке.');
+      setSuccessToast(t.settings.pinterestConnectionUnavailable);
       setTimeout(() => setSuccessToast(null), 4000);
     }, 600);
   };
@@ -89,7 +89,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleSaveTokenAccount = (e: React.FormEvent) => {
     e.preventDefault();
     setShowAddModal(false);
-    setSuccessToast('Подключение Pinterest появится после одобрения доступа к API. Функция сейчас в разработке.');
+    setSuccessToast(t.settings.pinterestConnectionUnavailable);
     setTimeout(() => setSuccessToast(null), 4000);
   };
 
@@ -107,8 +107,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* Success Notification */}
       {successToast && (
-        <div className="p-3.5 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 text-xs md:text-sm font-semibold flex items-center gap-2 animate-in fade-in">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+        <div className="p-3.5 rounded-xl bg-amber-500/10 text-amber-800 dark:text-amber-200 border border-amber-500/20 text-xs md:text-sm font-semibold flex items-center gap-2 animate-in fade-in">
+          <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
           <span>{successToast}</span>
         </div>
       )}
