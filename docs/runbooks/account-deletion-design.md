@@ -101,3 +101,24 @@ A robust workflow should be idempotent and resumable: a retry must not double-re
 - Migration 024 introduced a four-argument cooldown-aware RPC, but PostgreSQL retained the three-argument overload from migration 020. Exact three-argument calls selected the old function and could bypass the cooldown.
 - The branch now includes migration 025 to drop the obsolete overload, and the integration test explicitly calls the four-argument RPC and asserts that only the four-argument signature remains.
 - This migration is part of the GitHub Actions atomic integration workflow. It has not been applied to the production Supabase database.
+
+
+## Reconciliation detail: current credit and subscription models
+
+Verified in migrations 010/011 and current webhook handlers:
+
+- Credit purchases already have `balance_credited_at`. The credit fulfillment RPC locks the purchase row, checks this marker, and only credits once. Keep this idempotency marker; do not replace it with a generic payment status.
+- Subscription activation currently uses `status='success'` plus a non-null `period_end` as its already-activated condition. This couples settlement and entitlement more tightly than the credit-purchase model.
+- Both handlers validate the provider signature, order ID and expected amount. When the amount differs, the current handler writes `denied` (if not already fulfilled) and returns HTTP 200. This is not enough to represent a possibly received but mismatched payment.
+- Non-success provider statuses are written directly by the HTTP handler through Supabase updates, while successful fulfillment is handled by SQL RPCs. Future reconciliation states must centralize transitions or use conditional updates/transactions so a late failure cannot overwrite a confirmed success.
+- Credit purchase status updates already guard with `balance_credited_at IS NULL` and `status != 'success'`; subscription updates guard with `status != 'success'`. Preserve these protections and add explicit reconciliation fields rather than changing the meaning of `success` in place.
+
+### Safe incremental migration proposal (not implemented)
+
+1. Add nullable provider-reported amount/currency and a reconciliation outcome to payment rows, with values that distinguish matched, amount-mismatch-review, paid-after-deletion-review, and provider-declined. Exact enum/check constraints should follow an inventory of all existing statuses and provider payloads.
+2. Keep the provider settlement outcome separate from entitlement fulfillment. For credits, `balance_credited_at` remains the entitlement marker. For subscriptions, introduce an explicit entitlement activation marker or event record before changing the RPC.
+3. On amount mismatch, persist the signed provider event details needed for reconciliation and return HTTP 200 only after the durable write succeeds. If persistence fails, return a retryable non-2xx response.
+4. Keep the order idempotent by provider order ID and event identity; duplicate mismatch webhooks must not create duplicate review cases.
+5. Add tests for mismatch then success, success then mismatch, duplicate mismatch, late success after account deletion request, and a database write failure before acknowledgement.
+
+No schema or webhook behavior was changed as part of this design note.
