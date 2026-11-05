@@ -21,6 +21,7 @@ declare
   v_latest_success_created_at timestamptz;
   v_latest_success_id uuid;
   v_effective_plan text;
+  v_plan_applied boolean := false;
 begin
   select * into v_sub
     from public.subscriptions
@@ -84,6 +85,7 @@ begin
          set tariff_plan = v_sub.plan,
              tariff_period_end = v_end
        where id = v_user.id;
+      v_plan_applied := true;
     else
       update public.users
          set tariff_period_end = v_end
@@ -97,7 +99,7 @@ begin
     'subscription_id', v_sub.id,
     'plan', v_sub.plan,
     'current_plan', v_effective_plan,
-    'plan_applied', (v_effective_plan = v_sub.plan),
+    'plan_applied', v_plan_applied,
     'period_start', v_start,
     'period_end', v_end,
     'email', v_user.email,
