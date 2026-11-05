@@ -377,7 +377,7 @@ export const fr: TranslationSchema = {
     languageSection: 'Langue de l’interface',
     languageSectionDesc: 'Sélectionnez la langue de votre choix. Les changements sont appliqués instantanément.',
     connectedAccountSection: 'Compte professionnel Pinterest associé',
-    connectedAccountDesc: 'Connexion OAuth 2.0 sécurisée pour synchroniser vos tableaux, publier et extraire vos statistiques.',
+    connectedAccountDesc: "Gérez ici vos comptes professionnels Pinterest. La connexion des comptes n’est pas encore disponible.",
     connectedAccountsCount: "Comptes connectés : {count} sur {max}",
     noAccountsConnected: "Aucun compte Pinterest n’est connecté. L’autorisation Pinterest n’est pas encore disponible ; aucun compte n’est donc associé ni vérifié.",
     pinterestConnectionUnavailable: "La connexion des comptes Pinterest n’est pas encore disponible. Aucun compte n’a été connecté ni vérifié.",
