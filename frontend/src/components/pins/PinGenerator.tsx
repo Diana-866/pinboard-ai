@@ -326,8 +326,16 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
   const handlePushToCalendar = async () => {
     if (!currentPin) return;
+    if (!selectedPinterestBoardId) {
+      window.alert('Сначала подключите Pinterest и выберите доску назначения. Без неё публикацию нельзя добавить в расписание.');
+      return;
+    }
 
     const board = boards.find((b) => b.id === selectedBoardId) || boards[0];
+    if (!board) {
+      window.alert('Сначала создайте внутреннюю доску PinPosy для этого пина.');
+      return;
+    }
 
     const scheduledDate =
       schedulingMode === 'publish_now'
@@ -996,7 +1004,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               <div className="pt-3 border-t border-subtle flex flex-col sm:flex-row items-center gap-3">
                 <button
                   onClick={handlePushToCalendar}
-                  className="w-full sm:flex-1 accent-btn py-2.5 px-4 rounded-xl text-xs md:text-sm font-semibold flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                  disabled={!selectedPinterestBoardId || !currentPin}
+                  className="w-full sm:flex-1 accent-btn py-2.5 px-4 rounded-xl text-xs md:text-sm font-semibold flex items-center justify-center gap-2 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Calendar className="w-4 h-4" />
                   <span>{t.generator.pushToCalendarBtn}</span>
