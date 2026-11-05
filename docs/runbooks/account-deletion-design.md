@@ -263,3 +263,15 @@ No RLS, bucket, Storage object, production secret, or database setting was chang
 - PR #4 remains draft and unmerged. No CI success is claimed. Do not merge or deploy until actionable CI results are available and required checks pass.
 
 No production configuration, live database, migration, or deployment was changed.
+
+
+## Pinterest security follow-up (Nov 5, 2026)
+
+- OAuth state now includes the user's current `token_version`. The callback checks that the account still exists and that the version is unchanged before exchanging the code or storing Pinterest tokens. This prevents a callback started before password reset from reconnecting the external account afterwards.
+- OAuth state remains valid until its 15-minute expiry and is not yet stored/consumed as a one-time nonce. A durable hashed nonce with atomic consumption is a future hardening task. When account lifecycle status is introduced, the callback must also require an active account.
+- `begin_pinterest_publish()` is a SECURITY DEFINER function. It now checks the full `pins -> boards -> projects.user_id` ownership chain inside SQL before creating a publication attempt, rather than trusting the supplied user ID and relying only on the Express pre-check.
+- `claim_due_pin_schedules()` currently has no account lifecycle predicate because no deletion-state column exists. Add an active-account join when lifecycle status is implemented; also gate OAuth callback, token refresh, manual publication, and scheduled publication.
+- `backend/supabase.js` still falls back to `SUPABASE_ANON_KEY`. Making the service-role key mandatory is a release-hardening task, but was not changed because the deployed Render environment has not been inspected and an unverified startup change could cause an outage.
+- Pinterest tokens use AES-256-GCM with a 32-byte key. Legacy plaintext tokens are migrated on read, so verify no legacy rows remain before claiming all stored tokens are encrypted.
+
+No live Pinterest authorization, Supabase RPC, migration, or deployment was run. These are source changes only; SQL execution tests remain outstanding.
