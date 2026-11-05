@@ -404,7 +404,7 @@ export const fr: TranslationSchema = {
     pinsPerDay: "épingles/jour",
     autoEnabled: "Génération automatique activée pour {account}.",
     autoDisabled: "Génération automatique mise en pause pour {account}.",
-    timeSaved: "Horaire de génération pour {account} : {time} ({zone ; {serverTime} MSK sur le serveur).",
+    timeSaved: "Horaire de génération pour {account} : {time} ({zone} ; {serverTime} MSK sur le serveur).",
     timeSavedMsk: "Horaire de génération pour {account} : {time} MSK.",
     accountLimitReached: "Limite de comptes du forfait atteinte ({count} sur {max}).",
     accountLimitDesc: "Changez de forfait pour connecter d’autres comptes.",
