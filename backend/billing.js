@@ -143,30 +143,86 @@ async function createPayment(userId, body) {
   };
 }
 
-async function sendTariffActivatedEmail(user, paidSub, currentPlan, periodEnd) {
-  const language = user.preferred_language || "en";
-  const copy = getEmailCopy(language);
-  const paidPlanTitle = getPlanTitle(paidSub.plan, language);
-  const currentPlanTitle = getPlanTitle(currentPlan, language);
-  const until = new Intl.DateTimeFormat(getLocale(language), {
-    day: "2-digit", month: "long", year: "numeric", timeZone: "UTC",
-  }).format(new Date(periodEnd));
-  const amount = `${Number(paidSub.amount).toFixed(2)} ${String(paidSub.currency || "rub").toUpperCase()}`;
-  const subject = copy.activatedSubject.replace("{plan}", paidPlanTitle);
-  const body = copy.activatedBody
-    .replace("{plan}", paidPlanTitle)
-    .replace("{currentPlan}", currentPlanTitle);
-  await mail.sendMail({
-    to: user.email,
-    subject,
-    text: [
-      copy.hello, "", body, "",
-      `${copy.amount}: ${amount}`,
-      `${copy.payment}: ${paidSub.provider_payment_id}`,
-      `${copy.validUntil}: ${until} (30 days)`,
-      "", copy.next, "", copy.manage, copy.help, "", copy.team,
-    ].join("\n"),
-  }, { needThrow: false });
+async function dispatchPendingSubscriptionEmails(limit = 10) {
+  if (!mail.transactionalMailConfigured()) {
+    return { skipped: true, reason: "smtp_not_configured", processed: 0 };
+  }
+
+  const { data: rows, error } = await supabase.rpc("claim_email_outbox", {
+    p_limit: Math.max(1, Math.min(Number(limit) || 10, 50)),
+  });
+  if (error) throw error;
+
+  let sent = 0;
+  let failed = 0;
+  for (const row of rows || []) {
+    try {
+      if (row.template_key !== "subscription_activated") {
+        const templateError = new Error("Unsupported outbox template");
+        templateError.code = "unsupported_template";
+        throw templateError;
+      }
+
+      const payload = row.payload || {};
+      const language = row.locale || "en";
+      const copy = getEmailCopy(language);
+      const paidPlanTitle = getPlanTitle(payload.paid_plan, language);
+      const currentPlanTitle = getPlanTitle(payload.current_plan, language);
+      const periodEnd = new Date(payload.period_end);
+      if (!Number.isFinite(periodEnd.getTime())) {
+        const payloadError = new Error("Invalid outbox period_end");
+        payloadError.code = "invalid_payload";
+        throw payloadError;
+      }
+      const until = new Intl.DateTimeFormat(getLocale(language), {
+        day: "2-digit", month: "long", year: "numeric", timeZone: "UTC",
+      }).format(periodEnd);
+      const amount = `${Number(payload.amount).toFixed(2)} ${String(payload.currency || "rub").toUpperCase()}`;
+      const subject = copy.activatedSubject.replace("{plan}", paidPlanTitle);
+      const body = copy.activatedBody
+        .replace("{plan}", paidPlanTitle)
+        .replace("{currentPlan}", currentPlanTitle);
+
+      await mail.sendMail({
+        to: row.recipient_email,
+        subject,
+        messageId: `<pinposy-subscription-${row.subscription_id}@pinposy.com>`,
+        text: [
+          copy.hello, "", body, "",
+          `${copy.amount}: ${amount}`,
+          `${copy.payment}: ${payload.payment_reference || row.subscription_id}`,
+          `${copy.validUntil}: ${until} (30 days)`,
+          "", copy.next, "", copy.manage, copy.help, "", copy.team,
+        ].join("\n"),
+      });
+
+      const { data: marked, error: markError } = await supabase.rpc("mark_email_outbox_sent", {
+        p_id: row.id,
+        p_claim_token: row.claim_token,
+      });
+      if (markError) throw markError;
+      if (!marked) {
+        console.warn("[billing] email outbox lease expired before sent acknowledgement:", row.id);
+      } else {
+        sent += 1;
+      }
+    } catch (sendError) {
+      failed += 1;
+      const rawCode = String(sendError && (sendError.code || sendError.name) || "smtp_error");
+      const errorCode = /^[A-Za-z0-9_-]{1,80}$/.test(rawCode) ? rawCode : "smtp_error";
+      const { error: retryError } = await supabase.rpc("retry_email_outbox", {
+        p_id: row.id,
+        p_claim_token: row.claim_token,
+        p_error_code: errorCode,
+      });
+      if (retryError) {
+        console.error("[billing] email outbox retry state could not be saved:", retryError.message);
+      }
+      console.error("[billing] queued subscription email failed:", row.id, errorCode);
+    }
+  }
+
+  return { skipped: false, processed: (rows || []).length, sent, failed };
 }
 
 /**
@@ -278,18 +334,11 @@ async function handleWebhook(req, res) {
     return res.status(500).json({ ok: false, error: "activation failed" });
   }
 
-  if (!activation.already_activated) {
-    const { data: mailUser } = await supabase
-      .from("users")
-      .select("email, preferred_language")
-      .eq("id", sub.user_id)
-      .maybeSingle();
-    if (mailUser) {
-      sendTariffActivatedEmail(
-        mailUser, { ...sub, amount: sum }, activation.current_plan || activation.plan, activation.period_end
-      ).catch((e) => console.error("[billing] письмо о тарифе не отправлено:", e && e.message));
-    }
-  }
+  // Also drain older pending events on duplicate callbacks: a previous process may
+  // have committed activation and stopped before SMTP delivery.
+  await dispatchPendingSubscriptionEmails(10).catch((e) => {
+    console.error("[billing] email outbox dispatch failed:", e && e.message);
+  });
 
   return res.json({
     ok: true,
@@ -357,4 +406,5 @@ module.exports = {
   handleWebhook,
   listUserSubscriptions,
   listAllSubscriptions,
+  dispatchPendingSubscriptionEmails,
 };
