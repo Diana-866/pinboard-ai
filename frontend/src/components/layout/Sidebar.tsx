@@ -79,6 +79,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const isUnlimited = user?.tariff_plan === 'agency' || maxAccounts >= 99;
   const isLimitReached = !isUnlimited && accounts.length >= maxAccounts;
+  const planLabel = user?.tariff_plan === 'analytics' ? t.pricing.planAnalyticsTitle
+    : user?.tariff_plan === 'start' ? t.pricing.planStartTitle
+      : user?.tariff_plan === 'pro' || user?.tariff_plan === 'standard' ? t.pricing.planProTitle
+        : user?.tariff_plan === 'agency' ? t.pricing.planAgencyTitle : t.settings?.noActivePlan || t.nav.planLabel;
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -289,7 +293,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] text-muted-theme uppercase font-semibold">{t.nav.planLabel}</span>
                 <span className="px-2 py-0.5 rounded-md font-mono font-bold text-[10px] accent-pill text-accent-ghost">
-                  {user?.tariff_plan && user.tariff_plan !== 'none' ? user.tariff_plan : t.nav.planLabel}
+                  {planLabel}
                 </span>
                 {isUnlimited && (
                   <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 font-mono">
