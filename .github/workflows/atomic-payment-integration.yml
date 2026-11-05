@@ -49,7 +49,7 @@ jobs:
             id uuid primary key default gen_random_uuid(),
             email text not null,
             password_hash text,
-            credits_balance not null default 0,
+            credits_balance integer not null default 0,
             tariff_plan text not null default 'none',
             tariff_period_end timestamptz
           );
