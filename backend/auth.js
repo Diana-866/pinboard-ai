@@ -21,11 +21,15 @@ async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage)
   const email = validateEmail(rawEmail);
   const password = validatePassword(rawPassword);
 
-  const { data: existing } = await supabase
+  const { data: existing, error: lookupError } = await supabase
     .from("users")
     .select("id")
     .eq("email", email)
     .maybeSingle();
+  if (lookupError) {
+    console.error("[register] не удалось проверить email:", lookupError.message);
+    throw httpError(503, "Не удалось проверить данные аккаунта — попробуйте позже");
+  }
   if (existing) {
     throw httpError(409, "Пользователь с таким email уже существует");
   }
@@ -36,23 +40,53 @@ async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage)
   if ((rawName || "").trim()) profile.name = rawName.trim().slice(0, 80);
   if ((rawSurname || "").trim()) profile.surname = rawSurname.trim().slice(0, 80);
 
-  // Если миграция 003 (колонки name/surname) ещё не применена — регистрируем без профиля
-  let data, error;
-  try {
-    ({ data, error } = await supabase
-      .from("users")
-      .insert({ email, password_hash: passwordHash, credits_balance: 0, ...profile })
-      .select()
-      .single());
-    if (error) throw error;
-  } catch (eCol) {
-    ({ data, error } = await supabase
-      .from("users")
-      .insert({ email, password_hash: passwordHash, credits_balance: 0 })
-      .select()
-      .single());
+  // Backward compatibility: retry without optional profile columns ONLY when
+  // Postgres/PostgREST explicitly reports one of those columns missing.
+  // Never retry arbitrary failures (e.g. duplicate email or DB outage) as a
+  // second insert, because that can hide the real error or create partial state.
+  let data;
+  const insertUser = (row) => supabase
+    .from("users")
+    .insert(row)
+    .select()
+    .single();
+
+  let result = await insertUser({
+    email,
+    password_hash: passwordHash,
+    credits_balance: 0,
+    ...profile,
+  });
+
+  if (result.error) {
+    const missingOptionalColumn =
+      ["42703", "PGRST204"].includes(result.error.code) &&
+      /\\b(name|surname|preferred_language)\\b/i.test(result.error.message || "");
+
+    if (result.error.code === "23505") {
+      throw httpError(409, "Пользователь с таким email уже существует");
+    }
+    if (!missingOptionalColumn) {
+      console.error("[register] не удалось создать аккаунт:", result.error.message);
+      throw httpError(503, "Не удалось создать аккаунт — попробуйте позже");
+    }
+
+    result = await insertUser({
+      email,
+      password_hash: passwordHash,
+      credits_balance: 0,
+    });
+    if (result.error) {
+      if (result.error.code === "23505") {
+        throw httpError(409, "Пользователь с таким email уже существует");
+      }
+      console.error("[register] резервное создание аккаунта не выполнено:", result.error.message);
+      throw httpError(503, "Не удалось создать аккаунт — попробуйте позже");
+    }
   }
-  if (error) throw new Error(error.message);
+
+  data = result.data;
+
 
   // Токен (sha256 в auth_tokens, purpose='email_verify', TTL 24 ч) + письмо.
   const sent = await emailVerify.issueVerificationToken(data);
