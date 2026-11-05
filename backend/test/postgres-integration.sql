@@ -167,7 +167,10 @@ begin
   select period_end into v_newer_end
     from public.subscriptions where id = v_newer_sub;
 
-  perform public.activate_paid_subscription(v_older_sub, now() + interval '1 minute');
+  v_result := public.activate_paid_subscription(v_older_sub, now() + interval '1 minute');
+  if v_result->>'current_plan' <> 'agency' or v_result->>'plan_applied' <> 'false' then
+    raise exception 'late older webhook reported an incorrect effective plan';
+  end if;
   select period_end into v_late_end
     from public.subscriptions where id = v_older_sub;
 
