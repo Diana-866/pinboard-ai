@@ -3,7 +3,11 @@ const prodamus = require("./prodamus");
 
 function buildWebhookException({ paymentKind, body, expectedAmount = null, reason }) {
   const payload = body && typeof body === "object" && !Array.isArray(body) ? body : {};
-  const canonical = prodamus.canonicalString(payload);
+  // Prodamus increments `attempt` when it retries delivery of the same payment event.
+  // Exclude this transport-only counter so retries share one durable audit fingerprint.
+  const fingerprintPayload = { ...payload };
+  delete fingerprintPayload.attempt;
+  const canonical = prodamus.canonicalString(fingerprintPayload);
   const eventHash = crypto.createHash("sha256")
     .update(paymentKind + "\n" + canonical, "utf8")
     .digest("hex");
