@@ -24,7 +24,7 @@ PinPosy is an AI-assisted tool that helps you analyze your website, discover boa
 - Credits included in a subscription are refreshed each billing cycle and **do not carry over**. Credits purchased as packs **do not expire**.
 - Generation consumes subscription credits first, then pack credits.
 - Payments are processed by a third-party payment provider. We never receive or store your full card details.
-- Credits already used are non-refundable, except where required by law. If you were charged in error, the Service is unavailable, or paid access was not provided, contact **support@pinposy.com** with your payment ID. Once a refund is approved, it will be issued to the original payment method within 10 business days. The time it takes to appear depends on the bank and payment provider.
+- Credits already used are non-refundable, except where required by law. If you were charged in error, the Service is unavailable, or paid access was not provided, contact **support@pinposy.com** with your payment ID. Once a refund is approved, we will submit a refund request to Prodamus within 10 business days. The time it takes for the funds to reach you depends on the payment provider and your bank and may take up to 30 business days.
 - Prices and plans may change; changes never apply retroactively to a period you have already paid for.
 
 ## 5. High-Demand Periods
