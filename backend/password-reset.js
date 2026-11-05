@@ -69,32 +69,30 @@ async function requestReset(rawEmail, _frontendUrl, requestedLanguage) {
   };
 }
 
-// Смена пароля по одноразовому токену
+// Смена пароля по одноразовому токену.
+// Проверка токена, смена пароля и его погашение выполняются одной SQL-транзакцией
+// (миграция 020), поэтому параллельные запросы не могут применить ссылку дважды.
 async function applyReset(rawToken, rawPassword) {
   const { validatePassword } = require("./validate");
   const password = validatePassword(rawPassword);
-  if (!rawToken || typeof rawToken !== "string") throw httpError(422, "Ссылка недействительна");
-
-  const { data: row } = await supabase
-    .from("auth_tokens")
-    .select("id, user_id, expires_at, used_at")
-    .eq("token_hash", sha256(rawToken))
-    .eq("purpose", "password_reset")
-    .maybeSingle();
-
-  // Одинаковый ответ и для просроченного, и для использованного, и для выдуманного токена
-  if (!row || row.used_at || new Date(row.expires_at) < new Date()) {
-    throw httpError(422, "Ссылка недействительна или устарела — запросите новую");
+  if (!rawToken || typeof rawToken !== "string" || rawToken.length > 512) {
+    throw httpError(422, "Ссылка недействительна");
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const { error: updErr } = await supabase
-    .from("users")
-    .update({ password_hash: passwordHash })
-    .eq("id", row.user_id);
-  if (updErr) throw httpError(500, "Не удалось обновить пароль — попробуйте позже");
+  const { data, error } = await supabase.rpc("consume_password_reset_token", {
+    p_token_hash: sha256(rawToken),
+    p_password_hash: passwordHash,
+  });
 
-  await supabase.from("auth_tokens").update({ used_at: new Date().toISOString() }).eq("id", row.id);
+  if (error) {
+    console.error("[password-reset] атомарная смена пароля не выполнена:", error.message);
+    throw httpError(500, "Не удалось обновить пароль — попробуйте позже");
+  }
+  if (data !== true) {
+    throw httpError(422, "Ссылка недействительна или устарела — запросите новую");
+  }
+
   return { ok: true, message: "Пароль изменён. Теперь войдите с новым паролем." };
 }
 
