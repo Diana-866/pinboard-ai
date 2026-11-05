@@ -442,10 +442,12 @@ begin
   if v_publish_result->>'status' <> 'started' then
     raise exception 'late-success test reservation did not start';
   end if;
-  perform public.fail_pinterest_publish(v_user::text, v_late_success_pin, 'simulated timeout', true);
+  update public.pinterest_publish_attempts
+    set updated_at=now() - interval '16 minutes'
+    where pin_id=v_late_success_pin;
   v_publish_result := public.begin_pinterest_publish(v_user::text, v_late_success_pin, 'pinterest-board-ci');
   if v_publish_result->>'status' <> 'unknown' then
-    raise exception 'late-success attempt should first be marked unknown';
+    raise exception 'stale processing attempt should be marked unknown';
   end if;
   perform public.complete_pinterest_publish(v_user::text, v_late_success_pin, 'remote-pin-late-ci', 'pinterest-board-ci');
   v_publish_result := public.begin_pinterest_publish(v_user::text, v_late_success_pin, 'pinterest-board-ci');
