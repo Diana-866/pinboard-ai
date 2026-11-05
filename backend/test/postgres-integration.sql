@@ -6,6 +6,8 @@ declare
   v_sub uuid;
   v_older_sub uuid;
   v_newer_sub uuid;
+  v_same_plan_older_sub uuid;
+  v_same_plan_result jsonb;
   v_balance integer;
   v_count integer;
   v_first_end timestamptz;
@@ -183,6 +185,21 @@ begin
   end if;
   if (select tariff_period_end from public.users where id = v_user) <> v_late_end then
     raise exception 'user entitlement end does not match the extended period';
+  end if;
+
+  -- A stale order for the same plan must still report that it did not apply
+  -- the plan; comparing only plan-name equality would incorrectly return true.
+  insert into public.subscriptions(
+    user_id, plan, status, provider_payment_id, amount, currency, created_at
+  ) values (
+    v_user::text, 'agency', 'pending', 'ci-sub-same-plan-older-' || v_user,
+    12990, 'rub', now() + interval '90 minutes'
+  ) returning id into v_same_plan_older_sub;
+
+  v_same_plan_result := public.activate_paid_subscription(v_same_plan_older_sub, now() + interval '2 minutes');
+  if v_same_plan_result->>'current_plan' <> 'agency'
+     or v_same_plan_result->>'plan_applied' <> 'false' then
+    raise exception 'stale same-plan webhook incorrectly reported that it applied the current plan';
   end if;
 
   -- Pinterest publish reservation: concurrent/repeated calls cannot start a second request.
