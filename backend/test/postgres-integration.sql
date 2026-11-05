@@ -133,6 +133,9 @@ begin
   if (select password_hash from public.users where id = v_user) <> ('ci-password-hash-' || v_user) then
     raise exception 'password reset did not update the user credential hash';
   end if;
+  if (select token_version from public.users where id = v_user) <> 1 then
+    raise exception 'password reset did not increment token_version to revoke old sessions';
+  end if;
   if (select used_at from public.auth_tokens where id = v_reset_token) is null then
     raise exception 'password reset token was not marked used';
   end if;
