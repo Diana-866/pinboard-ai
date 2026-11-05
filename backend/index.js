@@ -1288,6 +1288,18 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 
+// The database outbox is durable; this in-process dispatcher is only a delivery
+// mechanism. It runs on startup, after payment callbacks, and while the service
+// is awake. A Render sleep can delay retries until the next request/startup.
+function dispatchSubscriptionEmailOutbox() {
+  billing.dispatchPendingSubscriptionEmails(10).catch((error) => {
+    console.error("[mail-outbox] dispatch failed:", error && error.message);
+  });
+}
+const emailOutboxTimer = setInterval(dispatchSubscriptionEmailOutbox, 60 * 1000);
+if (typeof emailOutboxTimer.unref === "function") emailOutboxTimer.unref();
+
 app.listen(PORT, () => {
   console.log("Server running on port " + PORT);
+  dispatchSubscriptionEmailOutbox();
 });
