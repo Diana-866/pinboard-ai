@@ -99,6 +99,7 @@ require.cache[supabasePath] = {
         const user = db.users.find((row) => String(row.id) === String(token.user_id));
         if (!user) return { data: false, error: null };
         user.password_hash = args.p_password_hash;
+        user.token_version = Number(user.token_version || 0) + 1;
         token.used_at = new Date().toISOString();
         return { data: true, error: null };
       }
@@ -308,6 +309,8 @@ function tokenFromMail(mail) {
   let reuseError;
   try { await passwordReset.applyReset(resetToken, "ThirdPass789!"); } catch (e) { reuseError = e; }
   ok("повторное применение отклоняется с 422", reuseError && reuseError.httpStatus === 422);
+  ok("сброс пароля увеличивает версию сессии", db.users[0].token_version === 1);
+  ok("JWT, выданный до сброса, содержит предыдущую версию", auth.verifyToken(legacy.token).tokenVersion === 0);
 
   console.log(`\nИТОГО: ${pass} прошло, ${fail} провалено\n`);
   process.exit(fail === 0 ? 0 : 1);
