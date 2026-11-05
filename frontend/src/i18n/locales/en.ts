@@ -215,6 +215,7 @@ export const en: TranslationSchema = {
   keywords: {
     title: 'Pinterest Keyword Explorer & Trends',
     subtitle: 'Compare search volume graphs side-by-side, discover viral trend spikes, and target buyer keywords.',
+    dataDemoNotice: "Sample data only: search volumes and trend charts are illustrative. Live Pinterest Trends data is not connected yet.",
     searchPlaceholder: 'Search Pinterest trends, niche queries, or buyer keywords...',
     categoryFilter: 'Category Filter',
     categories: {
@@ -243,6 +244,7 @@ export const en: TranslationSchema = {
   competitors: {
     title: 'Competitor Intelligence & Benchmarking',
     subtitle: 'Reverse-engineer top Pinterest accounts, inspect impression and save estimates, and exploit content gaps.',
+    dataDemoNotice: "Sample data only: competitor profiles and metrics on this screen are illustrative. PinPosy is not currently fetching or analyzing live Pinterest accounts.",
     trackedCompetitors: 'Tracked Competitor Accounts',
     addCompetitorBtn: 'Add Competitor',
     inputPlaceholder: 'Enter competitor Pinterest profile or handle...',
