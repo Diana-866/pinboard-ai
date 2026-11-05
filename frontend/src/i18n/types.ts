@@ -239,6 +239,7 @@ export interface TranslationSchema {
   keywords: {
     title: string;
     subtitle: string;
+    dataDemoNotice: string;
     searchPlaceholder: string;
     categoryFilter: string;
     categories: {
@@ -268,6 +269,7 @@ export interface TranslationSchema {
   competitors: {
     title: string;
     subtitle: string;
+    dataDemoNotice: string;
     trackedCompetitors: string;
     addCompetitorBtn: string;
     inputPlaceholder: string;
