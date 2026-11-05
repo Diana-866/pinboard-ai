@@ -44,8 +44,9 @@ async function requestReset(rawEmail, frontendUrl, requestedLanguage) {
     });
     if (error) throw httpError(500, "Не удалось создать ссылку восстановления");
 
-    if (mailConfigured()) {
-      const base = frontendUrl || process.env.FRONTEND_URL || "https://pinposy.com";
+    if (transactionalMailConfigured()) {
+      // Не доверяем frontendUrl из публичного запроса: ссылка строится только из серверной настройки.
+      const base = (process.env.FRONTEND_URL || "https://pinposy.com").split(",")[0].trim().replace(/\/$/, "");
       try {
         await sendResetEmail(email, `${base}/reset-password?token=${encodeURIComponent(token)}`, user.preferred_language || requestedLanguage);
       } catch (e) {
