@@ -55,7 +55,7 @@ export const ResetPassword: React.FC = () => {
         <h1 className="mb-1 text-2xl font-semibold tracking-tight text-primary-theme">{t.resetTitle}</h1>
         <p className="mb-6 text-sm text-secondary-theme">{t.resetSubtitle}</p>
 
-        {!token && (
+        {!tokenRef.current && (
           <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
             {t.resetInvalidLink}
           </div>
@@ -66,7 +66,7 @@ export const ResetPassword: React.FC = () => {
             {t.resetSuccess}
           </div>
         ) : (
-          token && (
+          tokenRef.current && (
             <form onSubmit={handleSubmit}>
               {error && (
                 <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
