@@ -634,7 +634,7 @@ async function getPinWithOwnerCheck(pinId, userId) {
 
 app.patch("/pins/:id", requireAuth, async (req, res) => {
   try {
-    await getPinWithOwnerCheck(req.params.id, req.userId);
+    const pin = await getPinWithOwnerCheck(req.params.id, req.userId);
     const body = req.body || {};
     const update = {};
     if (Object.prototype.hasOwnProperty.call(body, "title")) {
@@ -653,6 +653,7 @@ app.patch("/pins/:id", requireAuth, async (req, res) => {
       .from("pins")
       .update(update)
       .eq("id", req.params.id)
+      .eq("board_id", pin.board_id)
       .select()
       .single();
     if (error) throw error;
@@ -664,13 +665,14 @@ app.patch("/pins/:id", requireAuth, async (req, res) => {
 
 app.post("/pins/:id/status", requireAuth, async (req, res) => {
   try {
-    await getPinWithOwnerCheck(req.params.id, req.userId);
+    const pin = await getPinWithOwnerCheck(req.params.id, req.userId);
     const { status } = req.body;
     if (!["approved", "rejected"].includes(status)) throw httpError(422, "Некорректный статус");
     const { data, error } = await supabase
       .from("pins")
       .update({ status })
       .eq("id", req.params.id)
+      .eq("board_id", pin.board_id)
       .select()
       .single();
     if (error) throw error;
@@ -683,13 +685,14 @@ app.post("/pins/:id/status", requireAuth, async (req, res) => {
 // Своя картинка пина: постоянное хранилище вместо временных ссылок GPTunnel
 app.post("/pins/:id/image", requireAuth, imageUpload.single("image"), async (req, res) => {
   try {
-    await getPinWithOwnerCheck(req.params.id, req.userId);
+    const pin = await getPinWithOwnerCheck(req.params.id, req.userId);
     if (!req.file) throw httpError(422, "Передайте файл в поле image (PNG/JPG/WebP, до 5 МБ)");
     const url = await uploadPinImage(req.file);
     const { data, error } = await supabase
       .from("pins")
       .update({ image_url: url })
       .eq("id", req.params.id)
+      .eq("board_id", pin.board_id)
       .select()
       .single();
     if (error) throw error;
@@ -795,7 +798,7 @@ app.post("/boards", requireAuth, async (req, res) => {
 // Обновление названия/описания доски с обязательной проверкой владельца.
 app.patch("/boards/:id", requireAuth, async (req, res) => {
   try {
-    await getBoardWithOwnerCheck(req.params.id, req.userId);
+    const board = await getBoardWithOwnerCheck(req.params.id, req.userId);
     const title = optionalString(req.body && req.body.title, { max: 100 });
     const description = optionalString(req.body && req.body.description, { max: 500 });
     if (title === null && description === null) {
@@ -810,6 +813,7 @@ app.patch("/boards/:id", requireAuth, async (req, res) => {
       .from("boards")
       .update(patch)
       .eq("id", req.params.id)
+      .eq("project_id", board.project_id)
       .select("*")
       .single();
 
