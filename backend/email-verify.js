@@ -128,11 +128,16 @@ function pluralMinutes(sec) {
 //    нельзя было использовать для проверки существования email.
 async function resendVerification(rawEmail, userIdFromToken) {
   if (userIdFromToken) {
-    const { data: user } = await supabase
+    const { data: user, error: lookupError } = await supabase
       .from("users")
       .select("id, email, email_verified, preferred_language")
       .eq("id", userIdFromToken)
       .maybeSingle();
+
+    if (lookupError) {
+      console.error("[email-verify] не удалось получить аккаунт:", lookupError.message);
+      throw httpError(503, "Сервис подтверждения email временно недоступен — попробуйте позже");
+    }
 
     if (user && user.email_verified === true) {
       return { ok: true, alreadyVerified: true, message: "Email уже подтверждён." };
@@ -162,11 +167,16 @@ async function resendVerification(rawEmail, userIdFromToken) {
   if (rawEmail) {
     const { validateEmail } = require("./validate");
     const email = validateEmail(rawEmail);
-    const { data: user } = await supabase
+    const { data: user, error: lookupError } = await supabase
       .from("users")
       .select("id, email, email_verified, preferred_language")
       .eq("email", email)
       .maybeSingle();
+
+    if (lookupError) {
+      console.error("[email-verify] не удалось проверить email:", lookupError.message);
+      throw httpError(503, "Сервис подтверждения email временно недоступен — попробуйте позже");
+    }
 
     // Троттлинг работает и для анонимного режима: чаще раза в 5 минут письмо не уходит
     if (user && user.email_verified !== true && (await canResend(user.id))) {
