@@ -17,6 +17,13 @@ export const SELLER = {
   site: 'https://pinposy.com',
 };
 
+const PLANS = [
+  { id: 'analytics', ru: 'Аналитика', en: 'Analytics' },
+  { id: 'start', ru: 'Старт', en: 'Start' },
+  { id: 'pro', ru: 'Про', en: 'Pro' },
+  { id: 'agency', ru: 'Agency', en: 'Agency' },
+];
+
 export const Contacts: React.FC = () => {
   const { language } = useI18n();
   const ru = language === 'ru';
