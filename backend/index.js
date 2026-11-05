@@ -1052,10 +1052,6 @@ app.post("/pins/:id/schedule", requireAuth, requireTariff(["start", "pro", "agen
     if (!pinterestBoardId || pinterestBoardId.length > 128) {
       throw httpError(422, "Выберите существующую доску Pinterest перед планированием публикации");
     }
-    // Reject stale, foreign or inaccessible board IDs before persisting a schedule.
-    // The worker repeats this check at publish time because access may later change.
-    await require("./pinterest").verifyPinterestBoard(req.userId, pinterestBoardId);
-
     const timezone = String((req.body && req.body.timezone) || "Europe/Moscow").trim();
     try {
       new Intl.DateTimeFormat("en-US", { timeZone: timezone });
@@ -1070,6 +1066,10 @@ app.post("/pins/:id/schedule", requireAuth, requireTariff(["start", "pro", "agen
       try { parsed = new URL(destinationUrl); } catch { throw httpError(422, "Некорректная ссылка"); }
       if (!["http:", "https:"].includes(parsed.protocol)) throw httpError(422, "Разрешены только HTTP- и HTTPS-ссылки");
     }
+
+    // Reject stale, foreign or inaccessible board IDs before persisting a schedule.
+    // The worker repeats this check at publish time because access may later change.
+    await require("./pinterest").verifyPinterestBoard(req.userId, pinterestBoardId);
 
     const { data, error } = await supabase
       .from("pin_schedules")
