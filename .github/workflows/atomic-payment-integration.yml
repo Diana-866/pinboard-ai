@@ -170,6 +170,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/026_pinterest_refresh_token_lease.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/027_pinterest_refresh_token_commit.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/028_pinterest_oauth_attempt_fencing.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/029_billing_webhook_exceptions.sql
       - name: Verify duplicate webhooks and ledger consistency
         env:
           PGPASSWORD: postgres
