@@ -254,3 +254,89 @@ export const formatTimeDisplay = (
       : `Executes at ${cleanTime} in your local timezone (${tzInfo.abbr}). Synced to ${mskServerTime} MSK on Russian PinPosy servers.`,
   };
 };
+
+
+/**
+ * Convert a wall-clock date/time in an IANA timezone to an absolute instant.
+ * The offset is calculated for the requested date (not today's DST offset).
+ * Non-existent local times during the spring-forward gap are rejected.
+ */
+export const localDateTimeToDate = (date: string, time: string, timeZone: string): Date => {
+  const dateMatch = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(date);
+  const timeMatch = /^(\\d{2}):(\\d{2})$/.exec(time);
+  if (!dateMatch || !timeMatch) throw new Error('Invalid local date or time');
+
+  const [, yearText, monthText, dayText] = dateMatch;
+  const [, hourText, minuteText] = timeMatch;
+  const parts = [yearText, monthText, dayText, hourText, minuteText].map(Number);
+  const [year, month, day, hour, minute] = parts;
+  const wallClockUtc = Date.UTC(year, month - 1, day, hour, minute);
+  const checkDate = new Date(wallClockUtc);
+  if (
+    checkDate.getUTCFullYear() !== year ||
+    checkDate.getUTCMonth() !== month - 1 ||
+    checkDate.getUTCDate() !== day ||
+    hour > 23 ||
+    minute > 59
+  ) throw new Error('Invalid local date or time');
+
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  });
+
+  const getOffset = (instant: number): number => {
+    const values = formatter.formatToParts(new Date(instant));
+    const value = (type: string) => Number(values.find((part) => part.type === type)?.value || 0);
+    const representedAsUtc = Date.UTC(
+      value('year'),
+      value('month') - 1,
+      value('day'),
+      value('hour'),
+      value('minute')
+    );
+    return representedAsUtc - Math.floor(instant / 60000) * 60000;
+  };
+
+  let candidate = wallClockUtc - getOffset(wallClockUtc);
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const next = wallClockUtc - getOffset(candidate);
+    if (next === candidate) break;
+    candidate = next;
+  }
+
+  const actual = formatter.formatToParts(new Date(candidate));
+  const value = (type: string) => Number(actual.find((part) => part.type === type)?.value || 0);
+  if (
+    value('year') !== year ||
+    value('month') !== month ||
+    value('day') !== day ||
+    value('hour') !== hour ||
+    value('minute') !== minute
+  ) throw new Error('This local time does not exist because of a daylight-saving-time transition');
+
+  return new Date(candidate);
+};
+
+/** Format an instant as a date/time pair in the selected IANA timezone. */
+export const formatInstantInTimezone = (instant: Date, timeZone: string): { date: string; time: string } => {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(instant);
+  const value = (type: string) => parts.find((part) => part.type === type)?.value || '00';
+  return {
+    date: `${value('year')}-${value('month')}-${value('day')}`,
+    time: `${value('hour')}:${value('minute')}`,
+  };
+};
