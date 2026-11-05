@@ -57,7 +57,7 @@ begin
   end if;
 
   v_reset_result := public.consume_password_reset_token(
-    'ci-reset-old-' || v_user,
+    repeat('a', 64),
     'ci-old-password-hash-' || v_user
   );
   if v_reset_result is distinct from false then
@@ -66,7 +66,7 @@ begin
 
   -- Password reset token is consumed together with the password update.
   v_reset_result := public.consume_password_reset_token(
-    'ci-reset-new-' || v_user,
+    repeat('b', 64),
     'ci-password-hash-' || v_user
   );
   if v_reset_result is distinct from true then
@@ -79,7 +79,7 @@ begin
     raise exception 'password reset token was not marked used';
   end if;
   v_reset_result := public.consume_password_reset_token(
-    'ci-reset-new-' || v_user,
+    repeat('b', 64),
     'ci-replay-hash-' || v_user
   );
   if v_reset_result is distinct from false then
