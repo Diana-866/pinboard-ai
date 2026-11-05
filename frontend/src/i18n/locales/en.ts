@@ -395,6 +395,7 @@ export const en: TranslationSchema = {
     subtitle: 'Transparent pricing: monthly plans for account management plus non-expiring credit packs.',
     currencyRub: '₽ Rubles',
     currencyUsd: '$ USD',
+    creditPacksCurrencyNotice: "Credit packs are currently charged in RUB. The currency selector applies to subscription plans only.",
     tabPlans: 'Subscription Plans',
     tabCredits: 'Top-Up Credits',
     balanceTitle: 'Current Workspace Balance:',
