@@ -105,7 +105,7 @@ async function fetchMessageBody(uid) {
     host: process.env.MAIL_IMAP_HOST,
     port: Number(process.env.MAIL_IMAP_PORT || 993),
     secure: true,
-    auth: getTransactionalSmtpAuth(),
+    auth: getImapAuth(),
     logger: false,
   });
   await client.connect();
@@ -168,11 +168,13 @@ async function sendMail({ to, subject, text }, { needThrow = true } = {}) {
     throw httpError(503, "Транзакционная почта не настроена: задайте MAIL_SMTP_HOST, MAIL_SMTP_USER и MAIL_SMTP_PASS на сервере");
   }
   const nodemailer = require("nodemailer");
+  const port = Number(process.env.MAIL_SMTP_PORT || 465);
   const transporter = nodemailer.createTransport({
     host: process.env.MAIL_SMTP_HOST,
-    port: Number(process.env.MAIL_SMTP_PORT || 465),
-    secure: Number(process.env.MAIL_SMTP_PORT || 465) === 465,
-    auth: { user: process.env.MAIL_USER, pass: process.env.MAIL_PASS },
+    port,
+    secure: port === 465,
+    requireTLS: port === 587,
+    auth: getTransactionalSmtpAuth(),
   });
 
   try {
