@@ -34,6 +34,55 @@ export const PricingView: React.FC = () => {
   const [payError, setPayError] = useState<string | null>(null);
   const [history, setHistory] = useState<SubscriptionRow[]>([]);
   const [tariffEnd, setTariffEnd] = useState<string | null>(null);
+  const [creditPacks, setCreditPacks] = useState<Array<{
+    id: string;
+    name: string;
+    credits: number;
+    pricePerCredit: string;
+    priceRub: string;
+    badge: string | null;
+    popular: boolean;
+  }>>([]);
+  const [creditPacksError, setCreditPacksError] = useState<string | null>(null);
+
+  // Prices and pack sizes come from the backend catalog, the same source used at checkout.
+  useEffect(() => {
+    apiRequest('/billing/credit-packs')
+      .then((res: any) => {
+        if (!Array.isArray(res?.packs)) throw new Error('Invalid credit pack catalog');
+        const formatter = new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', {
+          maximumFractionDigits: 0,
+        });
+        const perCreditFormatter = new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+        const localizedPacks = res.packs.map((pack: any) => {
+          const credits = Number(pack.credits);
+          const amount = Number(pack.amount?.rub);
+          if (!pack.id || !Number.isFinite(credits) || credits <= 0 || !Number.isFinite(amount) || amount <= 0) {
+            throw new Error('Invalid credit pack entry');
+          }
+          return {
+            id: String(pack.id),
+            name: pack.id === 'pack_100' ? 'Пакет S' : pack.id === 'pack_500' ? 'Пакет M' : 'Пакет L',
+            credits,
+            pricePerCredit: `${perCreditFormatter.format(amount / credits)} ₽`,
+            priceRub: `${formatter.format(amount)} ₽`,
+            badge: pack.id === 'pack_500' ? t.pricing.popularBadge : pack.id === 'pack_1000' ? (language === 'ru' ? 'Выгодно' : 'Best value') : null,
+            popular: pack.id === 'pack_500',
+          };
+        });
+        setCreditPacks(localizedPacks);
+        setCreditPacksError(null);
+      })
+      .catch(() => {
+        setCreditPacks([]);
+        setCreditPacksError(language === 'ru'
+          ? 'Не удалось загрузить актуальные цены пакетов. Обновите страницу позже.'
+          : 'Could not load current credit pack prices. Please try again later.');
+      });
+  }, [language, t.pricing.popularBadge]);
 
   // История платежей пользователя — доказательство, что вебхук сработал
   const loadHistory = () => {
@@ -203,38 +252,6 @@ export const PricingView: React.FC = () => {
         'Unbranded white-label client PDF reports',
       ],
       notIncluded: [],
-    },
-  ];
-
-  // Пакеты кредитов (НЕ сгорают). Цены задаёт серверный каталог backend/creditPacks.js —
-  // клиент присылает только package_id, суммы приходят с бэкенда.
-  const creditPacks = [
-    {
-      id: 'pack_100',
-      name: 'Пакет S',
-      credits: 100,
-      pricePerCredit: '1,90 ₽',
-      priceRub: '190 ₽',
-      badge: null,
-      popular: false,
-    },
-    {
-      id: 'pack_500',
-      name: 'Пакет M',
-      credits: 500,
-      pricePerCredit: '1,58 ₽',
-      priceRub: '790 ₽',
-      badge: t.pricing.popularBadge,
-      popular: true,
-    },
-    {
-      id: 'pack_1000',
-      name: 'Пакет L',
-      credits: 1000,
-      pricePerCredit: '1,29 ₽',
-      priceRub: '1 290 ₽',
-      badge: 'Выгодно',
-      popular: false,
     },
   ];
 
@@ -577,6 +594,9 @@ export const PricingView: React.FC = () => {
           </div>
 
           {/* Cards Grid */}
+          {creditPacksError && (
+            <p role="alert" className="text-sm text-red-500">{creditPacksError}</p>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {creditPacks.map((pack) => {
               // Пакеты продаются только за рубли (цены — серверный каталог)
