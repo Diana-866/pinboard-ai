@@ -102,6 +102,19 @@ require.cache[supabasePath] = {
         token.used_at = new Date().toISOString();
         return { data: true, error: null };
       }
+      if (name === "consume_email_verification_token") {
+        const token = db.auth_tokens.find((row) =>
+          row.token_hash === args.p_token_hash && row.purpose === "email_verify"
+        );
+        if (!token) return { data: false, error: null };
+        const user = db.users.find((row) => String(row.id) === String(token.user_id));
+        if (!user) return { data: false, error: null };
+        if (token.used_at) return { data: user.email_verified === true, error: null };
+        if (new Date(token.expires_at).getTime() <= Date.now()) return { data: false, error: null };
+        user.email_verified = true;
+        token.used_at = new Date().toISOString();
+        return { data: true, error: null };
+      }
       return { data: null, error: { message: "unknown RPC" } };
     },
   },
