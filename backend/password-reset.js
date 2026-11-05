@@ -9,6 +9,7 @@ const { getEmailCopy } = require("./email-locales");
 const { transactionalMailConfigured, sendMail } = require("./mail");
 
 const TTL_MINUTES = 60;
+const RESEND_INTERVAL_SECONDS = 300; // не чаще одного письма восстановления за 5 минут на аккаунт
 
 function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
@@ -41,6 +42,7 @@ async function requestReset(rawEmail, _frontendUrl, requestedLanguage) {
       p_user_id: String(user.id),
       p_token_hash: sha256(token),
       p_expires_at: new Date(Date.now() + TTL_MINUTES * 60 * 1000).toISOString(),
+      p_min_interval_seconds: RESEND_INTERVAL_SECONDS,
     });
     if (error || issued !== true) {
       console.error("[password-reset] не удалось создать токен:", error?.message || "user not found");
