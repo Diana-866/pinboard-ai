@@ -144,3 +144,21 @@ A second pass over migrations 006, 007, 009 and both webhook handlers confirms:
 6. Before enabling this in production, inventory admin reporting, refund handling, deletion retention, RLS/service-role access, and retention periods for the new inbox.
 
 No database schema, webhook handler, production setting, or live payment behavior was changed by this audit.
+
+
+## Authentication/session audit (Nov 2026)
+
+A review of `backend/auth.js`, `backend/index.js`, and the frontend auth context found and corrected two concrete issues on this branch:
+
+- The protected-route middleware had an incorrectly escaped Bearer-header regex, so a normal `Authorization: Bearer <jwt>` header was not reliably stripped to the JWT. Parsing is now centralized in `backend/bearerToken.js` and covered by `backend/test/bearer-token.test.js`.
+- Registration previously retried a failed user insert without profile columns for any error. It now retries only when Postgres/PostgREST explicitly reports one of the optional profile columns missing, returns 409 for unique-email races, and fails closed with a temporary service error on other database failures. The initial duplicate-email lookup now also checks and handles database errors.
+- The frontend `refreshUser()` previously deleted the locally stored JWT for every error, including network failures and server 5xx. It now clears the token only for a 401; transient errors retain the session so the user can retry.
+
+Additional behavior/limitations to address before production hardening:
+
+- Frontend logout currently removes the JWT from localStorage only. It does not revoke the JWT server-side; a copied/stolen token remains valid until its seven-day expiry unless password reset increments `users.token_version`. A future per-device logout design should add a session/JTI allowlist or equivalent revocation mechanism. Do not increment the global token version for ordinary logout unless the product explicitly wants “log out all devices”.
+- Protected routes query `users.token_version` on every request and fail closed with HTTP 503 on database errors. Migration 023 must therefore be applied before deploying the backend revision that depends on this column. This is a deployment prerequisite, not a migration to apply automatically from CI.
+- Email verification issuance and password-reset issuance both serialize on the user row and enforce cooldowns atomically in SQL. The application-level email-verification pre-check is only a UX optimization; migration 022's RPC is the actual concurrency guard.
+- The password-reset four-argument RPC cooldown and migration 025 removal of the legacy three-argument overload must both be present before relying on the five-minute cooldown. Keep the explicit four-argument call in the backend.
+
+The Bearer parser unit tests were run locally in an isolated Node 22 harness: 3 tests passed. This is not a full backend suite or CI result. No production deployment or database migration was performed.
