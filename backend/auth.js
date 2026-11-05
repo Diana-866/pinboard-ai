@@ -17,7 +17,7 @@ const DUMMY_HASH = bcrypt.hashSync("invalid-placeholder-password", 10);
 // Вместо токена — письмо со ссылкой подтверждения (users.email_verified, миграция 005).
 // Почтовый сбой не ломает регистрацию: письмо можно запросить повторно на /login
 // или из кабинета (POST /resend-verification).
-async function register(rawEmail, rawPassword, rawName, rawSurname) {
+async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage) {
   const email = validateEmail(rawEmail);
   const password = validatePassword(rawPassword);
 
@@ -32,7 +32,7 @@ async function register(rawEmail, rawPassword, rawName, rawSurname) {
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  const profile = {};
+  const profile = { preferred_language: require('./email-locales').normalizeLanguage(rawLanguage) };
   if ((rawName || "").trim()) profile.name = rawName.trim().slice(0, 80);
   if ((rawSurname || "").trim()) profile.surname = rawSurname.trim().slice(0, 80);
 
