@@ -7,13 +7,10 @@ import {
   CreditCard,
   Check,
   RefreshCw,
-  ExternalLink,
-  Plus,
   AlertCircle,
   ArrowUpRight,
   Trash2,
   Sliders,
-  Lock,
   Clock,
 } from 'lucide-react';
 import { useTheme } from '../../theme/themeContext';
@@ -59,16 +56,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const [userTimezone, setUserTimezone] = useState<string>(() => getDefaultTimezone(language));
 
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [connectTab, setConnectTab] = useState<'oauth' | 'token'>('oauth');
-  const [isAuthorizing, setIsAuthorizing] = useState(false);
-  const [successToast, setSuccessToast] = useState<string | null>(null);
-
-  // Manual input fields for real business account
-  const [businessName, setBusinessName] = useState('');
-  const [businessHandle, setBusinessHandle] = useState('');
-  const [businessToken, setBusinessToken] = useState('');
-  const [businessNiche, setBusinessNiche] = useState('Home Decor & Aesthetic Living');
 
   const isLimitReached = accounts.length >= maxAccounts;
   const planId = user?.tariff_plan || 'none';
@@ -79,28 +66,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         : planId === 'pro' || planId === 'standard' ? t.pricing.planProTitle
           : planId === 'agency' ? t.pricing.planAgencyTitle : t.settings.noActivePlan;
   const availableCredits = Number(user?.credits_balance ?? 0);
-
-  // Handle OAuth flow
-  // Этап 1.1 (planning.md): фейковое OAuth удалено — ревьюер Pinterest не должен видеть выдуманные данные.
-  // Настоящее подключение добавим после одобрения заявки на Pinterest API (Этап 6).
-  const handleStartOAuth = () => {
-    setIsAuthorizing(true);
-    setTimeout(() => {
-      setIsAuthorizing(false);
-      setShowAddModal(false);
-      setSuccessToast(t.settings.pinterestConnectionUnavailable);
-      setTimeout(() => setSuccessToast(null), 4000);
-    }, 600);
-  };
-
-  // Handle Token flow
-  // Этап 1.1 (planning.md): фейковое подключение по токену удалено по той же причине.
-  const handleSaveTokenAccount = (e: React.FormEvent) => {
-    e.preventDefault();
-    setShowAddModal(false);
-    setSuccessToast(t.settings.pinterestConnectionUnavailable);
-    setTimeout(() => setSuccessToast(null), 4000);
-  };
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-10">
@@ -113,14 +78,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {t.settings.subtitle}
         </p>
       </div>
-
-      {/* Success Notification */}
-      {successToast && (
-        <div className="p-3.5 rounded-xl bg-amber-500/10 text-amber-800 dark:text-amber-200 border border-amber-500/20 text-xs md:text-sm font-semibold flex items-center gap-2 animate-in fade-in">
-          <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-          <span>{successToast}</span>
-        </div>
-      )}
 
       {/* 1. CONNECTED PINTEREST BUSINESS ACCOUNTS */}
       <section className="custom-card p-6 space-y-5">
@@ -148,11 +105,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           {!isLimitReached && (
             <button
-              onClick={() => setShowAddModal(true)}
-              className="accent-btn self-start sm:self-auto px-4 py-2 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+              type="button"
+              disabled
+              aria-disabled="true"
+              className="secondary-btn self-start sm:self-auto px-4 py-2 text-xs font-semibold opacity-70 cursor-not-allowed"
+              title={t.settings.pinterestConnectionUnavailable}
             >
-              <Plus className="w-4 h-4 stroke-[3]" />
-              <span>Подключить ещё аккаунт</span>
+              {t.settings.pinterestConnectionUnavailable}
             </button>
           )}
         </div>
@@ -363,221 +322,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             )}
           </div>
         )}
-
-        {/* Real Pinterest Business Connection Modal */}
-        {showAddModal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in">
-            <div className="p-6 rounded-2xl custom-card shadow-2xl max-w-lg w-full space-y-4 animate-in zoom-in-95">
-              <div className="flex items-center justify-between border-b border-subtle pb-3">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-accent-ghost" />
-                  <h3 className="text-base font-bold text-primary-theme font-heading">
-                    Подключение вашего бизнес-аккаунта Pinterest
-                  </h3>
-                </div>
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="text-muted-theme hover:text-primary-theme cursor-pointer p-1"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Mode Tabs: OAuth vs Token */}
-              <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-subtle border border-subtle text-xs font-semibold">
-                <button
-                  type="button"
-                  onClick={() => setConnectTab('oauth')}
-                  className={`py-1.5 rounded-lg transition-all cursor-pointer ${
-                    connectTab === 'oauth'
-                      ? 'accent-btn shadow-xs'
-                      : 'text-secondary-theme hover:text-primary-theme'
-                  }`}
-                >
-                  Pinterest OAuth (Рекомендуется)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConnectTab('token')}
-                  className={`py-1.5 rounded-lg transition-all cursor-pointer ${
-                    connectTab === 'token'
-                      ? 'accent-btn shadow-xs'
-                      : 'text-secondary-theme hover:text-primary-theme'
-                  }`}
-                >
-                  API-токен / Реквизиты
-                </button>
-              </div>
-
-              {/* Tab 1: Official Pinterest OAuth */}
-              {connectTab === 'oauth' && (
-                <div className="space-y-4 text-xs">
-                  <div className="p-3.5 rounded-xl border border-subtle bg-subtle space-y-2">
-                    <span className="font-bold text-primary-theme block">
-                      Безопасная авторизация через официальный Pinterest API:
-                    </span>
-                    <ul className="space-y-1 text-secondary-theme text-[11px]">
-                      <li className="flex items-center gap-1.5">
-                        <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                        <span>Чтение досок и аналитики охвата (boards:read, analytics:read)</span>
-                      </li>
-                      <li className="flex items-center gap-1.5">
-                        <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                        <span>Автоматическая публикация согласованных пинов (pins:write)</span>
-                      </li>
-                      <li className="flex items-center gap-1.5">
-                        <Lock className="w-3.5 h-3.5 text-primary-theme" />
-                        <span>Полная изоляция данных. Пароли не сохраняются.</span>
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="font-bold text-primary-theme block">
-                      Название вашего бренда / профиля (для отображения в панели):
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Например: My Studio Interiors"
-                      value={businessName}
-                      onChange={(e) => setBusinessName(e.target.value)}
-                      className="w-full px-3 py-2 border border-subtle bg-app-input rounded-xl text-xs text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="font-bold text-primary-theme block">
-                      Pinterest Handle вашего бизнес-аккаунта (@...):
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="@my_official_brand"
-                      value={businessHandle}
-                      onChange={(e) => setBusinessHandle(e.target.value)}
-                      className="w-full px-3 py-2 border border-subtle bg-app-input rounded-xl text-xs font-mono text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="font-bold text-primary-theme block">
-                      Основная ниша профиля:
-                    </label>
-                    <select
-                      value={businessNiche}
-                      onChange={(e) => setBusinessNiche(e.target.value)}
-                      className="w-full px-3 py-2 border border-subtle bg-app-input rounded-xl text-xs text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
-                    >
-                      <option value="Home Decor & Japandi">Home Decor & Japandi Design</option>
-                      <option value="Culinary & Matcha">Recipes & Food Photography</option>
-                      <option value="Skincare & Beauty">Skincare & Luxury Beauty</option>
-                      <option value="Travel & Architecture">Travel & European Escapes</option>
-                      <option value="Fashion & Aesthetics">Fashion & Capsule Wardrobe</option>
-                    </select>
-                  </div>
-
-                  <div className="pt-2 flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowAddModal(false)}
-                      className="secondary-btn px-4 py-2 text-xs font-semibold cursor-pointer"
-                    >
-                      Отмена
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isAuthorizing}
-                      onClick={handleStartOAuth}
-                      className="accent-btn px-4 py-2 text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
-                    >
-                      {isAuthorizing ? (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          <span>Подключение к Pinterest...</span>
-                        </>
-                      ) : (
-                        <>
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          <span>Авторизовать в Pinterest</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Tab 2: Access Token Form */}
-              {connectTab === 'token' && (
-                <form onSubmit={handleSaveTokenAccount} className="space-y-3 text-xs">
-                  <div>
-                    <label className="font-bold text-primary-theme block mb-1">
-                      Название аккаунта:
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="My Brand Official"
-                      value={businessName}
-                      onChange={(e) => setBusinessName(e.target.value)}
-                      className="w-full px-3 py-2 border border-subtle bg-app-input rounded-xl text-xs text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="font-bold text-primary-theme block mb-1">
-                      Handle (@...):
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="@my_official_brand"
-                      value={businessHandle}
-                      onChange={(e) => setBusinessHandle(e.target.value)}
-                      className="w-full px-3 py-2 border border-subtle bg-app-input rounded-xl text-xs font-mono text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="font-bold text-primary-theme block mb-1 flex items-center gap-1">
-                      <span>Access Token (Developers Pinterest):</span>
-                      <Lock className="w-3 h-3 text-muted-theme" />
-                    </label>
-                    <input
-                      type="password"
-                      placeholder="pina_09f8d..."
-                      value={businessToken}
-                      onChange={(e) => setBusinessToken(e.target.value)}
-                      className="w-full px-3 py-2 border border-subtle bg-app-input rounded-xl text-xs font-mono text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
-                    />
-                    <span className="text-[10px] text-muted-theme mt-1 block">
-                      Токен шифруется и хранится в изолированной сессии браузера.
-                    </span>
-                  </div>
-
-                  <div className="pt-2 flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowAddModal(false)}
-                      className="secondary-btn px-4 py-2 text-xs font-semibold cursor-pointer"
-                    >
-                      Отмена
-                    </button>
-                    <button
-                      type="submit"
-                      className="accent-btn px-4 py-2 text-xs font-bold cursor-pointer shadow-xs"
-                    >
-                      Подключить по токену
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* Pinterest */}
-      <PinterestCard />
-
-
 
       {/* 2. THEME SELECTION */}
       <section className="custom-card p-6 space-y-4">
