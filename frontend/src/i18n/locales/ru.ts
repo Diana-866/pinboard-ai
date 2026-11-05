@@ -384,6 +384,7 @@ export const ru: TranslationSchema = {
     billingSection: 'Тарифный план и кредиты',
     billingSectionDesc: 'Контролируйте доступные ежемесячные кредиты автоматизации и возможности аккаунта.',
     currentPlan: 'Текущий план: Growth Pro',
+    noActivePlan: "Нет активной подписки",
     upgradePlan: 'Сменить тариф',
     creditsUsed: 'Использовано кредитов',
     resetCycle: 'Кредиты обновляются 1-го числа каждого месяца.',
