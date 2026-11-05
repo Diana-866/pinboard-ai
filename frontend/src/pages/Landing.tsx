@@ -825,7 +825,11 @@ export const Landing: React.FC = () => {
     new Intl.NumberFormat(ru ? 'ru-RU' : 'en-US', {
       minimumFractionDigits: currency === 'usd' ? 2 : 0,
       maximumFractionDigits: currency === 'usd' ? 2 : 0,
-    }).format(amount) + (currency === 'rub' ? ' ₽' : ' 
+    }).format(amount) + (currency === 'rub' ? ' ₽' : ' $');
+
+  // Параллакс за курсором
+  const mx = useMotionValue(0);
+  const my = useMotionValue(0);
   const sx = useSpring(mx, { stiffness: 50, damping: 18 });
   const sy = useSpring(my, { stiffness: 50, damping: 18 });
 
