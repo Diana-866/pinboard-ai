@@ -401,8 +401,6 @@ export const pt: TranslationSchema = {
     apiVerified: "API conectada e verificada",
     syncData: "Sincronizar dados",
     disconnectAccount: "Desconectar conta",
-    makeActive: "Tornar ativo",
-    activeProfile: "Perfil ativo",
     boardsCount: "quadros",
     monthlyViews: "visualizações/mês",
     pinsPerDay: "pins/dia",
