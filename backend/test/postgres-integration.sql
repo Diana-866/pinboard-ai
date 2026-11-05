@@ -101,6 +101,11 @@ begin
   select id into v_reset_token_old from public.auth_tokens
    where token_hash = repeat('a', 64);
 
+  -- Age the first token to simulate an elapsed cooldown in this deterministic test.
+  update public.auth_tokens
+     set created_at = now() - interval '10 minutes'
+   where id = v_reset_token_old;
+
   v_reset_result := public.issue_password_reset_token(
     v_user::text, repeat('b', 64), now() + interval '1 hour'
   );
@@ -109,6 +114,20 @@ begin
   end if;
   select id into v_reset_token from public.auth_tokens
    where token_hash = repeat('b', 64);
+
+  -- A third request inside five minutes is rejected without invalidating the live link.
+  v_reset_result := public.issue_password_reset_token(
+    v_user::text, repeat('g', 64), now() + interval '1 hour'
+  );
+  if v_reset_result is distinct from false then
+    raise exception 'password reset issuance bypassed five-minute cooldown';
+  end if;
+  if exists (select 1 from public.auth_tokens where token_hash = repeat('g', 64)) then
+    raise exception 'cooldown-rejected password reset token was inserted';
+  end if;
+  if (select used_at from public.auth_tokens where id = v_reset_token) is not null then
+    raise exception 'cooldown attempt invalidated the active password reset token';
+  end if;
 
   if (select used_at from public.auth_tokens where id = v_reset_token_old) is null then
     raise exception 'new password reset token did not invalidate the older token';
