@@ -149,12 +149,29 @@ if (!process.env.GPTUNNEL_API_KEY) {
   console.warn("[startup] GPTUNNEL_API_KEY не задан — AI-генерация работать не будет");
 }
 
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   try {
     const header = req.headers.authorization || "";
-    const token = header.replace(/^Bearer\s+/i, "").trim();
+    const token = header.replace(/^Bearer\\s+/i, "").trim();
     if (!token) throw new Error("Нет токена");
     const decoded = verifyToken(token);
+    if (!decoded.userId) throw new Error("Нет userId в токене");
+
+    // Password reset increments token_version; older JWTs are then rejected.
+    const { data: account, error } = await supabase
+      .from("users")
+      .select("token_version")
+      .eq("id", decoded.userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[auth] не удалось проверить версию сессии:", error.message);
+      return res.status(503).json({ error: "Сервис авторизации временно недоступен" });
+    }
+    if (!account || Number(decoded.tokenVersion || 0) !== Number(account.token_version || 0)) {
+      return res.status(401).json({ error: "Не авторизован" });
+    }
+
     req.userId = decoded.userId;
     next();
   } catch (e) {
