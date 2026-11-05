@@ -197,7 +197,7 @@ app.post("/register", authLimiter, async (req, res) => {
   try {
     const email = validateEmail(req.body && req.body.email);
     const password = validatePassword(req.body && req.body.password);
-    const result = await register(email, password, req.body && req.body.name, req.body && req.body.surname);
+    const result = await register(email, password, req.body && req.body.name, req.body && req.body.surname, req.body && req.body.preferred_language);
     res.json(result);
   } catch (e) {
     handleError(res, e);
@@ -268,7 +268,8 @@ app.post("/forgot-password", authLimiter, async (req, res) => {
   try {
     const result = await passwordReset.requestReset(
       req.body && req.body.email,
-      req.body && req.body.frontendUrl
+      req.body && req.body.frontendUrl,
+      req.body && req.body.language
     );
     res.json(result);
   } catch (e) {
@@ -319,6 +320,7 @@ app.get("/me", requireAuth, async (req, res) => {
         (!row.tariff_period_end || new Date(row.tariff_period_end).getTime() > Date.now()),
       payment_provider: "prodamus",
       email_verified: row.email_verified ?? true, // миграция 005; нет колонки — считаем подтверждённым
+      preferred_language: row.preferred_language || "en",
       is_admin: !!row.is_admin,
     });
   } catch (e) {
@@ -333,12 +335,17 @@ app.patch("/me", requireAuth, async (req, res) => {
     const upd = {};
     if (req.body && req.body.name !== undefined) upd.name = validateLen(req.body.name, 80, "Имя");
     if (req.body && req.body.surname !== undefined) upd.surname = validateLen(req.body.surname, 80, "Фамилия");
+    if (req.body && req.body.preferred_language !== undefined) {
+      const requested = String(req.body.preferred_language || "").toLowerCase();
+      if (!["en", "ru", "es", "pt", "de", "fr", "zh"].includes(requested)) throw httpError(422, "Unsupported preferred language");
+      upd.preferred_language = requested;
+    }
     if (Object.keys(upd).length === 0) throw httpError(422, "Нечего обновлять");
     const { data, error } = await supabase
       .from("users")
       .update(upd)
       .eq("id", req.userId)
-      .select("id, email, name, surname, credits_balance, tariff_plan, is_admin")
+      .select("id, email, name, surname, credits_balance, tariff_plan, preferred_language, is_admin")
       .single();
     if (error) throw httpError(500, "Не удалось обновить профиль — нужно применить миграцию 003");
     res.json(data);
