@@ -48,9 +48,19 @@ jobs:
           create table public.users (
             id uuid primary key default gen_random_uuid(),
             email text not null,
-            credits_balance integer not null default 0,
+            password_hash text,
+            credits_balance not null default 0,
             tariff_plan text not null default 'none',
             tariff_period_end timestamptz
+          );
+          create table public.auth_tokens (
+            id uuid primary key default gen_random_uuid(),
+            user_id text not null,
+            token_hash text not null unique,
+            purpose text not null default 'password_reset',
+            expires_at timestamptz not null,
+            used_at timestamptz,
+            created_at timestamptz default now()
           );
           create table public.projects (
             id uuid primary key default gen_random_uuid(),
@@ -150,6 +160,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/017_pinterest_schedule_worker.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/018_preferred_language.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/019_prevent_late_subscription_downgrade.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/020_atomic_password_reset.sql
       - name: Verify duplicate webhooks and ledger consistency
         env:
           PGPASSWORD: postgres
