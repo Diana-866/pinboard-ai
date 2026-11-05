@@ -384,6 +384,7 @@ export const zh: TranslationSchema = {
     billingSection: '套餐与 AI 额度管理',
     billingSectionDesc: '查看本月智能分析与 Pin 自动生成额度的使用进度。',
     currentPlan: '当前版本：Growth Pro 专业增长版',
+    noActivePlan: "暂无有效订阅",
     upgradePlan: '管理或升级套餐',
     creditsUsed: '已消耗积分',
     resetCycle: '额度将于每月 1 日自动重置并恢复上限。',
