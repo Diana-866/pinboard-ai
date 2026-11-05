@@ -9,8 +9,8 @@ type Status = 'ready' | 'working' | 'success' | 'error';
 /**
  * Страница подтверждения email.
  * Два сценария:
- *  - в URL есть ?token=... — после загрузки страницы отправляем POST /verify-email;
- *    обычный GET по ссылке не меняет состояние, чтобы сканеры писем не расходовали токен;
+ *  - в URL есть ?token=... — показываем кнопку явного подтверждения;
+ *    сам GET и автоматическая загрузка страницы не расходуют токен.
  *  - в URL ?status=error — сюда редиректит бэкенд, если переход по ссылке
  *    из письма не прошёл (токен просрочен/использован) — показываем ошибку.
  */
@@ -49,6 +49,8 @@ export const VerifyEmail: React.FC = () => {
       return;
     }
 
+    // Remove the raw token from the address bar/history after capturing it.
+    navigate('/verify-email', { replace: true });
     // Do not consume the token automatically on page load. Some email security
     // scanners execute JavaScript; require an explicit user gesture instead.
     setStatus('ready');
