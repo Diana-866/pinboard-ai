@@ -6,6 +6,7 @@ const bcrypt = require("bcryptjs");
 const supabase = require("./supabase");
 const { httpError } = require("./validate");
 const { getEmailCopy } = require("./email-locales");
+const { transactionalMailConfigured, sendMail } = require("./mail");
 
 const TTL_MINUTES = 60;
 
@@ -13,21 +14,9 @@ function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
-function mailConfigured() {
-  return !!(process.env.MAIL_SMTP_HOST && process.env.MAIL_USER && process.env.MAIL_PASS);
-}
-
 async function sendResetEmail(to, resetUrl, language = "en") {
   const copy = getEmailCopy(language);
-  const nodemailer = require("nodemailer");
-  const transporter = nodemailer.createTransport({
-    host: process.env.MAIL_SMTP_HOST,
-    port: Number(process.env.MAIL_SMTP_PORT || 465),
-    secure: Number(process.env.MAIL_SMTP_PORT || 465) === 465,
-    auth: { user: process.env.MAIL_USER, pass: process.env.MAIL_PASS },
-  });
-  await transporter.sendMail({
-    from: process.env.MAIL_FROM || process.env.MAIL_USER,
+  return sendMail({
     to,
     subject: copy.resetSubject,
     text: [copy.hello, "", copy.resetLead, copy.resetLink, resetUrl, "", copy.resetIgnore, "", copy.team].join("\n"),
@@ -58,13 +47,13 @@ async function requestReset(rawEmail, frontendUrl, requestedLanguage) {
     if (mailConfigured()) {
       const base = frontendUrl || process.env.FRONTEND_URL || "https://pinposy.com";
       try {
-        await sendResetEmail(email, `${base}/reset-password?token=${token}`, user.preferred_language || requestedLanguage);
+        await sendResetEmail(email, `${base}/reset-password?token=${encodeURIComponent(token)}`, user.preferred_language || requestedLanguage);
       } catch (e) {
         console.error("[password-reset] письмо не отправлено:", e.message);
         throw httpError(503, "Почтовый сервис не отвечает — попробуйте позже");
       }
     } else {
-      console.warn("[password-reset] MAIL_* не заданы — ссылка не отправлена");
+      console.warn("[password-reset] транзакционная почта не настроена — ссылка не отправлена");
       throw httpError(503, "Восстановление по email пока не настроено — напишите на support@pinposy.com");
     }
   }
