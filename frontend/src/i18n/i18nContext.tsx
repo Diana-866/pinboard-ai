@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { apiRequest } from '../lib/api';
 import { en } from './locales/en';
 import { ru } from './locales/ru';
 import { es } from './locales/es';
@@ -103,7 +104,17 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {
       // ignore
     }
-  };
+
+    try {
+      if (localStorage.getItem("token")) {
+        void apiRequest("/me", {
+          method: "PATCH",
+          body: JSON.stringify({ preferred_language: lang }),
+        }).catch((error) => console.warn("[i18n] Could not save preferred language:", error));
+      }
+    } catch {
+      // The local UI language remains usable if storage is unavailable.
+    }  };
 
   const setAiContentLanguage = (lang: string) => {
     setAiContentLanguageState(lang);
