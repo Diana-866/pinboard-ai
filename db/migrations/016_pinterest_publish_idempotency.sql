@@ -45,7 +45,7 @@ begin
     join public.boards b on b.id = p.board_id
     join public.projects pr on pr.id = b.project_id
     where p.id = p_pin_id
-      and pr.user_id = p_user_id;
+      and pr.user_id::text = p_user_id;
   if not found then
     raise exception 'pin not found for user' using errcode = '42501';
   end if;
