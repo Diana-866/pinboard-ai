@@ -81,13 +81,14 @@ require.cache[supabasePath] = {
 process.env.JWT_SECRET = "test-secret";
 process.env.MAIL_SMTP_HOST = "smtp.beget.com";
 process.env.MAIL_SMTP_PORT = "465";
-process.env.MAIL_USER = "support@pinposy.com";
-process.env.MAIL_PASS = "test-pass";
+process.env.MAIL_SMTP_USER = "unisender-test-user";
+process.env.MAIL_SMTP_PASS = "unisender-test-api-key";
 process.env.MAIL_FROM = "PinPosy <support@pinposy.com>";
 process.env.FRONTEND_URL = "https://pinposy.com";
 
 const auth = require(path.join(BACKEND, "auth.js"));
 const emailVerify = require(path.join(BACKEND, "email-verify.js"));
+const passwordReset = require(path.join(BACKEND, "password-reset.js"));
 
 let pass = 0;
 let fail = 0;
@@ -213,6 +214,24 @@ function tokenFromMail(mail) {
   delete db.users[0].email_verified;
   const legacy = await auth.login("user@example.com", "superpass123");
   ok("legacy-аккаунт входит", !!legacy.token);
+
+  console.log("\n13) Сброс пароля использует отдельный транзакционный SMTP");
+  const beforeReset = sentMails.length;
+  const resetKnown = await passwordReset.requestReset("user@example.com", "https://attacker.example", "ru");
+  ok("запрос известного адреса отвечает общим сообщением", resetKnown.ok === true);
+  ok("письмо восстановления отправлено", sentMails.length === beforeReset + 1);
+  const resetMail = sentMails[sentMails.length - 1];
+  ok("ссылка строится из FRONTEND_URL, а не из тела запроса",
+    resetMail.text.includes("https://pinposy.com/reset-password?token=") && !resetMail.text.includes("attacker.example"));
+  ok("письмо использует транзакционный SMTP sender", resetMail.from === "PinPosy <support@pinposy.com>");
+  const resetToken = tokenFromMail(resetMail);
+  const resetRow = db.auth_tokens.find((row) => row.token_hash === passwordReset.sha256(resetToken));
+  ok("в БД хранится только хэш reset-токена", !!resetRow && !JSON.stringify(db.auth_tokens).includes(resetToken));
+  const unknownBefore = sentMails.length;
+  const resetUnknown = await passwordReset.requestReset("nobody@example.com", null, "en");
+  ok("ответы известного и неизвестного адресов одинаковы",
+    resetKnown.message === resetUnknown.message && resetUnknown.ok === true);
+  ok("для неизвестного адреса письмо не отправлено", sentMails.length === unknownBefore);
 
   console.log(`\nИТОГО: ${pass} прошло, ${fail} провалено\n`);
   process.exit(fail === 0 ? 0 : 1);
