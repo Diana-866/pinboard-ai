@@ -383,7 +383,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentPin, editTitle, editDesc, editBoardId, editDate, editTime]);
+  }, [currentPin, editTitle, editDesc, editBoardId, editDate, editTime, selectedPinterestBoardId]);
 
   const handleApprove = () => {
     if (!currentPin) return;
