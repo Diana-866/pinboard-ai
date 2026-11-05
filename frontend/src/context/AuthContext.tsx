@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { apiRequest } from "../lib/api";
+import { apiRequest, ApiError } from "../lib/api";
 
 export interface User {
   id: string;
@@ -83,8 +83,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         avatar,
       });
     } catch (e) {
-      localStorage.removeItem("token");
-      setUser(null);
+      // A transient network/5xx failure must not destroy a still-valid local
+      // session. apiRequest already clears and redirects on protected-route 401.
+      if (e instanceof ApiError && e.status === 401) {
+        localStorage.removeItem("token");
+        setUser(null);
+      } else {
+        console.warn("[auth] Could not refresh the current user; keeping the session for retry:", e);
+      }
     }
   }
 
