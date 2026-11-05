@@ -94,7 +94,7 @@ export const AdminMail: React.FC = () => {
         <div className="p-3.5 rounded-xl border border-amber-500/20 bg-amber-500/10 text-xs text-amber-700 dark:text-amber-300">
           {error}
           <p className="mt-1 text-[11px] opacity-80">
-            Нужно задать MAIL_IMAP_HOST / MAIL_USER / MAIL_PASS / MAIL_SMTP_HOST на Render — инструкция в
+            Нужно настроить IMAP и SMTP для VK WorkSpace и SMTP для Unisender Go в переменных Render — инструкция в
             docs/email-setup.md.
           </p>
         </div>
