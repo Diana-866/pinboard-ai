@@ -13,7 +13,6 @@ import {
   ArrowUpRight,
   Trash2,
   Sliders,
-  CheckCircle2,
   Lock,
   Clock,
 } from 'lucide-react';
