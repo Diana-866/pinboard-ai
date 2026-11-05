@@ -425,6 +425,7 @@ export interface TranslationSchema {
     subtitle: string;
     currencyRub: string;
     currencyUsd: string;
+    creditPacksCurrencyNotice: string;
     tabPlans: string;
     tabCredits: string;
     balanceTitle: string;
