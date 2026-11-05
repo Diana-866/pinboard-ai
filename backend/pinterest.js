@@ -523,6 +523,16 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
   return { ok: true, pinterest_pin_id: remoteId, board_id: boardId };
 }
 
+// A disconnected account or other pre-publication failure has no publish
+// journal entry and is safe to mark failed. A missing journal read is not safe:
+// the remote outcome may be ambiguous, so it must remain non-retryable.
+function classifyScheduleFailure(attempt, attemptLookupError) {
+  if (attemptLookupError) return "unknown";
+  if (attempt && attempt.status === "published") return "published";
+  if (attempt && ["unknown", "processing"].includes(attempt.status)) return "unknown";
+  return "failed";
+}
+
 // ---------- роуты ----------
 
 function registerRoutes(app, deps) {
@@ -771,13 +781,7 @@ function registerRoutes(app, deps) {
             .maybeSingle();
           // If the journal cannot be read, the outcome is not safe to classify
           // as failed: the remote pin may already exist. Keep it non-retryable.
-          const finalStatus = attemptLookupError
-            ? "unknown"
-            : attempt && attempt.status === "published"
-              ? "published"
-              : attempt && ["unknown", "processing"].includes(attempt.status)
-                ? "unknown"
-                : "failed";
+          const finalStatus = classifyScheduleFailure(attempt, attemptLookupError);
           const message = String(
             attemptLookupError
               ? "Could not verify publication journal after worker error: " + attemptLookupError.message
@@ -829,5 +833,6 @@ module.exports = {
   readState,
   publishPin,
   verifyPinterestBoard,
+  classifyScheduleFailure,
   SCOPES,
 };
