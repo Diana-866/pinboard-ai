@@ -28,6 +28,7 @@ export const Contacts: React.FC = () => {
   const { language } = useI18n();
   const ru = language === 'ru';
   const [planPrices, setPlanPrices] = useState<Record<string, { rub: number; usd: number }> | null>(null);
+  const [creditPackMin, setCreditPackMin] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,6 +50,30 @@ export const Contacts: React.FC = () => {
       })
       .catch(() => {
         if (!cancelled) setPlanPrices({});
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest('/billing/credit-packs')
+      .then((res: any) => {
+        if (!Array.isArray(res?.packs)) throw new Error('Invalid credit pack catalog');
+        const expected = ['pack_100', 'pack_500', 'pack_1000'];
+        const prices = res.packs.map((pack: any) => {
+          const amount = Number(pack.amount?.rub);
+          if (!expected.includes(pack.id) || !Number.isFinite(amount) || amount <= 0) {
+            throw new Error('Invalid credit pack catalog entry');
+          }
+          return amount;
+        });
+        if (prices.length !== expected.length || new Set(res.packs.map((pack: any) => pack.id)).size !== expected.length) {
+          throw new Error('Incomplete credit pack catalog');
+        }
+        if (!cancelled) setCreditPackMin(Math.min(...prices));
+      })
+      .catch(() => {
+        if (!cancelled) setCreditPackMin(null);
       });
     return () => { cancelled = true; };
   }, []);
@@ -165,7 +190,9 @@ export const Contacts: React.FC = () => {
                 {ru ? 'Пакеты кредитов (бессрочные)' : 'Credit packs (non-expiring)'}
               </span>
               <span className="whitespace-nowrap text-[13.5px] font-semibold text-[#A94D5F]">
-                {ru ? 'от 190 ₽' : 'from 190 ₽'}
+                {creditPackMin !== null
+                  ? `${ru ? 'от' : 'from'} ${new Intl.NumberFormat(ru ? 'ru-RU' : 'en-US').format(creditPackMin)} ₽`
+                  : '—'}
               </span>
             </div>
           </div>
