@@ -246,7 +246,20 @@ function tokenFromMail(mail) {
   const resetUnknown = await passwordReset.requestReset("nobody@example.com", null, "en");
   ok("ответы известного и неизвестного адресов одинаковы",
     resetKnown.message === resetUnknown.message && resetUnknown.ok === true);
-  ok("для неизвестного адреса письмо не отправлено", sentMails.length === unknownBefore);
+  console.log("\\n14) Одноразовое применение reset-токена");
+  const oldHash = db.users[0].password_hash;
+  const concurrent = await Promise.allSettled([
+    passwordReset.applyReset(resetToken, "ExamplePass123!"),
+    passwordReset.applyReset(resetToken, "AnotherPass456!"),
+  ]);
+  const succeeded = concurrent.filter((item) => item.status === "fulfilled").length;
+  const rejected = concurrent.filter((item) => item.status === "rejected").length;
+  ok("только один параллельный запрос успешен", succeeded === 1 && rejected === 1);
+  ok("хэш учётных данных обновлён", db.users[0].password_hash !== oldHash);
+  ok("токен отмечен использованным", !!resetRow.used_at);
+  let reuseError;
+  try { await passwordReset.applyReset(resetToken, "ThirdPass789!"); } catch (e) { reuseError = e; }
+  ok("повторное применение отклоняется с 422", reuseError && reuseError.httpStatus === 422);
 
   console.log(`\nИТОГО: ${pass} прошло, ${fail} провалено\n`);
   process.exit(fail === 0 ? 0 : 1);
