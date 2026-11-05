@@ -395,6 +395,7 @@ export const pt: TranslationSchema = {
     subtitle: 'Modelo transparente: assinatura mensal para gestão de contas mais pacotes de créditos sem prazo de validade.',
     currencyRub: '₽ Rublos',
     currencyUsd: '$ USD',
+    creditPacksCurrencyNotice: "Os pacotes de créditos são cobrados atualmente em RUB. O seletor de moeda aplica-se apenas aos planos de assinatura.",
     tabPlans: 'Planos de Assinatura',
     tabCredits: 'Comprar Créditos',
     balanceTitle: 'Saldo Atual do Workspace:',
