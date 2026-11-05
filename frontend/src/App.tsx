@@ -323,6 +323,19 @@ const MainApp: React.FC = () => {
     setScheduledPins((prev) => [persisted, ...prev.filter((item) => item.id !== persisted.id)]);
   };
 
+  const handleCancelScheduledPin = async (pin: ScheduledPinItem) => {
+    try {
+      await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/cancel`, {
+        method: 'POST',
+      });
+      setScheduledPins((prev) => prev.filter((item) => item.id !== pin.id));
+    } catch (error) {
+      console.error('[schedule] Не удалось отменить публикацию:', error);
+      window.alert(error instanceof Error ? error.message : 'Не удалось отменить публикацию');
+      throw error;
+    }
+  };
+
   const handleAddBoard = async (board: BoardItem) => {
     try {
       let projects = await apiRequest('/projects');
@@ -496,6 +509,7 @@ const MainApp: React.FC = () => {
               scheduledPins={scheduledPins}
               boards={boards}
               onAddPin={handleSchedulePin}
+              onCancelSchedule={handleCancelScheduledPin}
               onGoToGenerator={(topic, date) => handleGenerateFromTopic(topic, date)}
               onOpenReview={() => setActiveTab('review')}
               accounts={accounts}
