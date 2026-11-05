@@ -77,17 +77,32 @@ require.cache[supabasePath] = {
   exports: {
     from: (t) => makeQuery(t),
     rpc: async (name, args) => {
-      if (name !== "consume_password_reset_token") return { data: null, error: { message: "unknown RPC" } };
-      const token = db.auth_tokens.find((row) =>
-        row.token_hash === args.p_token_hash && row.purpose === "password_reset" &&
-        !row.used_at && new Date(row.expires_at).getTime() > Date.now()
-      );
-      if (!token) return { data: false, error: null };
-      const user = db.users.find((row) => String(row.id) === String(token.user_id));
-      if (!user) return { data: false, error: null };
-      user.password_hash = args.p_password_hash;
-      token.used_at = new Date().toISOString();
-      return { data: true, error: null };
+      if (name === "issue_password_reset_token") {
+        const user = db.users.find((row) => String(row.id) === String(args.p_user_id));
+        if (!user || new Date(args.p_expires_at).getTime() <= Date.now()) return { data: false, error: null };
+        db.auth_tokens
+          .filter((row) => String(row.user_id) === String(args.p_user_id) && row.purpose === "password_reset" && !row.used_at)
+          .forEach((row) => { row.used_at = new Date().toISOString(); });
+        db.auth_tokens.push({
+          id: rid(), user_id: String(args.p_user_id), token_hash: args.p_token_hash,
+          purpose: "password_reset", expires_at: args.p_expires_at,
+          used_at: null, created_at: new Date().toISOString(),
+        });
+        return { data: true, error: null };
+      }
+      if (name === "consume_password_reset_token") {
+        const token = db.auth_tokens.find((row) =>
+          row.token_hash === args.p_token_hash && row.purpose === "password_reset" &&
+          !row.used_at && new Date(row.expires_at).getTime() > Date.now()
+        );
+        if (!token) return { data: false, error: null };
+        const user = db.users.find((row) => String(row.id) === String(token.user_id));
+        if (!user) return { data: false, error: null };
+        user.password_hash = args.p_password_hash;
+        token.used_at = new Date().toISOString();
+        return { data: true, error: null };
+      }
+      return { data: null, error: { message: "unknown RPC" } };
     },
   },
 };
