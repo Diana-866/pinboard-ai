@@ -158,7 +158,7 @@ async function replyToMessage(to, subject, text) {
 
 // Универсальная отправка письма (используется биллингом: «Тариф активирован»).
 // Не бросает исключение наружу без needThrow — вызывающий код сам решает, критично ли это.
-async function sendMail({ to, subject, text, html }, { needThrow = true } = {}) {
+async function sendMail({ to, subject, text, html, messageId }, { needThrow = true } = {}) {
   if (!transactionalMailConfigured()) {
     if (!needThrow) {
       console.warn("[mail] SMTP не настроен — письмо не отправлено:", subject);
@@ -183,6 +183,7 @@ async function sendMail({ to, subject, text, html }, { needThrow = true } = {}) 
       subject,
       text,
       ...(html ? { html } : {}),
+      ...(messageId ? { messageId } : {}),
     });
     return { ok: true };
   } catch (e) {
