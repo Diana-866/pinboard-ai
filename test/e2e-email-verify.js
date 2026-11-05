@@ -94,7 +94,7 @@ require.cache[supabasePath] = {
 
 // ---------------------------------------------------------------- env
 process.env.JWT_SECRET = "test-secret";
-process.env.MAIL_SMTP_HOST = "smtp.beget.com";
+process.env.MAIL_SMTP_HOST = "smtp.go1.unisender.ru";
 process.env.MAIL_SMTP_PORT = "465";
 process.env.MAIL_SMTP_USER = "unisender-test-user";
 process.env.MAIL_SMTP_PASS = "unisender-test-api-key";
@@ -240,7 +240,7 @@ function tokenFromMail(mail) {
     resetMail.text.includes("https://pinposy.com/reset-password?token=") && !resetMail.text.includes("attacker.example"));
   ok("письмо использует транзакционный SMTP sender", resetMail.from === "PinPosy <support@pinposy.com>");
   const resetToken = tokenFromMail(resetMail);
-  const resetRow = db.auth_tokens.find((row) => row.token_hash === passwordReset.sha256(resetToken));
+  const resetRow = db.auth_tokens.find((row) => row.token_hash === require("crypto").createHash("sha256").update(resetToken).digest("hex"));
   ok("в БД хранится только хэш reset-токена", !!resetRow && !JSON.stringify(db.auth_tokens).includes(resetToken));
   const unknownBefore = sentMails.length;
   const resetUnknown = await passwordReset.requestReset("nobody@example.com", null, "en");
