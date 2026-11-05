@@ -6,6 +6,7 @@
 
 const supabase = require("./supabase");
 const mail = require("./mail");
+const { getEmailCopy, getPlanTitle, getLocale } = require("./email-locales");
 const prodamus = require("./prodamus");
 const { httpError, validateEnum } = require("./validate");
 const { normalizePlan } = require("./tariff");
@@ -142,32 +143,26 @@ async function createPayment(userId, body) {
 }
 
 async function sendTariffActivatedEmail(user, sub, periodEnd) {
-  const planTitle = PLANS[sub.plan] ? PLANS[sub.plan].title : sub.plan;
-  const until = new Date(periodEnd).toLocaleDateString("ru-RU", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+  const language = user.preferred_language || "en";
+  const copy = getEmailCopy(language);
+  const planTitle = getPlanTitle(sub.plan, language);
+  const until = new Intl.DateTimeFormat(getLocale(language), {
+    day: "2-digit", month: "long", year: "numeric", timeZone: "UTC",
+  }).format(new Date(periodEnd));
   const amount = `${Number(sub.amount).toFixed(2)} ${String(sub.currency || "rub").toUpperCase()}`;
-
-  await mail.sendMail(
-    {
-      to: user.email,
-      subject: `PinPosy — тариф «${planTitle}» активирован`,
-      text:
-        `Здравствуйте!\n\n` +
-        `Оплата получена, тариф «${planTitle}» активирован.\n\n` +
-        `Сумма: ${amount}\n` +
-        `Номер платежа: ${sub.provider_payment_id}\n` +
-        `Тариф действует до: ${until} (30 дней)\n\n` +
-        `Что дальше: войдите в кабинет https://pinposy.com/app — замочки на генерации, досках ` +
-        `и планировщике сняты, кредиты тарифа уже на балансе.\n\n` +
-        `Продлить или сменить тариф можно в разделе «Тарифы». Если оплата не отобразилась в течение ` +
-        `10 минут — ответьте на это письмо, мы проверим платёж вручную.\n\n` +
-        `— команда PinPosy`,
-    },
-    { needThrow: false }
-  );
+  const subject = copy.activatedSubject.replace("{plan}", planTitle);
+  const body = copy.activatedBody.replace("{plan}", planTitle);
+  await mail.sendMail({
+    to: user.email,
+    subject,
+    text: [
+      copy.hello, "", body, "",
+      `${copy.amount}: ${amount}`,
+      `${copy.payment}: ${sub.provider_payment_id}`,
+      `${copy.validUntil}: ${until} (30 days)`,
+      "", copy.next, "", copy.manage, copy.help, "", copy.team,
+    ].join("\\n"),
+  }, { needThrow: false });
 }
 
 /**
@@ -244,9 +239,16 @@ async function handleWebhook(req, res) {
   }
 
   if (!activation.already_activated) {
-    sendTariffActivatedEmail(
-      { email: activation.email }, { ...sub, amount: sum }, activation.period_end
-    ).catch((e) => console.error("[billing] письмо о тарифе не отправлено:", e && e.message));
+    const { data: mailUser } = await supabase
+      .from("users")
+      .select("email, preferred_language")
+      .eq("id", sub.user_id)
+      .maybeSingle();
+    if (mailUser) {
+      sendTariffActivatedEmail(
+        mailUser, { ...sub, amount: sum }, activation.period_end
+      ).catch((e) => console.error("[billing] письмо о тарифе не отправлено:", e && e.message));
+    }
   }
 
   return res.json({
