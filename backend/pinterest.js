@@ -733,18 +733,26 @@ function registerRoutes(app, deps) {
           if (updateError) throw updateError;
           results.push({ schedule_id: schedule.id, status: "published" });
         } catch (e) {
-          const { data: attempt } = await supabase
+          const { data: attempt, error: attemptLookupError } = await supabase
             .from("pinterest_publish_attempts")
             .select("status, pinterest_pin_id")
             .eq("pin_id", schedule.pin_id)
             .maybeSingle();
-          const finalStatus = attempt && attempt.status === "published"
-            ? "published"
-            : attempt && ["unknown", "processing"].includes(attempt.status)
-              ? "unknown"
-              : "failed";
-          const message = String(e && e.message || "Publication failed").slice(0, 500);
-          await supabase
+          // If the journal cannot be read, the outcome is not safe to classify
+          // as failed: the remote pin may already exist. Keep it non-retryable.
+          const finalStatus = attemptLookupError
+            ? "unknown"
+            : attempt && attempt.status === "published"
+              ? "published"
+              : attempt && ["unknown", "processing"].includes(attempt.status)
+                ? "unknown"
+                : "failed";
+          const message = String(
+            attemptLookupError
+              ? "Could not verify publication journal after worker error: " + attemptLookupError.message
+              : e && e.message || "Publication failed"
+          ).slice(0, 500);
+          const { error: scheduleUpdateError } = await supabase
             .from("pin_schedules")
             .update({
               status: finalStatus,
@@ -755,7 +763,14 @@ function registerRoutes(app, deps) {
             })
             .eq("id", schedule.id)
             .eq("status", "publishing");
-          results.push({ schedule_id: schedule.id, status: finalStatus, error: finalStatus === "published" ? undefined : message });
+          if (scheduleUpdateError) {
+            console.error("[pinterest-worker] не удалось сохранить итоговый статус расписания:", scheduleUpdateError.message);
+          }
+          results.push({
+            schedule_id: schedule.id,
+            status: scheduleUpdateError ? "unknown" : finalStatus,
+            error: finalStatus === "published" && !scheduleUpdateError ? undefined : message,
+          });
         }
       }
 
