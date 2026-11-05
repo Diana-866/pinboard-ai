@@ -246,7 +246,7 @@ async function handleWebhook(req, res) {
       .maybeSingle();
     if (mailUser) {
       sendTariffActivatedEmail(
-        mailUser, { ...sub, amount: sum }, activation.period_end
+        mailUser, { ...sub, plan: activation.current_plan || sub.plan, amount: sum }, activation.period_end
       ).catch((e) => console.error("[billing] письмо о тарифе не отправлено:", e && e.message));
     }
   }
@@ -254,7 +254,8 @@ async function handleWebhook(req, res) {
   return res.json({
     ok: true,
     status: "success",
-    plan: activation.plan,
+    plan: activation.current_plan || activation.plan,
+    paid_plan: activation.plan,
     period_end: activation.period_end,
     idempotent: activation.already_activated,
   });
