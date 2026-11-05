@@ -19,6 +19,17 @@ security definer
 set search_path = public
 as $$
 begin
+  -- Do not leave due rows permanently queued when the user did not select a
+  -- Pinterest destination. Surface a terminal failure; failed rows can be
+  -- corrected and scheduled again after a board is selected.
+  update public.pin_schedules
+    set status='failed',
+        last_error='Pinterest board is missing; select a destination board and schedule again',
+        updated_at=now()
+    where status='scheduled'
+      and scheduled_at <= now()
+      and pinterest_board_id is null;
+
   -- A worker crash after contacting Pinterest is ambiguous. Never auto-retry it.
   update public.pin_schedules s
     set status='published',
