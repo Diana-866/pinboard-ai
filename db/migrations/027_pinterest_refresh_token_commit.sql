@@ -16,15 +16,14 @@ set search_path = public
 as $$
 declare
   v_updated integer := 0;
+  v_lease_id uuid;
 begin
-  if not exists (
-    select 1
-      from public.pinterest_token_refresh_leases
-      where user_id = p_user_id
-        and lease_id = p_lease_id
-        and lease_until > now()
-    for update
-  ) then
+  select lease_id into v_lease_id
+    from public.pinterest_token_refresh_leases
+    where user_id = p_user_id
+      and lease_until > now()
+    for update;
+  if not found or v_lease_id <> p_lease_id then
     return false;
   end if;
 
