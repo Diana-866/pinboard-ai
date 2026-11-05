@@ -4,10 +4,14 @@ declare
   v_user uuid := gen_random_uuid();
   v_purchase uuid;
   v_sub uuid;
+  v_older_sub uuid;
+  v_newer_sub uuid;
   v_balance integer;
   v_count integer;
   v_first_end timestamptz;
   v_second_end timestamptz;
+  v_newer_end timestamptz;
+  v_late_end timestamptz;
   v_plan text;
   v_project uuid;
   v_board uuid;
@@ -141,6 +145,41 @@ begin
   perform public.activate_paid_subscription(v_sub, now());
   if (select period_start from public.subscriptions where id = v_sub) < v_first_end then
     raise exception 'next subscription overlaps existing entitlement';
+  end if;
+
+  -- A delayed webhook for an older order extends the period but must not
+  -- replace the plan selected by a newer-created paid order.
+  insert into public.subscriptions(
+    user_id, plan, status, provider_payment_id, amount, currency, created_at
+  ) values (
+    v_user::text, 'start', 'pending', 'ci-sub-late-older-' || v_user,
+    1990, 'rub', now() - interval '2 hours'
+  ) returning id into v_older_sub;
+
+  insert into public.subscriptions(
+    user_id, plan, status, provider_payment_id, amount, currency, created_at
+  ) values (
+    v_user::text, 'agency', 'pending', 'ci-sub-late-newer-' || v_user,
+    12990, 'rub', now() - interval '1 hour'
+  ) returning id into v_newer_sub;
+
+  perform public.activate_paid_subscription(v_newer_sub, now());
+  select period_end into v_newer_end
+    from public.subscriptions where id = v_newer_sub;
+
+  perform public.activate_paid_subscription(v_older_sub, now() + interval '1 minute');
+  select period_end into v_late_end
+    from public.subscriptions where id = v_older_sub;
+
+  select tariff_plan into v_plan from public.users where id = v_user;
+  if v_plan <> 'agency' then
+    raise exception 'late older webhook downgraded the newer agency plan to %', v_plan;
+  end if;
+  if v_late_end <= v_newer_end then
+    raise exception 'late older paid order did not extend the entitlement period';
+  end if;
+  if (select tariff_period_end from public.users where id = v_user) <> v_late_end then
+    raise exception 'user entitlement end does not match the extended period';
   end if;
 
   -- Pinterest publish reservation: concurrent/repeated calls cannot start a second request.
