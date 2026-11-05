@@ -99,7 +99,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </span>
             </div>
             <p className="text-xs text-muted-theme mt-1">
-              Бизнес-аккаунты Pinterest, к которым у вас есть доступ для аналитики, парсинга досок и авто-выкладки.
+              {t.settings.connectedAccountDesc}
             </p>
           </div>
 
