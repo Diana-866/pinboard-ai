@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
+import { apiRequest } from '../../lib/api';
 
 export interface PendingReviewPin {
   id: string;
@@ -313,6 +314,10 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [editBoardId, setEditBoardId] = useState('');
+  const [pinterestBoards, setPinterestBoards] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedPinterestBoardId, setSelectedPinterestBoardId] = useState('');
+  const [pinterestBoardsLoaded, setPinterestBoardsLoaded] = useState(false);
+  const [pinterestBoardsError, setPinterestBoardsError] = useState(false);
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
 
@@ -326,6 +331,24 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartX = useRef(0);
+
+  useEffect(() => {
+    let active = true;
+    apiRequest('/integrations/pinterest/boards')
+      .then((data) => {
+        if (!active) return;
+        const rows = Array.isArray(data?.boards) ? data.boards : [];
+        setPinterestBoards(rows);
+        if (rows.length === 1) setSelectedPinterestBoardId(rows[0].id);
+        setPinterestBoardsLoaded(true);
+      })
+      .catch(() => {
+        if (!active) return;
+        setPinterestBoardsError(true);
+        setPinterestBoardsLoaded(true);
+      });
+    return () => { active = false; };
+  }, []);
 
   // Sync state whenever the active top card changes
   useEffect(() => {
@@ -368,6 +391,10 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       window.alert('Эта карточка — демонстрационный пример, а не сохранённый пин. Сначала создайте и сохраните пин в генераторе — только после этого его можно добавить в расписание.');
       return;
     }
+    if (!selectedPinterestBoardId) {
+      window.alert('Сначала подключите Pinterest и выберите настоящую доску Pinterest для публикации.');
+      return;
+    }
 
     setSwipeDirection('right');
     setTimeout(() => {
@@ -385,6 +412,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         isOptimalSlot: true,
         destinationUrl: currentPin.destinationUrl,
         accountHandle: currentPin.accountHandle,
+        pinterestBoardId: selectedPinterestBoardId,
       };
 
       onApprovePin(scheduledItem);
@@ -412,6 +440,10 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       window.alert('В очереди есть демонстрационные карточки без сохранённых пинов. Создайте и сохраните реальные пины в генераторе, прежде чем добавлять их в расписание.');
       return;
     }
+    if (!selectedPinterestBoardId) {
+      window.alert('Сначала подключите Pinterest и выберите настоящую доску Pinterest для публикации.');
+      return;
+    }
     queue.forEach((p, idx) => {
       const selectedBoard = boards.find((b) => b.id === p.boardId) || boards[0];
       const scheduledItem: ScheduledPinItem = {
@@ -427,6 +459,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         isOptimalSlot: true,
         destinationUrl: p.destinationUrl,
         accountHandle: p.accountHandle,
+        pinterestBoardId: selectedPinterestBoardId,
       };
       onApprovePin(scheduledItem);
     });
@@ -755,7 +788,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
               <div>
                 <label className="font-bold text-primary-theme block mb-1">
-                  Целевая доска Pinterest:
+                  Внутренняя доска PinPosy:
                 </label>
                 <select
                   value={editBoardId}
@@ -788,6 +821,28 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                     className="w-24 px-2 py-2 bg-app-input border border-subtle rounded-xl text-primary-theme font-mono text-xs focus:outline-none focus:ring-2 focus:ring-accent text-center"
                   />
                 </div>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="font-bold text-primary-theme block mb-1">
+                  Доска назначения в Pinterest:
+                </label>
+                <select
+                  value={selectedPinterestBoardId}
+                  onChange={(e) => setSelectedPinterestBoardId(e.target.value)}
+                  disabled={!pinterestBoardsLoaded || pinterestBoards.length === 0}
+                  className="w-full px-3 py-2 bg-app-input border border-subtle rounded-xl text-primary-theme font-medium focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-60"
+                >
+                  <option value="">{!pinterestBoardsLoaded ? 'Загружаем доски Pinterest…' : pinterestBoards.length ? 'Выберите доску Pinterest' : 'Нет доступных досок Pinterest'}</option>
+                  {pinterestBoards.map((board) => (
+                    <option key={board.id} value={board.id}>{board.name}</option>
+                  ))}
+                </select>
+                {pinterestBoardsError && (
+                  <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">Не удалось загрузить доски. Проверьте подключение Pinterest и обновите страницу.</p>
+                )}
+                {pinterestBoardsLoaded && !pinterestBoardsError && pinterestBoards.length === 0 && (
+                  <p className="mt-1 text-[11px] text-secondary-theme">Подключите Pinterest в настройках, чтобы добавлять публикации в расписание.</p>
+                )}
               </div>
             </div>
 
