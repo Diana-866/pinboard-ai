@@ -61,7 +61,7 @@ export const Contacts: React.FC = () => {
     new Intl.NumberFormat(ru ? 'ru-RU' : 'en-US', {
       minimumFractionDigits: currency === 'usd' ? 2 : 0,
       maximumFractionDigits: currency === 'usd' ? 2 : 0,
-    }).format(amount) + (currency === 'rub' ? ' ₽' : ' 
+    }).format(amount) + (currency === 'rub' ? ' ₽' : ' $');
 
   const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
     <div className="flex flex-col gap-0.5 border-b border-[#F2DFE4] py-3 last:border-0 sm:flex-row sm:gap-4">
