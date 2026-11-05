@@ -114,7 +114,8 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch {
       // The local UI language remains usable if storage is unavailable.
-    }  };
+    }
+  };
 
   const setAiContentLanguage = (lang: string) => {
     setAiContentLanguageState(lang);
