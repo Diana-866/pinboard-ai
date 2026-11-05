@@ -44,6 +44,36 @@ export const PricingView: React.FC = () => {
     popular: boolean;
   }>>([]);
   const [creditPacksError, setCreditPacksError] = useState<string | null>(null);
+  const [planPrices, setPlanPrices] = useState<Record<string, { rub: number; usd: number }>>({});
+  const [planPricesError, setPlanPricesError] = useState<string | null>(null);
+
+  // Subscription prices are read from the same backend catalog used to create Prodamus invoices.
+  useEffect(() => {
+    apiRequest('/billing/plans')
+      .then((res: any) => {
+        if (!Array.isArray(res?.plans)) throw new Error('Invalid plan catalog');
+        const next: Record<string, { rub: number; usd: number }> = {};
+        for (const plan of res.plans) {
+          const rub = Number(plan.amount?.rub);
+          const usd = Number(plan.amount?.usd);
+          if (!['analytics', 'start', 'pro', 'agency'].includes(plan.id) ||
+              !Number.isFinite(rub) || rub <= 0 || !Number.isFinite(usd) || usd <= 0) {
+            throw new Error('Invalid plan catalog entry');
+          }
+          next[plan.id] = { rub, usd };
+        }
+        if (Object.keys(next).length !== 4) throw new Error('Incomplete plan catalog');
+        setPlanPrices(next);
+        setPlanPricesError(null);
+      })
+      .catch(() => {
+        setPlanPrices({});
+        setPlanPricesError(language === 'ru'
+          ? 'Не удалось загрузить актуальные цены тарифов. Покупка временно недоступна.'
+          : 'Could not load current plan prices. Purchasing is temporarily unavailable.');
+      });
+  }, [language]);
+
 
   // Prices and pack sizes come from the backend catalog, the same source used at checkout.
   useEffect(() => {
@@ -255,6 +285,21 @@ export const PricingView: React.FC = () => {
     },
   ];
 
+
+  const formatPlanPrice = (amount: number, currencyCode: 'rub' | 'usd') => {
+    const formatted = new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', {
+      minimumFractionDigits: currencyCode === 'usd' ? 2 : 0,
+      maximumFractionDigits: currencyCode === 'usd' ? 2 : 0,
+    }).format(amount);
+    return currencyCode === 'rub' ? `${formatted} ₽` : `${formatted}`;
+  };
+
+  const plansWithCatalogPrices = plans.map((plan) => ({
+    ...plan,
+    priceRub: planPrices[plan.id] ? formatPlanPrice(planPrices[plan.id].rub, 'rub') : '—',
+    priceUsd: planPrices[plan.id] ? formatPlanPrice(planPrices[plan.id].usd, 'usd') : '—',
+  }));
+
   // Реальная покупка пакета кредитов: POST /billing/credits → оплата Prodamus.
   // После оплаты вебхук зачисляет кредиты на баланс (пакеты не сгорают).
   const handleBuyCredits = async (packId: string) => {
@@ -292,6 +337,12 @@ export const PricingView: React.FC = () => {
   return (
     <div className="space-y-7 pb-10">
       {/* Header & Currency Switcher */}
+      {planPricesError && (
+        <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {planPricesError}
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-primary-theme font-heading">
@@ -399,7 +450,7 @@ export const PricingView: React.FC = () => {
       {activeTab === 'plans' && (
         <div className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {plans.map((plan) => {
+            {plansWithCatalogPrices.map((plan) => {
               const isCurrent = currentPlanId === plan.id;
               const displayPrice = currency === 'rub' ? plan.priceRub : plan.priceUsd;
               const secondaryPrice = currency === 'rub' ? plan.priceUsd : plan.priceRub;
@@ -496,7 +547,7 @@ export const PricingView: React.FC = () => {
                   {/* Select Plan Button */}
                   <button
                     onClick={() => handlePay(plan.id)}
-                    disabled={payingId === plan.id}
+                    disabled={payingId === plan.id || !planPrices[plan.id] || Boolean(planPricesError)}
                     className={`w-full py-2.5 px-4 rounded-xl text-xs md:text-sm font-semibold transition-all cursor-pointer shadow-xs disabled:opacity-60 disabled:cursor-wait ${
                       isCurrent
                         ? 'bg-surface text-primary-theme border border-accent font-bold hover:bg-subtle'
