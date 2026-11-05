@@ -12,8 +12,7 @@ create table if not exists public.pinterest_oauth_connection_state (
 );
 
 alter table public.pinterest_oauth_connection_state enable row level security;
-revoke all on public.pinterest_oauth_connection_state from public, anon, authenticated;
-grant select, insert, update, delete on public.pinterest_oauth_connection_state to service_role;
+revoke all on public.pinterest_oauth_connection_state from public, anon, authenticated, service_role;
 
 create or replace function public.begin_pinterest_oauth_attempt(
   p_user_id text,
@@ -22,7 +21,7 @@ create or replace function public.begin_pinterest_oauth_attempt(
 ) returns bigint
 language plpgsql
 security definer
-set search_path = public
+set search_path = pg_catalog, public
 as $$
 declare
   v_generation bigint;
