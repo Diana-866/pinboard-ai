@@ -84,12 +84,12 @@ begin
   end if;
 
   -- Expired attempts cannot commit, even if the signed state is otherwise valid.
-  v_generation_e := public.begin_pinterest_oauth_attempt(v_user::text, v_attempt_e, 1);
+  v_generation_e := public.begin_pinterest_oauth_attempt(v_user::text, v_attempt_e, 0);
   update public.pinterest_oauth_connection_state
      set attempt_expires_at = now() - interval '1 second'
    where user_id = v_user::text;
   v_committed := public.commit_pinterest_oauth_attempt(
-    v_user::text, v_attempt_e, v_generation_e, 1,
+    v_user::text, v_attempt_e, v_generation_e, 0,
     'pinterest-user-expired', 'expired_attempt', 'enc:expired-access', 'enc:expired-refresh',
     'boards:read,pins:write', now() + interval '1 hour'
   );
