@@ -285,16 +285,40 @@ async function refreshAccessToken(account) {
       throw httpError(409, "Pinterest-доступ истёк. Подключите аккаунт заново.");
     }
 
-    // Pinterest may omit a replacement refresh_token; preserve the current one.
-    const refreshedTokens = {
-      ...res.data,
-      access_token: res.data.access_token || latest.access_token,
-      refresh_token: res.data.refresh_token || latest.refresh_token,
-    };
-    await saveAccount(latest.user_id, refreshedTokens, {
-      id: latest.pinterest_user_id,
-      username: latest.username,
+    // Do not use the general OAuth upsert here: a reconnect may have replaced
+    // the account while this request was in flight. Commit only if both the
+    // lease and the account row version still match what we refreshed.
+    const refreshedAccessToken = res.data.access_token || latest.access_token;
+    const refreshedRefreshToken = res.data.refresh_token || latest.refresh_token;
+    const expiresAt = res.data.expires_in
+      ? new Date(Date.now() + Number(res.data.expires_in) * 1000).toISOString()
+      : null;
+    const { data: committed, error: commitError } = await supabase.rpc("commit_pinterest_token_refresh", {
+      p_user_id: String(latest.user_id),
+      p_lease_id: leaseId,
+      p_expected_updated_at: latest.updated_at,
+      p_access_token: encryptToken(refreshedAccessToken),
+      p_refresh_token: encryptToken(refreshedRefreshToken),
+      p_scopes: res.data.scope || latest.scopes || SCOPES.join(","),
+      p_expires_at: expiresAt,
     });
+    if (commitError) {
+      console.error("[pinterest] не удалось атомарно сохранить обновлённые токены:", commitError.message);
+      throw httpError(503, "Pinterest обновил доступ, но PinPosy не смог безопасно сохранить токены. Повторите подключение Pinterest, если ошибка повторится.");
+    }
+    if (!committed) {
+      // OAuth reconnect or lease expiry won the race. Never overwrite its row.
+      const current = await getAccount(latest.user_id);
+      if (
+        current &&
+        (current.access_token !== latest.access_token ||
+          current.refresh_token !== latest.refresh_token ||
+          current.updated_at !== latest.updated_at)
+      ) {
+        return current;
+      }
+      throw httpError(503, "Не удалось подтвердить обновление Pinterest-доступа. Повторите запрос.");
+    }
     return getAccount(latest.user_id);
   } finally {
     const { error: releaseError } = await supabase.rpc("release_pinterest_token_refresh_lease", {
