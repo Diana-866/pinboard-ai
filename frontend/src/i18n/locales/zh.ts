@@ -329,6 +329,8 @@ export const zh: TranslationSchema = {
     targetBoardLabel: "Pinterest 目标画板：",
     dateSavedHint: "此日期将发送给生成器并保存到发布日历。",
     generateDateButton: "继续生成此日期的内容",
+    cancelScheduledPin: '取消计划发布',
+    cancelScheduledPinConfirm: '确定取消这条计划发布吗？该内容将不会发送到 Pinterest。',
     autoTimeMoscowTemplate: "{time} {timezone}（服务器时间 {moscowTime} MSK）",
   },
 
