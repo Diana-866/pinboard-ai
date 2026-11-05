@@ -377,7 +377,7 @@ export const de: TranslationSchema = {
     languageSection: 'Sprache der Benutzeroberfläche',
     languageSectionDesc: 'Wählen Sie Ihre bevorzugte Sprache. Änderungen werden sofort in allen Bereichen wirksam.',
     connectedAccountSection: 'Verknüpftes Pinterest Business-Konto',
-    connectedAccountDesc: 'Autorisierte OAuth 2.0-Verbindung zum Synchronisieren von Pinnwänden und Veröffentlichen.',
+    connectedAccountDesc: "Hier können Sie Ihre Pinterest-Unternehmenskonten verwalten. Das Verknüpfen von Konten ist noch nicht verfügbar.",
     connectedAccountsCount: "Konten verbunden: {count} von {max}",
     noAccountsConnected: "Es sind keine Pinterest-Konten verbunden. Die Pinterest-Autorisierung ist noch nicht verfügbar; daher ist derzeit kein Konto verknüpft oder bestätigt.",
     pinterestConnectionUnavailable: "Die Verknüpfung von Pinterest-Konten ist noch nicht verfügbar. Es wurde kein Konto verbunden oder bestätigt.",
