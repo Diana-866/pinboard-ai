@@ -377,7 +377,7 @@ export const es: TranslationSchema = {
     languageSection: 'Idioma de la Interfaz',
     languageSectionDesc: 'Seleccione su idioma preferido. Los cambios se aplican de inmediato en toda la plataforma.',
     connectedAccountSection: 'Cuenta Comercial de Pinterest Vinculada',
-    connectedAccountDesc: 'Conexión verificada mediante OAuth 2.0 para sincronizar tableros, publicar directamente y consultar analíticas.',
+    connectedAccountDesc: "Aquí podrás gestionar tus cuentas de empresa de Pinterest. La vinculación de cuentas aún no está disponible.",
     connectedAccountsCount: "Cuentas conectadas: {count} de {max}",
     noAccountsConnected: "No hay cuentas de Pinterest conectadas. La autorización de Pinterest aún no está disponible, por lo que no hay ninguna cuenta vinculada ni verificada.",
     pinterestConnectionUnavailable: "La vinculación de cuentas de Pinterest aún no está disponible. No se ha conectado ni verificado ninguna cuenta.",
