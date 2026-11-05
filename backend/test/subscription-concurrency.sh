@@ -13,7 +13,7 @@ OLDER_ID="$("${psql_base[@]}" -At -c "insert into public.subscriptions(user_id, 
 NEWER_ID="$("${psql_base[@]}" -At -c "insert into public.subscriptions(user_id, plan, status, provider_payment_id, amount, currency, created_at) values ('$USER_ID', 'pro', 'pending', 'ci-concurrent-new-' || gen_random_uuid(), 4990, 'rub', now() - interval '1 minute') returning id")"
 
 cleanup() {
-  "${psql_base[@]}" -c "delete from public.subscriptions where user_id = '$USER_ID'; delete from public.users where id = '$USER_ID';" >/dev/null 2>&1 || true
+  "${psql_base[@]}" -c "delete from public.email_outbox where subscription_id in (select id from public.subscriptions where user_id = '$USER_ID'); delete from public.subscriptions where user_id = '$USER_ID'; delete from public.users where id = '$USER_ID';" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
