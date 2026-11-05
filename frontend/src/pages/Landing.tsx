@@ -1394,6 +1394,12 @@ export const Landing: React.FC = () => {
             ))}
           </div>
 
+          {planCatalogError && (
+            <p role="alert" className="mt-4 rounded-xl border border-[#F0C7CE] bg-[#FDF2F4] px-4 py-2.5 text-center text-[11.5px] font-semibold text-[#A94D5F]">
+              {ru ? 'Не удалось загрузить актуальные тарифы. Обновите страницу или попробуйте позже.' : 'Could not load current pricing. Refresh the page or try again later.'}
+            </p>
+          )}
+
           {payError && (
             <p className="mt-4 rounded-xl border border-[#F0C7CE] bg-[#FDF2F4] px-4 py-2.5 text-center text-[11.5px] font-semibold text-[#A94D5F]">
               {payError}
