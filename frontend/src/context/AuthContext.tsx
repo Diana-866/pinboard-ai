@@ -60,6 +60,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     try {
       const data = await apiRequest("/me");
+      const localLanguage = localStorage.getItem("pinposy_lang");
+      if (localLanguage && ["en", "ru", "es", "pt", "de", "fr", "zh"].includes(localLanguage) && localLanguage !== data.preferred_language) {
+        try {
+          await apiRequest("/me", { method: "PATCH", body: JSON.stringify({ preferred_language: localLanguage }) });
+          data.preferred_language = localLanguage;
+        } catch (error) {
+          console.warn("[auth] Could not sync saved interface language:", error);
+        }
+      }
       let avatar: string | undefined;
       try {
         avatar = localStorage.getItem(AVATAR_KEY) || undefined;
