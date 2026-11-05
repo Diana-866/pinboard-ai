@@ -1024,6 +1024,12 @@ app.post("/pins/:id/schedule", requireAuth, async (req, res) => {
     if (scheduledAt.getTime() > Date.now() + 366 * 24 * 60 * 60 * 1000) {
       throw httpError(422, "Нельзя планировать публикацию более чем на год вперёд");
     }
+    const pinterestBoardId = String(
+      (req.body && (req.body.pinterest_board_id || req.body.board_id)) || ""
+    ).trim();
+    if (!pinterestBoardId || pinterestBoardId.length > 128) {
+      throw httpError(422, "Выберите существующую доску Pinterest перед планированием публикации");
+    }
     const timezone = String((req.body && req.body.timezone) || "Europe/Moscow").trim();
     try {
       new Intl.DateTimeFormat("en-US", { timeZone: timezone });
@@ -1047,7 +1053,7 @@ app.post("/pins/:id/schedule", requireAuth, async (req, res) => {
         scheduled_at: scheduledAt.toISOString(),
         timezone,
         destination_url: destinationUrl,
-        pinterest_board_id: req.body && req.body.pinterest_board_id ? String(req.body.pinterest_board_id).trim() : null,
+        pinterest_board_id: pinterestBoardId,
         status: "scheduled",
       })
       .select("*, pins(id, board_id, title, description, image_url, boards(id, title))")
