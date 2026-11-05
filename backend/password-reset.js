@@ -23,8 +23,9 @@ async function sendResetEmail(to, resetUrl, language = "en") {
   });
 }
 
-// Просьба сброса: ответ всегда одинаковый (не раскрываем, есть ли такой email)
-async function requestReset(rawEmail, frontendUrl, requestedLanguage) {
+// Просьба сброса: ответ всегда одинаковый (не раскрываем, есть ли такой email).
+// frontendUrl оставлен в сигнатуре для совместимости, но публичному запросу не доверяем.
+async function requestReset(rawEmail, _frontendUrl, requestedLanguage) {
   const { validateEmail } = require("./validate");
   const email = validateEmail(rawEmail);
 
@@ -34,7 +35,7 @@ async function requestReset(rawEmail, frontendUrl, requestedLanguage) {
     .eq("email", email)
     .maybeSingle();
 
-  if (user) {
+  if (user && transactionalMailConfigured()) {
     const token = crypto.randomBytes(32).toString("base64url");
     const { error } = await supabase.from("auth_tokens").insert({
       user_id: String(user.id),
@@ -42,23 +43,26 @@ async function requestReset(rawEmail, frontendUrl, requestedLanguage) {
       purpose: "password_reset",
       expires_at: new Date(Date.now() + TTL_MINUTES * 60 * 1000).toISOString(),
     });
-    if (error) throw httpError(500, "Не удалось создать ссылку восстановления");
-
-    if (transactionalMailConfigured()) {
-      // Не доверяем frontendUrl из публичного запроса: ссылка строится только из серверной настройки.
-      const base = (process.env.FRONTEND_URL || "https://pinposy.com").split(",")[0].trim().replace(/\/$/, "");
+    if (error) {
+      console.error("[password-reset] не удалось создать токен:", error.message);
+      // Не раскрываем существование аккаунта через различия ответов.
+    } else {
+      const base = (process.env.FRONTEND_URL || "https://pinposy.com")
+        .split(",")[0].trim().replace(/\/$/, "");
       try {
-        await sendResetEmail(email, `${base}/reset-password?token=${encodeURIComponent(token)}`, user.preferred_language || requestedLanguage);
+        await sendResetEmail(
+          email,
+          `${base}/reset-password?token=${encodeURIComponent(token)}`,
+          user.preferred_language || requestedLanguage
+        );
       } catch (e) {
         console.error("[password-reset] письмо не отправлено:", e.message);
-        throw httpError(503, "Почтовый сервис не отвечает — попробуйте позже");
       }
-    } else {
-      console.warn("[password-reset] транзакционная почта не настроена — ссылка не отправлена");
-      throw httpError(503, "Восстановление по email пока не настроено — напишите на support@pinposy.com");
     }
+  } else if (user) {
+    console.warn("[password-reset] транзакционная почта не настроена");
   }
-  // Одинаковый ответ для существующих и несуществующих адресов — защита от перебора
+
   return {
     ok: true,
     message: "Если такой email зарегистрирован, письмо со ссылкой уже отправлено. Проверьте почту.",
