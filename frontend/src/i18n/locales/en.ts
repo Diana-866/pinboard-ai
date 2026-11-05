@@ -377,7 +377,7 @@ export const en: TranslationSchema = {
     languageSection: 'Application UI Language',
     languageSectionDesc: 'Select your preferred interface language. Changes apply across all modules immediately.',
     connectedAccountSection: 'Connected Pinterest Business Account',
-    connectedAccountDesc: 'Verified OAuth 2.0 API connection for board sync, direct publishing, and analytics ingestion.',
+    connectedAccountDesc: "Manage your Pinterest business accounts here. Account linking is not available yet.",
     connectedAccountsCount: "Connected {count} of {max} accounts",
     noAccountsConnected: "No Pinterest accounts are connected. Pinterest OAuth is not available yet, so no account is currently linked or verified.",
     pinterestConnectionUnavailable: "Pinterest account linking is not available yet. No account was connected or verified.",
