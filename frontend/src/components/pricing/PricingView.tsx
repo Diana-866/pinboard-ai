@@ -27,7 +27,7 @@ import { payAndRedirect, PayablePlan, SubscriptionRow, buyCreditsAndRedirect, Cr
 import { apiRequest } from '../../lib/api';
 
 export const PricingView: React.FC = () => {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { user, refreshUser } = useAuth();
   // Реальная оплата: создаём платёж на бэкенде и уводим на страницу Prodamus
   const [payingId, setPayingId] = useState<string | null>(null);
@@ -80,8 +80,8 @@ export const PricingView: React.FC = () => {
   };
 
   const [activeTab, setActiveTab] = useState<'plans' | 'credits'>('plans');
-  const [currency, setCurrency] = useState<'rub' | 'usd'>('rub');
-  const [currentPlanId, setCurrentPlanId] = useState<string>(user?.tariff_plan && user.tariff_plan !== 'none' ? user.tariff_plan : 'none');
+  const [currency, setCurrency] = useState<'rub' | 'usd'>(language === 'ru' ? 'rub' : 'usd');
+  const currentPlanId = user?.tariff_plan || 'none';
 
   // Реальный баланс кредитов (users.credits_balance из /me).
   // Докупленные пакеты зачисляются вебхуком Prodamus и НЕ сгорают.
@@ -287,6 +287,7 @@ export const PricingView: React.FC = () => {
 
         {/* Currency & Tabs Switchers */}
         <div className="flex items-center gap-3 flex-wrap">
+          {activeTab === 'plans' && (
           {/* Currency Toggle */}
           <div className="bg-subtle p-1 rounded-xl border border-subtle flex items-center gap-1 text-xs font-semibold">
             <button
@@ -310,6 +311,8 @@ export const PricingView: React.FC = () => {
               {t.pricing.currencyUsd}
             </button>
           </div>
+
+          )}
 
           {/* Section Tabs */}
           <div className="bg-subtle p-1 rounded-xl border border-subtle flex items-center gap-1 text-xs md:text-sm font-semibold">
@@ -561,6 +564,9 @@ export const PricingView: React.FC = () => {
               </h3>
               <p className="text-xs text-secondary-theme mt-1 max-w-3xl leading-relaxed">
                 {t.pricing.creditsPackDesc}
+              </p>
+              <p className="text-[11px] text-muted-theme mt-2">
+                {t.pricing.creditPacksCurrencyNotice}
               </p>
             </div>
             <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
