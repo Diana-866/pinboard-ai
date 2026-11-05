@@ -359,6 +359,31 @@ async function withAccount(userId, handler) {
   return result;
 }
 
+// ---------- проверка доски ----------
+
+async function verifyPinterestBoard(userId, pinterestBoardId) {
+  const boardId = String(pinterestBoardId || "").trim();
+  if (!boardId || boardId.length > 128) {
+    throw httpError(422, "Выберите существующую доску Pinterest перед планированием публикации");
+  }
+
+  const boardResult = await withAccount(userId, (token) =>
+    callPinterest("GET", `/boards/${encodeURIComponent(boardId)}`, { token })
+  );
+  if (!boardResult.ok) {
+    if ([403, 404].includes(boardResult.status)) {
+      throw httpError(422, "Выбранная доска не найдена или недоступна подключённому Pinterest-аккаунту");
+    }
+    throw httpError(502, "Не удалось проверить выбранную доску Pinterest. Попробуйте позже.");
+  }
+
+  const verifiedBoardId = String((boardResult.data && boardResult.data.id) || "");
+  if (verifiedBoardId !== boardId) {
+    throw httpError(422, "Pinterest не подтвердил принадлежность выбранной доски аккаунту");
+  }
+  return verifiedBoardId;
+}
+
 // ---------- публикация ----------
 
 /** Пин принадлежит пользователю? pins -> boards -> projects -> user_id */
@@ -380,23 +405,10 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
   const boardId = String(pinterestBoardId || "").trim();
   if (!boardId) throw httpError(422, "board_id обязателен: выберите доску Pinterest");
 
-  // Проверяем владельца локального пина и выбранной доски до резервации.
+  // Проверяем владельца локального пина и доступность доски до резервации.
   const pin = await getPinWithOwner(pinId, userId);
   if (!pin.image_url) throw httpError(422, "У пина нет изображения — сначала сгенерируйте картинку");
-
-  const boardResult = await withAccount(userId, (token) =>
-    callPinterest("GET", `/boards/${encodeURIComponent(boardId)}`, { token })
-  );
-  if (!boardResult.ok) {
-    if ([403, 404].includes(boardResult.status)) {
-      throw httpError(422, "Выбранная доска не найдена или недоступна подключённому Pinterest-аккаунту");
-    }
-    throw httpError(502, "Не удалось проверить выбранную доску Pinterest. Попробуйте позже.");
-  }
-  const verifiedBoardId = String((boardResult.data && boardResult.data.id) || "");
-  if (verifiedBoardId !== boardId) {
-    throw httpError(422, "Pinterest не подтвердил принадлежность выбранной доски аккаунту");
-  }
+  await verifyPinterestBoard(userId, boardId);
 
   let destinationUrl = null;
   if (scheduledDestinationUrl) {
@@ -816,5 +828,6 @@ module.exports = {
   createState,
   readState,
   publishPin,
+  verifyPinterestBoard,
   SCOPES,
 };
