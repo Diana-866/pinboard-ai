@@ -329,6 +329,8 @@ export const es: TranslationSchema = {
     targetBoardLabel: "Tablero de destino de Pinterest:",
     dateSavedHint: "Esta fecha se enviará al generador y se guardará en tu calendario de publicaciones.",
     generateDateButton: "Continuar con la generación para esta fecha",
+    cancelScheduledPin: 'Cancelar publicación programada',
+    cancelScheduledPinConfirm: '¿Cancelar esta publicación programada? No se enviará a Pinterest.',
     autoTimeMoscowTemplate: "a las {time} {timezone} ({moscowTime} MSK en el servidor)",
   },
 
