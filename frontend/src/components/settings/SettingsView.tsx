@@ -156,7 +156,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <span className="w-2 h-2 rounded-full bg-emerald-500" title={t.settings.apiVerified} />
                         {isActive && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full accent-btn text-white">
-                            Активный профиль
+                            {t.settings.activeProfile}
                           </span>
                         )}
                       </div>
@@ -178,7 +178,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         onClick={() => onSelectAccount(acc.id)}
                         className="secondary-btn px-3 py-1.5 text-xs font-semibold cursor-pointer"
                       >
-                        Сделать активным
+                        {t.settings.makeActive}
                       </button>
                     )}
 
@@ -218,9 +218,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           </span>
                           <span className="text-[11px] text-muted-theme">
                             {acc.nightlyAuto !== false
-                              ? isMsk || (language === 'ru' && isMsk)
-                                ? `Запуск в ${autoTime} МСК (${acc.minDailyPins}–${acc.maxDailyPins} пинов)`
-                                : `Запуск в ${autoTime} ${tzInfo.abbr} (${mskTime} МСК на сервере)`
+                              ? (isMsk ? t.settings.scheduleLocal : t.settings.scheduleWithServer)
+                                  .replace('{time}', autoTime)
+                                  .replace('{min}', String(acc.minDailyPins))
+                                  .replace('{max}', String(acc.maxDailyPins))
+                                  .replace('{zone}', tzInfo.abbr)
+                                  .replace('{serverTime}', mskTime)
                               : t.settings.schedulePaused}
                           </span>
                         </div>
