@@ -53,7 +53,7 @@ export const Register: React.FC = () => {
     try {
       await apiRequest('/register', {
         method: 'POST',
-        body: JSON.stringify({ email: email.trim(), password, name: name.trim() || undefined, surname: surname.trim() || undefined }),
+        body: JSON.stringify({ email: email.trim(), password, name: name.trim() || undefined, surname: surname.trim() || undefined, preferred_language: language }),
       });
       // JWT при регистрации не выдаётся: сначала подтверждение email.
       // Экран «Проверьте почту» с кнопкой повторной отправки.
