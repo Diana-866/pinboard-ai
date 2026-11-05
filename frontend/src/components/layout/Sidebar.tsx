@@ -59,7 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onAddAccountClick,
   onGoToPricing,
   maxAccounts = 3,
-  pendingCount = 15,
+  pendingCount = 0,
 }) => {
   const { t } = useI18n();
   const { user, isAuthenticated, logout, updateUserAvatar, openAuthModal } = useAuth();
@@ -75,15 +75,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const activeAccount = accounts.find((a) => a.id === activeAccountId) || accounts[0] || {
-    id: 'acc-1',
-    name: 'Botanica Nordic Living',
-    handle: '@botanica_nordic',
-    avatar: '/src/assets/images/pin_home_decor_1790670043705.jpg',
-    status: 'active',
-  };
+  const selectedAccountId = activeAccountId || accounts[0]?.id;
 
-  const isUnlimited = user?.plan === 'Agency' || maxAccounts >= 99;
+  const isUnlimited = user?.tariff_plan === 'agency' || maxAccounts >= 99;
   const isLimitReached = !isUnlimited && accounts.length >= maxAccounts;
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -272,7 +266,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </p>
                   </div>
                   <p className="text-[10px] text-muted-theme font-mono truncate">
-                    {user?.email || 'sdreimei@gmail.com'}
+                    {user?.email || ''}
                   </p>
                 </div>
               </div>
@@ -295,7 +289,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] text-muted-theme uppercase font-semibold">{t.nav.planLabel}</span>
                 <span className="px-2 py-0.5 rounded-md font-mono font-bold text-[10px] accent-pill text-accent-ghost">
-                  {user?.plan || 'Pro'}
+                  {user?.tariff_plan && user.tariff_plan !== 'none' ? user.tariff_plan : t.nav.planLabel}
                 </span>
                 {isUnlimited && (
                   <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 font-mono">
@@ -337,7 +331,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* List of Connected Accounts */}
             <div className="space-y-1.5 max-h-36 overflow-y-auto">
               {accounts.map((acc) => {
-                const isSelected = acc.id === activeAccount.id;
+                const isSelected = acc.id === selectedAccountId;
                 return (
                   <button
                     key={acc.id}
