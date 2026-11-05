@@ -10,6 +10,9 @@ declare
   v_same_plan_result jsonb;
   v_balance integer;
   v_count integer;
+  v_outbox_id uuid;
+  v_outbox_claim uuid;
+  v_outbox_marked boolean;
   v_first_end timestamptz;
   v_second_end timestamptz;
   v_newer_end timestamptz;
@@ -259,6 +262,31 @@ begin
   perform public.activate_paid_subscription(v_sub, now());
   select period_end into v_first_end from public.subscriptions where id = v_sub;
 
+  -- Subscription activation and its notification event must be atomic and idempotent.
+  select count(*) into v_count from public.email_outbox
+   where subscription_id = v_sub and event_key = 'subscription_activated:' || v_sub::text;
+  if v_count <> 1 then raise exception 'activation must enqueue exactly one email event'; end if;
+
+  select id, claim_token into v_outbox_id, v_outbox_claim
+    from public.claim_email_outbox(10)
+   where subscription_id = v_sub;
+  if v_outbox_id is null or v_outbox_claim is null then
+    raise exception 'pending subscription email was not claimed';
+  end if;
+  v_outbox_marked := public.mark_email_outbox_sent(v_outbox_id, gen_random_uuid());
+  if v_outbox_marked is distinct from false then
+    raise exception 'email outbox accepted an incorrect claim token';
+  end if;
+  v_outbox_marked := public.mark_email_outbox_sent(v_outbox_id, v_outbox_claim);
+  if v_outbox_marked is distinct from true then
+    raise exception 'email outbox did not accept the current claim token';
+  end if;
+
+  perform public.activate_paid_subscription(v_sub, now() + interval '1 day');
+  select count(*) into v_count from public.email_outbox
+   where subscription_id = v_sub and event_key = 'subscription_activated:' || v_sub::text;
+  if v_count <> 1 then raise exception 'duplicate payment callback enqueued a second email'; end if;
+
   perform public.activate_paid_subscription(v_sub, now() + interval '1 day');
   select period_end into v_second_end from public.subscriptions where id = v_sub;
   if v_first_end is distinct from v_second_end then
@@ -455,6 +483,8 @@ begin
   delete from public.pinterest_publications where user_id=v_user::text;
   delete from public.pins where board_id = v_board;
   delete from public.boards where id = v_board;
+  delete from public.email_outbox where subscription_id in (select id from public.subscriptions where user_id = v_user::text);
+  delete from public.subscriptions where user_id = v_user::text;
   delete from public.projects where id = v_project;
   delete from public.users where id = v_user;
 end;
