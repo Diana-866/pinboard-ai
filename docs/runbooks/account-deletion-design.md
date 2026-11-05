@@ -162,3 +162,24 @@ Additional behavior/limitations to address before production hardening:
 - The password-reset four-argument RPC cooldown and migration 025 removal of the legacy three-argument overload must both be present before relying on the five-minute cooldown. Keep the explicit four-argument call in the backend.
 
 The Bearer parser unit tests were run locally in an isolated Node 22 harness: 3 tests passed. This is not a full backend suite or CI result. No production deployment or database migration was performed.
+
+
+## Password reset and email-verification flow audit (Nov 5, 2026)
+
+Further frontend/backend review found and corrected these issues:
+
+- `VerifyEmail.tsx` captured the verification token from the query string, then removed the query string with React Router navigation. The component's next render could therefore see an empty token when the user clicked Confirm. The token is now retained in a ref before URL cleanup and used for the explicit POST.
+- `ResetPassword.tsx` previously left the password-reset credential in the address bar/history. It now captures the token in a ref, removes the query string using replace navigation, and continues rendering/submitting from the in-memory token.
+- Login previously ignored Supabase lookup errors and could report “wrong email or password” during a database outage. It now returns 503 for lookup failures while preserving the generic 401 for unknown email/wrong password.
+- Password-reset request and email-verification resend lookups now explicitly handle database failures with 503 instead of silently presenting a generic success response when no lookup could be completed. The response remains generic for valid database lookups, so account existence is not disclosed.
+
+Existing atomic database behavior reviewed:
+- Password-reset issuance and consumption serialize on the user row before locking token rows. Concurrent consumption rechecks that the token is unused and unexpired after acquiring locks.
+- Password reset increments `users.token_version` in the same transaction as password update and token consumption. Protected routes compare this value on every request and reject older JWTs.
+- Email verification consumption locks user then token and updates `email_verified` and `used_at` atomically. Repeating a consumed token is idempotent only if that same account is already verified.
+- Verification and reset links store only SHA-256 token hashes in `auth_tokens`; raw tokens are delivered in email URLs and are not stored in the database.
+- Verification page requires an explicit button click before consuming the token, avoiding email-scanner auto-consumption.
+
+Deployment caveat: these flows depend on migrations 021–025 (and earlier auth/token migrations) being applied in order. The repository state alone does not prove that the Supabase production database has them. Do not deploy the dependent backend before verifying the live migration state. No migration was run and no production configuration was changed.
+
+CI is still not a valid verification signal: recent workflow jobs terminate before runner assignment (runner_id 0, no steps). Frontend build, full backend tests, and Postgres integration tests remain unverified in CI.
