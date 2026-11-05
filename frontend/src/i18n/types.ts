@@ -405,6 +405,8 @@ export interface TranslationSchema {
     languageSectionDesc: string;
     connectedAccountSection: string;
     connectedAccountDesc: string;
+    connectedAccountsCount: string;
+    noAccountsConnected: string;
     billingSection: string;
     billingSectionDesc: string;
     currentPlan: string;
