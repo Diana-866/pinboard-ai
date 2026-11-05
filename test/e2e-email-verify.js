@@ -102,6 +102,25 @@ require.cache[supabasePath] = {
         token.used_at = new Date().toISOString();
         return { data: true, error: null };
       }
+      if (name === "issue_email_verification_token") {
+        const user = db.users.find((row) => String(row.id) === String(args.p_user_id));
+        if (!user || new Date(args.p_expires_at).getTime() <= Date.now()) return { data: false, error: null };
+        const latest = db.auth_tokens
+          .filter((row) => String(row.user_id) === String(args.p_user_id) && row.purpose === "email_verify")
+          .reduce((max, row) => Math.max(max, new Date(row.created_at).getTime()), 0);
+        if (latest && latest > Date.now() - Number(args.p_min_interval_seconds) * 1000) {
+          return { data: false, error: null };
+        }
+        db.auth_tokens
+          .filter((row) => String(row.user_id) === String(args.p_user_id) && row.purpose === "email_verify" && !row.used_at)
+          .forEach((row) => { row.used_at = new Date().toISOString(); });
+        db.auth_tokens.push({
+          id: rid(), user_id: String(args.p_user_id), token_hash: args.p_token_hash,
+          purpose: "email_verify", expires_at: args.p_expires_at,
+          used_at: null, created_at: new Date().toISOString(),
+        });
+        return { data: true, error: null };
+      }
       if (name === "consume_email_verification_token") {
         const token = db.auth_tokens.find((row) =>
           row.token_hash === args.p_token_hash && row.purpose === "email_verify"
