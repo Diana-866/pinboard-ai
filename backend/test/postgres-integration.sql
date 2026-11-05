@@ -423,6 +423,34 @@ begin
     where user_id=v_user::text and pin_id=v_pin and status='scheduled';
   if v_schedule_count <> 1 then raise exception 'rescheduling after cancellation failed'; end if;
 
+  -- Signed-but-unmatched payment notifications leave a minimal, deduplicated audit record.
+  insert into public.billing_webhook_exceptions(
+    payment_kind, order_id, payment_status, received_sum, expected_amount, reason, event_hash
+  ) values (
+    'credits', 'ppc-unknown-ci', 'success', '190.00', 790, 'amount_mismatch', repeat('a',64)
+  );
+  begin
+    insert into public.billing_webhook_exceptions(
+      payment_kind, order_id, payment_status, received_sum, expected_amount, reason, event_hash
+    ) values (
+      'credits', 'ppc-unknown-ci', 'success', '190.00', 790, 'amount_mismatch', repeat('a',64)
+    );
+    raise exception 'duplicate webhook exception fingerprint was accepted';
+  exception when unique_violation then
+    null;
+  end;
+  select count(*) into v_count from public.billing_webhook_exceptions
+    where event_hash=repeat('a',64);
+  if v_count <> 1 then raise exception 'webhook exception audit was not deduplicated'; end if;
+  if has_table_privilege('anon', 'public.billing_webhook_exceptions', 'INSERT')
+     or has_table_privilege('authenticated', 'public.billing_webhook_exceptions', 'INSERT')
+     or has_table_privilege('service_role', 'public.billing_webhook_exceptions', 'SELECT')
+     or has_table_privilege('service_role', 'public.billing_webhook_exceptions', 'UPDATE')
+     or has_table_privilege('service_role', 'public.billing_webhook_exceptions', 'DELETE')
+     or not has_table_privilege('service_role', 'public.billing_webhook_exceptions', 'INSERT') then
+    raise exception 'billing webhook audit table privileges are too broad or insufficient';
+  end if;
+
   delete from public.pinterest_publish_attempts where user_id=v_user::text;
   delete from public.pinterest_publications where user_id=v_user::text;
   delete from public.pins where board_id = v_board;
