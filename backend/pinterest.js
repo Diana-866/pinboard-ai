@@ -171,33 +171,6 @@ async function getAccount(userId) {
   };
 }
 
-async function saveAccount(userId, tokenResponse, profile) {
-  const now = Date.now();
-  const expiresAt =
-    tokenResponse && tokenResponse.expires_in
-      ? new Date(now + Number(tokenResponse.expires_in) * 1000).toISOString()
-      : null;
-
-  const row = {
-    user_id: userId,
-    pinterest_user_id: profile && profile.id ? String(profile.id) : null,
-    username: profile && profile.username ? String(profile.username) : null,
-    access_token: encryptToken(tokenResponse.access_token),
-    refresh_token: encryptToken(tokenResponse.refresh_token || null),
-    scopes: tokenResponse.scope || SCOPES.join(","),
-    expires_at: expiresAt,
-    updated_at: new Date(now).toISOString(),
-  };
-
-  const { data, error } = await supabase
-    .from("pinterest_accounts")
-    .upsert(row, { onConflict: "user_id" })
-    .select()
-    .maybeSingle();
-  if (error) throw error;
-  return data;
-}
-
 // ---------- OAuth ----------
 
 async function exchangeCode(code) {
