@@ -310,3 +310,10 @@ No live Pinterest authorization, Supabase RPC, migration, or deployment was run.
 - Operational ordering is mandatory: migration 026 must be applied before deploying this code to any environment that can refresh Pinterest tokens. Until then, the RPC is absent and refresh fails closed with 503. The migration has not been applied to Supabase as part of this repository work.
 - Residual edge case: if a process crashes after Pinterest rotates the refresh token but before PinPosy persists the replacement, the lease eventually expires but the old token may already be invalid. No local lock can eliminate this remote/local commit gap; recovery may require reconnecting Pinterest. The lease prevents concurrent rotation but does not make Pinterest's remote token endpoint transactional with Supabase.
 - No live concurrent-refresh test was run because the Supabase migration is not applied and no production credentials were accessed. Add an integration test against a disposable Supabase/Postgres environment before enabling the scheduler in production.
+
+### Refresh-token commit fencing (migration 027)
+
+- Migration 027 adds `commit_pinterest_token_refresh()`. A refresh result is persisted only if the caller still owns the unexpired lease and the Pinterest account row still has the exact `updated_at` version observed before the remote refresh request.
+- This prevents a slow/expired lease holder from overwriting a newer refresh or a concurrent OAuth reconnect. The RPC updates the existing account row (it does not upsert a deleted/reconnected account) and releases the lease in the same database transaction after a successful compare-and-swap.
+- If the lease expired or the account row changed, the refresh result is discarded and the latest stored account is re-read. If the state cannot be reconciled, the request fails closed with 503.
+- Rollout order: apply migrations 026 and 027 before deploying the new backend code. Both migrations remain unapplied in the live Supabase project until separately authorized and verified.
