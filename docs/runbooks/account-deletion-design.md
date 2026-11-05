@@ -275,3 +275,11 @@ No production configuration, live database, migration, or deployment was changed
 - Pinterest tokens use AES-256-GCM with a 32-byte key. Legacy plaintext tokens are migrated on read, so verify no legacy rows remain before claiming all stored tokens are encrypted.
 
 No live Pinterest authorization, Supabase RPC, migration, or deployment was run. These are source changes only; SQL execution tests remain outstanding.
+
+
+### Scheduled publication queue edge case
+
+- The schedule API permits a row with no `pinterest_board_id`, while the worker only claims rows with a destination board. Such rows previously remained `scheduled` indefinitely and never appeared as a terminal failure.
+- Updated migration `017_pinterest_schedule_worker.sql`: when the worker runs, due rows missing a Pinterest board are moved to `failed` with an actionable `last_error`. They are no longer silently stranded; after selecting a destination, the user can create a new schedule because the partial unique index excludes failed rows.
+- UI audit found a mismatch to resolve: calendar/review components use local PinPosy board IDs (`boardId`), while the persistent scheduler needs a remote Pinterest board ID (`pinterestBoardId`). The current calendar path can submit the latter as undefined. A proper remote-board selector/ID mapping is still needed; this SQL guard is a fail-safe, not a complete UX fix.
+- The ownership check added to `begin_pinterest_publish()` explicitly casts `projects.user_id` to text, matching the established `user_id::text` comparison used by the pin-generation ownership RPC and avoiding a possible UUID/text operator mismatch.
