@@ -183,3 +183,30 @@ Existing atomic database behavior reviewed:
 Deployment caveat: these flows depend on migrations 021–025 (and earlier auth/token migrations) being applied in order. The repository state alone does not prove that the Supabase production database has them. Do not deploy the dependent backend before verifying the live migration state. No migration was run and no production configuration was changed.
 
 CI is still not a valid verification signal: recent workflow jobs terminate before runner assignment (runner_id 0, no steps). Frontend build, full backend tests, and Postgres integration tests remain unverified in CI.
+
+
+## Account lifecycle follow-up audit (Nov 5, 2026)
+
+The current implementation confirms the design-only deletion status and adds these concrete integration constraints:
+
+### Authentication and verification
+
+- `POST /resend-verification` manually verifies the JWT and extracts only `userId`; it does not call `requireAuth` or compare the JWT `tokenVersion` against `users.token_version`. A token invalidated by password reset can therefore still reach the authenticated resend branch until JWT expiry. Fix by extracting one shared active-session validator and using it in both protected middleware and this route. Preserve anonymous email-based resend and its non-enumerating response.
+- `requireAuth` queries `users.token_version` for every protected request and fails closed with 503 on lookup error. Migration 023 is therefore a hard deployment prerequisite for this backend revision; the baseline schema does not include this field. Do not deploy backend before verifying the migration in the target database.
+- Email verification token issuance and consumption use SQL RPCs for atomic issuance/cooldown and one-time consumption. Application-level resend cooldown reads are only prechecks; the issuance RPC is the concurrency guard. Keep this distinction in future refactors.
+- The account lookup used by login currently selects the whole user row and has no explicit account lifecycle-state check because no lifecycle marker exists yet. Once deletion states are introduced, login and JWT validation must reject every non-active state.
+
+### Billing and deletion race
+
+- Both `createPayment()` implementations (subscriptions and credit packs) fetch the user and then create a pending payment row, but neither checks a deletion lifecycle state. A deletion design must block both endpoints once deletion is pending.
+- Both payment fulfillment RPCs can currently grant entitlements to the linked user without checking a deletion state. The deletion marker check must happen inside the same transaction that fulfills payment, not only in Express middleware; otherwise a webhook can race a deletion request.
+- Keep the existing payment-row-then-user-row lock order used by fulfillment RPCs, or deliberately redesign every competing transaction and test it. A deletion transaction that takes user then payment locks can deadlock.
+- User deletion must not cascade-delete subscriptions, credit purchases, or credit ledger evidence. Migration 009 currently has cascading foreign keys; retain the minimum required financial evidence separately before anonymization.
+
+### External integrations and cleanup
+
+- Pinterest account credentials are encrypted at application level with AES-256-GCM, but deletion must remove both encrypted access and refresh tokens and revoke the remote grant where the provider supports it. Removing the DB row alone may not revoke the Pinterest-side grant.
+- Scheduler claims are independent background operations. A lifecycle-state filter must be enforced in the atomic claim SQL function as well as API routes, so a pending-deletion user's scheduled pins cannot be claimed during cleanup.
+- Storage object ownership/path mapping has not been established from the inspected schema. Never delete image objects by deriving a storage key from a public URL; build and test an explicit owner-to-object manifest first.
+
+No account deletion endpoint, lifecycle column, migration, webhook behavior, or production setting was changed in this follow-up. These are verified code constraints and implementation requirements, not shipped functionality.
