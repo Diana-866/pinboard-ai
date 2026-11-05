@@ -1,4 +1,4 @@
--- Run only in disposable PostgreSQL CI database after migrations 010–021.
+-- Run only in disposable PostgreSQL CI database after migrations 010–022.
 do $$
 declare
   v_user uuid := gen_random_uuid();
@@ -30,6 +30,8 @@ declare
   v_reset_result boolean;
   v_email_result boolean;
   v_email_token uuid;
+  v_email_issue boolean;
+  v_email_issue_token uuid;
 
 begin
   insert into public.users(id, email, credits_balance, tariff_plan, email_verified)
@@ -58,6 +60,35 @@ begin
   values (v_user::text, repeat('d', 64), 'email_verify', now() - interval '1 minute');
   if public.consume_email_verification_token(repeat('d', 64)) is distinct from false then
     raise exception 'expired email verification token was accepted';
+  end if;
+
+  -- Issuance enforces cooldown and invalidates prior unused links atomically.
+  update public.auth_tokens
+     set created_at = now() - interval '10 minutes'
+   where user_id = v_user::text and purpose = 'email_verify';
+
+  v_email_issue := public.issue_email_verification_token(
+    v_user::text, repeat('e', 64), now() + interval '1 hour', 300
+  );
+  if v_email_issue is distinct from true then
+    raise exception 'verification token was not issued after cooldown';
+  end if;
+  select id into v_email_issue_token from public.auth_tokens
+   where token_hash = repeat('e', 64);
+
+  v_email_issue := public.issue_email_verification_token(
+    v_user::text, repeat('f', 64), now() + interval '1 hour', 300
+  );
+  if v_email_issue is distinct from false then
+    raise exception 'verification issuance bypassed five-minute cooldown';
+  end if;
+  if exists (
+    select 1 from public.auth_tokens where token_hash = repeat('f', 64)
+  ) then
+    raise exception 'cooldown-rejected verification token was inserted';
+  end if;
+  if (select used_at from public.auth_tokens where id = v_email_issue_token) is not null then
+    raise exception 'cooldown attempt invalidated the active verification token';
   end if;
 
   -- Issuing a newer reset link invalidates the older link for this account.
