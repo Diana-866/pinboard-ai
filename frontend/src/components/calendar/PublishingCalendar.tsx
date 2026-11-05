@@ -31,6 +31,7 @@ interface PublishingCalendarProps {
   scheduledPins: ScheduledPinItem[];
   boards: BoardItem[];
   onAddPin: (pin: ScheduledPinItem) => void;
+  onCancelSchedule?: (pin: ScheduledPinItem) => Promise<void>;
   onGoToGenerator: (topic?: string, date?: string) => void;
   onOpenReview?: () => void;
   accounts?: PinterestAccount[];
@@ -49,6 +50,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
   scheduledPins,
   boards,
   onAddPin,
+  onCancelSchedule,
   onGoToGenerator,
   onOpenReview,
   accounts = [],
@@ -857,6 +859,22 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-subtle">
+              {selectedPin.status === 'scheduled' && onCancelSchedule && (
+                <button
+                  onClick={async () => {
+                    if (!window.confirm(t.calendar.cancelScheduledPinConfirm)) return;
+                    try {
+                      await onCancelSchedule(selectedPin);
+                      setSelectedPin(null);
+                    } catch {
+                      // The parent reports the API error; keep the details open.
+                    }
+                  }}
+                  className="px-4 py-1.5 rounded-xl text-xs font-semibold text-red-600 dark:text-red-400 cursor-pointer hover:bg-red-500/10 border border-red-500/30"
+                >
+                  {t.calendar.cancelScheduledPin}
+                </button>
+              )}
               <button
                 onClick={() => setSelectedPin(null)}
                 className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-subtle text-primary-theme cursor-pointer hover:bg-surface border border-subtle"
