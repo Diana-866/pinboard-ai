@@ -64,9 +64,15 @@ function frontendBase() {
 // ---------- state (защита OAuth-редиректа от подмены) ----------
 
 /** Короткоживущий подписанный state: userId + версия сессии, срок 15 минут. */
-function createState(userId, tokenVersion = 0) {
+function createState(userId, tokenVersion = 0, attemptId, generation) {
   return jwt.sign(
-    { userId, tokenVersion: Number(tokenVersion) || 0, purpose: "pinterest_oauth" },
+    {
+      userId,
+      tokenVersion: Number(tokenVersion) || 0,
+      attemptId,
+      generation: Number(generation),
+      purpose: "pinterest_oauth",
+    },
     process.env.JWT_SECRET,
     { expiresIn: STATE_TTL }
   );
@@ -558,7 +564,16 @@ function registerRoutes(app, deps) {
         .maybeSingle();
       if (accountError) throw accountError;
       if (!account) throw httpError(401, "Не авторизован");
-      const state = createState(req.userId, account.token_version);
+      // Register a new single-use attempt. A newer attempt supersedes older tabs.
+      const attemptId = crypto.randomUUID();
+      const { data: generation, error: beginError } = await supabase.rpc("begin_pinterest_oauth_attempt", {
+        p_user_id: String(req.userId),
+        p_attempt_id: attemptId,
+        p_token_version: Number(account.token_version || 0),
+      });
+      if (beginError) throw beginError;
+      if (generation == null) throw httpError(503, "Не удалось начать подключение Pinterest. Попробуйте позже.");
+      const state = createState(req.userId, account.token_version, attemptId, generation);
       const params = new URLSearchParams({
         client_id: clientId(),
         redirect_uri: redirectUri(),
@@ -606,7 +621,24 @@ function registerRoutes(app, deps) {
       const me = await callPinterest("GET", "/user_account", { token: tokenResponse.access_token });
       if (me.ok && me.data) profile = me.data;
 
-      await saveAccount(userId, tokenResponse, profile);
+      const now = Date.now();
+      const expiresAt = tokenResponse && tokenResponse.expires_in
+        ? new Date(now + Number(tokenResponse.expires_in) * 1000).toISOString()
+        : null;
+      const { data: committed, error: commitError } = await supabase.rpc("commit_pinterest_oauth_attempt", {
+        p_user_id: String(userId),
+        p_attempt_id: String(stateClaims.attemptId || ""),
+        p_generation: Number(stateClaims.generation),
+        p_token_version: Number(stateClaims.tokenVersion || 0),
+        p_pinterest_user_id: profile && profile.id ? String(profile.id) : null,
+        p_username: profile && profile.username ? String(profile.username) : null,
+        p_access_token: encryptToken(tokenResponse.access_token),
+        p_refresh_token: encryptToken(tokenResponse.refresh_token || null),
+        p_scopes: tokenResponse.scope || SCOPES.join(","),
+        p_expires_at: expiresAt,
+      });
+      if (commitError) throw commitError;
+      if (!committed) throw httpError(409, "Попытка подключения Pinterest устарела. Начните подключение заново.");
       console.log(`[pinterest] аккаунт подключён: user=${userId} login=${profile && profile.username}`);
       res.redirect(back("connected"));
     } catch (e) {
@@ -618,8 +650,11 @@ function registerRoutes(app, deps) {
   // Отключение: удаляем строку с токенами
   app.post("/integrations/pinterest/disconnect", requireAuth, async (req, res) => {
     try {
-      const { error } = await supabase.from("pinterest_accounts").delete().eq("user_id", req.userId);
+      const { data: disconnected, error } = await supabase.rpc("disconnect_pinterest_account", {
+        p_user_id: String(req.userId),
+      });
       if (error) throw error;
+      if (!disconnected) throw httpError(503, "Не удалось безопасно отключить Pinterest. Попробуйте позже.");
       res.json({ ok: true, connected: false });
     } catch (e) {
       handleError(res, e);
