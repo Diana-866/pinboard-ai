@@ -129,7 +129,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
                   : 'bg-subtle text-primary-theme border border-subtle'
               }`}>
-                Подключено {accounts.length} из {maxAccounts} аккаунтов
+                {t.settings.connectedAccountsCount.replace('{count}', String(accounts.length)).replace('{max}', String(maxAccounts))}
               </span>
             </div>
             <p className="text-xs text-muted-theme mt-1">
@@ -150,7 +150,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         {/* List of Connected Accounts */}
         <div className="space-y-3">
-          {accounts.map((acc) => {
+          {accounts.length === 0 ? (
+            <p className="rounded-xl border border-subtle bg-subtle/40 p-4 text-sm text-secondary-theme">
+              {t.settings.noAccountsConnected}
+            </p>
+          ) : accounts.map((acc) => {
             const isActive = acc.id === (activeAccountId || accounts[0]?.id);
             return (
               <div
