@@ -319,3 +319,8 @@ No live Pinterest authorization, Supabase RPC, migration, or deployment was run.
 - Rollout order: apply migrations 026 and 027 before deploying the new backend code. Both migrations remain unapplied in the live Supabase project until separately authorized and verified.
 
 - If the commit RPC returns a transport/database error, the backend now re-reads the account before failing. If the new credentials were actually committed but the response was lost, it recovers and uses them rather than prompting an unnecessary reconnect.
+
+### Scheduler error classification hardening
+
+- When the worker catches a publication error, it reads the idempotency journal to determine whether the pin was published, failed, or has an uncertain outcome. If that journal lookup itself fails, the schedule is now marked `unknown` rather than `failed`; a database read outage must not turn an ambiguous remote publication into an automatically retryable state.
+- The worker now checks whether persisting the schedule's final state failed. In that case its response reports `unknown` and logs the database error instead of reporting a terminal status that was not actually saved. The existing stale-`publishing` recovery remains the fallback if the update could not be committed.
