@@ -13,6 +13,7 @@ export interface User {
   tariff_plan?: 'none' | 'analytics' | 'start' | 'pro' | 'agency';
   /** Подтверждён ли email (колонка users.email_verified, миграция 005). undefined — миграция не применена */
   email_verified?: boolean;
+  preferred_language?: 'en' | 'ru' | 'es' | 'pt' | 'de' | 'fr' | 'zh';
   /** Дата окончания оплаченного периода тарифа (users.tariff_period_end, миграция 006) */
   tariff_period_end?: string | null;
   /** Активна ли оплаченная подписка прямо сейчас — по этому полю кабинет снимает замочки */
