@@ -19,7 +19,7 @@ export const ForgotPassword: React.FC = () => {
     try {
       await apiRequest('/forgot-password', {
         method: 'POST',
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email: email.trim(), language }),
       });
       setSent(true);
     } catch (err: any) {
