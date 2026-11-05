@@ -55,6 +55,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const { user } = useAuth();
 
   const [userTimezone, setUserTimezone] = useState<string>(() => getDefaultTimezone(language));
+  const [successToast, setSuccessToast] = useState<string | null>(null);
 
 
   const isLimitReached = accounts.length >= maxAccounts;
@@ -78,6 +79,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {t.settings.subtitle}
         </p>
       </div>
+
+      {successToast && (
+        <div className="p-3 rounded-xl bg-subtle border border-subtle text-xs text-secondary-theme" role="status">
+          {successToast}
+        </div>
+      )}
 
       {/* 1. CONNECTED PINTEREST BUSINESS ACCOUNTS */}
       <section className="custom-card p-6 space-y-5">
@@ -322,6 +329,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             )}
           </div>
         )}
+      </section>
 
       {/* 2. THEME SELECTION */}
       <section className="custom-card p-6 space-y-4">
