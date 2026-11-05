@@ -208,6 +208,7 @@ export const KeywordExplorer: React.FC<KeywordExplorerProps> = ({
           <p className="text-xs md:text-sm text-secondary-theme mt-1">
             {t.keywords.subtitle}
           </p>
+          <p className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-secondary-theme" role="note">{t.keywords.dataDemoNotice}</p>
         </div>
 
         <button
