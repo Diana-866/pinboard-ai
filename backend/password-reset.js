@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const supabase = require("./supabase");
 const { httpError } = require("./validate");
+const { getEmailCopy } = require("./email-locales");
 
 const TTL_MINUTES = 60;
 
@@ -16,7 +17,8 @@ function mailConfigured() {
   return !!(process.env.MAIL_SMTP_HOST && process.env.MAIL_USER && process.env.MAIL_PASS);
 }
 
-async function sendResetEmail(to, resetUrl) {
+async function sendResetEmail(to, resetUrl, language = "en") {
+  const copy = getEmailCopy(language);
   const nodemailer = require("nodemailer");
   const transporter = nodemailer.createTransport({
     host: process.env.MAIL_SMTP_HOST,
@@ -27,19 +29,19 @@ async function sendResetEmail(to, resetUrl) {
   await transporter.sendMail({
     from: process.env.MAIL_FROM || process.env.MAIL_USER,
     to,
-    subject: "PinPosy — восстановление пароля",
-    text: `Здравствуйте!\n\nВы запросили восстановление пароля PinPosy.\nСсылка для смены пароля (действует ${TTL_MINUTES} минут, одноразовая):\n${resetUrl}\n\nЕсли вы не запрашивали сброс — просто проигнорируйте это письмо, пароль не изменится.\n\n— команда PinPosy`,
+    subject: copy.resetSubject,
+    text: [copy.hello, "", copy.resetLead, copy.resetLink, resetUrl, "", copy.resetIgnore, "", copy.team].join("\n"),
   });
 }
 
 // Просьба сброса: ответ всегда одинаковый (не раскрываем, есть ли такой email)
-async function requestReset(rawEmail, frontendUrl) {
+async function requestReset(rawEmail, frontendUrl, requestedLanguage) {
   const { validateEmail } = require("./validate");
   const email = validateEmail(rawEmail);
 
   const { data: user } = await supabase
     .from("users")
-    .select("id")
+    .select("id, preferred_language")
     .eq("email", email)
     .maybeSingle();
 
@@ -56,7 +58,7 @@ async function requestReset(rawEmail, frontendUrl) {
     if (mailConfigured()) {
       const base = frontendUrl || process.env.FRONTEND_URL || "https://pinposy.com";
       try {
-        await sendResetEmail(email, `${base}/reset-password?token=${token}`);
+        await sendResetEmail(email, `${base}/reset-password?token=${token}`, user.preferred_language || requestedLanguage);
       } catch (e) {
         console.error("[password-reset] письмо не отправлено:", e.message);
         throw httpError(503, "Почтовый сервис не отвечает — попробуйте позже");
