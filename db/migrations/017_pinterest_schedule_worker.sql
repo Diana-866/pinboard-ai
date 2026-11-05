@@ -59,7 +59,7 @@ begin
         and pinterest_board_id is not null
       order by scheduled_at asc
       for update skip locked
-      limit greatest(1, least(coalesce(p_limit,10),50))
+      limit greatest(1, least(coalesce(p_limit,10),10))
   )
   update public.pin_schedules s
     set status='publishing',
