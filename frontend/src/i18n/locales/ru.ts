@@ -401,8 +401,6 @@ export const ru: TranslationSchema = {
     apiVerified: "API подключён и проверен",
     syncData: "Синхронизировать данные",
     disconnectAccount: "Отключить аккаунт",
-    makeActive: "Сделать активным",
-    activeProfile: "Активный профиль",
     boardsCount: "досок",
     monthlyViews: "просм./мес.",
     pinsPerDay: "пинов/день",
