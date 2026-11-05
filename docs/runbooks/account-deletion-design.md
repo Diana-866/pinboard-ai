@@ -360,3 +360,14 @@ Do not solve the OAuth race with a second non-atomic read in Express; it merely 
 - Keep the external publish boundary explicit: disconnect prevents new operations but cannot guarantee cancellation after Pinterest has accepted a request. Record this behavior in UI copy and reconcile uncertain outcomes rather than retrying.
 
 This follow-up requires a new SQL migration and backend changes. It has **not** been implemented or applied. Until then, avoid describing disconnect as a guaranteed cancellation of an already-running publish or as invalidating every in-flight OAuth callback.
+
+
+### OAuth attempt fencing implementation (migration 028)
+
+- OAuth initiation now creates a durable per-user attempt through `begin_pinterest_oauth_attempt()`. Starting a newer attempt increments the connection generation and supersedes an older browser tab.
+- The signed OAuth state includes the attempt UUID and generation in addition to the user ID and session token version. The callback validates the claim shape before doing remote token exchange.
+- After code exchange and profile lookup, the callback commits encrypted credentials through `commit_pinterest_oauth_attempt()`. The RPC locks the connection-state row, verifies the attempt UUID, generation, expiry, and current user `token_version`, then writes credentials and consumes the attempt in one transaction.
+- Disconnect now calls `disconnect_pinterest_account()`, which increments the durable generation, clears the active attempt, and deletes credentials in one transaction. A callback started before disconnect can no longer recreate the account.
+- The state row is intentionally retained after disconnect; deleting it would reset the generation and could make old signed states valid again.
+- The RPCs are executable only by `service_role`. Migration 028 is checked in but has **not** been applied to Supabase. Deploying the backend before applying migration 028 will cause Pinterest link/disconnect operations to fail closed; rollout must apply migration 028 before deploying this backend revision.
+- Disconnect still cannot cancel a Pinterest HTTP request already sent by an in-flight publishing operation. That remote-side limitation remains explicit.
