@@ -349,17 +349,20 @@ Reviewed the current account lifecycle in `backend/pinterest.js` (OAuth callback
 2. **Disconnect versus in-flight publish:** disconnect deletes the stored credentials, preventing subsequent account lookups, but cannot revoke a Pinterest HTTP request that has already been sent. A publish that loaded credentials before disconnect may still complete remotely. The UI must not promise cancellation of an already-started remote request.
 3. **Disconnect versus token refresh:** the fenced refresh commit prevents a deleted account from being recreated by refresh. A request already holding an access token may still finish its current read/write call; the next account lookup will fail.
 
-### Required safe follow-up design
+### OAuth attempt fencing implementation
 
-Do not solve the OAuth race with a second non-atomic read in Express; it merely moves the race window. Introduce a durable per-user Pinterest connection generation (or equivalent connection-state row) and atomic database operations:
+The race-prevention design is now implemented in the feature branch:
 
-- OAuth initiation records a short-lived, single-use attempt bound to the current connection generation and session token version.
-- Callback atomically consumes the attempt and saves the encrypted credentials only if the generation is still current.
-- Disconnect atomically increments the generation and deletes credentials. This invalidates callbacks initiated before disconnect, including callbacks whose code exchange is still in flight.
-- Reconnect attempts must have deterministic ordering; an older attempt must not overwrite a newer accepted connection.
-- Keep the external publish boundary explicit: disconnect prevents new operations but cannot guarantee cancellation after Pinterest has accepted a request. Record this behavior in UI copy and reconcile uncertain outcomes rather than retrying.
+- Migration `028_pinterest_oauth_attempt_fencing.sql` creates a durable per-user connection-generation row. It intentionally survives disconnect.
+- OAuth initiation calls `begin_pinterest_oauth_attempt()`, recording a single current attempt with a 15-minute expiry and the current session token version. Starting another attempt advances the generation and supersedes the previous browser tab.
+- The signed state carries the attempt UUID and generation. Callback commits encrypted credentials only through `commit_pinterest_oauth_attempt()`, which locks the state row, checks attempt identity/generation/expiry, rechecks the current user token version, saves credentials, and consumes the attempt in one transaction.
+- Disconnect calls `disconnect_pinterest_account()`, advancing the generation, clearing the attempt, and deleting credentials atomically.
+- The former unconditional Express `saveAccount()` upsert helper was removed so this OAuth path cannot accidentally bypass the fenced RPC.
+- The disposable PostgreSQL integration test `backend/test/pinterest-oauth.integration.sql` covers superseded attempts, one-time commit, replay rejection, disconnect during code exchange, generation persistence, password-reset invalidation, and RPC grants.
+- CI now applies migrations 026, 027, and 028 before running the OAuth integration test. This test has been added but has not yet been observed passing in GitHub Actions; the latest workflow runs failed before exposing step details/logs, so SQL execution remains unverified.
+- Migration 028 is checked in but has **not** been applied to the live Supabase database. Apply it before deploying the corresponding backend code; deploying backend first makes Pinterest link/disconnect fail closed.
 
-This follow-up requires a new SQL migration and backend changes. It has **not** been implemented or applied. Until then, avoid describing disconnect as a guaranteed cancellation of an already-running publish or as invalidating every in-flight OAuth callback.
+The remote publish boundary is unchanged: disconnect prevents subsequent account lookups, but cannot cancel a Pinterest HTTP request already sent. An already-started remote publish may still complete and must be reconciled rather than blindly retried.
 
 
 ### OAuth attempt fencing implementation (migration 028)
