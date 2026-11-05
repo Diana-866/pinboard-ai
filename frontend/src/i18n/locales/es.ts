@@ -384,6 +384,7 @@ export const es: TranslationSchema = {
     billingSection: 'Plan y Asignación de Créditos de IA',
     billingSectionDesc: 'Supervise sus créditos mensuales de inteligencia y capacidades de automatización.',
     currentPlan: 'Plan Actual: Growth Pro',
+    noActivePlan: "No hay una suscripción activa",
     upgradePlan: 'Gestionar Plan',
     creditsUsed: 'Créditos Utilizados',
     resetCycle: 'Los créditos se renuevan automáticamente el primer día de cada mes.',
