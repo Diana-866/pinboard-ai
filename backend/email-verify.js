@@ -176,7 +176,7 @@ async function resendVerification(rawEmail, userIdFromToken) {
     const email = validateEmail(rawEmail);
     const { data: user } = await supabase
       .from("users")
-      .select("id, email, email_verified")
+      .select("id, email, email_verified, preferred_language")
       .eq("email", email)
       .maybeSingle();
 
