@@ -380,6 +380,7 @@ export const es: TranslationSchema = {
     connectedAccountDesc: 'Conexión verificada mediante OAuth 2.0 para sincronizar tableros, publicar directamente y consultar analíticas.',
     connectedAccountsCount: "Cuentas conectadas: {count} de {max}",
     noAccountsConnected: "No hay cuentas de Pinterest conectadas. La autorización de Pinterest aún no está disponible, por lo que no hay ninguna cuenta vinculada ni verificada.",
+    pinterestConnectionUnavailable: "La vinculación de cuentas de Pinterest aún no está disponible. No se ha conectado ni verificado ninguna cuenta.",
     billingSection: 'Plan y Asignación de Créditos de IA',
     billingSectionDesc: 'Supervise sus créditos mensuales de inteligencia y capacidades de automatización.',
     currentPlan: 'Plan Actual: Growth Pro',
