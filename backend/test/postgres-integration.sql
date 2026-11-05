@@ -35,7 +35,7 @@ begin
 
   -- Issuing a newer reset link invalidates the older link for this account.
   v_reset_result := public.issue_password_reset_token(
-    v_user::text, 'ci-reset-old-' || v_user, now() + interval '1 hour'
+    v_user::text, repeat('a', 64), now() + interval '1 hour'
   );
   if v_reset_result is distinct from true then
     raise exception 'first password reset token was not issued';
@@ -44,7 +44,7 @@ begin
    where token_hash = 'ci-reset-old-' || v_user;
 
   v_reset_result := public.issue_password_reset_token(
-    v_user::text, 'ci-reset-new-' || v_user, now() + interval '1 hour'
+    v_user::text, repeat('b', 64), now() + interval '1 hour'
   );
   if v_reset_result is distinct from true then
     raise exception 'second password reset token was not issued';
