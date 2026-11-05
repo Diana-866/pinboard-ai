@@ -421,6 +421,8 @@ export interface TranslationSchema {
     timezoneSectionDesc: string;
     timezoneAutoDetected: string;
     scheduleTitle: string;
+    scheduleLocal: string;
+    scheduleWithServer: string;
     schedulePaused: string;
     autoLabel: string;
     apiVerified: string;
