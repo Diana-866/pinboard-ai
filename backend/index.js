@@ -152,7 +152,7 @@ if (!process.env.GPTUNNEL_API_KEY) {
 async function requireAuth(req, res, next) {
   try {
     const header = req.headers.authorization || "";
-    const token = header.replace(/^Bearer\\s+/i, "").trim();
+    const token = require("./bearerToken").extractBearerToken(header);
     if (!token) throw new Error("Нет токена");
     const decoded = verifyToken(token);
     if (!decoded.userId) throw new Error("Нет userId в токене");
