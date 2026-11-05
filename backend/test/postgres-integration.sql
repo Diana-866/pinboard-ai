@@ -508,6 +508,16 @@ begin
     raise exception 'billing webhook audit table privileges are too broad or insufficient';
   end if;
 
+  if has_table_privilege('anon', 'public.email_outbox', 'SELECT')
+     or has_table_privilege('authenticated', 'public.email_outbox', 'SELECT')
+     or has_table_privilege('anon', 'public.email_outbox', 'INSERT')
+     or has_table_privilege('authenticated', 'public.email_outbox', 'INSERT')
+     or has_table_privilege('service_role', 'public.email_outbox', 'DELETE')
+     or not has_table_privilege('service_role', 'public.email_outbox', 'SELECT')
+     or not has_table_privilege('service_role', 'public.email_outbox', 'UPDATE') then
+    raise exception 'email outbox table privileges are too broad or insufficient';
+  end if;
+
   delete from public.pinterest_publish_attempts where user_id=v_user::text;
   delete from public.pinterest_publications where user_id=v_user::text;
   delete from public.pins where board_id = v_board;
