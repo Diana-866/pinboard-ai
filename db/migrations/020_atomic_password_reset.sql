@@ -13,8 +13,32 @@ set search_path = pg_catalog, public
 as $$
 declare
   v_token public.auth_tokens%rowtype;
+  v_user_id text;
   v_updated integer;
 begin
+  -- Lock order is always user first, token second, matching token issuance.
+  -- This avoids deadlocks between simultaneous issue and consume requests.
+  select user_id
+    into v_user_id
+    from public.auth_tokens
+   where token_hash = p_token_hash
+     and purpose = 'password_reset'
+     and used_at is null
+     and expires_at > now();
+
+  if not found then
+    return false;
+  end if;
+
+  perform 1
+    from public.users
+   where id::text = v_user_id::text
+   for update;
+
+  if not found then
+    return false;
+  end if;
+
   select *
     into v_token
     from public.auth_tokens
