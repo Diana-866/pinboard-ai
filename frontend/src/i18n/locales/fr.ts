@@ -215,6 +215,7 @@ export const fr: TranslationSchema = {
   keywords: {
     title: 'Explorateur de mots-clés et tendances Pinterest',
     subtitle: 'Comparez les graphiques de tendances Pinterest en face-à-face et ciblez les requêtes porteuses.',
+    dataDemoNotice: "Données d’exemple uniquement : les volumes de recherche et graphiques de tendance sont illustratifs. Les données Pinterest Trends ne sont pas encore connectées.",
     searchPlaceholder: 'Rechercher des tendances, requêtes de niche ou intentions d’achat...',
     categoryFilter: 'Filtrer par catégorie',
     categories: {
@@ -243,6 +244,7 @@ export const fr: TranslationSchema = {
   competitors: {
     title: 'Intelligence concurrentielle et benchmarking',
     subtitle: 'Découvrez les impressions estimées, les épingles les plus enregistrées de vos concurrents et les opportunités inexploitées.',
+    dataDemoNotice: "Données d’exemple uniquement : les profils et statistiques affichés sont illustratifs. PinPosy ne collecte ni n’analyse actuellement de vrais comptes Pinterest.",
     trackedCompetitors: 'Comptes concurrents suivis',
     addCompetitorBtn: 'Ajouter un concurrent',
     inputPlaceholder: 'Entrez un profil Pinterest ou un identifiant...',
