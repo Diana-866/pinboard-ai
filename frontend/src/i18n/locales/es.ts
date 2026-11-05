@@ -395,6 +395,7 @@ export const es: TranslationSchema = {
     subtitle: 'Modelo transparente: suscripción mensual para gestión de cuentas más paquetes de créditos sin caducidad.',
     currencyRub: '₽ Rublos',
     currencyUsd: '$ USD',
+    creditPacksCurrencyNotice: "Los paquetes de créditos se cobran actualmente en RUB. El selector de moneda solo se aplica a los planes de suscripción.",
     tabPlans: 'Planes de Suscripción',
     tabCredits: 'Comprar Créditos',
     balanceTitle: 'Balance Actual del Espacio de Trabajo:',
