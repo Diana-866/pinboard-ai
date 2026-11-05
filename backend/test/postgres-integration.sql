@@ -41,7 +41,7 @@ begin
     raise exception 'first password reset token was not issued';
   end if;
   select id into v_reset_token_old from public.auth_tokens
-   where token_hash = 'ci-reset-old-' || v_user;
+   where token_hash = repeat('a', 64);
 
   v_reset_result := public.issue_password_reset_token(
     v_user::text, repeat('b', 64), now() + interval '1 hour'
@@ -50,7 +50,7 @@ begin
     raise exception 'second password reset token was not issued';
   end if;
   select id into v_reset_token from public.auth_tokens
-   where token_hash = 'ci-reset-new-' || v_user;
+   where token_hash = repeat('b', 64);
 
   if (select used_at from public.auth_tokens where id = v_reset_token_old) is null then
     raise exception 'new password reset token did not invalidate the older token';
