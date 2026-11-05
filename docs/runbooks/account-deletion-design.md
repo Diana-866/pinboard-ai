@@ -238,3 +238,28 @@ No account deletion endpoint, lifecycle column, migration, webhook behavior, or 
 5. Persist explicit Storage object keys and owner mapping before implementing deletion cleanup.
 
 No RLS, bucket, Storage object, production secret, or database setting was changed in this audit. These findings are based on the checked-in schema and backend source; live Supabase policy/bucket state has not been queried.
+
+
+## Admin and mutation-route audit (Nov 5, 2026)
+
+### Privilege boundaries
+
+- `/admin/*` routes consistently apply both `requireAuth` and `requireAdmin`. The admin check reads `users.is_admin` for the authenticated `req.userId`; missing row, false flag, and database error all deny access (currently HTTP 403). This is fail-closed, although returning 503 for database outages would make operational diagnosis clearer without granting access.
+- `PATCH /me` only accepts name, surname, and preferred_language; it does not accept `is_admin`, `credits_balance`, `tariff_plan`, email, or password fields. Unknown fields are ignored, and an empty recognized update is rejected.
+- `PATCH /me/tariff` is guarded: self-selection is enabled only outside production with `ALLOW_TARIFF_SELF_SELECT=1`; otherwise the authenticated account must already be admin. The environment helper explicitly disables the flag in production.
+- `POST /credits/dev-topup` has no JWT middleware, but it is not an unauthenticated production top-up: the validator returns 404 in production or unless `ENABLE_DEV_TOPUP=true`, requires an `ADMIN_SECRET` of at least 32 characters, compares it with `timingSafeEqual`, and validates email/amount. Keep this endpoint disabled in production and never expose ADMIN_SECRET to the frontend. Consider rate limiting this endpoint in development as defense in depth.
+
+### Ownership on mutation
+
+- Board and pin mutation handlers previously performed an ownership read, then updated the target by ID alone. The API has no current endpoint to reassign project/board ownership, but this left a check-then-write gap if parent relationships changed concurrently.
+- Updated board edits to include the verified `project_id` in the UPDATE predicate. Updated pin title/description, status, and image updates to include the verified `board_id` in the UPDATE predicate. These predicates make the write remain bound to the parent record that was checked.
+- Project analysis UPDATE now also includes `user_id = req.userId` (see prior audit section).
+- Remaining routes to cover with cross-account integration tests: generated-board insert, generated-pin completion RPC, pin-regeneration RPC, schedule creation/cancellation, Pinterest OAuth callback, and Storage upload. Existing helper checks and SQL RPC ownership checks are present in source, but a complete adversarial test matrix has not yet been executed.
+
+### CI status for latest ownership-guard commit
+
+- Latest code commit: `07f0bec935e997df926718494f325bffc56cb99a`.
+- GitHub Actions runs for persisted-board integration, atomic payment fulfillment, and Prodamus webhook tests all report failure. The job API returned no step details and no log URLs, so the cause is not attributable to these code changes from available evidence. Vercel also reports `build-rate-limit`; no current deployment was produced.
+- PR #4 remains draft and unmerged. No CI success is claimed. Do not merge or deploy until actionable CI results are available and required checks pass.
+
+No production configuration, live database, migration, or deployment was changed.
