@@ -212,13 +212,13 @@ export const CompetitorAudit: React.FC<CompetitorAuditProps> = ({
     setAddedHandles((prev) => new Set(prev).add(sug.handle));
 
     enqueueTask({
-      title: `Конкурент ${sug.handle} добавлен`,
-      message: `Запущен фоновый сбор аналитики и вирусных пинов по аккаунту ${sug.name}.`,
+      title: t.competitors.addedToAudit,
+      message: t.competitors.dataDemoNotice,
       type: 'competitor',
       actionTab: 'competitors',
       durationMs: 4000,
-      completionTitle: `Аудит ${sug.handle} готов!`,
-      completionMessage: `Собрано 12 вирусных пинов и 3 контентных разрыва для аккаунта ${sug.name}.`,
+      completionTitle: t.competitors.addedToAudit,
+      completionMessage: t.competitors.dataDemoNotice,
     });
   };
 
@@ -233,6 +233,7 @@ export const CompetitorAudit: React.FC<CompetitorAuditProps> = ({
           {t.competitors.subtitle}
         </p>
       </div>
+      <p className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-secondary-theme" role="note">{t.competitors.dataDemoNotice}</p>
 
       {/* Add Competitor Bar */}
       <form onSubmit={handleAddCompetitor} className="custom-card p-3 rounded-2xl flex items-center gap-2">
