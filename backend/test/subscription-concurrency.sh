@@ -46,9 +46,9 @@ if [[ "$waiters" != "2" ]]; then
   exit 1
 fi
 
-"${psql_base[@]}" -c "select public.activate_paid_subscription('$OLDER_ID', now())" >/tmp/subscription-older.log 2>&1 &
+PGAPPNAME=subscription-webhook-older "${psql_base[@]}" -c "select public.activate_paid_subscription('$OLDER_ID', now())" >/tmp/subscription-older.log 2>&1 &
 OLDER_PID=$!
-"${psql_base[@]}" -c "select public.activate_paid_subscription('$NEWER_ID', now())" >/tmp/subscription-newer.log 2>&1 &
+PGAPPNAME=subscription-webhook-newer "${psql_base[@]}" -c "select public.activate_paid_subscription('$NEWER_ID', now())" >/tmp/subscription-newer.log 2>&1 &
 NEWER_PID=$!
 
 wait "$OLDER_PID"
