@@ -27,11 +27,9 @@ import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { LockedSection } from './components/common/LockedSection';
 import {
   ManualApprovalDesk,
-  INITIAL_QUEUE_PINS,
   PendingReviewPin,
 } from './components/review/ManualApprovalDesk';
 import {
-  INITIAL_ACCOUNTS,
   BoardItem,
   ScheduledPinItem,
   PinterestAccount,
@@ -220,28 +218,20 @@ const MainApp: React.FC = () => {
   };
 
   // Pinterest Accounts state (User requested fix: "ботаника Nordic подключена 1 из 3")
-  const [accounts, setAccounts] = useState<PinterestAccount[]>(() => {
-    try {
-      const saved = localStorage.getItem('pinposy_accounts');
-      if (saved) return JSON.parse(saved);
-    } catch {
-      // ignore
-    }
-    return INITIAL_ACCOUNTS;
-  });
-  const [activeAccountId, setActiveAccountId] = useState<string>(INITIAL_ACCOUNTS[0]?.id || 'acc-1');
+  // Pinterest OAuth is not available yet: never seed a fictional connected account.
+  const [accounts, setAccounts] = useState<PinterestAccount[]>([]);
+  const [activeAccountId, setActiveAccountId] = useState<string>('');
   const [maxAccounts] = useState<number>(3); // Plan: Start allows up to 3 accounts
 
   // Synchronized Pending Review Pins queue (Shared between Dashboard, Calendar, Sidebar & ManualApprovalDesk)
-  const [pendingReviewPins, setPendingReviewPins] = useState<PendingReviewPin[]>(() => {
-    try {
-      const saved = localStorage.getItem('pinposy_pending_pins');
-      if (saved) return JSON.parse(saved);
-    } catch {
-      // ignore
-    }
-    return INITIAL_QUEUE_PINS;
-  });
+  // No review items are loaded until real generated pins are queued.
+  const [pendingReviewPins, setPendingReviewPins] = useState<PendingReviewPin[]>([]);
+
+  React.useEffect(() => {
+    // Remove demo account/review data left by older client builds.
+    localStorage.removeItem('pinposy_accounts');
+    localStorage.removeItem('pinposy_pending_pins');
+  }, []);
 
   const handleUpdatePendingPins = (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => {
     setPendingReviewPins((prev) => {
