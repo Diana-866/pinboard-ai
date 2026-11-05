@@ -118,50 +118,26 @@ export const saveUserTimezone = (tz: string) => {
 /**
  * Calculates current real offset difference in minutes between any timezone and Moscow (UTC+3)
  */
-export const getOffsetDiffMinutesToMoscow = (timeZone: string): number => {
+export const getOffsetDiffMinutesToMoscow = (timeZone: string, instant: Date = new Date()): number => {
   try {
-    const now = new Date();
-    // Get hours & minutes in Moscow
-    const mskFormatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'Europe/Moscow',
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: false,
-    });
-    // Get hours & minutes in target timezone
-    const targetFormatter = new Intl.DateTimeFormat('en-US', {
-      timeZone,
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: false,
-    });
+    const getWallClockMinutes = (zone: string) => {
+      const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: zone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+      }).formatToParts(instant);
+      const value = (type: string) => Number(parts.find((part) => part.type === type)?.value || 0);
+      return Date.UTC(value('year'), value('month') - 1, value('day'), value('hour'), value('minute')) / 60000;
+    };
 
-    const mskParts = mskFormatter.formatToParts(now);
-    const targetParts = targetFormatter.formatToParts(now);
-
-    const getVal = (parts: Intl.DateTimeFormatPart[], type: string) =>
-      Number(parts.find((p) => p.type === type)?.value || '0');
-
-    const mskDay = getVal(mskParts, 'day');
-    const mskHour = getVal(mskParts, 'hour') % 24;
-    const mskMin = getVal(mskParts, 'minute');
-
-    const targetDay = getVal(targetParts, 'day');
-    const targetHour = getVal(targetParts, 'hour') % 24;
-    const targetMin = getVal(targetParts, 'minute');
-
-    const mskTotalMinutes = (mskDay * 24 + mskHour) * 60 + mskMin;
-    const targetTotalMinutes = (targetDay * 24 + targetHour) * 60 + targetMin;
-
-    return mskTotalMinutes - targetTotalMinutes;
+    // Compare complete calendar dates, not only day-of-month. This remains
+    // correct across month/year boundaries and uses each zone's current DST offset.
+    return getWallClockMinutes('Europe/Moscow') - getWallClockMinutes(timeZone);
   } catch {
-    // Fallback: estimate from standard offsets
     const opt = SUPPORTED_TIMEZONES.find((t) => t.value === timeZone);
     const targetOffset = opt ? opt.offsetHoursFromUtc : 3;
     return (3 - targetOffset) * 60;
