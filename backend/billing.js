@@ -142,23 +142,26 @@ async function createPayment(userId, body) {
   };
 }
 
-async function sendTariffActivatedEmail(user, sub, periodEnd) {
+async function sendTariffActivatedEmail(user, paidSub, currentPlan, periodEnd) {
   const language = user.preferred_language || "en";
   const copy = getEmailCopy(language);
-  const planTitle = getPlanTitle(sub.plan, language);
+  const paidPlanTitle = getPlanTitle(paidSub.plan, language);
+  const currentPlanTitle = getPlanTitle(currentPlan, language);
   const until = new Intl.DateTimeFormat(getLocale(language), {
     day: "2-digit", month: "long", year: "numeric", timeZone: "UTC",
   }).format(new Date(periodEnd));
-  const amount = `${Number(sub.amount).toFixed(2)} ${String(sub.currency || "rub").toUpperCase()}`;
-  const subject = copy.activatedSubject.replace("{plan}", planTitle);
-  const body = copy.activatedBody.replace("{plan}", planTitle);
+  const amount = `${Number(paidSub.amount).toFixed(2)} ${String(paidSub.currency || "rub").toUpperCase()}`;
+  const subject = copy.activatedSubject.replace("{plan}", paidPlanTitle);
+  const body = copy.activatedBody
+    .replace("{plan}", paidPlanTitle)
+    .replace("{currentPlan}", currentPlanTitle);
   await mail.sendMail({
     to: user.email,
     subject,
     text: [
       copy.hello, "", body, "",
       `${copy.amount}: ${amount}`,
-      `${copy.payment}: ${sub.provider_payment_id}`,
+      `${copy.payment}: ${paidSub.provider_payment_id}`,
       `${copy.validUntil}: ${until} (30 days)`,
       "", copy.next, "", copy.manage, copy.help, "", copy.team,
     ].join("\n"),
@@ -246,7 +249,7 @@ async function handleWebhook(req, res) {
       .maybeSingle();
     if (mailUser) {
       sendTariffActivatedEmail(
-        mailUser, { ...sub, plan: activation.current_plan || sub.plan, amount: sum }, activation.period_end
+        mailUser, { ...sub, amount: sum }, activation.current_plan || activation.plan, activation.period_end
       ).catch((e) => console.error("[billing] письмо о тарифе не отправлено:", e && e.message));
     }
   }
