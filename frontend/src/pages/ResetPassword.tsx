@@ -1,12 +1,20 @@
-import React, { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { apiRequest } from '../lib/api';
 import { useI18n } from '../i18n/i18nContext';
 import { getAuthCopy } from '../i18n/authCopy';
 
 export const ResetPassword: React.FC = () => {
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const token = params.get('token') || '';
+  // Keep the one-time credential in memory while removing it from browser history.
+  const tokenRef = useRef(token);
+  useEffect(() => {
+    if (tokenRef.current) navigate('/reset-password', { replace: true });
+    // Capture the initial emailed token exactly once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [show, setShow] = useState(false);
@@ -31,7 +39,7 @@ export const ResetPassword: React.FC = () => {
     try {
       await apiRequest('/reset-password', {
         method: 'POST',
-        body: JSON.stringify({ token, password }),
+        body: JSON.stringify({ token: tokenRef.current, password }),
       });
       setDone(true);
     } catch (err: any) {
