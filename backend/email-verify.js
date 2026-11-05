@@ -184,44 +184,21 @@ async function resendVerification(rawEmail, userIdFromToken) {
 // Ошибки одинаково неинформативны — просроченный, использованный и выдуманный
 // токены для клиента неразличимы.
 async function applyVerification(rawToken) {
-  if (!rawToken || typeof rawToken !== "string") {
+  if (!rawToken || typeof rawToken !== "string" || rawToken.length > 512) {
     throw httpError(422, "Ссылка недействительна");
   }
 
-  const { data: row } = await supabase
-    .from("auth_tokens")
-    .select("id, user_id, expires_at, used_at")
-    .eq("token_hash", sha256(rawToken))
-    .eq("purpose", PURPOSE)
-    .maybeSingle();
-
-  if (!row || new Date(row.expires_at) < new Date()) {
+  // Atomic DB function locks the user and token, then updates both in one transaction.
+  const { data, error } = await supabase.rpc("consume_email_verification_token", {
+    p_token_hash: sha256(rawToken),
+  });
+  if (error) {
+    console.error("[email-verify] атомарное подтверждение не выполнено:", error.message);
+    throw httpError(500, "Не удалось подтвердить email — попробуйте позже");
+  }
+  if (data !== true) {
     throw httpError(422, "Ссылка недействительна или устарела — запросите новое письмо");
   }
-
-  if (row.used_at) {
-    // Ссылку уже открывали (например, сканер почты префетчит ссылки раньше человека).
-    // Если email уже подтверждён — считаем успехом, чтобы человек не видел ошибку.
-    const { data: u } = await supabase
-      .from("users")
-      .select("email_verified")
-      .eq("id", row.user_id)
-      .maybeSingle();
-    if (u && u.email_verified === true) return { ok: true, already: true };
-    throw httpError(422, "Ссылка недействительна или устарела — запросите новое письмо");
-  }
-
-  const { error: updErr } = await supabase
-    .from("users")
-    .update({ email_verified: true })
-    .eq("id", row.user_id);
-  if (updErr) {
-    console.error("[email-verify] не удалось обновить users:", updErr.message);
-    throw httpError(500, "Не удалось подтвердить email — попробуйте позже (проверьте, что миграция 005 применена)");
-  }
-
-  await supabase.from("auth_tokens").update({ used_at: new Date().toISOString() }).eq("id", row.id);
-  console.log(`[email-verify] email подтверждён (user ${row.user_id})`);
   return { ok: true };
 }
 
