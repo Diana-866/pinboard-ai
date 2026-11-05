@@ -30,6 +30,7 @@ declare
   v_publish_result jsonb;
   v_uncertain_pin uuid;
   v_late_success_pin uuid;
+  v_schedule_test_pin uuid;
   v_language text;
   v_reset_token uuid;
   v_reset_token_old uuid;
@@ -504,25 +505,31 @@ begin
     raise exception 'stale uncertain schedule was made retryable';
   end if;
 
+  -- A separate unpublished pin is used for the schedule create/cancel/reschedule
+  -- lifecycle: the previously published pin must remain protected by the unique index.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/schedule-test.png', 'Schedule lifecycle', '', 'pending', 'flux-schnell', 0)
+  returning id into v_schedule_test_pin;
+
   -- Persistent schedule records remain scheduled until a publisher confirms success.
   insert into public.pin_schedules(user_id, pin_id, scheduled_at, timezone)
-  values (v_user::text, v_pin, now() + interval '1 day', 'Europe/Moscow')
+  values (v_user::text, v_schedule_test_pin, now() + interval '1 day', 'Europe/Moscow')
   returning id into v_schedule;
   if (select status from public.pin_schedules where id=v_schedule) <> 'scheduled' then
     raise exception 'new schedule must start as scheduled';
   end if;
   begin
     insert into public.pin_schedules(user_id, pin_id, scheduled_at, timezone)
-    values (v_user::text, v_pin, now() + interval '2 days', 'Europe/Moscow');
+    values (v_user::text, v_schedule_test_pin, now() + interval '2 days', 'Europe/Moscow');
     raise exception 'expected duplicate active schedule to be rejected';
   exception when unique_violation then
     null;
   end;
   update public.pin_schedules set status='cancelled' where id=v_schedule;
   insert into public.pin_schedules(user_id, pin_id, scheduled_at, timezone)
-  values (v_user::text, v_pin, now() + interval '2 days', 'Europe/Moscow');
+  values (v_user::text, v_schedule_test_pin, now() + interval '2 days', 'Europe/Moscow');
   select count(*) into v_schedule_count from public.pin_schedules
-    where user_id=v_user::text and pin_id=v_pin and status='scheduled';
+    where user_id=v_user::text and pin_id=v_schedule_test_pin and status='scheduled';
   if v_schedule_count <> 1 then raise exception 'rescheduling after cancellation failed'; end if;
 
   -- Signed-but-unmatched payment notifications leave a minimal, deduplicated audit record.
