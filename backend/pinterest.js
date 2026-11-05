@@ -217,40 +217,96 @@ async function refreshAccessToken(account) {
   if (!account.refresh_token) {
     throw httpError(409, "Pinterest-доступ истёк. Подключите аккаунт заново.");
   }
-  const res = await axios.post(
-    TOKEN_URL,
-    new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: account.refresh_token,
-    }).toString(),
-    {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: `Basic ${basicAuth()}`,
-        Accept: "application/json",
-      },
-      timeout: TIMEOUT_MS,
-      validateStatus: () => true,
-    }
-  );
-  if (res.status < 200 || res.status >= 300) {
-    console.error("[pinterest] обновление токена не удалось:", res.status);
-    throw httpError(409, "Pinterest-доступ истёк. Подключите аккаунт заново.");
-  }
-  // Pinterest может не вернуть новый refresh_token при каждом обновлении.
-  // Не затираем действующий токен null-значением.
-  const refreshedTokens = {
-    ...res.data,
-    access_token: res.data.access_token || account.access_token,
-    refresh_token: res.data.refresh_token || account.refresh_token,
-  };
-  await saveAccount(account.user_id, refreshedTokens, {
-    id: account.pinterest_user_id,
-    username: account.username,
+
+  // A process-local mutex is not enough: Render may run multiple instances.
+  // The database lease serializes refresh-token rotation across all instances.
+  const leaseId = crypto.randomUUID();
+  const { data: acquired, error: leaseError } = await supabase.rpc("acquire_pinterest_token_refresh_lease", {
+    p_user_id: String(account.user_id),
+    p_lease_id: leaseId,
+    p_lease_seconds: 30,
   });
-  // saveAccount returns the encrypted database row; API calls must receive plaintext
-  // only in memory, after the authenticated decryption path.
-  return getAccount(account.user_id);
+  if (leaseError) {
+    console.error("[pinterest] не удалось получить lease обновления токена:", leaseError.message);
+    throw httpError(503, "Не удалось безопасно обновить Pinterest-доступ. Попробуйте позже.");
+  }
+
+  if (!acquired) {
+    // Another instance may already have rotated and saved the credentials.
+    // Prefer its fresh access token; never send the same refresh token concurrently.
+    const waitUntil = Date.now() + 10000;
+    while (Date.now() < waitUntil) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      const latest = await getAccount(account.user_id);
+      if (!latest) throw httpError(409, "Pinterest отключён. Подключите аккаунт заново.");
+      if (
+        latest.access_token !== account.access_token ||
+        latest.refresh_token !== account.refresh_token
+      ) {
+        return latest;
+      }
+    }
+    throw httpError(503, "Обновление Pinterest-доступа уже выполняется на другом сервере. Повторите запрос через несколько секунд.");
+  }
+
+  try {
+    // Re-read after acquiring the lease: a previous refresh may have completed
+    // between our initial 401 and the lease acquisition.
+    const latest = await getAccount(account.user_id);
+    if (!latest) throw httpError(409, "Pinterest отключён. Подключите аккаунт заново.");
+    if (
+      latest.access_token !== account.access_token ||
+      latest.refresh_token !== account.refresh_token
+    ) {
+      return latest;
+    }
+    if (!latest.refresh_token) {
+      throw httpError(409, "Pinterest-доступ истёк. Подключите аккаунт заново.");
+    }
+
+    const res = await axios.post(
+      TOKEN_URL,
+      new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: latest.refresh_token,
+      }).toString(),
+      {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: `Basic ${basicAuth()}`,
+          Accept: "application/json",
+        },
+        timeout: TIMEOUT_MS,
+        validateStatus: () => true,
+      }
+    );
+    if (res.status < 200 || res.status >= 300) {
+      console.error("[pinterest] обновление токена не удалось:", res.status);
+      throw httpError(409, "Pinterest-доступ истёк. Подключите аккаунт заново.");
+    }
+
+    // Pinterest may omit a replacement refresh_token; preserve the current one.
+    const refreshedTokens = {
+      ...res.data,
+      access_token: res.data.access_token || latest.access_token,
+      refresh_token: res.data.refresh_token || latest.refresh_token,
+    };
+    await saveAccount(latest.user_id, refreshedTokens, {
+      id: latest.pinterest_user_id,
+      username: latest.username,
+    });
+    return getAccount(latest.user_id);
+  } finally {
+    const { error: releaseError } = await supabase.rpc("release_pinterest_token_refresh_lease", {
+      p_user_id: String(account.user_id),
+      p_lease_id: leaseId,
+    });
+    if (releaseError) {
+      // The lease is self-expiring; log for observability without masking the
+      // original Pinterest/API result.
+      console.error("[pinterest] не удалось освободить refresh lease:", releaseError.message);
+    }
+  }
 }
 
 /**
