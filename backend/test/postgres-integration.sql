@@ -153,14 +153,14 @@ begin
     user_id, plan, status, provider_payment_id, amount, currency, created_at
   ) values (
     v_user::text, 'start', 'pending', 'ci-sub-late-older-' || v_user,
-    1990, 'rub', now() - interval '2 hours'
+    1990, 'rub', now() + interval '1 hour'
   ) returning id into v_older_sub;
 
   insert into public.subscriptions(
     user_id, plan, status, provider_payment_id, amount, currency, created_at
   ) values (
     v_user::text, 'agency', 'pending', 'ci-sub-late-newer-' || v_user,
-    12990, 'rub', now() - interval '1 hour'
+    12990, 'rub', now() + interval '2 hours'
   ) returning id into v_newer_sub;
 
   perform public.activate_paid_subscription(v_newer_sub, now());
