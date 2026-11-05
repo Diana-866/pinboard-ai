@@ -81,3 +81,23 @@ A robust workflow should be idempotent and resumable: a retry must not double-re
 - The payment RPCs do not currently check an account lifecycle state.
 - No deletion migration has been applied to Supabase.
 - This document is a design record, not a claim that deletion functionality is available.
+
+
+## Additional payment-webhook findings (verified against current code)
+
+### Existing entitlement/payment coupling
+- Credit purchases already have `balance_credited_at`, which distinguishes successful order status from actual credit fulfillment. This is a useful partial precedent, but there is no separate settlement/reconciliation state for payments received after deletion.
+- Subscription rows use `status='success'` together with `period_start/period_end`; the current activation RPC updates the payment status and user entitlement in the same transaction. A later lifecycle design should preserve the existing public status contract while adding explicit settlement and entitlement/reconciliation fields.
+- Both `credit_paid_purchase()` and `activate_paid_subscription()` currently lock the payment row first and the user row second. A deletion flow that locks the user first and then payment rows would introduce a lock-order inversion and possible deadlocks. Standardize lock order before adding the deletion transaction; test with concurrent PostgreSQL sessions.
+- The webhook handlers write non-success statuses directly through Supabase table updates, outside the atomic RPC. Any future deletion/settlement state machine must account for these writes or move all state transitions behind transactional database functions.
+
+### Amount-mismatch path
+- Both payment handlers compare the signed webhook `sum` against the stored expected amount.
+- On mismatch, each currently marks the order `denied` (unless it is already successful) and returns HTTP 200 with `ignored: amount mismatch`.
+- A signed webhook with an amount mismatch can still represent money received. The current `denied` label is therefore not a sufficient reconciliation record and should not be interpreted as proof that no money moved.
+- Future design: persist the provider-reported amount and a distinct reconciliation state (for example, `amount_mismatch_review`); do not grant entitlement; surface the event to an administrator; acknowledge the webhook only after durable recording. Do not automatically refund or silently discard it.
+
+### Password-reset cooldown overload fix (separate security correction)
+- Migration 024 introduced a four-argument cooldown-aware RPC, but PostgreSQL retained the three-argument overload from migration 020. Exact three-argument calls selected the old function and could bypass the cooldown.
+- The branch now includes migration 025 to drop the obsolete overload, and the integration test explicitly calls the four-argument RPC and asserts that only the four-argument signature remains.
+- This migration is part of the GitHub Actions atomic integration workflow. It has not been applied to the production Supabase database.
