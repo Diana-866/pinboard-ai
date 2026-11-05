@@ -30,9 +30,8 @@
    и просит у Prodamus ссылку (`do=link`).
 3. Браузер уходит на `https://<shop>.payform.ru/...`. Пользователь платит картой.
 4. Prodamus шлёт `POST /billing/webhook` (`application/x-www-form-urlencoded`, подпись в заголовке `Sign`).
-5. Бэкенд проверяет подпись → находит строку по `order_id` → `status = success`,
-   `period_start`/`period_end` (+30 дней) → `users.tariff_plan = plan`, `users.tariff_period_end`.
-6. Уходит письмо «Тариф активирован» (тот же SMTP, что у сброса пароля).
+5. Бэкенд проверяет подпись → находит строку по `order_id` → PostgreSQL атомарно активирует подписку, обновляет тариф и добавляет событие письма в `email_outbox`.
+6. Dispatcher забирает событие и отправляет локализованное письмо через Unisender Go SMTP; после подтверждения SMTP помечает событие `sent`.
 7. Пользователь возвращается на `/app?payment=success`, фронт опрашивает `/me` (0/3/8/15 с) — замочки снимаются.
 
 ---
