@@ -34,6 +34,13 @@ declare
   v_email_issue_token uuid;
 
 begin
+  if to_regprocedure('public.issue_password_reset_token(text,text,timestamptz)') is not null then
+    raise exception 'legacy three-argument password reset RPC overload still exists';
+  end if;
+  if to_regprocedure('public.issue_password_reset_token(text,text,timestamptz,integer)') is null then
+    raise exception 'cooldown-aware four-argument password reset RPC is missing';
+  end if;
+
   insert into public.users(id, email, credits_balance, tariff_plan, email_verified)
   values (v_user, 'atomic-test-' || v_user || '@example.invalid', 10, 'none', false);
 
