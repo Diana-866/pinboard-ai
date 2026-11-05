@@ -12,6 +12,7 @@
 
 const supabase = require("./supabase");
 const prodamus = require("./prodamus");
+const { persistWebhookException } = require("./billingWebhookAudit");
 const { httpError, validateEnum } = require("./validate");
 const { CREDIT_PACKS, normalizePackId, packAmount } = require("./creditPacks");
 
@@ -155,7 +156,15 @@ async function handleCreditsWebhook(req, res) {
   const sum = body.sum != null ? Number(body.sum) : null;
 
   if (!orderId) {
-    console.error("[credits-billing] вебхук без order_id");
+    try {
+      await persistWebhookException(supabase, {
+        paymentKind: "credits", body, reason: "missing_order_id",
+      });
+    } catch (auditError) {
+      console.error("[credits-billing] не удалось сохранить вебхук без order_id:", auditError.message);
+      return res.status(500).json({ ok: false, error: "audit storage failed" });
+    }
+    console.error("[credits-billing] вебхук без order_id сохранён для сверки");
     return res.json({ ok: true, ignored: "no order_id" });
   }
 
@@ -170,7 +179,15 @@ async function handleCreditsWebhook(req, res) {
     return res.status(500).json({ ok: false, error: "db error" });
   }
   if (!purchase) {
-    console.warn(`[credits-billing] неизвестный order_id: ${orderId}`);
+    try {
+      await persistWebhookException(supabase, {
+        paymentKind: "credits", body, reason: "unknown_order_id",
+      });
+    } catch (auditError) {
+      console.error("[credits-billing] не удалось сохранить неизвестный order_id:", auditError.message);
+      return res.status(500).json({ ok: false, error: "audit storage failed" });
+    }
+    console.warn(`[credits-billing] неизвестный order_id сохранён для сверки: ${orderId}`);
     return res.json({ ok: true, ignored: "unknown order_id" });
   }
 
@@ -194,12 +211,20 @@ async function handleCreditsWebhook(req, res) {
 
   const expected = Number(purchase.amount);
   if (sum == null || !Number.isFinite(sum) || Math.abs(sum - expected) > 0.01) {
-    console.error(`[credits-billing] сумма не совпадает для ${orderId}: webhook=${body.sum}, ожидали=${expected}`);
+    try {
+      await persistWebhookException(supabase, {
+        paymentKind: "credits", body, expectedAmount: expected, reason: "amount_mismatch",
+      });
+    } catch (auditError) {
+      console.error("[credits-billing] не удалось сохранить несовпадение суммы:", auditError.message);
+      return res.status(500).json({ ok: false, error: "audit storage failed" });
+    }
+    console.error(`[credits-billing] сумма не совпадает для ${orderId}: webhook=${body.sum}, ожидали=${expected}; сохранено для сверки`);
     const { error: mismatchError } = await supabase.from("credit_purchases")
       .update({ status: "denied" }).eq("id", purchase.id)
       .is("balance_credited_at", null).neq("status", "success");
     if (mismatchError) return res.status(500).json({ ok: false, error: "db error" });
-    return res.json({ ok: true, ignored: "amount mismatch" });
+    return res.json({ ok: true, ignored: "amount mismatch", review_required: true });
   }
 
   // Баланс, журнал и отметка покупки фиксируются в одной транзакции PostgreSQL.
