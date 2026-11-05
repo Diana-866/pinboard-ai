@@ -1421,8 +1421,8 @@ export const Landing: React.FC = () => {
 
           <p className="mt-6 text-center text-[11px] text-[#B29AA1]">
             {ru
-              ? 'Оплата картами РФ и зарубежными. Отмена в один клик. Кредиты тарифа сгорают при продлении, докупленные пакеты — никогда.'
-              : 'Pay with Russian or international cards. Cancel anytime. Plan credits burn on renewal, purchased packs never do.'}
+              ? 'Доступные способы оплаты зависят от страны и отображаются на защищённой странице Prodamus. Подписки доступны в RUB и USD; пакеты кредитов — только в RUB. Кредиты тарифа сгорают при продлении, докупленные пакеты — никогда.'
+              : 'Available payment methods depend on your country and are shown on Prodamus’s secure checkout page. Subscriptions are available in RUB and USD; credit packs are charged in RUB only. Plan credits burn on renewal, purchased packs never do.'}
           </p>
         </div>
       </section>
