@@ -377,7 +377,7 @@ export const zh: TranslationSchema = {
     languageSection: '系统界面语言',
     languageSectionDesc: '选择偏好的软件界面语言，设置将立即全局生效。',
     connectedAccountSection: '已关联的 Pinterest 企业账号',
-    connectedAccountDesc: '通过 OAuth 2.0 官方安全授权，支持画板实时同步与自动发布。',
+    connectedAccountDesc: "您可以在此管理 Pinterest 企业账号。目前暂不支持连接账号。",
     connectedAccountsCount: "已连接 {count}/{max} 个账户",
     noAccountsConnected: "尚未连接 Pinterest 账户。Pinterest 授权功能暂不可用，因此目前没有已关联或已验证的账户。",
     pinterestConnectionUnavailable: "Pinterest 账户连接功能尚不可用。尚未连接或验证任何账户。",
