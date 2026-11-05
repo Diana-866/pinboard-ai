@@ -215,6 +215,7 @@ export const zh: TranslationSchema = {
   keywords: {
     title: 'Pinterest 关键词与趋势探索器',
     subtitle: '多词趋势曲线对比图表，直接从 Pinterest 实时搜索索引中发现高转化蓝海词。',
+    dataDemoNotice: "仅供演示：搜索量和趋势图表均为示例数据。Pinterest Trends 实时数据尚未接入。",
     searchPlaceholder: '搜索 Pinterest 热点、细分需求或高意向买家关键词...',
     categoryFilter: '类目筛选',
     categories: {
@@ -243,6 +244,7 @@ export const zh: TranslationSchema = {
   competitors: {
     title: '竞品对手分析与对标',
     subtitle: '查看竞品预估展现、转存收藏总量、近30/90天爆款图钉，并捕捉内容空白商机。',
+    dataDemoNotice: "仅供演示：此页面上的竞争对手资料和指标均为示例。PinPosy 目前不会抓取或分析真实的 Pinterest 账户。",
     trackedCompetitors: '已监控的竞品账号',
     addCompetitorBtn: '添加竞品账号',
     inputPlaceholder: '输入竞品 Pinterest 主页链接或账号名...',
