@@ -29,6 +29,21 @@ test("rejects prototype-polluting and conflicting multipart fields", () => {
   assert.throws(() => parseMultipartFields({ order_id: "x", "order_id[child]": "y" }));
 });
 
+test("rejects malformed multipart field names", () => {
+  for (const field of ["order_id]suffix", "products[0]suffix", "products[[0]]", "products[]"]) {
+    assert.throws(() => parseMultipartFields({ [field]: "x" }));
+  }
+});
+
+test("rejects oversized sparse array indexes before signature serialization", () => {
+  assert.throws(() => parseMultipartFields({ "products[999999999][name]": "x" }), /out of range/);
+  assert.throws(() => parseMultipartFields({ "products[80][name]": "x" }), /out of range/);
+});
+
+test("rejects non-numeric keys inside multipart arrays", () => {
+  assert.throws(() => parseMultipartFields({ "products[name]": "x" }), /numeric indexes/);
+});
+
 test("encodes nested Prodamus product fields as bracketed form keys", () => {
   const encoded = prodamus.toFormEncoded({
     do: "link",
