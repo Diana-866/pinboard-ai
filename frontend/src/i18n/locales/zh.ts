@@ -380,6 +380,7 @@ export const zh: TranslationSchema = {
     connectedAccountDesc: '通过 OAuth 2.0 官方安全授权，支持画板实时同步与自动发布。',
     connectedAccountsCount: "已连接 {count}/{max} 个账户",
     noAccountsConnected: "尚未连接 Pinterest 账户。Pinterest 授权功能暂不可用，因此目前没有已关联或已验证的账户。",
+    pinterestConnectionUnavailable: "Pinterest 账户连接功能尚不可用。尚未连接或验证任何账户。",
     billingSection: '套餐与 AI 额度管理',
     billingSectionDesc: '查看本月智能分析与 Pin 自动生成额度的使用进度。',
     currentPlan: '当前版本：Growth Pro 专业增长版',
