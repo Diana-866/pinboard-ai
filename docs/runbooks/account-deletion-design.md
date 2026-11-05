@@ -330,3 +330,33 @@ No live Pinterest authorization, Supabase RPC, migration, or deployment was run.
 - Cancellation is a conditional single-row update (`status = scheduled` → `cancelled`) scoped by both schedule ID and authenticated user ID. The worker claims due rows in a database transaction with `FOR UPDATE SKIP LOCKED` and changes them to `publishing`. These state transitions serialize: if cancellation wins, the worker no longer sees a due row; if the worker claim wins, cancellation cannot change an in-flight publication. The API deliberately does not pretend that an already claimed Pinterest request can be cancelled remotely.
 - The worker processes its claimed batch sequentially. Claiming 50 rows at once could leave later rows waiting long enough to cross the 20-minute stale-claim threshold before the current process reaches them. Both the API and SQL claim RPC are now capped at 10 rows. At the configured 10-second Pinterest HTTP timeout, this bounds the queue-ahead window substantially while retaining modest batching.
 - A schedule can be retried only after a definite failed attempt; `unknown`, `publishing`, and `published` remain protected by the unique active-per-pin index. There is no separate reschedule endpoint: after a definite failure the client may create a new schedule row, subject to the unique index and publication journal.
+
+
+## Pinterest disconnect and OAuth concurrency audit
+
+Reviewed the current account lifecycle in `backend/pinterest.js` (OAuth callback, token refresh, disconnect, and scheduled/manual publishing).
+
+### Confirmed protections
+
+- Refresh-token rotation is serialized by the per-user lease introduced in migration 026.
+- Migration 027 fences the refresh commit by both live lease ownership and the account row's expected `updated_at`; a stale refresh worker cannot overwrite a concurrently reconnected account.
+- A refresh commit does not upsert the account row. If disconnect deletes the account before commit, the conditional update affects no row.
+- Scheduled publishing reserves the local pin through the idempotency journal before sending the remote create request. An uncertain remote result remains non-retryable.
+
+### Remaining races and product semantics
+
+1. **OAuth callback versus disconnect/reconnect:** callback validates the signed state and current `users.token_version`, then exchanges the code and calls `saveAccount()` with an unconditional upsert. A callback that started before a disconnect can finish afterwards and recreate the connection. Two overlapping callbacks can also overwrite the account in completion order rather than user-intended order.
+2. **Disconnect versus in-flight publish:** disconnect deletes the stored credentials, preventing subsequent account lookups, but cannot revoke a Pinterest HTTP request that has already been sent. A publish that loaded credentials before disconnect may still complete remotely. The UI must not promise cancellation of an already-started remote request.
+3. **Disconnect versus token refresh:** the fenced refresh commit prevents a deleted account from being recreated by refresh. A request already holding an access token may still finish its current read/write call; the next account lookup will fail.
+
+### Required safe follow-up design
+
+Do not solve the OAuth race with a second non-atomic read in Express; it merely moves the race window. Introduce a durable per-user Pinterest connection generation (or equivalent connection-state row) and atomic database operations:
+
+- OAuth initiation records a short-lived, single-use attempt bound to the current connection generation and session token version.
+- Callback atomically consumes the attempt and saves the encrypted credentials only if the generation is still current.
+- Disconnect atomically increments the generation and deletes credentials. This invalidates callbacks initiated before disconnect, including callbacks whose code exchange is still in flight.
+- Reconnect attempts must have deterministic ordering; an older attempt must not overwrite a newer accepted connection.
+- Keep the external publish boundary explicit: disconnect prevents new operations but cannot guarantee cancellation after Pinterest has accepted a request. Record this behavior in UI copy and reconcile uncertain outcomes rather than retrying.
+
+This follow-up requires a new SQL migration and backend changes. It has **not** been implemented or applied. Until then, avoid describing disconnect as a guaranteed cancellation of an already-running publish or as invalidating every in-flight OAuth callback.
