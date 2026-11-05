@@ -317,3 +317,5 @@ No live Pinterest authorization, Supabase RPC, migration, or deployment was run.
 - This prevents a slow/expired lease holder from overwriting a newer refresh or a concurrent OAuth reconnect. The RPC updates the existing account row (it does not upsert a deleted/reconnected account) and releases the lease in the same database transaction after a successful compare-and-swap.
 - If the lease expired or the account row changed, the refresh result is discarded and the latest stored account is re-read. If the state cannot be reconciled, the request fails closed with 503.
 - Rollout order: apply migrations 026 and 027 before deploying the new backend code. Both migrations remain unapplied in the live Supabase project until separately authorized and verified.
+
+- If the commit RPC returns a transport/database error, the backend now re-reads the account before failing. If the new credentials were actually committed but the response was lost, it recovers and uses them rather than prompting an unnecessary reconnect.
