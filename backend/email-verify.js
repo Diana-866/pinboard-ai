@@ -10,6 +10,7 @@
 const crypto = require("crypto");
 const supabase = require("./supabase");
 const { httpError } = require("./validate");
+const { getEmailCopy, normalizeLanguage } = require("./email-locales");
 
 const TTL_HOURS = 24;
 const RESEND_INTERVAL_MINUTES = 5; // повторная отправка не чаще раза в 5 минут
@@ -36,50 +37,16 @@ function buildTransporter() {
 
 // Письмо: текстовая часть (для всех клиентов) + HTML с кнопкой.
 // Ссылка — единственное место, где живёт «сырой» токен.
-async function sendVerifyEmail(to, verifyUrl) {
+async function sendVerifyEmail(to, verifyUrl, language = "en") {
+  const copy = getEmailCopy(language);
   const transporter = buildTransporter();
-  const text = [
-    "Здравствуйте!",
-    "",
-    "Подтвердите ваш email, чтобы войти в PinPosy.",
-    `Ссылка для подтверждения (действует ${TTL_HOURS} часа, одноразовая):`,
-    verifyUrl,
-    "",
-    "Если вы не регистрировались в PinPosy — просто проигнорируйте это письмо.",
-    "",
-    "— команда PinPosy",
-  ].join("\n");
-
-  const html = `
-  <div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1f2937">
-    <h2 style="font-size:20px;margin:0 0 12px">Подтвердите email</h2>
-    <p style="font-size:14px;line-height:1.5;margin:0 0 20px">
-      Здравствуйте! Остался один шаг — подтвердите адрес, чтобы войти в PinPosy.
-    </p>
-    <p style="margin:0 0 20px">
-      <a href="${verifyUrl}"
-         style="display:inline-block;background:#C25E6F;color:#fff;text-decoration:none;
-                padding:12px 22px;border-radius:12px;font-size:14px;font-weight:700">
-        Подтвердить email
-      </a>
-    </p>
-    <p style="font-size:12px;line-height:1.5;color:#6b7280;margin:0 0 8px">
-      Ссылка действует ${TTL_HOURS} часа и срабатывает один раз.<br>
-      Если кнопка не работает, скопируйте адрес в браузер:<br>
-      <span style="word-break:break-all;color:#C25E6F">${verifyUrl}</span>
-    </p>
-    <p style="font-size:12px;line-height:1.5;color:#6b7280;margin:16px 0 0">
-      Если вы не регистрировались в PinPosy — просто проигнорируйте это письмо.
-    </p>
-  </div>`;
-
-  await transporter.sendMail({
-    from: process.env.MAIL_FROM || process.env.MAIL_USER,
-    to,
-    subject: "PinPosy — подтвердите email",
-    text,
-    html,
-  });
+  const text = [copy.hello, "", copy.verifyLead, copy.verifyExpiry, verifyUrl, "", copy.verifyIgnore, "", copy.team].join("\n");
+  const html = `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1f2937">
+    <h2>${copy.verifyTitle}</h2><p>${copy.hello} ${copy.verifyLead}</p>
+    <p><a href="${verifyUrl}" style="display:inline-block;background:#C25E6F;color:#fff;text-decoration:none;padding:12px 22px;border-radius:12px;font-weight:700">${copy.verifyButton}</a></p>
+    <p style="font-size:12px;color:#6b7280">${copy.verifyExpiry}<br><span style="word-break:break-all">${verifyUrl}</span></p>
+    <p style="font-size:12px;color:#6b7280">${copy.verifyIgnore}</p></div>`;
+  await transporter.sendMail({ from: process.env.MAIL_FROM || process.env.MAIL_USER, to, subject: copy.verifySubject, text, html });
 }
 
 // Время создания последнего email_verify-токена пользователя (мс) или null.
@@ -130,6 +97,7 @@ async function revokeUnused(userId) {
 // Возвращает true, если письмо реально ушло. Исключений не бросает:
 // регистрация и вход не должны падать из-за почты — письмо можно запросить повторно.
 async function issueVerificationToken(user) {
+  user.preferred_language = normalizeLanguage(user.preferred_language);
   await revokeUnused(user.id);
 
   const token = crypto.randomBytes(32).toString("base64url");
@@ -151,7 +119,7 @@ async function issueVerificationToken(user) {
 
   const base = (process.env.FRONTEND_URL || "https://pinposy.com").split(",")[0].trim();
   try {
-    await sendVerifyEmail(user.email, `${base}/verify-email?token=${encodeURIComponent(token)}`);
+    await sendVerifyEmail(user.email, `${base}/verify-email?token=${encodeURIComponent(token)}`, user.preferred_language);
     console.log(`[email-verify] письмо отправлено на ${user.email}`);
     return true;
   } catch (e) {
@@ -174,7 +142,7 @@ async function resendVerification(rawEmail, userIdFromToken) {
   if (userIdFromToken) {
     const { data: user } = await supabase
       .from("users")
-      .select("id, email, email_verified")
+      .select("id, email, email_verified, preferred_language")
       .eq("id", userIdFromToken)
       .maybeSingle();
 
