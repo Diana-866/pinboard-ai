@@ -134,15 +134,15 @@ export const Contacts: React.FC = () => {
                 {ru ? 'Пакеты кредитов (бессрочные)' : 'Credit packs (non-expiring)'}
               </span>
               <span className="whitespace-nowrap text-[13.5px] font-semibold text-[#A94D5F]">
-                {ru ? 'от 550 ₽' : 'from 550 ₽'}
+                {ru ? 'от 190 ₽' : 'from 190 ₽'}
               </span>
             </div>
           </div>
 
           <p className="mt-2 text-[11.5px] leading-relaxed text-[#B29AA1]">
             {ru
-              ? 'В рублях для карт РФ, в долларах США для зарубежных карт (комиссия платёжного сервиса за зарубежные платежи — 10%). Цены одинаковы на лендинге, в кабинете и на этой странице.'
-              : 'Charged in RUB for Russian cards and in USD for international cards (the payment provider charges a 10% fee on cross-border payments). Prices are identical on the landing page, in the app and on this page.'}
+              ? 'Для подписки доступны цены в RUB и USD — выбранная валюта и доступные способы оплаты будут показаны на защищённой странице Prodamus перед подтверждением. Пакеты кредитов оплачиваются только в RUB. Итоговую сумму и возможные комиссии платёжного провайдера проверяйте до оплаты.'
+              : 'Subscriptions are listed in RUB and USD. The selected currency and available payment methods are shown on Prodamus’s secure checkout page before confirmation. Credit packs are charged in RUB only. Review the final amount and any payment-provider fees before paying.'}
           </p>
         </section>
 
@@ -156,8 +156,8 @@ export const Contacts: React.FC = () => {
             <li>
               <b>{ru ? 'Способ оплаты.' : 'Payment method.'}</b>{' '}
               {ru
-                ? 'Банковские карты Visa, Mastercard, МИР, а также зарубежные карты Visa и Mastercard — через платёжный сервис Prodamus. Данные карты вводятся на защищённой странице Prodamus и не попадают в PinPosy.'
-                : 'Visa, Mastercard and MIR cards, plus international Visa and Mastercard — via the Prodamus payment service. Card details are entered on the secure Prodamus page and never reach PinPosy.'}
+                ? 'Доступные способы оплаты зависят от страны и отображаются на защищённой странице Prodamus. Данные карты вводятся на стороне платёжного сервиса и не сохраняются в PinPosy.'
+                : 'Available payment methods depend on your country and are displayed on the secure Prodamus checkout page. Card details are entered with the payment provider and are not stored by PinPosy.'}
             </li>
             <li>
               <b>{ru ? 'Срок доступа.' : 'Access period.'}</b>{' '}
