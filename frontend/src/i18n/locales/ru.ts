@@ -376,6 +376,8 @@ export const ru: TranslationSchema = {
     languageSectionDesc: 'Выберите язык интерфейса. Изменения применяются мгновенно ко всем модулям.',
     connectedAccountSection: 'Подключенный бизнес-аккаунт Pinterest',
     connectedAccountDesc: 'Проверенное OAuth 2.0 соединение для синхронизации досок, публикации и сбора аналитики.',
+    connectedAccountsCount: "Подключено {count} из {max} аккаунтов",
+    noAccountsConnected: "Аккаунты Pinterest не подключены. Авторизация Pinterest пока недоступна, поэтому сейчас нет ни одного связанного или проверенного аккаунта.",
     billingSection: 'Тарифный план и кредиты',
     billingSectionDesc: 'Контролируйте доступные ежемесячные кредиты автоматизации и возможности аккаунта.',
     currentPlan: 'Текущий план: Growth Pro',
