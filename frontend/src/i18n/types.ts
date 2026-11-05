@@ -417,6 +417,27 @@ export interface TranslationSchema {
     upgradePlan: string;
     creditsUsed: string;
     resetCycle: string;
+    timezoneSection: string;
+    timezoneSectionDesc: string;
+    timezoneAutoDetected: string;
+    scheduleTitle: string;
+    schedulePaused: string;
+    autoLabel: string;
+    apiVerified: string;
+    syncData: string;
+    disconnectAccount: string;
+    makeActive: string;
+    activeProfile: string;
+    boardsCount: string;
+    monthlyViews: string;
+    pinsPerDay: string;
+    autoEnabled: string;
+    autoDisabled: string;
+    timeSaved: string;
+    timeSavedMsk: string;
+    accountLimitReached: string;
+    accountLimitDesc: string;
+    changePlan: string;
   };
 
   // Pricing & Credits
