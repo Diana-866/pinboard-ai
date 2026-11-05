@@ -1,4 +1,4 @@
--- Run only in disposable PostgreSQL CI database after migrations 010–020.
+-- Run only in disposable PostgreSQL CI database after migrations 010–021.
 do $$
 declare
   v_user uuid := gen_random_uuid();
@@ -28,10 +28,37 @@ declare
   v_reset_token uuid;
   v_reset_token_old uuid;
   v_reset_result boolean;
+  v_email_result boolean;
+  v_email_token uuid;
 
 begin
-  insert into public.users(id, email, credits_balance, tariff_plan)
-  values (v_user, 'atomic-test-' || v_user || '@example.invalid', 10, 'none');
+  insert into public.users(id, email, credits_balance, tariff_plan, email_verified)
+  values (v_user, 'atomic-test-' || v_user || '@example.invalid', 10, 'none', false);
+
+  -- Email verification updates the account and consumes the token atomically.
+  insert into public.auth_tokens(user_id, token_hash, purpose, expires_at)
+  values (v_user::text, repeat('c', 64), 'email_verify', now() + interval '1 hour')
+  returning id into v_email_token;
+
+  v_email_result := public.consume_email_verification_token(repeat('c', 64));
+  if v_email_result is distinct from true then
+    raise exception 'valid email verification token was not consumed';
+  end if;
+  if (select email_verified from public.users where id = v_user) is distinct from true then
+    raise exception 'email verification did not update user flag';
+  end if;
+  if (select used_at from public.auth_tokens where id = v_email_token) is null then
+    raise exception 'email verification token was not marked used';
+  end if;
+  if public.consume_email_verification_token(repeat('c', 64)) is distinct from true then
+    raise exception 'replaying a consumed verification link should be idempotent';
+  end if;
+
+  insert into public.auth_tokens(user_id, token_hash, purpose, expires_at)
+  values (v_user::text, repeat('d', 64), 'email_verify', now() - interval '1 minute');
+  if public.consume_email_verification_token(repeat('d', 64)) is distinct from false then
+    raise exception 'expired email verification token was accepted';
+  end if;
 
   -- Issuing a newer reset link invalidates the older link for this account.
   v_reset_result := public.issue_password_reset_token(
