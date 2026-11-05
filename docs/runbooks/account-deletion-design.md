@@ -210,3 +210,31 @@ The current implementation confirms the design-only deletion status and adds the
 - Storage object ownership/path mapping has not been established from the inspected schema. Never delete image objects by deriving a storage key from a public URL; build and test an explicit owner-to-object manifest first.
 
 No account deletion endpoint, lifecycle column, migration, webhook behavior, or production setting was changed in this follow-up. These are verified code constraints and implementation requirements, not shipped functionality.
+
+
+## Data isolation and Storage audit (Nov 5, 2026)
+
+### Database RLS model
+
+- The baseline migration enables RLS on all ten application tables. Policies use `auth.uid()`, while PinPosy authenticates with its own JWT rather than Supabase Auth. For ordinary anon/authenticated Supabase requests, `auth.uid()` is therefore NULL and the policies deny access. The Express backend uses the Supabase service-role client, which bypasses RLS; consequently API-level ownership checks are the effective isolation boundary for current application traffic. Do not describe these policies as independently validating PinPosy JWT ownership.
+- `backend/supabase.js` currently falls back from `SUPABASE_SERVICE_ROLE_KEY` to `SUPABASE_ANON_KEY`. With the anon key, the backend loses service-role RLS bypass and many writes fail closed; it must never silently run in this degraded mode. Add a startup hard failure when service role key is absent, and never expose that key to frontend bundles.
+- Project list/detail and project-scoped board routes filter by `req.userId` or first verify project ownership. Board/pin mutation helpers resolve ownership through the project relationship and return 404 for non-owned objects. This is good API-level coverage, but it needs cross-user integration tests for every read/write route and nested relationship.
+- The project analysis update fetches the project with owner filter, then updates by project ID only. Since the service-role key bypasses RLS, preserve ownership in the UPDATE predicate too (add `.eq('user_id', req.userId)`) to avoid a time-of-check/time-of-use gap if ownership can change or records are manipulated concurrently.
+- Admin middleware reads `users.is_admin` using the authenticated user ID and denies on lookup error. This is fail-closed. Add tests for non-admin, missing user, and database error; do not rely on frontend hiding admin controls.
+
+### Storage exposure and ownership
+
+- The `pin-images` bucket is created as public and uploaded object paths are global `pins/<timestamp>-<random>.<ext>`, with no user or pin identifier. Anyone who obtains a public URL can read that image; this may be acceptable for Pinterest-ready public creative assets, but it is not private per-user storage. The product privacy statement and UI must not imply uploaded pin images are private.
+- Storage path is not persisted as a separate ownership record; only the public URL is stored on `pins.image_url`. Account deletion therefore cannot reliably enumerate and remove every user's objects by ownership. Introduce an explicit object key/owner mapping (or store the key in a dedicated column) before promising deletion of stored images.
+- `ensureBucket()` currently treats a failed list/create operation as a logged warning and leaves `bucketReady=false`; upload then fails later. Prefer explicit startup/readiness failure or propagate the storage configuration error at upload time with a stable error code.
+- The backend uses service-role access to Storage, so Storage RLS policies do not provide user isolation for these uploads. Keep upload routes behind JWT and pin ownership checks; test cross-user upload attempts and ensure object keys cannot be selected by the caller.
+
+### Safe follow-up implementation
+
+1. Make `SUPABASE_SERVICE_ROLE_KEY` mandatory at backend startup; no anon fallback.
+2. Add owner predicate to the project analysis UPDATE.
+3. Add cross-account API tests covering project, board, pin, image upload, schedule, and admin routes.
+4. Decide whether pin images are intentionally public. If private, migrate to a private bucket with short-lived signed URLs; if public, state that anyone with the URL can access them.
+5. Persist explicit Storage object keys and owner mapping before implementing deletion cleanup.
+
+No RLS, bucket, Storage object, production secret, or database setting was changed in this audit. These findings are based on the checked-in schema and backend source; live Supabase policy/bucket state has not been queried.
