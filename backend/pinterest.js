@@ -81,7 +81,15 @@ function createState(userId, tokenVersion = 0, attemptId, generation) {
 function readStateClaims(state) {
   try {
     const decoded = jwt.verify(String(state || ""), process.env.JWT_SECRET);
-    if (!decoded || decoded.purpose !== "pinterest_oauth" || !decoded.userId) {
+    if (
+      !decoded ||
+      decoded.purpose !== "pinterest_oauth" ||
+      !decoded.userId ||
+      typeof decoded.attemptId !== "string" ||
+      !/^[0-9a-f-]{36}$/i.test(decoded.attemptId) ||
+      !Number.isSafeInteger(Number(decoded.generation)) ||
+      Number(decoded.generation) < 1
+    ) {
       throw new Error("не тот state");
     }
     return decoded;
