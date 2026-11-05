@@ -355,6 +355,8 @@ export interface TranslationSchema {
     targetBoardLabel: string;
     dateSavedHint: string;
     generateDateButton: string;
+    cancelScheduledPin: string;
+    cancelScheduledPinConfirm: string;
     autoTimeMoscowTemplate: string;
   };
 
