@@ -397,7 +397,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     }
 
     setSwipeDirection('right');
-    setTimeout(() => {
+    setTimeout(async () => {
       const selectedBoard = boards.find((b) => b.id === editBoardId) || boards[0];
       const scheduledItem: ScheduledPinItem = {
         id: `pin-${Date.now()}`,
@@ -415,11 +415,16 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         pinterestBoardId: selectedPinterestBoardId,
       };
 
-      onApprovePin(scheduledItem);
-      setApprovedCount((c) => c + 1);
-      updateQueue((prev) => prev.slice(1));
-      setSwipeDirection(null);
-      setDragOffset(0);
+      try {
+        await onApprovePin(scheduledItem);
+        setApprovedCount((c) => c + 1);
+        updateQueue((prev) => prev.filter((pin) => pin.id !== currentPin.id));
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : 'Не удалось добавить пин в расписание. Карточка осталась в очереди.');
+      } finally {
+        setSwipeDirection(null);
+        setDragOffset(0);
+      }
     }, 220);
   };
 
@@ -444,9 +449,9 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       window.alert('Сначала подключите Pinterest и выберите настоящую доску Pinterest для публикации.');
       return;
     }
-    queue.forEach((p, idx) => {
+    const scheduledItems = queue.map((p, idx) => {
       const selectedBoard = boards.find((b) => b.id === p.boardId) || boards[0];
-      const scheduledItem: ScheduledPinItem = {
+      return {
         id: `pin-${Date.now()}-${idx}`,
         pinId: p.pinId,
         title: p.title,
@@ -455,16 +460,26 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         imageUrl: p.imageUrl,
         scheduledDate: p.scheduledDate,
         scheduledTime: p.scheduledTime,
-        status: 'scheduled',
+        status: 'scheduled' as const,
         isOptimalSlot: true,
         destinationUrl: p.destinationUrl,
         accountHandle: p.accountHandle,
         pinterestBoardId: selectedPinterestBoardId,
       };
-      onApprovePin(scheduledItem);
     });
-    setApprovedCount((c) => c + queue.length);
-    updateQueue(() => []);
+    Promise.allSettled(scheduledItems.map((item) => onApprovePin(item))).then((results) => {
+      const successfulIds = new Set<string>();
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') successfulIds.add(queue[index].id);
+      });
+      if (successfulIds.size > 0) {
+        setApprovedCount((count) => count + successfulIds.size);
+        updateQueue((prev) => prev.filter((pin) => !successfulIds.has(pin.id)));
+      }
+      if (successfulIds.size !== scheduledItems.length) {
+        window.alert(`В расписание добавлено: ${successfulIds.size} из ${scheduledItems.length}. Неудачные карточки остались в очереди.`);
+      }
+    });
   };
 
   const handleResetQueue = () => {
