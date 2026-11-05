@@ -222,22 +222,14 @@ app.post("/login", authLimiter, async (req, res) => {
 //    на фронт: успех → /login?verified=1, ошибка → /verify-email?status=error;
 //  - вызов со страницы VerifyEmail.tsx (Accept: application/json) — JSON-ответ,
 //    страница сама показывает успех/ошибку и делает переход ко входу.
-app.get("/verify-email", verifyLimiter, async (req, res) => {
-  const base = (process.env.FRONTEND_URL || "https://pinposy.com").split(",")[0].trim();
-  const wantsJson = String(req.headers.accept || "").includes("application/json");
+app.post("/verify-email", verifyLimiter, async (req, res) => {
   try {
-    await emailVerify.applyVerification(req.query.token);
-    if (wantsJson) return res.json({ ok: true, redirect: `${base}/login?verified=1` });
-    return res.redirect(302, `${base}/login?verified=1`);
+    await emailVerify.applyVerification(req.body && req.body.token);
+    res.json({ ok: true });
   } catch (e) {
-    const code = e && e.httpStatus ? e.httpStatus : 500;
-    const publicMessage =
-      code >= 500 ? "Внутренняя ошибка сервера, попробуйте позже" : (e && e.message) || "Ошибка подтверждения";
-    if (code >= 500) console.error("[verify-email]", e);
-    else console.error(`[warn] ${code}: ${e && e.message}`);
-    if (wantsJson) return res.status(code).json({ error: publicMessage, code: "email_verify_failed" });
-    // Фронт покажет человекочитаемое сообщение на странице VerifyEmail
-    return res.redirect(302, `${base}/verify-email?status=error`);
+    handleError(res, e, e && e.httpStatus >= 500
+      ? "Внутренняя ошибка сервера, попробуйте позже"
+      : undefined);
   }
 });
 
