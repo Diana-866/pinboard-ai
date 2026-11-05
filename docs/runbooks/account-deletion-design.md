@@ -122,3 +122,25 @@ Verified in migrations 010/011 and current webhook handlers:
 5. Add tests for mismatch then success, success then mismatch, duplicate mismatch, late success after account deletion request, and a database write failure before acknowledgement.
 
 No schema or webhook behavior was changed as part of this design note.
+
+
+## Additional payment audit: schema constraints and orphan webhooks
+
+A second pass over migrations 006, 007, 009 and both webhook handlers confirms:
+
+- `subscriptions.status` is constrained to `pending | success | canceled | denied | expired`; `credit_purchases.status` is constrained to `pending | success | canceled | denied`. A new value such as `amount_mismatch_review` cannot safely be placed into either status column without changing the CHECK constraints and every consumer of those values. Prefer a separate reconciliation column/table.
+- Migration 009 adds `ON DELETE CASCADE` from `users` to `subscriptions` and `credit_purchases` (as well as other user data). A physical user deletion therefore erases payment-order rows unless financial records are copied to a separately retained ledger first. This confirms that account deletion must not call a simple user-row DELETE.
+- Both webhook handlers currently acknowledge an unknown signed `order_id` with HTTP 200 and `ignored: unknown order_id`. This prevents provider retries but leaves no durable local record of the event. It may be appropriate for unrelated/forged identifiers after signature validation, but a genuinely paid order whose local row is missing needs an orphan-payment review record before acknowledgement.
+- The Prodamus webhook sample does not provide a reliable currency field. Subscription orders can be RUB or USD, while credit packs are RUB-only. Reconciliation must compare the signed amount against the currency already stored on the local order; it must not infer currency from the webhook or add a fabricated webhook currency requirement.
+- The current mismatch branch stores neither the provider-reported amount nor the event payload, and uses the existing `denied` status. The exact amount and event evidence are therefore unavailable from the order row after handling.
+
+### Revised safe implementation sequence (still design-only)
+
+1. Introduce a separate append-only webhook inbox/reconciliation table keyed by a deterministic event fingerprint (or a stable provider event ID if Prodamus supplies one). Store order ID, normalized status, reported amount, received timestamp, and a carefully redacted/minimized signed payload. Do not store secrets or unnecessary customer data.
+2. For known orders, link the inbox row to the local subscription/credit purchase. For unknown order IDs, retain a minimal orphan event and route it for manual review rather than silently discarding it.
+3. Add explicit reconciliation state separately from the existing constrained order `status`. Keep the current status contract stable for existing UI, reports and RPCs.
+4. Preserve the order's stored currency and catalog amount as authoritative. Since webhook currency is absent, record it as unavailable rather than guessing.
+5. Acknowledge HTTP 200 only after the event/inbox and any state transition are durably committed. On database failure, return non-2xx so the provider can retry.
+6. Before enabling this in production, inventory admin reporting, refund handling, deletion retention, RLS/service-role access, and retention periods for the new inbox.
+
+No database schema, webhook handler, production setting, or live payment behavior was changed by this audit.
