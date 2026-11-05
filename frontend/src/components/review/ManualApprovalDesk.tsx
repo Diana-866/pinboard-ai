@@ -304,7 +304,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
   const [approvedCount, setApprovedCount] = useState(0);
   const [rejectedCount, setRejectedCount] = useState(0);
-  const totalInitial = Math.max(15, queue.length + approvedCount + rejectedCount);
+  const totalInitial = Math.max(1, queue.length + approvedCount + rejectedCount);
 
   // Active pin in focus
   const currentPin = queue[0];
