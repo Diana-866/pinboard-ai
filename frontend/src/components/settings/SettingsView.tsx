@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../../theme/themeContext';
 import { useI18n } from '../../i18n/i18nContext';
+import { useAuth } from '../../context/AuthContext';
 import { ThemeMode } from '../../theme/types';
 import { SupportedLanguage } from '../../i18n/types';
 import { PinterestAccount } from '../../data/mockData';
@@ -54,9 +55,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 }) => {
   const { theme, setTheme, allThemes } = useTheme();
   const { language, setLanguage, t, supportedLanguages } = useI18n();
+  const { user } = useAuth();
 
   const [userTimezone, setUserTimezone] = useState<string>(() => getDefaultTimezone(language));
-  const [currentPlanName] = useState('Старт');
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [connectTab, setConnectTab] = useState<'oauth' | 'token'>('oauth');
   const [isAuthorizing, setIsAuthorizing] = useState(false);
@@ -69,6 +71,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [businessNiche, setBusinessNiche] = useState('Home Decor & Aesthetic Living');
 
   const isLimitReached = accounts.length >= maxAccounts;
+  const planId = user?.tariff_plan || 'none';
+  const currentPlanName = user?.subscription_active === false || planId === 'none'
+    ? t.settings.noActivePlan
+    : planId === 'analytics' ? t.pricing.planAnalyticsTitle
+      : planId === 'start' ? t.pricing.planStartTitle
+        : planId === 'pro' || planId === 'standard' ? t.pricing.planProTitle
+          : planId === 'agency' ? t.pricing.planAgencyTitle : t.settings.noActivePlan;
+  const availableCredits = Number(user?.credits_balance ?? 0);
 
   // Handle OAuth flow
   // Этап 1.1 (planning.md): фейковое OAuth удалено — ревьюер Pinterest не должен видеть выдуманные данные.
@@ -684,7 +694,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 {t.settings.currentPlan}
               </span>
               <span className="text-xs text-secondary-theme">
-                Тариф «{currentPlanName}» · 1 990 ₽ ($24,0) / мес · до {maxAccounts} бизнес-аккаунтов
+                {currentPlanName}
               </span>
             </div>
             {onGoToPricing && (
@@ -699,9 +709,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
 
           <div className="pt-2 border-t border-subtle flex items-center justify-between text-xs">
-            <span className="text-secondary-theme">Кредитов доступно:</span>
+            <span className="text-secondary-theme">{t.terminology.credits}:</span>
             <span className="font-mono text-base font-bold text-primary-theme">
-              840 кредитов
+              {availableCredits.toLocaleString(language)}
             </span>
           </div>
         </div>
