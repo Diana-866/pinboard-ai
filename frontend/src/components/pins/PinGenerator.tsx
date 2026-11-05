@@ -22,6 +22,7 @@ import { AI_CONTENT_LANGUAGES, useI18n } from '../../i18n/i18nContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
+import { getDefaultTimezone } from '../../utils/timezone';
 import {
   GeneratedPinVariation,
   SupportedAspectRatio,
@@ -341,7 +342,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
     const scheduledTime =
       schedulingMode === 'publish_now'
-        ? new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit' }).format(new Date())
+        ? new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', timeZone: getDefaultTimezone(language) }).format(new Date())
         : schedulingMode === 'custom_datetime'
         ? customScheduleTime
         : '20:15';
