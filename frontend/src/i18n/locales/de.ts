@@ -395,6 +395,7 @@ export const de: TranslationSchema = {
     subtitle: 'Transparentes Preismodell: Monatstarife für Account-Management plus dauerhaft gültige Credit-Pakete.',
     currencyRub: '₽ Rubel',
     currencyUsd: '$ USD',
+    creditPacksCurrencyNotice: "Credit-Pakete werden derzeit in RUB abgerechnet. Die Währungsauswahl gilt nur für Abonnements.",
     tabPlans: 'Monatliche Abos',
     tabCredits: 'Credits kaufen',
     balanceTitle: 'Aktuelles Workspace-Guthaben:',
