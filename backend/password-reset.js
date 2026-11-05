@@ -37,14 +37,13 @@ async function requestReset(rawEmail, _frontendUrl, requestedLanguage) {
 
   if (user && transactionalMailConfigured()) {
     const token = crypto.randomBytes(32).toString("base64url");
-    const { error } = await supabase.from("auth_tokens").insert({
-      user_id: String(user.id),
-      token_hash: sha256(token),
-      purpose: "password_reset",
-      expires_at: new Date(Date.now() + TTL_MINUTES * 60 * 1000).toISOString(),
+    const { data: issued, error } = await supabase.rpc("issue_password_reset_token", {
+      p_user_id: String(user.id),
+      p_token_hash: sha256(token),
+      p_expires_at: new Date(Date.now() + TTL_MINUTES * 60 * 1000).toISOString(),
     });
-    if (error) {
-      console.error("[password-reset] не удалось создать токен:", error.message);
+    if (error || issued !== true) {
+      console.error("[password-reset] не удалось создать токен:", error?.message || "user not found");
       // Не раскрываем существование аккаунта через различия ответов.
     } else {
       const base = (process.env.FRONTEND_URL || "https://pinposy.com")
