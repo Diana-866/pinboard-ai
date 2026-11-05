@@ -232,8 +232,8 @@ export const Contacts: React.FC = () => {
             <li>
               <b>{ru ? 'Возврат.' : 'Refunds.'}</b>{' '}
               {ru
-                ? 'Если сервис не работает или доступ не был предоставлен — напишите на support@pinposy.com с номером платежа, и мы вернём деньги на ту же карту в срок до 10 рабочих дней. Условия возврата также описаны в '
-                : 'If the service does not work or access was not granted, e-mail support@pinposy.com with your payment ID and we will refund the same card within 10 business days. Refund terms are also described in the '}
+                ? 'Если сервис не работает, доступ не был предоставлен или платёж прошёл ошибочно — напишите на support@pinposy.com с номером платежа. Мы рассмотрим обращение; если основания для возврата подтвердятся, вернём деньги тем же способом оплаты в срок до 10 рабочих дней после одобрения. Фактический срок зачисления зависит от банка и платёжного провайдера. Условия возврата также описаны в '
+                : 'If the Service is unavailable, paid access was not provided, or you were charged in error, e-mail support@pinposy.com with your payment ID. We will review your request; if a refund is approved, it will be issued to the original payment method within 10 business days after approval. The time it takes to appear depends on the bank and payment provider. Refund terms are also described in the '}
               <Link to="/terms" className="font-semibold text-[#A94D5F] hover:underline">
                 {ru ? 'Условиях использования' : 'Terms of Service'}
               </Link>
