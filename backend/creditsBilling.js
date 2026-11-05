@@ -198,8 +198,21 @@ async function handleCreditsWebhook(req, res) {
   const normalizedStatus = prodamus.normalizePaymentStatus(status);
   if (normalizedStatus !== "success") {
     if (!normalizedStatus) {
-      console.warn("[credits-billing] неизвестный статус Prodamus:", status || "(empty)");
-      return res.json({ ok: true, ignored: "unsupported payment_status" });
+      try {
+        await persistWebhookException(supabase, {
+          paymentKind: "credits",
+          body,
+          expectedAmount: Number.isFinite(Number(purchase.amount))
+            ? Number(purchase.amount)
+            : null,
+          reason: "unsupported_payment_status",
+        });
+      } catch (auditError) {
+        console.error("[credits-billing] не удалось сохранить неизвестный статус:", auditError.message);
+        return res.status(500).json({ ok: false, error: "audit storage failed" });
+      }
+      console.warn("[credits-billing] неизвестный статус Prodamus сохранён для сверки:", status || "(empty)");
+      return res.json({ ok: true, ignored: "unsupported payment_status", review_required: true });
     }
     const mapped = normalizedStatus;
     const { error: statusError } = await supabase.from("credit_purchases")
