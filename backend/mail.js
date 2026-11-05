@@ -24,9 +24,9 @@ function getTransactionalSmtpAuth() {
 }
 
 function getReplySmtpConfig() {
-  const port = Number(process.env.MAIL_REPLY_SMTP_PORT || process.env.MAIL_SMTP_PORT || 465);
+  const port = Number(process.env.MAIL_REPLY_SMTP_PORT || 465);
   return {
-    host: process.env.MAIL_REPLY_SMTP_HOST || process.env.MAIL_SMTP_HOST,
+    host: process.env.MAIL_REPLY_SMTP_HOST,
     port,
     secure: port === 465,
     requireTLS: port === 587,
@@ -34,8 +34,7 @@ function getReplySmtpConfig() {
       user: process.env.MAIL_REPLY_SMTP_USER || process.env.MAIL_USER,
       pass: process.env.MAIL_REPLY_SMTP_PASS || process.env.MAIL_PASS,
     },
-    from: process.env.MAIL_REPLY_FROM || process.env.MAIL_REPLY_SMTP_USER ||
-      process.env.MAIL_FROM || process.env.MAIL_USER,
+    from: process.env.MAIL_REPLY_FROM || process.env.MAIL_REPLY_SMTP_USER || process.env.MAIL_USER,
   };
 }
 
