@@ -9,8 +9,8 @@ type Status = 'working' | 'success' | 'error';
 /**
  * Страница подтверждения email.
  * Два сценария:
- *  - в URL есть ?token=... — вызываем API GET /verify-email?token= (JSON-режим),
- *    бэкенд помечает email подтверждённым и мы показываем результат;
+ *  - в URL есть ?token=... — после загрузки страницы отправляем POST /verify-email;
+ *    обычный GET по ссылке не меняет состояние, чтобы сканеры писем не расходовали токен;
  *  - в URL ?status=error — сюда редиректит бэкенд, если переход по ссылке
  *    из письма не прошёл (токен просрочен/использован) — показываем ошибку.
  */
@@ -41,8 +41,9 @@ export const VerifyEmail: React.FC = () => {
 
     (async () => {
       try {
-        await apiRequest(`/verify-email?token=${encodeURIComponent(token)}`, {
-          headers: { Accept: 'application/json' },
+        await apiRequest('/verify-email', {
+          method: 'POST',
+          body: JSON.stringify({ token }),
         });
         setStatus('success');
       } catch (err: any) {
