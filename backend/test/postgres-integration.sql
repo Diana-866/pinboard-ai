@@ -93,7 +93,7 @@ begin
 
   -- Issuing a newer reset link invalidates the older link for this account.
   v_reset_result := public.issue_password_reset_token(
-    v_user::text, repeat('a', 64), now() + interval '1 hour'
+    v_user::text, repeat('a', 64), now() + interval '1 hour', 300
   );
   if v_reset_result is distinct from true then
     raise exception 'first password reset token was not issued';
@@ -107,7 +107,7 @@ begin
    where id = v_reset_token_old;
 
   v_reset_result := public.issue_password_reset_token(
-    v_user::text, repeat('b', 64), now() + interval '1 hour'
+    v_user::text, repeat('b', 64), now() + interval '1 hour', 300
   );
   if v_reset_result is distinct from true then
     raise exception 'second password reset token was not issued';
@@ -117,7 +117,7 @@ begin
 
   -- A third request inside five minutes is rejected without invalidating the live link.
   v_reset_result := public.issue_password_reset_token(
-    v_user::text, repeat('g', 64), now() + interval '1 hour'
+    v_user::text, repeat('g', 64), now() + interval '1 hour', 300
   );
   if v_reset_result is distinct from false then
     raise exception 'password reset issuance bypassed five-minute cooldown';
