@@ -111,7 +111,7 @@ const MainApp: React.FC = () => {
         if (cancelled) return;
         const mapped: ScheduledPinItem[] = (Array.isArray(rows) ? rows : []).map((row: any) => {
           const date = new Date(row.scheduled_at);
-          const local = formatInstantInTimezone(date, row.timezone || getDefaultTimezone());
+          const local = formatInstantInTimezone(date, getDefaultTimezone());
           return {
             id: String(row.id),
             pinId: String(row.pin_id),
