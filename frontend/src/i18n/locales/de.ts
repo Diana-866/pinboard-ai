@@ -329,6 +329,8 @@ export const de: TranslationSchema = {
     targetBoardLabel: "Pinterest-Zielboard:",
     dateSavedHint: "Dieses Datum wird an den Generator übergeben und im Veröffentlichungsplan gespeichert.",
     generateDateButton: "Mit der Generierung für dieses Datum fortfahren",
+    cancelScheduledPin: 'Geplante Veröffentlichung abbrechen',
+    cancelScheduledPinConfirm: 'Diese geplante Veröffentlichung abbrechen? Sie wird nicht an Pinterest gesendet.',
     autoTimeMoscowTemplate: "um {time} {timezone} ({moscowTime} MSK auf dem Server)",
   },
 
