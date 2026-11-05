@@ -153,7 +153,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <span className="text-sm font-bold text-primary-theme truncate">
                           {acc.name}
                         </span>
-                        <span className="w-2 h-2 rounded-full bg-emerald-500" title="API подключен и верифицирован" />
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" title={t.settings.apiVerified} />
                         {isActive && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full accent-btn text-white">
                             Активный профиль
@@ -163,11 +163,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       <div className="flex items-center gap-2 text-xs text-secondary-theme mt-0.5 flex-wrap">
                         <span className="font-mono text-primary-theme font-medium">{acc.handle}</span>
                         <span>·</span>
-                        <span>{acc.boardsCount} досок</span>
+                        <span>{acc.boardsCount} {t.settings.boardsCount}</span>
                         <span>·</span>
-                        <span>{acc.monthlyViews} просм/мес</span>
+                        <span>{acc.monthlyViews} {t.settings.monthlyViews}</span>
                         <span>·</span>
-                        <span>{acc.minDailyPins}–{acc.maxDailyPins} пинов/день</span>
+                        <span>{acc.minDailyPins}–{acc.maxDailyPins} {t.settings.pinsPerDay}</span>
                       </div>
                     </div>
                   </div>
@@ -184,7 +184,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                     <button
                       className="p-2 rounded-lg border border-subtle hover:border-strong text-secondary-theme hover:text-primary-theme cursor-pointer transition-colors"
-                      title="Синхронизировать данные"
+                      title={t.settings.syncData}
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                     </button>
@@ -193,7 +193,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       <button
                         onClick={() => onRemoveAccount(acc.id)}
                         className="p-2 rounded-lg border border-subtle hover:border-rose-400 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 cursor-pointer transition-colors"
-                        title="Отключить аккаунт"
+                        title={t.settings.disconnectAccount}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -214,14 +214,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <Clock className="w-4 h-4 text-accent-ghost shrink-0" />
                         <div>
                           <span className="font-semibold text-primary-theme block text-xs">
-                            Расписание авто-генерации:
+                            {t.settings.scheduleTitle}
                           </span>
                           <span className="text-[11px] text-muted-theme">
                             {acc.nightlyAuto !== false
                               ? isMsk || (language === 'ru' && isMsk)
                                 ? `Запуск в ${autoTime} МСК (${acc.minDailyPins}–${acc.maxDailyPins} пинов)`
                                 : `Запуск в ${autoTime} ${tzInfo.abbr} (${mskTime} МСК на сервере)`
-                              : 'Генерация приостановлена'}
+                              : t.settings.schedulePaused}
                           </span>
                         </div>
                       </div>
@@ -234,13 +234,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             onChange={(e) => {
                               if (onUpdateAccountAutoTime) {
                                 onUpdateAccountAutoTime(acc.id, acc.autoTime || '01:00', e.target.checked);
-                                setSuccessToast(`Автогенерация для ${acc.handle} ${e.target.checked ? 'включена' : 'выключена'}!`);
+                                setSuccessToast((e.target.checked ? t.settings.autoEnabled : t.settings.autoDisabled).replace('{account}', acc.handle));
                                 setTimeout(() => setSuccessToast(null), 3000);
                               }
                             }}
                             className="w-3.5 h-3.5 rounded cursor-pointer accent-accent"
                           />
-                          <span className="text-secondary-theme text-[11px]">Авто</span>
+                          <span className="text-secondary-theme text-[11px]">{t.settings.autoLabel}</span>
                         </label>
 
                         <div className="flex items-center gap-1 bg-surface border border-subtle px-2 py-0.5 rounded-md">
@@ -251,9 +251,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               if (onUpdateAccountAutoTime) {
                                 onUpdateAccountAutoTime(acc.id, e.target.value, acc.nightlyAuto !== false);
                                 setSuccessToast(
-                                  isMsk || (language === 'ru' && isMsk)
-                                    ? `Время автогенерации для ${acc.handle} установлено на ${e.target.value} МСК!`
-                                    : `Время автогенерации для ${acc.handle} установлено на ${e.target.value} ${tzInfo.abbr} (${convertLocalToMoscow(e.target.value, userTimezone)} МСК на сервере)!`
+                                  (isMsk ? t.settings.timeSavedMsk : t.settings.timeSaved)
+                                    .replace('{account}', acc.handle)
+                                    .replace('{time}', e.target.value)
+                                    .replace('{zone}', tzInfo.abbr)
+                                    .replace('{serverTime}', convertLocalToMoscow(e.target.value, userTimezone))
                                 );
                                 setTimeout(() => setSuccessToast(null), 3000);
                               }
@@ -275,9 +277,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                 if (onUpdateAccountAutoTime) {
                                   onUpdateAccountAutoTime(acc.id, preset, acc.nightlyAuto !== false);
                                   setSuccessToast(
-                                    isMsk || (language === 'ru' && isMsk)
-                                      ? `Время автогенерации для ${acc.handle} установлено на ${preset} МСК!`
-                                      : `Время автогенерации для ${acc.handle} установлено на ${preset} ${tzInfo.abbr} (${convertLocalToMoscow(preset, userTimezone)} МСК на сервере)!`
+                                    (isMsk ? t.settings.timeSavedMsk : t.settings.timeSaved)
+                                      .replace('{account}', acc.handle)
+                                      .replace('{time}', preset)
+                                      .replace('{zone}', tzInfo.abbr)
+                                      .replace('{serverTime}', convertLocalToMoscow(preset, userTimezone))
                                   );
                                   setTimeout(() => setSuccessToast(null), 3000);
                                 }
@@ -309,10 +313,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <div>
                 <p className="text-xs font-bold text-primary-theme">
-                  Лимит аккаунтов на текущем тарифе исчерпан ({maxAccounts} из {maxAccounts})
+                  {t.settings.accountLimitReached.replace('{count}', String(accounts.length)).replace('{max}', String(maxAccounts))}
                 </p>
                 <p className="text-[11px] text-secondary-theme mt-0.5">
-                  Чтобы добавить ещё аккаунты, улучшите тарифный план до тарифа «Бизнес» или «Агентство».
+                  {t.settings.accountLimitDesc}
                 </p>
               </div>
             </div>
@@ -323,12 +327,45 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 onClick={onGoToPricing}
                 className="accent-btn px-4 py-2 text-xs font-bold flex items-center justify-center gap-1.5 shrink-0 cursor-pointer shadow-xs"
               >
-                <span>Сменить тариф</span>
+                <span>{t.settings.changePlan}</span>
                 <ArrowUpRight className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
         )}
+      </section>
+
+      {/* TIME ZONE */}
+      <section className="custom-card p-6 space-y-3">
+        <div>
+          <h2 className="text-base font-bold text-primary-theme font-heading flex items-center gap-2">
+            <Clock className="w-4 h-4 text-accent-ghost" />
+            <span>{t.settings.timezoneSection}</span>
+          </h2>
+          <p className="text-xs text-muted-theme mt-0.5">{t.settings.timezoneSectionDesc}</p>
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <select
+            value={userTimezone}
+            onChange={(event) => {
+              const nextTimezone = event.target.value;
+              setUserTimezone(nextTimezone);
+              saveUserTimezone(nextTimezone);
+            }}
+            className="w-full sm:max-w-md rounded-xl border border-subtle bg-surface px-3 py-2 text-sm text-primary-theme"
+            aria-label={t.settings.timezoneSection}
+          >
+            {!SUPPORTED_TIMEZONES.some((zone) => zone.value === userTimezone) && (
+              <option value={userTimezone}>{userTimezone}</option>
+            )}
+            {SUPPORTED_TIMEZONES.map((zone) => (
+              <option key={zone.value} value={zone.value}>
+                {language === 'ru' ? zone.nameRu : zone.nameEn}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs text-muted-theme">{t.settings.timezoneAutoDetected}</span>
+        </div>
       </section>
 
       {/* 2. THEME SELECTION */}
