@@ -110,11 +110,16 @@ async function login(rawEmail, rawPassword) {
   const email = validateEmail(rawEmail);
   validatePassword(rawPassword); // единая проверка формата, чтобы не раскрывать наличие аккаунта
 
-  const { data: user } = await supabase
+  const { data: user, error: lookupError } = await supabase
     .from("users")
     .select("*")
     .eq("email", email)
     .maybeSingle();
+
+  if (lookupError) {
+    console.error("[login] не удалось получить аккаунт:", lookupError.message);
+    throw httpError(503, "Сервис авторизации временно недоступен — попробуйте позже");
+  }
 
   // Пароль проверяем ДО проверки email_verified: иначе по коду ответа (403 vs 401)
   // можно было бы отличить существующий неподтверждённый аккаунт от несуществующего.
