@@ -288,6 +288,7 @@ export const PricingView: React.FC = () => {
         {/* Currency & Tabs Switchers */}
         <div className="flex items-center gap-3 flex-wrap">
           {activeTab === 'plans' && (
+            <>
           {/* Currency Toggle */}
           <div className="bg-subtle p-1 rounded-xl border border-subtle flex items-center gap-1 text-xs font-semibold">
             <button
@@ -312,6 +313,7 @@ export const PricingView: React.FC = () => {
             </button>
           </div>
 
+            </>
           )}
 
           {/* Section Tabs */}
