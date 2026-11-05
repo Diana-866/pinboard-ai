@@ -736,7 +736,7 @@ export const PricingView: React.FC = () => {
                           </span>
                         </td>
                         <td className="py-3 px-3 font-mono text-secondary-theme">
-                          {p.paid_at ? new Date(p.paid_at).toLocaleDateString() : '—'}
+                          {p.paid_at ? new Intl.DateTimeFormat(language, { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(p.paid_at)) : '—'}
                         </td>
                       </tr>
                     ))}
