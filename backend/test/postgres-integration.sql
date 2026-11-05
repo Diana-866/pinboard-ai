@@ -29,6 +29,7 @@ declare
   v_schedule_count integer;
   v_publish_result jsonb;
   v_uncertain_pin uuid;
+  v_late_success_pin uuid;
   v_language text;
   v_reset_token uuid;
   v_reset_token_old uuid;
@@ -432,6 +433,27 @@ begin
     raise exception 'uncertain Pinterest result must block duplicate retry';
   end if;
 
+  -- A late successful Pinterest response can still reconcile an unknown attempt
+  -- without issuing a second remote create request.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/late-success.png', 'Late success', '', 'pending', 'flux-schnell', 0)
+  returning id into v_late_success_pin;
+  v_publish_result := public.begin_pinterest_publish(v_user::text, v_late_success_pin, 'pinterest-board-ci');
+  if v_publish_result->>'status' <> 'started' then
+    raise exception 'late-success test reservation did not start';
+  end if;
+  perform public.fail_pinterest_publish(v_user::text, v_late_success_pin, 'simulated timeout', true);
+  v_publish_result := public.begin_pinterest_publish(v_user::text, v_late_success_pin, 'pinterest-board-ci');
+  if v_publish_result->>'status' <> 'unknown' then
+    raise exception 'late-success attempt should first be marked unknown';
+  end if;
+  perform public.complete_pinterest_publish(v_user::text, v_late_success_pin, 'remote-pin-late-ci', 'pinterest-board-ci');
+  v_publish_result := public.begin_pinterest_publish(v_user::text, v_late_success_pin, 'pinterest-board-ci');
+  if v_publish_result->>'status' <> 'published'
+     or v_publish_result->>'pinterest_pin_id' <> 'remote-pin-late-ci' then
+    raise exception 'late successful response did not reconcile the unknown attempt';
+  end if;
+
   -- An unknown publication outcome must block a second schedule for the same pin.
   insert into public.pin_schedules(user_id,pin_id,scheduled_at,timezone,pinterest_board_id,status)
   values (v_user::text,v_uncertain_pin,now() + interval '1 day','Europe/Moscow','pinterest-board-ci','unknown');
@@ -458,6 +480,27 @@ begin
   end if;
 
   update public.pin_schedules set status='cancelled' where id=v_schedule;
+
+  -- A worker that stopped after Pinterest success is recovered from the durable
+  -- publication journal, rather than being marked unknown or republished.
+  insert into public.pin_schedules(user_id,pin_id,scheduled_at,timezone,pinterest_board_id,status,updated_at)
+  values (v_user::text,v_pin,now() - interval '30 minutes','Europe/Moscow','pinterest-board-ci','publishing',now() - interval '21 minutes')
+  returning id into v_schedule;
+  perform public.claim_due_pin_schedules(10);
+  if (select status from public.pin_schedules where id=v_schedule) <> 'published'
+     or (select pinterest_pin_id from public.pin_schedules where id=v_schedule) <> 'remote-pin-ci-001' then
+    raise exception 'stale schedule with confirmed Pinterest success was not recovered';
+  end if;
+
+  -- A stale publishing row without a confirmed remote ID becomes unknown,
+  -- and is not automatically returned to the due queue.
+  update public.pin_schedules
+    set status='publishing', updated_at=now() - interval '21 minutes'
+    where pin_id=v_uncertain_pin and status='unknown';
+  perform public.claim_due_pin_schedules(10);
+  if (select status from public.pin_schedules where pin_id=v_uncertain_pin and status='unknown' limit 1) <> 'unknown' then
+    raise exception 'stale uncertain schedule was made retryable';
+  end if;
 
   -- Persistent schedule records remain scheduled until a publisher confirms success.
   insert into public.pin_schedules(user_id, pin_id, scheduled_at, timezone)
