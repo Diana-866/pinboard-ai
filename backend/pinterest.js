@@ -333,14 +333,18 @@ async function refreshAccessToken(account) {
     }
     return getAccount(latest.user_id);
   } finally {
-    const { error: releaseError } = await supabase.rpc("release_pinterest_token_refresh_lease", {
-      p_user_id: String(account.user_id),
-      p_lease_id: leaseId,
-    });
-    if (releaseError) {
-      // The lease is self-expiring; log for observability without masking the
-      // original Pinterest/API result.
-      console.error("[pinterest] не удалось освободить refresh lease:", releaseError.message);
+    try {
+      const { error: releaseError } = await supabase.rpc("release_pinterest_token_refresh_lease", {
+        p_user_id: String(account.user_id),
+        p_lease_id: leaseId,
+      });
+      if (releaseError) {
+        // The lease is self-expiring; log without masking the original result.
+        console.error("[pinterest] не удалось освободить refresh lease:", releaseError.message);
+      }
+    } catch (releaseError) {
+      // Network-level RPC failures are also safe because the lease expires.
+      console.error("[pinterest] ошибка при освобождении refresh lease:", releaseError && releaseError.message);
     }
   }
 }
