@@ -58,7 +58,7 @@ async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage)
   const sent = await emailVerify.issueVerificationToken(data);
   if (!sent) {
     console.warn(
-      `[register] письмо подтверждения не отправлено для ${email} — пользователь сможет запросить повторно`
+      "[register] письмо подтверждения не отправлено — пользователь сможет запросить повторно"
     );
   }
 
