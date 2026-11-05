@@ -18,10 +18,25 @@ declare
   v_schedule_count integer;
   v_publish_result jsonb;
   v_uncertain_pin uuid;
+  v_language text;
 
 begin
   insert into public.users(id, email, credits_balance, tariff_plan)
   values (v_user, 'atomic-test-' || v_user || '@example.invalid', 10, 'none');
+
+  -- Preferred interface language migration: existing users default to English,
+  -- supported locales can be saved, and unsupported locales are rejected.
+  select preferred_language into v_language from public.users where id = v_user;
+  if v_language <> 'en' then raise exception 'new user language must default to en'; end if;
+  update public.users set preferred_language = 'de' where id = v_user;
+  select preferred_language into v_language from public.users where id = v_user;
+  if v_language <> 'de' then raise exception 'supported preferred language was not saved'; end if;
+  begin
+    update public.users set preferred_language = 'xx' where id = v_user;
+    raise exception 'unsupported preferred language was accepted';
+  exception when check_violation then
+    null;
+  end;
 
   insert into public.credit_purchases(
     user_id, package_id, pack_title, credits, status,
