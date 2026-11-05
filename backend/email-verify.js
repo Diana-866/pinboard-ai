@@ -85,19 +85,20 @@ async function revokeUnused(userId) {
 // регистрация и вход не должны падать из-за почты — письмо можно запросить повторно.
 async function issueVerificationToken(user) {
   user.preferred_language = normalizeLanguage(user.preferred_language);
-  await revokeUnused(user.id);
 
   const token = crypto.randomBytes(32).toString("base64url");
-  const { error } = await supabase.from("auth_tokens").insert({
-    user_id: String(user.id),
-    token_hash: sha256(token),
-    purpose: PURPOSE,
-    expires_at: new Date(Date.now() + TTL_HOURS * 60 * 60 * 1000).toISOString(),
+  const { data: issued, error } = await supabase.rpc("issue_email_verification_token", {
+    p_user_id: String(user.id),
+    p_token_hash: sha256(token),
+    p_expires_at: new Date(Date.now() + TTL_HOURS * 60 * 60 * 1000).toISOString(),
+    p_min_interval_seconds: RESEND_INTERVAL_MINUTES * 60,
   });
+
   if (error) {
-    console.error("[email-verify] не удалось создать токен:", error.message);
+    console.error("[email-verify] атомарный выпуск токена не выполнен:", error.message);
     return false;
   }
+  if (issued !== true) return false;
 
   if (!transactionalMailConfigured()) {
     console.warn("[email-verify] транзакционная почта не настроена — письмо не отправлено");
