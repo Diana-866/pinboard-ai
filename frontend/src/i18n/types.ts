@@ -413,6 +413,7 @@ export interface TranslationSchema {
     billingSection: string;
     billingSectionDesc: string;
     currentPlan: string;
+    noActivePlan: string;
     upgradePlan: string;
     creditsUsed: string;
     resetCycle: string;
