@@ -45,7 +45,12 @@ async function requestReset(rawEmail, _frontendUrl, requestedLanguage) {
       p_min_interval_seconds: RESEND_INTERVAL_SECONDS,
     });
     if (error || issued !== true) {
-      console.error("[password-reset] не удалось создать токен:", error?.message || "user not found");
+      if (error) {
+        console.error("[password-reset] не удалось создать токен:", error.message);
+      } else {
+        // Cooldown or missing user: intentionally identical public response.
+        console.info("[password-reset] запрос пропущен ограничением частоты или отсутствием аккаунта");
+      }
       // Не раскрываем существование аккаунта через различия ответов.
     } else {
       const base = (process.env.FRONTEND_URL || "https://pinposy.com")
