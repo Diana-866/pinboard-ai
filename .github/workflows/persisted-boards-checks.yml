@@ -44,3 +44,4 @@ jobs:
       - run: npm ci
       - run: node --check index.js
       - run: npm test
+      - run: node ../test/e2e-email-verify.js
