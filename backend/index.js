@@ -258,10 +258,32 @@ app.post("/resend-verification", verifyLimiter, async (req, res) => {
     let userIdFromToken = null;
     try {
       const header = req.headers.authorization || "";
-      const token = header.replace(/^Bearer\s+/i, "").trim();
-      if (token) userIdFromToken = verifyToken(token).userId;
-    } catch {
-      userIdFromToken = null; // невалидный токен — просто отвечаем анонимно
+      const token = require("./bearerToken").extractBearerToken(header);
+      if (token) {
+        const decoded = verifyToken(token);
+        if (decoded.userId) {
+          // Authenticated resend must enforce the same session-version fence
+          // as requireAuth; password-reset JWTs must not remain active here.
+          const { data: account, error: accountError } = await supabase
+            .from("users")
+            .select("token_version")
+            .eq("id", decoded.userId)
+            .maybeSingle();
+          if (accountError) {
+            console.error("[email-verify] не удалось проверить версию сессии:", accountError.message);
+            throw httpError(503, "Сервис подтверждения email временно недоступен — попробуйте позже");
+          }
+          if (
+            account &&
+            Number(decoded.tokenVersion || 0) === Number(account.token_version || 0)
+          ) {
+            userIdFromToken = decoded.userId;
+          }
+        }
+      }
+    } catch (e) {
+      if (e && e.httpStatus === 503) throw e;
+      userIdFromToken = null; // invalid or revoked token falls back to generic anonymous mode
     }
     const result = await emailVerify.resendVerification(
       req.body && req.body.email,
