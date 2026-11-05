@@ -261,6 +261,7 @@ function tokenFromMail(mail) {
   const resetUnknown = await passwordReset.requestReset("nobody@example.com", null, "en");
   ok("ответы известного и неизвестного адресов одинаковы",
     resetKnown.message === resetUnknown.message && resetUnknown.ok === true);
+  ok("для неизвестного адреса письмо не отправлено", sentMails.length === unknownBefore);
   console.log("\\n14) Одноразовое применение reset-токена");
   const oldHash = db.users[0].password_hash;
   const concurrent = await Promise.allSettled([
