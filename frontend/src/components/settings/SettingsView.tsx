@@ -64,7 +64,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     ? t.settings.noActivePlan
     : planId === 'analytics' ? t.pricing.planAnalyticsTitle
       : planId === 'start' ? t.pricing.planStartTitle
-        : planId === 'pro' || planId === 'standard' ? t.pricing.planProTitle
+        : planId === 'pro' ? t.pricing.planProTitle
           : planId === 'agency' ? t.pricing.planAgencyTitle : t.settings.noActivePlan;
   const availableCredits = Number(user?.credits_balance ?? 0);
 
