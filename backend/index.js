@@ -543,6 +543,7 @@ app.post("/projects/:id/analyze", aiLimiter, requireAuth, async (req, res) => {
         analyzed_at: new Date().toISOString(),
       })
       .eq("id", req.params.id)
+      .eq("user_id", req.userId)
       .select()
       .single();
 
