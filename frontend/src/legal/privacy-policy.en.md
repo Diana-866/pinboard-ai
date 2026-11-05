@@ -1,15 +1,15 @@
 # PinPosy Privacy Policy
 
-Last updated: October 17, 2026
+Last updated: November 5, 2026
 Effective date: October 17, 2026
 
 PinPosy ("the Service", "we") is a web application for AI-assisted planning and creation of Pinterest content: website analysis, board and pin idea generation, image generation, manual review, and publishing to a connected Pinterest account through the official Pinterest API.
 
-This policy explains what data we collect, why, how we protect it, and what rights you have. Service URL: https://pinboard-ai-web.vercel.app (will be updated on this page once a custom domain is registered).
+This policy explains what data we collect, why, how we protect it, and what rights you have. Service URL: https://pinposy.com.
 
 ## 1. Data Controller
 
-- Operator: self-employed individual [FULL LEGAL NAME — to be added], Russian Federation.
+- Operator: Diana Aleksandrovna Bannova, a self-employed individual registered under the Russian professional income tax (NPD) regime in the Russian Federation. Tax ID (INN): **231294708907**.
 - Privacy contact: **support@pinposy.com**
 
 ## 2. Data We Collect
