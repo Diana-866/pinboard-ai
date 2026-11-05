@@ -8,10 +8,12 @@ declare
   v_generation_b bigint;
   v_generation_c bigint;
   v_generation_d bigint;
+  v_generation_e bigint;
   v_attempt_a uuid := gen_random_uuid();
   v_attempt_b uuid := gen_random_uuid();
   v_attempt_c uuid := gen_random_uuid();
   v_attempt_d uuid := gen_random_uuid();
+  v_attempt_e uuid := gen_random_uuid();
   v_committed boolean;
   v_count integer;
 begin
@@ -81,6 +83,20 @@ begin
     raise exception 'OAuth generation reset after disconnect';
   end if;
 
+  -- Expired attempts cannot commit, even if the signed state is otherwise valid.
+  v_generation_e := public.begin_pinterest_oauth_attempt(v_user::text, v_attempt_e, 1);
+  update public.pinterest_oauth_connection_state
+     set attempt_expires_at = now() - interval '1 second'
+   where user_id = v_user::text;
+  v_committed := public.commit_pinterest_oauth_attempt(
+    v_user::text, v_attempt_e, v_generation_e, 1,
+    'pinterest-user-expired', 'expired_attempt', 'enc:expired-access', 'enc:expired-refresh',
+    'boards:read,pins:write', now() + interval '1 hour'
+  );
+  if v_committed is distinct from false then
+    raise exception 'expired OAuth attempt was accepted';
+  end if;
+
   -- Password reset invalidates a pending OAuth attempt even without disconnect.
   update public.users set token_version = token_version + 1 where id = v_user;
   v_committed := public.commit_pinterest_oauth_attempt(
@@ -119,8 +135,11 @@ begin
 
   if has_table_privilege('anon', 'public.pinterest_oauth_connection_state', 'SELECT')
      or has_table_privilege('authenticated', 'public.pinterest_oauth_connection_state', 'SELECT')
-     or has_table_privilege('service_role', 'public.pinterest_oauth_connection_state', 'SELECT') then
-    raise exception 'OAuth connection-state table is directly readable by an API role';
+     or has_table_privilege('service_role', 'public.pinterest_oauth_connection_state', 'SELECT')
+     or has_table_privilege('service_role', 'public.pinterest_oauth_connection_state', 'INSERT')
+     or has_table_privilege('service_role', 'public.pinterest_oauth_connection_state', 'UPDATE')
+     or has_table_privilege('service_role', 'public.pinterest_oauth_connection_state', 'DELETE') then
+    raise exception 'OAuth connection-state table has direct grants to an API role';
   end if;
 
   raise notice 'Pinterest OAuth fencing integration checks passed for user %', v_user;
