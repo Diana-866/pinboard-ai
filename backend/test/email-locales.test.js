@@ -8,6 +8,9 @@ test("supports every UI locale and falls back to English", () => {
     assert.ok(getEmailCopy(language).verifySubject);
     assert.ok(getEmailCopy(language).resetSubject);
     assert.ok(getEmailCopy(language).activatedSubject.includes("{plan}"));
+    assert.ok(getEmailCopy(language).activatedBody.includes("{plan}"));
+    assert.ok(getEmailCopy(language).activatedBody.includes("{currentPlan}"));
+    assert.ok(getEmailCopy(language).validUntil);
     assert.ok(getLocale(language));
   }
   assert.equal(normalizeLanguage("it-IT"), "en");
