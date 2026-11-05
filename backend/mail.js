@@ -34,8 +34,8 @@ function getReplySmtpConfig() {
       user: process.env.MAIL_REPLY_SMTP_USER || process.env.MAIL_USER,
       pass: process.env.MAIL_REPLY_SMTP_PASS || process.env.MAIL_PASS,
     },
-    from: process.env.MAIL_REPLY_FROM || process.env.MAIL_FROM ||
-      process.env.MAIL_REPLY_SMTP_USER || process.env.MAIL_USER,
+    from: process.env.MAIL_REPLY_FROM || process.env.MAIL_REPLY_SMTP_USER ||
+      process.env.MAIL_FROM || process.env.MAIL_USER,
   };
 }
 
@@ -51,7 +51,7 @@ function transactionalMailConfigured() {
 
 async function listInbox(limit = 30) {
   if (!mailConfigured()) {
-    throw httpError(503, "Почта не настроена: задайте MAIL_IMAP_HOST, MAIL_USER, MAIL_PASS на сервере");
+    throw httpError(503, "Почта не настроена: задайте MAIL_IMAP_HOST, MAIL_IMAP_USER и MAIL_IMAP_PASS на сервере");
   }
   const { ImapFlow } = require("imapflow");
   const client = new ImapFlow({
@@ -98,7 +98,7 @@ async function listInbox(limit = 30) {
 
 async function fetchMessageBody(uid) {
   if (!mailConfigured()) {
-    throw httpError(503, "Почта не настроена: задайте MAIL_IMAP_HOST, MAIL_USER, MAIL_PASS на сервере");
+    throw httpError(503, "Почта не настроена: задайте MAIL_IMAP_HOST, MAIL_IMAP_USER и MAIL_IMAP_PASS на сервере");
   }
   const { ImapFlow } = require("imapflow");
   const client = new ImapFlow({
