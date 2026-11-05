@@ -112,7 +112,7 @@ async function login(rawEmail, rawPassword) {
     console.warn("[login] users.email_verified отсутствует — примените миграцию 005 (вход без подтверждения)");
   }
 
-  const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: TOKEN_TTL });
+  const token = jwt.sign({ userId: user.id, tokenVersion: Number(user.token_version || 0) }, process.env.JWT_SECRET, { expiresIn: TOKEN_TTL });
   return {
     token,
     user: {
