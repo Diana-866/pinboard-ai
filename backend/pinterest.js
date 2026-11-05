@@ -303,8 +303,20 @@ async function refreshAccessToken(account) {
       p_expires_at: expiresAt,
     });
     if (commitError) {
+      // The RPC may have committed even if its response was lost. Reconcile
+      // before telling the user to reconnect or allowing another refresh.
+      const reconciled = await getAccount(latest.user_id).catch(() => null);
+      if (
+        reconciled &&
+        (reconciled.access_token !== latest.access_token ||
+          reconciled.refresh_token !== latest.refresh_token ||
+          reconciled.updated_at !== latest.updated_at)
+      ) {
+        console.warn("[pinterest] refresh commit response was ambiguous; newer stored credentials were recovered");
+        return reconciled;
+      }
       console.error("[pinterest] не удалось атомарно сохранить обновлённые токены:", commitError.message);
-      throw httpError(503, "Pinterest обновил доступ, но PinPosy не смог безопасно сохранить токены. Повторите подключение Pinterest, если ошибка повторится.");
+      throw httpError(503, "Pinterest обновил доступ, но PinPosy не смог подтвердить сохранение токенов. Повторите запрос; если ошибка повторится, подключите Pinterest заново.");
     }
     if (!committed) {
       // OAuth reconnect or lease expiry won the race. Never overwrite its row.
