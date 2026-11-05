@@ -227,8 +227,21 @@ async function handleWebhook(req, res) {
   const normalizedStatus = prodamus.normalizePaymentStatus(status);
   if (normalizedStatus !== "success") {
     if (!normalizedStatus) {
-      console.warn("[billing] неизвестный статус Prodamus:", status || "(empty)");
-      return res.json({ ok: true, ignored: "unsupported payment_status" });
+      try {
+        await persistWebhookException(supabase, {
+          paymentKind: "subscription",
+          body,
+          expectedAmount: Number.isFinite(Number(sub.amount))
+            ? Number(sub.amount)
+            : null,
+          reason: "unsupported_payment_status",
+        });
+      } catch (auditError) {
+        console.error("[billing] не удалось сохранить неизвестный статус:", auditError.message);
+        return res.status(500).json({ ok: false, error: "audit storage failed" });
+      }
+      console.warn("[billing] неизвестный статус Prodamus сохранён для сверки:", status || "(empty)");
+      return res.json({ ok: true, ignored: "unsupported payment_status", review_required: true });
     }
     const mapped = normalizedStatus;
     const { error: statusError } = await supabase.from("subscriptions")
