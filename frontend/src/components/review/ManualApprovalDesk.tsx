@@ -291,7 +291,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 }) => {
   const { t, formatDate } = useI18n();
 
-  const [internalQueue, setInternalQueue] = useState<PendingReviewPin[]>(INITIAL_QUEUE_PINS);
+  const [internalQueue, setInternalQueue] = useState<PendingReviewPin[]>([]);
   const queue = pendingPins ?? internalQueue;
 
   const updateQueue = (fn: (prev: PendingReviewPin[]) => PendingReviewPin[]) => {
@@ -435,7 +435,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   };
 
   const handleResetQueue = () => {
-    updateQueue(() => INITIAL_QUEUE_PINS);
+    updateQueue(() => []);
     setApprovedCount(0);
     setRejectedCount(0);
   };
