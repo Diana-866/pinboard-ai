@@ -5,7 +5,7 @@
 //     MAIL_REPLY_SMTP_USER, MAIL_REPLY_SMTP_PASS, MAIL_REPLY_FROM
 //   Транзакционные письма: MAIL_SMTP_HOST, MAIL_SMTP_PORT,
 //     MAIL_SMTP_USER, MAIL_SMTP_PASS, MAIL_FROM
-// MAIL_USER/MAIL_PASS остаются fallback для старой конфигурации.
+// MAIL_USER/MAIL_PASS остаются fallback только для IMAP/ответов поддержки; транзакционная почта требует отдельные MAIL_SMTP_*.
 
 const { httpError } = require("./validate");
 
