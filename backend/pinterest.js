@@ -693,7 +693,10 @@ function registerRoutes(app, deps) {
 
     try {
       requireConfigured();
-      const limit = Math.max(1, Math.min(Number(req.body && req.body.limit) || 10, 50));
+      // Keep claimed work comfortably below the 20-minute stale-claim recovery window.
+      // The worker processes this batch sequentially; a large batch could make later
+      // rows look abandoned before this instance reaches them.
+      const limit = Math.max(1, Math.min(Number(req.body && req.body.limit) || 10, 10));
       const { data: dueRows, error: claimError } = await supabase.rpc("claim_due_pin_schedules", {
         p_limit: limit,
       });
