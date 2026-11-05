@@ -31,7 +31,7 @@ function tokenizeFieldName(name) {
   if (
     tokens.length > MAX_FIELD_DEPTH ||
     tokens.some((token) => FORBIDDEN_KEYS.has(token)) ||
-    tokens.filter((token) => /^\\d+$/.test(token)).length > MAX_ARRAY_DEPTH
+    tokens.filter((token) => /^\d+$/.test(token)).length > MAX_ARRAY_DEPTH
   ) {
     throw new Error("Invalid multipart field name");
   }
