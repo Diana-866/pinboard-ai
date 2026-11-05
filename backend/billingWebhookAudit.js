@@ -14,7 +14,9 @@ function buildWebhookException({ paymentKind, body, expectedAmount = null, reaso
     order_id: payload.order_id == null ? null : String(payload.order_id).slice(0, 200),
     payment_status: payload.payment_status == null ? null : String(payload.payment_status).slice(0, 80),
     received_sum: payload.sum == null ? null : String(payload.sum).slice(0, 80),
-    expected_amount: Number.isFinite(Number(expectedAmount)) ? Number(expectedAmount) : null,
+    expected_amount: expectedAmount != null && expectedAmount !== "" && Number.isFinite(Number(expectedAmount))
+      ? Number(expectedAmount)
+      : null,
     reason: String(reason || "unspecified").slice(0, 120),
     event_hash: eventHash,
   };
