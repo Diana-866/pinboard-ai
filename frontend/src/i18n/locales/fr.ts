@@ -384,6 +384,7 @@ export const fr: TranslationSchema = {
     billingSection: 'Abonnement et crédits IA',
     billingSectionDesc: 'Suivez votre solde mensuel de crédits d’automatisation et vos quotas d’utilisation.',
     currentPlan: 'Forfait actuel : Growth Pro',
+    noActivePlan: "Aucun abonnement actif",
     upgradePlan: 'Gérer le forfait',
     creditsUsed: 'Crédits utilisés',
     resetCycle: 'Les crédits sont réinitialisés automatiquement le 1er de chaque mois.',
