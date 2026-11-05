@@ -8,6 +8,7 @@ const supabase = require("./supabase");
 const mail = require("./mail");
 const { getEmailCopy, getPlanTitle, getLocale } = require("./email-locales");
 const prodamus = require("./prodamus");
+const { persistWebhookException } = require("./billingWebhookAudit");
 const { httpError, validateEnum } = require("./validate");
 const { normalizePlan } = require("./tariff");
 
@@ -188,7 +189,15 @@ async function handleWebhook(req, res) {
   const sum = body.sum != null ? Number(body.sum) : null;
 
   if (!orderId) {
-    console.error("[billing] вебхук без order_id");
+    try {
+      await persistWebhookException(supabase, {
+        paymentKind: "subscription", body, reason: "missing_order_id",
+      });
+    } catch (auditError) {
+      console.error("[billing] не удалось сохранить вебхук без order_id:", auditError.message);
+      return res.status(500).json({ ok: false, error: "audit storage failed" });
+    }
+    console.error("[billing] вебхук без order_id сохранён для сверки");
     return res.json({ ok: true, ignored: "no order_id" });
   }
 
@@ -203,8 +212,15 @@ async function handleWebhook(req, res) {
     return res.status(500).json({ ok: false, error: "db error" });
   }
   if (!sub) {
-    // Чужой/неизвестный заказ: повтор запроса не поможет, поэтому 200 + лог.
-    console.warn(`[billing] неизвестный order_id: ${orderId}`);
+    try {
+      await persistWebhookException(supabase, {
+        paymentKind: "subscription", body, reason: "unknown_order_id",
+      });
+    } catch (auditError) {
+      console.error("[billing] не удалось сохранить неизвестный order_id:", auditError.message);
+      return res.status(500).json({ ok: false, error: "audit storage failed" });
+    }
+    console.warn(`[billing] неизвестный order_id сохранён для сверки: ${orderId}`);
     return res.json({ ok: true, ignored: "unknown order_id" });
   }
 
@@ -224,11 +240,19 @@ async function handleWebhook(req, res) {
 
   const expected = Number(sub.amount);
   if (sum == null || !Number.isFinite(sum) || Math.abs(sum - expected) > 0.01) {
-    console.error(`[billing] сумма не совпадает для ${orderId}: webhook=${body.sum}, ожидали=${expected}`);
+    try {
+      await persistWebhookException(supabase, {
+        paymentKind: "subscription", body, expectedAmount: expected, reason: "amount_mismatch",
+      });
+    } catch (auditError) {
+      console.error("[billing] не удалось сохранить несовпадение суммы:", auditError.message);
+      return res.status(500).json({ ok: false, error: "audit storage failed" });
+    }
+    console.error(`[billing] сумма не совпадает для ${orderId}: webhook=${body.sum}, ожидали=${expected}; сохранено для сверки`);
     const { error: mismatchError } = await supabase.from("subscriptions")
       .update({ status: "denied" }).eq("id", sub.id).neq("status", "success");
     if (mismatchError) return res.status(500).json({ ok: false, error: "db error" });
-    return res.json({ ok: true, ignored: "amount mismatch" });
+    return res.json({ ok: true, ignored: "amount mismatch", review_required: true });
   }
 
   // Подписка, период и тариф пользователя активируются одной транзакцией PostgreSQL.
