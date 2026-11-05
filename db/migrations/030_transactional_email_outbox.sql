@@ -7,7 +7,7 @@ create table if not exists public.email_outbox (
   id uuid primary key default gen_random_uuid(),
   event_key text not null unique,
   subscription_id uuid not null references public.subscriptions(id) on delete restrict,
-  recipient_email text not null,
+  recipient_email text,
   locale text not null default 'en',
   template_key text not null,
   payload jsonb not null default '{}'::jsonb,
@@ -25,7 +25,8 @@ create table if not exists public.email_outbox (
   check (
     (status = 'sending' and claim_token is not null and locked_until is not null)
     or status <> 'sending'
-  )
+  ),
+  check (status = 'sent' or recipient_email is not null)
 );
 
 create index if not exists email_outbox_pending_idx
@@ -94,6 +95,8 @@ begin
          claim_token = null,
          locked_until = null,
          last_error_code = null,
+         recipient_email = null,
+         payload = '{}'::jsonb,
          updated_at = now()
    where id = p_id
      and status = 'sending'
