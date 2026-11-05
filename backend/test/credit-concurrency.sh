@@ -17,7 +17,7 @@ cleanup() {
 trap cleanup EXIT
 
 # Hold the purchase row so both independent credit RPC calls contend on the same row.
-PGAPPNAME=credit-concurrency-locker "${psql_base[@]}" -c "begin; select id from public.credit_purchases where id = '$PURCHASE_ID' for update; select pg_sleep(4); commit;" >/tmp/credit-locker.log 2>&1 &
+PGAPPNAME=credit-concurrency-locker "${psql_base[@]}" -c "begin; select id from public.credit_purchases where id = '$PURCHASE_ID' for update; select pg_sleep(8); commit;" >/tmp/credit-locker.log 2>&1 &
 LOCK_PID=$!
 
 locked=0
@@ -28,6 +28,19 @@ for _ in $(seq 1 50); do
 done
 if [[ "$locked" != "1" ]]; then
   echo "Could not confirm the credit concurrency lock holder"
+  kill "$LOCK_PID" 2>/dev/null || true
+  exit 1
+fi
+
+# Do not release the lock until both webhook sessions are actually blocked on it.
+waiters=0
+for _ in $(seq 1 80); do
+  waiters="$("${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name in ('credit-webhook-one', 'credit-webhook-two') and wait_event_type = 'Lock'")"
+  if [[ "$waiters" == "2" ]]; then break; fi
+  sleep 0.1
+done
+if [[ "$waiters" != "2" ]]; then
+  echo "Both concurrent credit webhook sessions did not reach the row lock (waiters=$waiters)"
   kill "$LOCK_PID" 2>/dev/null || true
   exit 1
 fi
