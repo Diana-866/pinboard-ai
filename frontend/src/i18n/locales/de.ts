@@ -384,6 +384,7 @@ export const de: TranslationSchema = {
     billingSection: 'Tarif & KI-Credits',
     billingSectionDesc: 'Überwachen Sie Ihr monatliches Guthaben für Automatisierung und Recherche.',
     currentPlan: 'Aktueller Tarif: Growth Pro',
+    noActivePlan: "Kein aktives Abonnement",
     upgradePlan: 'Tarif verwalten',
     creditsUsed: 'Genutzte Credits',
     resetCycle: 'Credits werden automatisch am 1. jedes Monats zurückgesetzt.',
