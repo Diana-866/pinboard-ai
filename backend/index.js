@@ -128,6 +128,7 @@ const creditsBilling = require("./creditsBilling");
 const creditPacks = require("./creditPacks");
 const prodamus = require("./prodamus");
 const { requireTariff, getTariffState, normalizePlan } = require("./tariff");
+const { isTariffSelfSelectEnabled } = require("./tariffSelfSelect");
 
 // Загрузка своих изображений пинов (замена временных ссылок GPTunnel на постоянные)
 const multer = require("multer");
@@ -426,12 +427,15 @@ app.patch("/me/onboarding", requireAuth, async (req, res) => {
 // При подключении платёжки заменить на webhook платёжного провайдера.
 app.patch("/me/tariff", requireAuth, async (req, res) => {
   try {
-    // В продакшене тариф меняется только вебхуком Prodamus.
-    // Ручная подмена остаётся для локальной разработки (ALLOW_TARIFF_SELF_SELECT=1)
-    // и для администратора (выдать тариф вручную без оплаты).
-    if (process.env.ALLOW_TARIFF_SELF_SELECT !== "1" && process.env.NODE_ENV === "production") {
-      const { data: me } = await supabase.from("users").select("is_admin").eq("id", req.userId).single();
-      if (!me || !me.is_admin) {
+    // Production tariff changes are always admin-only. The self-select flag
+    // is honored exclusively in non-production environments.
+    if (!isTariffSelfSelectEnabled()) {
+      const { data: me, error: adminLookupError } = await supabase
+        .from("users")
+        .select("is_admin")
+        .eq("id", req.userId)
+        .single();
+      if (adminLookupError || !me || !me.is_admin) {
         throw httpError(
           403,
           "Тариф меняется после оплаты. Выберите тариф на странице «Тарифы» — ссылка на оплату придёт с сервера."
