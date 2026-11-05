@@ -384,6 +384,7 @@ export const en: TranslationSchema = {
     billingSection: 'Plan & AI Credit Allocation',
     billingSectionDesc: 'Monitor your monthly intelligence credits and automation capabilities.',
     currentPlan: 'Current Plan: Growth Pro',
+    noActivePlan: "No active subscription",
     upgradePlan: 'Manage Plan',
     creditsUsed: 'AI Automation Credits',
     resetCycle: 'Credits reset automatically on the 1st of every month.',
