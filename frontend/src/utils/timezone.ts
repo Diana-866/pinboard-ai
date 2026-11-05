@@ -262,8 +262,8 @@ export const formatTimeDisplay = (
  * Non-existent local times during the spring-forward gap are rejected.
  */
 export const localDateTimeToDate = (date: string, time: string, timeZone: string): Date => {
-  const dateMatch = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(date);
-  const timeMatch = /^(\\d{2}):(\\d{2})$/.exec(time);
+  const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  const timeMatch = /^(\d{2}):(\d{2})$/.exec(time);
   if (!dateMatch || !timeMatch) throw new Error('Invalid local date or time');
 
   const [, yearText, monthText, dayText] = dateMatch;
