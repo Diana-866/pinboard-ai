@@ -401,8 +401,6 @@ export const zh: TranslationSchema = {
     apiVerified: "API 已连接并验证",
     syncData: "同步数据",
     disconnectAccount: "断开账号",
-    makeActive: "设为当前账号",
-    activeProfile: "当前资料",
     boardsCount: "个画板",
     monthlyViews: "月浏览量",
     pinsPerDay: "个 Pin/天",
