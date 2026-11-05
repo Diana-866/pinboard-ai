@@ -380,6 +380,7 @@ export const de: TranslationSchema = {
     connectedAccountDesc: 'Autorisierte OAuth 2.0-Verbindung zum Synchronisieren von Pinnwänden und Veröffentlichen.',
     connectedAccountsCount: "Konten verbunden: {count} von {max}",
     noAccountsConnected: "Es sind keine Pinterest-Konten verbunden. Die Pinterest-Autorisierung ist noch nicht verfügbar; daher ist derzeit kein Konto verknüpft oder bestätigt.",
+    pinterestConnectionUnavailable: "Die Verknüpfung von Pinterest-Konten ist noch nicht verfügbar. Es wurde kein Konto verbunden oder bestätigt.",
     billingSection: 'Tarif & KI-Credits',
     billingSectionDesc: 'Überwachen Sie Ihr monatliches Guthaben für Automatisierung und Recherche.',
     currentPlan: 'Aktueller Tarif: Growth Pro',
