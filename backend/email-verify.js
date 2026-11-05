@@ -11,6 +11,7 @@ const crypto = require("crypto");
 const supabase = require("./supabase");
 const { httpError } = require("./validate");
 const { getEmailCopy, normalizeLanguage } = require("./email-locales");
+const { transactionalMailConfigured, sendMail } = require("./mail");
 
 const TTL_HOURS = 24;
 const RESEND_INTERVAL_MINUTES = 5; // повторная отправка не чаще раза в 5 минут
@@ -20,33 +21,19 @@ function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
-function mailConfigured() {
-  return !!(process.env.MAIL_SMTP_HOST && process.env.MAIL_USER && process.env.MAIL_PASS);
-}
 
-function buildTransporter() {
-  const nodemailer = require("nodemailer");
-  const port = Number(process.env.MAIL_SMTP_PORT || 465);
-  return nodemailer.createTransport({
-    host: process.env.MAIL_SMTP_HOST,
-    port,
-    secure: port === 465, // 465 — implicit TLS (beget), 587 — STARTTLS
-    auth: { user: process.env.MAIL_USER, pass: process.env.MAIL_PASS },
-  });
-}
 
 // Письмо: текстовая часть (для всех клиентов) + HTML с кнопкой.
 // Ссылка — единственное место, где живёт «сырой» токен.
 async function sendVerifyEmail(to, verifyUrl, language = "en") {
   const copy = getEmailCopy(language);
-  const transporter = buildTransporter();
   const text = [copy.hello, "", copy.verifyLead, copy.verifyExpiry, verifyUrl, "", copy.verifyIgnore, "", copy.team].join("\n");
   const html = `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1f2937">
     <h2>${copy.verifyTitle}</h2><p>${copy.hello} ${copy.verifyLead}</p>
     <p><a href="${verifyUrl}" style="display:inline-block;background:#C25E6F;color:#fff;text-decoration:none;padding:12px 22px;border-radius:12px;font-weight:700">${copy.verifyButton}</a></p>
     <p style="font-size:12px;color:#6b7280">${copy.verifyExpiry}<br><span style="word-break:break-all">${verifyUrl}</span></p>
     <p style="font-size:12px;color:#6b7280">${copy.verifyIgnore}</p></div>`;
-  await transporter.sendMail({ from: process.env.MAIL_FROM || process.env.MAIL_USER, to, subject: copy.verifySubject, text, html });
+  return sendMail({ to, subject: copy.verifySubject, text, html });
 }
 
 // Время создания последнего email_verify-токена пользователя (мс) или null.
@@ -112,15 +99,15 @@ async function issueVerificationToken(user) {
     return false;
   }
 
-  if (!mailConfigured()) {
-    console.warn("[email-verify] MAIL_* не заданы — письмо не отправлено");
+  if (!transactionalMailConfigured()) {
+    console.warn("[email-verify] транзакционная почта не настроена — письмо не отправлено");
     return false;
   }
 
   const base = (process.env.FRONTEND_URL || "https://pinposy.com").split(",")[0].trim();
   try {
     await sendVerifyEmail(user.email, `${base}/verify-email?token=${encodeURIComponent(token)}`, user.preferred_language);
-    console.log(`[email-verify] письмо отправлено на ${user.email}`);
+    console.log("[email-verify] письмо подтверждения отправлено");
     return true;
   } catch (e) {
     console.error("[email-verify] письмо не отправлено:", e.message);
