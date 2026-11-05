@@ -380,6 +380,7 @@ export const en: TranslationSchema = {
     connectedAccountDesc: 'Verified OAuth 2.0 API connection for board sync, direct publishing, and analytics ingestion.',
     connectedAccountsCount: "Connected {count} of {max} accounts",
     noAccountsConnected: "No Pinterest accounts are connected. Pinterest OAuth is not available yet, so no account is currently linked or verified.",
+    pinterestConnectionUnavailable: "Pinterest account linking is not available yet. No account was connected or verified.",
     billingSection: 'Plan & AI Credit Allocation',
     billingSectionDesc: 'Monitor your monthly intelligence credits and automation capabilities.',
     currentPlan: 'Current Plan: Growth Pro',
