@@ -30,11 +30,16 @@ async function requestReset(rawEmail, _frontendUrl, requestedLanguage) {
   const { validateEmail } = require("./validate");
   const email = validateEmail(rawEmail);
 
-  const { data: user } = await supabase
+  const { data: user, error: lookupError } = await supabase
     .from("users")
     .select("id, preferred_language")
     .eq("email", email)
     .maybeSingle();
+
+  if (lookupError) {
+    console.error("[password-reset] не удалось проверить аккаунт:", lookupError.message);
+    throw httpError(503, "Сервис восстановления пароля временно недоступен — попробуйте позже");
+  }
 
   if (user && transactionalMailConfigured()) {
     const token = crypto.randomBytes(32).toString("base64url");
