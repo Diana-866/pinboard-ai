@@ -63,23 +63,29 @@ function frontendBase() {
 
 // ---------- state (защита OAuth-редиректа от подмены) ----------
 
-/** Короткоживущий подписанный state: внутрь кладём userId, срок 15 минут. */
-function createState(userId) {
-  return jwt.sign({ userId, purpose: "pinterest_oauth" }, process.env.JWT_SECRET, {
-    expiresIn: STATE_TTL,
-  });
+/** Короткоживущий подписанный state: userId + версия сессии, срок 15 минут. */
+function createState(userId, tokenVersion = 0) {
+  return jwt.sign(
+    { userId, tokenVersion: Number(tokenVersion) || 0, purpose: "pinterest_oauth" },
+    process.env.JWT_SECRET,
+    { expiresIn: STATE_TTL }
+  );
 }
 
-function readState(state) {
+function readStateClaims(state) {
   try {
     const decoded = jwt.verify(String(state || ""), process.env.JWT_SECRET);
     if (!decoded || decoded.purpose !== "pinterest_oauth" || !decoded.userId) {
       throw new Error("не тот state");
     }
-    return decoded.userId;
+    return decoded;
   } catch (e) {
     throw httpError(400, "Ссылка подключения Pinterest устарела. Вернитесь в кабинет и нажмите «Подключить» ещё раз.");
   }
+}
+
+function readState(state) {
+  return readStateClaims(state).userId;
 }
 
 // ---------- HTTP к Pinterest ----------
@@ -449,7 +455,14 @@ function registerRoutes(app, deps) {
   app.post("/integrations/pinterest/link", requireAuth, async (req, res) => {
     try {
       requireConfigured();
-      const state = createState(req.userId);
+      const { data: account, error: accountError } = await supabase
+        .from("users")
+        .select("token_version")
+        .eq("id", req.userId)
+        .maybeSingle();
+      if (accountError) throw accountError;
+      if (!account) throw httpError(401, "Не авторизован");
+      const state = createState(req.userId, account.token_version);
       const params = new URLSearchParams({
         client_id: clientId(),
         redirect_uri: redirectUri(),
@@ -467,7 +480,22 @@ function registerRoutes(app, deps) {
   app.get("/integrations/pinterest/callback", async (req, res) => {
     const back = (q) => `${frontendBase()}/app?pinterest=${q}`;
     try {
-      const userId = readState(req.query.state);
+      const stateClaims = readStateClaims(req.query.state);
+      const userId = stateClaims.userId;
+      // Password reset increments token_version. A callback started by an old
+      // session must not reconnect an external Pinterest account afterwards.
+      const { data: currentUser, error: userLookupError } = await supabase
+        .from("users")
+        .select("token_version")
+        .eq("id", userId)
+        .maybeSingle();
+      if (userLookupError) throw userLookupError;
+      if (
+        !currentUser ||
+        Number(currentUser.token_version || 0) !== Number(stateClaims.tokenVersion || 0)
+      ) {
+        throw httpError(401, "OAuth session expired");
+      }
       const err = req.query.error;
       if (err) {
         console.warn("[pinterest] пользователь отказал в доступе:", err);
