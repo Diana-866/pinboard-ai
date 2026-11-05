@@ -395,6 +395,7 @@ export const zh: TranslationSchema = {
     subtitle: '透明定价体系：账号管理月度订阅 + 永不过期的按需积分充值包。',
     currencyRub: '₽ 卢布',
     currencyUsd: '$ 美元',
+    creditPacksCurrencyNotice: "目前积分包仅以 RUB 结算。货币切换仅适用于订阅套餐。",
     tabPlans: '月度订阅套餐',
     tabCredits: '积分充值',
     balanceTitle: '当前工作区积分总额：',
