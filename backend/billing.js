@@ -161,7 +161,7 @@ async function sendTariffActivatedEmail(user, sub, periodEnd) {
       `${copy.payment}: ${sub.provider_payment_id}`,
       `${copy.validUntil}: ${until} (30 days)`,
       "", copy.next, "", copy.manage, copy.help, "", copy.team,
-    ].join("\\n"),
+    ].join("\n"),
   }, { needThrow: false });
 }
 
