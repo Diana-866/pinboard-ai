@@ -395,6 +395,7 @@ export const fr: TranslationSchema = {
     subtitle: 'Modèle transparent : abonnement mensuel de gestion de compte plus recharges de crédits sans date d’expiration.',
     currencyRub: '₽ Roubles',
     currencyUsd: '$ USD',
+    creditPacksCurrencyNotice: "Les packs de crédits sont actuellement facturés en RUB. Le sélecteur de devise s’applique uniquement aux abonnements.",
     tabPlans: 'Abonnements',
     tabCredits: 'Acheter des Crédits',
     balanceTitle: 'Solde Actuel de l’Espace :',
