@@ -25,10 +25,41 @@ declare
   v_publish_result jsonb;
   v_uncertain_pin uuid;
   v_language text;
+  v_reset_token uuid;
+  v_reset_result boolean;
 
 begin
   insert into public.users(id, email, credits_balance, tariff_plan)
   values (v_user, 'atomic-test-' || v_user || '@example.invalid', 10, 'none');
+
+  -- Password reset token is consumed together with the password update.
+  insert into public.auth_tokens(user_id, token_hash, purpose, expires_at)
+  values (v_user::text, 'ci-reset-' || v_user, 'password_reset', now() + interval '1 hour')
+  returning id into v_reset_token;
+
+  v_reset_result := public.consume_password_reset_token(
+    'ci-reset-' || v_user,
+    'ci-password-hash-' || v_user
+  );
+  if v_reset_result is distinct from true then
+    raise exception 'valid password reset token was not consumed';
+  end if;
+  if (select password_hash from public.users where id = v_user) <> 'ci-password-hash-' || v_user then
+    raise exception 'password reset did not update the user credential hash';
+  end if;
+  if (select used_at from public.auth_tokens where id = v_reset_token) is null then
+    raise exception 'password reset token was not marked used';
+  end if;
+  v_reset_result := public.consume_password_reset_token(
+    'ci-reset-' || v_user,
+    'ci-replay-hash-' || v_user
+  );
+  if v_reset_result is distinct from false then
+    raise exception 'password reset token was accepted more than once';
+  end if;
+  if (select password_hash from public.users where id = v_user) <> 'ci-password-hash-' || v_user then
+    raise exception 'replayed password reset changed the credential hash';
+  end if;
 
   -- Preferred interface language migration: existing users default to English,
   -- supported locales can be saved, and unsupported locales are rejected.
