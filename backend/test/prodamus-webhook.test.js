@@ -41,7 +41,10 @@ test("rejects oversized sparse array indexes before signature serialization", ()
 });
 
 test("rejects non-numeric keys inside multipart arrays", () => {
-  assert.throws(() => parseMultipartFields({ "products[name]": "x" }), /numeric indexes/);
+  assert.throws(() => parseMultipartFields({
+    "products[0][name]": "PinPosy",
+    "products[name]": "conflicting structure",
+  }), /numeric indexes/);
 });
 
 test("bounds nested arrays and multipart field depth", () => {
