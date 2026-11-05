@@ -47,15 +47,15 @@ export const SUPPORTED_TIMEZONES: TimezoneOption[] = [
   },
   {
     value: 'Europe/London',
-    nameEn: 'UK / London (GMT / BST, UTC+0 / UTC+1)',
-    nameRu: 'Великобритания / Лондон (GMT, UTC+0)',
+    nameEn: 'UK / London',
+    nameRu: 'Великобритания / Лондон',
     abbr: 'GMT',
     offsetHoursFromUtc: 0,
   },
   {
     value: 'Europe/Berlin',
-    nameEn: 'Central Europe (Berlin, Paris, CET, UTC+1)',
-    nameRu: 'Центральная Европа (Берлин, Париж, CET, UTC+1)',
+    nameEn: 'Central Europe (Berlin, Paris)',
+    nameRu: 'Центральная Европа (Берлин, Париж)',
     abbr: 'CET',
     offsetHoursFromUtc: 1,
   },
@@ -82,8 +82,8 @@ export const SUPPORTED_TIMEZONES: TimezoneOption[] = [
   },
   {
     value: 'Australia/Sydney',
-    nameEn: 'Australia / Sydney (AEST, UTC+10)',
-    nameRu: 'Австралия / Сидней (AEST, UTC+10)',
+    nameEn: 'Australia / Sydney',
+    nameRu: 'Австралия / Сидней',
     abbr: 'AEST',
     offsetHoursFromUtc: 10,
   },
@@ -185,15 +185,30 @@ export const convertMoscowToLocal = (timeStr: string, timeZone: string): string 
 };
 
 export const getTimezoneInfo = (timeZone: string) => {
-  return (
-    SUPPORTED_TIMEZONES.find((t) => t.value === timeZone) || {
+  const known = SUPPORTED_TIMEZONES.find((t) => t.value === timeZone);
+  try {
+    const abbreviation = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      timeZoneName: 'short',
+    }).formatToParts(new Date()).find((part) => part.type === 'timeZoneName')?.value;
+
+    if (known) return { ...known, abbr: abbreviation || known.abbr };
+    return {
       value: timeZone,
       nameEn: timeZone,
       nameRu: timeZone,
-      abbr: timeZone.includes('Moscow') ? 'МСК' : 'Local',
-      offsetHoursFromUtc: 3,
-    }
-  );
+      abbr: abbreviation || timeZone,
+      offsetHoursFromUtc: 0,
+    };
+  } catch {
+    return known || {
+      value: timeZone,
+      nameEn: timeZone,
+      nameRu: timeZone,
+      abbr: timeZone.includes('Moscow') ? 'MSK' : timeZone,
+      offsetHoursFromUtc: 0,
+    };
+  }
 };
 
 /**
