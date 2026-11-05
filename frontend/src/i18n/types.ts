@@ -409,6 +409,7 @@ export interface TranslationSchema {
     connectedAccountDesc: string;
     connectedAccountsCount: string;
     noAccountsConnected: string;
+    pinterestConnectionUnavailable: string;
     billingSection: string;
     billingSectionDesc: string;
     currentPlan: string;
