@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { getDefaultTimezone, localDateTimeToDate, formatInstantInTimezone } from './utils/timezone';
 import { apiRequest } from './lib/api';
 import { ThemeProvider } from './theme/themeContext';
 import { I18nProvider, useI18n } from './i18n/i18nContext';
@@ -110,7 +111,7 @@ const MainApp: React.FC = () => {
         if (cancelled) return;
         const mapped: ScheduledPinItem[] = (Array.isArray(rows) ? rows : []).map((row: any) => {
           const date = new Date(row.scheduled_at);
-          const pad = (value: number) => String(value).padStart(2, '0');
+          const local = formatInstantInTimezone(date, row.timezone || getDefaultTimezone());
           return {
             id: String(row.id),
             pinId: String(row.pin_id),
@@ -118,8 +119,8 @@ const MainApp: React.FC = () => {
             boardId: String(row.pins?.board_id || ''),
             boardName: row.pins?.boards?.title || 'Без доски',
             imageUrl: row.pins?.image_url || '',
-            scheduledDate: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
-            scheduledTime: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+            scheduledDate: local.date,
+            scheduledTime: local.time,
             status: row.status === 'published' ? 'published' : row.status === 'failed' ? 'failed' : row.status === 'publishing' ? 'publishing' : row.status === 'unknown' ? 'unknown' : 'scheduled',
             destinationUrl: row.destination_url || '',
             pinterestBoardId: row.pinterest_board_id || undefined,
@@ -293,8 +294,11 @@ const MainApp: React.FC = () => {
       window.alert('Не найден ID сохранённого пина. Сначала сохраните пин в генераторе.');
       return;
     }
-    const localDateTime = new Date(`${pin.scheduledDate}T${pin.scheduledTime}:00`);
-    if (Number.isNaN(localDateTime.getTime())) {
+    const timezone = getDefaultTimezone();
+    let localDateTime: Date;
+    try {
+      localDateTime = localDateTimeToDate(pin.scheduledDate, pin.scheduledTime, timezone);
+    } catch {
       window.alert('Проверьте дату и время публикации.');
       return;
     }
@@ -302,19 +306,18 @@ const MainApp: React.FC = () => {
       method: 'POST',
       body: JSON.stringify({
         scheduled_at: localDateTime.toISOString(),
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Moscow',
+        timezone,
         destination_url: pin.destinationUrl || undefined,
         pinterest_board_id: pin.pinterestBoardId || undefined,
       }),
     });
-    const date = new Date(saved.scheduled_at);
-    const pad = (value: number) => String(value).padStart(2, '0');
+    const date = formatInstantInTimezone(new Date(saved.scheduled_at), timezone);
     const persisted: ScheduledPinItem = {
       ...pin,
       id: String(saved.id),
       pinId: String(saved.pin_id),
-      scheduledDate: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
-      scheduledTime: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+      scheduledDate: date.date,
+      scheduledTime: date.time,
       status: 'scheduled',
     };
     setScheduledPins((prev) => [persisted, ...prev.filter((item) => item.id !== persisted.id)]);
