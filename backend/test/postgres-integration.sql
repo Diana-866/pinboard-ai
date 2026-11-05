@@ -13,6 +13,8 @@ declare
   v_outbox_id uuid;
   v_outbox_claim uuid;
   v_outbox_marked boolean;
+  v_outbox_retry_id uuid;
+  v_outbox_retry_claim uuid;
   v_first_end timestamptz;
   v_second_end timestamptz;
   v_newer_end timestamptz;
@@ -280,6 +282,33 @@ begin
   v_outbox_marked := public.mark_email_outbox_sent(v_outbox_id, v_outbox_claim);
   if v_outbox_marked is distinct from true then
     raise exception 'email outbox did not accept the current claim token';
+  end if;
+  if (select recipient_email from public.email_outbox where id = v_outbox_id) is not null then
+    raise exception 'sent outbox row retained recipient email';
+  end if;
+
+  insert into public.email_outbox(
+    event_key, subscription_id, recipient_email, locale, template_key, payload
+  ) values (
+    'ci-retry:' || v_sub::text, v_sub, 'retry@example.invalid', 'en',
+    'subscription_activated', '{}'::jsonb
+  ) returning id into v_outbox_retry_id;
+  select claim_token into v_outbox_retry_claim
+    from public.claim_email_outbox(10)
+   where id = v_outbox_retry_id;
+  if v_outbox_retry_claim is null then
+    raise exception 'retry test outbox row was not claimed';
+  end if;
+  if public.retry_email_outbox(v_outbox_retry_id, v_outbox_retry_claim, 'smtp_error') is distinct from true then
+    raise exception 'email outbox retry was not scheduled';
+  end if;
+  if (select status from public.email_outbox where id = v_outbox_retry_id) <> 'pending'
+     or (select attempts from public.email_outbox where id = v_outbox_retry_id) <> 1
+     or (select next_attempt_at from public.email_outbox where id = v_outbox_retry_id) <= now() then
+    raise exception 'email outbox retry backoff was not applied';
+  end if;
+  if public.mark_email_outbox_sent(v_outbox_retry_id, v_outbox_retry_claim) is distinct from false then
+    raise exception 'expired email claim token was accepted after retry';
   end if;
 
   perform public.activate_paid_subscription(v_sub, now() + interval '1 day');
