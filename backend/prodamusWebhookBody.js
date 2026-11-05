@@ -1,6 +1,8 @@
 const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 const MAX_FIELD_NAME_LENGTH = 256;
-const MAX_ARRAY_INDEX = 79;
+const MAX_ARRAY_INDEX = 19;
+const MAX_FIELD_DEPTH = 8;
+const MAX_ARRAY_DEPTH = 2;
 
 function tokenizeFieldName(name) {
   const value = String(name);
@@ -26,7 +28,11 @@ function tokenizeFieldName(name) {
     cursor = end + 1;
   }
 
-  if (tokens.some((token) => FORBIDDEN_KEYS.has(token))) {
+  if (
+    tokens.length > MAX_FIELD_DEPTH ||
+    tokens.some((token) => FORBIDDEN_KEYS.has(token)) ||
+    tokens.filter((token) => /^\\d+$/.test(token)).length > MAX_ARRAY_DEPTH
+  ) {
     throw new Error("Invalid multipart field name");
   }
   return tokens;
