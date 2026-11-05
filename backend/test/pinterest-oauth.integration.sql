@@ -101,7 +101,19 @@ begin
   -- RPCs must not be executable by untrusted API roles.
   if has_function_privilege('anon', 'public.begin_pinterest_oauth_attempt(text,uuid,bigint)', 'EXECUTE')
      or has_function_privilege('authenticated', 'public.commit_pinterest_oauth_attempt(text,uuid,bigint,bigint,text,text,text,text,text,timestamptz)', 'EXECUTE')
-     or has_function_privilege('anon', 'public.disconnect_pinterest_account(text)', 'EXECUTE') then
+     or has_function_privilege('anon', 'public.disconnect_pinterest_account(text)', 'EXECUTE')
+     or exists (
+       select 1
+         from pg_proc p
+         cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+        where p.oid in (
+          'public.begin_pinterest_oauth_attempt(text,uuid,bigint)'::regprocedure,
+          'public.commit_pinterest_oauth_attempt(text,uuid,bigint,bigint,text,text,text,text,text,timestamptz)'::regprocedure,
+          'public.disconnect_pinterest_account(text)'::regprocedure
+        )
+          and a.grantee = 0
+          and a.privilege_type = 'EXECUTE'
+     ) then
     raise exception 'OAuth lifecycle RPC is executable by an untrusted role';
   end if;
 
