@@ -29,6 +29,22 @@ test("webhook exception fingerprint is deterministic and scoped by payment type"
   assert.equal(JSON.stringify(a).includes("private@example.com"), false);
 });
 
+test("webhook retry attempt number does not create a second event fingerprint", () => {
+  const common = {
+    order_id: "ppc-pack_100-123",
+    payment_status: "success",
+    sum: "190.00",
+    date: "2026-11-05T12:00:00+03:00",
+  };
+  const first = buildWebhookException({
+    paymentKind: "credits", body: { ...common, attempt: "1" }, expectedAmount: 190, reason: "amount_mismatch",
+  });
+  const retry = buildWebhookException({
+    paymentKind: "credits", body: { ...common, attempt: "2" }, expectedAmount: 190, reason: "amount_mismatch",
+  });
+  assert.equal(first.event_hash, retry.event_hash);
+});
+
 test("webhook exception preserves malformed amounts without treating them as expected amounts", () => {
   const record = buildWebhookException({
     paymentKind: "subscription",
