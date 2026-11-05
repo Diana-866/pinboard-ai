@@ -117,6 +117,12 @@ begin
     raise exception 'OAuth lifecycle RPC is executable by an untrusted role';
   end if;
 
+  if has_table_privilege('anon', 'public.pinterest_oauth_connection_state', 'SELECT')
+     or has_table_privilege('authenticated', 'public.pinterest_oauth_connection_state', 'SELECT')
+     or has_table_privilege('service_role', 'public.pinterest_oauth_connection_state', 'SELECT') then
+    raise exception 'OAuth connection-state table is directly readable by an API role';
+  end if;
+
   raise notice 'Pinterest OAuth fencing integration checks passed for user %', v_user;
 end;
 $$;
