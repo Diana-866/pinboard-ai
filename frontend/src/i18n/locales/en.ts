@@ -329,6 +329,8 @@ export const en: TranslationSchema = {
     targetBoardLabel: "Pinterest destination board:",
     dateSavedHint: "This date will be sent to the generator and saved in your publishing schedule.",
     generateDateButton: "Continue to generation for this date",
+    cancelScheduledPin: 'Cancel scheduled pin',
+    cancelScheduledPinConfirm: 'Cancel this scheduled publication? It will not be sent to Pinterest.',
     autoTimeMoscowTemplate: "at {time} {timezone} ({moscowTime} MSK on the server)",
   },
 
