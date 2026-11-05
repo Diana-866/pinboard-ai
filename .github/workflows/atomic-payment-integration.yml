@@ -49,6 +49,7 @@ jobs:
             id uuid primary key default gen_random_uuid(),
             email text not null,
             password_hash text,
+            email_verified boolean not null default false,
             credits_balance integer not null default 0,
             tariff_plan text not null default 'none',
             tariff_period_end timestamptz
@@ -161,6 +162,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/018_preferred_language.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/019_prevent_late_subscription_downgrade.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/020_atomic_password_reset.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/021_atomic_email_verification.sql
       - name: Verify duplicate webhooks and ledger consistency
         env:
           PGPASSWORD: postgres
