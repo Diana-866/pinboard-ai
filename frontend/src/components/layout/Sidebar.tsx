@@ -81,7 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isLimitReached = !isUnlimited && accounts.length >= maxAccounts;
   const planLabel = user?.tariff_plan === 'analytics' ? t.pricing.planAnalyticsTitle
     : user?.tariff_plan === 'start' ? t.pricing.planStartTitle
-      : user?.tariff_plan === 'pro' || user?.tariff_plan === 'standard' ? t.pricing.planProTitle
+      : user?.tariff_plan === 'pro' ? t.pricing.planProTitle
         : user?.tariff_plan === 'agency' ? t.pricing.planAgencyTitle : t.settings?.noActivePlan || t.nav.planLabel;
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
