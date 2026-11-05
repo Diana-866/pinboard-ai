@@ -44,6 +44,15 @@ test("rejects non-numeric keys inside multipart arrays", () => {
   assert.throws(() => parseMultipartFields({ "products[name]": "x" }), /numeric indexes/);
 });
 
+test("bounds nested arrays and multipart field depth", () => {
+  assert.throws(() => parseMultipartFields({
+    "products[0][variants][0][options][0][name]": "x",
+  }), /Invalid multipart field name/);
+  assert.throws(() => parseMultipartFields({
+    "a[b][c][d][e][f][g][h][i]": "x",
+  }), /Invalid multipart field name/);
+});
+
 test("encodes nested Prodamus product fields as bracketed form keys", () => {
   const encoded = prodamus.toFormEncoded({
     do: "link",
