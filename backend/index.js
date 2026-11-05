@@ -1009,7 +1009,7 @@ app.get("/schedule", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/pins/:id/schedule", requireAuth, async (req, res) => {
+app.post("/pins/:id/schedule", requireAuth, requireTariff(["start", "pro", "agency"]), async (req, res) => {
   try {
     const pin = await getPinWithOwnerCheck(req.params.id, req.userId);
     if (!pin.image_url) throw httpError(422, "У пина нет сохранённого изображения");
