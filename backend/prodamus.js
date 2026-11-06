@@ -259,7 +259,24 @@ async function createPaymentLink({
       "Prodamus не вернул ссылку на оплату. Проверьте PRODAMUS_SHOP_ID / PRODAMUS_SECRET / PRODAMUS_URL."
     );
   }
-  return { url, payload: signedPayload, raw: data || res.data };
+
+  // Never redirect a customer to an insecure or credential-bearing URL,
+  // even if a malformed or compromised upstream response supplies one.
+  let checkoutUrl;
+  try {
+    checkoutUrl = new URL(String(url));
+  } catch {
+    throw httpError(502, "Prodamus вернул некорректную ссылку на оплату");
+  }
+  if (
+    checkoutUrl.protocol !== "https:" ||
+    checkoutUrl.username ||
+    checkoutUrl.password
+  ) {
+    throw httpError(502, "Prodamus вернул небезопасную ссылку на оплату");
+  }
+
+  return { url: checkoutUrl.toString(), payload: signedPayload, raw: data || res.data };
 }
 
 module.exports = {
