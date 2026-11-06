@@ -127,7 +127,7 @@ fi
 PINS='[{"image_url":"https://cdn.example.invalid/concurrent-generation.png","title":"Concurrent generation","description":"","model_used":"flux-schnell","aspect_ratio":"2:3","credits_cost":5}]'
 PGAPPNAME=generation-completion-one "${psql_base[@]}" -c "select public.complete_pin_generation_request('$USER_ID', '$BOARD_ID', '$KEY', (select claim_token from public.pin_generation_requests where user_id = '$USER_ID' and idempotency_key = '$KEY'), '$PINS'::jsonb, 5)" >/tmp/generation-one.log 2>&1 &
 ONE_PID=$!
-PGAPPNAME=generation-completion-two "${psql_base[@]}" -c "select public.complete_pin_generation_request('$USER_ID', '$BOARD_ID', '$KEY', '$PINS'::jsonb, 5)" >/tmp/generation-two.log 2>&1 &
+PGAPPNAME=generation-completion-two "${psql_base[@]}" -c "select public.complete_pin_generation_request('$USER_ID', '$BOARD_ID', '$KEY', (select claim_token from public.pin_generation_requests where user_id = '$USER_ID' and idempotency_key = '$KEY'), '$PINS'::jsonb, 5)" >/tmp/generation-two.log 2>&1 &
 TWO_PID=$!
 
 waiters=0
