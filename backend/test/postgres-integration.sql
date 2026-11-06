@@ -284,6 +284,7 @@ begin
   v_result := public.save_pin_generation_plan(
     v_user::text,
     'ci-generation-journal-0001',
+      (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-journal-0001'),
     '[{"title":"Changed title","description":"","prompt":"different prompt","model":"flux-schnell","aspect_ratio":"2:3"}]'::jsonb
   );
   if v_result->0->>'prompt' <> 'exact immutable image prompt'
@@ -307,19 +308,23 @@ begin
     raise exception 'active task update did not refresh parent recovery lease';
   end if;
   if not public.update_pin_generation_task(
-    v_user::text, 'ci-generation-journal-0001', 1, 'queued', 'ci-task-0001'
+    v_user::text, 'ci-generation-journal-0001',
+      (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-journal-0001'), 1, 'queued', 'ci-task-0001'
   ) then raise exception 'provider task id was not persisted'; end if;
   if not public.update_pin_generation_task(
-    v_user::text, 'ci-generation-journal-0001', 1, 'running'
+    v_user::text, 'ci-generation-journal-0001',
+      (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-journal-0001'), 1, 'running'
   ) then raise exception 'journal task did not enter running'; end if;
   if not public.update_pin_generation_task(
-    v_user::text, 'ci-generation-journal-0001', 1, 'succeeded',
+    v_user::text, 'ci-generation-journal-0001',
+      (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-journal-0001'), 1, 'succeeded',
     'ci-task-0001', 'https://provider.example.invalid/result.png',
     'https://storage.example.invalid/result.png', 0.6
   ) then raise exception 'journal task did not complete'; end if;
   begin
     perform public.update_pin_generation_task(
-      v_user::text, 'ci-generation-journal-0001', 1, 'running'
+      v_user::text, 'ci-generation-journal-0001',
+      (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-journal-0001'), 1, 'running'
     );
     raise exception 'completed journal task was allowed to regress';
   exception when others then
@@ -330,7 +335,8 @@ begin
   -- associated with this stable idempotency key.
   begin
     perform public.update_pin_generation_task(
-      v_user::text, 'ci-generation-journal-0001', 1, 'succeeded',
+      v_user::text, 'ci-generation-journal-0001',
+      (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-journal-0001'), 1, 'succeeded',
       'ci-task-different'
     );
     raise exception 'journal accepted a different provider task ID';
@@ -342,7 +348,8 @@ begin
   -- Numeric NaN/Infinity values must never become a billable provider price.
   begin
     perform public.update_pin_generation_task(
-      v_user::text, 'ci-generation-journal-0001', 1, 'succeeded',
+      v_user::text, 'ci-generation-journal-0001',
+      (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-journal-0001'), 1, 'succeeded',
       'ci-task-0001', null, null, 'NaN'::numeric
     );
     raise exception 'journal accepted a non-finite provider price';
