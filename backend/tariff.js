@@ -56,8 +56,11 @@ async function getTariffState(userId, db = supabase) {
   if (subscriptionError) throw subscriptionError;
 
   if (!sub) {
-    // Подписки нет — доверяем users.tariff_plan (ручная выдача, тесты, старые аккаунты).
-    return { plan, active: true, periodEnd: user.tariff_period_end || null };
+    // Подписки нет — доверяем ручной выдаче тарифа, но всё равно соблюдаем
+    // срок, если администратор задал tariff_period_end. Null означает бессрочную выдачу.
+    const periodEnd = user.tariff_period_end || null;
+    const active = !periodEnd || new Date(periodEnd).getTime() > Date.now();
+    return { plan, active, periodEnd };
   }
 
   const periodEnd = sub.period_end || user.tariff_period_end || null;
