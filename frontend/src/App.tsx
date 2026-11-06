@@ -301,13 +301,7 @@ const MainApp: React.FC = () => {
 
   const handleUpdateAccountAutoTime = (accountId: string, autoTime: string, nightlyAuto: boolean) => {
     setAccounts((prev) => {
-      const next = prev.map((a) => (a.id === accountId ? { ...a, autoTime, nightlyAuto } : a));
-      try {
-        localStorage.setItem('pinposy_accounts', JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-      return next;
+      return prev.map((a) => (a.id === accountId ? { ...a, autoTime, nightlyAuto } : a));
     });
   };
 
