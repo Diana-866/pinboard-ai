@@ -991,7 +991,7 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
         }
         const savedTasks = Array.isArray(data) ? data : [];
         const notYetConfirmedTasks = savedTasks.filter(
-          (task) => task.status === "prepared" || task.status === "submitting"
+          (task) => task.status === "prepared"
         );
         if (notYetConfirmedTasks.length > 0) {
           // Only tasks that may still need a provider submission should reserve
