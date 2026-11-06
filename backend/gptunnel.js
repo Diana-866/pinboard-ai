@@ -29,7 +29,7 @@ function imageTaskResult(task) {
   if (typeof url !== "string" || !url || !Number.isFinite(Number(price)) || Number(price) < 0) {
     throw new Error("Провайдер вернул некорректный результат генерации");
   }
-  return { url, price: Number(price) };
+  return { url, price: Number(price), taskId: typeof task.id === "string" ? task.id : null };
 }
 
 async function generateText(prompt) {
@@ -68,7 +68,7 @@ async function checkImage(taskId) {
   return response.data;
 }
 
-async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3", idempotencyKey) {
+async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3", idempotencyKey, callbacks = {}) {
   const createResponse = await axios.post(
     `${API_BASE}/api/v2/media/tasks`,
     buildImageTaskPayload(prompt, model, aspectRatio, idempotencyKey),
@@ -80,12 +80,19 @@ async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3"
   if (task && task.status === "done") return imageTaskResult(task);
 
   if (task && task.status === "failed") {
-    throw new Error("Генерация не удалась: " + (task.error?.message || "неизвестная ошибка"));
+    const error = new Error("Генерация не удалась: " + (task.error?.message || "неизвестная ошибка"));
+    error.providerStatus = "failed";
+    error.providerTaskId = typeof task.id === "string" ? task.id : null;
+    throw error;
   }
 
   const taskId = task && task.id;
   if (typeof taskId !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(taskId)) {
     throw new Error("Провайдер вернул некорректный идентификатор задачи");
+  }
+
+  if (typeof callbacks.onTaskUpdate === "function") {
+    await callbacks.onTaskUpdate(taskId, task && task.status === "running" ? "running" : "queued");
   }
 
   for (let i = 0; i < 30; i++) {
@@ -95,8 +102,16 @@ async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3"
 
     if (task && task.status === "done") return imageTaskResult(task);
 
+    if (task && (task.status === "queued" || task.status === "running") &&
+        typeof callbacks.onTaskUpdate === "function") {
+      await callbacks.onTaskUpdate(taskId, task.status);
+    }
+
     if (task && task.status === "failed") {
-      throw new Error("Генерация не удалась: " + (task.error?.message || "неизвестная ошибка"));
+      const error = new Error("Генерация не удалась: " + (task.error?.message || "неизвестная ошибка"));
+      error.providerStatus = "failed";
+      error.providerTaskId = taskId;
+      throw error;
     }
   }
 
