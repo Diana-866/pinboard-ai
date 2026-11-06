@@ -75,6 +75,7 @@ begin
   update public.pin_schedules
      set status = 'scheduled',
          scheduled_at = now(),
+         attempts = 0,
          next_attempt_at = null,
          last_error = null,
          updated_at = now()
