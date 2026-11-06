@@ -68,10 +68,10 @@ async function checkImage(taskId) {
   return response.data;
 }
 
-async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3") {
+async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3", idempotencyKey) {
   const createResponse = await axios.post(
     `${API_BASE}/api/v2/media/tasks`,
-    buildImageTaskPayload(prompt, model, aspectRatio),
+    buildImageTaskPayload(prompt, model, aspectRatio, idempotencyKey),
     providerRequestConfig()
   );
 
