@@ -990,8 +990,17 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
           throw journalError;
         }
         const savedTasks = Array.isArray(data) ? data : [];
-        if (savedTasks.some((task) => task.status === "prepared" || task.status === "submitting")) {
-          const estimatedCost = Math.ceil((MODEL_PRICES[model] || 15) * count * MARKUP);
+        const notYetConfirmedTasks = savedTasks.filter(
+          (task) => task.status === "prepared" || task.status === "submitting"
+        );
+        if (notYetConfirmedTasks.length > 0) {
+          // Only tasks that may still need a provider submission should reserve
+          // estimated balance. Completed/queued/unknown tasks are reconciled
+          // with their original provider idempotency keys and are not new work.
+          const estimatedCost = notYetConfirmedTasks.reduce(
+            (total, task) => total + Math.ceil((MODEL_PRICES[task.model] || MODEL_PRICES[model] || 15) * MARKUP),
+            0
+          );
           const balance = await getBalance(req.userId);
           allowPreparedTaskSubmission = balance >= estimatedCost;
         }
