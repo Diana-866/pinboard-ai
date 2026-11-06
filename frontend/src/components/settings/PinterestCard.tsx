@@ -108,7 +108,7 @@ export const PinterestCard: React.FC = () => {
       const err = e as ApiError;
       setError(
         err?.status === 503
-          ? t.settings.pinterestConnectionUnavailable
+          ? t.settings.pinterestNotConfigured
           : err?.message || t.settings.pinterestConnectError
       );
       setBusy(false);
@@ -174,7 +174,7 @@ export const PinterestCard: React.FC = () => {
       )}
       {!loading && status?.configured === false && (
         <p className="text-xs text-muted-theme">
-          {t.settings.pinterestConnectionUnavailable}
+          {t.settings.pinterestNotConfigured}
         </p>
       )}
 
