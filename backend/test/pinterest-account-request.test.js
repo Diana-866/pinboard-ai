@@ -81,3 +81,22 @@ test("non-retryable Pinterest responses do not rotate credentials", async () => 
   assert.equal(result.status, 403);
   assert.equal(refreshCount, 0);
 });
+
+test("a non-idempotent publish does not automatically replay after HTTP 429", async () => {
+  const calls = [];
+  const waits = [];
+  const result = await executeWithAccountToken(
+    { id: "account-publish", access_token: "token-publish" },
+    async (token) => {
+      calls.push(token);
+      return { status: 429 };
+    },
+    async (account) => account,
+    async (ms) => waits.push(ms),
+    { retryRateLimit: false }
+  );
+
+  assert.deepEqual(calls, ["token-publish"]);
+  assert.deepEqual(waits, []);
+  assert.equal(result.status, 429);
+});
