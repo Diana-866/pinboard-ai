@@ -152,6 +152,40 @@ test("recovery does not submit prepared provider tasks when balance is insuffici
   assert.deepEqual(pins.unknownTasks, []);
 });
 
+test("recovery gates ambiguous submitting tasks when balance is insufficient", async () => {
+  let submitted = false;
+  provider.generateImage = async () => {
+    submitted = true;
+    throw new Error("ambiguous submission must wait for sufficient balance");
+  };
+
+  const pins = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {
+      loadPlan: async () => [{
+        task_index: 1,
+        title: "Saved title",
+        description: "Saved description",
+        prompt: "immutable saved prompt",
+        model: "flux-schnell",
+        aspect_ratio: "2:3",
+        provider_idempotency_key: "stable-provider-key-0003",
+        status: "submitting",
+      }],
+      allowPreparedTaskSubmission: () => false,
+    }
+  );
+
+  assert.equal(submitted, false);
+  assert.deepEqual(pins.pendingTasks, [{ task_index: 1, status: "awaiting_balance" }]);
+  assert.deepEqual(pins.unknownTasks, []);
+});
+
 test("restore original module cache entries", () => {
   if (originalGptunnel) require.cache[gptunnelPath] = originalGptunnel;
   else delete require.cache[gptunnelPath];
