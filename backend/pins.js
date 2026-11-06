@@ -52,41 +52,115 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
 
   const pool = Array.isArray(ratioPool) && ratioPool.length > 0 ? ratioPool : DEFAULT_ASPECT_RATIOS;
 
+  const plannedTasks = ideas.slice(0, count)
+    .filter((idea) => idea && idea.title && idea.image_prompt)
+    .map((idea, index) => ({
+      task_index: index + 1,
+      title: String(idea.title).slice(0, 200),
+      description: String(idea.description || "").slice(0, 2000),
+      prompt: String(idea.image_prompt).slice(0, 12000),
+      model,
+      aspect_ratio: aspectRatio === "mixed" ? pool[Math.floor(Math.random() * pool.length)] : aspectRatio,
+    }));
+
+  const tasks = typeof options.persistPlan === "function"
+    ? await options.persistPlan(plannedTasks)
+    : plannedTasks;
+
+  if (!Array.isArray(tasks) || tasks.length !== plannedTasks.length) {
+    throw new Error("Не удалось восстановить сохранённый план генерации");
+  }
+
   const pins = [];
-  for (const idea of ideas.slice(0, count)) {
-    if (!idea || !idea.title || !idea.image_prompt) continue;
-    const ratio = aspectRatio === "mixed" ? pool[Math.floor(Math.random() * pool.length)] : aspectRatio;
+  const pendingTasks = [];
+  const unknownTasks = [];
+  for (const task of tasks) {
+    const ratio = task.aspect_ratio;
+    const taskIndex = Number(task.task_index);
     try {
-      // Mark uncertainty only when the first billable image task is about to be submitted.
+      if (typeof options.updateTask === "function") {
+        await options.updateTask(taskIndex, "submitting");
+      }
       if (typeof options.onProviderSubmission === "function") {
         options.onProviderSubmission();
       }
-      const image = await generateImage(idea.image_prompt, model, ratio);
-      if (!image || !image.url || image.price == null) continue; // незавершённая генерация — пропускаем (B8)
-      try {
-        // Переносим картинку в постоянное хранилище (ссылки GPTunnel временные)
-        image.url = await rehostImage(image.url);
-      } catch (reErr) {
-        // Не сохраняем временную ссылку GPTunnel: после истечения срока она перестанет работать.
-        throw reErr;
+      const image = await generateImage(
+        task.prompt,
+        task.model || model,
+        ratio,
+        task.provider_idempotency_key,
+        {
+          onTaskUpdate: async (taskId, status) => {
+            if (typeof options.updateTask === "function") {
+              await options.updateTask(taskIndex, status, { providerTaskId: taskId });
+            }
+          },
+        }
+      );
+
+      if (image && image.pending && image.taskId) {
+        if (typeof options.updateTask === "function") {
+          await options.updateTask(taskIndex, "queued", { providerTaskId: image.taskId });
+        }
+        pendingTasks.push({ task_index: taskIndex, task_id: image.taskId });
+        continue;
+      }
+      if (!image || !image.url || image.price == null) {
+        unknownTasks.push({ task_index: taskIndex });
+        continue;
+      }
+
+      if (typeof options.updateTask === "function") {
+        await options.updateTask(taskIndex, "succeeded", {
+          providerTaskId: image.taskId,
+          providerResultUrl: image.url,
+          providerPrice: image.price,
+        });
+      }
+      const storedUrl = await rehostImage(image.url);
+      if (typeof options.updateTask === "function") {
+        await options.updateTask(taskIndex, "succeeded", {
+          providerTaskId: image.taskId,
+          providerResultUrl: image.url,
+          storageUrl: storedUrl,
+          providerPrice: image.price,
+        });
       }
       pins.push({
         board_id: board.id,
-        image_url: image.url,
-        title: idea.title,
-        description: idea.description || "",
+        image_url: storedUrl,
+        title: task.title,
+        description: task.description || "",
         status: "pending",
-        model_used: model,
+        model_used: task.model || model,
         aspect_ratio: ratio,
         credits_cost: image.price,
       });
     } catch (e) {
-      // одна неудачная картинка не должна валить всю партию
+      if (e && e.journalError) throw e;
+      if (e && e.providerStatus === "failed") {
+        if (typeof options.updateTask === "function") {
+          await options.updateTask(taskIndex, "failed", {
+            providerTaskId: e.providerTaskId,
+            errorCode: "provider_task_failed",
+          });
+        }
+      } else {
+        unknownTasks.push({ task_index: taskIndex });
+        if (typeof options.updateTask === "function") {
+          await options.updateTask(taskIndex, "unknown", {
+            providerTaskId: e && e.providerTaskId,
+            errorCode: "provider_outcome_unknown",
+          });
+        }
+      }
       console.error(`[pins] изображение не сгенерировалось: ${e && e.message}`);
       continue;
     }
   }
 
+  pins.pendingTasks = pendingTasks;
+  pins.unknownTasks = unknownTasks;
   return pins;
 }
 
