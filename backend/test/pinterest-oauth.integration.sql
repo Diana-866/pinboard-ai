@@ -1,4 +1,4 @@
--- Run only in disposable PostgreSQL CI after migrations 026-028.
+-- Run only in disposable PostgreSQL CI after migrations 026-032.
 -- Covers stale tabs, single-use callback consumption, disconnect fencing,
 -- reconnect generation monotonicity, and password-reset session invalidation.
 do $$
