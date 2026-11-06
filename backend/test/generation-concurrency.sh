@@ -23,8 +23,8 @@ trap cleanup EXIT
 # request. The parent-row lock serializes begin_pin_generation_request claims.
 RECOVERY_KEY="ci-generation-recovery-$(printf '%s' "$USER_ID" | tr -d '-')"
 RECOVERY_FINGERPRINT="$(printf 'e%.0s' {1..64})"
-OLD_RECOVERY_TOKEN="$("${psql_base[@]}" -At -c "select claim_token from public.pin_generation_requests where user_id = '$USER_ID' and idempotency_key = '$RECOVERY_KEY'")"
 "${psql_base[@]}" -c "select public.begin_pin_generation_request('$USER_ID', '$BOARD_ID', '$RECOVERY_KEY', '$RECOVERY_FINGERPRINT')" >/dev/null
+OLD_RECOVERY_TOKEN="$("${psql_base[@]}" -At -c "select claim_token from public.pin_generation_requests where user_id = '$USER_ID' and idempotency_key = '$RECOVERY_KEY'")"
 "${psql_base[@]}" -c "select public.save_pin_generation_plan('$USER_ID', '$RECOVERY_KEY', (select claim_token from public.pin_generation_requests where user_id = '$USER_ID' and idempotency_key = '$RECOVERY_KEY'), '[{\"title\":\"Recovery task\",\"description\":\"\",\"prompt\":\"A test image\",\"model\":\"flux-schnell\",\"aspect_ratio\":\"2:3\"}]'::jsonb)" >/dev/null
 "${psql_base[@]}" -c "update public.pin_generation_requests set updated_at = now() - interval '31 minutes' where user_id = '$USER_ID' and idempotency_key = '$RECOVERY_KEY'" >/dev/null
 
