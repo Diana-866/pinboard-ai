@@ -959,10 +959,15 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
       providerGenerationStarted = true;
     }
 
-    const estimatedCost = Math.ceil((MODEL_PRICES[model] || 15) * count * MARKUP);
-    const balance = await getBalance(req.userId);
-    if (balance < estimatedCost) {
-      throw httpError(402, "Недостаточно кредитов для этой генерации");
+    // A resumed journal may already represent billable provider work. Do not
+    // reject recovery using a fresh estimate; the atomic completion RPC checks
+    // the actual final charge against the current balance before saving pins.
+    if (requestState.status !== "resume") {
+      const estimatedCost = Math.ceil((MODEL_PRICES[model] || 15) * count * MARKUP);
+      const balance = await getBalance(req.userId);
+      if (balance < estimatedCost) {
+        throw httpError(402, "Недостаточно кредитов для этой генерации");
+      }
     }
 
     const pinsData = await generatePins(board, board.projects, model, count, aspectRatio, mixedRatios, {
