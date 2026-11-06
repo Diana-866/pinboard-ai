@@ -579,6 +579,7 @@ begin
     raise exception 'email outbox table privileges are too broad or insufficient';
   end if;
 
+  delete from public.pin_schedules where user_id=v_user::text;
   delete from public.pinterest_publish_attempts where user_id=v_user::text;
   delete from public.pinterest_publications where user_id=v_user::text;
   delete from public.pinterest_accounts where id=v_pinterest_account;
