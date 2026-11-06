@@ -89,6 +89,19 @@ For backwards compatibility, a request that omits `account_id` may resolve autom
 - Render schedule rows with their account identity.
 - Do not reuse the calendar's current mock account list as if it were server-confirmed OAuth state.
 
+## Implemented preparatory step (migration 031)
+
+The branch now contains `db/migrations/031_pinterest_account_scoped_foundation.sql`. It is deliberately additive and does **not** enable multi-account behavior yet:
+- adds `disconnected_at` and allows access tokens to be cleared on disconnect;
+- adds nullable account references to publication, attempt, and schedule records;
+- adds account-scoped refresh lease storage and acquire/release/commit RPCs;
+- adds a v2 soft-disconnect RPC that clears credentials and advances the existing OAuth generation fence;
+- retains the legacy unique-per-user index and legacy RPCs, so the existing single-account backend remains compatible.
+
+A disposable PostgreSQL integration script, `backend/test/pinterest-account-foundation.integration.sql`, checks lease exclusivity, token commit, credential clearing, retained account history, OAuth fencing, and RPC permissions. The existing atomic-payment workflow now applies migration 031 and invokes this test after migrations 001–030.
+
+This is only a foundation. The current backend still calls the legacy user-scoped methods; do not apply migration 031 to production until the new backend callers, OAuth upsert, publication journal, schedule worker, and account selectors are ready as one compatible release.
+
 ## Safe rollout sequence
 
 1. Add additive nullable columns and new account-scoped RPCs; preserve old RPCs during compatibility window.
