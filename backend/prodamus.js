@@ -179,6 +179,24 @@ function formatAmount(amount) {
   return n.toFixed(2);
 }
 
+/** Accept only secure, syntactically valid checkout URLs without embedded credentials. */
+function validateCheckoutUrl(raw) {
+  let checkoutUrl;
+  try {
+    checkoutUrl = new URL(String(raw));
+  } catch {
+    throw httpError(502, "Prodamus вернул некорректную ссылку на оплату");
+  }
+  if (
+    checkoutUrl.protocol !== "https:" ||
+    checkoutUrl.username ||
+    checkoutUrl.password
+  ) {
+    throw httpError(502, "Prodamus вернул небезопасную ссылку на оплату");
+  }
+  return checkoutUrl.toString();
+}
+
 /**
  * Создание платёжной ссылки: POST на платёжную форму с do=link.
  * Ответ Prodamus — JSON с ссылкой; формат разбираем терпимо (link/url/data.link),
@@ -262,21 +280,7 @@ async function createPaymentLink({
 
   // Never redirect a customer to an insecure or credential-bearing URL,
   // even if a malformed or compromised upstream response supplies one.
-  let checkoutUrl;
-  try {
-    checkoutUrl = new URL(String(url));
-  } catch {
-    throw httpError(502, "Prodamus вернул некорректную ссылку на оплату");
-  }
-  if (
-    checkoutUrl.protocol !== "https:" ||
-    checkoutUrl.username ||
-    checkoutUrl.password
-  ) {
-    throw httpError(502, "Prodamus вернул небезопасную ссылку на оплату");
-  }
-
-  return { url: checkoutUrl.toString(), payload: signedPayload, raw: data || res.data };
+  return { url: validateCheckoutUrl(url), payload: signedPayload, raw: data || res.data };
 }
 
 module.exports = {
@@ -289,6 +293,7 @@ module.exports = {
   signPayload,
   safeEqual,
   normalizePaymentStatus,
+  validateCheckoutUrl,
   verifyWebhook,
   createPaymentLink,
 };
