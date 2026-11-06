@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { classifyScheduleFailure } = require("../pinterest");
+const { classifyScheduleFailure } = require("../pinterestSchedule");
 
 test("a disconnected Pinterest account before publication is a terminal failure", () => {
   // withAccount rejects before begin_pinterest_publish, so no remote publish
