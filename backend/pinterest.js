@@ -317,7 +317,7 @@ async function refreshAccessToken(account) {
     const refreshedRefreshToken = res.data.refresh_token || latest.refresh_token;
     const expiresAt = res.data.expires_in
       ? new Date(Date.now() + Number(res.data.expires_in) * 1000).toISOString()
-      : null;
+      : latest.expires_at || null;
     const { data: committed, error: commitError } = await supabase.rpc("commit_pinterest_account_token_refresh", {
       p_user_id: String(latest.user_id),
       p_pinterest_account_id: latest.id,
