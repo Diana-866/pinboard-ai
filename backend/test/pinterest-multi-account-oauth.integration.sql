@@ -215,4 +215,5 @@ begin
   if v_result->>'ok' <> 'true' then
     raise exception 'unlimited manual tariff was incorrectly rejected: %', v_result;
   end if;
-end;$$;
+eend;
+$$;
