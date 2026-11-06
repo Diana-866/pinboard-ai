@@ -521,22 +521,22 @@ begin
   returning id into v_schedule_test_pin;
 
   -- Persistent schedule records remain scheduled until a publisher confirms success.
-  insert into public.pin_schedules(user_id, pin_id, scheduled_at, timezone)
-  values (v_user::text, v_schedule_test_pin, now() + interval '1 day', 'Europe/Moscow')
+  insert into public.pin_schedules(user_id, pin_id, pinterest_account_id, scheduled_at, timezone)
+  values (v_user::text, v_schedule_test_pin, v_pinterest_account, now() + interval '1 day', 'Europe/Moscow')
   returning id into v_schedule;
   if (select status from public.pin_schedules where id=v_schedule) <> 'scheduled' then
     raise exception 'new schedule must start as scheduled';
   end if;
   begin
-    insert into public.pin_schedules(user_id, pin_id, scheduled_at, timezone)
-    values (v_user::text, v_schedule_test_pin, now() + interval '2 days', 'Europe/Moscow');
+    insert into public.pin_schedules(user_id, pin_id, pinterest_account_id, scheduled_at, timezone)
+    values (v_user::text, v_schedule_test_pin, v_pinterest_account, now() + interval '2 days', 'Europe/Moscow');
     raise exception 'expected duplicate active schedule to be rejected';
   exception when unique_violation then
     null;
   end;
   update public.pin_schedules set status='cancelled' where id=v_schedule;
-  insert into public.pin_schedules(user_id, pin_id, scheduled_at, timezone)
-  values (v_user::text, v_schedule_test_pin, now() + interval '2 days', 'Europe/Moscow');
+  insert into public.pin_schedules(user_id, pin_id, pinterest_account_id, scheduled_at, timezone)
+  values (v_user::text, v_schedule_test_pin, v_pinterest_account, now() + interval '2 days', 'Europe/Moscow');
   select count(*) into v_schedule_count from public.pin_schedules
     where user_id=v_user::text and pin_id=v_schedule_test_pin and status='scheduled';
   if v_schedule_count <> 1 then raise exception 'rescheduling after cancellation failed'; end if;
