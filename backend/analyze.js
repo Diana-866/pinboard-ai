@@ -62,10 +62,13 @@ async function fetchSiteContent(url) {
     response = await axios.get(safeUrl, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; PinSprigBot/1.0)" },
       timeout: 12000,
-      maxRedirects: 3,
+      // Redirect targets are not re-validated against private IP ranges.
+      // Disable redirects so a public URL cannot bounce this server to localhost,
+      // cloud metadata endpoints, or a private network address.
+      maxRedirects: 0,
       maxContentLength: 2 * 1024 * 1024,
       maxBodyLength: 2 * 1024 * 1024,
-      validateStatus: (s) => s >= 200 && s < 400,
+      validateStatus: (s) => s >= 200 && s < 300,
     });
   } catch (e) {
     if (e && e.response) {
