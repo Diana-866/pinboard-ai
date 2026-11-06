@@ -16,6 +16,7 @@ const jwt = require("jsonwebtoken");
 const supabase = require("./supabase");
 const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
 const { httpError } = require("./validate");
+const { classifyScheduleFailure } = require("./pinterestSchedule");
 
 const AUTHORIZE_URL = "https://www.pinterest.com/oauth/";
 const TOKEN_URL = "https://api.pinterest.com/v5/oauth/token";
@@ -521,16 +522,6 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
   }
 
   return { ok: true, pinterest_pin_id: remoteId, board_id: boardId };
-}
-
-// A disconnected account or other pre-publication failure has no publish
-// journal entry and is safe to mark failed. A missing journal read is not safe:
-// the remote outcome may be ambiguous, so it must remain non-retryable.
-function classifyScheduleFailure(attempt, attemptLookupError) {
-  if (attemptLookupError) return "unknown";
-  if (attempt && attempt.status === "published") return "published";
-  if (attempt && ["unknown", "processing"].includes(attempt.status)) return "unknown";
-  return "failed";
 }
 
 // ---------- роуты ----------
