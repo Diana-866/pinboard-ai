@@ -415,6 +415,54 @@ begin
     raise exception 'duplicate generation charged credits twice';
   end if;
 
+  -- A failed atomic completion must leave the request retryable and must not
+  -- persist pins or debit credits. After funding, the same key completes once.
+  v_result := public.begin_pin_generation_request(
+    v_user::text, v_board, 'ci-generation-atomic-retry-0001', repeat('d',64)
+  );
+  if v_result->>'status' <> 'started' then
+    raise exception 'atomic retry fixture must start';
+  end if;
+  select credits_balance into v_before from public.users where id=v_user;
+  begin
+    perform public.complete_pin_generation_request(
+      v_user::text, v_board, 'ci-generation-atomic-retry-0001',
+      '[{"image_url":"https://cdn.example.invalid/atomic-retry.png","title":"Atomic retry","description":"","model_used":"flux-schnell","aspect_ratio":"2:3","credits_cost":76}]'::jsonb,
+      76
+    );
+    raise exception 'expected atomic completion to reject insufficient credits';
+  exception when others then
+    if sqlerrm = 'expected atomic completion to reject insufficient credits' then raise; end if;
+    if sqlerrm not like '%insufficient credits%' then raise; end if;
+  end;
+  if (select credits_balance from public.users where id=v_user) <> v_before
+     or exists (select 1 from public.pins where board_id=v_board and title='Atomic retry')
+     or (select status from public.pin_generation_requests
+          where user_id=v_user::text and idempotency_key='ci-generation-atomic-retry-0001') <> 'processing' then
+    raise exception 'failed atomic completion left partial state';
+  end if;
+
+  perform public.adjust_credits_balance_and_log(v_user::text, 1, 'topup', 'atomic retry test');
+  v_result := public.complete_pin_generation_request(
+    v_user::text, v_board, 'ci-generation-atomic-retry-0001',
+    '[{"image_url":"https://cdn.example.invalid/atomic-retry.png","title":"Atomic retry","description":"","model_used":"flux-schnell","aspect_ratio":"2:3","credits_cost":76}]'::jsonb,
+    76
+  );
+  if (v_result->>'balance')::integer <> 0
+     or jsonb_array_length(v_result->'pins') <> 1 then
+    raise exception 'atomic retry did not save exactly one pin and debit once';
+  end if;
+  v_result := public.complete_pin_generation_request(
+    v_user::text, v_board, 'ci-generation-atomic-retry-0001',
+    '[{"image_url":"https://cdn.example.invalid/atomic-retry.png","title":"Atomic retry","description":"","model_used":"flux-schnell","aspect_ratio":"2:3","credits_cost":76}]'::jsonb,
+    76
+  );
+  if jsonb_array_length(v_result->'pins') <> 1
+     or (select credits_balance from public.users where id=v_user) <> 0
+     or (select count(*) from public.pins where board_id=v_board and title='Atomic retry') <> 1 then
+    raise exception 'repeated completion duplicated pins or charged credits again';
+  end if;
+
   -- An expired generation request becomes unknown and is never auto-restarted.
   v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-stale-0001', repeat('b',64));
   if v_result->>'status' <> 'started' then raise exception 'stale generation fixture must start'; end if;
