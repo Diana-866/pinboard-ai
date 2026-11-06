@@ -386,6 +386,7 @@ export const fr: TranslationSchema = {
     pinterestConnected: "Compte Pinterest connecté.",
     pinterestDenied: "L’accès à Pinterest n’a pas été accordé. Réessayez.",
     pinterestConnectError: "Impossible de connecter Pinterest. Réessayez.",
+    pinterestNotConfigured: "L’intégration Pinterest n’est pas encore configurée sur le serveur. Contactez l’assistance.",
     pinterestAccountLimitReached: "La limite de comptes Pinterest de votre offre est atteinte. Passez à une offre supérieure ou déconnectez un autre compte.",
     pinterestPlanRequired: "Une offre active est nécessaire pour connecter Pinterest.",
     pinterestConnectButton: "Connecter un compte Pinterest",
