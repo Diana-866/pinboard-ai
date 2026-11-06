@@ -19,6 +19,60 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Two retries must not both acquire ownership of the same stale journal-backed
+# request. The parent-row lock serializes begin_pin_generation_request claims.
+RECOVERY_KEY="ci-generation-recovery-$(printf '%s' "$USER_ID" | tr -d '-')"
+RECOVERY_FINGERPRINT="$(printf 'e%.0s' {1..64})"
+"${psql_base[@]}" -c "select public.begin_pin_generation_request('$USER_ID', '$BOARD_ID', '$RECOVERY_KEY', '$RECOVERY_FINGERPRINT')" >/dev/null
+"${psql_base[@]}" -c "select public.save_pin_generation_plan('$USER_ID', '$RECOVERY_KEY', '[{\"title\":\"Recovery task\",\"description\":\"\",\"prompt\":\"A test image\",\"model\":\"flux-schnell\",\"aspect_ratio\":\"2:3\"}]'::jsonb)" >/dev/null
+"${psql_base[@]}" -c "update public.pin_generation_requests set updated_at = now() - interval '31 minutes' where user_id = '$USER_ID' and idempotency_key = '$RECOVERY_KEY'" >/dev/null
+
+PGAPPNAME=generation-recovery-locker "${psql_base[@]}" -c "begin; select id from public.pin_generation_requests where user_id = '$USER_ID' and idempotency_key = '$RECOVERY_KEY' for update; select pg_sleep(6); commit;" >/tmp/generation-recovery-locker.log 2>&1 &
+RECOVERY_LOCK_PID=$!
+recovery_locked=0
+for _ in $(seq 1 50); do
+  active="$("${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name = 'generation-recovery-locker' and position('pg_sleep' in query) > 0")"
+  if [[ "$active" == "1" ]]; then recovery_locked=1; break; fi
+  sleep 0.1
+done
+if [[ "$recovery_locked" != "1" ]]; then
+  echo "Could not confirm the recovery request lock holder"
+  kill "$RECOVERY_LOCK_PID" 2>/dev/null || true
+  exit 1
+fi
+
+PGAPPNAME=generation-recovery-one "${psql_base[@]}" -At -c "select public.begin_pin_generation_request('$USER_ID', '$BOARD_ID', '$RECOVERY_KEY', '$RECOVERY_FINGERPRINT')->>'status'" >/tmp/generation-recovery-one.log 2>&1 &
+RECOVERY_ONE_PID=$!
+PGAPPNAME=generation-recovery-two "${psql_base[@]}" -At -c "select public.begin_pin_generation_request('$USER_ID', '$BOARD_ID', '$RECOVERY_KEY', '$RECOVERY_FINGERPRINT')->>'status'" >/tmp/generation-recovery-two.log 2>&1 &
+RECOVERY_TWO_PID=$!
+
+recovery_waiters=0
+for _ in $(seq 1 80); do
+  recovery_waiters="$("${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name in ('generation-recovery-one', 'generation-recovery-two') and wait_event_type = 'Lock'")"
+  if [[ "$recovery_waiters" == "2" ]]; then break; fi
+  sleep 0.1
+done
+if [[ "$recovery_waiters" != "2" ]]; then
+  echo "Both recovery claims did not contend on the same request row (waiters=$recovery_waiters)"
+  kill "$RECOVERY_LOCK_PID" 2>/dev/null || true
+  exit 1
+fi
+
+wait "$RECOVERY_ONE_PID"
+wait "$RECOVERY_TWO_PID"
+wait "$RECOVERY_LOCK_PID"
+recovery_resume_count="$(grep -xc 'resume' /tmp/generation-recovery-one.log || true)"
+recovery_processing_count="$(grep -xc 'processing' /tmp/generation-recovery-one.log || true)"
+recovery_resume_count=$((recovery_resume_count + $(grep -xc 'resume' /tmp/generation-recovery-two.log || true)))
+recovery_processing_count=$((recovery_processing_count + $(grep -xc 'processing' /tmp/generation-recovery-two.log || true)))
+if [[ "$recovery_resume_count" != "1" || "$recovery_processing_count" != "1" ]]; then
+  echo "Expected exactly one recovery owner and one processing response; got resume=$recovery_resume_count processing=$recovery_processing_count"
+  cat /tmp/generation-recovery-one.log /tmp/generation-recovery-two.log
+  exit 1
+fi
+echo "Concurrent stale generation recovery claim passed for request $RECOVERY_KEY"
+
+
 "${psql_base[@]}" -c "select public.begin_pin_generation_request('$USER_ID', '$BOARD_ID', '$KEY', '$FINGERPRINT')"
 PGAPPNAME=generation-concurrency-locker "${psql_base[@]}" -c "begin; select id from public.pin_generation_requests where user_id = '$USER_ID' and idempotency_key = '$KEY' for update; select pg_sleep(8); commit;" >/tmp/generation-locker.log 2>&1 &
 LOCK_PID=$!
