@@ -331,6 +331,7 @@ export const fr: TranslationSchema = {
     generateDateButton: "Continuer la génération pour cette date",
     cancelScheduledPin: 'Annuler la publication programmée',
     cancelScheduledPinConfirm: 'Annuler cette publication programmée ? Elle ne sera pas envoyée à Pinterest.',
+    retryFailedPin: "Réessayer la publication",
     autoTimeMoscowTemplate: "à {time} {timezone} ({moscowTime} MSK sur le serveur)",
   },
 
