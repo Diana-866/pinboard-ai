@@ -23,8 +23,9 @@ trap cleanup EXIT
 # request. The parent-row lock serializes begin_pin_generation_request claims.
 RECOVERY_KEY="ci-generation-recovery-$(printf '%s' "$USER_ID" | tr -d '-')"
 RECOVERY_FINGERPRINT="$(printf 'e%.0s' {1..64})"
+OLD_RECOVERY_TOKEN="$("${psql_base[@]}" -At -c "select claim_token from public.pin_generation_requests where user_id = '$USER_ID' and idempotency_key = '$RECOVERY_KEY'")"
 "${psql_base[@]}" -c "select public.begin_pin_generation_request('$USER_ID', '$BOARD_ID', '$RECOVERY_KEY', '$RECOVERY_FINGERPRINT')" >/dev/null
-"${psql_base[@]}" -c "select public.save_pin_generation_plan('$USER_ID', '$RECOVERY_KEY', '[{\"title\":\"Recovery task\",\"description\":\"\",\"prompt\":\"A test image\",\"model\":\"flux-schnell\",\"aspect_ratio\":\"2:3\"}]'::jsonb)" >/dev/null
+"${psql_base[@]}" -c "select public.save_pin_generation_plan('$USER_ID', '$RECOVERY_KEY', (select claim_token from public.pin_generation_requests where user_id = '$USER_ID' and idempotency_key = '$RECOVERY_KEY'), '[{\"title\":\"Recovery task\",\"description\":\"\",\"prompt\":\"A test image\",\"model\":\"flux-schnell\",\"aspect_ratio\":\"2:3\"}]'::jsonb)" >/dev/null
 "${psql_base[@]}" -c "update public.pin_generation_requests set updated_at = now() - interval '31 minutes' where user_id = '$USER_ID' and idempotency_key = '$RECOVERY_KEY'" >/dev/null
 
 PGAPPNAME=generation-recovery-locker "${psql_base[@]}" -c "begin; select id from public.pin_generation_requests where user_id = '$USER_ID' and idempotency_key = '$RECOVERY_KEY' for update; select pg_sleep(6); commit;" >/tmp/generation-recovery-locker.log 2>&1 &
@@ -72,6 +73,25 @@ if [[ "$recovery_resume_count" != "1" || "$recovery_processing_count" != "1" ]];
 fi
 echo "Concurrent stale generation recovery claim passed for request $RECOVERY_KEY"
 
+# The pre-recovery owner must not mutate the journal or complete/charge after
+# a newer recovery claim has rotated the fencing token.
+NEW_RECOVERY_TOKEN="$("${psql_base[@]}" -At -c "select claim_token from public.pin_generation_requests where user_id = '$USER_ID' and idempotency_key = '$RECOVERY_KEY'")"
+if [[ -z "$OLD_RECOVERY_TOKEN" || -z "$NEW_RECOVERY_TOKEN" || "$OLD_RECOVERY_TOKEN" == "$NEW_RECOVERY_TOKEN" ]]; then
+  echo "Recovery did not rotate the generation claim token"
+  exit 1
+fi
+if "${psql_base[@]}" -c "select public.update_pin_generation_task('$USER_ID', '$RECOVERY_KEY', '$OLD_RECOVERY_TOKEN', 1, 'submitting')" >/tmp/generation-stale-owner-update.log 2>&1; then
+  echo "Stale generation owner unexpectedly updated the task journal"
+  exit 1
+fi
+if "${psql_base[@]}" -c "select public.complete_pin_generation_request('$USER_ID', '$BOARD_ID', '$RECOVERY_KEY', '$OLD_RECOVERY_TOKEN', '[{\\"image_url\\":\\"https://cdn.example.invalid/stale-owner.png\\",\\"title\\":\\"Stale owner\\",\\"description\\":\\"\\",\\"model_used\\":\\"flux-schnell\\",\\"aspect_ratio\\":\\"2:3\\",\\"credits_cost\\":5}]'::jsonb, 5)" >/tmp/generation-stale-owner-complete.log 2>&1; then
+  echo "Stale generation owner unexpectedly completed and charged"
+  exit 1
+fi
+"${psql_base[@]}" -c "select public.update_pin_generation_task('$USER_ID', '$RECOVERY_KEY', '$NEW_RECOVERY_TOKEN', 1, 'submitting')" >/dev/null
+"${psql_base[@]}" -c "do \\$\\$ begin if (select credits_balance from public.users where id='$USER_ID') <> 20 or exists(select 1 from public.pins where board_id='$BOARD_ID' and title='Stale owner') then raise exception 'stale owner changed financial state'; end if; end; \\$\\$;"
+echo "Stale generation owner fencing passed for request $RECOVERY_KEY"
+
 
 "${psql_base[@]}" -c "select public.begin_pin_generation_request('$USER_ID', '$BOARD_ID', '$KEY', '$FINGERPRINT')"
 PGAPPNAME=generation-concurrency-locker "${psql_base[@]}" -c "begin; select id from public.pin_generation_requests where user_id = '$USER_ID' and idempotency_key = '$KEY' for update; select pg_sleep(8); commit;" >/tmp/generation-locker.log 2>&1 &
@@ -90,7 +110,7 @@ if [[ "$locked" != "1" ]]; then
 fi
 
 PINS='[{"image_url":"https://cdn.example.invalid/concurrent-generation.png","title":"Concurrent generation","description":"","model_used":"flux-schnell","aspect_ratio":"2:3","credits_cost":5}]'
-PGAPPNAME=generation-completion-one "${psql_base[@]}" -c "select public.complete_pin_generation_request('$USER_ID', '$BOARD_ID', '$KEY', '$PINS'::jsonb, 5)" >/tmp/generation-one.log 2>&1 &
+PGAPPNAME=generation-completion-one "${psql_base[@]}" -c "select public.complete_pin_generation_request('$USER_ID', '$BOARD_ID', '$KEY', (select claim_token from public.pin_generation_requests where user_id = '$USER_ID' and idempotency_key = '$KEY'), '$PINS'::jsonb, 5)" >/tmp/generation-one.log 2>&1 &
 ONE_PID=$!
 PGAPPNAME=generation-completion-two "${psql_base[@]}" -c "select public.complete_pin_generation_request('$USER_ID', '$BOARD_ID', '$KEY', '$PINS'::jsonb, 5)" >/tmp/generation-two.log 2>&1 &
 TWO_PID=$!
@@ -156,9 +176,9 @@ if [[ "$race_locked" != "1" ]]; then
   exit 1
 fi
 
-PGAPPNAME=generation-race-failure "${psql_base[@]}" -c "select public.fail_pin_generation_request('$USER_ID', '$RACE_KEY', 'simulated_race_failure', false)" >/tmp/generation-race-failure.log 2>&1 &
+PGAPPNAME=generation-race-failure "${psql_base[@]}" -c "select public.fail_pin_generation_request('$USER_ID', '$RACE_KEY', (select claim_token from public.pin_generation_requests where user_id = '$USER_ID' and idempotency_key = '$RACE_KEY'), 'simulated_race_failure', false)" >/tmp/generation-race-failure.log 2>&1 &
 RACE_FAIL_PID=$!
-PGAPPNAME=generation-race-completion "${psql_base[@]}" -c "select public.complete_pin_generation_request('$USER_ID', '$BOARD_ID', '$RACE_KEY', '$PINS'::jsonb, 5)" >/tmp/generation-race-completion.log 2>&1 &
+PGAPPNAME=generation-race-completion "${psql_base[@]}" -c "select public.complete_pin_generation_request('$USER_ID', '$BOARD_ID', '$RACE_KEY', (select claim_token from public.pin_generation_requests where user_id = '$USER_ID' and idempotency_key = '$RACE_KEY'), '$PINS'::jsonb, 5)" >/tmp/generation-race-completion.log 2>&1 &
 RACE_COMPLETE_PID=$!
 
 race_waiters=0
