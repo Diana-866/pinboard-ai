@@ -11,6 +11,7 @@ declare
   v_result jsonb;
   v_publication_count integer;
   v_schedule_count integer;
+  v_disconnected boolean;
 begin
   insert into public.users(id, email, token_version)
   values (v_user, 'pinterest-account-publish-' || v_user || '@example.invalid', 0);
@@ -74,6 +75,20 @@ begin
   exception when unique_violation then
     null;
   end;
+
+  -- Disconnecting A must fail only A's future schedules; B remains queued.
+  v_disconnected := public.disconnect_pinterest_account_v2(v_user::text, v_account_a);
+  if v_disconnected is distinct from true then
+    raise exception 'disconnecting account A failed';
+  end if;
+  if (select status from public.pin_schedules
+       where user_id=v_user::text and pin_id=v_pin and pinterest_account_id=v_account_a) <> 'failed' then
+    raise exception 'future schedule for disconnected account A was not failed';
+  end if;
+  if (select status from public.pin_schedules
+       where user_id=v_user::text and pin_id=v_pin and pinterest_account_id=v_account_b) <> 'scheduled' then
+    raise exception 'disconnecting account A changed account B schedule';
+  end if;
 
   delete from public.pin_schedules where user_id = v_user::text;
   delete from public.pinterest_publish_attempts where user_id = v_user::text;
