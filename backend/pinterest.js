@@ -178,6 +178,18 @@ async function getAccounts(userId, { includeDisconnected = false } = {}) {
   return Promise.all((data || []).map(decodeAccountRecord));
 }
 
+async function resolveAccount(userId, accountId = null) {
+  if (accountId) {
+    const account = await getAccount(userId, accountId);
+    if (!account) throw httpError(404, "Pinterest-аккаунт не найден или отключён.");
+    return account;
+  }
+  const accounts = await getAccounts(userId);
+  if (accounts.length > 1) throw httpError(422, "Выберите Pinterest-аккаунт для этой операции.");
+  if (!accounts.length) throw httpError(409, "Pinterest не подключён. Нажмите «Подключить Pinterest» в настройках.");
+  return accounts[0];
+}
+
 /** Legacy single-account callers select the oldest active connection deterministically. */
 async function getAccount(userId, accountId = null) {
   let query = supabase
@@ -370,18 +382,7 @@ async function refreshAccessToken(account) {
  */
 async function withAccount(userId, handler, accountId = null) {
   requireConfigured();
-  let account;
-  if (accountId) {
-    account = await getAccount(userId, accountId);
-  } else {
-    const accounts = await getAccounts(userId);
-    if (accounts.length > 1) {
-      throw httpError(422, "Выберите Pinterest-аккаунт для этой операции.");
-    }
-    account = accounts[0] || null;
-  }
-  if (!account) throw httpError(409, "Pinterest не подключён или выбранный аккаунт недоступен. Подключите Pinterest в настройках.");
-
+  const account = await resolveAccount(userId, accountId);
   let result = await handler(account.access_token);
 
   if (result.status === 401) {
@@ -445,6 +446,8 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
   // Проверяем владельца локального пина и доступность доски до резервации.
   const pin = await getPinWithOwner(pinId, userId);
   if (!pin.image_url) throw httpError(422, "У пина нет изображения — сначала сгенерируйте картинку");
+  const selectedAccount = await resolveAccount(userId, accountId);
+  accountId = selectedAccount.id;
   await verifyPinterestBoard(userId, boardId, accountId);
 
   let destinationUrl = null;
@@ -460,9 +463,10 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
 
   // Атомарная резервация в БД не позволяет двум запросам одновременно
   // отправить один и тот же локальный пин в Pinterest.
-  const { data: reservation, error: reservationError } = await supabase.rpc("begin_pinterest_publish", {
+  const { data: reservation, error: reservationError } = await supabase.rpc("begin_pinterest_publish_v2", {
     p_user_id: String(userId),
     p_pin_id: pinId,
+    p_pinterest_account_id: accountId,
     p_pinterest_board_id: boardId,
   });
   if (reservationError) throw reservationError;
@@ -505,9 +509,10 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
     // Сетевые 502/таймауты остаются неоднозначными и требуют сверки.
     const status = Number(e && e.httpStatus);
     const outcomeUnknown = ![403, 404, 409, 422, 503].includes(status);
-    await supabase.rpc("fail_pinterest_publish", {
+    await supabase.rpc("fail_pinterest_publish_v2", {
       p_user_id: String(userId),
       p_pin_id: pinId,
+      p_pinterest_account_id: accountId,
       p_error: "Pinterest request failed: " + String(e && e.message || "unknown error"),
       p_outcome_unknown: outcomeUnknown,
     }).catch(() => {});
@@ -519,6 +524,7 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
     await supabase.rpc("fail_pinterest_publish", {
       p_user_id: String(userId),
       p_pin_id: pinId,
+      p_pinterest_account_id: accountId,
       p_error: "Pinterest HTTP " + result.status + ": " + pinterestMessage(result.data, "unknown error"),
       p_outcome_unknown: outcomeUnknown,
     });
@@ -534,15 +540,17 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
     await supabase.rpc("fail_pinterest_publish", {
       p_user_id: String(userId),
       p_pin_id: pinId,
+      p_pinterest_account_id: accountId,
       p_error: "Pinterest returned success without a pin id",
       p_outcome_unknown: true,
     });
     throw httpError(502, "Pinterest не вернул ID созданного пина. Повторная публикация заблокирована.");
   }
 
-  const { error: completeError } = await supabase.rpc("complete_pinterest_publish", {
+  const { error: completeError } = await supabase.rpc("complete_pinterest_publish_v2", {
     p_user_id: String(userId),
     p_pin_id: pinId,
+    p_pinterest_account_id: accountId,
     p_pinterest_pin_id: remoteId,
     p_pinterest_board_id: boardId,
   });
@@ -550,6 +558,7 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
     await supabase.rpc("fail_pinterest_publish", {
       p_user_id: String(userId),
       p_pin_id: pinId,
+      p_pinterest_account_id: accountId,
       p_error: "Pinterest created pin " + remoteId + " but local commit failed: " + completeError.message,
       p_outcome_unknown: true,
     }).catch(() => {});
@@ -824,7 +833,8 @@ function registerRoutes(app, deps) {
             schedule.user_id,
             schedule.pin_id,
             schedule.pinterest_board_id,
-            schedule.destination_url
+            schedule.destination_url,
+            schedule.pinterest_account_id
           );
           const remoteId = String(published.pinterest_pin_id || "");
           if (!remoteId) throw new Error("Pinterest publication returned no remote ID");
@@ -847,6 +857,7 @@ function registerRoutes(app, deps) {
             .from("pinterest_publish_attempts")
             .select("status, pinterest_pin_id")
             .eq("pin_id", schedule.pin_id)
+            .eq("pinterest_account_id", schedule.pinterest_account_id)
             .maybeSingle();
           // If the journal cannot be read, the outcome is not safe to classify
           // as failed: the remote pin may already exist. Keep it non-retryable.
@@ -900,6 +911,8 @@ module.exports = {
   isConfigured,
   createState,
   readState,
+  getAccounts,
+  resolveAccount,
   publishPin,
   verifyPinterestBoard,
   classifyScheduleFailure,
