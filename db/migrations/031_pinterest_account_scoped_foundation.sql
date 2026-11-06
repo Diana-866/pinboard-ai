@@ -222,6 +222,11 @@ begin
         attempt_expires_at = null,
         updated_at = now();
 
+  -- Match refresh-commit lock order: lease first, then account row.
+  delete from public.pinterest_account_refresh_leases
+   where pinterest_account_id = p_pinterest_account_id
+     and user_id = p_user_id;
+
   update public.pinterest_accounts
      set access_token = null,
          refresh_token = null,
@@ -233,10 +238,6 @@ begin
      and disconnected_at is null;
 
   get diagnostics v_updated = row_count;
-
-  delete from public.pinterest_account_refresh_leases
-   where pinterest_account_id = p_pinterest_account_id
-     and user_id = p_user_id;
 
   return v_updated = 1;
 end;
