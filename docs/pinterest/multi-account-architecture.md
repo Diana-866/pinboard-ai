@@ -4,19 +4,19 @@
 
 Allow one PinPosy user to connect multiple Pinterest accounts and choose the destination account for every board lookup, manual publication, and scheduled publication. Keep existing one-account users working without changing their current connection.
 
-This document is a design checkpoint only. It does not apply SQL or change production data.
+This document tracks implementation on the feature branch. SQL files and backend/frontend changes are committed to the branch only; no migration has been applied to production.
 
 ## Existing constraints found in the codebase
 
-- `pinterest_accounts` has a unique index on `user_id`; OAuth commit upserts on `user_id`.
-- `getAccount(userId)` uses `.eq("user_id", userId).maybeSingle()`, so it cannot represent multiple rows.
-- OAuth refresh lease and refresh commit use `user_id` as the lock / compare-and-swap key.
+- Migrations 031–032 add stable account identity and replace the unique-per-user index with unique `(user_id, pinterest_user_id)` identity; OAuth v2 upserts only the verified external Pinterest ID.
+- Backend account reads now return a list, and account-specific reads require both PinPosy user ID and Pinterest account ID.
+- Migration 031 and the backend refresh path use per-account leases and compare-and-swap token commits.
 - OAuth connection fencing is per PinPosy user. It can remain per user for now: one pending connect attempt per PinPosy user is an acceptable first version, while already connected accounts remain usable.
-- `pinterest_publish_attempts` has `unique(pin_id)`; `pinterest_publications` has `unique(pin_id)`.
-- `pin_schedules` has one active schedule per `pin_id`.
-- The schedule worker and publish helpers only carry the Pinterest board ID, not a PinPosy Pinterest account ID.
-- The current settings card, board list, publish button, and schedule API expose only one implicit account.
-- The calendar's local `accounts` presentation model is not the same as persisted OAuth connections and must not be mistaken for backend support.
+- Migration 033 replaces global-per-pin uniqueness with account-scoped publication and attempt uniqueness.
+- Migration 033 replaces the active schedule key with `(pin_id, pinterest_account_id)`.
+- Publish helpers, schedule rows, and the worker now carry the exact Pinterest account ID.
+- Settings and manual publishing now expose account selection. Schedule creation stores an account ID; the calendar UI still needs an explicit account selector when more than one account is connected.
+- The calendar's local `accounts` presentation model is still mock/presentation data and is not used as a backend account identity.
 
 ## Required data model
 
@@ -89,18 +89,27 @@ For backwards compatibility, a request that omits `account_id` may resolve autom
 - Render schedule rows with their account identity.
 - Do not reuse the calendar's current mock account list as if it were server-confirmed OAuth state.
 
-## Implemented preparatory step (migration 031)
+## Implemented on the feature branch
 
-The branch now contains `db/migrations/031_pinterest_account_scoped_foundation.sql`. It is deliberately additive and does **not** enable multi-account behavior yet:
-- adds `disconnected_at` and allows access tokens to be cleared on disconnect;
-- adds nullable account references to publication, attempt, and schedule records;
-- adds account-scoped refresh lease storage and acquire/release/commit RPCs;
-- adds a v2 soft-disconnect RPC that clears credentials and advances the existing OAuth generation fence;
-- retains the legacy unique-per-user index and legacy RPCs, so the existing single-account backend remains compatible.
+The branch now contains three ordered migrations:
 
-A disposable PostgreSQL integration script, `backend/test/pinterest-account-foundation.integration.sql`, checks lease exclusivity, token commit, credential clearing, retained account history, OAuth fencing, and RPC permissions. The existing atomic-payment workflow now applies migration 031 and invokes this test after migrations 001–030.
+- **031 — account foundation:** adds `disconnected_at`, nullable token support, account references on publication/schedule records, per-account refresh leases, token commit RPC, and soft-disconnect RPC. It preserves the old one-account index at this stage.
+- **032 — multi-account OAuth:** removes the old unique-per-user index and adds the external identity uniqueness rule. OAuth v2 upserts by `(user_id, pinterest_user_id)`, preserves the stable row on reconnect, and checks the server-derived plan cap inside a transaction while holding the user row lock.
+- **033 — account-scoped publication:** changes publication/attempt/schedule uniqueness to account scope; adds account-validating v2 publication RPCs; and makes the schedule worker claim only schedules with a connected, exact account.
 
-This is only a foundation. The current backend still calls the legacy user-scoped methods; do not apply migration 031 to production until the new backend callers, OAuth upsert, publication journal, schedule worker, and account selectors are ready as one compatible release.
+Backend changes:
+- OAuth callback requires a verified Pinterest profile ID and uses the v2 commit RPC.
+- Account listing and per-account disconnect are available through the Pinterest status/settings endpoints.
+- Refresh lease, token commit, board lookup, manual publication, and worker publication are account-scoped.
+- A request without `account_id` resolves automatically only when exactly one active account exists; otherwise the API returns HTTP 422.
+- The manual publish button and settings card now list/select connected Pinterest profiles.
+- Schedule creation persists `pinterest_account_id`; the backend refuses to guess when multiple accounts exist. The calendar still needs an account selector to make that flow convenient for multi-account users.
+
+Plan caps enforced by the OAuth commit RPC are Analytics = 1, Start = 3, Pro = 10, Agency = unlimited. Reconnecting an existing external identity does not consume another slot. Soft-disconnected identities do not count.
+
+Disposable PostgreSQL checks now cover the foundation, OAuth identity/upsert and plan caps, and account-scoped publication/scheduling. The atomic-payment workflow applies migrations 031–033 and runs these checks. GitHub Actions has not yet produced an executed test step in the recent runs (`steps: null`), so the SQL checks are added but not confirmed passing.
+
+These changes exist only on the feature branch. No production migration has been applied and no PR has been merged.
 
 ## Safe rollout sequence
 
