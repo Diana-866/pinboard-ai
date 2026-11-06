@@ -1,4 +1,4 @@
--- Run after migration 040 in disposable PostgreSQL CI.
+-- Run after migrations 040 and 041 in disposable PostgreSQL CI.
 do $$
 declare
   v_function regprocedure;
@@ -14,7 +14,8 @@ begin
     'public.commit_pinterest_token_refresh(text,uuid,timestamptz,text,text,text,timestamptz)'::regprocedure,
     'public.begin_pinterest_oauth_attempt(text,uuid,bigint)'::regprocedure,
     'public.commit_pinterest_oauth_attempt(text,uuid,bigint,bigint,text,text,text,text,text,timestamptz)'::regprocedure,
-    'public.disconnect_pinterest_account(text)'::regprocedure
+    'public.disconnect_pinterest_account(text)'::regprocedure,
+    'public.adjust_credits_balance(text,integer)'::regprocedure
   ]
   loop
     select p.proconfig into v_config
@@ -27,5 +28,11 @@ begin
         v_function, v_config;
     end if;
   end loop;
+
+  if has_function_privilege('anon', 'public.adjust_credits_balance(text,integer)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.adjust_credits_balance(text,integer)', 'EXECUTE')
+     or not has_function_privilege('service_role', 'public.adjust_credits_balance(text,integer)', 'EXECUTE') then
+    raise exception 'adjust_credits_balance execute privileges are not restricted to service_role';
+  end if;
 end;
-$$;
+$;
