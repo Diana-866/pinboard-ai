@@ -22,7 +22,9 @@ This document is a design checkpoint only. It does not apply SQL or change produ
 
 ### Pinterest accounts
 
-Add a stable account identifier to every account-scoped operation. Keep `pinterest_accounts.id` as the canonical PinPosy account ID.
+Add a stable account identifier to every account-scoped operation. Keep `pinterest_accounts.id` as the canonical PinPosy account ID. Add `disconnected_at` (or an equivalent explicit connection state) and retain the row after disconnect. Make access/refresh token columns nullable only as part of the same backend rollout; on disconnect clear both credentials, set `disconnected_at`, and increment the existing per-user OAuth generation fence. Never leave usable credentials in a disconnected row.
+
+The current schema has `access_token NOT NULL`, and the current disconnect RPC physically deletes the account row. A new account-specific disconnect RPC must soft-disconnect exactly `(user_id, account_id)`. Keep a compatibility wrapper for the old user-only RPC only during rollout; it must not silently delete every account after multiple connections are enabled. Reconnecting the same external Pinterest identity should reactivate its retained row and preserve its stable `id`; connecting a different external identity should create a different row.
 
 Replace the unique-per-user index with a uniqueness rule for the external Pinterest identity, scoped to the PinPosy user (and handle nullable `pinterest_user_id` safely). OAuth callback must upsert the account matching both `user_id` and the verified Pinterest profile ID; it must never overwrite another connected account belonging to the same user.
 
@@ -64,6 +66,10 @@ When an account is disconnected:
 - rows already publishing must remain non-retryable until the publish journal is reconciled;
 - historical published rows and remote Pinterest IDs must remain available.
 
+## Plan limits
+
+The pricing UI currently advertises Analytics = 1 account, Start = up to 3, Pro = up to 10, and Agency = unlimited. These are presentation values today, not a server-enforced multi-account policy. Add a backend plan-to-account-limit function and enforce it transactionally when an OAuth callback attempts to add a *new* external Pinterest identity. Reconnecting an already linked identity must not consume another slot. Count only active connected rows; soft-disconnected rows remain historical and do not count. Define what happens when a user downgrades below their current number of connected accounts: preserve existing connections, block new connections, and do not silently disconnect or delete accounts.
+
 ## API contract changes
 
 - `GET /integrations/pinterest/status`: return a safe `accounts[]` list with `id`, `pinterest_user_id` only if needed, `username`, `expires_at`, and `needs_reauth`; never return credentials.
@@ -97,6 +103,8 @@ For backwards compatibility, a request that omits `account_id` may resolve autom
 
 - Two accounts for one PinPosy user can coexist; same Pinterest identity cannot be duplicated for that user.
 - OAuth reconnect updates only the matching account; stale callbacks cannot restore a disconnected account.
+- Disconnect clears credentials and marks one account disconnected while preserving its stable ID and historical references.
+- Plan account limits are enforced in the database transaction; reconnecting an existing identity does not consume a new slot, and downgrade never silently disconnects accounts.
 - Disconnecting account A does not affect account B.
 - Refresh leases for A and B do not block one another; stale refresh cannot overwrite a newer reconnect.
 - Board lookup, manual publish, and schedule creation reject an account belonging to another PinPosy user.
