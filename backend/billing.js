@@ -242,7 +242,6 @@ async function handleWebhook(req, res) {
 
   const orderId = String(body.order_id || "").trim();
   const status = String(body.payment_status || "").trim().toLowerCase();
-  const sum = body.sum != null ? Number(body.sum) : null;
 
   if (!orderId) {
     try {
@@ -307,8 +306,25 @@ async function handleWebhook(req, res) {
     return res.json({ ok: true, status: mapped });
   }
 
+  const paymentAmount = prodamus.getWebhookPaymentAmount(body, sub.currency || "rub");
+  if (!paymentAmount.ok) {
+    try {
+      await persistWebhookException(supabase, {
+        paymentKind: "subscription", body,
+        expectedAmount: Number.isFinite(Number(sub.amount)) ? Number(sub.amount) : null,
+        reason: paymentAmount.reason,
+      });
+    } catch (auditError) {
+      console.error("[billing] не удалось сохранить несовпадение валюты/суммы:", auditError.message);
+      return res.status(500).json({ ok: false, error: "audit storage failed" });
+    }
+    console.warn("[billing] платёж отклонён для сверки:", orderId, paymentAmount.reason);
+    return res.json({ ok: true, ignored: paymentAmount.reason, review_required: true });
+  }
+
   const expected = Number(sub.amount);
-  if (sum == null || !Number.isFinite(sum) || Math.abs(sum - expected) > 0.01) {
+  const sum = paymentAmount.amount;
+  if (!Number.isFinite(expected) || expected <= 0 || Math.abs(sum - expected) > 0.01) {
     try {
       await persistWebhookException(supabase, {
         paymentKind: "subscription", body, expectedAmount: expected, reason: "amount_mismatch",
