@@ -46,6 +46,26 @@ test("a 429 retry uses the refreshed token and waits once", async () => {
   assert.equal(result.status, 200);
 });
 
+test("a 401 after the one allowed 429 retry still refreshes the selected account", async () => {
+  const calls = [];
+  const waits = [];
+  const result = await executeWithAccountToken(
+    { id: "account-d", access_token: "old-d" },
+    async (token) => {
+      calls.push(token);
+      if (calls.length === 1) return { status: 429 };
+      if (calls.length === 2) return { status: 401 };
+      return { status: 200 };
+    },
+    async (account) => ({ ...account, access_token: "new-d" }),
+    async (ms) => waits.push(ms)
+  );
+
+  assert.deepEqual(calls, ["old-d", "old-d", "new-d"]);
+  assert.deepEqual(waits, [2000]);
+  assert.equal(result.status, 200);
+});
+
 test("non-retryable Pinterest responses do not rotate credentials", async () => {
   let refreshCount = 0;
   const result = await executeWithAccountToken(
