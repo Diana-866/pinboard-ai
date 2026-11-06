@@ -77,6 +77,7 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
   for (const task of tasks) {
     const ratio = task.aspect_ratio;
     const taskIndex = Number(task.task_index);
+    let providerSucceeded = false;
     try {
       if (typeof options.updateTask === "function") {
         await options.updateTask(taskIndex, "submitting");
@@ -117,6 +118,7 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
           providerPrice: image.price,
         });
       }
+      providerSucceeded = true;
       const storedUrl = await rehostImage(image.url);
       if (typeof options.updateTask === "function") {
         await options.updateTask(taskIndex, "succeeded", {
@@ -147,7 +149,7 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
         }
       } else {
         unknownTasks.push({ task_index: taskIndex });
-        if (typeof options.updateTask === "function") {
+        if (!providerSucceeded && typeof options.updateTask === "function") {
           await options.updateTask(taskIndex, "unknown", {
             providerTaskId: e && e.providerTaskId,
             errorCode: "provider_outcome_unknown",
