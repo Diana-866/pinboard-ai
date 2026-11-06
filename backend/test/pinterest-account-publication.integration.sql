@@ -1,4 +1,4 @@
--- Run only in disposable PostgreSQL CI after migrations 031-034.
+-- Run only in disposable PostgreSQL CI after migrations 031-035.
 -- A local pin can be published once per Pinterest identity, not once per user.
 do $$
 declare
@@ -10,6 +10,10 @@ declare
   v_inflight_pin uuid;
   v_retry_pin uuid;
   v_retry_schedule uuid;
+  v_manual_retry_pin uuid;
+  v_manual_retry_schedule uuid;
+  v_attempt_retry_pin uuid;
+  v_attempt_retry_schedule uuid;
   v_account_a uuid;
   v_account_b uuid;
   v_result jsonb;
@@ -115,6 +119,54 @@ begin
     raise exception 'retry schedule claim did not increment attempts exactly once';
   end if;
 
+  -- Manual retry is allowed only when the journal proves no publish attempt exists.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/manual-retry.png', 'Manual retry pin', '', 'pending', 'flux-schnell', 0)
+  returning id into v_manual_retry_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, last_error
+  ) values (
+    v_user::text, v_manual_retry_pin, v_account_a, now() - interval '1 day',
+    'UTC', 'board-a', 'failed', 'Account disconnected'
+  ) returning id into v_manual_retry_schedule;
+
+  v_result := public.retry_failed_pin_schedule(v_user::text, v_manual_retry_schedule);
+  if v_result->>'ok' <> 'true' then
+    raise exception 'safe failed schedule could not be retried: %', v_result;
+  end if;
+  if (select status from public.pin_schedules where id = v_manual_retry_schedule) <> 'scheduled'
+     or (select next_attempt_at from public.pin_schedules where id = v_manual_retry_schedule) is not null
+     or (select last_error from public.pin_schedules where id = v_manual_retry_schedule) is not null then
+    raise exception 'manual retry did not restore the schedule cleanly';
+  end if;
+
+  -- A failed journal row is still evidence that the remote request may have
+  -- started; the manual retry RPC must refuse it.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/attempt-retry.png', 'Attempt retry pin', '', 'pending', 'flux-schnell', 0)
+  returning id into v_attempt_retry_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status
+  ) values (
+    v_user::text, v_attempt_retry_pin, v_account_a, now() - interval '1 day',
+    'UTC', 'board-a', 'failed'
+  ) returning id into v_attempt_retry_schedule;
+  insert into public.pinterest_publish_attempts(
+    user_id, pin_id, pinterest_account_id, pinterest_board_id, status
+  ) values (
+    v_user::text, v_attempt_retry_pin, v_account_a, 'board-a', 'failed'
+  );
+
+  v_result := public.retry_failed_pin_schedule(v_user::text, v_attempt_retry_schedule);
+  if v_result->>'ok' <> 'false' or v_result->>'reason' <> 'publication_attempt_exists' then
+    raise exception 'manual retry ignored an existing publish journal: %', v_result;
+  end if;
+  if (select status from public.pin_schedules where id = v_attempt_retry_schedule) <> 'failed' then
+    raise exception 'unsafe schedule was changed despite an existing publish attempt';
+  end if;
+
   -- Active schedules are also unique per pin + Pinterest account.
   insert into public.pin_schedules(user_id, pin_id, pinterest_account_id, scheduled_at, timezone, pinterest_board_id)
   values (v_user::text, v_pin, v_account_a, now() + interval '1 day', 'UTC', 'board-a');
@@ -180,7 +232,7 @@ begin
   delete from public.pinterest_publish_attempts where user_id = v_user::text;
   delete from public.pinterest_publications where user_id = v_user::text;
   delete from public.pinterest_accounts where user_id = v_user::text;
-  delete from public.pins where id in (v_pin, v_legacy_pin, v_inflight_pin, v_retry_pin);
+  delete from public.pins where id in (v_pin, v_legacy_pin, v_inflight_pin, v_retry_pin, v_manual_retry_pin, v_attempt_retry_pin);
   delete from public.boards where id = v_board;
   delete from public.projects where id = v_project;
   delete from public.users where id = v_user;
