@@ -175,9 +175,10 @@ function normalizePaymentStatus(status) {
 
 /**
  * Read the amount and currency from a signed Prodamus webhook.
- * The official webhook example uses "sum" as the paid order amount and
- * documents "currency" as an optional payment field. Do not assume an
- * undocumented "currency_sum" field exists or has a different meaning.
+ * The generic Prodamus webhook example documents "sum"; integration
+ * guidance for foreign-currency payments additionally identifies
+ * "currency" + "currency_sum" as the payment-currency amount pair.
+ * Require that pair for foreign-currency orders rather than guessing.
  */
 function getWebhookPaymentAmount(body, expectedCurrency = "rub") {
   const expected = String(expectedCurrency || "rub").trim().toLowerCase();
@@ -197,7 +198,10 @@ function getWebhookPaymentAmount(body, expectedCurrency = "rub") {
     return { ok: false, reason: "currency_missing" };
   }
 
-  const rawAmount = body && body.sum;
+  const currencyAmount = body && body.currency_sum;
+  const rawAmount = currencyAmount != null && String(currencyAmount).trim() !== ""
+    ? currencyAmount
+    : expected === "rub" ? body && body.sum : null;
   const amount = rawAmount == null || String(rawAmount).trim() === ""
     ? NaN
     : Number(rawAmount);
@@ -209,7 +213,7 @@ function getWebhookPaymentAmount(body, expectedCurrency = "rub") {
     ok: true,
     amount,
     currency: receivedCurrency || expected,
-    amountField: "sum",
+    amountField: currencyAmount != null && String(currencyAmount).trim() !== "" ? "currency_sum" : "sum",
   };
 }
 
