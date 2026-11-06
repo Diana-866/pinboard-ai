@@ -17,6 +17,7 @@ declare
   v_account_a uuid;
   v_account_b uuid;
   v_result jsonb;
+  v_original_schedule_at timestamptz;
   v_publication_count integer;
   v_schedule_count integer;
   v_disconnected boolean;
@@ -131,6 +132,7 @@ begin
     'UTC', 'board-a', 'failed', 'Account disconnected'
   ) returning id into v_manual_retry_schedule;
 
+  select scheduled_at into v_original_schedule_at from public.pin_schedules where id = v_manual_retry_schedule;
   v_result := public.retry_failed_pin_schedule(v_user::text, v_manual_retry_schedule);
   if v_result->>'ok' <> 'true' then
     raise exception 'safe failed schedule could not be retried: %', v_result;
@@ -138,7 +140,8 @@ begin
   if (select status from public.pin_schedules where id = v_manual_retry_schedule) <> 'scheduled'
      or (select next_attempt_at from public.pin_schedules where id = v_manual_retry_schedule) is not null
      or (select attempts from public.pin_schedules where id = v_manual_retry_schedule) <> 0
-     or (select last_error from public.pin_schedules where id = v_manual_retry_schedule) is not null then
+     or (select last_error from public.pin_schedules where id = v_manual_retry_schedule) is not null
+     or (select original_scheduled_at from public.pin_schedules where id = v_manual_retry_schedule) is distinct from v_original_schedule_at then
     raise exception 'manual retry did not restore the schedule cleanly';
   end if;
 
