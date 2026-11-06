@@ -27,9 +27,10 @@ interface SettingsViewProps {
   onRemoveAccount?: (id: string) => void;
   maxAccounts?: number;
   onUpdateAccountAutoTime?: (accountId: string, autoTime: string, nightlyAuto: boolean) => void;
+  onPinterestStatusChange?: (status: { configured: boolean; account_limit?: number | null; accounts?: Array<{ id: string; username?: string | null; pinterest_user_id?: string | null; needs_reauth?: boolean }> }) => void;
 }
 
-export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing }) => {
+export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing, onPinterestStatusChange }) => {
   const { theme, setTheme, allThemes } = useTheme();
   const { language, setLanguage, t, supportedLanguages } = useI18n();
   const { user } = useAuth();
@@ -56,7 +57,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing }) => 
         </p>
       </div>
 
-      <PinterestCard />
+      <PinterestCard onAccountsChanged={onPinterestStatusChange} />
 
       {/* TIME ZONE */}
       <section className="custom-card p-6 space-y-3">
