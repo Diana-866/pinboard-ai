@@ -69,6 +69,16 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
 
   // Per-account cadence settings with customizable auto-generation time
   const [selectedAccountId, setSelectedAccountId] = useState<string>(accounts[0]?.id || 'acc-1');
+
+  useEffect(() => {
+    if (accounts.length === 0) {
+      setSelectedAccountId('');
+      return;
+    }
+    setSelectedAccountId((current) =>
+      current && accounts.some((account) => account.id === current) ? current : accounts[0].id
+    );
+  }, [accounts]);
   const [accountCadence, setAccountCadence] = useState<
     Record<string, { min: number; max: number; nightlyAuto: boolean; autoTime: string }>
   >(() => {
@@ -144,7 +154,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
   const currentCadence = accountCadence[selectedAccountId] || {
     min: 8,
     max: 16,
-    nightlyAuto: true,
+    nightlyAuto: false,
     autoTime: '01:00',
   };
 
@@ -174,7 +184,10 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
 
   const filteredPins = scheduledPins.filter((p) => {
     const matchStatus = filterStatus === 'all' || p.status === filterStatus;
-    const matchAccount = filterAccount === 'all' || p.accountHandle === filterAccount;
+    const matchAccount = filterAccount === 'all'
+      || p.pinterestAccountId === filterAccount
+      || p.accountId === filterAccount
+      || p.accountHandle === filterAccount;
     return matchStatus && matchAccount;
   });
 
@@ -223,11 +236,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
     };
   });
 
-  const targetAccount = accounts.find((a) => a.id === selectedAccountId) || accounts[0] || {
-    id: 'acc-1',
-    name: 'Botanica Nordic Living',
-    handle: '@botanica_nordic',
-  };
+  const targetAccount = accounts.find((a) => a.id === selectedAccountId) || accounts[0];
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-10">
@@ -263,7 +272,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
         </div>
       </div>
 
-      {/* Cadence & Nightly Auto-Generation Controls Card */}
+      {targetAccount && (
       <div className="custom-card p-5 rounded-2xl space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-subtle pb-3">
           <div>
@@ -457,6 +466,8 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
         )}
       </div>
 
+      )}
+
       {/* View Switcher & Filters */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* View Tabs */}
@@ -505,8 +516,8 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
             >
               <option value="all">{t.calendar.allAccounts}</option>
               {accounts.map((a) => (
-                <option key={a.id} value={a.handle}>
-                  {a.handle}
+                <option key={a.id} value={a.id}>
+                  {a.handle || a.name}
                 </option>
               ))}
             </select>
