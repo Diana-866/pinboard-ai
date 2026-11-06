@@ -71,6 +71,48 @@ test("image generation marks the provider submission boundary before calling the
   assert.deepEqual(pins, []);
 });
 
+test("journal recovery reuses the saved prompt and provider idempotency key without generating new text", async () => {
+  provider.generateText = async () => {
+    throw new Error("resume must not request new text ideas");
+  };
+  let receivedKey = null;
+  provider.generateImage = async (prompt, model, ratio, key) => {
+    assert.equal(prompt, "immutable saved prompt");
+    assert.equal(model, "flux-schnell");
+    assert.equal(ratio, "2:3");
+    receivedKey = key;
+    return { url: "https://provider.example.invalid/image.png", price: 0.6, taskId: "provider-task-0001" };
+  };
+  storage.rehostImage = async () => "https://storage.example.invalid/image.png";
+
+  const pins = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {
+      loadPlan: async () => [{
+        task_index: 1,
+        title: "Saved title",
+        description: "Saved description",
+        prompt: "immutable saved prompt",
+        model: "flux-schnell",
+        aspect_ratio: "2:3",
+        provider_idempotency_key: "stable-provider-key-0001",
+        status: "unknown",
+      }],
+      updateTask: async () => {},
+    }
+  );
+
+  assert.equal(receivedKey, "stable-provider-key-0001");
+  assert.equal(pins.length, 1);
+  assert.equal(pins[0].image_url, "https://storage.example.invalid/image.png");
+  assert.equal(pins[0].title, "Saved title");
+});
+
 test("restore original module cache entries", () => {
   if (originalGptunnel) require.cache[gptunnelPath] = originalGptunnel;
   else delete require.cache[gptunnelPath];
