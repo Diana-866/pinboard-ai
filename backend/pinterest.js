@@ -137,39 +137,62 @@ function pinterestMessage(data, fallback) {
 
 // ---------- хранилище ----------
 
-async function getAccount(userId) {
-  const { data, error } = await supabase
-    .from("pinterest_accounts")
-    .select("*")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error) throw error;
+async function decodeAccountRecord(data) {
   if (!data) return null;
-
   let stored = data;
-  // Мигрируем старые plaintext-токены при первом чтении после установки ключа.
+  // Migrate legacy plaintext tokens with an optimistic update on the exact row.
   if (hasEncryptionKey() && (!isEncryptedToken(data.access_token) || (data.refresh_token && !isEncryptedToken(data.refresh_token)))) {
     const encrypted = {
-      access_token: encryptToken(data.access_token),
-      refresh_token: encryptToken(data.refresh_token),
+      access_token: data.access_token ? encryptToken(data.access_token) : null,
+      refresh_token: data.refresh_token ? encryptToken(data.refresh_token) : null,
       updated_at: new Date().toISOString(),
     };
     const { data: updated, error: updateError } = await supabase
       .from("pinterest_accounts")
       .update(encrypted)
-      .eq("user_id", userId)
-      .eq("access_token", data.access_token)
+      .eq("id", data.id)
+      .eq("user_id", data.user_id)
+      .eq("updated_at", data.updated_at)
       .select("*")
       .maybeSingle();
     if (updateError) throw updateError;
     stored = updated || data;
   }
-
   return {
     ...stored,
     access_token: decryptToken(stored.access_token),
     refresh_token: decryptToken(stored.refresh_token),
   };
+}
+
+async function getAccounts(userId, { includeDisconnected = false } = {}) {
+  let query = supabase
+    .from("pinterest_accounts")
+    .select("*")
+    .eq("user_id", String(userId));
+  if (!includeDisconnected) {
+    query = query.is("disconnected_at", null).not("access_token", "is", null);
+  }
+  const { data, error } = await query.order("created_at", { ascending: true });
+  if (error) throw error;
+  return Promise.all((data || []).map(decodeAccountRecord));
+}
+
+/** Legacy single-account callers select the oldest active connection deterministically. */
+async function getAccount(userId, accountId = null) {
+  let query = supabase
+    .from("pinterest_accounts")
+    .select("*")
+    .eq("user_id", String(userId))
+    .is("disconnected_at", null)
+    .not("access_token", "is", null);
+  if (accountId) query = query.eq("id", String(accountId));
+  const { data, error } = await query
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return decodeAccountRecord(data);
 }
 
 // ---------- OAuth ----------
@@ -534,13 +557,23 @@ function registerRoutes(app, deps) {
     try {
       const configured = isConfigured();
       if (!configured) return res.json({ configured: false, connected: false });
-      const account = await getAccount(req.userId);
+      const accounts = await getAccounts(req.userId);
+      const primary = accounts[0] || null;
       res.json({
         configured: true,
-        connected: !!account,
-        username: account ? account.username : null,
-        expires_at: account ? account.expires_at : null,
-        needs_reauth: !!(account && account.expires_at && new Date(account.expires_at).getTime() < Date.now()),
+        connected: accounts.length > 0,
+        account_count: accounts.length,
+        accounts: accounts.map((account) => ({
+          id: account.id,
+          pinterest_user_id: account.pinterest_user_id,
+          username: account.username,
+          expires_at: account.expires_at,
+          needs_reauth: !!(account.expires_at && new Date(account.expires_at).getTime() < Date.now()),
+        })),
+        // Backward-compatible fields for the current single-account settings card.
+        username: primary ? primary.username : null,
+        expires_at: primary ? primary.expires_at : null,
+        needs_reauth: !!(primary && primary.expires_at && new Date(primary.expires_at).getTime() < Date.now()),
       });
     } catch (e) {
       handleError(res, e);
@@ -619,20 +652,39 @@ function registerRoutes(app, deps) {
       const expiresAt = tokenResponse && tokenResponse.expires_in
         ? new Date(now + Number(tokenResponse.expires_in) * 1000).toISOString()
         : null;
-      const { data: committed, error: commitError } = await supabase.rpc("commit_pinterest_oauth_attempt", {
+      if (!profile || !profile.id) {
+        throw httpError(502, "Pinterest не вернул идентификатор аккаунта. Подключение не сохранено.");
+      }
+
+      const tariff = await getTariffState(userId);
+      if (!tariff.active) {
+        return res.redirect(back("plan_required"));
+      }
+      const accountLimits = { analytics: 1, start: 3, pro: 10, agency: null };
+      const maxAccounts = Object.prototype.hasOwnProperty.call(accountLimits, normalizePlan(tariff.plan))
+        ? accountLimits[normalizePlan(tariff.plan)]
+        : 0;
+
+      const { data: committed, error: commitError } = await supabase.rpc("commit_pinterest_oauth_attempt_v2", {
         p_user_id: String(userId),
         p_attempt_id: String(stateClaims.attemptId || ""),
         p_generation: Number(stateClaims.generation),
         p_token_version: Number(stateClaims.tokenVersion || 0),
-        p_pinterest_user_id: profile && profile.id ? String(profile.id) : null,
-        p_username: profile && profile.username ? String(profile.username) : null,
+        p_pinterest_user_id: String(profile.id),
+        p_username: profile.username ? String(profile.username) : null,
         p_access_token: encryptToken(tokenResponse.access_token),
         p_refresh_token: encryptToken(tokenResponse.refresh_token || null),
         p_scopes: tokenResponse.scope || SCOPES.join(","),
         p_expires_at: expiresAt,
+        p_max_accounts: maxAccounts,
       });
       if (commitError) throw commitError;
-      if (!committed) throw httpError(409, "Попытка подключения Pinterest устарела. Начните подключение заново.");
+      if (!committed || committed.ok !== true) {
+        if (committed && committed.reason === "account_limit_reached") {
+          return res.redirect(back("limit"));
+        }
+        throw httpError(409, "Попытка подключения Pinterest устарела или не прошла проверку. Начните подключение заново.");
+      }
       console.log(`[pinterest] аккаунт подключён: user=${userId} login=${profile && profile.username}`);
       res.redirect(back("connected"));
     } catch (e) {
