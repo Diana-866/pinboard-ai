@@ -264,6 +264,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
           </button>
 
           <button
+            onClick={() => setAdminTab('billing_exceptions')}
+            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              adminTab === 'billing_exceptions'
+                ? 'accent-btn shadow-xs'
+                : 'text-secondary-theme hover:text-primary-theme hover:bg-subtle'
+            }`}
+          >
+            <AlertCircle className="w-4 h-4" />
+            <span>6. Исключения платежей</span>
+          </button>
+
+          <button
             onClick={() => setAdminTab('subscriptions')}
             className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               adminTab === 'subscriptions'
@@ -281,6 +293,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
       <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto space-y-6 pb-24">
         {adminTab === 'mail' && <AdminMail />}
         {adminTab === 'subscriptions' && <AdminSubscriptions />}
+        {adminTab === 'billing_exceptions' && <AdminBillingExceptions />}
         {/* ============================================================ */}
         {/* TAB 1: USERS & DETAILED GENERATION STATS                     */}
         {/* ============================================================ */}
