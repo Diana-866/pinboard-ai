@@ -237,6 +237,126 @@ test("recovery restores completed tasks while leaving unsubmitted tasks pending"
   assert.deepEqual(pins.unknownTasks, []);
 });
 
+test("storage failure after provider success preserves the billable result for same-key recovery", async () => {
+  const providerCalls = [];
+  const journalUpdates = [];
+  let storageAttempts = 0;
+  provider.generateText = async () => {
+    throw new Error("recovery must not generate new text ideas");
+  };
+  provider.generateImage = async (prompt, model, ratio, key) => {
+    providerCalls.push({ prompt, model, ratio, key });
+    return {
+      url: "https://provider.example.invalid/durable-result.png",
+      price: 0.75,
+      taskId: "provider-task-durable-0001",
+    };
+  };
+  storage.rehostImage = async () => {
+    storageAttempts += 1;
+    if (storageAttempts === 1) throw new Error("temporary storage outage");
+    return "https://storage.example.invalid/durable-result.png";
+  };
+
+  const savedTask = {
+    task_index: 1,
+    title: "Durable result",
+    description: "Saved description",
+    prompt: "saved immutable prompt",
+    model: "flux-schnell",
+    aspect_ratio: "2:3",
+    provider_idempotency_key: "stable-provider-key-storage-recovery",
+    status: "unknown",
+  };
+  const firstAttempt = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {
+      loadPlan: async () => [{ ...savedTask }],
+      updateTask: async (index, status, details) => {
+        journalUpdates.push({ index, status, details });
+      },
+    }
+  );
+
+  assert.equal(firstAttempt.length, 0);
+  assert.deepEqual(firstAttempt.unknownTasks, [{ task_index: 1 }]);
+  assert.equal(
+    journalUpdates.some((entry) =>
+      entry.status === "succeeded" &&
+      entry.details.providerResultUrl === "https://provider.example.invalid/durable-result.png" &&
+      entry.details.providerPrice === 0.75
+    ),
+    true,
+    "provider success and its price must be journaled before attempting storage"
+  );
+  assert.equal(
+    journalUpdates.some((entry) => entry.status === "unknown"),
+    false,
+    "storage failure must not regress a provider-succeeded task to unknown"
+  );
+
+  const recoveredTask = {
+    ...savedTask,
+    status: "succeeded",
+    provider_task_id: "provider-task-durable-0001",
+    provider_result_url: "https://provider.example.invalid/durable-result.png",
+    provider_price: 0.75,
+    storage_url: null,
+  };
+  const secondAttempt = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {
+      loadPlan: async () => [recoveredTask],
+      updateTask: async (index, status, details) => {
+        journalUpdates.push({ index, status, details });
+      },
+    }
+  );
+
+  assert.equal(providerCalls.length, 2);
+  assert.equal(providerCalls[0].key, "stable-provider-key-storage-recovery");
+  assert.equal(providerCalls[1].key, providerCalls[0].key);
+  assert.equal(providerCalls[1].prompt, providerCalls[0].prompt);
+  assert.equal(secondAttempt.length, 1);
+  assert.equal(secondAttempt[0].image_url, "https://storage.example.invalid/durable-result.png");
+  assert.equal(secondAttempt[0].credits_cost, 0.75);
+});
+
+test("a missing permanent storage URL is not returned as a generated pin", async () => {
+  provider.generateText = async () => JSON.stringify([
+    { title: "No storage URL", description: "Test", image_prompt: "A test image" },
+  ]);
+  provider.generateImage = async () => ({
+    url: "https://provider.example.invalid/no-storage.png",
+    price: 0.5,
+    taskId: "provider-task-no-storage-0001",
+  });
+  storage.rehostImage = async () => null;
+
+  const pins = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {}
+  );
+
+  assert.equal(pins.length, 0);
+  assert.deepEqual(pins.unknownTasks, [{ task_index: 1 }]);
+});
+
 test("restore original module cache entries", () => {
   if (originalGptunnel) require.cache[gptunnelPath] = originalGptunnel;
   else delete require.cache[gptunnelPath];
