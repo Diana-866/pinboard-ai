@@ -199,7 +199,7 @@ $$;
 
 revoke all on function public.commit_pinterest_oauth_attempt_v2(text,uuid,bigint,bigint,text,text,text,text,text,timestamptz)
   from public, anon, authenticated;
-grant execute on function public.commit_pinterest_oauth_attempt_v2(text,uuid,bigint,bigint,text,text,text,text,text,timestamptz,integer)
+grant execute on function public.commit_pinterest_oauth_attempt_v2(text,uuid,bigint,bigint,text,text,text,text,text,timestamptz)
   to service_role;
 
 -- Remove the legacy constraint only after the account-aware callback RPC is installed.
