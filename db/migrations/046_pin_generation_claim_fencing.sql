@@ -3,6 +3,11 @@
 alter table public.pin_generation_requests
   add column if not exists claim_token uuid default gen_random_uuid();
 
+-- Backfill rows that may have been created by a pre-fencing deployment.
+update public.pin_generation_requests
+   set claim_token=gen_random_uuid()
+ where status='processing' and claim_token is null;
+
 create or replace function public.begin_pin_generation_request(
   p_user_id text,p_board_id uuid,p_idempotency_key text,p_fingerprint text
 ) returns jsonb language plpgsql security definer
