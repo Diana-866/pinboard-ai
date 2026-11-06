@@ -305,6 +305,31 @@ begin
     if sqlerrm = 'completed journal task was allowed to regress' then raise; end if;
   end;
 
+  -- A later provider response must not replace the provider task ID already
+  -- associated with this stable idempotency key.
+  begin
+    perform public.update_pin_generation_task(
+      v_user::text, 'ci-generation-journal-0001', 1, 'succeeded',
+      'ci-task-different'
+    );
+    raise exception 'journal accepted a different provider task ID';
+  exception when others then
+    if sqlerrm = 'journal accepted a different provider task ID' then raise; end if;
+    if sqlerrm not like '%provider task id mismatch%' then raise; end if;
+  end;
+
+  -- Numeric NaN/Infinity values must never become a billable provider price.
+  begin
+    perform public.update_pin_generation_task(
+      v_user::text, 'ci-generation-journal-0001', 1, 'succeeded',
+      'ci-task-0001', null, null, 'NaN'::numeric
+    );
+    raise exception 'journal accepted a non-finite provider price';
+  exception when others then
+    if sqlerrm = 'journal accepted a non-finite provider price' then raise; end if;
+    if sqlerrm not like '%invalid provider price%' then raise; end if;
+  end;
+
   insert into public.subscriptions(user_id, plan, status, provider_payment_id, amount, currency)
   values (v_user::text, 'start', 'pending', 'ci-sub-' || v_user, 1990, 'rub')
   returning id into v_sub;
