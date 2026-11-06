@@ -68,7 +68,11 @@ test("image generation marks the provider submission boundary before calling the
   );
 
   assert.equal(submitted, true);
-  assert.deepEqual(pins, []);
+  assert.equal(pins.length, 0);
+  assert.deepEqual(pins.pendingTasks, []);
+  assert.deepEqual(pins.unknownTasks, [{ task_index: 1 }]);
+  assert.deepEqual(pins.failedTasks, []);
+  assert.equal(pins.plannedTaskCount, 1);
 });
 
 test("journal recovery reuses the saved prompt and provider idempotency key without generating new text", async () => {
