@@ -28,8 +28,8 @@ function normalizePlan(plan) {
  *  2. Уточняем по последней success-подписке: если period_end в прошлом — тариф истёк.
  *  3. Если строки подписок нет вовсе (тариф выставлен вручную админом) — доверяем users.
  */
-async function getTariffState(userId) {
-  const { data: user, error } = await supabase
+async function getTariffState(userId, db = supabase) {
+  const { data: user, error } = await db
     .from("users")
     .select("tariff_plan, tariff_period_end")
     .eq("id", userId)
@@ -40,7 +40,7 @@ async function getTariffState(userId) {
   const plan = normalizePlan(user.tariff_plan);
   if (plan === "none") return { plan, active: false, periodEnd: null };
 
-  const { data: sub } = await supabase
+  const { data: sub, error: subscriptionError } = await db
     .from("subscriptions")
     .select("plan, status, period_end")
     .eq("user_id", String(userId))
@@ -50,6 +50,10 @@ async function getTariffState(userId) {
     .order("id", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  // A failed subscription lookup is not the same as no subscription.
+  // Fail closed so a transient database error cannot grant paid access.
+  if (subscriptionError) throw subscriptionError;
 
   if (!sub) {
     // Подписки нет — доверяем users.tariff_plan (ручная выдача, тесты, старые аккаунты).
