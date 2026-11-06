@@ -581,6 +581,7 @@ begin
 
   delete from public.pinterest_publish_attempts where user_id=v_user::text;
   delete from public.pinterest_publications where user_id=v_user::text;
+  delete from public.pinterest_accounts where id=v_pinterest_account;
   delete from public.pins where board_id = v_board;
   delete from public.boards where id = v_board;
   delete from public.email_outbox where subscription_id in (select id from public.subscriptions where user_id = v_user::text);
