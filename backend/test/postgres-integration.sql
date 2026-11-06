@@ -447,7 +447,8 @@ begin
   -- A failed atomic completion must leave the request retryable and must not
   -- persist pins or debit credits. After funding, the same key completes once.
   v_result := public.begin_pin_generation_request(
-    v_user::text, v_board, 'ci-generation-atomic-retry-0001', repeat('d',64)
+    v_user::text, v_board, 'ci-generation-atomic-retry-0001', (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-atomic-retry-0001'),
+    repeat('d',64)
   );
   if v_result->>'status' <> 'started' then
     raise exception 'atomic retry fixture must start';
