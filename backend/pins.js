@@ -87,6 +87,12 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
       failedTasks.push({ task_index: taskIndex });
       continue;
     }
+    if (task.status === "prepared" && options.allowPreparedTaskSubmission === false) {
+      // Keep unsubmitted work in the journal when the user cannot currently
+      // cover another provider call; already-submitted tasks remain recoverable.
+      pendingTasks.push({ task_index: taskIndex, status: "awaiting_balance" });
+      continue;
+    }
     if (task.status === "succeeded" && task.storage_url && task.provider_price != null) {
       pins.push({
         board_id: board.id,
