@@ -1,4 +1,4 @@
--- Run only in disposable PostgreSQL CI database after migrations 010–030.
+-- Run only in disposable PostgreSQL CI database after migrations 010–045.
 do $$
 declare
   v_user uuid := gen_random_uuid();
