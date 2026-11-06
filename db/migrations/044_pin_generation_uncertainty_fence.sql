@@ -60,6 +60,8 @@ begin
 end;
 $$;
 
+drop function if exists public.fail_pin_generation_request(text,text,text);
+
 create or replace function public.fail_pin_generation_request(
   p_user_id text, p_idempotency_key text, p_error_code text,
   p_outcome_unknown boolean default false
