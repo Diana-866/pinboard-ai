@@ -111,15 +111,13 @@ Disposable PostgreSQL checks now cover the foundation, OAuth identity/upsert and
 
 These changes exist only on the feature branch. No production migration has been applied and no PR has been merged.
 
-## Safe rollout sequence
+## Remaining rollout sequence
 
-1. Add additive nullable columns and new account-scoped RPCs; preserve old RPCs during compatibility window.
-2. Backfill account IDs for existing publication attempts, publications, and schedules using unambiguous user-to-account matches.
-3. Verify counts and detect orphaned rows before replacing unique indexes. Abort rather than guess if a row cannot be mapped safely.
-4. Deploy backend support for explicit account IDs while retaining the one-account fallback.
-5. Deploy frontend account and board selectors.
-6. Enable multiple account creation only after migrations and backend/frontend compatibility are confirmed.
-7. Remove obsolete user-only RPCs and indexes in a later cleanup migration.
+1. Finish the calendar account selector and verify the manual publish and schedule flows end-to-end.
+2. Inspect production row counts and identify historical publication/schedule records whose Pinterest account cannot be mapped unambiguously. Migration 033 deliberately leaves those references null; the worker will not guess an account for legacy queued rows.
+3. Validate migrations 031–033 and the PostgreSQL integration scripts in a working CI runner.
+4. Review the PR diff and deployment compatibility. Apply migrations and deploy backend/frontend only as one explicitly approved rollout; no production migration has been run from this branch.
+5. After live OAuth, refresh, manual publishing, and scheduled publishing are verified, remove obsolete user-scoped RPCs in a separate cleanup migration.
 
 ## Tests required before merge
 
@@ -138,4 +136,4 @@ These changes exist only on the feature branch. No production migration has been
 
 ## Rollback constraints
 
-Do not drop the old unique indexes or old RPC signatures until the new path is deployed and verified. Do not delete legacy account rows during rollout. No production migration should be applied from this branch without explicit approval and a verified backup.
+Migration 032 drops the legacy unique-per-user index and migration 033 replaces the global publication/schedule indexes on this feature branch. Do not apply these migrations to production until the new backend and frontend are deployed together, CI has actually executed the integration checks, historical rows have been reviewed, and an explicit approval plus verified backup exists. Keep legacy RPCs during the compatibility window; do not delete account rows.
