@@ -1,6 +1,7 @@
 // Загрузка изображений пинов в Supabase Storage (решение проблемы временных ссылок GPTunnel)
 const supabase = require("./supabase");
 const { httpError } = require("./validate");
+const { validateImageBuffer } = require("./imageValidation");
 
 const BUCKET = "pin-images";
 let bucketReady = false;
@@ -8,7 +9,6 @@ let bucketReady = false;
 async function ensureBucket() {
   if (bucketReady) return;
   try {
-    // Идемпотентно создаём публичный бакет, если его нет
     const { data: buckets } = await supabase.storage.listBuckets();
     if (buckets && !buckets.find((b) => b.name === BUCKET)) {
       await supabase.storage.createBucket(BUCKET, { public: true, fileSizeLimit: 5242880 });
@@ -19,21 +19,20 @@ async function ensureBucket() {
   }
 }
 
-function extFor(mimetype) {
-  if (mimetype === "image/png") return "png";
-  if (mimetype === "image/webp") return "webp";
-  if (mimetype === "image/gif") return "gif";
-  return "jpg";
-}
-
-// Загружает изображение пина и возвращает постоянный публичный URL
+// Проверяем сигнатуру, а не доверяем Content-Type, присланному клиентом или источником.
 async function uploadPinImage(file) {
+  let imageType;
+  try {
+    imageType = validateImageBuffer(file && file.buffer, file && file.mimetype);
+  } catch (e) {
+    throw httpError(422, e.message);
+  }
   await ensureBucket();
-  const path = `pins/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${extFor(file.mimetype)}`;
+  const path = `pins/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${imageType.ext}`;
 
   const { error } = await supabase.storage
     .from(BUCKET)
-    .upload(path, file.buffer, { contentType: file.mimetype, upsert: true });
+    .upload(path, file.buffer, { contentType: imageType.mime, upsert: true });
   if (error) throw httpError(500, "Не удалось сохранить изображение: " + error.message);
 
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
@@ -43,8 +42,7 @@ async function uploadPinImage(file) {
 
 module.exports = { uploadPinImage, rehostImage };
 
-// Скачивает картинку по URL (например, временную ссылку GPTunnel) и кладёт в наше хранилище.
-// Возвращает постоянный публичный URL (решение B9: картинки больше не пропадают).
+// Скачивает картинку по URL (например, временную ссылку GPTunnel) и кладёт её в хранилище.
 async function rehostImage(sourceUrl) {
   const axios = require("axios");
   const response = await axios.get(sourceUrl, {
@@ -52,7 +50,6 @@ async function rehostImage(sourceUrl) {
     timeout: 30000,
     maxContentLength: 8 * 1024 * 1024,
   });
-  const mimetype = response.headers["content-type"] || "image/jpeg";
-  if (!/^image\//.test(mimetype)) throw new Error("Источник вернул не изображение");
+  const mimetype = String(response.headers["content-type"] || "").split(";")[0].trim().toLowerCase();
   return uploadPinImage({ buffer: Buffer.from(response.data), mimetype });
 }
