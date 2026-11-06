@@ -147,6 +147,37 @@ jobs:
             period_end timestamptz,
             created_at timestamptz not null default now()
           );
+          -- Minimal baseline helper fixture: migration 041 hardens its function config.
+          create or replace function public.adjust_credits_balance(p_user_id text, p_amount integer)
+          returns integer
+          language plpgsql
+          security definer
+          set search_path = public
+          as $
+          declare
+            v_new_balance integer;
+          begin
+            if p_user_id is null or p_amount is null then
+              raise exception 'p_user_id and p_amount are required';
+            end if;
+            update public.users
+               set credits_balance = credits_balance + p_amount
+             where id::text = p_user_id
+               and (p_amount >= 0 or credits_balance + p_amount >= 0)
+             returning credits_balance into v_new_balance;
+            if not found then
+              if exists (select 1 from public.users where id::text = p_user_id) then
+                raise exception 'insufficient credits';
+              end if;
+              raise exception 'user not found: %', p_user_id;
+            end if;
+            return v_new_balance;
+          end;
+          $;
+          revoke all on function public.adjust_credits_balance(text, integer)
+            from public, anon, authenticated;
+          grant execute on function public.adjust_credits_balance(text, integer)
+            to service_role;
           SQL
       - name: Apply atomic migrations
         env:
@@ -185,6 +216,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -c "grant all on public.pinterest_accounts, public.pinterest_publications to anon, authenticated"
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/039_pinterest_sensitive_table_privileges.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/040_harden_security_definer_search_paths.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/041_harden_credit_balance_search_path.sql
       - name: Verify Pinterest refresh uncertainty fence
         env:
           PGPASSWORD: postgres
