@@ -40,6 +40,7 @@ declare
   v_email_token uuid;
   v_email_issue boolean;
   v_email_issue_token uuid;
+  v_provider_key text;
 
 begin
   if to_regprocedure('public.issue_password_reset_token(text,text,timestamptz)') is not null then
@@ -259,6 +260,50 @@ begin
   if (select credits_balance from public.users where id=v_user) <> v_before then
     raise exception 'failed generation changed user balance';
   end if;
+
+  -- Durable image-task plan: exact prompts and provider keys survive retries.
+  v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-journal-0001', repeat('f',64));
+  if v_result->>'status' <> 'started' then raise exception 'journal generation fixture must start'; end if;
+  v_result := public.save_pin_generation_plan(
+    v_user::text,
+    'ci-generation-journal-0001',
+    '[{"title":"Journal pin","description":"Saved before provider submission","prompt":"exact immutable image prompt","model":"flux-schnell","aspect_ratio":"2:3"}]'::jsonb
+  );
+  if jsonb_array_length(v_result) <> 1 then raise exception 'generation plan was not persisted'; end if;
+  if v_result->0->>'status' <> 'prepared' then raise exception 'new journal task must be prepared'; end if;
+  v_provider_key := v_result->0->>'provider_idempotency_key';
+  if coalesce(v_provider_key,'') = '' then raise exception 'provider idempotency key was not created'; end if;
+  v_result := public.save_pin_generation_plan(
+    v_user::text,
+    'ci-generation-journal-0001',
+    '[{"title":"Changed title","description":"","prompt":"different prompt","model":"flux-schnell","aspect_ratio":"2:3"}]'::jsonb
+  );
+  if v_result->0->>'prompt' <> 'exact immutable image prompt'
+     or v_result->0->>'provider_idempotency_key' <> v_provider_key then
+    raise exception 'retry changed immutable plan or provider idempotency key';
+  end if;
+  if not public.update_pin_generation_task(
+    v_user::text, 'ci-generation-journal-0001', 1, 'submitting'
+  ) then raise exception 'journal task did not enter submitting'; end if;
+  if not public.update_pin_generation_task(
+    v_user::text, 'ci-generation-journal-0001', 1, 'queued', 'ci-task-0001'
+  ) then raise exception 'provider task id was not persisted'; end if;
+  if not public.update_pin_generation_task(
+    v_user::text, 'ci-generation-journal-0001', 1, 'running'
+  ) then raise exception 'journal task did not enter running'; end if;
+  if not public.update_pin_generation_task(
+    v_user::text, 'ci-generation-journal-0001', 1, 'succeeded',
+    'ci-task-0001', 'https://provider.example.invalid/result.png',
+    'https://storage.example.invalid/result.png', 0.6
+  ) then raise exception 'journal task did not complete'; end if;
+  begin
+    perform public.update_pin_generation_task(
+      v_user::text, 'ci-generation-journal-0001', 1, 'running'
+    );
+    raise exception 'completed journal task was allowed to regress';
+  exception when others then
+    if sqlerrm = 'completed journal task was allowed to regress' then raise; end if;
+  end;
 
   insert into public.subscriptions(user_id, plan, status, provider_payment_id, amount, currency)
   values (v_user::text, 'start', 'pending', 'ci-sub-' || v_user, 1990, 'rub')
