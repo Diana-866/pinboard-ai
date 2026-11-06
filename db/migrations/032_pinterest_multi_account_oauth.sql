@@ -34,6 +34,7 @@ declare
   v_active boolean := false;
   v_max_accounts integer;
   v_account_id uuid;
+  v_account_active boolean := false;
   v_active_count integer;
 begin
   if nullif(trim(coalesce(p_pinterest_user_id, '')), '') is null
@@ -131,7 +132,8 @@ begin
   end if;
 
   -- A reconnect of the same external Pinterest identity reuses its stable row.
-  select id into v_account_id
+  select id, (disconnected_at is null and access_token is not null)
+    into v_account_id, v_account_active
     from public.pinterest_accounts
    where user_id = p_user_id
      and pinterest_user_id = p_pinterest_user_id
@@ -143,7 +145,7 @@ begin
      and disconnected_at is null
      and access_token is not null;
 
-  if v_account_id is null
+  if (v_account_id is null or not coalesce(v_account_active, false))
      and v_max_accounts is not null
      and v_active_count >= v_max_accounts then
     update public.pinterest_oauth_connection_state
