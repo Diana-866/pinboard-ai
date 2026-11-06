@@ -172,9 +172,11 @@ begin
   do update set
     username = excluded.username,
     access_token = excluded.access_token,
-    refresh_token = excluded.refresh_token,
-    scopes = excluded.scopes,
-    expires_at = excluded.expires_at,
+    -- OAuth providers may omit a replacement refresh token or expiry.
+    -- Preserve the last known valid values instead of erasing them on reconnect.
+    refresh_token = coalesce(excluded.refresh_token, public.pinterest_accounts.refresh_token),
+    scopes = coalesce(nullif(excluded.scopes, ''), public.pinterest_accounts.scopes),
+    expires_at = coalesce(excluded.expires_at, public.pinterest_accounts.expires_at),
     disconnected_at = null,
     updated_at = now()
   returning id into v_account_id;
