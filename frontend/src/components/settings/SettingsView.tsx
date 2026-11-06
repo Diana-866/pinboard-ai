@@ -3,14 +3,8 @@ import {
   Palette,
   Globe,
   Sparkles,
-  ShieldCheck,
   CreditCard,
   Check,
-  RefreshCw,
-  AlertCircle,
-  ArrowUpRight,
-  Trash2,
-  Sliders,
   Clock,
 } from 'lucide-react';
 import { useTheme } from '../../theme/themeContext';
@@ -23,8 +17,6 @@ import {
   getDefaultTimezone,
   saveUserTimezone,
   SUPPORTED_TIMEZONES,
-  getTimezoneInfo,
-  convertLocalToMoscow,
 } from '../../utils/timezone';
 
 import { PinterestCard } from './PinterestCard';
@@ -40,25 +32,12 @@ interface SettingsViewProps {
   onUpdateAccountAutoTime?: (accountId: string, autoTime: string, nightlyAuto: boolean) => void;
 }
 
-export const SettingsView: React.FC<SettingsViewProps> = ({
-  onGoToPricing,
-  accounts = [],
-  activeAccountId,
-  onSelectAccount,
-  onAddAccount,
-  onRemoveAccount,
-  maxAccounts = 3,
-  onUpdateAccountAutoTime,
-}) => {
+export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing }) => {
   const { theme, setTheme, allThemes } = useTheme();
   const { language, setLanguage, t, supportedLanguages } = useI18n();
   const { user } = useAuth();
 
   const [userTimezone, setUserTimezone] = useState<string>(() => getDefaultTimezone(language));
-  const [successToast, setSuccessToast] = useState<string | null>(null);
-
-
-  const isLimitReached = accounts.length >= maxAccounts;
   const planId = user?.tariff_plan || 'none';
   const currentPlanName = user?.subscription_active === false || planId === 'none'
     ? t.settings.noActivePlan
@@ -80,263 +59,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </p>
       </div>
 
-      {successToast && (
-        <div className="p-3 rounded-xl bg-subtle border border-subtle text-xs text-secondary-theme" role="status">
-          {successToast}
-        </div>
-      )}
-
-      {/* 1. CONNECTED PINTEREST BUSINESS ACCOUNTS */}
-      <section className="custom-card p-6 space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-subtle pb-4">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h2 className="text-base font-bold text-primary-theme font-heading flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-accent-ghost" />
-                <span>{t.settings.connectedAccountSection}</span>
-              </h2>
-
-              {/* Exact user requirement: "Подключено 1 из 3 аккаунтов" */}
-              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold font-mono ${
-                isLimitReached
-                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
-                  : 'bg-subtle text-primary-theme border border-subtle'
-              }`}>
-                {t.settings.connectedAccountsCount.replace('{count}', String(accounts.length)).replace('{max}', String(maxAccounts))}
-              </span>
-            </div>
-            <p className="text-xs text-muted-theme mt-1">
-              {t.settings.connectedAccountDesc}
-            </p>
-          </div>
-
-          {!isLimitReached && (
-            <button
-              type="button"
-              disabled
-              aria-disabled="true"
-              className="secondary-btn self-start sm:self-auto px-4 py-2 text-xs font-semibold opacity-70 cursor-not-allowed"
-              title={t.settings.pinterestConnectionUnavailable}
-            >
-              {t.settings.pinterestConnectionUnavailable}
-            </button>
-          )}
-        </div>
-
-        {/* List of Connected Accounts */}
-        <div className="space-y-3">
-          {accounts.length === 0 ? (
-            <p className="rounded-xl border border-subtle bg-subtle/40 p-4 text-sm text-secondary-theme">
-              {t.settings.noAccountsConnected}
-            </p>
-          ) : accounts.map((acc) => {
-            const isActive = acc.id === (activeAccountId || accounts[0]?.id);
-            return (
-              <div
-                key={acc.id}
-                className={`p-4 rounded-xl border transition-all space-y-3 ${
-                  isActive
-                    ? 'border-accent bg-subtle/60 shadow-xs ring-1 ring-accent/30'
-                    : 'border-subtle bg-surface hover:bg-subtle/30'
-                }`}
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    <img
-                      src={acc.avatar}
-                      alt={acc.name}
-                      referrerPolicy="no-referrer"
-                      className="w-12 h-12 rounded-full object-cover border border-subtle shrink-0"
-                    />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-bold text-primary-theme truncate">
-                          {acc.name}
-                        </span>
-                        <span className="w-2 h-2 rounded-full bg-emerald-500" title={t.settings.apiVerified} />
-                        {isActive && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full accent-btn text-white">
-                            {t.settings.activeProfile}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-secondary-theme mt-0.5 flex-wrap">
-                        <span className="font-mono text-primary-theme font-medium">{acc.handle}</span>
-                        <span>·</span>
-                        <span>{acc.boardsCount} {t.settings.boardsCount}</span>
-                        <span>·</span>
-                        <span>{acc.monthlyViews} {t.settings.monthlyViews}</span>
-                        <span>·</span>
-                        <span>{acc.minDailyPins}–{acc.maxDailyPins} {t.settings.pinsPerDay}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 self-start sm:self-center">
-                    {!isActive && onSelectAccount && (
-                      <button
-                        onClick={() => onSelectAccount(acc.id)}
-                        className="secondary-btn px-3 py-1.5 text-xs font-semibold cursor-pointer"
-                      >
-                        {t.settings.makeActive}
-                      </button>
-                    )}
-
-                    <button
-                      className="p-2 rounded-lg border border-subtle hover:border-strong text-secondary-theme hover:text-primary-theme cursor-pointer transition-colors"
-                      title={t.settings.syncData}
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                    </button>
-
-                    {accounts.length > 1 && onRemoveAccount && (
-                      <button
-                        onClick={() => onRemoveAccount(acc.id)}
-                        className="p-2 rounded-lg border border-subtle hover:border-rose-400 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 cursor-pointer transition-colors"
-                        title={t.settings.disconnectAccount}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Auto-Generation Time Customization Box */}
-                {(() => {
-                  const tzInfo = getTimezoneInfo(userTimezone);
-                  const isMsk = userTimezone === 'Europe/Moscow';
-                  const autoTime = acc.autoTime || '01:00';
-                  const mskTime = convertLocalToMoscow(autoTime, userTimezone);
-
-                  return (
-                    <div className="pt-2.5 border-t border-subtle flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs bg-subtle/50 p-2.5 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-accent-ghost shrink-0" />
-                        <div>
-                          <span className="font-semibold text-primary-theme block text-xs">
-                            {t.settings.scheduleTitle}
-                          </span>
-                          <span className="text-[11px] text-muted-theme">
-                            {acc.nightlyAuto !== false
-                              ? (isMsk ? t.settings.scheduleLocal : t.settings.scheduleWithServer)
-                                  .replace('{time}', autoTime)
-                                  .replace('{min}', String(acc.minDailyPins))
-                                  .replace('{max}', String(acc.maxDailyPins))
-                                  .replace('{zone}', tzInfo.abbr)
-                                  .replace('{serverTime}', mskTime)
-                              : t.settings.schedulePaused}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <label className="flex items-center gap-1.5 cursor-pointer text-xs">
-                          <input
-                            type="checkbox"
-                            checked={acc.nightlyAuto !== false}
-                            onChange={(e) => {
-                              if (onUpdateAccountAutoTime) {
-                                onUpdateAccountAutoTime(acc.id, acc.autoTime || '01:00', e.target.checked);
-                                setSuccessToast((e.target.checked ? t.settings.autoEnabled : t.settings.autoDisabled).replace('{account}', acc.handle));
-                                setTimeout(() => setSuccessToast(null), 3000);
-                              }
-                            }}
-                            className="w-3.5 h-3.5 rounded cursor-pointer accent-accent"
-                          />
-                          <span className="text-secondary-theme text-[11px]">{t.settings.autoLabel}</span>
-                        </label>
-
-                        <div className="flex items-center gap-1 bg-surface border border-subtle px-2 py-0.5 rounded-md">
-                          <input
-                            type="time"
-                            value={acc.autoTime || '01:00'}
-                            onChange={(e) => {
-                              if (onUpdateAccountAutoTime) {
-                                onUpdateAccountAutoTime(acc.id, e.target.value, acc.nightlyAuto !== false);
-                                setSuccessToast(
-                                  (isMsk ? t.settings.timeSavedMsk : t.settings.timeSaved)
-                                    .replace('{account}', acc.handle)
-                                    .replace('{time}', e.target.value)
-                                    .replace('{zone}', tzInfo.abbr)
-                                    .replace('{serverTime}', convertLocalToMoscow(e.target.value, userTimezone))
-                                );
-                                setTimeout(() => setSuccessToast(null), 3000);
-                              }
-                            }}
-                            disabled={acc.nightlyAuto === false}
-                            className="text-xs font-mono font-bold bg-transparent text-primary-theme focus:outline-none cursor-pointer disabled:opacity-40"
-                          />
-                          <span className={`text-[9px] font-mono ${isMsk ? 'text-muted-theme' : 'text-accent-ghost font-bold'}`}>
-                            {tzInfo.abbr}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-1">
-                          {['00:30', '01:00', '08:00', '21:00'].map((preset) => (
-                            <button
-                              key={preset}
-                              type="button"
-                              onClick={() => {
-                                if (onUpdateAccountAutoTime) {
-                                  onUpdateAccountAutoTime(acc.id, preset, acc.nightlyAuto !== false);
-                                  setSuccessToast(
-                                    (isMsk ? t.settings.timeSavedMsk : t.settings.timeSaved)
-                                      .replace('{account}', acc.handle)
-                                      .replace('{time}', preset)
-                                      .replace('{zone}', tzInfo.abbr)
-                                      .replace('{serverTime}', convertLocalToMoscow(preset, userTimezone))
-                                  );
-                                  setTimeout(() => setSuccessToast(null), 3000);
-                                }
-                              }}
-                              disabled={acc.nightlyAuto === false}
-                              className={`px-1.5 py-0.5 rounded text-[10px] font-mono transition-all cursor-pointer ${
-                                (acc.autoTime || '01:00') === preset
-                                  ? 'accent-btn font-bold shadow-xs'
-                                  : 'bg-surface text-secondary-theme hover:bg-subtle border border-subtle'
-                              } disabled:opacity-30`}
-                            >
-                              {preset}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Limit Reached Banner with Upgrade Prompt */}
-        {isLimitReached && (
-          <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
-            <div className="flex items-start gap-2.5">
-              <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs font-bold text-primary-theme">
-                  {t.settings.accountLimitReached.replace('{count}', String(accounts.length)).replace('{max}', String(maxAccounts))}
-                </p>
-                <p className="text-[11px] text-secondary-theme mt-0.5">
-                  {t.settings.accountLimitDesc}
-                </p>
-              </div>
-            </div>
-
-            {onGoToPricing && (
-              <button
-                type="button"
-                onClick={onGoToPricing}
-                className="accent-btn px-4 py-2 text-xs font-bold flex items-center justify-center gap-1.5 shrink-0 cursor-pointer shadow-xs"
-              >
-                <span>{t.settings.changePlan}</span>
-                <ArrowUpRight className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        )}
-      </section>
+      <PinterestCard />
 
       {/* TIME ZONE */}
       <section className="custom-card p-6 space-y-3">
