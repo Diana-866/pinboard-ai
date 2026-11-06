@@ -472,7 +472,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       window.alert('В очереди есть демонстрационные карточки без сохранённых пинов. Создайте и сохраните реальные пины в генераторе, прежде чем добавлять их в расписание.');
       return;
     }
-    if (!selectedPinterestBoardId) {
+    if (!selectedPinterestAccountId || !selectedPinterestBoardId) {
       window.alert('Сначала подключите Pinterest и выберите настоящую доску Pinterest для публикации.');
       return;
     }
@@ -869,7 +869,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                 {pinterestAccounts.length > 1 && (
                   <>
                     <label className="font-bold text-primary-theme block mb-1">
-                      Аккаунт Pinterest:
+                      {t.settings.selectPinterestAccount}:
                     </label>
                     <select
                       value={selectedPinterestAccountId}
@@ -879,7 +879,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                       }}
                       className="w-full px-3 py-2 bg-app-input border border-subtle rounded-xl text-primary-theme font-medium"
                     >
-                      <option value="">Выберите аккаунт Pinterest</option>
+                      <option value="">{t.settings.selectPinterestAccount}</option>
                       {pinterestAccounts.map((account) => (
                         <option key={account.id} value={account.id}>
                           {account.username ? `@${account.username}` : account.id}
