@@ -8,6 +8,8 @@ declare
   v_pin uuid;
   v_legacy_pin uuid;
   v_inflight_pin uuid;
+  v_retry_pin uuid;
+  v_retry_schedule uuid;
   v_account_a uuid;
   v_account_b uuid;
   v_result jsonb;
@@ -82,6 +84,37 @@ begin
     'UTC', 'board-a', 'publishing'
   );
 
+  -- A retry backoff must keep a due schedule out of the worker claim set
+  -- until next_attempt_at, then allow it to be claimed normally.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/retry.png', 'Retry pin', '', 'pending', 'flux-schnell', 0)
+  returning id into v_retry_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, next_attempt_at
+  ) values (
+    v_user::text, v_retry_pin, v_account_b, now() - interval '2 minutes',
+    'UTC', 'board-b', 'scheduled', now() + interval '5 minutes'
+  ) returning id into v_retry_schedule;
+
+  if exists (
+    select 1 from public.claim_due_pin_schedules(10) where id = v_retry_schedule
+  ) then
+    raise exception 'schedule was claimed before its retry backoff elapsed';
+  end if;
+
+  update public.pin_schedules
+     set next_attempt_at = now() - interval '1 second'
+   where id = v_retry_schedule;
+  if not exists (
+    select 1 from public.claim_due_pin_schedules(10) where id = v_retry_schedule
+  ) then
+    raise exception 'schedule was not claimed after its retry backoff elapsed';
+  end if;
+  if (select attempts from public.pin_schedules where id = v_retry_schedule) <> 1 then
+    raise exception 'retry schedule claim did not increment attempts exactly once';
+  end if;
+
   -- Active schedules are also unique per pin + Pinterest account.
   insert into public.pin_schedules(user_id, pin_id, pinterest_account_id, scheduled_at, timezone, pinterest_board_id)
   values (v_user::text, v_pin, v_account_a, now() + interval '1 day', 'UTC', 'board-a');
@@ -147,7 +180,7 @@ begin
   delete from public.pinterest_publish_attempts where user_id = v_user::text;
   delete from public.pinterest_publications where user_id = v_user::text;
   delete from public.pinterest_accounts where user_id = v_user::text;
-  delete from public.pins where id in (v_pin, v_legacy_pin, v_inflight_pin);
+  delete from public.pins where id in (v_pin, v_legacy_pin, v_inflight_pin, v_retry_pin);
   delete from public.boards where id = v_board;
   delete from public.projects where id = v_project;
   delete from public.users where id = v_user;
