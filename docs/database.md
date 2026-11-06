@@ -36,11 +36,16 @@ SQL Editor → New query → вставить файл целиком → **Run*
 | `005_email_verified.sql` | `users.email_verified boolean default false`. Колонка добавляется только если её ещё нет; при первом добавлении существующим пользователям ставится `true` (чтобы никого не отрезать от кабинета). Повторный запуск бэкфилл не повторяет. |
 | `006_subscriptions.sql` | Таблица `subscriptions` (Prodamus, один платёж = одна строка по `provider_payment_id`) + `users.tariff_period_end timestamptz`. |
 | `007_credit_purchases.sql` | Таблица `credit_purchases` — разовые покупки пакетов кредитов (`pack_100/500/1000`), защита от двойного зачисления (`balance_credited_at`). |
-| `008_pinterest_accounts.sql` | `pinterest_accounts` (один аккаунт на пользователя, upsert по `user_id`) и `pinterest_publications` (журнал публикаций, защита от двойного пина). |
+| `008_pinterest_accounts.sql` | Начальная схема Pinterest: аккаунты и журнал публикаций. Ограничение «один аккаунт на пользователя» снимается миграцией 032; итоговая уникальность — внешний Pinterest ID в пределах пользователя. |
 
-## Последующие миграции 009–030
+## Последующие миграции 009–033
 
-Список выше описывает только первоначальную схему 000–008. Для текущей версии PinPosy после неё нужно последовательно применить **все** файлы `db/migrations/009_*.sql` … `030_*.sql` в порядке номеров, а не запускать только последнюю миграцию. Они добавляют ограничения и атомарные операции для платежей/кредитов, подтверждение email и сброс пароля, Pinterest OAuth и публикации, аудит вебхуков и transactional email outbox.
+Список выше описывает только первоначальную схему 000–008. Для текущей версии PinPosy после неё нужно последовательно применить **все** файлы `db/migrations/009_*.sql` … `033_*.sql` в порядке номеров, а не запускать только последнюю миграцию. Они добавляют ограничения и атомарные операции для платежей/кредитов, подтверждение email и сброс пароля, Pinterest OAuth и публикации, аудит вебхуков и transactional email outbox.
+
+Pinterest multi-account rollout:
+- `031_pinterest_account_scoped_foundation.sql` adds stable account references, nullable credentials for soft disconnect, and per-account refresh leases.
+- `032_pinterest_multi_account_oauth.sql` replaces the unique-per-user account index and enforces account caps in the OAuth commit transaction.
+- `033_pinterest_account_scoped_publication.sql` scopes publication idempotency and schedules to the selected account, updates the worker, and fails future schedules when an account is disconnected. Legacy rows without a verified account mapping remain unmapped and non-retryable.
 
 Особенно важно для платёжных писем:
 
@@ -48,7 +53,7 @@ SQL Editor → New query → вставить файл целиком → **Run*
 - `019_prevent_late_subscription_downgrade.sql` защищает текущий тариф от запоздавшего вебхука.
 - `030_transactional_email_outbox.sql` зависит от `subscriptions` и `users.preferred_language`; заменяет `activate_paid_subscription`, чтобы событие письма записывалось атомарно с активацией тарифа, и создаёт служебные RPC для очереди.
 
-Миграция 030 находится в feature branch и **не применялась** к рабочей Supabase базе. Не запускай её в production отдельно от согласованного rollout backend-кода: сначала резервная копия и проверка всей цепочки на отдельной базе.
+Миграции 030–033 находятся в feature branch и **не применялись** к рабочей Supabase базе. Не запускай их в production отдельно от согласованного rollout backend/frontend-кода: сначала резервная копия, проверка всей цепочки на отдельной базе и явное подтверждение владельца проекта.
 
 ## Как проверить, что всё применилось
 
