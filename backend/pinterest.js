@@ -428,10 +428,10 @@ async function refreshAccessToken(account) {
  * 401 -> один раз обновляем токен и повторяем.
  * 429 -> одна повторная попытка через 2 секунды.
  */
-async function withAccount(userId, handler, accountId = null) {
+async function withAccount(userId, handler, accountId = null, options = {}) {
   requireConfigured();
   const account = await resolveAccount(userId, accountId);
-  return executeWithAccountToken(account, handler, refreshAccessToken);
+  return executeWithAccountToken(account, handler, refreshAccessToken, undefined, options);
 }
 
 // ---------- проверка доски ----------
@@ -540,7 +540,7 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
 
   let result;
   try {
-    result = await withAccount(userId, (token) => callPinterest("POST", "/pins", { token, body }), accountId);
+    result = await withAccount(userId, (token) => callPinterest("POST", "/pins", { token, body }), accountId, { retryRateLimit: false });
   } catch (e) {
     // 409/422/403/404/503 означают, что запрос на создание пина не дошёл
     // до успешного вызова Pinterest (например, аккаунт не подключён).
@@ -558,7 +558,7 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
   }
 
   if (!result.ok) {
-    const outcomeUnknown = result.status === 408 || result.status >= 500;
+    const outcomeUnknown = result.status === 408 || result.status === 429 || result.status >= 500;
     await supabase.rpc("fail_pinterest_publish_v2", {
       p_user_id: String(userId),
       p_pin_id: pinId,
