@@ -581,10 +581,17 @@ function registerRoutes(app, deps) {
       if (!configured) return res.json({ configured: false, connected: false });
       const accounts = await getAccounts(req.userId);
       const primary = accounts[0] || null;
+      const tariff = await getTariffState(req.userId);
+      const accountLimits = { analytics: 1, start: 3, pro: 10, agency: null };
+      const plan = normalizePlan(tariff.plan);
+      const accountLimit = tariff.active && Object.prototype.hasOwnProperty.call(accountLimits, plan)
+        ? accountLimits[plan]
+        : 0;
       res.json({
         configured: true,
         connected: accounts.length > 0,
         account_count: accounts.length,
+        account_limit: accountLimit,
         accounts: accounts.map((account) => ({
           id: account.id,
           pinterest_user_id: account.pinterest_user_id,
