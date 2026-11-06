@@ -1335,6 +1335,23 @@ app.get("/admin/subscriptions", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+// Журнал исключений платёжных вебхуков (только администратор).
+app.get("/admin/billing/webhook-exceptions", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const parsedLimit = Number.parseInt(String(req.query.limit || "50"), 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(200, Math.max(1, parsedLimit)) : 50;
+    const { data, error } = await supabase
+      .from("billing_webhook_exceptions")
+      .select("id, provider, payment_kind, order_id, payment_status, received_sum, received_currency, expected_amount, reason, created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    res.json({ exceptions: data || [] });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 // --- Финальные обработчики ---
 
 app.use((req, res) => {
