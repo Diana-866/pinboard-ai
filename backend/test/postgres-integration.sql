@@ -26,6 +26,7 @@ declare
   v_result jsonb;
   v_before integer;
   v_schedule uuid;
+  v_pinterest_account uuid;
   v_schedule_count integer;
   v_publish_result jsonb;
   v_uncertain_pin uuid;
@@ -407,17 +408,25 @@ begin
     raise exception 'stale same-plan webhook incorrectly reported that it applied the current plan';
   end if;
 
+  -- Use a real connected account row for account-scoped publication and schedules.
+  insert into public.pinterest_accounts(
+    user_id, pinterest_user_id, username, access_token, refresh_token, scopes
+  ) values (
+    v_user::text, 'ci-pinterest-' || v_user, 'ci_account',
+    'enc:ci-access', 'enc:ci-refresh', 'boards:read,pins:write'
+  ) returning id into v_pinterest_account;
+
   -- Pinterest publish reservation: concurrent/repeated calls cannot start a second request.
-  v_publish_result := public.begin_pinterest_publish(v_user::text, v_pin, 'pinterest-board-ci');
+  v_publish_result := public.begin_pinterest_publish_v2(v_user::text, v_pin, v_pinterest_account, 'pinterest-board-ci');
   if v_publish_result->>'status' <> 'started' then
     raise exception 'first Pinterest publish reservation must start';
   end if;
-  v_publish_result := public.begin_pinterest_publish(v_user::text, v_pin, 'pinterest-board-ci');
+  v_publish_result := public.begin_pinterest_publish_v2(v_user::text, v_pin, v_pinterest_account, 'pinterest-board-ci');
   if v_publish_result->>'status' <> 'processing' then
     raise exception 'duplicate Pinterest publish must be blocked while processing';
   end if;
-  perform public.complete_pinterest_publish(v_user::text, v_pin, 'remote-pin-ci-001', 'pinterest-board-ci');
-  v_publish_result := public.begin_pinterest_publish(v_user::text, v_pin, 'pinterest-board-ci');
+  perform public.complete_pinterest_publish_v2(v_user::text, v_pin, v_pinterest_account, 'remote-pin-ci-001', 'pinterest-board-ci');
+  v_publish_result := public.begin_pinterest_publish_v2(v_user::text, v_pin, v_pinterest_account, 'pinterest-board-ci');
   if v_publish_result->>'status' <> 'published' or v_publish_result->>'pinterest_pin_id' <> 'remote-pin-ci-001' then
     raise exception 'completed Pinterest publish must return the stored remote pin';
   end if;
@@ -426,10 +435,10 @@ begin
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
   values (v_board, 'https://cdn.example.invalid/uncertain.png', 'Uncertain', '', 'pending', 'flux-schnell', 0)
   returning id into v_uncertain_pin;
-  v_publish_result := public.begin_pinterest_publish(v_user::text, v_uncertain_pin, 'pinterest-board-ci');
+  v_publish_result := public.begin_pinterest_publish_v2(v_user::text, v_uncertain_pin, v_pinterest_account, 'pinterest-board-ci');
   if v_publish_result->>'status' <> 'started' then raise exception 'uncertain test reservation did not start'; end if;
-  perform public.fail_pinterest_publish(v_user::text, v_uncertain_pin, 'simulated timeout', true);
-  v_publish_result := public.begin_pinterest_publish(v_user::text, v_uncertain_pin, 'pinterest-board-ci');
+  perform public.fail_pinterest_publish_v2(v_user::text, v_uncertain_pin, v_pinterest_account, 'simulated timeout', true);
+  v_publish_result := public.begin_pinterest_publish_v2(v_user::text, v_uncertain_pin, v_pinterest_account, 'pinterest-board-ci');
   if v_publish_result->>'status' <> 'unknown' then
     raise exception 'uncertain Pinterest result must block duplicate retry';
   end if;
@@ -439,38 +448,38 @@ begin
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
   values (v_board, 'https://cdn.example.invalid/late-success.png', 'Late success', '', 'pending', 'flux-schnell', 0)
   returning id into v_late_success_pin;
-  v_publish_result := public.begin_pinterest_publish(v_user::text, v_late_success_pin, 'pinterest-board-ci');
+  v_publish_result := public.begin_pinterest_publish_v2(v_user::text, v_late_success_pin, v_pinterest_account, 'pinterest-board-ci');
   if v_publish_result->>'status' <> 'started' then
     raise exception 'late-success test reservation did not start';
   end if;
   update public.pinterest_publish_attempts
     set updated_at=now() - interval '16 minutes'
-    where pin_id=v_late_success_pin;
-  v_publish_result := public.begin_pinterest_publish(v_user::text, v_late_success_pin, 'pinterest-board-ci');
+    where pin_id=v_late_success_pin and pinterest_account_id=v_pinterest_account;
+  v_publish_result := public.begin_pinterest_publish_v2(v_user::text, v_late_success_pin, v_pinterest_account, 'pinterest-board-ci');
   if v_publish_result->>'status' <> 'unknown' then
     raise exception 'stale processing attempt should be marked unknown';
   end if;
-  perform public.complete_pinterest_publish(v_user::text, v_late_success_pin, 'remote-pin-late-ci', 'pinterest-board-ci');
-  v_publish_result := public.begin_pinterest_publish(v_user::text, v_late_success_pin, 'pinterest-board-ci');
+  perform public.complete_pinterest_publish_v2(v_user::text, v_late_success_pin, v_pinterest_account, 'remote-pin-late-ci', 'pinterest-board-ci');
+  v_publish_result := public.begin_pinterest_publish_v2(v_user::text, v_late_success_pin, v_pinterest_account, 'pinterest-board-ci');
   if v_publish_result->>'status' <> 'published'
      or v_publish_result->>'pinterest_pin_id' <> 'remote-pin-late-ci' then
     raise exception 'late successful response did not reconcile the unknown attempt';
   end if;
 
   -- An unknown publication outcome must block a second schedule for the same pin.
-  insert into public.pin_schedules(user_id,pin_id,scheduled_at,timezone,pinterest_board_id,status)
-  values (v_user::text,v_uncertain_pin,now() + interval '1 day','Europe/Moscow','pinterest-board-ci','unknown');
+  insert into public.pin_schedules(user_id,pin_id,pinterest_account_id,scheduled_at,timezone,pinterest_board_id,status)
+  values (v_user::text,v_uncertain_pin,v_pinterest_account,now() + interval '1 day','Europe/Moscow','pinterest-board-ci','unknown');
   begin
-    insert into public.pin_schedules(user_id,pin_id,scheduled_at,timezone,pinterest_board_id)
-    values (v_user::text,v_uncertain_pin,now() + interval '2 days','Europe/Moscow','pinterest-board-ci');
+    insert into public.pin_schedules(user_id,pin_id,pinterest_account_id,scheduled_at,timezone,pinterest_board_id)
+    values (v_user::text,v_uncertain_pin,v_pinterest_account,now() + interval '2 days','Europe/Moscow','pinterest-board-ci');
     raise exception 'expected unknown publication schedule to block rescheduling';
   exception when unique_violation then
     null;
   end;
 
   -- Due schedule rows are claimed atomically and not returned twice.
-  insert into public.pin_schedules(user_id,pin_id,scheduled_at,timezone,pinterest_board_id)
-  values (v_user::text,v_pin,now() - interval '1 minute','Europe/Moscow','pinterest-board-ci')
+  insert into public.pin_schedules(user_id,pin_id,pinterest_account_id,scheduled_at,timezone,pinterest_board_id)
+  values (v_user::text,v_pin,v_pinterest_account,now() - interval '1 minute','Europe/Moscow','pinterest-board-ci')
   returning id into v_schedule;
   select count(*) into v_schedule_count
     from public.claim_due_pin_schedules(10)
@@ -486,8 +495,8 @@ begin
 
   -- A worker that stopped after Pinterest success is recovered from the durable
   -- publication journal, rather than being marked unknown or republished.
-  insert into public.pin_schedules(user_id,pin_id,scheduled_at,timezone,pinterest_board_id,status,updated_at)
-  values (v_user::text,v_pin,now() - interval '30 minutes','Europe/Moscow','pinterest-board-ci','publishing',now() - interval '21 minutes')
+  insert into public.pin_schedules(user_id,pin_id,pinterest_account_id,scheduled_at,timezone,pinterest_board_id,status,updated_at)
+  values (v_user::text,v_pin,v_pinterest_account,now() - interval '30 minutes','Europe/Moscow','pinterest-board-ci','publishing',now() - interval '21 minutes')
   returning id into v_schedule;
   perform public.claim_due_pin_schedules(10);
   if (select status from public.pin_schedules where id=v_schedule) <> 'published'
