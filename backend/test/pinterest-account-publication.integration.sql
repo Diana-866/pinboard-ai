@@ -7,6 +7,7 @@ declare
   v_board uuid;
   v_pin uuid;
   v_legacy_pin uuid;
+  v_inflight_pin uuid;
   v_account_a uuid;
   v_account_b uuid;
   v_result jsonb;
@@ -69,6 +70,18 @@ begin
     raise exception 'duplicate publication on account A was not idempotent: %', v_result;
   end if;
 
+  -- A separate claimed schedule models a worker already in flight.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/inflight.png', 'In-flight pin', '', 'pending', 'flux-schnell', 0)
+  returning id into v_inflight_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status
+  ) values (
+    v_user::text, v_inflight_pin, v_account_a, now() - interval '1 minute',
+    'UTC', 'board-a', 'publishing'
+  );
+
   -- Active schedules are also unique per pin + Pinterest account.
   insert into public.pin_schedules(user_id, pin_id, pinterest_account_id, scheduled_at, timezone, pinterest_board_id)
   values (v_user::text, v_pin, v_account_a, now() + interval '1 day', 'UTC', 'board-a');
@@ -105,6 +118,13 @@ begin
     raise exception 'disconnecting account A changed account B schedule';
   end if;
 
+  -- A claimed/in-flight job is not cancelled underneath its remote request.
+  if (select status from public.pin_schedules
+       where user_id=v_user::text and pin_id=v_inflight_pin
+         and pinterest_account_id=v_account_a) <> 'publishing' then
+    raise exception 'disconnecting account A rewrote an in-flight schedule';
+  end if;
+
   -- Disconnecting A must not erase either account's already-published history.
   select count(*) into v_publication_count
     from public.pinterest_publications
@@ -127,7 +147,7 @@ begin
   delete from public.pinterest_publish_attempts where user_id = v_user::text;
   delete from public.pinterest_publications where user_id = v_user::text;
   delete from public.pinterest_accounts where user_id = v_user::text;
-  delete from public.pins where id in (v_pin, v_legacy_pin);
+  delete from public.pins where id in (v_pin, v_legacy_pin, v_inflight_pin);
   delete from public.boards where id = v_board;
   delete from public.projects where id = v_project;
   delete from public.users where id = v_user;
