@@ -1,67 +1,93 @@
 const axios = require("axios");
 
+const API_BASE = "https://gptunnel.ru";
+const REQUEST_TIMEOUT_MS = 30000;
+
+function providerRequestConfig() {
+  return {
+    timeout: REQUEST_TIMEOUT_MS,
+    headers: { Authorization: process.env.GPTUNNEL_API_KEY },
+  };
+}
+
+function imageTaskResult(task) {
+  const url = task && task.result && task.result[0] && task.result[0].url;
+  const price = task && task.price;
+  if (typeof url !== "string" || !url || !Number.isFinite(Number(price)) || Number(price) < 0) {
+    throw new Error("Провайдер вернул некорректный результат генерации");
+  }
+  return { url, price: Number(price) };
+}
+
 async function generateText(prompt) {
   const response = await axios.post(
-    "https://gptunnel.ru/v1/chat/completions",
+    `${API_BASE}/v1/chat/completions`,
     {
       model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],
     },
-    { headers: { Authorization: process.env.GPTUNNEL_API_KEY } }
+    providerRequestConfig()
   );
-  return response.data.choices[0].message.content;
+  const content = response.data && response.data.choices &&
+    response.data.choices[0] && response.data.choices[0].message &&
+    response.data.choices[0].message.content;
+  if (typeof content !== "string" || !content.trim()) {
+    throw new Error("Провайдер не вернул текстовый результат");
+  }
+  return content;
 }
 
 async function listModels() {
-  const response = await axios.get("https://gptunnel.ru/api/v2/media/models?type=IMAGE", {
-    headers: { Authorization: process.env.GPTUNNEL_API_KEY },
-  });
-  return response.data.models.map((m) => ({ id: m.id, price: m.price, price_unit: m.price_unit }));
+  const response = await axios.get(`${API_BASE}/api/v2/media/models?type=IMAGE`, providerRequestConfig());
+  const models = response.data && response.data.models;
+  if (!Array.isArray(models)) throw new Error("Провайдер вернул некорректный список моделей");
+  return models.map((m) => ({ id: m.id, price: m.price, price_unit: m.price_unit }));
 }
 
 async function checkImage(taskId) {
-  const response = await axios.get(`https://gptunnel.ru/api/v2/media/tasks/${taskId}`, {
-    headers: { Authorization: process.env.GPTUNNEL_API_KEY },
-  });
+  if (typeof taskId !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(taskId)) {
+    throw new Error("Некорректный идентификатор задачи генерации");
+  }
+  const response = await axios.get(
+    `${API_BASE}/api/v2/media/tasks/${encodeURIComponent(taskId)}`,
+    providerRequestConfig()
+  );
   return response.data;
 }
 
 async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3") {
   const createResponse = await axios.post(
-    "https://gptunnel.ru/api/v2/media/tasks",
+    `${API_BASE}/api/v2/media/tasks`,
     {
-      model: model,
-      prompt: prompt,
+      model,
+      prompt,
       aspect_ratio: aspectRatio,
       wait: true,
     },
-    { headers: { Authorization: process.env.GPTUNNEL_API_KEY } }
+    providerRequestConfig()
   );
 
   let task = createResponse.data;
-  console.log("GPTunnel task result:", JSON.stringify(task));
 
-  if (task.status === "done") {
-    return { url: task.result[0].url, price: task.price };
-  }
+  if (task && task.status === "done") return imageTaskResult(task);
 
-  if (task.status === "failed") {
+  if (task && task.status === "failed") {
     throw new Error("Генерация не удалась: " + (task.error?.message || "неизвестная ошибка"));
   }
 
-  const taskId = task.id;
+  const taskId = task && task.id;
+  if (typeof taskId !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(taskId)) {
+    throw new Error("Провайдер вернул некорректный идентификатор задачи");
+  }
 
   for (let i = 0; i < 30; i++) {
     await new Promise((resolve) => setTimeout(resolve, 3000));
 
-    const check = await checkImage(taskId);
-    task = check;
+    task = await checkImage(taskId);
 
-    if (task.status === "done") {
-      return { url: task.result[0].url, price: task.price };
-    }
+    if (task && task.status === "done") return imageTaskResult(task);
 
-    if (task.status === "failed") {
+    if (task && task.status === "failed") {
       throw new Error("Генерация не удалась: " + (task.error?.message || "неизвестная ошибка"));
     }
   }
