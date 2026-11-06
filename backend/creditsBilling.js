@@ -244,7 +244,7 @@ async function handleCreditsWebhook(req, res) {
       console.error("[credits-billing] не удалось сохранить несовпадение суммы:", auditError.message);
       return res.status(500).json({ ok: false, error: "audit storage failed" });
     }
-    console.error(`[credits-billing] сумма не совпадает для ${orderId}: webhook=${body.sum}, ожидали=${expected}; сохранено для сверки`);
+    console.error(`[credits-billing] сумма не совпадает для ${orderId}: webhook=${sum} ${paymentAmount.currency}, ожидали=${expected} ${purchase.currency || "rub"}; сохранено для сверки`);
     const { error: mismatchError } = await supabase.from("credit_purchases")
       .update({ status: "denied" }).eq("id", purchase.id)
       .is("balance_credited_at", null).neq("status", "success");
