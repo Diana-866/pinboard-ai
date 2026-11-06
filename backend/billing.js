@@ -333,7 +333,7 @@ async function handleWebhook(req, res) {
       console.error("[billing] не удалось сохранить несовпадение суммы:", auditError.message);
       return res.status(500).json({ ok: false, error: "audit storage failed" });
     }
-    console.error(`[billing] сумма не совпадает для ${orderId}: webhook=${body.sum}, ожидали=${expected}; сохранено для сверки`);
+    console.error(`[billing] сумма не совпадает для ${orderId}: webhook=${sum} ${paymentAmount.currency}, ожидали=${expected} ${sub.currency || "rub"}; сохранено для сверки`);
     const { error: mismatchError } = await supabase.from("subscriptions")
       .update({ status: "denied" }).eq("id", sub.id).neq("status", "success");
     if (mismatchError) return res.status(500).json({ ok: false, error: "db error" });
