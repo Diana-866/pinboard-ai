@@ -365,6 +365,15 @@ begin
   v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-failed-0001', repeat('c',64));
   if v_result->>'status' <> 'failed' then raise exception 'failed generation key must remain terminal'; end if;
 
+  -- A network failure after submission to the provider is explicitly unknown.
+  v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-provider-unknown-0001', repeat('e',64));
+  if v_result->>'status' <> 'started' then raise exception 'provider-unknown fixture must start'; end if;
+  if not public.fail_pin_generation_request(v_user::text, 'ci-generation-provider-unknown-0001', 'provider_timeout', true) then
+    raise exception 'provider uncertainty was not recorded';
+  end if;
+  v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-provider-unknown-0001', repeat('e',64));
+  if v_result->>'status' <> 'unknown' then raise exception 'provider timeout must block automatic replay'; end if;
+
   -- A second paid order must start after the current paid entitlement.
   insert into public.subscriptions(user_id, plan, status, provider_payment_id, amount, currency)
   values (v_user::text, 'pro', 'pending', 'ci-sub-next-' || v_user, 4990, 'rub')
