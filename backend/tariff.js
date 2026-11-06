@@ -45,7 +45,9 @@ async function getTariffState(userId) {
     .select("plan, status, period_end")
     .eq("user_id", String(userId))
     .eq("status", "success")
-    .order("period_end", { ascending: false })
+    .order("period_end", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(1)
     .maybeSingle();
 
