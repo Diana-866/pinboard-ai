@@ -1,5 +1,5 @@
 -- Run after migrations 040 and 041 in disposable PostgreSQL CI.
-do $$
+do $test$
 declare
   v_function regprocedure;
   v_config text[];
@@ -35,4 +35,4 @@ begin
     raise exception 'adjust_credits_balance execute privileges are not restricted to service_role';
   end if;
 end;
-$;
+$test$;
