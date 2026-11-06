@@ -50,9 +50,8 @@ test("webhook exception stores the currency-denominated amount and currency", ()
     paymentKind: "subscription",
     body: {
       order_id: "pp-start-usd-1",
-      sum: "3100.00",
-      currency: "USD",
-      currency_sum: "24.00",
+      sum: "24.00",
+      currency: "usd",
     },
     expectedAmount: 24,
     reason: "currency_mismatch",
