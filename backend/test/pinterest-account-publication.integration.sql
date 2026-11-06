@@ -137,6 +137,7 @@ begin
   end if;
   if (select status from public.pin_schedules where id = v_manual_retry_schedule) <> 'scheduled'
      or (select next_attempt_at from public.pin_schedules where id = v_manual_retry_schedule) is not null
+     or (select attempts from public.pin_schedules where id = v_manual_retry_schedule) <> 0
      or (select last_error from public.pin_schedules where id = v_manual_retry_schedule) is not null then
     raise exception 'manual retry did not restore the schedule cleanly';
   end if;
