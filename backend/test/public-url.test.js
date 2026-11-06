@@ -18,10 +18,10 @@ test("does not overblock ordinary public IPv4 addresses", () => {
 });
 
 test("blocks non-global and documentation IPv6 ranges", () => {
-  for (const ip of ["::", "::1", "fc00::1", "fd00::1", "fe80::1", "ff02::1", "2001:db8::1", "2001:10::1"]) {
+  for (const ip of ["::", "::1", "fc00::1", "fd00::1", "fe80::1", "ff02::1", "2001:db8::1", "2001:10::1", "2002::1", "3fff::1"]) {
     assert.equal(isPrivateIp(ip), true, ip);
   }
-  for (const ip of ["2001:4860:4860::8888", "2606:4700:4700::1111"]) {
+  for (const ip of ["2001:4860:4860::8888", "2606:4700:4700::1111", "2001:200::1", "3fff:1000::1"]) {
     assert.equal(isPrivateIp(ip), false, ip);
   }
 });
