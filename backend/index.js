@@ -898,6 +898,7 @@ app.get("/boards/:id/pins", requireAuth, async (req, res) => {
 app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["standard", "pro", "agency", "start"]), async (req, res) => {
   let idempotencyKey = req.get("Idempotency-Key");
   let generationRequestStarted = false;
+  let providerGenerationStarted = false;
   try {
     if (typeof idempotencyKey !== "string" || !/^[A-Za-z0-9_-]{16,128}$/.test(idempotencyKey)) {
       throw httpError(422, "Для генерации требуется корректный Idempotency-Key");
@@ -943,6 +944,12 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
       res.set("Retry-After", "5");
       return res.status(409).json({ error: "Такая генерация уже выполняется. Повторите запрос с тем же ключом через несколько секунд.", code: "generation_in_progress" });
     }
+    if (requestState.status === "unknown") {
+      return res.status(409).json({ error: "Результат предыдущей генерации не подтверждён. Повторный запуск с тем же ключом заблокирован во избежание двойных расходов.", code: "generation_outcome_unknown" });
+    }
+    if (requestState.status === "failed") {
+      return res.status(409).json({ error: "Предыдущий запрос завершился до подтверждённого результата. Для новой попытки создайте новый ключ идемпотентности.", code: "generation_request_failed" });
+    }
     generationRequestStarted = true;
 
     const estimatedCost = Math.ceil((MODEL_PRICES[model] || 15) * count * MARKUP);
@@ -951,6 +958,7 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
       throw httpError(402, "Недостаточно кредитов для этой генерации");
     }
 
+    providerGenerationStarted = true;
     const pinsData = await generatePins(board, board.projects, model, count, aspectRatio, mixedRatios, {
       topic,
       tone,
@@ -1004,6 +1012,7 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
           p_user_id: String(req.userId),
           p_idempotency_key: idempotencyKey,
           p_error_code: e && e.httpStatus === 402 ? "insufficient_credits" : "generation_failed",
+          p_outcome_unknown: providerGenerationStarted,
         });
       } catch (markError) {
         console.error("[generation] не удалось отметить запрос как failed:", markError && markError.message);
