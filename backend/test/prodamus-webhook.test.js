@@ -150,9 +150,9 @@ test("uses the amount and currency from the signed Prodamus callback", () => {
   );
   assert.deepEqual(
     prodamus.getWebhookPaymentAmount({
-      sum: "24.00", currency: "usd",
+      sum: "3100.00", currency: "usd", currency_sum: "24.00",
     }, "usd"),
-    { ok: true, amount: 24, currency: "usd", amountField: "sum" }
+    { ok: true, amount: 24, currency: "usd", amountField: "currency_sum" }
   );
   assert.equal(
     prodamus.getWebhookPaymentAmount({ sum: "24.00", currency: "rub" }, "usd").reason,
@@ -163,11 +163,11 @@ test("uses the amount and currency from the signed Prodamus callback", () => {
     "currency_missing"
   );
   assert.equal(
-    prodamus.getWebhookPaymentAmount({ currency: "usd", sum: "24.00" }, "usd").ok,
+    prodamus.getWebhookPaymentAmount({ currency: "usd", currency_sum: "24.00" }, "usd").ok,
     true
   );
   assert.equal(
-    prodamus.getWebhookPaymentAmount({ currency: "usd", currency_sum: "24.00" }, "usd").reason,
+    prodamus.getWebhookPaymentAmount({ currency: "usd", sum: "24.00" }, "usd").reason,
     "amount_missing"
   );
 });
