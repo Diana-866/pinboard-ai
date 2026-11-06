@@ -124,6 +124,7 @@ const MainApp: React.FC = () => {
             status: row.status === 'published' ? 'published' : row.status === 'failed' ? 'failed' : row.status === 'publishing' ? 'publishing' : row.status === 'unknown' ? 'unknown' : 'scheduled',
             destinationUrl: row.destination_url || '',
             pinterestBoardId: row.pinterest_board_id || undefined,
+            pinterestAccountId: row.pinterest_account_id || undefined,
             isOptimalSlot: false,
           };
         });
@@ -309,6 +310,7 @@ const MainApp: React.FC = () => {
         timezone,
         destination_url: pin.destinationUrl || undefined,
         pinterest_board_id: pin.pinterestBoardId || undefined,
+        pinterest_account_id: pin.pinterestAccountId || undefined,
       }),
     });
     const date = formatInstantInTimezone(new Date(saved.scheduled_at), timezone);
