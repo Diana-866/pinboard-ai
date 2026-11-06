@@ -5,8 +5,12 @@ alter table public.pin_generation_requests
 
 -- Backfill rows that may have been created by a pre-fencing deployment.
 update public.pin_generation_requests
-   set claim_token=gen_random_uuid()
- where status='processing' and claim_token is null;
+   set claim_token=case when status='processing' then coalesce(claim_token,gen_random_uuid()) else null end;
+alter table public.pin_generation_requests
+  drop constraint if exists pin_generation_requests_processing_claim_check;
+alter table public.pin_generation_requests
+  add constraint pin_generation_requests_processing_claim_check
+  check (status <> 'processing' or claim_token is not null);
 
 create or replace function public.begin_pin_generation_request(
   p_user_id text,p_board_id uuid,p_idempotency_key text,p_fingerprint text
