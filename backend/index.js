@@ -1102,6 +1102,63 @@ app.post("/pins/:id/schedule", requireAuth, requireTariff(["start", "pro", "agen
   }
 });
 
+app.post("/schedule/:id/retry", requireAuth, requireTariff(["start", "pro", "agency"]), async (req, res) => {
+  try {
+    const { data: schedule, error: scheduleError } = await supabase
+      .from("pin_schedules")
+      .select("id, user_id, pin_id, pinterest_account_id, pinterest_board_id, status")
+      .eq("id", req.params.id)
+      .eq("user_id", String(req.userId))
+      .maybeSingle();
+    if (scheduleError) throw scheduleError;
+    if (!schedule) throw httpError(404, "Расписание не найдено");
+    if (schedule.status !== "failed") {
+      throw httpError(409, "Повторить можно только публикацию со статусом «Ошибка»");
+    }
+    if (!schedule.pinterest_account_id || !schedule.pinterest_board_id) {
+      throw httpError(422, "Для повтора требуется подключённый Pinterest-аккаунт и выбранная доска");
+    }
+
+    // Revalidate the exact original account and remote board before making it due.
+    const pinterest = require("./pinterest");
+    await pinterest.resolveAccount(req.userId, schedule.pinterest_account_id);
+    await pinterest.verifyPinterestBoard(
+      req.userId,
+      schedule.pinterest_board_id,
+      schedule.pinterest_account_id
+    );
+
+    const { data: retried, error: retryError } = await supabase.rpc("retry_failed_pin_schedule", {
+      p_user_id: String(req.userId),
+      p_schedule_id: schedule.id,
+    });
+    if (retryError) throw retryError;
+    if (!retried || retried.ok !== true) {
+      const reasons = {
+        account_unavailable: [409, "Pinterest-аккаунт отключён. Подключите его заново."],
+        schedule_not_retryable: [409, "Это расписание уже изменилось и больше не доступно для повтора."],
+        publication_attempt_exists: [409, "Попытка отправки уже была зарегистрирована. Повтор заблокирован во избежание дубликата."],
+        board_missing: [422, "У расписания не указана доска Pinterest."],
+        pin_unavailable: [404, "Пин больше недоступен."],
+        schedule_not_found: [404, "Расписание не найдено."],
+      };
+      const [status, message] = reasons[retried && retried.reason] || [409, "Не удалось безопасно повторить публикацию."];
+      throw httpError(status, message);
+    }
+
+    const { data: updated, error: readError } = await supabase
+      .from("pin_schedules")
+      .select("*, pins(id, board_id, title, description, image_url, boards(id, title))")
+      .eq("id", schedule.id)
+      .eq("user_id", String(req.userId))
+      .single();
+    if (readError) throw readError;
+    res.json(updated);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 app.post("/schedule/:id/cancel", requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase
