@@ -156,7 +156,9 @@ begin
   if p_provider_task_id is not null and p_provider_task_id !~ '^[A-Za-z0-9_-]{1,200}$' then
     raise exception 'invalid provider task id';
   end if;
-  if p_provider_price is not null and p_provider_price < 0 then
+  if p_provider_price is not null and (
+    p_provider_price < 0 or p_provider_price::text in ('NaN','Infinity','-Infinity')
+  ) then
     raise exception 'invalid provider price';
   end if;
 
@@ -169,6 +171,13 @@ begin
      and t.task_index = p_task_index
    for update of t;
   if not found then raise exception 'generation task not found'; end if;
+
+  -- A provider task ID is immutable once attached to this idempotent journal row.
+  if v_task.provider_task_id is not null
+     and p_provider_task_id is not null
+     and v_task.provider_task_id <> p_provider_task_id then
+    raise exception 'provider task id mismatch for generation task';
+  end if;
 
   v_allowed :=
     (v_task.status = 'prepared' and p_status in ('submitting','failed','unknown')) or
