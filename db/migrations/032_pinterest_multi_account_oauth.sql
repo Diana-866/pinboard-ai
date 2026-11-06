@@ -87,7 +87,7 @@ begin
       from public.subscriptions
      where user_id = p_user_id
        and status = 'success'
-     order by period_end desc nulls last, created_at desc
+     order by period_end desc nulls last, created_at desc, id desc
      limit 1;
 
     if found then
