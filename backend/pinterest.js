@@ -232,8 +232,9 @@ async function refreshAccessToken(account) {
   // A process-local mutex is not enough: Render may run multiple instances.
   // The database lease serializes refresh-token rotation across all instances.
   const leaseId = crypto.randomUUID();
-  const { data: acquired, error: leaseError } = await supabase.rpc("acquire_pinterest_token_refresh_lease", {
+  const { data: acquired, error: leaseError } = await supabase.rpc("acquire_pinterest_account_refresh_lease", {
     p_user_id: String(account.user_id),
+    p_pinterest_account_id: account.id,
     p_lease_id: leaseId,
     p_lease_seconds: 30,
   });
@@ -248,7 +249,7 @@ async function refreshAccessToken(account) {
     const waitUntil = Date.now() + 10000;
     while (Date.now() < waitUntil) {
       await new Promise((resolve) => setTimeout(resolve, 250));
-      const latest = await getAccount(account.user_id);
+      const latest = await getAccount(account.user_id, account.id);
       if (!latest) throw httpError(409, "Pinterest отключён. Подключите аккаунт заново.");
       if (
         latest.access_token !== account.access_token ||
@@ -263,7 +264,7 @@ async function refreshAccessToken(account) {
   try {
     // Re-read after acquiring the lease: a previous refresh may have completed
     // between our initial 401 and the lease acquisition.
-    const latest = await getAccount(account.user_id);
+    const latest = await getAccount(account.user_id, account.id);
     if (!latest) throw httpError(409, "Pinterest отключён. Подключите аккаунт заново.");
     if (
       latest.access_token !== account.access_token ||
@@ -304,8 +305,9 @@ async function refreshAccessToken(account) {
     const expiresAt = res.data.expires_in
       ? new Date(Date.now() + Number(res.data.expires_in) * 1000).toISOString()
       : null;
-    const { data: committed, error: commitError } = await supabase.rpc("commit_pinterest_token_refresh", {
+    const { data: committed, error: commitError } = await supabase.rpc("commit_pinterest_account_token_refresh", {
       p_user_id: String(latest.user_id),
+      p_pinterest_account_id: latest.id,
       p_lease_id: leaseId,
       p_expected_updated_at: latest.updated_at,
       p_access_token: encryptToken(refreshedAccessToken),
@@ -331,7 +333,7 @@ async function refreshAccessToken(account) {
     }
     if (!committed) {
       // OAuth reconnect or lease expiry won the race. Never overwrite its row.
-      const current = await getAccount(latest.user_id);
+      const current = await getAccount(latest.user_id, latest.id);
       if (
         current &&
         (current.access_token !== latest.access_token ||
@@ -342,11 +344,12 @@ async function refreshAccessToken(account) {
       }
       throw httpError(503, "Не удалось подтвердить обновление Pinterest-доступа. Повторите запрос.");
     }
-    return getAccount(latest.user_id);
+    return getAccount(latest.user_id, latest.id);
   } finally {
     try {
-      const { error: releaseError } = await supabase.rpc("release_pinterest_token_refresh_lease", {
+      const { error: releaseError } = await supabase.rpc("release_pinterest_account_refresh_lease", {
         p_user_id: String(account.user_id),
+        p_pinterest_account_id: account.id,
         p_lease_id: leaseId,
       });
       if (releaseError) {
