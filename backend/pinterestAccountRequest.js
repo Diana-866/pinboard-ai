@@ -2,13 +2,20 @@
  * Execute one Pinterest API request with account-scoped token recovery.
  * Kept separate from HTTP/database wiring so token retry semantics are testable.
  */
-async function executeWithAccountToken(account, handler, refreshAccessToken, wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))) {
+async function executeWithAccountToken(
+  account,
+  handler,
+  refreshAccessToken,
+  wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  { retryRateLimit = true } = {}
+) {
   let currentAccount = account;
   let refreshed = false;
   let rateLimited = false;
 
   // Each recovery is allowed once. This also handles a 401 after the single
-  // 429 retry without risking an unbounded request loop.
+  // 429 retry without risking an unbounded request loop. Callers performing
+  // non-idempotent writes can disable 429 replay to avoid duplicate creates.
   while (true) {
     const result = await handler(currentAccount.access_token);
     if (result.status === 401 && !refreshed) {
@@ -16,7 +23,7 @@ async function executeWithAccountToken(account, handler, refreshAccessToken, wai
       currentAccount = await refreshAccessToken(currentAccount);
       continue;
     }
-    if (result.status === 429 && !rateLimited) {
+    if (result.status === 429 && retryRateLimit && !rateLimited) {
       rateLimited = true;
       await wait(2000);
       continue;
