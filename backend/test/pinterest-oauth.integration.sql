@@ -18,8 +18,8 @@ declare
   v_account_id uuid;
   v_count integer;
 begin
-  insert into public.users(id, email, token_version)
-  values (v_user, 'pinterest-oauth-' || v_user || '@example.invalid', 0);
+  insert into public.users(id, email, token_version, tariff_plan)
+  values (v_user, 'pinterest-oauth-' || v_user || '@example.invalid', 0, 'start');
 
   -- Starting a second browser tab supersedes the first attempt.
   v_generation_a := public.begin_pinterest_oauth_attempt(v_user::text, v_attempt_a, 0);
@@ -31,7 +31,7 @@ begin
   v_committed := public.commit_pinterest_oauth_attempt_v2(
     v_user::text, v_attempt_a, v_generation_a, 0,
     'pinterest-user-old', 'old_user', 'enc:old-access', 'enc:old-refresh',
-    'boards:read,pins:write', now() + interval '1 hour', 3
+    'boards:read,pins:write', now() + interval '1 hour'
   );
   if v_committed->>'ok' <> 'false' then
     raise exception 'superseded OAuth attempt was allowed to commit';
@@ -44,7 +44,7 @@ begin
   v_committed := public.commit_pinterest_oauth_attempt_v2(
     v_user::text, v_attempt_b, v_generation_b, 0,
     'pinterest-user-current', 'current_user', 'enc:current-access', 'enc:current-refresh',
-    'boards:read,pins:write', now() + interval '1 hour', 3
+    'boards:read,pins:write', now() + interval '1 hour'
   );
   if v_committed->>'ok' <> 'true' then
     raise exception 'current OAuth attempt did not commit';
@@ -52,7 +52,7 @@ begin
   v_committed := public.commit_pinterest_oauth_attempt_v2(
     v_user::text, v_attempt_b, v_generation_b, 0,
     'pinterest-user-replay', 'replay_user', 'enc:replay-access', 'enc:replay-refresh',
-    'boards:read,pins:write', now() + interval '1 hour', 3
+    'boards:read,pins:write', now() + interval '1 hour'
   );
   if v_committed->>'ok' <> 'false' then
     raise exception 'OAuth attempt replay was accepted';
@@ -71,7 +71,7 @@ begin
   v_committed := public.commit_pinterest_oauth_attempt_v2(
     v_user::text, v_attempt_c, v_generation_c, 0,
     'pinterest-user-after-disconnect', 'resurrected', 'enc:access', 'enc:refresh',
-    'boards:read,pins:write', now() + interval '1 hour', 3
+    'boards:read,pins:write', now() + interval '1 hour'
   );
   if v_committed->>'ok' <> 'false' then
     raise exception 'pre-disconnect callback resurrected Pinterest connection';
@@ -98,7 +98,7 @@ begin
   v_committed := public.commit_pinterest_oauth_attempt_v2(
     v_user::text, v_attempt_e, v_generation_e, 0,
     'pinterest-user-expired', 'expired_attempt', 'enc:expired-access', 'enc:expired-refresh',
-    'boards:read,pins:write', now() + interval '1 hour', 3
+    'boards:read,pins:write', now() + interval '1 hour'
   );
   if v_committed->>'ok' <> 'false' then
     raise exception 'expired OAuth attempt was accepted';
@@ -109,7 +109,7 @@ begin
   v_committed := public.commit_pinterest_oauth_attempt_v2(
     v_user::text, v_attempt_d, v_generation_d, 0,
     'pinterest-user-old-session', 'old_session', 'enc:access2', 'enc:refresh2',
-    'boards:read,pins:write', now() + interval '1 hour', 3
+    'boards:read,pins:write', now() + interval '1 hour'
   );
   if v_committed->>'ok' <> 'false' then
     raise exception 'OAuth callback from a revoked session was accepted';
@@ -125,7 +125,7 @@ begin
 
   -- RPCs must not be executable by untrusted API roles.
   if has_function_privilege('anon', 'public.begin_pinterest_oauth_attempt(text,uuid,bigint)', 'EXECUTE')
-     or has_function_privilege('authenticated', 'public.commit_pinterest_oauth_attempt_v2(text,uuid,bigint,bigint,text,text,text,text,text,timestamptz,integer)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.commit_pinterest_oauth_attempt_v2(text,uuid,bigint,bigint,text,text,text,text,text,timestamptz)', 'EXECUTE')
      or has_function_privilege('anon', 'public.disconnect_pinterest_account_v2(text,uuid)', 'EXECUTE')
      or exists (
        select 1
@@ -133,7 +133,7 @@ begin
          cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
         where p.oid in (
           'public.begin_pinterest_oauth_attempt(text,uuid,bigint)'::regprocedure,
-          'public.commit_pinterest_oauth_attempt_v2(text,uuid,bigint,bigint,text,text,text,text,text,timestamptz,integer)'::regprocedure,
+          'public.commit_pinterest_oauth_attempt_v2(text,uuid,bigint,bigint,text,text,text,text,text,timestamptz)'::regprocedure,
           'public.disconnect_pinterest_account_v2(text,uuid)'::regprocedure
         )
           and a.grantee = 0
