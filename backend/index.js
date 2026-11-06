@@ -1008,6 +1008,11 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
     // B8: вставляем только пины с готовой картинкой и известной ценой
     const okPins = pinsData.filter((p) => p && p.image_url && p.credits_cost != null);
     if (okPins.length === 0) {
+      if (pinsData.failedTasks && pinsData.failedTasks.length === pinsData.plannedTaskCount &&
+          pinsData.plannedTaskCount > 0) {
+        // Every provider task explicitly ended in failed; this key has a known outcome.
+        providerGenerationStarted = false;
+      }
       throw httpError(502, "Не удалось сгенерировать ни одного изображения. Кредиты не списаны — попробуйте ещё раз.");
     }
 
