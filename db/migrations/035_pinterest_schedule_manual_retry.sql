@@ -1,6 +1,9 @@
 -- 035_pinterest_schedule_manual_retry.sql
 -- Explicitly requeue a failed schedule only when the durable journal proves
 -- that no Pinterest create attempt was ever reserved for this pin/account.
+
+alter table public.pin_schedules
+  add column if not exists original_scheduled_at timestamptz;
 create or replace function public.retry_failed_pin_schedule(
   p_user_id text,
   p_schedule_id uuid
@@ -84,6 +87,7 @@ begin
 
   update public.pin_schedules
      set status = 'scheduled',
+         original_scheduled_at = coalesce(original_scheduled_at, scheduled_at),
          scheduled_at = now(),
          attempts = 0,
          next_attempt_at = null,
