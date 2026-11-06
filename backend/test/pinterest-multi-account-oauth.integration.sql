@@ -11,6 +11,8 @@ declare
   v_account_c uuid;
   v_result jsonb;
   v_count integer;
+  v_refresh_token text;
+  v_expires_at timestamptz;
 begin
   insert into public.users(id, email, token_version, tariff_plan)
   values (v_user, 'pinterest-multi-oauth-' || v_user || '@example.invalid', 0, 'start');
@@ -77,6 +79,26 @@ begin
   v_account_a_reconnected := (v_result->>'account_id')::uuid;
   if v_account_a_reconnected <> v_account_a then
     raise exception 'reconnect changed stable Pinterest account id';
+  end if;
+
+  -- Some OAuth responses omit refresh_token and expires_in on reconnect.
+  -- Such a response must not erase the last known usable refresh credentials.
+  v_attempt := gen_random_uuid();
+  v_generation := public.begin_pinterest_oauth_attempt(v_user::text, v_attempt, 0);
+  v_result := public.commit_pinterest_oauth_attempt_v2(
+    v_user::text, v_attempt, v_generation, 0,
+    'external-a-' || v_user, 'account_a_new', 'enc:a3-no-refresh', null,
+    null, null
+  );
+  if v_result->>'ok' <> 'true' then
+    raise exception 'reconnect without rotated refresh token failed: %', v_result;
+  end if;
+  select refresh_token, expires_at
+    into v_refresh_token, v_expires_at
+    from public.pinterest_accounts
+   where id = v_account_a;
+  if v_refresh_token <> 'enc:ar2' or v_expires_at is null then
+    raise exception 'reconnect erased existing refresh token or expiry: %, %', v_refresh_token, v_expires_at;
   end if;
 
   -- A fourth identity is rejected at the transactional Start-plan cap.
