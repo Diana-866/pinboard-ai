@@ -169,6 +169,7 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
   pins.pendingTasks = pendingTasks;
   pins.unknownTasks = unknownTasks;
   pins.failedTasks = failedTasks;
+  pins.plannedTaskCount = tasks.length;
   return pins;
 }
 
