@@ -229,7 +229,7 @@ export const PinterestCard: React.FC = () => {
                   onClick={() => loadBoards(selectedAccount.id)}
                   className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-accent-ghost hover:underline"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" /> Обновить
+                  <RefreshCw className="w-3.5 h-3.5" /> {t.settings.syncData}
                 </button>
               </div>
               {boards.length === 0 ? (
