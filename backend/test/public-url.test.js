@@ -33,7 +33,7 @@ test("blocks IPv4-mapped IPv6 addresses when their embedded IPv4 is private", ()
 
 test("pinned lookup returns only previously validated addresses", async () => {
   const lookup = createPinnedLookup("Example.COM.", [
-    { address: "203.0.113.7", family: 4 },
+    { address: "8.8.4.4", family: 4 },
     { address: "2001:4860:4860::8888", family: 6 },
   ]);
 
@@ -43,7 +43,7 @@ test("pinned lookup returns only previously validated addresses", async () => {
       resolve({ address, family });
     });
   });
-  assert.deepEqual(ipv4, { address: "203.0.113.7", family: 4 });
+  assert.deepEqual(ipv4, { address: "8.8.4.4", family: 4 });
 
   const all = await new Promise((resolve, reject) => {
     lookup("EXAMPLE.com", { all: true }, (error, addresses) => {
@@ -52,7 +52,7 @@ test("pinned lookup returns only previously validated addresses", async () => {
     });
   });
   assert.equal(all.length, 2);
-  assert.deepEqual(all.map((entry) => entry.address), ["203.0.113.7", "2001:4860:4860::8888"]);
+  assert.deepEqual(all.map((entry) => entry.address), ["8.8.4.4", "2001:4860:4860::8888"]);
 });
 
 test("pinned lookup refuses an unexpected hostname or unvalidated address family", async () => {
