@@ -9,11 +9,13 @@ declare
   v_generation_c bigint;
   v_generation_d bigint;
   v_generation_e bigint;
+  v_generation_f bigint;
   v_attempt_a uuid := gen_random_uuid();
   v_attempt_b uuid := gen_random_uuid();
   v_attempt_c uuid := gen_random_uuid();
   v_attempt_d uuid := gen_random_uuid();
   v_attempt_e uuid := gen_random_uuid();
+  v_attempt_f uuid := gen_random_uuid();
   v_committed jsonb;
   v_account_id uuid;
   v_count integer;
@@ -104,10 +106,17 @@ begin
     raise exception 'expired OAuth attempt was accepted';
   end if;
 
-  -- Password reset invalidates a pending OAuth attempt even without disconnect.
+  -- Start a fresh current attempt after the expiry test. This isolates the
+  -- password-reset assertion from generation/attempt mismatch failures.
+  v_generation_f := public.begin_pinterest_oauth_attempt(v_user::text, v_attempt_f, 0);
+  if v_generation_f <= v_generation_e then
+    raise exception 'new OAuth attempt did not advance generation after expiry test';
+  end if;
+
+  -- Password reset invalidates this still-current pending attempt by token_version.
   update public.users set token_version = token_version + 1 where id = v_user;
   v_committed := public.commit_pinterest_oauth_attempt_v2(
-    v_user::text, v_attempt_d, v_generation_d, 0,
+    v_user::text, v_attempt_f, v_generation_f, 0,
     'pinterest-user-old-session', 'old_session', 'enc:access2', 'enc:refresh2',
     'boards:read,pins:write', now() + interval '1 hour'
   );
