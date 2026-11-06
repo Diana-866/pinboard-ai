@@ -209,3 +209,108 @@ revoke all on function public.save_pin_generation_plan(text,text,jsonb) from pub
 revoke all on function public.update_pin_generation_task(text,text,integer,text,text,text,text,numeric,text) from public, anon, authenticated;
 grant execute on function public.save_pin_generation_plan(text,text,jsonb) to service_role;
 grant execute on function public.update_pin_generation_task(text,text,integer,text,text,text,text,numeric,text) to service_role;
+
+-- A journal-backed retry may resume an existing plan. The provider accepts
+-- repeated POSTs with the same idempotency key and identical payload.
+create or replace function public.begin_pin_generation_request(
+  p_user_id text, p_board_id uuid, p_idempotency_key text, p_fingerprint text
+) returns jsonb
+language plpgsql security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  v_request public.pin_generation_requests%rowtype;
+  v_inserted integer;
+  v_has_plan boolean;
+begin
+  if p_user_id is null or p_board_id is null or p_idempotency_key is null
+     or length(p_idempotency_key) < 16 or length(p_idempotency_key) > 128
+     or p_fingerprint is null or length(p_fingerprint) <> 64 then
+    raise exception 'invalid idempotency request';
+  end if;
+  if not exists (
+    select 1 from public.boards b join public.projects p on p.id=b.project_id
+    where b.id=p_board_id and p.user_id::text=p_user_id
+  ) then raise exception 'board not found or not owned by user'; end if;
+
+  insert into public.pin_generation_requests(user_id,board_id,idempotency_key,status,request_fingerprint)
+  values(p_user_id,p_board_id,p_idempotency_key,'processing',p_fingerprint)
+  on conflict (user_id,idempotency_key) do nothing;
+  get diagnostics v_inserted = row_count;
+
+  select * into v_request from public.pin_generation_requests
+   where user_id=p_user_id and idempotency_key=p_idempotency_key
+   for update;
+
+  if v_request.board_id <> p_board_id then raise exception 'idempotency key already used for another board'; end if;
+  if v_request.request_fingerprint <> p_fingerprint then raise exception 'idempotency key reused with different request'; end if;
+  if v_inserted = 1 then return jsonb_build_object('status','started'); end if;
+
+  if v_request.status='completed' then
+    return jsonb_build_object('status','completed','pins',v_request.pins);
+  end if;
+
+  select exists (
+    select 1 from public.pin_generation_tasks t
+     where t.generation_request_id = v_request.id
+  ) into v_has_plan;
+
+  if v_request.status='processing' and v_request.updated_at < now() - interval '30 minutes' then
+    if v_has_plan then
+      update public.pin_generation_requests set updated_at=now() where id=v_request.id;
+      return jsonb_build_object('status','resume');
+    end if;
+    update public.pin_generation_requests
+       set status='unknown', error_code='stale_provider_outcome', updated_at=now()
+     where id=v_request.id;
+    return jsonb_build_object('status','unknown','message','Provider outcome requires reconciliation');
+  elsif v_request.status='processing' then
+    return jsonb_build_object('status','processing');
+  elsif v_request.status='unknown' and v_has_plan then
+    update public.pin_generation_requests
+       set status='processing', error_code=null, updated_at=now()
+     where id=v_request.id;
+    return jsonb_build_object('status','resume');
+  elsif v_request.status='unknown' then
+    return jsonb_build_object('status','unknown','message','Provider outcome requires reconciliation');
+  else
+    return jsonb_build_object('status','failed','error_code',v_request.error_code);
+  end if;
+end;
+$$;
+
+create or replace function public.get_pin_generation_plan(
+  p_user_id text, p_idempotency_key text
+) returns jsonb
+language plpgsql security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  v_result jsonb;
+begin
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'task_index', t.task_index,
+    'title', t.title,
+    'description', t.description,
+    'prompt', t.prompt,
+    'model', t.model,
+    'aspect_ratio', t.aspect_ratio,
+    'provider_idempotency_key', t.provider_idempotency_key,
+    'provider_task_id', t.provider_task_id,
+    'status', t.status,
+    'provider_result_url', t.provider_result_url,
+    'storage_url', t.storage_url,
+    'provider_price', t.provider_price
+  ) order by t.task_index), '[]'::jsonb)
+    into v_result
+    from public.pin_generation_tasks t
+    join public.pin_generation_requests r on r.id=t.generation_request_id
+   where r.user_id=p_user_id and r.idempotency_key=p_idempotency_key;
+  return v_result;
+end;
+$$;
+
+revoke all on function public.begin_pin_generation_request(text,uuid,text,text) from public, anon, authenticated;
+revoke all on function public.get_pin_generation_plan(text,text) from public, anon, authenticated;
+grant execute on function public.begin_pin_generation_request(text,uuid,text,text) to service_role;
+grant execute on function public.get_pin_generation_plan(text,text) to service_role;
