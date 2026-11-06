@@ -39,7 +39,7 @@ function isPrivateIp(ip) {
   const segments = value.split(":");
   const second = Number.parseInt(segments[1] || "0", 16);
   if (first === 0x2001 && second <= 0x01ff) return true; // IETF special-purpose 2001::/23
-  if (first === 0x2002 || first === 0x3fff) return true; // 6to4 and documentation
+  if (first === 0x2002 || (first === 0x3fff && second <= 0x0fff)) return true; // 6to4 and documentation
   if (value.startsWith("2001:db8:") || value === "2001:db8") return true;
   if (value.startsWith("2001:10:")) return true;
   return false;
