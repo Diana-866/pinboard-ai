@@ -43,6 +43,29 @@ test("subscription lookup errors fail closed instead of treating the user as man
   await assert.rejects(getTariffState("user-1", client), lookupError);
 });
 
+test("manual tariff grants respect an explicitly configured expiry date", async () => {
+  const expiredClient = makeClient({
+    userResult: {
+      data: { tariff_plan: "pro", tariff_period_end: "2020-01-01T00:00:00.000Z" },
+      error: null,
+    },
+    subscriptionResult: { data: null, error: null },
+  });
+  assert.deepEqual(
+    await getTariffState("user-1", expiredClient),
+    { plan: "pro", active: false, periodEnd: "2020-01-01T00:00:00.000Z" }
+  );
+
+  const unlimitedClient = makeClient({
+    userResult: { data: { tariff_plan: "pro", tariff_period_end: null }, error: null },
+    subscriptionResult: { data: null, error: null },
+  });
+  assert.deepEqual(
+    await getTariffState("user-1", unlimitedClient),
+    { plan: "pro", active: true, periodEnd: null }
+  );
+});
+
 test("successful subscription selection has deterministic null and tie ordering", async () => {
   const orderCalls = [];
   const client = makeClient({
