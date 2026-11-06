@@ -422,6 +422,10 @@ export interface TranslationSchema {
     pinterestBoardsTitle: string;
     pinterestBoardsEmpty: string;
     pinterestAccountIdLabel: string;
+    pinterestDisconnected: string;
+    pinterestAccountFallback: string;
+    pinterestReauthRequired: string;
+    pinterestPinsLabel: string;
     billingSection: string;
     billingSectionDesc: string;
     currentPlan: string;
