@@ -318,7 +318,7 @@ async function refreshAccessToken(account) {
     if (commitError) {
       // The RPC may have committed even if its response was lost. Reconcile
       // before telling the user to reconnect or allowing another refresh.
-      const reconciled = await getAccount(latest.user_id).catch(() => null);
+      const reconciled = await getAccount(latest.user_id, latest.id).catch(() => null);
       if (
         reconciled &&
         (reconciled.access_token !== latest.access_token ||
@@ -368,10 +368,19 @@ async function refreshAccessToken(account) {
  * 401 -> один раз обновляем токен и повторяем.
  * 429 -> одна повторная попытка через 2 секунды.
  */
-async function withAccount(userId, handler) {
+async function withAccount(userId, handler, accountId = null) {
   requireConfigured();
-  let account = await getAccount(userId);
-  if (!account) throw httpError(409, "Pinterest не подключён. Нажмите «Подключить Pinterest» в настройках.");
+  let account;
+  if (accountId) {
+    account = await getAccount(userId, accountId);
+  } else {
+    const accounts = await getAccounts(userId);
+    if (accounts.length > 1) {
+      throw httpError(422, "Выберите Pinterest-аккаунт для этой операции.");
+    }
+    account = accounts[0] || null;
+  }
+  if (!account) throw httpError(409, "Pinterest не подключён или выбранный аккаунт недоступен. Подключите Pinterest в настройках.");
 
   let result = await handler(account.access_token);
 
@@ -388,14 +397,15 @@ async function withAccount(userId, handler) {
 
 // ---------- проверка доски ----------
 
-async function verifyPinterestBoard(userId, pinterestBoardId) {
+async function verifyPinterestBoard(userId, pinterestBoardId, accountId = null) {
   const boardId = String(pinterestBoardId || "").trim();
   if (!boardId || boardId.length > 128) {
     throw httpError(422, "Выберите существующую доску Pinterest перед планированием публикации");
   }
 
   const boardResult = await withAccount(userId, (token) =>
-    callPinterest("GET", `/boards/${encodeURIComponent(boardId)}`, { token })
+    callPinterest("GET", `/boards/${encodeURIComponent(boardId)}`, { token }),
+    accountId
   );
   if (!boardResult.ok) {
     if ([403, 404].includes(boardResult.status)) {
@@ -428,14 +438,14 @@ async function getPinWithOwner(pinId, userId) {
   return data;
 }
 
-async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationUrl) {
+async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationUrl, accountId = null) {
   const boardId = String(pinterestBoardId || "").trim();
   if (!boardId) throw httpError(422, "board_id обязателен: выберите доску Pinterest");
 
   // Проверяем владельца локального пина и доступность доски до резервации.
   const pin = await getPinWithOwner(pinId, userId);
   if (!pin.image_url) throw httpError(422, "У пина нет изображения — сначала сгенерируйте картинку");
-  await verifyPinterestBoard(userId, boardId);
+  await verifyPinterestBoard(userId, boardId, accountId);
 
   let destinationUrl = null;
   if (scheduledDestinationUrl) {
@@ -488,7 +498,7 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
 
   let result;
   try {
-    result = await withAccount(userId, (token) => callPinterest("POST", "/pins", { token, body }));
+    result = await withAccount(userId, (token) => callPinterest("POST", "/pins", { token, body }), accountId);
   } catch (e) {
     // 409/422/403/404/503 означают, что запрос на создание пина не дошёл
     // до успешного вызова Pinterest (например, аккаунт не подключён).
@@ -699,12 +709,23 @@ function registerRoutes(app, deps) {
   // Отключение: удаляем строку с токенами
   app.post("/integrations/pinterest/disconnect", requireAuth, async (req, res) => {
     try {
-      const { data: disconnected, error } = await supabase.rpc("disconnect_pinterest_account", {
+      const accounts = await getAccounts(req.userId);
+      const requestedId = req.body && req.body.account_id ? String(req.body.account_id) : null;
+      if (!requestedId && accounts.length > 1) {
+        throw httpError(422, "Укажите Pinterest-аккаунт, который нужно отключить.");
+      }
+      const target = requestedId
+        ? accounts.find((account) => account.id === requestedId)
+        : accounts[0];
+      if (!target) throw httpError(404, "Подключённый Pinterest-аккаунт не найден.");
+      const { data: disconnected, error } = await supabase.rpc("disconnect_pinterest_account_v2", {
         p_user_id: String(req.userId),
+        p_pinterest_account_id: target.id,
       });
       if (error) throw error;
       if (!disconnected) throw httpError(503, "Не удалось безопасно отключить Pinterest. Попробуйте позже.");
-      res.json({ ok: true, connected: false });
+      const remaining = await getAccounts(req.userId);
+      res.json({ ok: true, connected: remaining.length > 0, accounts: remaining.map((a) => ({ id: a.id, username: a.username })) });
     } catch (e) {
       handleError(res, e);
     }
@@ -716,6 +737,7 @@ function registerRoutes(app, deps) {
   // или повторит чтение, не создавая никаких удалённых объектов.
   app.get("/integrations/pinterest/boards", requireAuth, async (req, res) => {
     try {
+      const accountId = req.query.account_id ? String(req.query.account_id) : null;
       const result = await withAccount(req.userId, async (token) => {
         const items = [];
         let bookmark = null;
@@ -734,7 +756,7 @@ function registerRoutes(app, deps) {
           status: 502,
           data: { message: "Pinterest вернул больше страниц досок, чем поддерживает текущая загрузка" },
         };
-      });
+      }, accountId);
       if (!result.ok) {
         throw httpError(502, `Pinterest не отдал доски: ${pinterestMessage(result.data, "неизвестная ошибка")}`);
       }
@@ -755,7 +777,8 @@ function registerRoutes(app, deps) {
     async (req, res) => {
       try {
         const boardId = (req.body && (req.body.board_id || req.body.pinterest_board_id)) || null;
-        const result = await publishPin(req.userId, req.params.id, boardId);
+        const accountId = req.body && req.body.account_id ? String(req.body.account_id) : null;
+        const result = await publishPin(req.userId, req.params.id, boardId, null, accountId);
         res.json(result);
       } catch (e) {
         handleError(res, e);
