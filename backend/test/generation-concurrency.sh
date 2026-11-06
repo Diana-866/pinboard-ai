@@ -80,3 +80,76 @@ end;
 SQL
 
 echo "Concurrent duplicate generation completion passed for request $KEY"
+
+# Race a terminal failure marker against completion while both contend on the
+# same request row. Either winner is valid, but mixed terminal/financial state
+# is not: failed means no pins/debit; completed means exactly one of each.
+RACE_KEY="ci-generation-fail-complete-$(printf '%s' "$USER_ID" | tr -d '-')"
+RACE_FINGERPRINT="$(printf 'a%.0s' {1..64})"
+"\${psql_base[@]}" -c "select public.begin_pin_generation_request('$USER_ID', '$BOARD_ID', '$RACE_KEY', '$RACE_FINGERPRINT')"
+PGAPPNAME=generation-race-locker "\${psql_base[@]}" -c "begin; select id from public.pin_generation_requests where user_id = '$USER_ID' and idempotency_key = '$RACE_KEY' for update; select pg_sleep(6); commit;" >/tmp/generation-race-locker.log 2>&1 &
+RACE_LOCK_PID=$!
+
+race_locked=0
+for _ in $(seq 1 50); do
+  active="$("\${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name = 'generation-race-locker' and position('pg_sleep' in query) > 0")"
+  if [[ "$active" == "1" ]]; then race_locked=1; break; fi
+  sleep 0.1
+done
+if [[ "$race_locked" != "1" ]]; then
+  echo "Could not confirm the failure/completion race lock holder"
+  kill "$RACE_LOCK_PID" 2>/dev/null || true
+  exit 1
+fi
+
+PGAPPNAME=generation-race-failure "\${psql_base[@]}" -c "select public.fail_pin_generation_request('$USER_ID', '$RACE_KEY', 'simulated_race_failure', false)" >/tmp/generation-race-failure.log 2>&1 &
+RACE_FAIL_PID=$!
+PGAPPNAME=generation-race-completion "\${psql_base[@]}" -c "select public.complete_pin_generation_request('$USER_ID', '$BOARD_ID', '$RACE_KEY', '$PINS'::jsonb, 5)" >/tmp/generation-race-completion.log 2>&1 &
+RACE_COMPLETE_PID=$!
+
+race_waiters=0
+for _ in $(seq 1 80); do
+  race_waiters="$("\${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name in ('generation-race-failure', 'generation-race-completion') and wait_event_type = 'Lock'")"
+  if [[ "$race_waiters" == "2" ]]; then break; fi
+  sleep 0.1
+done
+if [[ "$race_waiters" != "2" ]]; then
+  echo "Failure and completion did not both contend on the same request row (waiters=$race_waiters)"
+  kill "$RACE_LOCK_PID" 2>/dev/null || true
+  exit 1
+fi
+
+wait "$RACE_LOCK_PID"
+wait "$RACE_FAIL_PID" || true
+wait "$RACE_COMPLETE_PID" || true
+
+"\${psql_base[@]}" <<SQL
+do \$\$
+declare
+  v_balance integer;
+  v_pin_count integer;
+  v_ledger_count integer;
+  v_request_status text;
+begin
+  select credits_balance into v_balance from public.users where id = '$USER_ID';
+  select count(*) into v_pin_count from public.pins where board_id = '$BOARD_ID' and title = 'Concurrent generation';
+  select count(*) into v_ledger_count from public.credit_transactions where user_id = '$USER_ID' and type = 'generation';
+  select status into v_request_status from public.pin_generation_requests where user_id = '$USER_ID' and idempotency_key = '$RACE_KEY';
+
+  if v_request_status = 'failed' then
+    if v_balance <> 15 or v_pin_count <> 1 or v_ledger_count <> 1 then
+      raise exception 'failure won race but completion still charged/saved (balance %, pins %, ledger %)', v_balance, v_pin_count, v_ledger_count;
+    end if;
+  elsif v_request_status = 'completed' then
+    if v_balance <> 10 or v_pin_count <> 2 or v_ledger_count <> 2 then
+      raise exception 'completion won race but final state is inconsistent (balance %, pins %, ledger %)', v_balance, v_pin_count, v_ledger_count;
+    end if;
+  else
+    raise exception 'failure/completion race ended in unexpected status %', v_request_status;
+  end if;
+end;
+\$\$;
+SQL
+
+echo "Concurrent failure/completion terminal-state race passed for request $RACE_KEY"
+
