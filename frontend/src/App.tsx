@@ -223,7 +223,7 @@ const MainApp: React.FC = () => {
   // Pinterest OAuth is not available yet: never seed a fictional connected account.
   const [accounts, setAccounts] = useState<PinterestAccount[]>([]);
   const [activeAccountId, setActiveAccountId] = useState<string>('');
-  const [maxAccounts] = useState<number>(3); // Plan: Start allows up to 3 accounts
+  const [maxAccounts, setMaxAccounts] = useState<number>(3);
 
   // Synchronized Pending Review Pins queue (Shared between Dashboard, Calendar, Sidebar & ManualApprovalDesk)
   // No review items are loaded until real generated pins are queued.
@@ -234,6 +234,54 @@ const MainApp: React.FC = () => {
     localStorage.removeItem('pinposy_accounts');
     localStorage.removeItem('pinposy_pending_pins');
   }, []);
+
+  // Pinterest accounts and plan limits come from the server, never from demo/local state.
+  React.useEffect(() => {
+    let active = true;
+    if (!user?.id) {
+      setAccounts([]);
+      setActiveAccountId('');
+      setMaxAccounts(3);
+      return () => { active = false; };
+    }
+
+    apiRequest('/integrations/pinterest/status')
+      .then((data) => {
+        if (!active) return;
+        const rows = Array.isArray(data?.accounts) ? data.accounts : [];
+        const mapped: PinterestAccount[] = rows.map((account: any, index: number) => ({
+          id: String(account.id),
+          name: account.username || account.pinterest_user_id || `Pinterest ${index + 1}`,
+          handle: account.username ? `@${account.username}` : String(account.pinterest_user_id || ''),
+          avatar: '',
+          boardsCount: 0,
+          monthlyViews: '—',
+          minDailyPins: 8,
+          maxDailyPins: 16,
+          nightlyAuto: false,
+          status: account.needs_reauth ? 'error' : 'active',
+          niche: '',
+        }));
+        setAccounts(mapped);
+        setActiveAccountId((current) =>
+          current && mapped.some((account) => account.id === current)
+            ? current
+            : mapped[0]?.id || ''
+        );
+        setMaxAccounts(data?.configured === false
+          ? 0
+          : data?.account_limit == null ? 99 : Math.max(0, Number(data.account_limit) || 0));
+      })
+      .catch((error) => {
+        console.error('[pinterest] Не удалось загрузить подключённые аккаунты:', error);
+        if (active) {
+          setAccounts([]);
+          setActiveAccountId('');
+        }
+      });
+
+    return () => { active = false; };
+  }, [user?.id]);
 
   const handleUpdatePendingPins = (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => {
     setPendingReviewPins((prev) => {
