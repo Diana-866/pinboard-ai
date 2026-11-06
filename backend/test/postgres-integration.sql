@@ -483,6 +483,39 @@ begin
   v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-failed-0001', repeat('c',64));
   if v_result->>'status' <> 'failed' then raise exception 'failed generation key must remain terminal'; end if;
 
+  -- A late provider success cannot complete or charge a request after a known failure.
+  select credits_balance into v_before from public.users where id=v_user;
+  begin
+    perform public.complete_pin_generation_request(
+      v_user::text, v_board, 'ci-generation-failed-0001',
+      '[{"image_url":"https://cdn.example.invalid/late-after-fail.png","title":"Late after fail","description":"","model_used":"flux-schnell","aspect_ratio":"2:3","credits_cost":5}]'::jsonb,
+      5
+    );
+    raise exception 'expected late completion after failure to be rejected';
+  exception when others then
+    if sqlerrm = 'expected late completion after failure to be rejected' then raise; end if;
+    if sqlerrm not like '%not processing%' then raise; end if;
+  end;
+  if (select credits_balance from public.users where id=v_user) <> v_before
+     or exists (select 1 from public.pins where board_id=v_board and title='Late after fail')
+     or (select status from public.pin_generation_requests
+          where user_id=v_user::text and idempotency_key='ci-generation-failed-0001') <> 'failed' then
+    raise exception 'late completion changed a terminal failed generation';
+  end if;
+
+  -- A delayed failure marker cannot regress a request already completed and charged.
+  if public.fail_pin_generation_request(
+    v_user::text, 'ci-generation-atomic-retry-0001', 'late_failure_marker', false
+  ) then
+    raise exception 'late failure marker unexpectedly changed a completed generation';
+  end if;
+  if (select status from public.pin_generation_requests
+       where user_id=v_user::text and idempotency_key='ci-generation-atomic-retry-0001') <> 'completed'
+     or (select credits_balance from public.users where id=v_user) <> 0
+     or (select count(*) from public.pins where board_id=v_board and title='Atomic retry') <> 1 then
+    raise exception 'late failure marker regressed a completed generation';
+  end if;
+
   -- A network failure after submission to the provider is explicitly unknown.
   v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-provider-unknown-0001', repeat('e',64));
   if v_result->>'status' <> 'started' then raise exception 'provider-unknown fixture must start'; end if;
