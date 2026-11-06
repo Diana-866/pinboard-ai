@@ -173,6 +173,46 @@ function normalizePaymentStatus(status) {
   return null;
 }
 
+/**
+ * Read the amount in the order's configured currency from a signed webhook.
+ * For non-RUB payments Prodamus supplies currency + currency_sum; sum alone
+ * may represent a different settlement amount and must not be compared.
+ */
+function getWebhookPaymentAmount(body, expectedCurrency = "rub") {
+  const expected = String(expectedCurrency || "rub").trim().toLowerCase();
+  const rawCurrency = body && body.currency;
+  const hasCurrency = rawCurrency != null && String(rawCurrency).trim() !== "";
+  const receivedCurrency = hasCurrency ? String(rawCurrency).trim().toLowerCase() : null;
+
+  if (!["rub", "usd", "eur", "kzt"].includes(expected)) {
+    return { ok: false, reason: "unsupported_expected_currency" };
+  }
+  if (hasCurrency && receivedCurrency !== expected) {
+    return { ok: false, reason: "currency_mismatch", receivedCurrency };
+  }
+  // Older RUB callbacks may omit currency fields. Never apply that fallback
+  // to foreign-currency orders: currency_sum and currency are mandatory there.
+  if (!hasCurrency && expected !== "rub") {
+    return { ok: false, reason: "currency_missing" };
+  }
+
+  const currencyAmount = body && body.currency_sum;
+  const rawAmount = currencyAmount != null && String(currencyAmount).trim() !== ""
+    ? currencyAmount
+    : expected === "rub" ? body && body.sum : null;
+  const amount = rawAmount == null ? NaN : Number(rawAmount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { ok: false, reason: "amount_missing", receivedCurrency };
+  }
+
+  return {
+    ok: true,
+    amount,
+    currency: receivedCurrency || expected,
+    amountField: currencyAmount != null && String(currencyAmount).trim() !== "" ? "currency_sum" : "sum",
+  };
+}
+
 function formatAmount(amount) {
   const n = Number(amount);
   if (!Number.isFinite(n) || n <= 0) throw httpError(422, "Некорректная сумма платежа");
@@ -293,6 +333,7 @@ module.exports = {
   signPayload,
   safeEqual,
   normalizePaymentStatus,
+  getWebhookPaymentAmount,
   validateCheckoutUrl,
   verifyWebhook,
   createPaymentLink,
