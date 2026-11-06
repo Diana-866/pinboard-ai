@@ -2,12 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { CheckCircle2, AlertCircle, Link2, Loader2, RefreshCw, Unlink } from 'lucide-react';
 import { apiRequest, ApiError } from '../../lib/api';
 
-interface PinterestStatus {
-  configured: boolean;
-  connected: boolean;
+interface PinterestAccount {
+  id: string;
+  pinterest_user_id?: string | null;
   username?: string | null;
   expires_at?: string | null;
   needs_reauth?: boolean;
+}
+
+interface PinterestStatus {
+  configured: boolean;
+  connected: boolean;
+  account_count?: number;
+  accounts?: PinterestAccount[];
 }
 
 interface PinterestBoard {
@@ -17,12 +24,13 @@ interface PinterestBoard {
 }
 
 /**
- * Карточка «Pinterest» для настроек кабинета.
- * Показывает статус подключения, кнопку подключения через официальный OAuth
- * и список досок пользователя. Токены живут только на сервере.
+ * Pinterest connections are selected by stable PinPosy account ID.
+ * Credentials never leave the backend.
  */
 export const PinterestCard: React.FC = () => {
   const [status, setStatus] = useState<PinterestStatus | null>(null);
+  const [accounts, setAccounts] = useState<PinterestAccount[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [boards, setBoards] = useState<PinterestBoard[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -32,7 +40,18 @@ export const PinterestCard: React.FC = () => {
   const loadStatus = async () => {
     try {
       const data = await apiRequest('/integrations/pinterest/status');
+      const nextAccounts: PinterestAccount[] = Array.isArray(data?.accounts)
+        ? data.accounts
+        : data?.connected
+          ? [{ id: 'legacy', username: data.username, expires_at: data.expires_at }]
+          : [];
       setStatus(data);
+      setAccounts(nextAccounts);
+      setSelectedAccountId((current) =>
+        current && nextAccounts.some((account) => account.id === current)
+          ? current
+          : nextAccounts[0]?.id || null
+      );
     } catch (e) {
       const err = e as ApiError;
       setError(err?.message || 'Не удалось узнать статус Pinterest');
@@ -41,9 +60,13 @@ export const PinterestCard: React.FC = () => {
     }
   };
 
-  const loadBoards = async () => {
+  const loadBoards = async (accountId: string | null) => {
+    if (!accountId || accountId === 'legacy') {
+      setBoards([]);
+      return;
+    }
     try {
-      const data = await apiRequest('/integrations/pinterest/boards');
+      const data = await apiRequest(`/integrations/pinterest/boards?account_id=${encodeURIComponent(accountId)}`);
       setBoards(data?.boards || []);
     } catch {
       setBoards([]);
@@ -51,13 +74,14 @@ export const PinterestCard: React.FC = () => {
   };
 
   useEffect(() => {
-    // Возврат с Pinterest: ?pinterest=connected | denied | error
     const params = new URLSearchParams(window.location.search);
     const result = params.get('pinterest');
+    if (result === 'connected') setNotice('Pinterest-аккаунт подключён');
+    if (result === 'denied') setError('Доступ к Pinterest не выдан — попробуйте ещё раз');
+    if (result === 'error') setError('Не удалось подключить Pinterest. Попробуйте ещё раз.');
+    if (result === 'limit') setError('Достигнут лимит Pinterest-аккаунтов вашего тарифа. Измените тариф или отключите другой аккаунт.');
+    if (result === 'plan_required') setError('Для подключения Pinterest нужен активный тариф.');
     if (result) {
-      if (result === 'connected') setNotice('Pinterest подключён');
-      if (result === 'denied') setError('Доступ к Pinterest не выдан — попробуйте ещё раз');
-      if (result === 'error') setError('Не удалось подключить Pinterest. Попробуйте ещё раз.');
       params.delete('pinterest');
       const url = new URL(window.location.href);
       url.search = params.toString();
@@ -67,8 +91,8 @@ export const PinterestCard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (status?.connected) loadBoards();
-  }, [status?.connected]);
+    loadBoards(selectedAccountId);
+  }, [selectedAccountId]);
 
   const handleConnect = async () => {
     setError(null);
@@ -88,13 +112,16 @@ export const PinterestCard: React.FC = () => {
     }
   };
 
-  const handleDisconnect = async () => {
+  const handleDisconnect = async (accountId: string) => {
     setError(null);
     setBusy(true);
     try {
-      await apiRequest('/integrations/pinterest/disconnect', { method: 'POST' });
-      setStatus((s) => (s ? { ...s, connected: false, username: null, expires_at: null } : s));
-      setBoards([]);
+      await apiRequest('/integrations/pinterest/disconnect', {
+        method: 'POST',
+        body: JSON.stringify({ account_id: accountId }),
+      });
+      setNotice('Pinterest-аккаунт отключён');
+      await loadStatus();
     } catch (e) {
       const err = e as ApiError;
       setError(err?.message || 'Не удалось отключить Pinterest');
@@ -102,6 +129,8 @@ export const PinterestCard: React.FC = () => {
       setBusy(false);
     }
   };
+
+  const selectedAccount = accounts.find((account) => account.id === selectedAccountId) || null;
 
   return (
     <section className="custom-card p-6 space-y-4">
@@ -112,97 +141,110 @@ export const PinterestCard: React.FC = () => {
             <span>Pinterest</span>
           </h2>
           <p className="text-xs text-muted-theme mt-0.5">
-            Публикация утверждённых пинов в ваш аккаунт через официальный Pinterest API.
+            Подключайте несколько Pinterest-профилей в пределах лимита тарифа и выбирайте нужный для работы.
           </p>
         </div>
-
-        {status?.connected ? (
-          <button
-            onClick={handleDisconnect}
-            disabled={busy}
-            className="self-start inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border border-subtle text-secondary-theme hover:border-strong transition disabled:opacity-50"
-          >
-            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlink className="w-4 h-4" />}
-            <span>Отключить</span>
-          </button>
-        ) : (
-          <button
-            onClick={handleConnect}
-            disabled={busy || loading || status?.configured === false}
-            className="accent-btn self-start px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
-            <span>Подключить Pinterest</span>
-          </button>
-        )}
+        <button
+          onClick={handleConnect}
+          disabled={busy || loading || status?.configured === false}
+          className="accent-btn self-start px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+          <span>Подключить аккаунт</span>
+        </button>
       </div>
 
       {notice && (
         <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 shrink-0" />
-          <span>{notice}</span>
+          <CheckCircle2 className="w-4 h-4 shrink-0" /><span>{notice}</span>
         </div>
       )}
-
       {error && (
         <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-300 text-xs font-semibold flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{error}</span>
+          <AlertCircle className="w-4 h-4 shrink-0" /><span>{error}</span>
         </div>
       )}
-
       {loading && (
         <p className="text-xs text-muted-theme flex items-center gap-2">
           <Loader2 className="w-4 h-4 animate-spin" /> Проверяем подключение…
         </p>
       )}
-
-      {!loading && status && status.configured === false && (
+      {!loading && status?.configured === false && (
         <p className="text-xs text-muted-theme">
           Интеграция пока не настроена на сервере — кнопка станет активной после добавления ключей Pinterest.
         </p>
       )}
 
-      {!loading && status?.connected && (
-        <div className="space-y-3 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span className="font-semibold text-primary-theme">
-              Подключён: {status.username ? `@${status.username}` : 'аккаунт Pinterest'}
+      {!loading && accounts.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold text-secondary-theme">
+              Подключено аккаунтов: {accounts.length}
             </span>
+            <span className="text-[11px] text-muted-theme">Выберите профиль для просмотра досок</span>
           </div>
-          {status.expires_at && (
-            <p className="text-muted-theme">
-              Доступ действует до {new Date(status.expires_at).toLocaleDateString('ru-RU')}
-              {status.needs_reauth ? ' — требуется повторное подключение' : ''}
-            </p>
-          )}
-
-          <div className="pt-1">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="font-semibold text-secondary-theme">Ваши доски Pinterest</span>
-              <button
-                onClick={loadBoards}
-                className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-accent-ghost hover:underline"
+          <ul className="space-y-2">
+            {accounts.map((account) => (
+              <li
+                key={account.id}
+                className={`flex items-center justify-between gap-3 rounded-xl border p-3 ${selectedAccountId === account.id ? 'border-accent bg-subtle/50' : 'border-subtle'}`}
               >
-                <RefreshCw className="w-3.5 h-3.5" /> Обновить
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedAccountId(account.id)}
+                  className="min-w-0 flex-1 text-left"
+                >
+                  <span className="block truncate text-sm font-semibold text-primary-theme">
+                    {account.username ? `@${account.username}` : 'Pinterest-аккаунт'}
+                  </span>
+                  <span className="block truncate text-[10px] text-muted-theme">
+                    ID: {account.pinterest_user_id || account.id}
+                    {account.needs_reauth ? ' · требуется повторная авторизация' : ''}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDisconnect(account.id)}
+                  disabled={busy}
+                  title="Отключить этот аккаунт"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-subtle px-2.5 py-2 text-[11px] font-semibold text-secondary-theme hover:border-rose-400 hover:text-rose-500 disabled:opacity-50"
+                >
+                  {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unlink className="h-3.5 w-3.5" />}
+                  Отключить
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          {selectedAccount && (
+            <div className="space-y-3 border-t border-subtle pt-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold text-secondary-theme text-xs">
+                  Доски {selectedAccount.username ? `@ ${selectedAccount.username}` : 'выбранного аккаунта'}
+                </span>
+                <button
+                  onClick={() => loadBoards(selectedAccount.id)}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-accent-ghost hover:underline"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Обновить
+                </button>
+              </div>
+              {boards.length === 0 ? (
+                <p className="text-xs text-muted-theme">Доски не найдены или ещё не загружены.</p>
+              ) : (
+                <ul className="divide-y divide-subtle rounded-xl border border-subtle">
+                  {boards.map((board) => (
+                    <li key={board.id} className="flex items-center justify-between px-3 py-2">
+                      <span className="font-semibold text-primary-theme text-xs">{board.name}</span>
+                      <span className="text-muted-theme text-xs">
+                        {board.pin_count != null ? `${board.pin_count} пинов` : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-            {boards.length === 0 ? (
-              <p className="text-muted-theme">Досок не найдено. Создайте доску в Pinterest и нажмите «Обновить».</p>
-            ) : (
-              <ul className="divide-y divide-subtle rounded-xl border border-subtle">
-                {boards.map((b) => (
-                  <li key={b.id} className="flex items-center justify-between px-3 py-2">
-                    <span className="font-semibold text-primary-theme">{b.name}</span>
-                    <span className="text-muted-theme">
-                      {b.pin_count != null ? `${b.pin_count} пинов` : ''}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          )}
         </div>
       )}
     </section>
