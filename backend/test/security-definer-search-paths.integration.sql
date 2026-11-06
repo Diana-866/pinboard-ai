@@ -15,7 +15,21 @@ begin
     'public.begin_pinterest_oauth_attempt(text,uuid,bigint)'::regprocedure,
     'public.commit_pinterest_oauth_attempt(text,uuid,bigint,bigint,text,text,text,text,text,timestamptz)'::regprocedure,
     'public.disconnect_pinterest_account(text)'::regprocedure,
-    'public.adjust_credits_balance(text,integer)'::regprocedure
+    'public.adjust_credits_balance(text,integer)'::regprocedure,
+    'public.issue_password_reset_token(text,text,timestamptz,integer)'::regprocedure,
+    'public.claim_email_outbox(integer)'::regprocedure,
+    'public.mark_email_outbox_sent(uuid,uuid)'::regprocedure,
+    'public.retry_email_outbox(uuid,uuid,text)'::regprocedure,
+    'public.activate_paid_subscription(uuid,timestamptz)'::regprocedure,
+    'public.acquire_pinterest_account_refresh_lease(text,uuid,uuid,integer)'::regprocedure,
+    'public.release_pinterest_account_refresh_lease(text,uuid,uuid)'::regprocedure,
+    'public.commit_pinterest_account_token_refresh(text,uuid,uuid,timestamptz,text,text,text,timestamptz)'::regprocedure,
+    'public.disconnect_pinterest_account_v2(text,uuid)'::regprocedure,
+    'public.commit_pinterest_oauth_attempt_v2(text,uuid,bigint,bigint,text,text,text,text,text,timestamptz)'::regprocedure,
+    'public.begin_pinterest_publish_v2(text,uuid,uuid,text)'::regprocedure,
+    'public.complete_pinterest_publish_v2(text,uuid,uuid,text,text)'::regprocedure,
+    'public.fail_pinterest_publish_v2(text,uuid,uuid,text,boolean)'::regprocedure,
+    'public.retry_failed_pin_schedule(text,uuid)'::regprocedure
   ]
   loop
     select p.proconfig into v_config
