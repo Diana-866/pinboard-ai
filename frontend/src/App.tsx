@@ -94,7 +94,7 @@ const MainApp: React.FC = () => {
     }
     loadBoards();
     return () => { cancelled = true; };
-  }, [user?.id, handlePinterestStatusChange]);
+  }, [user?.id]);
 
 
 
@@ -229,6 +229,32 @@ const MainApp: React.FC = () => {
   // No review items are loaded until real generated pins are queued.
   const [pendingReviewPins, setPendingReviewPins] = useState<PendingReviewPin[]>([]);
 
+  const handlePinterestStatusChange = React.useCallback((status: { configured: boolean; account_limit?: number | null; accounts?: Array<{ id: string; username?: string | null; pinterest_user_id?: string | null; needs_reauth?: boolean }> }) => {
+    const rows = Array.isArray(status.accounts) ? status.accounts : [];
+    const mapped: PinterestAccount[] = rows.map((account, index) => ({
+      id: String(account.id),
+      name: account.username || account.pinterest_user_id || `Pinterest ${index + 1}`,
+      handle: account.username ? `@${account.username}` : String(account.pinterest_user_id || ''),
+      avatar: '',
+      boardsCount: 0,
+      monthlyViews: '—',
+      minDailyPins: 8,
+      maxDailyPins: 16,
+      nightlyAuto: false,
+      status: account.needs_reauth ? 'error' : 'active',
+      niche: '',
+    }));
+    setAccounts(mapped);
+    setActiveAccountId((current) =>
+      current && mapped.some((account) => account.id === current)
+        ? current
+        : mapped[0]?.id || ''
+    );
+    setMaxAccounts(status.configured === false
+      ? 0
+      : status.account_limit == null ? 99 : Math.max(0, Number(status.account_limit) || 0));
+  }, []);
+
   React.useEffect(() => {
     // Remove demo account/review data left by older client builds.
     localStorage.removeItem('pinposy_accounts');
@@ -259,7 +285,7 @@ const MainApp: React.FC = () => {
       });
 
     return () => { active = false; };
-  }, [user?.id]);
+  }, [user?.id, handlePinterestStatusChange]);
 
   const handleUpdatePendingPins = (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => {
     setPendingReviewPins((prev) => {
@@ -284,32 +310,6 @@ const MainApp: React.FC = () => {
       return next;
     });
   };
-
-  const handlePinterestStatusChange = React.useCallback((status: { configured: boolean; account_limit?: number | null; accounts?: Array<{ id: string; username?: string | null; pinterest_user_id?: string | null; needs_reauth?: boolean }> }) => {
-    const rows = Array.isArray(status.accounts) ? status.accounts : [];
-    const mapped: PinterestAccount[] = rows.map((account, index) => ({
-      id: String(account.id),
-      name: account.username || account.pinterest_user_id || `Pinterest ${index + 1}`,
-      handle: account.username ? `@${account.username}` : String(account.pinterest_user_id || ''),
-      avatar: '',
-      boardsCount: 0,
-      monthlyViews: '—',
-      minDailyPins: 8,
-      maxDailyPins: 16,
-      nightlyAuto: false,
-      status: account.needs_reauth ? 'error' : 'active',
-      niche: '',
-    }));
-    setAccounts(mapped);
-    setActiveAccountId((current) =>
-      current && mapped.some((account) => account.id === current)
-        ? current
-        : mapped[0]?.id || ''
-    );
-    setMaxAccounts(status.configured === false
-      ? 0
-      : status.account_limit == null ? 99 : Math.max(0, Number(status.account_limit) || 0));
-  }, []);
 
   const currentAccount = accounts.find((a) => a.id === activeAccountId) || accounts[0];
   const pendingCount = pendingReviewPins.length;
@@ -495,7 +495,6 @@ const MainApp: React.FC = () => {
               pendingCount={pendingCount}
               currentAccount={currentAccount}
               onUpdateAccountAutoTime={handleUpdateAccountAutoTime}
-              onPinterestStatusChange={handlePinterestStatusChange}
             />
           )}
 
@@ -562,11 +561,7 @@ const MainApp: React.FC = () => {
           {activeTab === 'settings' && (
             <SettingsView
               onGoToPricing={() => setActiveTab('pricing')}
-              accounts={accounts}
-              activeAccountId={activeAccountId}
-              onSelectAccount={setActiveAccountId}
-              maxAccounts={maxAccounts}
-              onUpdateAccountAutoTime={handleUpdateAccountAutoTime}
+              onPinterestStatusChange={handlePinterestStatusChange}
             />
           )}
           </LockedSection>
