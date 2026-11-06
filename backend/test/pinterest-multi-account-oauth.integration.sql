@@ -17,6 +17,14 @@ begin
   insert into public.users(id, email, token_version, tariff_plan)
   values (v_user, 'pinterest-multi-oauth-' || v_user || '@example.invalid', 0, 'start');
 
+  -- When successful subscriptions share the same period end, the newest
+  -- created_at (then id) must determine the effective plan in both SQL and API.
+  insert into public.subscriptions(
+    user_id, plan, status, amount, currency, period_start, period_end, created_at
+  ) values
+    (v_user::text, 'pro', 'success', 0, 'rub', now(), now() + interval '30 days', now() - interval '2 days'),
+    (v_user::text, 'start', 'success', 0, 'rub', now(), now() + interval '30 days', now() - interval '1 day');
+
   -- First Pinterest identity.
   v_attempt := gen_random_uuid();
   v_generation := public.begin_pinterest_oauth_attempt(v_user::text, v_attempt, 0);
