@@ -66,6 +66,7 @@ export interface ScheduledPinItem {
   clicks?: number;
   destinationUrl: string;
   pinterestBoardId?: string;
+  pinterestAccountId?: string;
   isOptimalSlot?: boolean;
   accountId?: string;
   accountHandle?: string;
