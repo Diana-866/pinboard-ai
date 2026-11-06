@@ -945,12 +945,19 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
       return res.status(409).json({ error: "Такая генерация уже выполняется. Повторите запрос с тем же ключом через несколько секунд.", code: "generation_in_progress" });
     }
     if (requestState.status === "unknown") {
-      return res.status(409).json({ error: "Результат предыдущей генерации не подтверждён. Повторный запуск с тем же ключом заблокирован во избежание двойных расходов.", code: "generation_outcome_unknown" });
+      return res.status(409).json({ error: "Результат предыдущей генерации не подтверждён. Повторный запуск без сохранённого журнала заблокирован.", code: "generation_outcome_unknown" });
     }
     if (requestState.status === "failed") {
       return res.status(409).json({ error: "Предыдущий запрос завершился до подтверждённого результата. Для новой попытки создайте новый ключ идемпотентности.", code: "generation_request_failed" });
     }
+    if (requestState.status !== "started" && requestState.status !== "resume") {
+      throw httpError(500, "Неизвестное состояние запроса генерации");
+    }
     generationRequestStarted = true;
+    if (requestState.status === "resume") {
+      // Existing provider tasks may already have been charged; keep failures fenced.
+      providerGenerationStarted = true;
+    }
 
     const estimatedCost = Math.ceil((MODEL_PRICES[model] || 15) * count * MARKUP);
     const balance = await getBalance(req.userId);
@@ -965,6 +972,19 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
       onProviderSubmission: () => {
         providerGenerationStarted = true;
       },
+      loadPlan: requestState.status === "resume" ? async () => {
+        const { data, error } = await supabase.rpc("get_pin_generation_plan", {
+          p_user_id: String(req.userId),
+          p_idempotency_key: idempotencyKey,
+        });
+        if (error) {
+          const journalError = new Error("Не удалось загрузить сохранённый план генерации");
+          journalError.journalError = true;
+          journalError.cause = error;
+          throw journalError;
+        }
+        return data;
+      } : undefined,
       persistPlan: async (tasks) => {
         const { data, error } = await supabase.rpc("save_pin_generation_plan", {
           p_user_id: String(req.userId),
