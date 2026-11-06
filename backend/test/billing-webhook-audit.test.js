@@ -45,6 +45,22 @@ test("webhook retry attempt number does not create a second event fingerprint", 
   assert.equal(first.event_hash, retry.event_hash);
 });
 
+test("webhook exception stores the currency-denominated amount and currency", () => {
+  const record = buildWebhookException({
+    paymentKind: "subscription",
+    body: {
+      order_id: "pp-start-usd-1",
+      sum: "3100.00",
+      currency: "USD",
+      currency_sum: "24.00",
+    },
+    expectedAmount: 24,
+    reason: "currency_mismatch",
+  });
+  assert.equal(record.received_sum, "24.00");
+  assert.equal(record.received_currency, "usd");
+});
+
 test("webhook exception preserves malformed amounts without treating them as expected amounts", () => {
   const record = buildWebhookException({
     paymentKind: "subscription",
