@@ -273,7 +273,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
             }`}
           >
             <AlertCircle className="w-4 h-4" />
-            <span>6. Исключения платежей</span>
+            <span>5. Исключения платежей</span>
           </button>
 
           <button
@@ -285,7 +285,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
             }`}
           >
             <Receipt className="w-4 h-4" />
-            <span>5. Подписки и платежи</span>
+            <span>6. Подписки и платежи</span>
           </button>
         </div>
       </div>
