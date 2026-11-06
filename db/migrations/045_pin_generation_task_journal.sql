@@ -26,7 +26,7 @@ create table if not exists public.pin_generation_tasks (
   updated_at timestamptz not null default now(),
   unique (generation_request_id, task_index),
   unique (provider_idempotency_key),
-  check (provider_price is null or provider_price >= 0)
+  check (provider_price is null or (provider_price >= 0 and provider_price::text not in ('NaN','Infinity','-Infinity')))
 );
 
 create unique index if not exists pin_generation_tasks_provider_id_idx
