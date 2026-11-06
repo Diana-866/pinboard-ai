@@ -970,6 +970,7 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
       }
     }
 
+    let allowPreparedTaskSubmission = true;
     const pinsData = await generatePins(board, board.projects, model, count, aspectRatio, mixedRatios, {
       topic,
       tone,
@@ -988,8 +989,15 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
           journalError.cause = error;
           throw journalError;
         }
+        const savedTasks = Array.isArray(data) ? data : [];
+        if (savedTasks.some((task) => task.status === "prepared")) {
+          const estimatedCost = Math.ceil((MODEL_PRICES[model] || 15) * count * MARKUP);
+          const balance = await getBalance(req.userId);
+          allowPreparedTaskSubmission = balance >= estimatedCost;
+        }
         return data;
       } : undefined,
+      allowPreparedTaskSubmission: () => allowPreparedTaskSubmission,
       persistPlan: async (tasks) => {
         const { data, error } = await supabase.rpc("save_pin_generation_plan", {
           p_user_id: String(req.userId),
