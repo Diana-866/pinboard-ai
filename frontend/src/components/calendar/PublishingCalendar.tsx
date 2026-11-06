@@ -32,6 +32,7 @@ interface PublishingCalendarProps {
   boards: BoardItem[];
   onAddPin: (pin: ScheduledPinItem) => void;
   onCancelSchedule?: (pin: ScheduledPinItem) => Promise<void>;
+  onRetrySchedule?: (pin: ScheduledPinItem) => Promise<void>;
   onGoToGenerator: (topic?: string, date?: string) => void;
   onOpenReview?: () => void;
   accounts?: PinterestAccount[];
@@ -51,6 +52,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
   boards,
   onAddPin,
   onCancelSchedule,
+  onRetrySchedule,
   onGoToGenerator,
   onOpenReview,
   accounts = [],
@@ -807,6 +809,21 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-subtle">
+              {selectedPin.status === 'failed' && onRetrySchedule && (
+                <button
+                  onClick={async () => {
+                    try {
+                      await onRetrySchedule(selectedPin);
+                      setSelectedPin(null);
+                    } catch {
+                      // The parent reports the API error; keep the details open.
+                    }
+                  }}
+                  className="px-4 py-1.5 rounded-xl text-xs font-semibold text-accent-ghost cursor-pointer hover:bg-accent/10 border border-accent/30"
+                >
+                  {t.calendar.retryFailedPin}
+                </button>
+              )}
                 <button
                   type="button"
                   onClick={() => setSlotModalData(null)}
