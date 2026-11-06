@@ -300,7 +300,7 @@ create or replace function public.disconnect_pinterest_account_v2(
 language plpgsql
 security definer
 set search_path = pg_catalog, public
-as $
+as $disconnect$
 declare
   v_updated integer := 0;
 begin
@@ -354,8 +354,7 @@ begin
 
   return v_updated = 1;
 end;
-$;
-
+$disconnect$;
 revoke all on function public.disconnect_pinterest_account_v2(text,uuid)
   from public, anon, authenticated;
 grant execute on function public.disconnect_pinterest_account_v2(text,uuid)
