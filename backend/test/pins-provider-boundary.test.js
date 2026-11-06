@@ -117,6 +117,41 @@ test("journal recovery reuses the saved prompt and provider idempotency key with
   assert.equal(pins[0].title, "Saved title");
 });
 
+test("recovery does not submit prepared provider tasks when balance is insufficient", async () => {
+  let submitted = false;
+  provider.generateImage = async () => {
+    submitted = true;
+    throw new Error("prepared task must not be submitted without balance");
+  };
+
+  const pins = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {
+      loadPlan: async () => [{
+        task_index: 1,
+        title: "Saved title",
+        description: "Saved description",
+        prompt: "immutable saved prompt",
+        model: "flux-schnell",
+        aspect_ratio: "2:3",
+        provider_idempotency_key: "stable-provider-key-0002",
+        status: "prepared",
+      }],
+      allowPreparedTaskSubmission: () => false,
+    }
+  );
+
+  assert.equal(submitted, false);
+  assert.equal(pins.length, 0);
+  assert.deepEqual(pins.pendingTasks, [{ task_index: 1, status: "awaiting_balance" }]);
+  assert.deepEqual(pins.unknownTasks, []);
+});
+
 test("restore original module cache entries", () => {
   if (originalGptunnel) require.cache[gptunnelPath] = originalGptunnel;
   else delete require.cache[gptunnelPath];
