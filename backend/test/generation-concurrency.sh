@@ -85,7 +85,8 @@ if "${psql_base[@]}" -c "select public.update_pin_generation_task('$USER_ID', '$
   exit 1
 fi
 STALE_PINS='[{"image_url":"https://cdn.example.invalid/stale-owner.png","title":"Stale owner","description":"","model_used":"flux-schnell","aspect_ratio":"2:3","credits_cost":5}]'
-if "${psql_base[@]}" -c "select public.save_pin_generation_plan('$USER_ID', '$RECOVERY_KEY', '$OLD_RECOVERY_TOKEN', '[{\\"title\\":\\"stale\\",\\"description\\":\\"\\",\\"prompt\\":\\"stale prompt\\",\\"model\\":\\"flux-schnell\\",\\"aspect_ratio\\":\\"2:3\\"}]'::jsonb)" >/tmp/generation-stale-owner-plan.log 2>&1; then
+STALE_PLAN='[{"title":"stale","description":"","prompt":"stale prompt","model":"flux-schnell","aspect_ratio":"2:3"}]'
+if "${psql_base[@]}" -c "select public.save_pin_generation_plan('$USER_ID', '$RECOVERY_KEY', '$OLD_RECOVERY_TOKEN', '$STALE_PLAN'::jsonb)" >/tmp/generation-stale-owner-plan.log 2>&1; then
   echo "Stale generation owner unexpectedly rewrote the immutable plan"
   exit 1
 fi
