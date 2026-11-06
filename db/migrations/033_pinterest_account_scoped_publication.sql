@@ -275,6 +275,76 @@ begin
 end;
 $$;
 
+-- Disconnecting a profile also fails its future queued schedules. Published
+-- history remains untouched; in-flight work is left for journal reconciliation.
+create or replace function public.disconnect_pinterest_account_v2(
+  p_user_id text,
+  p_pinterest_account_id uuid
+) returns boolean
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $
+declare
+  v_updated integer := 0;
+begin
+  if not exists (
+    select 1 from public.pinterest_accounts
+     where id = p_pinterest_account_id
+       and user_id = p_user_id
+       and disconnected_at is null
+  ) then
+    return false;
+  end if;
+
+  insert into public.pinterest_oauth_connection_state (
+    user_id, generation, current_attempt_id, token_version, attempt_expires_at, updated_at
+  ) values (
+    p_user_id, 1, null, null, null, now()
+  )
+  on conflict (user_id) do update
+    set generation = public.pinterest_oauth_connection_state.generation + 1,
+        current_attempt_id = null,
+        token_version = null,
+        attempt_expires_at = null,
+        updated_at = now();
+
+  -- Match refresh-commit lock order: lease first, then account row.
+  delete from public.pinterest_account_refresh_leases
+   where pinterest_account_id = p_pinterest_account_id
+     and user_id = p_user_id;
+
+  update public.pinterest_accounts
+     set access_token = null,
+         refresh_token = null,
+         expires_at = null,
+         disconnected_at = now(),
+         updated_at = now()
+   where id = p_pinterest_account_id
+     and user_id = p_user_id
+     and disconnected_at is null;
+
+  get diagnostics v_updated = row_count;
+
+  if v_updated = 1 then
+    update public.pin_schedules
+       set status = 'failed',
+           last_error = 'Pinterest account was disconnected; reconnect it and schedule again',
+           updated_at = now()
+     where user_id = p_user_id
+       and pinterest_account_id = p_pinterest_account_id
+       and status = 'scheduled';
+  end if;
+
+  return v_updated = 1;
+end;
+$;
+
+revoke all on function public.disconnect_pinterest_account_v2(text,uuid)
+  from public, anon, authenticated;
+grant execute on function public.disconnect_pinterest_account_v2(text,uuid)
+  to service_role;
+
 revoke all on function public.begin_pinterest_publish_v2(text,uuid,uuid,text)
   from public, anon, authenticated;
 revoke all on function public.complete_pinterest_publish_v2(text,uuid,uuid,text,text)
