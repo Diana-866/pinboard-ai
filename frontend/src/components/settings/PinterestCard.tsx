@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2, AlertCircle, Link2, Loader2, RefreshCw, Unlink } from 'lucide-react';
 import { apiRequest, ApiError } from '../../lib/api';
+import { useI18n } from '../../i18n/i18nContext';
 
 interface PinterestAccount {
   id: string;
@@ -28,6 +29,7 @@ interface PinterestBoard {
  * Credentials never leave the backend.
  */
 export const PinterestCard: React.FC = () => {
+  const { t } = useI18n();
   const [status, setStatus] = useState<PinterestStatus | null>(null);
   const [accounts, setAccounts] = useState<PinterestAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
@@ -54,7 +56,7 @@ export const PinterestCard: React.FC = () => {
       );
     } catch (e) {
       const err = e as ApiError;
-      setError(err?.message || 'Не удалось узнать статус Pinterest');
+      setError(err?.message || t.settings.pinterestConnectError);
     } finally {
       setLoading(false);
     }
@@ -76,11 +78,11 @@ export const PinterestCard: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const result = params.get('pinterest');
-    if (result === 'connected') setNotice('Pinterest-аккаунт подключён');
+    if (result === 'connected') setNotice(t.settings.pinterestConnected);
     if (result === 'denied') setError('Доступ к Pinterest не выдан — попробуйте ещё раз');
-    if (result === 'error') setError('Не удалось подключить Pinterest. Попробуйте ещё раз.');
+    if (result === 'error') setError(t.settings.pinterestConnectError);
     if (result === 'limit') setError('Достигнут лимит Pinterest-аккаунтов вашего тарифа. Измените тариф или отключите другой аккаунт.');
-    if (result === 'plan_required') setError('Для подключения Pinterest нужен активный тариф.');
+    if (result === 'plan_required') setError(t.settings.pinterestPlanRequired);
     if (result) {
       params.delete('pinterest');
       const url = new URL(window.location.href);
@@ -120,11 +122,11 @@ export const PinterestCard: React.FC = () => {
         method: 'POST',
         body: JSON.stringify({ account_id: accountId }),
       });
-      setNotice('Pinterest-аккаунт отключён');
+      setNotice(t.settings.disconnectAccount);
       await loadStatus();
     } catch (e) {
       const err = e as ApiError;
-      setError(err?.message || 'Не удалось отключить Pinterest');
+      setError(err?.message || t.settings.pinterestConnectError);
     } finally {
       setBusy(false);
     }
@@ -141,7 +143,7 @@ export const PinterestCard: React.FC = () => {
             <span>Pinterest</span>
           </h2>
           <p className="text-xs text-muted-theme mt-0.5">
-            Подключайте несколько Pinterest-профилей в пределах лимита тарифа и выбирайте нужный для работы.
+            {t.settings.connectedAccountDesc}
           </p>
         </div>
         <button
@@ -150,7 +152,7 @@ export const PinterestCard: React.FC = () => {
           className="accent-btn self-start px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
-          <span>Подключить аккаунт</span>
+          <span>{t.settings.pinterestConnectButton}</span>
         </button>
       </div>
 
@@ -166,12 +168,12 @@ export const PinterestCard: React.FC = () => {
       )}
       {loading && (
         <p className="text-xs text-muted-theme flex items-center gap-2">
-          <Loader2 className="w-4 h-4 animate-spin" /> Проверяем подключение…
+          <Loader2 className="w-4 h-4 animate-spin" /> {t.settings.syncData}…
         </p>
       )}
       {!loading && status?.configured === false && (
         <p className="text-xs text-muted-theme">
-          Интеграция пока не настроена на сервере — кнопка станет активной после добавления ключей Pinterest.
+          {t.settings.pinterestConnectionUnavailable}
         </p>
       )}
 
@@ -179,9 +181,9 @@ export const PinterestCard: React.FC = () => {
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-semibold text-secondary-theme">
-              Подключено аккаунтов: {accounts.length}
+              {t.settings.connectedAccountsCount.replace('{count}', String(accounts.length)).replace('{max}', String(status?.account_limit ?? '∞'))}
             </span>
-            <span className="text-[11px] text-muted-theme">Выберите профиль для просмотра досок</span>
+            <span className="text-[11px] text-muted-theme">{t.settings.selectPinterestAccount}</span>
           </div>
           <ul className="space-y-2">
             {accounts.map((account) => (
@@ -198,7 +200,7 @@ export const PinterestCard: React.FC = () => {
                     {account.username ? `@${account.username}` : 'Pinterest-аккаунт'}
                   </span>
                   <span className="block truncate text-[10px] text-muted-theme">
-                    ID: {account.pinterest_user_id || account.id}
+                    {t.settings.pinterestAccountIdLabel}: {account.pinterest_user_id || account.id}
                     {account.needs_reauth ? ' · требуется повторная авторизация' : ''}
                   </span>
                 </button>
@@ -210,7 +212,7 @@ export const PinterestCard: React.FC = () => {
                   className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-subtle px-2.5 py-2 text-[11px] font-semibold text-secondary-theme hover:border-rose-400 hover:text-rose-500 disabled:opacity-50"
                 >
                   {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unlink className="h-3.5 w-3.5" />}
-                  Отключить
+                  {t.settings.disconnectAccount}
                 </button>
               </li>
             ))}
@@ -220,7 +222,7 @@ export const PinterestCard: React.FC = () => {
             <div className="space-y-3 border-t border-subtle pt-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-semibold text-secondary-theme text-xs">
-                  Доски {selectedAccount.username ? `@ ${selectedAccount.username}` : 'выбранного аккаунта'}
+                  {t.settings.pinterestBoardsTitle} {selectedAccount.username ? `@${selectedAccount.username}` : ''}
                 </span>
                 <button
                   onClick={() => loadBoards(selectedAccount.id)}
@@ -230,7 +232,7 @@ export const PinterestCard: React.FC = () => {
                 </button>
               </div>
               {boards.length === 0 ? (
-                <p className="text-xs text-muted-theme">Доски не найдены или ещё не загружены.</p>
+                <p className="text-xs text-muted-theme">{t.settings.pinterestBoardsEmpty}</p>
               ) : (
                 <ul className="divide-y divide-subtle rounded-xl border border-subtle">
                   {boards.map((board) => (
