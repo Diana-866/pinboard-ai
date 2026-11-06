@@ -9,7 +9,6 @@ import {
 import { useTheme } from '../../theme/themeContext';
 import { useI18n } from '../../i18n/i18nContext';
 import { useAuth } from '../../context/AuthContext';
-import { PinterestAccount } from '../../data/mockData';
 import {
   getDefaultTimezone,
   saveUserTimezone,
@@ -20,16 +19,8 @@ import { PinterestCard } from './PinterestCard';
 
 interface SettingsViewProps {
   onGoToPricing?: () => void;
-  accounts?: PinterestAccount[];
-  activeAccountId?: string;
-  onSelectAccount?: (id: string) => void;
-  onAddAccount?: (account: PinterestAccount) => void;
-  onRemoveAccount?: (id: string) => void;
-  maxAccounts?: number;
-  onUpdateAccountAutoTime?: (accountId: string, autoTime: string, nightlyAuto: boolean) => void;
   onPinterestStatusChange?: (status: { configured: boolean; account_limit?: number | null; accounts?: Array<{ id: string; username?: string | null; pinterest_user_id?: string | null; needs_reauth?: boolean }> }) => void;
 }
-
 export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing, onPinterestStatusChange }) => {
   const { theme, setTheme, allThemes } = useTheme();
   const { language, setLanguage, t, supportedLanguages } = useI18n();
