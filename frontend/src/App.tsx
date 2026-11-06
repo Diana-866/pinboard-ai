@@ -369,6 +369,8 @@ const MainApp: React.FC = () => {
       scheduledDate: date.date,
       scheduledTime: date.time,
       status: 'scheduled',
+      pinterestAccountId: saved.pinterest_account_id || pin.pinterestAccountId,
+      accountHandle: accounts.find((account) => account.id === (saved.pinterest_account_id || pin.pinterestAccountId))?.handle || pin.accountHandle,
     };
     setScheduledPins((prev) => [persisted, ...prev.filter((item) => item.id !== persisted.id)]);
   };
