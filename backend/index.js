@@ -1067,15 +1067,23 @@ app.post("/pins/:id/schedule", requireAuth, requireTariff(["start", "pro", "agen
       if (!["http:", "https:"].includes(parsed.protocol)) throw httpError(422, "Разрешены только HTTP- и HTTPS-ссылки");
     }
 
+    // Persist the exact Pinterest identity with the schedule; the worker must
+    // never guess which connected profile should receive a scheduled pin.
+    const pinterest = require("./pinterest");
+    const requestedAccountId = req.body && (req.body.pinterest_account_id || req.body.account_id)
+      ? String(req.body.pinterest_account_id || req.body.account_id)
+      : null;
+    const selectedAccount = await pinterest.resolveAccount(req.userId, requestedAccountId);
     // Reject stale, foreign or inaccessible board IDs before persisting a schedule.
     // The worker repeats this check at publish time because access may later change.
-    await require("./pinterest").verifyPinterestBoard(req.userId, pinterestBoardId);
+    await pinterest.verifyPinterestBoard(req.userId, pinterestBoardId, selectedAccount.id);
 
     const { data, error } = await supabase
       .from("pin_schedules")
       .insert({
         user_id: String(req.userId),
         pin_id: pin.id,
+        pinterest_account_id: selectedAccount.id,
         scheduled_at: scheduledAt.toISOString(),
         timezone,
         destination_url: destinationUrl,
