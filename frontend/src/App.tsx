@@ -348,6 +348,25 @@ const MainApp: React.FC = () => {
     setScheduledPins((prev) => [persisted, ...prev.filter((item) => item.id !== persisted.id)]);
   };
 
+  const handleRetryScheduledPin = async (pin: ScheduledPinItem) => {
+    try {
+      const saved = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/retry`, {
+        method: 'POST',
+      });
+      const date = formatInstantInTimezone(new Date(saved.scheduled_at), getDefaultTimezone());
+      setScheduledPins((prev) => prev.map((item) => item.id === pin.id ? {
+        ...item,
+        scheduledDate: date.date,
+        scheduledTime: date.time,
+        status: 'scheduled',
+      } : item));
+    } catch (error) {
+      console.error('[schedule] Не удалось повторить публикацию:', error);
+      window.alert(error instanceof Error ? error.message : 'Не удалось повторить публикацию');
+      throw error;
+    }
+  };
+
   const handleCancelScheduledPin = async (pin: ScheduledPinItem) => {
     try {
       await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/cancel`, {
@@ -535,6 +554,7 @@ const MainApp: React.FC = () => {
               boards={boards}
               onAddPin={handleSchedulePin}
               onCancelSchedule={handleCancelScheduledPin}
+              onRetrySchedule={handleRetryScheduledPin}
               onGoToGenerator={(topic, date) => handleGenerateFromTopic(topic, date)}
               onOpenReview={() => setActiveTab('review')}
               accounts={accounts}
