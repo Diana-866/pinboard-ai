@@ -219,11 +219,10 @@ const MainApp: React.FC = () => {
     setActiveViewMode('client');
   };
 
-  // Pinterest Accounts state (User requested fix: "ботаника Nordic подключена 1 из 3")
-  // Pinterest OAuth is not available yet: never seed a fictional connected account.
+  // Pinterest connections and limits are loaded from the authenticated backend.
   const [accounts, setAccounts] = useState<PinterestAccount[]>([]);
   const [activeAccountId, setActiveAccountId] = useState<string>('');
-  const [maxAccounts, setMaxAccounts] = useState<number>(3);
+  const [maxAccounts, setMaxAccounts] = useState<number>(0);
 
   // Synchronized Pending Review Pins queue (Shared between Dashboard, Calendar, Sidebar & ManualApprovalDesk)
   // No review items are loaded until real generated pins are queued.
@@ -264,10 +263,13 @@ const MainApp: React.FC = () => {
   // Pinterest accounts and plan limits come from the server, never from demo/local state.
   React.useEffect(() => {
     let active = true;
+    // Clear the previous session immediately so another signed-in user never
+    // sees stale Pinterest profiles or the previous user's plan limit.
+    setAccounts([]);
+    setActiveAccountId('');
+    setMaxAccounts(0);
+
     if (!user?.id) {
-      setAccounts([]);
-      setActiveAccountId('');
-      setMaxAccounts(3);
       return () => { active = false; };
     }
 
@@ -281,6 +283,7 @@ const MainApp: React.FC = () => {
         if (active) {
           setAccounts([]);
           setActiveAccountId('');
+          setMaxAccounts(0);
         }
       });
 
