@@ -899,6 +899,7 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
   let idempotencyKey = req.get("Idempotency-Key");
   let generationRequestStarted = false;
   let providerGenerationStarted = false;
+  let generationClaimToken = null;
   try {
     if (typeof idempotencyKey !== "string" || !/^[A-Za-z0-9_-]{16,128}$/.test(idempotencyKey)) {
       throw httpError(422, "Для генерации требуется корректный Idempotency-Key");
@@ -952,6 +953,10 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
     }
     if (requestState.status !== "started" && requestState.status !== "resume") {
       throw httpError(500, "Неизвестное состояние запроса генерации");
+    }
+    generationClaimToken = requestState.claim_token;
+    if (typeof generationClaimToken !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(generationClaimToken)) {
+      throw httpError(500, "Не удалось безопасно получить право на генерацию");
     }
     generationRequestStarted = true;
     if (requestState.status === "resume") {
@@ -1011,6 +1016,7 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
         const { data, error } = await supabase.rpc("save_pin_generation_plan", {
           p_user_id: String(req.userId),
           p_idempotency_key: idempotencyKey,
+          p_claim_token: generationClaimToken,
           p_tasks: tasks,
         });
         if (error) {
@@ -1025,6 +1031,7 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
         const { error } = await supabase.rpc("update_pin_generation_task", {
           p_user_id: String(req.userId),
           p_idempotency_key: idempotencyKey,
+          p_claim_token: generationClaimToken,
           p_task_index: taskIndex,
           p_status: status,
           p_provider_task_id: details.providerTaskId || null,
@@ -1068,6 +1075,7 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
       p_user_id: String(req.userId),
       p_board_id: board.id,
       p_idempotency_key: idempotencyKey,
+      p_claim_token: generationClaimToken,
       p_pins: markedUpPins.map((p) => ({
         image_url: p.image_url,
         title: p.title,
@@ -1098,6 +1106,7 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
         await supabase.rpc("fail_pin_generation_request", {
           p_user_id: String(req.userId),
           p_idempotency_key: idempotencyKey,
+          p_claim_token: generationClaimToken,
           p_error_code: e && e.httpStatus === 402 ? "insufficient_credits" : "generation_failed",
           p_outcome_unknown: providerGenerationStarted,
         });
