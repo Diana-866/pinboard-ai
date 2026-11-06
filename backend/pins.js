@@ -57,6 +57,10 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
     if (!idea || !idea.title || !idea.image_prompt) continue;
     const ratio = aspectRatio === "mixed" ? pool[Math.floor(Math.random() * pool.length)] : aspectRatio;
     try {
+      // Mark uncertainty only when the first billable image task is about to be submitted.
+      if (typeof options.onProviderSubmission === "function") {
+        options.onProviderSubmission();
+      }
       const image = await generateImage(idea.image_prompt, model, ratio);
       if (!image || !image.url || image.price == null) continue; // незавершённая генерация — пропускаем (B8)
       try {
