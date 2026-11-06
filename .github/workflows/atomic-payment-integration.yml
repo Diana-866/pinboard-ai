@@ -183,7 +183,7 @@ jobs:
           PGPASSWORD: postgres
         run: |
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 <<'SQL'
-          do $
+          do $body$
           declare
             v_account_id uuid;
             v_state text;
@@ -216,7 +216,7 @@ jobs:
               raise exception 'credential replacement did not clear refresh uncertainty';
             end if;
           end;
-          $;
+          $body$;
           SQL
       - name: Verify duplicate webhooks and ledger consistency
         env:
