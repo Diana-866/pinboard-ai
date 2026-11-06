@@ -10,6 +10,19 @@ function providerRequestConfig() {
   };
 }
 
+function buildImageTaskPayload(prompt, model = "flux-schnell", aspectRatio = "2:3", idempotencyKey) {
+  const payload = {
+    model,
+    prompt,
+    params: { aspect_ratio: aspectRatio },
+    wait: true,
+  };
+  if (typeof idempotencyKey === "string" && idempotencyKey.trim()) {
+    payload.idempotency_key = idempotencyKey.trim();
+  }
+  return payload;
+}
+
 function imageTaskResult(task) {
   const url = task && task.result && task.result[0] && task.result[0].url;
   const price = task && task.price;
@@ -58,12 +71,7 @@ async function checkImage(taskId) {
 async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3") {
   const createResponse = await axios.post(
     `${API_BASE}/api/v2/media/tasks`,
-    {
-      model,
-      prompt,
-      aspect_ratio: aspectRatio,
-      wait: true,
-    },
+    buildImageTaskPayload(prompt, model, aspectRatio),
     providerRequestConfig()
   );
 
@@ -95,4 +103,4 @@ async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3"
   return { pending: true, taskId, message: "Ещё генерируется, проверь позже через /check-image/" + taskId };
 }
 
-module.exports = { generateText, generateImage, listModels, checkImage };
+module.exports = { generateText, generateImage, listModels, checkImage, buildImageTaskPayload };
