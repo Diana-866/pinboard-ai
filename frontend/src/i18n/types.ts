@@ -412,6 +412,16 @@ export interface TranslationSchema {
     connectedAccountsCount: string;
     noAccountsConnected: string;
     pinterestConnectionUnavailable: string;
+    pinterestConnected: string;
+    pinterestDenied: string;
+    pinterestConnectError: string;
+    pinterestAccountLimitReached: string;
+    pinterestPlanRequired: string;
+    pinterestConnectButton: string;
+    selectPinterestAccount: string;
+    pinterestBoardsTitle: string;
+    pinterestBoardsEmpty: string;
+    pinterestAccountIdLabel: string;
     billingSection: string;
     billingSectionDesc: string;
     currentPlan: string;
