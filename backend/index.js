@@ -965,7 +965,45 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
       onProviderSubmission: () => {
         providerGenerationStarted = true;
       },
+      persistPlan: async (tasks) => {
+        const { data, error } = await supabase.rpc("save_pin_generation_plan", {
+          p_user_id: String(req.userId),
+          p_idempotency_key: idempotencyKey,
+          p_tasks: tasks,
+        });
+        if (error) {
+          const journalError = new Error("Не удалось сохранить план генерации");
+          journalError.journalError = true;
+          journalError.cause = error;
+          throw journalError;
+        }
+        return data;
+      },
+      updateTask: async (taskIndex, status, details = {}) => {
+        const { error } = await supabase.rpc("update_pin_generation_task", {
+          p_user_id: String(req.userId),
+          p_idempotency_key: idempotencyKey,
+          p_task_index: taskIndex,
+          p_status: status,
+          p_provider_task_id: details.providerTaskId || null,
+          p_provider_result_url: details.providerResultUrl || null,
+          p_storage_url: details.storageUrl || null,
+          p_provider_price: details.providerPrice == null ? null : details.providerPrice,
+          p_error_code: details.errorCode || null,
+        });
+        if (error) {
+          const journalError = new Error("Не удалось обновить журнал генерации");
+          journalError.journalError = true;
+          journalError.cause = error;
+          throw journalError;
+        }
+      },
     });
+
+    if ((pinsData.pendingTasks && pinsData.pendingTasks.length) ||
+        (pinsData.unknownTasks && pinsData.unknownTasks.length)) {
+      throw httpError(409, "Часть задач генерации ещё не подтверждена. Запрос заблокирован до сверки результатов.");
+    }
 
     // B8: вставляем только пины с готовой картинкой и известной ценой
     const okPins = pinsData.filter((p) => p && p.image_url && p.credits_cost != null);
