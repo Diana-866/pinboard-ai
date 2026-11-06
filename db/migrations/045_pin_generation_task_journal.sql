@@ -196,6 +196,11 @@ begin
              error_code = case when p_error_code is null then error_code else left(p_error_code,64) end,
              updated_at = now()
        where id = v_task.id;
+       -- Refresh the parent request lease while this backend still owns recovery.
+       update public.pin_generation_requests
+          set updated_at = clock_timestamp()
+        where id = v_task.generation_request_id
+          and status = 'processing';
       return true;
     end if;
     raise exception 'invalid generation task transition: % -> %', v_task.status, p_status;
@@ -210,6 +215,12 @@ begin
          error_code = case when p_error_code is null then error_code else left(p_error_code,64) end,
          updated_at = now()
    where id = v_task.id;
+   -- Task lifecycle updates act as a heartbeat so a long-running active
+   -- recovery is not mistaken for an abandoned request after 30 minutes.
+   update public.pin_generation_requests
+      set updated_at = clock_timestamp()
+    where id = v_task.generation_request_id
+      and status = 'processing';
   return true;
 end;
 $$;
