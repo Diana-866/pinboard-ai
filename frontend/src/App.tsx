@@ -248,29 +248,7 @@ const MainApp: React.FC = () => {
     apiRequest('/integrations/pinterest/status')
       .then((data) => {
         if (!active) return;
-        const rows = Array.isArray(data?.accounts) ? data.accounts : [];
-        const mapped: PinterestAccount[] = rows.map((account: any, index: number) => ({
-          id: String(account.id),
-          name: account.username || account.pinterest_user_id || `Pinterest ${index + 1}`,
-          handle: account.username ? `@${account.username}` : String(account.pinterest_user_id || ''),
-          avatar: '',
-          boardsCount: 0,
-          monthlyViews: '—',
-          minDailyPins: 8,
-          maxDailyPins: 16,
-          nightlyAuto: false,
-          status: account.needs_reauth ? 'error' : 'active',
-          niche: '',
-        }));
-        setAccounts(mapped);
-        setActiveAccountId((current) =>
-          current && mapped.some((account) => account.id === current)
-            ? current
-            : mapped[0]?.id || ''
-        );
-        setMaxAccounts(data?.configured === false
-          ? 0
-          : data?.account_limit == null ? 99 : Math.max(0, Number(data.account_limit) || 0));
+        handlePinterestStatusChange(data);
       })
       .catch((error) => {
         console.error('[pinterest] Не удалось загрузить подключённые аккаунты:', error);
@@ -305,6 +283,32 @@ const MainApp: React.FC = () => {
       }
       return next;
     });
+  };
+
+  const handlePinterestStatusChange = (status: { configured: boolean; account_limit?: number | null; accounts?: Array<{ id: string; username?: string | null; pinterest_user_id?: string | null; needs_reauth?: boolean }> }) => {
+    const rows = Array.isArray(status.accounts) ? status.accounts : [];
+    const mapped: PinterestAccount[] = rows.map((account, index) => ({
+      id: String(account.id),
+      name: account.username || account.pinterest_user_id || `Pinterest ${index + 1}`,
+      handle: account.username ? `@${account.username}` : String(account.pinterest_user_id || ''),
+      avatar: '',
+      boardsCount: 0,
+      monthlyViews: '—',
+      minDailyPins: 8,
+      maxDailyPins: 16,
+      nightlyAuto: false,
+      status: account.needs_reauth ? 'error' : 'active',
+      niche: '',
+    }));
+    setAccounts(mapped);
+    setActiveAccountId((current) =>
+      current && mapped.some((account) => account.id === current)
+        ? current
+        : mapped[0]?.id || ''
+    );
+    setMaxAccounts(status.configured === false
+      ? 0
+      : status.account_limit == null ? 99 : Math.max(0, Number(status.account_limit) || 0));
   };
 
   const handleAddAccount = (acc: PinterestAccount) => {
@@ -519,6 +523,7 @@ const MainApp: React.FC = () => {
               pendingCount={pendingCount}
               currentAccount={currentAccount}
               onUpdateAccountAutoTime={handleUpdateAccountAutoTime}
+              onPinterestStatusChange={handlePinterestStatusChange}
             />
           )}
 
