@@ -17,6 +17,15 @@ as $$
 begin
   update public.pin_schedules
      set status='failed',
+         last_error='Pinterest board is missing; select a destination board and schedule again',
+         next_attempt_at=null,
+         updated_at=now()
+   where status='scheduled'
+     and scheduled_at <= now()
+     and pinterest_board_id is null;
+
+  update public.pin_schedules
+     set status='failed',
          last_error='Pinterest account is missing or disconnected; select an active account and schedule again',
          next_attempt_at=null,
          updated_at=now()
