@@ -41,18 +41,15 @@ begin
       raise exception 'SECURITY DEFINER function % lacks hardened search_path (config=%)',
         v_function, v_config;
     end if;
+
+    if has_function_privilege('anon', v_function::oid, 'EXECUTE')
+       or has_function_privilege('authenticated', v_function::oid, 'EXECUTE')
+       or not has_function_privilege('service_role', v_function::oid, 'EXECUTE') then
+      raise exception 'SECURITY DEFINER function % execute privileges are not restricted to service_role',
+        v_function;
+    end if;
   end loop;
 
-  if has_function_privilege('anon', 'public.adjust_credits_balance(text,integer)', 'EXECUTE')
-     or has_function_privilege('authenticated', 'public.adjust_credits_balance(text,integer)', 'EXECUTE')
-     or not has_function_privilege('service_role', 'public.adjust_credits_balance(text,integer)', 'EXECUTE') then
-    raise exception 'adjust_credits_balance execute privileges are not restricted to service_role';
-  end if;
 
-  if has_function_privilege('anon', 'public.claim_due_pin_schedules(integer)', 'EXECUTE')
-     or has_function_privilege('authenticated', 'public.claim_due_pin_schedules(integer)', 'EXECUTE')
-     or not has_function_privilege('service_role', 'public.claim_due_pin_schedules(integer)', 'EXECUTE') then
-    raise exception 'claim_due_pin_schedules execute privileges are not restricted to service_role';
-  end if;
 end;
 $test$;
