@@ -87,7 +87,10 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
       failedTasks.push({ task_index: taskIndex });
       continue;
     }
-    if (task.status === "prepared" && options.allowPreparedTaskSubmission === false) {
+    const canSubmitPreparedTask = typeof options.allowPreparedTaskSubmission === "function"
+      ? options.allowPreparedTaskSubmission()
+      : options.allowPreparedTaskSubmission !== false;
+    if (task.status === "prepared" && !canSubmitPreparedTask) {
       // Keep unsubmitted work in the journal when the user cannot currently
       // cover another provider call; already-submitted tasks remain recoverable.
       pendingTasks.push({ task_index: taskIndex, status: "awaiting_balance" });
