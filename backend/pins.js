@@ -74,6 +74,7 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
   const pins = [];
   const pendingTasks = [];
   const unknownTasks = [];
+  const failedTasks = [];
   for (const task of tasks) {
     const ratio = task.aspect_ratio;
     const taskIndex = Number(task.task_index);
@@ -108,6 +109,9 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
       }
       if (!image || !image.url || image.price == null) {
         unknownTasks.push({ task_index: taskIndex });
+        if (typeof options.updateTask === "function") {
+          await options.updateTask(taskIndex, "unknown", { errorCode: "provider_result_missing" });
+        }
         continue;
       }
 
@@ -147,6 +151,7 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
             errorCode: "provider_task_failed",
           });
         }
+        failedTasks.push({ task_index: taskIndex });
       } else {
         unknownTasks.push({ task_index: taskIndex });
         if (!providerSucceeded && typeof options.updateTask === "function") {
@@ -163,6 +168,7 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
 
   pins.pendingTasks = pendingTasks;
   pins.unknownTasks = unknownTasks;
+  pins.failedTasks = failedTasks;
   return pins;
 }
 
