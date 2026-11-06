@@ -29,7 +29,11 @@ interface PinterestBoard {
  * Pinterest connections are selected by stable PinPosy account ID.
  * Credentials never leave the backend.
  */
-export const PinterestCard: React.FC = () => {
+interface PinterestCardProps {
+  onAccountsChanged?: (status: PinterestStatus) => void;
+}
+
+export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged }) => {
   const { t } = useI18n();
   const [status, setStatus] = useState<PinterestStatus | null>(null);
   const [accounts, setAccounts] = useState<PinterestAccount[]>([]);
@@ -50,6 +54,7 @@ export const PinterestCard: React.FC = () => {
           : [];
       setStatus(data);
       setAccounts(nextAccounts);
+      onAccountsChanged?.(data);
       setSelectedAccountId((current) =>
         current && nextAccounts.some((account) => account.id === current)
           ? current
