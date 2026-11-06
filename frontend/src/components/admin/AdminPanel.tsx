@@ -42,12 +42,14 @@ import {
   exportTransactionsToCsv,
 } from '../../data/adminMockData';
 import { PinPosyLogo } from '../common/PinPosyLogo';
+import { useAuth } from '../../context/AuthContext';
 
 interface AdminPanelProps {
   onBackToApp: () => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
+  const { logout } = useAuth();
   // Navigation tabs within Admin Panel
   const [adminTab, setAdminTab] = useState<'users' | 'accounting' | 'night_and_bot' | 'mail' | 'subscriptions' | 'billing_exceptions'>('users');
 
@@ -63,7 +65,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
   const [transactionSearch, setTransactionSearch] = useState('');
   const [selectedReceipt, setSelectedReceipt] = useState<TransactionRecord | null>(null);
 
-  const handleAdminLogout = () => onBackToApp();
+  const handleAdminLogout = () => logout();
 
   // Filter transactions by period
   const filteredTransactions = useMemo(() => {
