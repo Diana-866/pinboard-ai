@@ -152,11 +152,11 @@ test("recovery does not submit prepared provider tasks when balance is insuffici
   assert.deepEqual(pins.unknownTasks, []);
 });
 
-test("recovery gates ambiguous submitting tasks when balance is insufficient", async () => {
+test("recovery reconciles ambiguous submitting tasks even when balance is insufficient", async () => {
   let submitted = false;
   provider.generateImage = async () => {
     submitted = true;
-    throw new Error("ambiguous submission must wait for sufficient balance");
+    throw new Error("provider temporarily unavailable");
   };
 
   const pins = await generatePins(
@@ -181,9 +181,9 @@ test("recovery gates ambiguous submitting tasks when balance is insufficient", a
     }
   );
 
-  assert.equal(submitted, false);
-  assert.deepEqual(pins.pendingTasks, [{ task_index: 1, status: "awaiting_balance" }]);
-  assert.deepEqual(pins.unknownTasks, []);
+  assert.equal(submitted, true);
+  assert.deepEqual(pins.pendingTasks, []);
+  assert.deepEqual(pins.unknownTasks, [{ task_index: 1 }]);
 });
 
 test("recovery restores completed tasks while leaving unsubmitted tasks pending", async () => {
