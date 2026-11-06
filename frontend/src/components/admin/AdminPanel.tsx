@@ -30,7 +30,6 @@ import {
   Layers,
   ArrowUpRight,
   ExternalLink,
-  Lock,
   LogOut,
 } from 'lucide-react';
 import {
