@@ -41,13 +41,13 @@ Add `pinterest_account_id` to:
 - `pinterest_publications`
 - `pin_schedules`
 
-Backfill existing rows by joining their `user_id` to the currently connected account before changing uniqueness. Preserve historical rows if an account has since been disconnected; do not fabricate a mapping where no matching account exists.
+Backfill only when the historical external Pinterest identity can be proven. The currently connected account is not sufficient evidence because the old account may have been disconnected and replaced. Leave ambiguous legacy rows with a null account ID; the v2 publish RPC treats those pins as `unknown` and blocks retry rather than risking a duplicate.
 
 Replace global-per-pin uniqueness with account-scoped uniqueness:
 - publication / attempt identity: `(pin_id, pinterest_account_id)`
 - active schedule identity: `(pin_id, pinterest_account_id)`
 
-The same local pin can then be published once to each connected Pinterest account, while duplicate prevention remains strict within one destination account.
+The same local pin can then be published once to each connected Pinterest account, while duplicate prevention remains strict within one destination account. Legacy publication attempts/publications with no verified account mapping are explicitly non-retryable until manually reconciled.
 
 Update all SECURITY DEFINER RPCs in the same migration set:
 - `begin_pinterest_publish`
@@ -102,6 +102,7 @@ Backend changes:
 - Account listing and per-account disconnect are available through the Pinterest status/settings endpoints.
 - Refresh lease, token commit, board lookup, manual publication, and worker publication are account-scoped.
 - A request without `account_id` resolves automatically only when exactly one active account exists; otherwise the API returns HTTP 422.
+- When an account is disconnected, future scheduled rows for that account are immediately marked failed; already-publishing rows are left for journal reconciliation.
 - The manual publish button and settings card now list/select connected Pinterest profiles.
 - Schedule creation persists `pinterest_account_id`; the backend refuses to guess when multiple accounts exist. The calendar still needs an account selector to make that flow convenient for multi-account users.
 
