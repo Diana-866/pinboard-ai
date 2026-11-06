@@ -1106,7 +1106,7 @@ app.post("/schedule/:id/cancel", requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("pin_schedules")
-      .update({ status: "cancelled", updated_at: new Date().toISOString() })
+      .update({ status: "cancelled", next_attempt_at: null, updated_at: new Date().toISOString() })
       .eq("id", req.params.id)
       .eq("user_id", String(req.userId))
       .eq("status", "scheduled")
