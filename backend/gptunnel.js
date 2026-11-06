@@ -26,10 +26,15 @@ function buildImageTaskPayload(prompt, model = "flux-schnell", aspectRatio = "2:
 function imageTaskResult(task) {
   const url = task && task.result && task.result[0] && task.result[0].url;
   const price = task && task.price;
-  if (typeof url !== "string" || !url || !Number.isFinite(Number(price)) || Number(price) < 0) {
+  const taskId = task && task.id;
+  if (
+    typeof url !== "string" || !url ||
+    !Number.isFinite(Number(price)) || Number(price) < 0 ||
+    typeof taskId !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(taskId)
+  ) {
     throw new Error("Провайдер вернул некорректный результат генерации");
   }
-  return { url, price: Number(price), taskId: typeof task.id === "string" ? task.id : null };
+  return { url, price: Number(price), taskId };
 }
 
 async function generateText(prompt) {
