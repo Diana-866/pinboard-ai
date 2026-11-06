@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   Palette,
   Globe,
-  Sparkles,
   CreditCard,
   Check,
   Clock,
@@ -10,8 +9,6 @@ import {
 import { useTheme } from '../../theme/themeContext';
 import { useI18n } from '../../i18n/i18nContext';
 import { useAuth } from '../../context/AuthContext';
-import { ThemeMode } from '../../theme/types';
-import { SupportedLanguage } from '../../i18n/types';
 import { PinterestAccount } from '../../data/mockData';
 import {
   getDefaultTimezone,
