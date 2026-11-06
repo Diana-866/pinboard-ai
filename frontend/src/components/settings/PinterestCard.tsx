@@ -178,6 +178,17 @@ export const PinterestCard: React.FC = () => {
         </p>
       )}
 
+      {!loading && status?.configured && accounts.length === 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-secondary-theme">
+            {t.settings.connectedAccountsCount.replace('{count}', '0').replace('{max}', String(status.account_limit ?? '∞'))}
+          </p>
+          <p className="rounded-xl border border-subtle bg-subtle/40 p-4 text-sm text-secondary-theme">
+            {t.settings.noAccountsConnected}
+          </p>
+        </div>
+      )}
+
       {!loading && accounts.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
