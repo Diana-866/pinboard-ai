@@ -386,6 +386,7 @@ export const zh: TranslationSchema = {
     pinterestConnected: "Pinterest 账户已连接。",
     pinterestDenied: "未授予 Pinterest 访问权限，请重试。",
     pinterestConnectError: "无法连接 Pinterest，请重试。",
+    pinterestNotConfigured: "服务器尚未配置 Pinterest 集成，请联系支持团队。",
     pinterestAccountLimitReached: "已达到当前套餐的 Pinterest 账户数量上限。请升级套餐或断开其他账户。",
     pinterestPlanRequired: "连接 Pinterest 需要有效套餐。",
     pinterestConnectButton: "连接 Pinterest 账户",
