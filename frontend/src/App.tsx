@@ -311,34 +311,6 @@ const MainApp: React.FC = () => {
       : status.account_limit == null ? 99 : Math.max(0, Number(status.account_limit) || 0));
   }, []);
 
-  const handleAddAccount = (acc: PinterestAccount) => {
-    setAccounts((prev) => {
-      const next = [...prev, acc];
-      try {
-        localStorage.setItem('pinposy_accounts', JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-      return next;
-    });
-    setActiveAccountId(acc.id);
-  };
-
-  const handleRemoveAccount = (id: string) => {
-    setAccounts((prev) => {
-      const next = prev.filter((a) => a.id !== id);
-      try {
-        localStorage.setItem('pinposy_accounts', JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-      if (activeAccountId === id && next.length > 0) {
-        setActiveAccountId(next[0].id);
-      }
-      return next;
-    });
-  };
-
   const currentAccount = accounts.find((a) => a.id === activeAccountId) || accounts[0];
   const pendingCount = pendingReviewPins.length;
 
@@ -593,8 +565,6 @@ const MainApp: React.FC = () => {
               accounts={accounts}
               activeAccountId={activeAccountId}
               onSelectAccount={setActiveAccountId}
-              onAddAccount={handleAddAccount}
-              onRemoveAccount={handleRemoveAccount}
               maxAccounts={maxAccounts}
               onUpdateAccountAutoTime={handleUpdateAccountAutoTime}
             />
