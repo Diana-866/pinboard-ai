@@ -179,6 +179,14 @@ begin
   if not v_allowed then
     if v_task.status = p_status and
        (p_provider_task_id is null or v_task.provider_task_id = p_provider_task_id) then
+      update public.pin_generation_tasks
+         set provider_task_id = coalesce(p_provider_task_id, provider_task_id),
+             provider_result_url = coalesce(p_provider_result_url, provider_result_url),
+             storage_url = coalesce(p_storage_url, storage_url),
+             provider_price = coalesce(p_provider_price, provider_price),
+             error_code = case when p_error_code is null then error_code else left(p_error_code,64) end,
+             updated_at = now()
+       where id = v_task.id;
       return true;
     end if;
     raise exception 'invalid generation task transition: % -> %', v_task.status, p_status;
