@@ -315,22 +315,30 @@ async function refreshAccessToken(account) {
 
     // Any transport failure after this point is ambiguous. Keep refresh_state
     // as uncertain and require OAuth reconnect rather than replaying an old token.
-    const res = await axios.post(
-      TOKEN_URL,
-      new URLSearchParams({
-        grant_type: "refresh_token",
-        refresh_token: latest.refresh_token,
-      }).toString(),
-      {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Authorization: `Basic ${basicAuth()}`,
-          Accept: "application/json",
-        },
-        timeout: TIMEOUT_MS,
-        validateStatus: () => true,
-      }
-    );
+    let res;
+    try {
+      res = await axios.post(
+        TOKEN_URL,
+        new URLSearchParams({
+          grant_type: "refresh_token",
+          refresh_token: latest.refresh_token,
+        }).toString(),
+        {
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Authorization: `Basic ${basicAuth()}`,
+            Accept: "application/json",
+          },
+          timeout: TIMEOUT_MS,
+          validateStatus: () => true,
+        }
+      );
+    } catch (requestError) {
+      // The server may have rotated the token before the connection failed.
+      // Do not expose transport details or retry the old credential.
+      console.error("[pinterest] refresh response was not received; reauthorization is required:", requestError && requestError.code || "network_error");
+      throw httpError(409, "Не удалось подтвердить обновление Pinterest-доступа. Подключите аккаунт заново.");
+    }
     if (res.status < 200 || res.status >= 300) {
       console.error("[pinterest] обновление токена не удалось:", res.status);
       throw httpError(409, "Pinterest-доступ истёк. Подключите аккаунт заново.");
