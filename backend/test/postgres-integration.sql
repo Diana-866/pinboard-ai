@@ -419,6 +419,23 @@ begin
   v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-provider-unknown-0001', repeat('e',64));
   if v_result->>'status' <> 'unknown' then raise exception 'provider timeout must block automatic replay'; end if;
 
+  -- An uncertain request with a durable plan is resumable without new prompts or keys.
+  if not public.fail_pin_generation_request(
+    v_user::text, 'ci-generation-journal-0001', 'simulated_response_loss', true
+  ) then raise exception 'journal request did not enter unknown state'; end if;
+  v_result := public.begin_pin_generation_request(
+    v_user::text, v_board, 'ci-generation-journal-0001', repeat('f',64)
+  );
+  if v_result->>'status' <> 'resume' then
+    raise exception 'journal-backed unknown request must be resumable';
+  end if;
+  v_result := public.get_pin_generation_plan(v_user::text, 'ci-generation-journal-0001');
+  if v_result->0->>'status' <> 'succeeded'
+     or v_result->0->>'storage_url' <> 'https://storage.example.invalid/result.png'
+     or v_result->0->>'provider_idempotency_key' <> v_provider_key then
+    raise exception 'recovery did not return persisted provider result and key';
+  end if;
+
   -- A second paid order must start after the current paid entitlement.
   insert into public.subscriptions(user_id, plan, status, provider_payment_id, amount, currency)
   values (v_user::text, 'pro', 'pending', 'ci-sub-next-' || v_user, 4990, 'rub')
