@@ -85,23 +85,47 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   });
   const [customScheduleTime, setCustomScheduleTime] = useState('20:15');
 
+  const [pinterestAccounts, setPinterestAccounts] = useState<Array<{ id: string; username?: string | null }>>([]);
+  const [selectedPinterestAccountId, setSelectedPinterestAccountId] = useState('');
   const [pinterestBoards, setPinterestBoards] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedPinterestBoardId, setSelectedPinterestBoardId] = useState('');
 
   useEffect(() => {
     let active = true;
-    apiRequest('/integrations/pinterest/boards')
+    apiRequest('/integrations/pinterest/status')
+      .then((data) => {
+        if (!active) return;
+        const rows = Array.isArray(data?.accounts) ? data.accounts : [];
+        setPinterestAccounts(rows);
+        if (rows.length === 1) setSelectedPinterestAccountId(rows[0].id);
+      })
+      .catch(() => {
+        if (active) setPinterestAccounts([]);
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    if (!selectedPinterestAccountId) {
+      setPinterestBoards([]);
+      setSelectedPinterestBoardId('');
+      return () => { active = false; };
+    }
+    apiRequest(`/integrations/pinterest/boards?account_id=${encodeURIComponent(selectedPinterestAccountId)}`)
       .then((data) => {
         if (!active) return;
         const rows = Array.isArray(data?.boards) ? data.boards : [];
         setPinterestBoards(rows);
-        if (rows.length === 1) setSelectedPinterestBoardId(rows[0].id);
+        setSelectedPinterestBoardId((current) =>
+          current && rows.some((board) => board.id === current) ? current : rows[0]?.id || ''
+        );
       })
       .catch(() => {
         if (active) setPinterestBoards([]);
       });
     return () => { active = false; };
-  }, []);
+  }, [selectedPinterestAccountId]);
 
 
   useEffect(() => {
@@ -365,6 +389,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       boardId: board.id,
       boardName: board.name,
       pinterestBoardId: selectedPinterestBoardId || undefined,
+      pinterestAccountId: selectedPinterestAccountId || undefined,
       imageUrl: currentPin.imageUrl,
       scheduledDate,
       scheduledTime,
@@ -983,6 +1008,23 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                 <label className="block text-[11px] font-bold text-primary-theme">
                   {t.generator.pinterestBoardForPublishingLabel}
                 </label>
+                {pinterestAccounts.length > 1 && (
+                  <select
+                    value={selectedPinterestAccountId}
+                    onChange={(e) => {
+                      setSelectedPinterestAccountId(e.target.value);
+                      setSelectedPinterestBoardId('');
+                    }}
+                    className="w-full mb-2 px-3 py-2 text-xs bg-app-input border border-subtle rounded-xl text-primary-theme"
+                  >
+                    <option value="">Select Pinterest account</option>
+                    {pinterestAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.username ? `@${account.username}` : account.id}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <select
                   value={selectedPinterestBoardId}
                   onChange={(e) => setSelectedPinterestBoardId(e.target.value)}
@@ -1004,7 +1046,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               <div className="pt-3 border-t border-subtle flex flex-col sm:flex-row items-center gap-3">
                 <button
                   onClick={handlePushToCalendar}
-                  disabled={!selectedPinterestBoardId || !currentPin}
+                  disabled={!selectedPinterestAccountId || !selectedPinterestBoardId || !currentPin}
                   className="w-full sm:flex-1 accent-btn py-2.5 px-4 rounded-xl text-xs md:text-sm font-semibold flex items-center justify-center gap-2 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Calendar className="w-4 h-4" />
