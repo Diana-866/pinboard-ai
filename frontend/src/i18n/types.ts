@@ -415,6 +415,7 @@ export interface TranslationSchema {
     pinterestConnected: string;
     pinterestDenied: string;
     pinterestConnectError: string;
+    pinterestNotConfigured: string;
     pinterestAccountLimitReached: string;
     pinterestPlanRequired: string;
     pinterestConnectButton: string;
