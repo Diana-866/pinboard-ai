@@ -4,17 +4,25 @@
  */
 async function executeWithAccountToken(account, handler, refreshAccessToken, wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))) {
   let currentAccount = account;
-  let result = await handler(currentAccount.access_token);
+  let refreshed = false;
+  let rateLimited = false;
 
-  if (result.status === 401) {
-    currentAccount = await refreshAccessToken(currentAccount);
-    result = await handler(currentAccount.access_token);
+  // Each recovery is allowed once. This also handles a 401 after the single
+  // 429 retry without risking an unbounded request loop.
+  while (true) {
+    const result = await handler(currentAccount.access_token);
+    if (result.status === 401 && !refreshed) {
+      refreshed = true;
+      currentAccount = await refreshAccessToken(currentAccount);
+      continue;
+    }
+    if (result.status === 429 && !rateLimited) {
+      rateLimited = true;
+      await wait(2000);
+      continue;
+    }
+    return result;
   }
-  if (result.status === 429) {
-    await wait(2000);
-    result = await handler(currentAccount.access_token);
-  }
-  return result;
 }
 
 module.exports = { executeWithAccountToken };
