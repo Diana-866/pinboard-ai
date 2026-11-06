@@ -186,6 +186,57 @@ test("recovery gates ambiguous submitting tasks when balance is insufficient", a
   assert.deepEqual(pins.unknownTasks, []);
 });
 
+test("recovery restores completed tasks while leaving unsubmitted tasks pending", async () => {
+  let submitted = false;
+  provider.generateImage = async () => {
+    submitted = true;
+    throw new Error("prepared task should remain pending");
+  };
+
+  const pins = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    2,
+    "2:3",
+    null,
+    {
+      loadPlan: async () => [
+        {
+          task_index: 1,
+          title: "Already completed",
+          description: "Saved description",
+          prompt: "immutable completed prompt",
+          model: "flux-schnell",
+          aspect_ratio: "2:3",
+          provider_idempotency_key: "stable-provider-key-0004",
+          status: "succeeded",
+          storage_url: "https://storage.example.invalid/completed.png",
+          provider_price: 0.6,
+        },
+        {
+          task_index: 2,
+          title: "Not submitted",
+          description: "Saved description",
+          prompt: "immutable pending prompt",
+          model: "flux-schnell",
+          aspect_ratio: "2:3",
+          provider_idempotency_key: "stable-provider-key-0005",
+          status: "prepared",
+        },
+      ],
+      allowPreparedTaskSubmission: () => false,
+    }
+  );
+
+  assert.equal(submitted, false);
+  assert.equal(pins.length, 1);
+  assert.equal(pins[0].title, "Already completed");
+  assert.equal(pins[0].image_url, "https://storage.example.invalid/completed.png");
+  assert.deepEqual(pins.pendingTasks, [{ task_index: 2, status: "awaiting_balance" }]);
+  assert.deepEqual(pins.unknownTasks, []);
+});
+
 test("restore original module cache entries", () => {
   if (originalGptunnel) require.cache[gptunnelPath] = originalGptunnel;
   else delete require.cache[gptunnelPath];
