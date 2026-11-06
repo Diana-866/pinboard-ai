@@ -382,7 +382,7 @@ async function refreshAccessToken(account) {
  */
 async function withAccount(userId, handler, accountId = null) {
   requireConfigured();
-  const account = await resolveAccount(userId, accountId);
+  let account = await resolveAccount(userId, accountId);
   let result = await handler(account.access_token);
 
   if (result.status === 401) {
