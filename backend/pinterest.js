@@ -264,6 +264,9 @@ async function refreshAccessToken(account) {
       await new Promise((resolve) => setTimeout(resolve, 250));
       const latest = await getAccount(account.user_id, account.id);
       if (!latest) throw httpError(409, "Pinterest отключён. Подключите аккаунт заново.");
+      if (latest.refresh_state === "uncertain") {
+        throw httpError(409, "Не удалось подтвердить обновление Pinterest-доступа. Подключите аккаунт заново.");
+      }
       if (
         latest.access_token !== account.access_token ||
         latest.refresh_token !== account.refresh_token
@@ -279,6 +282,9 @@ async function refreshAccessToken(account) {
     // between our initial 401 and the lease acquisition.
     const latest = await getAccount(account.user_id, account.id);
     if (!latest) throw httpError(409, "Pinterest отключён. Подключите аккаунт заново.");
+    if (latest.refresh_state === "uncertain") {
+      throw httpError(409, "Не удалось подтвердить обновление Pinterest-доступа. Подключите аккаунт заново.");
+    }
     if (
       latest.access_token !== account.access_token ||
       latest.refresh_token !== account.refresh_token
@@ -289,6 +295,26 @@ async function refreshAccessToken(account) {
       throw httpError(409, "Pinterest-доступ истёк. Подключите аккаунт заново.");
     }
 
+    // Persist an uncertainty fence BEFORE contacting Pinterest. If this process
+    // crashes or the response is lost after Pinterest rotates the token, no later
+    // instance may replay the old refresh token. A successful token commit clears
+    // this marker; OAuth reconnect also clears it through the database trigger.
+    const { data: refreshStarted, error: refreshStartError } = await supabase
+      .from("pinterest_accounts")
+      .update({ refresh_state: "uncertain", updated_at: new Date().toISOString() })
+      .eq("id", latest.id)
+      .eq("user_id", String(latest.user_id))
+      .eq("updated_at", latest.updated_at)
+      .eq("refresh_state", "ready")
+      .select("updated_at")
+      .maybeSingle();
+    if (refreshStartError || !refreshStarted) {
+      console.error("[pinterest] не удалось зафиксировать начало обновления токена:", refreshStartError && refreshStartError.message);
+      throw httpError(503, "Не удалось безопасно начать обновление Pinterest-доступа. Повторите запрос.");
+    }
+
+    // Any transport failure after this point is ambiguous. Keep refresh_state
+    // as uncertain and require OAuth reconnect rather than replaying an old token.
     const res = await axios.post(
       TOKEN_URL,
       new URLSearchParams({
@@ -322,7 +348,7 @@ async function refreshAccessToken(account) {
       p_user_id: String(latest.user_id),
       p_pinterest_account_id: latest.id,
       p_lease_id: leaseId,
-      p_expected_updated_at: latest.updated_at,
+      p_expected_updated_at: refreshStarted.updated_at,
       p_access_token: encryptToken(refreshedAccessToken),
       p_refresh_token: encryptToken(refreshedRefreshToken),
       p_scopes: res.data.scope || latest.scopes || SCOPES.join(","),
@@ -588,12 +614,12 @@ function registerRoutes(app, deps) {
           pinterest_user_id: account.pinterest_user_id,
           username: account.username,
           expires_at: account.expires_at,
-          needs_reauth: !!(account.expires_at && new Date(account.expires_at).getTime() < Date.now()),
+          needs_reauth: account.refresh_state === "uncertain" || !!(account.expires_at && new Date(account.expires_at).getTime() < Date.now()),
         })),
         // Backward-compatible fields for the current single-account settings card.
         username: primary ? primary.username : null,
         expires_at: primary ? primary.expires_at : null,
-        needs_reauth: !!(primary && primary.expires_at && new Date(primary.expires_at).getTime() < Date.now()),
+        needs_reauth: !!(primary && (primary.refresh_state === "uncertain" || (primary.expires_at && new Date(primary.expires_at).getTime() < Date.now()))),
       });
     } catch (e) {
       handleError(res, e);
