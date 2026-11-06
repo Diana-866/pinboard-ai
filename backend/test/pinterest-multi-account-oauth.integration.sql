@@ -172,6 +172,9 @@ declare
   v_attempt uuid := gen_random_uuid();
   v_generation bigint;
   v_result jsonb;
+  v_unlimited_user uuid := gen_random_uuid();
+  v_unlimited_attempt uuid := gen_random_uuid();
+  v_unlimited_generation bigint;
 begin
   insert into public.users(id, email, token_version, tariff_plan, tariff_period_end)
   values (
@@ -192,5 +195,25 @@ begin
   if v_result->>'ok' <> 'false' or v_result->>'reason' <> 'plan_required' then
     raise exception 'expired manual tariff incorrectly authorized Pinterest OAuth: %', v_result;
   end if;
+
+  insert into public.users(id, email, token_version, tariff_plan, tariff_period_end)
+  values (
+    v_unlimited_user,
+    'pinterest-unlimited-manual-' || v_unlimited_user || '@example.invalid',
+    0,
+    'start',
+    null
+  );
+  v_unlimited_generation := public.begin_pinterest_oauth_attempt(
+    v_unlimited_user::text, v_unlimited_attempt, 0
+  );
+  v_result := public.commit_pinterest_oauth_attempt_v2(
+    v_unlimited_user::text, v_unlimited_attempt, v_unlimited_generation, 0,
+    'unlimited-manual-' || v_unlimited_user, 'unlimited_manual', 'enc:unlimited', 'enc:refresh',
+    'boards:read,pins:write', now() + interval '1 hour'
+  );
+  if v_result->>'ok' <> 'true' then
+    raise exception 'unlimited manual tariff was incorrectly rejected: %', v_result;
+  end if;
 end;
-$$;
+$;
