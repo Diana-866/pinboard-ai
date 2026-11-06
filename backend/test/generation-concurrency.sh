@@ -86,13 +86,13 @@ echo "Concurrent duplicate generation completion passed for request $KEY"
 # is not: failed means no pins/debit; completed means exactly one of each.
 RACE_KEY="ci-generation-fail-complete-$(printf '%s' "$USER_ID" | tr -d '-')"
 RACE_FINGERPRINT="$(printf 'a%.0s' {1..64})"
-"\${psql_base[@]}" -c "select public.begin_pin_generation_request('$USER_ID', '$BOARD_ID', '$RACE_KEY', '$RACE_FINGERPRINT')"
-PGAPPNAME=generation-race-locker "\${psql_base[@]}" -c "begin; select id from public.pin_generation_requests where user_id = '$USER_ID' and idempotency_key = '$RACE_KEY' for update; select pg_sleep(6); commit;" >/tmp/generation-race-locker.log 2>&1 &
+"${psql_base[@]}" -c "select public.begin_pin_generation_request('$USER_ID', '$BOARD_ID', '$RACE_KEY', '$RACE_FINGERPRINT')"
+PGAPPNAME=generation-race-locker "${psql_base[@]}" -c "begin; select id from public.pin_generation_requests where user_id = '$USER_ID' and idempotency_key = '$RACE_KEY' for update; select pg_sleep(6); commit;" >/tmp/generation-race-locker.log 2>&1 &
 RACE_LOCK_PID=$!
 
 race_locked=0
 for _ in $(seq 1 50); do
-  active="$("\${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name = 'generation-race-locker' and position('pg_sleep' in query) > 0")"
+  active="$("${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name = 'generation-race-locker' and position('pg_sleep' in query) > 0")"
   if [[ "$active" == "1" ]]; then race_locked=1; break; fi
   sleep 0.1
 done
@@ -102,14 +102,14 @@ if [[ "$race_locked" != "1" ]]; then
   exit 1
 fi
 
-PGAPPNAME=generation-race-failure "\${psql_base[@]}" -c "select public.fail_pin_generation_request('$USER_ID', '$RACE_KEY', 'simulated_race_failure', false)" >/tmp/generation-race-failure.log 2>&1 &
+PGAPPNAME=generation-race-failure "${psql_base[@]}" -c "select public.fail_pin_generation_request('$USER_ID', '$RACE_KEY', 'simulated_race_failure', false)" >/tmp/generation-race-failure.log 2>&1 &
 RACE_FAIL_PID=$!
-PGAPPNAME=generation-race-completion "\${psql_base[@]}" -c "select public.complete_pin_generation_request('$USER_ID', '$BOARD_ID', '$RACE_KEY', '$PINS'::jsonb, 5)" >/tmp/generation-race-completion.log 2>&1 &
+PGAPPNAME=generation-race-completion "${psql_base[@]}" -c "select public.complete_pin_generation_request('$USER_ID', '$BOARD_ID', '$RACE_KEY', '$PINS'::jsonb, 5)" >/tmp/generation-race-completion.log 2>&1 &
 RACE_COMPLETE_PID=$!
 
 race_waiters=0
 for _ in $(seq 1 80); do
-  race_waiters="$("\${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name in ('generation-race-failure', 'generation-race-completion') and wait_event_type = 'Lock'")"
+  race_waiters="$("${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name in ('generation-race-failure', 'generation-race-completion') and wait_event_type = 'Lock'")"
   if [[ "$race_waiters" == "2" ]]; then break; fi
   sleep 0.1
 done
@@ -123,7 +123,7 @@ wait "$RACE_LOCK_PID"
 wait "$RACE_FAIL_PID" || true
 wait "$RACE_COMPLETE_PID" || true
 
-"\${psql_base[@]}" <<SQL
+"${psql_base[@]}" <<SQL
 do \$\$
 declare
   v_balance integer;
