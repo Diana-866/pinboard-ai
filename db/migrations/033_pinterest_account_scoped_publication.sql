@@ -59,6 +59,22 @@ begin
     raise exception 'Pinterest account not found or disconnected' using errcode = '42501';
   end if;
 
+  -- Historical rows from before account IDs existed cannot be assigned safely.
+  -- Block publication rather than risk duplicating a remote pin in the wrong account.
+  if exists (
+       select 1 from public.pinterest_publications
+        where pin_id = p_pin_id and pinterest_account_id is null
+     )
+     or exists (
+       select 1 from public.pinterest_publish_attempts
+        where pin_id = p_pin_id and pinterest_account_id is null
+     ) then
+    return jsonb_build_object(
+      'status','unknown',
+      'message','Legacy publication history has no verified Pinterest account mapping; manual reconciliation required'
+    );
+  end if;
+
   select * into v_publication
     from public.pinterest_publications
    where pin_id = p_pin_id
