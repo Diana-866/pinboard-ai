@@ -719,6 +719,13 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                   const file = e.target.files?.[0];
                   if (!file) return;
                   try {
+                    const dataUrl = await new Promise<string>((resolve, reject) => {
+                      const reader = new FileReader();
+                      reader.onload = () => resolve(reader.result as string);
+                      reader.onerror = () => reject(new Error('Не удалось прочитать изображение.'));
+                      reader.readAsDataURL(file);
+                    });
+
                     if (currentPin.pinId) {
                       const fd = new FormData();
                       fd.append('image', file);
@@ -733,12 +740,6 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                       }
                     }
 
-                    const dataUrl = await new Promise<string>((resolve, reject) => {
-                      const reader = new FileReader();
-                      reader.onload = () => resolve(reader.result as string);
-                      reader.onerror = () => reject(new Error('Не удалось прочитать изображение.'));
-                      reader.readAsDataURL(file);
-                    });
                     updateQueue((prev) =>
                       prev.map((p) => (p.id === currentPin.id ? { ...p, imageUrl: dataUrl } : p))
                     );
