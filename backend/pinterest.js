@@ -689,11 +689,6 @@ function registerRoutes(app, deps) {
       if (!tariff.active) {
         return res.redirect(back("plan_required"));
       }
-      const accountLimits = { analytics: 1, start: 3, pro: 10, agency: null };
-      const maxAccounts = Object.prototype.hasOwnProperty.call(accountLimits, normalizePlan(tariff.plan))
-        ? accountLimits[normalizePlan(tariff.plan)]
-        : 0;
-
       const { data: committed, error: commitError } = await supabase.rpc("commit_pinterest_oauth_attempt_v2", {
         p_user_id: String(userId),
         p_attempt_id: String(stateClaims.attemptId || ""),
@@ -705,7 +700,6 @@ function registerRoutes(app, deps) {
         p_refresh_token: encryptToken(tokenResponse.refresh_token || null),
         p_scopes: tokenResponse.scope || SCOPES.join(","),
         p_expires_at: expiresAt,
-        p_max_accounts: maxAccounts,
       });
       if (commitError) throw commitError;
       if (!committed || committed.ok !== true) {
