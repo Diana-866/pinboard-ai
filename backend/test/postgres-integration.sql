@@ -47,7 +47,8 @@ begin
   if to_regprocedure('public.save_pin_generation_plan(text,text,jsonb)') is not null
      or to_regprocedure('public.update_pin_generation_task(text,text,integer,text,text,text,text,numeric,text)') is not null
      or to_regprocedure('public.complete_pin_generation_request(text,uuid,text,jsonb,integer)') is not null
-     or to_regprocedure('public.fail_pin_generation_request(text,text,text,boolean)') is not null then
+     or to_regprocedure('public.fail_pin_generation_request(text,text,text,boolean)') is not null
+     or to_regprocedure('public.fail_pin_generation_request(text,text,text)') is not null then
     raise exception 'unguarded legacy generation RPC overload still exists';
   end if;
   if to_regprocedure('public.issue_password_reset_token(text,text,timestamptz)') is not null then
@@ -476,6 +477,7 @@ begin
   perform public.adjust_credits_balance_and_log(v_user::text, 1, 'topup', 'atomic retry test');
   v_result := public.complete_pin_generation_request(
     v_user::text, v_board, 'ci-generation-atomic-retry-0001',
+    (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-atomic-retry-0001'),
     '[{"image_url":"https://cdn.example.invalid/atomic-retry.png","title":"Atomic retry","description":"","model_used":"flux-schnell","aspect_ratio":"2:3","credits_cost":76}]'::jsonb,
     76
   );
@@ -485,6 +487,7 @@ begin
   end if;
   v_result := public.complete_pin_generation_request(
     v_user::text, v_board, 'ci-generation-atomic-retry-0001',
+    (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-atomic-retry-0001'),
     '[{"image_url":"https://cdn.example.invalid/atomic-retry.png","title":"Atomic retry","description":"","model_used":"flux-schnell","aspect_ratio":"2:3","credits_cost":76}]'::jsonb,
     76
   );
