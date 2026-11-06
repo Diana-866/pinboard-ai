@@ -105,6 +105,24 @@ begin
     raise exception 'disconnecting account A changed account B schedule';
   end if;
 
+  -- Disconnecting A must not erase either account's already-published history.
+  select count(*) into v_publication_count
+    from public.pinterest_publications
+   where user_id = v_user::text and pin_id = v_pin;
+  if v_publication_count <> 2
+     or not exists (
+       select 1 from public.pinterest_publications
+        where user_id=v_user::text and pin_id=v_pin
+          and pinterest_account_id=v_account_a and pinterest_pin_id='remote-a'
+     )
+     or not exists (
+       select 1 from public.pinterest_publications
+        where user_id=v_user::text and pin_id=v_pin
+          and pinterest_account_id=v_account_b and pinterest_pin_id='remote-b'
+     ) then
+    raise exception 'disconnecting account A changed published history for A or B';
+  end if;
+
   delete from public.pin_schedules where user_id = v_user::text;
   delete from public.pinterest_publish_attempts where user_id = v_user::text;
   delete from public.pinterest_publications where user_id = v_user::text;
