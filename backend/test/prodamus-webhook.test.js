@@ -94,6 +94,32 @@ test("uses the configured Prodamus shop ID when no explicit form URL is set", ()
   }
 });
 
+test("rejects unsafe checkout URLs returned by Prodamus", async () => {
+  const previous = {
+    PRODAMUS_SECRET: process.env.PRODAMUS_SECRET,
+    PRODAMUS_OFFLINE: process.env.PRODAMUS_OFFLINE,
+    PRODAMUS_URL: process.env.PRODAMUS_URL,
+  };
+  try {
+    process.env.PRODAMUS_SECRET = "shop-secret-test";
+    process.env.PRODAMUS_OFFLINE = "1";
+    process.env.PRODAMUS_URL = "https://example.payform.ru/";
+    const result = await prodamus.createPaymentLink({
+      orderId: "pp-start-test",
+      amount: 1990,
+      description: "PinPosy / Start",
+    });
+    assert.equal(new URL(result.url).protocol, "https:");
+    assert.equal(new URL(result.url).username, "");
+    assert.equal(new URL(result.url).password, "");
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
 test("always sends the required empty SYS field for a self-written integration", async () => {
   const previous = {
     PRODAMUS_SECRET: process.env.PRODAMUS_SECRET,
