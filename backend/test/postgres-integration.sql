@@ -282,9 +282,21 @@ begin
      or v_result->0->>'provider_idempotency_key' <> v_provider_key then
     raise exception 'retry changed immutable plan or provider idempotency key';
   end if;
+  -- An active task update must refresh the parent recovery lease.
+  update public.pin_generation_requests
+     set updated_at = clock_timestamp() - interval '31 minutes'
+   where user_id = v_user::text and idempotency_key = 'ci-generation-journal-0001';
   if not public.update_pin_generation_task(
     v_user::text, 'ci-generation-journal-0001', 1, 'submitting'
   ) then raise exception 'journal task did not enter submitting'; end if;
+  if exists (
+    select 1 from public.pin_generation_requests
+     where user_id = v_user::text
+       and idempotency_key = 'ci-generation-journal-0001'
+       and updated_at < clock_timestamp() - interval '1 minute'
+  ) then
+    raise exception 'active task update did not refresh parent recovery lease';
+  end if;
   if not public.update_pin_generation_task(
     v_user::text, 'ci-generation-journal-0001', 1, 'queued', 'ci-task-0001'
   ) then raise exception 'provider task id was not persisted'; end if;
