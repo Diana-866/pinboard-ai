@@ -353,12 +353,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="relative shrink-0">
-                        <img
-                          src={acc.avatar}
-                          alt={acc.name}
-                          referrerPolicy="no-referrer"
-                          className="w-7 h-7 rounded-full object-cover border border-subtle"
-                        />
+                        {acc.avatar ? (
+                          <img
+                            src={acc.avatar}
+                            alt={acc.name}
+                            referrerPolicy="no-referrer"
+                            className="w-7 h-7 rounded-full object-cover border border-subtle"
+                          />
+                        ) : (
+                          <div
+                            aria-label={acc.name}
+                            className="w-7 h-7 rounded-full border border-subtle bg-subtle flex items-center justify-center text-[10px] font-bold text-primary-theme"
+                          >
+                            {(acc.handle || acc.name || 'P').replace(/^@/, '').charAt(0).toUpperCase()}
+                          </div>
+                        )}
                         <span
                           className={`w-2 h-2 rounded-full absolute -bottom-0.5 -right-0.5 border border-surface ${
                             isSelected ? 'bg-emerald-500 ring-2 ring-emerald-500/30' : 'bg-zinc-400'
