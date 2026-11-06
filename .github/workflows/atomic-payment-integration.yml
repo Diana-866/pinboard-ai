@@ -1,6 +1,7 @@
 name: Atomic payment fulfillment integration
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - fix/atomic-payment-fulfillment
