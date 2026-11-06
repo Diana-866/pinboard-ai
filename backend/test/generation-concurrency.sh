@@ -84,12 +84,18 @@ if "${psql_base[@]}" -c "select public.update_pin_generation_task('$USER_ID', '$
   echo "Stale generation owner unexpectedly updated the task journal"
   exit 1
 fi
-if "${psql_base[@]}" -c "select public.complete_pin_generation_request('$USER_ID', '$BOARD_ID', '$RECOVERY_KEY', '$OLD_RECOVERY_TOKEN', '[{\\"image_url\\":\\"https://cdn.example.invalid/stale-owner.png\\",\\"title\\":\\"Stale owner\\",\\"description\\":\\"\\",\\"model_used\\":\\"flux-schnell\\",\\"aspect_ratio\\":\\"2:3\\",\\"credits_cost\\":5}]'::jsonb, 5)" >/tmp/generation-stale-owner-complete.log 2>&1; then
+STALE_PINS='[{"image_url":"https://cdn.example.invalid/stale-owner.png","title":"Stale owner","description":"","model_used":"flux-schnell","aspect_ratio":"2:3","credits_cost":5}]'
+if "${psql_base[@]}" -c "select public.complete_pin_generation_request('$USER_ID', '$BOARD_ID', '$RECOVERY_KEY', '$OLD_RECOVERY_TOKEN', '$STALE_PINS'::jsonb, 5)" >/tmp/generation-stale-owner-complete.log 2>&1; then
   echo "Stale generation owner unexpectedly completed and charged"
   exit 1
 fi
 "${psql_base[@]}" -c "select public.update_pin_generation_task('$USER_ID', '$RECOVERY_KEY', '$NEW_RECOVERY_TOKEN', 1, 'submitting')" >/dev/null
-"${psql_base[@]}" -c "do \\$\\$ begin if (select credits_balance from public.users where id='$USER_ID') <> 20 or exists(select 1 from public.pins where board_id='$BOARD_ID' and title='Stale owner') then raise exception 'stale owner changed financial state'; end if; end; \\$\\$;"
+BALANCE_AFTER_STALE="$("${psql_base[@]}" -At -c "select credits_balance from public.users where id = '$USER_ID'")"
+STALE_PIN_COUNT="$("${psql_base[@]}" -At -c "select count(*) from public.pins where board_id = '$BOARD_ID' and title = 'Stale owner'")"
+if [[ "$BALANCE_AFTER_STALE" != "20" || "$STALE_PIN_COUNT" != "0" ]]; then
+  echo "Stale generation owner changed financial state (balance=$BALANCE_AFTER_STALE pins=$STALE_PIN_COUNT)"
+  exit 1
+fi
 echo "Stale generation owner fencing passed for request $RECOVERY_KEY"
 
 
