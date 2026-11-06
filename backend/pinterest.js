@@ -706,6 +706,9 @@ function registerRoutes(app, deps) {
         if (committed && committed.reason === "account_limit_reached") {
           return res.redirect(back("limit"));
         }
+        if (committed && committed.reason === "plan_required") {
+          return res.redirect(back("plan_required"));
+        }
         throw httpError(409, "Попытка подключения Pinterest устарела или не прошла проверку. Начните подключение заново.");
       }
       console.log(`[pinterest] аккаунт подключён: user=${userId} login=${profile && profile.username}`);
