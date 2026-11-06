@@ -142,7 +142,10 @@ async function decodeAccountRecord(data) {
   if (!data) return null;
   let stored = data;
   // Migrate legacy plaintext tokens with an optimistic update on the exact row.
-  if (hasEncryptionKey() && (!isEncryptedToken(data.access_token) || (data.refresh_token && !isEncryptedToken(data.refresh_token)))) {
+  // Do not let legacy plaintext migration clear a durable refresh uncertainty fence.
+  // decryptToken() can still read legacy values without rewriting the row.
+  if (hasEncryptionKey() && data.refresh_state !== "uncertain" &&
+      (!isEncryptedToken(data.access_token) || (data.refresh_token && !isEncryptedToken(data.refresh_token)))) {
     const encrypted = {
       access_token: data.access_token ? encryptToken(data.access_token) : null,
       refresh_token: data.refresh_token ? encryptToken(data.refresh_token) : null,
@@ -347,11 +350,21 @@ async function refreshAccessToken(account) {
     // Do not use the general OAuth upsert here: a reconnect may have replaced
     // the account while this request was in flight. Commit only if both the
     // lease and the account row version still match what we refreshed.
-    const refreshedAccessToken = res.data.access_token || latest.access_token;
-    const refreshedRefreshToken = res.data.refresh_token || latest.refresh_token;
-    const expiresAt = res.data.expires_in
-      ? new Date(Date.now() + Number(res.data.expires_in) * 1000).toISOString()
-      : latest.expires_at || null;
+    // Pinterest continuous refresh rotates both credentials. A nominal 2xx
+    // response without the complete token set is not safe to commit: preserving
+    // the old refresh token and clearing the uncertainty fence could replay it.
+    const refreshedAccessToken = res.data && res.data.access_token;
+    const refreshedRefreshToken = res.data && res.data.refresh_token;
+    const expiresIn = Number(res.data && res.data.expires_in);
+    if (
+      typeof refreshedAccessToken !== "string" || !refreshedAccessToken.trim() ||
+      typeof refreshedRefreshToken !== "string" || !refreshedRefreshToken.trim() ||
+      !Number.isFinite(expiresIn) || expiresIn <= 0
+    ) {
+      console.error("[pinterest] refresh response did not contain a complete rotated token set");
+      throw httpError(409, "Pinterest вернул неполный ответ обновления доступа. Подключите аккаунт заново.");
+    }
+    const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
     const { data: committed, error: commitError } = await supabase.rpc("commit_pinterest_account_token_refresh", {
       p_user_id: String(latest.user_id),
       p_pinterest_account_id: latest.id,
