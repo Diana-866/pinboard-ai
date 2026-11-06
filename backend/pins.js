@@ -154,6 +154,9 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
       }
       providerSucceeded = true;
       const storedUrl = await rehostImage(image.url);
+      if (typeof storedUrl !== "string" || !storedUrl.trim()) {
+        throw new Error("Не удалось получить постоянную ссылку на изображение");
+      }
       if (typeof options.updateTask === "function") {
         await options.updateTask(taskIndex, "succeeded", {
           providerTaskId: image.taskId,
