@@ -31,10 +31,10 @@ language plpgsql
 set search_path = pg_catalog, public
 as $$
 begin
-  if new.access_token is distinct from old.access_token
-     or new.refresh_token is distinct from old.refresh_token then
-    new.refresh_state := 'ready';
-  end if;
+  -- The trigger fires only when an UPDATE statement explicitly writes one of
+  -- the credential columns. This includes a valid refresh response that keeps
+  -- the same refresh token but rotates the access token or its metadata.
+  new.refresh_state := 'ready';
   return new;
 end;
 $$;
