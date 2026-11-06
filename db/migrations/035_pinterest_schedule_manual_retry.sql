@@ -60,6 +60,16 @@ begin
     return jsonb_build_object('ok', false, 'reason', 'publication_attempt_exists');
   end if;
 
+  if exists (
+    select 1 from public.pin_schedules active
+     where active.pin_id = v_schedule.pin_id
+       and active.pinterest_account_id = v_account_id
+       and active.id <> v_schedule.id
+       and active.status in ('scheduled', 'publishing', 'published', 'unknown')
+  ) then
+    return jsonb_build_object('ok', false, 'reason', 'active_schedule_exists');
+  end if;
+
   if not exists (
     select 1
       from public.pins p
