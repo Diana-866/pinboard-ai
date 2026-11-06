@@ -121,10 +121,16 @@ begin
          attempt_expires_at = null, updated_at = now()
    where user_id = p_user_id;
 
+  select count(*)::integer into v_active_count
+    from public.pinterest_accounts
+   where user_id = p_user_id
+     and disconnected_at is null
+     and access_token is not null;
+
   return jsonb_build_object(
     'ok', true,
     'account_id', v_account_id,
-    'active_accounts', v_active_count + case when v_account_id is null then 1 else 0 end
+    'active_accounts', v_active_count
   );
 end;
 $$;
