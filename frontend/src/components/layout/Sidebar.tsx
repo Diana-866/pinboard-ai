@@ -370,7 +370,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         )}
                         <span
                           className={`w-2 h-2 rounded-full absolute -bottom-0.5 -right-0.5 border border-surface ${
-                            isSelected ? 'bg-emerald-500 ring-2 ring-emerald-500/30' : 'bg-zinc-400'
+                            acc.status === 'error' ? 'bg-red-500' : isSelected ? 'bg-emerald-500 ring-2 ring-emerald-500/30' : 'bg-zinc-400'
                           }`}
                           title={t.nav.syncStatus}
                         />
