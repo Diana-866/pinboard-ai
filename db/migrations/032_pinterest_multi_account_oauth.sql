@@ -2,10 +2,6 @@
 -- Enable multiple distinct Pinterest identities per PinPosy user.
 -- OAuth state remains per PinPosy user (one in-flight link attempt at a time).
 
--- Remove the legacy one-account-per-user constraint only after the v2 callback
--- RPC exists in this same migration.
-drop index if exists public.uniq_pinterest_accounts_user;
-
 create unique index if not exists pinterest_accounts_user_external_identity_uidx
   on public.pinterest_accounts(user_id, pinterest_user_id)
   where pinterest_user_id is not null;
@@ -139,3 +135,6 @@ revoke all on function public.commit_pinterest_oauth_attempt_v2(text,uuid,bigint
   from public, anon, authenticated;
 grant execute on function public.commit_pinterest_oauth_attempt_v2(text,uuid,bigint,bigint,text,text,text,text,text,timestamptz,integer)
   to service_role;
+
+-- Remove the legacy constraint only after the account-aware callback RPC is installed.
+drop index if exists public.uniq_pinterest_accounts_user;
