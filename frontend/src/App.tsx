@@ -94,7 +94,7 @@ const MainApp: React.FC = () => {
     }
     loadBoards();
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [user?.id, handlePinterestStatusChange]);
 
 
 
@@ -285,7 +285,7 @@ const MainApp: React.FC = () => {
     });
   };
 
-  const handlePinterestStatusChange = (status: { configured: boolean; account_limit?: number | null; accounts?: Array<{ id: string; username?: string | null; pinterest_user_id?: string | null; needs_reauth?: boolean }> }) => {
+  const handlePinterestStatusChange = React.useCallback((status: { configured: boolean; account_limit?: number | null; accounts?: Array<{ id: string; username?: string | null; pinterest_user_id?: string | null; needs_reauth?: boolean }> }) => {
     const rows = Array.isArray(status.accounts) ? status.accounts : [];
     const mapped: PinterestAccount[] = rows.map((account, index) => ({
       id: String(account.id),
@@ -309,7 +309,7 @@ const MainApp: React.FC = () => {
     setMaxAccounts(status.configured === false
       ? 0
       : status.account_limit == null ? 99 : Math.max(0, Number(status.account_limit) || 0));
-  };
+  }, []);
 
   const handleAddAccount = (acc: PinterestAccount) => {
     setAccounts((prev) => {
