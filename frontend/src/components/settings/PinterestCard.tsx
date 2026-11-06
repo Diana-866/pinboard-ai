@@ -15,6 +15,7 @@ interface PinterestStatus {
   configured: boolean;
   connected: boolean;
   account_count?: number;
+  account_limit?: number | null;
   accounts?: PinterestAccount[];
 }
 
@@ -79,9 +80,9 @@ export const PinterestCard: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const result = params.get('pinterest');
     if (result === 'connected') setNotice(t.settings.pinterestConnected);
-    if (result === 'denied') setError('Доступ к Pinterest не выдан — попробуйте ещё раз');
+    if (result === 'denied') setError(t.settings.pinterestDenied);
     if (result === 'error') setError(t.settings.pinterestConnectError);
-    if (result === 'limit') setError('Достигнут лимит Pinterest-аккаунтов вашего тарифа. Измените тариф или отключите другой аккаунт.');
+    if (result === 'limit') setError(t.settings.pinterestAccountLimitReached);
     if (result === 'plan_required') setError(t.settings.pinterestPlanRequired);
     if (result) {
       params.delete('pinterest');
@@ -107,8 +108,8 @@ export const PinterestCard: React.FC = () => {
       const err = e as ApiError;
       setError(
         err?.status === 503
-          ? 'Интеграция с Pinterest ещё не настроена на сервере. Напишите на support@pinposy.com.'
-          : err?.message || 'Не удалось начать подключение'
+          ? t.settings.pinterestConnectionUnavailable
+          : err?.message || t.settings.pinterestConnectError
       );
       setBusy(false);
     }
@@ -122,7 +123,7 @@ export const PinterestCard: React.FC = () => {
         method: 'POST',
         body: JSON.stringify({ account_id: accountId }),
       });
-      setNotice(t.settings.disconnectAccount);
+      setNotice(t.settings.pinterestDisconnected);
       await loadStatus();
     } catch (e) {
       const err = e as ApiError;
@@ -197,18 +198,18 @@ export const PinterestCard: React.FC = () => {
                   className="min-w-0 flex-1 text-left"
                 >
                   <span className="block truncate text-sm font-semibold text-primary-theme">
-                    {account.username ? `@${account.username}` : 'Pinterest-аккаунт'}
+                    {account.username ? `@${account.username}`  : t.settings.pinterestAccountFallback}
                   </span>
                   <span className="block truncate text-[10px] text-muted-theme">
                     {t.settings.pinterestAccountIdLabel}: {account.pinterest_user_id || account.id}
-                    {account.needs_reauth ? ' · требуется повторная авторизация' : ''}
+                    {account.needs_reauth ? ` · ${t.settings.pinterestReauthRequired}` : ''}
                   </span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleDisconnect(account.id)}
                   disabled={busy}
-                  title="Отключить этот аккаунт"
+                  title={t.settings.disconnectAccount}
                   className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-subtle px-2.5 py-2 text-[11px] font-semibold text-secondary-theme hover:border-rose-400 hover:text-rose-500 disabled:opacity-50"
                 >
                   {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unlink className="h-3.5 w-3.5" />}
@@ -239,7 +240,7 @@ export const PinterestCard: React.FC = () => {
                     <li key={board.id} className="flex items-center justify-between px-3 py-2">
                       <span className="font-semibold text-primary-theme text-xs">{board.name}</span>
                       <span className="text-muted-theme text-xs">
-                        {board.pin_count != null ? `${board.pin_count} пинов` : ''}
+                        {board.pin_count != null ? `${board.pin_count} ${t.settings.pinterestPinsLabel}` : ''}
                       </span>
                     </li>
                   ))}
