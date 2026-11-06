@@ -111,6 +111,7 @@ async function assertPublicUrl(rawUrl) {
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw httpError(422, "Сайт должен начинаться с http:// или https://");
   }
+  if (url.username || url.password) throw httpError(422, "URL сайта не должен содержать логин или пароль");
   if (/\s/.test(rawUrl)) throw httpError(422, "Некорректный URL сайта");
 
   const host = normalizeHost(url.hostname);
