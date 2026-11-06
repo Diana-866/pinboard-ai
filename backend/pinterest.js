@@ -10,6 +10,7 @@
 //   3. Один локальный пин публикуется не более одного раза в каждый Pinterest-аккаунт (account-scoped journal).
 
 const axios = require("axios");
+const { executeWithAccountToken } = require("./pinterestAccountRequest");
 const crypto = require("crypto");
 const { hasEncryptionKey, isEncryptedToken, encryptToken, decryptToken } = require("./pinterestTokenCrypto");
 const jwt = require("jsonwebtoken");
@@ -382,18 +383,8 @@ async function refreshAccessToken(account) {
  */
 async function withAccount(userId, handler, accountId = null) {
   requireConfigured();
-  let account = await resolveAccount(userId, accountId);
-  let result = await handler(account.access_token);
-
-  if (result.status === 401) {
-    account = await refreshAccessToken(account);
-    result = await handler(account.access_token);
-  }
-  if (result.status === 429) {
-    await new Promise((r) => setTimeout(r, 2000));
-    result = await handler(account.access_token);
-  }
-  return result;
+  const account = await resolveAccount(userId, accountId);
+  return executeWithAccountToken(account, handler, refreshAccessToken);
 }
 
 // ---------- проверка доски ----------
