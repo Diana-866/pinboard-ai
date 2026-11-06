@@ -85,6 +85,14 @@ if "${psql_base[@]}" -c "select public.update_pin_generation_task('$USER_ID', '$
   exit 1
 fi
 STALE_PINS='[{"image_url":"https://cdn.example.invalid/stale-owner.png","title":"Stale owner","description":"","model_used":"flux-schnell","aspect_ratio":"2:3","credits_cost":5}]'
+if "${psql_base[@]}" -c "select public.save_pin_generation_plan('$USER_ID', '$RECOVERY_KEY', '$OLD_RECOVERY_TOKEN', '[{\\"title\\":\\"stale\\",\\"description\\":\\"\\",\\"prompt\\":\\"stale prompt\\",\\"model\\":\\"flux-schnell\\",\\"aspect_ratio\\":\\"2:3\\"}]'::jsonb)" >/tmp/generation-stale-owner-plan.log 2>&1; then
+  echo "Stale generation owner unexpectedly rewrote the immutable plan"
+  exit 1
+fi
+if "${psql_base[@]}" -c "select public.fail_pin_generation_request('$USER_ID', '$RECOVERY_KEY', '$OLD_RECOVERY_TOKEN', 'stale_failure', false)" >/tmp/generation-stale-owner-fail.log 2>&1; then
+  echo "Stale generation owner unexpectedly marked the request failed"
+  exit 1
+fi
 if "${psql_base[@]}" -c "select public.complete_pin_generation_request('$USER_ID', '$BOARD_ID', '$RECOVERY_KEY', '$OLD_RECOVERY_TOKEN', '$STALE_PINS'::jsonb, 5)" >/tmp/generation-stale-owner-complete.log 2>&1; then
   echo "Stale generation owner unexpectedly completed and charged"
   exit 1
