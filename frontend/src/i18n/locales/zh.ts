@@ -331,6 +331,7 @@ export const zh: TranslationSchema = {
     generateDateButton: "继续生成此日期的内容",
     cancelScheduledPin: '取消计划发布',
     cancelScheduledPinConfirm: '确定取消这条计划发布吗？该内容将不会发送到 Pinterest。',
+    retryFailedPin: "重试发布",
     autoTimeMoscowTemplate: "{time} {timezone}（服务器时间 {moscowTime} MSK）",
   },
 
