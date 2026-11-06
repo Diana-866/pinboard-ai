@@ -718,27 +718,35 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
-                  const dataUrl = await new Promise<string>((resolve) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result as string);
-                    reader.readAsDataURL(file);
-                  });
-                  onUpdatePendingPins?.((prev) =>
-                    prev.map((p) => (p.id === currentPin.id ? { ...p, imageUrl: dataUrl } : p))
-                  );
                   try {
-                    const fd = new FormData();
-                    fd.append('image', file);
-                    const API = (import.meta as any).env?.VITE_API_URL || 'https://pinboard-ai-backend.onrender.com';
-                    await fetch(`${API}/pins/${currentPin.id}/image`, {
-                      method: 'POST',
-                      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-                      body: fd,
+                    if (currentPin.pinId) {
+                      const fd = new FormData();
+                      fd.append('image', file);
+                      const API = (import.meta as any).env?.VITE_API_URL || 'https://pinboard-ai-backend.onrender.com';
+                      const response = await fetch(API + '/pins/' + encodeURIComponent(currentPin.pinId) + '/image', {
+                        method: 'POST',
+                        headers: { Authorization: 'Bearer ' + localStorage.getItem('token') },
+                        body: fd,
+                      });
+                      if (!response.ok) {
+                        throw new Error('Не удалось сохранить изображение на сервере. Попробуйте ещё раз.');
+                      }
+                    }
+
+                    const dataUrl = await new Promise<string>((resolve, reject) => {
+                      const reader = new FileReader();
+                      reader.onload = () => resolve(reader.result as string);
+                      reader.onerror = () => reject(new Error('Не удалось прочитать изображение.'));
+                      reader.readAsDataURL(file);
                     });
-                  } catch {
-                    // у мок-пинов нет id в БД — остаётся визуальная замена
+                    updateQueue((prev) =>
+                      prev.map((p) => (p.id === currentPin.id ? { ...p, imageUrl: dataUrl } : p))
+                    );
+                  } catch (error) {
+                    window.alert(error instanceof Error ? error.message : 'Не удалось обновить изображение.');
+                  } finally {
+                    e.target.value = '';
                   }
-                  e.target.value = '';
                 }}
               />
             </label>
