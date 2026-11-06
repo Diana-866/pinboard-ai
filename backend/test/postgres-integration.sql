@@ -345,6 +345,26 @@ begin
     raise exception 'duplicate generation charged credits twice';
   end if;
 
+  -- An expired generation request becomes unknown and is never auto-restarted.
+  v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-stale-0001', repeat('b',64));
+  if v_result->>'status' <> 'started' then raise exception 'stale generation fixture must start'; end if;
+  update public.pin_generation_requests
+     set updated_at=now() - interval '31 minutes'
+   where user_id=v_user::text and idempotency_key='ci-generation-stale-0001';
+  v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-stale-0001', repeat('b',64));
+  if v_result->>'status' <> 'unknown' then raise exception 'stale generation must become unknown'; end if;
+  v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-stale-0001', repeat('b',64));
+  if v_result->>'status' <> 'unknown' then raise exception 'unknown generation must never auto-restart'; end if;
+
+  -- A known pre-provider failure is terminal for this key too.
+  v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-failed-0001', repeat('c',64));
+  if v_result->>'status' <> 'started' then raise exception 'failed generation fixture must start'; end if;
+  if not public.fail_pin_generation_request(v_user::text, 'ci-generation-failed-0001', 'insufficient_credits', false) then
+    raise exception 'known generation failure was not recorded';
+  end if;
+  v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-failed-0001', repeat('c',64));
+  if v_result->>'status' <> 'failed' then raise exception 'failed generation key must remain terminal'; end if;
+
   -- A second paid order must start after the current paid entitlement.
   insert into public.subscriptions(user_id, plan, status, provider_payment_id, amount, currency)
   values (v_user::text, 'pro', 'pending', 'ci-sub-next-' || v_user, 4990, 'rub')
