@@ -17,7 +17,7 @@ const jwt = require("jsonwebtoken");
 const supabase = require("./supabase");
 const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
 const { httpError } = require("./validate");
-const { classifyScheduleFailure } = require("./pinterestSchedule");
+const { classifyScheduleFailure, canRetryScheduleFailure, getScheduleRetryDelayMinutes } = require("./pinterestSchedule");
 
 const AUTHORIZE_URL = "https://www.pinterest.com/oauth/";
 const TOKEN_URL = "https://api.pinterest.com/v5/oauth/token";
@@ -841,6 +841,7 @@ function registerRoutes(app, deps) {
               pinterest_pin_id: remoteId,
               published_at: new Date().toISOString(),
               last_error: null,
+              next_attempt_at: null,
               updated_at: new Date().toISOString(),
             })
             .eq("id", schedule.id)
@@ -862,13 +863,21 @@ function registerRoutes(app, deps) {
               ? "Could not verify publication journal after worker error: " + attemptLookupError.message
               : e && e.message || "Publication failed"
           ).slice(0, 500);
+          const retryable = canRetryScheduleFailure(attempt, attemptLookupError, e);
+          const retryLimit = 5;
+          const shouldRetry = retryable && Number(schedule.attempts || 0) < retryLimit;
+          const retryAt = shouldRetry
+            ? new Date(Date.now() + getScheduleRetryDelayMinutes(schedule.attempts) * 60_000).toISOString()
+            : null;
+          const nextStatus = shouldRetry ? "scheduled" : finalStatus;
           const { error: scheduleUpdateError } = await supabase
             .from("pin_schedules")
             .update({
-              status: finalStatus,
+              status: nextStatus,
               pinterest_pin_id: finalStatus === "published" ? attempt.pinterest_pin_id : null,
               published_at: finalStatus === "published" ? new Date().toISOString() : null,
               last_error: finalStatus === "published" ? null : message,
+              next_attempt_at: retryAt,
               updated_at: new Date().toISOString(),
             })
             .eq("id", schedule.id)
@@ -878,7 +887,8 @@ function registerRoutes(app, deps) {
           }
           results.push({
             schedule_id: schedule.id,
-            status: scheduleUpdateError ? "unknown" : finalStatus,
+            status: scheduleUpdateError ? "unknown" : nextStatus,
+            retry_at: !scheduleUpdateError ? retryAt : undefined,
             error: finalStatus === "published" && !scheduleUpdateError ? undefined : message,
           });
         }
@@ -889,6 +899,7 @@ function registerRoutes(app, deps) {
         claimed: (dueRows || []).length,
         published: results.filter((r) => r.status === "published").length,
         failed: results.filter((r) => r.status === "failed").length,
+        scheduled: results.filter((r) => r.status === "scheduled").length,
         unknown: results.filter((r) => r.status === "unknown").length,
         results,
       });
