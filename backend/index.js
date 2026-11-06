@@ -958,11 +958,13 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
       throw httpError(402, "Недостаточно кредитов для этой генерации");
     }
 
-    providerGenerationStarted = true;
     const pinsData = await generatePins(board, board.projects, model, count, aspectRatio, mixedRatios, {
       topic,
       tone,
       language: contentLanguage,
+      onProviderSubmission: () => {
+        providerGenerationStarted = true;
+      },
     });
 
     // B8: вставляем только пины с готовой картинкой и известной ценой
