@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { isPrivateIp, createPinnedLookup } = require("../publicUrl");
+const { isPrivateIp, createPinnedLookup, assertPublicUrl } = require("../publicUrl");
 
 test("blocks private, loopback, link-local, CGNAT and reserved IPv4 ranges", () => {
   for (const ip of [
@@ -61,4 +61,11 @@ test("pinned lookup refuses an unexpected hostname or unvalidated address family
   assert.equal(mismatch.code, "ENOTFOUND");
   const noFamily = await new Promise((resolve) => lookup("example.com", { family: 6 }, (error) => resolve(error)));
   assert.equal(noFamily.code, "ENOTFOUND");
+});
+
+test("rejects URLs that embed credentials before attempting DNS resolution", async () => {
+  await assert.rejects(
+    assertPublicUrl("https://user:password@example.com/path"),
+    (error) => error.httpStatus === 422
+  );
 });
