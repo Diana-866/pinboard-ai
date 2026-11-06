@@ -1,4 +1,4 @@
--- Run only in disposable PostgreSQL CI database after migrations 010–045.
+-- Run only in disposable PostgreSQL CI database after migrations 010–046.
 do $$
 declare
   v_user uuid := gen_random_uuid();
@@ -41,8 +41,15 @@ declare
   v_email_issue boolean;
   v_email_issue_token uuid;
   v_provider_key text;
+  v_claim_signature text;
 
 begin
+  if to_regprocedure('public.save_pin_generation_plan(text,text,jsonb)') is not null
+     or to_regprocedure('public.update_pin_generation_task(text,text,integer,text,text,text,text,numeric,text)') is not null
+     or to_regprocedure('public.complete_pin_generation_request(text,uuid,text,jsonb,integer)') is not null
+     or to_regprocedure('public.fail_pin_generation_request(text,text,text,boolean)') is not null then
+    raise exception 'unguarded legacy generation RPC overload still exists';
+  end if;
   if to_regprocedure('public.issue_password_reset_token(text,text,timestamptz)') is not null then
     raise exception 'legacy three-argument password reset RPC overload still exists';
   end if;
@@ -267,6 +274,7 @@ begin
   v_result := public.save_pin_generation_plan(
     v_user::text,
     'ci-generation-journal-0001',
+    (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-journal-0001'),
     '[{"title":"Journal pin","description":"Saved before provider submission","prompt":"exact immutable image prompt","model":"flux-schnell","aspect_ratio":"2:3"}]'::jsonb
   );
   if jsonb_array_length(v_result) <> 1 then raise exception 'generation plan was not persisted'; end if;
@@ -287,7 +295,8 @@ begin
      set updated_at = clock_timestamp() - interval '31 minutes'
    where user_id = v_user::text and idempotency_key = 'ci-generation-journal-0001';
   if not public.update_pin_generation_task(
-    v_user::text, 'ci-generation-journal-0001', 1, 'submitting'
+    v_user::text, 'ci-generation-journal-0001',
+      (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-journal-0001'), 1, 'submitting'
   ) then raise exception 'journal task did not enter submitting'; end if;
   if exists (
     select 1 from public.pin_generation_requests
@@ -416,6 +425,7 @@ begin
   if v_result->>'status' <> 'started' then raise exception 'first generation request must start'; end if;
   v_result := public.complete_pin_generation_request(
     v_user::text, v_board, 'ci-generation-key-0001',
+      (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-key-0001'),
     '[{"image_url":"https://cdn.example.invalid/idempotent.png","title":"Idempotent","description":"","model_used":"flux-schnell","aspect_ratio":"2:3","credits_cost":5}]'::jsonb,
     5
   );
@@ -439,6 +449,7 @@ begin
   begin
     perform public.complete_pin_generation_request(
       v_user::text, v_board, 'ci-generation-atomic-retry-0001',
+      (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-atomic-retry-0001'),
       '[{"image_url":"https://cdn.example.invalid/atomic-retry.png","title":"Atomic retry","description":"","model_used":"flux-schnell","aspect_ratio":"2:3","credits_cost":76}]'::jsonb,
       76
     );
@@ -489,7 +500,8 @@ begin
   -- A known pre-provider failure is terminal for this key too.
   v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-failed-0001', repeat('c',64));
   if v_result->>'status' <> 'started' then raise exception 'failed generation fixture must start'; end if;
-  if not public.fail_pin_generation_request(v_user::text, 'ci-generation-failed-0001', 'insufficient_credits', false) then
+  if not public.fail_pin_generation_request(v_user::text, 'ci-generation-failed-0001',
+      (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-failed-0001'), 'insufficient_credits', false) then
     raise exception 'known generation failure was not recorded';
   end if;
   v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-failed-0001', repeat('c',64));
@@ -500,6 +512,7 @@ begin
   begin
     perform public.complete_pin_generation_request(
       v_user::text, v_board, 'ci-generation-failed-0001',
+      (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-failed-0001'),
       '[{"image_url":"https://cdn.example.invalid/late-after-fail.png","title":"Late after fail","description":"","model_used":"flux-schnell","aspect_ratio":"2:3","credits_cost":5}]'::jsonb,
       5
     );
@@ -517,7 +530,8 @@ begin
 
   -- A delayed failure marker cannot regress a request already completed and charged.
   if public.fail_pin_generation_request(
-    v_user::text, 'ci-generation-atomic-retry-0001', 'late_failure_marker', false
+    v_user::text, 'ci-generation-atomic-retry-0001',
+      (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-atomic-retry-0001'), 'late_failure_marker', false
   ) then
     raise exception 'late failure marker unexpectedly changed a completed generation';
   end if;
@@ -531,7 +545,8 @@ begin
   -- A network failure after submission to the provider is explicitly unknown.
   v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-provider-unknown-0001', repeat('e',64));
   if v_result->>'status' <> 'started' then raise exception 'provider-unknown fixture must start'; end if;
-  if not public.fail_pin_generation_request(v_user::text, 'ci-generation-provider-unknown-0001', 'provider_timeout', true) then
+  if not public.fail_pin_generation_request(v_user::text, 'ci-generation-provider-unknown-0001',
+      (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-provider-unknown-0001'), 'provider_timeout', true) then
     raise exception 'provider uncertainty was not recorded';
   end if;
   v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-provider-unknown-0001', repeat('e',64));
@@ -539,7 +554,8 @@ begin
 
   -- An uncertain request with a durable plan is resumable without new prompts or keys.
   if not public.fail_pin_generation_request(
-    v_user::text, 'ci-generation-journal-0001', 'simulated_response_loss', true
+    v_user::text, 'ci-generation-journal-0001',
+      (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-journal-0001'), 'simulated_response_loss', true
   ) then raise exception 'journal request did not enter unknown state'; end if;
   v_result := public.begin_pin_generation_request(
     v_user::text, v_board, 'ci-generation-journal-0001', repeat('f',64)
