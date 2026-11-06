@@ -32,42 +32,46 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
 Ответь строго в формате JSON-массива без лишнего текста:
 [{"title": "...", "description": "...", "image_prompt": "..."}]`;
 
-  const aiResponse = await generateText(prompt);
+  let tasks;
+  if (typeof options.loadPlan === "function") {
+    tasks = await options.loadPlan();
+  } else {
+    const aiResponse = await generateText(prompt);
 
-  let ideas;
-  try {
-    const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
-    ideas = JSON.parse(jsonMatch ? jsonMatch[0] : aiResponse);
-  } catch (e) {
-    const err = new Error("Не удалось разобрать идеи пинов от нейросети");
-    err.httpStatus = 502;
-    throw err;
+    let ideas;
+    try {
+      const jsonMatch = aiResponse.match(/\\[[\\s\\S]*\\]/);
+      ideas = JSON.parse(jsonMatch ? jsonMatch[0] : aiResponse);
+    } catch (e) {
+      const err = new Error("Не удалось разобрать идеи пинов от нейросети");
+      err.httpStatus = 502;
+      throw err;
+    }
+
+    if (!Array.isArray(ideas) || ideas.length === 0) {
+      const err = new Error("Нейросеть не вернула ни одной идеи — попробуйте ещё раз");
+      err.httpStatus = 502;
+      throw err;
+    }
+
+    const pool = Array.isArray(ratioPool) && ratioPool.length > 0 ? ratioPool : DEFAULT_ASPECT_RATIOS;
+    const plannedTasks = ideas.slice(0, count)
+      .filter((idea) => idea && idea.title && idea.image_prompt)
+      .map((idea, index) => ({
+        task_index: index + 1,
+        title: String(idea.title).slice(0, 200),
+        description: String(idea.description || "").slice(0, 2000),
+        prompt: String(idea.image_prompt).slice(0, 12000),
+        model,
+        aspect_ratio: aspectRatio === "mixed" ? pool[Math.floor(Math.random() * pool.length)] : aspectRatio,
+      }));
+
+    tasks = typeof options.persistPlan === "function"
+      ? await options.persistPlan(plannedTasks)
+      : plannedTasks;
   }
 
-  if (!Array.isArray(ideas) || ideas.length === 0) {
-    const err = new Error("Нейросеть не вернула ни одной идеи — попробуйте ещё раз");
-    err.httpStatus = 502;
-    throw err;
-  }
-
-  const pool = Array.isArray(ratioPool) && ratioPool.length > 0 ? ratioPool : DEFAULT_ASPECT_RATIOS;
-
-  const plannedTasks = ideas.slice(0, count)
-    .filter((idea) => idea && idea.title && idea.image_prompt)
-    .map((idea, index) => ({
-      task_index: index + 1,
-      title: String(idea.title).slice(0, 200),
-      description: String(idea.description || "").slice(0, 2000),
-      prompt: String(idea.image_prompt).slice(0, 12000),
-      model,
-      aspect_ratio: aspectRatio === "mixed" ? pool[Math.floor(Math.random() * pool.length)] : aspectRatio,
-    }));
-
-  const tasks = typeof options.persistPlan === "function"
-    ? await options.persistPlan(plannedTasks)
-    : plannedTasks;
-
-  if (!Array.isArray(tasks) || tasks.length !== plannedTasks.length) {
+  if (!Array.isArray(tasks) || tasks.length === 0 || tasks.length > 10) {
     throw new Error("Не удалось восстановить сохранённый план генерации");
   }
 
@@ -79,8 +83,25 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
     const ratio = task.aspect_ratio;
     const taskIndex = Number(task.task_index);
     let providerSucceeded = false;
+    if (task.status === "failed") {
+      failedTasks.push({ task_index: taskIndex });
+      continue;
+    }
+    if (task.status === "succeeded" && task.storage_url && task.provider_price != null) {
+      pins.push({
+        board_id: board.id,
+        image_url: task.storage_url,
+        title: task.title,
+        description: task.description || "",
+        status: "pending",
+        model_used: task.model || model,
+        aspect_ratio: ratio,
+        credits_cost: Number(task.provider_price),
+      });
+      continue;
+    }
     try {
-      if (typeof options.updateTask === "function") {
+      if (typeof options.updateTask === "function" && (!task.status || task.status === "prepared")) {
         await options.updateTask(taskIndex, "submitting");
       }
       if (typeof options.onProviderSubmission === "function") {
