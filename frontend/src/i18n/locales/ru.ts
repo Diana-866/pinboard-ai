@@ -386,6 +386,7 @@ export const ru: TranslationSchema = {
     pinterestConnected: "Аккаунт Pinterest подключён.",
     pinterestDenied: "Доступ к Pinterest не предоставлен. Попробуйте ещё раз.",
     pinterestConnectError: "Не удалось подключить Pinterest. Попробуйте ещё раз.",
+    pinterestNotConfigured: "Интеграция Pinterest пока не настроена на сервере. Обратитесь в поддержку.",
     pinterestAccountLimitReached: "Достигнут лимит Pinterest-аккаунтов вашего тарифа. Смените тариф или отключите другой аккаунт.",
     pinterestPlanRequired: "Для подключения Pinterest нужен активный тариф.",
     pinterestConnectButton: "Подключить аккаунт Pinterest",
