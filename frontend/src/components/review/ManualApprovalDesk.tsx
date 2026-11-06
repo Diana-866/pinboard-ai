@@ -314,6 +314,8 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [editBoardId, setEditBoardId] = useState('');
+  const [pinterestAccounts, setPinterestAccounts] = useState<Array<{ id: string; username?: string | null }>>([]);
+  const [selectedPinterestAccountId, setSelectedPinterestAccountId] = useState('');
   const [pinterestBoards, setPinterestBoards] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedPinterestBoardId, setSelectedPinterestBoardId] = useState('');
   const [pinterestBoardsLoaded, setPinterestBoardsLoaded] = useState(false);
@@ -334,12 +336,36 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
   useEffect(() => {
     let active = true;
-    apiRequest('/integrations/pinterest/boards')
+    apiRequest('/integrations/pinterest/status')
+      .then((data) => {
+        if (!active) return;
+        const rows = Array.isArray(data?.accounts) ? data.accounts : [];
+        setPinterestAccounts(rows);
+        if (rows.length === 1) setSelectedPinterestAccountId(rows[0].id);
+      })
+      .catch(() => {
+        if (active) setPinterestBoardsError(true);
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    if (!selectedPinterestAccountId) {
+      setPinterestBoards([]);
+      setSelectedPinterestBoardId('');
+      setPinterestBoardsLoaded(true);
+      return () => { active = false; };
+    }
+    setPinterestBoardsLoaded(false);
+    apiRequest(`/integrations/pinterest/boards?account_id=${encodeURIComponent(selectedPinterestAccountId)}`)
       .then((data) => {
         if (!active) return;
         const rows = Array.isArray(data?.boards) ? data.boards : [];
         setPinterestBoards(rows);
-        if (rows.length === 1) setSelectedPinterestBoardId(rows[0].id);
+        if (!rows.some((board) => board.id === selectedPinterestBoardId)) {
+          setSelectedPinterestBoardId(rows[0]?.id || '');
+        }
         setPinterestBoardsLoaded(true);
       })
       .catch(() => {
@@ -348,7 +374,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         setPinterestBoardsLoaded(true);
       });
     return () => { active = false; };
-  }, []);
+  }, [selectedPinterestAccountId]);
 
   // Sync state whenever the active top card changes
   useEffect(() => {
@@ -383,7 +409,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentPin, editTitle, editDesc, editBoardId, editDate, editTime, selectedPinterestBoardId]);
+  }, [currentPin, editTitle, editDesc, editBoardId, editDate, editTime, selectedPinterestBoardId, selectedPinterestAccountId]);
 
   const handleApprove = () => {
     if (!currentPin) return;
@@ -391,7 +417,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       window.alert('Эта карточка — демонстрационный пример, а не сохранённый пин. Сначала создайте и сохраните пин в генераторе — только после этого его можно добавить в расписание.');
       return;
     }
-    if (!selectedPinterestBoardId) {
+    if (!selectedPinterestAccountId || !selectedPinterestBoardId) {
       window.alert('Сначала подключите Pinterest и выберите настоящую доску Pinterest для публикации.');
       return;
     }
@@ -413,6 +439,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         destinationUrl: currentPin.destinationUrl,
         accountHandle: currentPin.accountHandle,
         pinterestBoardId: selectedPinterestBoardId,
+        pinterestAccountId: selectedPinterestAccountId,
       };
 
       try {
@@ -465,6 +492,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         destinationUrl: p.destinationUrl,
         accountHandle: p.accountHandle,
         pinterestBoardId: selectedPinterestBoardId,
+        pinterestAccountId: selectedPinterestAccountId,
       };
     });
     Promise.allSettled(scheduledItems.map((item) => onApprovePin(item))).then((results) => {
@@ -837,7 +865,29 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                   />
                 </div>
               </div>
-              <div className="sm:col-span-2">
+              <div className="sm:col-span-2 space-y-2">
+                {pinterestAccounts.length > 1 && (
+                  <>
+                    <label className="font-bold text-primary-theme block mb-1">
+                      Аккаунт Pinterest:
+                    </label>
+                    <select
+                      value={selectedPinterestAccountId}
+                      onChange={(e) => {
+                        setSelectedPinterestAccountId(e.target.value);
+                        setSelectedPinterestBoardId('');
+                      }}
+                      className="w-full px-3 py-2 bg-app-input border border-subtle rounded-xl text-primary-theme font-medium"
+                    >
+                      <option value="">Выберите аккаунт Pinterest</option>
+                      {pinterestAccounts.map((account) => (
+                        <option key={account.id} value={account.id}>
+                          {account.username ? `@${account.username}` : account.id}
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                )}
                 <label className="font-bold text-primary-theme block mb-1">
                   Доска назначения в Pinterest:
                 </label>
