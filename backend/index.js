@@ -990,7 +990,7 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
           throw journalError;
         }
         const savedTasks = Array.isArray(data) ? data : [];
-        if (savedTasks.some((task) => task.status === "prepared")) {
+        if (savedTasks.some((task) => task.status === "prepared" || task.status === "submitting")) {
           const estimatedCost = Math.ceil((MODEL_PRICES[model] || 15) * count * MARKUP);
           const balance = await getBalance(req.userId);
           allowPreparedTaskSubmission = balance >= estimatedCost;
