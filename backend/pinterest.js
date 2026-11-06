@@ -521,7 +521,7 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
 
   if (!result.ok) {
     const outcomeUnknown = result.status === 408 || result.status >= 500;
-    await supabase.rpc("fail_pinterest_publish", {
+    await supabase.rpc("fail_pinterest_publish_v2", {
       p_user_id: String(userId),
       p_pin_id: pinId,
       p_pinterest_account_id: accountId,
@@ -537,7 +537,7 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
 
   const remoteId = String((result.data && result.data.id) || "");
   if (!remoteId) {
-    await supabase.rpc("fail_pinterest_publish", {
+    await supabase.rpc("fail_pinterest_publish_v2", {
       p_user_id: String(userId),
       p_pin_id: pinId,
       p_pinterest_account_id: accountId,
@@ -555,7 +555,7 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
     p_pinterest_board_id: boardId,
   });
   if (completeError) {
-    await supabase.rpc("fail_pinterest_publish", {
+    await supabase.rpc("fail_pinterest_publish_v2", {
       p_user_id: String(userId),
       p_pin_id: pinId,
       p_pinterest_account_id: accountId,
