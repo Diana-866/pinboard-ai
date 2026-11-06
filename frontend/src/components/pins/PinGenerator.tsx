@@ -261,12 +261,14 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       };
       const requestFingerprint = JSON.stringify({ boardId: selectedBoard.id, ...requestBody });
       const storedFingerprint = sessionStorage.getItem('pinposy_generation_fingerprint');
-      if (!generationKeyRef.current || storedFingerprint !== requestFingerprint) {
+      const storedKey = sessionStorage.getItem('pinposy_generation_key');
+      if (storedFingerprint !== requestFingerprint || !storedKey) {
         generationKeyRef.current = globalThis.crypto.randomUUID().replace(/-/g, '_');
         sessionStorage.setItem('pinposy_generation_fingerprint', requestFingerprint);
         sessionStorage.setItem('pinposy_generation_key', generationKeyRef.current);
       } else {
-        generationKeyRef.current = sessionStorage.getItem('pinposy_generation_key');
+        // Restore the durable request identity after a remount or page reload.
+        generationKeyRef.current = storedKey;
       }
       const rows = await apiRequest(`/boards/${encodeURIComponent(selectedBoard.id)}/pins/generate`, {
         method: 'POST',
