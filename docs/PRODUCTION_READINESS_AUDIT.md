@@ -93,10 +93,10 @@
 - **Статус:** FIXED_UNVERIFIED
 - **Тип:** подтверждённое поведение устранено snapshot-контрактом для новых расписаний.
 - **Контракт:** новое расписание фиксирует title, description, image URL и итоговую destination URL (явную ссылку или website URL проекта) в момент планирования.
-- **Реализация:** migration `051_pinterest_schedule_content_snapshot.sql` добавляет nullable snapshot-поля; `POST /pins/:id/schedule` сохраняет их; worker передаёт snapshot в `publishPin()`. Проверка owner и актуального approval остаётся по исходному пину, но отправляемый Pinterest creative берётся из snapshot.
+- **Реализация:** migration `051_pinterest_schedule_content_snapshot.sql` добавляет nullable snapshot-поля; `POST /pins/:id/schedule` сохраняет их; worker передаёт snapshot в `publishPin()`, а календарь отображает snapshot title/image/link вместо изменённой live-версии. Проверка owner и актуального approval остаётся по исходному пину, но отправляемый Pinterest creative берётся из snapshot.
 - **Совместимость:** старые расписания с NULL snapshot сохраняют прежнее live-pin поведение; восстановить их исторический контент задним числом невозможно.
 - **Изображение:** storage использует уникальные пути `pins/<timestamp>-<random>.<ext>`, поэтому редактирование пина не перезаписывает файл по старому URL.
-- **Тесты:** добавлены unit tests на ограничение длины полей, immutable snapshot resolution и legacy fallback; migration 051 включена в PostgreSQL CI chain. До успешного выполнения CI статус остаётся `FIXED_UNVERIFIED`.
+- **Тесты:** добавлены unit tests на ограничение длины полей, immutable snapshot resolution и legacy fallback; frontend mapping отображает snapshot; migration 051 включена в PostgreSQL CI chain. До успешного выполнения CI статус остаётся `FIXED_UNVERIFIED`.
 
 ### AUD-006 — Legacy schedules без Pinterest account_id могут перестать публиковаться
 - **Приоритет:** P2
@@ -477,3 +477,5 @@ GitHub API возвращал пустые steps, `runner_id=0`, `logs_url=null`
 
 
 | 2026-11-07 | AUD-005: migration 051 и backend фиксируют content snapshot при создании нового Pinterest schedule; worker публикует snapshot, legacy rows сохраняют live-pin fallback. Добавлены unit tests, CI migration step и документация. Статус FIXED_UNVERIFIED до фактического PostgreSQL CI. |
+
+| 2026-11-07 | Дополнено AUD-005: календарь показывает сохранённые title/image/destination snapshot для новых расписаний, а не изменённую live-версию пина. |
