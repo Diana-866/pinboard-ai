@@ -795,3 +795,13 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Изменены backend/pinterestRateLimit.js, backend/pinterest.js, backend/index.js, добавлен backend/test/pinterest-rate-limit.test.js. Runtime unit tests/CI в этой сессии не запускались/не подтверждены. Production, Pinterest API, deployment и merge не затрагивались.
 
 **Status:** AUD-056 / PINTEREST_ROUTE_RATE_LIMITS_ADDED / PER_USER_BUCKETS / PROCESS_LOCAL_STORE_LIMITATION_DOCUMENTED / RUNTIME_TEST_UNVERIFIED.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-057: uncertainty fence требует нового refresh token)
+
+- В аудите OAuth reconnect обнаружено, что trigger из migration 036 снимал `refresh_state='uncertain'` при любом UPDATE access_token/refresh_token. OAuth RPC при отсутствии нового `refresh_token` сохраняет прежнее значение через `coalesce`; если прежний токен уже был ротирован Pinterest во время неоднозначного refresh, новый access token ошибочно делал старый refresh token снова доступным для повторного использования.
+- Добавлена forward-only migration 062 `db/migrations/062_pinterest_refresh_fence_requires_rotated_refresh_token.sql`: trigger снимает uncertainty только если в строке действительно появился непустой refresh token, отличный от прежнего. Одной смены access token недостаточно. Обычный успешный refresh с новым refresh token и OAuth reconnect с новым refresh token по-прежнему переводят состояние в ready.
+- Обновлён `backend/test/pinterest-multi-account-oauth.integration.sql`: reconnect без нового refresh token сохраняет uncertain; поздний refresh worker не может перезаписать credentials; следующий OAuth reconnect с новым refresh token очищает fence. Workflow применяет migration 062 и проверяет оба поведения на disposable PostgreSQL.
+- Это статический анализ + подготовленная SQL regression. PostgreSQL/CI runtime ещё не подтверждены; production/staging DB, Pinterest API, реальные публикации, deployment и merge не затрагивались.
+
+**Status:** AUD-057 / MIGRATION_062_ADDED / UNCERTAINTY_FENCE_ONLY_CLEARS_ON_NEW_REFRESH_TOKEN / SQL_REGRESSION_UPDATED / RUNTIME_UNVERIFIED.
