@@ -70,6 +70,35 @@ test("text-plan generation marks the provider submission boundary before calling
   assert.equal(submitted, true);
 });
 
+test("text-plan generation extracts a JSON array surrounded by provider prose", async () => {
+  provider.generateText = async () => [
+    "Here is the requested JSON:",
+    JSON.stringify([{ title: "Wrapped response", description: "Test", image_prompt: "A test image" }]),
+    "End of response.",
+  ].join("\n");
+  provider.generateImage = async () => ({
+    url: "https://provider.example.invalid/wrapped-response.png",
+    price: 0.6,
+    taskId: "provider-task-wrapped-0001",
+  });
+  storage.rehostImage = async () => "https://storage.example.invalid/wrapped-response.png";
+
+  const pins = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {}
+  );
+
+  assert.equal(pins.length, 1);
+  assert.equal(pins[0].title, "Wrapped response");
+  assert.equal(pins[0].image_url, "https://storage.example.invalid/wrapped-response.png");
+  assert.deepEqual(pins.unknownTasks, []);
+});
+
 test("image generation marks the provider submission boundary before calling the image provider", async () => {
   let submitted = false;
   provider.generateText = async () => JSON.stringify([
