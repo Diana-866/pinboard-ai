@@ -38,7 +38,11 @@ begin
      or has_function_privilege('anon',
        'public.finalize_pin_image_deletion(text,text,uuid,boolean,text)', 'EXECUTE')
      or has_function_privilege('authenticated',
-       'public.finalize_pin_image_deletion(text,text,uuid,boolean,text)', 'EXECUTE') then
+       'public.finalize_pin_image_deletion(text,text,uuid,boolean,text)', 'EXECUTE')
+     or has_function_privilege('anon',
+       'public.list_stale_pin_image_uploads(integer,integer)', 'EXECUTE')
+     or has_function_privilege('authenticated',
+       'public.list_stale_pin_image_uploads(integer,integer)', 'EXECUTE') then
     raise exception 'untrusted role can execute pin image lifecycle RPC';
   end if;
 
@@ -49,7 +53,9 @@ begin
      or not has_function_privilege('service_role',
        'public.claim_pin_image_deletion(text,text,integer)', 'EXECUTE')
      or not has_function_privilege('service_role',
-       'public.finalize_pin_image_deletion(text,text,uuid,boolean,text)', 'EXECUTE') then
+       'public.finalize_pin_image_deletion(text,text,uuid,boolean,text)', 'EXECUTE')
+     or not has_function_privilege('service_role',
+       'public.list_stale_pin_image_uploads(integer,integer)', 'EXECUTE') then
     raise exception 'service_role is missing pin image lifecycle RPC permission';
   end if;
 
@@ -146,6 +152,42 @@ begin
 end;
 $body$;
 
+
+
+-- Stale upload inventory is bounded and exposes only rows requiring review.
+do $body$
+declare
+  v_path text := 'pins/generation-dddddddddddddddddddddddddddddddd.webp';
+  v_token uuid := gen_random_uuid();
+  v_count integer;
+begin
+  insert into public.pin_image_object_lifecycle(
+    bucket_id, object_path, state, claim_token, claim_expires_at, attempts
+  ) values (
+    'pin-images', v_path, 'uploading', v_token, now() - interval '30 minutes', 1
+  );
+
+  select count(*) into v_count
+    from public.list_stale_pin_image_uploads(900, 50) s
+   where s.object_path = v_path and s.upload_token = v_token;
+  if v_count <> 1 then
+    raise exception 'stale upload inventory did not return the expected fenced object';
+  end if;
+
+  if public.finalize_pin_image_upload('pin-images', v_path, v_token, false, 'reconciled_test') is not true then
+    raise exception 'test stale upload could not be safely finalized';
+  end if;
+
+  begin
+    perform * from public.list_stale_pin_image_uploads(60, 50);
+    raise exception 'stale inventory accepted a too-short safety threshold';
+  exception when raise_exception then
+    if sqlerrm = 'stale inventory accepted a too-short safety threshold' then
+      raise;
+    end if;
+  end;
+end;
+$body$;
 
 -- A live claim is exclusive. An expired claim can be retried with a new
 -- fencing token only while no durable references exist.
