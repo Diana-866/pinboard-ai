@@ -695,3 +695,15 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - PostgreSQL/Node/CI не запускались в этой сессии; `psql` отсутствует в рабочем окружении. CI нужно дождаться на PR. Production/стейджинг не затрагивались; никаких публикаций, миграций или deployment вне GitHub не выполнялось.
 
 **Status:** STATIC_REVIEW_COMPLETE / CLAIM_FENCING_CONFIRMED / MIGRATION_049_SQL_QUOTING_FIXED / CI_PENDING.
+
+## Дополнение к handoff — 2026-11-07 (AUD-049: disconnect / publish reservation race)
+
+- В статическом анализе выявлена гонка между `disconnect_pinterest_account_v2` и `begin_scheduled_pinterest_publish`: disconnect сначала обновляет строку Pinterest-аккаунта, затем переводит только queued schedules в failed; worker ранее блокировал schedule row, а проверка активности account в `begin_pinterest_publish_v2` выполнялась без row lock. При конкурентном выполнении проверка могла увидеть активный аккаунт, пока disconnect уже завершался, и durable attempt мог быть создан после того, как отключение выиграло гонку.
+- Добавлена migration 056 `db/migrations/056_pinterest_account_lock_before_publish_reservation.sql`: `begin_pinterest_publish_v2` теперь удерживает `FOR UPDATE` lock на активном account row до создания/повторной резервации durable attempt. `begin_scheduled_pinterest_publish` сначала блокирует account, затем schedule, после чего проверяет claim token и резервирует attempt. Это выравнивает lock order с disconnect и manual retry: account → schedule → publication journal.
+- Добавлена SQL integration regression в `backend/test/pinterest-account-publication.integration.sql`: после commit отключения аккаунта worker с прежним claim token не может зарезервировать attempt; тест отдельно проверяет отсутствие journal row.
+- Workflow `.github/workflows/atomic-payment-integration.yml` теперь применяет migration 056 перед integration tests.
+- GitHub commits: migration 056 `25eed8d5a23d0e1fb7a81cf4293330c015e4c803`; integration regression `b66ed2f394724100e1151f2d90110008e5609d47`; workflow `b371b4ecdcbc57a2f7824e17952f41eda41639ad`.
+- CI для commit `b371b4ecdcbc57a2f7824e17952f41eda41639ad` запустился, но три workflow завершились failure: Persisted boards integration checks, Atomic payment fulfillment integration, Prodamus webhook tests. Job summaries не вернули step details; попытка получить логи завершилась BlobNotFound, поэтому причина падения пока не установлена. Это не считается прохождением CI и не доказывает регрессию migration 056.
+- PostgreSQL integration SQL в этой сессии локально не запускался. Production/staging DB, Pinterest API, реальные публикации и deployment не затрагивались. PR #4 остаётся открытым; merge не выполнялся.
+
+**Status:** STATIC_RACE_FOUND / MIGRATION_056_ADDED / DISCONNECT_RESERVATION_FENCED / SQL_REGRESSION_ADDED / CI_FAILURE_LOGS_UNAVAILABLE.
