@@ -34,3 +34,14 @@ test("rejects MIME/signature mismatches", () => {
 test("detects valid raster content when upstream omits Content-Type", () => {
   assert.equal(validateImageBuffer(samples[0][1], "").mime, "image/png");
 });
+
+
+test("enforces the 5 MiB upload ceiling at the exact boundary", () => {
+  const { MAX_IMAGE_BYTES } = require("../imageValidation");
+  const atLimit = Buffer.alloc(MAX_IMAGE_BYTES);
+  Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]).copy(atLimit);
+  assert.equal(validateImageBuffer(atLimit, "image/png").mime, "image/png");
+  const overLimit = Buffer.alloc(MAX_IMAGE_BYTES + 1);
+  Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]).copy(overLimit);
+  assert.throws(() => validateImageBuffer(overLimit, "image/png"), /5 МиБ/);
+});
