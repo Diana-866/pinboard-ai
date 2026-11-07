@@ -815,3 +815,13 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Runtime Node tests/CI пока не подтверждены. Production env и реальные токены не менялись.
 
 **Status:** AUD-058 / PREVIOUS_KEY_FALLBACK / LAZY_REENCRYPTION / ROTATION_RUNBOOK_ADDED / RUNTIME_UNVERIFIED.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-059: безопасные публичные проекции Pinterest-аккаунтов)
+
+- Проверка маршрутов `/integrations/pinterest/status` и `/integrations/pinterest/disconnect` показала, что текущие ответы уже исключали access/refresh tokens, но проекция была inline и не имела регрессионного теста.
+- Вынесены явные allowlist-проекции в `backend/pinterestPublicAccount.js`: status отдаёт только id, Pinterest identity, username, expiry и needs_reauth; disconnect отдаёт только id и username. Обе проекции гарантированно не включают access_token, refresh_token и user_id.
+- Добавлен `backend/test/pinterest-public-account.test.js` для проверки отсутствия секретов и расчёта needs_reauth.
+- Это защитное укрепление уже безопасного поведения, а не подтверждение найденной утечки. Runtime unit tests/CI не запускались успешно.
+
+**Status:** AUD-059 / PUBLIC_ACCOUNT_ALLOWLIST / TOKEN_FIELDS_EXCLUDED / REGRESSION_TEST_ADDED / RUNTIME_UNVERIFIED.
