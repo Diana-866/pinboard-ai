@@ -271,6 +271,20 @@ begin
     raise exception 'unknown provider outcome must retain its credit reservation';
   end if;
 
+  -- A different debit path must not consume credits committed to an unknown
+  -- provider task; the user has 100 credits, 60 reserved, and only 40 free.
+  begin
+    perform public.save_generated_pins_and_charge(
+      v_user::text, v_board,
+      '[{"image_url":"https://cdn.example.invalid/reserved.png","title":"Reserved","description":"","model_used":"flux-schnell","aspect_ratio":"2:3","credits_cost":45}]'::jsonb,
+      45
+    );
+    raise exception 'competing debit consumed reserved generation credits';
+  exception when others then
+    if sqlerrm='competing debit consumed reserved generation credits' then raise; end if;
+    if position('insufficient credits after active generation reservations' in sqlerrm)=0 then raise; end if;
+  end;
+
   -- Generated pin rows and the corresponding credit debit must commit together.
   v_result := public.save_generated_pins_and_charge(
     v_user::text, v_board,
