@@ -535,3 +535,30 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - A correct remediation should make duplicate and fresh-address public outcomes indistinguishable while presenting a neutral next-step screen that offers sign-in and password recovery; the UI must not claim an account was created or that an email was sent unless that is true. This requires a coordinated backend + frontend change and regression tests.
 
 **Status:** ROOT_CAUSE_CONFIRMED / FRONTEND_IMPACT_CONFIRMED / FIX_DEFERRED_PENDING_NEUTRAL_FLOW_DESIGN. No source code changes or tests in this pass.
+
+
+
+### AUD-039 — Pinterest OAuth callback, state fencing, and CORS review (2026-11-07)
+
+**Files inspected:** `backend/pinterest.js`, `backend/index.js`, and the existing `backend/test/pinterest-oauth-concurrency.sh`. The separate `backend/pinterestOAuth.js` module does not exist at this branch path; OAuth implementation is in `backend/pinterest.js`.
+
+**OAuth protections confirmed by static inspection**
+- OAuth initiation is authenticated. It reads the current user's `token_version`, creates a cryptographically random UUID attempt ID, and calls `begin_pinterest_oauth_attempt` before returning the Pinterest authorization URL.
+- The OAuth `state` is a JWT signed with `JWT_SECRET`, expires after 15 minutes, and includes user ID, session token version, attempt ID, generation, and a purpose discriminator. Callback verifies signature/expiry and validates required claim shapes.
+- Callback reloads the user's current `token_version` and rejects a missing user or stale session before exchanging the authorization code.
+- Successful callback persistence is delegated to `commit_pinterest_oauth_attempt_v2`, with the exact attempt ID, generation, token version, Pinterest identity, and encrypted credentials. The returned result is checked; stale/invalid attempts are not treated as successful connections.
+- The callback redirect destination is built from server-side `FRONTEND_URL` (first comma-separated value) or the fixed default `https://pinposy.com`; callback query parameters select only fixed status values. No caller-controlled redirect URL is accepted.
+- Existing `backend/test/pinterest-oauth-concurrency.sh` exercises a real two-session database race between callback commit and disconnect, asserting that disconnect wins and credentials remain cleared. This test is wired into the existing integration workflow from earlier work; it has not been executed in this review.
+
+**CORS configuration reviewed**
+- Browser origins are checked against an exact allowlist: the two production PinPosy hostnames, the Vercel frontend hostname, localhost:3000, and comma-separated `FRONTEND_URL` values.
+- No wildcard origin is configured and the CORS middleware does not enable credentialed cookies. Requests without an Origin header are allowed; this is normal for server-to-server clients and is not an authentication control. API authorization remains the responsibility of route middleware.
+- The allowlist is constructed per request. Deployment must keep `FRONTEND_URL` values as bare origins (scheme + host + optional port, without a path or trailing slash), otherwise an otherwise legitimate browser origin may fail the exact string comparison. The actual deployed environment values and proxy topology were not available, so live-origin compatibility is unverified.
+- `app.set("trust proxy", 1)` remains a deployment assumption noted in AUD-037; this review did not establish the actual production proxy chain.
+
+**Assessment / limits**
+- No confirmed OAuth state-forgery, callback open-redirect, cross-user account-binding, or CORS-origin bypass was identified in the inspected code paths.
+- This is a source-level review. SQL function bodies were not re-audited in this pass; the existing concurrency test demonstrates the intended database contract but is not proof of a successful CI execution.
+- No production/staging configuration, database, credentials, deployment, or external Pinterest account was accessed or changed. No source-code change was justified by the findings.
+
+**Status:** STATIC_REVIEW_COMPLETE / OAUTH_STATE_AND_CALLBACK_GUARDS_CONFIRMED / CORS_ALLOWLIST_CONFIRMED / DEPLOYED_ORIGINS_AND_RUNTIME_UNVERIFIED.
