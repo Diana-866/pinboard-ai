@@ -64,7 +64,8 @@
 - **Исправление:** migration `047_pinterest_late_success_schedule_reconciliation.sql` расширяет `complete_pinterest_publish_v2`: в одной транзакции с фиксацией remote publication и attempt status соответствующее расписание того же owner/pin/account переводится из `publishing` или `unknown` в `published`. `cancelled` и `failed` не перезаписываются; чужой аккаунт/владелец не затрагивается.
 - **Коммит:** `e819e2bffe1ec2415bd215c4edbc59ee7b37cc95`.
 - **Оставшаяся проверка:** прогнать migration chain на PostgreSQL 16 и добавить SQL regression tests: late success after unknown, повторный completion, несовпадающий account/user, cancelled schedule. CI на актуальном HEAD пока не подтверждён.
-- **Ограничение:** уже существующие `unknown` с опубликованным attempt, созданные до migration 047, автоматически этим изменением не сверяются; для них нужен отдельный reconciliation path.
+- **Историческая сверка:** migration `048_reconcile_historical_pinterest_unknown_schedules.sql` однократно восстанавливает старые `unknown` только при совпадении user/pin/account и одинакового remote ID в attempt journal и publication ledger. Коммит `c8104f7daf1faaaae1701d9354945877ae75ce0d`.
+- **Оставшаяся проверка:** обе миграции требуют прогона на чистой PostgreSQL 16 и upgrade-копии схемы; SQL regression tests и CI пока не подтверждены.
 ### AUD-003 — Ложный unknown при падении до создания журнала публикации
 - **Приоритет:** P1
 - **Статус:** OPEN
@@ -460,5 +461,6 @@ GitHub API возвращал пустые steps, `runner_id=0`, `logs_url=null`
 | 2026-11-07 | Исправлен импорт `useEffect` в календаре (AUD-008), commit `d15aac42d096057efd2bb313fca934b9ce2171a6`; исправление ожидает успешного typecheck. На новом HEAD CI jobs снова завершились без steps и логов (BlobNotFound), причина не установлена. |
 | 2026-11-07 | Добавлена серверная проверка `status=approved` при создании расписания и непосредственно в `publishPin()` (AUD-001), commits `ae937c0a7d442ae2ae56b05f859c657b213faa12` и `a111f1cccffe9ead4b5db9c77d6add41c013392e`. Статус `FIXED_UNVERIFIED`: regression tests/CI ещё не подтверждены. |
 | 2026-11-07 | Migration 047 атомарно восстанавливает schedule из `unknown` при позднем подтверждённом успехе Pinterest (AUD-002), commit `e819e2bffe1ec2415bd215c4edbc59ee7b37cc95`. Ожидает PostgreSQL regression tests и CI; старые unknown-записи требуют отдельной сверки. |
+| 2026-11-07 | Migration 048 сверяет исторические `unknown` с опубликованными attempt и publication ledger по одинаковому remote ID (AUD-002), commit `c8104f7daf1faaaae1701d9354945877ae75ce0d`. Выполнение SQL не подтверждено до применения миграции. |
 
 **Текущее заключение:** PR #4 нельзя считать готовым к merge или публичному запуску. Документ фиксирует аудит, а не выполненные исправления. На момент создания файла код не изменялся в рамках закрытия перечисленных находок; production не менялся, миграции в рабочую БД не применялись, реальные платежи/генерации/Pinterest публикации не выполнялись.
