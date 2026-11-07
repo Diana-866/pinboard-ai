@@ -537,6 +537,9 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
   if (reservationStatus === "unknown") {
     throw httpError(409, "Pinterest мог уже создать этот пин, но результат не подтверждён. Повторная публикация заблокирована во избежание дубликата.");
   }
+  if (reservationStatus === "failed") {
+    throw httpError(409, "Предыдущий отказ Pinterest не подтверждён как безопасный для повтора. Требуется сверка.");
+  }
   if (reservationStatus !== "started") {
     throw httpError(503, "Не удалось безопасно зарезервировать публикацию. Попробуйте позже.");
   }
@@ -914,7 +917,7 @@ function registerRoutes(app, deps) {
         } catch (e) {
           const { data: attempt, error: attemptLookupError } = await supabase
             .from("pinterest_publish_attempts")
-            .select("status, pinterest_pin_id")
+            .select("status, pinterest_pin_id, retry_safe")
             .eq("pin_id", schedule.pin_id)
             .eq("pinterest_account_id", schedule.pinterest_account_id)
             .maybeSingle();
