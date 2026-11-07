@@ -5,9 +5,11 @@ const {
   decryptToken,
   hasEncryptionKey,
   isEncryptedToken,
+  isEncryptedWithActiveKey,
 } = require("../pinterestTokenCrypto");
 
 const originalKey = process.env.PINTEREST_TOKEN_ENCRYPTION_KEY;
+const originalPreviousKey = process.env.PINTEREST_TOKEN_ENCRYPTION_KEY_PREVIOUS;
 
 test("Pinterest token encryption round-trips with AES-256-GCM", () => {
   process.env.PINTEREST_TOKEN_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
@@ -36,6 +38,22 @@ test("Pinterest token encryption rejects tampering and wrong keys", () => {
   assert.throws(() => decryptToken(encrypted));
 });
 
+test("previous encryption key can decrypt old tokens during rotation", () => {
+  process.env.PINTEREST_TOKEN_ENCRYPTION_KEY = Buffer.alloc(32, 12).toString("base64");
+  process.env.PINTEREST_TOKEN_ENCRYPTION_KEY_PREVIOUS = Buffer.alloc(32, 13).toString("base64");
+  const oldCiphertext = (() => {
+    process.env.PINTEREST_TOKEN_ENCRYPTION_KEY = Buffer.alloc(32, 13).toString("base64");
+    const value = encryptToken("token-before-rotation");
+    process.env.PINTEREST_TOKEN_ENCRYPTION_KEY = Buffer.alloc(32, 12).toString("base64");
+    return value;
+  })();
+  assert.equal(decryptToken(oldCiphertext), "token-before-rotation");
+  assert.equal(isEncryptedWithActiveKey(oldCiphertext), false);
+  const reencrypted = encryptToken(decryptToken(oldCiphertext));
+  assert.equal(decryptToken(reencrypted), "token-before-rotation");
+  assert.equal(isEncryptedWithActiveKey(reencrypted), true);
+});
+
 test("legacy plaintext values can be read for migration", () => {
   process.env.PINTEREST_TOKEN_ENCRYPTION_KEY = Buffer.alloc(32, 11).toString("base64");
   assert.equal(decryptToken("legacy-plaintext-token"), "legacy-plaintext-token");
@@ -53,4 +71,6 @@ test("missing or invalid encryption key fails closed for writes", () => {
 test.after(() => {
   if (originalKey === undefined) delete process.env.PINTEREST_TOKEN_ENCRYPTION_KEY;
   else process.env.PINTEREST_TOKEN_ENCRYPTION_KEY = originalKey;
+  if (originalPreviousKey === undefined) delete process.env.PINTEREST_TOKEN_ENCRYPTION_KEY_PREVIOUS;
+  else process.env.PINTEREST_TOKEN_ENCRYPTION_KEY_PREVIOUS = originalPreviousKey;
 });
