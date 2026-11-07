@@ -389,3 +389,11 @@
 - Увеличение резерва отклоняется атомарно при недостаточном доступном балансе; уменьшение допускается. Ошибка не должна менять старую сумму.
 - Добавлен `backend/test/generation-reservation-resize.sh`: увеличение при защите другого резерва, превышение баланса без мутации, уменьшение, stale claim.
 - RPC пока не подключён к route; SQL test не запускался. Никаких production изменений.
+
+### AUD-076 — single-pin regeneration must reserve credits
+
+- Fixed in feature branch: regeneration now reserves from the shared credit pool before a new provider task is submitted; settlement consumes that reservation atomically; definitive provider failure releases it; unknown outcome keeps it held.
+- Migration: `db/migrations/066_pin_regeneration_credit_reservations.sql`.
+- Test added: `backend/test/pin-regeneration-credit-reservations.sh`.
+- **Gate:** migration and test have not been run. Do not deploy. First apply all pending migrations to a disposable PostgreSQL database in order, run the SQL test suite, and verify unknown/failure recovery and credit balances. Only then consider staging.
+- No user action is required while autonomous repository work continues. When the user returns, provide the database test instructions as a separate short action block; do not request credentials in chat.
