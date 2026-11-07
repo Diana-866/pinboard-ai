@@ -899,6 +899,7 @@ function registerRoutes(app, deps) {
             .from("pin_schedules")
             .update({
               status: "published",
+              claim_token: null,
               pinterest_pin_id: remoteId,
               published_at: new Date().toISOString(),
               last_error: null,
@@ -936,6 +937,7 @@ function registerRoutes(app, deps) {
             .from("pin_schedules")
             .update({
               status: nextStatus,
+              claim_token: null,
               pinterest_pin_id: finalStatus === "published" ? attempt.pinterest_pin_id : null,
               published_at: finalStatus === "published" ? new Date().toISOString() : null,
               last_error: finalStatus === "published" ? null : message,
