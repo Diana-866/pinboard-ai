@@ -206,6 +206,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSavingAspectRatio, setIsSavingAspectRatio] = useState(false);
   const generationKeyRef = React.useRef<string | null>(null);
+  // Serialize edits per pin and let scheduling wait for the final persisted version.
+  const pendingPinSavesRef = React.useRef<Map<string, Promise<unknown>>>(new Map());
   const [generatedPins, setGeneratedPins] = useState<GeneratedPinVariation[]>([]);
   const [activePinIndex, setActivePinIndex] = useState(0);
   const [scheduledSuccess, setScheduledSuccess] = useState(false);
@@ -319,6 +321,22 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
   const currentPin = generatedPins[activePinIndex];
 
+  const persistPinPatch = (pinId: string, patch: Record<string, string>) => {
+    const pending = pendingPinSavesRef.current;
+    const previous = pending.get(pinId) || Promise.resolve();
+    const request = previous
+      .catch(() => undefined)
+      .then(() => apiRequest(`/pins/${encodeURIComponent(pinId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      }));
+    pending.set(pinId, request);
+    void request.finally(() => {
+      if (pending.get(pinId) === request) pending.delete(pinId);
+    }).catch(() => undefined);
+    return request;
+  };
+
   // Persist the selected pin's format so it survives a reload and is used by later API operations.
   const handleActivePinRatioChange = async (newRatio: SupportedAspectRatio) => {
     if (!currentPin || currentPin.aspectRatio === newRatio || isSavingAspectRatio) return;
@@ -340,22 +358,20 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     }
   };
 
-  const handleTitleSelect = (title: string) => {
+  const handleTitleSelect = async (title: string) => {
     if (!currentPin) return;
-    const updated = [...generatedPins];
-    updated[activePinIndex] = {
-      ...currentPin,
-      selectedTitle: title,
-      headlineOverlay: title.length > 36 ? title.slice(0, 36) + '...' : title,
-    };
-    setGeneratedPins(updated);
-    void apiRequest(`/pins/${encodeURIComponent(currentPin.id)}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ title }),
-    }).catch((error) => {
+    const pinId = currentPin.id;
+    try {
+      await persistPinPatch(pinId, { title });
+      setGeneratedPins((previous) => previous.map((pin) => pin.id === pinId ? {
+        ...pin,
+        selectedTitle: title,
+        headlineOverlay: title.length > 36 ? title.slice(0, 36) + '...' : title,
+      } : pin));
+    } catch (error) {
       console.error('[pins] Не удалось сохранить название:', error);
       window.alert(error instanceof Error ? error.message : t.generator.errorSaveTitle);
-    });
+    }
   };
 
   const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -370,6 +386,16 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
   const handlePushToCalendar = async () => {
     if (!currentPin) return;
+    const pendingSave = pendingPinSavesRef.current.get(currentPin.id);
+    if (pendingSave) {
+      try {
+        await pendingSave;
+      } catch (error) {
+        console.error('[pins] Не удалось завершить сохранение перед планированием:', error);
+        window.alert(error instanceof Error ? error.message : t.generator.errorSaveSchedule);
+        return;
+      }
+    }
     if (!selectedPinterestBoardId) {
       window.alert('Сначала подключите Pinterest и выберите доску назначения. Без неё публикацию нельзя добавить в расписание.');
       return;
@@ -991,11 +1017,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   <textarea
                     value={currentPin.description}
                     onChange={handleDescriptionChange}
-                    onBlur={() => {
-                      void apiRequest(`/pins/${encodeURIComponent(currentPin.id)}`, {
-                        method: 'PATCH',
-                        body: JSON.stringify({ description: currentPin.description }),
-                      }).catch((error) => {
+                    onBlur={(event) => {
+                      const pinId = currentPin.id;
+                      const description = event.currentTarget.value;
+                      void persistPinPatch(pinId, { description }).catch((error) => {
                         console.error('[pins] Не удалось сохранить описание:', error);
                         window.alert(error instanceof Error ? error.message : t.generator.errorSaveDescription);
                       });
