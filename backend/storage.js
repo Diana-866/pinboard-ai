@@ -62,7 +62,7 @@ async function deletePinImageIfUnreferenced(imageUrl) {
   const tasks = taskRefs.data || [];
   if (tasks.length) {
     const requestIds = [...new Set(tasks.map((task) => task.generation_request_id).filter(Boolean))];
-    if (requestIds.length !== tasks.length) return false;
+    if (tasks.some((task) => !task.generation_request_id)) return false;
     const { data: requests, error: requestError } = await supabase
       .from("pin_generation_requests")
       .select("id, status")
