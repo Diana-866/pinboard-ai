@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { extractManagedPinImagePath, canDeletePinImageObject, buildPinImageObjectPath } = require("./pinImageLifecycle");
+const { extractManagedPinImagePath, canDeletePinImageObject, buildPinImageObjectPath, deleteManagedPinImageObject } = require("./pinImageLifecycle");
 
 const base = "https://project.supabase.co";
 
@@ -66,5 +66,93 @@ test("GIF objects are supported and recognized for safe cleanup", () => {
   assert.equal(
     extractManagedPinImagePath(`https://project.supabase.co/storage/v1/object/public/pin-images/${path}`, base),
     path
+  );
+});
+
+function makeStorageClient(options = {}) {
+  const calls = [];
+  const supabase = {
+    calls,
+    async rpc(name, args) {
+      calls.push({ type: "rpc", name, args });
+      if (name === "claim_pin_image_deletion") {
+        return { data: options.claimData === undefined
+          ? { claimed: true, claim_token: "claim-123" }
+          : options.claimData, error: options.claimError || null };
+      }
+      return { data: options.finalizeData === undefined ? true : options.finalizeData,
+        error: options.finalizeError || null };
+    },
+    storage: {
+      from(bucket) {
+        return {
+          async remove(paths) {
+            calls.push({ type: "remove", bucket, paths });
+            if (options.removeThrows) throw options.removeThrows;
+            return { error: options.removeError || null };
+          },
+        };
+      },
+    },
+  };
+  return supabase;
+}
+
+test("deletion claim refusal never calls Storage", async () => {
+  const supabase = makeStorageClient({ claimData: { claimed: false, reason: "referenced" } });
+  assert.equal(await deleteManagedPinImageObject({ supabase, objectPath: "pins/1730000000000-ab12cd34.webp" }), false);
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), ["claim_pin_image_deletion"]);
+});
+
+test("confirmed Storage deletion is finalized with the matching claim token", async () => {
+  const supabase = makeStorageClient();
+  assert.equal(await deleteManagedPinImageObject({ supabase, objectPath: "pins/1730000000000-ab12cd34.webp" }), true);
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), [
+    "claim_pin_image_deletion", "remove", "finalize_pin_image_deletion",
+  ]);
+  assert.equal(supabase.calls[2].args.p_claim_token, "claim-123");
+  assert.equal(supabase.calls[2].args.p_deleted, true);
+});
+
+test("definite Storage rejection is finalized as failed before surfacing the error", async () => {
+  const storageError = Object.assign(new Error("storage rejected"), { code: "storage_rejected" });
+  const supabase = makeStorageClient({ removeError: storageError });
+  await assert.rejects(
+    deleteManagedPinImageObject({ supabase, objectPath: "pins/1730000000000-ab12cd34.webp" }),
+    (error) => error === storageError
+  );
+  const finalize = supabase.calls.find((call) => call.name === "finalize_pin_image_deletion");
+  assert.equal(finalize.args.p_deleted, false);
+  assert.equal(finalize.args.p_error_code, "storage_rejected");
+});
+
+test("ambiguous thrown Storage failure keeps the claim and does not finalize or release it", async () => {
+  const networkError = new Error("connection reset");
+  const supabase = makeStorageClient({ removeThrows: networkError });
+  await assert.rejects(
+    deleteManagedPinImageObject({ supabase, objectPath: "pins/1730000000000-ab12cd34.webp" }),
+    (error) => error === networkError
+  );
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), [
+    "claim_pin_image_deletion", "remove",
+  ]);
+});
+
+test("claim RPC failure prevents any Storage request", async () => {
+  const rpcError = new Error("migration missing");
+  const supabase = makeStorageClient({ claimError: rpcError });
+  await assert.rejects(
+    deleteManagedPinImageObject({ supabase, objectPath: "pins/1730000000000-ab12cd34.webp" }),
+    (error) => error === rpcError
+  );
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), ["claim_pin_image_deletion"]);
+});
+
+test("failed finalization does not report a successful cleanup", async () => {
+  const rpcError = new Error("finalize unavailable");
+  const supabase = makeStorageClient({ finalizeError: rpcError });
+  await assert.rejects(
+    deleteManagedPinImageObject({ supabase, objectPath: "pins/1730000000000-ab12cd34.webp" }),
+    (error) => error === rpcError
   );
 });
