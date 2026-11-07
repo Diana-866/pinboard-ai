@@ -1,5 +1,35 @@
 const crypto = require("node:crypto");
 
+const EXPECTED_PIN_IMAGE_MIMES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+
+function validatePinImageBucketConfiguration(bucket) {
+  if (!bucket || bucket.name !== "pin-images" || bucket.public !== true) {
+    const error = new Error("pin-images bucket must exist and be public for Pinterest-compatible image URLs");
+    error.code = "invalid_pin_image_bucket_visibility";
+    throw error;
+  }
+
+  const configuredMimes = Array.isArray(bucket.allowed_mime_types)
+    ? bucket.allowed_mime_types.map((mime) => String(mime).trim().toLowerCase()).sort()
+    : [];
+  const expectedMimes = [...EXPECTED_PIN_IMAGE_MIMES].sort();
+  if (configuredMimes.length !== expectedMimes.length ||
+      configuredMimes.some((mime, index) => mime !== expectedMimes[index])) {
+    const error = new Error("pin-images bucket MIME allow-list does not match the application configuration");
+    error.code = "invalid_pin_image_bucket_mimes";
+    throw error;
+  }
+
+  const configuredLimit = Number(bucket.file_size_limit);
+  if (!Number.isFinite(configuredLimit) || configuredLimit < 5 * 1024 * 1024) {
+    const error = new Error("pin-images bucket file size limit must be at least 5 MiB");
+    error.code = "invalid_pin_image_bucket_size_limit";
+    throw error;
+  }
+
+  return true;
+}
+
 function extractManagedPinImagePath(publicUrl, supabaseUrl, bucket = "pin-images") {
   if (!publicUrl || !supabaseUrl) return null;
   try {
@@ -186,6 +216,8 @@ async function deleteManagedPinImageObject({ supabase, bucket = "pin-images", ob
 
 module.exports = {
   deleteManagedPinImageObject,
+  validatePinImageBucketConfiguration,
+  EXPECTED_PIN_IMAGE_MIMES,
   uploadManagedPinImageObject,
   isDefiniteStorageRejection,
   reconcileStalePinImageUploads,
