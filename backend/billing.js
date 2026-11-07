@@ -143,12 +143,14 @@ async function createPayment(userId, body) {
   };
 }
 
-async function dispatchPendingSubscriptionEmails(limit = 10) {
-  if (!mail.transactionalMailConfigured()) {
+async function dispatchPendingSubscriptionEmails(limit = 10, dependencies = {}) {
+  const db = dependencies.supabase || supabase;
+  const mailer = dependencies.mail || mail;
+  if (!mailer.transactionalMailConfigured()) {
     return { skipped: true, reason: "smtp_not_configured", processed: 0 };
   }
 
-  const { data: rows, error } = await supabase.rpc("claim_email_outbox", {
+  const { data: rows, error } = await db.rpc("claim_email_outbox", {
     p_limit: Math.max(1, Math.min(Number(limit) || 10, 50)),
   });
   if (error) throw error;
@@ -183,7 +185,7 @@ async function dispatchPendingSubscriptionEmails(limit = 10) {
         .replace("{plan}", paidPlanTitle)
         .replace("{currentPlan}", currentPlanTitle);
 
-      await mail.sendMail({
+      await mailer.sendMail({
         to: row.recipient_email,
         subject,
         messageId: `<pinposy-subscription-${row.subscription_id}@pinposy.com>`,
@@ -196,7 +198,7 @@ async function dispatchPendingSubscriptionEmails(limit = 10) {
         ].join("\n"),
       });
 
-      const { data: marked, error: markError } = await supabase.rpc("mark_email_outbox_sent", {
+      const { data: marked, error: markError } = await db.rpc("mark_email_outbox_sent", {
         p_id: row.id,
         p_claim_token: row.claim_token,
       });
@@ -210,7 +212,7 @@ async function dispatchPendingSubscriptionEmails(limit = 10) {
       failed += 1;
       const rawCode = String(sendError && (sendError.code || sendError.name) || "smtp_error");
       const errorCode = /^[A-Za-z0-9_-]{1,80}$/.test(rawCode) ? rawCode : "smtp_error";
-      const { error: retryError } = await supabase.rpc("retry_email_outbox", {
+      const { error: retryError } = await db.rpc("retry_email_outbox", {
         p_id: row.id,
         p_claim_token: row.claim_token,
         p_error_code: errorCode,
