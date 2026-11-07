@@ -112,7 +112,7 @@ const verifyLimiter = rateLimit({
   message: { error: "Слишком много запросов. Попробуйте через 15 минут." },
 });
 
-const { generateImage, checkImage, imageTaskResult } = require("./gptunnel");
+const { generateImage, checkImage, imageTaskResult, providerTaskError } = require("./gptunnel");
 const { register, login, verifyToken } = require("./auth");
 const supabase = require("./supabase");
 const { buildPinScheduleSnapshot, classifyLegacyScheduleAccount, getScheduleRetryability } = require("./pinterestSchedule");
@@ -777,9 +777,30 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
       throw httpError(500, "Не удалось получить право на перегенерацию");
     }
 
+    const recordProviderOutcome = async (outcome, status) => {
+      const { error: outcomeError } = await supabase.rpc("record_pin_regeneration_provider_outcome", {
+        p_user_id: String(req.userId),
+        p_idempotency_key: idempotencyKey,
+        p_claim_token: claimToken,
+        p_provider_task_id: outcome.taskId,
+        p_provider_status: status,
+        p_provider_price: outcome.price == null ? null : outcome.price,
+        p_provider_refunded: status === "failed" ? outcome.refunded : null,
+        p_provider_error_code: status === "failed" ? outcome.errorCode : null,
+        p_provider_error_title: status === "failed" ? outcome.errorTitle : null,
+      });
+      if (outcomeError) throw outcomeError;
+    };
+
     let image = null;
     let storedUrl = state.storage_url || null;
     if (!storedUrl && state.provider_result_url) {
+      // Upgrade legacy journal rows too: record the known successful provider
+      // outcome before doing any further storage/network work.
+      await recordProviderOutcome({
+        taskId: state.provider_task_id,
+        price: state.provider_price,
+      }, "done");
       storedUrl = await rehostImage(state.provider_result_url, { idempotencyKey: state.provider_idempotency_key });
     }
     if (!storedUrl) {
@@ -795,10 +816,7 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
           return res.status(202).json({ status: "processing", code: "regeneration_pending" });
         }
         if (task && task.status === "failed") {
-          const providerError = new Error("Генерация не удалась: " + (task.error?.message || "неизвестная ошибка"));
-          providerError.providerStatus = "failed";
-          providerError.providerTaskId = state.provider_task_id;
-          throw providerError;
+          throw providerTaskError({ ...task, id: state.provider_task_id });
         }
         if (!task || task.status !== "done") {
           throw new Error("Provider task has no confirmed result yet");
@@ -834,6 +852,10 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
       if (!image || !image.url || image.price == null || !image.taskId) {
         throw new Error("Provider returned no confirmed image result");
       }
+      // Record provider spend and terminal state before image rehosting. If
+      // storage fails, a retry can recover the same provider task without
+      // losing its financial outcome or submitting a second task.
+      await recordProviderOutcome(image, "done");
       const { error: resultError } = await supabase.rpc("update_pin_regeneration_request", {
         p_user_id: String(req.userId), p_idempotency_key: idempotencyKey, p_claim_token: claimToken,
         p_status: "processing", p_provider_task_id: image.taskId,
@@ -861,10 +883,32 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
     return res.json(completed.pin);
   } catch (e) {
     if (requestStarted && claimToken && idempotencyKey) {
+      let providerFailureRecorded = false;
+      if (e && e.providerStatus === "failed" && e.providerTaskId) {
+        try {
+          const { error: outcomeError } = await supabase.rpc("record_pin_regeneration_provider_outcome", {
+            p_user_id: String(req.userId),
+            p_idempotency_key: idempotencyKey,
+            p_claim_token: claimToken,
+            p_provider_task_id: e.providerTaskId,
+            p_provider_status: "failed",
+            p_provider_price: e.providerPrice == null ? null : e.providerPrice,
+            p_provider_refunded: e.providerRefunded == null ? null : e.providerRefunded,
+            p_provider_error_code: e.providerErrorCode == null ? null : e.providerErrorCode,
+            p_provider_error_title: e.providerErrorTitle || null,
+          });
+          if (outcomeError) throw outcomeError;
+          providerFailureRecorded = true;
+        } catch (journalError) {
+          console.error("[regeneration] не удалось сохранить provider outcome:", journalError && journalError.message);
+        }
+      }
       await supabase.rpc("update_pin_regeneration_request", {
         p_user_id: String(req.userId), p_idempotency_key: idempotencyKey, p_claim_token: claimToken,
-        p_status: e && e.providerStatus === "failed" ? "failed" : "unknown",
-        p_error_code: e && e.providerStatus === "failed" ? "provider_generation_failed" :
+        // Only a provider-confirmed failure with a persisted terminal outcome
+        // may become failed. Otherwise retain unknown and block a fresh task.
+        p_status: providerFailureRecorded ? "failed" : "unknown",
+        p_error_code: providerFailureRecorded ? "provider_generation_failed" :
           (e && e.status === 402 ? "insufficient_balance" : "regeneration_outcome_unknown"),
       }).catch((journalError) => console.error("[regeneration] не удалось обновить журнал:", journalError && journalError.message));
     }
