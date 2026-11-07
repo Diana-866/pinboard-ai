@@ -125,6 +125,14 @@ begin
     raise exception 'ambiguous outcome released reserved credits: %', v_status;
   end if;
 
+  v_pins := jsonb_build_array(jsonb_build_object(
+    'image_url', 'https://cdn.example.invalid/reservation-unknown-blocked.png',
+    'title', 'Unknown outcome blocked spend',
+    'description', '',
+    'model_used', 'flux-schnell',
+    'aspect_ratio', '2:3',
+    'credits_cost', 2
+  ));
   begin
     perform public.save_generated_pins_and_charge(v_user::text, v_board, v_pins, 2);
     raise exception 'legacy debit consumed credits held for an unknown provider outcome';
