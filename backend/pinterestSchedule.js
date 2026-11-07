@@ -7,10 +7,11 @@ function classifyScheduleFailure(attempt, attemptLookupError) {
   return "failed";
 }
 
-// Retry only if the publish journal confirms that no remote-create attempt
-// exists. Once a journal row exists, its status is the source of truth.
+// A journaled retry is allowed only when the database failure RPC explicitly
+// marked the attempt safe. Legacy failed rows default to retry_safe=false.
 function canRetryScheduleFailure(attempt, attemptLookupError, error) {
-  if (attemptLookupError || attempt) return false;
+  if (attemptLookupError) return false;
+  if (attempt) return attempt.status === "failed" && attempt.retry_safe === true;
   const status = Number(error && error.httpStatus);
   return !Number.isFinite(status) || status === 0 || status === 502 || status === 503;
 }
