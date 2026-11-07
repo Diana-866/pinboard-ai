@@ -112,6 +112,12 @@ PostgreSQL concurrency tests (two independent sessions):
 9. Unauthorized roles cannot call lifecycle RPCs; service-role only.
 10. Legacy and foreign URLs never reach deletion RPC.
 
+PostgreSQL integration coverage (`backend/test/pin-image-deletion-claims.integration.sql`):
+- URL allow-list, traversal rejection, RPC/table privileges and all three trigger registrations;
+- live-claim exclusivity, expired-claim token rotation, stale-token finalization rejection;
+- pin and active schedule references block deletion; cancelled schedules release their reference;
+- terminal generation journal rows continue to retain their stored image until the journal row is pruned.
+
 Backend tests:
 - claim false -> Storage remove not called;
 - success -> finalize success;
