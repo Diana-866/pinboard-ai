@@ -872,3 +872,14 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 
 
 - После AUD-062 повторно проверены три свежих Actions runs `42376959908`, `42376959739`, `42376959704`: все jobs завершились за 1–2 секунды с `runner_id=0`, пустым runner name и нулём steps. CI не выполнялся; root cause не установлен.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-063: boards persistence + honest UI)
+- Static route audit: `/projects` и `/projects/:id` owner scoped; board generation/listing first validates project ownership; `getBoardWithOwnerCheck` / `getPinWithOwnerCheck` resolve owner via joined project; write routes constrain updates to board/project relation.
+- Frontend persistence path in `App.tsx`: load from `GET /boards`; create project for current user if none exists; create board through `POST /boards`; replace temporary client ID with DB ID in state.
+- Removed deceptive BoardManager UI: no fabricated SEO score, mock keyword suggestions, local-only fake optimize action or invented performance cards. Added empty state and neutral zero values for non-available metrics.
+- Changed `frontend/src/components/boards/BoardsManager.tsx` and `frontend/src/App.tsx`.
+- Static assertions passed for expected source structure only. No TypeScript lint, frontend unit tests, Vite build, API E2E or live Supabase test executed; GitHub Actions hosted runner remains unassigned (runner_id=0).
+- Production untouched; PR #4 remains Draft and unmerged.
+
+**Status:** AUD-063 / OWNER_SCOPED_ROUTE_STATIC_REVIEW / BOARDS_API_PERSISTENCE_PATH_CONFIRMED_IN_SOURCE / FAKE_ANALYTICS_REMOVED / RUNTIME_UNVERIFIED.
