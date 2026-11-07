@@ -136,13 +136,15 @@
 - **Тесты:** добавлен `frontend/src/utils/pinterestPinUrl.test.ts` на валидный ID, trim и пустые/нечисловые/path/query/URL payloads. Добавлен `npm test` script и шаг в frontend CI workflow.
 - **Проверка:** helper и отображение статически проверены по исходнику; тест и TypeScript build ещё не выполнены GitHub Actions. Статус `FIXED_UNVERIFIED`.
 
-### AUD-010 — Кнопка Retry в UI может быть доступна при серверном запрете повторной попытки
+### AUD-010 — Кнопка Retry в UI могла быть доступна при серверном запрете повтора
 - **Приоритет:** P2
-- **Статус:** OPEN
-- **Тип:** подтверждённое расхождение UI/API.
-- **Наблюдение:** UI показывает retry для failed schedule, но backend/RPC может блокировать retry из-за существующего attempt journal.
-- **Исправить:** возвращать серверный `retryable`/reason и отображать действие только при разрешённом переходе; сервер остаётся источником истины.
-- **Тесты:** UI states для retryable/non-retryable failed; API отказ не маскируется.
+- **Статус:** FIXED_UNVERIFIED
+- **Тип:** UI/API state mismatch исправлен.
+- **Реализация:** `GET /schedule` вычисляет `retryable` и `retry_reason` по фактическим attempt journal, publication ledger, состоянию account, наличию board/image и дублирующему активному расписанию. При ошибке чтения этих метаданных повтор по умолчанию запрещён (`metadata_unavailable`).
+- **Политика:** retry доступен только для failed schedule с активным аккаунтом и board, сохранённым изображением, отсутствующей publication ledger, отсутствующим дубликатом и либо отсутствующим attempt journal, либо attempt `failed + retry_safe=true`. Processing/unknown/legacy failed без safe marker не предлагаются к повтору.
+- **UI:** модель `ScheduledPinItem` получает `retryable`/reason; кнопка отображается только при `retryable === true`. При явном запрете показывается пояснение. POST retry продолжает повторно проверять все условия в SQL RPC — GET metadata не заменяет серверную блокировку.
+- **Тесты:** добавлены unit tests для no-journal safe retry, retry_safe, unsafe/ambiguous journal, отсутствующего аккаунта/доски/изображения, существующей публикации и active duplicate.
+- **Ограничение:** интеграционный runtime/CI не подтверждён; статус `FIXED_UNVERIFIED`.
 
 ### AUD-011 — CI jobs завершаются до появления runner steps и логов
 - **Приоритет:** P0 для release confidence
@@ -487,3 +489,5 @@ GitHub API возвращал пустые steps, `runner_id=0`, `logs_url=null`
 | 2026-11-07 | AUD-007: удалены UI-переключатель автогенерации, время запуска и локальный React callback; лимиты переименованы в локальные ориентиры ручного планирования, предупреждение локализовано на 7 языков. Автоматизация не обещается до реализации серверной очереди. Статус FIXED_UNVERIFIED до frontend CI. |
 
 | 2026-11-07 | AUD-009: frontend mapping сохраняет remote Pinterest pin ID; безопасный URL builder разрешает только numeric IDs; календарь показывает ссылку только для confirmed published; добавлены unit tests и frontend CI step. Статус FIXED_UNVERIFIED до CI. |
+
+| 2026-11-07 | AUD-010: GET /schedule возвращает server-computed retryable/reason; UI скрывает retry для ambiguous/non-safe записей; добавлены unit tests. POST RPC остаётся финальным источником истины. Статус FIXED_UNVERIFIED до CI. |
