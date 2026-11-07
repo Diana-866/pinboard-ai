@@ -10,4 +10,15 @@ function isCommittedTokenRefresh(previous, current) {
     current.refresh_token !== previous.refresh_token;
 }
 
-module.exports = { isCommittedTokenRefresh };
+/**
+ * The uncertainty fence is used both while a refresh request is in flight and
+ * after an ambiguous failure. A live lease distinguishes the former from the
+ * latter; malformed or expired timestamps are never treated as active.
+ */
+function hasActiveRefreshLease(lease, now = Date.now()) {
+  if (!lease || typeof lease.lease_until !== "string") return false;
+  const leaseUntil = Date.parse(lease.lease_until);
+  return Number.isFinite(leaseUntil) && leaseUntil > now;
+}
+
+module.exports = { isCommittedTokenRefresh, hasActiveRefreshLease };
