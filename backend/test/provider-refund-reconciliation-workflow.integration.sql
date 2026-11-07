@@ -8,7 +8,7 @@ declare
   v_board uuid;
   v_pin uuid;
   v_req jsonb;
-  v_request_id uuid;
+  v_request_id bigint;
   v_claim uuid;
   v_key text;
   v_at timestamptz;
