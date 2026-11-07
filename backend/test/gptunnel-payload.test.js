@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const axios = require("axios");
-const { buildImageTaskPayload, generateImage } = require("../gptunnel");
+const { buildImageTaskPayload, generateImage, imageTaskResult } = require("../gptunnel");
 
 test("Creative Lab v2 image payload puts aspect ratio inside params", () => {
   const payload = buildImageTaskPayload("a quiet forest", "flux-schnell", "9:16");
@@ -46,4 +46,27 @@ test("generateImage sends the persisted provider key and returns the provider ta
   } finally {
     axios.post = originalPost;
   }
+});
+
+test("imageTaskResult validates and normalizes a completed provider task", () => {
+  const result = imageTaskResult({
+    id: "0123456789abcdef01234567",
+    status: "done",
+    result: [{ url: "https://provider.example.invalid/image.png" }],
+    price: "0.6",
+  });
+  assert.deepEqual(result, {
+    url: "https://provider.example.invalid/image.png",
+    price: 0.6,
+    taskId: "0123456789abcdef01234567",
+  });
+});
+
+test("imageTaskResult rejects incomplete provider task results", () => {
+  assert.throws(() => imageTaskResult({
+    id: "0123456789abcdef01234567",
+    status: "running",
+    result: [],
+    price: 0,
+  }), /некорректный результат/i);
 });
