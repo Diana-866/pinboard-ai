@@ -115,3 +115,47 @@ begin
   end if;
 end;
 $body$;
+
+
+-- A managed pin URL is registered transactionally by the reference trigger.
+do $body$
+declare
+  v_user_id uuid := gen_random_uuid();
+  v_project_id uuid := gen_random_uuid();
+  v_board_id uuid := gen_random_uuid();
+  v_pin_id uuid := gen_random_uuid();
+  v_path text := 'pins/1730000000000-ab12cd34.webp';
+  v_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/1730000000000-ab12cd34.webp';
+  v_result jsonb;
+  v_token uuid;
+begin
+  insert into public.users(id, email) values (v_user_id, v_user_id::text || '@pin-image-test.invalid');
+  insert into public.projects(id, user_id) values (v_project_id, v_user_id);
+  insert into public.boards(id, project_id) values (v_board_id, v_project_id);
+  insert into public.pins(id, board_id, image_url) values (v_pin_id, v_board_id, v_url);
+
+  if not exists (
+    select 1 from public.pin_image_object_lifecycle
+     where bucket_id = 'pin-images' and object_path = v_path and state = 'active'
+  ) then
+    raise exception 'pin reference trigger did not register the managed object';
+  end if;
+
+  v_result := public.claim_pin_image_deletion('pin-images', v_path, 60);
+  if coalesce((v_result ->> 'claimed')::boolean, false) is not false
+     or v_result ->> 'reason' <> 'referenced' then
+    raise exception 'image deletion claim ignored an existing pin reference: %', v_result;
+  end if;
+
+  delete from public.pins where id = v_pin_id;
+  v_result := public.claim_pin_image_deletion('pin-images', v_path, 60);
+  if coalesce((v_result ->> 'claimed')::boolean, false) is not true then
+    raise exception 'image deletion was not claimable after pin reference removal: %', v_result;
+  end if;
+  v_token := (v_result ->> 'claim_token')::uuid;
+
+  if not public.finalize_pin_image_deletion('pin-images', v_path, v_token, true, null) then
+    raise exception 'pin image deletion claim could not be finalized after reference removal';
+  end if;
+end;
+$body$;
