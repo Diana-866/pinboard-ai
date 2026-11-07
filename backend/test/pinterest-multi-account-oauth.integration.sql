@@ -1,4 +1,4 @@
--- Run only in disposable PostgreSQL CI after migrations 026-032.
+-- Run only in disposable PostgreSQL CI after migrations 026-032, 036 and 062.
 -- Exercises identity-based OAuth upsert, reconnect stability and plan caps.
 do $$
 declare
@@ -109,9 +109,9 @@ begin
     raise exception 'reconnect erased existing refresh token or expiry: %, %', v_refresh_token, v_expires_at;
   end if;
 
-  -- OAuth reconnect must clear an in-flight refresh uncertainty fence.
-  -- The stale refresh worker must not overwrite the newly reconnected credentials,
-  -- even when the OAuth response preserves the previous refresh token.
+  -- OAuth reconnect without a newly issued refresh token must preserve the
+  -- uncertainty fence: the previously stored token may already have been rotated.
+  -- The stale refresh worker must not overwrite the newly reconnected credentials.
   <<oauth_refresh_race>>
   declare
     v_refresh_lease uuid := gen_random_uuid();
@@ -149,10 +149,10 @@ begin
       into v_refresh_state, v_current_access, v_current_refresh
       from public.pinterest_accounts where id = v_account_a;
 
-    if v_refresh_state <> 'ready'
+    if v_refresh_state <> 'uncertain'
        or v_current_access <> 'enc:a4-reconnected'
        or v_current_refresh <> 'enc:ar2' then
-      raise exception 'OAuth reconnect did not restore ready state and preserve refresh token';
+      raise exception 'OAuth reconnect without a new refresh token incorrectly cleared uncertainty';
     end if;
 
     select public.commit_pinterest_account_token_refresh(
@@ -171,8 +171,30 @@ begin
 
     if v_current_access <> 'enc:a4-reconnected'
        or v_current_refresh <> 'enc:ar2'
-       or v_refresh_state <> 'ready' then
-      raise exception 'stale refresh worker changed credentials after OAuth reconnect';
+       or v_refresh_state <> 'uncertain' then
+      raise exception 'stale refresh worker changed credentials or cleared uncertainty after OAuth reconnect';
+    end if;
+
+    -- A later OAuth callback that supplies a genuinely new refresh token is
+    -- allowed to clear the fence and restore normal automatic refresh.
+    perform public.release_pinterest_account_refresh_lease(
+      v_user::text, v_account_a, v_refresh_lease
+    );
+    v_attempt := gen_random_uuid();
+    v_generation := public.begin_pinterest_oauth_attempt(v_user::text, v_attempt, 0);
+    v_result := public.commit_pinterest_oauth_attempt_v2(
+      v_user::text, v_attempt, v_generation, 0,
+      'external-a-' || v_user, 'account_a_reconnected', 'enc:a5-reconnected', 'enc:ar3-fresh',
+      'boards:read,pins:write', now() + interval '2 hours'
+    );
+    if v_result->>'ok' <> 'true' then
+      raise exception 'OAuth reconnect with a fresh refresh token failed: %', v_result;
+    end if;
+    select refresh_state, refresh_token
+      into v_refresh_state, v_current_refresh
+      from public.pinterest_accounts where id = v_account_a;
+    if v_refresh_state <> 'ready' or v_current_refresh <> 'enc:ar3-fresh' then
+      raise exception 'fresh OAuth refresh token did not clear uncertainty';
     end if;
 
     perform public.release_pinterest_account_refresh_lease(
