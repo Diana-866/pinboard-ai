@@ -29,6 +29,21 @@ function buildImageTaskPayload(prompt, model = "flux-schnell", aspectRatio = "2:
   return payload;
 }
 
+function providerTaskError(task) {
+  const providerError = task && task.error && typeof task.error === "object" ? task.error : {};
+  const price = task && typeof task.price === "number" && Number.isFinite(task.price) && task.price >= 0
+    ? task.price
+    : null;
+  const error = new Error("Генерация не удалась: " + (providerError.message || "неизвестная ошибка"));
+  error.providerStatus = "failed";
+  error.providerTaskId = typeof task?.id === "string" ? task.id : null;
+  error.providerPrice = price;
+  error.providerRefunded = typeof task?.refunded === "boolean" ? task.refunded : null;
+  error.providerErrorCode = Number.isInteger(providerError.code) ? providerError.code : null;
+  error.providerErrorTitle = typeof providerError.title === "string" ? providerError.title.slice(0, 120) : null;
+  return error;
+}
+
 function imageTaskResult(task) {
   const url = task && task.result && task.result[0] && task.result[0].url;
   const price = task && task.price;
@@ -166,10 +181,7 @@ async function waitForImageTask(taskId, callbacks = {}) {
     }
 
     if (task && task.status === "failed") {
-      const error = new Error("Генерация не удалась: " + (task.error?.message || "неизвестная ошибка"));
-      error.providerStatus = "failed";
-      error.providerTaskId = taskId;
-      throw error;
+      throw providerTaskError({ ...task, id: taskId });
     }
 
     if (!task || !["queued", "running", "done", "failed"].includes(task.status)) {
@@ -190,10 +202,7 @@ async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3"
   const task = createResponse.data;
   if (task && task.status === "done") return imageTaskResult(task);
   if (task && task.status === "failed") {
-    const error = new Error("Генерация не удалась: " + (task.error?.message || "неизвестная ошибка"));
-    error.providerStatus = "failed";
-    error.providerTaskId = typeof task.id === "string" ? task.id : null;
-    throw error;
+    throw providerTaskError(task);
   }
 
   const taskId = task && task.id;
@@ -206,4 +215,4 @@ async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3"
   return waitForImageTask(taskId, callbacks);
 }
 
-module.exports = { generateText, generateTextWithUsage, quoteImageTask, normalizeMediaQuote, generateImage, waitForImageTask, listModels, checkImage, buildImageTaskPayload, imageTaskResult };
+module.exports = { providerTaskError, generateText, generateTextWithUsage, quoteImageTask, normalizeMediaQuote, generateImage, waitForImageTask, listModels, checkImage, buildImageTaskPayload, imageTaskResult };
