@@ -125,6 +125,12 @@ const MainApp: React.FC = () => {
             destinationUrl: row.snapshot_image_url ? (row.snapshot_destination_url || '') : (row.destination_url || ''),
             pinterestBoardId: row.pinterest_board_id || undefined,
             pinterestAccountId: row.pinterest_account_id || undefined,
+            pinterestPinId: /^\\d+$/.test(String(row.pinterest_pin_id || '').trim())
+              ? String(row.pinterest_pin_id).trim()
+              : undefined,
+            pinterestPinUrl: /^\\d+$/.test(String(row.pinterest_pin_id || '').trim())
+              ? `https://www.pinterest.com/pin/${String(row.pinterest_pin_id).trim()}/`
+              : undefined,
             isOptimalSlot: false,
           };
         });
