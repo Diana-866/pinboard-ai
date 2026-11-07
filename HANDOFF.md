@@ -315,3 +315,17 @@ HANDOFF.md                            Этот файл
 - Добавлен `backend/test/pin-generation-credit-reservations.integration.sql`: idempotency, запрет изменения суммы, блокировка конкурирующего debit, успешный settlement, release на definitive failure и удержание резерва при unknown.
 - SQL regression подключён к `.github/workflows/atomic-payment-integration.yml` после применения миграции 054.
 - AUD-025: FIX IMPLEMENTED, CI UNVERIFIED. PostgreSQL runner здесь недоступен; миграция и тест пока не объявляются успешно исполненными. Production не затрагивался.
+
+
+## AUD-026 — восстановление задач генерации по сохранённому provider_task_id
+
+**Статус: FIX IMPLEMENTED / CI UNVERIFIED**
+
+При восстановлении генерации backend ранее мог повторно вызывать `POST /api/v2/media/tasks` даже при наличии сохранённого `provider_task_id` для задачи со статусом `queued`, `running` или `unknown`. Это создавало ненужную зависимость от срока хранения idempotency key у провайдера и риск повторной отправки billable create-запроса.
+
+Исправлено:
+- `backend/gptunnel.js`: выделен `waitForImageTask(taskId)`, который продолжает опрос существующей задачи; `generateImage` использует тот же poller после создания новой задачи.
+- `backend/pins.js`: при восстановлении задачи с сохранённым provider task ID и статусом queued/running/unknown используется прямой polling, а не повторное создание.
+- Добавлен `backend/test/gptunnel-recovery.test.js`: проверяет переход running → done, корректный результат, отсутствие повторного POST и обновление статуса.
+
+Проверка: изменения сохранены в ветке `feat/persisted-boards-api`. Тест добавлен в стандартный `node --test` suite через `backend/package.json` (скрипт уже настроен на обнаружение тестов). Фактическое выполнение теста и PostgreSQL/CI пока не подтверждены.
