@@ -3,12 +3,11 @@ const supabase = require("./supabase");
 const http = require("node:http");
 const https = require("node:https");
 const { httpError } = require("./validate");
-const { validateImageBuffer } = require("./imageValidation");
+const { MAX_IMAGE_BYTES, validateImageBuffer } = require("./imageValidation");
 const { assertPublicUrl, createPinnedLookup } = require("./publicUrl");
 const { extractManagedPinImagePath, canDeletePinImageObject, buildPinImageObjectPath } = require("./pinImageLifecycle");
 
 const BUCKET = "pin-images";
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_MIMES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 let bucketReady = false;
 
@@ -29,10 +28,13 @@ async function ensureBucket() {
     if (createError) {
       throw httpError(503, "Не удалось создать бакет изображений: " + createError.message);
     }
-    bucket = created || null;
+    bucket = created || { file_size_limit: MAX_IMAGE_BYTES };
   }
 
-  const configuredLimit = Number(bucket && bucket.file_size_limit);
+  if (!bucket || !Object.prototype.hasOwnProperty.call(bucket, "file_size_limit")) {
+    throw httpError(503, "Не удалось проверить лимит бакета pin-images");
+  }
+  const configuredLimit = Number(bucket.file_size_limit);
   if (Number.isFinite(configuredLimit) && configuredLimit > 0 && configuredLimit < MAX_IMAGE_BYTES) {
     throw httpError(503, "Лимит бакета pin-images меньше допустимого размера изображения (5 МиБ)");
   }
