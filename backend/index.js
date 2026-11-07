@@ -120,6 +120,7 @@ const { pinterestScheduleLimiter } = require("./pinterestRateLimit");
 const { analyzeSite } = require("./analyze");
 const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
+const { calculateGenerationReservation } = require("./generationPricing");
 const { uploadPinImage, rehostImage, deletePinImageIfUnreferenced } = require("./storage");
 const { validateDevTopupRequest } = require("./devTopup");
 const mail = require("./mail");
@@ -1055,7 +1056,7 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
     // A resumed journal may already represent billable provider work. Do not
     // reject recovery using a fresh estimate; the atomic completion RPC checks
     // the actual final charge against the current balance before saving pins.
-    const estimatedCost = Math.ceil((MODEL_PRICES[model] || 15) * count * MARKUP);
+    const estimatedCost = calculateGenerationReservation(MODEL_PRICES[model] || 15, count, MARKUP);
     if (requestState.status !== "resume") {
       const balance = await getBalance(req.userId);
       if (balance < estimatedCost) {
