@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Layers,
-  Sparkles,
   Plus,
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
@@ -32,9 +30,9 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
       category,
       pinCount: 0,
       monthlyViews: 0,
-      seoScore: 92,
-      missingKeywords: ['aesthetic inspiration', 'trending guide', 'ideas 2026'],
-      targetWeeklyPins: 7,
+      seoScore: 0,
+      missingKeywords: [],
+      targetWeeklyPins: 0,
       coverImage: '/src/assets/images/pin_home_decor_1790670043705.jpg',
     };
 
@@ -66,8 +64,13 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
       </div>
 
       {/* Boards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {boards.map((board) => (
+      {boards.length === 0 ? (
+        <div className="custom-card p-8 rounded-2xl text-center text-sm text-secondary-theme">
+          {t.dashboard.emptyBoards}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {boards.map((board) => (
           <div key={board.id} className="custom-card p-5 rounded-2xl space-y-4">
             <div className="flex items-start gap-4">
               <img
@@ -83,19 +86,14 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
                 <h3 className="text-base font-bold text-primary-theme line-clamp-1 font-heading">
                   {board.name}
                 </h3>
-                <p className="text-xs text-secondary-theme pt-1">
-                  {t.dashboard.boardMetricsUnavailable}
-                </p>
               </div>
 
             </div>
 
-            <div className="pt-3 border-t border-subtle text-xs text-muted-theme">
-              {t.dashboard.boardMetricsUnavailable}
-            </div>
           </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Create Board Modal */}
       {createModalOpen && (
