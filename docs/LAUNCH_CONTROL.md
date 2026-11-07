@@ -349,3 +349,14 @@
 - Added `providerTaskError(task)` in `backend/gptunnel.js` and routed both direct and polled failed-task paths through it. It preserves provider task ID, valid gross price, strict `refunded` boolean (missing/invalid => null), provider error code and bounded title.
 - Added 3 test definitions for refunded=false, missing refund metadata, and invalid price. Not executed.
 - These fields are not yet persisted by the regeneration route into migration 053. No schema/route change; provider-cost reconciliation remains incomplete.
+
+
+### 2026-11-07 — AUD-073 implementation: persist provider terminal outcomes (migration 063)
+- Добавлена миграция `db/migrations/063_pin_regeneration_provider_outcomes.sql`: provider_status, provider_refunded, provider_error_code/title, provider_reconciled_at и claim-token-fenced RPC `record_pin_regeneration_provider_outcome`.
+- RPC сохраняет provider terminal facts отдельно от пользовательского списания. Идентичный replay идемпотентен; конфликтующий replay, другой task ID или stale claim отклоняются. `refunded=false` + цена — reconciled platform expense; отсутствующий refund остаётся NULL и reconciliation timestamp остаётся NULL.
+- Маршрут `POST /pins/:id/regenerate` записывает done outcome до rehosting; failed outcome записывается до перехода в failed. Если сохранить provider failure не удалось, request остаётся unknown. Recovery через уже сохранённый task ID использует тот же adapter metadata.
+- Добавлен disposable PostgreSQL integration script `backend/test/pin-regeneration-provider-outcome.sh`: success, refunded=false, missing refund, identical/conflicting replay, stale claim.
+- **Блокер перед deploy:** миграция 063 не применена; integration script, Node suite, PostgreSQL и CI не запускались. Backend code нельзя выкатывать до применения миграции на тестовой БД и успешного выполнения SQL integration test.
+- Не изменялись user credit amount, tariff, balances, production DB, GPTunnel credentials, deploy, DNS, Prodamus, Pinterest или merge PR.
+
+**Status:** AUD-073 / PROVIDER_OUTCOME_JOURNAL_ADDED / ROUTE_WIRED / SQL_RUNTIME_UNVERIFIED / DO_NOT_DEPLOY_BEFORE_MIGRATION_TEST.
