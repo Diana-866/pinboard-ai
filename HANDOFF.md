@@ -967,3 +967,9 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - No code or migration changed; no user credits/tariffs changed; no authenticated provider API call, runtime/SQL test, production change, deploy or PR merge.
 
 **Status:** AUD-073 / REGENERATION_ACCOUNTING_GAPS_DOCUMENTED / DESIGN_ONLY / RUNTIME_UNVERIFIED.
+
+
+## AUD-073 follow-up — failed task metadata adapter groundwork
+- Added `providerTaskError(task)` in `backend/gptunnel.js` and routed both direct and polled failed-task paths through it. It preserves provider task ID, valid gross price, strict `refunded` boolean (missing/invalid => null), provider error code and bounded title.
+- Added 3 test definitions for refunded=false, missing refund metadata, and invalid price. Not executed.
+- These fields are not yet persisted by the regeneration route into migration 053. No schema/route change; provider-cost reconciliation remains incomplete.
