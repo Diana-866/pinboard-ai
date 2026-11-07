@@ -291,6 +291,7 @@ export const ru: TranslationSchema = {
     emptyDay: 'Нет запланированных пинов',
     statusScheduled: 'Запланирован',
     statusPublished: 'Опубликован',
+    openPinterestPin: "Открыть пин в Pinterest",
     statusDraft: 'Черновик',
     optimalSlotBadge: 'Оптимальный слот',
     pinDetailsModal: 'Детали запланированного пина',
