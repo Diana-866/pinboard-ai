@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { getDefaultTimezone, localDateTimeToDate, formatInstantInTimezone } from './utils/timezone';
 import { apiRequest } from './lib/api';
+import { buildPinterestPinUrl } from './utils/pinterestPinUrl';
 import { ThemeProvider } from './theme/themeContext';
 import { I18nProvider, useI18n } from './i18n/i18nContext';
 import { NotificationProvider, useNotifications } from './context/NotificationContext';
@@ -112,6 +113,8 @@ const MainApp: React.FC = () => {
         const mapped: ScheduledPinItem[] = (Array.isArray(rows) ? rows : []).map((row: any) => {
           const date = new Date(row.scheduled_at);
           const local = formatInstantInTimezone(date, getDefaultTimezone());
+          const pinterestPinId = String(row.pinterest_pin_id || '').trim();
+          const pinterestPinUrl = buildPinterestPinUrl(pinterestPinId);
           return {
             id: String(row.id),
             pinId: String(row.pin_id),
@@ -125,12 +128,8 @@ const MainApp: React.FC = () => {
             destinationUrl: row.snapshot_image_url ? (row.snapshot_destination_url || '') : (row.destination_url || ''),
             pinterestBoardId: row.pinterest_board_id || undefined,
             pinterestAccountId: row.pinterest_account_id || undefined,
-            pinterestPinId: /^\\d+$/.test(String(row.pinterest_pin_id || '').trim())
-              ? String(row.pinterest_pin_id).trim()
-              : undefined,
-            pinterestPinUrl: /^\\d+$/.test(String(row.pinterest_pin_id || '').trim())
-              ? `https://www.pinterest.com/pin/${String(row.pinterest_pin_id).trim()}/`
-              : undefined,
+            pinterestPinId: pinterestPinUrl ? pinterestPinId : undefined,
+            pinterestPinUrl,
             isOptimalSlot: false,
           };
         });
