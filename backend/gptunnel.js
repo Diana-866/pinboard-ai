@@ -190,4 +190,4 @@ async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3"
   return waitForImageTask(taskId, callbacks);
 }
 
-module.exports = { generateText, generateImage, waitForImageTask, listModels, checkImage, buildImageTaskPayload, imageTaskResult };
+module.exports = { generateText, generateTextWithUsage, quoteImageTask, normalizeMediaQuote, generateImage, waitForImageTask, listModels, checkImage, buildImageTaskPayload, imageTaskResult };
