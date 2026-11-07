@@ -683,3 +683,15 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Ветка `feat/persisted-boards-api`; production/стейджинг, Pinterest API, публикации и deployment не затрагивались. Это частичный static review; Node/PostgreSQL/CI не запускались. Кодовых изменений не сделано.
 
 **Status:** PARTIAL_STATIC_REVIEW / SCHEDULE_RECOVERY_AND_RETRY_POLICY_REVIEWED / CLAIM_TOKEN_ROTATION_REQUIRES_SCHEMA_VERIFICATION.
+
+
+### AUD-048 — продолжение: claim fencing и исправление миграции
+
+- По дереву репозитория найдены исходные миграции 015/017 и поздние исправления 047–052. Миграция 049 полностью реализует claim fencing: добавляет `claim_token`, создаёт токен через `gen_random_uuid()` при каждом claim, сбрасывает токен trigger-ом при любом переходе из `publishing`, очищает токен при stale recovery и проверяет точный токен в `begin_scheduled_pinterest_publish` под `FOR UPDATE` блокировкой строки расписания.
+- Race analysis: claim RPC блокирует schedule row; `begin_scheduled_pinterest_publish` берёт ту же row lock и создаёт durable publish attempt в той же транзакции. Если recovery выигрывает первым, старый token очищен и старый worker не может зарезервировать attempt/отправить POST. Если reservation выигрывает первым, recovery увидит attempt journal и поставит `unknown`, не requeue; поздний подтверждённый ответ `complete_pinterest_publish_v2` (migration 047) атомарно обновит publication ledger и schedule из `publishing`/`unknown` в `published`.
+- Найден реальный дефект migration 049: тело trigger function `clear_nonpublishing_pin_schedule_claim_token` было обрамлено одинарным `$` вместо корректного `$$`. Это невалидный PostgreSQL dollar-quote delimiter и могло остановить последовательное применение миграций на шаге 049.
+- Исправлено в `db/migrations/049_pinterest_schedule_claim_fencing.sql`: `as $$ ... $$;`. Файл повторно загружен из ветки и проверен; blob SHA `5ade3e2e7a3bd2c3161ef537486fb9101c7c2c05`. Commit исправления: `36106529ef71f87aa199cdac1e0422f636938fd2`.
+- Существующий `backend/test/pinterest-account-publication.integration.sql` уже покрывает stale pre-journal recovery, очистку старого token, выпуск нового token и отказ старому worker, а также успешную reservation текущим token. Workflow `atomic-payment-integration.yml` применяет миграции 015–055 и запускает этот SQL integration test после применения миграций 031–052.
+- PostgreSQL/Node/CI не запускались в этой сессии; `psql` отсутствует в рабочем окружении. CI нужно дождаться на PR. Production/стейджинг не затрагивались; никаких публикаций, миграций или deployment вне GitHub не выполнялось.
+
+**Status:** STATIC_REVIEW_COMPLETE / CLAIM_FENCING_CONFIRMED / MIGRATION_049_SQL_QUOTING_FIXED / CI_PENDING.
