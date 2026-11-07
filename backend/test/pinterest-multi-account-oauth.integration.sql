@@ -112,6 +112,7 @@ begin
   -- OAuth reconnect must clear an in-flight refresh uncertainty fence.
   -- The stale refresh worker must not overwrite the newly reconnected credentials,
   -- even when the OAuth response preserves the previous refresh token.
+  <<oauth_refresh_race>>
   declare
     v_refresh_lease uuid := gen_random_uuid();
     v_refresh_expected_updated_at timestamptz;
@@ -177,7 +178,7 @@ begin
     perform public.release_pinterest_account_refresh_lease(
       v_user::text, v_account_a, v_refresh_lease
     );
-  end;
+  end oauth_refresh_race;
 
   -- A fourth identity is rejected at the transactional Start-plan cap.
   v_attempt := gen_random_uuid();
