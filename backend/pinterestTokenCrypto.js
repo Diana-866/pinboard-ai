@@ -2,14 +2,23 @@ const crypto = require("crypto");
 
 const PREFIX = "enc:v1:";
 
-function encryptionKey() {
-  const raw = String(process.env.PINTEREST_TOKEN_ENCRYPTION_KEY || "").trim();
-  if (!raw) throw new Error("PINTEREST_TOKEN_ENCRYPTION_KEY is not configured");
+function parseEncryptionKey(rawValue, variableName) {
+  const raw = String(rawValue || "").trim();
+  if (!raw) throw new Error(`${variableName} is not configured`);
   const key = /^[0-9a-f]{64}$/i.test(raw) ? Buffer.from(raw, "hex") : Buffer.from(raw, "base64");
   if (key.length !== 32) {
-    throw new Error("PINTEREST_TOKEN_ENCRYPTION_KEY must decode to exactly 32 bytes (base64 or 64-char hex)");
+    throw new Error(`${variableName} must decode to exactly 32 bytes (base64 or 64-char hex)`);
   }
   return key;
+}
+
+function encryptionKey() {
+  return parseEncryptionKey(process.env.PINTEREST_TOKEN_ENCRYPTION_KEY, "PINTEREST_TOKEN_ENCRYPTION_KEY");
+}
+
+function previousEncryptionKey() {
+  const raw = String(process.env.PINTEREST_TOKEN_ENCRYPTION_KEY_PREVIOUS || "").trim();
+  return raw ? parseEncryptionKey(raw, "PINTEREST_TOKEN_ENCRYPTION_KEY_PREVIOUS") : null;
 }
 
 function hasEncryptionKey() {
@@ -39,9 +48,7 @@ function encryptToken(value) {
   ].join(":");
 }
 
-function decryptToken(value) {
-  if (value == null || value === "") return null;
-  if (!isEncryptedToken(value)) return value; // legacy plaintext, migrated by getAccount()
+function decryptWithKey(value, key) {
   const parts = value.split(":");
   if (parts.length !== 5 || parts[0] !== "enc" || parts[1] !== "v1") {
     throw new Error("Unsupported Pinterest token ciphertext format");
@@ -52,15 +59,41 @@ function decryptToken(value) {
   if (iv.length !== 12 || tag.length !== 16 || ciphertext.length === 0) {
     throw new Error("Invalid Pinterest token ciphertext");
   }
-  const decipher = crypto.createDecipheriv("aes-256-gcm", encryptionKey(), iv);
+  const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
+}
+
+function decryptToken(value) {
+  if (value == null || value === "") return null;
+  if (!isEncryptedToken(value)) return value; // legacy plaintext, migrated by getAccount()
+  const activeKey = encryptionKey();
+  try {
+    return decryptWithKey(value, activeKey);
+  } catch (activeError) {
+    const previousKey = previousEncryptionKey();
+    if (!previousKey || previousKey.equals(activeKey)) throw activeError;
+    // During key rotation, old ciphertext remains readable until it is lazily
+    // re-encrypted with the active key when the account is next loaded.
+    return decryptWithKey(value, previousKey);
+  }
+}
+
+function isEncryptedWithActiveKey(value) {
+  if (!isEncryptedToken(value)) return false;
+  try {
+    decryptWithKey(value, encryptionKey());
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 module.exports = {
   encryptionKey,
   hasEncryptionKey,
   isEncryptedToken,
+  isEncryptedWithActiveKey,
   encryptToken,
   decryptToken,
 };
