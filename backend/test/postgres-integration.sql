@@ -244,6 +244,33 @@ begin
   insert into public.projects(user_id, niche) values (v_user, 'test') returning id into v_project;
   insert into public.boards(project_id) values (v_project) returning id into v_board;
 
+  -- Distinct generation keys cannot reserve the same credits concurrently.
+  insert into public.pin_generation_requests(user_id,board_id,idempotency_key,status,request_fingerprint)
+  values(v_user::text,v_board,'reservation-test-key-0001','processing',repeat('1',64));
+  insert into public.pin_generation_requests(user_id,board_id,idempotency_key,status,request_fingerprint)
+  values(v_user::text,v_board,'reservation-test-key-0002','processing',repeat('2',64));
+  perform public.reserve_pin_generation_credits(v_user::text,'reservation-test-key-0001',60);
+  begin
+    perform public.reserve_pin_generation_credits(v_user::text,'reservation-test-key-0002',60);
+    raise exception 'second generation reservation unexpectedly succeeded';
+  exception when others then
+    if sqlerrm='second generation reservation unexpectedly succeeded' then raise; end if;
+    if position('insufficient available credits' in sqlerrm)=0 then raise; end if;
+  end;
+  update public.pin_generation_requests set status='failed'
+   where user_id=v_user::text and idempotency_key='reservation-test-key-0001';
+  if (select status from public.pin_generation_credit_reservations
+       where user_id=v_user::text and idempotency_key='reservation-test-key-0001') <> 'released' then
+    raise exception 'definitive failure did not release generation reservation';
+  end if;
+  perform public.reserve_pin_generation_credits(v_user::text,'reservation-test-key-0002',60);
+  update public.pin_generation_requests set status='unknown'
+   where user_id=v_user::text and idempotency_key='reservation-test-key-0002';
+  if (select status from public.pin_generation_credit_reservations
+       where user_id=v_user::text and idempotency_key='reservation-test-key-0002') <> 'reserved' then
+    raise exception 'unknown provider outcome must retain its credit reservation';
+  end if;
+
   -- Generated pin rows and the corresponding credit debit must commit together.
   v_result := public.save_generated_pins_and_charge(
     v_user::text, v_board,
