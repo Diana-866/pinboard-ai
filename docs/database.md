@@ -42,6 +42,15 @@ SQL Editor → New query → вставить файл целиком → **Run*
 
 Список выше описывает только первоначальную схему 000–008. Для текущей версии PinPosy после неё нужно последовательно применить **все** файлы `db/migrations/009_*.sql` … `033_*.sql` в порядке номеров, а не запускать только последнюю миграцию. Они добавляют ограничения и атомарные операции для платежей/кредитов, подтверждение email и сброс пароля, Pinterest OAuth и публикации, аудит вебхуков и transactional email outbox.
 
+Текущая feature branch продолжает цепочку миграциями 034–055. Для auth recovery особенно важны:
+- `020_atomic_password_reset.sql` — атомарный выпуск/погашение reset-токена;
+- `021_atomic_email_verification.sql` и `022_atomic_email_verification_issuance.sql` — атомарное подтверждение email и выпуск verification-ссылок с cooldown;
+- `023_revoke_sessions_after_password_reset.sql` — добавляет `users.token_version` и увеличивает его в той же транзакции, что меняет пароль и погашает reset-токен;
+- `024_password_reset_email_cooldown.sql` и `025_drop_legacy_password_reset_overload.sql` — per-account cooldown и удаление старой трёхпараметрической RPC-сигнатуры, обходившей cooldown;
+- `055_auth_token_version.sql` — идемпотентно закрепляет колонку, DEFAULT 0, NOT NULL и CHECK >= 0 для baseline/схем, где колонка ещё не была создана.
+
+Не путать наличие колонки с наличием RPC: функции auth recovery определяются миграциями 020–025. Применять всю цепочку по порядку; 055 не заменяет миграции 020–025. Миграции 034–055 из feature branch не следует применять к production без отдельного согласованного rollout, резервной копии и проверки на staging.
+
 Pinterest multi-account rollout:
 - `031_pinterest_account_scoped_foundation.sql` adds stable account references, nullable credentials for soft disconnect, and per-account refresh leases.
 - `032_pinterest_multi_account_oauth.sql` replaces the unique-per-user account index and enforces account caps in the OAuth commit transaction.
@@ -69,7 +78,7 @@ Pinterest multi-account rollout:
    where table_schema='public' and table_name='users'
    order by ordinal_position;
    ```
-   Ожидается: `id, email, password_hash, credits_balance, subscription_tier, is_admin, created_at, name, surname, onboarded, tariff_plan, email_verified, tariff_period_end`.
+   Ожидается: `id, email, password_hash, credits_balance, subscription_tier, is_admin, created_at, name, surname, onboarded, tariff_plan, email_verified, tariff_period_end, token_version`.
 
 ## Восстановление базы с нуля (полный сценарий)
 
