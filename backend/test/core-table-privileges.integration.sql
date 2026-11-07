@@ -17,7 +17,7 @@ declare
     'pinterest_accounts',
     'pinterest_publications'
   ];
-  v_client_roles text[] := array['public', 'anon', 'authenticated'];
+  v_client_roles text[] := array['anon', 'authenticated'];
   v_privileges text[] := array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'];
 begin
   foreach v_table in array v_tables loop
@@ -33,6 +33,19 @@ begin
         and c.relrowsecurity
     ) then
       raise exception 'AUD-101 RLS is not enabled on public.%', v_table;
+    end if;
+
+    if exists (
+      select 1
+      from pg_class c
+      join pg_namespace n on n.oid = c.relnamespace
+      cross join lateral aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) a
+      where n.nspname = 'public'
+        and c.relname = v_table
+        and a.grantee = 0
+        and a.privilege_type = any(v_privileges)
+    ) then
+      raise exception 'AUD-101 PUBLIC retains direct privileges on public.%', v_table;
     end if;
 
     foreach v_role in array v_client_roles loop
