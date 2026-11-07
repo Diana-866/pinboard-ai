@@ -578,3 +578,26 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 **Verification:** source files and the AUD-040 handoff entry were fetched back from the branch; their content SHAs matched the successful writes. GitHub Actions runs associated with the code commits reported failures in existing workflows (Atomic payment fulfillment integration, Prodamus webhook tests, and Persisted boards integration checks). The GitHub API listed failed jobs, but downloading their logs returned `BlobNotFound`; therefore the failure causes cannot be attributed to this change or diagnosed from available evidence. The repository defines `npm test` as `node --test`, but this review environment did not execute the project test suite. The final documentation commit had no associated PR workflow run.
 
 **Status:** FIX_IMPLEMENTED / REGRESSION_TEST_ADDED / TESTS_AND_CI_UNVERIFIED. No production/staging database, Pinterest credentials, deployment, or external account was accessed or changed.
+
+
+### AUD-041 — Pinterest refresh lease and disconnect fencing (2026-11-07)
+
+**Files inspected:** `backend/pinterest.js`, `backend/pinterestAccountRequest.js`, and migrations `026`, `027`, `031`, `032`, and `036`.
+
+**Confirmed invariants**
+- The active account-scoped lease is keyed by `pinterest_account_id`, not merely by PinPosy user. Distinct Pinterest identities can refresh independently.
+- Lease acquisition verifies that the account belongs to the supplied user and is active. Token commit requires the same user, account, live lease ID, active account row, and expected `updated_at`.
+- Disconnect removes the account-scoped lease before clearing credentials and setting `disconnected_at`. A refresh worker that returns after disconnect therefore cannot satisfy the commit RPC's live-lease check.
+- OAuth reconnect updates the same stable identity row and its `updated_at`; a refresh commit based on the old row version cannot overwrite the reconnect.
+- `executeWithAccountToken` limits recovery to one 401 refresh and one optional 429 retry. Publishing disables 429 replay because creating a pin is non-idempotent. A 401 retry is distinct: the rejected unauthorized request is not treated as a successful create.
+
+**Regression test added**
+- Added `backend/test/pinterest-refresh-disconnect-fencing.integration.sql`. It acquires a real account-scoped lease, disconnects the account, simulates a late refresh worker attempting to commit rotated credentials, and asserts that commit returns false, credentials remain null, the account remains disconnected, and no refresh lease remains.
+- Wired the SQL test into `.github/workflows/atomic-payment-integration.yml` after the Pinterest uncertainty-fence check.
+
+**Verification limits**
+- The test and workflow changes were written to the feature branch. They have not been executed in this environment; CI must confirm SQL behavior against the full migration chain.
+- This pass found no additional confirmed implementation defect in the inspected refresh/disconnect/reconnect paths. The new test is regression coverage for the database fencing contract, not proof of a live multi-process race test.
+- No Pinterest credentials, external Pinterest account, production/staging database, deployment, or live API call was accessed or changed.
+
+**Status:** STATIC_REVIEW_COMPLETE / DISCONNECT_FENCING_REGRESSION_ADDED / CI_PENDING.
