@@ -777,6 +777,31 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
       throw httpError(500, "Не удалось получить право на перегенерацию");
     }
 
+    // New provider submissions must be covered by the same reservation pool
+    // used by multi-pin generation. Legacy requests with a durable provider
+    // task ID are recovered without creating a second reservation.
+    if (!state.provider_task_id) {
+      const { error: reservationError } = await supabase.rpc("reserve_pin_regeneration_credits", {
+        p_user_id: String(req.userId),
+        p_idempotency_key: idempotencyKey,
+        p_claim_token: claimToken,
+      });
+      if (reservationError) {
+        await supabase.rpc("update_pin_regeneration_request", {
+          p_user_id: String(req.userId),
+          p_idempotency_key: idempotencyKey,
+          p_claim_token: claimToken,
+          p_status: "failed",
+          p_error_code: "regeneration_reservation_failed",
+        }).catch((journalError) => console.error("[regeneration] не удалось зафиксировать отказ резерва:", journalError && journalError.message));
+        requestStarted = false;
+        if (/insufficient available credits/i.test(reservationError.message || "")) {
+          throw httpError(402, "Недостаточно доступных кредитов для перегенерации");
+        }
+        throw reservationError;
+      }
+    }
+
     const recordProviderOutcome = async (outcome, status) => {
       const { error: outcomeError } = await supabase.rpc("record_pin_regeneration_provider_outcome", {
         p_user_id: String(req.userId),
