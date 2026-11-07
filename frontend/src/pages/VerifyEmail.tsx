@@ -9,7 +9,7 @@ type Status = 'ready' | 'working' | 'success' | 'error';
 /**
  * Страница подтверждения email.
  * Два сценария:
- *  - в URL есть ?token=... — показываем кнопку явного подтверждения;
+ *  - в URL есть #token=... (предпочтительно) или старый ?token=... — показываем кнопку явного подтверждения;
  *    сам GET и автоматическая загрузка страницы не расходуют токен.
  *  - в URL ?status=error — сюда редиректит бэкенд, если переход по ссылке
  *    из письма не прошёл (токен просрочен/использован) — показываем ошибку.
@@ -17,7 +17,9 @@ type Status = 'ready' | 'working' | 'success' | 'error';
 export const VerifyEmail: React.FC = () => {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const token = params.get('token') || '';
+  // New links keep the credential in the fragment: browsers do not send it in HTTP requests or Referer headers.
+  // Continue accepting query tokens for links issued before this change.
+  const token = new URLSearchParams(window.location.hash.slice(1)).get('token') || params.get('token') || '';
   // Keep the one-time credential after navigate() removes it from the URL.
   const tokenRef = useRef(token);
   const urlError = params.get('status') === 'error';
