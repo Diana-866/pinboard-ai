@@ -431,12 +431,6 @@ const MainApp: React.FC = () => {
     }
   };
 
-  const handleOptimizeBoard = (boardId: string) => {
-    setBoards((prev) =>
-      prev.map((b) => (b.id === boardId ? { ...b, seoScore: 98 } : b))
-    );
-  };
-
   const handleGenerateFromTopic = (topic?: string, date?: string) => {
     if (topic) {
       setPrefilledTopic(topic);
@@ -586,7 +580,6 @@ const MainApp: React.FC = () => {
             <BoardsManager
               boards={boards}
               onAddBoard={handleAddBoard}
-              onOptimizeBoard={handleOptimizeBoard}
             />
           )}
 
