@@ -100,12 +100,13 @@
 
 ### AUD-006 — Legacy schedules без Pinterest account_id могут перестать публиковаться
 - **Приоритет:** P2
-- **Статус:** OPEN
-- **Тип:** подтверждённый compatibility-риск.
-- **Наблюдение:** account_id добавлен nullable; старые записи не привязываются массово к аккаунту автоматически. Worker может завершить их failed, если аккаунт не указан.
-- **Риск:** ранее созданные расписания не будут опубликованы после включения account-scoped worker.
-- **Исправить:** подготовить безопасный reconciliation/migration plan. Не угадывать аккаунт, если у пользователя несколько профилей.
-- **Тесты:** legacy schedule с единственным однозначным аккаунтом; с несколькими аккаунтами; без аккаунта. Неоднозначные записи должны требовать выбора пользователя.
+- **Статус:** FIXED_UNVERIFIED
+- **Тип:** compatibility-риск закрыт безопасным пользовательским reconciliation flow для записей без истории публикации.
+- **Реализация:** migration `052_reconcile_legacy_pinterest_schedule_accounts.sql` добавляет атомарную RPC-функцию. Новый `POST /schedule/:id/reconcile-account` принимает выбор пользователя, проверяет принадлежность аккаунта пользователю, затем проверяет сохранённую Pinterest-доску реальным GET-запросом от имени именно этого аккаунта. Только после этого RPC привязывает schedule и возвращает его в очередь.
+- **Выбор аккаунта:** один активный профиль предлагается как единственный кандидат, но действие подтверждает пользователь; при нескольких профилях endpoint требует явный ID; без подключённых профилей возвращает понятную ошибку. UI календаря показывает соответствующее действие только для failed schedule без account ID.
+- **Защитные условия SQL:** разрешены только состояния scheduled/failed; требуется сохранённая доска и принадлежащий пользователю pin; account должен быть активен и иметь token; любая существующая attempt/publication history для pin блокирует reconciliation; дублирующее активное расписание в том же account также блокирует операцию. Unknown/publishing/published не перепривязываются.
+- **Тесты:** добавлены unit tests на один/несколько/ноль аккаунтов и недопустимый выбор; PostgreSQL integration cases проверяют успешную привязку при отсутствии журнала и отказ при legacy attempt history. Migration 052 включена в CI chain.
+- **Ограничение:** проверка доступности доски выполняется backend API runtime; SQL integration test покрывает транзакционные guards, но не имитирует Pinterest API. Статус `FIXED_UNVERIFIED` до успешного CI.
 
 ### AUD-007 — UI показывает настройки автопубликации, но нет подтверждённой серверной синхронизации
 - **Приоритет:** P2
@@ -479,3 +480,5 @@ GitHub API возвращал пустые steps, `runner_id=0`, `logs_url=null`
 | 2026-11-07 | AUD-005: migration 051 и backend фиксируют content snapshot при создании нового Pinterest schedule; worker публикует snapshot, legacy rows сохраняют live-pin fallback. Добавлены unit tests, CI migration step и документация. Статус FIXED_UNVERIFIED до фактического PostgreSQL CI. |
 
 | 2026-11-07 | Дополнено AUD-005: календарь показывает сохранённые title/image/destination snapshot для новых расписаний, а не изменённую live-версию пина. |
+
+| 2026-11-07 | AUD-006: migration 052, account-reconciliation RPC, endpoint с проверкой Pinterest board, календарный UI выбора аккаунта, unit/SQL regression tests и документация. Статус FIXED_UNVERIFIED до успешного CI. |
