@@ -20,6 +20,7 @@ const {
 const { executeWithAccountToken } = require("./pinterestAccountRequest");
 const { toPublicPinterestAccount, toDisconnectedPinterestAccount } = require("./pinterestPublicAccount");
 const { isCommittedTokenRefresh, hasActiveRefreshLease } = require("./pinterestRefreshRecovery");
+const { decodePinterestAccountRecord } = require("./pinterestAccountRecord");
 const crypto = require("crypto");
 const { hasEncryptionKey, isEncryptedToken, isEncryptedWithActiveKey, encryptToken, decryptToken } = require("./pinterestTokenCrypto");
 const jwt = require("jsonwebtoken");
@@ -148,35 +149,14 @@ function pinterestMessage(data, fallback) {
 // ---------- хранилище ----------
 
 async function decodeAccountRecord(data) {
-  if (!data) return null;
-  let stored = data;
-  // Migrate legacy plaintext tokens with an optimistic update on the exact row.
-  // Do not let legacy plaintext migration clear a durable refresh uncertainty fence.
-  // decryptToken() can still read legacy values without rewriting the row.
-  if (hasEncryptionKey() && data.refresh_state !== "uncertain" &&
-      ((!isEncryptedToken(data.access_token) || !isEncryptedWithActiveKey(data.access_token)) ||
-       (data.refresh_token && (!isEncryptedToken(data.refresh_token) || !isEncryptedWithActiveKey(data.refresh_token))))) {
-    const encrypted = {
-      access_token: data.access_token ? encryptToken(decryptToken(data.access_token)) : null,
-      refresh_token: data.refresh_token ? encryptToken(decryptToken(data.refresh_token)) : null,
-      updated_at: new Date().toISOString(),
-    };
-    const { data: updated, error: updateError } = await supabase
-      .from("pinterest_accounts")
-      .update(encrypted)
-      .eq("id", data.id)
-      .eq("user_id", data.user_id)
-      .eq("updated_at", data.updated_at)
-      .select("*")
-      .maybeSingle();
-    if (updateError) throw updateError;
-    stored = updated || data;
-  }
-  return {
-    ...stored,
-    access_token: decryptToken(stored.access_token),
-    refresh_token: decryptToken(stored.refresh_token),
-  };
+  return decodePinterestAccountRecord(data, {
+    supabase,
+    hasEncryptionKey,
+    isEncryptedToken,
+    isEncryptedWithActiveKey,
+    encryptToken,
+    decryptToken,
+  });
 }
 
 async function getAccounts(userId, { includeDisconnected = false } = {}) {
