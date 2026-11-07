@@ -243,3 +243,10 @@ HANDOFF.md                            Этот файл
 - Если task journal уже содержит `status=succeeded`, `provider_result_url` и `provider_price`, но `storage_url` отсутствует, retry теперь повторно переносит исходный сохранённый URL в Supabase Storage с тем же детерминированным object key. Повторный GPTunnel create не вызывается.
 - Добавлен unit regression test: успешный provider result восстанавливается из journal без нового provider call; цена и provider URL остаются исходными.
 - Не закрыто: автоматический фоновый recovery/sweeper и alerting до возможного 48-часового истечения URL не реализованы. AUD-017 остаётся OPEN до внедрения мониторинга и проверки TTL у GPTunnel.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-019 partial)
+
+- Перед локальным отключением Pinterest UI показывает подтверждение на 7 языках: PinPosy удалит локальные токены, но не отзывает OAuth grant в Pinterest; будущие queued schedules выбранного аккаунта станут failed; уже выполняющийся внешний запрос может завершиться.
+- Изменённые локали: ru/en/de/es/fr/pt/zh; добавлен обязательный ключ `pinterestDisconnectWarning` в i18n types.
+- Не закрыто: официальный revoke flow Pinterest не реализован/не подтверждён; in-flight race и legacy schedules без account_id требуют отдельной проверки. AUD-019 остаётся OPEN.
