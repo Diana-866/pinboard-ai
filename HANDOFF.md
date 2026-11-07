@@ -185,3 +185,11 @@ HANDOFF.md                            Этот файл
 - В деталях календаря ссылка отображается только для published и валидного URL; открывается в новой вкладке с noopener noreferrer.
 - Добавлены frontend unit tests, npm test script и CI step. Реальный CI/typecheck пока не подтверждён.
 - AUD-009: FIXED_UNVERIFIED.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-010)
+
+- GET /schedule теперь вычисляет retryable/retry_reason по attempt journal, publication ledger, активному Pinterest account, board/image и дублирующим active schedules.
+- Кнопка Retry в календаре появляется только при retryable=true. При недоступных metadata повтор блокируется. POST retry/RPC остаётся окончательной серверной проверкой на случай гонки.
+- Добавлены unit tests для безопасного повтора без журнала, retry_safe=true, ambiguous/unsafe attempts, отсутствующих зависимостей, публикации и дубликата.
+- AUD-010: FIXED_UNVERIFIED до успешного CI.
