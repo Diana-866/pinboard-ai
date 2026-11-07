@@ -744,3 +744,20 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Статические проверки содержимого файлов выполнены после записи; PostgreSQL integration/CI не подтверждены. Предыдущие CI logs недоступны через connector (BlobNotFound), Vercel build status ранее показывал build-rate-limit. Не утверждать, что migration/test прошли runtime.
 
 **Status:** AUD-052 / MIGRATION_059_ADDED / LOCK_ALL_RECONCILABLE_SCHEDULES / REGRESSION_FIXTURE_ALIGNED_WITH_UNIQUE_INDEX / CI_UNVERIFIED.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-053: recovery сохраняет safe failure journal)
+
+- Найден crash window: worker мог успешно записать `pinterest_publish_attempts.status='failed', retry_safe=true`, но завершиться до обновления `pin_schedules.status`. Старая stale-claim recovery считала наличие любой попытки признаком неоднозначного исхода и переводила расписание в `unknown`, хотя журнал уже доказывал безопасный отказ до создания удалённого пина.
+- Добавлена forward-only migration 060 `db/migrations/060_pinterest_schedule_recovery_respects_safe_failure_journal.sql`. При stale recovery:
+  - `failed AND retry_safe=true` → `scheduled` с backoff 1 минута;
+  - `failed AND retry_safe=false` → `failed` без автоматического повтора;
+  - `processing/unknown` и другие существующие неуспешные/неопределённые журналы → `unknown`;
+  - отсутствие durable attempt → прежняя безопасная постановка в очередь с backoff.
+  Успешные публикации по-прежнему reconciled предыдущим recovery UPDATE до этой ветки.
+- Добавлены SQL regression fixtures для обоих видов failed journal: safe failure возвращается в очередь, unsafe failure остаётся failed. Test header обновлён до migrations 031–060.
+- Workflow `.github/workflows/atomic-payment-integration.yml` применяет migration 060 после 059.
+- GitHub commits: migration 060 `0b73ce4bfec29c837e7a42e7503e8a262c6c1c2d`; SQL regression `9e5aeffa7eba8b61dc604f68e923982cba8dfccc`; workflow update ожидается ниже.
+- Статические проверки файлов обязательны после записи; PostgreSQL integration/CI пока не подтверждены. Не утверждать, что runtime tests прошли. Production/staging DB, Pinterest API, реальные публикации, deployment и merge не затрагивались.
+
+**Status:** AUD-053 / MIGRATION_060_ADDED / SAFE_FAILURE_CRASH_RECOVERY / UNSAFE_FAILURE_TERMINAL / SQL_REGRESSION_ADDED / CI_UNVERIFIED.
