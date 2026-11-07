@@ -355,6 +355,60 @@ test("storage failure after provider success preserves the billable result for s
   assert.equal(secondAttempt[0].credits_cost, 0.75);
 });
 
+test("a succeeded provider result is rehosted from its saved URL without another provider create call", async () => {
+  provider.generateText = async () => {
+    throw new Error("saved plan recovery must not generate text");
+  };
+  provider.generateImage = async () => {
+    throw new Error("saved provider result must not submit another create request");
+  };
+  let rehostedUrl = null;
+  let journalUpdate = null;
+  storage.rehostImage = async (url, options) => {
+    rehostedUrl = { url, options };
+    return "https://storage.example.invalid/recovered-result.png";
+  };
+
+  const pins = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {
+      loadPlan: async () => [{
+        task_index: 1,
+        title: "Saved result",
+        description: "Saved description",
+        prompt: "immutable saved prompt",
+        model: "flux-schnell",
+        aspect_ratio: "2:3",
+        provider_idempotency_key: "stable-provider-key-saved-result",
+        provider_task_id: "provider-task-saved-result",
+        provider_result_url: "https://provider.example.invalid/saved-result.png",
+        provider_price: 0.75,
+        storage_url: null,
+        status: "succeeded",
+      }],
+      updateTask: async (index, status, details) => {
+        journalUpdate = { index, status, details };
+      },
+    }
+  );
+
+  assert.deepEqual(rehostedUrl, {
+    url: "https://provider.example.invalid/saved-result.png",
+    options: { idempotencyKey: "stable-provider-key-saved-result" },
+  });
+  assert.equal(pins.length, 1);
+  assert.equal(pins[0].image_url, "https://storage.example.invalid/recovered-result.png");
+  assert.equal(pins[0].credits_cost, 0.75);
+  assert.equal(journalUpdate.status, "succeeded");
+  assert.equal(journalUpdate.details.storageUrl, "https://storage.example.invalid/recovered-result.png");
+  assert.deepEqual(pins.unknownTasks, []);
+});
+
 test("a missing permanent storage URL is not returned as a generated pin", async () => {
   provider.generateText = async () => JSON.stringify([
     { title: "No storage URL", description: "Test", image_prompt: "A test image" },
