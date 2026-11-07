@@ -1450,6 +1450,11 @@ app.post("/schedule/:id/cancel", requireAuth, async (req, res) => {
       .maybeSingle();
     if (error) throw error;
     if (!data) throw httpError(404, "Запланированная публикация не найдена или уже обрабатывается");
+    if (data.snapshot_image_url) {
+      await deletePinImageIfUnreferenced(data.snapshot_image_url).catch((cleanupError) => {
+        console.error("[storage] не удалось очистить изображение отменённого расписания:", cleanupError && cleanupError.message);
+      });
+    }
     res.json(data);
   } catch (e) {
     handleError(res, e);
