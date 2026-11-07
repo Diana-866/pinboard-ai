@@ -575,6 +575,52 @@ test("a missing permanent storage URL is not returned as a generated pin", async
   assert.deepEqual(pins.unknownTasks, [{ task_index: 1 }]);
 });
 
+test("unrecoverable succeeded tasks never submit a duplicate provider create request", async () => {
+  let providerCreateCalls = 0;
+  provider.generateText = async () => {
+    throw new Error("saved plan recovery must not generate text");
+  };
+  provider.generateImage = async () => {
+    providerCreateCalls += 1;
+    throw new Error("a terminal succeeded task must never be resubmitted");
+  };
+  storage.rehostImage = async () => {
+    throw new Error("there is no saved result URL to rehost");
+  };
+
+  const pins = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {
+      loadPlan: async () => [{
+        task_index: 1,
+        title: "Unrecoverable success",
+        description: "Saved description",
+        prompt: "immutable saved prompt",
+        model: "flux-schnell",
+        aspect_ratio: "2:3",
+        provider_idempotency_key: "stable-provider-key-unrecoverable",
+        provider_task_id: "provider-task-unrecoverable",
+        provider_result_url: null,
+        provider_price: 0.75,
+        storage_url: null,
+        status: "succeeded",
+      }],
+    }
+  );
+
+  assert.equal(providerCreateCalls, 0);
+  assert.equal(pins.length, 0);
+  assert.deepEqual(pins.unknownTasks, [{
+    task_index: 1,
+    reason: "successful_result_unrecoverable",
+  }]);
+});
+
 test("restore original module cache entries", () => {
   if (originalGptunnel) require.cache[gptunnelPath] = originalGptunnel;
   else delete require.cache[gptunnelPath];
