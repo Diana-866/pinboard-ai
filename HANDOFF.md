@@ -464,3 +464,28 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 **Decision:** no speculative SQL or concurrency test was added. Without exact function signatures and bodies, such a test could validate the wrong contract or give false confidence. Next required input is the exact migration(s) that define these four RPCs, or read-only function definitions from the target Supabase database. Then add tests for concurrent token consumption, expired/reused tokens, issuance cooldown/revocation, and password-reset session invalidation.
 
 **Status:** BACKEND_CALL_CONTRACT_REVIEWED / RPC_IMPLEMENTATION_UNVERIFIED. No production database, credentials, or deployment were accessed or changed.
+
+
+### AUD-036 — password-reset and email-verification SQL audit + regression tests (2026-11-07)
+
+**Previously missing migration bodies located and reviewed:** migrations 020–025.
+
+**Confirmed final migration-chain behavior**
+- `020_atomic_password_reset.sql` defines atomic reset-token consumption and issuance. Consumption locks the user row before the token row, rechecks the token after acquiring locks, updates password and marks token used in one transaction.
+- `023_revoke_sessions_after_password_reset.sql` replaces the consumer so password update and `token_version = coalesce(token_version, 0) + 1` happen in the same transaction before token consumption commits. This confirms old JWTs are invalidated by the existing `requireAuth` version comparison after a successful reset.
+- `024_password_reset_email_cooldown.sql` replaces issuance with per-user row locking, cooldown validation, and invalidation of older live reset links. `025_drop_legacy_password_reset_overload.sql` removes the old three-argument overload, closing the earlier cooldown bypass.
+- `021_atomic_email_verification.sql` locks user then token, checks expiry, sets `email_verified`, and consumes the token atomically. Repeated use returns idempotent success only if that account is already verified.
+- `022_atomic_email_verification_issuance.sql` serializes issuance per user, enforces the configured cooldown, and invalidates older unused verification links.
+- The final RPCs are SECURITY DEFINER with fixed `search_path = pg_catalog, public`; execute is revoked from public/anon/authenticated and granted to service_role.
+
+**Tests added**
+- `backend/test/auth-recovery.integration.sql`: PostgreSQL regression coverage for password-reset cooldown, preservation of current link during cooldown, successful password update + token_version increment, token reuse rejection, post-cooldown reissue, expired reset rejection, email-verification cooldown, successful/idempotent verification, and expired verification rejection.
+- `backend/test/auth-recovery-concurrency.sh`: two independent PostgreSQL sessions contend on the same user row and consume the same reset token; asserts exactly one succeeds, token_version increments once, and token is consumed.
+- Updated `.github/workflows/atomic-payment-integration.yml` to apply migration 055 after 054 and execute both auth recovery integration tests.
+
+**Verification status**
+- Source-level review confirms the intended lock ordering and transaction boundaries.
+- GitHub connector writes were read back in the next verification step; CI result must be reported separately.
+- Tests have not been run locally in this environment. No production/staging database or secrets were accessed; no migration was applied outside the disposable CI workflow.
+
+**Status:** SQL_RPC_IMPLEMENTATION_REVIEWED / REGRESSION_TESTS_ADDED / CI_PENDING.
