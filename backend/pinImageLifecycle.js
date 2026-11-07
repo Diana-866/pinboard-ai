@@ -36,7 +36,36 @@ function buildPinImageObjectPath(extension, idempotencyKey = null) {
   return `pins/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
 }
 
+async function deleteManagedPinImageObject({ supabase, bucket = "pin-images", objectPath }) {
+  const { data: claim, error: claimError } = await supabase.rpc("claim_pin_image_deletion", {
+    p_bucket_id: bucket,
+    p_object_path: objectPath,
+    p_claim_ttl_seconds: 600,
+  });
+  if (claimError) throw claimError;
+  if (!claim || claim.claimed !== true || !claim.claim_token) return false;
+
+  // A thrown transport error is ambiguous: Storage may have received the
+  // request. Keep the claim fenced for reconciliation instead of reopening refs.
+  const { error: removeError } = await supabase.storage.from(bucket).remove([objectPath]);
+  const { data: finalized, error: finalizeError } = await supabase.rpc("finalize_pin_image_deletion", {
+    p_bucket_id: bucket,
+    p_object_path: objectPath,
+    p_claim_token: claim.claim_token,
+    p_deleted: !removeError,
+    p_error_code: removeError
+      ? String(removeError.code || removeError.name || "storage_delete_failed").slice(0, 64)
+      : null,
+  });
+
+  if (finalizeError) throw finalizeError;
+  if (finalized !== true) throw new Error("Pin image deletion claim could not be finalized");
+  if (removeError) throw removeError;
+  return true;
+}
+
 module.exports = {
+  deleteManagedPinImageObject,
   extractManagedPinImagePath,
   canDeletePinImageObject,
   buildPinImageObjectPath,
