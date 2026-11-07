@@ -85,11 +85,21 @@ async function getFinancialOperationsQueue(options = {}) {
   let taskRows = [];
 
   if (generationIds.length) {
-    const taskResult = await supabase.from("pin_generation_tasks")
-      .select("generation_request_id,status,provider_outcome_status,provider_refunded,provider_reconciled_at")
-      .in("generation_request_id", generationIds);
-    if (taskResult.error) throw taskResult.error;
-    taskRows = taskResult.data || [];
+    // Keep each REST response below the common 1,000-row API cap (up to 10 tasks/request).
+    const batches = [];
+    for (let offset = 0; offset < generationIds.length; offset += 50) {
+      batches.push(generationIds.slice(offset, offset + 50));
+    }
+    const taskResults = await Promise.all(batches.map((batch) =>
+      supabase.from("pin_generation_tasks")
+        .select("generation_request_id,status,provider_outcome_status,provider_refunded,provider_reconciled_at")
+        .in("generation_request_id", batch)
+        .limit(500)
+    ));
+    for (const result of taskResults) {
+      if (result.error) throw result.error;
+      taskRows.push(...(result.data || []));
+    }
   }
 
   const tasksByRequest = new Map();
@@ -118,9 +128,11 @@ async function getFinancialOperationsQueue(options = {}) {
     ];
   }
 
-  const requestByKey = new Map();
+  const requestsByKey = new Map();
   for (const row of reservationRequestRows) {
-    requestByKey.set(operationKey(row.user_id, row.idempotency_key), row);
+    const key = operationKey(row.user_id, row.idempotency_key);
+    if (!requestsByKey.has(key)) requestsByKey.set(key, []);
+    requestsByKey.get(key).push(row);
   }
 
   const nowMs = Date.now();
@@ -162,17 +174,21 @@ async function getFinancialOperationsQueue(options = {}) {
   });
 
   const reservationRows = reservations.map((row) => {
-    const matchingRequest = requestByKey.get(operationKey(row.user_id, row.idempotency_key));
+    const matchingRequests = requestsByKey.get(operationKey(row.user_id, row.idempotency_key)) || [];
+    const matchingRequest = matchingRequests.length === 1 ? matchingRequests[0] : null;
+    const ambiguousMatch = matchingRequests.length > 1;
     return {
       reservation_id: String(row.id),
-      operation: matchingRequest ? matchingRequest.operation : "unmatched",
+      operation: ambiguousMatch ? "ambiguous" : matchingRequest ? matchingRequest.operation : "unmatched",
       amount_credits: row.amount,
       status: row.status,
-      reason: !matchingRequest
-        ? "reservation_without_matching_request_review"
-        : matchingRequest.status === "processing"
-          ? "old_active_reservation_requires_request_review"
-          : "active_reservation_with_terminal_request_integrity_review",
+      reason: ambiguousMatch
+        ? "multiple_matching_requests_integrity_review"
+        : !matchingRequest
+          ? "reservation_without_matching_request_review"
+          : matchingRequest.status === "processing"
+            ? "old_active_reservation_requires_request_review"
+            : "active_reservation_with_terminal_request_integrity_review",
       request_id: matchingRequest ? String(matchingRequest.id) : null,
       created_at: row.created_at,
       updated_at: row.updated_at,
