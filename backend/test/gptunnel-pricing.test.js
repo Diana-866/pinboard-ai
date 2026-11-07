@@ -8,6 +8,7 @@ const {
   generateTextWithUsage,
   quoteImageTask,
   normalizeMediaQuote,
+  providerTaskError,
 } = require("../gptunnel");
 
 test("quoteImageTask requests a quote using the exact image task parameters", async (t) => {
@@ -121,4 +122,44 @@ test("legacy generateText remains compatible when usage metadata is absent", asy
   t.after(() => { axios.post = originalPost; });
 
   assert.equal(await generateText("prompt"), "legacy response");
+});
+
+
+test("providerTaskError preserves failed-task refund and cost metadata", () => {
+  const error = providerTaskError({
+    id: "0123456789abcdef01234567",
+    status: "failed",
+    price: 1.25,
+    refunded: false,
+    error: { code: 1001, title: "SENSITIVE_CONTENT", message: "Rejected" },
+  });
+  assert.equal(error.providerStatus, "failed");
+  assert.equal(error.providerTaskId, "0123456789abcdef01234567");
+  assert.equal(error.providerPrice, 1.25);
+  assert.equal(error.providerRefunded, false);
+  assert.equal(error.providerErrorCode, 1001);
+  assert.equal(error.providerErrorTitle, "SENSITIVE_CONTENT");
+});
+
+test("providerTaskError does not infer refund when provider omits the field", () => {
+  const error = providerTaskError({
+    id: "0123456789abcdef01234567",
+    status: "failed",
+    price: 0,
+    error: { message: "Failed" },
+  });
+  assert.equal(error.providerPrice, 0);
+  assert.equal(error.providerRefunded, null);
+  assert.equal(error.providerErrorCode, null);
+});
+
+test("providerTaskError rejects invalid provider price as unknown metadata", () => {
+  const error = providerTaskError({
+    id: "0123456789abcdef01234567",
+    status: "failed",
+    price: "not-a-number",
+    refunded: true,
+  });
+  assert.equal(error.providerPrice, null);
+  assert.equal(error.providerRefunded, true);
 });
