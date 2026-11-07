@@ -901,3 +901,9 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Production не затронут.
 
 **Status:** AUD-065 / FIXED_UNVERIFIED.
+
+
+## 2026-11-07 — AUD-066: pin edit / scheduling race
+- Fixed in `frontend/src/components/pins/PinGenerator.tsx`: serialize PATCH writes per pin, commit title to UI only after server success, save the textarea's actual blur value, and wait for pending pin edits before submitting a schedule request.
+- On a pending-save failure, scheduling is aborted rather than creating a schedule from a stale database snapshot.
+- Static source review only. TypeScript, browser E2E, and live API tests were not run; Actions runner blocker remains. No production deployment, DB migration, or PR merge.
