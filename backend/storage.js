@@ -5,7 +5,7 @@ const https = require("node:https");
 const { httpError } = require("./validate");
 const { MAX_IMAGE_BYTES, validateImageBuffer } = require("./imageValidation");
 const { assertPublicUrl, createPinnedLookup } = require("./publicUrl");
-const { extractManagedPinImagePath, buildPinImageObjectPath } = require("./pinImageLifecycle");
+const { extractManagedPinImagePath, buildPinImageObjectPath, deleteManagedPinImageObject } = require("./pinImageLifecycle");
 
 const BUCKET = "pin-images";
 const ALLOWED_IMAGE_MIMES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
@@ -67,34 +67,7 @@ async function uploadPinImage(file, options = {}) {
 async function deletePinImageIfUnreferenced(imageUrl) {
   const objectPath = extractManagedPinImagePath(imageUrl, process.env.SUPABASE_URL, BUCKET);
   if (!objectPath) return false;
-
-  const { data: claim, error: claimError } = await supabase.rpc("claim_pin_image_deletion", {
-    p_bucket_id: BUCKET,
-    p_object_path: objectPath,
-    p_claim_ttl_seconds: 600,
-  });
-  if (claimError) throw claimError;
-  if (!claim || claim.claimed !== true || !claim.claim_token) return false;
-
-  // A thrown transport error is ambiguous: Storage may have received the
-  // request. Keep the claim fenced for reconciliation instead of reopening refs.
-  const { error: removeError } = await supabase.storage.from(BUCKET).remove([objectPath]);
-  const { data: finalized, error: finalizeError } = await supabase.rpc("finalize_pin_image_deletion", {
-    p_bucket_id: BUCKET,
-    p_object_path: objectPath,
-    p_claim_token: claim.claim_token,
-    p_deleted: !removeError,
-    p_error_code: removeError
-      ? String(removeError.code || removeError.name || "storage_delete_failed").slice(0, 64)
-      : null,
-  });
-
-  if (finalizeError) throw finalizeError;
-  if (finalized !== true) {
-    throw new Error("Не удалось подтвердить результат удаления изображения");
-  }
-  if (removeError) throw removeError;
-  return true;
+  return deleteManagedPinImageObject({ supabase, bucket: BUCKET, objectPath });
 }
 
 module.exports = { uploadPinImage, rehostImage, deletePinImageIfUnreferenced };
