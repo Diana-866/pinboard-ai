@@ -8,6 +8,7 @@ declare
   v_board uuid;
   v_pin uuid;
   v_req jsonb;
+  v_request_id uuid;
   v_claim uuid;
   v_key text;
   v_at timestamptz;
@@ -27,6 +28,7 @@ begin
   v_key := 'refund-reconcile-generation-'||v_user;
   v_req := public.begin_pin_generation_request(v_user::text,v_board,v_key,repeat('a',64));
   v_claim := (v_req->>'claim_token')::uuid;
+  select id into v_request_id from public.pin_generation_requests where user_id=v_user::text and idempotency_key=v_key;
   perform public.reserve_pin_generation_credits(v_user::text,v_key,8);
   perform public.save_pin_generation_plan(v_user::text,v_key,v_claim,jsonb_build_array(
     jsonb_build_object('title','failed task','description','','prompt','failed','model','flux-schnell','aspect_ratio','2:3')
@@ -38,7 +40,7 @@ begin
     v_user::text,v_key,1,'reconcile_gen_task',false,'provider-ticket-0001'
   );
   select provider_refunded into v_refunded from public.pin_generation_tasks
-   where generation_request_id=(v_req->>'id')::uuid and task_index=1;
+   where generation_request_id=v_request_id and task_index=1;
   if v_refunded is distinct from false then raise exception 'generation refund fact was not reconciled'; end if;
   perform public.fail_pin_generation_request(v_user::text,v_key,v_claim,'provider_failed',false);
   select status into v_status from public.pin_generation_credit_reservations
