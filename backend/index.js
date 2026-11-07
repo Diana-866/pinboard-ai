@@ -1204,8 +1204,7 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
       ensureTaskQuotes: async (tasks) => {
         const billableTasks = tasks.filter((task) => task.status !== "failed");
         for (const task of billableTasks) {
-          const hasSavedQuote = task.provider_quote_price != null;
-          if (hasSavedQuote) {
+          if (task.provider_quote_price != null) {
             if (task.provider_quote_currency !== "RUB" ||
                 task.provider_quote_model !== (task.model || model) ||
                 task.provider_quote_aspect_ratio !== task.aspect_ratio ||
@@ -1213,30 +1212,40 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
                 Number(task.provider_quote_price) <= 0) {
               throw httpError(502, "Сохранённая котировка генерации не соответствует задаче.");
             }
-            continue;
           }
+        }
 
-          const quote = await quoteImageTask(task.prompt, task.model || model, task.aspect_ratio);
-          const { error } = await supabase.rpc("record_pin_generation_task_quote", {
-            p_user_id: String(req.userId),
-            p_idempotency_key: idempotencyKey,
-            p_claim_token: generationClaimToken,
-            p_task_index: task.task_index,
-            p_quote_price: quote.price,
-            p_quote_currency: quote.currency,
-            p_quote_model: quote.model,
-            p_quote_aspect_ratio: quote.params.aspect_ratio,
-          });
-          if (error) {
-            const journalError = new Error("Не удалось сохранить котировку задачи генерации");
-            journalError.journalError = true;
-            journalError.cause = error;
-            throw journalError;
+        // Quote a small bounded batch concurrently: ten sequential 30-second
+        // provider timeouts could exceed the HTTP request lifetime.
+        for (let offset = 0; offset < billableTasks.length; offset += 3) {
+          const batch = billableTasks.slice(offset, offset + 3)
+            .filter((task) => task.provider_quote_price == null);
+          const quotes = await Promise.all(batch.map(async (task) => ({
+            task,
+            quote: await quoteImageTask(task.prompt, task.model || model, task.aspect_ratio),
+          })));
+          for (const { task, quote } of quotes) {
+            const { error } = await supabase.rpc("record_pin_generation_task_quote", {
+              p_user_id: String(req.userId),
+              p_idempotency_key: idempotencyKey,
+              p_claim_token: generationClaimToken,
+              p_task_index: task.task_index,
+              p_quote_price: quote.price,
+              p_quote_currency: quote.currency,
+              p_quote_model: quote.model,
+              p_quote_aspect_ratio: quote.params.aspect_ratio,
+            });
+            if (error) {
+              const journalError = new Error("Не удалось сохранить котировку задачи генерации");
+              journalError.journalError = true;
+              journalError.cause = error;
+              throw journalError;
+            }
+            task.provider_quote_price = quote.price;
+            task.provider_quote_currency = quote.currency;
+            task.provider_quote_model = quote.model;
+            task.provider_quote_aspect_ratio = quote.params.aspect_ratio;
           }
-          task.provider_quote_price = quote.price;
-          task.provider_quote_currency = quote.currency;
-          task.provider_quote_model = quote.model;
-          task.provider_quote_aspect_ratio = quote.params.aspect_ratio;
         }
 
         if (billableTasks.length > 0) {
