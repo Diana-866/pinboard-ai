@@ -271,6 +271,9 @@ begin
    where bucket_id = p_bucket_id and object_path = p_object_path
    for update;
 
+  if v_state = 'uploading' then
+    return jsonb_build_object('claimed', false, 'reason', 'upload_in_progress');
+  end if;
   if v_state = 'deleting' and v_claim_expires_at > now() then
     return jsonb_build_object('claimed', false, 'reason', 'already_claimed');
   end if;
@@ -368,7 +371,11 @@ begin
 end;
 $$;
 
+revoke all on function public.begin_pin_image_upload(text,text,integer) from public, anon, authenticated, service_role;
+revoke all on function public.finalize_pin_image_upload(text,text,uuid,boolean,text) from public, anon, authenticated, service_role;
 revoke all on function public.claim_pin_image_deletion(text,text,integer) from public, anon, authenticated;
 revoke all on function public.finalize_pin_image_deletion(text,text,uuid,boolean,text) from public, anon, authenticated;
+grant execute on function public.begin_pin_image_upload(text,text,integer) to service_role;
+grant execute on function public.finalize_pin_image_upload(text,text,uuid,boolean,text) to service_role;
 grant execute on function public.claim_pin_image_deletion(text,text,integer) to service_role;
 grant execute on function public.finalize_pin_image_deletion(text,text,uuid,boolean,text) to service_role;
