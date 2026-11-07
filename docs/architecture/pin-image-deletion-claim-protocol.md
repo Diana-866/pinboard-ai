@@ -60,6 +60,17 @@ A definite Storage rejection finalizes the reservation back to `active` with a s
 
 The reservation allows deterministic `upsert: true` only when no durable reference exists. Once a reference is committed, a later upload using the same object path is rejected, preventing silent replacement of bytes used by a pin or recovery journal.
 
+### Stale upload reconciliation
+
+The admin-only endpoint `POST /admin/storage/reconcile-stale-uploads` inspects reservations older than 15 minutes (maximum 100 per request). Its service-role-only inventory RPC returns the exact object path and fencing token internally; the HTTP response never includes the token.
+
+For each stale row the backend lists the exact filename in its managed Storage folder:
+- if the exact object is visible, it finalizes the matching upload token as successful and changes the lifecycle state to `active`;
+- if the object is absent, the Storage listing fails, or the token no longer matches, it leaves the row fenced and reports a sanitized reason;
+- it never treats an absent object as proof that a timed-out remote upload cannot still complete.
+
+This deliberately resolves the common crash-after-success case without guessing about ambiguous in-flight requests. Missing objects require operator investigation; no TTL-based automatic unlock is implemented. The endpoint is admin-authenticated and is not scheduled automatically.
+
 ### 3. `claim_pin_image_deletion`
 
 Called before the external Storage API:
@@ -154,6 +165,6 @@ Backend tests:
 6. Deploy backend only after migration and staging verification.
 7. Enable periodic reconciliation after observing metrics.
 
-## Current rollout blockers\n\n- Apply migration 070 manually in Supabase SQL Editor after a backup. Until then, the updated backend upload and cleanup paths will fail closed because the lifecycle RPCs do not exist.\n- Run the Node test suite and PostgreSQL integration/concurrency tests against a disposable database. These have not been run from this session.\n- Add an operator-facing stale upload/deletion inspection and reconciliation path. An ambiguous upload remains `uploading`; TTL alone never reopens writes. Expired deletion claims with no references can be retried with a rotated fencing token.\n- Decide when generation task journals may be pruned and add a safe orphan-cleanup policy.\n\n## Non-goals
+## Current rollout blockers\n\n- Apply migration 070 manually in Supabase SQL Editor after a backup. Until then, the updated backend upload and cleanup paths will fail closed because the lifecycle RPCs do not exist.\n- Run the Node test suite and PostgreSQL integration/concurrency tests against a disposable database. These have not been run from this session.\n- Add an operator-facing reconciliation path for stale uploads and deletion claims. The admin stale-upload endpoint now finalizes only exact objects positively observed in Storage; missing objects remain fenced. Expired deletion claims with no references can be retried with a rotated fencing token.\n- Decide when generation task journals may be pruned and add a safe orphan-cleanup policy.\n\n## Non-goals
 
 This protocol does not change public/private bucket visibility, existing RLS policy state, retention policy for terminal generation journals, or storage-provider redundancy. Those require separate decisions.
