@@ -1,4 +1,4 @@
--- Run only in disposable PostgreSQL CI after migrations 031-060.
+-- Run only in disposable PostgreSQL CI after migrations 031-061.
 -- A local pin can be published once per Pinterest identity, not once per user.
 do $$
 declare
@@ -51,7 +51,22 @@ declare
   v_publication_count integer;
   v_schedule_count integer;
   v_disconnected boolean;
+  v_scheduled_publish_definition text;
+  v_account_lock_position integer;
+  v_schedule_lock_position integer;
 begin
+  -- Guard against a later migration silently reintroducing schedule -> account
+  -- lock inversion in the scheduled reservation RPC.
+  select pg_get_functiondef('public.begin_scheduled_pinterest_publish(text,uuid,uuid,uuid,uuid,text)'::regprocedure)
+    into v_scheduled_publish_definition;
+  v_account_lock_position := strpos(v_scheduled_publish_definition, 'from public.pinterest_accounts');
+  v_schedule_lock_position := strpos(v_scheduled_publish_definition, 'from public.pin_schedules');
+  if v_account_lock_position = 0 or v_schedule_lock_position = 0
+     or v_account_lock_position >= v_schedule_lock_position
+     or position('a.disconnected_at is null' in v_scheduled_publish_definition) = 0
+     or position('a.access_token is not null' in v_scheduled_publish_definition) = 0 then
+    raise exception 'scheduled publish RPC must lock and validate the active account before locking its schedule';
+  end if;
   insert into public.users(id, email, token_version)
   values (v_user, 'pinterest-account-publish-' || v_user || '@example.invalid', 0);
 
