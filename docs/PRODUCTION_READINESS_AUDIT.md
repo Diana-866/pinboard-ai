@@ -165,14 +165,14 @@
 - **Тесты:** добавлены unit tests на managed path, чужой project/bucket, traversal/malformed path, shared pin/schedule references и активные/terminal generation request references. Backend test runner автоматически обнаруживает новый test file.
 - **Ограничения:** старые orphan objects не инвентаризируются; периодического sweeper/object registry нет. Остаётся узкое concurrency race между проверкой ссылок и Storage remove; schedule endpoint повторно читает pin перед snapshot, но строгая транзакционная сериализация lifecycle требует отдельного registry/lock design. Подробности в `docs/storage-lifecycle.md`.
 
-### AUD-013 — Storage upload success + DB journal failure может приводить к повторной загрузке
+### AUD-013 — Storage upload success + DB journal failure мог приводить к повторной загрузке
 - **Приоритет:** P2
-- **Статус:** OPEN
-- **Тип:** подтверждённый условный сценарий.
-- **Наблюдение:** upload может пройти, а запись storage_url в журнал — упасть. При повторе backend не видит сохранённый URL и может загрузить тот же результат ещё раз.
-- **Риск:** orphan objects и лишний трафик/стоимость.
-- **Исправить:** детерминированный object key/idempotent upsert, reconciliation или журнал upload intent/result.
-- **Тесты:** upload success + DB write failure + retry; повтор не создаёт второй объект.
+- **Статус:** FIXED_UNVERIFIED
+- **Тип:** повторная загрузка одного provider task теперь использует тот же Storage object key.
+- **Реализация:** `uploadPinImage(file, { idempotencyKey })` строит managed object key как `pins/generation-<sha256-prefix>.<ext>`. `generatePins()` передаёт в `rehostImage()` стабильный `provider_idempotency_key` из `pin_generation_tasks`. Supabase Storage upload уже использует `upsert: true`, поэтому повтор после сбоя записи `storage_url` перезаписывает тот же объект, а не создаёт новый.
+- **Совместимость:** ручная загрузка и legacy regenerate без provider task key продолжают получать уникальные случайные object keys.
+- **Тесты:** добавлены unit tests на стабильность object key для одинакового idempotency key, различие для разных ключей и распознавание deterministic key cleanup parser. Backend `npm test` запускает их через `node --test`.
+- **Ограничение:** тест моделирует ключевую идемпотентность пути; реальный сценарий Storage success + Supabase journal failure не прогонялся против живого Storage/БД. Статус `FIXED_UNVERIFIED`.
 
 ### AUD-014 — Legacy regenerate flow не имеет полноценного provider task journal/idempotency
 - **Приоритет:** P1
@@ -493,3 +493,5 @@ GitHub API возвращал пустые steps, `runner_id=0`, `logs_url=null`
 | 2026-11-07 | AUD-010: GET /schedule возвращает server-computed retryable/reason; UI скрывает retry для ambiguous/non-safe записей; добавлены unit tests. POST RPC остаётся финальным источником истины. Статус FIXED_UNVERIFIED до CI. |
 
 | 2026-11-07 | AUD-012: добавлена reference-aware cleanup для ручной замены/перегенерации и отмены schedule; удаление выполняется только после DB commit и проверки pin/snapshot/active generation references. Добавлены path/reference unit tests и storage lifecycle docs. Статус PARTIALLY_FIXED: нет исторического sweep/registry и полной сериализации гонок. |
+
+| 2026-11-07 | AUD-013: generation rehost использует deterministic Storage key из provider idempotency key + upsert; повтор после journal write failure переиспользует тот же объект. Добавлены unit tests и storage lifecycle docs. Статус FIXED_UNVERIFIED до CI. |
