@@ -790,7 +790,17 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
         }
         image = imageTaskResult(task);
       } else {
-        image = await generateImage(prompt, model, "2:3", state.provider_idempotency_key);
+        image = await generateImage(prompt, model, "2:3", state.provider_idempotency_key, {
+          // Persist the provider task ID as soon as the provider accepts it,
+          // before the first poll or any later network operation can fail.
+          onTaskUpdate: async (taskId) => {
+            const { error: taskJournalError } = await supabase.rpc("update_pin_regeneration_request", {
+              p_user_id: String(req.userId), p_idempotency_key: idempotencyKey,
+              p_claim_token: claimToken, p_status: "processing", p_provider_task_id: taskId,
+            });
+            if (taskJournalError) throw taskJournalError;
+          },
+        });
       }
 
       if (image && image.pending && image.taskId) {
