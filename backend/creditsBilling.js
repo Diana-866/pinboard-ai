@@ -142,7 +142,8 @@ async function createCreditsPayment(userId, body) {
  * статуса pending → success (условный UPDATE с проверкой старого статуса).
  * Повторный вебхук по уже оплаченному заказу ничего не зачисляет.
  */
-async function handleCreditsWebhook(req, res) {
+async function handleCreditsWebhook(req, res, dependencies = {}) {
+  const db = dependencies.supabase || supabase;
   const body = req.body || {};
   const check = prodamus.verifyWebhook(body, req.headers);
 
@@ -156,7 +157,7 @@ async function handleCreditsWebhook(req, res) {
 
   if (!orderId) {
     try {
-      await persistWebhookException(supabase, {
+      await persistWebhookException(db, {
         paymentKind: "credits", body, reason: "missing_order_id",
       });
     } catch (auditError) {
@@ -167,7 +168,7 @@ async function handleCreditsWebhook(req, res) {
     return res.json({ ok: true, ignored: "no order_id" });
   }
 
-  const { data: purchase, error } = await supabase
+  const { data: purchase, error } = await db
     .from("credit_purchases")
     .select("*")
     .eq("provider_payment_id", orderId)
@@ -179,7 +180,7 @@ async function handleCreditsWebhook(req, res) {
   }
   if (!purchase) {
     try {
-      await persistWebhookException(supabase, {
+      await persistWebhookException(db, {
         paymentKind: "credits", body, reason: "unknown_order_id",
       });
     } catch (auditError) {
@@ -194,7 +195,7 @@ async function handleCreditsWebhook(req, res) {
   if (normalizedStatus !== "success") {
     if (!normalizedStatus) {
       try {
-        await persistWebhookException(supabase, {
+        await persistWebhookException(db, {
           paymentKind: "credits",
           body,
           expectedAmount: Number.isFinite(Number(purchase.amount))
@@ -210,7 +211,7 @@ async function handleCreditsWebhook(req, res) {
       return res.json({ ok: true, ignored: "unsupported payment_status", review_required: true });
     }
     const mapped = normalizedStatus;
-    const { error: statusError } = await supabase.from("credit_purchases")
+    const { error: statusError } = await db.from("credit_purchases")
       .update({ status: mapped }).eq("id", purchase.id)
       .is("balance_credited_at", null).neq("status", "success");
     if (statusError) return res.status(500).json({ ok: false, error: "db error" });
@@ -220,7 +221,7 @@ async function handleCreditsWebhook(req, res) {
   const paymentAmount = prodamus.getWebhookPaymentAmount(body, purchase.currency || "rub");
   if (!paymentAmount.ok) {
     try {
-      await persistWebhookException(supabase, {
+      await persistWebhookException(db, {
         paymentKind: "credits", body,
         expectedAmount: Number.isFinite(Number(purchase.amount)) ? Number(purchase.amount) : null,
         reason: paymentAmount.reason,
@@ -237,7 +238,7 @@ async function handleCreditsWebhook(req, res) {
   const sum = paymentAmount.amount;
   if (!Number.isFinite(expected) || expected <= 0 || Math.abs(sum - expected) > 0.01) {
     try {
-      await persistWebhookException(supabase, {
+      await persistWebhookException(db, {
         paymentKind: "credits", body, expectedAmount: expected, reason: "amount_mismatch",
       });
     } catch (auditError) {
@@ -245,7 +246,7 @@ async function handleCreditsWebhook(req, res) {
       return res.status(500).json({ ok: false, error: "audit storage failed" });
     }
     console.error(`[credits-billing] сумма не совпадает для ${orderId}: webhook=${sum} ${paymentAmount.currency}, ожидали=${expected} ${purchase.currency || "rub"}; сохранено для сверки`);
-    const { error: mismatchError } = await supabase.from("credit_purchases")
+    const { error: mismatchError } = await db.from("credit_purchases")
       .update({ status: "denied" }).eq("id", purchase.id)
       .is("balance_credited_at", null).neq("status", "success");
     if (mismatchError) return res.status(500).json({ ok: false, error: "db error" });
@@ -260,7 +261,7 @@ async function handleCreditsWebhook(req, res) {
 
   // Баланс, журнал и отметка покупки фиксируются в одной транзакции PostgreSQL.
   const paidAt = new Date().toISOString();
-  const { data: newBalance, error: creditError } = await supabase.rpc("credit_paid_purchase", {
+  const { data: newBalance, error: creditError } = await db.rpc("credit_paid_purchase", {
     p_purchase_id: purchase.id,
     p_paid_at: paidAt,
     p_description: `Пакет кредитов «${purchase.pack_title || purchase.package_id}» (+${purchase.credits}, не сгорают), заказ ${orderId}`,
