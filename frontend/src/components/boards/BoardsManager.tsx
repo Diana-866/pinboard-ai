@@ -84,14 +84,14 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
                   {board.name}
                 </h3>
                 <p className="text-xs text-secondary-theme pt-1">
-                  {t.boards.metricsUnavailable || 'Статистика Pinterest пока недоступна'}
+                  {t.dashboard.boardMetricsUnavailable}
                 </p>
               </div>
 
             </div>
 
             <div className="pt-3 border-t border-subtle text-xs text-muted-theme">
-              {t.boards.metricsUnavailable || 'Показываем только сохранённые данные доски. Метрики и SEO-оценки пока не подключены.'}
+              {t.dashboard.boardMetricsUnavailable}
             </div>
           </div>
         ))}
