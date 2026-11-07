@@ -115,7 +115,7 @@ const verifyLimiter = rateLimit({
 const { generateImage } = require("./gptunnel");
 const { register, login, verifyToken } = require("./auth");
 const supabase = require("./supabase");
-const { buildPinScheduleSnapshot } = require("./pinterestSchedule");
+const { buildPinScheduleSnapshot, classifyLegacyScheduleAccount } = require("./pinterestSchedule");
 const { analyzeSite } = require("./analyze");
 const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
@@ -1132,6 +1132,86 @@ app.get("/schedule", requireAuth, async (req, res) => {
       .order("scheduled_at", { ascending: true });
     if (error) throw error;
     res.json(data || []);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+app.post("/schedule/:id/reconcile-account", requireAuth, async (req, res) => {
+  try {
+    const { data: schedule, error: scheduleError } = await supabase
+      .from("pin_schedules")
+      .select("id, user_id, pin_id, pinterest_account_id, pinterest_board_id, status")
+      .eq("id", req.params.id)
+      .eq("user_id", String(req.userId))
+      .maybeSingle();
+    if (scheduleError) throw scheduleError;
+    if (!schedule) throw httpError(404, "Расписание не найдено");
+    if (schedule.pinterest_account_id) {
+      throw httpError(409, "Для этого расписания Pinterest-аккаунт уже назначен");
+    }
+    if (!schedule.pinterest_board_id) {
+      throw httpError(422, "У старого расписания не сохранена Pinterest-доска. Создайте расписание заново.");
+    }
+
+    const pinterest = require("./pinterest");
+    const requestedAccountId = req.body && req.body.pinterest_account_id
+      ? String(req.body.pinterest_account_id)
+      : null;
+    const resolution = classifyLegacyScheduleAccount(
+      await pinterest.getAccounts(req.userId),
+      requestedAccountId
+    );
+    if (resolution.status === "no_account") {
+      throw httpError(409, "Сначала подключите Pinterest-аккаунт.");
+    }
+    if (resolution.status === "selection_required") {
+      throw httpError(422, "У вас несколько Pinterest-аккаунтов. Выберите, в какой аккаунт восстановить расписание.");
+    }
+    if (resolution.status === "invalid_selection") {
+      throw httpError(404, "Выбранный Pinterest-аккаунт не найден или отключён.");
+    }
+
+    // The saved remote board must be readable through the exact selected identity.
+    await pinterest.verifyPinterestBoard(
+      req.userId,
+      schedule.pinterest_board_id,
+      resolution.account.id
+    );
+
+    const { data: reconciled, error: reconcileError } = await supabase.rpc(
+      "reconcile_legacy_pinterest_schedule_account",
+      {
+        p_user_id: String(req.userId),
+        p_schedule_id: schedule.id,
+        p_pinterest_account_id: resolution.account.id,
+      }
+    );
+    if (reconcileError) throw reconcileError;
+    if (!reconciled || reconciled.ok !== true) {
+      const reasons = {
+        account_already_assigned: [409, "Для расписания уже назначен аккаунт."],
+        schedule_not_reconcilable: [409, "Это расписание уже обрабатывается или завершено; автоматически восстановить его нельзя."],
+        board_missing: [422, "У расписания не указана доска Pinterest."],
+        pin_unavailable: [404, "Исходный пин больше недоступен."],
+        account_unavailable: [409, "Pinterest-аккаунт отключён. Подключите его заново."],
+        publication_history_exists: [409, "Для этого пина уже есть история публикации. Нужна ручная сверка, автоматическое назначение заблокировано."],
+        active_schedule_exists: [409, "Для этого пина уже есть активное расписание в выбранном аккаунте."],
+        schedule_changed: [409, "Расписание изменилось параллельно. Обновите календарь и повторите проверку."],
+        schedule_not_found: [404, "Расписание не найдено."],
+      };
+      const [status, message] = reasons[reconciled && reconciled.reason] || [409, "Не удалось безопасно восстановить расписание."];
+      throw httpError(status, message);
+    }
+
+    const { data: updated, error: readError } = await supabase
+      .from("pin_schedules")
+      .select("*, pins(id, board_id, title, description, image_url, boards(id, title))")
+      .eq("id", schedule.id)
+      .eq("user_id", String(req.userId))
+      .single();
+    if (readError) throw readError;
+    res.json(updated);
   } catch (e) {
     handleError(res, e);
   }
