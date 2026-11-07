@@ -7,7 +7,7 @@ import { getAuthCopy } from '../i18n/authCopy';
 export const ResetPassword: React.FC = () => {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const token = params.get('token') || '';
+  const token = params.get('token') || new URLSearchParams(window.location.hash.slice(1)).get('token') || '';
   // Keep the one-time credential in memory while removing it from browser history.
   const tokenRef = useRef(token);
   useEffect(() => {
