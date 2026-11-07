@@ -1,4 +1,4 @@
--- Run only in disposable PostgreSQL CI after migrations 031-050.
+-- Run only in disposable PostgreSQL CI after migrations 031-052.
 -- A local pin can be published once per Pinterest identity, not once per user.
 do $$
 declare
@@ -7,6 +7,9 @@ declare
   v_board uuid;
   v_pin uuid;
   v_legacy_pin uuid;
+  v_reconcile_pin uuid;
+  v_reconcile_schedule uuid;
+  v_legacy_history_schedule uuid;
   v_inflight_pin uuid;
   v_crash_pin uuid;
   v_crash_schedule uuid;
@@ -57,6 +60,41 @@ begin
   v_result := public.begin_pinterest_publish_v2(v_user::text, v_legacy_pin, v_account_a, 'board-a');
   if v_result->>'status' <> 'unknown' then
     raise exception 'unmapped legacy publication history was allowed to retry: %', v_result;
+  end if;
+
+  -- A legacy schedule with a publish journal must not be assigned to a new identity.
+  insert into public.pin_schedules(
+    user_id, pin_id, scheduled_at, timezone, pinterest_board_id, status
+  ) values (
+    v_user::text, v_legacy_pin, now() + interval '1 day', 'UTC', 'legacy-board', 'failed'
+  ) returning id into v_legacy_history_schedule;
+  v_result := public.reconcile_legacy_pinterest_schedule_account(
+    v_user::text, v_legacy_history_schedule, v_account_a
+  );
+  if v_result->>'reason' <> 'publication_history_exists'
+     or (select pinterest_account_id from public.pin_schedules where id=v_legacy_history_schedule) is not null then
+    raise exception 'legacy schedule with a publication journal was incorrectly reconciled: %', v_result;
+  end if;
+
+  -- A schedule with no publication history can be explicitly bound to the
+  -- account whose remote board was verified by the API layer.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/reconcile.png', 'Reconcile account', '', 'approved', 'flux-schnell', 0)
+  returning id into v_reconcile_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, scheduled_at, timezone, pinterest_board_id, status, last_error
+  ) values (
+    v_user::text, v_reconcile_pin, now() - interval '1 hour', 'UTC', 'board-b', 'failed',
+    'Pinterest account is missing or disconnected'
+  ) returning id into v_reconcile_schedule;
+  v_result := public.reconcile_legacy_pinterest_schedule_account(
+    v_user::text, v_reconcile_schedule, v_account_b
+  );
+  if v_result->>'ok' <> 'true'
+     or (select pinterest_account_id from public.pin_schedules where id=v_reconcile_schedule) <> v_account_b
+     or (select status from public.pin_schedules where id=v_reconcile_schedule) <> 'scheduled'
+     or (select last_error from public.pin_schedules where id=v_reconcile_schedule) is not null then
+    raise exception 'safe legacy schedule reconciliation failed: %', v_result;
   end if;
 
   v_result := public.begin_pinterest_publish_v2(v_user::text, v_pin, v_account_a, 'board-a');
@@ -363,7 +401,7 @@ begin
   delete from public.pinterest_publish_attempts where user_id = v_user::text;
   delete from public.pinterest_publications where user_id = v_user::text;
   delete from public.pinterest_accounts where user_id = v_user::text;
-  delete from public.pins where id in (v_pin, v_legacy_pin, v_inflight_pin, v_crash_pin, v_retry_pin, v_manual_retry_pin, v_attempt_retry_pin, v_safe_retry_pin);
+  delete from public.pins where id in (v_pin, v_legacy_pin, v_inflight_pin, v_crash_pin, v_retry_pin, v_manual_retry_pin, v_attempt_retry_pin, v_safe_retry_pin, v_reconcile_pin);
   delete from public.boards where id = v_board;
   delete from public.projects where id = v_project;
   delete from public.users where id = v_user;
