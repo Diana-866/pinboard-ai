@@ -861,6 +861,23 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
     }
 
     const recordProviderOutcome = async (outcome, status) => {
+      // Manual refund reconciliation may enrich a previously-null provider
+      // refund fact. Preserve that audited value when replaying the original
+      // provider failure, rather than sending null and creating a false
+      // "conflicting replay".
+      let reconciledRefund = status === "failed" ? outcome.refunded : null;
+      if (status === "failed" && reconciledRefund == null) {
+        const { data: savedOutcome, error: savedOutcomeError } = await supabase
+          .from("pin_regeneration_requests")
+          .select("provider_refunded")
+          .eq("user_id", String(req.userId))
+          .eq("idempotency_key", idempotencyKey)
+          .single();
+        if (savedOutcomeError) throw savedOutcomeError;
+        if (savedOutcome && savedOutcome.provider_refunded != null) {
+          reconciledRefund = savedOutcome.provider_refunded;
+        }
+      }
       const { error: outcomeError } = await supabase.rpc("record_pin_regeneration_provider_outcome", {
         p_user_id: String(req.userId),
         p_idempotency_key: idempotencyKey,
@@ -868,7 +885,7 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
         p_provider_task_id: outcome.taskId,
         p_provider_status: status,
         p_provider_price: outcome.price == null ? null : outcome.price,
-        p_provider_refunded: status === "failed" ? outcome.refunded : null,
+        p_provider_refunded: reconciledRefund,
         p_provider_error_code: status === "failed" ? outcome.errorCode : null,
         p_provider_error_title: status === "failed" ? outcome.errorTitle : null,
       });
@@ -1374,6 +1391,22 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
         return tasks;
       },
       recordProviderOutcome: async (taskIndex, outcome, status) => {
+        // A trusted reconciliation can enrich provider_refunded after the
+        // original failure was journaled. Reuse that durable fact on retries.
+        let reconciledRefund = status === "failed" ? outcome.refunded : null;
+        if (status === "failed" && reconciledRefund == null) {
+          const { data: savedPlan, error: savedPlanError } = await supabase.rpc("get_pin_generation_plan", {
+            p_user_id: String(req.userId),
+            p_idempotency_key: idempotencyKey,
+          });
+          if (savedPlanError) throw savedPlanError;
+          const savedTask = Array.isArray(savedPlan)
+            ? savedPlan.find((task) => Number(task.task_index) === Number(taskIndex))
+            : null;
+          if (savedTask && savedTask.provider_refunded != null) {
+            reconciledRefund = savedTask.provider_refunded;
+          }
+        }
         const { error } = await supabase.rpc("record_pin_generation_provider_outcome", {
           p_user_id: String(req.userId),
           p_idempotency_key: idempotencyKey,
@@ -1382,8 +1415,7 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
           p_provider_task_id: outcome.taskId,
           p_provider_status: status,
           p_provider_price: outcome.price == null ? null : outcome.price,
-          p_provider_refunded: status === "failed" && outcome.refunded != null
-            ? outcome.refunded : null,
+          p_provider_refunded: reconciledRefund,
           p_provider_error_code: status === "failed" && outcome.errorCode != null
             ? outcome.errorCode : null,
           p_provider_error_title: status === "failed" ? outcome.errorTitle || null : null,
