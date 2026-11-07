@@ -24,6 +24,14 @@ begin
     if sqlerrm not like '%insufficient unreserved credits%' then raise; end if;
   end;
 
+  -- The legacy balance-only RPC must enforce the same rule.
+  begin
+    perform public.adjust_credits_balance(v_user::text,-4);
+    raise exception 'legacy balance RPC consumed active reservation';
+  exception when others then
+    if sqlerrm not like '%insufficient unreserved credits%' then raise; end if;
+  end;
+
   select credits_balance into v_balance from public.users where id=v_user;
   select count(*) into v_ledger_count from public.credit_transactions where user_id=v_user::text;
   if v_balance <> 10 or v_ledger_count <> 0 then
