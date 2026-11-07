@@ -177,12 +177,13 @@
 
 ### AUD-014 — Legacy regenerate flow не имеет полноценного provider task journal/idempotency
 - **Приоритет:** P1
-- **Статус:** OPEN
-- **Тип:** подтверждённый условный риск.
+- **Статус:** FIXED_UNVERIFIED
+- **Тип:** условный риск устранён в коде; runtime/CI подтверждение ожидается.
 - **Область:** `POST /pins/:id/regenerate`.
-- **Наблюдение:** старый flow может вызвать провайдера, а затем упасть на Storage/DB; повтор способен создать ещё одну платную генерацию.
-- **Исправить:** перевести regenerate на общий journal + provider idempotency + claim fencing либо отключить legacy endpoint до переноса.
-- **Тесты:** provider accepted → storage/db failure → retry; одна provider task и одно списание.
+- **Реализация:** migration 053 добавляет отдельный durable journal с уникальным ключом пользователя, fingerprint запроса, стабильным provider idempotency key и claim-token fencing. Финальное списание кредитов, обновление image_url и запись ledger выполняются одной PostgreSQL-функцией. Повтор завершённого запроса возвращает сохранённый pin без второго списания.
+- **Восстановление:** после неопределённого исхода запрос возобновляется с прежним provider key; если provider task ID уже записан, backend опрашивает эту задачу через `checkImage`, а не отправляет повторный create. Storage получает тот же детерминированный idempotency key. API требует заголовок `Idempotency-Key` длиной 16–128 символов.
+- **Тесты:** добавлен PostgreSQL integration сценарий на атомарное списание, повтор завершённого запроса, запрет повторного связывания fingerprint и claim fencing; добавлены unit tests для проверки восстановленного provider result. Миграция 053 и SQL integration test включены в atomic-payment workflow.
+- **Ограничения:** CI на текущих коммитах снова завершился до запуска шагов runner (пустые steps); Vercel preview ограничен `build-rate-limit`. Поэтому статус остаётся FIXED_UNVERIFIED. Production migration не применялась.
 
 ### AUD-015 — Две разные generation idempotency keys могут одновременно пройти balance preflight
 - **Приоритет:** P1
