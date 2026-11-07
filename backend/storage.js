@@ -5,7 +5,7 @@ const https = require("node:https");
 const { httpError } = require("./validate");
 const { MAX_IMAGE_BYTES, validateImageBuffer } = require("./imageValidation");
 const { assertPublicUrl, createPinnedLookup } = require("./publicUrl");
-const { extractManagedPinImagePath, buildPinImageObjectPath, deleteManagedPinImageObject } = require("./pinImageLifecycle");
+const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, deleteManagedPinImageObject } = require("./pinImageLifecycle");
 
 const BUCKET = "pin-images";
 const ALLOWED_IMAGE_MIMES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
@@ -52,10 +52,24 @@ async function uploadPinImage(file, options = {}) {
   await ensureBucket();
   const path = buildPinImageObjectPath(imageType.ext, options.idempotencyKey || null);
 
-  const { error } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, file.buffer, { contentType: imageType.mime, upsert: true });
-  if (error) throw httpError(500, "Не удалось сохранить изображение: " + error.message);
+  try {
+    await uploadManagedPinImageObject({
+      supabase,
+      bucket: BUCKET,
+      objectPath: path,
+      file: file.buffer,
+      contentType: imageType.mime,
+    });
+  } catch (error) {
+    if (error && error.code === "referenced") {
+      throw httpError(409, "Это изображение уже используется и не может быть перезаписано");
+    }
+    if (error && (error.code === "upload_in_progress" || error.code === "deletion_in_progress")) {
+      throw httpError(409, "Изображение сейчас обрабатывается. Повторите запрос позже");
+    }
+    if (error && error.httpStatus) throw error;
+    throw httpError(500, "Не удалось сохранить изображение: " + (error && error.message));
+  }
 
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
   if (!data || !data.publicUrl) throw httpError(500, "Не удалось получить ссылку на изображение");
