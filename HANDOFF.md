@@ -892,3 +892,12 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Тесты добавлены, но runtime execution, typecheck и build не подтверждены из-за текущего CI runner blocker. Production не менялся.
 
 **Status:** AUD-064 / FIXED_UNVERIFIED.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-065: сохранение формата пина)
+- Выбор aspect ratio в PinGenerator ранее менял только локальный React state; после reload формат терялся. Теперь handler отправляет `PATCH /pins/:id { aspect_ratio }` и обновляет UI только после успешного ответа; кнопки блокируются на время запроса.
+- Backend PATCH route принимает только `2:3, 9:16, 4:5, 3:4, 1:1`; проверка владельца выполняется до записи, update ограничен `id + board_id`. Колонка `pins.aspect_ratio` есть в baseline schema.
+- Изменены `frontend/src/components/pins/PinGenerator.tsx` и `backend/index.js`. Source-level assertions подтверждают основные условия. TypeScript/runtime/API/Postgres tests не запускались; CI runner blocker остаётся.
+- Production не затронут.
+
+**Status:** AUD-065 / FIXED_UNVERIFIED.
