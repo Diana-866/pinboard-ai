@@ -921,3 +921,11 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Проверка только статическая по исходнику: обе completion ветки имеют резервирование. Bash syntax/PostgreSQL/CI не запускались; runtime остаётся unverified.
 - Изменён тестовый файл и документация; production/backend runtime/БД не затрагивались. PR #4 Draft, без merge/deploy.
 - Commit с тестом: `c02fb9b1d2ddce40ed6da3c6d5da72e2bd1c8e8e`; docs commit: `16473d6d75deb743aea56fea7842ad35393e334d`.
+
+
+## 2026-11-07 — AUD-069: generation reservation rounding
+- Исправлено недорезервирование из-за разницы округления: итоговый charge округляет цену каждого изображения отдельно, а estimate округлял сумму всего пакета. Добавлен `backend/generationPricing.js`; `backend/index.js` использует `calculateGenerationReservation`; тесты в `backend/test/generation-pricing.test.js`.
+- Важно: локальный `MODEL_PRICES` может отставать от фактической цены GPTunnel (в тестовых ответах встречаются разные цены); это исправление покрывает округление только относительно настроенной цены, а не provider price drift. До запуска платежей/масштабной генерации нужно установить безопасный потолок цены из официального API каталога и корректно резервировать его.
+- Runtime тесты не запускались, только статическая проверка исходников; CI runner blocker остаётся. Production не менялся.
+- Commits: helper `69675f0d3d4338d66470ceff925548996b2698e8`, tests `c2d39f3ef9a31693be7bdb6cb4b06496644f0988`, integration `6f56422c2ac7f9f41270db53a59e081774325cc9`, launch notes `5a12dd34ca0d31385f46a8f1ca08ac0c8a13764d`.
+- Административная оговорка: по ошибке первый вариант заметки был добавлен в `main`; файл удалён отдельным revert-коммитом `f61c65f7c09f2ad8ec94fad8fb84861a72dbe8c0`. На `main` не осталось содержимого этой заметки; рабочие изменения остаются в feature branch.
