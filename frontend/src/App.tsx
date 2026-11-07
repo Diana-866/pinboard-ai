@@ -348,6 +348,26 @@ const MainApp: React.FC = () => {
     setScheduledPins((prev) => [persisted, ...prev.filter((item) => item.id !== persisted.id)]);
   };
 
+  const handleReconcileLegacySchedule = async (pin: ScheduledPinItem, accountId: string) => {
+    try {
+      const saved = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/reconcile-account`, {
+        method: 'POST',
+        body: JSON.stringify({ pinterest_account_id: accountId }),
+      });
+      const account = accounts.find((item) => item.id === String(saved.pinterest_account_id));
+      setScheduledPins((prev) => prev.map((item) => item.id === pin.id ? {
+        ...item,
+        status: 'scheduled',
+        pinterestAccountId: String(saved.pinterest_account_id),
+        accountHandle: account?.handle || account?.name || '',
+      } : item));
+    } catch (error) {
+      console.error('[schedule] Не удалось восстановить старое расписание:', error);
+      window.alert(error instanceof Error ? error.message : 'Не удалось восстановить расписание');
+      throw error;
+    }
+  };
+
   const handleRetryScheduledPin = async (pin: ScheduledPinItem) => {
     try {
       const saved = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/retry`, {
@@ -555,6 +575,7 @@ const MainApp: React.FC = () => {
               onAddPin={handleSchedulePin}
               onCancelSchedule={handleCancelScheduledPin}
               onRetrySchedule={handleRetryScheduledPin}
+              onReconcileLegacySchedule={handleReconcileLegacySchedule}
               onGoToGenerator={(topic, date) => handleGenerateFromTopic(topic, date)}
               onOpenReview={() => setActiveTab('review')}
               accounts={accounts}
