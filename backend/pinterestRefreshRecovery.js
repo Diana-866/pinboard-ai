@@ -6,7 +6,11 @@
  */
 function isCommittedTokenRefresh(previous, current) {
   if (!previous || !current || current.refresh_state !== "ready") return false;
-  return current.access_token !== previous.access_token ||
+  // Pinterest refresh rotation must replace the complete credential pair.
+  // An OAuth reconnect may update access_token while preserving an omitted
+  // refresh_token; that is valid reconnect state, not proof this refresh
+  // request committed its own rotated response.
+  return current.access_token !== previous.access_token &&
     current.refresh_token !== previous.refresh_token;
 }
 
