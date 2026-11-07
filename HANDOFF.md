@@ -757,7 +757,7 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
   Успешные публикации по-прежнему reconciled предыдущим recovery UPDATE до этой ветки.
 - Добавлены SQL regression fixtures для обоих видов failed journal: safe failure возвращается в очередь, unsafe failure остаётся failed. Test header обновлён до migrations 031–060.
 - Workflow `.github/workflows/atomic-payment-integration.yml` применяет migration 060 после 059.
-- GitHub commits: migration 060 `0b73ce4bfec29c837e7a42e7503e8a262c6c1c2d`; SQL regression `9e5aeffa7eba8b61dc604f68e923982cba8dfccc`; workflow update ожидается ниже.
+- GitHub commits: migration 060 `0b73ce4bfec29c837e7a42e7503e8a262c6c1c2d`; SQL regression `9e5aeffa7eba8b61dc604f68e923982cba8dfccc`; workflow update `23f5b9185951001cb13e9195099c45048783127d`.
 - Статические проверки файлов обязательны после записи; PostgreSQL integration/CI пока не подтверждены. Не утверждать, что runtime tests прошли. Production/staging DB, Pinterest API, реальные публикации, deployment и merge не затрагивались.
 
 **Status:** AUD-053 / MIGRATION_060_ADDED / SAFE_FAILURE_CRASH_RECOVERY / UNSAFE_FAILURE_TERMINAL / SQL_REGRESSION_ADDED / CI_UNVERIFIED.
