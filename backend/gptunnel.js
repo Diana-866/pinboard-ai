@@ -89,6 +89,17 @@ async function generateText(prompt, options = {}) {
   return result.content;
 }
 
+function normalizeIgnoredParams(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    if (typeof item === "string") return item;
+    if (item && typeof item === "object") {
+      return [item.key, item.param, item.name].find((key) => typeof key === "string") || "__unknown_ignored_param__";
+    }
+    return "__unknown_ignored_param__";
+  });
+}
+
 function normalizeMediaQuote(data) {
   const price = data && typeof data.price === "number" ? data.price : NaN;
   if (!data || data.code !== 0 || data.price == null || data.currency !== "RUB" ||
@@ -100,7 +111,7 @@ function normalizeMediaQuote(data) {
     price,
     currency: data.currency,
     params: data.params && typeof data.params === "object" ? data.params : {},
-    ignoredParams: Array.isArray(data.ignored_params) ? data.ignored_params : [],
+    ignoredParams: normalizeIgnoredParams(data.ignored_params),
   };
 }
 
@@ -111,7 +122,8 @@ async function quoteImageTask(prompt, model = "flux-schnell", aspectRatio = "2:3
     providerRequestConfig()
   );
   const quote = normalizeMediaQuote(response.data);
-  if (quote.model !== model || quote.ignoredParams.includes("aspect_ratio")) {
+  if (quote.model !== model || quote.ignoredParams.length > 0 ||
+      quote.params.aspect_ratio !== aspectRatio) {
     throw new Error("Котировка не соответствует запрошенной модели или формату изображения");
   }
   return quote;
