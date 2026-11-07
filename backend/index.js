@@ -731,66 +731,94 @@ app.post("/pins/:id/image", requireAuth, imageUpload.single("image"), async (req
 });
 
 app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standard", "pro", "agency", "start"]), async (req, res) => {
+  let claimToken = null;
+  let idempotencyKey = req.get("Idempotency-Key");
+  let requestStarted = false;
   try {
+    if (typeof idempotencyKey !== "string" || !/^[A-Za-z0-9_-]{16,128}$/.test(idempotencyKey)) {
+      throw httpError(422, "Для перегенерации требуется корректный Idempotency-Key");
+    }
     const pin = await getPinWithOwnerCheck(req.params.id, req.userId);
     const instruction = optionalString(req.body && req.body.instruction, { max: 300 }) || "";
-    const model = validateEnum(
-      pin.model_used,
-      Object.keys(MODEL_PRICES),
-      "flux-schnell",
-      "Модель"
-    );
-
+    const model = validateEnum(pin.model_used, Object.keys(MODEL_PRICES), "flux-schnell", "Модель");
     const cost = Math.ceil((MODEL_PRICES[model] || 15) * MARKUP);
-    const balance = await getBalance(req.userId);
-    if (balance < cost) {
-      return res.status(402).json({ error: "Недостаточно кредитов", required: cost, balance });
-    }
-
     const prompt = `${pin.title}. ${pin.description}. ${instruction}`.trim();
-    const image = await generateImage(prompt, model);
-    if (image && image.url) {
-      try {
-        image.url = await rehostImage(image.url);
-      } catch (reErr) {
-        // Не сохраняем временную ссылку GPTunnel: иначе изображение пропадёт после её истечения.
-        throw httpError(502, "Не удалось сохранить изображение в постоянное хранилище. Кредиты за пин не списаны.");
-      }
-    }
-    if (!image || !image.url || image.price == null) {
-      throw httpError(502, "Изображение ещё не готово — попробуйте позже, кредиты не списаны");
-    }
+    const fingerprint = crypto.createHash("sha256").update(JSON.stringify({
+      pinId: String(pin.id), model, prompt, amount: cost,
+    })).digest("hex");
 
-    const { data: chargeResult, error: chargeError } = await supabase.rpc("update_pin_image_and_charge", {
-      p_user_id: String(req.userId),
-      p_pin_id: req.params.id,
-      p_image_url: image.url,
-      p_amount: cost,
+    const { data: state, error: beginError } = await supabase.rpc("begin_pin_regeneration_request", {
+      p_user_id: String(req.userId), p_pin_id: req.params.id,
+      p_idempotency_key: idempotencyKey, p_fingerprint: fingerprint,
+      p_model: model, p_prompt: prompt, p_amount: cost,
     });
-    if (chargeError) {
-      if (/insufficient credits/i.test(chargeError.message || "")) {
-        throw httpError(402, "Недостаточно кредитов для перегенерации");
-      }
-      if (/not found or not owned/i.test(chargeError.message || "")) {
-        throw httpError(404, "Пин не найден");
-      }
-      throw chargeError;
+    if (beginError) throw beginError;
+    if (state.status === "completed") return res.status(200).json(state.pin);
+    if (state.status === "processing") {
+      res.set("Retry-After", "5");
+      return res.status(409).json({ error: "Перегенерация уже выполняется. Повторите запрос с тем же ключом.", code: "regeneration_in_progress" });
+    }
+    if (state.status === "unknown" || state.status === "failed") {
+      return res.status(409).json({ error: "Исход предыдущей перегенерации не подтверждён. Автоматический новый запуск заблокирован.", code: "regeneration_outcome_unknown" });
+    }
+    if (state.status !== "started" && state.status !== "resume") throw httpError(500, "Неизвестное состояние перегенерации");
+    claimToken = state.claim_token;
+    requestStarted = true;
+    if (typeof claimToken !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(claimToken)) {
+      throw httpError(500, "Не удалось получить право на перегенерацию");
     }
 
-    if (pin.image_url && pin.image_url !== image.url) {
+    let image = null;
+    let storedUrl = state.storage_url || null;
+    if (!storedUrl && state.provider_result_url) {
+      storedUrl = await rehostImage(state.provider_result_url, { idempotencyKey: state.provider_idempotency_key });
+    }
+    if (!storedUrl) {
+      const balance = await getBalance(req.userId);
+      if (balance < cost) throw httpError(402, "Недостаточно кредитов для перегенерации");
+      image = await generateImage(prompt, model, "2:3", state.provider_idempotency_key);
+      if (image && image.pending && image.taskId) {
+        const { error: journalError } = await supabase.rpc("update_pin_regeneration_request", {
+          p_user_id: String(req.userId), p_idempotency_key: idempotencyKey, p_claim_token: claimToken,
+          p_status: "processing", p_provider_task_id: image.taskId,
+        });
+        if (journalError) throw journalError;
+        res.set("Retry-After", "10");
+        return res.status(202).json({ status: "processing", code: "regeneration_pending" });
+      }
+      if (!image || !image.url || image.price == null) throw new Error("Provider returned no confirmed image result");
+      const { error: resultError } = await supabase.rpc("update_pin_regeneration_request", {
+        p_user_id: String(req.userId), p_idempotency_key: idempotencyKey, p_claim_token: claimToken,
+        p_status: "processing", p_provider_task_id: image.taskId,
+        p_provider_result_url: image.url, p_provider_price: image.price,
+      });
+      if (resultError) throw resultError;
+      storedUrl = await rehostImage(image.url, { idempotencyKey: state.provider_idempotency_key });
+    }
+
+    const { data: completed, error: completeError } = await supabase.rpc("complete_pin_regeneration_request", {
+      p_user_id: String(req.userId), p_idempotency_key: idempotencyKey,
+      p_claim_token: claimToken, p_storage_url: storedUrl,
+    });
+    if (completeError) {
+      if (/insufficient credits/i.test(completeError.message || "")) throw httpError(402, "Недостаточно кредитов для перегенерации");
+      if (/claim mismatch/i.test(completeError.message || "")) throw httpError(409, "Перегенерация уже обрабатывается другим запросом");
+      throw completeError;
+    }
+
+    if (pin.image_url && pin.image_url !== storedUrl) {
       await deletePinImageIfUnreferenced(pin.image_url).catch((cleanupError) => {
         console.error("[storage] не удалось очистить старое изображение после перегенерации:", cleanupError && cleanupError.message);
       });
     }
-
-    const { data: updated, error: readError } = await supabase
-      .from("pins")
-      .select("*")
-      .eq("id", req.params.id)
-      .single();
-    if (readError || !updated) throw httpError(500, "Изображение обновлено, но не удалось получить результат");
-    res.json(updated);
+    return res.json(completed.pin);
   } catch (e) {
+    if (requestStarted && claimToken && idempotencyKey) {
+      await supabase.rpc("update_pin_regeneration_request", {
+        p_user_id: String(req.userId), p_idempotency_key: idempotencyKey, p_claim_token: claimToken,
+        p_status: "unknown", p_error_code: e && e.status === 402 ? "insufficient_balance" : "regeneration_outcome_unknown",
+      }).catch((journalError) => console.error("[regeneration] не удалось обновить журнал:", journalError && journalError.message));
+    }
     handleError(res, e);
   }
 });
