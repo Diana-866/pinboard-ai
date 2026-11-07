@@ -275,3 +275,13 @@
 - Изменён только `frontend/src/components/pins/PinGenerator.tsx`; backend уже имел нужный endpoint. Проверки — статические source assertions; TypeScript/build/browser/API/Postgres не запускались. Production и БД не затрагивались.
 
 **Status:** AUD-067 / SAVED_PINS_RESTORED_ON_BOARD_SELECT / RUNTIME_UNVERIFIED.
+
+
+### 2026-11-07 — AUD-068: generation concurrency test aligned with credit reservations
+- Проверены текущие generation lifecycle migrations 044/045/046/054, backend generation route, GPTunnel adapter, SQL reservation regression и concurrency shell test.
+- Найден тестовый дефект: `backend/test/generation-concurrency.sh` проверял конкурентное завершение и гонку failure/completion, вызывая `complete_pin_generation_request` без предварительного `reserve_pin_generation_credits`. После миграции 054 RPC completion закономерно отклоняет такой вызов, поскольку для списания требуется активная резервация. Это делало concurrency test устаревшим относительно текущего контракта.
+- Исправлено: тест создаёт резервацию на 5 кредитов сразу после создания основного запроса и отдельно для race-запроса. Остальные сценарии (stale claim fencing, duplicate completion, terminal race) не менялись.
+- Статическая проверка: оба completion-сценария теперь имеют соответствующий reservation call; фактический PostgreSQL concurrency script и CI не запускались из-за ранее зафиксированного runner issue. Не утверждать, что runtime test прошёл.
+- В production коде/БД ничего не менялось. PR #4 остаётся Draft; merge/deploy не выполнялись.
+
+**Status:** AUD-068 / GENERATION_CONCURRENCY_TEST_CONTRACT_FIXED / RUNTIME_UNVERIFIED.
