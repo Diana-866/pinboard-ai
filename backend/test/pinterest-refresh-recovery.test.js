@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { isCommittedTokenRefresh } = require("../pinterestRefreshRecovery");
+const { isCommittedTokenRefresh, hasActiveRefreshLease } = require("../pinterestRefreshRecovery");
 
 const before = {
   access_token: "access-old",
@@ -45,4 +45,24 @@ test("does not accept changed credentials while refresh remains uncertain", () =
     refresh_state: "uncertain",
   };
   assert.equal(isCommittedTokenRefresh(before, ambiguous), false);
+});
+
+test("treats a future lease as an in-flight refresh", () => {
+  assert.equal(
+    hasActiveRefreshLease({ lease_until: "2026-11-07T10:00:30.000Z" }, Date.parse("2026-11-07T10:00:00.000Z")),
+    true
+  );
+});
+
+test("does not treat an expired lease as an in-flight refresh", () => {
+  assert.equal(
+    hasActiveRefreshLease({ lease_until: "2026-11-07T10:00:00.000Z" }, Date.parse("2026-11-07T10:00:00.000Z")),
+    false
+  );
+});
+
+test("fails closed when the refresh lease is missing or malformed", () => {
+  assert.equal(hasActiveRefreshLease(null), false);
+  assert.equal(hasActiveRefreshLease({ lease_until: "not-a-date" }), false);
+  assert.equal(hasActiveRefreshLease({}), false);
 });
