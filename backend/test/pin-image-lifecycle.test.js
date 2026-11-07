@@ -78,6 +78,10 @@ function makeStorageClient(options = {}) {
         return { data: options.staleUploads === undefined ? [] : options.staleUploads,
           error: options.inventoryError || null };
       }
+      if (name === "quarantine_stale_pin_image_upload") {
+        return { data: options.quarantineData === undefined ? true : options.quarantineData,
+          error: options.quarantineError || null };
+      }
       return { data: options.finalizeData === undefined ? true : options.finalizeData,
         error: options.finalizeError || null };
     },
@@ -277,6 +281,30 @@ test("failed upload finalization does not report a successful upload", async () 
     }),
     (error) => error === rpcError
   );
+});
+
+test("stale upload quarantine retires exact paths with their current fencing tokens", async () => {
+  const supabase = makeStorageClient({
+    staleUploads: [
+      { bucket_id: "pin-images", object_path: "pins/1730000000000-ab12cd34.webp", upload_token: "token-a" },
+      { bucket_id: "pin-images", object_path: "pins/1730000000001-ab12cd34.webp", upload_token: "token-b" },
+    ],
+  });
+  const result = await quarantineStalePinImageUploads({ supabase });
+  assert.deepEqual(result, { inspected: 2, quarantined: 2, skipped: 0, failed: 0 });
+  const calls = supabase.calls.filter((call) => call.name === "quarantine_stale_pin_image_upload");
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].args.p_upload_token, "token-a");
+  assert.equal(calls[1].args.p_upload_token, "token-b");
+});
+
+test("stale upload quarantine skips rows without a valid fencing token", async () => {
+  const supabase = makeStorageClient({
+    staleUploads: [{ bucket_id: "pin-images", object_path: "pins/1730000000000-ab12cd34.webp" }],
+  });
+  const result = await quarantineStalePinImageUploads({ supabase });
+  assert.deepEqual(result, { inspected: 1, quarantined: 0, skipped: 1, failed: 0 });
+  assert.equal(supabase.calls.some((call) => call.name === "quarantine_stale_pin_image_upload"), false);
 });
 
 test("stale upload reconciliation is observational even when the exact object is visible", async () => {
