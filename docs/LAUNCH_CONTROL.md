@@ -371,3 +371,14 @@
 - LLM text usage accounting и exact GPTunnel media quotes до task submission всё ещё не реализованы. Не изменялись user credit pricing, balances, production DB, deploy, payments, DNS, Pinterest или PR merge.
 
 **Status:** AUD-074 / MULTI_PIN_PROVIDER_OUTCOME_JOURNAL_ADDED / ROUTE_WIRED / SQL_RUNTIME_UNVERIFIED / DO_NOT_DEPLOY_BEFORE_MIGRATION_TEST.
+
+
+### 2026-11-07 — AUD-075: exact quote and reservation lifecycle
+- Проверен порядок основного route: reserve по локальному MODEL_PRICES → платный gpt-4o plan → persist plan → image task submit → фактическая цена → settlement. GPTunnel text usage сейчас не сохраняется.
+- Exact image quote можно запросить только после появления task prompt/ratio, но reservation создаётся раньше. `reserve_pin_generation_credits` запрещает повтор с другой суммой, а `complete_pin_generation_request` отклоняет charge выше reservation. Поэтому прямое подключение quote без state-machine/atomic resize небезопасно.
+- Добавлен чистый helper `calculateQuotedGenerationPricing` в `backend/generationPricing.js`: считает user credits по текущей формуле отдельно на каждый pin и сохраняет отдельный totalProviderCostRub. Добавлены тесты в `backend/test/generation-pricing.test.js`.
+- Создан `docs/audits/AUD-075-exact-quote-and-reservation-lifecycle.md` с последовательностью безопасной интеграции: billable operation journal, persisted plan, exact quote, atomic reservation resize, затем submit.
+- Тесты helper не запускались. SQL/Node/Bash/CI не запускались. Production не затронут.
+- Следующая задача: спроектировать миграцию атомарного resize резервирования и append-only provider operation journal; не подключать котировку к live flow до split plan/submit и recovery.
+
+**Status:** AUD-075 / QUOTED_PRICING_HELPER_ADDED / FLOW_AUDITED / NO_ROUTE_WIRING / NOT_DEPLOYABLE_AS_FULL_QUOTE_BILLING.
