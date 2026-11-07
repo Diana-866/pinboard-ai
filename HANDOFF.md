@@ -416,3 +416,15 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - No production database, email provider, JWT secret, or deployment setting was changed.
 
 **Status:** STATIC_REVIEW_COMPLETE / AUTH_RUNTIME_AND_SQL_UNVERIFIED. No confirmed authentication bypass was established. Recommended next action: inspect the exact deployed SQL RPC definitions and add auth integration tests, then implement a shared rate-limit store before horizontal scaling.
+
+
+### AUD-032 — auth schema contract discrepancy (2026-11-07)
+
+- Cross-checked the auth backend against `db/migrations/001_baseline.sql`, `db/migrations/009_hardening.sql`, and `docs/database.md`.
+- `backend/index.js` reads `users.token_version` in `requireAuth` and in authenticated `/resend-verification`. However, the checked-in baseline `users` definition does not declare `token_version`; the documented expected users-column list also omits it. No addition was found in migration 009.
+- If no later/deployment-only migration adds this column, protected API requests fail closed with 503 when PostgREST cannot select it. This is a potentially critical schema/code mismatch, but production impact is **not confirmed** because the complete later migration chain and live schema were not available in this pass.
+- Added `backend/test/auth-schema-contract.sql`, a read-only SQL contract check requiring a NOT NULL integer/bigint `users.token_version` and the four auth RPC names used by the backend. It performs no DDL or data changes.
+- The SQL contract test was not executed; no production database was accessed or modified.
+- Next: run the contract check against staging/read-only database; inspect the exact definitions of `consume_password_reset_token` and `consume_email_verification_token`, confirming password reset increments `token_version` atomically. If the column is absent, add an idempotent migration before treating the auth rollout as ready.
+
+**Status:** SCHEMA_DRIFT_SUSPECTED / LIVE_IMPACT_UNVERIFIED. Do not claim auth schema is production-ready until the contract passes.
