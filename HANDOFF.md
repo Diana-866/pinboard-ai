@@ -575,6 +575,6 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Both ambiguous RPC-error and false-commit-result paths use the same predicate.
 - Added `backend/test/pinterest-refresh-recovery.test.js` covering timestamp-only uncertainty fence, successful rotated credentials, unchanged ready credentials, and changed credentials still marked uncertain.
 
-**Verification:** source changes committed and pending runtime/CI execution. The repository defines `npm test` as `node --test`, but this review environment did not execute the project test suite. No workflow run was returned for the commits at review time.
+**Verification:** source files and the AUD-040 handoff entry were fetched back from the branch; their content SHAs matched the successful writes. GitHub Actions runs associated with the code commits reported failures in existing workflows (Atomic payment fulfillment integration, Prodamus webhook tests, and Persisted boards integration checks). The GitHub API listed failed jobs, but downloading their logs returned `BlobNotFound`; therefore the failure causes cannot be attributed to this change or diagnosed from available evidence. The repository defines `npm test` as `node --test`, but this review environment did not execute the project test suite. The final documentation commit had no associated PR workflow run.
 
 **Status:** FIX_IMPLEMENTED / REGRESSION_TEST_ADDED / TESTS_AND_CI_UNVERIFIED. No production/staging database, Pinterest credentials, deployment, or external account was accessed or changed.
