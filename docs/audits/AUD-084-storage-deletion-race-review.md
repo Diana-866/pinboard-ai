@@ -127,3 +127,20 @@ A returned Storage error object is not automatically a definite rejection. A 5xx
 The lifecycle helper now finalizes only a classifiable 4xx rejection, excluding 408, 409, 425 and 429. Returned 5xx, timeout/conflict/throttle, missing/unparseable status, and thrown transport errors remain fenced. Added unit tests for returned 5xx on both upload and delete; definite 4xx tests now carry explicit status codes.
 
 **Verification:** tests are added but have not been executed. No live Storage requests, Supabase migration, production deployment, or PR merge were performed.
+
+
+## Recovery design — permanently quarantine stale upload paths (2026-11-07)
+
+A safe unlock cannot be based on elapsed time, Storage listing, or a matching database token: none proves that a remote Storage request has stopped. Rather than reopening a potentially active path, the lifecycle now supports permanent path retirement.
+
+Migration 070 adds the `quarantined` state and service-role-only `quarantine_stale_pin_image_upload` RPC. It requires the exact current upload token, an expiry at least 15 minutes old, and no durable references. Quarantined paths are rejected by:
+- new upload reservations;
+- all four reference-write triggers;
+- deletion claims;
+- stale upload finalization using the old token.
+
+An in-flight remote write may still finish after quarantine, but its path is permanently retired and can never be referenced or reused. This may leave an orphaned Storage object; correctness is preferred over unsafe deletion or reuse. New uploads use fresh paths.
+
+Added admin-only `POST /admin/storage/quarantine-stale-uploads`, backend helper, unit tests, and SQL integration assertions for token fencing and permanent retirement. The existing reconcile endpoint remains read-only.
+
+**Verification:** code and tests committed to the Draft PR branch. Unit and PostgreSQL integration tests have not been executed; migration 070 remains unapplied in Supabase. No production deployment or PR merge occurred.
