@@ -10,7 +10,7 @@
 
 A managed Storage object may be deleted only if no committed durable reference exists and no concurrent transaction can commit a new reference until the Storage delete has completed or the deletion claim has been safely released.
 
-The invariant must cover all three current reference families:
+The invariant must cover all four current reference families:
 - `pins.image_url`
 - `pin_schedules.snapshot_image_url`
 - `pin_generation_tasks.storage_url`
@@ -24,8 +24,8 @@ Add `public.pin_image_object_lifecycle` with:
 - `bucket_id text not null` (currently `pin-images`)
 - `object_path text not null` (validated managed path, never arbitrary URL)
 - `state text not null check (state in ('active','uploading','deleting','delete_failed','deleted'))`
-- `claim_token uuid`
-- `claim_expires_at timestamptz`
+- `claim_token uuid` (upload or deletion fencing token)
+- `claim_expires_at timestamptz` (diagnostic expiry; never auto-releases an ambiguous operation)
 - `attempts integer not null default 0`
 - `last_error_code text` (bounded, sanitized; no provider response body)
 - `created_at/updated_at timestamptz`
@@ -110,7 +110,7 @@ Only for a request that can prove no delete request was sent. A timeout/connecti
 - Do not use a client-side sequence of `SELECT` then `INSERT` as a substitute for the RPC. The lifecycle row must serialize competing writers and deleters.
 - Do not rely solely on a pin-row lock. Schedule snapshots can outlive the pin's current image, and generation task references are independent.
 - Do not delete objects directly from any route except through the claim/finalize helper.
-- Avoid reusing deterministic generation object paths with `upsert: true` while a deletion claim may be active. The upload path must register/claim safely before overwriting, or use unique immutable object paths per upload attempt.
+- Deterministic generation object paths may use `upsert: true` only after `begin_pin_image_upload` reserves the path and confirms there are no durable references. Never upload while a deletion or another upload is active.
 - Preserve unknown/legacy objects: the existing strict managed-path extractor remains the gate.
 - Keep the bucket public for the current Pinterest publication URL design unless the product moves to signed URL delivery; this is a separate product/security decision.
 
