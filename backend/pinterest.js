@@ -483,6 +483,9 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
 
   // Проверяем владельца локального пина и доступность доски до резервации.
   const pin = await getPinWithOwner(pinId, userId);
+  if (pin.status !== "approved") {
+    throw httpError(409, "Публиковать можно только одобренные пины");
+  }
   if (!pin.image_url) throw httpError(422, "У пина нет изображения — сначала сгенерируйте картинку");
   const selectedAccount = await resolveAccount(userId, accountId);
   accountId = selectedAccount.id;
