@@ -382,3 +382,10 @@
 - Следующая задача: спроектировать миграцию атомарного resize резервирования и append-only provider operation journal; не подключать котировку к live flow до split plan/submit и recovery.
 
 **Status:** AUD-075 / QUOTED_PRICING_HELPER_ADDED / FLOW_AUDITED / NO_ROUTE_WIRING / NOT_DEPLOYABLE_AS_FULL_QUOTE_BILLING.
+
+
+### 2026-11-07 — AUD-075 follow-up: atomic reservation resize groundwork
+- Добавлена миграция `db/migrations/065_resize_pin_generation_credit_reservation.sql` с RPC `resize_pin_generation_credit_reservation`: claim-token fence, processing-only, активный reservation only, lock order user → request → reservation; проверяет остальные активные резервы.
+- Увеличение резерва отклоняется атомарно при недостаточном доступном балансе; уменьшение допускается. Ошибка не должна менять старую сумму.
+- Добавлен `backend/test/generation-reservation-resize.sh`: увеличение при защите другого резерва, превышение баланса без мутации, уменьшение, stale claim.
+- RPC пока не подключён к route; SQL test не запускался. Никаких production изменений.
