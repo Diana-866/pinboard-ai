@@ -107,7 +107,7 @@ begin
     raise exception 'deletion was not blocked by an active upload: %', v_claim;
   end if;
 
-  insert into public.pins(board_id) values (v_board_id) returning id into v_pin_id;
+  insert into public.pins(id, board_id) values (v_pin_id, v_board_id);
   begin
     update public.pins set image_url = v_url where id = v_pin_id;
     raise exception 'reference write was accepted during upload';
