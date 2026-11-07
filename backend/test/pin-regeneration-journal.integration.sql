@@ -125,5 +125,18 @@ begin
      or v_replayed->>'provider_task_id' <> '0123456789abcdef01234567' then
     raise exception 'recorded provider task was not returned for immediate polling: %', v_replayed;
   end if;
+
+  -- A provider-confirmed failure is terminal for this idempotency key.
+  perform public.update_pin_regeneration_request(
+    v_user_id::text, 'regen-test-key-0003', (v_replayed->>'claim_token')::uuid,
+    'failed', null, null, null, null, 'provider_generation_failed'
+  );
+  v_replayed := public.begin_pin_regeneration_request(
+    v_user_id::text, v_pin_id, 'regen-test-key-0003',
+    repeat('d',64), 'flux-schnell', 'pending provider task', 15
+  );
+  if v_replayed->>'status' <> 'failed' then
+    raise exception 'confirmed provider failure was not terminal: %', v_replayed;
+  end if;
 end;
 $body$;
