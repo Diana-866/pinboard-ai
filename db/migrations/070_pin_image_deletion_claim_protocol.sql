@@ -159,11 +159,11 @@ begin
                 where s.status <> 'cancelled'
                   and public.managed_pin_image_object_path(s.snapshot_image_url) = p_object_path)
     or exists (
+      -- A task journal is a durable recovery/audit reference regardless of
+      -- parent status. Journal pruning and orphan cleanup are a separate policy.
       select 1
         from public.pin_generation_tasks t
-        join public.pin_generation_requests r on r.id = t.generation_request_id
        where public.managed_pin_image_object_path(t.storage_url) = p_object_path
-         and r.status not in ('completed','failed')
     )
     into v_has_reference;
 
