@@ -517,3 +517,21 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - No code, dependency, rate-limit, production, or deployment changes were made in this pass. This is a static review only; no runtime tests were executed.
 
 **Status:** STATIC_REVIEW_COMPLETE / REGISTRATION_ENUMERATION_CONFIRMED / DISTRIBUTED_RATE_LIMIT_NOT_CONFIGURED.
+
+
+### AUD-038 — registration enumeration: frontend flow compatibility review (2026-11-07)
+
+**Frontend files inspected:** `frontend/src/pages/Register.tsx`, `frontend/src/pages/CheckEmail.tsx`, `frontend/src/pages/Login.tsx`, `frontend/src/pages/ForgotPassword.tsx`, and `frontend/src/lib/api.ts`.
+
+**Confirmed behavior**
+- Registration submits to `POST /register`; on any successful response the UI navigates to `/check-email?email=...`.
+- On an API error, the registration page renders `err.message` directly. Therefore backend HTTP 409 and “Пользователь с таким email уже существует” are exposed verbatim to an unauthenticated visitor.
+- The check-email page supports anonymous resend via `POST /resend-verification`; the backend returns a generic public response for this mode. The login and password-reset screens provide alternate recovery paths.
+- There is no frontend-specific handling for duplicate registration (no neutral duplicate state or explicit sign-in/recovery guidance).
+
+**Remediation decision**
+- Do not simply change duplicate registration from 409 to 200: the frontend would navigate to a “check your email” screen even though no account was created, creating a misleading flow.
+- Do not blindly resend verification for every duplicate: verified accounts do not need a verification message, and that still leaves an unclear UI state.
+- A correct remediation should make duplicate and fresh-address public outcomes indistinguishable while presenting a neutral next-step screen that offers sign-in and password recovery; the UI must not claim an account was created or that an email was sent unless that is true. This requires a coordinated backend + frontend change and regression tests.
+
+**Status:** ROOT_CAUSE_CONFIRMED / FRONTEND_IMPACT_CONFIRMED / FIX_DEFERRED_PENDING_NEUTRAL_FLOW_DESIGN. No source code changes or tests in this pass.
