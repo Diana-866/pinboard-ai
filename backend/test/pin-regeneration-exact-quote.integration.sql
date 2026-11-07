@@ -65,7 +65,7 @@ begin
     );
     raise exception 'conflicting regeneration quote replay was accepted';
   exception when others then
-    if sqlerrm not like '%conflicting regeneration quote replay%' then raise; end if;
+    if sqlerrm <> 'conflicting regeneration quote replay' then raise; end if;
   end;
 
   begin
@@ -74,7 +74,7 @@ begin
     );
     raise exception 'stale claim token wrote a regeneration quote';
   exception when others then
-    if sqlerrm not like '%regeneration claim mismatch%' then raise; end if;
+    if sqlerrm <> 'regeneration claim mismatch' then raise; end if;
   end;
 
   raise notice 'Single-pin exact quote and settlement resize checks passed';
