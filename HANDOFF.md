@@ -859,10 +859,13 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Выделен модуль `backend/pinterestAccountRecord.js`: `decodePinterestAccountRecord(data, dependencies)` получает Supabase и crypto-функции через DI; основной `decodeAccountRecord` в `backend/pinterest.js` теперь вызывает этот модуль с production dependencies.
 - Новый `backend/test/pinterest-account-record.test.js` содержит 6 регрессий для optimistic row-version fence, проигранной гонки (no returned row), сохранения uncertainty fence, пропуска уже active-key ciphertext и ошибки БД.
 - При проигранной гонке код не делает безусловный повторный update: использует ранее прочитанный snapshot и расшифровывает его прежним ключом. Это безопасно только пока previous encryption key остаётся настроенным до завершения ленивой миграции всех аккаунтов.
-- Статус проверки: статический diff review; Node runtime и PostgreSQL тесты не подтверждены. GitHub Actions runner_id=0 blocker остаётся открытым. Не отмечать тесты зелёными.
+- Статус проверки: временный изолированный Node.js harness для 6 сценариев выполнен: 6 passed, 0 failed. Harness собран в `/tmp/pinposy-aud062` по текущим helper/test source; это не полный `backend/npm test`, не PostgreSQL integration и не GitHub Actions. Они не подтверждены. GitHub Actions runner_id=0 blocker остаётся открытым. Не отмечать тесты зелёными.
 - Изменения в ветке `feat/persisted-boards-api`; production и открытые PR не объединялись/не деплоились.
 
 **Status:** AUD-062 / ACCOUNT_RECORD_DECODER_EXTRACTED / OPTIMISTIC_RACE_REGRESSION_ADDED / RUNTIME_UNVERIFIED.
 
 
 - Уточнение AUD-062: добавлен шестой тест успешного optimistic CAS — функция использует возвращённую БД строку и расшифровывает именно committed ciphertext, включая новое `updated_at`. Коммит теста: `6401be2a41932f1e4360d11cfb0897ce7b919b81`. Runtime test всё ещё не запускался.
+
+
+- Дополнительный результат AUD-062: изолированный Node.js harness — 6/6 passed (0 failed). Полный backend suite, PostgreSQL integration и GitHub Actions остаются непроверенными.
