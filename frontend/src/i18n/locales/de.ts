@@ -397,6 +397,7 @@ export const de: TranslationSchema = {
     pinterestBoardsEmpty: "Keine Boards gefunden oder noch nicht geladen.",
     pinterestAccountIdLabel: "Pinterest-ID",
     pinterestDisconnected: "Pinterest-Konto getrennt.",
+    pinterestDisconnectWarning: "Dadurch werden die Kontotoken aus PinPosy entfernt, die Pinterest-OAuth-Berechtigung jedoch nicht widerrufen. Zukünftige geplante Veröffentlichungen dieses Kontos werden als fehlgeschlagen markiert; ein laufender Vorgang kann noch abgeschlossen werden. Fortfahren?",
     pinterestAccountFallback: "Pinterest-Konto",
     pinterestReauthRequired: "Erneute Autorisierung erforderlich",
     pinterestPinsLabel: "Pins",
