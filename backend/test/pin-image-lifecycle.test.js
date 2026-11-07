@@ -58,3 +58,13 @@ test("deterministic generation object paths are recognized as managed", () => {
     path
   );
 });
+
+
+test("GIF objects are supported and recognized for safe cleanup", () => {
+  const path = buildPinImageObjectPath("gif", "provider-task-gif");
+  assert.match(path, /^pins\/generation-[a-f0-9]{32}\.gif$/);
+  assert.equal(
+    extractManagedPinImagePath(`https://project.supabase.co/storage/v1/object/public/pin-images/${path}`, base),
+    path
+  );
+});
