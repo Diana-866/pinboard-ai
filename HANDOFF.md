@@ -627,3 +627,11 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - `backend/pinterestRefreshRecovery.js` получил чистую проверку активного lease; добавлены 3 unit cases (активный, истёкший, отсутствующий/некорректный lease).
 - Также подтверждено, что account-scoped RPC действительно создаются migration 031 и эта миграция применяется atomic-payment workflow; первоначальное подозрение о пропущенной миграции было ошибочным.
 - AUD-042: FIXED_UNVERIFIED. Node tests и PostgreSQL integration не запускались в этом этапе; CI необходимо проверить по PR. Никаких production DB/API credentials, Pinterest accounts, deployments или merges не затрагивалось.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-043)
+
+- Проверена гонка reconnect vs refresh для одной Pinterest identity. OAuth reconnect использует стабильную строку аккаунта и может заменить access token, но сохранить прежний refresh token, если провайдер не прислал новый.
+- Найден ложноположительный результат reconciliation: helper `isCommittedTokenRefresh` считал изменение только access token достаточным доказательством, что завершился именно refresh. В гонке reconnect это неверно: credentials могли измениться из-за OAuth reconnect, а не из-за ответа refresh endpoint.
+- Исправлено: успешное reconciliation refresh теперь требует `refresh_state='ready'` И изменения обоих токенов относительно pre-refresh snapshot. Это соответствует строгой проверке полного rotated token pair в ответе Pinterest. Добавлен regression test для reconnect с новым access token и сохранённым прежним refresh token.
+- AUD-043: FIXED_UNVERIFIED. Node и PostgreSQL tests не запускались в этом этапе; CI результаты предыдущих запусков остаются failure с недоступными логами BlobNotFound. Никаких production DB/API credentials, Pinterest accounts, deployments или merges не затрагивалось.
