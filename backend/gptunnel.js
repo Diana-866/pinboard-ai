@@ -90,7 +90,7 @@ async function generateText(prompt, options = {}) {
 }
 
 function normalizeMediaQuote(data) {
-  const price = data && Number(data.price);
+  const price = data && typeof data.price === "number" ? data.price : NaN;
   if (!data || data.code !== 0 || data.price == null || data.currency !== "RUB" ||
       !Number.isFinite(price) || price < 0) {
     throw new Error("Провайдер вернул некорректную котировку генерации");
@@ -110,7 +110,11 @@ async function quoteImageTask(prompt, model = "flux-schnell", aspectRatio = "2:3
     { model, prompt, params: { aspect_ratio: aspectRatio } },
     providerRequestConfig()
   );
-  return normalizeMediaQuote(response.data);
+  const quote = normalizeMediaQuote(response.data);
+  if (quote.model !== model || quote.ignoredParams.includes("aspect_ratio")) {
+    throw new Error("Котировка не соответствует запрошенной модели или формату изображения");
+  }
+  return quote;
 }
 
 async function listModels() {
