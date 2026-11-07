@@ -3,7 +3,6 @@ import {
   Layers,
   Sparkles,
   Plus,
-  Tag,
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
 import { BoardItem } from '../../data/mockData';
@@ -17,7 +16,7 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
   boards,
   onAddBoard,
 }) => {
-  const { t, formatNumber } = useI18n();
+  const { t } = useI18n();
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [boardName, setBoardName] = useState('');
@@ -89,12 +88,6 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
                 </p>
               </div>
 
-              {/* SEO Score Badge */}
-              <div className="text-right shrink-0">
-                <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                  SEO {board.seoScore}%
-                </span>
-              </div>
             </div>
 
             <div className="pt-3 border-t border-subtle text-xs text-muted-theme">
