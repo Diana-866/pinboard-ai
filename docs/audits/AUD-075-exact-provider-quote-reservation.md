@@ -13,8 +13,9 @@ Scope: implementation of exact image quote reservation and durable quote recover
 5. Migration 067 adds quote columns to `pin_generation_tasks` and includes them in `get_pin_generation_plan`, so a same-key recovery reuses the saved quote instead of silently replacing the reservation basis.
 6. The route resizes the active credit reservation to the sum of per-image quoted retail credits before the first image submission.
 7. After image tasks finish, the route resizes again to the exact final user-credit charge derived from actual GPTunnel task prices. If actual price drift requires more credits than are available, the journaled results remain recoverable; a same-key retry after balance replenishment can settle without creating images again.
-8. The atomic-payment workflow now applies migrations 063–067 in order and runs a dedicated PostgreSQL integration script for quote persistence, immutable replay, claim fencing, and reservation resizing.
-9. Backend provider-boundary tests cover that quote validation runs before image submission and that a quote failure prevents any image provider call.
+8. Recovery does not replay the original estimated reservation call: after the first quote-based resize, that estimate no longer matches the active reservation. A resumed request instead validates/reuses its journaled quotes and resizes the existing reservation; a missing or inactive reservation fails closed before any new image submission.
+9. The atomic-payment workflow now applies migrations 063–067 in order and runs a dedicated PostgreSQL integration script for quote persistence, immutable replay, claim fencing, and reservation resizing.
+10. Backend provider-boundary tests cover that quote validation runs before image submission and that a quote failure prevents any image provider call.
 
 ## Files changed
 
