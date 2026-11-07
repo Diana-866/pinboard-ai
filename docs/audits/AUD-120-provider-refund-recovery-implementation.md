@@ -10,7 +10,7 @@
 
 Updated `backend/index.js`:
 
-- Single-pin regeneration reads the durable `provider_refunded` fact before replaying a failed provider outcome. If GPTunnel omits the field on a repeated poll, the route reuses the already persisted boolean.
+- Single-pin regeneration reads the durable `provider_refunded` fact before replaying a failed provider outcome, both in the normal provider-outcome path and in the route's catch/recovery path. If GPTunnel omits the field on a repeated poll, the route reuses the already persisted boolean.
 - Multi-pin generation reads the durable task journal through `get_pin_generation_plan` and reuses that task's reconciled boolean when GPTunnel omits it on replay.
 - A new provider-supplied boolean still takes precedence. If it conflicts with the previously reconciled fact, the existing database RPC rejects the conflicting replay; the implementation does not silently overwrite it.
 - This preserves the original provider outcome fields and avoids a false replay conflict after operator reconciliation.
