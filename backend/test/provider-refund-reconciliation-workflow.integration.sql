@@ -1,4 +1,4 @@
--- Run after migrations 053-073 in disposable PostgreSQL CI.
+-- Run after migrations 053-077 in disposable PostgreSQL CI.
 begin;
 
 do $$
@@ -42,10 +42,18 @@ begin
   select provider_refunded into v_refunded from public.pin_generation_tasks
    where generation_request_id=v_request_id and task_index=1;
   if v_refunded is distinct from false then raise exception 'generation refund fact was not reconciled'; end if;
-  perform public.fail_pin_generation_request(v_user::text,v_key,v_claim,'provider_failed',false);
+  -- Replaying the original provider failure must preserve the operator-enriched
+  -- refund fact rather than attempting to overwrite it with NULL.
+  perform public.record_pin_generation_provider_outcome(
+    v_user::text,v_key,v_claim,1,'reconcile_gen_task','failed',0.90,false,500,'UPSTREAM_ERROR',null
+  );
+  perform public.finalize_reconciled_pin_generation_failure(v_user::text,v_key);
   select status into v_status from public.pin_generation_credit_reservations
    where user_id=v_user::text and idempotency_key=v_key;
   if v_status<>'released' then raise exception 'reconciled generation reservation was not released'; end if;
+  select status into v_status from public.pin_generation_requests
+   where user_id=v_user::text and idempotency_key=v_key;
+  if v_status<>'failed' then raise exception 'reconciled generation request was not finalized'; end if;
 
   -- Regeneration: same controlled NULL -> known boolean transition.
   v_key := 'refund-reconcile-regeneration-'||v_user;
@@ -62,12 +70,18 @@ begin
   select provider_refunded into v_refunded from public.pin_regeneration_requests
    where user_id=v_user::text and idempotency_key=v_key;
   if v_refunded is distinct from true then raise exception 'regeneration refund fact was not reconciled'; end if;
-  perform public.update_pin_regeneration_request(
-    v_user::text,v_key,v_claim,'failed',null,null,null,null,'provider_failed'
+  -- The backend's retry path reuses this reconciled value when GPTunnel omits
+  -- refund metadata on a repeated terminal poll.
+  perform public.record_pin_regeneration_provider_outcome(
+    v_user::text,v_key,v_claim,'reconcile_regen_task','failed',0.80,true,500,'UPSTREAM_ERROR'
   );
+  perform public.finalize_reconciled_pin_regeneration_failure(v_user::text,v_key);
   select status into v_status from public.pin_generation_credit_reservations
    where user_id=v_user::text and idempotency_key=v_key;
   if v_status<>'released' then raise exception 'reconciled regeneration reservation was not released'; end if;
+  select status into v_status from public.pin_regeneration_requests
+   where user_id=v_user::text and idempotency_key=v_key;
+  if v_status<>'failed' then raise exception 'reconciled regeneration request was not finalized'; end if;
 
   select count(*) into v_audit_count from public.provider_refund_reconciliation_audit
    where user_id=v_user::text;
