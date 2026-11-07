@@ -8,6 +8,7 @@ const {
   buildPinScheduleSnapshot,
   resolvePinScheduleSnapshot,
   classifyLegacyScheduleAccount,
+  getScheduleRetryability,
 } = require("../pinterestSchedule");
 
 test("a disconnected Pinterest account before publication is a terminal failure", () => {
@@ -108,4 +109,37 @@ test("legacy schedule account recovery rejects an account not in the user's acti
   assert.deepEqual(classifyLegacyScheduleAccount([{ id: "account-a" }], "other-user-account"), {
     status: "invalid_selection",
   });
+});
+
+
+test("retryability allows a failed schedule without any publication attempt", () => {
+  assert.deepEqual(getScheduleRetryability({
+    status: "failed", pinterest_account_id: "account-a", pinterest_board_id: "board-a",
+    pins: { image_url: "https://cdn.example/pin.jpg" },
+  }, null, false, true, false), { retryable: true, reason: null });
+});
+
+test("retryability allows only explicitly safe failed journal entries", () => {
+  const schedule = {
+    status: "failed", pinterest_account_id: "account-a", pinterest_board_id: "board-a",
+    pins: { image_url: "https://cdn.example/pin.jpg" },
+  };
+  assert.deepEqual(getScheduleRetryability(schedule, { status: "failed", retry_safe: true }, false, true, false), {
+    retryable: true, reason: null,
+  });
+  assert.equal(getScheduleRetryability(schedule, { status: "failed", retry_safe: false }, false, true, false).retryable, false);
+  assert.equal(getScheduleRetryability(schedule, { status: "unknown", retry_safe: true }, false, true, false).retryable, false);
+  assert.equal(getScheduleRetryability(schedule, { status: "processing", retry_safe: true }, false, true, false).retryable, false);
+});
+
+test("retryability blocks missing account, board, pin, publication, and duplicate active schedule", () => {
+  const schedule = {
+    status: "failed", pinterest_account_id: "account-a", pinterest_board_id: "board-a",
+    pins: { image_url: "https://cdn.example/pin.jpg" },
+  };
+  assert.equal(getScheduleRetryability({ ...schedule, pinterest_account_id: null }, null, false, false, false).reason, "account_unavailable");
+  assert.equal(getScheduleRetryability({ ...schedule, pinterest_board_id: null }, null, false, true, false).reason, "board_missing");
+  assert.equal(getScheduleRetryability({ ...schedule, pins: { image_url: null } }, null, false, true, false).reason, "pin_unavailable");
+  assert.equal(getScheduleRetryability(schedule, null, true, true, false).reason, "publication_exists");
+  assert.equal(getScheduleRetryability(schedule, null, false, true, true).reason, "active_schedule_exists");
 });
