@@ -63,6 +63,16 @@ begin
   if v_req.status='completed' then
     return jsonb_build_object('status','completed','pin',v_req.result_pin);
   end if;
+  -- A recorded provider task can be safely polled immediately on retry.
+  -- Rotate the claim so only the latest poller can persist/complete the result.
+  if v_req.status='processing' and v_req.provider_task_id is not null then
+    update public.pin_regeneration_requests set claim_token=gen_random_uuid(),
+      updated_at=clock_timestamp() where id=v_req.id returning * into v_req;
+    return jsonb_build_object('status','resume','claim_token',v_req.claim_token,
+      'provider_idempotency_key',v_req.provider_idempotency_key,
+      'provider_task_id',v_req.provider_task_id,'provider_result_url',v_req.provider_result_url,
+      'storage_url',v_req.storage_url,'provider_price',v_req.provider_price);
+  end if;
   if v_req.status='processing' and v_req.updated_at>clock_timestamp()-interval '30 minutes' then
     return jsonb_build_object('status','processing');
   end if;
