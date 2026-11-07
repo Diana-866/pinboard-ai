@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { extractManagedPinImagePath, canDeletePinImageObject } = require("./pinImageLifecycle");
+const { extractManagedPinImagePath, canDeletePinImageObject, buildPinImageObjectPath } = require("./pinImageLifecycle");
 
 const base = "https://project.supabase.co";
 
@@ -39,4 +39,22 @@ test("image cleanup waits for active or uncertain generation requests", () => {
 
 test("image cleanup permits only terminal generation journal references", () => {
   assert.equal(canDeletePinImageObject({ hasPinReference: false, hasScheduleReference: false, generationRequestStatuses: ["completed", "failed"] }), true);
+});
+
+
+test("generation upload object keys are deterministic for the same provider idempotency key", () => {
+  const first = buildPinImageObjectPath("webp", "provider-task-key-123");
+  const retry = buildPinImageObjectPath("webp", "provider-task-key-123");
+  const other = buildPinImageObjectPath("webp", "provider-task-key-456");
+  assert.equal(first, retry);
+  assert.notEqual(first, other);
+  assert.match(first, /^pins\/generation-[a-f0-9]{32}\.webp$/);
+});
+
+test("deterministic generation object paths are recognized as managed", () => {
+  const path = buildPinImageObjectPath("png", "provider-task-key");
+  assert.equal(
+    extractManagedPinImagePath(`https://project.supabase.co/storage/v1/object/public/pin-images/${path}`, base),
+    path
+  );
 });
