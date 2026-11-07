@@ -33,7 +33,13 @@ if [[ "$locked" != "1" ]]; then
   exit 1
 fi
 
-# Do not release the lock until both webhook sessions are actually blocked on it.
+# Start both webhook transactions while the user row is locked. Then wait
+# until PostgreSQL confirms that both are blocked on that exact lock.
+PGAPPNAME=subscription-webhook-older "${psql_base[@]}" -c "select public.activate_paid_subscription('$OLDER_ID', now())" >/tmp/subscription-older.log 2>&1 &
+OLDER_PID=$!
+PGAPPNAME=subscription-webhook-newer "${psql_base[@]}" -c "select public.activate_paid_subscription('$NEWER_ID', now())" >/tmp/subscription-newer.log 2>&1 &
+NEWER_PID=$!
+
 waiters=0
 for _ in $(seq 1 80); do
   waiters="$("${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name in ('subscription-webhook-older', 'subscription-webhook-newer') and wait_event_type = 'Lock'")"
@@ -42,14 +48,9 @@ for _ in $(seq 1 80); do
 done
 if [[ "$waiters" != "2" ]]; then
   echo "Both concurrent webhook sessions did not reach the row lock (waiters=$waiters)"
-  kill "$LOCK_PID" 2>/dev/null || true
+  kill "$LOCK_PID" "$OLDER_PID" "$NEWER_PID" 2>/dev/null || true
   exit 1
 fi
-
-PGAPPNAME=subscription-webhook-older "${psql_base[@]}" -c "select public.activate_paid_subscription('$OLDER_ID', now())" >/tmp/subscription-older.log 2>&1 &
-OLDER_PID=$!
-PGAPPNAME=subscription-webhook-newer "${psql_base[@]}" -c "select public.activate_paid_subscription('$NEWER_ID', now())" >/tmp/subscription-newer.log 2>&1 &
-NEWER_PID=$!
 
 wait "$OLDER_PID"
 wait "$NEWER_PID"
