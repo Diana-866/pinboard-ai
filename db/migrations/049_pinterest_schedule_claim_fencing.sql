@@ -17,6 +17,28 @@ alter table public.pin_schedules
   add constraint pin_schedules_publishing_claim_token_check
   check (status <> 'publishing' or claim_token is not null);
 
+-- A claim token is meaningful only while a worker owns a publishing row.
+-- Clear it on every terminal, cancelled, unknown, or queued transition.
+create or replace function public.clear_nonpublishing_pin_schedule_claim_token()
+returns trigger
+language plpgsql
+set search_path = pg_catalog, public
+as $
+begin
+  if new.status <> 'publishing' then
+    new.claim_token := null;
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists trg_clear_nonpublishing_pin_schedule_claim_token
+  on public.pin_schedules;
+create trigger trg_clear_nonpublishing_pin_schedule_claim_token
+before insert or update of status, claim_token on public.pin_schedules
+for each row
+execute function public.clear_nonpublishing_pin_schedule_claim_token();
+
 create or replace function public.claim_due_pin_schedules(p_limit integer default 10)
 returns setof public.pin_schedules
 language plpgsql
