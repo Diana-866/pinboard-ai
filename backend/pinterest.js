@@ -10,6 +10,13 @@
 //   3. Один локальный пин публикуется не более одного раза в каждый Pinterest-аккаунт (account-scoped journal).
 
 const axios = require("axios");
+const {
+  pinterestReadLimiter,
+  pinterestPublishLimiter,
+  pinterestOAuthStartLimiter,
+  pinterestOAuthCallbackLimiter,
+  pinterestWorkerLimiter,
+} = require("./pinterestRateLimit");
 const { executeWithAccountToken } = require("./pinterestAccountRequest");
 const { isCommittedTokenRefresh, hasActiveRefreshLease } = require("./pinterestRefreshRecovery");
 const crypto = require("crypto");
@@ -707,7 +714,7 @@ function registerRoutes(app, deps) {
   });
 
   // Ссылка для кнопки «Подключить»: токен не попадает в URL, обмен идёт через заголовок
-  app.post("/integrations/pinterest/link", requireAuth, async (req, res) => {
+  app.post("/integrations/pinterest/link", requireAuth, pinterestOAuthStartLimiter, async (req, res) => {
     try {
       requireConfigured();
       const { data: account, error: accountError } = await supabase
@@ -741,7 +748,7 @@ function registerRoutes(app, deps) {
   });
 
   // Возврат с Pinterest: браузер приходит без нашего токена, проверяем подписанный state
-  app.get("/integrations/pinterest/callback", async (req, res) => {
+  app.get("/integrations/pinterest/callback", pinterestOAuthCallbackLimiter, async (req, res) => {
     const back = (q) => `${frontendBase()}/app?pinterest=${q}`;
     try {
       const stateClaims = readStateClaims(req.query.state);
@@ -845,7 +852,7 @@ function registerRoutes(app, deps) {
   // Pinterest допускает до 2 000 досок; page_size ограничен 250.
   // Повторный проход целиком безопасен при 401/429: withAccount обновит токен
   // или повторит чтение, не создавая никаких удалённых объектов.
-  app.get("/integrations/pinterest/boards", requireAuth, async (req, res) => {
+  app.get("/integrations/pinterest/boards", requireAuth, pinterestReadLimiter, async (req, res) => {
     try {
       const accountId = req.query.account_id ? String(req.query.account_id) : null;
       const result = await withAccount(req.userId, async (token) => {
@@ -883,6 +890,7 @@ function registerRoutes(app, deps) {
   app.post(
     "/pins/:id/publish",
     requireAuth,
+    pinterestPublishLimiter,
     requireTariff(["standard", "pro", "agency", "start"]),
     async (req, res) => {
       try {
@@ -897,7 +905,7 @@ function registerRoutes(app, deps) {
   );
 
   // Внутренний worker. Вызывается внешним cron только с отдельным секретом.
-  app.post("/internal/pinterest/schedule/run", async (req, res) => {
+  app.post("/internal/pinterest/schedule/run", pinterestWorkerLimiter, async (req, res) => {
     const expected = Buffer.from(String(process.env.PINPOSY_SCHEDULER_SECRET || ""));
     const provided = Buffer.from(String(req.get("x-pinposy-scheduler-secret") || ""));
     if (
