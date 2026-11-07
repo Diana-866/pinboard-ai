@@ -296,3 +296,17 @@
 - Production не менялся, реальных запросов GPTunnel не отправляли, PR #4 не мержили.
 
 **Status:** AUD-069 / PER_IMAGE_ROUNDING_FIXED / PROVIDER_PRICE_CEILING_OPEN / RUNTIME_UNVERIFIED.
+
+
+### 2026-11-07 — AUD-070: GPTunnel pricing contract and uncovered text-provider spend
+- Повторно проверены backend/gptunnel.js, backend/pins.js, backend/boards.js, backend/analyze.js, generation route в backend/index.js и SQL migration 054.
+- Официальная документация GPTunnel подтверждает:
+  - GET /api/v2/media/models?type=IMAGE возвращает доступные модели и ставки; единица price_unit обязательна для правильной интерпретации ставки. Сама ставка не всегда равна итоговой цене.
+  - POST /api/v2/media/price рассчитывает точную цену конкретной media-задачи до запуска и без списания; price — сумма в RUB с учётом скидок и тем же расчётом, что при фактическом запуске. Для некоторых моделей есть оговорки по входным метрикам.
+  - GET /v1/models возвращает ставки LLM, а успешный /v1/chat/completions возвращает usage.total_cost вместе с токенами и стоимостью input/output.
+- Hardcoded MODEL_PRICES нельзя считать источником истины. Перед media submission можно получать котировку по точному model/prompt/params/inputs; после выполнения сверять фактическую цену с quote. Документация: https://docs.gptunnel.ru/creative-lab/price/, https://docs.gptunnel.ru/creative-lab/models/, https://docs.gptunnel.ru/api/models/, https://docs.gptunnel.ru/api/chat-completions/.
+- Обнаружен неучтённый расход: generateText() использует платный gpt-4o и выбрасывает usage.total_cost, возвращая только строку. Вызовы: backend/pins.js (план перед изображениями; расход не включён в reservation/settlement), backend/boards.js (POST /projects/:id/boards/generate), backend/analyze.js (POST /projects/:id/analyze).
+- Migration 054 не позволяет изменить сумму существующего резерва: повтор с другой суммой завершается generation reservation amount mismatch. Completion отклоняет charge выше активного резерва. Нельзя просто прибавить текстовую стоимость к финальному списанию без предварительного безопасного увеличения/переоформления резерва и обновления SQL lifecycle.
+- Следующий этап: единый billable-operation ledger/резервирование для LLM и media; ограничить input/output tokens и оценивать/резервировать верхнюю границу до текстового вызова; сохранять provider usage/cost в идемпотентном журнале; списывать согласованную сумму атомарно. Для media использовать /media/price до отправки и блокировать submission при недоступной/невалидной котировке; при расхождении quote/final price не повторять provider call, а фиксировать инцидент и безопасно обрабатывать уже выполненную задачу. Пользовательскую кредитную политику определить до изменения тарифов.
+- Код/миграции в AUD-070 намеренно не менялись: текущая схема не поддерживает безопасное довнесение резерва, а менять клиентское списание без согласованного правила рискованно. Production не менялся; provider API с ключом не вызывался; runtime/DB/CI не запускались.
+**Status:** AUD-070 / OFFICIAL_QUOTE_ENDPOINT_CONFIRMED / LLM_USAGE_COST_AVAILABLE / TEXT_SPEND_UNACCOUNTED_IN_THREE_FLOWS / RESERVATION_RESIZE_NOT_SUPPORTED / IMPLEMENTATION_DESIGN_REQUIRED / RUNTIME_UNVERIFIED.
