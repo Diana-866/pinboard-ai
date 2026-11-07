@@ -291,6 +291,7 @@ export const fr: TranslationSchema = {
     emptyDay: 'Aucune épingle programmée',
     statusScheduled: 'Programmé',
     statusPublished: 'Publié',
+    openPinterestPin: "Ouvrir l’épingle sur Pinterest",
     statusDraft: 'Brouillon',
     optimalSlotBadge: 'Créneau d’engagement optimal',
     pinDetailsModal: 'Détails de l’épingle programmée',
