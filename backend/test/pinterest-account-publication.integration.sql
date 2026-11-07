@@ -285,6 +285,19 @@ begin
     raise exception 'direct/scheduled publish did not consume the same safe retry marker: %',v_result;
   end if;
 
+  -- Omitting the outcome flag is conservative: unknown is the default.
+  perform public.fail_pinterest_publish_v2(
+    v_user::text,v_safe_retry_pin,v_account_b,'missing outcome classification'
+  );
+  if (select status from public.pinterest_publish_attempts where pin_id=v_safe_retry_pin and pinterest_account_id=v_account_b) <> 'unknown'
+     or (select retry_safe from public.pinterest_publish_attempts where pin_id=v_safe_retry_pin and pinterest_account_id=v_account_b) then
+    raise exception 'omitted failure outcome was not conservatively marked unknown';
+  end if;
+  v_result := public.begin_pinterest_publish_v2(v_user::text,v_safe_retry_pin,v_account_b,'board-b');
+  if v_result->>'status' <> 'unknown' then
+    raise exception 'ambiguous attempt was retried after failure classification was omitted: %',v_result;
+  end if;
+
   -- Active schedules are also unique per pin + Pinterest account.
   insert into public.pin_schedules(user_id, pin_id, pinterest_account_id, scheduled_at, timezone, pinterest_board_id)
   values (v_user::text, v_pin, v_account_a, now() + interval '1 day', 'UTC', 'board-a');
