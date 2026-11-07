@@ -33,6 +33,7 @@ interface PublishingCalendarProps {
   onAddPin: (pin: ScheduledPinItem) => void;
   onCancelSchedule?: (pin: ScheduledPinItem) => Promise<void>;
   onRetrySchedule?: (pin: ScheduledPinItem) => Promise<void>;
+  onReconcileLegacySchedule?: (pin: ScheduledPinItem, accountId: string) => Promise<void>;
   onGoToGenerator: (topic?: string, date?: string) => void;
   onOpenReview?: () => void;
   accounts?: PinterestAccount[];
@@ -53,6 +54,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
   onAddPin,
   onCancelSchedule,
   onRetrySchedule,
+  onReconcileLegacySchedule,
   onGoToGenerator,
   onOpenReview,
   accounts = [],
@@ -68,6 +70,15 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterAccount, setFilterAccount] = useState<string>('all');
   const [selectedPin, setSelectedPin] = useState<ScheduledPinItem | null>(null);
+  const [legacyAccountId, setLegacyAccountId] = useState('');
+
+  useEffect(() => {
+    if (!selectedPin || selectedPin.pinterestAccountId) {
+      setLegacyAccountId('');
+      return;
+    }
+    setLegacyAccountId(accounts.length === 1 ? accounts[0].id : '');
+  }, [selectedPin, accounts]);
 
   // Per-account cadence settings with customizable auto-generation time
   const [selectedAccountId, setSelectedAccountId] = useState<string>(accounts[0]?.id || 'acc-1');
@@ -870,6 +881,49 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                 </p>
               </div>
             </div>
+
+            {selectedPin.status === 'failed' && !selectedPin.pinterestAccountId && onReconcileLegacySchedule && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+                <p className="text-xs font-semibold text-primary-theme">
+                  У старого расписания не указан Pinterest-аккаунт.
+                </p>
+                {accounts.length > 1 ? (
+                  <select
+                    value={legacyAccountId}
+                    onChange={(event) => setLegacyAccountId(event.target.value)}
+                    className="w-full rounded-lg border border-subtle bg-app-input px-3 py-2 text-xs text-primary-theme"
+                  >
+                    <option value="">Выберите аккаунт</option>
+                    {accounts.map((account) => (
+                      <option key={account.id} value={account.id}>{account.handle || account.name}</option>
+                    ))}
+                  </select>
+                ) : accounts.length === 1 ? (
+                  <p className="text-xs text-secondary-theme">
+                    Будет проверен единственный подключённый аккаунт: {accounts[0].handle || accounts[0].name}.
+                  </p>
+                ) : (
+                  <p className="text-xs text-secondary-theme">
+                    Сначала подключите Pinterest-аккаунт в настройках.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  disabled={!legacyAccountId || accounts.length === 0}
+                  onClick={async () => {
+                    try {
+                      await onReconcileLegacySchedule(selectedPin, legacyAccountId);
+                      setSelectedPin(null);
+                    } catch {
+                      // The parent reports the API error; keep the details open.
+                    }
+                  }}
+                  className="accent-btn px-3 py-2 rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Проверить аккаунт и восстановить расписание
+                </button>
+              </div>
+            )}
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-subtle">
               {selectedPin.status === 'failed' && onRetrySchedule && (
