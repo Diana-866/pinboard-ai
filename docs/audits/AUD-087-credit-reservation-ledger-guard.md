@@ -22,7 +22,7 @@ The migration does not alter any existing balance, reservation, or ledger row.
 ## Test
 
 `backend/test/credit-reservation-ledger-guard.integration.sql` verifies:
-1. A generic debit is rejected when it would consume active held credits.
+1. A generic ledger debit and the older balance-only RPC are both rejected when they would consume active held credits.
 2. The rejected debit leaves both balance and ledger unchanged.
 3. A positive adjustment succeeds while a reservation is active.
 4. The same debit succeeds after the reservation is released.
