@@ -69,7 +69,8 @@ begin
          or new.status is distinct from old.status)
         and new.status <> 'cancelled';
     end if;
-  elsif tg_table_name = 'pin_generation_tasks' then
+  elsif tg_table_name = 'pin_generation_tasks'
+     or tg_table_name = 'pin_regeneration_requests' then
     v_url := new.storage_url;
     if tg_op = 'INSERT' then
       v_should_register := true;
@@ -122,6 +123,14 @@ for each row execute function public.guard_pin_image_reference_write();
 drop trigger if exists trg_pin_generation_tasks_image_reference_guard on public.pin_generation_tasks;
 create trigger trg_pin_generation_tasks_image_reference_guard
 before insert or update of storage_url on public.pin_generation_tasks
+for each row execute function public.guard_pin_image_reference_write();
+
+-- Single-pin regeneration has its own durable journal, separate from the
+-- multi-pin task table. It must also fence deletion until its URL is no longer
+-- needed for retry/replay.
+drop trigger if exists trg_pin_regeneration_requests_image_reference_guard on public.pin_regeneration_requests;
+create trigger trg_pin_regeneration_requests_image_reference_guard
+before insert or update of storage_url on public.pin_regeneration_requests
 for each row execute function public.guard_pin_image_reference_write();
 
 create or replace function public.claim_pin_image_deletion(
@@ -179,6 +188,12 @@ begin
       select 1
         from public.pin_generation_tasks t
        where public.managed_pin_image_object_path(t.storage_url) = p_object_path
+    )
+    or exists (
+      -- Single-pin regeneration has a separate durable replay journal.
+      select 1
+        from public.pin_regeneration_requests r
+       where public.managed_pin_image_object_path(r.storage_url) = p_object_path
     )
     into v_has_reference;
 
