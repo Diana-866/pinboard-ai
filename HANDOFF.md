@@ -489,3 +489,31 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Tests have not been run locally in this environment. No production/staging database or secrets were accessed; no migration was applied outside the disposable CI workflow.
 
 **Status:** SQL_RPC_IMPLEMENTATION_REVIEWED / REGRESSION_TESTS_ADDED / CI_PENDING.
+
+
+### AUD-037 — auth route enumeration and rate-limit deployment review (2026-11-07)
+
+**Files inspected:** `backend/index.js`, `backend/auth.js`, `backend/password-reset.js`, `backend/email-verify.js`, `backend/validate.js`, `backend/mail.js`, `backend/bearerToken.js`, and `backend/package.json`.
+
+**Confirmed protections**
+- Login performs bcrypt comparison against a fixed dummy hash when the email lookup returns no user; wrong-password and unknown-user cases return the same 401 message.
+- Password-reset requests return the same public success payload whether the account exists, the cooldown blocks issuance, or no transactional SMTP is configured. The reset URL base is taken from server configuration, not the caller-supplied frontendUrl.
+- Anonymous email-verification resend returns a generic response; token application rejects malformed/oversized tokens and delegates consumption to the atomic SQL RPCs reviewed in AUD-036.
+- Protected requests compare JWT tokenVersion with the current database token_version; lookup failure is fail-closed (503). Authenticated resend applies the same version fence.
+- Reset and verification tokens are random 32-byte values; only SHA-256 hashes are stored through the RPC boundary.
+
+**Finding — registration email enumeration**
+- `POST /register` returns HTTP 409 with the explicit message “Пользователь с таким email уже существует” when the email is already registered, while a new address returns a success response. An unauthenticated caller can therefore test whether an address has an account.
+- This is a confirmed account-enumeration surface, not an authentication bypass. No change was made in this pass because changing duplicate-registration semantics can affect the frontend's registration/recovery UX; frontend handling must be inspected before choosing a generic response or alternate flow.
+
+**Operational limitation — rate limiting**
+- `authLimiter` (10 requests / 15 minutes) and `verifyLimiter` (30 / 15 minutes) use express-rate-limit's default in-memory store. `backend/package.json` contains no Redis client or shared-store dependency. Counters are process-local and reset on restart, so the limits are not global across multiple backend instances.
+- `app.set("trust proxy", 1)` assumes exactly one trusted reverse proxy. Deployment topology must match that assumption; otherwise client-IP attribution for IP rate limiting may be inaccurate or spoofable.
+- No persistent per-account failed-login counter was found in the inspected auth module. Do not add a naive email-only lockout because it can be abused to deny service to a victim.
+
+**Decision / next steps**
+- Before changing registration behavior, inspect the frontend's duplicate-email handling and decide whether a generic registration response is compatible.
+- Before horizontal scaling, configure a shared rate-limit store and verify the actual proxy chain. Do not add Redis as an assumed dependency without confirming deployment support and environment configuration.
+- No code, dependency, rate-limit, production, or deployment changes were made in this pass. This is a static review only; no runtime tests were executed.
+
+**Status:** STATIC_REVIEW_COMPLETE / REGISTRATION_ENUMERATION_CONFIRMED / DISTRIBUTED_RATE_LIMIT_NOT_CONFIGURED.
