@@ -11,7 +11,6 @@ interface DashboardViewProps {
   onOpenReview?: () => void;
   pendingCount?: number;
   currentAccount?: PinterestAccount;
-  onUpdateAccountAutoTime?: (accountId: string, autoTime: string, nightlyAuto: boolean) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
