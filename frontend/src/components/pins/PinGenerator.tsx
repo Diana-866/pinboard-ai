@@ -23,6 +23,7 @@ import { useNotifications } from '../../context/NotificationContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { getDefaultTimezone } from '../../utils/timezone';
+import { isDefinitiveGenerationFailure } from '../../utils/generationRetry';
 import {
   GeneratedPinVariation,
   SupportedAspectRatio,
@@ -302,6 +303,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       sessionStorage.removeItem('pinposy_generation_fingerprint');
       sessionStorage.removeItem('pinposy_generation_key');
     } catch (err) {
+      // The server only emits generation_request_failed after a definitive failure.
+      // Rotate the key then; unknown/in-progress outcomes must keep their original key.
+      if (isDefinitiveGenerationFailure(err)) {
+        generationKeyRef.current = globalThis.crypto.randomUUID().replace(/-/g, '_');
+        sessionStorage.setItem('pinposy_generation_key', generationKeyRef.current);
+      }
       console.error('Error generating pins:', err);
       window.alert(err instanceof Error ? err.message : t.generator.errorGeneratePins);
     } finally {
