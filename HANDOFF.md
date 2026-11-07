@@ -428,3 +428,15 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Next: run the contract check against staging/read-only database; inspect the exact definitions of `consume_password_reset_token` and `consume_email_verification_token`, confirming password reset increments `token_version` atomically. If the column is absent, add an idempotent migration before treating the auth rollout as ready.
 
 **Status:** SCHEMA_DRIFT_SUSPECTED / LIVE_IMPACT_UNVERIFIED. Do not claim auth schema is production-ready until the contract passes.
+
+
+### AUD-033 — исправление контракта users.token_version (2026-11-07)
+
+- AUD-032 выявил расхождение: backend читает `users.token_version`, но baseline-схема не создавала колонку.
+- Добавлена идемпотентная миграция `db/migrations/055_auth_token_version.sql`: существующим аккаунтам назначается версия 0; колонка получает DEFAULT 0, NOT NULL и CHECK >= 0.
+- `db/migrations/001_baseline.sql` обновлена, чтобы новая установка сразу содержала ту же колонку.
+- `backend/test/auth-schema-contract.sql` усилен проверкой DEFAULT 0 наряду с типом и NOT NULL.
+- Миграция не применялась к production или staging. SQL-тест не запускался. Порядок применения: после предыдущих миграций схемы и до выкладки backend-кода, который читает token_version.
+- Важное ограничение: добавление колонки само по себе не доказывает, что установленная SQL RPC `consume_password_reset_token` увеличивает token_version при смене пароля. Тела auth RPC отсутствуют в доступных checked-in migration paths; требуется отдельная сверка с фактической БД и тест одновременного/повторного погашения токена.
+
+**Статус:** SCHEMA FIX IMPLEMENTED / SQL AND RUNTIME UNVERIFIED. Production не затрагивался.
