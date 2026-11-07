@@ -24,7 +24,6 @@ create table if not exists public.pin_image_object_lifecycle (
 alter table public.pin_image_object_lifecycle enable row level security;
 revoke all on public.pin_image_object_lifecycle from public, anon, authenticated;
 revoke all on public.pin_image_object_lifecycle from service_role;
-grant select, insert, update, delete on public.pin_image_object_lifecycle to service_role;
 
 create or replace function public.managed_pin_image_object_path(p_url text)
 returns text
@@ -33,14 +32,13 @@ immutable
 set search_path = pg_catalog
 as $$
   select (regexp_match(
-    coalesce(p_url, ''),
+    split_part(split_part(coalesce(p_url, ''), '?', 1), '#', 1),
     '/storage/v1/object/public/pin-images/(pins/(?:[0-9]+-[a-z0-9]{1,16}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp|gif))$',
     'i'
   ))[1];
 $$;
 
-revoke all on function public.managed_pin_image_object_path(text) from public, anon, authenticated;
-grant execute on function public.managed_pin_image_object_path(text) to service_role;
+revoke all on function public.managed_pin_image_object_path(text) from public, anon, authenticated, service_role;
 
 create or replace function public.guard_pin_image_reference_write()
 returns trigger
@@ -97,7 +95,7 @@ begin
 end;
 $$;
 
-revoke all on function public.guard_pin_image_reference_write() from public, anon, authenticated;
+revoke all on function public.guard_pin_image_reference_write() from public, anon, authenticated, service_role;
 
 drop trigger if exists trg_pins_image_reference_guard on public.pins;
 create trigger trg_pins_image_reference_guard
@@ -128,7 +126,7 @@ declare
   v_token uuid;
   v_has_reference boolean;
 begin
-  if p_bucket_id <> 'pin-images'
+  if p_bucket_id is distinct from 'pin-images'
      or p_object_path is null
      or p_object_path !~* '^pins/(?:[0-9]+-[a-z0-9]{1,16}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp|gif)$'
      or p_claim_ttl_seconds is null
