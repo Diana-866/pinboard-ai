@@ -214,3 +214,166 @@ test("outgoing payment links use the shop secret, not the webhook secret", () =>
     .update(prodamus.canonicalString(payload), "utf8").digest("hex");
   assert.equal(prodamus.signPayload(payload), expected);
 });
+
+function createWebhookResponse() {
+  return {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(value) { this.body = value; return this; },
+  };
+}
+
+function signedWebhook(body) {
+  const secret = "webhook-http-test-secret";
+  process.env.PRODAMUS_SECRET_WEBHOOK = secret;
+  const signature = crypto.createHmac("sha256", secret)
+    .update(prodamus.canonicalString(body), "utf8").digest("hex");
+  return { body, headers: { sign: signature } };
+}
+
+function createPaymentDb({ subscription, purchase, activate, credit, cancel }) {
+  const state = { subscription: structuredClone(subscription), purchase: structuredClone(purchase) };
+  const rpcCalls = { activate: 0, credit: 0 };
+  const db = {
+    from(table) {
+      const key = table === "subscriptions" ? "subscription" : "purchase";
+      const row = state[key];
+      const query = {
+        select() { return this; },
+        eq(column, value) { this.filter = [column, value]; return this; },
+        maybeSingle: async () => ({ data: row && row[this.filter[0]] === this.filter[1] ? structuredClone(row) : null, error: null }),
+        update(values) {
+          this.values = values;
+          return this;
+        },
+        is() { return this; },
+        neq(column, value) {
+          this.neqFilter = [column, value];
+          return this;
+        },
+        then(resolve, reject) {
+          if (row && (!this.filter || row[this.filter[0]] === this.filter[1]) &&
+              (!this.neqFilter || row[this.neqFilter[0]] !== this.neqFilter[1]) &&
+              (!this.isFilter || row[this.isFilter[0]] === this.isFilter[1])) {
+            Object.assign(row, this.values);
+          }
+          return Promise.resolve({ error: null }).then(resolve, reject);
+        },
+      };
+      const originalIs = query.is;
+      query.is = function(column, value) { this.isFilter = [column, value]; return originalIs.call(this); };
+      return query;
+    },
+    async rpc(name, args) {
+      if (name === "activate_paid_subscription") {
+        rpcCalls.activate++;
+        return activate(state, args, rpcCalls);
+      }
+      if (name === "credit_paid_purchase") {
+        rpcCalls.credit++;
+        return credit(state, args, rpcCalls);
+      }
+      throw new Error("unexpected RPC " + name);
+    },
+    state,
+    rpcCalls,
+  };
+  return db;
+}
+
+test("subscription webhook concurrent duplicate callbacks activate exactly once", async () => {
+  const db = createPaymentDb({
+    subscription: { id: "sub-1", provider_payment_id: "pp-sub-1", amount: 1990, currency: "rub", status: "pending" },
+    activate: async (state, args, calls) => {
+      await new Promise(resolve => setTimeout(resolve, 5));
+      if (state.subscription.status === "success") return { data: { plan: "start", current_plan: "start", period_end: "2027-01-01", already_activated: true }, error: null };
+      state.subscription.status = "success";
+      return { data: { plan: "start", current_plan: "start", period_end: "2027-01-01", already_activated: false }, error: null };
+    },
+    credit: async () => ({ data: 0, error: null }),
+  });
+  const body = { order_id: "pp-sub-1", payment_status: "success", sum: "1990.00", currency: "rub" };
+  const req1 = signedWebhook(body), req2 = signedWebhook(body);
+  const res1 = createWebhookResponse(), res2 = createWebhookResponse();
+  await Promise.all([
+    require("../billing").handleWebhook(req1, res1, { supabase: db, dispatchPendingSubscriptionEmails: async () => ({}) }),
+    require("../billing").handleWebhook(req2, res2, { supabase: db, dispatchPendingSubscriptionEmails: async () => ({}) }),
+  ]);
+  assert.equal(db.rpcCalls.activate, 2);
+  assert.equal(db.state.subscription.status, "success");
+  assert.equal(res1.statusCode, 200);
+  assert.equal(res2.statusCode, 200);
+  assert.equal([res1.body.idempotent, res2.body.idempotent].filter(Boolean).length, 1);
+});
+
+test("subscription webhook retries after commit-then-error and observes idempotent activation", async () => {
+  let committed = false;
+  const db = createPaymentDb({
+    subscription: { id: "sub-2", provider_payment_id: "pp-sub-2", amount: 1990, currency: "rub", status: "pending" },
+    activate: async (state) => {
+      if (!committed) {
+        committed = true;
+        state.subscription.status = "success";
+        return { data: null, error: { message: "connection lost after commit" } };
+      }
+      return { data: { plan: "start", current_plan: "start", period_end: "2027-01-01", already_activated: true }, error: null };
+    },
+    credit: async () => ({ data: 0, error: null }),
+  });
+  const req = signedWebhook({ order_id: "pp-sub-2", payment_status: "success", sum: "1990.00", currency: "rub" });
+  const first = createWebhookResponse();
+  await require("../billing").handleWebhook(req, first, { supabase: db, dispatchPendingSubscriptionEmails: async () => ({}) });
+  assert.equal(first.statusCode, 500);
+  const second = createWebhookResponse();
+  await require("../billing").handleWebhook(req, second, { supabase: db, dispatchPendingSubscriptionEmails: async () => ({}) });
+  assert.equal(second.statusCode, 200);
+  assert.equal(second.body.idempotent, true);
+  assert.equal(db.rpcCalls.activate, 2);
+});
+
+test("credit webhook concurrent duplicate callbacks credit once; retry after ambiguous commit is idempotent", async () => {
+  let committed = false;
+  const db = createPaymentDb({
+    purchase: { id: "purchase-1", provider_payment_id: "ppc-1", amount: 490, currency: "rub", credits: 100, package_id: "pack_100", balance_credited_at: null, status: "pending" },
+    activate: async () => ({ data: null, error: null }),
+    credit: async (state) => {
+      await new Promise(resolve => setTimeout(resolve, 5));
+      if (!committed) {
+        committed = true;
+        state.purchase.balance_credited_at = "2026-11-07T00:00:00.000Z";
+        state.purchase.status = "success";
+        return { data: 100, error: { message: "connection lost after commit" } };
+      }
+      return { data: 100, error: null };
+    },
+  });
+  const body = { order_id: "ppc-1", payment_status: "success", sum: "490.00", currency: "rub" };
+  const handler = require("../creditsBilling").handleCreditsWebhook;
+  const first = createWebhookResponse(), second = createWebhookResponse();
+  await Promise.all([
+    handler(signedWebhook(body), first, { supabase: db }),
+    handler(signedWebhook(body), second, { supabase: db }),
+  ]);
+  assert.equal(db.state.purchase.balance_credited_at !== null, true);
+  assert.equal(db.rpcCalls.credit, 2);
+  const retry = createWebhookResponse();
+  await handler(signedWebhook(body), retry, { supabase: db });
+  assert.equal(retry.statusCode, 200);
+  assert.equal(retry.body.idempotent, true);
+  assert.equal(db.rpcCalls.credit, 2);
+});
+
+test("credit cancel racing after success cannot overwrite credited purchase", async () => {
+  const db = createPaymentDb({
+    purchase: { id: "purchase-2", provider_payment_id: "ppc-2", amount: 490, currency: "rub", credits: 100, package_id: "pack_100", balance_credited_at: "2026-11-07T00:00:00.000Z", status: "success" },
+    activate: async () => ({ data: null, error: null }),
+    credit: async () => ({ data: 100, error: null }),
+  });
+  const handler = require("../creditsBilling").handleCreditsWebhook;
+  const response = createWebhookResponse();
+  await handler(signedWebhook({ order_id: "ppc-2", payment_status: "order_canceled", sum: "490.00", currency: "rub" }), response, { supabase: db });
+  assert.equal(response.statusCode, 200);
+  assert.equal(db.state.purchase.status, "success");
+  assert.equal(db.state.purchase.balance_credited_at, "2026-11-07T00:00:00.000Z");
+});
