@@ -102,3 +102,19 @@ A missing object is intentionally left in `uploading`: an absent listing is not 
 Added unit coverage for successful confirmation, missing-object fencing, and Storage inventory errors. Added SQL coverage for the stale inventory RPC, role grants, and minimum age bound.
 
 **Verification limitation:** JavaScript syntax checks passed for the lifecycle helper, backend entrypoint, and unit test source. Node tests and PostgreSQL integration tests have not been executed. Migration 070 remains unapplied to Supabase; no production deploy or PR merge occurred.
+
+
+## Safety correction — stale upload inventory is observational only (2026-11-07)
+
+A second-order race was identified in the first reconciliation implementation: Storage listing can show an object that existed before the current reservation, while the current `upsert` request is still in flight. Treating visibility as proof of completion could clear the upload fence and permit a late overwrite. A matching fencing token protects database finalization from stale workers, but it does not prove that the external Storage request has stopped.
+
+The implementation was tightened:
+- `reconcileStalePinImageUploads` now only inventories and classifies stale reservations;
+- visible objects are reported as `object_visible_requires_operator_confirmation`;
+- missing objects remain `object_missing_keep_fenced`;
+- Storage listing failures do not change lifecycle state;
+- the reconciliation helper never calls `finalize_pin_image_upload`.
+
+Unit tests now assert that no stale-upload inventory outcome finalizes or unlocks a reservation. The architecture document explicitly records that an independent operator procedure is still required to prove the original request/process has terminated before a token-checked resolution can be designed and used.
+
+**Verification:** code and test changes are committed to the PR branch; tests have not been executed. Migration 070 remains unapplied to Supabase. No production deployment or PR merge occurred.
