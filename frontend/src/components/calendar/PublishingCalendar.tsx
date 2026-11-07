@@ -926,7 +926,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
             )}
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-subtle">
-              {selectedPin.status === 'failed' && onRetrySchedule && (
+              {selectedPin.status === 'failed' && !!selectedPin.pinterestAccountId && onRetrySchedule && (
                 <button
                   type="button"
                   onClick={async () => {
