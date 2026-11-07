@@ -28,6 +28,7 @@ module.exports = {
   buildPinScheduleSnapshot,
   resolvePinScheduleSnapshot,
   classifyLegacyScheduleAccount,
+  getScheduleRetryability,
 };
 
 
@@ -71,4 +72,18 @@ function classifyLegacyScheduleAccount(accounts, requestedAccountId = null) {
   }
   if (active.length > 1) return { status: "selection_required" };
   return { status: "selected", account: active[0] };
+}
+
+
+function getScheduleRetryability(schedule, attempt, hasPublication, accountActive, hasActiveDuplicate) {
+  if (!schedule || schedule.status !== "failed") return { retryable: false, reason: "not_failed" };
+  if (!schedule.pinterest_account_id || !accountActive) return { retryable: false, reason: "account_unavailable" };
+  if (!schedule.pinterest_board_id) return { retryable: false, reason: "board_missing" };
+  if (!schedule.pins || !schedule.pins.image_url) return { retryable: false, reason: "pin_unavailable" };
+  if (hasPublication) return { retryable: false, reason: "publication_exists" };
+  if (attempt && !(attempt.status === "failed" && attempt.retry_safe === true)) {
+    return { retryable: false, reason: "attempt_not_retryable" };
+  }
+  if (hasActiveDuplicate) return { retryable: false, reason: "active_schedule_exists" };
+  return { retryable: true, reason: null };
 }
