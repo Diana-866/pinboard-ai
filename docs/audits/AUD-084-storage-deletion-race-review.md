@@ -118,3 +118,12 @@ The implementation was tightened:
 Unit tests now assert that no stale-upload inventory outcome finalizes or unlocks a reservation. The architecture document explicitly records that an independent operator procedure is still required to prove the original request/process has terminated before a token-checked resolution can be designed and used.
 
 **Verification:** code and test changes are committed to the PR branch; tests have not been executed. Migration 070 remains unapplied to Supabase. No production deployment or PR merge occurred.
+
+
+## Additional hardening — classify Storage HTTP errors conservatively (2026-11-07)
+
+A returned Storage error object is not automatically a definite rejection. A 5xx response (or an unclassified response) may occur after a remote operation has committed. Releasing an upload reservation or deletion claim in that case could permit a late write/delete to race a newly committed reference.
+
+The lifecycle helper now finalizes only a classifiable 4xx rejection, excluding 408, 409, 425 and 429. Returned 5xx, timeout/conflict/throttle, missing/unparseable status, and thrown transport errors remain fenced. Added unit tests for returned 5xx on both upload and delete; definite 4xx tests now carry explicit status codes.
+
+**Verification:** tests are added but have not been executed. No live Storage requests, Supabase migration, production deployment, or PR merge were performed.
