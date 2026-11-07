@@ -28,6 +28,16 @@ test("accepts rotated credentials only after the row returns to ready", () => {
   assert.equal(isCommittedTokenRefresh(before, committed), true);
 });
 
+test("does not mistake a reconnect with a preserved refresh token for a committed refresh", () => {
+  const reconnected = {
+    ...before,
+    access_token: "access-from-reconnect",
+    refresh_state: "ready",
+    updated_at: "2026-11-07T10:00:02.000Z",
+  };
+  assert.equal(isCommittedTokenRefresh(before, reconnected), false);
+});
+
 test("does not accept a ready row with unchanged credentials", () => {
   const unchanged = {
     ...before,
