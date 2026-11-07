@@ -1,6 +1,6 @@
 # Storage object deletion-claim protocol — implementation and rollout notes
 
-**Implementation status:** migration `070_pin_image_deletion_claim_protocol.sql` and the backend claim/finalize executor are committed on `feat/persisted-boards-api`. The migration uses database triggers on all three reference tables as the serialization gate, rather than requiring each current writer to call a separate registration RPC. It has not yet been applied to Supabase or exercised against a live PostgreSQL instance.
+**Implementation status:** migration `070_pin_image_deletion_claim_protocol.sql` and the backend claim/finalize executor are committed on `feat/persisted-boards-api`. The migration uses database triggers on all four reference tables as the serialization gate, rather than requiring each current writer to call a separate registration RPC. It has not yet been applied to Supabase or exercised against a live PostgreSQL instance.
 
 **Prepared:** 2026-11-07  
 **Target branch:** `feat/persisted-boards-api`  
@@ -14,6 +14,7 @@ The invariant must cover all three current reference families:
 - `pins.image_url`
 - `pin_schedules.snapshot_image_url`
 - `pin_generation_tasks.storage_url`
+- `pin_regeneration_requests.storage_url`
 
 A read-then-delete helper alone cannot enforce this invariant because Supabase Storage deletion is an external HTTP operation and cannot participate in a PostgreSQL transaction.
 
@@ -50,7 +51,7 @@ Every reference writer must use it in the same DB transaction as the reference w
 Called before the external Storage API:
 - lock the lifecycle row;
 - reject if already claimed by a live claim token;
-- query all three reference families using exact URL equality;
+- query all four reference families using exact URL equality;
 - reject if any reference exists, including terminal generation tasks if the stored URL remains a durable recovery/audit reference (policy must be explicit; initial safe default is to retain while any task row references it);
 - set `state='deleting'`, random claim token and bounded expiry;
 - return claim token only after transaction commits.
@@ -113,10 +114,10 @@ PostgreSQL concurrency tests (two independent sessions):
 10. Legacy and foreign URLs never reach deletion RPC.
 
 PostgreSQL integration coverage (`backend/test/pin-image-deletion-claims.integration.sql`):
-- URL allow-list, traversal rejection, RPC/table privileges and all three trigger registrations;
+- URL allow-list, traversal rejection, RPC/table privileges and all four trigger registrations;
 - live-claim exclusivity, expired-claim token rotation, stale-token finalization rejection;
 - pin and active schedule references block deletion; cancelled schedules release their reference;
-- terminal generation journal rows continue to retain their stored image until the journal row is pruned.
+- terminal multi-pin and single-pin regeneration journal rows continue to retain their stored image until the journal row is pruned.
 
 Backend tests:
 - claim false -> Storage remove not called;
