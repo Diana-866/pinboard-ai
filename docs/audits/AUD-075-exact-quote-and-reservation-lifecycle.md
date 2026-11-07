@@ -21,7 +21,7 @@ This ordering has two separate accounting issues:
 ## Work completed
 
 - Added `calculateQuotedGenerationPricing(quotes, markup)` to `backend/generationPricing.js`.
-- Added tests to `backend/test/generation-pricing.test.js` for per-image rounding parity, separate provider RUB vs user credits, invalid currencies/prices, count bounds and markup validation.
+- Added tests to `backend/test/generation-pricing.test.js` for per-image rounding parity, separate provider RUB vs user credits, invalid currencies/prices (including zero, which current pin settlement rejects), count bounds and markup validation.
 - The helper intentionally has no DB/provider side effects and does not change current route behavior or product pricing.
 
 ## Safe integration design (not yet wired)
