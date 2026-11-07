@@ -42,7 +42,11 @@ begin
      or has_function_privilege('anon',
        'public.list_stale_pin_image_uploads(integer,integer)', 'EXECUTE')
      or has_function_privilege('authenticated',
-       'public.list_stale_pin_image_uploads(integer,integer)', 'EXECUTE') then
+       'public.list_stale_pin_image_uploads(integer,integer)', 'EXECUTE')
+     or has_function_privilege('anon',
+       'public.quarantine_stale_pin_image_upload(text,text,uuid)', 'EXECUTE')
+     or has_function_privilege('authenticated',
+       'public.quarantine_stale_pin_image_upload(text,text,uuid)', 'EXECUTE') then
     raise exception 'untrusted role can execute pin image lifecycle RPC';
   end if;
 
@@ -55,7 +59,9 @@ begin
      or not has_function_privilege('service_role',
        'public.finalize_pin_image_deletion(text,text,uuid,boolean,text)', 'EXECUTE')
      or not has_function_privilege('service_role',
-       'public.list_stale_pin_image_uploads(integer,integer)', 'EXECUTE') then
+       'public.list_stale_pin_image_uploads(integer,integer)', 'EXECUTE')
+     or not has_function_privilege('service_role',
+       'public.quarantine_stale_pin_image_upload(text,text,uuid)', 'EXECUTE') then
     raise exception 'service_role is missing pin image lifecycle RPC permission';
   end if;
 
@@ -174,8 +180,32 @@ begin
     raise exception 'stale upload inventory did not return the expected fenced object';
   end if;
 
-  if public.finalize_pin_image_upload('pin-images', v_path, v_token, false, 'reconciled_test') is not true then
-    raise exception 'test stale upload could not be safely finalized';
+  if public.quarantine_stale_pin_image_upload('pin-images', v_path, v_token) is not true then
+    raise exception 'stale upload path was not quarantined';
+  end if;
+
+  if not exists (
+    select 1 from public.pin_image_object_lifecycle
+     where bucket_id = 'pin-images' and object_path = v_path
+       and state = 'quarantined' and claim_token is null and claim_expires_at is null
+  ) then
+    raise exception 'quarantine did not permanently retire the stale upload path';
+  end if;
+
+  if public.finalize_pin_image_upload('pin-images', v_path, v_token, true, null) is not false then
+    raise exception 'stale worker token finalized a quarantined upload';
+  end if;
+
+  v_result := public.begin_pin_image_upload('pin-images', v_path, 60);
+  if coalesce((v_result ->> 'reserved')::boolean, false) is not false
+     or v_result ->> 'reason' <> 'path_quarantined' then
+    raise exception 'quarantined path was reused for another upload: %', v_result;
+  end if;
+
+  v_result := public.claim_pin_image_deletion('pin-images', v_path, 60);
+  if coalesce((v_result ->> 'claimed')::boolean, false) is not false
+     or v_result ->> 'reason' <> 'path_quarantined' then
+    raise exception 'quarantined path was unexpectedly deleted: %', v_result;
   end if;
 
   begin
