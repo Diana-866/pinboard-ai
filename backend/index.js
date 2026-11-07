@@ -116,6 +116,7 @@ const { generateImage, checkImage, imageTaskResult } = require("./gptunnel");
 const { register, login, verifyToken } = require("./auth");
 const supabase = require("./supabase");
 const { buildPinScheduleSnapshot, classifyLegacyScheduleAccount, getScheduleRetryability } = require("./pinterestSchedule");
+const { pinterestScheduleLimiter } = require("./pinterestRateLimit");
 const { analyzeSite } = require("./analyze");
 const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
@@ -1294,7 +1295,7 @@ app.get("/schedule", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/schedule/:id/reconcile-account", requireAuth, async (req, res) => {
+app.post("/schedule/:id/reconcile-account", requireAuth, pinterestScheduleLimiter, async (req, res) => {
   try {
     const { data: schedule, error: scheduleError } = await supabase
       .from("pin_schedules")
@@ -1375,7 +1376,7 @@ app.post("/schedule/:id/reconcile-account", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/pins/:id/schedule", requireAuth, requireTariff(["start", "pro", "agency"]), async (req, res) => {
+app.post("/pins/:id/schedule", requireAuth, pinterestScheduleLimiter, requireTariff(["start", "pro", "agency"]), async (req, res) => {
   try {
     const pin = await getPinWithOwnerCheck(req.params.id, req.userId);
     if (pin.status !== "approved") {
@@ -1469,7 +1470,7 @@ app.post("/pins/:id/schedule", requireAuth, requireTariff(["start", "pro", "agen
   }
 });
 
-app.post("/schedule/:id/retry", requireAuth, requireTariff(["start", "pro", "agency"]), async (req, res) => {
+app.post("/schedule/:id/retry", requireAuth, pinterestScheduleLimiter, requireTariff(["start", "pro", "agency"]), async (req, res) => {
   try {
     const { data: schedule, error: scheduleError } = await supabase
       .from("pin_schedules")
@@ -1527,7 +1528,7 @@ app.post("/schedule/:id/retry", requireAuth, requireTariff(["start", "pro", "age
   }
 });
 
-app.post("/schedule/:id/cancel", requireAuth, async (req, res) => {
+app.post("/schedule/:id/cancel", requireAuth, pinterestScheduleLimiter, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("pin_schedules")
