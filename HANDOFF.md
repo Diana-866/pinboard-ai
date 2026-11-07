@@ -825,3 +825,19 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Это защитное укрепление уже безопасного поведения, а не подтверждение найденной утечки. Runtime unit tests/CI не запускались успешно.
 
 **Status:** AUD-059 / PUBLIC_ACCOUNT_ALLOWLIST / TOKEN_FIELDS_EXCLUDED / REGRESSION_TEST_ADDED / RUNTIME_UNVERIFIED.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-060: GitHub Actions jobs не получили runner)
+
+- Проверен HEAD `930fd05e6ba17ec6ff437ef82dbc2bb0cb79ccf3`.
+- Workflow runs: `42375727081` (Prodamus webhook tests), `42375727148` (Persisted boards integration checks), `42375727098` (Atomic payment fulfillment integration). Все завершились failure.
+- Jobs: `128412779877`, `128412779940`, `128412780113`, `128412779973`. У каждого `runner_id=0`, пустое имя runner, `steps=[]`; завершение произошло через 1–2 секунды после старта. Запуск npm/psql/node команд не подтверждён.
+- Получение логов каждого job возвращает Azure `BlobNotFound`; логов для анализа тестовых ошибок нет.
+- Просмотренные workflow YAML используют `ubuntu-latest`, корректные PR triggers и минимальные `contents: read` permissions. Нет признака, что job-level YAML намеренно пропускает все шаги.
+- Отдельно Combined status сообщает Vercel `build-rate-limit`. Это ограничение Vercel build, не причина отсутствия GitHub runner.
+- Вероятнее всего, workflow jobs не были назначены hosted runner; точную причину (Actions permissions, billing/spending limit, доступность runner или кратковременный сбой GitHub) нельзя подтвердить доступным read API. Нужна проверка Settings → Actions и Billing/usage в GitHub UI, когда пользователь будет у компьютера.
+- Не менять workflow на фиктивный зелёный статус и не убирать тестовые jobs. После устранения runner проблемы повторить workflow и анализировать реальные логи.
+- Runtime unit tests, frontend tests, build и PostgreSQL integration tests по-прежнему НЕ подтверждены.
+- Production, merge, migrations, DNS, payments и Pinterest publication не затрагивались.
+
+**Status:** AUD-060 / RUNNER_ID_ZERO / NO_STEPS_EXECUTED / LOG_BLOBS_MISSING / VERCEL_BUILD_RATE_LIMIT_SEPARATE / ROOT_CAUSE_UNCONFIRMED.
