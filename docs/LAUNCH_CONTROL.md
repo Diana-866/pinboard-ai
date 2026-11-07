@@ -285,3 +285,14 @@
 - В production коде/БД ничего не менялось. PR #4 остаётся Draft; merge/deploy не выполнялись.
 
 **Status:** AUD-068 / GENERATION_CONCURRENCY_TEST_CONTRACT_FIXED / RUNTIME_UNVERIFIED.
+
+
+### 2026-11-07 — AUD-069: align reservation rounding with per-image settlement
+- Аудит выявил расхождение: резерв рассчитывался как `ceil(unit_price × count × markup)`, а фактическая сумма списания складывается из `ceil(actual_image_price × markup)` отдельно для каждого изображения. При дробных значениях округление на весь пакет может дать меньшую сумму, чем сумма индивидуальных округлений.
+- Добавлен `backend/generationPricing.js` с чистой функцией `calculateGenerationReservation`: проверяет входные данные и рассчитывает резерв как `ceil(configured_unit_price × markup) × count`, согласованно с моделью списания поштучно.
+- `backend/index.js` использует helper перед вызовом GPTunnel; добавлен `backend/test/generation-pricing.test.js` (4 теста: стандартные цены, дробная цена, одиночная/максимальная партия, невалидные параметры).
+- Важное ограничение: helper устраняет ошибку агрегатного округления, но не гарантирует защиту от повышения фактической цены GPTunnel выше локального `MODEL_PRICES`. В ответах провайдера цена динамическая; требуется отдельный этап: сверить официальный каталог/единицы цены и определить безопасный price ceiling или механизм довнесения резерва до первой отправки задачи. Нельзя считать ценовую модель полностью закрытой.
+- Проверки только статические по изменениям и связям импорта. Node tests, полный backend suite, PostgreSQL и CI не запускались; runtime unverified.
+- Production не менялся, реальных запросов GPTunnel не отправляли, PR #4 не мержили.
+
+**Status:** AUD-069 / PER_IMAGE_ROUNDING_FIXED / PROVIDER_PRICE_CEILING_OPEN / RUNTIME_UNVERIFIED.
