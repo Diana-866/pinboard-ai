@@ -55,7 +55,7 @@ Called before the external Storage API:
 - set `state='deleting'`, random claim token and bounded expiry;
 - return claim token only after transaction commits.
 
-The claim expiry is for crash recovery, not permission to race. A sweeper must not clear an expired claim while the external delete may still be in flight; recovery should first inspect Storage existence and then either finalize or release through a guarded RPC.
+The claim expiry is for crash recovery, not permission to race. Migration 070 allows a later claim request to rotate an expired claim token and retry the idempotent Storage removal only after confirming that no durable references exist. A stale worker holding the old token cannot finalize the newer claim. If a durable reference is discovered under an expired claim, the row deliberately remains `deleting`; it is not reopened because the original Storage request may still be in flight. Such a row requires operator reconciliation rather than unsafe automatic release.
 
 ### 3. `finalize_pin_image_deletion`
 
@@ -130,6 +130,6 @@ Backend tests:
 6. Deploy backend only after migration and staging verification.
 7. Enable periodic reconciliation after observing metrics.
 
-## Current rollout blockers\n\n- Apply migration 070 manually in Supabase SQL Editor after a backup. Until then, the updated backend cleanup path will fail closed because the claim RPC does not exist.\n- Run the Node test suite and PostgreSQL integration/concurrency tests against a disposable database. These have not been run from this session.\n- Add stale-claim reconciliation before enabling automated retries. Expired claims deliberately remain fenced; TTL alone never reopens writes.\n- Decide when generation task journals may be pruned and add a safe orphan-cleanup policy.\n\n## Non-goals
+## Current rollout blockers\n\n- Apply migration 070 manually in Supabase SQL Editor after a backup. Until then, the updated backend cleanup path will fail closed because the claim RPC does not exist.\n- Run the Node test suite and PostgreSQL integration/concurrency tests against a disposable database. These have not been run from this session.\n- Add an operator-facing stale-claim inspection/reconciliation path for expired claims that still have a durable reference. Claims with no references can now be safely retried with a rotated fencing token; TTL alone never reopens writes.\n- Decide when generation task journals may be pruned and add a safe orphan-cleanup policy.\n\n## Non-goals
 
 This protocol does not change public/private bucket visibility, existing RLS policy state, retention policy for terminal generation journals, or storage-provider redundancy. Those require separate decisions.
