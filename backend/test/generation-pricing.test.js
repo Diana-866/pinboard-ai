@@ -56,6 +56,7 @@ test("quoted pricing rejects invalid quote currency, price, count and markup", (
     { price: 1, currency: "USD" },
     { price: "1", currency: "RUB" },
     { price: -1, currency: "RUB" },
+    { price: 0, currency: "RUB" },
     { price: Infinity, currency: "RUB" },
   ]) {
     assert.throws(() => calculateQuotedGenerationPricing([quote], 1.5), /RUB price/);
