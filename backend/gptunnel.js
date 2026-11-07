@@ -57,7 +57,7 @@ async function generateTextWithUsage(prompt, options = {}) {
     throw new Error("Провайдер не вернул текстовый результат");
   }
   const usage = response.data && response.data.usage;
-  const totalCost = usage && Number(usage.total_cost);
+  const totalCost = usage && usage.total_cost != null ? Number(usage.total_cost) : NaN;
   if ((!Number.isFinite(totalCost) || totalCost < 0) && options.requireUsage !== false) {
     const error = new Error("Провайдер не вернул достоверную стоимость текстового запроса");
     error.code = "GPTUNNEL_USAGE_COST_MISSING";
