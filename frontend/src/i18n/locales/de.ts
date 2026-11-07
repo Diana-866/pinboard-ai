@@ -291,6 +291,7 @@ export const de: TranslationSchema = {
     emptyDay: 'Keine Pins geplant',
     statusScheduled: 'Geplant',
     statusPublished: 'Veröffentlicht',
+    openPinterestPin: "Pin auf Pinterest öffnen",
     statusDraft: 'Entwurf',
     optimalSlotBadge: 'Optimale Interaktionszeit',
     pinDetailsModal: 'Details zum geplanten Pin',
