@@ -112,12 +112,14 @@ async function createCreditsPayment(userId, body) {
       urlSuccess: `${frontendBase()}/app?payment=success`,
     });
   } catch (e) {
-    // Ссылка не создана — помечаем строку, чтобы не копить «вечные pending»
-    await supabase
-      .from("credit_purchases")
-      .update({ status: "denied" })
-      .eq("id", purchase.id)
-      .then(() => {}, () => {});
+    // Не переводим заказ в denied: timeout/обрыв ответа не доказывают,
+    // что Prodamus не создал платёж. Поздний webhook должен иметь возможность
+    // безопасно зачислить кредиты; неопределённые pending заказы сверяются отдельно.
+    console.error("[credits-billing] результат создания ссылки неопределён; покупка оставлена pending:", {
+      purchaseId: purchase.id,
+      orderId,
+      error: e && e.message,
+    });
     throw e;
   }
 
