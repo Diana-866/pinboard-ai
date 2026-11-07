@@ -122,6 +122,7 @@ const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
 const { calculateGenerationReservation, calculateQuotedGenerationPricing } = require("./generationPricing");
 const { uploadPinImage, rehostImage, deletePinImageIfUnreferenced } = require("./storage");
+const { reconcileStalePinImageUploads } = require("./pinImageLifecycle");
 const { validateDevTopupRequest } = require("./devTopup");
 const mail = require("./mail");
 const passwordReset = require("./password-reset");
@@ -1939,6 +1940,22 @@ app.get("/billing/health", (req, res) => {
 require("./pinterest").registerRoutes(app, { requireAuth, requireTariff, handleError });
 
 // --- Админка ---
+
+// Reconcile only stale uploads whose exact object is already visible in Storage.
+// Missing objects remain fenced: absence is not proof that a remote request ended.
+app.post("/admin/storage/reconcile-stale-uploads", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await reconcileStalePinImageUploads({
+      supabase,
+      olderThanSeconds: 900,
+      limit: 100,
+    });
+    res.json(result);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 
 app.get("/admin/stats", requireAuth, requireAdmin, async (req, res) => {
   try {
