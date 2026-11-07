@@ -3,6 +3,12 @@ const axios = require("axios");
 const API_BASE = "https://gptunnel.ru";
 const REQUEST_TIMEOUT_MS = 30000;
 
+function finiteUsageNumber(value) {
+  if (value == null) return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 function providerRequestConfig() {
   return {
     timeout: REQUEST_TIMEOUT_MS,
@@ -66,11 +72,11 @@ async function generateTextWithUsage(prompt, options = {}) {
   return {
     content,
     usage: {
-      promptTokens: Number.isFinite(Number(usage.prompt_tokens)) ? Number(usage.prompt_tokens) : null,
-      completionTokens: Number.isFinite(Number(usage.completion_tokens)) ? Number(usage.completion_tokens) : null,
-      totalTokens: Number.isFinite(Number(usage.total_tokens)) ? Number(usage.total_tokens) : null,
-      promptCost: Number.isFinite(Number(usage.prompt_cost)) ? Number(usage.prompt_cost) : null,
-      completionCost: Number.isFinite(Number(usage.completion_cost)) ? Number(usage.completion_cost) : null,
+      promptTokens: finiteUsageNumber(usage && usage.prompt_tokens),
+      completionTokens: finiteUsageNumber(usage && usage.completion_tokens),
+      totalTokens: finiteUsageNumber(usage && usage.total_tokens),
+      promptCost: finiteUsageNumber(usage && usage.prompt_cost),
+      completionCost: finiteUsageNumber(usage && usage.completion_cost),
       totalCost: Number.isFinite(totalCost) && totalCost >= 0 ? totalCost : null,
     },
     model: typeof response.data.model === "string" ? response.data.model : payload.model,
@@ -85,7 +91,7 @@ async function generateText(prompt, options = {}) {
 
 function normalizeMediaQuote(data) {
   const price = data && Number(data.price);
-  if (!data || data.code !== 0 || data.currency !== "RUB" ||
+  if (!data || data.code !== 0 || data.price == null || data.currency !== "RUB" ||
       !Number.isFinite(price) || price < 0) {
     throw new Error("Провайдер вернул некорректную котировку генерации");
   }
