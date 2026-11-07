@@ -219,3 +219,15 @@
 
 
 - Повторная проверка CI после новых commits: workflow runs `42376959908`, `42376959739`, `42376959704` завершились failure через ~1–2 секунды; у всех jobs `runner_id=0`, пустой `runner_name`, `steps=[]`. Это подтверждает, что полный backend/frontend/PostgreSQL CI по-прежнему даже не стартует; причина не установлена. Вручную rerun не делался, чтобы не тратить попытки без устранения runner blocker.
+
+
+### 2026-11-07 — AUD-063: boards API/frontend persistence and misleading analytics audit
+- Проверены backend routes в `backend/index.js`: создание проекта привязывает `user_id=req.userId`; чтение проекта фильтрует `id + user_id`; списки проектов фильтруются по пользователю; генерация и чтение досок сначала проверяют владельца проекта; получение доски/пинов использует owner-check через relation `boards → projects → user_id`; изменение доски/пина дополнительно ограничивает update связанным `project_id/board_id`.
+- Проверен frontend `App.tsx`: список досок загружается через `GET /boards`; создание доски использует принадлежащий текущему пользователю проект (создаёт проект, если его ещё нет), затем `POST /boards`; новый элемент в state получает ID из ответа БД. Это подтверждает реальную persistence path в source, но не доказывает live e2e.
+- Найден UX-дефект: BoardsManager показывал фиктивный SEO score (в том числе 92/100 и локальное «Optimized!»), просмотры/пины и ключевые слова, хотя API не возвращает Pinterest analytics и оптимизация не сохранялась. Эти поля были демо-значениями из UI, не реальными данными.
+- Исправлено: удалён fake optimize callback/state и кнопка; убраны неподтверждённые SEO/keyword/weekly target/analytics widgets; созданным доскам задаются нейтральные нулевые значения; добавлено пустое состояние. Доски отображаются без выдуманных метрик.
+- Изменены файлы: `frontend/src/components/boards/BoardsManager.tsx`, `frontend/src/App.tsx`.
+- Проверка source-level assertions: owner-scoped persistence calls присутствуют; fake optimize prop/callback, SEO badge и mock keywords отсутствуют; empty state присутствует. Это статическая проверка, не TypeScript build.
+- Frontend scripts доступны: `npm run lint` (tsc --noEmit), `npm test` (tsx --test src/utils/*.test.ts), `npm run build`; фактический запуск пока невозможен через GitHub Actions из-за runner_id=0 blocker. Локальный checkout/Node runtime в этом рабочем контексте недоступен.
+- Не проверено: runtime RLS в Supabase, чужой project/board/pin ID через API, race conditions при удалении/переносе, browser E2E и production persistence.
+- Production, DB, merge, deployment и реальные Pinterest API не затрагивались.
