@@ -31,6 +31,31 @@ test("quoteImageTask requests a quote using the exact image task parameters", as
   assert.deepEqual(quote.params, { aspect_ratio: "9:16" });
 });
 
+test("quoteImageTask rejects ignored parameters in both string and object response forms", async (t) => {
+  const originalPost = axios.post;
+  axios.post = async () => ({
+    data: {
+      code: 0,
+      model: "flux-schnell",
+      price: 0.9,
+      currency: "RUB",
+      params: { aspect_ratio: "2:3" },
+      ignored_params: [{ key: "aspect_ratio", reason: "unsupported" }],
+    },
+  });
+  t.after(() => { axios.post = originalPost; });
+  await assert.rejects(quoteImageTask("prompt", "flux-schnell", "9:16"), /формату изображения/i);
+});
+
+test("quoteImageTask rejects a quote whose applied aspect ratio differs", async (t) => {
+  const originalPost = axios.post;
+  axios.post = async () => ({
+    data: { code: 0, model: "flux-schnell", price: 0.9, currency: "RUB", params: { aspect_ratio: "2:3" } },
+  });
+  t.after(() => { axios.post = originalPost; });
+  await assert.rejects(quoteImageTask("prompt", "flux-schnell", "9:16"), /формату изображения/i);
+});
+
 test("quoteImageTask rejects non-RUB, malformed and negative quotes", async (t) => {
   for (const data of [
     { code: 0, price: 1, currency: "USD" },
