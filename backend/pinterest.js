@@ -11,6 +11,7 @@
 
 const axios = require("axios");
 const { executeWithAccountToken } = require("./pinterestAccountRequest");
+const { isCommittedTokenRefresh } = require("./pinterestRefreshRecovery");
 const crypto = require("crypto");
 const { hasEncryptionKey, isEncryptedToken, encryptToken, decryptToken } = require("./pinterestTokenCrypto");
 const jwt = require("jsonwebtoken");
@@ -379,12 +380,7 @@ async function refreshAccessToken(account) {
       // The RPC may have committed even if its response was lost. Reconcile
       // before telling the user to reconnect or allowing another refresh.
       const reconciled = await getAccount(latest.user_id, latest.id).catch(() => null);
-      if (
-        reconciled &&
-        (reconciled.access_token !== latest.access_token ||
-          reconciled.refresh_token !== latest.refresh_token ||
-          reconciled.updated_at !== latest.updated_at)
-      ) {
+      if (isCommittedTokenRefresh(latest, reconciled)) {
         console.warn("[pinterest] refresh commit response was ambiguous; newer stored credentials were recovered");
         return reconciled;
       }
@@ -394,12 +390,7 @@ async function refreshAccessToken(account) {
     if (!committed) {
       // OAuth reconnect or lease expiry won the race. Never overwrite its row.
       const current = await getAccount(latest.user_id, latest.id);
-      if (
-        current &&
-        (current.access_token !== latest.access_token ||
-          current.refresh_token !== latest.refresh_token ||
-          current.updated_at !== latest.updated_at)
-      ) {
+      if (isCommittedTokenRefresh(latest, current)) {
         return current;
       }
       throw httpError(503, "Не удалось подтвердить обновление Pinterest-доступа. Повторите запрос.");
