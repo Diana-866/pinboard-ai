@@ -123,4 +123,4 @@ async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3"
   return { pending: true, taskId, message: "Ещё генерируется, проверь позже через /check-image/" + taskId };
 }
 
-module.exports = { generateText, generateImage, listModels, checkImage, buildImageTaskPayload };
+module.exports = { generateText, generateImage, listModels, checkImage, buildImageTaskPayload, imageTaskResult };
