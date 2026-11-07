@@ -36,6 +36,12 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
   if (typeof options.loadPlan === "function") {
     tasks = await options.loadPlan();
   } else {
+    // Text-plan generation is a billable provider boundary too. Mark the parent
+    // request outcome as uncertain before sending; if the response or later journal
+    // write is lost, the same idempotency key must not silently call the provider again.
+    if (typeof options.onTextProviderSubmission === "function") {
+      options.onTextProviderSubmission();
+    }
     const aiResponse = await generateText(prompt);
 
     let ideas;
