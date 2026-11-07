@@ -239,7 +239,6 @@ const MainApp: React.FC = () => {
       monthlyViews: '—',
       minDailyPins: 8,
       maxDailyPins: 16,
-      nightlyAuto: false,
       status: account.needs_reauth ? 'error' : 'active',
       niche: '',
     }));
