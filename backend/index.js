@@ -122,7 +122,7 @@ const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
 const { calculateGenerationReservation, calculateQuotedGenerationPricing } = require("./generationPricing");
 const { uploadPinImage, rehostImage, deletePinImageIfUnreferenced } = require("./storage");
-const { reconcileStalePinImageUploads } = require("./pinImageLifecycle");
+const { reconcileStalePinImageUploads, quarantineStalePinImageUploads } = require("./pinImageLifecycle");
 const { validateDevTopupRequest } = require("./devTopup");
 const mail = require("./mail");
 const passwordReset = require("./password-reset");
@@ -1956,6 +1956,21 @@ app.post("/admin/storage/reconcile-stale-uploads", requireAuth, requireAdmin, as
   }
 });
 
+
+// Permanently retire stale upload paths. Any late Storage completion becomes
+// an unreferenced orphan; the path is never reused or automatically deleted.
+app.post("/admin/storage/quarantine-stale-uploads", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await quarantineStalePinImageUploads({
+      supabase,
+      olderThanSeconds: 900,
+      limit: 100,
+    });
+    res.json(result);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
 
 app.get("/admin/stats", requireAuth, requireAdmin, async (req, res) => {
   try {
