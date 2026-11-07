@@ -273,3 +273,12 @@ HANDOFF.md                            Этот файл
 - Добавлен backend/test/email-outbox.test.js: SMTP adapter принимает письмо, mark_email_outbox_sent возвращает ошибку соединения, retry повторно отправляет письмо с тем же Message-ID, затем подтверждение проходит.
 - Это тест at-least-once поведения, а не доказательство дедупликации SMTP. Message-ID не является гарантированным idempotency key для SMTP; exactly-once не обещается.
 - AUD-021: PARTIALLY MITIGATED; требуется подтвердить provider-level idempotency/reconciliation у фактического SMTP-провайдера. Тест локально и в CI пока не запускался/не подтверждён.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-022 partial mitigation)
+
+- В backend/imageValidation.js определён единый MAX_IMAGE_BYTES = 5 MiB; validateImageBuffer отклоняет файл больше лимита до upload.
+- backend/storage.js использует тот же лимит для Axios maxContentLength и при создании pin-images bucket; createBucket задаёт allowed MIME types.
+- ensureBucket теперь fail-closed при ошибке чтения/создания bucket и блокирует upload, если metadata существующего bucket указывает лимит ниже 5 MiB. Прежнее поведение, при котором ошибка проверки проглатывалась и upload продолжался, удалено.
+- Добавлен тест ровно на границу 5 MiB и 1 байт сверх неё. В index.js Multer уже был ограничен 5 MiB; расхождение 8 MiB против 5 MiB устранено.
+- AUD-022: PARTIALLY MITIGATED. Политики существующего production bucket и реальные MIME policies не проверялись; тесты/CI ещё не подтверждены.
