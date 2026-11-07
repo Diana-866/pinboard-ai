@@ -298,3 +298,11 @@ HANDOFF.md                            Этот файл
 - Добавлен сценарий в backend/test/pinterest-account-publication.integration.sql: попытка привязать legacy schedule к уже отключённому Pinterest account возвращает account_unavailable и не пишет pinterest_account_id.
 - AUD-024 теперь PARTIALLY COVERED. Реальной конкурентной гонки двух DB connections пока нет: имеющийся replay test последовательный, хотя SQL RPC блокирует OAuth state row и потребляет attempt транзакционно. Нужен двухсессионный PostgreSQL harness и подтверждённый CI run.
 - Production не затрагивался; миграции не применялись.
+
+## Дополнение к handoff — 2026-11-07 (AUD-024 concurrency regression)
+
+- Добавлен `backend/test/pinterest-oauth-concurrency.sh`: две независимые PostgreSQL-сессии одновременно конкурируют за одну OAuth state row — callback повторного подключения и отключение Pinterest-аккаунта.
+- Тест удерживает row lock отдельной сессией, подтверждает наличие двух реальных lock waiters в `pg_stat_activity`, затем отпускает блокировку и проверяет итоговое состояние.
+- Допустимы оба порядка победы: callback → disconnect (токены удалены) или disconnect → callback (callback отклонён как stale). В обоих случаях аккаунт обязан остаться отключённым, без access/refresh token, а OAuth attempt — потреблённым.
+- Скрипт подключён к `.github/workflows/atomic-payment-integration.yml` после SQL multi-account OAuth/publication regressions.
+- Это тестовый harness, не production-изменение логики OAuth. AUD-024: concurrency coverage добавлена; результат остаётся FIXED_UNVERIFIED до фактического успешного CI выполнения.
