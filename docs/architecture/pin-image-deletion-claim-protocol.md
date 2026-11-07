@@ -1,6 +1,6 @@
 # Storage object deletion-claim protocol — implementation and rollout notes
 
-**Implementation status:** migration `070_pin_image_deletion_claim_protocol.sql` and the backend claim/finalize executor are committed on `feat/persisted-boards-api`. The migration uses database triggers on all four reference tables as the reference-write gate and a lifecycle-row upload reservation before every managed Storage upload. Upload reservations serialize byte writes with deletion claims and reject overwrites while any durable reference exists. It has not yet been applied to Supabase or exercised against a live PostgreSQL instance.
+**Implementation status:** migration `070_pin_image_deletion_claim_protocol.sql` and the backend upload-reservation/deletion-claim executors are committed on `feat/persisted-boards-api`. The migration uses database triggers on all four reference tables as the reference-write gate and a lifecycle-row upload reservation before every managed Storage upload. Upload reservations serialize byte writes with deletion claims and reject overwrites while any durable reference exists. It has not yet been applied to Supabase or exercised against a live PostgreSQL instance.
 
 **Prepared:** 2026-11-07  
 **Target branch:** `feat/persisted-boards-api`  
@@ -35,16 +35,16 @@ Use a deterministic row as the serialization point for every managed object. Do 
 
 ## Database RPC and trigger contract
 
-### 1. `register_pin_image_reference`
+### 1. `guard_pin_image_reference_write` trigger
 
-Called in the same transaction as a write that introduces a managed image reference. It must:
+Installed on all four reference tables and executed in the same transaction as a write that introduces a managed image reference. It must:
 - validate the bucket/path shape against the service-managed allow-list;
 - insert or lock the lifecycle row;
 - reject if state is `uploading`, `deleting` or `deleted`;
 - transition `delete_failed` back to `active` when a legitimate reference is being reintroduced;
 - return success only when the caller can safely commit the referencing row.
 
-Every reference writer must use it in the same DB transaction as the reference write. This includes upload replacement, schedule snapshot insertion, generation task storage URL persistence, and any reconciliation path that restores a URL.
+Writers do not call a separate RPC: the trigger serializes the row write against upload and deletion operations. This includes upload replacement, schedule snapshot insertion, generation task storage URL persistence, and any reconciliation path that restores a URL.
 
 ### 2. `begin_pin_image_upload` and `finalize_pin_image_upload`
 
@@ -148,7 +148,7 @@ Backend tests:
 
 1. Add migration and SQL concurrency tests.
 2. Add backend lifecycle helper and unit tests.
-3. Convert all three reference writers and all deletion call sites.
+3. Confirm all four reference tables are covered by triggers and route all managed uploads/deletions through their lifecycle helpers.
 4. Add stale-claim reconciliation endpoint/job, initially disabled.
 5. Apply migration manually in Supabase SQL Editor after backup.
 6. Deploy backend only after migration and staging verification.
