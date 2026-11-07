@@ -238,6 +238,35 @@ begin
   return found;
 end;
 $function$;
+-- Read-only inventory for the backend's admin reconciliation job. Tokens are
+-- returned only to service_role and are never exposed through an HTTP response.
+create or replace function public.list_stale_pin_image_uploads(
+  p_older_than_seconds integer default 900,
+  p_limit integer default 50
+) returns table (
+  bucket_id text, object_path text, upload_token uuid, attempts integer,
+  claim_expires_at timestamptz, updated_at timestamptz, last_error_code text
+)
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $function$
+begin
+  if p_older_than_seconds is null or p_older_than_seconds < 900 or p_older_than_seconds > 86400
+     or p_limit is null or p_limit < 1 or p_limit > 200 then
+    raise exception 'invalid stale upload inventory bounds';
+  end if;
+
+  return query
+  select l.bucket_id, l.object_path, l.claim_token, l.attempts,
+         l.claim_expires_at, l.updated_at, l.last_error_code
+    from public.pin_image_object_lifecycle l
+   where l.state = 'uploading'
+     and l.claim_expires_at < now() - make_interval(secs => p_older_than_seconds)
+   order by l.claim_expires_at asc
+   limit p_limit;
+end;
+$function$;
 create or replace function public.claim_pin_image_deletion(
   p_bucket_id text,
   p_object_path text,
@@ -373,6 +402,8 @@ $$;
 
 revoke all on function public.begin_pin_image_upload(text,text,integer) from public, anon, authenticated, service_role;
 revoke all on function public.finalize_pin_image_upload(text,text,uuid,boolean,text) from public, anon, authenticated, service_role;
+revoke all on function public.list_stale_pin_image_uploads(integer,integer) from public, anon, authenticated, service_role;
+grant execute on function public.list_stale_pin_image_uploads(integer,integer) to service_role;
 revoke all on function public.claim_pin_image_deletion(text,text,integer) from public, anon, authenticated;
 revoke all on function public.finalize_pin_image_deletion(text,text,uuid,boolean,text) from public, anon, authenticated;
 grant execute on function public.begin_pin_image_upload(text,text,integer) to service_role;
