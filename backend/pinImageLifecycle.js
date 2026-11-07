@@ -80,6 +80,36 @@ async function uploadManagedPinImageObject({ supabase, bucket = "pin-images", ob
   return true;
 }
 
+async function quarantineStalePinImageUploads({ supabase, olderThanSeconds = 900, limit = 50 }) {
+  const { data: staleUploads, error: inventoryError } = await supabase.rpc("list_stale_pin_image_uploads", {
+    p_older_than_seconds: olderThanSeconds,
+    p_limit: limit,
+  });
+  if (inventoryError) throw inventoryError;
+
+  const result = { inspected: 0, quarantined: 0, skipped: 0, failed: 0 };
+  for (const row of staleUploads || []) {
+    result.inspected += 1;
+    if (row.bucket_id !== "pin-images" || !row.object_path || !row.upload_token) {
+      result.skipped += 1;
+      continue;
+    }
+    const { data, error } = await supabase.rpc("quarantine_stale_pin_image_upload", {
+      p_bucket_id: row.bucket_id,
+      p_object_path: row.object_path,
+      p_upload_token: row.upload_token,
+    });
+    if (error) {
+      result.failed += 1;
+    } else if (data === true) {
+      result.quarantined += 1;
+    } else {
+      result.skipped += 1;
+    }
+  }
+  return result;
+}
+
 async function reconcileStalePinImageUploads({ supabase, olderThanSeconds = 900, limit = 50 }) {
   const { data: staleUploads, error: inventoryError } = await supabase.rpc("list_stale_pin_image_uploads", {
     p_older_than_seconds: olderThanSeconds,
@@ -159,6 +189,7 @@ module.exports = {
   uploadManagedPinImageObject,
   isDefiniteStorageRejection,
   reconcileStalePinImageUploads,
+  quarantineStalePinImageUploads,
   extractManagedPinImagePath,
   buildPinImageObjectPath,
 };
