@@ -23,6 +23,11 @@ declare
   v_attempt_retry_schedule uuid;
   v_safe_retry_pin uuid;
   v_safe_retry_schedule uuid;
+  v_delete_before_pin uuid;
+  v_delete_before_schedule uuid;
+  v_delete_after_pin uuid;
+  v_delete_after_schedule uuid;
+  v_delete_after_claim uuid;
   v_account_a uuid;
   v_account_b uuid;
   v_result jsonb;
@@ -395,6 +400,88 @@ begin
           and pinterest_account_id=v_account_b and pinterest_pin_id='remote-b'
      ) then
     raise exception 'disconnecting account A changed published history for A or B';
+  end if;
+
+  -- Editing the live pin after scheduling must not rewrite the approved creative snapshot.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/snapshot-before.png', 'Snapshot before', 'Original copy', 'approved', 'flux-schnell', 0)
+  returning id into v_delete_before_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, snapshot_title, snapshot_description,
+    snapshot_image_url, snapshot_destination_url
+  ) values (
+    v_user::text, v_delete_before_pin, v_account_a, now() + interval '1 day', 'UTC',
+    'board-a', 'scheduled', 'Snapshot before', 'Original copy',
+    'https://cdn.example.invalid/snapshot-before.png', 'https://example.invalid/original'
+  ) returning id into v_delete_before_schedule;
+  update public.pins
+     set title='Edited after scheduling',
+         description='Edited copy',
+         image_url='https://cdn.example.invalid/snapshot-after.png'
+   where id=v_delete_before_pin;
+  if (select snapshot_title from public.pin_schedules where id=v_delete_before_schedule) <> 'Snapshot before'
+     or (select snapshot_description from public.pin_schedules where id=v_delete_before_schedule) <> 'Original copy'
+     or (select snapshot_image_url from public.pin_schedules where id=v_delete_before_schedule) <> 'https://cdn.example.invalid/snapshot-before.png' then
+    raise exception 'editing a pin rewrote the immutable schedule snapshot';
+  end if;
+
+  -- Deleting the pin before the durable publication boundary cascades the
+  -- queued schedule and leaves no publication attempt to send remotely.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/delete-before.png', 'Delete before', '', 'approved', 'flux-schnell', 0)
+  returning id into v_delete_before_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status
+  ) values (
+    v_user::text, v_delete_before_pin, v_account_a, now() - interval '1 minute',
+    'UTC', 'board-a', 'scheduled'
+  ) returning id into v_delete_before_schedule;
+  delete from public.pins where id=v_delete_before_pin;
+  if exists (select 1 from public.pin_schedules where id=v_delete_before_schedule)
+     or exists (select 1 from public.pinterest_publish_attempts where pin_id=v_delete_before_pin and pinterest_account_id=v_account_a) then
+    raise exception 'deleting a pin before publish reservation left a queued schedule or attempt';
+  end if;
+
+  -- Once the durable attempt has begun, deleting the local pin cannot cancel
+  -- an already-authorized external request. The attempt/publication ledger has
+  -- no cascading pin FK and must retain the eventual remote result for audit.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/delete-after.png', 'Delete after', '', 'approved', 'flux-schnell', 0)
+  returning id into v_delete_after_pin;
+  v_delete_after_claim := gen_random_uuid();
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, claim_token
+  ) values (
+    v_user::text, v_delete_after_pin, v_account_a, now() - interval '1 minute',
+    'UTC', 'board-a', 'publishing', v_delete_after_claim
+  ) returning id into v_delete_after_schedule;
+  v_result := public.begin_scheduled_pinterest_publish(
+    v_user::text, v_delete_after_schedule, v_delete_after_claim,
+    v_delete_after_pin, v_account_a, 'board-a'
+  );
+  if v_result->>'status' <> 'started' then
+    raise exception 'scheduled publish did not reserve its durable attempt before delete: %', v_result;
+  end if;
+  delete from public.pins where id=v_delete_after_pin;
+  if exists (select 1 from public.pin_schedules where id=v_delete_after_schedule)
+     or not exists (
+       select 1 from public.pinterest_publish_attempts
+        where pin_id=v_delete_after_pin and pinterest_account_id=v_account_a and status='processing'
+     ) then
+    raise exception 'deleting a pin after begin did not preserve the in-flight attempt journal';
+  end if;
+  perform public.complete_pinterest_publish_v2(
+    v_user::text, v_delete_after_pin, v_account_a, 'remote-after-delete', 'board-a'
+  );
+  if not exists (
+    select 1 from public.pinterest_publications
+     where pin_id=v_delete_after_pin and pinterest_account_id=v_account_a
+       and pinterest_pin_id='remote-after-delete'
+  ) then
+    raise exception 'remote publication result was lost after local pin deletion';
   end if;
 
   delete from public.pin_schedules where user_id = v_user::text;
