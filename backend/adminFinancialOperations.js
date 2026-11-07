@@ -99,8 +99,27 @@ async function getFinancialOperationsQueue(options = {}) {
     tasksByRequest.get(key).push(task);
   }
 
+  const reservationKeys = [...new Set(reservations.map((row) => row.idempotency_key))];
+  let reservationRequestRows = [];
+  if (reservationKeys.length) {
+    const [generationMatches, regenerationMatches] = await Promise.all([
+      supabase.from("pin_generation_requests")
+        .select("id,user_id,idempotency_key,status")
+        .in("idempotency_key", reservationKeys),
+      supabase.from("pin_regeneration_requests")
+        .select("id,user_id,idempotency_key,status")
+        .in("idempotency_key", reservationKeys),
+    ]);
+    if (generationMatches.error) throw generationMatches.error;
+    if (regenerationMatches.error) throw regenerationMatches.error;
+    reservationRequestRows = [
+      ...(generationMatches.data || []).map((row) => ({ ...row, operation: "generation" })),
+      ...(regenerationMatches.data || []).map((row) => ({ ...row, operation: "regeneration" })),
+    ];
+  }
+
   const requestByKey = new Map();
-  for (const row of [...generationRequests, ...regenerationRequests]) {
+  for (const row of reservationRequestRows) {
     requestByKey.set(operationKey(row.user_id, row.idempotency_key), row);
   }
 
@@ -146,14 +165,14 @@ async function getFinancialOperationsQueue(options = {}) {
     const matchingRequest = requestByKey.get(operationKey(row.user_id, row.idempotency_key));
     return {
       reservation_id: String(row.id),
-      operation: matchingRequest
-        ? (generationRequests.some((item) => item.id === matchingRequest.id) ? "generation" : "regeneration")
-        : "unmatched",
+      operation: matchingRequest ? matchingRequest.operation : "unmatched",
       amount_credits: row.amount,
       status: row.status,
-      reason: matchingRequest
-        ? "old_active_reservation_requires_request_review"
-        : "reservation_without_matching_stale_request_review",
+      reason: !matchingRequest
+        ? "reservation_without_matching_request_review"
+        : matchingRequest.status === "processing"
+          ? "old_active_reservation_requires_request_review"
+          : "active_reservation_with_terminal_request_integrity_review",
       request_id: matchingRequest ? String(matchingRequest.id) : null,
       created_at: row.created_at,
       updated_at: row.updated_at,
