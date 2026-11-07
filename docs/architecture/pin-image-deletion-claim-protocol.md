@@ -1,4 +1,6 @@
-# Storage object deletion-claim protocol — implementation design
+# Storage object deletion-claim protocol — implementation and rollout notes
+
+**Implementation status:** migration `070_pin_image_deletion_claim_protocol.sql` and the backend claim/finalize executor are committed on `feat/persisted-boards-api`. The migration uses database triggers on all three reference tables as the serialization gate, rather than requiring each current writer to call a separate registration RPC. It has not yet been applied to Supabase or exercised against a live PostgreSQL instance.
 
 **Prepared:** 2026-11-07  
 **Target branch:** `feat/persisted-boards-api`  
@@ -15,7 +17,7 @@ The invariant must cover all three current reference families:
 
 A read-then-delete helper alone cannot enforce this invariant because Supabase Storage deletion is an external HTTP operation and cannot participate in a PostgreSQL transaction.
 
-## Proposed data model
+## Data model
 
 Add `public.pin_image_object_lifecycle` with:
 - `bucket_id text not null` (currently `pin-images`)
@@ -30,7 +32,7 @@ Add `public.pin_image_object_lifecycle` with:
 
 Use a deterministic row as the serialization point for every managed object. Do not persist full public URLs or secrets. Existing objects can be registered lazily when they are first referenced or considered for cleanup.
 
-## Required database RPC contract
+## Database RPC and trigger contract
 
 ### 1. `register_pin_image_reference`
 
@@ -128,6 +130,6 @@ Backend tests:
 6. Deploy backend only after migration and staging verification.
 7. Enable periodic reconciliation after observing metrics.
 
-## Non-goals
+## Current rollout blockers\n\n- Apply migration 070 manually in Supabase SQL Editor after a backup. Until then, the updated backend cleanup path will fail closed because the claim RPC does not exist.\n- Run the Node test suite and PostgreSQL integration/concurrency tests against a disposable database. These have not been run from this session.\n- Add stale-claim reconciliation before enabling automated retries. Expired claims deliberately remain fenced; TTL alone never reopens writes.\n- Decide when generation task journals may be pruned and add a safe orphan-cleanup policy.\n\n## Non-goals
 
 This protocol does not change public/private bucket visibility, existing RLS policy state, retention policy for terminal generation journals, or storage-provider redundancy. Those require separate decisions.
