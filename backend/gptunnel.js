@@ -37,13 +37,17 @@ function imageTaskResult(task) {
   return { url, price: Number(price), taskId };
 }
 
-async function generateText(prompt) {
+async function generateTextWithUsage(prompt, options = {}) {
+  const payload = {
+    model: options.model || "gpt-4o",
+    messages: [{ role: "user", content: prompt }],
+    ...(Number.isInteger(options.maxTokens) && options.maxTokens > 0
+      ? { max_tokens: options.maxTokens }
+      : {}),
+  };
   const response = await axios.post(
     `${API_BASE}/v1/chat/completions`,
-    {
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
-    },
+    payload,
     providerRequestConfig()
   );
   const content = response.data && response.data.choices &&
@@ -52,7 +56,55 @@ async function generateText(prompt) {
   if (typeof content !== "string" || !content.trim()) {
     throw new Error("Провайдер не вернул текстовый результат");
   }
-  return content;
+  const usage = response.data && response.data.usage;
+  const totalCost = usage && Number(usage.total_cost);
+  if (!Number.isFinite(totalCost) || totalCost < 0) {
+    const error = new Error("Провайдер не вернул достоверную стоимость текстового запроса");
+    error.code = "GPTUNNEL_USAGE_COST_MISSING";
+    throw error;
+  }
+  return {
+    content,
+    usage: {
+      promptTokens: Number.isFinite(Number(usage.prompt_tokens)) ? Number(usage.prompt_tokens) : null,
+      completionTokens: Number.isFinite(Number(usage.completion_tokens)) ? Number(usage.completion_tokens) : null,
+      totalTokens: Number.isFinite(Number(usage.total_tokens)) ? Number(usage.total_tokens) : null,
+      promptCost: Number.isFinite(Number(usage.prompt_cost)) ? Number(usage.prompt_cost) : null,
+      completionCost: Number.isFinite(Number(usage.completion_cost)) ? Number(usage.completion_cost) : null,
+      totalCost,
+    },
+    model: typeof response.data.model === "string" ? response.data.model : payload.model,
+    requestId: typeof response.data.id === "string" ? response.data.id : null,
+  };
+}
+
+async function generateText(prompt, options = {}) {
+  const result = await generateTextWithUsage(prompt, options);
+  return result.content;
+}
+
+function normalizeMediaQuote(data) {
+  const price = data && Number(data.price);
+  if (!data || data.code !== 0 || data.currency !== "RUB" ||
+      !Number.isFinite(price) || price < 0) {
+    throw new Error("Провайдер вернул некорректную котировку генерации");
+  }
+  return {
+    model: typeof data.model === "string" ? data.model : null,
+    price,
+    currency: data.currency,
+    params: data.params && typeof data.params === "object" ? data.params : {},
+    ignoredParams: Array.isArray(data.ignored_params) ? data.ignored_params : [],
+  };
+}
+
+async function quoteImageTask(prompt, model = "flux-schnell", aspectRatio = "2:3") {
+  const response = await axios.post(
+    `${API_BASE}/api/v2/media/price`,
+    { model, prompt, params: { aspect_ratio: aspectRatio } },
+    providerRequestConfig()
+  );
+  return normalizeMediaQuote(response.data);
 }
 
 async function listModels() {
