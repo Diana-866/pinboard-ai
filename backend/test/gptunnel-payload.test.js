@@ -70,3 +70,45 @@ test("imageTaskResult rejects incomplete provider task results", () => {
     price: 0,
   }), /некорректный результат/i);
 });
+
+test("generateImage persists accepted task ID before polling", async () => {
+  const originalPost = axios.post;
+  const originalGet = axios.get;
+  const originalTimeout = global.setTimeout;
+  const events = [];
+  axios.post = async () => ({
+    data: { id: "fedcba9876543210fedcba98", status: "queued" },
+  });
+  axios.get = async () => {
+    events.push("poll");
+    return {
+      data: {
+        id: "fedcba9876543210fedcba98",
+        status: "done",
+        result: [{ url: "https://provider.example.invalid/resumed.png" }],
+        price: 0.7,
+      },
+    };
+  };
+  global.setTimeout = (fn) => {
+    fn();
+    return 0;
+  };
+  try {
+    const result = await generateImage(
+      "resume promptly",
+      "flux-schnell",
+      "2:3",
+      "stable-provider-key-0002",
+      { onTaskUpdate: async (taskId, status) => events.push(["journal", taskId, status]) }
+    );
+    assert.equal(events[0][0], "journal");
+    assert.equal(events[0][1], "fedcba9876543210fedcba98");
+    assert.equal(events[1], "poll");
+    assert.equal(result.url, "https://provider.example.invalid/resumed.png");
+  } finally {
+    axios.post = originalPost;
+    axios.get = originalGet;
+    global.setTimeout = originalTimeout;
+  }
+});
