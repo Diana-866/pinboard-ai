@@ -256,3 +256,12 @@
 - Production, база данных, deployment и PR merge не затрагивались.
 
 **Status:** AUD-065 / ASPECT_RATIO_UPDATE_PERSISTED / OWNER_SCOPED / RUNTIME_UNVERIFIED.
+
+
+### 2026-11-07 — AUD-066: serialize pin edits before scheduling
+- Найден race condition в генераторе: выбор заголовка запускал PATCH без ожидания и сразу менял UI; описание сохранялось только при blur без отслеживания незавершённого запроса. Пользователь мог сразу нажать планирование, и API расписания снимал snapshot пина до завершения последнего PATCH.
+- Исправлено в `frontend/src/components/pins/PinGenerator.tsx`: PATCH-операции одного пина сериализуются; заголовок обновляет локальное состояние только после успешного ответа; описание отправляет фактическое значение из textarea на blur; перед созданием расписания ожидается последняя незавершённая запись для текущего пина. Если сохранение завершилось ошибкой, планирование прекращается, чтобы не зафиксировать устаревший snapshot.
+- Это не меняет backend API или production data. Проверка пока source-level; TypeScript, browser E2E и реальный API flow не запускались из-за известного GitHub Actions runner blocker.
+- Не проверено: сохранение при закрытии вкладки/потере сети, восстановление редактора после полного reload, а также конкурентные изменения из нескольких вкладок.
+
+**Status:** AUD-066 / PIN_EDITS_SERIALIZED / SCHEDULE_WAITS_FOR_PENDING_SAVE / RUNTIME_UNVERIFIED.
