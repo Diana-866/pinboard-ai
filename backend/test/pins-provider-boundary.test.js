@@ -47,6 +47,29 @@ test("text-generation failure does not cross the billable image submission bound
   assert.equal(submitted, false);
 });
 
+test("text-plan generation marks the provider submission boundary before calling the text provider", async () => {
+  let submitted = false;
+  provider.generateText = async () => {
+    assert.equal(submitted, true, "callback must run before the billable text provider call");
+    throw new Error("simulated ambiguous text provider failure");
+  };
+
+  await assert.rejects(
+    generatePins(
+      { id: "board-1", title: "Test board", description: "" },
+      { niche: "test", tone: "neutral", language: "en" },
+      "flux-schnell",
+      1,
+      "2:3",
+      null,
+      { onTextProviderSubmission: () => { submitted = true; } }
+    ),
+    /simulated ambiguous text provider failure/
+  );
+
+  assert.equal(submitted, true);
+});
+
 test("image generation marks the provider submission boundary before calling the image provider", async () => {
   let submitted = false;
   provider.generateText = async () => JSON.stringify([
