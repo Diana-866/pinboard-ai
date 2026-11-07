@@ -285,4 +285,5 @@ jobs:
           bash backend/test/subscription-concurrency.sh
           bash backend/test/credit-concurrency.sh
           bash backend/test/generation-concurrency.sh
+          bash backend/test/pinterest-oauth-concurrency.sh
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-regeneration-journal.integration.sql
