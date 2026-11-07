@@ -224,7 +224,7 @@ security definer
 set search_path = pg_catalog, public
 as $$
 begin
-  if p_bucket_id <> 'pin-images' or p_object_path is null
+  if p_bucket_id is distinct from 'pin-images' or p_object_path is null
      or p_claim_token is null or p_deleted is null then
     raise exception 'invalid pin image deletion finalization';
   end if;
