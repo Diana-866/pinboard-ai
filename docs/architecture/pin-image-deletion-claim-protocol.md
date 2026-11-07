@@ -62,7 +62,7 @@ The reservation allows deterministic `upsert: true` only when no durable referen
 
 ### Stale upload reconciliation
 
-The admin-only endpoint `POST /admin/storage/reconcile-stale-uploads` inventories reservations older than 15 minutes (maximum 100 per request). Its service-role-only inventory RPC returns the exact object path and fencing token internally; the HTTP response never includes the token.
+The admin-only endpoint `POST /admin/storage/reconcile-stale-uploads` inventories reservations whose claim expiry is at least 15 minutes in the past (normally at least 25 minutes after reservation, because the upload TTL defaults to 10 minutes; maximum 100 rows per request). Its service-role-only inventory RPC returns the exact object path and fencing token internally; the HTTP response never includes the token.
 
 This endpoint is deliberately **observational only**:
 - it checks whether the exact filename is visible in its managed Storage folder;
@@ -71,9 +71,15 @@ This endpoint is deliberately **observational only**:
 - Storage inventory errors are reported without changing lifecycle state;
 - it never calls `finalize_pin_image_upload` and never releases an upload fence.
 
-Visibility alone is not proof that the original upsert request/process has terminated. An older request may still be in flight, or the visible object may predate the current reservation; automatically finalizing could reopen the path while a late write can still replace its bytes. TTL and Storage listing therefore remain diagnostic signals, not authorization to unlock.
+Visibility alone is not proof that the original upsert request/process has terminated. An older request may still be in flight, or the visible object may predate the current reservation; automatically finalizing could reopen the path while a late write can still replace its bytes.
 
-A safe operator resolution procedure is still outstanding: it must establish independently that the original backend request/process is terminated, preserve the exact fencing token, and perform a token-checked state transition. Until that procedure exists, stale rows intentionally remain fenced. The endpoint is admin-authenticated and is not scheduled automatically.
+For recovery, the separate admin-only endpoint `POST /admin/storage/quarantine-stale-uploads` permanently retires stale paths using the exact inventory token. The SQL transition succeeds only while the row is still `uploading`, the token matches, the expiry is at least 15 minutes old, and no durable reference exists. A quarantined path:
+- cannot be referenced by any of the four reference triggers;
+- cannot be reserved for a future upload;
+- cannot be claimed for deletion;
+- cannot be finalized by the old upload token.
+
+A remote Storage request may still finish after quarantine. If it does, it can only leave an unreferenced orphan at the retired path; the path is never reused, so the late write cannot replace a newer image or become attached to a pin. This intentionally trades possible orphaned Storage bytes for correctness. New uploads must use a fresh path. Quarantine is not a claim that the old request has stopped, and the old object is not automatically deleted.
 
 ### 3. `claim_pin_image_deletion`
 
