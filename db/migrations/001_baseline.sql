@@ -41,6 +41,7 @@ create table if not exists public.users (
   onboarded         boolean not null default false,
   tariff_plan       text not null default 'none', -- none | analytics | start | pro | agency
   email_verified    boolean not null default false,
+  token_version     integer not null default 0 check (token_version >= 0),
   tariff_period_end timestamptz,
   created_at        timestamp without time zone default now()
 );
