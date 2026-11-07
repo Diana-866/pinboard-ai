@@ -52,10 +52,11 @@ begin
      and tgname in (
        'trg_pins_image_reference_guard',
        'trg_pin_schedules_image_reference_guard',
-       'trg_pin_generation_tasks_image_reference_guard'
+       'trg_pin_generation_tasks_image_reference_guard',
+       'trg_pin_regeneration_requests_image_reference_guard'
      );
-  if v_trigger_count <> 3 then
-    raise exception 'expected 3 image reference guard triggers, found %', v_trigger_count;
+  if v_trigger_count <> 4 then
+    raise exception 'expected 4 image reference guard triggers, found %', v_trigger_count;
   end if;
 end;
 $body$;
@@ -173,6 +174,8 @@ declare
   v_schedule_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/1730000000001-ab12cd34.webp';
   v_task_path text := 'pins/generation-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.png';
   v_task_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.png';
+  v_regen_path text := 'pins/generation-cccccccccccccccccccccccccccccccc.webp';
+  v_regen_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-cccccccccccccccccccccccccccccccc.webp';
   v_result jsonb;
   v_token uuid;
 begin
@@ -236,6 +239,41 @@ begin
   v_token := (v_result ->> 'claim_token')::uuid;
   if not public.finalize_pin_image_deletion('pin-images', v_task_path, v_token, true, null) then
     raise exception 'generation image claim could not be finalized after journal removal';
+  end if;
+
+  -- The single-pin regeneration journal is a separate durable recovery
+  -- source and must prevent deletion even when the live pin is later removed.
+  insert into public.pin_regeneration_requests(
+    user_id, pin_id, idempotency_key, request_fingerprint,
+    model, prompt, amount, storage_url
+  ) values (
+    v_user_id::text, v_pin_id, 'pin-image-regen-claim-test-001',
+    repeat('a', 64), 'test-model', 'test prompt', 1, v_regen_url
+  );
+
+  if not exists (
+    select 1 from public.pin_image_object_lifecycle
+     where bucket_id = 'pin-images' and object_path = v_regen_path and state = 'active'
+  ) then
+    raise exception 'regeneration journal trigger did not register the managed object';
+  end if;
+
+  update public.pins set image_url = null where id = v_pin_id;
+  v_result := public.claim_pin_image_deletion('pin-images', v_regen_path, 60);
+  if coalesce((v_result ->> 'claimed')::boolean, false) is not false
+     or v_result ->> 'reason' <> 'referenced' then
+    raise exception 'image deletion claim ignored the regeneration journal reference: %', v_result;
+  end if;
+
+  delete from public.pin_regeneration_requests
+   where idempotency_key = 'pin-image-regen-claim-test-001';
+  v_result := public.claim_pin_image_deletion('pin-images', v_regen_path, 60);
+  if coalesce((v_result ->> 'claimed')::boolean, false) is not true then
+    raise exception 'regeneration image was not claimable after journal removal: %', v_result;
+  end if;
+  v_token := (v_result ->> 'claim_token')::uuid;
+  if not public.finalize_pin_image_deletion('pin-images', v_regen_path, v_token, true, null) then
+    raise exception 'regeneration image claim could not be finalized after journal removal';
   end if;
 end;
 $body$;
