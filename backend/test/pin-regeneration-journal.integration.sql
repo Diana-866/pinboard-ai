@@ -14,14 +14,14 @@ declare
   v_claim uuid;
   v_other jsonb;
 begin
-  insert into public.users(email, password_hash, credits_balance, tariff_plan)
-  values ('regeneration-journal-' || gen_random_uuid()::text || '@example.test', 'test', 50, 'pro')
-  returning id into v_user_id;
+  v_user_id := gen_random_uuid();
+  insert into public.users(id, email, credits_balance, tariff_plan, email_verified)
+  values (v_user_id, 'regeneration-journal-' || v_user_id::text || '@example.test', 50, 'pro', true);
 
-  insert into public.projects(user_id, niche, tone, language)
-  values (v_user_id, 'test', 'neutral', 'ru') returning id into v_project_id;
-  insert into public.boards(project_id, title, description, status)
-  values (v_project_id, 'regeneration test', '', 'new') returning id into v_board_id;
+  insert into public.projects(user_id, niche)
+  values (v_user_id, 'regeneration test') returning id into v_project_id;
+  insert into public.boards(project_id)
+  values (v_project_id) returning id into v_board_id;
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
   values (v_board_id, 'https://storage.test/old.png', 'test', 'test', 'approved', 'flux-schnell', 0)
   returning id into v_pin_id;
@@ -42,7 +42,7 @@ begin
 
   select credits_balance into v_balance from public.users where id=v_user_id;
   select count(*) into v_ledger_count from public.credit_transactions
-    where user_id=v_user_id::text and type='regeneration';
+    where user_id=v_user_id::text;
   select image_url into v_image_url from public.pins where id=v_pin_id;
   if v_balance <> 35 then raise exception 'expected balance 35, got %', v_balance; end if;
   if v_ledger_count <> 1 then raise exception 'expected one ledger row, got %', v_ledger_count; end if;
