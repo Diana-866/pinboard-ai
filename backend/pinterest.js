@@ -477,7 +477,7 @@ async function getPinWithOwner(pinId, userId) {
   return data;
 }
 
-async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationUrl, accountId = null) {
+async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationUrl, accountId = null, scheduleClaim = null) {
   const boardId = String(pinterestBoardId || "").trim();
   if (!boardId) throw httpError(422, "board_id обязателен: выберите доску Pinterest");
 
@@ -504,12 +504,22 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
 
   // Атомарная резервация в БД не позволяет двум запросам одновременно
   // отправить один и тот же локальный пин в Pinterest.
-  const { data: reservation, error: reservationError } = await supabase.rpc("begin_pinterest_publish_v2", {
-    p_user_id: String(userId),
-    p_pin_id: pinId,
-    p_pinterest_account_id: accountId,
-    p_pinterest_board_id: boardId,
-  });
+  const reservationRpc = scheduleClaim
+    ? supabase.rpc("begin_scheduled_pinterest_publish", {
+        p_user_id: String(userId),
+        p_schedule_id: scheduleClaim.scheduleId,
+        p_claim_token: scheduleClaim.claimToken,
+        p_pin_id: pinId,
+        p_pinterest_account_id: accountId,
+        p_pinterest_board_id: boardId,
+      })
+    : supabase.rpc("begin_pinterest_publish_v2", {
+        p_user_id: String(userId),
+        p_pin_id: pinId,
+        p_pinterest_account_id: accountId,
+        p_pinterest_board_id: boardId,
+      });
+  const { data: reservation, error: reservationError } = await reservationRpc;
   if (reservationError) throw reservationError;
 
   const reservationStatus = reservation && reservation.status;
@@ -879,7 +889,8 @@ function registerRoutes(app, deps) {
             schedule.pin_id,
             schedule.pinterest_board_id,
             schedule.destination_url,
-            schedule.pinterest_account_id
+            schedule.pinterest_account_id,
+            { scheduleId: schedule.id, claimToken: schedule.claim_token }
           );
           const remoteId = String(published.pinterest_pin_id || "");
           if (!remoteId) throw new Error("Pinterest publication returned no remote ID");
@@ -895,7 +906,8 @@ function registerRoutes(app, deps) {
               updated_at: new Date().toISOString(),
             })
             .eq("id", schedule.id)
-            .eq("status", "publishing");
+            .eq("status", "publishing")
+            .eq("claim_token", schedule.claim_token);
           if (updateError) throw updateError;
           results.push({ schedule_id: schedule.id, status: "published" });
         } catch (e) {
@@ -931,7 +943,8 @@ function registerRoutes(app, deps) {
               updated_at: new Date().toISOString(),
             })
             .eq("id", schedule.id)
-            .eq("status", "publishing");
+            .eq("status", "publishing")
+            .eq("claim_token", schedule.claim_token);
           if (scheduleUpdateError) {
             console.error("[pinterest-worker] не удалось сохранить итоговый статус расписания:", scheduleUpdateError.message);
           }
