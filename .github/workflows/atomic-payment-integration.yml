@@ -309,6 +309,7 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: |
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/prodamus-credit-fulfillment.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-generation-credit-reservations.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/credit-reservation-ledger-guard.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/legacy-regeneration-reservation-guard.integration.sql
