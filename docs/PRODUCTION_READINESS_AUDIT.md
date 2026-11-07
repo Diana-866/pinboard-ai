@@ -232,11 +232,11 @@
 
 ### AUD-020 — Нет полного набора concurrency/HTTP tests для платежных webhook
 - **Приоритет:** P1
-- **Статус:** OPEN
+- **Статус:** PARTIALLY COVERED — добавлены handler-level callback/concurrency regressions; настоящие HTTP server + PostgreSQL integration tests остаются открытыми.
 - **Тип:** пробел покрытия, а не доказанный двойной платёж.
-- **Наблюдение:** SQL atomicity/ledger защищают от повторного начисления в проверенных сценариях; остаются непокрытыми параллельные webhook, ambiguous DB response, cancel-vs-success и полный HTTP handler.
-- **Исправить:** добавить HTTP-level тесты и параллельные callbacks для subscription и credit purchases.
-- **Тесты:** два одновременных одинаковых webhook; timeout после commit; повтор после timeout; конфликт cancel/success; неверная сумма/currency/signature.
+- **Исправление:** обработчики подписок и кредитов принимают необязательные test dependencies для подмены DB; добавлены регрессионные тесты параллельных одинаковых callbacks, commit-then-error с последующим повтором, а также cancel после успешного начисления. Проверки используют подписанные Prodamus payloads и тестовый DB adapter.
+- **Ограничение:** эти тесты проверяют handler semantics и идемпотентность на fake adapter, но не заменяют реальный HTTP middleware/serialization, блокировки PostgreSQL или реальный network timeout. Нужны отдельные HTTP-level tests через Express и PostgreSQL integration test с двумя независимыми соединениями.
+- **Тесты:** запуск CI пока не подтверждён; неверные подпись/сумма/currency покрываются отдельными unit cases, но их end-to-end HTTP маршрут также не подтверждён.
 
 ### AUD-021 — Email outbox допускает повторную отправку при неопределённом SMTP результате
 - **Приоритет:** P2
