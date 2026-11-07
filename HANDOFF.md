@@ -256,3 +256,11 @@ HANDOFF.md                            Этот файл
 
 - Повторно проверены `/projects/:id/analyze` и `/projects/:id/boards/generate`: оба вызывают GPTunnel text generation без списания credits и durable idempotency journal. Analyze не имеет `requireTariff`, board generation ограничен тарифами standard/pro/agency/start. Общий `aiLimiter` — 12 запросов/минуту на ключ limiter, не per-user quota и не финансовый ledger.
 - Не менял тарификацию: неизвестно, обещаны ли эти функции как бесплатные, включённые в тариф или оплачиваемые кредитами. AUD-018 переведена в BLOCKED до явного решения владельца по квотам/стоимости каждой операции.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-020 partial coverage)
+
+- `billing.handleWebhook` и `creditsBilling.handleCreditsWebhook` получили необязательный третий аргумент `dependencies` для изолированного тестирования; production поведение по умолчанию использует прежний Supabase singleton и email outbox dispatcher.
+- Добавлены handler-level regressions: два одновременных subscription success callbacks; commit-then-error и повтор subscription webhook; concurrent credit callbacks с ambiguous commit и replay; cancel callback после уже успешного credit purchase не перезаписывает success.
+- Тесты подписывают payload HMAC тем же canonical serializer, который используется в production.
+- Это не реальные HTTP/PostgreSQL integration tests: для них нужны Express harness и PostgreSQL. AUD-020 остаётся partially covered; CI/staging не подтверждены.
