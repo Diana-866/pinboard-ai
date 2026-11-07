@@ -332,3 +332,14 @@
 - Не добавлялась миграция, не менялись цены/балансы/тарифы; не тронуты production, GPTunnel credentials, deploy, DB, DNS, Prodamus, Pinterest и PR merge.
 
 **Status:** AUD-072 / QUOTE_VALIDATION_HARDENED / TESTS_ADDED_RUNTIME_UNVERIFIED / PROVIDER_BILLING_NOT_YET_WIRED.
+
+
+## 2026-11-07 — AUD-073: single-pin regeneration provider accounting
+- Migration 053 + route `POST /pins/:id/regenerate` reviewed. Existing protections: owner check, request fingerprint, stable provider idempotency key, claim-token fence, provider task ID persisted before polling, recovery by polling/reusing same key, atomic user-credit debit + pin update.
+- Confirmed accounting gap: journal stores `provider_price`, but completion debits fixed `amount` from local `MODEL_PRICES`; this may be valid user-credit policy but is not actual provider-cost accounting and can drift from GPTunnel RUB price.
+- Confirmed refund gap: GPTunnel failed task response includes `refunded`, but `generateImage()/waitForImageTask()` errors and route catch do not persist it. Non-refunded provider failures can be platform expenses invisible to current journal. Migration 053 has no provider terminal status/refund/error detail/reconciliation timestamp.
+- Official docs reviewed: task creation idempotency replay rules; wait:true can still return queued/running after ~30 sec; GET task returns price/refunded; quote endpoint prices exact model/prompt/params before task submission. See AUD-073 for detailed design and sources.
+- Created `docs/audits/AUD-073-regeneration-provider-accounting.md` with separate provider-cost ledger vs user-credit accounting, claim-fenced terminal outcome RPC, quote/reconciliation policy and disposable PostgreSQL test matrix.
+- No code or migration changed; no user credits/tariffs changed; no authenticated provider API call, runtime/SQL test, production change, deploy or PR merge.
+
+**Status:** AUD-073 / REGENERATION_ACCOUNTING_GAPS_DOCUMENTED / DESIGN_ONLY / RUNTIME_UNVERIFIED.
