@@ -777,6 +777,23 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
       throw httpError(500, "Не удалось получить право на перегенерацию");
     }
 
+    // A fresh regeneration must be quoted for its exact payload before any
+    // provider submission. Existing task IDs are legacy/in-flight work and
+    // must be recovered without creating a second billable task.
+    if (!state.provider_task_id) {
+      const quote = await quoteImageTask(prompt, model, "2:3");
+      const { error: quoteError } = await supabase.rpc("record_pin_regeneration_quote", {
+        p_user_id: String(req.userId),
+        p_idempotency_key: idempotencyKey,
+        p_claim_token: claimToken,
+        p_quote_price: quote.price,
+        p_quote_currency: quote.currency,
+        p_quote_model: quote.model,
+        p_quote_aspect_ratio: quote.params.aspect_ratio,
+      });
+      if (quoteError) throw quoteError;
+    }
+
     // New provider submissions must be covered by the same reservation pool
     // used by multi-pin generation. Legacy requests with a durable provider
     // task ID are recovered without creating a second reservation.
@@ -890,6 +907,29 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
       });
       if (resultError) throw resultError;
       storedUrl = await rehostImage(image.url, { idempotencyKey: state.provider_idempotency_key });
+    }
+
+    // Settle against the provider's authoritative terminal price, not the
+    // pre-submission estimate. The journal retains the image result if a
+    // required top-up cannot be reserved; retrying the same key won't resubmit.
+    const actualPrice = state.provider_price != null
+      ? Number(state.provider_price)
+      : Number(image && image.price);
+    if (!Number.isFinite(actualPrice) || actualPrice <= 0) {
+      throw httpError(502, "Провайдер не вернул корректную фактическую стоимость изображения.");
+    }
+    const actualCharge = Math.ceil(actualPrice * MARKUP);
+    const { error: settlementResizeError } = await supabase.rpc("resize_pin_regeneration_credit_reservation", {
+      p_user_id: String(req.userId),
+      p_idempotency_key: idempotencyKey,
+      p_claim_token: claimToken,
+      p_amount: actualCharge,
+    });
+    if (settlementResizeError) {
+      if (/insufficient available credits/i.test(settlementResizeError.message || "")) {
+        throw httpError(402, "Фактическая стоимость выше резерва. Пополните баланс и повторите перегенерацию с тем же ключом.");
+      }
+      throw settlementResizeError;
     }
 
     const { data: completed, error: completeError } = await supabase.rpc("complete_pin_regeneration_request", {
