@@ -149,12 +149,13 @@ export const PricingView: React.FC = () => {
 
   // A provider webhook may arrive after the customer returns from checkout.
   // Refresh only while this account has pending orders; never create a new payment.
-  const hasPendingPayments =
-    history.some((row) => row.status === 'pending') ||
-    purchases.some((row) => row.status === 'pending');
+  const pendingPaymentKey = [
+    ...history.filter((row) => row.status === 'pending').map((row) => `subscription:${row.id}`),
+    ...purchases.filter((row) => row.status === 'pending').map((row) => `purchase:${row.id}`),
+  ].sort().join('|');
 
   useEffect(() => {
-    if (!user?.id || !hasPendingPayments) return;
+    if (!user?.id || !pendingPaymentKey) return;
 
     let active = true;
     const refreshPendingPayments = async () => {
@@ -213,7 +214,7 @@ export const PricingView: React.FC = () => {
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [user?.id, hasPendingPayments]);
+  }, [user?.id, pendingPaymentKey]);
 
   const handlePay = async (planId: string) => {
     setPayError(null);
