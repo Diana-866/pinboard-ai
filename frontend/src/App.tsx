@@ -573,7 +573,6 @@ const MainApp: React.FC = () => {
               onOpenReview={() => setActiveTab('review')}
               accounts={accounts}
               pendingCount={pendingCount}
-              onUpdateAccountAutoTime={handleUpdateAccountAutoTime}
             />
           )}
 
