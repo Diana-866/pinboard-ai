@@ -8,19 +8,35 @@ const { assertPublicUrl, createPinnedLookup } = require("./publicUrl");
 const { extractManagedPinImagePath, canDeletePinImageObject, buildPinImageObjectPath } = require("./pinImageLifecycle");
 
 const BUCKET = "pin-images";
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_MIMES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 let bucketReady = false;
 
 async function ensureBucket() {
   if (bucketReady) return;
-  try {
-    const { data: buckets } = await supabase.storage.listBuckets();
-    if (buckets && !buckets.find((b) => b.name === BUCKET)) {
-      await supabase.storage.createBucket(BUCKET, { public: true, fileSizeLimit: 5242880 });
-    }
-    bucketReady = true;
-  } catch (e) {
-    console.error("[storage] не удалось проверить бакет:", e.message);
+  const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+  if (listError) {
+    throw httpError(503, "Не удалось проверить настройки хранилища изображений");
   }
+
+  let bucket = (buckets || []).find((item) => item.name === BUCKET);
+  if (!bucket) {
+    const { data: created, error: createError } = await supabase.storage.createBucket(BUCKET, {
+      public: true,
+      fileSizeLimit: MAX_IMAGE_BYTES,
+      allowedMimeTypes: ALLOWED_IMAGE_MIMES,
+    });
+    if (createError) {
+      throw httpError(503, "Не удалось создать бакет изображений: " + createError.message);
+    }
+    bucket = created || null;
+  }
+
+  const configuredLimit = Number(bucket && bucket.file_size_limit);
+  if (Number.isFinite(configuredLimit) && configuredLimit > 0 && configuredLimit < MAX_IMAGE_BYTES) {
+    throw httpError(503, "Лимит бакета pin-images меньше допустимого размера изображения (5 МиБ)");
+  }
+  bucketReady = true;
 }
 
 // Проверяем сигнатуру, а не доверяем Content-Type, присланному клиентом или источником.
@@ -109,7 +125,7 @@ async function rehostImage(sourceUrl, options = {}) {
     const response = await axios.get(validated.url, {
       responseType: "arraybuffer",
       timeout: 30000,
-      maxContentLength: 8 * 1024 * 1024,
+      maxContentLength: MAX_IMAGE_BYTES,
       httpAgent,
       httpsAgent,
       proxy: false,
