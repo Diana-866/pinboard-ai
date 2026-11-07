@@ -806,6 +806,17 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                 <p className="text-xs font-mono font-bold text-accent-ghost">
                   {selectedPin.scheduledDate} · {selectedPin.scheduledTime}
                 </p>
+                {selectedPin.status === 'published' && selectedPin.pinterestPinUrl && (
+                  <a
+                    href={selectedPin.pinterestPinUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent-ghost hover:underline"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    {t.calendar.openPinterestPin}
+                  </a>
+                )}
               </div>
             </div>
 
