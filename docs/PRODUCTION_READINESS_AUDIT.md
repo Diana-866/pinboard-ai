@@ -266,11 +266,12 @@
 
 ### AUD-024 — Pinterest multi-account: не хватает нескольких регрессионных сценариев
 - **Приоритет:** P2
-- **Статус:** OPEN
-- **Тип:** пробел покрытия.
-- **Уже покрыто по статическому анализу/имеющимся SQL tests:** разные аккаунты изолированы; disconnect одного не должен затрагивать другой; FK защищают историю.
-- **Добавить тесты:** reconnect того же external Pinterest ID сохраняет internal account ID; параллельные OAuth callbacks; legacy rows без account_id; восстановление старых schedule.
-- **Не заявлять дефект из-за отсутствия тестов.**
+- **Статус:** PARTIALLY COVERED
+- **Тип:** остаточный пробел конкурентного тестирования.
+- **Уже покрыто SQL-сценариями:** reconnect того же external Pinterest ID сохраняет internal account ID; повторный OAuth callback не может перезаписать credentials; устаревший callback после новой вкладки/disconnect отклоняется; разные аккаунты одного пользователя обслуживаются отдельно; legacy schedule без publication history можно явно привязать к проверенному account; schedule с историей публикации не перепривязывается; привязка к отключённому account отклоняется.
+- **Добавлено сейчас:** `backend/test/pinterest-account-publication.integration.sql` проверяет, что legacy schedule не получает account_id отключённого Pinterest account и остаётся непривязанным.
+- **Осталось:** имеющиеся OAuth callbacks/replay проверяются последовательно в одной SQL-транзакции, а не двумя реальными конкурентными DB-сессиями. Нужен concurrency harness на двух PostgreSQL connections для одновременного commit одного attempt; также нужен CI execution result.
+- **Не заявлять дефект из-за отсутствия тестов:** текущий SQL fencing использует блокировку OAuth state row и consume attempt в той же транзакции.**
 
 ### AUD-025 — Cron и production миграции для Pinterest worker не подтверждены
 - **Приоритет:** P0 для функции автопубликации
