@@ -37,8 +37,7 @@ begin
      or (p_provider_price is not null and
        (p_provider_price < 0 or p_provider_price::text in ('NaN','Infinity','-Infinity')))
      or (p_provider_status='succeeded' and
-       (p_provider_price is null or p_provider_refunded is not null
-        or p_provider_result_url is null or length(trim(p_provider_result_url))=0))
+       (p_provider_price is null or p_provider_refunded is not null))
      or (p_provider_status='failed' and p_provider_result_url is not null)
      or (p_provider_error_title is not null and length(p_provider_error_title)>120) then
     raise exception 'invalid generation provider outcome';
@@ -73,8 +72,8 @@ begin
        or v_task.provider_refunded is distinct from p_provider_refunded
        or v_task.provider_error_code is distinct from p_provider_error_code
        or v_task.provider_error_title is distinct from p_provider_error_title
-       or (p_provider_status='succeeded' and
-         v_task.provider_result_url is distinct from p_provider_result_url) then
+       or (p_provider_status='succeeded' and p_provider_result_url is not null
+         and v_task.provider_result_url is distinct from p_provider_result_url) then
       raise exception 'conflicting generation provider outcome replay';
     end if;
     return true;
