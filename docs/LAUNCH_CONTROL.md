@@ -360,3 +360,14 @@
 - Не изменялись user credit amount, tariff, balances, production DB, GPTunnel credentials, deploy, DNS, Prodamus, Pinterest или merge PR.
 
 **Status:** AUD-073 / PROVIDER_OUTCOME_JOURNAL_ADDED / ROUTE_WIRED / SQL_RUNTIME_UNVERIFIED / DO_NOT_DEPLOY_BEFORE_MIGRATION_TEST.
+
+
+### 2026-11-07 — AUD-074: multi-pin provider outcome journal (migration 064)
+- Проверен основной multi-pin generation path: GPTunnel failed-task metadata терялся в `pins.js`; SQL journal сохранял только внутренний error code. Успешные provider prices/result URLs сохранялись, но не имели отдельного terminal reconciliation marker.
+- Добавлена миграция `db/migrations/064_pin_generation_provider_outcomes.sql`: поля provider_outcome_status/refunded/error code/title/reconciled_at и claim-fenced RPC `record_pin_generation_provider_outcome`. Lock order parent request → task соответствует migration 046. Identical replay идемпотентен; conflicting facts и stale claims отклоняются.
+- `backend/pins.js` и `backend/index.js` теперь сохраняют успешный outcome до rehosting и failed outcome с gross price/refund/error metadata. Если provider failure не имеет task ID, он остаётся unknown. Recovery snapshot включает outcome fields.
+- Добавлен `backend/test/pin-generation-provider-outcome.sh`: success, refunded true/false, missing refund, replay conflict, stale claim, отсутствие user-credit settlement.
+- **Блокер перед deploy:** migration 064 не применена; Bash/SQL/Node/CI tests не запускались. Сначала disposable PostgreSQL и интеграционный сценарий, только затем staging deployment.
+- LLM text usage accounting и exact GPTunnel media quotes до task submission всё ещё не реализованы. Не изменялись user credit pricing, balances, production DB, deploy, payments, DNS, Pinterest или PR merge.
+
+**Status:** AUD-074 / MULTI_PIN_PROVIDER_OUTCOME_JOURNAL_ADDED / ROUTE_WIRED / SQL_RUNTIME_UNVERIFIED / DO_NOT_DEPLOY_BEFORE_MIGRATION_TEST.
