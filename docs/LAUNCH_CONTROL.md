@@ -180,3 +180,15 @@
 - Что осталось непроверенным.
 - Новые задания пользователя (если есть).
 - Production/merge/deploy статус.
+
+
+### 2026-11-07 — AUD-060: CI runner diagnosis
+- Проверен актуальный HEAD `930fd05e6ba17ec6ff437ef82dbc2bb0cb79ccf3` и три PR workflow runs, созданные для этого commit.
+- Все три workflow (Persisted boards integration checks, Prodamus webhook tests, Atomic payment fulfillment integration) завершились failure практически сразу после создания.
+- Проверены jobs через GitHub Actions API: все четыре jobs имеют `runner_id=0`, пустой `runner_name`, `steps=[]`; время от создания до завершения около 1–2 секунд. Ни одна команда workflow не подтверждена как запущенная.
+- Запрос job logs возвращает `BlobNotFound`; это согласуется с отсутствием фактически назначенного runner/логов, а не с конкретной ошибкой npm/SQL-тестов.
+- Workflow YAML содержит обычный `runs-on: ubuntu-latest`, корректные PR triggers для base branch PR #4 (`fix/atomic-payment-fulfillment`) и `permissions: contents: read`. Признака ошибки синтаксиса или отсутствующего job в просмотренных YAML нет.
+- Combined status для HEAD показывает Vercel failure с `build-rate-limit`; это отдельный внешний лимит Vercel и не объясняет runner_id=0 в GitHub Actions.
+- Причину, почему GitHub не назначает hosted runner, по доступному API установить нельзя: endpoint настроек Actions permissions недоступен через подключённый GitHub API. Возможные области проверки в интерфейсе GitHub: Actions enabled/disabled, account spending/billing limits, hosted runner availability/service incident. Это пока гипотезы, не установленная причина.
+- Следующий шаг после восстановления runner: повторить workflow, получить реальные логи и исправлять уже подтверждённые ошибки тестов. Не отключать проверки и не помечать их успешными вручную.
+- Production, PR merge, migrations, DNS и deployment не затрагивались.
