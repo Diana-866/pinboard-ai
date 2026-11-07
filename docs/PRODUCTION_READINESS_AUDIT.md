@@ -240,11 +240,13 @@
 
 ### AUD-021 — Email outbox допускает повторную отправку при неопределённом SMTP результате
 - **Приоритет:** P2
-- **Статус:** OPEN
-- **Тип:** известное at-least-once поведение.
+- **Статус:** PARTIALLY MITIGATED
+- **Тип:** известное at-least-once поведение; exactly-once SMTP не гарантируется.
 - **Наблюдение:** SMTP может принять письмо, но DB mark-as-sent может упасть; повтор обработки отправит письмо повторно.
-- **Исправить:** определить приемлемость at-least-once; добавить provider message id/reconciliation и/или идемпотентный delivery adapter, если доступен.
-- **Тесты:** SMTP accepted + DB update failure.
+- **Уже сделано:** activation email использует детерминированный RFC Message-ID на основе subscription_id; dispatcher получил dependency injection для тестирования; добавлен regression test на SMTP accepted + DB acknowledgement failure + retry, подтверждающий повторную отправку с тем же Message-ID.
+- **Ограничение:** Message-ID помогает идентифицировать/сгруппировать дубликаты, но SMTP transport и почтовые провайдеры не обязаны дедуплицировать письма по нему. Без provider API с подтверждённой idempotency key или reconciliation нельзя безопасно обещать exactly-once.
+- **Дальше:** проверить возможность idempotent delivery/reconciliation у выбранного SMTP-провайдера; до этого at-least-once остаётся осознанным поведением.
+- **Тесты:** добавлен backend/test/email-outbox.test.js; локальный запуск/CI пока не подтверждены.
 
 ### AUD-022 — Bucket configuration и лимиты upload/rehost могут расходиться
 - **Приоритет:** P2
