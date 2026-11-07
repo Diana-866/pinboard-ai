@@ -74,6 +74,14 @@ begin
       'provider_task_id',v_req.provider_task_id,'provider_result_url',v_req.provider_result_url,
       'storage_url',v_req.storage_url,'provider_price',v_req.provider_price);
   end if;
+  if v_req.status='unknown' then
+    update public.pin_regeneration_requests set status='processing',claim_token=gen_random_uuid(),
+      error_code=null,updated_at=clock_timestamp() where id=v_req.id returning * into v_req;
+    return jsonb_build_object('status','resume','claim_token',v_req.claim_token,
+      'provider_idempotency_key',v_req.provider_idempotency_key,
+      'provider_task_id',v_req.provider_task_id,'provider_result_url',v_req.provider_result_url,
+      'storage_url',v_req.storage_url,'provider_price',v_req.provider_price);
+  end if;
   return jsonb_build_object('status',v_req.status);
 end; $$;
 
