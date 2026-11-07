@@ -4,7 +4,7 @@ PinPosy uploads managed pin images to the public `pin-images` Supabase Storage b
 
 ## Replacement lifecycle
 
-After a pin image URL is successfully committed to `pins.image_url` (manual image replacement or successful regenerate + atomic credit charge), backend attempts to remove the previous object. A failed DB update never triggers deletion. A failed cleanup is logged and does not turn a successful image update into an API failure.
+After a pin image URL is successfully committed to `pins.image_url` (manual image replacement or successful regenerate + atomic credit charge), backend attempts to remove the previous object. A failed DB update triggers best-effort cleanup of the just-uploaded object. Reference checks protect against deleting an object if the database committed despite an ambiguous client-side error. A failed cleanup is logged and does not turn a successful image update into an API failure.
 
 Before removal, backend:
 1. Accepts only a URL from the configured Supabase project, public `pin-images` bucket, and the managed `pins/<timestamp>-<random>.<ext>` naming pattern.
