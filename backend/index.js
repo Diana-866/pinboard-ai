@@ -1225,6 +1225,23 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
       onTextProviderSubmission: () => {
         providerGenerationStarted = true;
       },
+      onTextProviderUsage: async (result) => {
+        const { error } = await supabase.rpc("record_pin_generation_text_usage", {
+          p_user_id: String(req.userId),
+          p_idempotency_key: idempotencyKey,
+          p_claim_token: generationClaimToken,
+          p_provider_request_id: result.requestId || null,
+          p_provider_model: result.model || "unknown",
+          p_usage: result.usage || {},
+          p_total_cost_rub: result.costCurrency === "RUB" ? result.usage?.totalCost : null,
+        });
+        if (error) {
+          const journalError = new Error("Не удалось сохранить фактическую стоимость текстовой генерации");
+          journalError.journalError = true;
+          journalError.cause = error;
+          throw journalError;
+        }
+      },
       onProviderSubmission: () => {
         providerGenerationStarted = true;
       },
