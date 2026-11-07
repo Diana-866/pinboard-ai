@@ -79,7 +79,10 @@ function getScheduleRetryability(schedule, attempt, hasPublication, accountActiv
   if (!schedule || schedule.status !== "failed") return { retryable: false, reason: "not_failed" };
   if (!schedule.pinterest_account_id || !accountActive) return { retryable: false, reason: "account_unavailable" };
   if (!schedule.pinterest_board_id) return { retryable: false, reason: "board_missing" };
-  if (!schedule.pins || !schedule.pins.image_url) return { retryable: false, reason: "pin_unavailable" };
+  // A scheduled snapshot is the durable creative source; the live pin image may have changed.
+  if (!(schedule.snapshot_image_url || (schedule.pins && schedule.pins.image_url))) {
+    return { retryable: false, reason: "pin_unavailable" };
+  }
   if (hasPublication) return { retryable: false, reason: "publication_exists" };
   if (attempt && !(attempt.status === "failed" && attempt.retry_safe === true)) {
     return { retryable: false, reason: "attempt_not_retryable" };
