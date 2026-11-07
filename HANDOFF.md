@@ -290,3 +290,11 @@ HANDOFF.md                            Этот файл
 - Расширен backend/test/pinterest-account-publication.integration.sql: удаление pin до begin reservation каскадно удаляет queued schedule без attempt; удаление после begin оставляет processing attempt, а complete_pinterest_publish_v2 сохраняет remote ID в publication ledger.
 - Зафиксировано ожидаемое поведение: после durable begin внешний Pinterest POST нельзя гарантированно отменить. Если локальный pin удаляется уже после этой точки, внешний publish может завершиться; schedule row каскадно исчезает, но attempt/publication history остаётся для аудита.
 - AUD-023: PARTIALLY COVERED. SQL сценарии ещё не исполнены в CI; отдельный worker-level test с искусственной паузой прямо перед POST остаётся незакрытым.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-024 partial coverage)
+
+- Проверил существующие multi-account SQL regressions: reconnect external Pinterest ID сохраняет тот же internal account UUID; повторный callback не перезаписывает сохранённые credentials; новая OAuth попытка supersedes старую; callback после disconnect отклоняется; legacy schedule с publication history нельзя перепривязать; schedule без истории можно явно назначить выбранному active account.
+- Добавлен сценарий в backend/test/pinterest-account-publication.integration.sql: попытка привязать legacy schedule к уже отключённому Pinterest account возвращает account_unavailable и не пишет pinterest_account_id.
+- AUD-024 теперь PARTIALLY COVERED. Реальной конкурентной гонки двух DB connections пока нет: имеющийся replay test последовательный, хотя SQL RPC блокирует OAuth state row и потребляет attempt транзакционно. Нужен двухсессионный PostgreSQL harness и подтверждённый CI run.
+- Production не затрагивался; миграции не применялись.
