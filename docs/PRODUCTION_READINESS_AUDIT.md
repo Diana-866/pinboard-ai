@@ -158,12 +158,12 @@
 
 ### AUD-012 — Замена изображения может оставлять orphan objects в Storage
 - **Приоритет:** P2
-- **Статус:** OPEN
-- **Тип:** подтверждённый риск утечки/накопления объектов.
-- **Наблюдение:** image replacement/regeneration обновляет URL, но старый объект не удаляется и не найден надёжный реестр/cleanup.
-- **Риск:** лишние расходы и неуправляемый рост хранилища.
-- **Исправить:** ввести безопасный object lifecycle/registry и удаление только после успешной DB-ссылки и проверки отсутствия ссылок.
-- **Тесты:** замена изображения, DB failure, retry, shared object reference.
+- **Статус:** PARTIALLY_FIXED
+- **Тип:** добавлена reference-aware очистка для новых замен; исторический sweep и полная сериализация ещё отсутствуют.
+- **Реализация:** после успешного обновления `pins.image_url` (ручная замена) или успешного `update_pin_image_and_charge` (перегенерация) backend вызывает `deletePinImageIfUnreferenced`. Ошибка DB update не запускает удаление; ошибка Storage cleanup логируется и не откатывает успешное обновление пина.
+- **Защита:** удаляются только URL из текущего Supabase project/bucket и только по managed key pattern. Перед удалением проверяются ссылки в `pins.image_url`, неотменённых `pin_schedules.snapshot_image_url` и активных/неопределённых `pin_generation_tasks.storage_url`. Любая ошибка lookup или неразрешённый journal parent блокирует удаление. При отмене расписания выполняется повторная проверка snapshot URL.
+- **Тесты:** добавлены unit tests на managed path, чужой project/bucket, traversal/malformed path, shared pin/schedule references и активные/terminal generation request references. Backend test runner автоматически обнаруживает новый test file.
+- **Ограничения:** старые orphan objects не инвентаризируются; периодического sweeper/object registry нет. Остаётся узкое concurrency race между проверкой ссылок и Storage remove; schedule endpoint повторно читает pin перед snapshot, но строгая транзакционная сериализация lifecycle требует отдельного registry/lock design. Подробности в `docs/storage-lifecycle.md`.
 
 ### AUD-013 — Storage upload success + DB journal failure может приводить к повторной загрузке
 - **Приоритет:** P2
@@ -491,3 +491,5 @@ GitHub API возвращал пустые steps, `runner_id=0`, `logs_url=null`
 | 2026-11-07 | AUD-009: frontend mapping сохраняет remote Pinterest pin ID; безопасный URL builder разрешает только numeric IDs; календарь показывает ссылку только для confirmed published; добавлены unit tests и frontend CI step. Статус FIXED_UNVERIFIED до CI. |
 
 | 2026-11-07 | AUD-010: GET /schedule возвращает server-computed retryable/reason; UI скрывает retry для ambiguous/non-safe записей; добавлены unit tests. POST RPC остаётся финальным источником истины. Статус FIXED_UNVERIFIED до CI. |
+
+| 2026-11-07 | AUD-012: добавлена reference-aware cleanup для ручной замены/перегенерации и отмены schedule; удаление выполняется только после DB commit и проверки pin/snapshot/active generation references. Добавлены path/reference unit tests и storage lifecycle docs. Статус PARTIALLY_FIXED: нет исторического sweep/registry и полной сериализации гонок. |
