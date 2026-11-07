@@ -783,3 +783,15 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Это backend/helper + unit-test изменение; миграции БД не нужны. Локальный npm test в этой сессии не запускался; CI ещё не подтверждён. Production/staging, Pinterest API, реальные публикации, deployment и merge не затрагивались.
 
 **Status:** AUD-055 / SNAPSHOT_AWARE_RETRYABILITY / UNIT_REGRESSION_ADDED / RUNTIME_TEST_UNVERIFIED.
+
+## Дополнение к handoff — 2026-11-07 (AUD-056: per-user Pinterest API rate limits)
+
+- В аудите внешних вызовов Pinterest найдено отсутствие отдельного throttling на пользовательских Pinterest routes. В частности, один запрос списка досок мог выполнить до 8 последовательных Pinterest API GET calls (до 2 000 досок), а повторные вызовы не ограничивались отдельным budget Pinterest-интеграции.
+- Добавлен backend/pinterestRateLimit.js на express-rate-limit: authenticated routes используют key `user:<req.userId>`, чтобы пользователи за общим NAT/IP не делили общий лимит; OAuth callback и секретный worker сохраняют стандартный IP key с IPv6-aware обработкой библиотеки.
+- Введены отдельные buckets: boards read 10/min/user; direct publish 5/min/user; schedule create/reconcile/retry/cancel 10/min/user; OAuth start 5/15min/user; OAuth callback 10/15min/IP; worker 6/min/IP. Бюджеты чтения, публикации и операций расписания независимы.
+- Middleware подключён к Pinterest OAuth link/callback, boards, direct publish, internal schedule worker, а также schedule reconcile/create/retry/cancel routes. Authentication выполняется до user-keyed limiter на защищённых маршрутах.
+- Добавлен backend/test/pinterest-rate-limit.test.js для изоляции ключей по userId и проверки конфигурации бюджетов.
+- Важное ограничение текущей реализации: express-rate-limit использует стандартный process-local MemoryStore. Он ограничивает повторные запросы в рамках каждого backend process, но лимит не общий между несколькими Render instances и сбрасывается при перезапуске. При масштабировании/нескольких инстансах следует подключить shared store (например, Redis/совместимое хранилище); не считать этот слой распределённой защитой.
+- Изменены backend/pinterestRateLimit.js, backend/pinterest.js, backend/index.js, добавлен backend/test/pinterest-rate-limit.test.js. Runtime unit tests/CI в этой сессии не запускались/не подтверждены. Production, Pinterest API, deployment и merge не затрагивались.
+
+**Status:** AUD-056 / PINTEREST_ROUTE_RATE_LIMITS_ADDED / PER_USER_BUCKETS / PROCESS_LOCAL_STORE_LIMITATION_DOCUMENTED / RUNTIME_TEST_UNVERIFIED.
