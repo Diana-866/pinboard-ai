@@ -5,7 +5,7 @@ const https = require("node:https");
 const { httpError } = require("./validate");
 const { MAX_IMAGE_BYTES, validateImageBuffer } = require("./imageValidation");
 const { assertPublicUrl, createPinnedLookup } = require("./publicUrl");
-const { extractManagedPinImagePath, canDeletePinImageObject, buildPinImageObjectPath } = require("./pinImageLifecycle");
+const { extractManagedPinImagePath, buildPinImageObjectPath } = require("./pinImageLifecycle");
 
 const BUCKET = "pin-images";
 const ALLOWED_IMAGE_MIMES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
@@ -62,42 +62,37 @@ async function uploadPinImage(file, options = {}) {
   return data.publicUrl;
 }
 
-// Remove only objects created by this service, and only after the replacement
-// has committed and all durable consumers have released the previous URL.
+// Delete only through the database claim protocol. Reference-write triggers
+// serialize pins, schedules and generation journal updates against this claim.
 async function deletePinImageIfUnreferenced(imageUrl) {
   const objectPath = extractManagedPinImagePath(imageUrl, process.env.SUPABASE_URL, BUCKET);
   if (!objectPath) return false;
 
-  const [pinRefs, scheduleRefs, taskRefs] = await Promise.all([
-    supabase.from("pins").select("id").eq("image_url", imageUrl).limit(1),
-    supabase.from("pin_schedules").select("id").eq("snapshot_image_url", imageUrl).neq("status", "cancelled").limit(1),
-    supabase.from("pin_generation_tasks").select("id, generation_request_id").eq("storage_url", imageUrl),
-  ]);
-  const lookupError = pinRefs.error || scheduleRefs.error || taskRefs.error;
-  if (lookupError) throw lookupError;
-  const tasks = taskRefs.data || [];
-  let generationRequestStatuses = [];
-  if (tasks.length) {
-    const requestIds = [...new Set(tasks.map((task) => task.generation_request_id).filter(Boolean))];
-    if (tasks.some((task) => !task.generation_request_id)) return false;
-    const { data: requests, error: requestError } = await supabase
-      .from("pin_generation_requests")
-      .select("id, status")
-      .in("id", requestIds);
-    if (requestError) throw requestError;
-    const requestById = new Map((requests || []).map((request) => [String(request.id), request]));
-    if (tasks.some((task) => !requestById.has(String(task.generation_request_id)))) return false;
-    // Keep objects while a generation request can still be resumed/reconciled.
-    generationRequestStatuses = (requests || []).map((request) => request.status);
-  }
+  const { data: claim, error: claimError } = await supabase.rpc("claim_pin_image_deletion", {
+    p_bucket_id: BUCKET,
+    p_object_path: objectPath,
+    p_claim_ttl_seconds: 600,
+  });
+  if (claimError) throw claimError;
+  if (!claim || claim.claimed !== true || !claim.claim_token) return false;
 
-  if (!canDeletePinImageObject({
-    hasPinReference: (pinRefs.data || []).length > 0,
-    hasScheduleReference: (scheduleRefs.data || []).length > 0,
-    generationRequestStatuses,
-  })) return false;
-
+  // A thrown transport error is ambiguous: Storage may have received the
+  // request. Keep the claim fenced for reconciliation instead of reopening refs.
   const { error: removeError } = await supabase.storage.from(BUCKET).remove([objectPath]);
+  const { data: finalized, error: finalizeError } = await supabase.rpc("finalize_pin_image_deletion", {
+    p_bucket_id: BUCKET,
+    p_object_path: objectPath,
+    p_claim_token: claim.claim_token,
+    p_deleted: !removeError,
+    p_error_code: removeError
+      ? String(removeError.code || removeError.name || "storage_delete_failed").slice(0, 64)
+      : null,
+  });
+
+  if (finalizeError) throw finalizeError;
+  if (finalized !== true) {
+    throw new Error("Не удалось подтвердить результат удаления изображения");
+  }
   if (removeError) throw removeError;
   return true;
 }
