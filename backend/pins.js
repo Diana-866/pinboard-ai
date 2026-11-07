@@ -1,4 +1,4 @@
-const { generateText, generateImage } = require("./gptunnel");
+const { generateText, generateImage, waitForImageTask } = require("./gptunnel");
 const { rehostImage } = require("./storage");
 
 const DEFAULT_ASPECT_RATIOS = ["2:3", "9:16", "4:5", "3:4"];
@@ -160,19 +160,27 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
       if (typeof options.onProviderSubmission === "function") {
         options.onProviderSubmission();
       }
-      const image = await generateImage(
-        task.prompt,
-        task.model || model,
-        ratio,
-        task.provider_idempotency_key,
-        {
-          onTaskUpdate: async (taskId, status) => {
-            if (typeof options.updateTask === "function") {
-              await options.updateTask(taskIndex, status, { providerTaskId: taskId });
-            }
-          },
-        }
-      );
+      const providerCallbacks = {
+        onTaskUpdate: async (taskId, status) => {
+          if (typeof options.updateTask === "function") {
+            await options.updateTask(taskIndex, status, { providerTaskId: taskId });
+          }
+        },
+      };
+      // A journaled provider task ID is authoritative. Poll that task directly
+      // on recovery; never issue another create request just because the prior
+      // backend process timed out while the provider was still working.
+      const hasRecoverableProviderTask = !!task.provider_task_id &&
+        ["queued", "running", "unknown"].includes(task.status);
+      const image = hasRecoverableProviderTask
+        ? await waitForImageTask(task.provider_task_id, providerCallbacks)
+        : await generateImage(
+            task.prompt,
+            task.model || model,
+            ratio,
+            task.provider_idempotency_key,
+            providerCallbacks
+          );
 
       if (image && image.pending && image.taskId) {
         if (typeof options.updateTask === "function") {
