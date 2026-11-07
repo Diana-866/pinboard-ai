@@ -67,3 +67,16 @@ Implementing only one side would create a false sense of safety. This needs a de
 ## Recommended next implementation
 
 Build the deletion-claim protocol as a single cohesive change, first adding SQL-level race tests and only then wiring all backend reference writers. Until then, cleanup remains best-effort and the documented race should be treated as unresolved.
+
+
+## Follow-up implementation — 2026-11-07
+
+The deletion-claim protocol is now implemented in migration 070 and the backend cleanup executor on `feat/persisted-boards-api`. Reference-write triggers serialize four durable reference families against a deletion claim:
+- `pins.image_url`
+- active `pin_schedules.snapshot_image_url`
+- `pin_generation_tasks.storage_url`
+- `pin_regeneration_requests.storage_url`
+
+The last family was found during the follow-up callsite review: single-pin regeneration uses a separate journal table (migration 053), which the initial migration-070 reference query and trigger set had omitted. Without this addition, a completed regeneration journal could retain a replay URL while cleanup incorrectly considered the object unreferenced. Migration 070 and its SQL integration test were updated to register and retain this fourth reference family.
+
+**Current verification:** source-level review only. The SQL integration test now asserts four trigger registrations and exercises the single-pin regeneration journal reference. It has not yet been executed against PostgreSQL; no Supabase migration or production deployment has occurred. The audit's original findings describe the pre-protocol implementation; the follow-up section records the current branch-level remediation.
