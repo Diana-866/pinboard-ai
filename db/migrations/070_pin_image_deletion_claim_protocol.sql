@@ -6,7 +6,7 @@ create table if not exists public.pin_image_object_lifecycle (
   bucket_id text not null check (bucket_id = 'pin-images'),
   object_path text not null,
   state text not null default 'active'
-    check (state in ('active','uploading','deleting','delete_failed','deleted')),
+    check (state in ('active','uploading','deleting','delete_failed','deleted','quarantined')),
   claim_token uuid,
   claim_expires_at timestamptz,
   attempts integer not null default 0 check (attempts >= 0),
@@ -94,7 +94,7 @@ begin
    where bucket_id = 'pin-images' and object_path = v_path
    for update;
 
-  if v_state in ('uploading','deleting','deleted') then
+  if v_state in ('uploading','deleting','deleted','quarantined') then
     raise exception 'pin image object is not available for new references'
       using errcode = '55000';
   end if;
@@ -172,6 +172,9 @@ begin
   end if;
   if v_state = 'deleting' then
     return jsonb_build_object('reserved', false, 'reason', 'deletion_in_progress');
+  end if;
+  if v_state = 'quarantined' then
+    return jsonb_build_object('reserved', false, 'reason', 'path_quarantined');
   end if;
 
   select
@@ -267,6 +270,58 @@ begin
    limit p_limit;
 end;
 $function$;
+-- Permanently retire a stale upload path. A late Storage write may still
+-- finish, but the path can never be referenced, overwritten or deleted by
+-- this lifecycle. New uploads must use a fresh object path.
+create or replace function public.quarantine_stale_pin_image_upload(
+  p_bucket_id text,
+  p_object_path text,
+  p_upload_token uuid
+) returns boolean
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $function$
+declare
+  v_has_reference boolean;
+begin
+  if p_bucket_id is distinct from 'pin-images' or p_object_path is null
+     or p_upload_token is null then
+    raise exception 'invalid stale pin image quarantine request';
+  end if;
+
+  select
+    exists (select 1 from public.pins p
+             where public.managed_pin_image_object_path(p.image_url) = p_object_path)
+    or exists (select 1 from public.pin_schedules s
+                where s.status <> 'cancelled'
+                  and public.managed_pin_image_object_path(s.snapshot_image_url) = p_object_path)
+    or exists (select 1 from public.pin_generation_tasks t
+                where public.managed_pin_image_object_path(t.storage_url) = p_object_path)
+    or exists (select 1 from public.pin_regeneration_requests r
+                where public.managed_pin_image_object_path(r.storage_url) = p_object_path)
+    into v_has_reference;
+
+  if v_has_reference then
+    return false;
+  end if;
+
+  update public.pin_image_object_lifecycle
+     set state = 'quarantined',
+         claim_token = null,
+         claim_expires_at = null,
+         last_error_code = 'stale_upload_quarantined',
+         updated_at = now()
+   where bucket_id = p_bucket_id
+     and object_path = p_object_path
+     and state = 'uploading'
+     and claim_token = p_upload_token
+     and claim_expires_at < now() - interval '15 minutes';
+
+  return found;
+end;
+$function$;
+
 create or replace function public.claim_pin_image_deletion(
   p_bucket_id text,
   p_object_path text,
@@ -311,6 +366,9 @@ begin
   -- Any late worker holding the old token can no longer finalize this claim.
   if v_state = 'deleted' then
     return jsonb_build_object('claimed', false, 'reason', 'already_deleted');
+  end if;
+  if v_state = 'quarantined' then
+    return jsonb_build_object('claimed', false, 'reason', 'path_quarantined');
   end if;
 
   select
@@ -404,6 +462,8 @@ revoke all on function public.begin_pin_image_upload(text,text,integer) from pub
 revoke all on function public.finalize_pin_image_upload(text,text,uuid,boolean,text) from public, anon, authenticated, service_role;
 revoke all on function public.list_stale_pin_image_uploads(integer,integer) from public, anon, authenticated, service_role;
 grant execute on function public.list_stale_pin_image_uploads(integer,integer) to service_role;
+revoke all on function public.quarantine_stale_pin_image_upload(text,text,uuid) from public, anon, authenticated, service_role;
+grant execute on function public.quarantine_stale_pin_image_upload(text,text,uuid) to service_role;
 revoke all on function public.claim_pin_image_deletion(text,text,integer) from public, anon, authenticated;
 revoke all on function public.finalize_pin_image_deletion(text,text,uuid,boolean,text) from public, anon, authenticated;
 grant execute on function public.begin_pin_image_upload(text,text,integer) to service_role;
