@@ -245,6 +245,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/067_pin_generation_exact_provider_quotes.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/068_exact_quote_single_pin_regeneration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/069_gptunnel_text_usage_ledger.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/070_pin_image_deletion_claim_protocol.sql
       - name: Verify Pinterest refresh uncertainty fence
         env:
           PGPASSWORD: postgres
@@ -312,6 +313,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-sensitive-table-privileges.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/security-definer-search-paths.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/billing-webhook-audit-privileges.integration.sql
+           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-image-deletion-claims.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/postgres-integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-oauth.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-account-foundation.integration.sql
