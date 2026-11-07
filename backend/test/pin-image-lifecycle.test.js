@@ -1,8 +1,45 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, reconcileStalePinImageUploads, deleteManagedPinImageObject } = require("./pinImageLifecycle");
+const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, reconcileStalePinImageUploads, deleteManagedPinImageObject, validatePinImageBucketConfiguration } = require("./pinImageLifecycle");
 
 const base = "https://project.supabase.co";
+
+test("accepts the exact public pin image bucket configuration", () => {
+  assert.equal(validatePinImageBucketConfiguration({
+    name: "pin-images",
+    public: true,
+    file_size_limit: 5 * 1024 * 1024,
+    allowed_mime_types: ["image/png", "image/jpeg", "image/webp", "image/gif"],
+  }), true);
+});
+
+test("rejects a private or unexpected bucket", () => {
+  assert.throws(() => validatePinImageBucketConfiguration({
+    name: "pin-images", public: false, file_size_limit: 5 * 1024 * 1024,
+    allowed_mime_types: ["image/png", "image/jpeg", "image/webp", "image/gif"],
+  }), { code: "invalid_pin_image_bucket_visibility" });
+  assert.throws(() => validatePinImageBucketConfiguration({
+    name: "other", public: true, file_size_limit: 5 * 1024 * 1024,
+    allowed_mime_types: ["image/png", "image/jpeg", "image/webp", "image/gif"],
+  }), { code: "invalid_pin_image_bucket_visibility" });
+});
+
+test("rejects a widened or missing MIME allow-list", () => {
+  assert.throws(() => validatePinImageBucketConfiguration({
+    name: "pin-images", public: true, file_size_limit: 5 * 1024 * 1024,
+    allowed_mime_types: ["image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml"],
+  }), { code: "invalid_pin_image_bucket_mimes" });
+  assert.throws(() => validatePinImageBucketConfiguration({
+    name: "pin-images", public: true, file_size_limit: 5 * 1024 * 1024,
+  }), { code: "invalid_pin_image_bucket_mimes" });
+});
+
+test("rejects a bucket size limit below the application's 5 MiB upload ceiling", () => {
+  assert.throws(() => validatePinImageBucketConfiguration({
+    name: "pin-images", public: true, file_size_limit: 1024,
+    allowed_mime_types: ["image/png", "image/jpeg", "image/webp", "image/gif"],
+  }), { code: "invalid_pin_image_bucket_size_limit" });
+});
 
 test("extracts an owned pin object path from the configured public bucket", () => {
   assert.equal(
