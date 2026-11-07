@@ -2023,6 +2023,18 @@ app.get("/admin/subscriptions", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+// Privacy-safe health summary for the durable transactional email outbox.
+app.get("/admin/billing/email-outbox", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const parsedLimit = Number.parseInt(String(req.query.limit || "20"), 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 20;
+    const health = await billing.getEmailOutboxHealth(limit);
+    res.json(health);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 // Журнал исключений платёжных вебхуков (только администратор).
 app.get("/admin/billing/webhook-exceptions", requireAuth, requireAdmin, async (req, res) => {
   try {
