@@ -317,6 +317,7 @@ export interface TranslationSchema {
     emptyDay: string;
     statusScheduled: string;
     statusPublished: string;
+    openPinterestPin: string;
     statusDraft: string;
     optimalSlotBadge: string;
     pinDetailsModal: string;
