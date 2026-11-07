@@ -720,3 +720,15 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 **Status:** STATIC_DEADLOCK_CYCLE_FOUND / MIGRATION_057_ADDED / COMPLETION_LOCK_ORDER_ALIGNED / SQL_TEST_SEQUENCE_UPDATED / CI_UNVERIFIED.
 
 - Дополнительная проверка CI после изменения workflow: commit `501118d5f3d34dd446337b6e6478715147c5a008` запустил те же три PR workflows; все завершились `failure` почти сразу. Для всех четырёх job (backend, frontend, postgres-atomicity, backend-tests) API вернул `steps: null`, а скачивание job logs — `BlobNotFound`. Commit `bb895e01a156adc2a867d54362b4479a81ae4370` и handoff commit `b43c0d0f9f1751f2b01a3d6de812b0a0ee5444dd` не имеют отдельных workflow runs. Combined status показывает Vercel `failure` с target `upgradeToPro=build-rate-limit`; это отдельный build-rate-limit сигнал, не доказательство ошибки миграции.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-051: выбор active schedule при completion)
+
+- Повторная проверка migration 057 выявила неполное условие блокировки schedule: completion выбирал последнюю по updated_at запись для pin/account без фильтра статуса, а затем обновлял только publishing/unknown. Если более новая запись была failed или cancelled, блокировалась не та строка, которую completion собирался reconciliate. Это ослабляло гарантию lock order AUD-050.
+- Добавлена forward-only migration 058 db/migrations/058_pinterest_publish_completion_active_schedule_lock.sql: запрос schedule row теперь фильтрует status in ('publishing','unknown') до ORDER BY/LIMIT/FOR UPDATE. Прямые публикации и completion после удаления pin по-прежнему допускают отсутствие schedule row; отключённый account по-прежнему блокируется для корректной late-success reconciliation.
+- Добавлен SQL integration scenario: для одного pin/account создаются более новая запись failed и более старая publishing; scheduled attempt завершается успешно, активная запись должна стать published, а failed history должна остаться failed. Header test обновлён до migrations 031–058.
+- Workflow .github/workflows/atomic-payment-integration.yml применяет migration 058 после 057.
+- GitHub commits: migration 058 3067644201cb8a8b9fc72abf9d51e2f4679c30cf; SQL regression a9d9476fc0d13edd7d130a18f46b9b76208cbc73; workflow 951d72e854281d3c998606d7a0395f3bcfb3c2b0.
+- Это статическое исправление + добавленный SQL regression; PostgreSQL integration не запускался в этой сессии. Предыдущие CI runs завершались failure, но GitHub connector не отдавал job logs (BlobNotFound); поэтому migration 058 пока не считается проверенной CI. Production/staging DB, Pinterest API, реальные публикации, deployment и merge не затрагивались.
+
+**Status:** STATIC_DEFECT_FOUND / MIGRATION_058_ADDED / ACTIVE_SCHEDULE_LOCK_FILTERED / SQL_REGRESSION_ADDED / CI_UNVERIFIED.
