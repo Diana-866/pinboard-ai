@@ -1,4 +1,4 @@
--- Run only in disposable PostgreSQL CI after migrations 031-058.
+-- Run only in disposable PostgreSQL CI after migrations 031-059.
 -- A local pin can be published once per Pinterest identity, not once per user.
 do $$
 declare
@@ -30,6 +30,8 @@ declare
   v_lock_order_pin uuid;
   v_lock_order_active_schedule uuid;
   v_lock_order_failed_schedule uuid;
+  v_lock_order_unknown_schedule_a uuid;
+  v_lock_order_unknown_schedule_b uuid;
   v_lock_order_claim uuid;
   v_delete_before_pin uuid;
   v_delete_before_schedule uuid;
@@ -510,6 +512,20 @@ begin
     v_user::text, v_lock_order_pin, v_account_a, now() - interval '1 day',
     'UTC', 'board-a', 'failed', now() + interval '1 minute'
   ) returning id into v_lock_order_failed_schedule;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, updated_at
+  ) values (
+    v_user::text, v_lock_order_pin, v_account_a, now() - interval '3 minutes',
+    'UTC', 'board-a', 'unknown', now() - interval '3 minutes'
+  ) returning id into v_lock_order_unknown_schedule_a;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, updated_at
+  ) values (
+    v_user::text, v_lock_order_pin, v_account_a, now() - interval '2 minutes',
+    'UTC', 'board-a', 'unknown', now() - interval '2 minutes'
+  ) returning id into v_lock_order_unknown_schedule_b;
   v_lock_order_claim := gen_random_uuid();
   insert into public.pin_schedules(
     user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
@@ -529,8 +545,10 @@ begin
     v_user::text, v_lock_order_pin, v_account_a, 'remote-lock-order', 'board-a'
   );
   if (select status from public.pin_schedules where id=v_lock_order_active_schedule) <> 'published'
+     or (select status from public.pin_schedules where id=v_lock_order_unknown_schedule_a) <> 'published'
+     or (select status from public.pin_schedules where id=v_lock_order_unknown_schedule_b) <> 'published'
      or (select status from public.pin_schedules where id=v_lock_order_failed_schedule) <> 'failed' then
-    raise exception 'completion changed the wrong schedule when a newer failed row existed';
+    raise exception 'completion did not reconcile every active/unknown row while preserving failed history';
   end if;
 
   -- Deleting the pin before the durable publication boundary cascades the
