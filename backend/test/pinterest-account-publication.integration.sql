@@ -1,4 +1,4 @@
--- Run only in disposable PostgreSQL CI after migrations 031-049.
+-- Run only in disposable PostgreSQL CI after migrations 031-050.
 -- A local pin can be published once per Pinterest identity, not once per user.
 do $$
 declare
@@ -18,6 +18,8 @@ declare
   v_manual_retry_schedule uuid;
   v_attempt_retry_pin uuid;
   v_attempt_retry_schedule uuid;
+  v_safe_retry_pin uuid;
+  v_safe_retry_schedule uuid;
   v_account_a uuid;
   v_account_b uuid;
   v_result jsonb;
@@ -237,6 +239,39 @@ begin
     raise exception 'unsafe schedule was changed despite an existing publish attempt';
   end if;
 
+  -- A durable failed attempt is retryable only when the failure RPC marked it
+  -- as a confirmed pre-create rejection. Manual retry and begin RPC share it.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/safe-retry.png', 'Safe retry pin', '', 'pending', 'flux-schnell', 0)
+  returning id into v_safe_retry_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status
+  ) values (
+    v_user::text, v_safe_retry_pin, v_account_b, now() - interval '1 day',
+    'UTC', 'board-b', 'failed'
+  ) returning id into v_safe_retry_schedule;
+  insert into public.pinterest_publish_attempts(
+    user_id, pin_id, pinterest_account_id, pinterest_board_id, status, retry_safe
+  ) values (
+    v_user::text, v_safe_retry_pin, v_account_b, 'board-b', 'failed', true
+  );
+
+  v_result := public.retry_failed_pin_schedule(v_user::text, v_safe_retry_schedule);
+  if v_result->>'ok' <> 'true'
+     or (select status from public.pin_schedules where id=v_safe_retry_schedule) <> 'scheduled' then
+    raise exception 'explicitly safe failed attempt could not be manually retried: %',v_result;
+  end if;
+
+  v_result := public.begin_pinterest_publish_v2(
+    v_user::text,v_safe_retry_pin,v_account_b,'board-b'
+  );
+  if v_result->>'status' <> 'started'
+     or (select status from public.pinterest_publish_attempts where pin_id=v_safe_retry_pin and pinterest_account_id=v_account_b) <> 'processing'
+     or (select retry_safe from public.pinterest_publish_attempts where pin_id=v_safe_retry_pin and pinterest_account_id=v_account_b) then
+    raise exception 'direct/scheduled publish did not consume the same safe retry marker: %',v_result;
+  end if;
+
   -- Active schedules are also unique per pin + Pinterest account.
   insert into public.pin_schedules(user_id, pin_id, pinterest_account_id, scheduled_at, timezone, pinterest_board_id)
   values (v_user::text, v_pin, v_account_a, now() + interval '1 day', 'UTC', 'board-a');
@@ -302,7 +337,7 @@ begin
   delete from public.pinterest_publish_attempts where user_id = v_user::text;
   delete from public.pinterest_publications where user_id = v_user::text;
   delete from public.pinterest_accounts where user_id = v_user::text;
-  delete from public.pins where id in (v_pin, v_legacy_pin, v_inflight_pin, v_crash_pin, v_retry_pin, v_manual_retry_pin, v_attempt_retry_pin);
+  delete from public.pins where id in (v_pin, v_legacy_pin, v_inflight_pin, v_crash_pin, v_retry_pin, v_manual_retry_pin, v_attempt_retry_pin, v_safe_retry_pin);
   delete from public.boards where id = v_board;
   delete from public.projects where id = v_project;
   delete from public.users where id = v_user;
