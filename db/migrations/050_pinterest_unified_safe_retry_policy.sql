@@ -121,7 +121,7 @@ begin
 
   return jsonb_build_object('status','processing');
 end;
-$;
+$$;
 
 create or replace function public.fail_pinterest_publish_v2(
   p_user_id text,
