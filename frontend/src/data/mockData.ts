@@ -61,6 +61,8 @@ export interface ScheduledPinItem {
   scheduledDate: string; // ISO date string
   scheduledTime: string;
   status: 'scheduled' | 'publishing' | 'published' | 'failed' | 'unknown' | 'draft';
+  retryable?: boolean;
+  retryReason?: string;
   impressions?: number;
   saves?: number;
   clicks?: number;
