@@ -105,5 +105,25 @@ begin
   if v_replayed->>'status' <> 'resume' then
     raise exception 'unknown request did not return resume: %', v_replayed;
   end if;
+
+  -- A task ID already recorded while processing must be pollable before the
+  -- 30-minute stale-claim timeout; retry must not wait or create another task.
+  v_other := public.begin_pin_regeneration_request(
+    v_user_id::text, v_pin_id, 'regen-test-key-0003',
+    repeat('d',64), 'flux-schnell', 'pending provider task', 15
+  );
+  v_claim := (v_other->>'claim_token')::uuid;
+  perform public.update_pin_regeneration_request(
+    v_user_id::text, 'regen-test-key-0003', v_claim,
+    'processing', '0123456789abcdef01234567', null, null, null, null
+  );
+  v_replayed := public.begin_pin_regeneration_request(
+    v_user_id::text, v_pin_id, 'regen-test-key-0003',
+    repeat('d',64), 'flux-schnell', 'pending provider task', 15
+  );
+  if v_replayed->>'status' <> 'resume'
+     or v_replayed->>'provider_task_id' <> '0123456789abcdef01234567' then
+    raise exception 'recorded provider task was not returned for immediate polling: %', v_replayed;
+  end if;
 end;
 $body$;
