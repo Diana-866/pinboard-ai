@@ -74,3 +74,75 @@ begin
   delete from public.users where id::text = v_user_id;
 end;
 $body$;
+
+-- A lost success response is recoverable by retrying the same database commit.
+-- The first commit consumes the lease; the duplicate must not overwrite it.
+do $body$
+declare
+  v_user_id text := gen_random_uuid()::text;
+  v_account_id uuid;
+  v_lease_id uuid := gen_random_uuid();
+  v_expected_updated_at timestamptz;
+  v_acquired boolean;
+  v_first_commit boolean;
+  v_duplicate_commit boolean;
+  v_access_token text;
+  v_refresh_token text;
+  v_state text;
+begin
+  insert into public.users(email, tariff_plan)
+  values ('pinterest-refresh-commit-retry-' || v_user_id || '@example.invalid', 'start');
+
+  insert into public.pinterest_accounts(
+    user_id, pinterest_user_id, username, access_token, refresh_token, expires_at
+  ) values (
+    v_user_id, 'refresh-commit-retry-' || v_user_id, 'refresh-commit-retry',
+    'access-before', 'refresh-before', now() + interval '1 hour'
+  ) returning id into v_account_id;
+
+  select public.acquire_pinterest_account_refresh_lease(
+    v_user_id, v_account_id, v_lease_id, 30
+  ) into v_acquired;
+  if not coalesce(v_acquired, false) then
+    raise exception 'could not acquire lease for commit retry test';
+  end if;
+
+  update public.pinterest_accounts
+     set refresh_state = 'uncertain', updated_at = clock_timestamp()
+   where id = v_account_id and user_id = v_user_id
+   returning updated_at into v_expected_updated_at;
+
+  select public.commit_pinterest_account_token_refresh(
+    v_user_id, v_account_id, v_lease_id, v_expected_updated_at,
+    'access-rotated', 'refresh-rotated', 'boards:read,pins:write',
+    now() + interval '1 hour'
+  ) into v_first_commit;
+  if not coalesce(v_first_commit, false) then
+    raise exception 'first rotated-token commit did not succeed';
+  end if;
+
+  select public.commit_pinterest_account_token_refresh(
+    v_user_id, v_account_id, v_lease_id, v_expected_updated_at,
+    'access-rotated', 'refresh-rotated', 'boards:read,pins:write',
+    now() + interval '1 hour'
+  ) into v_duplicate_commit;
+  if coalesce(v_duplicate_commit, false) then
+    raise exception 'duplicate commit unexpectedly succeeded after lease consumption';
+  end if;
+
+  select access_token, refresh_token, refresh_state
+    into v_access_token, v_refresh_token, v_state
+    from public.pinterest_accounts
+   where id = v_account_id and user_id = v_user_id;
+
+  if v_access_token <> 'access-rotated'
+     or v_refresh_token <> 'refresh-rotated'
+     or v_state <> 'ready' then
+    raise exception 'duplicate commit recovery did not preserve the rotated credential pair';
+  end if;
+
+  delete from public.pinterest_accounts where id = v_account_id;
+  delete from public.pinterest_oauth_connection_state where user_id = v_user_id;
+  delete from public.users where id::text = v_user_id;
+end;
+$body$;
