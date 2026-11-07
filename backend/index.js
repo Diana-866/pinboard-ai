@@ -119,7 +119,7 @@ const { buildPinScheduleSnapshot, classifyLegacyScheduleAccount, getScheduleRetr
 const { analyzeSite } = require("./analyze");
 const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
-const { uploadPinImage, rehostImage } = require("./storage");
+const { uploadPinImage, rehostImage, deletePinImageIfUnreferenced } = require("./storage");
 const { validateDevTopupRequest } = require("./devTopup");
 const mail = require("./mail");
 const passwordReset = require("./password-reset");
@@ -719,6 +719,11 @@ app.post("/pins/:id/image", requireAuth, imageUpload.single("image"), async (req
       .select()
       .single();
     if (error) throw error;
+    if (pin.image_url && pin.image_url !== url) {
+      await deletePinImageIfUnreferenced(pin.image_url).catch((cleanupError) => {
+        console.error("[storage] не удалось очистить старое изображение пина:", cleanupError && cleanupError.message);
+      });
+    }
     res.json(data);
   } catch (e) {
     handleError(res, e);
@@ -770,6 +775,12 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
         throw httpError(404, "Пин не найден");
       }
       throw chargeError;
+    }
+
+    if (pin.image_url && pin.image_url !== image.url) {
+      await deletePinImageIfUnreferenced(pin.image_url).catch((cleanupError) => {
+        console.error("[storage] не удалось очистить старое изображение после перегенерации:", cleanupError && cleanupError.message);
+      });
     }
 
     const { data: updated, error: readError } = await supabase
