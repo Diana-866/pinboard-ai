@@ -477,7 +477,7 @@ async function getPinWithOwner(pinId, userId) {
   return data;
 }
 
-async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationUrl, accountId = null, scheduleClaim = null) {
+async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationUrl, accountId = null, scheduleClaim = null, scheduleSnapshot = null) {
   const boardId = String(pinterestBoardId || "").trim();
   if (!boardId) throw httpError(422, "board_id обязателен: выберите доску Pinterest");
 
@@ -486,7 +486,16 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
   if (pin.status !== "approved") {
     throw httpError(409, "Публиковать можно только одобренные пины");
   }
-  if (!pin.image_url) throw httpError(422, "У пина нет изображения — сначала сгенерируйте картинку");
+  // New schedules use the immutable creative snapshot; legacy rows keep live-pin behavior.
+  const publishPinData = scheduleSnapshot && scheduleSnapshot.snapshot_image_url
+    ? {
+        ...pin,
+        title: scheduleSnapshot.snapshot_title ?? pin.title,
+        description: scheduleSnapshot.snapshot_description ?? pin.description,
+        image_url: scheduleSnapshot.snapshot_image_url,
+      }
+    : pin;
+  if (!publishPinData.image_url) throw httpError(422, "У пина нет изображения — сначала сгенерируйте картинку");
   const selectedAccount = await resolveAccount(userId, accountId);
   accountId = selectedAccount.id;
   await verifyPinterestBoard(userId, boardId, accountId);
@@ -545,12 +554,15 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
   }
 
   const projectUrl = pin.boards && pin.boards.projects ? pin.boards.projects.website_url : null;
-  const link = destinationUrl || projectUrl;
+  const hasSnapshot = !!(scheduleSnapshot && scheduleSnapshot.snapshot_image_url);
+  const link = hasSnapshot
+    ? (scheduleSnapshot.snapshot_destination_url || null)
+    : (destinationUrl || projectUrl);
   const body = {
     board_id: boardId,
-    title: String(pin.title || "").slice(0, 100),
-    description: String(pin.description || "").slice(0, 800),
-    media_source: { source_type: "image_url", url: pin.image_url },
+    title: String(publishPinData.title || "").slice(0, 100),
+    description: String(publishPinData.description || "").slice(0, 800),
+    media_source: { source_type: "image_url", url: publishPinData.image_url },
     ...(link ? { link } : {}),
   };
 
@@ -893,7 +905,8 @@ function registerRoutes(app, deps) {
             schedule.pinterest_board_id,
             schedule.destination_url,
             schedule.pinterest_account_id,
-            { scheduleId: schedule.id, claimToken: schedule.claim_token }
+            { scheduleId: schedule.id, claimToken: schedule.claim_token },
+            schedule
           );
           const remoteId = String(published.pinterest_pin_id || "");
           if (!remoteId) throw new Error("Pinterest publication returned no remote ID");
