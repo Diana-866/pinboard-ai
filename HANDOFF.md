@@ -997,3 +997,8 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Добавлен pure helper `calculateQuotedGenerationPricing(quotes, markup)` в `backend/generationPricing.js`, тесты в `backend/test/generation-pricing.test.js`. Per-image rounding matches existing settlement; provider RUB and user credits remain distinct.
 - AUD-075: `docs/audits/AUD-075-exact-quote-and-reservation-lifecycle.md`. Tests not executed.
 - Safe next sequence: provider-operation journal for billable text/image work; bounded LLM usage capture; immutable task plan; exact quotes persisted; atomic reservation resize (user row → reservation lock, account for other reservations); submit only after reserve covers exact quoted user credits; compare actual vs quote on settlement; unknown outcomes never resubmitted blindly.
+
+
+### AUD-075 follow-up — reservation resize groundwork
+- Migration `065_resize_pin_generation_credit_reservation.sql` adds `resize_pin_generation_credit_reservation(user,key,claim,amount)`. It locks user → request → reservation, checks current claim and processing state, accounts for other active reservations, and changes only a still-reserved reservation. Upward resize is atomic and fails if available balance is insufficient; downward resize is allowed.
+- Added `backend/test/generation-reservation-resize.sh`; not executed. RPC is not wired into the route. Do not deploy/use until disposable PostgreSQL verification.
