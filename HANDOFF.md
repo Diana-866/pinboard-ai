@@ -907,3 +907,9 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Fixed in `frontend/src/components/pins/PinGenerator.tsx`: serialize PATCH writes per pin, commit title to UI only after server success, save the textarea's actual blur value, and wait for pending pin edits before submitting a schedule request.
 - On a pending-save failure, scheduling is aborted rather than creating a schedule from a stale database snapshot.
 - Static source review only. TypeScript, browser E2E, and live API tests were not run; Actions runner blocker remains. No production deployment, DB migration, or PR merge.
+
+
+## 2026-11-07 — AUD-067: restore persisted pins in generator
+- `PinGenerator` now loads `GET /boards/:id/pins` when opened and when the selected board changes, mapping DB id/title/description/image_url/aspect_ratio back into editor state.
+- Added loading/error UI, disabled generation while restoration is pending, ignores stale responses after board changes/unmount, and routes aspect-ratio PATCH through the per-pin serialized save queue.
+- Backend endpoint already existed and performs a board-owner check. Static source assertions only; no TypeScript/build/browser/API/Postgres execution. No production or DB changes.
