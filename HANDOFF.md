@@ -176,3 +176,12 @@ HANDOFF.md                            Этот файл
 - Диапазоны min/max теперь обозначены как локальные ориентиры ручного планирования; хранятся в localStorage текущего браузера и не используются worker. Текст календаря обновлён на 7 языках. Часовой пояс остался локальной настройкой календаря.
 - Автоматическая генерация не считается реализованной; worker выполняет только заранее созданные расписания пользователя.
 - Статус AUD-007: FIXED_UNVERIFIED до успешного frontend typecheck/CI.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-009)
+
+- ScheduledPinItem и mapping календаря сохраняют pinterest_pin_id из /schedule.
+- Добавлен helper buildPinterestPinUrl: URL создаётся только для числового ID, произвольные path/query/host значения не формируют ссылку.
+- В деталях календаря ссылка отображается только для published и валидного URL; открывается в новой вкладке с noopener noreferrer.
+- Добавлены frontend unit tests, npm test script и CI step. Реальный CI/typecheck пока не подтверждён.
+- AUD-009: FIXED_UNVERIFIED.
