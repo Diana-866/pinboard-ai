@@ -795,12 +795,6 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
     let image = null;
     let storedUrl = state.storage_url || null;
     if (!storedUrl && state.provider_result_url) {
-      // Upgrade legacy journal rows too: record the known successful provider
-      // outcome before doing any further storage/network work.
-      await recordProviderOutcome({
-        taskId: state.provider_task_id,
-        price: state.provider_price,
-      }, "done");
       storedUrl = await rehostImage(state.provider_result_url, { idempotencyKey: state.provider_idempotency_key });
     }
     if (storedUrl && state.provider_task_id && state.provider_price != null) {
