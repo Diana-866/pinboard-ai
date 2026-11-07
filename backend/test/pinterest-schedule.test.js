@@ -119,6 +119,16 @@ test("retryability allows a failed schedule without any publication attempt", ()
   }, null, false, true, false), { retryable: true, reason: null });
 });
 
+test("retryability accepts the immutable schedule image when the live pin image was cleared", () => {
+  assert.deepEqual(getScheduleRetryability({
+    status: "failed",
+    pinterest_account_id: "account-a",
+    pinterest_board_id: "board-a",
+    snapshot_image_url: "https://cdn.example/scheduled-snapshot.jpg",
+    pins: { image_url: null },
+  }, null, false, true, false), { retryable: true, reason: null });
+});
+
 test("retryability allows only explicitly safe failed journal entries", () => {
   const schedule = {
     status: "failed", pinterest_account_id: "account-a", pinterest_board_id: "board-a",
