@@ -93,7 +93,10 @@ async function generateTextWithUsage(prompt, options = {}) {
       promptCost: finiteUsageNumber(usage && usage.prompt_cost),
       completionCost: finiteUsageNumber(usage && usage.completion_cost),
       totalCost: Number.isFinite(totalCost) && totalCost >= 0 ? totalCost : null,
+      cachedPromptTokens: finiteUsageNumber(usage && usage.prompt_tokens_details && usage.prompt_tokens_details.cached_tokens),
+      cacheWriteTokens: finiteUsageNumber(usage && usage.prompt_tokens_details && usage.prompt_tokens_details.cache_write_tokens),
     },
+    costCurrency: "RUB",
     model: typeof response.data.model === "string" ? response.data.model : payload.model,
     requestId: typeof response.data.id === "string" ? response.data.id : null,
   };
