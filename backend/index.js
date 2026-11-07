@@ -1139,6 +1139,9 @@ app.get("/schedule", requireAuth, async (req, res) => {
 app.post("/pins/:id/schedule", requireAuth, requireTariff(["start", "pro", "agency"]), async (req, res) => {
   try {
     const pin = await getPinWithOwnerCheck(req.params.id, req.userId);
+    if (pin.status !== "approved") {
+      throw httpError(409, "Запланировать можно только одобренные пины");
+    }
     if (!pin.image_url) throw httpError(422, "У пина нет сохранённого изображения");
     const scheduledAtRaw = String((req.body && req.body.scheduled_at) || "").trim();
     const scheduledAt = new Date(scheduledAtRaw);
