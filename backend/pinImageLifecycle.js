@@ -19,11 +19,6 @@ function extractManagedPinImagePath(publicUrl, supabaseUrl, bucket = "pin-images
   }
 }
 
-function canDeletePinImageObject({ hasPinReference, hasScheduleReference, generationRequestStatuses = [] }) {
-  if (hasPinReference || hasScheduleReference) return false;
-  return generationRequestStatuses.every((status) => ["completed", "failed"].includes(status));
-}
-
 function buildPinImageObjectPath(extension, idempotencyKey = null) {
   const ext = String(extension || "").toLowerCase();
   if (!["png", "jpg", "jpeg", "webp", "gif"].includes(ext)) {
@@ -67,6 +62,5 @@ async function deleteManagedPinImageObject({ supabase, bucket = "pin-images", ob
 module.exports = {
   deleteManagedPinImageObject,
   extractManagedPinImagePath,
-  canDeletePinImageObject,
   buildPinImageObjectPath,
 };
