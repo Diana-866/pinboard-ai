@@ -1043,23 +1043,26 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
     // A resumed journal may already represent billable provider work. Do not
     // reject recovery using a fresh estimate; the atomic completion RPC checks
     // the actual final charge against the current balance before saving pins.
+    const estimatedCost = Math.ceil((MODEL_PRICES[model] || 15) * count * MARKUP);
     if (requestState.status !== "resume") {
-      const estimatedCost = Math.ceil((MODEL_PRICES[model] || 15) * count * MARKUP);
       const balance = await getBalance(req.userId);
       if (balance < estimatedCost) {
         throw httpError(402, "Недостаточно кредитов для этой генерации");
       }
-      const { error: reservationError } = await supabase.rpc("reserve_pin_generation_credits", {
-        p_user_id: String(req.userId),
-        p_idempotency_key: idempotencyKey,
-        p_amount: estimatedCost,
-      });
-      if (reservationError) {
-        if (/insufficient available credits/i.test(reservationError.message || "")) {
-          throw httpError(402, "Недостаточно доступных кредитов: часть баланса уже зарезервирована для других генераций.");
-        }
-        throw reservationError;
+    }
+    // Reserve the complete request ceiling for both first submission and
+    // recovery. Existing reservations are idempotently reused; this also
+    // protects pre-existing in-flight requests before their settlement.
+    const { error: reservationError } = await supabase.rpc("reserve_pin_generation_credits", {
+      p_user_id: String(req.userId),
+      p_idempotency_key: idempotencyKey,
+      p_amount: estimatedCost,
+    });
+    if (reservationError) {
+      if (/insufficient available credits/i.test(reservationError.message || "")) {
+        throw httpError(402, "Недостаточно доступных кредитов: часть баланса уже зарезервирована для других генераций.");
       }
+      throw reservationError;
     }
 
     let allowPreparedTaskSubmission = true;
@@ -1089,26 +1092,9 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
           // Only tasks that may still need a provider submission should reserve
           // estimated balance. Completed/queued/unknown tasks are reconciled
           // with their original provider idempotency keys and are not new work.
-          const estimatedCost = notYetConfirmedTasks.reduce(
-            (total, task) => total + Math.ceil((MODEL_PRICES[task.model] || MODEL_PRICES[model] || 15) * MARKUP),
-            0
-          );
-          const balance = await getBalance(req.userId);
-          allowPreparedTaskSubmission = balance >= estimatedCost;
-          if (allowPreparedTaskSubmission) {
-            const { error: reservationError } = await supabase.rpc("reserve_pin_generation_credits", {
-              p_user_id: String(req.userId),
-              p_idempotency_key: idempotencyKey,
-              p_amount: estimatedCost,
-            });
-            if (reservationError) {
-              if (/insufficient available credits/i.test(reservationError.message || "")) {
-                allowPreparedTaskSubmission = false;
-              } else {
-                throw reservationError;
-              }
-            }
-          }
+          // The request-level reservation already covers the complete plan.
+          // This flag only controls whether prepared tasks may be submitted.
+          allowPreparedTaskSubmission = true;
         }
         return data;
       } : undefined,
