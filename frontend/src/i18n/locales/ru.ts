@@ -397,6 +397,7 @@ export const ru: TranslationSchema = {
     pinterestBoardsEmpty: "Доски не найдены или ещё не загружены.",
     pinterestAccountIdLabel: "ID Pinterest",
     pinterestDisconnected: "Аккаунт Pinterest отключён.",
+    pinterestDisconnectWarning: "Отключение удалит токены из PinPosy, но не отзывает разрешение в Pinterest. Будущие публикации в очереди этого аккаунта будут помечены как ошибочные; уже выполняющийся запрос может завершиться. Продолжить?",
     pinterestAccountFallback: "Аккаунт Pinterest",
     pinterestReauthRequired: "Требуется повторная авторизация",
     pinterestPinsLabel: "пинов",
