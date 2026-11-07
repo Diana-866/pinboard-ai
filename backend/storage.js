@@ -5,7 +5,7 @@ const https = require("node:https");
 const { httpError } = require("./validate");
 const { validateImageBuffer } = require("./imageValidation");
 const { assertPublicUrl, createPinnedLookup } = require("./publicUrl");
-const { extractManagedPinImagePath, canDeletePinImageObject } = require("./pinImageLifecycle");
+const { extractManagedPinImagePath, canDeletePinImageObject, buildPinImageObjectPath } = require("./pinImageLifecycle");
 
 const BUCKET = "pin-images";
 let bucketReady = false;
@@ -24,7 +24,7 @@ async function ensureBucket() {
 }
 
 // Проверяем сигнатуру, а не доверяем Content-Type, присланному клиентом или источником.
-async function uploadPinImage(file) {
+async function uploadPinImage(file, options = {}) {
   let imageType;
   try {
     imageType = validateImageBuffer(file && file.buffer, file && file.mimetype);
@@ -32,7 +32,7 @@ async function uploadPinImage(file) {
     throw httpError(422, e.message);
   }
   await ensureBucket();
-  const path = `pins/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${imageType.ext}`;
+  const path = buildPinImageObjectPath(imageType.ext, options.idempotencyKey || null);
 
   const { error } = await supabase.storage
     .from(BUCKET)
@@ -89,7 +89,7 @@ module.exports = { uploadPinImage, rehostImage, deletePinImageIfUnreferenced };
 // Скачивает картинку по URL (например, временную ссылку GPTunnel) и кладёт её в хранилище.
 // URL из ответа внешнего провайдера считается недоверенным: запрещаем private IP,
 // DNS rebinding и redirects, чтобы не превратить сервер в SSRF-прокси.
-async function rehostImage(sourceUrl) {
+async function rehostImage(sourceUrl, options = {}) {
   const axios = require("axios");
   let validated;
   try {
@@ -117,7 +117,7 @@ async function rehostImage(sourceUrl) {
       validateStatus: (status) => status >= 200 && status < 300,
     });
     const mimetype = String(response.headers["content-type"] || "").split(";")[0].trim().toLowerCase();
-    return await uploadPinImage({ buffer: Buffer.from(response.data), mimetype });
+    return await uploadPinImage({ buffer: Buffer.from(response.data), mimetype }, options);
   } catch (e) {
     if (e && e.httpStatus) throw e;
     console.error("[storage] не удалось получить изображение от провайдера:", e && e.message);
