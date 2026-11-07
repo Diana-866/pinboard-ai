@@ -883,3 +883,12 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Production untouched; PR #4 remains Draft and unmerged.
 
 **Status:** AUD-063 / OWNER_SCOPED_ROUTE_STATIC_REVIEW / BOARDS_API_PERSISTENCE_PATH_CONFIRMED_IN_SOURCE / FAKE_ANALYTICS_REMOVED / RUNTIME_UNVERIFIED.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-064: безопасный повтор генерации)
+- Исправлен frontend dead-end после окончательной ошибки генерации: backend возвращает `generation_request_failed` для definitive failed state и требует новый idempotency key, но UI ранее сохранял прежний ключ. Теперь при точном коде `generation_request_failed` `PinGenerator` генерирует и сохраняет новый ключ, позволяя повторить запрос с теми же параметрами.
+- Для `generation_in_progress` и `generation_outcome_unknown` ключ не меняется: unknown provider outcome может означать уже оплаченную задачу, поэтому новый ключ способен вызвать дублирующую генерацию.
+- Добавлены `frontend/src/utils/generationRetry.ts` и `frontend/src/utils/generationRetry.test.ts` (4 сценария). Обновлён `frontend/src/components/pins/PinGenerator.tsx`.
+- Тесты добавлены, но runtime execution, typecheck и build не подтверждены из-за текущего CI runner blocker. Production не менялся.
+
+**Status:** AUD-064 / FIXED_UNVERIFIED.
