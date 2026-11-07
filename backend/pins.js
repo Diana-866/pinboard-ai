@@ -46,7 +46,7 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
 
     let ideas;
     try {
-      const jsonMatch = aiResponse.match(/\\[[\\s\\S]*\\]/);
+      const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
       ideas = JSON.parse(jsonMatch ? jsonMatch[0] : aiResponse);
     } catch (e) {
       const err = new Error("Не удалось разобрать идеи пинов от нейросети");
