@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { AdminMail } from './AdminMail';
+import { AdminEmailOutbox } from './AdminEmailOutbox';
 import { AdminSubscriptions } from './AdminSubscriptions';
 import { AdminBillingExceptions } from './AdminBillingExceptions';
 import {
@@ -51,7 +52,7 @@ interface AdminPanelProps {
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
   const { logout } = useAuth();
   // Navigation tabs within Admin Panel
-  const [adminTab, setAdminTab] = useState<'users' | 'accounting' | 'night_and_bot' | 'mail' | 'subscriptions' | 'billing_exceptions'>('users');
+  const [adminTab, setAdminTab] = useState<'users' | 'accounting' | 'night_and_bot' | 'mail' | 'subscriptions' | 'billing_exceptions' | 'email_outbox'>('users');
 
   // Search & Filter for Users tab
   const [userSearch, setUserSearch] = useState('');
@@ -265,6 +266,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
           </button>
 
           <button
+            onClick={() => setAdminTab('email_outbox')}
+            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              adminTab === 'email_outbox'
+                ? 'accent-btn shadow-xs'
+                : 'text-secondary-theme hover:text-primary-theme hover:bg-subtle'
+            }`}
+          >
+            <Mail className="w-4 h-4" />
+            <span>5. Очередь писем</span>
+          </button>
+
+          <button
             onClick={() => setAdminTab('billing_exceptions')}
             className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               adminTab === 'billing_exceptions'
@@ -273,7 +286,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
             }`}
           >
             <AlertCircle className="w-4 h-4" />
-            <span>5. Исключения платежей</span>
+            <span>6. Исключения платежей</span>
           </button>
 
           <button
@@ -285,7 +298,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
             }`}
           >
             <Receipt className="w-4 h-4" />
-            <span>6. Подписки и платежи</span>
+            <span>7. Подписки и платежи</span>
           </button>
         </div>
       </div>
@@ -293,6 +306,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
       {/* Main Admin Content Container */}
       <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto space-y-6 pb-24">
         {adminTab === 'mail' && <AdminMail />}
+        {adminTab === 'email_outbox' && <AdminEmailOutbox />}
         {adminTab === 'subscriptions' && <AdminSubscriptions />}
         {adminTab === 'billing_exceptions' && <AdminBillingExceptions />}
         {/* ============================================================ */}
