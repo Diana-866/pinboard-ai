@@ -13,6 +13,19 @@ as $$
 declare
   v_schedule public.pin_schedules%rowtype;
 begin
+  -- Match disconnect_pinterest_account_v2 lock order (account before schedule)
+  -- to avoid a schedule/account deadlock during concurrent recovery/disconnect.
+  perform 1
+    from public.pinterest_accounts a
+   where a.id = p_pinterest_account_id
+     and a.user_id = p_user_id
+     and a.disconnected_at is null
+     and a.access_token is not null
+   for update;
+  if not found then
+    return jsonb_build_object('ok', false, 'reason', 'account_unavailable');
+  end if;
+
   select * into v_schedule
     from public.pin_schedules
    where id = p_schedule_id
@@ -46,17 +59,6 @@ begin
     return jsonb_build_object('ok', false, 'reason', 'pin_unavailable');
   end if;
 
-  perform 1
-    from public.pinterest_accounts a
-   where a.id = p_pinterest_account_id
-     and a.user_id = p_user_id
-     and a.disconnected_at is null
-     and a.access_token is not null
-   for update;
-  if not found then
-    return jsonb_build_object('ok', false, 'reason', 'account_unavailable');
-  end if;
-
   -- Any existing publish journal or ledger entry means the remote outcome may
   -- already exist. Do not attach a new identity and risk a duplicate.
   if exists (
@@ -79,16 +81,20 @@ begin
     return jsonb_build_object('ok', false, 'reason', 'active_schedule_exists');
   end if;
 
-  update public.pin_schedules
-     set pinterest_account_id = p_pinterest_account_id,
-         status = 'scheduled',
-         claim_token = null,
-         next_attempt_at = null,
-         last_error = null,
-         updated_at = clock_timestamp()
-   where id = v_schedule.id
-     and user_id = p_user_id
-     and pinterest_account_id is null;
+  begin
+    update public.pin_schedules
+       set pinterest_account_id = p_pinterest_account_id,
+           status = 'scheduled',
+           claim_token = null,
+           next_attempt_at = null,
+           last_error = null,
+           updated_at = clock_timestamp()
+     where id = v_schedule.id
+       and user_id = p_user_id
+       and pinterest_account_id is null;
+  exception when unique_violation then
+    return jsonb_build_object('ok', false, 'reason', 'active_schedule_exists');
+  end;
 
   if not found then
     return jsonb_build_object('ok', false, 'reason', 'schedule_changed');
