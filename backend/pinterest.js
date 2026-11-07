@@ -377,14 +377,38 @@ async function refreshAccessToken(account) {
       p_expires_at: expiresAt,
     });
     if (commitError) {
-      // The RPC may have committed even if its response was lost. Reconcile
-      // before telling the user to reconnect or allowing another refresh.
+      // The provider has already rotated the token pair. Retry only the
+      // idempotent database commit with the SAME response; never call Pinterest
+      // again with either refresh token. The lease row serializes this retry
+      // against an original RPC that may still be completing.
+      console.warn("[pinterest] refresh commit response was ambiguous; retrying the same database commit once");
+      const retryCommit = await supabase.rpc("commit_pinterest_account_token_refresh", {
+        p_user_id: String(latest.user_id),
+        p_pinterest_account_id: latest.id,
+        p_lease_id: leaseId,
+        p_expected_updated_at: refreshStarted.updated_at,
+        p_access_token: encryptToken(refreshedAccessToken),
+        p_refresh_token: encryptToken(refreshedRefreshToken),
+        p_scopes: res.data.scope || latest.scopes || SCOPES.join(","),
+        p_expires_at: expiresAt,
+      });
+
+      if (!retryCommit.error && retryCommit.data === true) {
+        return getAccount(latest.user_id, latest.id);
+      }
+
+      // If the first RPC actually committed, the retry will normally report
+      // false because the lease was consumed. Reconcile by comparing stored
+      // credentials, not updated_at (the uncertainty fence changes timestamp).
       const reconciled = await getAccount(latest.user_id, latest.id).catch(() => null);
       if (isCommittedTokenRefresh(latest, reconciled)) {
-        console.warn("[pinterest] refresh commit response was ambiguous; newer stored credentials were recovered");
+        console.warn("[pinterest] refresh commit recovered after an ambiguous database response");
         return reconciled;
       }
-      console.error("[pinterest] не удалось атомарно сохранить обновлённые токены:", commitError.message);
+      console.error(
+        "[pinterest] не удалось атомарно подтвердить сохранение обновлённых токенов:",
+        (retryCommit.error || commitError).message
+      );
       throw httpError(503, "Pinterest обновил доступ, но PinPosy не смог подтвердить сохранение токенов. Повторите запрос; если ошибка повторится, подключите Pinterest заново.");
     }
     if (!committed) {
