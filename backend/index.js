@@ -803,6 +803,14 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
       }, "done");
       storedUrl = await rehostImage(state.provider_result_url, { idempotencyKey: state.provider_idempotency_key });
     }
+    if (storedUrl && state.provider_task_id && state.provider_price != null) {
+      // A previously rehosted result may be resumed after a transient failure;
+      // the provider outcome RPC is idempotent for an identical terminal fact.
+      await recordProviderOutcome({
+        taskId: state.provider_task_id,
+        price: state.provider_price,
+      }, "done");
+    }
     if (!storedUrl) {
       // Resume a provider task already recorded in the journal instead of
       // submitting another create request after a client/network retry.
