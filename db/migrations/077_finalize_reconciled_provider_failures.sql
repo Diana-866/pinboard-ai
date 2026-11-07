@@ -32,6 +32,9 @@ begin
   if not found then raise exception 'generation request not found'; end if;
 
   if v_request.status='failed' then
+    if v_request.error_code is distinct from 'provider_refund_reconciled' then
+      raise exception 'generation request was not finalized by refund reconciliation';
+    end if;
     select max(reconciled_at) into v_reconciled_at
       from public.provider_refund_reconciliation_audit
      where request_kind='generation' and user_id=p_user_id
@@ -123,6 +126,9 @@ begin
   if not found then raise exception 'regeneration request not found'; end if;
 
   if v_request.status='failed' then
+    if v_request.error_code is distinct from 'provider_refund_reconciled' then
+      raise exception 'regeneration request was not finalized by refund reconciliation';
+    end if;
     select max(reconciled_at) into v_reconciled_at
       from public.provider_refund_reconciliation_audit
      where request_kind='regeneration' and user_id=p_user_id
