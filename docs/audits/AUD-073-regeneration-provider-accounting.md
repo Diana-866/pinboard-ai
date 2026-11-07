@@ -85,3 +85,9 @@ References:
 - No runtime/SQL integration test executed; GitHub Actions runner blocker remains.
 
 **Status:** AUD-073 / REGENERATION_PROVIDER_COST_GAP_CONFIRMED / REFUND_METADATA_NOT_PERSISTED / DESIGN_ONLY / RUNTIME_UNVERIFIED.
+
+
+### AUD-073 follow-up code groundwork
+- `backend/gptunnel.js` now exports `providerTaskError(task)`; both immediate failed task responses and polled failed task responses preserve provider task ID, finite nonnegative gross price, strict boolean `refunded` (otherwise null), provider numeric error code and bounded error title on the thrown error.
+- Added three tests for refunded=false + price + structured provider error, missing refund metadata remaining null, and invalid price being treated as unknown. Test definitions only; not executed.
+- Important: `backend/index.js` catch still does not persist these new fields into migration 053's journal. This is intentionally only adapter groundwork; no claim that financial reconciliation is complete.
