@@ -752,8 +752,9 @@ begin
   returning id into v_schedule;
   perform public.claim_due_pin_schedules(10);
   if (select status from public.pin_schedules where id=v_schedule) <> 'published'
-     or (select pinterest_pin_id from public.pin_schedules where id=v_schedule) <> 'remote-pin-ci-001' then
-    raise exception 'stale schedule with confirmed Pinterest success was not recovered';
+     or (select pinterest_pin_id from public.pin_schedules where id=v_schedule) <> 'remote-pin-ci-001'
+     or (select claim_token from public.pin_schedules where id=v_schedule) is not null then
+    raise exception 'stale schedule with confirmed Pinterest success was not recovered or retained a stale claim token';
   end if;
 
   -- A stale publishing row without a confirmed remote ID becomes unknown,
