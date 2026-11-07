@@ -785,7 +785,15 @@ export const PricingView: React.FC = () => {
                     {purchases.map((p) => (
                       <tr key={p.id} className="hover:bg-subtle/50 transition-colors">
                         <td className="py-3 px-3 font-bold text-primary-theme">
-                          {p.pack_title || p.package_id}
+                          <div>{p.pack_title || p.package_id}</div>
+                          {p.status === 'pending' && p.provider_payment_id && (
+                            <div
+                              className="mt-1 text-[10px] font-mono font-normal text-secondary-theme select-all"
+                              title={p.provider_payment_id}
+                            >
+                              {language === 'ru' ? 'Заказ' : 'Order'}: {p.provider_payment_id}
+                            </div>
+                          )}
                         </td>
                         <td className="py-3 px-3 font-mono font-bold text-primary-theme">
                           +{p.credits.toLocaleString()}
@@ -807,7 +815,7 @@ export const PricingView: React.FC = () => {
                           </span>
                         </td>
                         <td className="py-3 px-3 font-mono text-secondary-theme">
-                          {p.paid_at ? new Intl.DateTimeFormat(language, { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(p.paid_at)) : '—'}
+                          {(p.paid_at || p.created_at) ? new Intl.DateTimeFormat(language, { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(p.paid_at || p.created_at)) : '—'}
                         </td>
                       </tr>
                     ))}
@@ -818,6 +826,13 @@ export const PricingView: React.FC = () => {
                 <History className="w-3.5 h-3.5" />
                 {t.purchases?.neverBurn || 'Кредиты из оплаченных пакетов зачислены на баланс и не сгорают.'}
               </p>
+              {purchases.some((purchase) => purchase.status === 'pending') && (
+                <p className="text-[11px] text-amber-700 dark:text-amber-300" role="status">
+                  {language === 'ru'
+                    ? 'Если вы закрыли страницу оплаты или платёж долго ожидает подтверждения, обратитесь в поддержку и укажите номер заказа. Не создавайте повторную покупку, пока статус не проверен.'
+                    : 'If you closed the checkout page or the payment remains pending, contact support with the order reference. Do not create another purchase until the status has been checked.'}
+                </p>
+              )}
             </div>
           )}
         </div>
