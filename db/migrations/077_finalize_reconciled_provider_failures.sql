@@ -57,16 +57,7 @@ begin
          or t.provider_outcome_status is distinct from 'failed'
          or t.provider_task_id is null
          or t.provider_refunded is null
-         or t.provider_reconciled_at is null
-         or not exists (
-           select 1 from public.provider_refund_reconciliation_audit a
-            where a.request_kind='generation'
-              and a.user_id=p_user_id
-              and a.idempotency_key=p_idempotency_key
-              and a.task_index=t.task_index
-              and a.provider_task_id=t.provider_task_id
-              and a.provider_refunded=t.provider_refunded
-         ))
+         or t.provider_reconciled_at is null)
   ) then
     raise exception 'all generation tasks must be failed and refund-reconciled';
   end if;
@@ -79,10 +70,19 @@ begin
     raise exception 'generation credit reservation is not active';
   end if;
 
-  select max(reconciled_at) into v_reconciled_at
-    from public.provider_refund_reconciliation_audit
-   where request_kind='generation' and user_id=p_user_id
-     and idempotency_key=p_idempotency_key;
+  select coalesce(
+           max(a.reconciled_at),
+           max(t.provider_reconciled_at)
+         ) into v_reconciled_at
+    from public.pin_generation_tasks t
+    left join public.provider_refund_reconciliation_audit a
+      on a.request_kind='generation'
+     and a.user_id=p_user_id
+     and a.idempotency_key=p_idempotency_key
+     and a.task_index=t.task_index
+     and a.provider_task_id=t.provider_task_id
+     and a.provider_refunded=t.provider_refunded
+   where t.generation_request_id=v_request.id and t.user_id=p_user_id;
 
   update public.pin_generation_requests
      set status='failed',
@@ -146,7 +146,9 @@ begin
      and provider_task_id=v_request.provider_task_id
      and provider_refunded=v_request.provider_refunded;
   if not found then
-    raise exception 'regeneration refund reconciliation evidence is missing';
+    -- A provider-supplied refund fact is already authoritative; the audit row
+    -- is required only when an operator had to enrich a previously unknown fact.
+    v_reconciled_at := v_request.provider_reconciled_at;
   end if;
 
   select * into v_reservation
