@@ -23,6 +23,7 @@ declare
   v_attempt_retry_schedule uuid;
   v_safe_retry_pin uuid;
   v_safe_retry_schedule uuid;
+  v_snapshot_pin uuid;
   v_delete_before_pin uuid;
   v_delete_before_schedule uuid;
   v_delete_after_pin uuid;
@@ -405,13 +406,13 @@ begin
   -- Editing the live pin after scheduling must not rewrite the approved creative snapshot.
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
   values (v_board, 'https://cdn.example.invalid/snapshot-before.png', 'Snapshot before', 'Original copy', 'approved', 'flux-schnell', 0)
-  returning id into v_delete_before_pin;
+  returning id into v_snapshot_pin;
   insert into public.pin_schedules(
     user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
     pinterest_board_id, status, snapshot_title, snapshot_description,
     snapshot_image_url, snapshot_destination_url
   ) values (
-    v_user::text, v_delete_before_pin, v_account_a, now() + interval '1 day', 'UTC',
+    v_user::text, v_snapshot_pin, v_account_a, now() + interval '1 day', 'UTC',
     'board-a', 'scheduled', 'Snapshot before', 'Original copy',
     'https://cdn.example.invalid/snapshot-before.png', 'https://example.invalid/original'
   ) returning id into v_delete_before_schedule;
@@ -419,7 +420,7 @@ begin
      set title='Edited after scheduling',
          description='Edited copy',
          image_url='https://cdn.example.invalid/snapshot-after.png'
-   where id=v_delete_before_pin;
+   where id=v_snapshot_pin;
   if (select snapshot_title from public.pin_schedules where id=v_delete_before_schedule) <> 'Snapshot before'
      or (select snapshot_description from public.pin_schedules where id=v_delete_before_schedule) <> 'Original copy'
      or (select snapshot_image_url from public.pin_schedules where id=v_delete_before_schedule) <> 'https://cdn.example.invalid/snapshot-before.png' then
@@ -488,7 +489,7 @@ begin
   delete from public.pinterest_publish_attempts where user_id = v_user::text;
   delete from public.pinterest_publications where user_id = v_user::text;
   delete from public.pinterest_accounts where user_id = v_user::text;
-  delete from public.pins where id in (v_pin, v_legacy_pin, v_inflight_pin, v_crash_pin, v_retry_pin, v_manual_retry_pin, v_attempt_retry_pin, v_safe_retry_pin, v_reconcile_pin);
+  delete from public.pins where id in (v_pin, v_legacy_pin, v_inflight_pin, v_crash_pin, v_retry_pin, v_manual_retry_pin, v_attempt_retry_pin, v_safe_retry_pin, v_reconcile_pin, v_snapshot_pin);
   delete from public.boards where id = v_board;
   delete from public.projects where id = v_project;
   delete from public.users where id = v_user;
