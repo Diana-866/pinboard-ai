@@ -321,3 +321,14 @@
 - Следующий шаг: спроектировать миграцию для атомарного reserve-adjust operation, отдельного идемпотентного journal provider charges (media quote/final price и LLM request_id/usage), лимитов токенов, release/settlement при definitive/unknown outcomes и общей блокировки списаний. Не менять пользовательские цены/credits mapping без явной продуктовой политики. Важно не делать повторный billable provider call при неопределённом результате.
 - Runtime tests/Node suite/CI/PostgreSQL не запускались: GitHub Actions runner issue остаётся. Проверены только содержимое файлов, экспорты и связность тестовых сценариев статически. Provider API не вызывался, production/DB не менялись, PR #4 не мержен.
 **Status:** AUD-071 / MEDIA_QUOTE_ADAPTER_ADDED / LLM_USAGE_ADAPTER_ADDED / NOT_WIRED / TESTS_ADDED_RUNTIME_UNVERIFIED / RESERVATION_LEDGER_DESIGN_OPEN.
+
+
+## 2026-11-07 — AUD-072: GPTunnel quote validation + billing lifecycle audit
+- Исправлена проверка `ignored_params` в `backend/gptunnel.js`: GPTunnel описывает ignored params вместе с причиной, поэтому ответ может быть объектной записью, а не строкой. Теперь нормализуются string/object формы, отклоняется любой ignored param и проверяется, что применённый `params.aspect_ratio` совпадает с запрошенным.
+- Добавлены regression tests для object-form ignored params и несовпадающего применённого ratio. Runtime не запускался.
+- Повторно подтверждены billing gaps: generation reservation всё ещё использует локальный `MODEL_PRICES`; текстовый LLM-план в `pins.js` не включён в резерв/settlement; `boards.js` и `analyze.js` используют платный LLM без учёта provider usage; image regeneration имеет отдельный fixed-price path. Новые GPTunnel adapters не подключены к пользовательским маршрутам.
+- Официальные GPTunnel docs уточняют: media `/price` возвращает итоговую цену и применённые params, скидки учтены; `ignored_params` содержит причины; некоторые input-media метрики в котировку не входят; media task сообщает фактические `price` и `refunded`; LLM `usage.total_cost` — фактическая стоимость, а каталог ставок не следует самостоятельно трактовать без точных единиц/учёта кэша.
+- Создан `docs/audits/AUD-072-gptunnel-billing-lifecycle.md` с последовательностью безопасной реализации: продуктовая политика → provider-operation journal → atomic reservation top-up → exact quotes before media submission → bounded LLM cost → unknown/refund reconciliation → atomic settlement → disposable PostgreSQL fault/concurrency tests.
+- Не добавлялась миграция, не менялись цены/балансы/тарифы; не тронуты production, GPTunnel credentials, deploy, DB, DNS, Prodamus, Pinterest и PR merge.
+
+**Status:** AUD-072 / QUOTE_VALIDATION_HARDENED / TESTS_ADDED_RUNTIME_UNVERIFIED / PROVIDER_BILLING_NOT_YET_WIRED.
