@@ -112,7 +112,7 @@ const verifyLimiter = rateLimit({
   message: { error: "Слишком много запросов. Попробуйте через 15 минут." },
 });
 
-const { generateImage } = require("./gptunnel");
+const { generateImage, checkImage, imageTaskResult } = require("./gptunnel");
 const { register, login, verifyToken } = require("./auth");
 const supabase = require("./supabase");
 const { buildPinScheduleSnapshot, classifyLegacyScheduleAccount, getScheduleRetryability } = require("./pinterestSchedule");
@@ -776,7 +776,23 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
     if (!storedUrl) {
       const balance = await getBalance(req.userId);
       if (balance < cost) throw httpError(402, "Недостаточно кредитов для перегенерации");
-      image = await generateImage(prompt, model, "2:3", state.provider_idempotency_key);
+
+      // Resume a provider task already recorded in the journal instead of
+      // submitting another create request after a client/network retry.
+      if (state.provider_task_id && !state.provider_result_url) {
+        const task = await checkImage(state.provider_task_id);
+        if (task && (task.status === "queued" || task.status === "running")) {
+          res.set("Retry-After", "10");
+          return res.status(202).json({ status: "processing", code: "regeneration_pending" });
+        }
+        if (!task || task.status !== "done") {
+          throw new Error("Provider task has no confirmed result yet");
+        }
+        image = imageTaskResult(task);
+      } else {
+        image = await generateImage(prompt, model, "2:3", state.provider_idempotency_key);
+      }
+
       if (image && image.pending && image.taskId) {
         const { error: journalError } = await supabase.rpc("update_pin_regeneration_request", {
           p_user_id: String(req.userId), p_idempotency_key: idempotencyKey, p_claim_token: claimToken,
@@ -786,7 +802,9 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
         res.set("Retry-After", "10");
         return res.status(202).json({ status: "processing", code: "regeneration_pending" });
       }
-      if (!image || !image.url || image.price == null) throw new Error("Provider returned no confirmed image result");
+      if (!image || !image.url || image.price == null || !image.taskId) {
+        throw new Error("Provider returned no confirmed image result");
+      }
       const { error: resultError } = await supabase.rpc("update_pin_regeneration_request", {
         p_user_id: String(req.userId), p_idempotency_key: idempotencyKey, p_claim_token: claimToken,
         p_status: "processing", p_provider_task_id: image.taskId,
