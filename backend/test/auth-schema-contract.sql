@@ -7,6 +7,7 @@ do $$
 declare
   v_missing text[] := array[]::text[];
   v_has_token_version boolean;
+  v_token_version_default text;
   v_required_functions text[] := array[
     'issue_password_reset_token',
     'consume_password_reset_token',
@@ -25,9 +26,22 @@ begin
        and is_nullable = 'NO'
   ) into v_has_token_version;
 
+  select column_default
+    into v_token_version_default
+    from information_schema.columns
+   where table_schema = 'public'
+     and table_name = 'users'
+     and column_name = 'token_version';
+
   if not v_has_token_version then
     v_missing := array_append(v_missing,
       'public.users.token_version (NOT NULL integer/bigint required by requireAuth)');
+  end if;
+
+  if v_token_version_default is null
+     or v_token_version_default not like '%0%' then
+    v_missing := array_append(v_missing,
+      'public.users.token_version DEFAULT 0');
   end if;
 
   foreach v_function in array v_required_functions loop
