@@ -204,6 +204,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [canvasStyle, setCanvasStyle] = useState<'minimal' | 'glass' | 'split'>('glass');
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSavingAspectRatio, setIsSavingAspectRatio] = useState(false);
   const generationKeyRef = React.useRef<string | null>(null);
   const [generatedPins, setGeneratedPins] = useState<GeneratedPinVariation[]>([]);
   const [activePinIndex, setActivePinIndex] = useState(0);
@@ -318,15 +319,25 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
   const currentPin = generatedPins[activePinIndex];
 
-  // Change aspect ratio of currently selected pin
-  const handleActivePinRatioChange = (newRatio: SupportedAspectRatio) => {
-    if (!currentPin) return;
-    const updated = [...generatedPins];
-    updated[activePinIndex] = {
-      ...currentPin,
-      aspectRatio: newRatio,
-    };
-    setGeneratedPins(updated);
+  // Persist the selected pin's format so it survives a reload and is used by later API operations.
+  const handleActivePinRatioChange = async (newRatio: SupportedAspectRatio) => {
+    if (!currentPin || currentPin.aspectRatio === newRatio || isSavingAspectRatio) return;
+    const pinId = currentPin.id;
+    setIsSavingAspectRatio(true);
+    try {
+      await apiRequest(`/pins/${encodeURIComponent(pinId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ aspect_ratio: newRatio }),
+      });
+      setGeneratedPins((previous) => previous.map((pin) =>
+        pin.id === pinId ? { ...pin, aspectRatio: newRatio } : pin
+      ));
+    } catch (error) {
+      console.error('[pins] Не удалось сохранить формат:', error);
+      window.alert(error instanceof Error ? error.message : t.generator.errorSaveDescription);
+    } finally {
+      setIsSavingAspectRatio(false);
+    }
   };
 
   const handleTitleSelect = (title: string) => {
@@ -915,8 +926,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                       <button
                         key={item.id}
                         type="button"
-                        onClick={() => handleActivePinRatioChange(item.id)}
-                        className={`px-2 py-1 text-xs font-mono rounded-lg border transition-all cursor-pointer ${
+                        onClick={() => { void handleActivePinRatioChange(item.id); }}
+                        disabled={isSavingAspectRatio}
+                        className={`px-2 py-1 text-xs font-mono rounded-lg border transition-all cursor-pointer disabled:opacity-50 disabled:cursor-wait ${
                           currentPin.aspectRatio === item.id
                             ? 'accent-btn font-bold shadow-xs'
                             : 'bg-surface border-subtle text-secondary-theme hover:text-primary-theme'
