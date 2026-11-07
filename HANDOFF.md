@@ -236,3 +236,10 @@ HANDOFF.md                            Этот файл
 - Route выставляет общий `providerGenerationStarted` до вызова text provider. Если provider call завершился неоднозначно или последующая запись image-plan journal не удалась, `fail_pin_generation_request` получает `p_outcome_unknown=true`; тот же idempotency key не запускает повторную генерацию текста.
 - Автоматическое восстановление text response не реализовано: для text endpoint не подтверждена поддержка idempotency key/task lookup. Повтор возможен только как явная новая попытка с новым ключом, то есть новый provider call.
 - Добавлен unit regression test, проверяющий callback до вызова text provider. AUD-016: FIXED_UNVERIFIED до Node/HTTP/PostgreSQL CI и staging проверки. Production не менялся.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-017 partial)
+
+- Если task journal уже содержит `status=succeeded`, `provider_result_url` и `provider_price`, но `storage_url` отсутствует, retry теперь повторно переносит исходный сохранённый URL в Supabase Storage с тем же детерминированным object key. Повторный GPTunnel create не вызывается.
+- Добавлен unit regression test: успешный provider result восстанавливается из journal без нового provider call; цена и provider URL остаются исходными.
+- Не закрыто: автоматический фоновый recovery/sweeper и alerting до возможного 48-часового истечения URL не реализованы. AUD-017 остаётся OPEN до внедрения мониторинга и проверки TTL у GPTunnel.
