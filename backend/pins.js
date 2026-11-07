@@ -153,7 +153,7 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
         });
       }
       providerSucceeded = true;
-      const storedUrl = await rehostImage(image.url);
+      const storedUrl = await rehostImage(image.url, { idempotencyKey: task.provider_idempotency_key });
       if (typeof storedUrl !== "string" || !storedUrl.trim()) {
         throw new Error("Не удалось получить постоянную ссылку на изображение");
       }
