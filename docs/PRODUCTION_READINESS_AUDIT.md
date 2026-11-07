@@ -250,11 +250,11 @@
 
 ### AUD-022 — Bucket configuration и лимиты upload/rehost могут расходиться
 - **Приоритет:** P2
-- **Статус:** OPEN
+- **Статус:** PARTIALLY MITIGATED
 - **Тип:** условный конфигурационный риск.
-- **Наблюдение:** backend rehost допускает до 8 MB, а конфигурация bucket ранее проверялась на 5 MB; runtime config validation не охватывает все политики bucket.
-- **Исправить:** единый источник лимитов; проверка реальной конфигурации bucket; ясные ошибки на frontend.
-- **Тесты:** граничные размеры, MIME, signature, storage policy mismatch.
+- **Уже исправлено:** единый MAX_IMAGE_BYTES (5 МиБ) теперь используется проверкой сигнатуры, upload validation и Axios download ceiling; backend больше не принимает 8 МиБ для rehost. Multer уже ограничивал прямую загрузку 5 МиБ. При проверке bucket ошибка listBuckets/createBucket теперь приводит к fail-closed 503 вместо продолжения upload; если существующий bucket сообщает лимит ниже 5 МиБ, upload блокируется с понятной ошибкой.
+- **Ограничение:** runtime проверяет file_size_limit, но не сверяет все Supabase Storage policies/allowed_mime_types с ожидаемым набором; реальная конфигурация production bucket не проверена. Проверка metadata не заменяет staging test.
+- **Тесты:** добавлена проверка граничного размера 5 МиБ; Node/CI и реальный bucket mismatch test пока не подтверждены.
 
 ### AUD-023 — Не проверены гонки редактирования/удаления пина с публикацией
 - **Приоритет:** P2
