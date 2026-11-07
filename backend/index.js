@@ -112,6 +112,15 @@ const verifyLimiter = rateLimit({
   message: { error: "Слишком много запросов. Попробуйте через 15 минут." },
 });
 
+const imageUploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => String(req.userId || req.ip),
+  message: { error: "Слишком много загрузок изображений. Попробуйте позже." },
+});
+
 const { generateImage, checkImage, imageTaskResult, providerTaskError, quoteImageTask } = require("./gptunnel");
 const { register, login, verifyToken } = require("./auth");
 const supabase = require("./supabase");
@@ -716,7 +725,7 @@ app.post("/pins/:id/status", requireAuth, async (req, res) => {
 });
 
 // Своя картинка пина: постоянное хранилище вместо временных ссылок GPTunnel
-app.post("/pins/:id/image", requireAuth, imageUpload.single("image"), async (req, res) => {
+app.post("/pins/:id/image", requireAuth, imageUploadLimiter, imageUpload.single("image"), async (req, res) => {
   try {
     const pin = await getPinWithOwnerCheck(req.params.id, req.userId);
     if (!req.file) throw httpError(422, "Передайте файл в поле image (PNG/JPG/WebP, до 5 МБ)");
