@@ -562,3 +562,19 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - No production/staging configuration, database, credentials, deployment, or external Pinterest account was accessed or changed. No source-code change was justified by the findings.
 
 **Status:** STATIC_REVIEW_COMPLETE / OAUTH_STATE_AND_CALLBACK_GUARDS_CONFIRMED / CORS_ALLOWLIST_CONFIRMED / DEPLOYED_ORIGINS_AND_RUNTIME_UNVERIFIED.
+
+
+
+### AUD-040 — Pinterest refresh reconciliation after uncertainty fencing (2026-11-07)
+
+**Confirmed defect:** `refreshAccessToken()` writes `refresh_state = 'uncertain'` and advances `updated_at` before calling Pinterest. Both ambiguous-commit recovery branches then compared the current row's `updated_at` to the pre-fence `latest.updated_at`. Therefore the timestamp change caused solely by installing the uncertainty fence could be mistaken for evidence that rotated credentials had been committed. This could return an account still fenced as uncertain as if refresh recovery had succeeded. The fence still prevented replaying the old refresh token, so this was a recovery/consistency bug rather than a demonstrated credential-replay bypass.
+
+**Fix**
+- Added `backend/pinterestRefreshRecovery.js` with a pure `isCommittedTokenRefresh(previous, current)` predicate.
+- Reconciliation now succeeds only if the row has returned to `refresh_state = 'ready'` and at least one stored credential differs from the pre-refresh snapshot. A timestamp-only change or a changed token set that remains uncertain is not accepted.
+- Both ambiguous RPC-error and false-commit-result paths use the same predicate.
+- Added `backend/test/pinterest-refresh-recovery.test.js` covering timestamp-only uncertainty fence, successful rotated credentials, unchanged ready credentials, and changed credentials still marked uncertain.
+
+**Verification:** source changes committed and pending runtime/CI execution. The repository defines `npm test` as `node --test`, but this review environment did not execute the project test suite. No workflow run was returned for the commits at review time.
+
+**Status:** FIX_IMPLEMENTED / REGRESSION_TEST_ADDED / TESTS_AND_CI_UNVERIFIED. No production/staging database, Pinterest credentials, deployment, or external account was accessed or changed.
