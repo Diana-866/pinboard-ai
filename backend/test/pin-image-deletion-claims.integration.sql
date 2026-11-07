@@ -91,6 +91,16 @@ begin
   end if;
   v_upload_token := (v_reservation ->> 'upload_token')::uuid;
 
+  -- Expiry is diagnostic only: a remote upload may still complete late.
+  update public.pin_image_object_lifecycle
+     set claim_expires_at = now() - interval '1 second'
+   where bucket_id = 'pin-images' and object_path = v_path;
+  v_reservation := public.begin_pin_image_upload('pin-images', v_path, 60);
+  if coalesce((v_reservation ->> 'reserved')::boolean, false) is not false
+     or v_reservation ->> 'reason' <> 'upload_in_progress' then
+    raise exception 'expired upload reservation was unsafely reopened: %', v_reservation;
+  end if;
+
   v_claim := public.claim_pin_image_deletion('pin-images', v_path, 60);
   if coalesce((v_claim ->> 'claimed')::boolean, false) is not false
      or v_claim ->> 'reason' <> 'upload_in_progress' then
