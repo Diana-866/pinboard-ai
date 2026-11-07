@@ -334,7 +334,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       ));
     } catch (error) {
       console.error('[pins] Не удалось сохранить формат:', error);
-      window.alert(error instanceof Error ? error.message : t.generator.errorSaveDescription);
+      window.alert(error instanceof Error ? error.message : 'Не удалось сохранить формат изображения. Попробуйте ещё раз.');
     } finally {
       setIsSavingAspectRatio(false);
     }
