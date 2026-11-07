@@ -238,6 +238,12 @@ begin
   if (select status from public.pin_schedules where id = v_attempt_retry_schedule) <> 'failed' then
     raise exception 'unsafe schedule was changed despite an existing publish attempt';
   end if;
+  v_result := public.begin_pinterest_publish_v2(
+    v_user::text,v_attempt_retry_pin,v_account_a,'board-a'
+  );
+  if v_result->>'status' <> 'failed' then
+    raise exception 'direct publish reopened a failed attempt without retry_safe=true: %',v_result;
+  end if;
 
   -- A durable failed attempt is retryable only when the failure RPC marked it
   -- as a confirmed pre-create rejection. Manual retry and begin RPC share it.
@@ -252,10 +258,17 @@ begin
     'UTC', 'board-b', 'failed'
   ) returning id into v_safe_retry_schedule;
   insert into public.pinterest_publish_attempts(
-    user_id, pin_id, pinterest_account_id, pinterest_board_id, status, retry_safe
+    user_id, pin_id, pinterest_account_id, pinterest_board_id, status
   ) values (
-    v_user::text, v_safe_retry_pin, v_account_b, 'board-b', 'failed', true
+    v_user::text, v_safe_retry_pin, v_account_b, 'board-b', 'processing'
   );
+  perform public.fail_pinterest_publish_v2(
+    v_user::text,v_safe_retry_pin,v_account_b,'Pinterest rejected before creation',false
+  );
+  if (select status from public.pinterest_publish_attempts where pin_id=v_safe_retry_pin and pinterest_account_id=v_account_b) <> 'failed'
+     or not (select retry_safe from public.pinterest_publish_attempts where pin_id=v_safe_retry_pin and pinterest_account_id=v_account_b) then
+    raise exception 'confirmed pre-create failure did not persist retry_safe marker';
+  end if;
 
   v_result := public.retry_failed_pin_schedule(v_user::text, v_safe_retry_schedule);
   if v_result->>'ok' <> 'true'
