@@ -112,7 +112,7 @@ const verifyLimiter = rateLimit({
   message: { error: "Слишком много запросов. Попробуйте через 15 минут." },
 });
 
-const { generateImage, checkImage, imageTaskResult, providerTaskError } = require("./gptunnel");
+const { generateImage, checkImage, imageTaskResult, providerTaskError, quoteImageTask } = require("./gptunnel");
 const { register, login, verifyToken } = require("./auth");
 const supabase = require("./supabase");
 const { buildPinScheduleSnapshot, classifyLegacyScheduleAccount, getScheduleRetryability } = require("./pinterestSchedule");
@@ -120,7 +120,7 @@ const { pinterestScheduleLimiter } = require("./pinterestRateLimit");
 const { analyzeSite } = require("./analyze");
 const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
-const { calculateGenerationReservation } = require("./generationPricing");
+const { calculateGenerationReservation, calculateQuotedGenerationPricing } = require("./generationPricing");
 const { uploadPinImage, rehostImage, deletePinImageIfUnreferenced } = require("./storage");
 const { validateDevTopupRequest } = require("./devTopup");
 const mail = require("./mail");
@@ -1201,6 +1201,67 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
         }
         return data;
       },
+      ensureTaskQuotes: async (tasks) => {
+        const billableTasks = tasks.filter((task) => task.status !== "failed");
+        for (const task of billableTasks) {
+          const hasSavedQuote = task.provider_quote_price != null;
+          if (hasSavedQuote) {
+            if (task.provider_quote_currency !== "RUB" ||
+                task.provider_quote_model !== (task.model || model) ||
+                task.provider_quote_aspect_ratio !== task.aspect_ratio ||
+                !Number.isFinite(Number(task.provider_quote_price)) ||
+                Number(task.provider_quote_price) <= 0) {
+              throw httpError(502, "Сохранённая котировка генерации не соответствует задаче.");
+            }
+            continue;
+          }
+
+          const quote = await quoteImageTask(task.prompt, task.model || model, task.aspect_ratio);
+          const { error } = await supabase.rpc("record_pin_generation_task_quote", {
+            p_user_id: String(req.userId),
+            p_idempotency_key: idempotencyKey,
+            p_claim_token: generationClaimToken,
+            p_task_index: task.task_index,
+            p_quote_price: quote.price,
+            p_quote_currency: quote.currency,
+            p_quote_model: quote.model,
+            p_quote_aspect_ratio: quote.params.aspect_ratio,
+          });
+          if (error) {
+            const journalError = new Error("Не удалось сохранить котировку задачи генерации");
+            journalError.journalError = true;
+            journalError.cause = error;
+            throw journalError;
+          }
+          task.provider_quote_price = quote.price;
+          task.provider_quote_currency = quote.currency;
+          task.provider_quote_model = quote.model;
+          task.provider_quote_aspect_ratio = quote.params.aspect_ratio;
+        }
+
+        if (billableTasks.length > 0) {
+          const quotedPricing = calculateQuotedGenerationPricing(
+            billableTasks.map((task) => ({
+              price: Number(task.provider_quote_price),
+              currency: task.provider_quote_currency,
+            })),
+            MARKUP
+          );
+          const { error } = await supabase.rpc("resize_pin_generation_credit_reservation", {
+            p_user_id: String(req.userId),
+            p_idempotency_key: idempotencyKey,
+            p_claim_token: generationClaimToken,
+            p_amount: quotedPricing.totalUserCredits,
+          });
+          if (error) {
+            if (/insufficient available credits/i.test(error.message || "")) {
+              throw httpError(402, "Недостаточно доступных кредитов для подтверждённой стоимости генерации.");
+            }
+            throw error;
+          }
+        }
+        return tasks;
+      },
       recordProviderOutcome: async (taskIndex, outcome, status) => {
         const { error } = await supabase.rpc("record_pin_generation_provider_outcome", {
           p_user_id: String(req.userId),
@@ -1267,6 +1328,23 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
       credits_cost: Math.ceil(p.credits_cost * MARKUP),
     }));
     const totalCharge = markedUpPins.reduce((sum, p) => sum + p.credits_cost, 0);
+
+    // Provider prices are authoritative. Resize the reservation to the exact
+    // marked-up settlement before the atomic pin insert/debit RPC; if the
+    // provider price drifted upward, a top-up and same-key recovery can settle
+    // the already-journaled images without generating them again.
+    const { error: finalResizeError } = await supabase.rpc("resize_pin_generation_credit_reservation", {
+      p_user_id: String(req.userId),
+      p_idempotency_key: idempotencyKey,
+      p_claim_token: generationClaimToken,
+      p_amount: totalCharge,
+    });
+    if (finalResizeError) {
+      if (/insufficient available credits/i.test(finalResizeError.message || "")) {
+        throw httpError(402, "Фактическая стоимость генерации выше резерва. Пополните баланс и повторите этот же запрос.");
+      }
+      throw finalResizeError;
+    }
 
     const { data: savedResult, error: saveError } = await supabase.rpc("complete_pin_generation_request", {
       p_user_id: String(req.userId),
