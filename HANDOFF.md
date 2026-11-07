@@ -869,3 +869,6 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 
 
 - Дополнительный результат AUD-062: изолированный Node.js harness — 6/6 passed (0 failed). Полный backend suite, PostgreSQL integration и GitHub Actions остаются непроверенными.
+
+
+- После AUD-062 повторно проверены три свежих Actions runs `42376959908`, `42376959739`, `42376959704`: все jobs завершились за 1–2 секунды с `runner_id=0`, пустым runner name и нулём steps. CI не выполнялся; root cause не установлен.
