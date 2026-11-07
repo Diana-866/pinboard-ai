@@ -780,18 +780,40 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
     // A fresh regeneration must be quoted for its exact payload before any
     // provider submission. Existing task IDs are legacy/in-flight work and
     // must be recovered without creating a second billable task.
+    let quotedCreditCost = cost;
     if (!state.provider_task_id) {
-      const quote = await quoteImageTask(prompt, model, "2:3");
-      const { error: quoteError } = await supabase.rpc("record_pin_regeneration_quote", {
-        p_user_id: String(req.userId),
-        p_idempotency_key: idempotencyKey,
-        p_claim_token: claimToken,
-        p_quote_price: quote.price,
-        p_quote_currency: quote.currency,
-        p_quote_model: quote.model,
-        p_quote_aspect_ratio: quote.params.aspect_ratio,
-      });
-      if (quoteError) throw quoteError;
+      const { data: savedQuote, error: savedQuoteError } = await supabase
+        .from("pin_regeneration_requests")
+        .select("provider_quote_price,provider_quote_currency,provider_quote_model,provider_quote_aspect_ratio,amount")
+        .eq("user_id", String(req.userId))
+        .eq("idempotency_key", idempotencyKey)
+        .single();
+      if (savedQuoteError) throw savedQuoteError;
+
+      if (savedQuote.provider_quote_price != null) {
+        if (savedQuote.provider_quote_currency !== "RUB" ||
+            savedQuote.provider_quote_model !== model ||
+            savedQuote.provider_quote_aspect_ratio !== "2:3" ||
+            !Number.isFinite(Number(savedQuote.provider_quote_price)) ||
+            Number(savedQuote.provider_quote_price) <= 0) {
+          throw httpError(502, "Сохранённая котировка перегенерации повреждена или не соответствует запросу.");
+        }
+        quotedCreditCost = Number(savedQuote.amount);
+      } else {
+        const quote = await quoteImageTask(prompt, model, "2:3");
+        quotedCreditCost = Math.ceil(quote.price * MARKUP);
+        const { error: quoteError } = await supabase.rpc("record_pin_regeneration_quote", {
+          p_user_id: String(req.userId),
+          p_idempotency_key: idempotencyKey,
+          p_claim_token: claimToken,
+          p_quote_price: quote.price,
+          p_quote_currency: quote.currency,
+          p_quote_model: quote.model,
+          p_quote_aspect_ratio: quote.params.aspect_ratio,
+          p_user_credits: quotedCreditCost,
+        });
+        if (quoteError) throw quoteError;
+      }
     }
 
     // New provider submissions must be covered by the same reservation pool
@@ -870,7 +892,7 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
         // Check balance only before a new billable provider submission. Never
         // block recovery/polling of a task that may already have been charged.
         const balance = await getBalance(req.userId);
-        if (balance < cost) throw httpError(402, "Недостаточно кредитов для перегенерации");
+        if (balance < quotedCreditCost) throw httpError(402, "Недостаточно кредитов для перегенерации");
         image = await generateImage(prompt, model, "2:3", state.provider_idempotency_key, {
           // Persist the provider task ID as soon as the provider accepts it,
           // before the first poll or any later network operation can fail.
