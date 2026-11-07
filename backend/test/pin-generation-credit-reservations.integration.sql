@@ -89,6 +89,38 @@ begin
       v_balance, v_status, v_result;
   end if;
 
+  -- The completion RPC must reject a charge above the reservation ceiling.
+  -- The failed settlement is rolled back and leaves the reservation available for
+  -- a safe retry/reconciliation rather than inserting pins or debiting credits.
+  v_key := 'reserve-overcharge-' || v_user;
+  v_request := public.begin_pin_generation_request(
+    v_user::text, v_board, v_key, repeat('d', 64)
+  );
+  v_claim := (v_request->>'claim_token')::uuid;
+  v_result := public.reserve_pin_generation_credits(v_user::text, v_key, 1);
+  v_pins := jsonb_build_array(jsonb_build_object(
+    'image_url', 'https://cdn.example.invalid/reservation-overcharge.png',
+    'title', 'Over-reservation charge',
+    'description', '',
+    'model_used', 'flux-schnell',
+    'aspect_ratio', '2:3',
+    'credits_cost', 2
+  ));
+  begin
+    perform public.complete_pin_generation_request(
+      v_user::text, v_board, v_key, v_claim, v_pins, 2
+    );
+    raise exception 'generation charge above reservation was accepted';
+  exception when others then
+    if sqlerrm not like '%generation charge exceeds reserved amount%' then raise; end if;
+  end;
+  select credits_balance into v_balance from public.users where id = v_user;
+  select status into v_status from public.pin_generation_credit_reservations
+   where user_id = v_user::text and idempotency_key = v_key;
+  if v_balance <> 3 or v_status <> 'reserved' then
+    raise exception 'over-reservation rejection changed balance or reservation: %, %', v_balance, v_status;
+  end if;
+
   -- A definitive failure releases the reservation.
   v_key := 'reserve-failed-' || v_user;
   v_request := public.begin_pin_generation_request(
