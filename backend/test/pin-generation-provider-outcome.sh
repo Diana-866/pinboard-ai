@@ -25,13 +25,19 @@ insert_task() {
   local index="$1"
   "${psql_cmd[@]}" -c "insert into public.pin_generation_tasks(generation_request_id,user_id,board_id,task_index,title,description,prompt,model,aspect_ratio,status) values ($REQUEST_ID,'$USER_ID','$BOARD_ID',$index,'Task $index','','Test prompt','flux-schnell','2:3','submitting');" >/dev/null
 }
-for task_index in 1 2 3 4; do insert_task "$task_index"; done
+for task_index in 1 2 3 4 5; do insert_task "$task_index"; done
 
 # Success is persisted before storage rehosting and is independently replayable.
 "${psql_cmd[@]}" -c "select public.record_pin_generation_provider_outcome('$USER_ID','$REQUEST_KEY','$CLAIM_TOKEN',1,'multi_done_001','succeeded',0.42,null,null,null,'https://provider.example.invalid/done.png');" >/dev/null
 "${psql_cmd[@]}" -c "select public.record_pin_generation_provider_outcome('$USER_ID','$REQUEST_KEY','$CLAIM_TOKEN',1,'multi_done_001','succeeded',0.42,null,null,null,'https://provider.example.invalid/done.png');" >/dev/null
 DONE_ROW="$("${psql_cmd[@]}" -At -F '|' -c "select status,provider_outcome_status,provider_price,provider_refunded is null,(provider_reconciled_at is not null) from public.pin_generation_tasks where generation_request_id=$REQUEST_ID and task_index=1")"
 [[ "$DONE_ROW" == "succeeded|succeeded|0.42|t|t" ]] || { echo "Unexpected success outcome: $DONE_ROW"; exit 1; }
+
+# Legacy recovery may have a durable storage URL and provider ID but no longer
+# retain the temporary provider URL; terminal accounting must still be possible.
+"${psql_cmd[@]}" -c "select public.record_pin_generation_provider_outcome('$USER_ID','$REQUEST_KEY','$CLAIM_TOKEN',5,'multi_done_005','succeeded',0.31,null,null,null,null);" >/dev/null
+LEGACY_DONE_ROW="$("${psql_cmd[@]}" -At -F '|' -c "select status,provider_outcome_status,provider_price,(provider_reconciled_at is not null) from public.pin_generation_tasks where generation_request_id=$REQUEST_ID and task_index=5")"
+[[ "$LEGACY_DONE_ROW" == "succeeded|succeeded|0.31|t" ]] || { echo "Legacy success was not reconciled: $LEGACY_DONE_ROW"; exit 1; }
 
 # A non-refunded failure is a reconciled platform expense.
 "${psql_cmd[@]}" -c "select public.record_pin_generation_provider_outcome('$USER_ID','$REQUEST_KEY','$CLAIM_TOKEN',2,'multi_failed_002','failed',1.25,false,2001,'POLICY_REJECTED',null);" >/dev/null
