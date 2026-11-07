@@ -36,6 +36,7 @@ test("quoteImageTask rejects non-RUB, malformed and negative quotes", async (t) 
     { code: 0, price: 1, currency: "USD" },
     { code: 0, price: "not-a-number", currency: "RUB" },
     { code: 0, price: -1, currency: "RUB" },
+    { code: 0, currency: "RUB" },
     { code: 1, price: 1, currency: "RUB" },
   ]) {
     assert.throws(() => normalizeMediaQuote(data), /некорректную котировку/i);
