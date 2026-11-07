@@ -24,6 +24,14 @@ begin
   end if;
 
   if has_function_privilege('anon',
+       'public.begin_pin_image_upload(text,text,integer)', 'EXECUTE')
+     or has_function_privilege('authenticated',
+       'public.begin_pin_image_upload(text,text,integer)', 'EXECUTE')
+     or has_function_privilege('anon',
+       'public.finalize_pin_image_upload(text,text,uuid,boolean,text)', 'EXECUTE')
+     or has_function_privilege('authenticated',
+       'public.finalize_pin_image_upload(text,text,uuid,boolean,text)', 'EXECUTE')
+     or has_function_privilege('anon',
        'public.claim_pin_image_deletion(text,text,integer)', 'EXECUTE')
      or has_function_privilege('authenticated',
        'public.claim_pin_image_deletion(text,text,integer)', 'EXECUTE')
