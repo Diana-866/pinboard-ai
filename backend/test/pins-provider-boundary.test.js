@@ -8,6 +8,22 @@ const originalStorage = require.cache[storagePath];
 
 const provider = {
   generateText: async () => "not-json",
+  generateTextWithUsage: async (prompt) => ({
+    content: await provider.generateText(prompt),
+    usage: {
+      promptTokens: 12,
+      completionTokens: 8,
+      totalTokens: 20,
+      promptCost: 0.01,
+      completionCost: 0.02,
+      totalCost: 0.03,
+      cachedPromptTokens: 0,
+      cacheWriteTokens: 0,
+    },
+    costCurrency: "RUB",
+    model: "gpt-4o",
+    requestId: "chatcmpl-test-usage",
+  }),
   generateImage: async () => { throw new Error("simulated image provider failure"); },
 };
 const storage = { rehostImage: async (url) => url };
@@ -68,6 +84,39 @@ test("text-plan generation marks the provider submission boundary before calling
   );
 
   assert.equal(submitted, true);
+});
+
+test("text provider usage is awaited and persisted before parsing ideas", async () => {
+  const events = [];
+  provider.generateText = async () => {
+    events.push("response");
+    return JSON.stringify([
+      { title: "Usage pin", description: "Test", image_prompt: "An image" },
+    ]);
+  };
+  provider.generateImage = async () => {
+    events.push("image");
+    throw new Error("stop after usage callback");
+  };
+
+  await generatePins(
+    { id: "board-usage", title: "Usage board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {
+      onTextProviderSubmission: () => events.push("submission"),
+      onTextProviderUsage: async (result) => {
+        assert.equal(result.costCurrency, "RUB");
+        assert.equal(result.usage.totalCost, 0.03);
+        events.push("usage-persisted");
+      },
+    }
+  );
+
+  assert.deepEqual(events, ["submission", "response", "usage-persisted", "image"]);
 });
 
 test("text-plan generation extracts a JSON array surrounded by provider prose", async () => {
