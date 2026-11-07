@@ -11,7 +11,7 @@
 
 const axios = require("axios");
 const { executeWithAccountToken } = require("./pinterestAccountRequest");
-const { isCommittedTokenRefresh } = require("./pinterestRefreshRecovery");
+const { isCommittedTokenRefresh, hasActiveRefreshLease } = require("./pinterestRefreshRecovery");
 const crypto = require("crypto");
 const { hasEncryptionKey, isEncryptedToken, encryptToken, decryptToken } = require("./pinterestTokenCrypto");
 const jwt = require("jsonwebtoken");
@@ -269,13 +269,31 @@ async function refreshAccessToken(account) {
       const latest = await getAccount(account.user_id, account.id);
       if (!latest) throw httpError(409, "Pinterest отключён. Подключите аккаунт заново.");
       if (latest.refresh_state === "uncertain") {
-        throw httpError(409, "Не удалось подтвердить обновление Pinterest-доступа. Подключите аккаунт заново.");
+        // "uncertain" is also the in-flight marker written by the lease owner
+        // before contacting Pinterest. Do not tell a concurrent caller to
+        // reconnect while that owner still has a live lease: it may commit the
+        // rotated pair moments later. If no live lease remains, the outcome is
+        // ambiguous and OAuth reconnect is the only safe recovery.
+        const { data: activeLease, error: activeLeaseError } = await supabase
+          .from("pinterest_account_refresh_leases")
+          .select("lease_until")
+          .eq("pinterest_account_id", account.id)
+          .eq("user_id", String(account.user_id))
+          .gt("lease_until", new Date().toISOString())
+          .maybeSingle();
+        if (activeLeaseError) {
+          console.error("[pinterest] не удалось проверить активный refresh lease:", activeLeaseError.message);
+          throw httpError(503, "Не удалось проверить состояние обновления Pinterest-доступа. Повторите запрос позже.");
+        }
+        if (!hasActiveRefreshLease(activeLease)) {
+          throw httpError(409, "Не удалось подтвердить обновление Pinterest-доступа. Подключите аккаунт заново.");
+        }
       }
       if (
         latest.access_token !== account.access_token ||
         latest.refresh_token !== account.refresh_token
       ) {
-        return latest;
+        if (latest.refresh_state === "ready") return latest;
       }
     }
     throw httpError(503, "Обновление Pinterest-доступа уже выполняется на другом сервере. Повторите запрос через несколько секунд.");
