@@ -231,7 +231,9 @@ async function dispatchPendingSubscriptionEmails(limit = 10) {
  * Отвечаем 200 на всё, что успешно обработали или осознанно проигнорировали:
  * иначе Prodamus будет ретраить запрос.
  */
-async function handleWebhook(req, res) {
+async function handleWebhook(req, res, dependencies = {}) {
+  const db = dependencies.supabase || supabase;
+  const dispatchEmails = dependencies.dispatchPendingSubscriptionEmails || dispatchPendingSubscriptionEmails;
   const body = req.body || {};
   const check = prodamus.verifyWebhook(body, req.headers);
 
@@ -245,7 +247,7 @@ async function handleWebhook(req, res) {
 
   if (!orderId) {
     try {
-      await persistWebhookException(supabase, {
+      await persistWebhookException(db, {
         paymentKind: "subscription", body, reason: "missing_order_id",
       });
     } catch (auditError) {
@@ -256,7 +258,7 @@ async function handleWebhook(req, res) {
     return res.json({ ok: true, ignored: "no order_id" });
   }
 
-  const { data: sub, error } = await supabase
+  const { data: sub, error } = await db
     .from("subscriptions")
     .select("*")
     .eq("provider_payment_id", orderId)
@@ -268,7 +270,7 @@ async function handleWebhook(req, res) {
   }
   if (!sub) {
     try {
-      await persistWebhookException(supabase, {
+      await persistWebhookException(db, {
         paymentKind: "subscription", body, reason: "unknown_order_id",
       });
     } catch (auditError) {
@@ -283,7 +285,7 @@ async function handleWebhook(req, res) {
   if (normalizedStatus !== "success") {
     if (!normalizedStatus) {
       try {
-        await persistWebhookException(supabase, {
+        await persistWebhookException(db, {
           paymentKind: "subscription",
           body,
           expectedAmount: Number.isFinite(Number(sub.amount))
@@ -299,7 +301,7 @@ async function handleWebhook(req, res) {
       return res.json({ ok: true, ignored: "unsupported payment_status", review_required: true });
     }
     const mapped = normalizedStatus;
-    const { error: statusError } = await supabase.from("subscriptions")
+    const { error: statusError } = await db.from("subscriptions")
       .update({ status: mapped }).eq("id", sub.id).neq("status", "success");
     if (statusError) return res.status(500).json({ ok: false, error: "db error" });
     console.warn(`[billing] платёж ${orderId}: ${status} (${body.payment_status_description || ""})`);
@@ -309,7 +311,7 @@ async function handleWebhook(req, res) {
   const paymentAmount = prodamus.getWebhookPaymentAmount(body, sub.currency || "rub");
   if (!paymentAmount.ok) {
     try {
-      await persistWebhookException(supabase, {
+      await persistWebhookException(db, {
         paymentKind: "subscription", body,
         expectedAmount: Number.isFinite(Number(sub.amount)) ? Number(sub.amount) : null,
         reason: paymentAmount.reason,
@@ -326,7 +328,7 @@ async function handleWebhook(req, res) {
   const sum = paymentAmount.amount;
   if (!Number.isFinite(expected) || expected <= 0 || Math.abs(sum - expected) > 0.01) {
     try {
-      await persistWebhookException(supabase, {
+      await persistWebhookException(db, {
         paymentKind: "subscription", body, expectedAmount: expected, reason: "amount_mismatch",
       });
     } catch (auditError) {
@@ -334,14 +336,14 @@ async function handleWebhook(req, res) {
       return res.status(500).json({ ok: false, error: "audit storage failed" });
     }
     console.error(`[billing] сумма не совпадает для ${orderId}: webhook=${sum} ${paymentAmount.currency}, ожидали=${expected} ${sub.currency || "rub"}; сохранено для сверки`);
-    const { error: mismatchError } = await supabase.from("subscriptions")
+    const { error: mismatchError } = await db.from("subscriptions")
       .update({ status: "denied" }).eq("id", sub.id).neq("status", "success");
     if (mismatchError) return res.status(500).json({ ok: false, error: "db error" });
     return res.json({ ok: true, ignored: "amount mismatch", review_required: true });
   }
 
   // Подписка, период и тариф пользователя активируются одной транзакцией PostgreSQL.
-  const { data: activation, error: activationError } = await supabase.rpc("activate_paid_subscription", {
+  const { data: activation, error: activationError } = await db.rpc("activate_paid_subscription", {
     p_subscription_id: sub.id,
     p_paid_at: new Date().toISOString(),
   });
@@ -352,7 +354,7 @@ async function handleWebhook(req, res) {
 
   // Also drain older pending events on duplicate callbacks: a previous process may
   // have committed activation and stopped before SMTP delivery.
-  await dispatchPendingSubscriptionEmails(10).catch((e) => {
+  await dispatchEmails(10).catch((e) => {
     console.error("[billing] email outbox dispatch failed:", e && e.message);
   });
 
