@@ -191,6 +191,15 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
         continue;
       }
     }
+    // A provider-confirmed success without either a durable Storage copy or
+    // the original result URL cannot be safely recreated. The provider's
+    // idempotency retention may have expired, so never fall through to a new
+    // create request for this terminal task.
+    if (task.status === "succeeded") {
+      unknownTasks.push({ task_index: taskIndex, reason: "successful_result_unrecoverable" });
+      console.error(`[pins] подтверждённый результат задачи ${taskIndex} не имеет восстанавливаемого URL; повторная отправка заблокирована`);
+      continue;
+    }
     let uploadedStorageUrl = null;
     try {
       if (typeof options.updateTask === "function" && (!task.status || task.status === "prepared")) {
