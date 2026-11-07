@@ -128,7 +128,7 @@ create or replace function public.fail_pinterest_publish_v2(
   p_pin_id uuid,
   p_pinterest_account_id uuid,
   p_error text,
-  p_outcome_unknown boolean default false
+  p_outcome_unknown boolean default true
 ) returns void
 language plpgsql
 security definer
