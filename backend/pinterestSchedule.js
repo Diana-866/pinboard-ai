@@ -27,6 +27,7 @@ module.exports = {
   getScheduleRetryDelayMinutes,
   buildPinScheduleSnapshot,
   resolvePinScheduleSnapshot,
+  classifyLegacyScheduleAccount,
 };
 
 
@@ -58,4 +59,16 @@ function resolvePinScheduleSnapshot(schedule, currentPin) {
     destination_url: schedule && schedule.destination_url ? schedule.destination_url : null,
     is_snapshot: false,
   };
+}
+
+
+function classifyLegacyScheduleAccount(accounts, requestedAccountId = null) {
+  const active = Array.isArray(accounts) ? accounts : [];
+  if (active.length === 0) return { status: "no_account" };
+  if (requestedAccountId) {
+    const account = active.find((item) => String(item.id) === String(requestedAccountId));
+    return account ? { status: "selected", account } : { status: "invalid_selection" };
+  }
+  if (active.length > 1) return { status: "selection_required" };
+  return { status: "selected", account: active[0] };
 }
