@@ -231,3 +231,16 @@
 - Frontend scripts доступны: `npm run lint` (tsc --noEmit), `npm test` (tsx --test src/utils/*.test.ts), `npm run build`; фактический запуск пока невозможен через GitHub Actions из-за runner_id=0 blocker. Локальный checkout/Node runtime в этом рабочем контексте недоступен.
 - Не проверено: runtime RLS в Supabase, чужой project/board/pin ID через API, race conditions при удалении/переносе, browser E2E и production persistence.
 - Production, DB, merge, deployment и реальные Pinterest API не затрагивались.
+
+
+### 2026-11-07 — AUD-064: безопасный повтор генерации после окончательной ошибки
+- Прослежен frontend → backend generation flow: `PinGenerator` сохраняет fingerprint/idempotency key в sessionStorage; backend `begin_pin_generation_request` возвращает отдельные состояния completed/processing/unknown/failed. Состояние `unknown` намеренно блокирует повторную отправку, поскольку provider мог уже выполнить платную задачу; состояние `failed` означает окончательный исход и допускает новую попытку с новым ключом.
+- Найден UX-дефект: после окончательного `generation_request_failed` frontend сохранял старый ключ. Повторное нажатие отправляло тот же ключ и сервер снова возвращал 409; пользователь не мог начать новую попытку без изменения параметров запроса.
+- Исправлено: добавлен `frontend/src/utils/generationRetry.ts` — классификатор только явного кода `generation_request_failed`. `PinGenerator.tsx` при таком ответе создаёт и сохраняет новый idempotency key. Для `generation_in_progress` и `generation_outcome_unknown` ключ сохраняется, чтобы не создать дублирующую платную генерацию.
+- Добавлен `frontend/src/utils/generationRetry.test.ts` с 4 тестами: окончательная ошибка, неизвестный исход, выполняющийся запрос, посторонние/некорректные ошибки.
+- Файлы: `frontend/src/components/pins/PinGenerator.tsx`, `frontend/src/utils/generationRetry.ts`, `frontend/src/utils/generationRetry.test.ts`.
+- Проверка: статически сопоставлена логика backend state machine и ApiError.data. Node/tsx, полный frontend test suite, typecheck и build не запускались; GitHub Actions runner blocker AUD-060 не устранён. Новый unit test добавлен, но НЕ считается выполненным.
+- Отдельно подтверждено: generation reservation держит кредиты для in-flight/unknown задач; окончательный failed переводит reservation в released, unknown сохраняет reservation. Не менять это поведение без provider reconciliation.
+- Production, DB, PR merge, deploy, платежи и Pinterest публикации не затрагивались.
+
+**Status:** AUD-064 / SAFE_DEFINITIVE_RETRY_KEY_ROTATION / UNKNOWN_OUTCOME_KEY_PRESERVED / TEST_ADDED_RUNTIME_UNVERIFIED.
