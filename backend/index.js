@@ -1854,7 +1854,7 @@ app.get("/credits", requireAuth, async (req, res) => {
 });
 
 // Тестовое пополнение: только при ENABLE_DEV_TOPUP=true вне production (B11)
-app.post("/credits/dev-topup", async (req, res) => {
+app.post("/credits/dev-topup", authLimiter, async (req, res) => {
   try {
     const { email, amount } = validateDevTopupRequest(req.body);
     const { data: user, error } = await supabase.from("users").select("id").eq("email", email).single();
