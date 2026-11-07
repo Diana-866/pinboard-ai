@@ -1,4 +1,4 @@
--- Run only in disposable PostgreSQL CI after migrations 031-059.
+-- Run only in disposable PostgreSQL CI after migrations 031-060.
 -- A local pin can be published once per Pinterest identity, not once per user.
 do $$
 declare
@@ -16,6 +16,10 @@ declare
   v_inflight_pin uuid;
   v_crash_pin uuid;
   v_crash_schedule uuid;
+  v_safe_crash_pin uuid;
+  v_safe_crash_schedule uuid;
+  v_unsafe_crash_pin uuid;
+  v_unsafe_crash_schedule uuid;
   v_old_claim_token uuid;
   v_new_claim_token uuid;
   v_retry_pin uuid;
@@ -234,6 +238,54 @@ begin
   if v_result->>'status' <> 'started'
      or not exists (select 1 from public.pinterest_publish_attempts where pin_id=v_crash_pin and pinterest_account_id=v_account_a) then
     raise exception 'current schedule claim could not atomically reserve its publish journal: %',v_result;
+  end if;
+
+  -- Recovery must preserve a safely journaled rejection if the worker
+  -- crashes before it can move the schedule from publishing to scheduled.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/safe-crash.png', 'Safe crash', '', 'pending', 'flux-schnell', 0)
+  returning id into v_safe_crash_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, claim_token, updated_at
+  ) values (
+    v_user::text, v_safe_crash_pin, v_account_a, now() - interval '1 day',
+    'UTC', 'board-a', 'publishing', gen_random_uuid(), now() - interval '21 minutes'
+  ) returning id into v_safe_crash_schedule;
+  insert into public.pinterest_publish_attempts(
+    user_id, pin_id, pinterest_account_id, pinterest_board_id, status, retry_safe
+  ) values (
+    v_user::text, v_safe_crash_pin, v_account_a, 'board-a', 'failed', true
+  );
+  perform public.claim_due_pin_schedules(10);
+  if (select status from public.pin_schedules where id=v_safe_crash_schedule) <> 'scheduled'
+     or (select claim_token from public.pin_schedules where id=v_safe_crash_schedule) is not null
+     or (select next_attempt_at from public.pin_schedules where id=v_safe_crash_schedule) <= now() then
+    raise exception 'stale schedule did not preserve the explicitly safe failure retry';
+  end if;
+
+  -- A failed journal without retry_safe is a known terminal rejection, not
+  -- an ambiguous remote outcome and must not be converted into unknown.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/unsafe-crash.png', 'Unsafe crash', '', 'pending', 'flux-schnell', 0)
+  returning id into v_unsafe_crash_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, claim_token, updated_at
+  ) values (
+    v_user::text, v_unsafe_crash_pin, v_account_a, now() - interval '1 day',
+    'UTC', 'board-a', 'publishing', gen_random_uuid(), now() - interval '21 minutes'
+  ) returning id into v_unsafe_crash_schedule;
+  insert into public.pinterest_publish_attempts(
+    user_id, pin_id, pinterest_account_id, pinterest_board_id, status, retry_safe
+  ) values (
+    v_user::text, v_unsafe_crash_pin, v_account_a, 'board-a', 'failed', false
+  );
+  perform public.claim_due_pin_schedules(10);
+  if (select status from public.pin_schedules where id=v_unsafe_crash_schedule) <> 'failed'
+     or (select claim_token from public.pin_schedules where id=v_unsafe_crash_schedule) is not null
+     or (select next_attempt_at from public.pin_schedules where id=v_unsafe_crash_schedule) is not null then
+    raise exception 'stale schedule did not preserve the known non-retryable failure';
   end if;
 
   -- A retry backoff must keep a due schedule out of the worker claim set
@@ -595,7 +647,7 @@ begin
   delete from public.pinterest_publish_attempts where user_id = v_user::text;
   delete from public.pinterest_publications where user_id = v_user::text;
   delete from public.pinterest_accounts where user_id = v_user::text;
-  delete from public.pins where id in (v_pin, v_legacy_pin, v_inflight_pin, v_crash_pin, v_retry_pin, v_manual_retry_pin, v_attempt_retry_pin, v_safe_retry_pin, v_reconcile_pin, v_snapshot_pin, v_unavailable_pin);
+  delete from public.pins where id in (v_pin, v_legacy_pin, v_inflight_pin, v_crash_pin, v_retry_pin, v_manual_retry_pin, v_attempt_retry_pin, v_safe_retry_pin, v_reconcile_pin, v_snapshot_pin, v_unavailable_pin, v_safe_crash_pin, v_unsafe_crash_pin);
   delete from public.boards where id = v_board;
   delete from public.projects where id = v_project;
   delete from public.users where id = v_user;
