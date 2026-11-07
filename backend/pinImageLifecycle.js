@@ -31,6 +31,14 @@ function buildPinImageObjectPath(extension, idempotencyKey = null) {
   return `pins/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
 }
 
+function isDefiniteStorageRejection(error) {
+  const status = Number(error && (error.statusCode ?? error.status));
+  // Timeouts, conflicts, throttling and all server errors are treated as
+  // ambiguous: the remote operation may have committed despite its response.
+  return Number.isInteger(status) && status >= 400 && status < 500 &&
+    ![408, 409, 425, 429].includes(status);
+}
+
 async function uploadManagedPinImageObject({ supabase, bucket = "pin-images", objectPath, file, contentType }) {
   const { data: reservation, error: reserveError } = await supabase.rpc("begin_pin_image_upload", {
     p_bucket_id: bucket,
@@ -49,6 +57,12 @@ async function uploadManagedPinImageObject({ supabase, bucket = "pin-images", ob
   const { error: uploadError } = await supabase.storage
     .from(bucket)
     .upload(objectPath, file, { contentType, upsert: true });
+
+  if (uploadError && !isDefiniteStorageRejection(uploadError)) {
+    // A 5xx, timeout, conflict, throttle or unclassified Storage error may
+    // follow a committed write. Keep the reservation fenced.
+    throw uploadError;
+  }
 
   const { data: finalized, error: finalizeError } = await supabase.rpc("finalize_pin_image_upload", {
     p_bucket_id: bucket,
@@ -119,6 +133,11 @@ async function deleteManagedPinImageObject({ supabase, bucket = "pin-images", ob
   // A thrown transport error is ambiguous: Storage may have received the
   // request. Keep the claim fenced for reconciliation instead of reopening refs.
   const { error: removeError } = await supabase.storage.from(bucket).remove([objectPath]);
+  if (removeError && !isDefiniteStorageRejection(removeError)) {
+    // A server/transport-style error may arrive after the delete committed.
+    // Do not reopen reference writes until Storage outcome is independently known.
+    throw removeError;
+  }
   const { data: finalized, error: finalizeError } = await supabase.rpc("finalize_pin_image_deletion", {
     p_bucket_id: bucket,
     p_object_path: objectPath,
@@ -138,6 +157,7 @@ async function deleteManagedPinImageObject({ supabase, bucket = "pin-images", ob
 module.exports = {
   deleteManagedPinImageObject,
   uploadManagedPinImageObject,
+  isDefiniteStorageRejection,
   reconcileStalePinImageUploads,
   extractManagedPinImagePath,
   buildPinImageObjectPath,
