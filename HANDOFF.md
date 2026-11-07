@@ -718,3 +718,5 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Это статический lock-order fix; параллельный PostgreSQL stress/deadlock test не запускался. Предыдущие CI runs на commit `b371b4ecdcbc57a2f7824e17952f41eda41639ad` завершились failure без доступных job logs (BlobNotFound); причина не установлена. Production/staging, Pinterest API и deployment не затрагивались.
 
 **Status:** STATIC_DEADLOCK_CYCLE_FOUND / MIGRATION_057_ADDED / COMPLETION_LOCK_ORDER_ALIGNED / SQL_TEST_SEQUENCE_UPDATED / CI_UNVERIFIED.
+
+- Дополнительная проверка CI после изменения workflow: commit `501118d5f3d34dd446337b6e6478715147c5a008` запустил те же три PR workflows; все завершились `failure` почти сразу. Для всех четырёх job (backend, frontend, postgres-atomicity, backend-tests) API вернул `steps: null`, а скачивание job logs — `BlobNotFound`. Commit `bb895e01a156adc2a867d54362b4479a81ae4370` и handoff commit `b43c0d0f9f1751f2b01a3d6de812b0a0ee5444dd` не имеют отдельных workflow runs. Combined status показывает Vercel `failure` с target `upgradeToPro=build-rate-limit`; это отдельный build-rate-limit сигнал, не доказательство ошибки миграции.
