@@ -707,3 +707,14 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - PostgreSQL integration SQL в этой сессии локально не запускался. Production/staging DB, Pinterest API, реальные публикации и deployment не затрагивались. PR #4 остаётся открытым; merge не выполнялся.
 
 **Status:** STATIC_RACE_FOUND / MIGRATION_056_ADDED / DISCONNECT_RESERVATION_FENCED / SQL_REGRESSION_ADDED / CI_FAILURE_LOGS_UNAVAILABLE.
+
+## Дополнение к handoff — 2026-11-07 (AUD-050: publication completion lock order)
+
+- Дополнительный статический анализ обнаружил lock-order inversion: `begin_scheduled_pinterest_publish` удерживает account → schedule и затем входит в `begin_pinterest_publish_v2`, где блокирует publication attempt; `complete_pinterest_publish_v2` в migration 047 ранее блокировал attempt первым и только затем обновлял schedule. При совпадении pin/account и конкурентном late-success completion это создавало цикл ожидания между schedule и attempt.
+- Добавлена migration 057 `db/migrations/057_pinterest_publish_completion_lock_order.sql`: completion теперь блокирует account row (включая отключённый account — подтверждённый remote success всё равно должен быть reconciled), затем matching active/unknown schedule row, затем attempt row. Это согласует completion с reservation/manual retry и сохраняет позднюю reconciliation после disconnect.
+- В completion schedule lock ограничен статусами `publishing`/`unknown`; direct publish и completion после удаления локального pin продолжают работать без schedule row. Существующая SQL integration regression уже вызывает completion после удаления pin и проверяет сохранение remote publication ledger.
+- Integration test header обновлён до migrations 031–057; workflow применяет migration 057 после 056.
+- GitHub commits: migration 057 initial `0362f857871418eac6c9ccfbc9194aa8e8b48a9c`; test header `bb6d5bdca7dfb5505c01e7ed828877f7bfd35b4a`; workflow `501118d5f3d34dd446337b6e6478715147c5a008`; schedule lock predicate refinement `bb895e01a156adc2a867d54362b4479a81ae4370`.
+- Это статический lock-order fix; параллельный PostgreSQL stress/deadlock test не запускался. Предыдущие CI runs на commit `b371b4ecdcbc57a2f7824e17952f41eda41639ad` завершились failure без доступных job logs (BlobNotFound); причина не установлена. Production/staging, Pinterest API и deployment не затрагивались.
+
+**Status:** STATIC_DEADLOCK_CYCLE_FOUND / MIGRATION_057_ADDED / COMPLETION_LOCK_ORDER_ALIGNED / SQL_TEST_SEQUENCE_UPDATED / CI_UNVERIFIED.
