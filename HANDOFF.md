@@ -1002,3 +1002,13 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 ### AUD-075 follow-up — reservation resize groundwork
 - Migration `065_resize_pin_generation_credit_reservation.sql` adds `resize_pin_generation_credit_reservation(user,key,claim,amount)`. It locks user → request → reservation, checks current claim and processing state, accounts for other active reservations, and changes only a still-reserved reservation. Upward resize is atomic and fails if available balance is insufficient; downward resize is allowed.
 - Added `backend/test/generation-reservation-resize.sh`; not executed. RPC is not wired into the route. Do not deploy/use until disposable PostgreSQL verification.
+
+### AUD-076 — single-pin regeneration reservation
+
+- Static review found that single-pin regeneration directly debited the user's balance after provider success and ignored active multi-pin reservations. This could consume credits already promised to another in-flight generation.
+- Added migration `066_pin_regeneration_credit_reservations.sql`: single-pin regeneration reserves credits in the shared reservation table, settles its reservation atomically with debit/pin update, and releases only on definitive `failed`. `unknown` retains the hold. Legacy in-flight requests with an existing provider task ID use a guarded unreserved-balance fallback at settlement.
+- Wired `POST /pins/:id/regenerate` to reserve before a new provider task submission; an existing recorded task is recovered without creating a duplicate reservation.
+- Added `backend/test/pin-regeneration-credit-reservations.sh` for reservation contention, over-budget rejection, settlement and failure release.
+- **Not verified at runtime:** migration and PostgreSQL script were not executed; Bash/Node/CI were not run. Apply migration 066 only to a disposable test database first and run the SQL integration script before any staging rollout. No production changes or PR merge.
+
+**Status:** AUD-076 / REGENERATION_RESERVATION_WIRED / SQL_RUNTIME_UNVERIFIED / DO_NOT_DEPLOY.
