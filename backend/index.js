@@ -774,11 +774,11 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
       storedUrl = await rehostImage(state.provider_result_url, { idempotencyKey: state.provider_idempotency_key });
     }
     if (!storedUrl) {
-      const balance = await getBalance(req.userId);
-      if (balance < cost) throw httpError(402, "Недостаточно кредитов для перегенерации");
-
       // Resume a provider task already recorded in the journal instead of
       // submitting another create request after a client/network retry.
+      // Its provider cost may already have been incurred: always reconcile that
+      // task even if the user's current balance has since changed. The atomic
+      // completion RPC remains the authority for the actual credit debit.
       if (state.provider_task_id && !state.provider_result_url) {
         const task = await checkImage(state.provider_task_id);
         if (task && (task.status === "queued" || task.status === "running")) {
@@ -796,6 +796,10 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
         }
         image = imageTaskResult(task);
       } else {
+        // Check balance only before a new billable provider submission. Never
+        // block recovery/polling of a task that may already have been charged.
+        const balance = await getBalance(req.userId);
+        if (balance < cost) throw httpError(402, "Недостаточно кредитов для перегенерации");
         image = await generateImage(prompt, model, "2:3", state.provider_idempotency_key, {
           // Persist the provider task ID as soon as the provider accepts it,
           // before the first poll or any later network operation can fail.
