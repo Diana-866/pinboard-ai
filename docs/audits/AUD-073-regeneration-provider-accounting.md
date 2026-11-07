@@ -91,3 +91,12 @@ References:
 - `backend/gptunnel.js` now exports `providerTaskError(task)`; both immediate failed task responses and polled failed task responses preserve provider task ID, finite nonnegative gross price, strict boolean `refunded` (otherwise null), provider numeric error code and bounded error title on the thrown error.
 - Added three tests for refunded=false + price + structured provider error, missing refund metadata remaining null, and invalid price being treated as unknown. Test definitions only; not executed.
 - Important: `backend/index.js` catch still does not persist these new fields into migration 053's journal. This is intentionally only adapter groundwork; no claim that financial reconciliation is complete.
+
+
+## AUD-073 implementation follow-up — migration 063
+- Added `db/migrations/063_pin_regeneration_provider_outcomes.sql`: nullable provider terminal status, strict refund boolean, provider error code/title and reconciliation timestamp; new versioned RPC `record_pin_regeneration_provider_outcome` is claim-token fenced and idempotent for an identical replay. Conflicting replay/task ID mismatch/stale claim fail closed.
+- Failed outcomes with `refunded=false` retain gross provider price and are marked reconciled; missing refund metadata remains `NULL` and `provider_reconciled_at=NULL`. This does not charge the user or modify user credits.
+- Wired `POST /pins/:id/regenerate` to persist successful provider outcome before rehosting, including recovered tasks and legacy rows with a provider result URL. Failed-task metadata is persisted before the request transitions to `failed`; if that write fails, request remains `unknown` to prevent a fresh billable submission. Recovered failed tasks now use the same `providerTaskError` adapter.
+- Added `backend/test/pin-regeneration-provider-outcome.sh` with PostgreSQL cases for non-refunded failure, missing refund, success, identical replay, conflicting replay and stale claim.
+- Static review only. The SQL migration has NOT been applied; the integration script, Node tests, PostgreSQL, backend suite and GitHub Actions have NOT been executed. The new columns are not visible to the running backend until migration 063 is applied, so this feature must not be deployed before the migration is applied and tested in a disposable database.
+- Provider RUB price remains separate from user-credit debit. Exact quote-before-submit and the shared multi-pin provider-operation ledger remain open; this follow-up closes only the single-pin terminal-outcome/refund metadata gap.
