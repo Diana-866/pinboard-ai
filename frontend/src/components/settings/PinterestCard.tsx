@@ -121,6 +121,7 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
   };
 
   const handleDisconnect = async (accountId: string) => {
+    if (!window.confirm(t.settings.pinterestDisconnectWarning)) return;
     setError(null);
     setBusy(true);
     try {
