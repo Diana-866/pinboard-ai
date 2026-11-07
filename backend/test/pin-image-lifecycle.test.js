@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { extractManagedPinImagePath, buildPinImageObjectPath, deleteManagedPinImageObject } = require("./pinImageLifecycle");
+const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, deleteManagedPinImageObject } = require("./pinImageLifecycle");
 
 const base = "https://project.supabase.co";
 
@@ -65,6 +65,15 @@ function makeStorageClient(options = {}) {
           ? { claimed: true, claim_token: "claim-123" }
           : options.claimData, error: options.claimError || null };
       }
+      if (name === "begin_pin_image_upload") {
+        return { data: options.uploadReservation === undefined
+          ? { reserved: true, upload_token: "upload-123" }
+          : options.uploadReservation, error: options.reserveError || null };
+      }
+      if (name === "finalize_pin_image_upload") {
+        return { data: options.uploadFinalizeData === undefined ? true : options.uploadFinalizeData,
+          error: options.uploadFinalizeError || null };
+      }
       return { data: options.finalizeData === undefined ? true : options.finalizeData,
         error: options.finalizeError || null };
     },
@@ -75,6 +84,11 @@ function makeStorageClient(options = {}) {
             calls.push({ type: "remove", bucket, paths });
             if (options.removeThrows) throw options.removeThrows;
             return { error: options.removeError || null };
+          },
+          async upload(path, file, uploadOptions) {
+            calls.push({ type: "upload", bucket, path, file, uploadOptions });
+            if (options.uploadThrows) throw options.uploadThrows;
+            return { error: options.uploadError || null };
           },
         };
       },
@@ -138,6 +152,76 @@ test("failed finalization does not report a successful cleanup", async () => {
   const supabase = makeStorageClient({ finalizeError: rpcError });
   await assert.rejects(
     deleteManagedPinImageObject({ supabase, objectPath: "pins/1730000000000-ab12cd34.webp" }),
+    (error) => error === rpcError
+  );
+});
+
+
+test("upload reservation is acquired before Storage and finalized after success", async () => {
+  const supabase = makeStorageClient();
+  assert.equal(await uploadManagedPinImageObject({
+    supabase, objectPath: "pins/1730000000000-ab12cd34.webp",
+    file: Buffer.from("image"), contentType: "image/webp",
+  }), true);
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), [
+    "begin_pin_image_upload", "upload", "finalize_pin_image_upload",
+  ]);
+  assert.equal(supabase.calls[2].args.p_upload_token, "upload-123");
+  assert.equal(supabase.calls[2].args.p_uploaded, true);
+});
+
+test("upload reservation refusal never writes or overwrites Storage", async () => {
+  const supabase = makeStorageClient({
+    uploadReservation: { reserved: false, reason: "referenced" },
+  });
+  await assert.rejects(
+    uploadManagedPinImageObject({
+      supabase, objectPath: "pins/1730000000000-ab12cd34.webp",
+      file: Buffer.from("image"), contentType: "image/webp",
+    }),
+    (error) => error.code === "referenced"
+  );
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), ["begin_pin_image_upload"]);
+});
+
+test("definite Storage upload rejection releases the reservation with a failed result", async () => {
+  const storageError = Object.assign(new Error("storage rejected"), { code: "storage_rejected" });
+  const supabase = makeStorageClient({ uploadError: storageError });
+  await assert.rejects(
+    uploadManagedPinImageObject({
+      supabase, objectPath: "pins/1730000000000-ab12cd34.webp",
+      file: Buffer.from("image"), contentType: "image/webp",
+    }),
+    (error) => error === storageError
+  );
+  const finalize = supabase.calls.find((call) => call.name === "finalize_pin_image_upload");
+  assert.equal(finalize.args.p_uploaded, false);
+  assert.equal(finalize.args.p_error_code, "storage_rejected");
+});
+
+test("ambiguous thrown upload failure keeps the upload reservation fenced", async () => {
+  const networkError = new Error("connection reset");
+  const supabase = makeStorageClient({ uploadThrows: networkError });
+  await assert.rejects(
+    uploadManagedPinImageObject({
+      supabase, objectPath: "pins/1730000000000-ab12cd34.webp",
+      file: Buffer.from("image"), contentType: "image/webp",
+    }),
+    (error) => error === networkError
+  );
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), [
+    "begin_pin_image_upload", "upload",
+  ]);
+});
+
+test("failed upload finalization does not report a successful upload", async () => {
+  const rpcError = new Error("finalize unavailable");
+  const supabase = makeStorageClient({ uploadFinalizeError: rpcError });
+  await assert.rejects(
+    uploadManagedPinImageObject({
+      supabase, objectPath: "pins/1730000000000-ab12cd34.webp",
+      file: Buffer.from("image"), contentType: "image/webp",
+    }),
     (error) => error === rpcError
   );
 });
