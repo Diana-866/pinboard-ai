@@ -108,7 +108,7 @@ fi
 echo "Stale generation owner fencing passed for request $RECOVERY_KEY"
 
 
-"${psql_base[@]}" -c "select public.begin_pin_generation_request('$USER_ID', '$BOARD_ID', '$KEY', '$FINGERPRINT')"
+"${psql_base[@]}" -c "select public.begin_pin_generation_request('$USER_ID', '$BOARD_ID', '$KEY', '$FINGERPRINT')"\n"${psql_base[@]}" -c "select public.reserve_pin_generation_credits('$USER_ID', '$KEY', 5)" >/dev/null
 PGAPPNAME=generation-concurrency-locker "${psql_base[@]}" -c "begin; select id from public.pin_generation_requests where user_id = '$USER_ID' and idempotency_key = '$KEY' for update; select pg_sleep(8); commit;" >/tmp/generation-locker.log 2>&1 &
 LOCK_PID=$!
 
@@ -175,7 +175,7 @@ echo "Concurrent duplicate generation completion passed for request $KEY"
 # is not: failed means no pins/debit; completed means exactly one of each.
 RACE_KEY="ci-generation-fail-complete-$(printf '%s' "$USER_ID" | tr -d '-')"
 RACE_FINGERPRINT="$(printf 'a%.0s' {1..64})"
-"${psql_base[@]}" -c "select public.begin_pin_generation_request('$USER_ID', '$BOARD_ID', '$RACE_KEY', '$RACE_FINGERPRINT')"
+"${psql_base[@]}" -c "select public.begin_pin_generation_request('$USER_ID', '$BOARD_ID', '$RACE_KEY', '$RACE_FINGERPRINT')"\n"${psql_base[@]}" -c "select public.reserve_pin_generation_credits('$USER_ID', '$RACE_KEY', 5)" >/dev/null
 PGAPPNAME=generation-race-locker "${psql_base[@]}" -c "begin; select id from public.pin_generation_requests where user_id = '$USER_ID' and idempotency_key = '$RACE_KEY' for update; select pg_sleep(6); commit;" >/tmp/generation-race-locker.log 2>&1 &
 RACE_LOCK_PID=$!
 
