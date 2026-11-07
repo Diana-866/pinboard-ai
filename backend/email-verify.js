@@ -107,7 +107,7 @@ async function issueVerificationToken(user) {
 
   const base = (process.env.FRONTEND_URL || "https://pinposy.com").split(",")[0].trim();
   try {
-    await sendVerifyEmail(user.email, `${base}/verify-email?token=${encodeURIComponent(token)}`, user.preferred_language);
+    await sendVerifyEmail(user.email, `${base}/verify-email#token=${encodeURIComponent(token)}`, user.preferred_language);
     console.log("[email-verify] письмо подтверждения отправлено");
     return true;
   } catch (e) {
