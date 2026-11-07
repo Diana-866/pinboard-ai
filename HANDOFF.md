@@ -368,3 +368,20 @@ HANDOFF.md                            Этот файл
 **Ограничения аудита:** это статический обзор кода, не полноценный runtime/API security test. SQL-функция лимита Pinterest проверена по вызываемому контракту и результатам предыдущего аудита, но в этом проходе не запускалась. Распределённый rate-limit store не подтверждён: текущий `express-rate-limit` использует стандартное in-memory хранилище процесса, поэтому лимиты не являются глобальными между несколькими инстансами и сбрасываются при рестарте. Это эксплуатационное ограничение, не доказанный обход тарифа; при горизонтальном масштабировании следует подключить общий store (например, Redis).
 
 Изменения прикладного кода в AUD-029 не вносились: подтверждённого дефекта тарифного обхода по проверенным маршрутам не найдено.
+
+
+### AUD-030 — generation credit ceiling regression coverage
+
+**Result: additional SQL regression case added; execution pending CI.**
+
+Reviewed `backend/index.js`, `backend/pins.js`, `backend/credits.js`, `backend/creditsBilling.js`, `backend/devTopup.js`, and migration `054_pin_generation_credit_reservations.sql`.
+
+- Generation validates requested pin count at 1–10, estimates the full request ceiling, and atomically reserves it before provider work.
+- Reservation creation is serialized on the user row, idempotent by (user_id, idempotency_key), and rejects attempts to resize an existing reservation.
+- Final settlement validates that actual charge is positive and does not exceed the reservation; it atomically saves pins, debits credits, and completes the request. A transaction failure rolls the whole settlement back.
+- Definitive provider failure releases a reservation; ambiguous provider outcomes keep it reserved. Legacy generation debits also account for active reservations.
+- Paid credit packs use server-side package IDs/prices and signed Prodamus callbacks; user-provided amounts are not trusted. The development top-up route is unavailable in production and requires a configured 32+ character ADMIN_SECRET outside production.
+
+Added a SQL integration regression case to `backend/test/pin-generation-credit-reservations.integration.sql`: a completion attempt charging more than its reservation must fail without changing the balance or releasing the reservation. Existing test also covers idempotency, mismatch, reserved-balance protection, settlement, definitive failure, and ambiguous outcomes.
+
+No confirmed credit-spending bypass was found in the reviewed paths. This remains static review plus test authoring; PostgreSQL integration test has not yet been executed locally. Do not interpret as production verification.
