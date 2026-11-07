@@ -929,3 +929,11 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Runtime тесты не запускались, только статическая проверка исходников; CI runner blocker остаётся. Production не менялся.
 - Commits: helper `69675f0d3d4338d66470ceff925548996b2698e8`, tests `c2d39f3ef9a31693be7bdb6cb4b06496644f0988`, integration `6f56422c2ac7f9f41270db53a59e081774325cc9`, launch notes `5a12dd34ca0d31385f46a8f1ca08ac0c8a13764d`.
 - Административная оговорка: по ошибке первый вариант заметки был добавлен в `main`; файл удалён отдельным revert-коммитом `f61c65f7c09f2ad8ec94fad8fb84861a72dbe8c0`. На `main` не осталось содержимого этой заметки; рабочие изменения остаются в feature branch.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-070: GPTunnel pricing + text usage)
+- Официальные GPTunnel docs проверены: media catalog GET /api/v2/media/models?type=IMAGE возвращает ставки и price_unit; точная котировка media-задачи доступна через POST /api/v2/media/price до запуска без списания, в RUB, с учётом скидок; LLM catalog — GET /v1/models; chat response содержит usage.total_cost. Ссылки: https://docs.gptunnel.ru/creative-lab/price/, https://docs.gptunnel.ru/creative-lab/models/, https://docs.gptunnel.ru/api/models/, https://docs.gptunnel.ru/api/chat-completions/.
+- backend/gptunnel.js сейчас не использует media quote и возвращает из generateText только текст, теряя provider usage/стоимость.
+- Все три найденных text generation paths используют generateText без учёта стоимости: pins.js (внутри image-generation workflow), boards.js (generate boards endpoint), analyze.js (site analysis endpoint).
+- Migration 054 фиксирует сумму резерва: idempotent повтор с другой суммой — ошибка; complete_pin_generation_request отклоняет списание сверх активного резерва. Безопасное добавление фактической LLM-стоимости требует изменения reservation lifecycle/SQL и чёткой политики лимитов токенов, а не только прибавления usage.total_cost к charge.
+- AUD-070 — аудит и план следующего этапа, без кода/миграций. Никаких provider API запросов с ключом, production изменений, DB migrations, CI или runtime tests не было.
