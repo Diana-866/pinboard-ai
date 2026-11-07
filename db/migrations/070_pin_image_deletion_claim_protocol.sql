@@ -144,7 +144,7 @@ create or replace function public.begin_pin_image_upload(
 language plpgsql
 security definer
 set search_path = pg_catalog, public
-as $
+as $function$
 declare
   v_state text;
   v_token uuid;
@@ -152,148 +152,7 @@ declare
 begin
   if p_bucket_id is distinct from 'pin-images'
      or p_object_path is null
-     or p_object_path !~* '^pins/(?:[0-9]+-[a-z0-9]{1,16}|generation-[a-f0-9]{32})\\.(?:png|jpe?g|webp|gif)
-  p_bucket_id text,
-  p_object_path text,
-  p_claim_ttl_seconds integer default 600
-) returns jsonb
-language plpgsql
-security definer
-set search_path = pg_catalog, public
-as $$
-declare
-  v_state text;
-  v_claim_expires_at timestamptz;
-  v_token uuid;
-  v_has_reference boolean;
-begin
-  if p_bucket_id is distinct from 'pin-images'
-     or p_object_path is null
-     or p_object_path !~* '^pins/(?:[0-9]+-[a-z0-9]{1,16}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp|gif)$'
-     or p_claim_ttl_seconds is null
-     or p_claim_ttl_seconds < 60 or p_claim_ttl_seconds > 1800 then
-    raise exception 'invalid pin image deletion claim';
-  end if;
-
-  insert into public.pin_image_object_lifecycle(bucket_id, object_path, state)
-  values (p_bucket_id, p_object_path, 'active')
-  on conflict (bucket_id, object_path) do nothing;
-
-  select state, claim_expires_at
-    into v_state, v_claim_expires_at
-    from public.pin_image_object_lifecycle
-   where bucket_id = p_bucket_id and object_path = p_object_path
-   for update;
-
-  if v_state = 'uploading' then
-    return jsonb_build_object('claimed', false, 'reason', 'upload_in_progress');
-  end if;
-  if v_state = 'deleting' and v_claim_expires_at > now() then
-    return jsonb_build_object('claimed', false, 'reason', 'already_claimed');
-  end if;
-  -- An expired claim is fenced, not released. Rotate its token and retry the
-  -- idempotent Storage removal only after checking that no DB references exist.
-  -- Any late worker holding the old token can no longer finalize this claim.
-  if v_state = 'deleted' then
-    return jsonb_build_object('claimed', false, 'reason', 'already_deleted');
-  end if;
-
-  select
-    exists (select 1 from public.pins p
-             where public.managed_pin_image_object_path(p.image_url) = p_object_path)
-    or exists (select 1 from public.pin_schedules s
-                where s.status <> 'cancelled'
-                  and public.managed_pin_image_object_path(s.snapshot_image_url) = p_object_path)
-    or exists (
-      -- A task journal is a durable recovery/audit reference regardless of
-      -- parent status. Journal pruning and orphan cleanup are a separate policy.
-      select 1
-        from public.pin_generation_tasks t
-       where public.managed_pin_image_object_path(t.storage_url) = p_object_path
-    )
-    or exists (
-      -- Single-pin regeneration has a separate durable replay journal.
-      select 1
-        from public.pin_regeneration_requests r
-       where public.managed_pin_image_object_path(r.storage_url) = p_object_path
-    )
-    into v_has_reference;
-
-  if v_has_reference then
-    -- Never release an expired in-flight claim just because a reference was
-    -- discovered: the original Storage request may still complete later.
-    if v_state = 'deleting' then
-      return jsonb_build_object('claimed', false, 'reason', 'stale_claim_has_reference');
-    end if;
-    update public.pin_image_object_lifecycle
-       set state = 'active', updated_at = now()
-     where bucket_id = p_bucket_id and object_path = p_object_path;
-    return jsonb_build_object('claimed', false, 'reason', 'referenced');
-  end if;
-
-  v_token := gen_random_uuid();
-  update public.pin_image_object_lifecycle
-     set state = 'deleting',
-         claim_token = v_token,
-         claim_expires_at = now() + make_interval(secs => p_claim_ttl_seconds),
-         attempts = attempts + 1,
-         last_error_code = null,
-         updated_at = now()
-   where bucket_id = p_bucket_id and object_path = p_object_path;
-
-  return jsonb_build_object(
-    'claimed', true,
-    'claim_token', v_token,
-    'claim_expires_at', now() + make_interval(secs => p_claim_ttl_seconds)
-  );
-end;
-$$;
-
-create or replace function public.finalize_pin_image_deletion(
-  p_bucket_id text,
-  p_object_path text,
-  p_claim_token uuid,
-  p_deleted boolean,
-  p_error_code text default null
-) returns boolean
-language plpgsql
-security definer
-set search_path = pg_catalog, public
-as $$
-begin
-  if p_bucket_id is distinct from 'pin-images' or p_object_path is null
-     or p_claim_token is null or p_deleted is null then
-    raise exception 'invalid pin image deletion finalization';
-  end if;
-
-  update public.pin_image_object_lifecycle
-     set state = case when p_deleted then 'deleted' else 'delete_failed' end,
-         claim_token = null,
-         claim_expires_at = null,
-         last_error_code = case
-           when p_deleted then null
-           else left(regexp_replace(coalesce(p_error_code, 'storage_delete_failed'),
-                                    '[^a-zA-Z0-9_.-]', '_', 'g'), 64)
-         end,
-         updated_at = now()
-   where bucket_id = p_bucket_id
-     and object_path = p_object_path
-     and state = 'deleting'
-     and claim_token = p_claim_token;
-
-  return found;
-end;
-$$;
-
-revoke all on function public.begin_pin_image_upload(text,text,integer) from public, anon, authenticated;
-revoke all on function public.finalize_pin_image_upload(text,text,uuid,boolean,text) from public, anon, authenticated;
-revoke all on function public.claim_pin_image_deletion(text,text,integer) from public, anon, authenticated;
-revoke all on function public.finalize_pin_image_deletion(text,text,uuid,boolean,text) from public, anon, authenticated;
-grant execute on function public.begin_pin_image_upload(text,text,integer) to service_role;
-grant execute on function public.finalize_pin_image_upload(text,text,uuid,boolean,text) to service_role;
-grant execute on function public.claim_pin_image_deletion(text,text,integer) to service_role;
-grant execute on function public.finalize_pin_image_deletion(text,text,uuid,boolean,text) to service_role;
-
+     or p_object_path !~* '^pins/(?:[0-9]+-[a-z0-9]{1,16}|generation-[a-f0-9]{32})[.](?:png|jpe?g|webp|gif)$'
      or p_upload_ttl_seconds is null
      or p_upload_ttl_seconds < 60 or p_upload_ttl_seconds > 1800 then
     raise exception 'invalid pin image upload reservation';
@@ -343,7 +202,7 @@ grant execute on function public.finalize_pin_image_deletion(text,text,uuid,bool
 
   return jsonb_build_object('reserved', true, 'upload_token', v_token);
 end;
-$;
+$function$;
 
 create or replace function public.finalize_pin_image_upload(
   p_bucket_id text,
@@ -355,7 +214,7 @@ create or replace function public.finalize_pin_image_upload(
 language plpgsql
 security definer
 set search_path = pg_catalog, public
-as $
+as $function$
 begin
   if p_bucket_id is distinct from 'pin-images'
      or p_object_path is null or p_upload_token is null or p_uploaded is null then
@@ -378,8 +237,7 @@ begin
 
   return found;
 end;
-$;
-
+$function$;
 create or replace function public.claim_pin_image_deletion(
   p_bucket_id text,
   p_object_path text,
