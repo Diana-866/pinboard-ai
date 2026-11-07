@@ -73,7 +73,12 @@ async function reconcileStalePinImageUploads({ supabase, olderThanSeconds = 900,
   });
   if (inventoryError) throw inventoryError;
 
-  const result = { inspected: 0, reconciled: 0, unresolved: [] };
+  // This endpoint is deliberately observational. Even if the object is
+  // visible, Storage listing cannot prove that an older in-flight upsert has
+  // terminated; finalizing here could reopen the path while that request can
+  // still overwrite it. Only an operator with independent evidence that the
+  // original request/process is terminated may resolve the reservation.
+  const result = { inspected: 0, objectVisible: 0, objectMissing: 0, unresolved: [] };
   for (const row of staleUploads || []) {
     result.inspected += 1;
     const parts = String(row.object_path || "").split("/");
@@ -84,9 +89,6 @@ async function reconcileStalePinImageUploads({ supabase, olderThanSeconds = 900,
       continue;
     }
 
-    // Only a positively observed, exact object can be marked complete. A
-    // missing object is NOT proof that a timed-out remote upload cannot land
-    // later, so it remains fenced for operator investigation.
     const { data: objects, error: listError } = await supabase.storage
       .from(row.bucket_id)
       .list(folder, { search: filename, limit: 100, offset: 0 });
@@ -94,26 +96,13 @@ async function reconcileStalePinImageUploads({ supabase, olderThanSeconds = 900,
       result.unresolved.push({ object_path: row.object_path, reason: "storage_inventory_failed" });
       continue;
     }
-    if (!(objects || []).some((object) => object && object.name === filename)) {
-      result.unresolved.push({ object_path: row.object_path, reason: "object_not_visible_keep_fenced" });
-      continue;
+    if ((objects || []).some((object) => object && object.name === filename)) {
+      result.objectVisible += 1;
+      result.unresolved.push({ object_path: row.object_path, reason: "object_visible_requires_operator_confirmation" });
+    } else {
+      result.objectMissing += 1;
+      result.unresolved.push({ object_path: row.object_path, reason: "object_missing_keep_fenced" });
     }
-
-    const { data: finalized, error: finalizeError } = await supabase.rpc("finalize_pin_image_upload", {
-      p_bucket_id: row.bucket_id,
-      p_object_path: row.object_path,
-      p_upload_token: row.upload_token,
-      p_uploaded: true,
-      p_error_code: null,
-    });
-    if (finalizeError || finalized !== true) {
-      result.unresolved.push({
-        object_path: row.object_path,
-        reason: finalizeError ? "finalization_failed" : "reservation_changed",
-      });
-      continue;
-    }
-    result.reconciled += 1;
   }
   return result;
 }
