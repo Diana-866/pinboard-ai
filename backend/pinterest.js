@@ -18,6 +18,7 @@ const {
   pinterestWorkerLimiter,
 } = require("./pinterestRateLimit");
 const { executeWithAccountToken } = require("./pinterestAccountRequest");
+const { toPublicPinterestAccount, toDisconnectedPinterestAccount } = require("./pinterestPublicAccount");
 const { isCommittedTokenRefresh, hasActiveRefreshLease } = require("./pinterestRefreshRecovery");
 const crypto = require("crypto");
 const { hasEncryptionKey, isEncryptedToken, isEncryptedWithActiveKey, encryptToken, decryptToken } = require("./pinterestTokenCrypto");
@@ -697,13 +698,7 @@ function registerRoutes(app, deps) {
         connected: accounts.length > 0,
         account_count: accounts.length,
         account_limit: accountLimit,
-        accounts: accounts.map((account) => ({
-          id: account.id,
-          pinterest_user_id: account.pinterest_user_id,
-          username: account.username,
-          expires_at: account.expires_at,
-          needs_reauth: account.refresh_state === "uncertain" || !!(account.expires_at && new Date(account.expires_at).getTime() < Date.now()),
-        })),
+        accounts: accounts.map(toPublicPinterestAccount),
         // Backward-compatible fields for the current single-account settings card.
         username: primary ? primary.username : null,
         expires_at: primary ? primary.expires_at : null,
@@ -843,7 +838,7 @@ function registerRoutes(app, deps) {
       if (error) throw error;
       if (!disconnected) throw httpError(503, "Не удалось безопасно отключить Pinterest. Попробуйте позже.");
       const remaining = await getAccounts(req.userId);
-      res.json({ ok: true, connected: remaining.length > 0, accounts: remaining.map((a) => ({ id: a.id, username: a.username })) });
+      res.json({ ok: true, connected: remaining.length > 0, accounts: remaining.map(toDisconnectedPinterestAccount) });
     } catch (e) {
       handleError(res, e);
     }
