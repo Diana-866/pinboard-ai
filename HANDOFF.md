@@ -282,3 +282,11 @@ HANDOFF.md                            Этот файл
 - ensureBucket теперь fail-closed при ошибке чтения/создания bucket и блокирует upload, если metadata существующего bucket указывает лимит ниже 5 MiB. Прежнее поведение, при котором ошибка проверки проглатывалась и upload продолжался, удалено.
 - Добавлен тест ровно на границу 5 MiB и 1 байт сверх неё. В index.js Multer уже был ограничен 5 MiB; расхождение 8 MiB против 5 MiB устранено.
 - AUD-022: PARTIALLY MITIGATED. Политики существующего production bucket и реальные MIME policies не проверялись; тесты/CI ещё не подтверждены.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-023 partial coverage)
+
+- Подтверждён immutable snapshot: изменение title/description/image у live pin после создания расписания не переписывает сохранённый snapshot.
+- Расширен backend/test/pinterest-account-publication.integration.sql: удаление pin до begin reservation каскадно удаляет queued schedule без attempt; удаление после begin оставляет processing attempt, а complete_pinterest_publish_v2 сохраняет remote ID в publication ledger.
+- Зафиксировано ожидаемое поведение: после durable begin внешний Pinterest POST нельзя гарантированно отменить. Если локальный pin удаляется уже после этой точки, внешний publish может завершиться; schedule row каскадно исчезает, но attempt/publication history остаётся для аудита.
+- AUD-023: PARTIALLY COVERED. SQL сценарии ещё не исполнены в CI; отдельный worker-level test с искусственной паузой прямо перед POST остаётся незакрытым.
