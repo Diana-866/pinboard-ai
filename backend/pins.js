@@ -104,7 +104,7 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
     }
     if (task.status === "succeeded" && task.storage_url && task.provider_price != null) {
       if (typeof options.recordProviderOutcome === "function" &&
-          task.provider_task_id && task.provider_outcome_status !== "succeeded") {
+          task.provider_task_id && task.provider_result_url && task.provider_outcome_status !== "succeeded") {
         await options.recordProviderOutcome(taskIndex, {
           taskId: task.provider_task_id,
           price: task.provider_price,
@@ -252,7 +252,16 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
     } catch (e) {
       if (e && e.journalError) throw e;
       if (e && e.providerStatus === "failed") {
-        if (typeof options.recordProviderOutcome === "function" && e.providerTaskId) {
+        if (typeof options.recordProviderOutcome === "function") {
+          if (!e.providerTaskId) {
+            unknownTasks.push({ task_index: taskIndex });
+            if (typeof options.updateTask === "function") {
+              await options.updateTask(taskIndex, "unknown", {
+                errorCode: "provider_failure_missing_task_id",
+              });
+            }
+            continue;
+          }
           await options.recordProviderOutcome(taskIndex, {
             taskId: e.providerTaskId,
             price: e.providerPrice,
