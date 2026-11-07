@@ -17,7 +17,7 @@ const jwt = require("jsonwebtoken");
 const supabase = require("./supabase");
 const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
 const { httpError } = require("./validate");
-const { classifyScheduleFailure, canRetryScheduleFailure, getScheduleRetryDelayMinutes } = require("./pinterestSchedule");
+const { classifyScheduleFailure, canRetryScheduleFailure, getScheduleRetryDelayMinutes, resolvePinScheduleSnapshot } = require("./pinterestSchedule");
 
 const AUTHORIZE_URL = "https://www.pinterest.com/oauth/";
 const TOKEN_URL = "https://api.pinterest.com/v5/oauth/token";
@@ -487,14 +487,13 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
     throw httpError(409, "Публиковать можно только одобренные пины");
   }
   // New schedules use the immutable creative snapshot; legacy rows keep live-pin behavior.
-  const publishPinData = scheduleSnapshot && scheduleSnapshot.snapshot_image_url
-    ? {
-        ...pin,
-        title: scheduleSnapshot.snapshot_title ?? pin.title,
-        description: scheduleSnapshot.snapshot_description ?? pin.description,
-        image_url: scheduleSnapshot.snapshot_image_url,
-      }
-    : pin;
+  const resolvedSnapshot = resolvePinScheduleSnapshot(scheduleSnapshot, pin);
+  const publishPinData = {
+    ...pin,
+    title: resolvedSnapshot.title,
+    description: resolvedSnapshot.description,
+    image_url: resolvedSnapshot.image_url,
+  };
   if (!publishPinData.image_url) throw httpError(422, "У пина нет изображения — сначала сгенерируйте картинку");
   const selectedAccount = await resolveAccount(userId, accountId);
   accountId = selectedAccount.id;
@@ -554,10 +553,9 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
   }
 
   const projectUrl = pin.boards && pin.boards.projects ? pin.boards.projects.website_url : null;
-  const hasSnapshot = !!(scheduleSnapshot && scheduleSnapshot.snapshot_image_url);
-  const link = hasSnapshot
-    ? (scheduleSnapshot.snapshot_destination_url || null)
-    : (destinationUrl || projectUrl);
+  const link = resolvedSnapshot.is_snapshot
+    ? resolvedSnapshot.destination_url
+    : (resolvedSnapshot.destination_url || destinationUrl || projectUrl);
   const body = {
     board_id: boardId,
     title: String(publishPinData.title || "").slice(0, 100),
