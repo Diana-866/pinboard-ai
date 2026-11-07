@@ -1011,6 +1011,19 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
       let providerFailureRecorded = false;
       if (e && e.providerStatus === "failed" && e.providerTaskId) {
         try {
+          let reconciledRefund = e.providerRefunded == null ? null : e.providerRefunded;
+          if (reconciledRefund == null) {
+            const { data: savedOutcome, error: savedOutcomeError } = await supabase
+              .from("pin_regeneration_requests")
+              .select("provider_refunded")
+              .eq("user_id", String(req.userId))
+              .eq("idempotency_key", idempotencyKey)
+              .single();
+            if (savedOutcomeError) throw savedOutcomeError;
+            if (savedOutcome && savedOutcome.provider_refunded != null) {
+              reconciledRefund = savedOutcome.provider_refunded;
+            }
+          }
           const { error: outcomeError } = await supabase.rpc("record_pin_regeneration_provider_outcome", {
             p_user_id: String(req.userId),
             p_idempotency_key: idempotencyKey,
@@ -1018,7 +1031,7 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
             p_provider_task_id: e.providerTaskId,
             p_provider_status: "failed",
             p_provider_price: e.providerPrice == null ? null : e.providerPrice,
-            p_provider_refunded: e.providerRefunded == null ? null : e.providerRefunded,
+            p_provider_refunded: reconciledRefund,
             p_provider_error_code: e.providerErrorCode == null ? null : e.providerErrorCode,
             p_provider_error_title: e.providerErrorTitle || null,
           });
