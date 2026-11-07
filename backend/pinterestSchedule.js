@@ -25,4 +25,37 @@ module.exports = {
   classifyScheduleFailure,
   canRetryScheduleFailure,
   getScheduleRetryDelayMinutes,
+  buildPinScheduleSnapshot,
+  resolvePinScheduleSnapshot,
 };
+
+
+// Pure helpers for the immutable creative attached to a scheduled Pinterest publish.
+function buildPinScheduleSnapshot(pin, destinationUrl) {
+  if (!pin || !pin.image_url) throw new Error("A scheduled pin requires a saved image");
+  return {
+    snapshot_title: String(pin.title || "").slice(0, 100),
+    snapshot_description: String(pin.description || "").slice(0, 800),
+    snapshot_image_url: String(pin.image_url),
+    snapshot_destination_url: destinationUrl ? String(destinationUrl) : null,
+  };
+}
+
+function resolvePinScheduleSnapshot(schedule, currentPin) {
+  if (schedule && schedule.snapshot_image_url) {
+    return {
+      title: schedule.snapshot_title ?? currentPin.title,
+      description: schedule.snapshot_description ?? currentPin.description,
+      image_url: schedule.snapshot_image_url,
+      destination_url: schedule.snapshot_destination_url ?? null,
+      is_snapshot: true,
+    };
+  }
+  return {
+    title: currentPin.title,
+    description: currentPin.description,
+    image_url: currentPin.image_url,
+    destination_url: schedule && schedule.destination_url ? schedule.destination_url : null,
+    is_snapshot: false,
+  };
+}
