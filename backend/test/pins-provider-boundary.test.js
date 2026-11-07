@@ -99,6 +99,69 @@ test("text-plan generation extracts a JSON array surrounded by provider prose", 
   assert.deepEqual(pins.unknownTasks, []);
 });
 
+test("task quote validation completes before the first billable image submission", async () => {
+  const events = [];
+  provider.generateText = async () => JSON.stringify([
+    { title: "Quoted pin", description: "Test", image_prompt: "A quoted image" },
+  ]);
+  provider.generateImage = async () => {
+    events.push("image");
+    return {
+      url: "https://provider.example.invalid/quoted.png",
+      price: 0.6,
+      taskId: "provider-task-quoted-0001",
+    };
+  };
+  storage.rehostImage = async () => "https://storage.example.invalid/quoted.png";
+
+  const pins = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {
+      ensureTaskQuotes: async (tasks) => {
+        events.push("quote");
+        assert.equal(tasks.length, 1);
+        assert.equal(tasks[0].status, undefined);
+        return tasks;
+      },
+      onProviderSubmission: () => events.push("submission"),
+    }
+  );
+
+  assert.deepEqual(events, ["quote", "submission", "image"]);
+  assert.equal(pins.length, 1);
+});
+
+test("quote validation failure prevents any image provider submission", async () => {
+  let imageSubmitted = false;
+  provider.generateText = async () => JSON.stringify([
+    { title: "Unquoted pin", description: "Test", image_prompt: "An unquoted image" },
+  ]);
+  provider.generateImage = async () => {
+    imageSubmitted = true;
+    throw new Error("image provider must not be called");
+  };
+
+  await assert.rejects(
+    generatePins(
+      { id: "board-1", title: "Test board", description: "" },
+      { niche: "test", tone: "neutral", language: "en" },
+      "flux-schnell",
+      1,
+      "2:3",
+      null,
+      { ensureTaskQuotes: async () => { throw new Error("quote validation failed"); } }
+    ),
+    /quote validation failed/
+  );
+
+  assert.equal(imageSubmitted, false);
+});
+
 test("image generation marks the provider submission boundary before calling the image provider", async () => {
   let submitted = false;
   provider.generateText = async () => JSON.stringify([
