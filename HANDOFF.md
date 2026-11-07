@@ -306,3 +306,12 @@ HANDOFF.md                            Этот файл
 - Допустимы оба порядка победы: callback → disconnect (токены удалены) или disconnect → callback (callback отклонён как stale). В обоих случаях аккаунт обязан остаться отключённым, без access/refresh token, а OAuth attempt — потреблённым.
 - Скрипт подключён к `.github/workflows/atomic-payment-integration.yml` после SQL multi-account OAuth/publication regressions.
 - Это тестовый harness, не production-изменение логики OAuth. AUD-024: concurrency coverage добавлена; результат остаётся FIXED_UNVERIFIED до фактического успешного CI выполнения.
+
+## Дополнение к handoff — 2026-11-07 (AUD-025 generation reservation migration repair)
+
+- При аудите миграции `054_pin_generation_credit_reservations.sql` обнаружена критическая порча SQL: тело `save_generated_pins_and_charge` было оборвано посередине regex-литерала, а два определения `complete_pin_generation_request` оказались вклеены внутрь тела другой функции. Несколько PL/pgSQL функций использовали одиночный `$` как dollar-quote delimiter вместо `$$`. Такая миграция не могла корректно примениться.
+- Полностью восстановлена миграция 054: единый user-row lock для reserve/debit/settlement; проверка ownership доски и состава пинов; защита legacy debit от расходования зарезервированных кредитов; проверка charge against reservation; атомарное сохранение пинов, списание и перевод reservation в settled.
+- Триггер переводит reservation в `settled` при completed, освобождает её только при definitive failed и сохраняет при unknown, чтобы неоднозначный ответ billable provider не освобождал бюджет для повторного расходования.
+- Добавлен `backend/test/pin-generation-credit-reservations.integration.sql`: idempotency, запрет изменения суммы, блокировка конкурирующего debit, успешный settlement, release на definitive failure и удержание резерва при unknown.
+- SQL regression подключён к `.github/workflows/atomic-payment-integration.yml` после применения миграции 054.
+- AUD-025: FIX IMPLEMENTED, CI UNVERIFIED. PostgreSQL runner здесь недоступен; миграция и тест пока не объявляются успешно исполненными. Production не затрагивался.
