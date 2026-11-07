@@ -183,6 +183,11 @@ begin
     into v_has_reference;
 
   if v_has_reference then
+    -- Never release an expired in-flight claim just because a reference was
+    -- discovered: the original Storage request may still complete later.
+    if v_state = 'deleting' then
+      return jsonb_build_object('claimed', false, 'reason', 'stale_claim_has_reference');
+    end if;
     update public.pin_image_object_lifecycle
        set state = 'active', updated_at = now()
      where bucket_id = p_bucket_id and object_path = p_object_path;
