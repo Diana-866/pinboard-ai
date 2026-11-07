@@ -42,3 +42,10 @@ Changed the new email link format to `/reset-password#token=...`. URL fragments 
 ## Verification status
 
 The source changes and test wiring were committed to the existing Draft PR. The SQL concurrency scripts were not executed in this environment; they require the disposable PostgreSQL CI service. No production database, SMTP credentials, secrets, deployments or user accounts were changed.
+
+## CI status recheck (2026-11-08)
+
+- The current PR head at the time of recheck was `8e468956a7131cb5fdac42b15a1d75d0990f3d10`.
+- The three PR workflows associated with this SHA completed with `failure`: atomic payment integration, Prodamus webhook tests, and persisted boards integration checks.
+- GitHub's jobs API returned no step summaries or log URLs for the failed jobs; downloading their log artifacts returned `BlobNotFound`. Therefore the failure cause cannot be attributed to the password-reset tests, and none of the PostgreSQL regression tests should be reported as passing.
+- No production database, deployment, SMTP configuration, or secrets were changed during this recheck.
