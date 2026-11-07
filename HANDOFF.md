@@ -601,3 +601,19 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - No Pinterest credentials, external Pinterest account, production/staging database, deployment, or live API call was accessed or changed.
 
 **Status:** STATIC_REVIEW_COMPLETE / DISCONNECT_FENCING_REGRESSION_ADDED / CI_PENDING.
+
+
+### AUD-042 — recover an ambiguous Pinterest token-commit response (2026-11-07)
+
+**Confirmed gap:** After Pinterest returned a complete rotated token pair, a transient/ambiguous response from `commit_pinterest_account_token_refresh` caused the backend to reconcile once and then return an error if the database had not committed. This could force OAuth reconnect even though the new token pair was still available in process memory.
+
+**Change:** `backend/pinterest.js` now retries the exact same account-scoped database commit once when the first RPC returns an error. It reuses the same lease ID, expected account-row version, and provider-returned token pair. It does not call Pinterest again and never replays the old refresh token. The SQL commit function serializes through the lease row and consumes the lease on success:
+- If the original RPC did not commit, the retry can commit the same rotated pair while the lease remains valid.
+- If the original RPC committed but its response was lost, the retry returns false because the lease was consumed; the backend then reconciles by checking that stored credentials changed and `refresh_state` is `ready`.
+- If reconnect/disconnect wins, account version / active-row / lease checks prevent the stale commit from overwriting it.
+
+**Regression coverage:** Extended `backend/test/pinterest-refresh-disconnect-fencing.integration.sql` with a second scenario: commit the rotated pair, repeat the identical commit as if the first success response was lost, assert the duplicate is rejected and the already-committed credentials remain intact and ready. The same integration SQL file remains wired into `.github/workflows/atomic-payment-integration.yml`.
+
+**Verification:** Changes were fetched back from GitHub and confirmed. PostgreSQL and Node tests were not run locally. CI status for the new commits is pending/unknown; prior workflow logs returned `BlobNotFound`, so no pass is claimed. No live Pinterest request, credentials, production/staging database, deployment, or merge was performed.
+
+**Status:** AMBIGUOUS_COMMIT_RECOVERY_IMPROVED / SQL_REGRESSION_ADDED / CI_PENDING.
