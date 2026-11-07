@@ -62,6 +62,24 @@ test("lazy key rotation uses an optimistic row-version fence", async () => {
   ]);
 });
 
+test("successful optimistic migration returns and decrypts the committed row", async () => {
+  const committedRow = {
+    ...baseRow,
+    access_token: "enc:active:rotated-access",
+    refresh_token: "enc:active:rotated-refresh",
+    updated_at: "2026-11-07T11:00:00.000Z",
+  };
+  const supabase = makeSupabase({ returnedRow: committedRow });
+  const result = await decodePinterestAccountRecord(baseRow, {
+    supabase,
+    ...cryptoDependencies(),
+  });
+
+  assert.equal(result.access_token, "rotated-access");
+  assert.equal(result.refresh_token, "rotated-refresh");
+  assert.equal(result.updated_at, committedRow.updated_at);
+});
+
 test("a lost optimistic race does not perform a blind write or return uncommitted ciphertext", async () => {
   // maybeSingle() returns no row when another writer changed updated_at or
   // refresh_state before our compare-and-swap update reached PostgreSQL.
