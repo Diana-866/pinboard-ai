@@ -81,6 +81,16 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
     throw new Error("Не удалось восстановить сохранённый план генерации");
   }
 
+  // Validate and reserve against exact provider quotes before crossing the
+  // first billable image-task boundary. The callback also persists quotes so
+  // same-key recovery does not need to guess or silently change the ceiling.
+  if (typeof options.ensureTaskQuotes === "function") {
+    tasks = await options.ensureTaskQuotes(tasks);
+    if (!Array.isArray(tasks) || tasks.length === 0 || tasks.length > 10) {
+      throw new Error("Не удалось проверить стоимость задач генерации");
+    }
+  }
+
   const pins = [];
   const pendingTasks = [];
   const unknownTasks = [];
