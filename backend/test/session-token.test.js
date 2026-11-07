@@ -36,7 +36,8 @@ test("session verification rejects tokens signed with a different HMAC algorithm
 
 test("session verification rejects tampered tokens", () => {
   const token = signSessionToken({ id: "user-123", token_version: 0 }, secret);
-  const tampered = token.slice(0, -1) + (token.endsWith("a") ? "b" : "a");
+  const parts = token.split(".");
+  parts[2] = (parts[2][0] === "a" ? "b" : "a") + parts[2].slice(1);
 
-  assert.throws(() => verifySessionToken(tampered, secret));
+  assert.throws(() => verifySessionToken(parts.join("."), secret));
 });
