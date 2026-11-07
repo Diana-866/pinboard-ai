@@ -1,4 +1,4 @@
--- Run only in disposable PostgreSQL CI after migrations 031-035 and 047-049.
+-- Run only in disposable PostgreSQL CI after migrations 031-049.
 -- A local pin can be published once per Pinterest identity, not once per user.
 do $$
 declare
