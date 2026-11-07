@@ -44,3 +44,12 @@ GPTunnel's media quote endpoint cannot necessarily calculate every input-depende
 Only static source review was performed. New helper tests were added but not run; no Node, PostgreSQL, Bash, provider, or CI execution is claimed. No migration or route wiring was added in this audit because the safe split between text planning, quote persistence, reservation resize, and task submission requires a larger state-machine change. No production DB, balances, tariffs, payment settings, credentials, DNS, or deployment were touched.
 
 **Status:** AUD-075 / QUOTED_PRICING_HELPER_ADDED / FLOW_AUDITED / BILLABLE_TEXT_JOURNAL_REQUIRED / RESERVATION_RESIZE_REQUIRED / NOT_DEPLOYABLE_AS_FULL_QUOTE_BILLING.
+
+
+## AUD-075 follow-up — migration 065 groundwork
+
+- Added `db/migrations/065_resize_pin_generation_credit_reservation.sql`: claim-token-fenced `resize_pin_generation_credit_reservation`.
+- RPC uses the settlement-compatible lock order (user row → generation request → reservation), requires a processing request and active reservation, and computes other active reservations before changing the amount.
+- Both increasing and decreasing are supported; an increase fails atomically when available balance cannot cover it. A stale claim or settled/released reservation is rejected.
+- Added `backend/test/generation-reservation-resize.sh` covering increase with another reservation protected, over-budget rejection without mutation, decrease, and stale claim rejection.
+- This is DB groundwork only. It is not yet wired into the route and must not be used until tested against a disposable database. Exact quote persistence, quote-vs-final price reconciliation, and billable text-operation journal remain unimplemented.
