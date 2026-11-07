@@ -1,4 +1,4 @@
--- Run only in disposable PostgreSQL CI after migrations 031-057.
+-- Run only in disposable PostgreSQL CI after migrations 031-058.
 -- A local pin can be published once per Pinterest identity, not once per user.
 do $$
 declare
@@ -27,6 +27,10 @@ declare
   v_safe_retry_pin uuid;
   v_safe_retry_schedule uuid;
   v_snapshot_pin uuid;
+  v_lock_order_pin uuid;
+  v_lock_order_active_schedule uuid;
+  v_lock_order_failed_schedule uuid;
+  v_lock_order_claim uuid;
   v_delete_before_pin uuid;
   v_delete_before_schedule uuid;
   v_delete_after_pin uuid;
@@ -492,6 +496,41 @@ begin
      or (select snapshot_description from public.pin_schedules where id=v_delete_before_schedule) <> 'Original copy'
      or (select snapshot_image_url from public.pin_schedules where id=v_delete_before_schedule) <> 'https://cdn.example.invalid/snapshot-before.png' then
     raise exception 'editing a pin rewrote the immutable schedule snapshot';
+  end if;
+
+  -- A newer failed history row must not be selected instead of the active
+  -- publishing row when completion establishes its schedule lock.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/lock-order.png', 'Lock order', '', 'approved', 'flux-schnell', 0)
+  returning id into v_lock_order_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, updated_at
+  ) values (
+    v_user::text, v_lock_order_pin, v_account_a, now() - interval '1 day',
+    'UTC', 'board-a', 'failed', now() + interval '1 minute'
+  ) returning id into v_lock_order_failed_schedule;
+  v_lock_order_claim := gen_random_uuid();
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, claim_token, updated_at
+  ) values (
+    v_user::text, v_lock_order_pin, v_account_a, now() - interval '1 minute',
+    'UTC', 'board-a', 'publishing', v_lock_order_claim, now() - interval '1 minute'
+  ) returning id into v_lock_order_active_schedule;
+  v_result := public.begin_scheduled_pinterest_publish(
+    v_user::text, v_lock_order_active_schedule, v_lock_order_claim,
+    v_lock_order_pin, v_account_a, 'board-a'
+  );
+  if v_result->>'status' <> 'started' then
+    raise exception 'lock-order fixture could not reserve its publication attempt: %', v_result;
+  end if;
+  perform public.complete_pinterest_publish_v2(
+    v_user::text, v_lock_order_pin, v_account_a, 'remote-lock-order', 'board-a'
+  );
+  if (select status from public.pin_schedules where id=v_lock_order_active_schedule) <> 'published'
+     or (select status from public.pin_schedules where id=v_lock_order_failed_schedule) <> 'failed' then
+    raise exception 'completion changed the wrong schedule when a newer failed row existed';
   end if;
 
   -- Deleting the pin before the durable publication boundary cascades the
