@@ -35,6 +35,10 @@ begin
   end if;
 
   if not has_function_privilege('service_role',
+       'public.begin_pin_image_upload(text,text,integer)', 'EXECUTE')
+     or not has_function_privilege('service_role',
+       'public.finalize_pin_image_upload(text,text,uuid,boolean,text)', 'EXECUTE')
+     or not has_function_privilege('service_role',
        'public.claim_pin_image_deletion(text,text,integer)', 'EXECUTE')
      or not has_function_privilege('service_role',
        'public.finalize_pin_image_deletion(text,text,uuid,boolean,text)', 'EXECUTE') then
@@ -57,6 +61,69 @@ begin
      );
   if v_trigger_count <> 4 then
     raise exception 'expected 4 image reference guard triggers, found %', v_trigger_count;
+  end if;
+end;
+$body$;
+
+
+-- Upload reservations serialize byte writes with deletion claims and prevent
+-- overwriting an object while any durable row references it.
+do $body$
+declare
+  v_user_id uuid := gen_random_uuid();
+  v_project_id uuid := gen_random_uuid();
+  v_board_id uuid := gen_random_uuid();
+  v_pin_id uuid := gen_random_uuid();
+  v_path text := 'pins/1730000000002-ab12cd34.webp';
+  v_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/1730000000002-ab12cd34.webp';
+  v_reservation jsonb;
+  v_claim jsonb;
+  v_upload_token uuid;
+  v_delete_token uuid;
+begin
+  insert into public.users(id, email) values (v_user_id, v_user_id::text || '@pin-image-upload-test.invalid');
+  insert into public.projects(id, user_id) values (v_project_id, v_user_id);
+  insert into public.boards(id, project_id) values (v_board_id, v_project_id);
+
+  v_reservation := public.begin_pin_image_upload('pin-images', v_path, 60);
+  if coalesce((v_reservation ->> 'reserved')::boolean, false) is not true then
+    raise exception 'initial upload reservation was not granted: %', v_reservation;
+  end if;
+  v_upload_token := (v_reservation ->> 'upload_token')::uuid;
+
+  v_claim := public.claim_pin_image_deletion('pin-images', v_path, 60);
+  if coalesce((v_claim ->> 'claimed')::boolean, false) is not false
+     or v_claim ->> 'reason' <> 'upload_in_progress' then
+    raise exception 'deletion was not blocked by an active upload: %', v_claim;
+  end if;
+
+  insert into public.pins(board_id) values (v_board_id) returning id into v_pin_id;
+  begin
+    update public.pins set image_url = v_url where id = v_pin_id;
+    raise exception 'reference write was accepted during upload';
+  exception when sqlstate '55000' then
+    null;
+  end;
+
+  if not public.finalize_pin_image_upload('pin-images', v_path, v_upload_token, true, null) then
+    raise exception 'upload reservation could not be finalized';
+  end if;
+
+  update public.pins set image_url = v_url where id = v_pin_id;
+  v_reservation := public.begin_pin_image_upload('pin-images', v_path, 60);
+  if coalesce((v_reservation ->> 'reserved')::boolean, false) is not false
+     or v_reservation ->> 'reason' <> 'referenced' then
+    raise exception 'upload reservation allowed overwriting a referenced image: %', v_reservation;
+  end if;
+
+  update public.pins set image_url = null where id = v_pin_id;
+  v_claim := public.claim_pin_image_deletion('pin-images', v_path, 60);
+  if coalesce((v_claim ->> 'claimed')::boolean, false) is not true then
+    raise exception 'image was not claimable after reference removal: %', v_claim;
+  end if;
+  v_delete_token := (v_claim ->> 'claim_token')::uuid;
+  if not public.finalize_pin_image_deletion('pin-images', v_path, v_delete_token, true, null) then
+    raise exception 'deletion claim could not be finalized after upload lifecycle test';
   end if;
 end;
 $body$;
