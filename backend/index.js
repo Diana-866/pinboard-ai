@@ -830,7 +830,9 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
           p_user_id: String(req.userId),
           p_idempotency_key: idempotencyKey,
           p_claim_token: claimToken,
-          p_status: "failed",
+          // No provider task was submitted; keep the idempotency key
+          // resumable so a top-up or transient DB recovery can retry safely.
+          p_status: "unknown",
           p_error_code: "regeneration_reservation_failed",
         }).catch((journalError) => console.error("[regeneration] не удалось зафиксировать отказ резерва:", journalError && journalError.message));
         requestStarted = false;
