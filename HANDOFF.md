@@ -773,3 +773,13 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Это статически подготовленная SQL regression; PostgreSQL/CI runtime ещё не подтверждены. Production/staging DB, Pinterest API, реальные публикации, deployment и merge не затрагивались.
 
 **Status:** AUD-054 / MIGRATION_061_ADDED / ACCOUNT_FIRST_LOCK_ORDER_RESTORED / SQL_REGRESSION_ADDED / CI_UNVERIFIED.
+
+## Дополнение к handoff — 2026-11-07 (AUD-055: retryability учитывает immutable image snapshot)
+
+- При аудите UI/API повторной публикации найдено несоответствие: getScheduleRetryability блокировал кнопку безопасного повтора, если у связанного live pin отсутствовал image_url, даже когда у расписания был сохранён snapshot_image_url.
+- Worker использует resolvePinScheduleSnapshot и способен публиковать по сохранённому snapshot, поэтому live pins.image_url не должен быть обязательным, если snapshot image существует.
+- Исправлен backend/pinterestSchedule.js: retryability теперь принимает schedule.snapshot_image_url либо live schedule.pins.image_url; если отсутствуют оба — сохраняется причина pin_unavailable.
+- Добавлен unit regression в backend/test/pinterest-schedule.test.js: failed schedule со snapshot image и pins.image_url = null остаётся доступным для безопасного retry.
+- Это backend/helper + unit-test изменение; миграции БД не нужны. Локальный npm test в этой сессии не запускался; CI ещё не подтверждён. Production/staging, Pinterest API, реальные публикации, deployment и merge не затрагивались.
+
+**Status:** AUD-055 / SNAPSHOT_AWARE_RETRYABILITY / UNIT_REGRESSION_ADDED / RUNTIME_TEST_UNVERIFIED.
