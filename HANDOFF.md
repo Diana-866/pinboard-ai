@@ -264,3 +264,12 @@ HANDOFF.md                            Этот файл
 - Добавлены handler-level regressions: два одновременных subscription success callbacks; commit-then-error и повтор subscription webhook; concurrent credit callbacks с ambiguous commit и replay; cancel callback после уже успешного credit purchase не перезаписывает success.
 - Тесты подписывают payload HMAC тем же canonical serializer, который используется в production.
 - Это не реальные HTTP/PostgreSQL integration tests: для них нужны Express harness и PostgreSQL. AUD-020 остаётся partially covered; CI/staging не подтверждены.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-021 partial mitigation)
+
+- Подтверждено по коду: activation email уже получает стабильный Message-ID на основе subscription_id; повтор после неясного SMTP/DB результата сохраняет тот же идентификатор.
+- dispatchPendingSubscriptionEmails(limit, dependencies) поддерживает injection Supabase и mail adapter; без dependencies production defaults остаются прежними.
+- Добавлен backend/test/email-outbox.test.js: SMTP adapter принимает письмо, mark_email_outbox_sent возвращает ошибку соединения, retry повторно отправляет письмо с тем же Message-ID, затем подтверждение проходит.
+- Это тест at-least-once поведения, а не доказательство дедупликации SMTP. Message-ID не является гарантированным idempotency key для SMTP; exactly-once не обещается.
+- AUD-021: PARTIALLY MITIGATED; требуется подтвердить provider-level idempotency/reconciliation у фактического SMTP-провайдера. Тест локально и в CI пока не запускался/не подтверждён.
