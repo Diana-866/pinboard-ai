@@ -15,6 +15,7 @@ begin
       select 1
         from public.pin_generation_tasks t
        where t.generation_request_id=new.id
+         and t.status='failed'
          and t.provider_task_id is not null
          and (
            t.provider_outcome_status is distinct from 'failed'
