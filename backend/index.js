@@ -727,7 +727,14 @@ app.post("/pins/:id/image", requireAuth, imageUpload.single("image"), async (req
       .eq("board_id", pin.board_id)
       .select()
       .single();
-    if (error) throw error;
+    if (error) {
+      // The object was uploaded before the database update. Clean it up on a
+      // failed update, but let the reference checks protect ambiguous commits.
+      await deletePinImageIfUnreferenced(url).catch((cleanupError) => {
+        console.error("[storage] не удалось очистить новое изображение после ошибки обновления пина:", cleanupError && cleanupError.message);
+      });
+      throw error;
+    }
     if (pin.image_url && pin.image_url !== url) {
       await deletePinImageIfUnreferenced(pin.image_url).catch((cleanupError) => {
         console.error("[storage] не удалось очистить старое изображение пина:", cleanupError && cleanupError.message);
