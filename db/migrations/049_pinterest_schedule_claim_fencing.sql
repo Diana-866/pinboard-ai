@@ -23,14 +23,14 @@ create or replace function public.clear_nonpublishing_pin_schedule_claim_token()
 returns trigger
 language plpgsql
 set search_path = pg_catalog, public
-as $
+as $$
 begin
   if new.status <> 'publishing' then
     new.claim_token := null;
   end if;
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists trg_clear_nonpublishing_pin_schedule_claim_token
   on public.pin_schedules;
