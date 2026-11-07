@@ -2040,6 +2040,61 @@ app.get("/admin/billing/webhook-exceptions", requireAuth, requireAdmin, async (r
   }
 });
 
+// Read-only inventory of old pending provider orders. This is deliberately
+// not a "fail" or "retry" action: age alone cannot prove that Prodamus did not
+// collect a payment or that a delayed webhook will never arrive.
+app.get("/admin/billing/pending-orders", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const parsedHours = Number.parseInt(String(req.query.older_than_hours || "24"), 10);
+    const olderThanHours = Number.isFinite(parsedHours)
+      ? Math.min(24 * 30, Math.max(1, parsedHours))
+      : 24;
+    const parsedLimit = Number.parseInt(String(req.query.limit || "50"), 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 50;
+    const cutoff = new Date(Date.now() - olderThanHours * 60 * 60 * 1000).toISOString();
+
+    const [subscriptionsResult, creditsResult] = await Promise.all([
+      supabase.from("subscriptions")
+        .select("id, user_id, provider_payment_id, plan, amount, currency, created_at")
+        .eq("status", "pending")
+        .lt("created_at", cutoff)
+        .order("created_at", { ascending: true })
+        .limit(limit),
+      supabase.from("credit_purchases")
+        .select("id, user_id, provider_payment_id, package_id, credits, amount, currency, created_at")
+        .eq("status", "pending")
+        .is("balance_credited_at", null)
+        .lt("created_at", cutoff)
+        .order("created_at", { ascending: true })
+        .limit(limit),
+    ]);
+    if (subscriptionsResult.error) throw subscriptionsResult.error;
+    if (creditsResult.error) throw creditsResult.error;
+
+    const now = Date.now();
+    const orders = [
+      ...(subscriptionsResult.data || []).map((row) => ({
+        kind: "subscription", ...row,
+        age_hours: Math.max(0, Math.floor((now - new Date(row.created_at).getTime()) / 3600000)),
+      })),
+      ...(creditsResult.data || []).map((row) => ({
+        kind: "credits", ...row,
+        age_hours: Math.max(0, Math.floor((now - new Date(row.created_at).getTime()) / 3600000)),
+      })),
+    ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+    res.json({
+      older_than_hours: olderThanHours,
+      limit_per_kind: limit,
+      count: orders.length,
+      orders,
+      note: "Read-only inventory. Do not mark an order failed based on age alone; reconcile with Prodamus first.",
+    });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 // --- Финальные обработчики ---
 
 app.use((req, res) => {
