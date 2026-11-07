@@ -334,17 +334,21 @@ test("subscription webhook retries after commit-then-error and observes idempote
 
 test("credit webhook concurrent duplicate callbacks credit once; retry after ambiguous commit is idempotent", async () => {
   let committed = false;
+  let actualCreditsApplied = 0;
   const db = createPaymentDb({
     purchase: { id: "purchase-1", provider_payment_id: "ppc-1", amount: 490, currency: "rub", credits: 100, package_id: "pack_100", balance_credited_at: null, status: "pending" },
     activate: async () => ({ data: null, error: null }),
     credit: async (state) => {
       await new Promise(resolve => setTimeout(resolve, 5));
+      if (state.purchase.balance_credited_at) return { data: 100, error: null };
       if (!committed) {
         committed = true;
+        actualCreditsApplied++;
         state.purchase.balance_credited_at = "2026-11-07T00:00:00.000Z";
         state.purchase.status = "success";
         return { data: 100, error: { message: "connection lost after commit" } };
       }
+      actualCreditsApplied++;
       return { data: 100, error: null };
     },
   });
@@ -356,6 +360,7 @@ test("credit webhook concurrent duplicate callbacks credit once; retry after amb
     handler(signedWebhook(body), second, { supabase: db }),
   ]);
   assert.equal(db.state.purchase.balance_credited_at !== null, true);
+  assert.equal(actualCreditsApplied, 1, "duplicate callbacks must apply the credit only once");
   assert.equal(db.rpcCalls.credit, 2);
   const retry = createWebhookResponse();
   await handler(signedWebhook(body), retry, { supabase: db });
