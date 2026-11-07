@@ -291,6 +291,7 @@ export const zh: TranslationSchema = {
     emptyDay: '今日暂无排期',
     statusScheduled: '已排期',
     statusPublished: '已发布',
+    openPinterestPin: "在 Pinterest 中打开 Pin",
     statusDraft: '草稿',
     optimalSlotBadge: '最佳互动黄金时段',
     pinDetailsModal: '排期详情',
