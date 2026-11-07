@@ -397,6 +397,7 @@ export const en: TranslationSchema = {
     pinterestBoardsEmpty: "No boards found or boards have not been loaded yet.",
     pinterestAccountIdLabel: "Pinterest ID",
     pinterestDisconnected: "Pinterest account disconnected.",
+    pinterestDisconnectWarning: "This removes the account tokens from PinPosy but does not revoke Pinterest's OAuth grant. Future queued posts for this account will be marked as failed; an in-flight request may still finish. Continue?",
     pinterestAccountFallback: "Pinterest account",
     pinterestReauthRequired: "Reauthorization required",
     pinterestPinsLabel: "pins",
