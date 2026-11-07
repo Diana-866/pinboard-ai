@@ -660,3 +660,14 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Дополнительный кодовый фикс не вносился: подтверждённой гонки/уязвимости не обнаружено. Это статический аудит; shell/SQL integration и CI в этой сессии не запускались.
 
 **Status:** STATIC_REVIEW_COMPLETE / OAUTH_DISCONNECT_FENCING_CONFIRMED / LOCK_ORDER_REVIEWED / NO_CONFIRMED_DEFECT.
+
+
+## Дополнение к handoff — AUD-047 (2026-11-07)
+- Проверены migrations 032/033/038, backend `tariff.js` и Pinterest routes/service, а также SQL integration cases multi-account OAuth и account-scoped publication.
+- Подтверждена согласованность тарифного gate в актуальной migration 038 и backend `getTariffState`: aliases standard→pro/free→none; при наличии successful subscription берётся последняя запись с одинаковой сортировкой period_end DESC NULLS LAST, created_at DESC, id DESC; expiry вычисляется через subscription period_end с fallback на users.tariff_period_end. Для ручного тарифа без subscription explicit expiry также соблюдается. В migration 032 это было не так для ручного тарифа; migration 038 уже исправляет это forward-only.
+- Лимиты аккаунтов в RPC: analytics=1, start=3, pro=10, agency=unlimited. OAuth callback блокирует user-scoped state row и user row до подсчёта активных аккаунтов; параллельные OAuth callbacks не могут одновременно обойти cap. Повторное подключение той же Pinterest identity переиспользует строку и не расходует дополнительный слот. SQL integration покрывает Start cap, reconnect stability и manual-expiry cases.
+- Backend account resolution не выбирает аккаунт произвольно при нескольких подключённых профилях: без account_id возвращается 422; account_id разрешается только внутри текущего user_id и только для активного аккаунта. Boards endpoint и publish route передают выбранный account_id; доска проверяется запросом от имени того же аккаунта. Фоновая публикация использует account_id, сохранённый в schedule.
+- Account-scoped publication SQL проверяет владельца локального pin и активность Pinterest account; idempotency/publication unique keys привязаны к pin+account. Legacy attempts/publications без account mapping fail closed и не приписываются новому профилю. Disconnect оставляет историю публикаций, а будущие расписания выбранного профиля переводятся в failed; уже отправленный внешний запрос может завершиться, что явно отражено в UX предупреждении.
+- Найденной подтверждённой ошибки в рассмотренной backend/SQL логике нет; новый код и миграции не добавлялись. Проверка не включала полное визуальное тестирование frontend account picker и не запускала Node/PostgreSQL/CI.
+
+**Status:** STATIC_REVIEW_COMPLETE / TARIFF_CAPS_AND_ACCOUNT_SCOPING_REVIEWED / NO_CONFIRMED_BACKEND_DEFECT.
