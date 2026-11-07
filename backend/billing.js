@@ -122,12 +122,15 @@ async function createPayment(userId, body) {
       urlSuccess: `${frontendBase()}/app?payment=success`,
     });
   } catch (e) {
-    // Платёж не выставлен — помечаем строку, чтобы не мусорить в админке «вечными pending»
-    await supabase
-      .from("subscriptions")
-      .update({ status: "denied" })
-      .eq("id", sub.id)
-      .then(() => {}, () => {});
+    // Ошибка создания ссылки не доказывает, что Prodamus не создал платёж:
+    // timeout/обрыв ответа могут произойти уже после регистрации заказа у провайдера.
+    // Оставляем pending, чтобы поздний webhook мог безопасно активировать подписку.
+    // Такие записи требуют reconciliation, а не автоматического denied.
+    console.error("[billing] результат создания ссылки неопределён; заказ оставлен pending:", {
+      subscriptionId: sub.id,
+      orderId,
+      error: e && e.message,
+    });
     throw e;
   }
 
