@@ -80,3 +80,15 @@ The deletion-claim protocol is now implemented in migration 070 and the backend 
 The last family was found during the follow-up callsite review: single-pin regeneration uses a separate journal table (migration 053), which the initial migration-070 reference query and trigger set had omitted. Without this addition, a completed regeneration journal could retain a replay URL while cleanup incorrectly considered the object unreferenced. Migration 070 and its SQL integration test were updated to register and retain this fourth reference family.
 
 **Current verification:** source-level review only. The SQL integration test now asserts four trigger registrations and exercises the single-pin regeneration journal reference. It has not yet been executed against PostgreSQL; no Supabase migration or production deployment has occurred. The audit's original findings describe the pre-protocol implementation; the follow-up section records the current branch-level remediation.
+
+## Follow-up implementation — upload/delete serialization (2026-11-07)
+
+The next callsite review found that deletion claims alone did not serialize Storage writes. `uploadPinImage()` used `upsert: true` without acquiring the lifecycle row, so a deterministic retry could race a deletion or overwrite an object that already had a durable reference.
+
+Migration 070 now includes `begin_pin_image_upload` and `finalize_pin_image_upload`. The backend reserves the object path before every managed upload. The reservation shares the lifecycle-row lock with deletion claims and the four reference-write triggers. A reservation is refused while another upload/deletion is active or while any durable reference exists; this prevents overwriting bytes that are already used by a pin, schedule snapshot, or generation journal.
+
+Definite Storage upload errors release the reservation with a sanitized error code. A thrown network/transport error, or a failed finalization after Storage success, is ambiguous and deliberately leaves the object in `uploading`; TTL does not automatically reopen the path because the remote upload may still complete. Operator reconciliation remains required for such stale reservations.
+
+Added backend unit coverage for reservation ordering, refusal before Storage write, definite upload failure finalization, ambiguous transport failure, and failed finalization. Added SQL integration coverage for upload-vs-delete blocking, reference-write rejection during upload, and overwrite refusal while referenced. The existing atomic-payment integration workflow already applies migration 070 and runs the SQL test file.
+
+**Verification:** JavaScript source syntax can be checked, but Node and PostgreSQL integration tests have not been executed in this environment. GitHub Actions continues to fail before runner allocation (`runner_id=0`, `steps=[]`); do not treat this as a test result. Migration 070 has not been applied to Supabase and production has not been changed.
