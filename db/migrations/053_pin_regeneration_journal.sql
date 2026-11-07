@@ -138,7 +138,7 @@ begin
    values(p_user_id,-v_req.amount,'regeneration','Перегенерация пина');
   select to_jsonb(pin) into v_pin from public.pins pin where pin.id=v_req.pin_id;
   update public.pin_regeneration_requests set status='completed',storage_url=p_storage_url,
-    result_pin=v_pin,claim_token=null,error_code=null,updated_at=clock_timestamp()
+    result_pin=v_pin,error_code=null,updated_at=clock_timestamp()
    where id=v_req.id;
   return jsonb_build_object('pin',v_pin,'balance',v_balance);
 end; $$;
