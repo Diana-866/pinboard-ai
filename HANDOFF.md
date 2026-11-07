@@ -989,3 +989,11 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - `backend/pins.js`: успешная задача фиксируется до storage rehosting; failed task сохраняет gross provider price, refund boolean и структурированную ошибку. Если task ID отсутствует, результат остаётся unknown. `backend/index.js` подключает новый RPC.
 - Добавлен `backend/test/pin-generation-provider-outcome.sh` с PostgreSQL integration cases; не запускался. Migration 064 не применялась. До disposable PostgreSQL verification и теста не деплоить.
 - Остаточные задачи: exact media quote before submission; учёт LLM `usage.total_cost` для pins/boards/analyze; общий append-only provider-operation ledger и reconciliation. Provider RUB spend не смешивать с user-credit debit.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-075: quote and reservation lifecycle)
+- В основном generation route порядок такой: reserve local model estimate → paid GPTunnel text plan → save plan → image provider tasks → final image provider price → user-credit settlement. Text LLM usage.total_cost теряется через legacy `generateText()`.
+- Media quote появляется только после plan prompts. Existing reservation RPC rejects changed amount for same idempotency key; settlement rejects charge > reservation. Не подключать quote directly до split prepare/submit and safe atomic resize.
+- Добавлен pure helper `calculateQuotedGenerationPricing(quotes, markup)` в `backend/generationPricing.js`, тесты в `backend/test/generation-pricing.test.js`. Per-image rounding matches existing settlement; provider RUB and user credits remain distinct.
+- AUD-075: `docs/audits/AUD-075-exact-quote-and-reservation-lifecycle.md`. Tests not executed.
+- Safe next sequence: provider-operation journal for billable text/image work; bounded LLM usage capture; immutable task plan; exact quotes persisted; atomic reservation resize (user row → reservation lock, account for other reservations); submit only after reserve covers exact quoted user credits; compare actual vs quote on settlement; unknown outcomes never resubmitted blindly.
