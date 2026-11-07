@@ -1070,6 +1070,9 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
       topic,
       tone,
       language: contentLanguage,
+      onTextProviderSubmission: () => {
+        providerGenerationStarted = true;
+      },
       onProviderSubmission: () => {
         providerGenerationStarted = true;
       },
