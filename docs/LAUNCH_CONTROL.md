@@ -3,7 +3,7 @@
 Последнее обновление: 2026-11-07  
 Рабочий репозиторий: `Diana-866/pinboard-ai`  
 Рабочая ветка на момент составления: `feat/persisted-boards-api`  
-Текущий проверенный HEAD: `c27b563693380d398d3d9e7e560cf7782a13025f`
+Последний подтверждённый HEAD на момент AUD-062: `908a5f704bc2355f299e67e644ccb0aca8ef2661`
 
 > Этот документ — единая точка продолжения работы. При каждом сообщении пользователя «Продолжай» сначала сверяться с этим файлом и актуальным GitHub. При сообщении «Я на месте» / «Я вернулась» открыть раздел «Задания пользователя» и выдать только актуальные действия по шагам. Отмечать выполненное, не терять результаты и не просить повторять уже сделанное.
 
@@ -203,3 +203,13 @@
 - Обнаружено ограничение покрытия: нет отдельного runtime integration test для самого `decodeAccountRecord`/optimistic re-encryption race; имеющиеся crypto unit tests проверяют fallback и re-encryption на уровне crypto helper, не DB concurrency. Это кандидат на следующий тест.
 - Важно: статическая проверка кода и YAML выполнена; Node/PostgreSQL runtime не запускались успешно, поскольку GitHub Actions jobs до сих пор не получали runner. Никаких claims о зелёных тестах.
 - Production/merge/deploy/production migrations не затрагивались.
+
+
+### 2026-11-07 — AUD-062: regression coverage for Pinterest token lazy-re-encryption concurrency
+- Закрыта часть test gap из AUD-061: вынесена функция декодирования/ленивой миграции токенов аккаунта в отдельный dependency-injected модуль `backend/pinterestAccountRecord.js`; production wrapper в `backend/pinterest.js` передаёт реальные Supabase и crypto dependencies.
+- Добавлен `backend/test/pinterest-account-record.test.js` с пятью сценариями: optimistic compare-and-swap по `id + user_id + updated_at`; проигранная гонка (PostgREST не вернул строку) не запускает blind update и возвращает исходный снимок, декодируемый прежним ключом; `refresh_state='uncertain'` пропускает миграцию; ciphertext активного ключа не вызывает запись; ошибка БД приводит к отказу, а не к молчаливому продолжению.
+- Изменённые файлы: `backend/pinterest.js`, новый `backend/pinterestAccountRecord.js`, новый `backend/test/pinterest-account-record.test.js`.
+- Коммиты последовательных изменений: helper `2ae1e1322d5f8c44970cf14cfd74ee309f70df3f`; тест `e83dd850f5f5b463a40efcbe42a81169590b4b93`; production refactor `908a5f704bc2355f299e67e644ccb0aca8ef2661`.
+- Runtime Node/PostgreSQL tests не запускались: GitHub Actions runner blocker из AUD-060 остаётся; тесты добавлены в репозиторий, но не считать их прошедшими.
+- Следующая проверка: проверить поведение успешного CAS (возврат обновлённой строки) и потенциальный случай, когда update error означает transient DB outage; затем повторно изучить CI runner состояние и продолжить frontend/API audit.
+- Пользовательских действий пока не требуется. Production, merge, deploy, production migrations, DNS, платежи и реальные Pinterest операции не затрагивались.
