@@ -11,6 +11,8 @@ Before removal, backend:
 2. Checks whether any row in `pins` still references the URL.
 3. Checks whether a non-cancelled `pin_schedules.snapshot_image_url` still references it.
 4. Checks `pin_generation_tasks.storage_url` and keeps the object while any parent generation request is still `processing` or `unknown`. Completed/failed task journal references are historical; final pin rows remain covered by step 2.
+
+For generation tasks, the storage object key is derived from the stable provider idempotency key (`pins/generation-<sha256-prefix>.<ext>`). If Storage upload succeeds but writing `storage_url` to the generation journal fails, retrying the same provider task uploads with `upsert: true` to the same object key instead of creating another object. Manual uploads and legacy regenerate requests without a provider task key continue to use unique random keys.
 5. Fails closed (does not delete) if any reference lookup fails or a task journal has no resolvable parent request.
 
 Cancelling a schedule triggers the same reference check for its snapshot image. Published and failed schedules keep their snapshot image because they remain visible/retryable records.
