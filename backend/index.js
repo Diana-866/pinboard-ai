@@ -1333,17 +1333,19 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
     // marked-up settlement before the atomic pin insert/debit RPC; if the
     // provider price drifted upward, a top-up and same-key recovery can settle
     // the already-journaled images without generating them again.
-    const { error: finalResizeError } = await supabase.rpc("resize_pin_generation_credit_reservation", {
-      p_user_id: String(req.userId),
-      p_idempotency_key: idempotencyKey,
-      p_claim_token: generationClaimToken,
-      p_amount: totalCharge,
-    });
-    if (finalResizeError) {
-      if (/insufficient available credits/i.test(finalResizeError.message || "")) {
-        throw httpError(402, "Фактическая стоимость генерации выше резерва. Пополните баланс и повторите этот же запрос.");
+    if (totalCharge > 0) {
+      const { error: finalResizeError } = await supabase.rpc("resize_pin_generation_credit_reservation", {
+        p_user_id: String(req.userId),
+        p_idempotency_key: idempotencyKey,
+        p_claim_token: generationClaimToken,
+        p_amount: totalCharge,
+      });
+      if (finalResizeError) {
+        if (/insufficient available credits/i.test(finalResizeError.message || "")) {
+          throw httpError(402, "Фактическая стоимость генерации выше резерва. Пополните баланс и повторите этот же запрос.");
+        }
+        throw finalResizeError;
       }
-      throw finalResizeError;
     }
 
     const { data: savedResult, error: saveError } = await supabase.rpc("complete_pin_generation_request", {
