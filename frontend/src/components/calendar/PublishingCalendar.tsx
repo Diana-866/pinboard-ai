@@ -24,7 +24,6 @@ import {
   getDefaultTimezone,
   saveUserTimezone,
   SUPPORTED_TIMEZONES,
-  convertLocalToMoscow,
 } from '../../utils/timezone';
 
 interface PublishingCalendarProps {
@@ -38,7 +37,6 @@ interface PublishingCalendarProps {
   onOpenReview?: () => void;
   accounts?: PinterestAccount[];
   pendingCount?: number;
-  onUpdateAccountAutoTime?: (accountId: string, autoTime: string, nightlyAuto: boolean) => void;
 }
 
 const formatLocalDate = (date: Date): string => {
@@ -59,7 +57,6 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
   onOpenReview,
   accounts = [],
   pendingCount = 15,
-  onUpdateAccountAutoTime,
 }) => {
   const { t, formatDate, formatNumber, language } = useI18n();
 
@@ -80,7 +77,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
     setLegacyAccountId(accounts.length === 1 ? accounts[0].id : '');
   }, [selectedPin, accounts]);
 
-  // Per-account cadence settings with customizable auto-generation time
+  // Browser-local manual planning targets; these do not trigger automation.
   const [selectedAccountId, setSelectedAccountId] = useState<string>(accounts[0]?.id || 'acc-1');
 
   useEffect(() => {
@@ -93,26 +90,30 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
     );
   }, [accounts]);
   const [accountCadence, setAccountCadence] = useState<
-    Record<string, { min: number; max: number; nightlyAuto: boolean; autoTime: string }>
+    Record<string, { min: number; max: number }>
   >(() => {
     try {
       const saved = localStorage.getItem('pinposy_account_cadence');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return Object.fromEntries(Object.entries(parsed).map(([id, value]: [string, any]) => [
+          id,
+          { min: Number(value?.min) || 8, max: Number(value?.max) || 16 },
+        ]));
+      }
     } catch {
-      // ignore
+      // ignore invalid browser-local preferences
     }
-    const initialMap: Record<string, { min: number; max: number; nightlyAuto: boolean; autoTime: string }> = {
-      'acc-1': { min: 8, max: 16, nightlyAuto: true, autoTime: '01:00' },
-      'acc-2': { min: 5, max: 10, nightlyAuto: true, autoTime: '02:30' },
-      'acc-3': { min: 4, max: 8, nightlyAuto: false, autoTime: '04:00' },
+    const initialMap: Record<string, { min: number; max: number }> = {
+      'acc-1': { min: 8, max: 16 },
+      'acc-2': { min: 5, max: 10 },
+      'acc-3': { min: 4, max: 8 },
     };
     accounts.forEach((acc) => {
       if (acc.id) {
         initialMap[acc.id] = {
           min: acc.minDailyPins || 8,
           max: acc.maxDailyPins || 16,
-          nightlyAuto: acc.nightlyAuto !== false,
-          autoTime: acc.autoTime || '01:00',
         };
       }
     });
@@ -164,15 +165,10 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
         ...SUPPORTED_TIMEZONES,
       ];
 
-  const currentCadence = accountCadence[selectedAccountId] || {
-    min: 8,
-    max: 16,
-    nightlyAuto: false,
-    autoTime: '01:00',
-  };
+  const currentCadence = accountCadence[selectedAccountId] || { min: 8, max: 16 };
 
   const handleUpdateCurrentCadence = (
-    updates: Partial<{ min: number; max: number; nightlyAuto: boolean; autoTime: string }>
+    updates: Partial<{ min: number; max: number }>
   ) => {
     setAccountCadence((prev) => {
       const updated = {
@@ -187,9 +183,6 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
         localStorage.setItem('pinposy_account_cadence', JSON.stringify(next));
       } catch {
         // ignore
-      }
-      if (onUpdateAccountAutoTime && updates.autoTime !== undefined) {
-        onUpdateAccountAutoTime(selectedAccountId, updated.autoTime, updated.nightlyAuto);
       }
       return next;
     });
@@ -299,36 +292,6 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                id="nightly-auto-toggle"
-                checked={currentCadence.nightlyAuto}
-                onChange={(e) => handleUpdateCurrentCadence({ nightlyAuto: e.target.checked })}
-                className="w-4 h-4 rounded cursor-pointer"
-                style={{ accentColor: 'var(--accent)' }}
-              />
-              <span className="text-xs font-semibold text-primary-theme">
-                {t.calendar.autoGenerationLabel}
-              </span>
-            </label>
-
-            {/* User Customizable Time Input with Timezone Support */}
-            <div className="flex items-center gap-1.5 bg-subtle border border-subtle px-2.5 py-1 rounded-xl shadow-xs">
-              <Clock className="w-3.5 h-3.5 text-accent-ghost" />
-              <input
-                type="time"
-                value={currentCadence.autoTime || '01:00'}
-                onChange={(e) => handleUpdateCurrentCadence({ autoTime: e.target.value })}
-                disabled={!currentCadence.nightlyAuto}
-                className="text-xs font-mono font-bold bg-transparent text-primary-theme focus:outline-none cursor-pointer disabled:opacity-40"
-                title={t.calendar.autoGenerationTitle}
-              />
-              <span className={`text-[10px] font-mono font-bold ${userTimezone === 'Europe/Moscow' ? 'text-muted-theme' : 'text-accent-ghost'}`}>
-                {getLocalizedTimezoneAbbr(userTimezone)}
-              </span>
-            </div>
-
             {/* Timezone Selector Trigger & Popover */}
             <div className="relative">
               <button
@@ -371,16 +334,6 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
               )}
             </div>
 
-            <span className={`text-[11px] font-semibold ${currentCadence.nightlyAuto ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-theme'}`}>
-              {currentCadence.nightlyAuto
-                ? userTimezone === 'Europe/Moscow' || (language === 'ru' && userTimezone === 'Europe/Moscow')
-                  ? `${currentCadence.autoTime || '01:00'} ${getLocalizedTimezoneAbbr(userTimezone)}`
-                  : t.calendar.autoTimeMoscowTemplate
-                      .replace('{time}', currentCadence.autoTime || '01:00')
-                      .replace('{timezone}', getLocalizedTimezoneAbbr(userTimezone))
-                      .replace('{moscowTime}', convertLocalToMoscow(currentCadence.autoTime || '01:00', userTimezone))
-                : t.calendar.autoGenerationOff}
-            </span>
           </div>
         </div>
 
@@ -451,32 +404,6 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
           </button>
         </div>
 
-        {/* Quick Time Presets & Status */}
-        {currentCadence.nightlyAuto && (
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-subtle text-xs">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] text-muted-theme">{t.calendar.quickTimePresetsLabel}</span>
-              {['00:30', '01:00', '02:00', '08:00', '14:30', '19:30', '21:00', '23:00'].map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => handleUpdateCurrentCadence({ autoTime: preset })}
-                  className={`px-2 py-0.5 rounded-lg text-[11px] font-mono transition-all cursor-pointer ${
-                    (currentCadence.autoTime || '01:00') === preset
-                      ? 'accent-btn font-bold shadow-xs'
-                      : 'bg-subtle text-secondary-theme hover:bg-surface border border-subtle'
-                  }`}
-                >
-                  {preset}
-                </button>
-              ))}
-            </div>
-
-            <span className="text-[11px] text-secondary-theme font-medium">
-              {t.calendar.dailyGenerationHint}
-            </span>
-          </div>
-        )}
       </div>
 
       )}
