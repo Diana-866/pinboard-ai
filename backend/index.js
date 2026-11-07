@@ -785,6 +785,12 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
           res.set("Retry-After", "10");
           return res.status(202).json({ status: "processing", code: "regeneration_pending" });
         }
+        if (task && task.status === "failed") {
+          const providerError = new Error("Генерация не удалась: " + (task.error?.message || "неизвестная ошибка"));
+          providerError.providerStatus = "failed";
+          providerError.providerTaskId = state.provider_task_id;
+          throw providerError;
+        }
         if (!task || task.status !== "done") {
           throw new Error("Provider task has no confirmed result yet");
         }
@@ -844,7 +850,9 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
     if (requestStarted && claimToken && idempotencyKey) {
       await supabase.rpc("update_pin_regeneration_request", {
         p_user_id: String(req.userId), p_idempotency_key: idempotencyKey, p_claim_token: claimToken,
-        p_status: "unknown", p_error_code: e && e.status === 402 ? "insufficient_balance" : "regeneration_outcome_unknown",
+        p_status: e && e.providerStatus === "failed" ? "failed" : "unknown",
+        p_error_code: e && e.providerStatus === "failed" ? "provider_generation_failed" :
+          (e && e.status === 402 ? "insufficient_balance" : "regeneration_outcome_unknown"),
       }).catch((journalError) => console.error("[regeneration] не удалось обновить журнал:", journalError && journalError.message));
     }
     handleError(res, e);
