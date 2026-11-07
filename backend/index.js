@@ -115,6 +115,7 @@ const verifyLimiter = rateLimit({
 const { generateImage } = require("./gptunnel");
 const { register, login, verifyToken } = require("./auth");
 const supabase = require("./supabase");
+const { buildPinScheduleSnapshot } = require("./pinterestSchedule");
 const { analyzeSite } = require("./analyze");
 const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
@@ -1207,10 +1208,7 @@ app.post("/pins/:id/schedule", requireAuth, requireTariff(["start", "pro", "agen
         scheduled_at: scheduledAt.toISOString(),
         timezone,
         destination_url: destinationUrl,
-        snapshot_title: String(pin.title || "").slice(0, 100),
-        snapshot_description: String(pin.description || "").slice(0, 800),
-        snapshot_image_url: String(pin.image_url),
-        snapshot_destination_url: snapshotDestinationUrl,
+        ...buildPinScheduleSnapshot(pin, snapshotDestinationUrl),
         pinterest_board_id: pinterestBoardId,
         status: "scheduled",
       })
