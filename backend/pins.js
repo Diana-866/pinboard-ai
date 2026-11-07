@@ -1,5 +1,5 @@
 const { generateTextWithUsage, generateImage, waitForImageTask } = require("./gptunnel");
-const { rehostImage } = require("./storage");
+const { rehostImage, deletePinImageIfUnreferenced } = require("./storage");
 
 const DEFAULT_ASPECT_RATIOS = ["2:3", "9:16", "4:5", "3:4"];
 
@@ -141,6 +141,7 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
     // durable copy from the exact journaled URL. Do not submit another provider
     // create request or depend on provider-side idempotency retention.
     if (task.status === "succeeded" && task.provider_result_url && task.provider_price != null) {
+      let recoveredStorageUrl = null;
       try {
         providerSucceeded = true;
         if (typeof options.recordProviderOutcome === "function" &&
@@ -151,23 +152,23 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
             resultUrl: task.provider_result_url,
           }, "succeeded");
         }
-        const storedUrl = await rehostImage(task.provider_result_url, {
+        recoveredStorageUrl = await rehostImage(task.provider_result_url, {
           idempotencyKey: task.provider_idempotency_key,
         });
-        if (typeof storedUrl !== "string" || !storedUrl.trim()) {
+        if (typeof recoveredStorageUrl !== "string" || !recoveredStorageUrl.trim()) {
           throw new Error("Не удалось получить постоянную ссылку на изображение");
         }
         if (typeof options.updateTask === "function") {
           await options.updateTask(taskIndex, "succeeded", {
             providerTaskId: task.provider_task_id,
             providerResultUrl: task.provider_result_url,
-            storageUrl: storedUrl,
+            storageUrl: recoveredStorageUrl,
             providerPrice: task.provider_price,
           });
         }
         pins.push({
           board_id: board.id,
-          image_url: storedUrl,
+          image_url: recoveredStorageUrl,
           title: task.title,
           description: task.description || "",
           status: "pending",
@@ -177,12 +178,20 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
         });
         continue;
       } catch (e) {
-        if (e && e.journalError) throw e;
+        if (e && e.journalError) {
+          if (recoveredStorageUrl) {
+            await deletePinImageIfUnreferenced(recoveredStorageUrl).catch((cleanupError) => {
+              console.error("[pins] не удалось очистить изображение после ошибки журнала:", cleanupError && cleanupError.message);
+            });
+          }
+          throw e;
+        }
         unknownTasks.push({ task_index: taskIndex });
         console.error(`[pins] не удалось восстановить Storage для готовой задачи: ${e && e.message}`);
         continue;
       }
     }
+    let uploadedStorageUrl = null;
     try {
       if (typeof options.updateTask === "function" && (!task.status || task.status === "prepared")) {
         await options.updateTask(taskIndex, "submitting");
@@ -241,21 +250,21 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
         });
       }
       providerSucceeded = true;
-      const storedUrl = await rehostImage(image.url, { idempotencyKey: task.provider_idempotency_key });
-      if (typeof storedUrl !== "string" || !storedUrl.trim()) {
+      uploadedStorageUrl = await rehostImage(image.url, { idempotencyKey: task.provider_idempotency_key });
+      if (typeof uploadedStorageUrl !== "string" || !uploadedStorageUrl.trim()) {
         throw new Error("Не удалось получить постоянную ссылку на изображение");
       }
       if (typeof options.updateTask === "function") {
         await options.updateTask(taskIndex, "succeeded", {
           providerTaskId: image.taskId,
           providerResultUrl: image.url,
-          storageUrl: storedUrl,
+          storageUrl: uploadedStorageUrl,
           providerPrice: image.price,
         });
       }
       pins.push({
         board_id: board.id,
-        image_url: storedUrl,
+        image_url: uploadedStorageUrl,
         title: task.title,
         description: task.description || "",
         status: "pending",
@@ -264,7 +273,14 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
         credits_cost: image.price,
       });
     } catch (e) {
-      if (e && e.journalError) throw e;
+      if (e && e.journalError) {
+        if (uploadedStorageUrl) {
+          await deletePinImageIfUnreferenced(uploadedStorageUrl).catch((cleanupError) => {
+            console.error("[pins] не удалось очистить изображение после ошибки журнала:", cleanupError && cleanupError.message);
+          });
+        }
+        throw e;
+      }
       if (e && e.providerStatus === "failed") {
         if (typeof options.recordProviderOutcome === "function") {
           if (!e.providerTaskId) {
