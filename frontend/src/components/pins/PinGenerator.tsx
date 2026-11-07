@@ -199,6 +199,21 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     }
   }, [recommendedBoard]);
 
+  const [tone, setTone] = useState<string>('inspirational');
+  const [destinationUrl, setDestinationUrl] = useState('https://pinposy.com/blog/scandinavian-interior-styling');
+  const [canvasStyle, setCanvasStyle] = useState<'minimal' | 'glass' | 'split'>('glass');
+
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoadingSavedPins, setIsLoadingSavedPins] = useState(false);
+  const [savedPinsLoadError, setSavedPinsLoadError] = useState('');
+  const [isSavingAspectRatio, setIsSavingAspectRatio] = useState(false);
+  const generationKeyRef = React.useRef<string | null>(null);
+  // Serialize edits per pin and let scheduling wait for the final persisted version.
+  const pendingPinSavesRef = React.useRef<Map<string, Promise<unknown>>>(new Map());
+  const [generatedPins, setGeneratedPins] = useState<GeneratedPinVariation[]>([]);
+  const [activePinIndex, setActivePinIndex] = useState(0);
+  const [scheduledSuccess, setScheduledSuccess] = useState(false);
+
   // Restore the selected board's persisted pins whenever the board changes or the generator remounts.
   useEffect(() => {
     let active = true;
@@ -256,21 +271,6 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
     return () => { active = false; };
   }, [selectedBoardId, boards]);
-
-  const [tone, setTone] = useState<string>('inspirational');
-  const [destinationUrl, setDestinationUrl] = useState('https://pinposy.com/blog/scandinavian-interior-styling');
-  const [canvasStyle, setCanvasStyle] = useState<'minimal' | 'glass' | 'split'>('glass');
-
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isLoadingSavedPins, setIsLoadingSavedPins] = useState(false);
-  const [savedPinsLoadError, setSavedPinsLoadError] = useState('');
-  const [isSavingAspectRatio, setIsSavingAspectRatio] = useState(false);
-  const generationKeyRef = React.useRef<string | null>(null);
-  // Serialize edits per pin and let scheduling wait for the final persisted version.
-  const pendingPinSavesRef = React.useRef<Map<string, Promise<unknown>>>(new Map());
-  const [generatedPins, setGeneratedPins] = useState<GeneratedPinVariation[]>([]);
-  const [activePinIndex, setActivePinIndex] = useState(0);
-  const [scheduledSuccess, setScheduledSuccess] = useState(false);
 
   // Quick preset topic suggestions
   const topicPresets = [
