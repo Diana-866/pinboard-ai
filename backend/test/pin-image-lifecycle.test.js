@@ -170,6 +170,20 @@ test("upload reservation is acquired before Storage and finalized after success"
   assert.equal(supabase.calls[2].args.p_uploaded, true);
 });
 
+
+test("upload reservation RPC failure prevents any Storage request", async () => {
+  const rpcError = new Error("migration missing");
+  const supabase = makeStorageClient({ reserveError: rpcError });
+  await assert.rejects(
+    uploadManagedPinImageObject({
+      supabase, objectPath: "pins/1730000000000-ab12cd34.webp",
+      file: Buffer.from("image"), contentType: "image/webp",
+    }),
+    (error) => error === rpcError
+  );
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), ["begin_pin_image_upload"]);
+});
+
 test("upload reservation refusal never writes or overwrites Storage", async () => {
   const supabase = makeStorageClient({
     uploadReservation: { reserved: false, reason: "referenced" },
