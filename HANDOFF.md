@@ -841,3 +841,15 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Production, merge, migrations, DNS, payments и Pinterest publication не затрагивались.
 
 **Status:** AUD-060 / RUNNER_ID_ZERO / NO_STEPS_EXECUTED / LOG_BLOBS_MISSING / VERCEL_BUILD_RATE_LIMIT_SEPARATE / ROOT_CAUSE_UNCONFIRMED.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-061: OAuth encryption and regression coverage)
+
+- Повторно проверены crypto module, account decoding, public account projections, migrations 036/062, SQL OAuth regression и PostgreSQL workflow.
+- Подтверждено, что migration 062 применяется после 061 в disposable PostgreSQL workflow; отдельный SQL block проверяет, что обычный UPDATE и смена только access_token не снимают `uncertain`, а новый refresh_token снимает. Дополнительно выполняется `backend/test/pinterest-multi-account-oauth.integration.sql`, где проверяется reconnect без refresh token, fence и stale worker.
+- `backend/pinterestTokenCrypto.js` поддерживает active/previous keys; новые токены пишутся active key, старые читаются через previous key и перешифровываются при следующем чтении аккаунта. `decodeAccountRecord` пропускает lazy rewrite для `refresh_state='uncertain'`.
+- `pinterestPublicAccount.js` — allowlist для status/disconnect; unit tests проверяют отсутствие токенов и user_id в публичном ответе.
+- Остаётся незакрытый test gap: нет изолированного DB/runtime regression на optimistic re-encryption race в `decodeAccountRecord`. Нужен mock Supabase test или disposable Postgres integration test, включая конкурирующее изменение updated_at/refresh_state.
+- Все выводы статические; runtime Node/PostgreSQL tests не подтверждены из-за runner_id=0 на текущих Actions jobs. Production credentials/data не менялись.
+
+**Status:** AUD-061 / OAUTH_CRYPTO_STATIC_REVIEWED / MIGRATION_062_IN_CI / PUBLIC_ALLOWLIST_TESTED_IN_SOURCE / OPTIMISTIC_REENCRYPTION_RACE_TEST_GAP / RUNTIME_UNVERIFIED.
