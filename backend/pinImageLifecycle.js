@@ -12,7 +12,7 @@ function extractManagedPinImagePath(publicUrl, supabaseUrl, bucket = "pin-images
     const objectPath = decodeURIComponent(objectUrl.pathname.slice(prefix.length));
     // Only remove objects created by uploadPinImage; leave legacy or foreign
     // object names untouched rather than guessing their ownership.
-    if (!/^pins\/[0-9]+-[a-z0-9]{1,16}\.(?:png|jpe?g|webp)$/i.test(objectPath)) return null;
+    if (!/^pins\/(?:[0-9]+-[a-z0-9]{1,16}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp)$/i.test(objectPath)) return null;
     return objectPath;
   } catch {
     return null;
