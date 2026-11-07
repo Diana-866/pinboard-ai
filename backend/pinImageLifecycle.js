@@ -66,6 +66,58 @@ async function uploadManagedPinImageObject({ supabase, bucket = "pin-images", ob
   return true;
 }
 
+async function reconcileStalePinImageUploads({ supabase, olderThanSeconds = 900, limit = 50 }) {
+  const { data: staleUploads, error: inventoryError } = await supabase.rpc("list_stale_pin_image_uploads", {
+    p_older_than_seconds: olderThanSeconds,
+    p_limit: limit,
+  });
+  if (inventoryError) throw inventoryError;
+
+  const result = { inspected: 0, reconciled: 0, unresolved: [] };
+  for (const row of staleUploads || []) {
+    result.inspected += 1;
+    const parts = String(row.object_path || "").split("/");
+    const filename = parts.pop();
+    const folder = parts.join("/");
+    if (!filename || !folder || row.bucket_id !== "pin-images" || !row.upload_token) {
+      result.unresolved.push({ object_path: row.object_path || null, reason: "invalid_inventory_row" });
+      continue;
+    }
+
+    // Only a positively observed, exact object can be marked complete. A
+    // missing object is NOT proof that a timed-out remote upload cannot land
+    // later, so it remains fenced for operator investigation.
+    const { data: objects, error: listError } = await supabase.storage
+      .from(row.bucket_id)
+      .list(folder, { search: filename, limit: 100, offset: 0 });
+    if (listError) {
+      result.unresolved.push({ object_path: row.object_path, reason: "storage_inventory_failed" });
+      continue;
+    }
+    if (!(objects || []).some((object) => object && object.name === filename)) {
+      result.unresolved.push({ object_path: row.object_path, reason: "object_not_visible_keep_fenced" });
+      continue;
+    }
+
+    const { data: finalized, error: finalizeError } = await supabase.rpc("finalize_pin_image_upload", {
+      p_bucket_id: row.bucket_id,
+      p_object_path: row.object_path,
+      p_upload_token: row.upload_token,
+      p_uploaded: true,
+      p_error_code: null,
+    });
+    if (finalizeError || finalized !== true) {
+      result.unresolved.push({
+        object_path: row.object_path,
+        reason: finalizeError ? "finalization_failed" : "reservation_changed",
+      });
+      continue;
+    }
+    result.reconciled += 1;
+  }
+  return result;
+}
+
 async function deleteManagedPinImageObject({ supabase, bucket = "pin-images", objectPath }) {
   const { data: claim, error: claimError } = await supabase.rpc("claim_pin_image_deletion", {
     p_bucket_id: bucket,
@@ -97,6 +149,7 @@ async function deleteManagedPinImageObject({ supabase, bucket = "pin-images", ob
 module.exports = {
   deleteManagedPinImageObject,
   uploadManagedPinImageObject,
+  reconcileStalePinImageUploads,
   extractManagedPinImagePath,
   buildPinImageObjectPath,
 };
