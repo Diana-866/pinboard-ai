@@ -258,11 +258,11 @@
 
 ### AUD-023 — Не проверены гонки редактирования/удаления пина с публикацией
 - **Приоритет:** P2
-- **Статус:** OPEN
-- **Тип:** непокрытый concurrency сценарий.
-- **Наблюдение:** schedule pin FK cascade; attempt journal сохраняется отдельно. Не подтверждён тест изменения/удаления пина между чтением worker и внешним POST.
-- **Исправить:** определить допустимое поведение; согласовать locking/snapshot/soft delete.
-- **Тесты:** edit/delete во время claim, перед POST и после POST.
+- **Статус:** PARTIALLY COVERED
+- **Тип:** неполное concurrency покрытие; граница внешнего POST.
+- **Уже подтверждено:** edit после создания нового расписания не меняет snapshot title/description/image/destination. Удаление pin до durable publish reservation удаляет queued schedule через FK cascade и не оставляет attempt. После begin_scheduled_pinterest_publish attempt journal не каскадирует вместе с pin; подтверждённый remote result может быть сохранён в publication ledger даже после удаления локального pin.
+- **Поведение:** после durable reservation внешний запрос уже нельзя надёжно отменить. Если pin удалён после этой границы, публикация может завершиться на Pinterest; локальная schedule row удалена, но attempt/publication history остаётся для сверки. Это at-most-once safety boundary, не отмена внешней операции.
+- **Тесты:** расширен backend/test/pinterest-account-publication.integration.sql: edit snapshot, delete before reservation, delete after reservation + completion. Нужен запуск PostgreSQL CI и отдельный worker-level test с управляемой паузой между reservation и POST; до этого статус не закрыт.
 
 ### AUD-024 — Pinterest multi-account: не хватает нескольких регрессионных сценариев
 - **Приоритет:** P2
