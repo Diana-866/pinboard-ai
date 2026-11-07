@@ -1176,6 +1176,29 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
         }
         return data;
       },
+      recordProviderOutcome: async (taskIndex, outcome, status) => {
+        const { error } = await supabase.rpc("record_pin_generation_provider_outcome", {
+          p_user_id: String(req.userId),
+          p_idempotency_key: idempotencyKey,
+          p_claim_token: generationClaimToken,
+          p_task_index: taskIndex,
+          p_provider_task_id: outcome.taskId,
+          p_provider_status: status,
+          p_provider_price: outcome.price == null ? null : outcome.price,
+          p_provider_refunded: status === "failed" && outcome.refunded != null
+            ? outcome.refunded : null,
+          p_provider_error_code: status === "failed" && outcome.errorCode != null
+            ? outcome.errorCode : null,
+          p_provider_error_title: status === "failed" ? outcome.errorTitle || null : null,
+          p_provider_result_url: status === "succeeded" ? outcome.resultUrl : null,
+        });
+        if (error) {
+          const journalError = new Error("Не удалось сохранить итог задачи у провайдера");
+          journalError.journalError = true;
+          journalError.cause = error;
+          throw journalError;
+        }
+      },
       updateTask: async (taskIndex, status, details = {}) => {
         const { error } = await supabase.rpc("update_pin_generation_task", {
           p_user_id: String(req.userId),
