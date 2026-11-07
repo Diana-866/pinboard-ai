@@ -7,6 +7,7 @@ const { parseMultipartFields } = require("./prodamusWebhookBody");
 
 const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
+const { getFinancialOperationsQueue } = require("./adminFinancialOperations");
 const {
   httpError,
   validateEmail,
@@ -2062,6 +2063,22 @@ app.post("/admin/mail/reply", requireAuth, requireAdmin, async (req, res) => {
     if (!to || !subject || !text) throw httpError(422, "Нужны поля to, subject, text");
     const result = await mail.replyToMessage(to, subject, text);
     res.json(result);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// Read-only queue for unresolved AI-provider operations and old active credit reservations.
+app.get("/admin/financial-operations/unresolved", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const parsedAge = Number.parseInt(String(req.query.older_than_minutes || "30"), 10);
+    const olderThanMinutes = Number.isFinite(parsedAge)
+      ? Math.min(24 * 60 * 30, Math.max(5, parsedAge))
+      : 30;
+    const parsedLimit = Number.parseInt(String(req.query.limit || "50"), 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 50;
+    const queue = await getFinancialOperationsQueue({ olderThanMinutes, limit });
+    res.json(queue);
   } catch (e) {
     handleError(res, e);
   }
