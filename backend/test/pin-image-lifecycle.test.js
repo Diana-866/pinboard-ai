@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { extractManagedPinImagePath } = require("./pinImageLifecycle");
+const { extractManagedPinImagePath, canDeletePinImageObject } = require("./pinImageLifecycle");
 
 const base = "https://project.supabase.co";
 
@@ -24,4 +24,19 @@ test("rejects paths outside the generated pin object naming scheme", () => {
   assert.equal(extractManagedPinImagePath("https://project.supabase.co/storage/v1/object/public/pin-images/avatars/user.png", base), null);
   assert.equal(extractManagedPinImagePath("https://project.supabase.co/storage/v1/object/public/pin-images/pins/../../secrets.png", base), null);
   assert.equal(extractManagedPinImagePath("https://project.supabase.co/storage/v1/object/public/pin-images/pins/1730000000000-ab12cd34.svg", base), null);
+});
+
+
+test("image cleanup is blocked while any pin or schedule references the object", () => {
+  assert.equal(canDeletePinImageObject({ hasPinReference: true, hasScheduleReference: false }), false);
+  assert.equal(canDeletePinImageObject({ hasPinReference: false, hasScheduleReference: true }), false);
+});
+
+test("image cleanup waits for active or uncertain generation requests", () => {
+  assert.equal(canDeletePinImageObject({ hasPinReference: false, hasScheduleReference: false, generationRequestStatuses: ["processing"] }), false);
+  assert.equal(canDeletePinImageObject({ hasPinReference: false, hasScheduleReference: false, generationRequestStatuses: ["unknown"] }), false);
+});
+
+test("image cleanup permits only terminal generation journal references", () => {
+  assert.equal(canDeletePinImageObject({ hasPinReference: false, hasScheduleReference: false, generationRequestStatuses: ["completed", "failed"] }), true);
 });
