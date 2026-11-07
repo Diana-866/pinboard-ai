@@ -1,6 +1,6 @@
 # Storage object deletion-claim protocol — implementation and rollout notes
 
-**Implementation status:** migration `070_pin_image_deletion_claim_protocol.sql` and the backend claim/finalize executor are committed on `feat/persisted-boards-api`. The migration uses database triggers on all four reference tables as the serialization gate, rather than requiring each current writer to call a separate registration RPC. It has not yet been applied to Supabase or exercised against a live PostgreSQL instance.
+**Implementation status:** migration `070_pin_image_deletion_claim_protocol.sql` and the backend claim/finalize executor are committed on `feat/persisted-boards-api`. The migration uses database triggers on all four reference tables as the reference-write gate and a lifecycle-row upload reservation before every managed Storage upload. Upload reservations serialize byte writes with deletion claims and reject overwrites while any durable reference exists. It has not yet been applied to Supabase or exercised against a live PostgreSQL instance.
 
 **Prepared:** 2026-11-07  
 **Target branch:** `feat/persisted-boards-api`  
@@ -23,7 +23,7 @@ A read-then-delete helper alone cannot enforce this invariant because Supabase S
 Add `public.pin_image_object_lifecycle` with:
 - `bucket_id text not null` (currently `pin-images`)
 - `object_path text not null` (validated managed path, never arbitrary URL)
-- `state text not null check (state in ('active','deleting','delete_failed','deleted'))`
+- `state text not null check (state in ('active','uploading','deleting','delete_failed','deleted'))`
 - `claim_token uuid`
 - `claim_expires_at timestamptz`
 - `attempts integer not null default 0`
@@ -40,13 +40,27 @@ Use a deterministic row as the serialization point for every managed object. Do 
 Called in the same transaction as a write that introduces a managed image reference. It must:
 - validate the bucket/path shape against the service-managed allow-list;
 - insert or lock the lifecycle row;
-- reject if state is `deleting` or `deleted`;
+- reject if state is `uploading`, `deleting` or `deleted`;
 - transition `delete_failed` back to `active` when a legitimate reference is being reintroduced;
 - return success only when the caller can safely commit the referencing row.
 
 Every reference writer must use it in the same DB transaction as the reference write. This includes upload replacement, schedule snapshot insertion, generation task storage URL persistence, and any reconciliation path that restores a URL.
 
-### 2. `claim_pin_image_deletion`
+### 2. `begin_pin_image_upload` and `finalize_pin_image_upload`
+
+Every managed upload must reserve its exact bucket/path before calling Storage:
+- lock or create the lifecycle row;
+- reject a concurrent upload or deletion;
+- reject the upload if any pin, active schedule, multi-pin task journal or single-pin regeneration journal references the path;
+- set `state='uploading'` with a random upload token;
+- call Storage only after the reservation transaction commits;
+- finalize with the matching token after a definite Storage response.
+
+A definite Storage rejection finalizes the reservation back to `active` with a sanitized error code. A thrown network/transport error is ambiguous: the Storage request may still complete, so the backend deliberately leaves the row `uploading`. A failure to finalize after a successful upload is also ambiguous. These stale upload reservations must be reconciled by an operator; TTL is diagnostic and does not automatically release the fence.
+
+The reservation allows deterministic `upsert: true` only when no durable reference exists. Once a reference is committed, a later upload using the same object path is rejected, preventing silent replacement of bytes used by a pin or recovery journal.
+
+### 3. `claim_pin_image_deletion`
 
 Called before the external Storage API:
 - lock the lifecycle row;
@@ -58,32 +72,33 @@ Called before the external Storage API:
 
 The claim expiry is for crash recovery, not permission to race. Migration 070 allows a later claim request to rotate an expired claim token and retry the idempotent Storage removal only after confirming that no durable references exist. A stale worker holding the old token cannot finalize the newer claim. If a durable reference is discovered under an expired claim, the row deliberately remains `deleting`; it is not reopened because the original Storage request may still be in flight. Such a row requires operator reconciliation rather than unsafe automatic release.
 
-### 3. `finalize_pin_image_deletion`
+### 4. `finalize_pin_image_deletion`
 
 Requires matching bucket/path/token:
 - on confirmed Storage delete (including confirmed object-not-found), mark `deleted`, clear claim;
 - on failure, mark `delete_failed`, clear claim, increment attempts, store sanitized error code;
 - never mark deleted based only on timeout or unknown response.
 
-### 4. `release_pin_image_deletion_claim`
+### 5. `release_pin_image_deletion_claim`
 
 Only for a request that can prove no delete request was sent. A timeout/connection reset after request dispatch is ambiguous and must use reconciliation, not release.
 
 ## Backend protocol
 
 1. Convert public URL to a managed object path using the existing strict extractor.
-2. Call claim RPC. If it reports referenced/claimed, return false without calling Storage.
-3. Call Storage `remove([path])`.
-4. On definite success or object-not-found, call finalize(success).
-5. On definite Storage rejection, call finalize(failure).
-6. On timeout/network ambiguity, retain `deleting` claim and let a reconciliation worker inspect Storage before reopening references.
-7. Keep existing best-effort semantics at user-facing routes, but emit durable metrics/logs for `delete_failed` and stale claims.
+2. Before any Storage upload, call `begin_pin_image_upload`, upload only after a reservation, and finalize with the matching token.
+3. For deletion, call claim RPC. If it reports referenced/claimed, return false without calling Storage.
+4. Call Storage `remove([path])`.
+5. On definite success or object-not-found, call finalize(success).
+6. On definite Storage rejection, call finalize(failure).
+7. On timeout/network ambiguity, retain the `deleting` claim and let a reconciliation worker inspect Storage before reopening references. Ambiguous uploads remain `uploading` until equivalent reconciliation.
+8. Keep existing best-effort semantics at user-facing routes, but emit durable metrics/logs for `delete_failed` and stale upload/deletion claims.
 
 ## Writer coverage matrix
 
 | Writer | Required change |
 | --- | --- |
-| `POST /pins/:id/image` | Upload object; register object before pin update; perform pin update through one SQL RPC/transaction that registers the new reference; old image cleanup uses claim RPC. |
+| `POST /pins/:id/image` | Reserve object path before upload; reference trigger registers the new URL transactionally with the pin update; old image cleanup uses claim RPC. |
 | Generation task persistence | Register `storage_url` in same transaction as task success update. |
 | `POST /pins/:id/schedule` | Replace direct insert with SQL RPC that registers snapshot reference and inserts schedule atomically. |
 | Schedule retry/reconciliation | Any operation restoring snapshot URL must register reference before status transition. |
@@ -114,12 +129,14 @@ PostgreSQL concurrency tests (two independent sessions):
 10. Legacy and foreign URLs never reach deletion RPC.
 
 PostgreSQL integration coverage (`backend/test/pin-image-deletion-claims.integration.sql`):
+- upload reservation blocks deletion and concurrent reference writes; a referenced object cannot be overwritten; deletion becomes possible after the reference is removed;
 - URL allow-list, traversal rejection, RPC/table privileges and all four trigger registrations;
 - live-claim exclusivity, expired-claim token rotation, stale-token finalization rejection;
 - pin and active schedule references block deletion; cancelled schedules release their reference;
 - terminal multi-pin and single-pin regeneration journal rows continue to retain their stored image until the journal row is pruned.
 
 Backend tests:
+- upload reservation precedes Storage write; reservation refusal prevents overwrite; definite upload errors finalize failure; ambiguous thrown upload errors retain the fence;
 - claim false -> Storage remove not called;
 - success -> finalize success;
 - definite error -> finalize failure;
@@ -137,6 +154,6 @@ Backend tests:
 6. Deploy backend only after migration and staging verification.
 7. Enable periodic reconciliation after observing metrics.
 
-## Current rollout blockers\n\n- Apply migration 070 manually in Supabase SQL Editor after a backup. Until then, the updated backend cleanup path will fail closed because the claim RPC does not exist.\n- Run the Node test suite and PostgreSQL integration/concurrency tests against a disposable database. These have not been run from this session.\n- Add an operator-facing stale-claim inspection/reconciliation path for expired claims that still have a durable reference. Claims with no references can now be safely retried with a rotated fencing token; TTL alone never reopens writes.\n- Decide when generation task journals may be pruned and add a safe orphan-cleanup policy.\n\n## Non-goals
+## Current rollout blockers\n\n- Apply migration 070 manually in Supabase SQL Editor after a backup. Until then, the updated backend cleanup path will fail closed because the claim RPC does not exist.\n- Run the Node test suite and PostgreSQL integration/concurrency tests against a disposable database. These have not been run from this session.\n- Add an operator-facing stale upload/deletion inspection and reconciliation path. An ambiguous upload remains `uploading`; TTL alone never reopens writes. Expired deletion claims with no references can be retried with a rotated fencing token.\n- Decide when generation task journals may be pruned and add a safe orphan-cleanup policy.\n\n## Non-goals
 
 This protocol does not change public/private bucket visibility, existing RLS policy state, retention policy for terminal generation journals, or storage-provider redundancy. Those require separate decisions.
