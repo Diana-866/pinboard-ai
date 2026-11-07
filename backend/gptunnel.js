@@ -73,37 +73,14 @@ async function checkImage(taskId) {
   return response.data;
 }
 
-async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3", idempotencyKey, callbacks = {}) {
-  const createResponse = await axios.post(
-    `${API_BASE}/api/v2/media/tasks`,
-    buildImageTaskPayload(prompt, model, aspectRatio, idempotencyKey),
-    providerRequestConfig()
-  );
-
-  let task = createResponse.data;
-
-  if (task && task.status === "done") return imageTaskResult(task);
-
-  if (task && task.status === "failed") {
-    const error = new Error("Генерация не удалась: " + (task.error?.message || "неизвестная ошибка"));
-    error.providerStatus = "failed";
-    error.providerTaskId = typeof task.id === "string" ? task.id : null;
-    throw error;
-  }
-
-  const taskId = task && task.id;
+async function waitForImageTask(taskId, callbacks = {}) {
   if (typeof taskId !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(taskId)) {
-    throw new Error("Провайдер вернул некорректный идентификатор задачи");
-  }
-
-  if (typeof callbacks.onTaskUpdate === "function") {
-    await callbacks.onTaskUpdate(taskId, task && task.status === "running" ? "running" : "queued");
+    throw new Error("Некорректный идентификатор задачи генерации");
   }
 
   for (let i = 0; i < 30; i++) {
     await new Promise((resolve) => setTimeout(resolve, 3000));
-
-    task = await checkImage(taskId);
+    const task = await checkImage(taskId);
 
     if (task && task.status === "done") return imageTaskResult(task);
 
@@ -118,9 +95,39 @@ async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3"
       error.providerTaskId = taskId;
       throw error;
     }
+
+    if (!task || !["queued", "running", "done", "failed"].includes(task.status)) {
+      throw new Error("Провайдер вернул неизвестное состояние задачи");
+    }
   }
 
   return { pending: true, taskId, message: "Ещё генерируется, проверь позже через /check-image/" + taskId };
 }
 
-module.exports = { generateText, generateImage, listModels, checkImage, buildImageTaskPayload, imageTaskResult };
+async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3", idempotencyKey, callbacks = {}) {
+  const createResponse = await axios.post(
+    `${API_BASE}/api/v2/media/tasks`,
+    buildImageTaskPayload(prompt, model, aspectRatio, idempotencyKey),
+    providerRequestConfig()
+  );
+
+  const task = createResponse.data;
+  if (task && task.status === "done") return imageTaskResult(task);
+  if (task && task.status === "failed") {
+    const error = new Error("Генерация не удалась: " + (task.error?.message || "неизвестная ошибка"));
+    error.providerStatus = "failed";
+    error.providerTaskId = typeof task.id === "string" ? task.id : null;
+    throw error;
+  }
+
+  const taskId = task && task.id;
+  if (typeof taskId !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(taskId)) {
+    throw new Error("Провайдер вернул некорректный идентификатор задачи");
+  }
+  if (typeof callbacks.onTaskUpdate === "function") {
+    await callbacks.onTaskUpdate(taskId, task && task.status === "running" ? "running" : "queued");
+  }
+  return waitForImageTask(taskId, callbacks);
+}
+
+module.exports = { generateText, generateImage, waitForImageTask, listModels, checkImage, buildImageTaskPayload, imageTaskResult };
