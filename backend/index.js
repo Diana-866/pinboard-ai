@@ -669,6 +669,13 @@ app.patch("/pins/:id", requireAuth, async (req, res) => {
     if (Object.prototype.hasOwnProperty.call(body, "description")) {
       update.description = optionalString(body.description, { max: 500 }) || "";
     }
+    if (Object.prototype.hasOwnProperty.call(body, "aspect_ratio")) {
+      const aspectRatio = optionalString(body.aspect_ratio, { max: 8 });
+      if (!ASPECT_RATIOS.includes(aspectRatio)) {
+        throw httpError(422, "Некорректный формат изображения");
+      }
+      update.aspect_ratio = aspectRatio;
+    }
     if (Object.keys(update).length === 0) {
       throw httpError(422, "Нечего обновлять: передайте title и/или description");
     }
