@@ -30,7 +30,7 @@ function calculateQuotedGenerationPricing(quotes, markup) {
   const items = quotes.map((quote) => {
     if (!quote || quote.currency !== "RUB" ||
         typeof quote.price !== "number" ||
-        !Number.isFinite(quote.price) || quote.price < 0) {
+        !Number.isFinite(quote.price) || quote.price <= 0) {
       throw new TypeError("each image quote must contain a valid RUB price");
     }
     return {
