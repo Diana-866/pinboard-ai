@@ -63,8 +63,8 @@ begin
      and task_index=p_task_index
    for update;
   if not found
-     or v_task.status <> 'failed'
-     or v_task.provider_outcome_status <> 'failed'
+     or v_task.status is distinct from 'failed'
+     or v_task.provider_outcome_status is distinct from 'failed'
      or v_task.provider_task_id is distinct from p_provider_task_id
      or v_task.provider_refunded is not null
      or v_task.provider_reconciled_at is not null then
@@ -127,7 +127,7 @@ begin
    where user_id=p_user_id and idempotency_key=p_idempotency_key
    for update;
   if not found or v_request.status <> 'processing'
-     or v_request.provider_status <> 'failed'
+     or v_request.provider_status is distinct from 'failed'
      or v_request.provider_task_id is distinct from p_provider_task_id
      or v_request.provider_refunded is not null
      or v_request.provider_reconciled_at is not null then
