@@ -199,11 +199,71 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     }
   }, [recommendedBoard]);
 
+  // Restore the selected board's persisted pins whenever the board changes or the generator remounts.
+  useEffect(() => {
+    let active = true;
+    const selectedBoard = boards.find((board) => board.id === selectedBoardId);
+    if (!selectedBoard) {
+      setGeneratedPins([]);
+      setActivePinIndex(0);
+      setIsLoadingSavedPins(false);
+      setSavedPinsLoadError('');
+      return () => { active = false; };
+    }
+
+    setGeneratedPins([]);
+    setActivePinIndex(0);
+    setIsLoadingSavedPins(true);
+    setSavedPinsLoadError('');
+
+    apiRequest(`/boards/${encodeURIComponent(selectedBoardId)}/pins`)
+      .then((rows) => {
+        if (!active) return;
+        const restored = (Array.isArray(rows) ? rows : []).map((row: any) => {
+          const title = String(row.title || 'Без названия');
+          const ratio = ALL_ASPECT_RATIOS.some((item) => item.id === row.aspect_ratio)
+            ? row.aspect_ratio as SupportedAspectRatio
+            : '2:3';
+          return {
+            id: String(row.id),
+            titles: [title],
+            selectedTitle: title,
+            description: String(row.description || ''),
+            altText: '',
+            suggestedBoard: selectedBoard.name,
+            keywords: [],
+            headlineOverlay: title,
+            subheadlineOverlay: '',
+            ctaText: '',
+            imageUrl: String(row.image_url || ''),
+            tone,
+            aspectRatio: ratio,
+          };
+        });
+        setGeneratedPins(restored);
+        setActivePinIndex(0);
+      })
+      .catch((error) => {
+        console.error('[pins] Не удалось восстановить сохранённые пины:', error);
+        if (active) {
+          setGeneratedPins([]);
+          setSavedPinsLoadError('Не удалось загрузить сохранённые пины. Попробуйте выбрать доску ещё раз.');
+        }
+      })
+      .finally(() => {
+        if (active) setIsLoadingSavedPins(false);
+      });
+
+    return () => { active = false; };
+  }, [selectedBoardId, boards]);
+
   const [tone, setTone] = useState<string>('inspirational');
   const [destinationUrl, setDestinationUrl] = useState('https://pinposy.com/blog/scandinavian-interior-styling');
   const [canvasStyle, setCanvasStyle] = useState<'minimal' | 'glass' | 'split'>('glass');
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoadingSavedPins, setIsLoadingSavedPins] = useState(false);
+  const [savedPinsLoadError, setSavedPinsLoadError] = useState('');
   const [isSavingAspectRatio, setIsSavingAspectRatio] = useState(false);
   const generationKeyRef = React.useRef<string | null>(null);
   // Serialize edits per pin and let scheduling wait for the final persisted version.
@@ -343,10 +403,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     const pinId = currentPin.id;
     setIsSavingAspectRatio(true);
     try {
-      await apiRequest(`/pins/${encodeURIComponent(pinId)}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ aspect_ratio: newRatio }),
-      });
+      await persistPinPatch(pinId, { aspect_ratio: newRatio });
       setGeneratedPins((previous) => previous.map((pin) =>
         pin.id === pinId ? { ...pin, aspectRatio: newRatio } : pin
       ));
@@ -883,7 +940,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             <div className="pt-2">
               <button
                 onClick={handleGenerate}
-                disabled={isGenerating}
+                disabled={isGenerating || isLoadingSavedPins}
                 className="w-full accent-btn py-3 px-4 rounded-xl text-xs md:text-sm font-semibold flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
               >
                 {isGenerating ? (
@@ -902,6 +959,18 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               </button>
             </div>
           </div>
+
+          {isLoadingSavedPins && (
+            <div className="custom-card p-4 rounded-xl text-sm text-secondary-theme flex items-center gap-2" role="status">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              <span>Загружаем сохранённые пины этой доски…</span>
+            </div>
+          )}
+          {savedPinsLoadError && (
+            <div className="custom-card p-4 rounded-xl text-sm text-red-600" role="alert">
+              {savedPinsLoadError}
+            </div>
+          )}
 
           {/* Generated Pins Editor Workspace */}
           {generatedPins.length > 0 && (
