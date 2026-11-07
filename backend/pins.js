@@ -104,11 +104,11 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
     }
     if (task.status === "succeeded" && task.storage_url && task.provider_price != null) {
       if (typeof options.recordProviderOutcome === "function" &&
-          task.provider_task_id && task.provider_result_url && task.provider_outcome_status !== "succeeded") {
+          task.provider_task_id && task.provider_outcome_status !== "succeeded") {
         await options.recordProviderOutcome(taskIndex, {
           taskId: task.provider_task_id,
           price: task.provider_price,
-          resultUrl: task.provider_result_url,
+          resultUrl: task.provider_result_url || null,
         }, "succeeded");
       }
       pins.push({
