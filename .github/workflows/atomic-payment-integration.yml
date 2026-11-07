@@ -271,6 +271,11 @@ jobs:
           end;
           $body$;
           SQL
+      - name: Verify stale Pinterest refresh cannot undo disconnect
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-refresh-disconnect-fencing.integration.sql
       - name: Verify duplicate webhooks and ledger consistency
         env:
           PGPASSWORD: postgres
