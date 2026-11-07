@@ -761,3 +761,15 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Статические проверки файлов обязательны после записи; PostgreSQL integration/CI пока не подтверждены. Не утверждать, что runtime tests прошли. Production/staging DB, Pinterest API, реальные публикации, deployment и merge не затрагивались.
 
 **Status:** AUD-053 / MIGRATION_060_ADDED / SAFE_FAILURE_CRASH_RECOVERY / UNSAFE_FAILURE_TERMINAL / SQL_REGRESSION_ADDED / CI_UNVERIFIED.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-054: восстановлен порядок блокировок scheduled publish)
+
+- В статическом аудите обнаружена регрессия: migration 060 повторно определила `begin_scheduled_pinterest_publish` и заменила account-first реализацию из migration 056 на старую реализацию, блокирующую schedule до account. Это нарушало общий порядок `account → schedule → attempt`, используемый disconnect/manual retry/completion, и возвращало риск deadlock при конкурирующих операциях.
+- Добавлена forward-only migration 061 `db/migrations/061_pinterest_scheduled_publish_account_lock_order.sql`: функция снова блокирует активную строку Pinterest account (`disconnected_at is null`, access token present) через `FOR UPDATE` до блокировки schedule; затем проверяет status/claim token/identity и вызывает атомарную reservation функцию. Повторная блокировка account в вызываемой функции является reentrant в рамках той же транзакции.
+- Добавлена regression assertion в `backend/test/pinterest-account-publication.integration.sql`: через `pg_get_functiondef` проверяется, что account lock расположен до schedule lock и что проверяются активность/наличие access token. Header теста обновлён до migrations 031–061.
+- Workflow `.github/workflows/atomic-payment-integration.yml` применяет migration 061 после 060.
+- Commits: migration 061 `c4c1513dd019884a26ba6d2d0798fd85f53a103c`; SQL regression `53a44913951fb9e074eb8c5522bdc6da90656bd8`; workflow `49b3959819b0dbea561064441230e2640c0d9d75`.
+- Это статически подготовленная SQL regression; PostgreSQL/CI runtime ещё не подтверждены. Production/staging DB, Pinterest API, реальные публикации, deployment и merge не затрагивались.
+
+**Status:** AUD-054 / MIGRATION_061_ADDED / ACCOUNT_FIRST_LOCK_ORDER_RESTORED / SQL_REGRESSION_ADDED / CI_UNVERIFIED.
