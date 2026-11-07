@@ -305,6 +305,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
 
       {/* Main Admin Content Container */}
       <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto space-y-6 pb-24">
+        <section
+          role="alert"
+          aria-live="polite"
+          className="rounded-2xl border-2 border-amber-500/50 bg-amber-500/10 p-4 text-sm text-amber-900 dark:text-amber-200"
+        >
+          <p className="font-bold uppercase tracking-wide">Демонстрационные данные — не реальные данные PinPosy</p>
+          <p className="mt-1">
+            Разделы «Пользователи», «Бухгалтерия» и «Ночная генерация и ИИ-бот» используют встроенные примеры.
+            Имена, email, суммы, чеки, налоговые расчёты и показатели вымышлены. Не используйте их для
+            учёта, отчётности, связи с клиентами или принятия финансовых решений.
+          </p>
+        </section>
         {adminTab === 'mail' && <AdminMail />}
         {adminTab === 'email_outbox' && <AdminEmailOutbox />}
         {adminTab === 'subscriptions' && <AdminSubscriptions />}
@@ -672,12 +684,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                   </div>
 
                   <button
-                    onClick={handleExportCsv}
-                    className="px-3.5 py-1.5 rounded-xl accent-btn text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
-                    title="Выгрузить данные в формате CSV для 1C, Мой Налог или налоговой декларации"
+                    type="button"
+                    disabled
+                    aria-disabled="true"
+                    className="px-3.5 py-1.5 rounded-xl border border-subtle bg-subtle text-muted-theme text-xs font-semibold flex items-center gap-1.5 cursor-not-allowed opacity-60"
+                    title="Экспорт недоступен: в этом разделе пока только демонстрационные данные"
                   >
                     <Download className="w-4 h-4" />
-                    <span>Экспорт в CSV для налоговой</span>
+                    <span>Экспорт отключён (демо)</span>
                   </button>
                 </div>
               </div>
