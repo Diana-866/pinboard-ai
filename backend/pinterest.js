@@ -20,7 +20,7 @@ const {
 const { executeWithAccountToken } = require("./pinterestAccountRequest");
 const { isCommittedTokenRefresh, hasActiveRefreshLease } = require("./pinterestRefreshRecovery");
 const crypto = require("crypto");
-const { hasEncryptionKey, isEncryptedToken, encryptToken, decryptToken } = require("./pinterestTokenCrypto");
+const { hasEncryptionKey, isEncryptedToken, isEncryptedWithActiveKey, encryptToken, decryptToken } = require("./pinterestTokenCrypto");
 const jwt = require("jsonwebtoken");
 const supabase = require("./supabase");
 const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
@@ -153,10 +153,11 @@ async function decodeAccountRecord(data) {
   // Do not let legacy plaintext migration clear a durable refresh uncertainty fence.
   // decryptToken() can still read legacy values without rewriting the row.
   if (hasEncryptionKey() && data.refresh_state !== "uncertain" &&
-      (!isEncryptedToken(data.access_token) || (data.refresh_token && !isEncryptedToken(data.refresh_token)))) {
+      ((!isEncryptedToken(data.access_token) || !isEncryptedWithActiveKey(data.access_token)) ||
+       (data.refresh_token && (!isEncryptedToken(data.refresh_token) || !isEncryptedWithActiveKey(data.refresh_token))))) {
     const encrypted = {
-      access_token: data.access_token ? encryptToken(data.access_token) : null,
-      refresh_token: data.refresh_token ? encryptToken(data.refresh_token) : null,
+      access_token: data.access_token ? encryptToken(decryptToken(data.access_token)) : null,
+      refresh_token: data.refresh_token ? encryptToken(decryptToken(data.refresh_token)) : null,
       updated_at: new Date().toISOString(),
     };
     const { data: updated, error: updateError } = await supabase
