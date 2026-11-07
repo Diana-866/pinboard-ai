@@ -747,8 +747,8 @@ begin
 
   -- A worker that stopped after Pinterest success is recovered from the durable
   -- publication journal, rather than being marked unknown or republished.
-  insert into public.pin_schedules(user_id,pin_id,pinterest_account_id,scheduled_at,timezone,pinterest_board_id,status,updated_at)
-  values (v_user::text,v_pin,v_pinterest_account,now() - interval '30 minutes','Europe/Moscow','pinterest-board-ci','publishing',now() - interval '21 minutes')
+  insert into public.pin_schedules(user_id,pin_id,pinterest_account_id,scheduled_at,timezone,pinterest_board_id,status,claim_token,updated_at)
+  values (v_user::text,v_pin,v_pinterest_account,now() - interval '30 minutes','Europe/Moscow','pinterest-board-ci','publishing',gen_random_uuid(),now() - interval '21 minutes')
   returning id into v_schedule;
   perform public.claim_due_pin_schedules(10);
   if (select status from public.pin_schedules where id=v_schedule) <> 'published'
@@ -759,7 +759,7 @@ begin
   -- A stale publishing row without a confirmed remote ID becomes unknown,
   -- and is not automatically returned to the due queue.
   update public.pin_schedules
-    set status='publishing', updated_at=now() - interval '21 minutes'
+    set status='publishing', claim_token=gen_random_uuid(), updated_at=now() - interval '21 minutes'
     where pin_id=v_uncertain_pin and status='unknown';
   perform public.claim_due_pin_schedules(10);
   if (select status from public.pin_schedules where pin_id=v_uncertain_pin and status='unknown' limit 1) <> 'unknown' then
