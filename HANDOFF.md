@@ -437,7 +437,7 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - `db/migrations/001_baseline.sql` обновлена, чтобы новая установка сразу содержала ту же колонку.
 - `backend/test/auth-schema-contract.sql` усилен проверкой DEFAULT 0 наряду с типом и NOT NULL.
 - Миграция не применялась к production или staging. SQL-тест не запускался. Порядок применения: после предыдущих миграций схемы и до выкладки backend-кода, который читает token_version.
-- Важное ограничение: добавление колонки само по себе не доказывает, что установленная SQL RPC `consume_password_reset_token` увеличивает token_version при смене пароля. Тела auth RPC отсутствуют в доступных checked-in migration paths; требуется отдельная сверка с фактической БД и тест одновременного/повторного погашения токена.
+- На момент AUD-033 поведение SQL RPC ещё не было проверено. Это ограничение закрыто статическим аудитом миграций 020–025 в AUD-036: миграция 023 атомарно увеличивает `token_version` при успешной смене пароля; добавлены PostgreSQL regression/concurrency tests, их выполнение ожидает CI.
 
 **Статус:** SCHEMA FIX IMPLEMENTED / SQL AND RUNTIME UNVERIFIED. Production не затрагивался.
 
