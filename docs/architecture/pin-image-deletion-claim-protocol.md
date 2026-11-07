@@ -56,7 +56,7 @@ Every managed upload must reserve its exact bucket/path before calling Storage:
 - call Storage only after the reservation transaction commits;
 - finalize with the matching token after a definite Storage response.
 
-A definite Storage rejection finalizes the reservation back to `active` with a sanitized error code. A thrown network/transport error is ambiguous: the Storage request may still complete, so the backend deliberately leaves the row `uploading`. A failure to finalize after a successful upload is also ambiguous. These stale upload reservations must be reconciled by an operator; TTL is diagnostic and does not automatically release the fence.
+A definite, classifiable Storage 4xx rejection (excluding timeout/conflict/throttle statuses 408, 409, 425 and 429) finalizes the reservation back to `active` with a sanitized error code. 5xx responses, timeout/conflict/throttle statuses, missing/unparseable status codes, and thrown network/transport errors are ambiguous: the Storage request may still have committed, so the backend deliberately leaves the row `uploading`. A failure to finalize after a successful upload is also ambiguous. These stale upload reservations must be reconciled by an operator; TTL is diagnostic and does not automatically release the fence.
 
 The reservation allows deterministic `upsert: true` only when no durable reference exists. Once a reference is committed, a later upload using the same object path is rejected, preventing silent replacement of bytes used by a pin or recovery journal.
 
