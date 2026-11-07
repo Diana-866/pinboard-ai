@@ -973,3 +973,11 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Added `providerTaskError(task)` in `backend/gptunnel.js` and routed both direct and polled failed-task paths through it. It preserves provider task ID, valid gross price, strict `refunded` boolean (missing/invalid => null), provider error code and bounded title.
 - Added 3 test definitions for refunded=false, missing refund metadata, and invalid price. Not executed.
 - These fields are not yet persisted by the regeneration route into migration 053. No schema/route change; provider-cost reconciliation remains incomplete.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-073: provider outcome persistence)
+- Создана миграция `db/migrations/063_pin_regeneration_provider_outcomes.sql`. Она добавляет provider terminal status, gross provider price (существующая колонка), nullable `provider_refunded`, structured provider error code/title и `provider_reconciled_at`.
+- Новый RPC `record_pin_regeneration_provider_outcome` требует текущий claim token и task ID; одинаковый повтор разрешён, конфликтующие terminal facts и stale claims отклоняются. Missing refund остаётся NULL/unreconciled; false не трактуется как refund.
+- `backend/index.js`: successful outcome сохраняется до rehosting, failed outcome — до request status=failed. При ошибке сохранения failed outcome request переводится в unknown, а не в failed; восстановление failed task использует `providerTaskError`.
+- Добавлен `backend/test/pin-regeneration-provider-outcome.sh` с SQL integration scenarios. Ни migration, ни script не запускались. Не подтверждены Bash syntax, Node tests, PostgreSQL, CI. **Не деплоить код до применения 063 и успешной проверки на disposable PostgreSQL.**
+- Остаточные billing задачи: quote exact task before provider submission; unify provider-operation ledger for multi-pin generation and regeneration; separate provider RUB spend from user-credit debit. No live DB/provider/deploy/merge action.
