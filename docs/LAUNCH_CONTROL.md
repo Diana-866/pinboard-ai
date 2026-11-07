@@ -244,3 +244,15 @@
 - Production, DB, PR merge, deploy, платежи и Pinterest публикации не затрагивались.
 
 **Status:** AUD-064 / SAFE_DEFINITIVE_RETRY_KEY_ROTATION / UNKNOWN_OUTCOME_KEY_PRESERVED / TEST_ADDED_RUNTIME_UNVERIFIED.
+
+
+### 2026-11-07 — AUD-065: persistence of edited pin aspect ratio
+- В `PinGenerator.tsx` найдено расхождение: выбор формата пина (2:3 / 9:16 / 4:5 / 3:4 / 1:1) менял только React state. После перезагрузки интерфейс возвращал сохранённый `aspect_ratio` из БД, поэтому выбор пользователя терялся.
+- Исправлено: смена формата теперь отправляет owner-scoped `PATCH /pins/:id` с `aspect_ratio`; интерфейс обновляет локальное состояние только после успешного ответа. На время сохранения переключатели блокируются, чтобы не допустить конкурирующих быстрых запросов. При ошибке показывается сообщение, локальное значение не меняется.
+- Backend PATCH route расширен поддержкой `aspect_ratio` и принимает только общий allowlist `2:3, 9:16, 4:5, 3:4, 1:1`. Проверка владельца `getPinWithOwnerCheck` выполняется до обновления; SQL update дополнительно фильтруется по pin id и board id.
+- Подтверждено статически: `pins.aspect_ratio` — текстовое поле в baseline schema; значения совместимы с UI и генератором. Существующие PATCH title/description сохранены.
+- Файлы: `frontend/src/components/pins/PinGenerator.tsx`, `backend/index.js`.
+- Выполнены source-level assertions: allowlist, валидация, owner-check-before-update, API call, disabled while saving и update state by pin ID. Runtime API tests, TypeScript check, frontend build и PostgreSQL tests не запускались из-за GitHub Actions jobs без runner/steps.
+- Production, база данных, deployment и PR merge не затрагивались.
+
+**Status:** AUD-065 / ASPECT_RATIO_UPDATE_PERSISTED / OWNER_SCOPED / RUNTIME_UNVERIFIED.
