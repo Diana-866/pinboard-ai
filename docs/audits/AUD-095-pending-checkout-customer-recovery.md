@@ -49,6 +49,15 @@ Therefore:
 4. If Prodamus confirms a safe lookup operation, implement a server-side owner-scoped endpoint that first verifies the local order's owner, amount, currency and pending state; never accept a client-supplied arbitrary provider order ID.
 5. Add regression tests for ownership isolation, paid/canceled order rejection, stale pending handling, provider timeouts and duplicate callbacks before enabling any recovery action.
 
+## Implementation follow-up
+
+A small customer-facing improvement was applied after this audit:
+- Pending credit purchases now display their `provider_payment_id` as a selectable order reference.
+- The history date now falls back to `created_at` when `paid_at` is null.
+- Pending purchases show localized guidance to contact support with the order reference and not create another purchase before the existing order is checked.
+
+This does not create or retrieve a payment link, change payment status, or alter webhook fulfillment. The change is in `frontend/src/components/pricing/PricingView.tsx` (commit `aebc7082eca1f2b192e035ff9ec9148920de9b0d`).
+
 ## Verification
 
 - Read `frontend/src/components/pricing/PricingView.tsx`, `frontend/src/lib/billing.ts`, `backend/billing.js`, `backend/creditsBilling.js` and the billing routes in `backend/index.js` from branch `feat/persisted-boards-api`.
