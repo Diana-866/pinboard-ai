@@ -109,6 +109,76 @@ begin
     raise exception 'reconnect erased existing refresh token or expiry: %, %', v_refresh_token, v_expires_at;
   end if;
 
+  -- OAuth reconnect must clear an in-flight refresh uncertainty fence.
+  -- The stale refresh worker must not overwrite the newly reconnected credentials,
+  -- even when the OAuth response preserves the previous refresh token.
+  declare
+    v_refresh_lease uuid := gen_random_uuid();
+    v_refresh_expected_updated_at timestamptz;
+    v_lease_acquired boolean;
+    v_stale_commit boolean;
+    v_current_access text;
+    v_current_refresh text;
+    v_refresh_state text;
+  begin
+    select public.acquire_pinterest_account_refresh_lease(
+      v_user::text, v_account_a, v_refresh_lease, 30
+    ) into v_lease_acquired;
+    if not coalesce(v_lease_acquired, false) then
+      raise exception 'could not acquire refresh lease for OAuth reconnect race';
+    end if;
+
+    update public.pinterest_accounts
+       set refresh_state = 'uncertain', updated_at = clock_timestamp()
+     where id = v_account_a and user_id = v_user::text
+     returning updated_at into v_refresh_expected_updated_at;
+
+    v_attempt := gen_random_uuid();
+    v_generation := public.begin_pinterest_oauth_attempt(v_user::text, v_attempt, 0);
+    v_result := public.commit_pinterest_oauth_attempt_v2(
+      v_user::text, v_attempt, v_generation, 0,
+      'external-a-' || v_user, 'account_a_reconnected', 'enc:a4-reconnected', null,
+      null, null
+    );
+    if v_result->>'ok' <> 'true' then
+      raise exception 'OAuth reconnect failed while refresh was in flight: %', v_result;
+    end if;
+
+    select refresh_state, access_token, refresh_token
+      into v_refresh_state, v_current_access, v_current_refresh
+      from public.pinterest_accounts where id = v_account_a;
+
+    if v_refresh_state <> 'ready'
+       or v_current_access <> 'enc:a4-reconnected'
+       or v_current_refresh <> 'enc:ar2' then
+      raise exception 'OAuth reconnect did not restore ready state and preserve refresh token';
+    end if;
+
+    select public.commit_pinterest_account_token_refresh(
+      v_user::text, v_account_a, v_refresh_lease, v_refresh_expected_updated_at,
+      'enc:stale-refresh-access', 'enc:stale-refresh-token',
+      'boards:read,pins:write', now() + interval '1 hour'
+    ) into v_stale_commit;
+
+    if coalesce(v_stale_commit, false) then
+      raise exception 'stale refresh worker overwrote OAuth reconnect credentials';
+    end if;
+
+    select access_token, refresh_token, refresh_state
+      into v_current_access, v_current_refresh, v_refresh_state
+      from public.pinterest_accounts where id = v_account_a;
+
+    if v_current_access <> 'enc:a4-reconnected'
+       or v_current_refresh <> 'enc:ar2'
+       or v_refresh_state <> 'ready' then
+      raise exception 'stale refresh worker changed credentials after OAuth reconnect';
+    end if;
+
+    perform public.release_pinterest_account_refresh_lease(
+      v_user::text, v_account_a, v_refresh_lease
+    );
+  end;
+
   -- A fourth identity is rejected at the transactional Start-plan cap.
   v_attempt := gen_random_uuid();
   v_generation := public.begin_pinterest_oauth_attempt(v_user::text, v_attempt, 0);
