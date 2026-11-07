@@ -77,7 +77,8 @@ async function uploadPinImage(file, options = {}) {
 }
 
 // Delete only through the database claim protocol. Reference-write triggers
-// serialize pins, schedules and generation journal updates against this claim.
+// and upload reservations serialize pins, schedules and generation journals
+// against both Storage writes and deletes.
 async function deletePinImageIfUnreferenced(imageUrl) {
   const objectPath = extractManagedPinImagePath(imageUrl, process.env.SUPABASE_URL, BUCKET);
   if (!objectPath) return false;
