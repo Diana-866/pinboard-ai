@@ -124,7 +124,7 @@ test("confirmed Storage deletion is finalized with the matching claim token", as
 });
 
 test("definite Storage rejection is finalized as failed before surfacing the error", async () => {
-  const storageError = Object.assign(new Error("storage rejected"), { code: "storage_rejected" });
+  const storageError = Object.assign(new Error("storage rejected"), { code: "storage_rejected", statusCode: 400 });
   const supabase = makeStorageClient({ removeError: storageError });
   await assert.rejects(
     deleteManagedPinImageObject({ supabase, objectPath: "pins/1730000000000-ab12cd34.webp" }),
@@ -133,6 +133,19 @@ test("definite Storage rejection is finalized as failed before surfacing the err
   const finalize = supabase.calls.find((call) => call.name === "finalize_pin_image_deletion");
   assert.equal(finalize.args.p_deleted, false);
   assert.equal(finalize.args.p_error_code, "storage_rejected");
+});
+
+
+test("returned Storage 5xx keeps the deletion claim fenced", async () => {
+  const storageError = Object.assign(new Error("storage unavailable"), { statusCode: 500 });
+  const supabase = makeStorageClient({ removeError: storageError });
+  await assert.rejects(
+    deleteManagedPinImageObject({ supabase, objectPath: "pins/1730000000000-ab12cd34.webp" }),
+    (error) => error === storageError
+  );
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), [
+    "claim_pin_image_deletion", "remove",
+  ]);
 });
 
 test("ambiguous thrown Storage failure keeps the claim and does not finalize or release it", async () => {
@@ -209,7 +222,7 @@ test("upload reservation refusal never writes or overwrites Storage", async () =
 });
 
 test("definite Storage upload rejection releases the reservation with a failed result", async () => {
-  const storageError = Object.assign(new Error("storage rejected"), { code: "storage_rejected" });
+  const storageError = Object.assign(new Error("storage rejected"), { code: "storage_rejected", statusCode: 400 });
   const supabase = makeStorageClient({ uploadError: storageError });
   await assert.rejects(
     uploadManagedPinImageObject({
@@ -221,6 +234,22 @@ test("definite Storage upload rejection releases the reservation with a failed r
   const finalize = supabase.calls.find((call) => call.name === "finalize_pin_image_upload");
   assert.equal(finalize.args.p_uploaded, false);
   assert.equal(finalize.args.p_error_code, "storage_rejected");
+});
+
+
+test("returned Storage 5xx keeps the upload reservation fenced", async () => {
+  const storageError = Object.assign(new Error("storage unavailable"), { statusCode: 500 });
+  const supabase = makeStorageClient({ uploadError: storageError });
+  await assert.rejects(
+    uploadManagedPinImageObject({
+      supabase, objectPath: "pins/1730000000000-ab12cd34.webp",
+      file: Buffer.from("image"), contentType: "image/webp",
+    }),
+    (error) => error === storageError
+  );
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), [
+    "begin_pin_image_upload", "upload",
+  ]);
 });
 
 test("ambiguous thrown upload failure keeps the upload reservation fenced", async () => {
