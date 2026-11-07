@@ -1134,19 +1134,23 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
         throw httpError(402, "Недостаточно кредитов для этой генерации");
       }
     }
-    // Reserve the complete request ceiling for both first submission and
-    // recovery. Existing reservations are idempotently reused; this also
-    // protects pre-existing in-flight requests before their settlement.
-    const { error: reservationError } = await supabase.rpc("reserve_pin_generation_credits", {
-      p_user_id: String(req.userId),
-      p_idempotency_key: idempotencyKey,
-      p_amount: estimatedCost,
-    });
-    if (reservationError) {
-      if (/insufficient available credits/i.test(reservationError.message || "")) {
-        throw httpError(402, "Недостаточно доступных кредитов: часть баланса уже зарезервирована для других генераций.");
+    // Create the initial estimate reservation only once. A resumed request may
+    // already hold the exact quote-based (or actual-settlement) amount, so
+    // replaying reserve with the original estimate would incorrectly conflict.
+    // ensureTaskQuotes below validates/resizes that existing reservation before
+    // any new image submission; a missing/inactive reservation fails closed.
+    if (requestState.status !== "resume") {
+      const { error: reservationError } = await supabase.rpc("reserve_pin_generation_credits", {
+        p_user_id: String(req.userId),
+        p_idempotency_key: idempotencyKey,
+        p_amount: estimatedCost,
+      });
+      if (reservationError) {
+        if (/insufficient available credits/i.test(reservationError.message || "")) {
+          throw httpError(402, "Недостаточно доступных кредитов: часть баланса уже зарезервирована для других генераций.");
+        }
+        throw reservationError;
       }
-      throw reservationError;
     }
 
     let allowPreparedTaskSubmission = true;
