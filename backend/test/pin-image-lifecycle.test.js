@@ -250,7 +250,7 @@ test("failed upload finalization does not report a successful upload", async () 
   );
 });
 
-test("stale upload reconciliation finalizes only an exact object confirmed in Storage", async () => {
+test("stale upload reconciliation is observational even when the exact object is visible", async () => {
   const supabase = makeStorageClient({
     staleUploads: [{
       bucket_id: "pin-images",
@@ -259,13 +259,19 @@ test("stale upload reconciliation finalizes only an exact object confirmed in St
     }],
   });
   const result = await reconcileStalePinImageUploads({ supabase });
-  assert.deepEqual(result, { inspected: 1, reconciled: 1, unresolved: [] });
+  assert.deepEqual(result, {
+    inspected: 1,
+    objectVisible: 1,
+    objectMissing: 0,
+    unresolved: [{
+      object_path: "pins/1730000000000-ab12cd34.webp",
+      reason: "object_visible_requires_operator_confirmation",
+    }],
+  });
   assert.deepEqual(supabase.calls.map((call) => call.name || call.type), [
-    "list_stale_pin_image_uploads", "list", "finalize_pin_image_upload",
+    "list_stale_pin_image_uploads", "list",
   ]);
-  const finalize = supabase.calls.find((call) => call.name === "finalize_pin_image_upload");
-  assert.equal(finalize.args.p_upload_token, "stale-upload-token");
-  assert.equal(finalize.args.p_uploaded, true);
+  assert.equal(supabase.calls.some((call) => call.name === "finalize_pin_image_upload"), false);
 });
 
 test("stale upload reconciliation keeps missing objects fenced", async () => {
@@ -278,12 +284,12 @@ test("stale upload reconciliation keeps missing objects fenced", async () => {
     listData: [],
   });
   const result = await reconcileStalePinImageUploads({ supabase });
-  assert.equal(result.reconciled, 0);
-  assert.equal(result.unresolved[0].reason, "object_not_visible_keep_fenced");
+  assert.equal(result.objectMissing, 1);
+  assert.equal(result.unresolved[0].reason, "object_missing_keep_fenced");
   assert.equal(supabase.calls.some((call) => call.name === "finalize_pin_image_upload"), false);
 });
 
-test("stale upload reconciliation does not finalize when Storage inventory fails", async () => {
+test("stale upload reconciliation does not change state when Storage inventory fails", async () => {
   const supabase = makeStorageClient({
     staleUploads: [{
       bucket_id: "pin-images",
@@ -293,8 +299,8 @@ test("stale upload reconciliation does not finalize when Storage inventory fails
     listError: new Error("storage unavailable"),
   });
   const result = await reconcileStalePinImageUploads({ supabase });
-  assert.equal(result.reconciled, 0);
+  assert.equal(result.objectVisible, 0);
+  assert.equal(result.objectMissing, 0);
   assert.equal(result.unresolved[0].reason, "storage_inventory_failed");
   assert.equal(supabase.calls.some((call) => call.name === "finalize_pin_image_upload"), false);
 });
-
