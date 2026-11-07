@@ -87,6 +87,45 @@ create trigger pin_generation_credit_reservation_sync
 after update of status on public.pin_generation_requests
 for each row execute function public.sync_pin_generation_credit_reservation();
 
+-- Refuse to settle a provider result above the amount reserved before submission.
+-- The underlying save_generated_pins_and_charge remains the single atomic debit
+-- and pin insert; this wrapper adds a hard reservation ceiling in the same tx.
+create or replace function public.complete_pin_generation_request(
+  p_user_id text,p_board_id uuid,p_idempotency_key text,p_claim_token uuid,p_pins jsonb,p_amount integer
+) returns jsonb language plpgsql security definer
+set search_path=pg_catalog,public as $
+declare
+  v_request public.pin_generation_requests%rowtype;
+  v_reservation public.pin_generation_credit_reservations%rowtype;
+  v_saved jsonb;
+begin
+  select * into v_request from public.pin_generation_requests
+   where user_id=p_user_id and idempotency_key=p_idempotency_key for update;
+  if not found or v_request.board_id<>p_board_id then raise exception 'generation request not found'; end if;
+  if v_request.status='completed' then return jsonb_build_object('pins',v_request.pins); end if;
+  if v_request.status<>'processing' then raise exception 'generation request is not processing'; end if;
+  if p_claim_token is null or v_request.claim_token is distinct from p_claim_token then
+    raise exception 'generation claim token mismatch';
+  end if;
+  select * into v_reservation from public.pin_generation_credit_reservations
+   where user_id=p_user_id and idempotency_key=p_idempotency_key for update;
+  if not found or v_reservation.status<>'reserved' then
+    raise exception 'generation credit reservation is missing';
+  end if;
+  if p_amount is null or p_amount<=0 or p_amount>v_reservation.amount then
+    raise exception 'generation charge exceeds reserved amount';
+  end if;
+  v_saved:=public.save_generated_pins_and_charge(p_user_id,p_board_id,p_pins,p_amount);
+  update public.pin_generation_requests set status='completed',pins=v_saved->'pins',
+    error_code=null,claim_token=null,updated_at=clock_timestamp() where id=v_request.id;
+  return v_saved;
+end; $;
+
+revoke all on function public.complete_pin_generation_request(text,uuid,text,uuid,jsonb,integer)
+  from public,anon,authenticated;
+grant execute on function public.complete_pin_generation_request(text,uuid,text,uuid,jsonb,integer)
+  to service_role;
+
 revoke all on function public.reserve_pin_generation_credits(text,text,integer) from public,anon,authenticated;
 grant execute on function public.reserve_pin_generation_credits(text,text,integer) to service_role;
 revoke all on function public.sync_pin_generation_credit_reservation() from public,anon,authenticated;
