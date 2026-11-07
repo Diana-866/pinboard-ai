@@ -863,8 +863,13 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
               </div>
             )}
 
+            {selectedPin.status === 'failed' && selectedPin.retryable === false && !!selectedPin.pinterestAccountId && (
+              <p className="text-[11px] text-secondary-theme">
+                Безопасный повтор этой публикации не подтверждён сервером.
+              </p>
+            )}
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-subtle">
-              {selectedPin.status === 'failed' && !!selectedPin.pinterestAccountId && onRetrySchedule && (
+              {selectedPin.status === 'failed' && selectedPin.retryable === true && !!selectedPin.pinterestAccountId && onRetrySchedule && (
                 <button
                   type="button"
                   onClick={async () => {
