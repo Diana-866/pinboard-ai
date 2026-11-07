@@ -302,12 +302,6 @@ const MainApp: React.FC = () => {
     });
   };
 
-  const handleUpdateAccountAutoTime = (accountId: string, autoTime: string, nightlyAuto: boolean) => {
-    setAccounts((prev) => {
-      return prev.map((a) => (a.id === accountId ? { ...a, autoTime, nightlyAuto } : a));
-    });
-  };
-
   const currentAccount = accounts.find((a) => a.id === activeAccountId) || accounts[0];
   const pendingCount = pendingReviewPins.length;
 
@@ -530,7 +524,6 @@ const MainApp: React.FC = () => {
               onOpenReview={() => setActiveTab('review')}
               pendingCount={pendingCount}
               currentAccount={currentAccount}
-              onUpdateAccountAutoTime={handleUpdateAccountAutoTime}
             />
           )}
 
