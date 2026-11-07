@@ -59,6 +59,14 @@ begin
     return jsonb_build_object('ok', false, 'reason', 'pin_unavailable');
   end if;
 
+  if not exists (
+    select 1 from public.pins p
+     where p.id = v_schedule.pin_id
+       and p.status = 'approved'
+  ) then
+    return jsonb_build_object('ok', false, 'reason', 'pin_not_approved');
+  end if;
+
   -- Any existing publish journal or ledger entry means the remote outcome may
   -- already exist. Do not attach a new identity and risk a duplicate.
   if exists (
