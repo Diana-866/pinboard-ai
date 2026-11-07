@@ -397,6 +397,7 @@ export const zh: TranslationSchema = {
     pinterestBoardsEmpty: "未找到画板或尚未加载。",
     pinterestAccountIdLabel: "Pinterest ID",
     pinterestDisconnected: "Pinterest 账户已断开。",
+    pinterestDisconnectWarning: "此操作会从 PinPosy 删除该账户的令牌，但不会撤销 Pinterest 上的 OAuth 授权。该账户尚未发布的排队任务将标记为失败；已经发出的请求仍可能完成。是否继续？",
     pinterestAccountFallback: "Pinterest 账户",
     pinterestReauthRequired: "需要重新授权",
     pinterestPinsLabel: "Pin",
