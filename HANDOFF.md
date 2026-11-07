@@ -945,3 +945,14 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Added backend/test/gptunnel-pricing.test.js for media quote validation, LLM usage capture, strict missing-cost failure and legacy compatibility. Tests not executed (no local Node runtime; Actions runner issue). Static review only.
 - No SQL migration. Migration 054 still has fixed idempotent reservation amount and cannot atomically top up; no generalized charge journal exists. Next design must cover atomic reserve adjustment, provider operation journal, quote/final price reconciliation, LLM token caps/usage, definitive vs unknown outcomes, and atomic settlement. Avoid changing user credit prices without product policy.
 - No GPTunnel authenticated API call, production change, DB change, deployment or PR merge.
+
+
+## 2026-11-07 — AUD-072: GPTunnel quote validation + billing lifecycle audit
+- Исправлена проверка `ignored_params` в `backend/gptunnel.js`: GPTunnel описывает ignored params вместе с причиной, поэтому ответ может быть объектной записью, а не строкой. Теперь нормализуются string/object формы, отклоняется любой ignored param и проверяется, что применённый `params.aspect_ratio` совпадает с запрошенным.
+- Добавлены regression tests для object-form ignored params и несовпадающего применённого ratio. Runtime не запускался.
+- Повторно подтверждены billing gaps: generation reservation всё ещё использует локальный `MODEL_PRICES`; текстовый LLM-план в `pins.js` не включён в резерв/settlement; `boards.js` и `analyze.js` используют платный LLM без учёта provider usage; image regeneration имеет отдельный fixed-price path. Новые GPTunnel adapters не подключены к пользовательским маршрутам.
+- Официальные GPTunnel docs уточняют: media `/price` возвращает итоговую цену и применённые params, скидки учтены; `ignored_params` содержит причины; некоторые input-media метрики в котировку не входят; media task сообщает фактические `price` и `refunded`; LLM `usage.total_cost` — фактическая стоимость, а каталог ставок не следует самостоятельно трактовать без точных единиц/учёта кэша.
+- Создан `docs/audits/AUD-072-gptunnel-billing-lifecycle.md` с последовательностью безопасной реализации: продуктовая политика → provider-operation journal → atomic reservation top-up → exact quotes before media submission → bounded LLM cost → unknown/refund reconciliation → atomic settlement → disposable PostgreSQL fault/concurrency tests.
+- Не добавлялась миграция, не менялись цены/балансы/тарифы; не тронуты production, GPTunnel credentials, deploy, DB, DNS, Prodamus, Pinterest и PR merge.
+
+**Status:** AUD-072 / QUOTE_VALIDATION_HARDENED / TESTS_ADDED_RUNTIME_UNVERIFIED / PROVIDER_BILLING_NOT_YET_WIRED.
