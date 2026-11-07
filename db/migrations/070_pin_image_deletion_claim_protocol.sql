@@ -54,16 +54,28 @@ declare
 begin
   if tg_table_name = 'pins' then
     v_url := new.image_url;
-    v_should_register := tg_op = 'INSERT' or new.image_url is distinct from old.image_url;
+    if tg_op = 'INSERT' then
+      v_should_register := true;
+    else
+      v_should_register := new.image_url is distinct from old.image_url;
+    end if;
   elsif tg_table_name = 'pin_schedules' then
     v_url := new.snapshot_image_url;
-    v_should_register :=
-      (tg_op = 'INSERT' or new.snapshot_image_url is distinct from old.snapshot_image_url
-       or new.status is distinct from old.status)
-      and new.status <> 'cancelled';
+    if tg_op = 'INSERT' then
+      v_should_register := new.status <> 'cancelled';
+    else
+      v_should_register :=
+        (new.snapshot_image_url is distinct from old.snapshot_image_url
+         or new.status is distinct from old.status)
+        and new.status <> 'cancelled';
+    end if;
   elsif tg_table_name = 'pin_generation_tasks' then
     v_url := new.storage_url;
-    v_should_register := tg_op = 'INSERT' or new.storage_url is distinct from old.storage_url;
+    if tg_op = 'INSERT' then
+      v_should_register := true;
+    else
+      v_should_register := new.storage_url is distinct from old.storage_url;
+    end if;
   else
     raise exception 'unsupported pin image reference table';
   end if;
