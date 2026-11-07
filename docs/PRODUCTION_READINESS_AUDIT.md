@@ -155,6 +155,7 @@
 - **Что уже проверено:** на предоставленном владельцем скриншоте GitHub Actions разрешены (`Allow all actions and reusable workflows`). Workflow token permission установлен на read repository contents/packages; это само по себе не доказывает причину падения тестовых jobs.
 - **Дальше:** проверить детали новых run, GitHub service status при повторении, runner availability и настройки организации/репозитория. Не расширять permissions без конкретной необходимости.
 - **Критерий закрытия:** все нужные workflows завершились success на актуальном HEAD; сохранены run links и результаты.
+- **Последняя проверка 2026-11-07 на HEAD `e3f319543ee1d6c55c4bd970c3215f159569eaf7`:** runs `42353050423` (postgres-atomicity), `42353050419` (frontend/backend), `42353050424` (backend-tests) завершились failure; скачивание job logs вернуло `BlobNotFound`. Причина по-прежнему не установлена; кодовую причину не предполагаем.
 
 ### AUD-012 — Замена изображения может оставлять orphan objects в Storage
 - **Приоритет:** P2
