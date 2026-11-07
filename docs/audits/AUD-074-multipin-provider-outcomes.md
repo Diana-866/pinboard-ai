@@ -13,7 +13,7 @@ The multi-pin generation path already has a durable per-task journal and stable 
 - Added `db/migrations/064_pin_generation_provider_outcomes.sql`.
 - Added nullable `provider_outcome_status`, `provider_refunded`, `provider_error_code`, `provider_error_title`, and `provider_reconciled_at` to `pin_generation_tasks`.
 - Added claim-token-fenced RPC `record_pin_generation_provider_outcome`. It locks parent request before task (matching migration 046 lock order), verifies task identity, and permits identical replay while rejecting conflicting facts and stale claims.
-- Successful task outcome is persisted before image rehosting. The same RPC is used to backfill older succeeded journal rows when their provider task ID/result URL/price are present.
+- Successful task outcome is persisted before image rehosting. The same RPC is used to backfill older succeeded journal rows when their provider task ID and price are present, including rows that retained only a durable storage URL.
 - Failed task outcome now preserves provider task ID, gross price, strict `refunded` boolean, numeric provider error code, and bounded title. If the task ID is missing, the task stays `unknown` instead of being falsely finalized as failed.
 - Failed outcome with `refunded=false` is reconciled as a platform expense; missing refund metadata remains `NULL` with no reconciliation timestamp. Neither case debits user credits.
 - `get_pin_generation_plan` now includes the provider outcome fields in its recovery snapshot.
