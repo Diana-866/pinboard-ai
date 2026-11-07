@@ -9,9 +9,7 @@ create table if not exists public.pin_generation_credit_reservations (
     check (status in ('reserved','settled','released')),
   created_at timestamptz not null default clock_timestamp(),
   updated_at timestamptz not null default clock_timestamp(),
-  unique(user_id,idempotency_key),
-  foreign key (user_id,idempotency_key)
-    references public.pin_generation_requests(user_id,idempotency_key) on delete cascade
+  unique(user_id,idempotency_key)
 );
 create index if not exists pin_generation_credit_reservations_active_idx
   on public.pin_generation_credit_reservations(user_id)
@@ -98,7 +96,13 @@ declare
   v_request public.pin_generation_requests%rowtype;
   v_reservation public.pin_generation_credit_reservations%rowtype;
   v_saved jsonb;
+  v_user_balance integer;
 begin
+  -- Keep lock order identical to reserve_pin_generation_credits: user first,
+  -- then request/reservation. This avoids a retry-vs-settlement deadlock.
+  select credits_balance into v_user_balance from public.users
+   where id::text=p_user_id for update;
+  if not found then raise exception 'generation user not found'; end if;
   select * into v_request from public.pin_generation_requests
    where user_id=p_user_id and idempotency_key=p_idempotency_key for update;
   if not found or v_request.board_id<>p_board_id then raise exception 'generation request not found'; end if;
