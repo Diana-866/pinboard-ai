@@ -17,4 +17,9 @@ function extractManagedPinImagePath(publicUrl, supabaseUrl, bucket = "pin-images
   }
 }
 
-module.exports = { extractManagedPinImagePath };
+function canDeletePinImageObject({ hasPinReference, hasScheduleReference, generationRequestStatuses = [] }) {
+  if (hasPinReference || hasScheduleReference) return false;
+  return generationRequestStatuses.every((status) => ["completed", "failed"].includes(status));
+}
+
+module.exports = { extractManagedPinImagePath, canDeletePinImageObject };
