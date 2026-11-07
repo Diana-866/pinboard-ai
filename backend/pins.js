@@ -1,4 +1,4 @@
-const { generateText, generateImage, waitForImageTask } = require("./gptunnel");
+const { generateTextWithUsage, generateImage, waitForImageTask } = require("./gptunnel");
 const { rehostImage } = require("./storage");
 
 const DEFAULT_ASPECT_RATIOS = ["2:3", "9:16", "4:5", "3:4"];
@@ -42,7 +42,11 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
     if (typeof options.onTextProviderSubmission === "function") {
       options.onTextProviderSubmission();
     }
-    const aiResponse = await generateText(prompt);
+    const textResult = await generateTextWithUsage(prompt, { requireUsage: false });
+    if (typeof options.onTextProviderUsage === "function") {
+      await options.onTextProviderUsage(textResult);
+    }
+    const aiResponse = textResult.content;
 
     let ideas;
     try {
