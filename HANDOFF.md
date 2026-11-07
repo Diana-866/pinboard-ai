@@ -440,3 +440,27 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Важное ограничение: добавление колонки само по себе не доказывает, что установленная SQL RPC `consume_password_reset_token` увеличивает token_version при смене пароля. Тела auth RPC отсутствуют в доступных checked-in migration paths; требуется отдельная сверка с фактической БД и тест одновременного/повторного погашения токена.
 
 **Статус:** SCHEMA FIX IMPLEMENTED / SQL AND RUNTIME UNVERIFIED. Production не затрагивался.
+
+
+### AUD-035 — auth recovery RPC trace (2026-11-07)
+
+**Additional files inspected:** `backend/password-reset.js`, `backend/email-verify.js`,
+`backend/auth.js`, `db/migrations/002_auth_tokens.sql`, and
+`db/migrations/055_auth_token_version.sql`.
+
+**Confirmed at the backend boundary**
+- Password reset creates a 32-byte random base64url token, stores only its SHA-256 hash through `issue_password_reset_token`, and passes only the SHA-256 hash to `consume_password_reset_token`.
+- The reset RPC receives `p_token_hash` and a bcrypt password hash. The backend changes no password row directly; it trusts the RPC boolean result.
+- Email verification follows the same hash-only token pattern. Its consume RPC receives `p_token_hash`; the backend trusts its boolean result.
+- Password-reset token TTL is 60 minutes; email-verification token TTL is 24 hours. Backend requests a 5-minute resend interval for both flows.
+- Login signs JWTs with the current `user.token_version` (defaulting to 0 if absent). Migration 055 adds the NOT NULL integer counter with DEFAULT 0 and a nonnegative CHECK.
+
+**Unresolved SQL verification**
+- The actual bodies of all four RPCs remain unavailable in the checked-out branch paths. The documented database guide describes migrations 009–033 as a numbered chain but does not provide the exact RPC migration filenames. Guesses such as `020_password_reset.sql` and `021_email_verification.sql` return 404 on this branch.
+- GitHub code search for the four RPC names returned no indexed matches; that search covers the default branch, so it is not proof that the definitions are absent from this feature branch or deployed database.
+- Therefore we cannot yet establish whether token consumption uses row locks/conditional updates, whether issuance enforces cooldown and revokes older tokens atomically, or—most importantly—whether successful password reset increments `users.token_version` in the same transaction.
+- Migration 055 only creates the counter; it does not change any RPC. The existing read-only schema contract test checks column presence/default and RPC names, but does not inspect function bodies or behavior.
+
+**Decision:** no speculative SQL or concurrency test was added. Without exact function signatures and bodies, such a test could validate the wrong contract or give false confidence. Next required input is the exact migration(s) that define these four RPCs, or read-only function definitions from the target Supabase database. Then add tests for concurrent token consumption, expired/reused tokens, issuance cooldown/revocation, and password-reset session invalidation.
+
+**Status:** BACKEND_CALL_CONTRACT_REVIEWED / RPC_IMPLEMENTATION_UNVERIFIED. No production database, credentials, or deployment were accessed or changed.
