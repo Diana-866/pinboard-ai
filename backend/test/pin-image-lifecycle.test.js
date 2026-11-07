@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, deleteManagedPinImageObject } = require("./pinImageLifecycle");
+const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, reconcileStalePinImageUploads, deleteManagedPinImageObject } = require("./pinImageLifecycle");
 
 const base = "https://project.supabase.co";
 
@@ -74,6 +74,10 @@ function makeStorageClient(options = {}) {
         return { data: options.uploadFinalizeData === undefined ? true : options.uploadFinalizeData,
           error: options.uploadFinalizeError || null };
       }
+      if (name === "list_stale_pin_image_uploads") {
+        return { data: options.staleUploads === undefined ? [] : options.staleUploads,
+          error: options.inventoryError || null };
+      }
       return { data: options.finalizeData === undefined ? true : options.finalizeData,
         error: options.finalizeError || null };
     },
@@ -89,6 +93,12 @@ function makeStorageClient(options = {}) {
             calls.push({ type: "upload", bucket, path, file, uploadOptions });
             if (options.uploadThrows) throw options.uploadThrows;
             return { error: options.uploadError || null };
+          },
+          async list(folder, listOptions) {
+            calls.push({ type: "list", bucket, folder, listOptions });
+            if (options.listThrows) return { data: null, error: options.listThrows };
+            return { data: options.listData === undefined ? [{ name: "1730000000000-ab12cd34.webp" }] : options.listData,
+              error: options.listError || null };
           },
         };
       },
@@ -239,3 +249,52 @@ test("failed upload finalization does not report a successful upload", async () 
     (error) => error === rpcError
   );
 });
+
+test("stale upload reconciliation finalizes only an exact object confirmed in Storage", async () => {
+  const supabase = makeStorageClient({
+    staleUploads: [{
+      bucket_id: "pin-images",
+      object_path: "pins/1730000000000-ab12cd34.webp",
+      upload_token: "stale-upload-token",
+    }],
+  });
+  const result = await reconcileStalePinImageUploads({ supabase });
+  assert.deepEqual(result, { inspected: 1, reconciled: 1, unresolved: [] });
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), [
+    "list_stale_pin_image_uploads", "list", "finalize_pin_image_upload",
+  ]);
+  const finalize = supabase.calls.find((call) => call.name === "finalize_pin_image_upload");
+  assert.equal(finalize.args.p_upload_token, "stale-upload-token");
+  assert.equal(finalize.args.p_uploaded, true);
+});
+
+test("stale upload reconciliation keeps missing objects fenced", async () => {
+  const supabase = makeStorageClient({
+    staleUploads: [{
+      bucket_id: "pin-images",
+      object_path: "pins/1730000000000-ab12cd34.webp",
+      upload_token: "stale-upload-token",
+    }],
+    listData: [],
+  });
+  const result = await reconcileStalePinImageUploads({ supabase });
+  assert.equal(result.reconciled, 0);
+  assert.equal(result.unresolved[0].reason, "object_not_visible_keep_fenced");
+  assert.equal(supabase.calls.some((call) => call.name === "finalize_pin_image_upload"), false);
+});
+
+test("stale upload reconciliation does not finalize when Storage inventory fails", async () => {
+  const supabase = makeStorageClient({
+    staleUploads: [{
+      bucket_id: "pin-images",
+      object_path: "pins/1730000000000-ab12cd34.webp",
+      upload_token: "stale-upload-token",
+    }],
+    listError: new Error("storage unavailable"),
+  });
+  const result = await reconcileStalePinImageUploads({ supabase });
+  assert.equal(result.reconciled, 0);
+  assert.equal(result.unresolved[0].reason, "storage_inventory_failed");
+  assert.equal(supabase.calls.some((call) => call.name === "finalize_pin_image_upload"), false);
+});
+
