@@ -853,3 +853,13 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Все выводы статические; runtime Node/PostgreSQL tests не подтверждены из-за runner_id=0 на текущих Actions jobs. Production credentials/data не менялись.
 
 **Status:** AUD-061 / OAUTH_CRYPTO_STATIC_REVIEWED / MIGRATION_062_IN_CI / PUBLIC_ALLOWLIST_TESTED_IN_SOURCE / OPTIMISTIC_REENCRYPTION_RACE_TEST_GAP / RUNTIME_UNVERIFIED.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-062: тестируемая optimistic token migration)
+- Выделен модуль `backend/pinterestAccountRecord.js`: `decodePinterestAccountRecord(data, dependencies)` получает Supabase и crypto-функции через DI; основной `decodeAccountRecord` в `backend/pinterest.js` теперь вызывает этот модуль с production dependencies.
+- Новый `backend/test/pinterest-account-record.test.js` содержит 5 регрессий для optimistic row-version fence, проигранной гонки (no returned row), сохранения uncertainty fence, пропуска уже active-key ciphertext и ошибки БД.
+- При проигранной гонке код не делает безусловный повторный update: использует ранее прочитанный snapshot и расшифровывает его прежним ключом. Это безопасно только пока previous encryption key остаётся настроенным до завершения ленивой миграции всех аккаунтов.
+- Статус проверки: статический diff review; Node runtime и PostgreSQL тесты не подтверждены. GitHub Actions runner_id=0 blocker остаётся открытым. Не отмечать тесты зелёными.
+- Изменения в ветке `feat/persisted-boards-api`; production и открытые PR не объединялись/не деплоились.
+
+**Status:** AUD-062 / ACCOUNT_RECORD_DECODER_EXTRACTED / OPTIMISTIC_RACE_REGRESSION_ADDED / RUNTIME_UNVERIFIED.
