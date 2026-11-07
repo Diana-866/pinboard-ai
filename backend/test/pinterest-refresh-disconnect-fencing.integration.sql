@@ -146,3 +146,85 @@ begin
   delete from public.users where id::text = v_user_id;
 end;
 $body$;
+
+-- An expired lease may be replaced, but the stale worker must not commit.
+-- This is the fencing guarantee for a refresh response arriving after lease expiry.
+do $body$
+declare
+  v_user_id text := gen_random_uuid()::text;
+  v_account_id uuid;
+  v_old_lease_id uuid := gen_random_uuid();
+  v_new_lease_id uuid := gen_random_uuid();
+  v_expected_updated_at timestamptz;
+  v_old_acquired boolean;
+  v_new_acquired boolean;
+  v_stale_commit boolean;
+  v_access_token text;
+  v_refresh_token text;
+  v_state text;
+begin
+  insert into public.users(email, tariff_plan)
+  values ('pinterest-refresh-expired-lease-' || v_user_id || '@example.invalid', 'start');
+
+  insert into public.pinterest_accounts(
+    user_id, pinterest_user_id, username, access_token, refresh_token, expires_at
+  ) values (
+    v_user_id, 'refresh-expired-lease-' || v_user_id, 'refresh-expired-lease',
+    'access-before-expiry', 'refresh-before-expiry', now() + interval '1 hour'
+  ) returning id into v_account_id;
+
+  select public.acquire_pinterest_account_refresh_lease(
+    v_user_id, v_account_id, v_old_lease_id, 30
+  ) into v_old_acquired;
+  if not coalesce(v_old_acquired, false) then
+    raise exception 'could not acquire original refresh lease';
+  end if;
+
+  update public.pinterest_accounts
+     set refresh_state = 'uncertain', updated_at = clock_timestamp()
+   where id = v_account_id and user_id = v_user_id
+   returning updated_at into v_expected_updated_at;
+
+  update public.pinterest_account_refresh_leases
+     set lease_until = now() - interval '1 second'
+   where pinterest_account_id = v_account_id
+     and user_id = v_user_id
+     and lease_id = v_old_lease_id;
+
+  select public.acquire_pinterest_account_refresh_lease(
+    v_user_id, v_account_id, v_new_lease_id, 30
+  ) into v_new_acquired;
+  if not coalesce(v_new_acquired, false) then
+    raise exception 'expired refresh lease could not be replaced';
+  end if;
+
+  select public.commit_pinterest_account_token_refresh(
+    v_user_id, v_account_id, v_old_lease_id, v_expected_updated_at,
+    'stale-access-token', 'stale-refresh-token', 'boards:read,pins:write',
+    now() + interval '1 hour'
+  ) into v_stale_commit;
+
+  if coalesce(v_stale_commit, false) then
+    raise exception 'stale worker committed after another lease replaced its lease';
+  end if;
+
+  select access_token, refresh_token, refresh_state
+    into v_access_token, v_refresh_token, v_state
+    from public.pinterest_accounts
+   where id = v_account_id and user_id = v_user_id;
+
+  if v_access_token <> 'access-before-expiry'
+     or v_refresh_token <> 'refresh-before-expiry'
+     or v_state <> 'uncertain' then
+    raise exception 'stale worker changed credentials or cleared the uncertainty fence';
+  end if;
+
+  perform public.release_pinterest_account_refresh_lease(
+    v_user_id, v_account_id, v_new_lease_id
+  );
+
+  delete from public.pinterest_accounts where id = v_account_id;
+  delete from public.pinterest_oauth_connection_state where user_id = v_user_id;
+  delete from public.users where id::text = v_user_id;
+end;
+$body$;
