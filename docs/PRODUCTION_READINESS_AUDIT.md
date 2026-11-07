@@ -68,12 +68,14 @@
 - **Оставшаяся проверка:** обе миграции требуют прогона на чистой PostgreSQL 16 и upgrade-копии схемы; SQL regression tests и CI пока не подтверждены.
 ### AUD-003 — Ложный unknown при падении до создания журнала публикации
 - **Приоритет:** P1
-- **Статус:** OPEN
-- **Тип:** подтверждённая проблема восстановления.
-- **Наблюдение:** schedule переводится в `publishing` при claim; до создания attempt journal выполняются дополнительные проверки. Если процесс падает в этом промежутке, внешний Pinterest POST ещё не отправлялся, но recovery может перевести задание в `unknown`.
-- **Риск:** безопасная повторная публикация блокируется, хотя внешнего действия не было.
-- **Исправить:** сделать claim/подготовку попытки атомарными либо явно различать состояние «внешний запрос ещё не отправлен» и «результат запроса неизвестен».
-- **Тесты:** авария сразу после claim, но до journal/POST; задание безопасно восстанавливается и не теряет возможность публикации.
+- **Статус:** FIXED_UNVERIFIED
+- **Тип:** подтверждённая проблема восстановления; добавлено fencing-решение.
+- **Наблюдение:** schedule переводится в `publishing` при claim; до создания attempt journal выполняются дополнительные проверки. При падении в этом промежутке внешний Pinterest POST ещё не отправлен, но прежний recovery ошибочно переводил задание в `unknown`.
+- **Исправление:** migration `049_pinterest_schedule_claim_fencing.sql` добавляет уникальный UUID `claim_token` на каждое получение schedule. Worker перед созданием attempt journal вызывает `begin_scheduled_pinterest_publish`, который блокирует schedule row, проверяет владельца, pin/account/board, статус и точный claim token, а затем в той же транзакции создаёт/резервирует публикационный journal через существующий `begin_pinterest_publish_v2`. Если recovery первым заблокировал строку и отозвал старый token, запоздавший worker не сможет зарезервировать attempt и не дойдёт до Pinterest POST.
+- **Recovery:** если stale `publishing` старше 20 минут и matching attempt journal отсутствует, token инвалидируется, запись возвращается в `scheduled` с минутной задержкой. Если matching journal уже существует, outcome остаётся `unknown` и требует reconciliation; подтверждённая публикация сначала восстанавливается в `published`. Worker также фильтрует итоговые UPDATE по claim token, чтобы старый экземпляр не перезаписал состояние нового claim.
+- **Коммиты:** `85c8afe4ededc8dc1d83e019201a75eded388bfe` (migration 049); `c65e9c708385b12522b4fa801d2e9784062228b5` (worker fencing); `e9e984ebf8b9f8786904a1a99889c497f42b99b6` и `8da643dd6241e3e9b7a0a240a9c2e44a0965bc9a` (SQL regression fixtures); `8a5d58162a43cc27a6db2bc57e203bd8777f1d67` (CI migration chain); `27c5d9f8dcb47b1bc97ab8284d9d13e1aac3e592` (worker token cleanup).
+- **Regression coverage:** PostgreSQL integration checks now cover crash before journal, stale-token rejection, fresh-token success, stale published reconciliation and ambiguous journal retention. CI workflow applies migrations 047–049 before SQL integration suites.
+- **Оставшаяся проверка:** миграции и SQL regression suite ещё не выполнены в этой сессии: локального PostgreSQL runtime нет, GitHub Actions для актуального HEAD должны подтвердить синтаксис/переходы и совместимость. До зелёного PostgreSQL CI статус остаётся `FIXED_UNVERIFIED`.
 
 ### AUD-004 — Несогласованная retry policy между путями публикации
 - **Приоритет:** P1
@@ -462,5 +464,6 @@ GitHub API возвращал пустые steps, `runner_id=0`, `logs_url=null`
 | 2026-11-07 | Добавлена серверная проверка `status=approved` при создании расписания и непосредственно в `publishPin()` (AUD-001), commits `ae937c0a7d442ae2ae56b05f859c657b213faa12` и `a111f1cccffe9ead4b5db9c77d6add41c013392e`. Статус `FIXED_UNVERIFIED`: regression tests/CI ещё не подтверждены. |
 | 2026-11-07 | Migration 047 атомарно восстанавливает schedule из `unknown` при позднем подтверждённом успехе Pinterest (AUD-002), commit `e819e2bffe1ec2415bd215c4edbc59ee7b37cc95`. Ожидает PostgreSQL regression tests и CI; старые unknown-записи требуют отдельной сверки. |
 | 2026-11-07 | Migration 048 сверяет исторические `unknown` с опубликованными attempt и publication ledger по одинаковому remote ID (AUD-002), commit `c8104f7daf1faaaae1701d9354945877ae75ce0d`. Выполнение SQL не подтверждено до применения миграции. |
+| 2026-11-07 | AUD-003: migration 049 добавляет fenced schedule claims и безопасный requeue только при отсутствии attempt journal; worker резервирует журнал под действующим claim token, SQL integration fixtures и PostgreSQL CI migration chain обновлены. Коммиты: `85c8afe4`, `c65e9c70`, `e9e984eb`, `8a5d5816`, `8da643dd`, `27c5d9f8`. Статус `FIXED_UNVERIFIED` до фактического PostgreSQL CI. |
 
 **Текущее заключение:** PR #4 нельзя считать готовым к merge или публичному запуску. Документ фиксирует аудит, а не выполненные исправления. На момент создания файла код не изменялся в рамках закрытия перечисленных находок; production не менялся, миграции в рабочую БД не применялись, реальные платежи/генерации/Pinterest публикации не выполнялись.
