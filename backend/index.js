@@ -1343,8 +1343,15 @@ app.post("/pins/:id/schedule", requireAuth, requireTariff(["start", "pro", "agen
     // The worker repeats this check at publish time because access may later change.
     await pinterest.verifyPinterestBoard(req.userId, pinterestBoardId, selectedAccount.id);
 
+    // Re-read after the external board check so a concurrent image/title edit
+    // cannot make this schedule snapshot stale before it is persisted.
+    const snapshotPin = await getPinWithOwnerCheck(req.params.id, req.userId);
+    if (snapshotPin.status !== "approved" || !snapshotPin.image_url) {
+      throw httpError(409, "Пин изменился во время планирования. Проверьте его и повторите действие.");
+    }
+
     // Freeze the approved creative and the resolved link at schedule time.
-    const snapshotDestinationUrl = destinationUrl || pin.boards?.projects?.website_url || null;
+    const snapshotDestinationUrl = destinationUrl || snapshotPin.boards?.projects?.website_url || null;
     if (snapshotDestinationUrl) {
       let parsedSnapshotUrl;
       try { parsedSnapshotUrl = new URL(String(snapshotDestinationUrl)); } catch {
@@ -1364,7 +1371,7 @@ app.post("/pins/:id/schedule", requireAuth, requireTariff(["start", "pro", "agen
         scheduled_at: scheduledAt.toISOString(),
         timezone,
         destination_url: destinationUrl,
-        ...buildPinScheduleSnapshot(pin, snapshotDestinationUrl),
+        ...buildPinScheduleSnapshot(snapshotPin, snapshotDestinationUrl),
         pinterest_board_id: pinterestBoardId,
         status: "scheduled",
       })
