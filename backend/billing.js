@@ -373,6 +373,70 @@ async function handleWebhook(req, res, dependencies = {}) {
   });
 }
 
+
+async function getEmailOutboxHealth(limit = 20, dependencies = {}) {
+  const db = dependencies.supabase || supabase;
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 100));
+  const now = new Date().toISOString();
+
+  async function countStatus(status) {
+    let query = db.from("email_outbox").select("id", { count: "exact", head: true }).eq("status", status);
+    const result = await query;
+    if (result.error) throw result.error;
+    return Number(result.count) || 0;
+  }
+
+  const [pending, sending, dead, staleSending, oldestPendingResult, deadRowsResult] = await Promise.all([
+    countStatus("pending"),
+    countStatus("sending"),
+    countStatus("dead"),
+    db.from("email_outbox")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "sending")
+      .lt("locked_until", now),
+    db.from("email_outbox")
+      .select("created_at")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true })
+      .limit(1),
+    db.from("email_outbox")
+      .select("id, attempts, max_attempts, last_error_code, created_at, updated_at")
+      .eq("status", "dead")
+      .order("updated_at", { ascending: false })
+      .limit(safeLimit),
+  ]);
+
+  if (staleSending.error) throw staleSending.error;
+  if (oldestPendingResult.error) throw oldestPendingResult.error;
+  if (deadRowsResult.error) throw deadRowsResult.error;
+
+  const oldestPendingAt = oldestPendingResult.data && oldestPendingResult.data[0]
+    ? oldestPendingResult.data[0].created_at
+    : null;
+
+  return {
+    generated_at: now,
+    counts: {
+      pending,
+      sending,
+      stale_sending: Number(staleSending.count) || 0,
+      dead,
+    },
+    oldest_pending_at: oldestPendingAt,
+    oldest_pending_age_seconds: oldestPendingAt
+      ? Math.max(0, Math.floor((Date.now() - new Date(oldestPendingAt).getTime()) / 1000))
+      : null,
+    dead_items: (deadRowsResult.data || []).map((row) => ({
+      id: row.id,
+      attempts: row.attempts,
+      max_attempts: row.max_attempts,
+      last_error_code: row.last_error_code,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    })),
+  };
+}
+
 // Список подписок пользователя (для кабинета)
 async function listUserSubscriptions(userId, limit = 20) {
   const { data, error } = await supabase
@@ -430,4 +494,5 @@ module.exports = {
   listUserSubscriptions,
   listAllSubscriptions,
   dispatchPendingSubscriptionEmails,
+  getEmailOutboxHealth,
 };
