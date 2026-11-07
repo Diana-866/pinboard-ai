@@ -58,7 +58,7 @@ async function generateTextWithUsage(prompt, options = {}) {
   }
   const usage = response.data && response.data.usage;
   const totalCost = usage && Number(usage.total_cost);
-  if (!Number.isFinite(totalCost) || totalCost < 0) {
+  if ((!Number.isFinite(totalCost) || totalCost < 0) && options.requireUsage !== false) {
     const error = new Error("Провайдер не вернул достоверную стоимость текстового запроса");
     error.code = "GPTUNNEL_USAGE_COST_MISSING";
     throw error;
@@ -71,7 +71,7 @@ async function generateTextWithUsage(prompt, options = {}) {
       totalTokens: Number.isFinite(Number(usage.total_tokens)) ? Number(usage.total_tokens) : null,
       promptCost: Number.isFinite(Number(usage.prompt_cost)) ? Number(usage.prompt_cost) : null,
       completionCost: Number.isFinite(Number(usage.completion_cost)) ? Number(usage.completion_cost) : null,
-      totalCost,
+      totalCost: Number.isFinite(totalCost) && totalCost >= 0 ? totalCost : null,
     },
     model: typeof response.data.model === "string" ? response.data.model : payload.model,
     requestId: typeof response.data.id === "string" ? response.data.id : null,
@@ -79,7 +79,7 @@ async function generateTextWithUsage(prompt, options = {}) {
 }
 
 async function generateText(prompt, options = {}) {
-  const result = await generateTextWithUsage(prompt, options);
+  const result = await generateTextWithUsage(prompt, { ...options, requireUsage: false });
   return result.content;
 }
 
