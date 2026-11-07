@@ -382,3 +382,42 @@ test("credit cancel racing after success cannot overwrite credited purchase", as
   assert.equal(db.state.purchase.status, "success");
   assert.equal(db.state.purchase.balance_credited_at, "2026-11-07T00:00:00.000Z");
 });
+
+test("subscription cancel callback after successful activation cannot downgrade the paid plan", async () => {
+  const db = createPaymentDb({
+    subscription: { id: "sub-cancel-race", provider_payment_id: "pp-sub-cancel-race", amount: 1990, currency: "rub", status: "success" },
+    activate: async () => ({ data: { plan: "start", current_plan: "start", period_end: "2027-01-01", already_activated: true }, error: null }),
+    credit: async () => ({ data: 0, error: null }),
+  });
+  const response = createWebhookResponse();
+  await require("../billing").handleWebhook(
+    signedWebhook({ order_id: "pp-sub-cancel-race", payment_status: "order_canceled", sum: "1990.00", currency: "rub" }),
+    response,
+    { supabase: db, dispatchPendingSubscriptionEmails: async () => ({}) }
+  );
+  assert.equal(response.statusCode, 200);
+  assert.equal(db.state.subscription.status, "success");
+});
+
+test("a valid late success callback can activate an order previously marked denied", async () => {
+  const db = createPaymentDb({
+    subscription: { id: "sub-late-success", provider_payment_id: "pp-sub-late-success", amount: 1990, currency: "rub", status: "denied" },
+    activate: async (state) => {
+      assert.equal(state.subscription.status, "denied");
+      state.subscription.status = "success";
+      return { data: { plan: "start", current_plan: "start", period_end: "2027-01-01", already_activated: false }, error: null };
+    },
+    credit: async () => ({ data: 0, error: null }),
+  });
+  const response = createWebhookResponse();
+  await require("../billing").handleWebhook(
+    signedWebhook({ order_id: "pp-sub-late-success", payment_status: "success", sum: "1990.00", currency: "rub" }),
+    response,
+    { supabase: db, dispatchPendingSubscriptionEmails: async () => ({}) }
+  );
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.status, "success");
+  assert.equal(db.state.subscription.status, "success");
+  assert.equal(db.rpcCalls.activate, 1);
+});
+
