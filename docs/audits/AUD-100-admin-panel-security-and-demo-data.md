@@ -53,11 +53,16 @@
 
 Данные не удалялись, серверные платежи, почта и пользовательские записи не изменялись.
 
+## Регрессионный тест
+
+Добавлен `backend/test/admin-access.test.js` с тремя сценариями: разрешение администратору по записи в БД, отказ обычному пользователю даже при подложенных `req.body.is_admin/role`, и fail-closed при ошибке БД. Тест добавлен, но локально не запускался.
+
 ## Ограничения проверки
 
 - Проверка выполнена статическим чтением исходников через GitHub API.
 - Тесты, TypeScript build и frontend lint не запускались.
 - Не выполнялись live-запросы к Supabase и попытки авторизации разными ролями.
+- На предыдущем HEAD `5d95bb7` GitHub Actions показал failure для трёх PR workflows (Prodamus webhook tests, Persisted boards integration checks, Atomic payment fulfillment integration). Их логи недоступны через GitHub API в этой проверке; эти запуски не доказывают регрессию AUD-100. После добавления теста на HEAD `2a33670` новых PR workflow runs пока не появилось.
 - Не проверялись реальные политики RLS/SQL grants и настройки Supabase service-role; это отдельный слой аудита.
 - Не выполнялись операции reconcile/quarantine, отправка писем, платежи, возвраты, merge или deploy.
 
