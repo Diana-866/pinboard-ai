@@ -27,9 +27,11 @@ insert_request() {
 FAILED_KEY="provider-failed-$SUFFIX"
 MISSING_REFUND_KEY="provider-no-refund-$SUFFIX"
 DONE_KEY="provider-done-$SUFFIX"
+REFUNDED_KEY="provider-refunded-$SUFFIX"
 insert_request "$FAILED_KEY"
 insert_request "$MISSING_REFUND_KEY"
 insert_request "$DONE_KEY"
+insert_request "$REFUNDED_KEY"
 
 token_for() {
   "${psql_cmd[@]}" -At -c "select claim_token from public.pin_regeneration_requests where user_id='$USER_ID' and idempotency_key='$1'"
@@ -37,6 +39,7 @@ token_for() {
 FAILED_TOKEN="$(token_for "$FAILED_KEY")"
 MISSING_TOKEN="$(token_for "$MISSING_REFUND_KEY")"
 DONE_TOKEN="$(token_for "$DONE_KEY")"
+REFUNDED_TOKEN="$(token_for "$REFUNDED_KEY")"
 
 # A failed, non-refunded task is a reconciled platform expense, not a user debit.
 "${psql_cmd[@]}" -c "select public.record_pin_regeneration_provider_outcome('$USER_ID','$FAILED_KEY','$FAILED_TOKEN','task_failed_001','failed',1.25,false,1001,'POLICY_REJECTED');" >/dev/null
@@ -59,9 +62,18 @@ fi
 MISSING_ROW="$("${psql_cmd[@]}" -At -F '|' -c "select provider_status,provider_price,provider_refunded is null,(provider_reconciled_at is null) from public.pin_regeneration_requests where user_id='$USER_ID' and idempotency_key='$MISSING_REFUND_KEY'")"
 [[ "$MISSING_ROW" == "failed|0.75|t|t" ]] || { echo "Missing refund was not kept unresolved: $MISSING_ROW"; exit 1; }
 
+# A refunded failed task is reconciled, while gross provider price is retained.
+"${psql_cmd[@]}" -c "select public.record_pin_regeneration_provider_outcome('$USER_ID','$REFUNDED_KEY','$REFUNDED_TOKEN','task_failed_003','failed',0.90,true,1003,'REFUNDED_FAILURE');" >/dev/null
+REFUNDED_ROW="$("${psql_cmd[@]}" -At -F '|' -c "select provider_status,provider_price,provider_refunded,(provider_reconciled_at is not null) from public.pin_regeneration_requests where user_id='$USER_ID' and idempotency_key='$REFUNDED_KEY'")"
+[[ "$REFUNDED_ROW" == "failed|0.90|t|t" ]] || { echo "Refunded provider outcome was not reconciled: $REFUNDED_ROW"; exit 1; }
+
 # Successful provider completion records the gross RUB price before storage work.
 "${psql_cmd[@]}" -c "select public.record_pin_regeneration_provider_outcome('$USER_ID','$DONE_KEY','$DONE_TOKEN','task_done_001','done',0.42,null,null,null);" >/dev/null
 DONE_ROW="$("${psql_cmd[@]}" -At -F '|' -c "select provider_status,provider_price,provider_refunded is null,(provider_reconciled_at is not null) from public.pin_regeneration_requests where user_id='$USER_ID' and idempotency_key='$DONE_KEY'")"
 [[ "$DONE_ROW" == "done|0.42|t|t" ]] || { echo "Unexpected successful provider outcome: $DONE_ROW"; exit 1; }
+
+# Provider journal writes never debit user credits or add a credit transaction.
+USER_ACCOUNTING="$("${psql_cmd[@]}" -At -F '|' -c "select credits_balance,(select count(*) from public.credit_transactions where user_id='$USER_ID') from public.users where id='$USER_ID'")"
+[[ "$USER_ACCOUNTING" == "20|0" ]] || { echo "Provider outcome journal unexpectedly changed user credits: $USER_ACCOUNTING"; exit 1; }
 
 echo "Pin regeneration provider outcome integration checks passed."
