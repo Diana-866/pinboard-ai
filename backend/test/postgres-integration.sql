@@ -235,6 +235,50 @@ begin
   select count(*) into v_count from public.credit_transactions where purchase_id = v_purchase;
   if v_count <> 1 then raise exception 'expected one ledger entry, got %', v_count; end if;
 
+  -- Late success callbacks must fulfill previously canceled/denied purchases once.
+  -- The webhook handler accepts a valid success after an out-of-order terminal callback;
+  -- the SQL fulfillment RPC must therefore preserve atomicity and idempotency here too.
+  insert into public.credit_purchases(
+    user_id, package_id, pack_title, credits, status,
+    provider_payment_id, amount, currency
+  ) values (
+    v_user::text, 'pack_100', 'Late canceled payment', 25, 'canceled',
+    'ci-credit-late-canceled-' || v_user, 25, 'rub'
+  ) returning id into v_purchase;
+
+  v_balance := public.credit_paid_purchase(v_purchase, now(), 'late success after canceled');
+  if v_balance <> 135 then
+    raise exception 'late success after canceled purchase must credit exactly 25; got %', v_balance;
+  end if;
+  v_balance := public.credit_paid_purchase(v_purchase, now(), 'duplicate late success');
+  if v_balance <> 135 then
+    raise exception 'duplicate late success changed balance: %', v_balance;
+  end if;
+  if (select status from public.credit_purchases where id = v_purchase) <> 'success' then
+    raise exception 'late success did not move canceled purchase to success';
+  end if;
+  select count(*) into v_count from public.credit_transactions where purchase_id = v_purchase;
+  if v_count <> 1 then
+    raise exception 'late success after canceled purchase must create one ledger row, got %', v_count;
+  end if;
+
+  insert into public.credit_purchases(
+    user_id, package_id, pack_title, credits, status,
+    provider_payment_id, amount, currency
+  ) values (
+    v_user::text, 'pack_100', 'Late denied payment', 15, 'denied',
+    'ci-credit-late-denied-' || v_user, 15, 'rub'
+  ) returning id into v_purchase;
+
+  v_balance := public.credit_paid_purchase(v_purchase, now(), 'late success after denied');
+  if v_balance <> 150 then
+    raise exception 'late success after denied purchase must credit exactly 15; got %', v_balance;
+  end if;
+  select count(*) into v_count from public.credit_transactions where purchase_id = v_purchase;
+  if v_count <> 1 then
+    raise exception 'late success after denied purchase must create one ledger row, got %', v_count;
+  end if;
+
   -- Generic balance adjustment must update balance and ledger in the same RPC.
   v_balance := public.adjust_credits_balance_and_log(v_user::text, -10, 'usage', 'test spend');
   if v_balance <> 100 then raise exception 'expected adjusted balance 100, got %', v_balance; end if;
