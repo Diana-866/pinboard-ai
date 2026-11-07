@@ -1049,6 +1049,17 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
       if (balance < estimatedCost) {
         throw httpError(402, "Недостаточно кредитов для этой генерации");
       }
+      const { error: reservationError } = await supabase.rpc("reserve_pin_generation_credits", {
+        p_user_id: String(req.userId),
+        p_idempotency_key: idempotencyKey,
+        p_amount: estimatedCost,
+      });
+      if (reservationError) {
+        if (/insufficient available credits/i.test(reservationError.message || "")) {
+          throw httpError(402, "Недостаточно доступных кредитов: часть баланса уже зарезервирована для других генераций.");
+        }
+        throw reservationError;
+      }
     }
 
     let allowPreparedTaskSubmission = true;
@@ -1084,6 +1095,20 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
           );
           const balance = await getBalance(req.userId);
           allowPreparedTaskSubmission = balance >= estimatedCost;
+          if (allowPreparedTaskSubmission) {
+            const { error: reservationError } = await supabase.rpc("reserve_pin_generation_credits", {
+              p_user_id: String(req.userId),
+              p_idempotency_key: idempotencyKey,
+              p_amount: estimatedCost,
+            });
+            if (reservationError) {
+              if (/insufficient available credits/i.test(reservationError.message || "")) {
+                allowPreparedTaskSubmission = false;
+              } else {
+                throw reservationError;
+              }
+            }
+          }
         }
         return data;
       } : undefined,
