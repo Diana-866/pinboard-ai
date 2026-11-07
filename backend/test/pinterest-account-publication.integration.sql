@@ -1,4 +1,4 @@
--- Run only in disposable PostgreSQL CI after migrations 031-035.
+-- Run only in disposable PostgreSQL CI after migrations 031-035 and 047-049.
 -- A local pin can be published once per Pinterest identity, not once per user.
 do $$
 declare
@@ -8,6 +8,10 @@ declare
   v_pin uuid;
   v_legacy_pin uuid;
   v_inflight_pin uuid;
+  v_crash_pin uuid;
+  v_crash_schedule uuid;
+  v_old_claim_token uuid;
+  v_new_claim_token uuid;
   v_retry_pin uuid;
   v_retry_schedule uuid;
   v_manual_retry_pin uuid;
@@ -83,11 +87,73 @@ begin
   returning id into v_inflight_pin;
   insert into public.pin_schedules(
     user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
-    pinterest_board_id, status
+    pinterest_board_id, status, claim_token
   ) values (
     v_user::text, v_inflight_pin, v_account_a, now() - interval '1 minute',
-    'UTC', 'board-a', 'publishing'
+    'UTC', 'board-a', 'publishing', gen_random_uuid()
   );
+
+  -- A stale claim with no attempt journal is safe to requeue, but its old
+  -- worker must be fenced before it can reserve an attempt or send a POST.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/pre-journal-crash.png', 'Pre-journal crash', '', 'pending', 'flux-schnell', 0)
+  returning id into v_crash_pin;
+  v_old_claim_token := gen_random_uuid();
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, claim_token, updated_at
+  ) values (
+    v_user::text, v_crash_pin, v_account_a, now() - interval '1 day',
+    'UTC', 'board-a', 'publishing', v_old_claim_token, now() - interval '21 minutes'
+  ) returning id into v_crash_schedule;
+
+  if exists (
+    select 1 from public.claim_due_pin_schedules(10) where id=v_crash_schedule
+  ) then
+    raise exception 'pre-journal stale claim was re-claimed before its safety backoff';
+  end if;
+  if (select status from public.pin_schedules where id=v_crash_schedule) <> 'scheduled'
+     or (select claim_token from public.pin_schedules where id=v_crash_schedule) is not null
+     or (select next_attempt_at from public.pin_schedules where id=v_crash_schedule) <= now()
+     or exists (select 1 from public.pinterest_publish_attempts where pin_id=v_crash_pin and pinterest_account_id=v_account_a) then
+    raise exception 'stale pre-journal claim was not safely requeued';
+  end if;
+
+  begin
+    perform public.begin_scheduled_pinterest_publish(
+      v_user::text,v_crash_schedule,v_old_claim_token,v_crash_pin,v_account_a,'board-a'
+    );
+    raise exception 'stale worker claim token was accepted after recovery';
+  exception when sqlstate '40001' then
+    null;
+  end;
+
+  update public.pin_schedules
+     set next_attempt_at=now() - interval '1 second'
+   where id=v_crash_schedule;
+  select claim_token into v_new_claim_token
+    from public.claim_due_pin_schedules(10)
+   where id=v_crash_schedule;
+  if v_new_claim_token is null or v_new_claim_token=v_old_claim_token then
+    raise exception 'reclaimed schedule did not receive a fresh fencing token';
+  end if;
+
+  begin
+    perform public.begin_scheduled_pinterest_publish(
+      v_user::text,v_crash_schedule,v_old_claim_token,v_crash_pin,v_account_a,'board-a'
+    );
+    raise exception 'old worker was able to reserve an attempt after a new claim';
+  exception when sqlstate '40001' then
+    null;
+  end;
+
+  v_result := public.begin_scheduled_pinterest_publish(
+    v_user::text,v_crash_schedule,v_new_claim_token,v_crash_pin,v_account_a,'board-a'
+  );
+  if v_result->>'status' <> 'started'
+     or not exists (select 1 from public.pinterest_publish_attempts where pin_id=v_crash_pin and pinterest_account_id=v_account_a) then
+    raise exception 'current schedule claim could not atomically reserve its publish journal: %',v_result;
+  end if;
 
   -- A retry backoff must keep a due schedule out of the worker claim set
   -- until next_attempt_at, then allow it to be claimed normally.
@@ -236,7 +302,7 @@ begin
   delete from public.pinterest_publish_attempts where user_id = v_user::text;
   delete from public.pinterest_publications where user_id = v_user::text;
   delete from public.pinterest_accounts where user_id = v_user::text;
-  delete from public.pins where id in (v_pin, v_legacy_pin, v_inflight_pin, v_retry_pin, v_manual_retry_pin, v_attempt_retry_pin);
+  delete from public.pins where id in (v_pin, v_legacy_pin, v_inflight_pin, v_crash_pin, v_retry_pin, v_manual_retry_pin, v_attempt_retry_pin);
   delete from public.boards where id = v_board;
   delete from public.projects where id = v_project;
   delete from public.users where id = v_user;
