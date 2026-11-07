@@ -103,6 +103,14 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
       continue;
     }
     if (task.status === "succeeded" && task.storage_url && task.provider_price != null) {
+      if (typeof options.recordProviderOutcome === "function" &&
+          task.provider_task_id && task.provider_outcome_status !== "succeeded") {
+        await options.recordProviderOutcome(taskIndex, {
+          taskId: task.provider_task_id,
+          price: task.provider_price,
+          resultUrl: task.provider_result_url,
+        }, "succeeded");
+      }
       pins.push({
         board_id: board.id,
         image_url: task.storage_url,
@@ -121,6 +129,14 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
     if (task.status === "succeeded" && task.provider_result_url && task.provider_price != null) {
       try {
         providerSucceeded = true;
+        if (typeof options.recordProviderOutcome === "function" &&
+            task.provider_task_id && task.provider_outcome_status !== "succeeded") {
+          await options.recordProviderOutcome(taskIndex, {
+            taskId: task.provider_task_id,
+            price: task.provider_price,
+            resultUrl: task.provider_result_url,
+          }, "succeeded");
+        }
         const storedUrl = await rehostImage(task.provider_result_url, {
           idempotencyKey: task.provider_idempotency_key,
         });
@@ -197,7 +213,13 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
         continue;
       }
 
-      if (typeof options.updateTask === "function") {
+      if (typeof options.recordProviderOutcome === "function") {
+        await options.recordProviderOutcome(taskIndex, {
+          taskId: image.taskId,
+          price: image.price,
+          resultUrl: image.url,
+        }, "succeeded");
+      } else if (typeof options.updateTask === "function") {
         await options.updateTask(taskIndex, "succeeded", {
           providerTaskId: image.taskId,
           providerResultUrl: image.url,
@@ -230,7 +252,15 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
     } catch (e) {
       if (e && e.journalError) throw e;
       if (e && e.providerStatus === "failed") {
-        if (typeof options.updateTask === "function") {
+        if (typeof options.recordProviderOutcome === "function" && e.providerTaskId) {
+          await options.recordProviderOutcome(taskIndex, {
+            taskId: e.providerTaskId,
+            price: e.providerPrice,
+            refunded: e.providerRefunded,
+            errorCode: e.providerErrorCode,
+            errorTitle: e.providerErrorTitle,
+          }, "failed");
+        } else if (typeof options.updateTask === "function") {
           await options.updateTask(taskIndex, "failed", {
             providerTaskId: e.providerTaskId,
             errorCode: "provider_task_failed",
