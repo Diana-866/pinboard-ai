@@ -5,6 +5,7 @@ const https = require("node:https");
 const { httpError } = require("./validate");
 const { validateImageBuffer } = require("./imageValidation");
 const { assertPublicUrl, createPinnedLookup } = require("./publicUrl");
+const { extractManagedPinImagePath } = require("./pinImageLifecycle");
 
 const BUCKET = "pin-images";
 let bucketReady = false;
@@ -43,7 +44,44 @@ async function uploadPinImage(file) {
   return data.publicUrl;
 }
 
-module.exports = { uploadPinImage, rehostImage };
+// Remove only objects created by this service, and only after the replacement
+// has committed and all durable consumers have released the previous URL.
+async function deletePinImageIfUnreferenced(imageUrl) {
+  const objectPath = extractManagedPinImagePath(imageUrl, process.env.SUPABASE_URL, BUCKET);
+  if (!objectPath) return false;
+
+  const [pinRefs, scheduleRefs, taskRefs] = await Promise.all([
+    supabase.from("pins").select("id").eq("image_url", imageUrl).limit(1),
+    supabase.from("pin_schedules").select("id").eq("snapshot_image_url", imageUrl).neq("status", "cancelled").limit(1),
+    supabase.from("pin_generation_tasks").select("id, generation_request_id").eq("storage_url", imageUrl),
+  ]);
+  const lookupError = pinRefs.error || scheduleRefs.error || taskRefs.error;
+  if (lookupError) throw lookupError;
+  if ((pinRefs.data || []).length || (scheduleRefs.data || []).length) return false;
+
+  const tasks = taskRefs.data || [];
+  if (tasks.length) {
+    const requestIds = [...new Set(tasks.map((task) => task.generation_request_id).filter(Boolean))];
+    if (requestIds.length !== tasks.length) return false;
+    const { data: requests, error: requestError } = await supabase
+      .from("pin_generation_requests")
+      .select("id, status")
+      .in("id", requestIds);
+    if (requestError) throw requestError;
+    const requestById = new Map((requests || []).map((request) => [String(request.id), request]));
+    // Keep objects while a generation request can still be resumed/reconciled.
+    if (tasks.some((task) => {
+      const request = requestById.get(String(task.generation_request_id));
+      return !request || !["completed", "failed"].includes(request.status);
+    })) return false;
+  }
+
+  const { error: removeError } = await supabase.storage.from(BUCKET).remove([objectPath]);
+  if (removeError) throw removeError;
+  return true;
+}
+
+module.exports = { uploadPinImage, rehostImage, deletePinImageIfUnreferenced };
 
 // Скачивает картинку по URL (например, временную ссылку GPTunnel) и кладёт её в хранилище.
 // URL из ответа внешнего провайдера считается недоверенным: запрещаем private IP,
