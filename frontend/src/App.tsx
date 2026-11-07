@@ -125,6 +125,8 @@ const MainApp: React.FC = () => {
             scheduledDate: local.date,
             scheduledTime: local.time,
             status: row.status === 'published' ? 'published' : row.status === 'failed' ? 'failed' : row.status === 'publishing' ? 'publishing' : row.status === 'unknown' ? 'unknown' : 'scheduled',
+            retryable: row.retryable === true,
+            retryReason: row.retry_reason || undefined,
             destinationUrl: row.snapshot_image_url ? (row.snapshot_destination_url || '') : (row.destination_url || ''),
             pinterestBoardId: row.pinterest_board_id || undefined,
             pinterestAccountId: row.pinterest_account_id || undefined,
