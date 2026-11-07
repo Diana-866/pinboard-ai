@@ -913,3 +913,11 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - `PinGenerator` now loads `GET /boards/:id/pins` when opened and when the selected board changes, mapping DB id/title/description/image_url/aspect_ratio back into editor state.
 - Added loading/error UI, disabled generation while restoration is pending, ignores stale responses after board changes/unmount, and routes aspect-ratio PATCH through the per-pin serialized save queue.
 - Backend endpoint already existed and performs a board-owner check. Static source assertions only; no TypeScript/build/browser/API/Postgres execution. No production or DB changes.
+
+
+## 2026-11-07 — AUD-068: align generation concurrency test with credit reservations
+- Исправлен `backend/test/generation-concurrency.sh`: добавлены вызовы `reserve_pin_generation_credits(..., 5)` для основного запроса и для failure/completion race-запроса перед вызовом `complete_pin_generation_request`.
+- Причина: миграция 054 требует активную резервацию в completion RPC; shell test не обновили при введении этого контракта и мог падать ещё до проверки concurrency.
+- Проверка только статическая по исходнику: обе completion ветки имеют резервирование. Bash syntax/PostgreSQL/CI не запускались; runtime остаётся unverified.
+- Изменён тестовый файл и документация; production/backend runtime/БД не затрагивались. PR #4 Draft, без merge/deploy.
+- Commit с тестом: `c02fb9b1d2ddce40ed6da3c6d5da72e2bd1c8e8e`; docs commit: `16473d6d75deb743aea56fea7842ad35393e334d`.
