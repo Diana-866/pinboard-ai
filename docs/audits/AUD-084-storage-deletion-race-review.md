@@ -92,3 +92,13 @@ Definite Storage upload errors release the reservation with a sanitized error co
 Added backend unit coverage for reservation ordering, refusal before Storage write, definite upload failure finalization, ambiguous transport failure, and failed finalization. Added SQL integration coverage for upload-vs-delete blocking, reference-write rejection during upload, and overwrite refusal while referenced. The existing atomic-payment integration workflow already applies migration 070 and runs the SQL test file.
 
 **Verification:** JavaScript source syntax can be checked, but Node and PostgreSQL integration tests have not been executed in this environment. GitHub Actions continues to fail before runner allocation (`runner_id=0`, `steps=[]`); do not treat this as a test result. Migration 070 has not been applied to Supabase and production has not been changed.
+
+## Follow-up implementation — stale upload reconciliation (2026-11-07)
+
+Added service-role-only RPC `list_stale_pin_image_uploads` with bounded age and result limits, plus admin-authenticated `POST /admin/storage/reconcile-stale-uploads`. The backend checks the exact filename in the exact managed Storage folder. It finalizes only when the object is positively visible and the original fencing token still matches. The HTTP response does not expose upload tokens.
+
+A missing object is intentionally left in `uploading`: an absent listing is not proof that an ambiguous remote request cannot still complete later. Storage listing errors and stale-token conflicts are also left unresolved. There is no automatic TTL unlock and no scheduled job; an administrator must invoke the endpoint after the migration is applied.
+
+Added unit coverage for successful confirmation, missing-object fencing, and Storage inventory errors. Added SQL coverage for the stale inventory RPC, role grants, and minimum age bound.
+
+**Verification limitation:** JavaScript syntax checks passed for the lifecycle helper, backend entrypoint, and unit test source. Node tests and PostgreSQL integration tests have not been executed. Migration 070 remains unapplied to Supabase; no production deploy or PR merge occurred.
