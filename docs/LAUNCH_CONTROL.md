@@ -192,3 +192,14 @@
 - Причину, почему GitHub не назначает hosted runner, по доступному API установить нельзя: endpoint настроек Actions permissions недоступен через подключённый GitHub API. Возможные области проверки в интерфейсе GitHub: Actions enabled/disabled, account spending/billing limits, hosted runner availability/service incident. Это пока гипотезы, не установленная причина.
 - Следующий шаг после восстановления runner: повторить workflow, получить реальные логи и исправлять уже подтверждённые ошибки тестов. Не отключать проверки и не помечать их успешными вручную.
 - Production, PR merge, migrations, DNS и deployment не затрагивались.
+
+
+### 2026-11-07 — AUD-061: повторная проверка Pinterest OAuth/crypto и PostgreSQL CI coverage
+- Проверены `backend/pinterestTokenCrypto.js`, `backend/pinterest.js`, unit tests шифрования и публичной проекции аккаунта, migration 036/062, SQL regression `backend/test/pinterest-multi-account-oauth.integration.sql` и workflow `.github/workflows/atomic-payment-integration.yml`.
+- Подтверждено: migration 062 действительно включена в последовательность disposable PostgreSQL CI (строка применения после 061); затем workflow проверяет refresh uncertainty trigger и запускает SQL integration test многоаккаунтного OAuth.
+- Regression охватывает reconnect без нового refresh token, сохранение uncertainty, блокировку устаревшего refresh worker и снятие fence после получения нового refresh token.
+- Ротация ключей: fallback на previous key, lazy re-encryption при чтении аккаунта; uncertain account не перешифровывается. Предыдущий ключ нельзя удалять до полной миграции всех аккаунтов.
+- Публичная проекция Pinterest status/disconnect использует allowlist и исключает access_token, refresh_token, user_id; есть отдельные unit tests.
+- Обнаружено ограничение покрытия: нет отдельного runtime integration test для самого `decodeAccountRecord`/optimistic re-encryption race; имеющиеся crypto unit tests проверяют fallback и re-encryption на уровне crypto helper, не DB concurrency. Это кандидат на следующий тест.
+- Важно: статическая проверка кода и YAML выполнена; Node/PostgreSQL runtime не запускались успешно, поскольку GitHub Actions jobs до сих пор не получали runner. Никаких claims о зелёных тестах.
+- Production/merge/deploy/production migrations не затрагивались.
