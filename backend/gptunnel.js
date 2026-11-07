@@ -78,8 +78,10 @@ async function waitForImageTask(taskId, callbacks = {}) {
     throw new Error("Некорректный идентификатор задачи генерации");
   }
 
-  for (let i = 0; i < 30; i++) {
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+  const maxPolls = Number.isInteger(callbacks.maxPolls) ? Math.max(1, Math.min(callbacks.maxPolls, 30)) : 30;
+  const pollIntervalMs = Number.isInteger(callbacks.pollIntervalMs) ? Math.max(0, callbacks.pollIntervalMs) : 3000;
+  for (let i = 0; i < maxPolls; i++) {
+    if (pollIntervalMs > 0) await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
     const task = await checkImage(taskId);
 
     if (task && task.status === "done") return imageTaskResult(task);
