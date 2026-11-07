@@ -59,3 +59,59 @@ begin
   end if;
 end;
 $body$;
+
+
+-- A live claim is exclusive. An expired claim can be retried with a new
+-- fencing token only while no durable references exist.
+do $body$
+declare
+  v_path text := 'pins/generation-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.webp';
+  v_first_token uuid;
+  v_second_token uuid;
+  v_result jsonb;
+begin
+  v_result := public.claim_pin_image_deletion('pin-images', v_path, 60);
+  if coalesce((v_result ->> 'claimed')::boolean, false) is not true then
+    raise exception 'first deletion claim was not granted: %', v_result;
+  end if;
+  v_first_token := (v_result ->> 'claim_token')::uuid;
+
+  v_result := public.claim_pin_image_deletion('pin-images', v_path, 60);
+  if coalesce((v_result ->> 'claimed')::boolean, false) is not false
+     or v_result ->> 'reason' <> 'already_claimed' then
+    raise exception 'concurrent live claim was not rejected: %', v_result;
+  end if;
+
+  update public.pin_image_object_lifecycle
+     set claim_expires_at = now() - interval '1 second'
+   where bucket_id = 'pin-images' and object_path = v_path;
+
+  v_result := public.claim_pin_image_deletion('pin-images', v_path, 60);
+  if coalesce((v_result ->> 'claimed')::boolean, false) is not true then
+    raise exception 'expired deletion claim was not safely retried: %', v_result;
+  end if;
+  v_second_token := (v_result ->> 'claim_token')::uuid;
+
+  if v_second_token = v_first_token then
+    raise exception 'expired claim retry did not rotate the fencing token';
+  end if;
+
+  if public.finalize_pin_image_deletion(
+       'pin-images', v_path, v_first_token, true, null
+     ) then
+    raise exception 'stale worker unexpectedly finalized a newer claim';
+  end if;
+
+  if not public.finalize_pin_image_deletion(
+       'pin-images', v_path, v_second_token, true, null
+     ) then
+    raise exception 'current claim could not be finalized';
+  end if;
+
+  v_result := public.claim_pin_image_deletion('pin-images', v_path, 60);
+  if coalesce((v_result ->> 'claimed')::boolean, false) is not false
+     or v_result ->> 'reason' <> 'already_deleted' then
+    raise exception 'deleted object was claimable again: %', v_result;
+  end if;
+end;
+$body$;
