@@ -5,7 +5,7 @@ const https = require("node:https");
 const { httpError } = require("./validate");
 const { validateImageBuffer } = require("./imageValidation");
 const { assertPublicUrl, createPinnedLookup } = require("./publicUrl");
-const { extractManagedPinImagePath } = require("./pinImageLifecycle");
+const { extractManagedPinImagePath, canDeletePinImageObject } = require("./pinImageLifecycle");
 
 const BUCKET = "pin-images";
 let bucketReady = false;
@@ -57,9 +57,8 @@ async function deletePinImageIfUnreferenced(imageUrl) {
   ]);
   const lookupError = pinRefs.error || scheduleRefs.error || taskRefs.error;
   if (lookupError) throw lookupError;
-  if ((pinRefs.data || []).length || (scheduleRefs.data || []).length) return false;
-
   const tasks = taskRefs.data || [];
+  let generationRequestStatuses = [];
   if (tasks.length) {
     const requestIds = [...new Set(tasks.map((task) => task.generation_request_id).filter(Boolean))];
     if (tasks.some((task) => !task.generation_request_id)) return false;
@@ -69,12 +68,16 @@ async function deletePinImageIfUnreferenced(imageUrl) {
       .in("id", requestIds);
     if (requestError) throw requestError;
     const requestById = new Map((requests || []).map((request) => [String(request.id), request]));
+    if (tasks.some((task) => !requestById.has(String(task.generation_request_id)))) return false;
     // Keep objects while a generation request can still be resumed/reconciled.
-    if (tasks.some((task) => {
-      const request = requestById.get(String(task.generation_request_id));
-      return !request || !["completed", "failed"].includes(request.status);
-    })) return false;
+    generationRequestStatuses = (requests || []).map((request) => request.status);
   }
+
+  if (!canDeletePinImageObject({
+    hasPinReference: (pinRefs.data || []).length > 0,
+    hasScheduleReference: (scheduleRefs.data || []).length > 0,
+    generationRequestStatuses,
+  })) return false;
 
   const { error: removeError } = await supabase.storage.from(BUCKET).remove([objectPath]);
   if (removeError) throw removeError;
