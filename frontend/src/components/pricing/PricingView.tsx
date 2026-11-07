@@ -147,6 +147,74 @@ export const PricingView: React.FC = () => {
     loadHistory();
   }, [user?.id, user?.tariff_plan]);
 
+  // A provider webhook may arrive after the customer returns from checkout.
+  // Refresh only while this account has pending orders; never create a new payment.
+  const hasPendingPayments =
+    history.some((row) => row.status === 'pending') ||
+    purchases.some((row) => row.status === 'pending');
+
+  useEffect(() => {
+    if (!user?.id || !hasPendingPayments) return;
+
+    let active = true;
+    const refreshPendingPayments = async () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+
+      try {
+        const [subscriptionResult, purchaseResult] = await Promise.all([
+          apiRequest('/billing/subscriptions'),
+          apiRequest('/billing/credit-purchases'),
+        ]);
+        if (!active) return;
+
+        const nextHistory = Array.isArray((subscriptionResult as any)?.subscriptions)
+          ? (subscriptionResult as any).subscriptions
+          : [];
+        const nextPurchases = Array.isArray((purchaseResult as any)?.purchases)
+          ? (purchaseResult as any).purchases
+          : [];
+
+        const previouslyPendingIds = new Set([
+          ...history.filter((row) => row.status === 'pending').map((row) => row.id),
+          ...purchases.filter((row) => row.status === 'pending').map((row) => row.id),
+        ]);
+        const newlyPaid = [
+          ...nextHistory.filter((row: SubscriptionRow) =>
+            previouslyPendingIds.has(row.id) && row.status === 'success'
+          ),
+          ...nextPurchases.filter((row: CreditPurchaseRow) =>
+            previouslyPendingIds.has(row.id) && row.status === 'success'
+          ),
+        ].length > 0;
+
+        setHistory(nextHistory);
+        setTariffEnd((subscriptionResult as any)?.tariff?.periodEnd || null);
+        setPurchases(nextPurchases);
+
+        if (newlyPaid) {
+          await refreshUser();
+        }
+      } catch {
+        // Keep the last known status; the next poll or a manual page refresh can retry.
+      }
+    };
+
+    const intervalId = window.setInterval(refreshPendingPayments, 20000);
+    const onFocus = () => { void refreshPendingPayments(); };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refreshPendingPayments();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [user?.id, hasPendingPayments]);
+
   const handlePay = async (planId: string) => {
     setPayError(null);
     setPayingId(planId);
