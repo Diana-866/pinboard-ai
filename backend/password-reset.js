@@ -63,7 +63,7 @@ async function requestReset(rawEmail, _frontendUrl, requestedLanguage) {
       try {
         await sendResetEmail(
           email,
-          `${base}/reset-password?token=${encodeURIComponent(token)}`,
+          `${base}/reset-password#token=${encodeURIComponent(token)}`,
           user.preferred_language || requestedLanguage
         );
       } catch (e) {
