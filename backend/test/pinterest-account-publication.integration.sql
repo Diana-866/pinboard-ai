@@ -34,6 +34,10 @@ declare
   v_delete_after_claim uuid;
   v_account_a uuid;
   v_account_b uuid;
+  v_account_c uuid;
+  v_disconnect_race_pin uuid;
+  v_disconnect_race_schedule uuid;
+  v_disconnect_race_token uuid;
   v_result jsonb;
   v_original_schedule_at timestamptz;
   v_publication_count integer;
@@ -410,6 +414,42 @@ begin
        where user_id=v_user::text and pin_id=v_inflight_pin
          and pinterest_account_id=v_account_a) <> 'publishing' then
     raise exception 'disconnecting account A rewrote an in-flight schedule';
+  end if;
+
+  -- Disconnect must win cleanly if it commits before a worker reserves its
+  -- durable attempt. The worker may not pass the account check and send POST.
+  insert into public.pinterest_accounts(user_id, pinterest_user_id, username, access_token)
+  values (v_user::text, 'account-c-' || v_user, 'account_c', 'enc:temporary')
+  returning id into v_account_c;
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/disconnect-race.png', 'Disconnect race', '', 'pending', 'flux-schnell', 0)
+  returning id into v_disconnect_race_pin;
+  v_disconnect_race_token := gen_random_uuid();
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, claim_token
+  ) values (
+    v_user::text, v_disconnect_race_pin, v_account_c, now() - interval '1 minute',
+    'UTC', 'board-c', 'publishing', v_disconnect_race_token
+  ) returning id into v_disconnect_race_schedule;
+
+  if public.disconnect_pinterest_account_v2(v_user::text, v_account_c) is distinct from true then
+    raise exception 'disconnect race test could not disconnect account C';
+  end if;
+  begin
+    perform public.begin_scheduled_pinterest_publish(
+      v_user::text, v_disconnect_race_schedule, v_disconnect_race_token,
+      v_disconnect_race_pin, v_account_c, 'board-c'
+    );
+    raise exception 'worker reserved a publication after account disconnect committed';
+  exception when sqlstate '42501' then
+    null;
+  end;
+  if exists (
+    select 1 from public.pinterest_publish_attempts
+     where pin_id=v_disconnect_race_pin and pinterest_account_id=v_account_c
+  ) then
+    raise exception 'disconnected account race created a durable publish attempt';
   end if;
 
   -- Disconnecting A must not erase either account's already-published history.
