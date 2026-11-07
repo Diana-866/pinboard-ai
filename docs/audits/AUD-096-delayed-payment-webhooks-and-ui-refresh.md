@@ -40,6 +40,8 @@ In `frontend/src/components/pricing/PricingView.tsx`:
 - When a previously pending order becomes successful, call `refreshUser()` so plan/credit balance state is refreshed too.
 - The refresh is read-only; it does not create/retry a payment, mutate payment state, or grant credits.
 
+Polling lifecycle detail: the effect is keyed by the actual sorted set of pending subscription/purchase IDs, not only a boolean. If one of several pending orders resolves or a new pending order appears, the polling effect is recreated with the correct order snapshot. Follow-up correction commit: `29b272cf10185ead1de297a650f50315443ac79f`.
+
 ## Verification and limitations
 
 - Read back webhook handlers, migrations 010/011/019, and existing Prodamus webhook tests from `feat/persisted-boards-api`.
