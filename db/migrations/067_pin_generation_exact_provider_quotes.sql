@@ -18,10 +18,12 @@ begin
     alter table public.pin_generation_tasks
       add constraint pin_generation_tasks_provider_quote_valid
       check (
-        (provider_quote_price is null and provider_quote_currency is null
-          and provider_quote_model is null and provider_quote_aspect_ratio is null)
+        num_nonnulls(provider_quote_price, provider_quote_currency,
+          provider_quote_model, provider_quote_aspect_ratio) = 0
         or
-        (provider_quote_price > 0
+        (num_nonnulls(provider_quote_price, provider_quote_currency,
+            provider_quote_model, provider_quote_aspect_ratio) = 4
+          and provider_quote_price > 0
           and provider_quote_price::text not in ('NaN','Infinity','-Infinity')
           and provider_quote_currency = 'RUB'
           and provider_quote_model = model
@@ -53,8 +55,9 @@ begin
      or p_task_index is null or p_task_index < 1 or p_task_index > 10
      or p_quote_price is null or p_quote_price <= 0
      or p_quote_price::text in ('NaN','Infinity','-Infinity')
-     or p_quote_currency <> 'RUB'
+     or p_quote_currency is distinct from 'RUB'
      or p_quote_model is null or length(p_quote_model) > 100
+     or p_quote_aspect_ratio is null
      or p_quote_aspect_ratio not in ('2:3','9:16','4:5','3:4','1:1') then
     raise exception 'invalid generation task quote';
   end if;
