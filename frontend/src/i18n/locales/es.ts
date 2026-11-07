@@ -397,6 +397,7 @@ export const es: TranslationSchema = {
     pinterestBoardsEmpty: "No se encontraron tableros o aún no se han cargado.",
     pinterestAccountIdLabel: "ID de Pinterest",
     pinterestDisconnected: "Cuenta de Pinterest desconectada.",
+    pinterestDisconnectWarning: "Esto elimina los tokens de la cuenta de PinPosy, pero no revoca el permiso OAuth en Pinterest. Las publicaciones futuras en cola de esta cuenta se marcarán como fallidas; una solicitud en curso aún podría completarse. ¿Continuar?",
     pinterestAccountFallback: "Cuenta de Pinterest",
     pinterestReauthRequired: "Se requiere volver a autorizar",
     pinterestPinsLabel: "pines",
