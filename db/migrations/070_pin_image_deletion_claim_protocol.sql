@@ -135,6 +135,7 @@ set search_path = pg_catalog, public
 as $$
 declare
   v_state text;
+  v_claim_expires_at timestamptz;
   v_token uuid;
   v_has_reference boolean;
 begin
@@ -150,14 +151,18 @@ begin
   values (p_bucket_id, p_object_path, 'active')
   on conflict (bucket_id, object_path) do nothing;
 
-  select state into v_state
+  select state, claim_expires_at
+    into v_state, v_claim_expires_at
     from public.pin_image_object_lifecycle
    where bucket_id = p_bucket_id and object_path = p_object_path
    for update;
 
-  if v_state = 'deleting' then
+  if v_state = 'deleting' and v_claim_expires_at > now() then
     return jsonb_build_object('claimed', false, 'reason', 'already_claimed');
   end if;
+  -- An expired claim is fenced, not released. Rotate its token and retry the
+  -- idempotent Storage removal only after checking that no DB references exist.
+  -- Any late worker holding the old token can no longer finalize this claim.
   if v_state = 'deleted' then
     return jsonb_build_object('claimed', false, 'reason', 'already_deleted');
   end if;
