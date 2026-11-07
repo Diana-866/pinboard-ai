@@ -7,6 +7,7 @@ const {
   getScheduleRetryDelayMinutes,
   buildPinScheduleSnapshot,
   resolvePinScheduleSnapshot,
+  classifyLegacyScheduleAccount,
 } = require("../pinterestSchedule");
 
 test("a disconnected Pinterest account before publication is a terminal failure", () => {
@@ -83,4 +84,28 @@ test("legacy schedules without snapshots retain live-pin compatibility", () => {
   assert.equal(resolved.is_snapshot, false);
   assert.equal(resolved.title, "Current");
   assert.equal(resolved.image_url, "https://cdn.example/current.jpg");
+});
+
+
+test("legacy schedule account recovery uses the only active Pinterest account", () => {
+  const account = { id: "account-a" };
+  assert.deepEqual(classifyLegacyScheduleAccount([account]), { status: "selected", account });
+});
+
+test("legacy schedule account recovery requires explicit choice when multiple accounts exist", () => {
+  const accounts = [{ id: "account-a" }, { id: "account-b" }];
+  assert.deepEqual(classifyLegacyScheduleAccount(accounts), { status: "selection_required" });
+  assert.deepEqual(classifyLegacyScheduleAccount(accounts, "account-b"), {
+    status: "selected", account: accounts[1],
+  });
+});
+
+test("legacy schedule account recovery never guesses when no account is connected", () => {
+  assert.deepEqual(classifyLegacyScheduleAccount([]), { status: "no_account" });
+});
+
+test("legacy schedule account recovery rejects an account not in the user's active list", () => {
+  assert.deepEqual(classifyLegacyScheduleAccount([{ id: "account-a" }], "other-user-account"), {
+    status: "invalid_selection",
+  });
 });
