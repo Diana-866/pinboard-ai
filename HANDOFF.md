@@ -617,3 +617,13 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 **Verification:** Changes were fetched back from GitHub and confirmed. PostgreSQL and Node tests were not run locally. CI status for the new commits is pending/unknown; prior workflow logs returned `BlobNotFound`, so no pass is claimed. No live Pinterest request, credentials, production/staging database, deployment, or merge was performed.
 
 **Status:** AMBIGUOUS_COMMIT_RECOVERY_IMPROVED / SQL_REGRESSION_ADDED / CI_PENDING.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-042)
+
+- Проверен сценарий параллельного 401 на одном Pinterest-аккаунте. Первый backend-инстанс получает account-scoped refresh lease и выставляет `refresh_state='uncertain'` перед запросом к Pinterest.
+- Найден UX/availability дефект: второй инстанс, не получивший lease, при первом чтении `refresh_state='uncertain'` немедленно возвращал 409 с требованием OAuth reconnect. Это происходило даже при действующем lease другого инстанса, то есть пока корректное обновление ещё выполнялось.
+- Исправлено: ожидающий инстанс проверяет `pinterest_account_refresh_leases` и продолжает polling только при действующем lease. После успешного commit он получает свежие credentials; если lease отсутствует/истёк, неопределённый исход остаётся fenced и безопасно требует reconnect. Ошибка чтения lease приводит к 503, а не к ложному утверждению, что аккаунт нужно подключить заново.
+- `backend/pinterestRefreshRecovery.js` получил чистую проверку активного lease; добавлены 3 unit cases (активный, истёкший, отсутствующий/некорректный lease).
+- Также подтверждено, что account-scoped RPC действительно создаются migration 031 и эта миграция применяется atomic-payment workflow; первоначальное подозрение о пропущенной миграции было ошибочным.
+- AUD-042: FIXED_UNVERIFIED. Node tests и PostgreSQL integration не запускались в этом этапе; CI необходимо проверить по PR. Никаких production DB/API credentials, Pinterest accounts, deployments или merges не затрагивалось.
