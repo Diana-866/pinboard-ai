@@ -671,3 +671,15 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Найденной подтверждённой ошибки в рассмотренной backend/SQL логике нет; новый код и миграции не добавлялись. Проверка не включала полное визуальное тестирование frontend account picker и не запускала Node/PostgreSQL/CI.
 
 **Status:** STATIC_REVIEW_COMPLETE / TARIFF_CAPS_AND_ACCOUNT_SCOPING_REVIEWED / NO_CONFIRMED_BACKEND_DEFECT.
+
+
+## Дополнение к handoff — AUD-048 (2026-11-07)
+
+- Начат статический аудит фоновой публикации и восстановления расписаний: `backend/pinterest.js`, `backend/pinterestSchedule.js`, `backend/test/pinterest-schedule.test.js`, migration 033.
+- Подтверждено: `claim_due_pin_schedules` использует `FOR UPDATE SKIP LOCKED`, ограничивает batch до 10 записей, помечает просроченные задания без активного Pinterest-аккаунта как failed, а после 20 минут пытается сверить зависшие `publishing` по журналу публикаций. Если журнал уже `published`, расписание восстанавливается как `published`; иначе оно переводится в `unknown`, а не отправляется повторно автоматически.
+- Backend после обработки обновляет расписание только при совпадении `id`, `status='publishing'` и `claim_token`; это intended stale-worker fencing. Worker проверяет тариф повторно непосредственно перед публикацией, а account_id/board_id берёт из сохранённой записи расписания. Snapshot полей title/description/image/destination сохраняет запланированный creative при последующем редактировании исходного pin.
+- Retry policy в `pinterestSchedule.js` закрытая: неизвестный/processing журнал не повторяется; journal failure разрешает retry только при `status='failed' AND retry_safe=true`; без journal допускаются только определённые transient pre-publication ошибки. Unit tests описывают эти политики, но в этом аудите не запускались.
+- Важный оставшийся вопрос для следующего прохода: в видимой реализации `claim_due_pin_schedules` из migration 033 переход `scheduled → publishing` обновляет `status`, `attempts`, `updated_at`, но не присваивает новый `claim_token`, хотя backend требует claim_token для `begin_scheduled_pinterest_publish` и для guarded status update. Предыдущую migration, создающую таблицу/trigger/default для `claim_token`, в этом проходе найти и проверить не удалось. Поэтому нельзя пока заключить, что token отсутствует или не ротируется; необходимо проверить исходное DDL/trigger и SQL-функцию `begin_scheduled_pinterest_publish` до любого исправления.
+- Ветка `feat/persisted-boards-api`; production/стейджинг, Pinterest API, публикации и deployment не затрагивались. Это частичный static review; Node/PostgreSQL/CI не запускались. Кодовых изменений не сделано.
+
+**Status:** PARTIAL_STATIC_REVIEW / SCHEDULE_RECOVERY_AND_RETRY_POLICY_REVIEWED / CLAIM_TOKEN_ROTATION_REQUIRES_SCHEMA_VERIFICATION.
