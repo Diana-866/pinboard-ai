@@ -805,3 +805,13 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Это статический анализ + подготовленная SQL regression. PostgreSQL/CI runtime ещё не подтверждены; production/staging DB, Pinterest API, реальные публикации, deployment и merge не затрагивались.
 
 **Status:** AUD-057 / MIGRATION_062_ADDED / UNCERTAINTY_FENCE_ONLY_CLEARS_ON_NEW_REFRESH_TOKEN / SQL_REGRESSION_UPDATED / RUNTIME_UNVERIFIED.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-058: безопасная ротация ключа шифрования Pinterest)
+
+- Аудит хранения токенов выявил операционный риск: AES-256-GCM ciphertext не содержит key id, а decrypt использовал только текущий `PINTEREST_TOKEN_ENCRYPTION_KEY`. Простая смена ключа делала все уже сохранённые Pinterest credentials нечитаемыми.
+- Добавлена поддержка `PINTEREST_TOKEN_ENCRYPTION_KEY_PREVIOUS`: при ошибке расшифровки активным ключом допускается предыдущий ключ. Новые записи шифруются только активным ключом. `decodeAccountRecord` распознаёт ciphertext, который не открывается активным ключом, и перешифровывает пару credentials при следующем чтении аккаунта; для `refresh_state='uncertain'` миграция токенов намеренно пропускается, чтобы не снять uncertainty fence.
+- Обновлены unit tests для fallback/перешифровки и README с процедурой ротации. Предыдущий ключ нельзя удалять, пока все существующие Pinterest-аккаунты не прочитаны и не перешифрованы; ленивое обновление означает, что давно неиспользуемые аккаунты могут продолжать зависеть от предыдущего ключа.
+- Runtime Node tests/CI пока не подтверждены. Production env и реальные токены не менялись.
+
+**Status:** AUD-058 / PREVIOUS_KEY_FALLBACK / LAZY_REENCRYPTION / ROTATION_RUNBOOK_ADDED / RUNTIME_UNVERIFIED.
