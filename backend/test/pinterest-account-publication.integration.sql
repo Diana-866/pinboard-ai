@@ -8,6 +8,9 @@ declare
   v_pin uuid;
   v_legacy_pin uuid;
   v_reconcile_pin uuid;
+  v_unavailable_pin uuid;
+  v_unavailable_schedule uuid;
+  v_unavailable_account uuid;
   v_reconcile_schedule uuid;
   v_legacy_history_schedule uuid;
   v_inflight_pin uuid;
@@ -101,6 +104,30 @@ begin
      or (select status from public.pin_schedules where id=v_reconcile_schedule) <> 'scheduled'
      or (select last_error from public.pin_schedules where id=v_reconcile_schedule) is not null then
     raise exception 'safe legacy schedule reconciliation failed: %', v_result;
+  end if;
+
+  -- Legacy reconciliation must fail closed for a disconnected account.
+  insert into public.pinterest_accounts(user_id, pinterest_user_id, username, access_token)
+  values (v_user::text, 'account-unavailable-' || v_user, 'account_unavailable', 'enc:temporary')
+  returning id into v_unavailable_account;
+  if public.disconnect_pinterest_account_v2(v_user::text, v_unavailable_account) is distinct from true then
+    raise exception 'test setup could not disconnect reconciliation account';
+  end if;
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/unavailable.png', 'Unavailable account', '', 'approved', 'flux-schnell', 0)
+  returning id into v_unavailable_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, scheduled_at, timezone, pinterest_board_id, status
+  ) values (
+    v_user::text, v_unavailable_pin, now() - interval '1 hour', 'UTC', 'board-unavailable', 'failed'
+  ) returning id into v_unavailable_schedule;
+  v_result := public.reconcile_legacy_pinterest_schedule_account(
+    v_user::text, v_unavailable_schedule, v_unavailable_account
+  );
+  if v_result->>'ok' <> 'false'
+     or v_result->>'reason' <> 'account_unavailable'
+     or (select pinterest_account_id from public.pin_schedules where id=v_unavailable_schedule) is not null then
+    raise exception 'legacy schedule was assigned to a disconnected Pinterest account: %', v_result;
   end if;
 
   v_result := public.begin_pinterest_publish_v2(v_user::text, v_pin, v_account_a, 'board-a');
@@ -489,7 +516,7 @@ begin
   delete from public.pinterest_publish_attempts where user_id = v_user::text;
   delete from public.pinterest_publications where user_id = v_user::text;
   delete from public.pinterest_accounts where user_id = v_user::text;
-  delete from public.pins where id in (v_pin, v_legacy_pin, v_inflight_pin, v_crash_pin, v_retry_pin, v_manual_retry_pin, v_attempt_retry_pin, v_safe_retry_pin, v_reconcile_pin, v_snapshot_pin);
+  delete from public.pins where id in (v_pin, v_legacy_pin, v_inflight_pin, v_crash_pin, v_retry_pin, v_manual_retry_pin, v_attempt_retry_pin, v_safe_retry_pin, v_reconcile_pin, v_snapshot_pin, v_unavailable_pin);
   delete from public.boards where id = v_board;
   delete from public.projects where id = v_project;
   delete from public.users where id = v_user;
