@@ -385,3 +385,34 @@ Reviewed `backend/index.js`, `backend/pins.js`, `backend/credits.js`, `backend/c
 Added a SQL integration regression case to `backend/test/pin-generation-credit-reservations.integration.sql`: a completion attempt charging more than its reservation must fail without changing the balance or releasing the reservation. Existing test also covers idempotency, mismatch, reserved-balance protection, settlement, definitive failure, and ambiguous outcomes.
 
 No confirmed credit-spending bypass was found in the reviewed paths. This remains static review plus test authoring; PostgreSQL integration test has not yet been executed locally. Do not interpret as production verification.
+
+
+### AUD-031 — authentication and account recovery review (2026-11-07)
+
+**Reviewed:** `backend/index.js`, `backend/auth.js`, `backend/password-reset.js`,
+`backend/email-verify.js`, `backend/bearerToken.js`, `backend/validate.js`,
+`backend/supabase.js`, and `backend/mail.js`.
+
+**Controls confirmed by static inspection**
+- Registration and login validate normalized email and enforce an 8–128 character password length.
+- Password hashes use bcrypt; login performs a dummy bcrypt comparison when the account does not exist.
+- Registration handles the database unique-email race (`23505`) rather than relying only on the preliminary lookup.
+- Password-reset and email-verification tokens are generated from 32 random bytes; only SHA-256 hashes are sent to the database. Raw tokens are placed in email links.
+- Password-reset and email-verification consumption are delegated to atomic SQL RPCs; the backend rejects malformed/oversized tokens and does not issue JWTs before email verification.
+- Public forgot-password and anonymous resend-verification responses do not disclose whether an email exists.
+- JWT verification checks signature/expiry; protected routes additionally compare JWT `tokenVersion` with the current database `token_version`. Database lookup failure returns 503 (fail closed).
+- Authenticated resend-verification independently applies the same token-version fence.
+- SMTP errors and database errors are not returned verbatim in 5xx API responses.
+
+**Finding / operational limitation**
+- `authLimiter` is an IP-based, in-memory limiter (10 requests per 15 minutes) shared by register/login/forgot-password/reset-password. `verifyLimiter` is also in-memory (30 requests per 15 minutes). This is not a distributed/global limit: separate backend instances have separate counters, and counters reset on process restart.
+- No persistent per-account failed-login counter or account-level lockout was confirmed in the reviewed backend files. A distributed attacker can therefore spread password guesses across IPs; IP throttling alone is not a complete brute-force defense.
+- Do not add a naive email-only lockout: it would let an attacker deny service to a victim by intentionally exhausting the victim's counter. A robust follow-up should use a shared store and carefully designed account+IP risk controls.
+- `app.set("trust proxy", 1)` assumes exactly one trusted reverse proxy in front of the service. Deployment must preserve that topology; if the app is directly reachable or proxy depth differs, IP-based rate-limit identity may be spoofable or inaccurate.
+
+**Verification limits**
+- This pass was static. Auth/API integration tests were not executed.
+- The SQL definitions for `issue_password_reset_token`, `consume_password_reset_token`, `issue_email_verification_token`, and `consume_email_verification_token` were not available at the reviewed repository paths in this pass; their transaction/locking internals and token-version increment behavior remain unverified here. Backend comments and call contracts are not a substitute for inspecting those SQL definitions.
+- No production database, email provider, JWT secret, or deployment setting was changed.
+
+**Status:** STATIC_REVIEW_COMPLETE / AUTH_RUNTIME_AND_SQL_UNVERIFIED. No confirmed authentication bypass was established. Recommended next action: inspect the exact deployed SQL RPC definitions and add auth integration tests, then implement a shared rate-limit store before horizontal scaling.
