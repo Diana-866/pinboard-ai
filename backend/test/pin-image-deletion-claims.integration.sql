@@ -159,3 +159,83 @@ begin
   end if;
 end;
 $body$;
+
+
+-- Schedule snapshots and generation journal URLs are durable references too.
+do $body$
+declare
+  v_user_id uuid := gen_random_uuid();
+  v_project_id uuid := gen_random_uuid();
+  v_board_id uuid := gen_random_uuid();
+  v_pin_id uuid := gen_random_uuid();
+  v_request_id bigint;
+  v_schedule_path text := 'pins/1730000000001-ab12cd34.webp';
+  v_schedule_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/1730000000001-ab12cd34.webp';
+  v_task_path text := 'pins/generation-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.png';
+  v_task_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.png';
+  v_result jsonb;
+  v_token uuid;
+begin
+  insert into public.users(id, email) values (v_user_id, v_user_id::text || '@pin-image-schedule-test.invalid');
+  insert into public.projects(id, user_id) values (v_project_id, v_user_id);
+  insert into public.boards(id, project_id) values (v_board_id, v_project_id);
+  insert into public.pins(id, board_id) values (v_pin_id, v_board_id);
+
+  insert into public.pin_schedules(user_id, pin_id, scheduled_at, snapshot_image_url)
+  values (v_user_id::text, v_pin_id, now() + interval '1 day', v_schedule_url);
+
+  if not exists (
+    select 1 from public.pin_image_object_lifecycle
+     where bucket_id = 'pin-images' and object_path = v_schedule_path and state = 'active'
+  ) then
+    raise exception 'schedule snapshot trigger did not register the managed object';
+  end if;
+
+  v_result := public.claim_pin_image_deletion('pin-images', v_schedule_path, 60);
+  if coalesce((v_result ->> 'claimed')::boolean, false) is not false
+     or v_result ->> 'reason' <> 'referenced' then
+    raise exception 'image deletion claim ignored an active schedule snapshot: %', v_result;
+  end if;
+
+  update public.pin_schedules set status = 'cancelled' where pin_id = v_pin_id;
+  v_result := public.claim_pin_image_deletion('pin-images', v_schedule_path, 60);
+  if coalesce((v_result ->> 'claimed')::boolean, false) is not true then
+    raise exception 'cancelled schedule snapshot still blocked image deletion: %', v_result;
+  end if;
+  v_token := (v_result ->> 'claim_token')::uuid;
+  if not public.finalize_pin_image_deletion('pin-images', v_schedule_path, v_token, true, null) then
+    raise exception 'cancelled schedule image claim could not be finalized';
+  end if;
+
+  insert into public.pin_generation_requests(
+    user_id, board_id, idempotency_key, status, request_fingerprint
+  ) values (
+    v_user_id::text, v_board_id, 'pin-image-claim-test-001', 'processing', 'test-fingerprint'
+  ) returning id into v_request_id;
+
+  insert into public.pin_generation_tasks(
+    generation_request_id, user_id, board_id, task_index,
+    title, prompt, model, aspect_ratio, storage_url
+  ) values (
+    v_request_id, v_user_id::text, v_board_id, 1,
+    'Lifecycle test', 'Lifecycle test prompt', 'test-model', '2:3', v_task_url
+  );
+
+  update public.pin_generation_requests set status = 'completed' where id = v_request_id;
+  v_result := public.claim_pin_image_deletion('pin-images', v_task_path, 60);
+  if coalesce((v_result ->> 'claimed')::boolean, false) is not false
+     or v_result ->> 'reason' <> 'referenced' then
+    raise exception 'terminal generation journal did not retain its image reference: %', v_result;
+  end if;
+
+  delete from public.pin_generation_tasks where generation_request_id = v_request_id;
+  v_result := public.claim_pin_image_deletion('pin-images', v_task_path, 60);
+  if coalesce((v_result ->> 'claimed')::boolean, false) is not true then
+    raise exception 'generation image was not claimable after journal row removal: %', v_result;
+  end if;
+  v_token := (v_result ->> 'claim_token')::uuid;
+  if not public.finalize_pin_image_deletion('pin-images', v_task_path, v_token, true, null) then
+    raise exception 'generation image claim could not be finalized after journal removal';
+  end if;
+end;
+$body$;
