@@ -1186,6 +1186,18 @@ app.post("/pins/:id/schedule", requireAuth, requireTariff(["start", "pro", "agen
     // The worker repeats this check at publish time because access may later change.
     await pinterest.verifyPinterestBoard(req.userId, pinterestBoardId, selectedAccount.id);
 
+    // Freeze the approved creative and the resolved link at schedule time.
+    const snapshotDestinationUrl = destinationUrl || pin.boards?.projects?.website_url || null;
+    if (snapshotDestinationUrl) {
+      let parsedSnapshotUrl;
+      try { parsedSnapshotUrl = new URL(String(snapshotDestinationUrl)); } catch {
+        throw httpError(422, "У проекта сохранена некорректная ссылка для публикации");
+      }
+      if (!["http:", "https:"].includes(parsedSnapshotUrl.protocol)) {
+        throw httpError(422, "Ссылка проекта должна использовать HTTP или HTTPS");
+      }
+    }
+
     const { data, error } = await supabase
       .from("pin_schedules")
       .insert({
@@ -1195,6 +1207,10 @@ app.post("/pins/:id/schedule", requireAuth, requireTariff(["start", "pro", "agen
         scheduled_at: scheduledAt.toISOString(),
         timezone,
         destination_url: destinationUrl,
+        snapshot_title: String(pin.title || "").slice(0, 100),
+        snapshot_description: String(pin.description || "").slice(0, 800),
+        snapshot_image_url: String(pin.image_url),
+        snapshot_destination_url: snapshotDestinationUrl,
         pinterest_board_id: pinterestBoardId,
         status: "scheduled",
       })
