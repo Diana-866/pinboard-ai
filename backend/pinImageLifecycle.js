@@ -1,3 +1,5 @@
+const crypto = require("node:crypto");
+
 function extractManagedPinImagePath(publicUrl, supabaseUrl, bucket = "pin-images") {
   if (!publicUrl || !supabaseUrl) return null;
   try {
@@ -22,4 +24,20 @@ function canDeletePinImageObject({ hasPinReference, hasScheduleReference, genera
   return generationRequestStatuses.every((status) => ["completed", "failed"].includes(status));
 }
 
-module.exports = { extractManagedPinImagePath, canDeletePinImageObject };
+function buildPinImageObjectPath(extension, idempotencyKey = null) {
+  const ext = String(extension || "").toLowerCase();
+  if (!["png", "jpg", "jpeg", "webp"].includes(ext)) {
+    throw new Error("Unsupported managed pin image extension");
+  }
+  if (idempotencyKey) {
+    const digest = crypto.createHash("sha256").update(String(idempotencyKey)).digest("hex").slice(0, 32);
+    return `pins/generation-${digest}.${ext}`;
+  }
+  return `pins/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
+}
+
+module.exports = {
+  extractManagedPinImagePath,
+  canDeletePinImageObject,
+  buildPinImageObjectPath,
+};
