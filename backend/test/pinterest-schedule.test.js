@@ -5,6 +5,8 @@ const {
   classifyScheduleFailure,
   canRetryScheduleFailure,
   getScheduleRetryDelayMinutes,
+  buildPinScheduleSnapshot,
+  resolvePinScheduleSnapshot,
 } = require("../pinterestSchedule");
 
 test("a disconnected Pinterest account before publication is a terminal failure", () => {
@@ -50,4 +52,35 @@ test("client errors before publication are terminal", () => {
 
 test("retry delay grows exponentially and is capped at 30 minutes", () => {
   assert.deepEqual([1, 2, 3, 4, 5, 6, 10].map(getScheduleRetryDelayMinutes), [1, 2, 4, 8, 16, 30, 30]);
+});
+
+
+test("schedule snapshot captures bounded creative and resolved destination", () => {
+  const snapshot = buildPinScheduleSnapshot({
+    title: "A".repeat(150), description: "B".repeat(900), image_url: "https://cdn.example/pin-1.jpg",
+  }, "https://example.com/article");
+  assert.equal(snapshot.snapshot_title.length, 100);
+  assert.equal(snapshot.snapshot_description.length, 800);
+  assert.equal(snapshot.snapshot_image_url, "https://cdn.example/pin-1.jpg");
+  assert.equal(snapshot.snapshot_destination_url, "https://example.com/article");
+});
+
+test("scheduled publication resolves the immutable snapshot after live pin edits", () => {
+  const resolved = resolvePinScheduleSnapshot({
+    snapshot_title: "Scheduled title", snapshot_description: "Scheduled copy",
+    snapshot_image_url: "https://cdn.example/old.jpg", snapshot_destination_url: "https://old.example/",
+  }, { title: "Edited title", description: "Edited copy", image_url: "https://cdn.example/new.jpg" });
+  assert.deepEqual(resolved, {
+    title: "Scheduled title", description: "Scheduled copy", image_url: "https://cdn.example/old.jpg",
+    destination_url: "https://old.example/", is_snapshot: true,
+  });
+});
+
+test("legacy schedules without snapshots retain live-pin compatibility", () => {
+  const resolved = resolvePinScheduleSnapshot({ destination_url: "https://chosen.example/" }, {
+    title: "Current", description: "Current copy", image_url: "https://cdn.example/current.jpg",
+  });
+  assert.equal(resolved.is_snapshot, false);
+  assert.equal(resolved.title, "Current");
+  assert.equal(resolved.image_url, "https://cdn.example/current.jpg");
 });
