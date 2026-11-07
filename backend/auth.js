@@ -1,10 +1,8 @@
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
+const { signSessionToken, verifySessionToken } = require("./sessionToken");
 const supabase = require("./supabase");
 const { httpError, validateEmail, validatePassword } = require("./validate");
 const emailVerify = require("./email-verify");
-
-const TOKEN_TTL = "7d";
 
 // Точное сообщение для 403 при неподтверждённом email (ТЗ, п.3).
 const MSG_NEED_VERIFY = "Подтвердите email — письмо отправлено повторно";
@@ -151,7 +149,7 @@ async function login(rawEmail, rawPassword) {
     console.warn("[login] users.email_verified отсутствует — примените миграцию 005 (вход без подтверждения)");
   }
 
-  const token = jwt.sign({ userId: user.id, tokenVersion: Number(user.token_version || 0) }, process.env.JWT_SECRET, { expiresIn: TOKEN_TTL });
+  const token = signSessionToken(user, process.env.JWT_SECRET);
   return {
     token,
     user: {
@@ -166,7 +164,7 @@ async function login(rawEmail, rawPassword) {
 }
 
 function verifyToken(token) {
-  return jwt.verify(token, process.env.JWT_SECRET);
+  return verifySessionToken(token, process.env.JWT_SECRET);
 }
 
 module.exports = { register, login, verifyToken, MSG_NEED_VERIFY };
