@@ -115,6 +115,44 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
       });
       continue;
     }
+    // If GPTunnel already returned a result but Storage failed, retry the
+    // durable copy from the exact journaled URL. Do not submit another provider
+    // create request or depend on provider-side idempotency retention.
+    if (task.status === "succeeded" && task.provider_result_url && task.provider_price != null) {
+      try {
+        providerSucceeded = true;
+        const storedUrl = await rehostImage(task.provider_result_url, {
+          idempotencyKey: task.provider_idempotency_key,
+        });
+        if (typeof storedUrl !== "string" || !storedUrl.trim()) {
+          throw new Error("Не удалось получить постоянную ссылку на изображение");
+        }
+        if (typeof options.updateTask === "function") {
+          await options.updateTask(taskIndex, "succeeded", {
+            providerTaskId: task.provider_task_id,
+            providerResultUrl: task.provider_result_url,
+            storageUrl: storedUrl,
+            providerPrice: task.provider_price,
+          });
+        }
+        pins.push({
+          board_id: board.id,
+          image_url: storedUrl,
+          title: task.title,
+          description: task.description || "",
+          status: "pending",
+          model_used: task.model || model,
+          aspect_ratio: ratio,
+          credits_cost: Number(task.provider_price),
+        });
+        continue;
+      } catch (e) {
+        if (e && e.journalError) throw e;
+        unknownTasks.push({ task_index: taskIndex });
+        console.error(`[pins] не удалось восстановить Storage для готовой задачи: ${e && e.message}`);
+        continue;
+      }
+    }
     try {
       if (typeof options.updateTask === "function" && (!task.status || task.status === "prepared")) {
         await options.updateTask(taskIndex, "submitting");
