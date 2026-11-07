@@ -426,6 +426,7 @@ export interface TranslationSchema {
     pinterestBoardsEmpty: string;
     pinterestAccountIdLabel: string;
     pinterestDisconnected: string;
+    pinterestDisconnectWarning: string;
     pinterestAccountFallback: string;
     pinterestReauthRequired: string;
     pinterestPinsLabel: string;
