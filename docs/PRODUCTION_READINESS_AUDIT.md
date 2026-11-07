@@ -86,7 +86,7 @@
 - **Клиентское поведение:** direct publish получает явный 409 для failed attempt без retry-safe marker; неизвестные/processing/published состояния не запускают новый POST.
 - **Тесты:** unit tests покрывают safe failed, unsafe failed, unknown и processing; PostgreSQL integration test проверяет отказ при unsafe legacy failed, установку маркера через failure RPC, manual retry и последующее использование того же маркера direct/scheduled begin RPC.
 - **Коммиты:** `2707f5f2` (migration 050); `3da085d5` (direct publish + worker journal lookup); `7df57276` (retry policy helper); `a6ec5a85` (unit tests); `d7fbb579` (CI migration chain); `e6ec2d3d` (SQL integration coverage); `de5f66e0` (scheduler documentation).
-- **Оставшаяся проверка:** migration 050 и SQL/Node tests ещё не выполнены в доступном runtime; CI должен подтвердить PostgreSQL 16. До зелёного прогона статус остаётся `FIXED_UNVERIFIED`.
+- **Оставшаяся проверка:** migration 050 и SQL/Node tests ещё не подтверждены фактическим PostgreSQL 16 прогоном. Workflow `Atomic payment fulfillment integration` на HEAD `6c0dec157f71d8afeefc093e73ed34764e7f553b` завершился failure; job не вернул steps, скачивание логов дало `BlobNotFound`. На более позднем HEAD `bb6e72efd48c7d5bbaccc15221ca26ddef9b74e0` нового workflow run пока нет. Vercel check для последнего HEAD завершился failure с сообщением `build-rate-limit` (ограничение сборок провайдера, а не подтверждённая ошибка исходников). До зелёного PostgreSQL CI и успешной frontend-сборки статус остаётся `FIXED_UNVERIFIED`.
 
 ### AUD-005 — Изменение пина после планирования меняет фактически публикуемый контент
 - **Приоритет:** P2
