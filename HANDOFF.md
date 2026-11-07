@@ -981,3 +981,11 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - `backend/index.js`: successful outcome сохраняется до rehosting, failed outcome — до request status=failed. При ошибке сохранения failed outcome request переводится в unknown, а не в failed; восстановление failed task использует `providerTaskError`.
 - Добавлен `backend/test/pin-regeneration-provider-outcome.sh` с SQL integration scenarios. Ни migration, ни script не запускались. Не подтверждены Bash syntax, Node tests, PostgreSQL, CI. **Не деплоить код до применения 063 и успешной проверки на disposable PostgreSQL.**
 - Остаточные billing задачи: quote exact task before provider submission; unify provider-operation ledger for multi-pin generation and regeneration; separate provider RUB spend from user-credit debit. No live DB/provider/deploy/merge action.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-074: multi-pin provider outcomes)
+- Создана миграция `db/migrations/064_pin_generation_provider_outcomes.sql`: добавлены terminal outcome/refund/error/reconciliation fields в `pin_generation_tasks`, versioned RPC `record_pin_generation_provider_outcome` и расширен recovery snapshot `get_pin_generation_plan`.
+- RPC блокирует parent request затем task (тот же lock order, что migration 046), требует текущий claim token и task ID, сохраняет identical replay, отклоняет conflicting replay и stale claim.
+- `backend/pins.js`: успешная задача фиксируется до storage rehosting; failed task сохраняет gross provider price, refund boolean и структурированную ошибку. Если task ID отсутствует, результат остаётся unknown. `backend/index.js` подключает новый RPC.
+- Добавлен `backend/test/pin-generation-provider-outcome.sh` с PostgreSQL integration cases; не запускался. Migration 064 не применялась. До disposable PostgreSQL verification и теста не деплоить.
+- Остаточные задачи: exact media quote before submission; учёт LLM `usage.total_cost` для pins/boards/analyze; общий append-only provider-operation ledger и reconciliation. Provider RUB spend не смешивать с user-credit debit.
