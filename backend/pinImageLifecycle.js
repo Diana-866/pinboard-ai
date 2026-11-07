@@ -31,6 +31,41 @@ function buildPinImageObjectPath(extension, idempotencyKey = null) {
   return `pins/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
 }
 
+async function uploadManagedPinImageObject({ supabase, bucket = "pin-images", objectPath, file, contentType }) {
+  const { data: reservation, error: reserveError } = await supabase.rpc("begin_pin_image_upload", {
+    p_bucket_id: bucket,
+    p_object_path: objectPath,
+    p_upload_ttl_seconds: 600,
+  });
+  if (reserveError) throw reserveError;
+  if (!reservation || reservation.reserved !== true || !reservation.upload_token) {
+    const error = new Error("Pin image object is not available for upload");
+    error.code = reservation && reservation.reason || "pin_image_upload_not_reserved";
+    throw error;
+  }
+
+  // A thrown transport error is ambiguous: Storage may still complete the
+  // request. Keep the upload reservation fenced for manual reconciliation.
+  const { error: uploadError } = await supabase.storage
+    .from(bucket)
+    .upload(objectPath, file, { contentType, upsert: true });
+
+  const { data: finalized, error: finalizeError } = await supabase.rpc("finalize_pin_image_upload", {
+    p_bucket_id: bucket,
+    p_object_path: objectPath,
+    p_upload_token: reservation.upload_token,
+    p_uploaded: !uploadError,
+    p_error_code: uploadError
+      ? String(uploadError.code || uploadError.name || "storage_upload_failed").slice(0, 64)
+      : null,
+  });
+
+  if (finalizeError) throw finalizeError;
+  if (finalized !== true) throw new Error("Pin image upload reservation could not be finalized");
+  if (uploadError) throw uploadError;
+  return true;
+}
+
 async function deleteManagedPinImageObject({ supabase, bucket = "pin-images", objectPath }) {
   const { data: claim, error: claimError } = await supabase.rpc("claim_pin_image_deletion", {
     p_bucket_id: bucket,
@@ -61,6 +96,7 @@ async function deleteManagedPinImageObject({ supabase, bucket = "pin-images", ob
 
 module.exports = {
   deleteManagedPinImageObject,
+  uploadManagedPinImageObject,
   extractManagedPinImagePath,
   buildPinImageObjectPath,
 };
