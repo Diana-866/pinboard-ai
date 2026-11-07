@@ -937,3 +937,11 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Все три найденных text generation paths используют generateText без учёта стоимости: pins.js (внутри image-generation workflow), boards.js (generate boards endpoint), analyze.js (site analysis endpoint).
 - Migration 054 фиксирует сумму резерва: idempotent повтор с другой суммой — ошибка; complete_pin_generation_request отклоняет списание сверх активного резерва. Безопасное добавление фактической LLM-стоимости требует изменения reservation lifecycle/SQL и чёткой политики лимитов токенов, а не только прибавления usage.total_cost к charge.
 - AUD-070 — аудит и план следующего этапа, без кода/миграций. Никаких provider API запросов с ключом, production изменений, DB migrations, CI или runtime tests не было.
+
+
+## Дополнение к handoff — 2026-11-07 (AUD-071: GPTunnel billing adapter groundwork)
+- backend/gptunnel.js exports quoteImageTask, normalizeMediaQuote, generateTextWithUsage; image quote uses /api/v2/media/price, validates code/currency/numeric price/model and that aspect_ratio was not ignored. LLM adapter captures request id, model, token usage and total_cost; strict mode rejects missing total_cost. maxTokens option supported.
+- Existing generateText() remains backward-compatible and does not require usage metadata yet; three existing text call sites are not wired to strict accounting. New adapters are not yet used by user-facing flows. No claim of billing correctness.
+- Added backend/test/gptunnel-pricing.test.js for media quote validation, LLM usage capture, strict missing-cost failure and legacy compatibility. Tests not executed (no local Node runtime; Actions runner issue). Static review only.
+- No SQL migration. Migration 054 still has fixed idempotent reservation amount and cannot atomically top up; no generalized charge journal exists. Next design must cover atomic reserve adjustment, provider operation journal, quote/final price reconciliation, LLM token caps/usage, definitive vs unknown outcomes, and atomic settlement. Avoid changing user credit prices without product policy.
+- No GPTunnel authenticated API call, production change, DB change, deployment or PR merge.
