@@ -127,15 +127,14 @@
 - **Коммит:** `d15aac42d096057efd2bb313fca934b9ce2171a6`.
 - **Проверка:** исходник повторно прочитан; import присутствует. Typecheck пока не подтверждён: соответствующий GitHub Actions job завершился без steps/logs.
 
-### AUD-009 — Pinterest remote pin ID теряется в frontend mapping
+### AUD-009 — Pinterest remote pin ID терялся в frontend mapping
 - **Приоритет:** P2
-- **Статус:** OPEN
-- **Тип:** подтверждённый UX/data mapping gap.
-- **Область:** `frontend/src/App.tsx`, calendar.
-- **Наблюдение:** backend сохраняет `pinterest_pin_id`, но mapping расписания не передаёт его в UI-модель.
-- **Риск:** календарь не может дать пользователю прямой переход к опубликованному пину.
-- **Исправить:** прокинуть ID и построить безопасную ссылку на опубликованный объект, если формат/доступность URL подтверждены.
-- **Тесты:** опубликованный schedule показывает ссылку; отсутствующий remote ID не создаёт ложную ссылку.
+- **Статус:** FIXED_UNVERIFIED
+- **Тип:** mapping gap исправлен.
+- **Реализация:** `ScheduledPinItem` содержит `pinterestPinId` и `pinterestPinUrl`; `GET /schedule` mapping переносит сохранённый `pinterest_pin_id`. URL строится helper-функцией только для числового ID длиной 1–32 символа по шаблону `https://www.pinterest.com/pin/{id}/`.
+- **UI:** календарь показывает ссылку только при `status === published` и валидном URL; отсутствующий или malformed ID не создаёт ссылку. Ссылка открывается в новой вкладке с `noopener noreferrer`.
+- **Тесты:** добавлен `frontend/src/utils/pinterestPinUrl.test.ts` на валидный ID, trim и пустые/нечисловые/path/query/URL payloads. Добавлен `npm test` script и шаг в frontend CI workflow.
+- **Проверка:** helper и отображение статически проверены по исходнику; тест и TypeScript build ещё не выполнены GitHub Actions. Статус `FIXED_UNVERIFIED`.
 
 ### AUD-010 — Кнопка Retry в UI может быть доступна при серверном запрете повторной попытки
 - **Приоритет:** P2
@@ -486,3 +485,5 @@ GitHub API возвращал пустые steps, `runner_id=0`, `logs_url=null`
 | 2026-11-07 | Дополнительное укрепление AUD-006: reconciliation RPC блокирует восстановление не одобренного pin; lock order account→schedule выровнен с disconnect RPC, чтобы снизить риск deadlock; конфликт уникального active schedule возвращается как контролируемый отказ. |
 
 | 2026-11-07 | AUD-007: удалены UI-переключатель автогенерации, время запуска и локальный React callback; лимиты переименованы в локальные ориентиры ручного планирования, предупреждение локализовано на 7 языков. Автоматизация не обещается до реализации серверной очереди. Статус FIXED_UNVERIFIED до frontend CI. |
+
+| 2026-11-07 | AUD-009: frontend mapping сохраняет remote Pinterest pin ID; безопасный URL builder разрешает только numeric IDs; календарь показывает ссылку только для confirmed published; добавлены unit tests и frontend CI step. Статус FIXED_UNVERIFIED до CI. |
