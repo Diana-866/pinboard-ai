@@ -29,9 +29,12 @@ test("an ambiguous or still-processing publish attempt remains non-retryable", (
   assert.equal(canRetryScheduleFailure({ status: "unknown" }, null, Object.assign(new Error("503"), { httpStatus: 503 })), false);
 });
 
-test("a confirmed pre-publication rejection is failed and not retried", () => {
-  assert.equal(classifyScheduleFailure({ status: "failed" }, null), "failed");
-  assert.equal(canRetryScheduleFailure({ status: "failed" }, null, Object.assign(new Error("503"), { httpStatus: 503 })), false);
+test("a failed journal retries only when the database marks it safe", () => {
+  assert.equal(classifyScheduleFailure({ status: "failed", retry_safe: false }, null), "failed");
+  assert.equal(canRetryScheduleFailure({ status: "failed", retry_safe: false }, null, Object.assign(new Error("503"), { httpStatus: 503 })), false);
+  assert.equal(canRetryScheduleFailure({ status: "failed", retry_safe: true }, null, Object.assign(new Error("403"), { httpStatus: 403 })), true);
+  assert.equal(canRetryScheduleFailure({ status: "unknown", retry_safe: true }, null, Object.assign(new Error("503"), { httpStatus: 503 })), false);
+  assert.equal(canRetryScheduleFailure({ status: "processing", retry_safe: true }, null, Object.assign(new Error("503"), { httpStatus: 503 })), false);
 });
 
 test("transient pre-publication failures can retry when no publish attempt exists", () => {
