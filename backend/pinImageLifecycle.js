@@ -12,7 +12,7 @@ function extractManagedPinImagePath(publicUrl, supabaseUrl, bucket = "pin-images
     const objectPath = decodeURIComponent(objectUrl.pathname.slice(prefix.length));
     // Only remove objects created by uploadPinImage; leave legacy or foreign
     // object names untouched rather than guessing their ownership.
-    if (!/^pins\/(?:[0-9]+-[a-z0-9]{1,16}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp)$/i.test(objectPath)) return null;
+    if (!/^pins\/(?:[0-9]+-[a-z0-9]{1,16}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp|gif)$/i.test(objectPath)) return null;
     return objectPath;
   } catch {
     return null;
@@ -26,7 +26,7 @@ function canDeletePinImageObject({ hasPinReference, hasScheduleReference, genera
 
 function buildPinImageObjectPath(extension, idempotencyKey = null) {
   const ext = String(extension || "").toLowerCase();
-  if (!["png", "jpg", "jpeg", "webp"].includes(ext)) {
+  if (!["png", "jpg", "jpeg", "webp", "gif"].includes(ext)) {
     throw new Error("Unsupported managed pin image extension");
   }
   if (idempotencyKey) {
