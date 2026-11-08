@@ -5,6 +5,7 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const { parseMultipartFields } = require("./prodamusWebhookBody");
 const { isOwnedByUser } = require("./resourceOwnership");
+const { serializeGenerationRecovery } = require("./generationRecovery");
 
 const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
@@ -1222,25 +1223,7 @@ app.get("/generation/requests/:key", requireAuth, async (req, res) => {
     if (error) throw error;
     if (!request) throw httpError(404, "Запрос генерации не найден");
 
-    const pins = request.status === "completed" && Array.isArray(request.pins)
-      ? request.pins.map((pin) => ({
-          id: pin.id,
-          title: pin.title || "",
-          description: pin.description || "",
-          image_url: pin.image_url || "",
-          model_used: pin.model_used || null,
-          aspect_ratio: pin.aspect_ratio || null,
-          credits_cost: pin.credits_cost == null ? null : pin.credits_cost,
-        }))
-      : [];
-
-    res.json({
-      status: request.status,
-      board_id: request.board_id,
-      pins,
-      created_at: request.created_at,
-      updated_at: request.updated_at,
-    });
+    res.json(serializeGenerationRecovery(request));
   } catch (e) {
     handleError(res, e);
   }
