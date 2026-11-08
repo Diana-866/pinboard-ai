@@ -122,3 +122,15 @@ test("current successful subscription entitlement overrides a stale expired user
     { plan: "pro", active: true, periodEnd: futureEnd }
   );
 });
+
+test("no paid subscription and no manual plan is inactive when expiry is null", async () => {
+  const client = makeClient({
+    userResult: { data: { tariff_plan: "none", tariff_period_end: null }, error: null },
+    subscriptionResult: { data: null, error: null },
+  });
+
+  assert.deepEqual(
+    await getTariffState("user-1", client),
+    { plan: "none", active: false, periodEnd: null }
+  );
+});
