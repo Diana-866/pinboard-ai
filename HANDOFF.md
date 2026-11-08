@@ -1178,3 +1178,15 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Файлы: `backend/pinterest.js`, `backend/pinterestSchedule.js`, `backend/test/pinterest-schedule.test.js`, `docs/audits/AUD-223-pinterest-schedule-journal-identity.md`.
 - Исходники повторно прочитаны после коммитов. Unit tests, SQL integration, lint и build фактически не запускались; CI workflow runs на предыдущем HEAD завершались failure без доступных job logs. Production, Pinterest API, deployment и merge не затрагивались.
 - Коммиты: `8e827b45dba271d8fdbb6a235f2ce49af2e6a349`, `86bc7519405360544b7b60cdeb5436d0d08620dd`, `3035da95f315e33d54213e9355883a762356cb2b`, документ `daa6904833637ce46213ed92a40eef08e2dee6d3`.
+
+
+## Дополнение к handoff — 2026-11-09 (AUD-224: подтверждение записи статуса Pinterest-расписания)
+
+- Найден дефект: worker делал условный UPDATE по id/status/claim_token, но проверял только SQL error. Если claim уже сменился, UPDATE мог успешно выполниться с нулём затронутых строк; worker ошибочно сообщал, что расписание переведено в scheduled/failed.
+- Исправлено: UPDATE теперь возвращает изменённую строку через `.select("id").maybeSingle()`. Добавлен `isScheduleClaimUpdateConfirmed`; статус считается сохранённым только при наличии реально возвращённой строки.
+- Если строка не затронута (например, claim уже принадлежит новому worker), текущий worker сообщает unknown и не утверждает, что переход состоялся.
+- Добавлен unit test для подтверждённой записи, нулевого результата, SQL error и отсутствующего ответа.
+- Пользовательский эффект: старый worker больше не сможет показывать ложный результат обработки задания, если другой worker уже получил право на него. Календарь и отчёт worker опираются на фактически сохранённое состояние.
+- Файлы: `backend/pinterest.js`, `backend/pinterestSchedule.js`, `backend/test/pinterest-schedule.test.js`, `docs/audits/AUD-224-pinterest-worker-claim-update-confirmation.md`.
+- Исходники повторно прочитаны после коммитов. Unit tests, SQL integration, lint и build фактически не запускались; CI не подтверждён. Production, Pinterest API, deployment и merge не затрагивались.
+- Коммиты: `f1af1cbf6212e87efe9685e09c4349609cedb8e8`, `d4ab191e71351db5cb94e7ecc1131a0ff467da63`, `67d0da922ee594e8eb154aa59199efad9d8c41c6`, документ `9d9bd1a32f10a89e2b4d2795ac86bc8d6d8f68f9`.
