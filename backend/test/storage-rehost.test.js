@@ -26,6 +26,9 @@ let lookupFailure = lookupError;
 const calls = [];
 let uploadError = null;
 let quarantinePrimaryPath = false;
+let completedRecoveryKey = null;
+let completedRecoveryPath = null;
+const lookupKeys = [];
 const uploadPaths = [];
 const supabase = {
   storage: {
@@ -81,7 +84,7 @@ mockModule(modulePaths[4], {
     return true;
   },
   deleteManagedPinImageObject() { throw new Error("not used in this test"); },
-  findCompletedManagedPinImageUpload: async () => { calls.push({ type: "lookup" }); if (lookupFailure) throw lookupFailure; return null; },
+  findCompletedManagedPinImageUpload: async ({ idempotencyKey }) => { calls.push({ type: "lookup" }); lookupKeys.push(idempotencyKey); if (lookupFailure) throw lookupFailure; return idempotencyKey === completedRecoveryKey ? completedRecoveryPath : null; },
   validatePinImageBucketConfiguration() {},
   EXPECTED_PIN_IMAGE_MIMES: ["image/png", "image/jpeg", "image/webp", "image/gif"],
 });
@@ -149,6 +152,32 @@ test("quarantined deterministic upload recovers on a stable fresh path", async (
   assert.equal(result.endsWith(recoveryPath), true);
   assert.deepEqual(uploadPaths, [primaryPath, recoveryPath]);
   assert.notEqual(primaryPath, recoveryPath);
+  quarantinePrimaryPath = false;
+  lookupFailure = lookupError;
+});
+
+
+test("retry reuses a completed recovery upload after a process restart", async () => {
+  lookupFailure = null;
+  quarantinePrimaryPath = true;
+  uploadPaths.length = 0;
+  lookupKeys.length = 0;
+  completedRecoveryKey = "stable-provider-result-key:storage-recovery:1";
+  completedRecoveryPath = "pins/already-completed-recovery.png";
+
+  const result = await rehostImage("https://provider.example.invalid/result.png", {
+    idempotencyKey: "stable-provider-result-key",
+  });
+
+  assert.equal(result.endsWith(completedRecoveryPath), true);
+  assert.deepEqual(uploadPaths, [`pins/generation-${crypto.createHash("sha256").update("stable-provider-result-key").digest("hex").slice(0, 32)}.png`]);
+  assert.deepEqual(lookupKeys, [
+    "stable-provider-result-key",
+    "stable-provider-result-key:storage-recovery:1",
+  ]);
+
+  completedRecoveryKey = null;
+  completedRecoveryPath = null;
   quarantinePrimaryPath = false;
   lookupFailure = lookupError;
 });
