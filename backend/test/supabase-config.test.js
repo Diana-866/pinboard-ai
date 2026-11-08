@@ -23,8 +23,8 @@ test("production startup fails clearly when the service-role key is missing", ()
     NODE_ENV: "production",
     SUPABASE_URL: "https://example.supabase.co",
   };
-  delete env.SUPABASE_SERVICE_ROLE_KEY;
-  delete env.SUPABASE_ANON_KEY;
+  env.SUPABASE_SERVICE_ROLE_KEY = "";
+  env.SUPABASE_ANON_KEY = "";
 
   const result = loadSupabase(env);
 
