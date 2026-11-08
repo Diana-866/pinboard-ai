@@ -126,6 +126,7 @@ async function rehostImage(sourceUrl, options = {}) {
   const lookup = createPinnedLookup(validated.host, validated.addresses);
   const httpAgent = new http.Agent({ lookup });
   const httpsAgent = new https.Agent({ lookup });
+  let downloadedImage;
   try {
     const response = await axios.get(validated.url, {
       responseType: "arraybuffer",
@@ -137,8 +138,10 @@ async function rehostImage(sourceUrl, options = {}) {
       maxRedirects: 0,
       validateStatus: (status) => status >= 200 && status < 300,
     });
-    const mimetype = String(response.headers["content-type"] || "").split(";")[0].trim().toLowerCase();
-    return await uploadPinImage({ buffer: Buffer.from(response.data), mimetype }, options);
+    downloadedImage = {
+      buffer: Buffer.from(response.data),
+      mimetype: String(response.headers["content-type"] || "").split(";")[0].trim().toLowerCase(),
+    };
   } catch (e) {
     if (e && e.httpStatus) throw e;
     console.error("[storage] не удалось получить изображение от провайдера:", e && e.message);
@@ -147,4 +150,9 @@ async function rehostImage(sourceUrl, options = {}) {
     httpAgent.destroy();
     httpsAgent.destroy();
   }
+
+  // Keep the provider-download error boundary separate from the durable
+  // Storage/lifecycle write. A failed upload finalization is not a provider
+  // download failure; preserve its 409/503/500 status for safe recovery.
+  return uploadPinImage(downloadedImage, options);
 }
