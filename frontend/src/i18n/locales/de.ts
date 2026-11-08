@@ -538,6 +538,8 @@ export const de: TranslationSchema = {
     thinking: 'Demo-Navigation wird vorbereitet …',
     clearChat: 'Verlauf leeren',
     suggestedTitle: 'App-Bereiche öffnen:',
+    demoReply: 'Dies ist nur eine Navigationsdemo. Ich kann deine Pinterest-Daten nicht analysieren und gebe keine KI-generierten Empfehlungen.',
+    openSection: 'Bereich öffnen',
   },
 
   notifications: {
