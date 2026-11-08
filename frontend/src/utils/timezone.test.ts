@@ -65,6 +65,18 @@ test('converts scheduled wall-clock times using the target date DST offset', () 
   );
 });
 
+test('formats publish-now date and time as a 24-hour pair in the selected timezone', () => {
+  const instant = new Date('2026-01-15T00:05:00.000Z');
+  assert.deepEqual(formatInstantInTimezone(instant, 'Europe/London'), {
+    date: '2026-01-15',
+    time: '00:05',
+  });
+  assert.deepEqual(formatInstantInTimezone(instant, 'America/New_York'), {
+    date: '2026-01-14',
+    time: '19:05',
+  });
+});
+
 test('rejects a local time that does not exist during the spring DST transition', () => {
   assert.throws(
     () => localDateTimeToDate('2026-03-29', '01:30', 'Europe/London'),
