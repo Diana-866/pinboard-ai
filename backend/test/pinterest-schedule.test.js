@@ -5,6 +5,7 @@ const {
   classifyScheduleFailure,
   canRetryScheduleFailure,
   getScheduleRetryDelayMinutes,
+  persistPublishFailureJournal,
   isPinterestPublishOutcomeUnknown,
   buildPinScheduleSnapshot,
   resolvePinScheduleSnapshot,
@@ -214,4 +215,39 @@ test("explicit Pinterest client rejections are known not to have created a pin",
   for (const status of [400, 401, 403, 404, 409, 422]) {
     assert.equal(isPinterestPublishOutcomeUnknown(status), false, `status ${status}`);
   }
+});
+
+
+test("failed publication journal persistence returns an explicit safe-to-stop error", async () => {
+  const calls = [];
+  await assert.rejects(
+    persistPublishFailureJournal(async (name, params) => {
+      calls.push({ name, params });
+      return { error: { message: "database unavailable" } };
+    }, {
+      p_user_id: "user-1",
+      p_pin_id: "pin-1",
+      p_pinterest_account_id: "account-1",
+      p_error: "Pinterest timed out",
+      p_outcome_unknown: true,
+    }),
+    (error) => {
+      assert.equal(error.httpStatus, 503);
+      assert.equal(error.code, "PUBLISH_JOURNAL_PERSISTENCE_FAILED");
+      assert.match(error.message, /заблокирована до сверки/);
+      return true;
+    }
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].name, "fail_pinterest_publish_v2");
+  assert.equal(calls[0].params.p_outcome_unknown, true);
+});
+
+test("successful publication failure journaling does not raise an error", async () => {
+  let callCount = 0;
+  await persistPublishFailureJournal(async () => {
+    callCount += 1;
+    return { error: null };
+  }, { p_user_id: "user-1", p_pin_id: "pin-1", p_pinterest_account_id: "account-1" });
+  assert.equal(callCount, 1);
 });
