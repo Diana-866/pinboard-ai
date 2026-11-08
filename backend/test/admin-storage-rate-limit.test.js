@@ -10,10 +10,7 @@ for (const route of [
   "/admin/storage/quarantine-stale-uploads",
 ]) {
   test(`${route} applies the admin action limiter before authentication`, () => {
-    const escaped = route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const pattern = new RegExp(
-      `app\\.post\\(["']${escaped}["'],\\s*adminActionLimiter,\\s*requireAuth,\\s*requireAdmin,`
-    );
-    assert.match(source, pattern);
+    const registration = `app.post("${route}", adminActionLimiter, requireAuth, requireAdmin,`;
+    assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
   });
 }
