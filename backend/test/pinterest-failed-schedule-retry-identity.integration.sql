@@ -62,7 +62,20 @@ begin
     raise exception 'matching retry-safe attempt with an immutable snapshot did not permit retry: %',v_result;
   end if;
 
-  raise notice 'Pinterest failed-schedule retry identity checks passed';
+  -- Without either a live image or a durable snapshot, retry must remain blocked.
+  update public.pin_schedules
+     set status='failed', snapshot_image_url=null
+   where id=v_schedule;
+  v_result:=public.retry_failed_pin_schedule(v_user::text,v_schedule);
+  if v_result->>'ok' <> 'false'
+     or v_result->>'reason' <> 'pin_unavailable' then
+    raise exception 'retry proceeded without any available creative: %',v_result;
+  end if;
+  if (select status from public.pin_schedules where id=v_schedule)<>'failed' then
+    raise exception 'retry without a creative changed schedule status';
+  end if;
+
+  raise notice 'Pinterest failed-schedule retry identity and snapshot checks passed';
 end;
 $$;
 
