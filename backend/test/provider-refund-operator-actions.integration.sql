@@ -169,6 +169,25 @@ begin
     raise exception 'expected four operator journal rows (two reconciliations and two finalizations), got %',v_count;
   end if;
 
+  -- The operator may also own the target request. The deterministic user-row
+  -- lock query must handle the duplicate UUID as a single lock target.
+  update public.users set is_admin=true where id=v_target;
+  v_key:='admin-action-self-target-'||v_target;
+  v_req:=public.begin_pin_generation_request(v_target::text,v_board,v_key,repeat('e',64));
+  v_claim:=(v_req->>'claim_token')::uuid;
+  select id into v_request_id from public.pin_generation_requests
+   where user_id=v_target::text and idempotency_key=v_key;
+  perform public.reserve_pin_generation_credits(v_target::text,v_key,8);
+  perform public.save_pin_generation_plan(v_target::text,v_key,v_claim,jsonb_build_array(
+    jsonb_build_object('title','self target task','description','','prompt','self target','model','flux-schnell','aspect_ratio','2:3')
+  ));
+  perform public.record_pin_generation_provider_outcome(
+    v_target::text,v_key,v_claim,1,'admin_self_task','failed',0.70,null,500,'UPSTREAM_ERROR',null
+  );
+  perform public.admin_reconcile_pin_generation_provider_refund(
+    v_target,v_request_id,1,false,'provider_dashboard','self-target-ticket-001',gen_random_uuid()
+  );
+
   -- A previously valid action UUID cannot be replayed after operator demotion.
   update public.users set is_admin=false where id=v_admin;
   begin
