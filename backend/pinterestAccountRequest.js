@@ -9,7 +9,7 @@ function getPinterestRetryDelayMs(value, now = Date.now()) {
   if (value === null || value === undefined || value === "") return DEFAULT_RATE_LIMIT_WAIT_MS;
   const raw = String(value).trim();
   let delay;
-  if (/^\\d+(?:\\.\\d+)?$/.test(raw)) {
+  if (/^\d+(?:\.\d+)?$/.test(raw)) {
     delay = Number(raw) * 1000;
   } else {
     const retryAt = Date.parse(raw);
