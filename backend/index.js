@@ -4,6 +4,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const { parseMultipartFields } = require("./prodamusWebhookBody");
+const { isOwnedByUser } = require("./resourceOwnership");
 
 const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
@@ -688,7 +689,7 @@ async function getBoardWithOwnerCheck(boardId, userId) {
     .eq("id", boardId)
     .single();
   if (error || !board) throw httpError(404, "Доска не найдена");
-  if (board.projects.user_id !== userId) throw httpError(404, "Доска не найдена");
+  if (!isOwnedByUser(board.projects && board.projects.user_id, userId)) throw httpError(404, "Доска не найдена");
   return board;
 }
 
@@ -699,7 +700,7 @@ async function getPinWithOwnerCheck(pinId, userId) {
     .eq("id", pinId)
     .single();
   if (error || !pin) throw httpError(404, "Пин не найден");
-  if (pin.boards.projects.user_id !== userId) throw httpError(404, "Пин не найден");
+  if (!isOwnedByUser(pin.boards && pin.boards.projects && pin.boards.projects.user_id, userId)) throw httpError(404, "Пин не найден");
   return pin;
 }
 
