@@ -115,6 +115,15 @@ const verifyLimiter = rateLimit({
   message: { error: "Слишком много запросов. Попробуйте через 15 минут." },
 });
 
+// Resending verification emails triggers outbound mail and needs a tighter budget.
+const resendVerificationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Слишком много запросов на отправку письма. Попробуйте позже." },
+});
+
 // Payment creation writes pending orders and calls the external payment provider.
 // Bound bursts per client IP; authentication runs first on these routes.
 const paymentCreationLimiter = rateLimit({
@@ -289,7 +298,7 @@ app.post("/verify-email", verifyLimiter, async (req, res) => {
 // Повторная отправка письма подтверждения.
 // Два режима: с Authorization-токеном (кабинет) или с { email } в теле (страница входа).
 // Ответ всегда ok:true — эндпоинт не раскрывает, существует ли такой email.
-app.post("/resend-verification", verifyLimiter, async (req, res) => {
+app.post("/resend-verification", resendVerificationLimiter, async (req, res) => {
   try {
     let userIdFromToken = null;
     try {
