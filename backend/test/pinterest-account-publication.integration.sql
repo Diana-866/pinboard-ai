@@ -538,6 +538,19 @@ begin
     raise exception 'board reassignment unexpectedly created a publication attempt';
   end if;
 
+  -- Even a failed journal explicitly marked non-retryable must block
+  -- reassignment: changing the destination cannot erase a possible remote side effect.
+  update public.pin_schedules
+     set last_error = 'Выбранная доска не найдена или недоступна подключённому Pinterest-аккаунту',
+         updated_at = now()
+   where id = v_unsafe_crash_schedule;
+  v_result := public.change_failed_pin_schedule_board(v_user::text, v_unsafe_crash_schedule, 'replacement-board');
+  if v_result->>'ok' <> 'false' or v_result->>'reason' <> 'publication_attempt_exists'
+     or (select status from public.pin_schedules where id=v_unsafe_crash_schedule) <> 'failed'
+     or (select pinterest_board_id from public.pin_schedules where id=v_unsafe_crash_schedule) <> 'board-a' then
+    raise exception 'board reassignment bypassed a non-retryable publication attempt: %', v_result;
+  end if;
+
   -- A claimed/in-flight job is not cancelled underneath its remote request.
   if (select status from public.pin_schedules
        where user_id=v_user::text and pin_id=v_inflight_pin
