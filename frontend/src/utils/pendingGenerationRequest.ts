@@ -6,13 +6,10 @@ export interface PendingGenerationRequest {
 const REQUEST_KEY = 'pinposy_generation_request_v1';
 const LEGACY_FINGERPRINT_KEY = 'pinposy_generation_fingerprint';
 const LEGACY_IDEMPOTENCY_KEY = 'pinposy_generation_key';
-let inMemoryRequest: PendingGenerationRequest | null = null;
+const REQUEST_KEY_PREFIX = 'pinposy_generation_request_v2:';
+let inMemoryRequests = new Map<string, PendingGenerationRequest>();
 
-/**
- * Store only a compact fingerprint, not the user's raw topic or generation
- * settings. The server still validates the full request against its own
- * idempotency fingerprint, so a local hash collision fails closed.
- */
+/** Store a compact fingerprint, never the user's raw topic or generation settings. */
 export function createGenerationFingerprint(value: string): string {
   let hashA = 0x811c9dc5;
   let hashB = 0x9e3779b9;
@@ -28,7 +25,7 @@ function normalizeFingerprint(value: string): string {
   return value.startsWith('fp1:') ? value : createGenerationFingerprint(value);
 }
 
-function getDefaultStorage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | undefined {
+function getDefaultStorage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem' | 'key' | 'length'> | undefined {
   try {
     return typeof window !== 'undefined' ? window.localStorage : undefined;
   } catch {
@@ -36,7 +33,7 @@ function getDefaultStorage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'
   }
 }
 
-function getLegacySessionStorage(): Pick<Storage, 'getItem' | 'removeItem'> | undefined {
+function getLegacySessionStorage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | undefined {
   try {
     return typeof window !== 'undefined' ? window.sessionStorage : undefined;
   } catch {
@@ -44,85 +41,80 @@ function getLegacySessionStorage(): Pick<Storage, 'getItem' | 'removeItem'> | un
   }
 }
 
-/**
- * Keep the active idempotency identity across tab/browser restarts. Only a
- * short fingerprint is persisted; the original topic remains in component
- * memory. If persistent storage is blocked, the in-memory copy still supports
- * retries during the current page lifetime.
- */
+function storageKey(fingerprint: string): string {
+  return `${REQUEST_KEY_PREFIX}${fingerprint}`;
+}
+
+function parseRequest(raw: string | null): PendingGenerationRequest | null {
+  if (!raw) return null;
+  try {
+    const value = JSON.parse(raw) as Partial<PendingGenerationRequest>;
+    if (typeof value.fingerprint !== 'string' || !value.fingerprint ||
+        typeof value.idempotencyKey !== 'string' || !value.idempotencyKey) return null;
+    return { fingerprint: normalizeFingerprint(value.fingerprint), idempotencyKey: value.idempotencyKey };
+  } catch {
+    return null;
+  }
+}
+
+/** Restore only the identity for this exact request; other pending requests remain untouched. */
 export function readPendingGenerationRequest(
+  fingerprint: string,
   storage: Pick<Storage, 'getItem' | 'setItem'> | undefined = getDefaultStorage(),
 ): PendingGenerationRequest | null {
-  if (inMemoryRequest) return { ...inMemoryRequest };
+  const normalized = normalizeFingerprint(fingerprint);
+  const inMemory = inMemoryRequests.get(normalized);
+  if (inMemory) return { ...inMemory };
 
   if (storage) {
     try {
-      const raw = storage.getItem(REQUEST_KEY);
-      if (raw) {
-        const value = JSON.parse(raw) as Partial<PendingGenerationRequest>;
-        if (typeof value.fingerprint === 'string' && value.fingerprint &&
-            typeof value.idempotencyKey === 'string' && value.idempotencyKey) {
-          inMemoryRequest = {
-            fingerprint: normalizeFingerprint(value.fingerprint),
-            idempotencyKey: value.idempotencyKey,
-          };
-          // Upgrade records written by the earlier implementation without
-          // leaving the raw topic/settings fingerprint in persistent storage.
-          storage.setItem(REQUEST_KEY, JSON.stringify(inMemoryRequest));
-          return { ...inMemoryRequest };
-        }
+      const scoped = parseRequest(storage.getItem(storageKey(normalized)));
+      if (scoped?.fingerprint === normalized) {
+        inMemoryRequests.set(normalized, scoped);
+        return { ...scoped };
       }
     } catch {
-      // Try the previous tab-scoped store before falling back to memory.
+      // Continue with legacy migration and the tab-scoped fallback.
     }
   }
 
   const legacyStorage = getLegacySessionStorage();
   if (legacyStorage) {
     try {
-      const raw = legacyStorage.getItem(REQUEST_KEY);
-      if (raw) {
-        const value = JSON.parse(raw) as Partial<PendingGenerationRequest>;
-        if (typeof value.fingerprint === 'string' && value.fingerprint &&
-            typeof value.idempotencyKey === 'string' && value.idempotencyKey) {
-          inMemoryRequest = {
-            fingerprint: normalizeFingerprint(value.fingerprint),
-            idempotencyKey: value.idempotencyKey,
-          };
-          try {
-            if (storage) {
-              storage.setItem(REQUEST_KEY, JSON.stringify(inMemoryRequest));
-              legacyStorage.removeItem(REQUEST_KEY);
-            }
-          } catch {
-            // The session copy remains usable for this page and future reloads.
-          }
-          return { ...inMemoryRequest };
-        }
-      }
-
-      const fingerprint = legacyStorage.getItem(LEGACY_FINGERPRINT_KEY);
-      const idempotencyKey = legacyStorage.getItem(LEGACY_IDEMPOTENCY_KEY);
-      if (fingerprint && idempotencyKey) {
-        inMemoryRequest = {
-          fingerprint: normalizeFingerprint(fingerprint),
-          idempotencyKey,
-        };
+      const legacy = parseRequest(legacyStorage.getItem(REQUEST_KEY));
+      if (legacy?.fingerprint === normalized) {
+        inMemoryRequests.set(normalized, legacy);
         try {
           if (storage) {
-            storage.setItem(REQUEST_KEY, JSON.stringify(inMemoryRequest));
+            storage.setItem(storageKey(normalized), JSON.stringify(legacy));
+            legacyStorage.removeItem(REQUEST_KEY);
+          }
+        } catch {
+          // Keep the legacy session record if persistent migration is blocked.
+        }
+        return { ...legacy };
+      }
+      const oldFingerprint = legacyStorage.getItem(LEGACY_FINGERPRINT_KEY);
+      const oldKey = legacyStorage.getItem(LEGACY_IDEMPOTENCY_KEY);
+      if (oldFingerprint && oldKey && normalizeFingerprint(oldFingerprint) === normalized) {
+        const migrated = { fingerprint: normalized, idempotencyKey: oldKey };
+        inMemoryRequests.set(normalized, migrated);
+        try {
+          if (storage) {
+            storage.setItem(storageKey(normalized), JSON.stringify(migrated));
             legacyStorage.removeItem(LEGACY_FINGERPRINT_KEY);
             legacyStorage.removeItem(LEGACY_IDEMPOTENCY_KEY);
           }
         } catch {
-          // The session copy remains usable for this page and future reloads.
+          // Keep the tab-scoped values available for the next attempt.
         }
-        return { ...inMemoryRequest };
+        return { ...migrated };
       }
     } catch {
-      // Fall through to the page-lifetime copy.
+      // Fall through to no saved identity.
     }
   }
+
   return null;
 }
 
@@ -132,18 +124,18 @@ export function writePendingGenerationRequest(
   storage: Pick<Storage, 'setItem'> | undefined = getDefaultStorage(),
 ): boolean {
   if (!fingerprint || !idempotencyKey) return false;
-  inMemoryRequest = { fingerprint: normalizeFingerprint(fingerprint), idempotencyKey };
+  const normalized = normalizeFingerprint(fingerprint);
+  const request = { fingerprint: normalized, idempotencyKey };
+  inMemoryRequests.set(normalized, request);
   if (!storage) return false;
   try {
-    storage.setItem(REQUEST_KEY, JSON.stringify(inMemoryRequest));
+    storage.setItem(storageKey(normalized), JSON.stringify(request));
     return true;
   } catch {
-    // If persistent storage is unavailable (for example, quota/security
-    // restrictions), retain the old tab-scoped fallback where possible.
     const sessionStorage = getLegacySessionStorage();
     if (sessionStorage) {
       try {
-        sessionStorage.setItem(REQUEST_KEY, JSON.stringify(inMemoryRequest));
+        sessionStorage.setItem(storageKey(normalized), JSON.stringify(request));
       } catch {
         // In-memory retry remains available for this page lifetime.
       }
@@ -152,20 +144,24 @@ export function writePendingGenerationRequest(
   }
 }
 
+/** Clear one completed/abandoned request without erasing other pending generations. */
 export function clearPendingGenerationRequest(
+  fingerprint?: string,
   storage: Pick<Storage, 'removeItem'> | undefined = getDefaultStorage(),
 ): void {
-  inMemoryRequest = null;
-  const targets = [storage, getLegacySessionStorage()];
-  for (const target of targets) {
-    if (!target) continue;
+  if (fingerprint) {
+    const normalized = normalizeFingerprint(fingerprint);
+    inMemoryRequests.delete(normalized);
+    const key = storageKey(normalized);
+    for (const target of [storage, getLegacySessionStorage()]) {
+      try { target?.removeItem(key); } catch { /* Continue clearing other stores. */ }
+    }
+    return;
+  }
+  inMemoryRequests.clear();
+  for (const target of [storage, getLegacySessionStorage()]) {
     for (const key of [REQUEST_KEY, LEGACY_FINGERPRINT_KEY, LEGACY_IDEMPOTENCY_KEY]) {
-      try {
-        target.removeItem(key);
-      } catch {
-        // Continue clearing other keys; a stale key is harmless because each
-        // new request compares its fingerprint before reusing an identity.
-      }
+      try { target?.removeItem(key); } catch { /* Best-effort legacy cleanup. */ }
     }
   }
 }
