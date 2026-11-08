@@ -489,9 +489,11 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       // Remove only the exact value this request saved; preserve any newer text.
       clearPendingPinDescriptionIfMatches(boardId, pinId, description);
       if (revision === descriptionSaveRevisionRef.current) setDescriptionSaveState('saved');
+      return true;
     } catch (error) {
       console.error('[pins] Не удалось сохранить описание:', error);
       if (revision === descriptionSaveRevisionRef.current) setDescriptionSaveState('error');
+      return false;
     }
   };
 
@@ -516,6 +518,31 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
   const handlePushToCalendar = async () => {
     if (!currentPin) return;
+
+    // A debounced description may not have entered the per-pin request queue yet.
+    // Flush it before scheduling so the calendar action cannot overtake the latest edit.
+    const pendingDescription = pendingDescriptionSaveRef.current;
+    if (pendingDescription?.pinId === currentPin.id) {
+      if (descriptionSaveTimerRef.current) {
+        clearTimeout(descriptionSaveTimerRef.current);
+        descriptionSaveTimerRef.current = null;
+      }
+      pendingDescriptionSaveRef.current = null;
+      const revision = ++descriptionSaveRevisionRef.current;
+      const saved = await savePinDescription(
+        pendingDescription.boardId,
+        pendingDescription.pinId,
+        pendingDescription.description,
+        revision,
+      );
+      if (!saved) {
+        window.alert('Не удалось сохранить последнее описание. Исправьте соединение и повторите сохранение перед планированием.');
+        return;
+      }
+    }
+
+    // Read the queue after flushing the debounce: the flush itself may have enqueued
+    // the final PATCH, and title/format updates may also still be in flight.
     const pendingSave = pendingPinSavesRef.current.get(currentPin.id);
     if (pendingSave) {
       try {
