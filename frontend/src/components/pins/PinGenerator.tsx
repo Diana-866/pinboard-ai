@@ -262,6 +262,13 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         });
         setGeneratedPins(restored);
         setActivePinIndex(0);
+        if (restored.some((pin) => readPendingPinDescription(selectedBoardId, pin.id))) {
+          // A local draft is newer than the last confirmed server save.
+          // Keep it visible and mark it unsaved until the user retries by editing.
+          setDescriptionSaveState('error');
+        } else {
+          setDescriptionSaveState('idle');
+        }
       })
       .catch((error) => {
         console.error('[pins] Не удалось восстановить сохранённые пины:', error);
