@@ -1146,3 +1146,15 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Пользовательский эффект: временный сетевой сбой базы при обработке одного пина больше не должен останавливать весь пакет. Неопределённый результат не превращается в повторную публикацию и не создаёт риск дубля.
 - Файлы: `backend/pinterestSchedule.js`, `backend/pinterest.js`, `backend/test/pinterest-schedule.test.js`, `docs/audits/AUD-221-pinterest-worker-batch-resilience.md`.
 - Исходники повторно прочитаны после записи; тесты, полный backend suite, SQL integration, lint и build фактически не запускались. Production, Pinterest API, deployment и merge не затрагивались.
+
+
+## Дополнение к handoff — 2026-11-09 (AUD-222: повторная сверка подтверждённых Pinterest-публикаций)
+
+- Найден пробел: migration 048 исправляла старые расписания `unknown` только один раз при применении миграции. Повторный worker tick не выполнял такую положительную сверку. Если расписание оставалось `unknown`, хотя журнал попытки и ledger уже подтверждали одну и ту же публикацию, оно могло застрять навсегда.
+- Добавлена migration 091 с RPC `reconcile_confirmed_pinterest_schedule_successes()`. Она переводит только `unknown` → `published`, если совпадают владелец, pin, Pinterest account, board и remote pin ID в обоих независимых записях: attempt journal и publication ledger.
+- RPC не меняет cancelled/failed/scheduled/publishing и не снимает неопределённость при отсутствии или расхождении доказательств. Это только восстановление подтверждённого успеха, а не повторная публикация.
+- Worker вызывает сверку перед захватом новых заданий; если сверка не прошла, новые задания не захватываются.
+- Добавлен PostgreSQL integration test: подтверждённая публикация восстанавливается, повторный запуск идемпотентен, несовпадающий remote ID не продвигает расписание. Миграция и тест подключены к atomic-payment workflow.
+- Пользовательский эффект: расписание, которое зависло в «неизвестно», но фактически уже опубликовано и имеет точное подтверждение в базе, сможет автоматически перейти в «опубликовано» при следующем запуске worker. Без подтверждения оно останется заблокированным — дубли не создаются.
+- Исходники повторно прочитаны после коммитов. CI ещё не подтверждён; локальный PostgreSQL test не запускался. Production DB, Pinterest API, deployment и merge не затрагивались.
+- Коммиты: migration `b77169cfaea6a4f5f18ecc4ca16aa687f635e754`, SQL test `0293c6a3447cee27b6c0624a26659cdb357d0181`, worker `426d48b413dc4487618385152ac00e61b7751d12`, workflow `f389f9ade75fb9d074b9b8b3be09566be49a7b7e`.
