@@ -162,7 +162,7 @@ const imageUploadLimiter = rateLimit({
 const { generateImage, checkImage, imageTaskResult, providerTaskError, quoteImageTask } = require("./gptunnel");
 const { register, login, verifyToken } = require("./auth");
 const supabase = require("./supabase");
-const { buildPinScheduleSnapshot, classifyLegacyScheduleAccount, getScheduleRetryability } = require("./pinterestSchedule");
+const { buildPinScheduleSnapshot, classifyLegacyScheduleAccount, getScheduleRetryability, getScheduleFailureReason } = require("./pinterestSchedule");
 const { pinterestScheduleLimiter } = require("./pinterestRateLimit");
 const { analyzeSite } = require("./analyze");
 const { generateBoards } = require("./boards");
@@ -1606,7 +1606,7 @@ app.get("/schedule", requireAuth, async (req, res) => {
     const rows = data || [];
     const failedRows = rows.filter((row) => row.status === "failed");
     if (!failedRows.length) {
-      return res.json(rows.map((row) => ({ ...row, retryable: false, retry_reason: null })));
+      return res.json(rows.map((row) => ({ ...row, retryable: false, retry_reason: null, failure_reason: null })));
     }
 
     const pinIds = [...new Set(failedRows.map((row) => String(row.pin_id)))];
@@ -1632,8 +1632,8 @@ app.get("/schedule", requireAuth, async (req, res) => {
     if (metadataError) {
       console.error("[schedule] не удалось вычислить retryability:", metadataError.message);
       return res.json(rows.map((row) => row.status === "failed"
-        ? { ...row, retryable: false, retry_reason: "metadata_unavailable" }
-        : { ...row, retryable: false, retry_reason: null }));
+        ? { ...row, retryable: false, retry_reason: "metadata_unavailable", failure_reason: getScheduleFailureReason(row) }
+        : { ...row, retryable: false, retry_reason: null, failure_reason: null }));
     }
 
     const attempts = attemptsResult.data || [];
@@ -1641,7 +1641,7 @@ app.get("/schedule", requireAuth, async (req, res) => {
     const activeAccountIds = new Set((accountsResult.data || []).map((account) => String(account.id)));
     const activeScheduleStatuses = new Set(["scheduled", "publishing", "published", "unknown"]);
     const enriched = rows.map((row) => {
-      if (row.status !== "failed") return { ...row, retryable: false, retry_reason: null };
+      if (row.status !== "failed") return { ...row, retryable: false, retry_reason: null, failure_reason: null };
       const accountId = row.pinterest_account_id ? String(row.pinterest_account_id) : null;
       const attempt = attempts.find((item) =>
         String(item.pin_id) === String(row.pin_id) &&
@@ -1664,7 +1664,7 @@ app.get("/schedule", requireAuth, async (req, res) => {
         !!accountId && activeAccountIds.has(accountId),
         hasActiveDuplicate
       );
-      return { ...row, retryable: retry.retryable, retry_reason: retry.reason };
+      return { ...row, retryable: retry.retryable, retry_reason: retry.reason, failure_reason: getScheduleFailureReason(row) };
     });
     res.json(enriched);
   } catch (e) {
