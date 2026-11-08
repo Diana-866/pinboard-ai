@@ -480,12 +480,12 @@ const MainApp: React.FC = () => {
   };
 
   const handleGenerateFromTopic = (topic?: string, date?: string, time?: string, boardId?: string) => {
-    if (topic) {
-      setPrefilledTopic(topic);
-    }
-    if (date) setPrefilledDate(date);
-    if (time) setPrefilledTime(time);
-    if (boardId) setPrefilledBoardId(boardId);
+    // Each navigation starts with exactly the supplied context; never leak a
+    // previous calendar slot into a later, unrelated generation session.
+    setPrefilledTopic(topic || '');
+    setPrefilledDate(date || '');
+    setPrefilledTime(time || '');
+    setPrefilledBoardId(boardId || '');
     setActiveTab('generator');
   };
 
