@@ -207,6 +207,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [isLoadingSavedPins, setIsLoadingSavedPins] = useState(false);
   const [savedPinsLoadError, setSavedPinsLoadError] = useState('');
   const [isSavingAspectRatio, setIsSavingAspectRatio] = useState(false);
+  const [descriptionSaveState, setDescriptionSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const descriptionSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const generationKeyRef = React.useRef<string | null>(null);
   // Serialize edits per pin and let scheduling wait for the final persisted version.
   const pendingPinSavesRef = React.useRef<Map<string, Promise<unknown>>>(new Map());
@@ -431,14 +433,30 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     }
   };
 
+  const savePinDescription = async (pinId: string, description: string) => {
+    setDescriptionSaveState('saving');
+    try {
+      await persistPinPatch(pinId, { description });
+      setDescriptionSaveState('saved');
+    } catch (error) {
+      console.error('[pins] Не удалось сохранить описание:', error);
+      setDescriptionSaveState('error');
+    }
+  };
+
   const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (!currentPin) return;
+    const description = e.target.value;
+    const pinId = currentPin.id;
     const updated = [...generatedPins];
-    updated[activePinIndex] = {
-      ...currentPin,
-      description: e.target.value,
-    };
+    updated[activePinIndex] = { ...currentPin, description };
     setGeneratedPins(updated);
+    setDescriptionSaveState('idle');
+    if (descriptionSaveTimerRef.current) clearTimeout(descriptionSaveTimerRef.current);
+    descriptionSaveTimerRef.current = setTimeout(() => {
+      descriptionSaveTimerRef.current = null;
+      void savePinDescription(pinId, description);
+    }, 800);
   };
 
   const handlePushToCalendar = async () => {
@@ -1079,20 +1097,22 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     <label className="text-xs font-semibold text-secondary-theme uppercase tracking-wider">
                       {t.generator.descriptionLabel}
                     </label>
-                    <span className="text-[11px] font-mono text-muted-theme">
-                      {currentPin.description.length} / 500
+                    <span className="text-[11px] text-muted-theme" aria-live="polite">
+                      {descriptionSaveState === 'saving' ? 'Сохранение…' :
+                        descriptionSaveState === 'saved' ? 'Сохранено' :
+                        descriptionSaveState === 'error' ? 'Не сохранено — проверьте соединение' : ''}
+                      {' '}{currentPin.description.length} / 500
                     </span>
                   </div>
                   <textarea
                     value={currentPin.description}
                     onChange={handleDescriptionChange}
                     onBlur={(event) => {
-                      const pinId = currentPin.id;
-                      const description = event.currentTarget.value;
-                      void persistPinPatch(pinId, { description }).catch((error) => {
-                        console.error('[pins] Не удалось сохранить описание:', error);
-                        window.alert(error instanceof Error ? error.message : t.generator.errorSaveDescription);
-                      });
+                      if (descriptionSaveTimerRef.current) {
+                        clearTimeout(descriptionSaveTimerRef.current);
+                        descriptionSaveTimerRef.current = null;
+                      }
+                      void savePinDescription(currentPin.id, event.currentTarget.value);
                     }}
                     rows={4}
                     className="w-full p-3 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent leading-relaxed"
