@@ -67,3 +67,28 @@ export function clearPendingPinDescription(
     // A stale draft is safer than deleting user text when storage is unavailable.
   }
 }
+
+
+/**
+ * Remove a recovery draft only when it still contains the exact value that was
+ * successfully sent. An older in-flight PATCH must never erase newer typing.
+ */
+export function clearPendingPinDescriptionIfMatches(
+  boardId: string,
+  pinId: string,
+  savedDescription: string,
+  storage: Pick<Storage, 'getItem' | 'removeItem'> | undefined = getDefaultStorage(),
+): boolean {
+  if (!storage || !boardId || !pinId) return false;
+  try {
+    const raw = storage.getItem(storageKey(boardId, pinId));
+    if (!raw) return false;
+    const value = JSON.parse(raw) as Partial<PendingPinDescription>;
+    if (value.pinId !== pinId || value.description !== savedDescription) return false;
+    storage.removeItem(storageKey(boardId, pinId));
+    return true;
+  } catch {
+    // Keep the recovery copy if storage is unavailable or contains bad data.
+    return false;
+  }
+}
