@@ -1453,6 +1453,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   <textarea
                     value={currentPin.description}
                     onChange={handleDescriptionChange}
+                    maxLength={500}
                     onBlur={(event) => {
                       if (descriptionSaveTimerRef.current) {
                         clearTimeout(descriptionSaveTimerRef.current);
