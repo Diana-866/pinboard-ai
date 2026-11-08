@@ -11,6 +11,10 @@ function classifyScheduleFailure(attempt, attemptLookupError) {
 // marked the attempt safe. Legacy failed rows default to retry_safe=false.
 function canRetryScheduleFailure(attempt, attemptLookupError, error) {
   if (attemptLookupError) return false;
+  // A fresh preflight/validation rejection takes precedence over an older
+  // journal row that was safe to retry. In particular, a deleted Pinterest
+  // board must not be retried just because a previous attempt was retry-safe.
+  if (error && error.retryable === false) return false;
   if (attempt) return attempt.status === "failed" && attempt.retry_safe === true;
   const status = Number(error && error.httpStatus);
   return !Number.isFinite(status) || status === 0 || status === 502 || status === 503;
