@@ -251,6 +251,10 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/073_provider_refund_reconciliation_workflow.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/074_respect_active_credit_reservations_in_ledger_adjustments.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/075_guard_legacy_single_pin_regeneration_debit.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/076_harden_core_table_client_privileges.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/077_finalize_reconciled_provider_failures.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/078_operator_action_journal.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/079_gptunnel_provider_cost_reporting_view.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/080_pinterest_oauth_effective_entitlement_precedence.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/081_pinterest_publish_completion_board_integrity.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/082_pinterest_operator_publication_reconciliation.sql
@@ -321,6 +325,8 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-generation-completion-guard.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/provider-refund-reconciliation-guard.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/provider-refund-reconciliation-workflow.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/provider-refund-operator-actions.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/core-table-privileges.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-regeneration-exact-quote.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-generation-text-usage.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/auth-recovery.integration.sql
@@ -330,7 +336,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-sensitive-table-privileges.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/security-definer-search-paths.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/billing-webhook-audit-privileges.integration.sql
-           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-image-deletion-claims.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-image-deletion-claims.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/postgres-integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-oauth.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-account-foundation.integration.sql
