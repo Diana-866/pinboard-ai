@@ -64,3 +64,14 @@ No local Node tests, PostgreSQL integration tests, Supabase SQL, production migr
 2. Run the PostgreSQL integration workflow against disposable PostgreSQL and capture job logs.
 3. Run the migration 009 preflight against a restored production backup; export and review every candidate row.
 4. Continue auditing all later migrations for RLS, direct grants, SECURITY DEFINER ownership/search_path and execute privileges.
+
+## 5. Storage admin endpoint rate limiting
+
+A follow-up route review found that both mutating Storage lifecycle endpoints were missing the shared `adminActionLimiter`, unlike the provider-refund and Pinterest reconciliation actions:
+
+- `POST /admin/storage/reconcile-stale-uploads`
+- `POST /admin/storage/quarantine-stale-uploads`
+
+Both routes already required authenticated administrator access, so this was not an authorization bypass. However, they perform database/storage lifecycle work and were inconsistent with the API's administrative action throttling policy. Added `adminActionLimiter` before `requireAuth` and `requireAdmin`, ensuring unauthenticated traffic is also throttled.
+
+Added `backend/test/admin-storage-rate-limit.test.js` to guard both route middleware chains against regression. This is a source-registration assertion, not an HTTP integration test. The test has been committed but has not been executed; CI and local test results are not yet available.
