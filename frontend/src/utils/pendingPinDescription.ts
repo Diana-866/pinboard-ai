@@ -20,7 +20,7 @@ const storageKey = (boardId: string, pinId: string): string =>
 export function readPendingPinDescription(
   boardId: string,
   pinId: string,
-  storage: Pick<Storage, 'getItem'> | undefined = typeof window !== 'undefined' ? window.localStorage : undefined,
+  storage: Pick<Storage, 'getItem'> | undefined = getDefaultStorage(),
 ): PendingPinDescription | null {
   if (!storage || !boardId || !pinId) return null;
   try {
@@ -39,7 +39,7 @@ export function writePendingPinDescription(
   boardId: string,
   pinId: string,
   description: string,
-  storage: Pick<Storage, 'setItem'> | undefined = typeof window !== 'undefined' ? window.localStorage : undefined,
+  storage: Pick<Storage, 'setItem'> | undefined = getDefaultStorage(),
 ): boolean {
   if (!storage || !boardId || !pinId) return false;
   try {
@@ -58,7 +58,7 @@ export function writePendingPinDescription(
 export function clearPendingPinDescription(
   boardId: string,
   pinId: string,
-  storage: Pick<Storage, 'removeItem'> | undefined = typeof window !== 'undefined' ? window.localStorage : undefined,
+  storage: Pick<Storage, 'removeItem'> | undefined = getDefaultStorage(),
 ): void {
   if (!storage || !boardId || !pinId) return;
   try {
