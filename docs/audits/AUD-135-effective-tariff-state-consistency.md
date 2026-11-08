@@ -128,3 +128,5 @@ Added an integration SQL scenario to `backend/test/pinterest-multi-account-oauth
 - Backend source, regression tests, migration 080, and SQL integration scenario were committed to the feature branch.
 - The migration and SQL integration scenario have not been executed against PostgreSQL; SQL syntax and runtime behavior remain unverified.
 - No production migration, database write, or deployment occurred.
+
+A final regression check after removing the early `none` return caught one related edge case: the manual-grant fallback treated `period_end = NULL` as unlimited even when the normalized plan itself was `none`. The fallback now requires both a non-`none` plan and an unexpired (or intentionally null) period. Added a test for `none + NULL expiry + no successful subscription`, which must remain inactive.
