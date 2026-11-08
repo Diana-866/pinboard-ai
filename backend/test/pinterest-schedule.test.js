@@ -251,3 +251,13 @@ test("successful publication failure journaling does not raise an error", async 
   }, { p_user_id: "user-1", p_pin_id: "pin-1", p_pinterest_account_id: "account-1" });
   assert.equal(callCount, 1);
 });
+
+
+test("thrown journal transport errors are normalized to a safe 503", async () => {
+  await assert.rejects(
+    persistPublishFailureJournal(async () => {
+      throw new Error("connection reset");
+    }, {}),
+    (error) => error.httpStatus === 503 && error.code === "PUBLISH_JOURNAL_PERSISTENCE_FAILED"
+  );
+});
