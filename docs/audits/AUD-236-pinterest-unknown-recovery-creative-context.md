@@ -25,7 +25,8 @@ If Pinterest created a pin but the backend crashed before saving its Pinterest I
 
 - All changed files were written through GitHub and will be read back from the feature branch.
 - Node tests, PostgreSQL integration tests, lint, and build were not executed locally.
-- CI is not yet confirmed for this change.
+- GitHub Actions for the current PR HEAD completed with failure for Prodamus webhook tests, persisted-boards frontend/backend checks, and atomic-payment PostgreSQL integration. GitHub returned `steps=null` and `logs_url=null` for all failed jobs, so the cause is unknown and the new SQL/Node regressions cannot be considered passed.
+- Vercel status remains failure with target `build-rate-limit`, a build quota issue rather than a diagnosed source-code error.
 - No production migration, deployment, Pinterest API call, or PR merge was performed.
 
-Status: IMPLEMENTED / STATIC READ-BACK PENDING / CI UNVERIFIED.
+Status: IMPLEMENTED / STATIC READ-BACK COMPLETE / CI FAILURE UNDIAGNOSED.
