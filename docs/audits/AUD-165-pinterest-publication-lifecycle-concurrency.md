@@ -229,3 +229,19 @@ The diagnostic `000_check_schema.sql` is read-only, but its expected-object list
 **Recommended remediation (not implemented):** clamp `limit` to a small positive maximum (for example 100), reject malformed/negative values, and use IMAP UID-based pagination anchored to a stable latest UID or date instead of counting the entire mailbox on every request. Preserve newest-first ordering and test empty inbox, sparse UIDs, deleted messages, and concurrent mailbox changes.
 
 **Verification and scope:** inspected `backend/index.js` route `GET /admin/mail` and `backend/mail.js::listInbox`. The message-body route returns at most 8,000 characters, but the list route has no equivalent hard page bound. No mailbox was connected or accessed during this audit; no email was sent or modified.
+
+
+
+### AUD-165-18 — Admin statistics endpoint reads entire user and credit ledgers into backend memory
+
+**Finding confirmed:** `GET /admin/stats` calls `getStats()`. In `backend/admin.js`, that function concurrently invokes `fetchAllRows()` for the complete `users` table (three columns) and complete `credit_transactions` table (three columns). `fetchAllRows()` repeatedly requests pages of 500 until a short page is returned, accumulates every row in a JavaScript array, and only then calculates monthly aggregates. There is no date cutoff, server-side aggregation, maximum total rows, or cache. Consequently, response work, database transfer, and Node.js memory usage grow with the lifetime size of both tables, not with the amount of recent dashboard data.
+
+**Request controls:** the route is protected by `requireAuth` and `requireAdmin`, but its registration does not include `adminActionLimiter`. The inspected application registers specific limiters on selected routes and does not install a catch-all/global rate limiter. This does not make the route public; it means repeated requests from an authenticated administrator are not bounded by that dedicated admin-action limiter.
+
+**Pagination consistency:** `fetchAllRows()` uses offset ranges without an explicit `.order()`. Supabase documents that `.range()` follows query order and that results can behave unexpectedly when no order is specified. Concurrent inserts/deletes during the multi-page scan can therefore also make the assembled snapshot non-repeatable (rows may be skipped or repeated), in addition to the scale cost.
+
+**Impact classification:** operational scalability and reporting consistency issue, not an authorization bypass or evidence of data corruption. The selected columns are relatively narrow, but every historical ledger row is still transferred and retained in process memory for each request.
+
+**Recommended remediation (not implemented):** move monthly grouping and totals into bounded database-side aggregation/RPC or maintained summary tables; query only the dashboard's required time window where semantics permit; use a deterministic unique order for any remaining paginated scans; cache short-lived dashboard aggregates; and apply a modest per-admin rate limit to the route. Keep the metric definitions from AUD-165-15 separate: optimizing the query must not relabel all positive ledger movements as paid sales or cached tariff labels as active entitlements.
+
+**Verification and scope:** inspected `backend/index.js` route `GET /admin/stats`, `backend/admin.js::getStats` and `fetchAllRows`, and the limiter registrations in `backend/index.js`. Supabase documents a default 1,000-row response cap (configurable) and recommends `.range()` for pagination; the application explicitly pages through that cap but does not bound the total scan. No production database was queried, no statistics endpoint was called, and no code/data outside this audit document was changed.
