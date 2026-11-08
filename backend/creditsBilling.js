@@ -15,6 +15,7 @@ const prodamus = require("./prodamus");
 const { persistWebhookException } = require("./billingWebhookAudit");
 const { httpError, validateEnum } = require("./validate");
 const { CREDIT_PACKS, normalizePackId, packAmount } = require("./creditPacks");
+const { createPaymentOrderId } = require("./paymentOrderId");
 
 // Префикс order_id покупок кредитов: по нему общий вебхук /billing/webhook
 // различает подписки (pp-…) и пакеты кредитов (ppc-…).
@@ -67,7 +68,7 @@ async function createCreditsPayment(userId, body) {
 
   const pack = CREDIT_PACKS[packageId];
   const amount = packAmount(packageId, currency); // сумма из серверного каталога
-  const orderId = `${ORDER_PREFIX}-${packageId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const orderId = createPaymentOrderId(ORDER_PREFIX, packageId);
 
   // 1. Пишем покупку как pending: источник правды и ключ идемпотентности.
   const { data: purchase, error: insertError } = await supabase
