@@ -37,9 +37,10 @@ async function getTariffState(userId, db = supabase) {
 
   if (error || !user) throw httpError(404, "Пользователь не найден");
 
-  const plan = normalizePlan(user.tariff_plan);
-  if (plan === "none") return { plan, active: false, periodEnd: null };
+  const cachedPlan = normalizePlan(user.tariff_plan);
 
+  // Always consult paid subscriptions, even when the denormalized user cache
+  // says "none". A stale cache must not hide a successfully paid entitlement.
   const { data: sub, error: subscriptionError } = await db
     .from("subscriptions")
     .select("plan, status, period_end")
@@ -56,6 +57,7 @@ async function getTariffState(userId, db = supabase) {
   if (subscriptionError) throw subscriptionError;
 
   if (!sub) {
+    const plan = cachedPlan;
     // Подписки нет — доверяем ручной выдаче тарифа, но всё равно соблюдаем
     // срок, если администратор задал tariff_period_end. Null означает бессрочную выдачу.
     const periodEnd = user.tariff_period_end || null;
@@ -63,9 +65,10 @@ async function getTariffState(userId, db = supabase) {
     return { plan, active, periodEnd };
   }
 
+  const plan = normalizePlan(sub.plan || cachedPlan);
   const periodEnd = sub.period_end || user.tariff_period_end || null;
-  const active = !periodEnd || new Date(periodEnd).getTime() > Date.now();
-  return { plan: normalizePlan(sub.plan || plan), active, periodEnd };
+  const active = plan !== "none" && (!periodEnd || new Date(periodEnd).getTime() > Date.now());
+  return { plan, active, periodEnd };
 }
 
 /**
