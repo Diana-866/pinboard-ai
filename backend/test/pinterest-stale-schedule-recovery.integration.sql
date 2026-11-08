@@ -102,7 +102,7 @@ begin
 
   delete from public.pin_schedules where id in (v_schedule_exact,v_schedule_wrong_board,v_schedule_no_ledger,v_schedule_wrong_remote,v_schedule_safe_retry,v_schedule_wrong_board_retry);
   delete from public.pinterest_publish_attempts where pin_id in (v_pin_exact,v_pin_wrong_board,v_pin_no_ledger,v_pin_wrong_remote,v_pin_safe_retry,v_pin_wrong_board_retry) and pinterest_account_id=v_account;
-  delete from public.pinterest_publications where pin_id in (v_pin_exact,v_pin_wrong_board,v_pin_no_ledger) and pinterest_account_id=v_account;
+  delete from public.pinterest_publications where pin_id in (v_pin_exact,v_pin_wrong_board,v_pin_no_ledger,v_pin_wrong_remote) and pinterest_account_id=v_account;
   delete from public.pinterest_accounts where id=v_account;
   delete from public.pins where id in (v_pin_exact,v_pin_wrong_board,v_pin_no_ledger,v_pin_wrong_remote,v_pin_safe_retry,v_pin_wrong_board_retry);
   delete from public.boards where id=v_board;
