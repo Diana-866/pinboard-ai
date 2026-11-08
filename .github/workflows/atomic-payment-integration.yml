@@ -266,6 +266,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/092_pinterest_stale_schedule_recovery_requires_exact_publication_evidence.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/093_pinterest_schedule_remote_pin_identity_fencing.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/094_pinterest_failed_board_reassignment_requires_exact_attempt_identity.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/095_pinterest_failed_schedule_retry_requires_exact_attempt_identity.sql
       - name: Verify Pinterest refresh uncertainty fence
         env:
           PGPASSWORD: postgres
@@ -358,6 +359,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-publication-board-integrity.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-operator-reconciliation.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-failed-board-reassignment.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-failed-schedule-retry-identity.integration.sql
           bash backend/test/subscription-concurrency.sh
           bash backend/test/credit-concurrency.sh
           bash backend/test/generation-concurrency.sh
