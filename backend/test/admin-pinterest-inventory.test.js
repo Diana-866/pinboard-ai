@@ -95,6 +95,17 @@ test("attempt identity includes owner and operational errors redact credential-l
   assert.equal("user_id" in result.items[0], false);
 });
 
+test("operational errors redact bearer tokens, JWTs and credential key-value pairs", async () => {
+  reset();
+  scheduleRows[0].last_error =
+    "Authorization: Bearer secret-value eyJabcdefghij.klmnopqrst.uvwxyzABCD access_token=private-value";
+  const result = await inventory.listPinterestSchedules({}, NOW);
+  assert.equal(
+    result.items[0].last_error,
+    "Authorization: Bearer [redacted] [redacted-token] access_token=[redacted]",
+  );
+});
+
 test("legacy null-account attempts select the newest journal row deterministically", async () => {
   reset();
   scheduleRows[0].pinterest_account_id = null;
