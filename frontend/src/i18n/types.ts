@@ -344,6 +344,8 @@ export interface TranslationSchema {
     statusPublishing: string;
     statusFailed: string;
     statusUnknown: string;
+    unknownPublishHelpTitle: string;
+    unknownPublishHelpBody: string;
     statusQueued: string;
     generateDateTitle: string;
     primeSlotLabel: string;
