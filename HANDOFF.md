@@ -1083,3 +1083,13 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Проверено повторным чтением GitHub: helper используется компонентом, проверки и блокировки присутствуют. Тесты, TypeScript lint и Vite build не запускались — в текущей среде нет локального checkout с установленными зависимостями. Не утверждаю, что они прошли.
 - Не отправлял запросы на публикацию в Pinterest, не менял production, не деплоил и не сливал PR.
 - Коммиты: `1f69202a8125131afdc5ae14b7033b54423d954d` (защита account/board switch и двойного клика), `26aa0014f39b1b4700c0f3b533d77d0de2965858` (helper), `e11059659a6c9bb6757706a168cf9cc0b4794452` (тесты), `1be720309a041d87fac4b37886b1e5b88e522d1e` (проверка explicit board), `9f76b02c1ebd0d9eb805296d6a7f2bb51ac3082a` (селектор явной замены доски).
+
+
+## Дополнение к handoff — 2026-11-09 (AUD-216)
+
+- Ужесточена обработка ситуации, когда Pinterest мог принять публикацию, но PinPosy не смог записать итог в журнал попыток.
+- Ошибка записи журнала (как возвращённая Supabase, так и rejected transport promise) теперь нормализуется в HTTP 503 с кодом `PUBLISH_JOURNAL_PERSISTENCE_FAILED`. Пользователь получает явное указание: публикация заблокирована до сверки, повторять её нельзя.
+- Путь охватывает сетевые ошибки POST, non-2xx ответы Pinterest и успешный ответ без remote pin ID. При ошибке локального completion исходная ошибка остаётся основной, вторичная диагностическая ошибка логируется.
+- Добавлены unit tests для возвращённой DB-ошибки, rejected promise и успешной записи.
+- Тесты, lint, интеграционные SQL и сборка фактически не запускались. Production DB, Pinterest API, deployment и merge не затрагивались.
+- Подробности: `docs/audits/AUD-216-pinterest-failure-journal-write-safety.md`.
