@@ -29,7 +29,7 @@ const supabase = require("./supabase");
 const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
 const { httpError } = require("./validate");
 const { getPinterestTokenExpiresAt } = require("./pinterestOAuth");
-const { buildScheduleWorkerFailureState, hasMatchingScheduleAttemptIdentity, isScheduleClaimUpdateConfirmed, resolvePublishedReservation, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown, persistPublishFailureJournal } = require("./pinterestSchedule");
+const { buildScheduleWorkerFailureState, hasCompleteScheduleClaimIdentity, hasMatchingScheduleAttemptIdentity, isScheduleClaimUpdateConfirmed, resolvePublishedReservation, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown, persistPublishFailureJournal } = require("./pinterestSchedule");
 const {
   createBrowserBinding,
   readCookie,
@@ -1102,6 +1102,9 @@ function registerRoutes(app, deps) {
           const { finalStatus, message, retryAt, nextStatus } = failure;
           let scheduleUpdateError = null;
           try {
+            if (!hasCompleteScheduleClaimIdentity(schedule)) {
+              throw new Error("Claimed schedule is missing a required identity field; refusing to mutate it");
+            }
             const update = await supabase
               .from("pin_schedules")
               .update({
