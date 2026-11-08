@@ -1,4 +1,4 @@
--- Pin image deletion-claim schema contract. Run after migration 070.
+-- Pin image deletion-claim schema contract. Run after migrations 070, 083 and 089.
 do $body$
 declare
   v_path text;
@@ -436,5 +436,54 @@ begin
   if not public.finalize_pin_image_deletion('pin-images', v_regen_path, v_token, true, null) then
     raise exception 'regeneration image claim could not be finalized after journal removal';
   end if;
+end;
+$body$;
+
+
+-- A path that is being deleted, already deleted, or quarantined must never
+-- become a new durable pin reference.
+do $body$
+declare
+  v_user_id uuid := gen_random_uuid();
+  v_project_id uuid := gen_random_uuid();
+  v_board_id uuid := gen_random_uuid();
+  v_pin_id uuid := gen_random_uuid();
+  v_states text[] := array['deleting', 'deleted', 'quarantined'];
+  v_state text;
+  v_path text;
+  v_url text;
+  v_token uuid := gen_random_uuid();
+begin
+  insert into public.users(id, email)
+  values (v_user_id, v_user_id::text || '@pin-image-fenced-reference-test.invalid');
+  insert into public.projects(id, user_id) values (v_project_id, v_user_id);
+  insert into public.boards(id, project_id) values (v_board_id, v_project_id);
+  insert into public.pins(id, board_id) values (v_pin_id, v_board_id);
+
+  foreach v_state in array v_states loop
+    v_path := case v_state
+      when 'deleting' then 'pins/generation-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.png'
+      when 'deleted' then 'pins/generation-ffffffffffffffffffffffffffffffff.png'
+      else 'pins/generation-99999999999999999999999999999999.png'
+    end;
+    v_url := 'https://project.supabase.co/storage/v1/object/public/pin-images/' || v_path;
+
+    insert into public.pin_image_object_lifecycle(
+      bucket_id, object_path, state, claim_token, claim_expires_at
+    ) values (
+      'pin-images', v_path, v_state,
+      case when v_state = 'deleting' then v_token else null end,
+      case when v_state = 'deleting' then now() + interval '10 minutes' else null end
+    );
+
+    begin
+      update public.pins set image_url = v_url where id = v_pin_id;
+      raise exception 'reference write unexpectedly accepted for lifecycle state %', v_state;
+    exception when sqlstate '55000' then
+      if sqlerrm like 'reference write unexpectedly accepted%' then
+        raise;
+      end if;
+    end;
+  end loop;
 end;
 $body$;
