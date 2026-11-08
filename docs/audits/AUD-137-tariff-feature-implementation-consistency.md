@@ -49,12 +49,17 @@ PR: #4 (изменения не объединялись и не развёрт�
 **Риск:** обещания SLA/приоритета не обеспечены кодом.  
 **Рекомендация:** убрать эти формулировки до появления реальной маршрутизации очередей и измеримых гарантий; либо реализовать приоритеты и тесты изоляции.
 
-### AUD-137.4 — дополнительные Agency/Pro услуги требуют проверки продуктовой готовности
+### AUD-137.4 — ключевые функции Analytics сейчас демонстрационные, а не подтверждённые реальные данные
 
-В карточках также указаны reverse-engineering competitor pins, priority support chat, dedicated Pinterest strategist consultant и unbranded white-label PDF reports. В интерфейсе существуют AI-бот и экран конкурентного анализа, но проверенная тарифная авторизация не связывает эти возможности с Pro/Agency, а подтверждённого workflow консультации, SLA поддержки или white-label PDF pipeline в просмотренных backend-маршрутах не найдено.
+Карточка Analytics обещает круглосуточного AI Strategist Bot, Pinterest Trend Radar, мониторинг конкурентов и content gaps, keyword explorer с CSV export и Board SEO health audit. Проверка экранов показала:
+- `frontend/src/components/competitors/CompetitorAudit.tsx` инициализирует конкурентов из `INITIAL_COMPETITORS`, использует статические `DEFAULT_SUGGESTIONS` / `EXTENDED_SUGGESTIONS_POOL`, а сам экран показывает `dataDemoNotice`. В компоненте не найден вызов backend API для загрузки реальных метрик конкурентов.
+- `frontend/src/components/bot/FloatingStrategistBot.tsx` формирует ответы локально через `setTimeout` и шаблонные ветки по ключевым словам; вызов AI/backend API в проверенном компоненте не найден. Это не подтверждает заявленный 24/7 AI-консультант.
+- `frontend/src/components/analytics/AnalyticsView.tsx` показывает состояние `dataUnavailableTitle` / `dataUnavailableDescription`, а не подключённую аналитику Pinterest.
 
-**Риск:** часть маркетинговых пунктов может быть описанием концепции, а не доступной покупателю функции.  
-**Рекомендация:** отдельно провести функциональный аудит каждого пункта и либо привязать доступ к тарифам, либо обозначить услугу как ручную/будущую.
+Карточки Pro/Agency дополнительно обещают reverse-engineering competitor pins, priority support chat, dedicated Pinterest strategist consultant и unbranded white-label PDF reports. В просмотренных backend-маршрутах не обнаружены соответствующие тарифные workflows, SLA поддержки или white-label PDF pipeline.
+
+**Риск:** центральные функции аналитического тарифа представлены демонстрационными/заглушечными данными, что создаёт существенный риск несоответствия платного предложения фактическому продукту.  
+**Рекомендация:** не принимать оплату за эти функции как за готовые, пока не подключены реальные источники данных и AI workflow; временно пометить экраны как demo/coming soon и убрать из коммерческих обещаний либо явно обозначить ограничение.
 
 ## Важные замечания по доступу
 
