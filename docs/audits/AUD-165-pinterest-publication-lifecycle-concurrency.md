@@ -55,6 +55,15 @@ The audit found that `publishPin` calls `complete_pinterest_publish_v2`, which a
 
 **Resolved on this branch:** the redundant worker UPDATE has been removed. The completion RPC is now the single authoritative transition. The PostgreSQL integration fixture was strengthened to assert that completion stores the remote ID, sets `published_at`, clears `claim_token`, and leaves failed historical schedules unchanged. The SQL test has not yet been executed in this audit.
 
+
+### AUD-165-05 — PostgreSQL race regression added
+
+Added `backend/test/pinterest-publication-concurrency.sh` and wired it into `.github/workflows/atomic-payment-integration.yml`. The script creates an isolated fixture, holds the Pinterest account row lock, starts worker completion and administrator reconciliation in separate PostgreSQL sessions, confirms both are waiting on the same lock, then checks the final durable state.
+
+Both operations use the same externally confirmed remote pin identity. Either serialized winner is acceptable: completion may publish first and cause stale reconciliation to reject, or reconciliation may record the operator receipt first and completion may finish idempotently. In both cases the expected final state is one published schedule, no claim token, one matching publication row, and one published attempt; the operator receipt may exist zero or one time.
+
+The new concurrency script is wired into CI but has **not yet been observed executing successfully**. A green workflow run is still required before treating this race as verified.
+
 ## Verification status
 
 - Repository/schema inspection: completed for the publication lifecycle and relevant migrations 016–082.
