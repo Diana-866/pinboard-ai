@@ -1025,3 +1025,14 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - PR #4 остаётся Draft/open/unmerged; `mergeable=false`. Для commit `3b5ec27` GitHub Actions workflow runs не обнаружены, combined status пустой. Не считать проверки зелёными.
 - Следующие автономные задачи: аудит OAuth callback/state reuse и reconnect/disconnect races; затем продолжить аудит payment/refund lifecycle, provider cost accounting, storage/backup/restore, auth/permissions, UX and release readiness. До запуска отдельно требуется disposable PostgreSQL CI, Pinterest sandbox/Standard access проверки и ручная проверка production env/cron/keys владельцем.
 - **Запрет на запуск:** текущий код/миграции не считать готовыми к production deploy только на основании статического аудита. Не применять новые миграции к рабочей БД, не включать cron и не переключать DNS до завершения аудита, тестов, резервного копирования и согласованного cutover.
+
+## Дополнение к handoff — 2026-11-08 (AUD-211: защита от параллельного создания счетов)
+
+- В `frontend/src/components/pricing/PricingView.tsx` устранён UX-риск: во время создания любого счёта блокируются все кнопки покупки тарифов и пакетов кредитов, а не только кнопка выбранного тарифа/пакета.
+- Добавлен общий синхронный checkout-lock через `useRef`, который не позволяет двум обработчикам стартовать параллельно до следующего React render. При ошибке создания счёта lock снимается, пользователь может повторить действие.
+- Практический эффект: быстрое нажатие «Купить Start», затем «Купить Pro» или другой пакет кредитов больше не создаст второй независимый счёт в рамках одного экземпляра экрана. Это уменьшает риск случайно оплатить несколько счетов.
+- Ограничение: защита действует в текущем экземпляре PricingView. Она не заменяет серверную идемпотентность между вкладками/устройствами и не защищает прямые API-вызовы. Не стал повторно использовать pending-счета: в БД не сохраняется подтверждённая ссылка Prodamus, а поведение срока действия старой ссылки нужно отдельно согласовать с провайдером.
+- Изменён файл UI и добавлен `docs/audits/AUD-211-pricing-checkout-concurrency-guard.md`.
+- Коммиты: `89c101669258b8a9e03518b0ef467aa24e9e869c` (код), `3ef9c7d7e427765270b5f85e1b3d4bb317c18bce` (аудит).
+- Source-level проверка выполнена повторным чтением UI-файла. Frontend test/build/lint не запускались: локального checkout и установленных зависимостей нет. Не было запросов к Prodamus, реальных оплат, production DB изменений, deployment или merge.
+- Следующий приоритет: продолжить поиск подтверждённого риска в generation/credit settlement и платежном lifecycle; не добавлять speculative refund webhook или server-side order reuse без подтверждённого контракта Prodamus.
