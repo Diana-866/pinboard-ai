@@ -403,6 +403,7 @@ export const en: TranslationSchema = {
     pinterestDisconnectWarning: "This removes the account tokens from PinPosy but does not revoke Pinterest's OAuth grant. Future queued posts for this account will be marked as failed; an in-flight request may still finish. Continue?",
     pinterestAccountFallback: "Pinterest account",
     pinterestReauthRequired: "Reauthorization required",
+    pinterestReauthDescription: "Reconnect this Pinterest account to load boards and publish Pins again.",
     pinterestPinsLabel: "pins",
     billingSection: 'Plan & AI Credit Allocation',
     billingSectionDesc: 'Monitor your monthly intelligence credits and automation capabilities.',
