@@ -20,7 +20,7 @@ const {
 } = require("./pinterestRateLimit");
 const { executeWithAccountToken } = require("./pinterestAccountRequest");
 const { toPublicPinterestAccount, toDisconnectedPinterestAccount, isPinterestReauthRequired } = require("./pinterestPublicAccount");
-const { isCommittedTokenRefresh, hasActiveRefreshLease } = require("./pinterestRefreshRecovery");
+const { isCommittedTokenRefresh, hasActiveRefreshLease, isExplicitRefreshRateLimit } = require("./pinterestRefreshRecovery");
 const { decodePinterestAccountRecord } = require("./pinterestAccountRecord");
 const crypto = require("crypto");
 const { hasEncryptionKey, isEncryptedToken, isEncryptedWithActiveKey, encryptToken, decryptToken } = require("./pinterestTokenCrypto");
@@ -364,7 +364,30 @@ async function refreshAccessToken(account) {
     }
     if (res.status < 200 || res.status >= 300) {
       console.error("[pinterest] обновление токена не удалось:", res.status);
-      throw httpError(409, "Pinterest-доступ истёк. Подключите аккаунт заново.");
+      if (isExplicitRefreshRateLimit(res.status)) {
+        // A received 429 explicitly rejects this refresh attempt. Unlike a
+        // timeout or 5xx, it is safe to release the pre-request uncertainty
+        // fence so a later user request can retry after the provider's limit.
+        // The timestamp predicate prevents this cleanup from touching a
+        // reconnect or any newer account state.
+        const { data: restored, error: restoreError } = await supabase
+          .from("pinterest_accounts")
+          .update({ refresh_state: "ready", updated_at: new Date().toISOString() })
+          .eq("id", latest.id)
+          .eq("user_id", String(latest.user_id))
+          .eq("updated_at", refreshStarted.updated_at)
+          .eq("refresh_state", "uncertain")
+          .select("id")
+          .maybeSingle();
+        if (restoreError || !restored) {
+          console.error("[pinterest] не удалось снять uncertainty fence после явного 429:", restoreError && restoreError.message);
+          throw httpError(503, "Pinterest временно ограничил обновление доступа. Состояние подключения не удалось безопасно восстановить; повторите позже.");
+        }
+        throw httpError(503, "Pinterest временно ограничил частоту обновления доступа. Подождите немного и повторите действие.");
+      }
+      // Other HTTP failures may still have an ambiguous provider outcome.
+      // Keep the uncertainty fence: never replay the old refresh token.
+      throw httpError(409, "Не удалось подтвердить обновление Pinterest-доступа. Подключите аккаунт заново.");
     }
 
     // Do not use the general OAuth upsert here: a reconnect may have replaced
