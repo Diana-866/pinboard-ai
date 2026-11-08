@@ -1355,3 +1355,13 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Пользовательский эффект: запоздавшая OAuth-вкладка не может затереть токены нового подключения того же Pinterest-аккаунта.
 - Статус: REGRESSION TEST ADDED / STATIC READ-BACK + CI PENDING. SQL локально не запускался. Production DB, Pinterest API, deploy и merge не затрагивались.
 - Документ: `docs/audits/AUD-240-pinterest-stale-oauth-callback-after-reconnect.md`.
+
+
+## AUD-241 — восстановление Pinterest refresh после HTTP 429 (2026-11-09)
+- Исправлен UX-сбой: явный HTTP 429 от Pinterest больше не переводит аккаунт в состояние, требующее повторного OAuth-подключения.
+- После 429 backend снимает `refresh_state='uncertain'` только условным UPDATE точной строки (account/user/updated_at/uncertain); при гонке с reconnect или изменением аккаунта очистка не затрагивает новое состояние.
+- Возвращается HTTP 503 с понятным сообщением подождать и повторить действие; автоматический повтор refresh не запускается.
+- Сетевые ошибки, таймауты, 5xx и неполные ответы остаются fenced: старый refresh token не переиспользуется, требуется безопасная OAuth-авторизация.
+- Добавлены unit-регрессии классификации 429 и PostgreSQL-сценарий условного снятия fence + защита от stale cleanup после reconnect. Существующий workflow уже запускает SQL-файл.
+- Изменения: `backend/pinterest.js`, `backend/pinterestRefreshRecovery.js`, `backend/test/pinterest-refresh-recovery.test.js`, `backend/test/pinterest-refresh-disconnect-fencing.integration.sql`, `docs/audits/AUD-241-pinterest-refresh-rate-limit-recovery.md`.
+- Тесты Node/PostgreSQL локально не запускались; CI на новом HEAD требует отдельной проверки. Не считать проверки пройденными до реального зелёного запуска. Production не менялся, миграции не применялись, deployment и merge не выполнялись.
