@@ -196,3 +196,16 @@ The diagnostic `000_check_schema.sql` is read-only, but its expected-object list
 **Sources:** official Prodamus pages “Как в Prodamus устроены возвраты платежей клиентам”, “Как сформировать заявку на возврат”, “Как понять, что возврат произведён”, and “Документация для самостоятельной интеграции сервисов”.
 
 **Verification and scope:** documentation was reviewed on 2026-11-08 and compared with the current PinPosy branch implementation. No merchant account was accessed, no request was submitted, no payment was refunded, no provider credentials were used, and no production or external state was changed.
+
+
+### AUD-165-15 — Admin dashboard financial aggregates are not payment/entitlement metrics
+
+**Finding confirmed:** `backend/admin.js::getStats` builds `creditsSoldByMonth` by summing every positive `credit_transactions.amount` row, without filtering by transaction type or linking the row to a successful `credit_purchases` record. The repository's own development top-up path writes positive ledger adjustments with type `topup` (`backend/index.js` → `backend/credits.js::adjustBalance`), so this aggregate includes non-sale credits. It measures positive credit-ledger movements, not paid credit-pack sales and certainly not RUB revenue. The field name `creditsSoldByMonth` is therefore materially misleading.
+
+**Second metric limitation:** `tariffPlanBreakdown` counts the cached `users.tariff_plan` field and does not resolve active paid entitlements or expiry. The implementation comment explicitly notes that it is a count of cached tariff labels, not effective active entitlements. Expired plans and stale cache values can therefore be represented as current plan counts.
+
+**Scope:** the route `GET /admin/stats` is protected by `requireAuth` and `requireAdmin`; this is a reporting-semantics/data-quality issue, not an authorization bypass. The separate unresolved financial-operations queue is read-only and explicitly warns that age does not prove provider failure, refund, or safe reservation release. The inspected admin financial routes do not expose a general-purpose arbitrary balance adjustment endpoint.
+
+**Recommended remediation (not implemented):** rename the current aggregate to `creditsGrantedByMonth` (or otherwise label it as all positive ledger movements); add a separate paid-credit-sales metric derived only from successful `credit_purchases` with purchase-linked ledger entries; never label credit quantities as cash revenue. Rename the cached tariff count to `cachedTariffPlanBreakdown`, or compute a distinct effective-active-entitlement breakdown using the same authoritative subscription precedence and expiry rules as `getTariffState`. Keep these metrics separate so cached display fields cannot be mistaken for payment truth.
+
+**Verification and scope:** inspected `backend/admin.js`, `backend/credits.js`, `backend/devTopup.js`, the `/admin/stats` route, and the admin financial-operations queue. This is a source-level audit; no financial rows, account balances, subscriptions, production database, or external service were changed. No CI result is implied.
