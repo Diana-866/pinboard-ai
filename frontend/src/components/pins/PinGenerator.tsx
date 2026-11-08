@@ -236,6 +236,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [isSchedulingPin, setIsSchedulingPin] = useState(false);
   const schedulingPinLockRef = React.useRef(false);
   const [descriptionSaveState, setDescriptionSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [descriptionSavePinId, setDescriptionSavePinId] = useState<string | null>(null);
   const descriptionSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingDescriptionSaveRef = React.useRef<{ boardId: string; pinId: string; description: string; revision: number } | null>(null);
   const descriptionSaveRevisionRef = React.useRef(0);
@@ -331,6 +332,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
     setGeneratedPins([]);
     setActivePinIndex(0);
+    setDescriptionSavePinId(null);
+    setDescriptionSaveState('idle');
     setIsLoadingSavedPins(true);
     setSavedPinsLoadError('');
 
@@ -362,11 +365,14 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         });
         setGeneratedPins(restored);
         setActivePinIndex(0);
-        if (restored.some((pin) => readPendingPinDescription(selectedBoardId, pin.id))) {
+        const firstPinWithDraft = restored.find((pin) => readPendingPinDescription(selectedBoardId, pin.id));
+        if (firstPinWithDraft) {
           // A local draft is newer than the last confirmed server save.
-          // Keep it visible and mark it unsaved until the user retries by editing.
+          // Its status is scoped to that pin, not to whichever card is viewed later.
+          setDescriptionSavePinId(firstPinWithDraft.id);
           setDescriptionSaveState('error');
         } else {
+          setDescriptionSavePinId(null);
           setDescriptionSaveState('idle');
         }
       })
@@ -597,7 +603,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   };
 
   const savePinDescription = async (boardId: string, pinId: string, description: string, revision: number) => {
-    if (revision === descriptionSaveRevisionRef.current) setDescriptionSaveState('saving');
+    if (revision === descriptionSaveRevisionRef.current) {
+      setDescriptionSavePinId(pinId);
+      setDescriptionSaveState('saving');
+    }
     try {
       await persistPinPatch(pinId, { description });
       // A slower, older PATCH may finish after the user has typed a newer draft.
@@ -619,6 +628,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     const updated = [...generatedPins];
     updated[activePinIndex] = { ...currentPin, description };
     setGeneratedPins(updated);
+    setDescriptionSavePinId(pinId);
     setDescriptionSaveState('idle');
     const revision = ++descriptionSaveRevisionRef.current;
     if (descriptionSaveTimerRef.current) clearTimeout(descriptionSaveTimerRef.current);
@@ -1416,12 +1426,20 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                       {t.generator.descriptionLabel}
                     </label>
                     <span className="text-[11px] text-muted-theme" aria-live="polite">
-                      {descriptionSaveState === 'saving' ? 'Сохранение…' :
-                        descriptionSaveState === 'saved' ? 'Сохранено' :
-                        descriptionSaveState === 'error' ? 'Не сохранено — проверьте соединение' : ''}
+                      {(descriptionSavePinId === currentPin.id
+                        ? descriptionSaveState
+                        : readPendingPinDescription(selectedBoardId, currentPin.id) ? 'error' : 'idle') === 'saving' ? 'Сохранение…' :
+                        (descriptionSavePinId === currentPin.id
+                          ? descriptionSaveState
+                          : readPendingPinDescription(selectedBoardId, currentPin.id) ? 'error' : 'idle') === 'saved' ? 'Сохранено' :
+                        (descriptionSavePinId === currentPin.id
+                          ? descriptionSaveState
+                          : readPendingPinDescription(selectedBoardId, currentPin.id) ? 'error' : 'idle') === 'error' ? 'Не сохранено — проверьте соединение' : ''}
                       {' '}{currentPin.description.length} / 500
                     </span>
-                    {descriptionSaveState === 'error' && (
+                    {(descriptionSavePinId === currentPin.id
+                      ? descriptionSaveState
+                      : readPendingPinDescription(selectedBoardId, currentPin.id) ? 'error' : 'idle') === 'error' && (
                       <button
                         type="button"
                         className="text-[11px] text-accent underline underline-offset-2"
