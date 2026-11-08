@@ -286,6 +286,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             continue;
           }
           if (error?.status === 401) return;
+          // A temporary network/5xx failure is not evidence that the request
+          // disappeared. Keep it visible as uncertain so users can retry the
+          // read-only status check instead of seeing the recovery entry vanish.
+          found.push({ key: identity.fingerprint, status: 'unknown', boardId: '', pinCount: 0 });
           // Keep checking other independent requests after a single failure.
         }
       }
