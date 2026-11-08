@@ -29,7 +29,7 @@ const supabase = require("./supabase");
 const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
 const { httpError } = require("./validate");
 const { getPinterestTokenExpiresAt } = require("./pinterestOAuth");
-const { buildScheduleWorkerFailureState, hasMatchingScheduleAttemptIdentity, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown, persistPublishFailureJournal } = require("./pinterestSchedule");
+const { buildScheduleWorkerFailureState, hasMatchingScheduleAttemptIdentity, isScheduleClaimUpdateConfirmed, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown, persistPublishFailureJournal } = require("./pinterestSchedule");
 const {
   createBrowserBinding,
   readCookie,
@@ -1059,8 +1059,13 @@ function registerRoutes(app, deps) {
               })
               .eq("id", schedule.id)
               .eq("status", "publishing")
-              .eq("claim_token", schedule.claim_token);
+              .eq("claim_token", schedule.claim_token)
+              .select("id")
+              .maybeSingle();
             scheduleUpdateError = update.error;
+            if (!scheduleUpdateError && !isScheduleClaimUpdateConfirmed(update)) {
+              scheduleUpdateError = new Error("Schedule claim is no longer current; no row was updated");
+            }
           } catch (updateError) {
             // Keep processing the rest of the claimed batch. This row remains
             // fenced by its claim token and is reconciled by stale-claim recovery.
