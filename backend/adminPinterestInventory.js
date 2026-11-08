@@ -92,7 +92,13 @@ async function listPinterestSchedules(query = {}, now = Date.now()) {
       // evidence, identities, age, and eligibility in its own SQL transaction.
       actionable_reconciliation: row.status === "unknown" &&
         !row.claim_token &&
-        Boolean(attempt && ["unknown", "processing"].includes(attempt.status) && attempt.retry_safe === false),
+        Date.parse(row.updated_at) <= staleBefore &&
+        Boolean(attempt &&
+          ["unknown", "processing"].includes(attempt.status) &&
+          attempt.retry_safe === false &&
+          Date.parse(attempt.updated_at) <= staleBefore &&
+          attempt.pinterest_board_id === row.pinterest_board_id &&
+          (!row.pinterest_pin_id || row.pinterest_pin_id === attempt.pinterest_pin_id)),
     };
   });
 
