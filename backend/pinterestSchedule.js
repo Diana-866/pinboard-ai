@@ -42,6 +42,7 @@ module.exports = {
   classifyLegacyScheduleAccount,
   getScheduleRetryability,
   getScheduleFailureReason,
+  sanitizeScheduleForClient,
 };
 
 
@@ -87,6 +88,14 @@ function classifyLegacyScheduleAccount(accounts, requestedAccountId = null) {
   return { status: "selected", account: active[0] };
 }
 
+
+function sanitizeScheduleForClient(schedule) {
+  if (!schedule || typeof schedule !== "object") return schedule;
+  // Provider diagnostics may contain internal response details. Keep them in
+  // the database/server logs, but never expose raw last_error to browser clients.
+  const { last_error: _privateLastError, ...publicSchedule } = schedule;
+  return publicSchedule;
+}
 
 function getScheduleFailureReason(schedule) {
   if (!schedule || schedule.status !== "failed") return null;
