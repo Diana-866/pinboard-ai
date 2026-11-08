@@ -228,3 +228,84 @@ begin
   delete from public.users where id::text = v_user_id;
 end;
 $body$;
+
+
+-- An explicit provider 429 may clear only the exact uncertainty fence it started.
+-- A reconnect that replaces credentials while the 429 response is being handled
+-- must win; stale cleanup must not touch the newer account row.
+do $body$
+declare
+  v_user_id text := gen_random_uuid()::text;
+  v_account_id uuid;
+  v_fence_updated_at timestamptz;
+  v_restored uuid;
+  v_stale_cleanup uuid;
+  v_access_token text;
+  v_refresh_token text;
+  v_state text;
+begin
+  insert into public.users(email, tariff_plan)
+  values ('pinterest-refresh-429-' || v_user_id || '@example.invalid', 'start');
+
+  insert into public.pinterest_accounts(
+    user_id, pinterest_user_id, username, access_token, refresh_token, expires_at
+  ) values (
+    v_user_id, 'refresh-429-' || v_user_id, 'refresh-429',
+    'access-before-429', 'refresh-before-429', now() + interval '1 hour'
+  ) returning id into v_account_id;
+
+  update public.pinterest_accounts
+     set refresh_state = 'uncertain', updated_at = clock_timestamp()
+   where id = v_account_id and user_id = v_user_id
+   returning updated_at into v_fence_updated_at;
+
+  update public.pinterest_accounts
+     set refresh_state = 'ready', updated_at = clock_timestamp()
+   where id = v_account_id and user_id = v_user_id
+     and updated_at = v_fence_updated_at
+     and refresh_state = 'uncertain'
+   returning id into v_restored;
+
+  if v_restored is distinct from v_account_id then
+    raise exception 'explicit 429 could not safely restore its own uncertainty fence';
+  end if;
+
+  update public.pinterest_accounts
+     set refresh_state = 'uncertain', updated_at = clock_timestamp()
+   where id = v_account_id and user_id = v_user_id
+   returning updated_at into v_fence_updated_at;
+
+  -- Simulate a successful reconnect before the old 429 cleanup reaches storage.
+  update public.pinterest_accounts
+     set access_token = 'access-from-reconnect',
+         refresh_token = 'refresh-from-reconnect',
+         updated_at = clock_timestamp()
+   where id = v_account_id and user_id = v_user_id;
+
+  update public.pinterest_accounts
+     set refresh_state = 'ready', updated_at = clock_timestamp()
+   where id = v_account_id and user_id = v_user_id
+     and updated_at = v_fence_updated_at
+     and refresh_state = 'uncertain'
+   returning id into v_stale_cleanup;
+
+  if v_stale_cleanup is not null then
+    raise exception 'stale 429 cleanup overwrote a newer reconnect';
+  end if;
+
+  select access_token, refresh_token, refresh_state
+    into v_access_token, v_refresh_token, v_state
+    from public.pinterest_accounts
+   where id = v_account_id and user_id = v_user_id;
+
+  if v_access_token <> 'access-from-reconnect'
+     or v_refresh_token <> 'refresh-from-reconnect'
+     or v_state <> 'ready' then
+    raise exception 'stale 429 cleanup changed the reconnected account';
+  end if;
+
+  delete from public.pinterest_accounts where id = v_account_id;
+  delete from public.pinterest_oauth_connection_state where user_id = v_user_id;
+  delete from public.users where id::text = v_user_id;
+end;
+$body$;
