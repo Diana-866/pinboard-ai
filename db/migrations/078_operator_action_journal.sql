@@ -18,6 +18,7 @@ create table if not exists public.provider_refund_operator_actions (
   constraint provider_refund_operator_actions_shape_check check (
     (action_kind='reconcile_refund'
       and provider_refunded is not null
+      and evidence_type is not null
       and evidence_type in ('provider_dashboard','provider_support','payment_statement','manual_review')
       and evidence_reference is not null
       and length(trim(evidence_reference)) between 8 and 500
