@@ -34,6 +34,7 @@ interface PublishingCalendarProps {
   onAddPin: (pin: ScheduledPinItem) => void;
   onCancelSchedule?: (pin: ScheduledPinItem) => Promise<void>;
   onRetrySchedule?: (pin: ScheduledPinItem) => Promise<void>;
+  onChangeFailedScheduleBoard?: (pin: ScheduledPinItem, pinterestBoardId: string) => Promise<void>;
   onReconcileLegacySchedule?: (pin: ScheduledPinItem, accountId: string) => Promise<void>;
   onGoToGenerator: (topic?: string, date?: string) => void;
   onOpenReview?: () => void;
@@ -56,6 +57,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
   onAddPin,
   onCancelSchedule,
   onRetrySchedule,
+  onChangeFailedScheduleBoard,
   onReconcileLegacySchedule,
   onGoToGenerator,
   onOpenReview,
@@ -72,6 +74,10 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
   const [filterAccount, setFilterAccount] = useState<string>('all');
   const [selectedPin, setSelectedPin] = useState<ScheduledPinItem | null>(null);
   const [legacyAccountId, setLegacyAccountId] = useState('');
+  const [replacementBoards, setReplacementBoards] = useState<Array<{ id: string; name: string }>>([]);
+  const [replacementBoardId, setReplacementBoardId] = useState('');
+  const [replacementBoardsLoading, setReplacementBoardsLoading] = useState(false);
+  const [replacementBoardsError, setReplacementBoardsError] = useState('');
   const [busyScheduleAction, setBusyScheduleAction] = useState<string | null>(null);
   const scheduleActionLockRef = useRef<string | null>(null);
 
@@ -95,6 +101,64 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
     }
     setLegacyAccountId(accounts.length === 1 ? accounts[0].id : '');
   }, [selectedPin, accounts]);
+
+  useEffect(() => {
+    let active = true;
+    const loadReplacementBoards = async () => {
+      if (
+        !selectedPin ||
+        selectedPin.status !== 'failed' ||
+        selectedPin.failureReason !== 'board_unavailable' ||
+        !selectedPin.pinterestAccountId ||
+        !onChangeFailedScheduleBoard
+      ) {
+        setReplacementBoards([]);
+        setReplacementBoardId('');
+        setReplacementBoardsError('');
+        setReplacementBoardsLoading(false);
+        return;
+      }
+
+      setReplacementBoardsLoading(true);
+      setReplacementBoardsError('');
+      try {
+        const result = await apiRequest(
+          `/integrations/pinterest/boards?account_id=${encodeURIComponent(selectedPin.pinterestAccountId)}`
+        );
+        const items = Array.isArray(result?.boards)
+          ? result.boards
+              .filter((board: any) => board && board.id && board.name)
+              .map((board: any) => ({ id: String(board.id), name: String(board.name) }))
+          : [];
+        if (!active) return;
+        setReplacementBoards(items);
+        setReplacementBoardId(items.find((board) => board.id !== selectedPin.pinterestBoardId)?.id || '');
+        if (!items.length) {
+          setReplacementBoardsError(
+            language === 'ru' ? 'Pinterest не вернул доступные доски для этого аккаунта.' :
+            language === 'de' ? 'Pinterest hat keine verfügbaren Boards für dieses Konto zurückgegeben.' :
+            language === 'es' ? 'Pinterest no devolvió tableros disponibles para esta cuenta.' :
+            language === 'fr' ? 'Pinterest n’a renvoyé aucun tableau disponible pour ce compte.' :
+            language === 'pt' ? 'O Pinterest não retornou pastas disponíveis para esta conta.' :
+            language === 'zh' ? 'Pinterest 未返回此账户的可用画板。' :
+            'Pinterest returned no available boards for this account.'
+          );
+        }
+      } catch (error) {
+        if (!active) return;
+        setReplacementBoards([]);
+        setReplacementBoardId('');
+        setReplacementBoardsError(
+          error instanceof Error ? error.message :
+          (language === 'ru' ? 'Не удалось загрузить доски Pinterest.' : 'Could not load Pinterest boards.')
+        );
+      } finally {
+        if (active) setReplacementBoardsLoading(false);
+      }
+    };
+    void loadReplacementBoards();
+    return () => { active = false; };
+  }, [selectedPin?.id, selectedPin?.status, selectedPin?.failureReason, selectedPin?.pinterestAccountId, selectedPin?.pinterestBoardId, onChangeFailedScheduleBoard, language]);
 
   // Browser-local manual planning targets; these do not trigger automation.
   const [selectedAccountId, setSelectedAccountId] = useState<string>(accounts[0]?.id || 'acc-1');
@@ -897,6 +961,76 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                     ? '该画板已被删除或您已失去访问权限。PinPosy 不会在此画板上重试。请选择可用画板并重新安排此 Pin。'
                     : 'The board was deleted or access was lost. PinPosy will not retry this publication there. Choose an available board and schedule this Pin again.'}
                 </p>
+              </div>
+            )}
+
+            {selectedPin.status === 'failed' && selectedPin.failureReason === 'board_unavailable' && !!selectedPin.pinterestAccountId && onChangeFailedScheduleBoard && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+                <p className="text-xs font-semibold text-primary-theme">
+                  {language === 'ru' ? 'Выбрать другую доску' :
+                   language === 'de' ? 'Anderes Board auswählen' :
+                   language === 'es' ? 'Elegir otro tablero' :
+                   language === 'fr' ? 'Choisir un autre tableau' :
+                   language === 'pt' ? 'Escolher outra pasta' :
+                   language === 'zh' ? '选择其他画板' : 'Choose another board'}
+                </p>
+                <p className="text-xs leading-relaxed text-secondary-theme">
+                  {language === 'ru'
+                    ? 'Пин и его настройки сохранятся. После проверки новой доски расписание будет поставлено в очередь заново. Это доступно только если предыдущая попытка публикации безопасно завершилась.'
+                    : language === 'de'
+                    ? 'Pin und Einstellungen bleiben erhalten. Nach Prüfung des neuen Boards wird der Beitrag erneut eingeplant. Dies ist nur möglich, wenn der vorherige Veröffentlichungsversuch nachweislich sicher beendet wurde.'
+                    : language === 'es'
+                    ? 'El Pin y su configuración se conservarán. Tras verificar el nuevo tablero, se volverá a poner en cola. Solo es posible si el intento anterior terminó de forma segura.'
+                    : language === 'fr'
+                    ? 'L’épingle et ses paramètres seront conservés. Après vérification du nouveau tableau, la publication sera remise en file. Cela n’est possible que si la tentative précédente s’est terminée sans ambiguïté.'
+                    : language === 'pt'
+                    ? 'O Pin e suas configurações serão mantidos. Após verificar a nova pasta, a publicação voltará à fila. Isso só é possível se a tentativa anterior terminou com segurança.'
+                    : language === 'zh'
+                    ? 'Pin 及其设置将保留。验证新画板后，发布任务将重新排队。仅当上一次发布尝试已确认安全结束时才可执行。'
+                    : 'The Pin and its settings will be preserved. After the new board is verified, the schedule will be queued again. This is only available when the previous attempt is confirmed safe.'}
+                </p>
+                {replacementBoardsLoading ? (
+                  <p className="text-xs text-secondary-theme">{language === 'ru' ? 'Загружаем доски…' : 'Loading boards…'}</p>
+                ) : replacementBoards.length > 0 ? (
+                  <>
+                    <select
+                      value={replacementBoardId}
+                      onChange={(event) => setReplacementBoardId(event.target.value)}
+                      className="w-full rounded-lg border border-subtle bg-app-input px-3 py-2 text-xs text-primary-theme"
+                    >
+                      <option value="">
+                        {language === 'ru' ? 'Выберите доступную доску' : 'Select an available board'}
+                      </option>
+                      {replacementBoards.map((board) => (
+                        <option key={board.id} value={board.id} disabled={board.id === selectedPin.pinterestBoardId}>
+                          {board.name}{board.id === selectedPin.pinterestBoardId ? (language === 'ru' ? ' (текущая)' : ' (current)') : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={!replacementBoardId || busyScheduleAction !== null}
+                      onClick={() => void runScheduleAction(`change-board:${selectedPin.id}`, async () => {
+                        try {
+                          await onChangeFailedScheduleBoard(selectedPin, replacementBoardId);
+                          setSelectedPin(null);
+                        } catch {
+                          // The parent reports the API error; keep the details open.
+                        }
+                      })}
+                      className="accent-btn px-3 py-2 rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {busyScheduleAction === `change-board:${selectedPin.id}`
+                        ? (language === 'ru' ? 'Проверяем и сохраняем…' : 'Verifying and saving…')
+                        : (language === 'ru' ? 'Сменить доску и возобновить' : 'Change board and resume')}
+                    </button>
+                  </>
+                ) : (
+                  <p role="alert" className="text-xs text-secondary-theme">{replacementBoardsError}</p>
+                )}
+                {!!replacementBoardsError && replacementBoards.length > 0 && (
+                  <p role="alert" className="text-xs text-secondary-theme">{replacementBoardsError}</p>
+                )}
               </div>
             )}
 
