@@ -18,7 +18,10 @@ ACTION_ID="$("${psql_base[@]}" -At -c "select gen_random_uuid()")"
 REMOTE_PIN_ID="remote-pin-race-$PIN_ID"
 
 cleanup() {
-  "${psql_base[@]}" -c "delete from public.pinterest_operator_reconciliations where schedule_id = '$SCHEDULE_ID'; delete from public.pinterest_publications where pin_id = '$PIN_ID'; delete from public.pinterest_publish_attempts where pin_id = '$PIN_ID'; delete from public.pin_schedules where id = '$SCHEDULE_ID'; delete from public.pins where id = '$PIN_ID'; delete from public.pinterest_accounts where id = '$ACCOUNT_ID'; delete from public.boards where id = '$BOARD_ID'; delete from public.projects where id = '$PROJECT_ID'; delete from public.users where id = '$USER_ID';" >/dev/null 2>&1 || true
+  # The receipt ledger is deliberately append-only in production. This test
+  # runs as the disposable CI database owner, so disable only its mutation
+  # trigger long enough to remove this isolated fixture and then restore it.
+  "${psql_base[@]}" -c "alter table public.pinterest_operator_reconciliations disable trigger pinterest_operator_reconciliations_no_mutation; delete from public.pinterest_operator_reconciliations where schedule_id = '$SCHEDULE_ID'; alter table public.pinterest_operator_reconciliations enable trigger pinterest_operator_reconciliations_no_mutation; delete from public.pinterest_publications where pin_id = '$PIN_ID'; delete from public.pinterest_publish_attempts where pin_id = '$PIN_ID'; delete from public.pin_schedules where id = '$SCHEDULE_ID'; delete from public.pins where id = '$PIN_ID'; delete from public.pinterest_accounts where id = '$ACCOUNT_ID'; delete from public.boards where id = '$BOARD_ID'; delete from public.projects where id = '$PROJECT_ID'; delete from public.users where id = '$USER_ID';" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
