@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -68,6 +68,21 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
   const [filterAccount, setFilterAccount] = useState<string>('all');
   const [selectedPin, setSelectedPin] = useState<ScheduledPinItem | null>(null);
   const [legacyAccountId, setLegacyAccountId] = useState('');
+  const [busyScheduleAction, setBusyScheduleAction] = useState<string | null>(null);
+  const scheduleActionLockRef = useRef<string | null>(null);
+
+  const runScheduleAction = async (actionKey: string, action: () => Promise<void>) => {
+    // State updates are asynchronous; the ref closes the rapid double-click gap.
+    if (scheduleActionLockRef.current) return;
+    scheduleActionLockRef.current = actionKey;
+    setBusyScheduleAction(actionKey);
+    try {
+      await action();
+    } finally {
+      scheduleActionLockRef.current = null;
+      setBusyScheduleAction(null);
+    }
+  };
 
   useEffect(() => {
     if (!selectedPin || selectedPin.pinterestAccountId) {
@@ -858,18 +873,19 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                 )}
                 <button
                   type="button"
-                  disabled={!legacyAccountId || accounts.length === 0}
-                  onClick={async () => {
+                  disabled={!legacyAccountId || accounts.length === 0 || busyScheduleAction !== null}
+                  aria-busy={busyScheduleAction === `reconcile:${selectedPin.id}`}
+                  onClick={() => void runScheduleAction(`reconcile:${selectedPin.id}`, async () => {
                     try {
                       await onReconcileLegacySchedule(selectedPin, legacyAccountId);
                       setSelectedPin(null);
                     } catch {
                       // The parent reports the API error; keep the details open.
                     }
-                  }}
+                  })}
                   className="accent-btn px-3 py-2 rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Проверить аккаунт и восстановить расписание
+                  {busyScheduleAction === `reconcile:${selectedPin.id}` ? 'Проверяем…' : 'Проверить аккаунт и восстановить расписание'}
                 </button>
               </div>
             )}
@@ -883,33 +899,40 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
               {selectedPin.status === 'failed' && selectedPin.retryable === true && !!selectedPin.pinterestAccountId && onRetrySchedule && (
                 <button
                   type="button"
-                  onClick={async () => {
+                  disabled={busyScheduleAction !== null}
+                  aria-busy={busyScheduleAction === `retry:${selectedPin.id}`}
+                  onClick={() => void runScheduleAction(`retry:${selectedPin.id}`, async () => {
                     try {
                       await onRetrySchedule(selectedPin);
                       setSelectedPin(null);
                     } catch {
                       // The parent reports the API error; keep the details open.
                     }
-                  }}
-                  className="px-4 py-1.5 rounded-xl text-xs font-semibold text-accent-ghost cursor-pointer hover:bg-accent/10 border border-accent/30"
+                  })}
+                  className="px-4 py-1.5 rounded-xl text-xs font-semibold text-accent-ghost cursor-pointer hover:bg-accent/10 border border-accent/30 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {t.calendar.retryFailedPin}
+                  {busyScheduleAction === `retry:${selectedPin.id}` ? 'Повторяем…' : t.calendar.retryFailedPin}
                 </button>
               )}
               {selectedPin.status === 'scheduled' && onCancelSchedule && (
                 <button
-                  onClick={async () => {
+                  type="button"
+                  disabled={busyScheduleAction !== null}
+                  aria-busy={busyScheduleAction === `cancel:${selectedPin.id}`}
+                  onClick={() => {
                     if (!window.confirm(t.calendar.cancelScheduledPinConfirm)) return;
-                    try {
-                      await onCancelSchedule(selectedPin);
-                      setSelectedPin(null);
-                    } catch {
-                      // The parent reports the API error; keep the details open.
-                    }
+                    void runScheduleAction(`cancel:${selectedPin.id}`, async () => {
+                      try {
+                        await onCancelSchedule(selectedPin);
+                        setSelectedPin(null);
+                      } catch {
+                        // The parent reports the API error; keep the details open.
+                      }
+                    });
                   }}
-                  className="px-4 py-1.5 rounded-xl text-xs font-semibold text-red-600 dark:text-red-400 cursor-pointer hover:bg-red-500/10 border border-red-500/30"
+                  className="px-4 py-1.5 rounded-xl text-xs font-semibold text-red-600 dark:text-red-400 cursor-pointer hover:bg-red-500/10 border border-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {t.calendar.cancelScheduledPin}
+                  {busyScheduleAction === `cancel:${selectedPin.id}` ? 'Отменяем…' : t.calendar.cancelScheduledPin}
                 </button>
               )}
               <button
