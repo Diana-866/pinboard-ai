@@ -562,7 +562,7 @@ app.post("/projects", requireAuth, async (req, res) => {
       .select()
       .single();
     if (error) throw error;
-    res.status(201).json(data);
+    res.status(201).json(sanitizeScheduleForClient(data));
   } catch (e) {
     handleError(res, e);
   }
