@@ -63,6 +63,24 @@ begin
 
   v_action:=gen_random_uuid();
   begin
+    perform public.admin_reconcile_pin_generation_provider_refund(
+      v_admin,v_request_id,1,false,'provider_dashboard','example.com/ticket',v_action
+    );
+    raise exception 'bare URL evidence reference was accepted';
+  exception when others then
+    if sqlerrm not like '%invalid provider-refund reconciliation evidence%' then raise; end if;
+  end;
+
+  begin
+    perform public.admin_reconcile_pin_generation_provider_refund(
+      v_admin,v_request_id,1,false,'provider_dashboard','operator@example.com',gen_random_uuid()
+    );
+    raise exception 'email evidence reference was accepted';
+  exception when others then
+    if sqlerrm not like '%invalid provider-refund reconciliation evidence%' then raise; end if;
+  end;
+
+  begin
     perform set_config('app.test_reject_journal_insert','on',true);
     perform public.admin_reconcile_pin_generation_provider_refund(
       v_admin,v_request_id,1,false,'provider_dashboard','ticket-generation-001',v_action
