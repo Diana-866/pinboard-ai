@@ -11,12 +11,13 @@ This was a presentation/data-visibility defect, not evidence that database rows 
 - Added `frontend/src/utils/savedPinsResponse.ts` with `requireSavedPinsArray`.
 - The board restore path now validates the response before mapping it into the UI.
 - Unexpected payloads throw into the existing saved-pins load-error state instead of silently displaying an empty board.
+- Added an explicit «Повторить загрузку» button. The previous error text suggested changing the board, but selecting the already-selected board does not reliably trigger another request.
 - A valid empty array remains a normal empty-board response.
 - Added focused tests for a valid empty array, a populated array, `null`, object, and string payloads.
 
 ## User-visible effect
 
-If the server or an intermediary returns an unexpected response, PinPosy now tells the user that saved pins could not be loaded. It no longer suggests that the board has no pins. The user can retry the load instead of assuming their work disappeared.
+If the server or an intermediary returns an unexpected response, PinPosy now tells the user that saved pins could not be loaded. It no longer suggests that the board has no pins. The user can retry the load directly from the error message instead of switching boards or assuming their work disappeared.
 
 ## Verification and scope
 
