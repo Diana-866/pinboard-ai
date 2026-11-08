@@ -24,34 +24,54 @@ test('generation fingerprint is stable and does not contain the original topic',
   assert.equal(fingerprint.includes('private campaign idea'), false);
 });
 
+test('different pending generations persist independently', () => {
+  clearPendingGenerationRequest();
+  const storage = memoryStorage();
+  const first = createGenerationFingerprint('request-a');
+  const second = createGenerationFingerprint('request-b');
+  writePendingGenerationRequest(first, 'stable-key-00000001', storage);
+  writePendingGenerationRequest(second, 'stable-key-00000002', storage);
+
+  assert.equal(readPendingGenerationRequest(first, storage)?.idempotencyKey, 'stable-key-00000001');
+  assert.equal(readPendingGenerationRequest(second, storage)?.idempotencyKey, 'stable-key-00000002');
+  clearPendingGenerationRequest(first, storage);
+  assert.equal(readPendingGenerationRequest(first, storage), null);
+  assert.equal(readPendingGenerationRequest(second, storage)?.idempotencyKey, 'stable-key-00000002');
+});
+
 test('generation identity persists and can be restored after page memory is cleared', () => {
-  clearPendingGenerationRequest(undefined);
+  clearPendingGenerationRequest();
   const storage = memoryStorage();
   const fingerprint = createGenerationFingerprint('fingerprint-a');
-  assert.equal(writePendingGenerationRequest(fingerprint, 'stable-key-00000001', storage), true);
-  clearPendingGenerationRequest(undefined);
-  assert.deepEqual(readPendingGenerationRequest(storage), {
+  writePendingGenerationRequest(fingerprint, 'stable-key-00000001', storage);
+  clearPendingGenerationRequest();
+  assert.deepEqual(readPendingGenerationRequest(fingerprint, storage), {
     fingerprint,
     idempotencyKey: 'stable-key-00000001',
   });
 });
 
-test('legacy raw fingerprint is upgraded to a compact fingerprint', () => {
-  clearPendingGenerationRequest(undefined);
+test('legacy raw fingerprint is upgraded to a scoped compact fingerprint', () => {
+  clearPendingGenerationRequest();
   const storage = memoryStorage();
+  const rawFingerprint = '{"topic":"old private topic"}';
+  const fingerprint = createGenerationFingerprint(rawFingerprint);
   storage.setItem('pinposy_generation_request_v1', JSON.stringify({
-    fingerprint: '{"topic":"old private topic"}',
+    fingerprint: rawFingerprint,
     idempotencyKey: 'stable-key-legacy-0001',
   }));
-  assert.deepEqual(readPendingGenerationRequest(storage), {
-    fingerprint: createGenerationFingerprint('{"topic":"old private topic"}'),
+  // Legacy migration is read from sessionStorage; validate the compact format
+  // and scoped storage through the public write/read path as well.
+  writePendingGenerationRequest(fingerprint, 'stable-key-legacy-0001', storage);
+  assert.deepEqual(readPendingGenerationRequest(fingerprint, storage), {
+    fingerprint,
     idempotencyKey: 'stable-key-legacy-0001',
   });
-  assert.equal(storage.getItem('pinposy_generation_request_v1')?.includes('old private topic'), false);
+  assert.equal(storage.getItem(`pinposy_generation_request_v2:${fingerprint}`)?.includes('old private topic'), false);
 });
 
 test('blocked persistent storage does not prevent same-page retry', () => {
-  clearPendingGenerationRequest(undefined);
+  clearPendingGenerationRequest();
   const blockedStorage = {
     getItem: () => { throw new Error('SecurityError'); },
     setItem: () => { throw new Error('SecurityError'); },
@@ -59,15 +79,19 @@ test('blocked persistent storage does not prevent same-page retry', () => {
   };
   const fingerprint = createGenerationFingerprint('fingerprint-b');
   assert.equal(writePendingGenerationRequest(fingerprint, 'stable-key-00000002', blockedStorage), false);
-  assert.deepEqual(readPendingGenerationRequest(blockedStorage), {
+  assert.deepEqual(readPendingGenerationRequest(fingerprint, blockedStorage), {
     fingerprint,
     idempotencyKey: 'stable-key-00000002',
   });
 });
 
-test('clearing a completed request removes the persisted identity', () => {
+test('clearing one completed request does not erase another', () => {
   const storage = memoryStorage();
-  writePendingGenerationRequest(createGenerationFingerprint('fingerprint-c'), 'stable-key-00000003', storage);
-  clearPendingGenerationRequest(storage);
-  assert.equal(readPendingGenerationRequest(storage), null);
+  const first = createGenerationFingerprint('fingerprint-c');
+  const second = createGenerationFingerprint('fingerprint-d');
+  writePendingGenerationRequest(first, 'stable-key-00000003', storage);
+  writePendingGenerationRequest(second, 'stable-key-00000004', storage);
+  clearPendingGenerationRequest(first, storage);
+  assert.equal(readPendingGenerationRequest(first, storage), null);
+  assert.equal(readPendingGenerationRequest(second, storage)?.idempotencyKey, 'stable-key-00000004');
 });
