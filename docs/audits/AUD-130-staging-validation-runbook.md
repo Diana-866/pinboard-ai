@@ -70,6 +70,35 @@ Do not apply migration 078 or enable these routes against Production until all o
 - A reviewed backup/restore point exists.
 - A rollback plan is documented. Since the journal is append-only and the workflow is financially sensitive, rollback should be a reviewed forward-fix or controlled restore—not an improvised DROP TABLE.
 
+## Credit/reservation lock-order source review
+
+A source-level review of migrations 054, 065–069, 072–077, and 078 was performed after the operator-journal changes.
+
+Observed lock patterns:
+
+- Generation reservation creation (054): user row → reservation row.
+- Generation reservation resize (065): user row → generation request → reservation row.
+- Generation completion (054): user row → generation request → reservation row; the completion path then performs the existing balance/pin settlement.
+- Regeneration reservation and completion (066): user row → regeneration request → reservation row; completion later updates the pin and request.
+- Regeneration quote/resize paths (068): user row → regeneration request → reservation row.
+- Generic balance adjustments (074) and the legacy regeneration debit (075): user row first; active reservations are then considered before reducing the available balance.
+- Reconciliations (073): request → task (generation only); they do not subsequently acquire a user-row lock.
+- Failure finalization (077): user row → request → tasks (generation) → reservation.
+- Operator wrapper (078): operator and target user rows sorted by UUID → request → tasks ordered by task_index → active reservation. The delegated 073/077 calls operate on rows already locked by the wrapper.
+
+No concrete user/request/reservation lock-order inversion was identified in these inspected paths. This is a source review only: it does not prove absence of deadlocks involving unreviewed code, triggers, FK actions, or actual concurrent schedules. In particular, 073 reconciliation can also be called through its service_role grant outside the 078 wrapper; it does not later acquire the user row, so this path does not itself create a reverse user-lock edge in the reviewed function body.
+
+Required disposable-PostgreSQL concurrency scenarios remain:
+1. Two generation reservations for one user racing with a credit adjustment.
+2. Generation completion racing with regeneration reservation/resize for the same user.
+3. Regeneration completion racing with the legacy regeneration debit.
+4. Reconciliation racing with failure finalization for the same request.
+5. Two operators reconciling the same request using different action UUIDs.
+6. Cross-target operator actions (A targets B while B targets A).
+7. Administrator demotion and operator/target deletion racing with an action.
+
+For each schedule, record the exact statements/transactions, committed outcome, SQLSTATE (especially 40P01/40001), reservation status, final user balance, and journal/audit row counts. The test must prove both absence of a deadlock and preservation of the credit invariant; merely observing that one transaction eventually succeeds is insufficient.
+
 ## Current execution status
 
 - Migration 078 and SQL integration test are committed to the feature branch but have not been executed.
