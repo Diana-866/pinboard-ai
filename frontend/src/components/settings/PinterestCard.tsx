@@ -39,6 +39,8 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
   const [accounts, setAccounts] = useState<PinterestAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [boards, setBoards] = useState<PinterestBoard[]>([]);
+  const [boardsLoading, setBoardsLoading] = useState(false);
+  const [boardsError, setBoardsError] = useState<string | null>(null);
   const boardsRequestId = useRef(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -72,17 +74,27 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
   const loadBoards = async (accountId: string | null) => {
     const requestId = ++boardsRequestId.current;
     const account = accounts.find((item) => item.id === accountId);
+    setBoardsError(null);
     if (!accountId || accountId === 'legacy' || account?.needs_reauth) {
       setBoards([]);
+      setBoardsLoading(false);
       return;
     }
+    setBoardsLoading(true);
     try {
       const data = await apiRequest(`/integrations/pinterest/boards?account_id=${encodeURIComponent(accountId)}`);
       // Account switching and manual refreshes can overlap. Only the latest
       // request may update the visible board list.
       if (requestId === boardsRequestId.current) setBoards(data?.boards || []);
-    } catch {
-      if (requestId === boardsRequestId.current) setBoards([]);
+    } catch (e) {
+      if (requestId === boardsRequestId.current) {
+        // Keep the failure distinct from a genuinely empty Pinterest account.
+        setBoards([]);
+        const err = e as ApiError;
+        setBoardsError(err?.message || t.settings.pinterestConnectError);
+      }
+    } finally {
+      if (requestId === boardsRequestId.current) setBoardsLoading(false);
     }
   };
 
@@ -290,6 +302,21 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
                     className="accent-btn px-3 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
                   >
                     {t.settings.pinterestConnectButton}
+                  </button>
+                </div>
+              ) : boardsLoading ? (
+                <p className="text-xs text-muted-theme flex items-center gap-2" role="status">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> {t.settings.syncData}…
+                </p>
+              ) : boardsError ? (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 space-y-2" role="alert">
+                  <p className="text-xs text-red-700 dark:text-red-300">{boardsError}</p>
+                  <button
+                    type="button"
+                    onClick={() => loadBoards(selectedAccount.id)}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-accent-ghost hover:underline"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" /> {t.settings.syncData}
                   </button>
                 </div>
               ) : boards.length === 0 ? (
