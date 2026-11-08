@@ -91,9 +91,10 @@ declare
   v_at timestamptz;
   v_inserted integer;
 begin
-  if p_operator_user_id is null or p_request_kind not in ('generation','regeneration')
+  if p_operator_user_id is null or p_request_kind is null
+     or p_request_kind not in ('generation','regeneration')
      or p_request_id is null or p_request_id<=0
-     or p_action_kind not in ('reconcile_refund','finalize_failure')
+     or p_action_kind is null or p_action_kind not in ('reconcile_refund','finalize_failure')
      or p_action_id is null then
     raise exception 'invalid administrator provider-refund action';
   end if;
@@ -127,6 +128,7 @@ begin
 
   if p_action_kind='reconcile_refund' then
     if p_provider_refunded is null
+       or p_evidence_type is null
        or p_evidence_type not in ('provider_dashboard','provider_support','payment_statement','manual_review')
        or p_evidence_reference is null
        or length(trim(p_evidence_reference))<8
@@ -181,7 +183,7 @@ begin
     end if;
   end if;
 
-  select 1 from public.pin_generation_credit_reservations
+  perform 1 from public.pin_generation_credit_reservations
    where user_id=v_owner and idempotency_key=v_request_key and status='reserved'
    for update;
   if not found then raise exception 'active credit reservation not found'; end if;
