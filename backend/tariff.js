@@ -46,7 +46,8 @@ async function getTariffState(userId, db = supabase) {
     .select("plan, status, period_end")
     .eq("user_id", String(userId))
     .eq("status", "success")
-    .order("period_end", { ascending: false, nullsFirst: false })
+    // Migration 019 defines the newest-created paid order as the current plan.
+    // period_end can be later on an older order whose webhook arrived late.
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .limit(1)
@@ -66,7 +67,9 @@ async function getTariffState(userId, db = supabase) {
   }
 
   const plan = normalizePlan(sub.plan || cachedPlan);
-  const periodEnd = sub.period_end || user.tariff_period_end || null;
+  // The user period end is the accumulated entitlement horizon. A late older
+  // webhook can have a later per-order period_end without owning the current plan.
+  const periodEnd = user.tariff_period_end || sub.period_end || null;
   const active = plan !== "none" && (!periodEnd || new Date(periodEnd).getTime() > Date.now());
   return { plan, active, periodEnd };
 }
