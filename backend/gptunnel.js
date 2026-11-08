@@ -48,14 +48,26 @@ function imageTaskResult(task) {
   const url = task && task.result && task.result[0] && task.result[0].url;
   const price = task && task.price;
   const taskId = task && task.id;
+  let parsedUrl = null;
+  if (typeof url === "string") {
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      parsedUrl = null;
+    }
+  }
   if (
-    typeof url !== "string" || !url ||
+    !parsedUrl ||
+    parsedUrl.protocol !== "https:" ||
+    !parsedUrl.hostname ||
+    parsedUrl.username ||
+    parsedUrl.password ||
     !Number.isFinite(Number(price)) || Number(price) < 0 ||
     typeof taskId !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(taskId)
   ) {
     throw new Error("Провайдер вернул некорректный результат генерации");
   }
-  return { url, price: Number(price), taskId };
+  return { url: parsedUrl.toString(), price: Number(price), taskId };
 }
 
 async function generateTextWithUsage(prompt, options = {}) {
