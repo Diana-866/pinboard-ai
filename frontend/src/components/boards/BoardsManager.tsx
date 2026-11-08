@@ -7,11 +7,13 @@ import { BoardItem } from '../../data/mockData';
 
 interface BoardsManagerProps {
   boards: BoardItem[];
+  loadError?: string;
   onAddBoard: (board: BoardItem) => void;
 }
 
 export const BoardsManager: React.FC<BoardsManagerProps> = ({
   boards,
+  loadError,
   onAddBoard,
 }) => {
   const { t } = useI18n();
@@ -64,7 +66,11 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
       </div>
 
       {/* Boards Grid */}
-      {boards.length === 0 ? (
+      {loadError ? (
+        <div role="alert" className="custom-card p-8 rounded-2xl text-center text-sm text-secondary-theme">
+          {loadError}
+        </div>
+      ) : boards.length === 0 ? (
         <div className="custom-card p-8 rounded-2xl text-center text-sm text-secondary-theme">
           {t.dashboard.emptyBoards}
         </div>
