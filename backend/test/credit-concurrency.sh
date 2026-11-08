@@ -32,6 +32,13 @@ if [[ "$locked" != "1" ]]; then
   exit 1
 fi
 
+# Start both webhook transactions while the purchase row is locked.
+# They must be running before we poll pg_stat_activity for lock waiters.
+PGAPPNAME=credit-webhook-one "${psql_base[@]}" -c "select public.credit_paid_purchase('$PURCHASE_ID', now(), 'parallel webhook one')" >/tmp/credit-one.log 2>&1 &
+ONE_PID=$!
+PGAPPNAME=credit-webhook-two "${psql_base[@]}" -c "select public.credit_paid_purchase('$PURCHASE_ID', now(), 'parallel webhook two')" >/tmp/credit-two.log 2>&1 &
+TWO_PID=$!
+
 # Do not release the lock until both webhook sessions are actually blocked on it.
 waiters=0
 for _ in $(seq 1 80); do
@@ -41,14 +48,9 @@ for _ in $(seq 1 80); do
 done
 if [[ "$waiters" != "2" ]]; then
   echo "Both concurrent credit webhook sessions did not reach the row lock (waiters=$waiters)"
-  kill "$LOCK_PID" 2>/dev/null || true
+  kill "$LOCK_PID" "$ONE_PID" "$TWO_PID" 2>/dev/null || true
   exit 1
 fi
-
-PGAPPNAME=credit-webhook-one "${psql_base[@]}" -c "select public.credit_paid_purchase('$PURCHASE_ID', now(), 'parallel webhook one')" >/tmp/credit-one.log 2>&1 &
-ONE_PID=$!
-PGAPPNAME=credit-webhook-two "${psql_base[@]}" -c "select public.credit_paid_purchase('$PURCHASE_ID', now(), 'parallel webhook two')" >/tmp/credit-two.log 2>&1 &
-TWO_PID=$!
 
 wait "$ONE_PID"
 wait "$TWO_PID"
