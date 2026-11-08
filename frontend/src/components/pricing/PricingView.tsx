@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   CreditCard,
   Sparkles,
@@ -31,6 +31,9 @@ export const PricingView: React.FC = () => {
   const { user, refreshUser } = useAuth();
   // Реальная оплата: создаём платёж на бэкенде и уводим на страницу Prodamus
   const [payingId, setPayingId] = useState<string | null>(null);
+  // One checkout at a time across plans and credit packs: prevents rapid cross-clicks
+  // from creating multiple independent provider invoices for one user action.
+  const checkoutInProgressRef = useRef(false);
   const [payError, setPayError] = useState<string | null>(null);
   const [history, setHistory] = useState<SubscriptionRow[]>([]);
   const [tariffEnd, setTariffEnd] = useState<string | null>(null);
@@ -217,11 +220,14 @@ export const PricingView: React.FC = () => {
   }, [user?.id, pendingPaymentKey]);
 
   const handlePay = async (planId: string) => {
+    if (checkoutInProgressRef.current) return;
+    checkoutInProgressRef.current = true;
     setPayError(null);
     setPayingId(planId);
     try {
       await payAndRedirect(planId as PayablePlan, currency);
     } catch (e: any) {
+      checkoutInProgressRef.current = false;
       setPayError(e?.message || t.pricing.paymentError || 'Не удалось создать платёж');
       setPayingId(null);
     }
@@ -237,6 +243,7 @@ export const PricingView: React.FC = () => {
 
   // Покупка пакета: создаём платёж на бэкенде и уводим на страницу Prodamus
   const [payingPackId, setPayingPackId] = useState<string | null>(null);
+  const checkoutBusy = payingId !== null || payingPackId !== null;
 
   // AI Strategist Bot Chat Demo state
   const [chatMessages, setChatMessages] = useState<Array<{ sender: 'ai' | 'user'; text: string }>>([
@@ -372,11 +379,14 @@ export const PricingView: React.FC = () => {
   // Реальная покупка пакета кредитов: POST /billing/credits → оплата Prodamus.
   // После оплаты вебхук зачисляет кредиты на баланс (пакеты не сгорают).
   const handleBuyCredits = async (packId: string) => {
+    if (checkoutInProgressRef.current) return;
+    checkoutInProgressRef.current = true;
     setPayError(null);
     setPayingPackId(packId);
     try {
       await buyCreditsAndRedirect(packId);
     } catch (e: any) {
+      checkoutInProgressRef.current = false;
       setPayError(e?.message || t.pricing.paymentError || 'Не удалось создать платёж');
       setPayingPackId(null);
     }
@@ -616,7 +626,7 @@ export const PricingView: React.FC = () => {
                   {/* Select Plan Button */}
                   <button
                     onClick={() => handlePay(plan.id)}
-                    disabled={payingId === plan.id || !planPrices[plan.id] || Boolean(planPricesError)}
+                    disabled={checkoutBusy || !planPrices[plan.id] || Boolean(planPricesError)}
                     className={`w-full py-2.5 px-4 rounded-xl text-xs md:text-sm font-semibold transition-all cursor-pointer shadow-xs disabled:opacity-60 disabled:cursor-wait ${
                       isCurrent
                         ? 'bg-surface text-primary-theme border border-accent font-bold hover:bg-subtle'
@@ -774,7 +784,7 @@ export const PricingView: React.FC = () => {
 
                   <button
                     onClick={() => handleBuyCredits(pack.id)}
-                    disabled={payingPackId === pack.id}
+                    disabled={checkoutBusy}
                     className="w-full accent-btn py-2.5 px-3 rounded-xl text-xs font-semibold cursor-pointer shadow-xs flex items-center justify-center gap-1.5 disabled:opacity-60 disabled:cursor-wait"
                   >
                     <Coins className="w-3.5 h-3.5" />
@@ -819,7 +829,7 @@ export const PricingView: React.FC = () => {
                       <td className="py-3 px-3 text-right">
                         <button
                           onClick={() => handleBuyCredits(row.id)}
-                          disabled={payingPackId === row.id}
+                          disabled={checkoutBusy}
                           className="accent-btn px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer shadow-xs disabled:opacity-60 disabled:cursor-wait"
                         >
                           {t.pricing.buyCreditsBtn}
