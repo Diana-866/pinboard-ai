@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { isCommittedTokenRefresh, hasActiveRefreshLease } = require("../pinterestRefreshRecovery");
+const { isCommittedTokenRefresh, hasActiveRefreshLease, isExplicitRefreshRateLimit } = require("../pinterestRefreshRecovery");
 
 const before = {
   access_token: "access-old",
@@ -75,4 +75,15 @@ test("fails closed when the refresh lease is missing or malformed", () => {
   assert.equal(hasActiveRefreshLease(null), false);
   assert.equal(hasActiveRefreshLease({ lease_until: "not-a-date" }), false);
   assert.equal(hasActiveRefreshLease({}), false);
+});
+
+test("recognizes an explicit 429 as a safe rate-limit rejection", () => {
+  assert.equal(isExplicitRefreshRateLimit(429), true);
+  assert.equal(isExplicitRefreshRateLimit("429"), true);
+});
+
+test("does not classify ambiguous server or transport failures as safe retries", () => {
+  for (const status of [400, 401, 403, 408, 500, 502, 503, 504, undefined, null]) {
+    assert.equal(isExplicitRefreshRateLimit(status), false);
+  }
 });
