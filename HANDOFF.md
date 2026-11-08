@@ -1158,3 +1158,11 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Пользовательский эффект: расписание, которое зависло в «неизвестно», но фактически уже опубликовано и имеет точное подтверждение в базе, сможет автоматически перейти в «опубликовано» при следующем запуске worker. Без подтверждения оно останется заблокированным — дубли не создаются.
 - Исходники повторно прочитаны после коммитов. CI ещё не подтверждён; локальный PostgreSQL test не запускался. Production DB, Pinterest API, deployment и merge не затрагивались.
 - Коммиты: migration `b77169cfaea6a4f5f18ecc4ca16aa687f635e754`, SQL test `0293c6a3447cee27b6c0624a26659cdb357d0181`, worker `426d48b413dc4487618385152ac00e61b7751d12`, workflow `f389f9ade75fb9d074b9b8b3be09566be49a7b7e`.
+
+
+### AUD-222 — дополнительная проверка схемы миграции
+
+- При повторном чтении baseline обнаружено, что `pinterest_publications` имеет `created_at`, но не имеет `updated_at`. Исправлена ссылка в migration 091: время публикации берётся из `p.created_at`, а не из несуществующего столбца. Это предотвращает падение миграции на реальной схеме.
+- Повторно сверены migration 091, baseline 001, SQL integration test, worker hook и workflow hooks. Схема таблицы подтверждает отсутствие `updated_at`; migration теперь использует существующий `created_at`.
+- GitHub Actions для трёх workflow завершились failure, но GitHub не отдал логи job (BlobNotFound), а шаги вернулись пустыми. Поэтому причину failure нельзя честно приписать SQL или коду; это пока не подтверждённые проверки.
+- Исправление: `ad93235bbca2699fa13e64c601ead44fd0aa9cc6`.
