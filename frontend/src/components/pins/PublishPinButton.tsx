@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Send, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { apiRequest, ApiError } from '../../lib/api';
+import { resolvePublishBoardId } from '../../utils/publishBoardSelection';
 
 interface PinterestAccount {
   id: string;
@@ -69,11 +70,9 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
         if (!active) return;
         const list: PinterestBoard[] = Array.isArray(data?.boards) ? data.boards : [];
         setBoards(list);
-        const requestedBoard = boardId
-          ? list.find((board) => board.id === boardId)
-          : list[0];
-        setSelectedBoard(requestedBoard?.id || '');
-        if (boardId && !requestedBoard) {
+        const resolvedBoardId = resolvePublishBoardId(list, boardId);
+        setSelectedBoard(resolvedBoardId);
+        if (boardId && !resolvedBoardId) {
           setError('Выбранная доска недоступна для этого Pinterest-аккаунта. Выберите другую доску.');
         } else if (!list.length) {
           setError('В выбранном Pinterest-аккаунте нет доступных досок.');
@@ -131,6 +130,12 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
 
   return (
     <div className={`space-y-2 ${className || ''}`}>
+      {!accountsLoading && accounts.length === 0 && !error && (
+        <p className="text-[11px] text-secondary-theme">
+          Подключите Pinterest-аккаунт в настройках, чтобы публиковать пины.
+        </p>
+      )}
+
       {accounts.length > 1 && (
         <select
           value={accountId}
