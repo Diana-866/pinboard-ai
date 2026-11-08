@@ -1201,3 +1201,13 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Добавлены unit tests на корректный identity, неправильную доску и пустой remote ID. Изменения записаны в `docs/audits/AUD-225-existing-publication-schedule-finalization.md`.
 - Исходники повторно прочитаны после коммитов; Node/PostgreSQL tests, lint и build фактически не запускались. Production, Pinterest API, deployment и merge не затрагивались.
 - Коммиты: helper `3767a4a38366fa790904e7e5e8ce384941682c37`, tests `15cddc6a4de7052e36d89aba4c80834951b85446`, backend integration `e26169abaa3b62f7684ff973392cff277aefd2c2`.
+
+
+## Дополнение к handoff — 2026-11-09 (AUD-226: полная идентичность при фиксации ошибок Pinterest worker)
+
+- В failure/retry ветке worker обновление строки расписания раньше ограничивалось schedule ID, статусом `publishing` и claim token. Токен уже был основным fencing-механизмом, но эта ветка была слабее success/reconciliation веток: не фильтровала user, pin, Pinterest account и board.
+- Добавлен `hasCompleteScheduleClaimIdentity`: обязательны непустые schedule ID, user ID, pin ID, Pinterest account ID, Pinterest board ID и claim token. Если чего-либо не хватает, worker отказывается менять запись.
+- Conditional UPDATE теперь фильтруется по всем этим значениям, плюс `status=publishing` и точный claim token. Это не позволяет некорректному/устаревшему результату снять claim или изменить статус не той записи.
+- Добавлены unit tests для каждого обязательного поля. Документация: `docs/audits/AUD-226-pinterest-worker-full-identity-fencing.md`.
+- Коммиты: route `db49112ecb495cdc70845e5476f47775b447f7a4`, helper `db3e48ad928187420d9d7c6b27036437c0163508`, worker guard `799c95042122eba2fb03553f78003a370036bb80`, tests `01cf780fd183c0b6952ff88d51b1d8c78ea6a104`.
+- Node/PostgreSQL tests, lint и build не запускались. Production, Pinterest API, deployment и merge не затрагивались.
