@@ -24,7 +24,7 @@ All routes require a valid JWT and pass `req.userId` from the verified token as 
 - Refund status must be a JSON boolean; truthy strings are rejected.
 - Evidence type is allowlisted. Evidence reference is bounded and restricted to safe ASCII identifier characters; URLs and email-like values are rejected.
 - Action IDs must be UUIDs and are passed through to the SQL idempotency journal.
-- A per-operator/IP rate limiter allows at most 20 calls per minute.
+- A per-source-IP rate limiter runs before authentication and allows at most 20 calls per minute, including invalid-token traffic.
 - Database errors are converted to safe 403/404/409/422/500 responses. Unknown database messages are never returned to clients.
 
 ## Verification
