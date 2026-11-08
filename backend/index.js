@@ -9,6 +9,7 @@ const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
 const { getFinancialOperationsQueue } = require("./adminFinancialOperations");
 const adminProviderRefundActions = require("./adminProviderRefundActions");
+const adminPinterestReconciliation = require("./adminPinterestReconciliation");
 const {
   httpError,
   validateEmail,
@@ -2037,6 +2038,17 @@ registerAdminProviderRefundRoute(
   "/admin/provider-refunds/regeneration/finalize",
   adminProviderRefundActions.finalizeRegeneration
 );
+
+// Positive-only reconciliation for a Pinterest publication already confirmed externally.
+// The operator identity is derived from the verified JWT; the database rechecks admin status.
+app.post("/admin/pinterest/reconcile-unknown-publication", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await adminPinterestReconciliation.reconcileUnknownPublication(req.userId, req.body || {});
+    res.json(result);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
 
 // Reconcile only stale uploads whose exact object is already visible in Storage.
 // Missing objects remain fenced: absence is not proof that a remote request ended.
