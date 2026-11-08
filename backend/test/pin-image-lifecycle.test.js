@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, reconcileStalePinImageUploads, quarantineStalePinImageUploads, deleteManagedPinImageObject, validatePinImageBucketConfiguration, isDefiniteStorageRejection } = require("./pinImageLifecycle");
+const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, reconcileStalePinImageUploads, quarantineStalePinImageUploads, deleteManagedPinImageObject, findCompletedManagedPinImageUpload, validatePinImageBucketConfiguration, isDefiniteStorageRejection } = require("./pinImageLifecycle");
 
 const base = "https://project.supabase.co";
 
@@ -113,6 +113,7 @@ function makeStorageClient(options = {}) {
           ? { claimed: true, claim_token: "claim-123" }
           : options.claimData, error: options.claimError || null };
       }
+      if (name === "find_completed_pin_image_upload") return { data: options.completedObjectPath === undefined ? null : options.completedObjectPath, error: options.completedLookupError || null };
       if (name === "begin_pin_image_upload") {
         return { data: options.uploadReservation === undefined
           ? { reserved: true, upload_token: "upload-123" }
@@ -158,6 +159,25 @@ function makeStorageClient(options = {}) {
   };
   return supabase;
 }
+
+test("completed deterministic upload is recoverable only when lifecycle and Storage both confirm it", async () => {
+  const path = "pins/generation-0123456789abcdef0123456789abcdef.webp";
+  const supabase = makeStorageClient({ completedObjectPath: path, listData: [{ name: "generation-0123456789abcdef0123456789abcdef.webp" }] });
+  assert.equal(await findCompletedManagedPinImageUpload({ supabase, idempotencyKey: "stable-provider-key" }), path);
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), ["find_completed_pin_image_upload", "list"]);
+});
+
+test("completed upload recovery rejects a missing Storage object", async () => {
+  const path = "pins/generation-0123456789abcdef0123456789abcdef.webp";
+  const supabase = makeStorageClient({ completedObjectPath: path, listData: [] });
+  assert.equal(await findCompletedManagedPinImageUpload({ supabase, idempotencyKey: "stable-provider-key" }), null);
+});
+
+test("completed upload recovery ignores a non-deterministic or untrusted path", async () => {
+  const supabase = makeStorageClient({ completedObjectPath: "pins/other-user-file.webp" });
+  assert.equal(await findCompletedManagedPinImageUpload({ supabase, idempotencyKey: "stable-provider-key" }), null);
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), ["find_completed_pin_image_upload"]);
+});
 
 test("deletion claim refusal never calls Storage", async () => {
   const supabase = makeStorageClient({ claimData: { claimed: false, reason: "referenced" } });
