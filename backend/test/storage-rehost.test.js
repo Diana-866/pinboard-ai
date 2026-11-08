@@ -60,7 +60,7 @@ mockModule(modulePaths[3], {
 });
 mockModule(modulePaths[4], {
   extractManagedPinImagePath() { return null; },
-  buildPinImageObjectPath() { throw new Error("not used in this test"); },
+  buildPinImageObjectPath() { return "pins/generation-0123456789abcdef0123456789abcdef.png"; },
   uploadManagedPinImageObject() {
     calls.push({ type: "upload" });
     if (uploadError) throw uploadError;
