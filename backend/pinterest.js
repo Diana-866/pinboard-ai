@@ -1049,7 +1049,12 @@ function registerRoutes(app, deps) {
           const activeGenerationPlan =
             tariff.active && GENERATION_PLANS.includes(normalizePlan(tariff.plan));
           if (!activeGenerationPlan) {
-            throw httpError(403, "Для автоматической публикации нужна активная подписка «Старт» или выше");
+            const entitlementError = httpError(403, "Для автоматической публикации нужна активная подписка «Старт» или выше");
+            // This is a local entitlement gate, not a transient Pinterest
+            // failure. Do not let an older retry-safe publish journal turn
+            // an expired subscription into repeated automatic queue attempts.
+            entitlementError.retryable = false;
+            throw entitlementError;
           }
 
           const published = await publishPin(
