@@ -209,7 +209,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     return boards[0];
   }, [topic, boards]);
 
-  const [selectedBoardId, setSelectedBoardId] = useState<string>(recommendedBoard?.id || boards[0]?.id || 'b-1');
+  const [selectedBoardId, setSelectedBoardId] = useState<string>(initialBoardId || recommendedBoard?.id || boards[0]?.id || '');
 
   useEffect(() => {
     // An explicit board selected in the calendar takes precedence over topic-based recommendations.
