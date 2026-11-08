@@ -44,6 +44,8 @@ interface PinGeneratorProps {
   boards: BoardItem[];
   initialTopic?: string;
   initialDate?: string;
+  initialTime?: string;
+  initialBoardId?: string;
   onSchedulePin: (pin: ScheduledPinItem) => void;
   onGoToCalendar: () => void;
 }
@@ -73,6 +75,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   boards,
   initialTopic,
   initialDate,
+  initialTime,
+  initialBoardId,
   onSchedulePin,
   onGoToCalendar,
 }) => {
@@ -94,7 +98,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     tomorrow.setDate(tomorrow.getDate() + 1);
     return formatLocalDate(tomorrow);
   });
-  const [customScheduleTime, setCustomScheduleTime] = useState('20:15');
+  const [customScheduleTime, setCustomScheduleTime] = useState(initialTime || '20:15');
 
   const [pinterestAccounts, setPinterestAccounts] = useState<Array<{ id: string; username?: string | null }>>([]);
   const [selectedPinterestAccountId, setSelectedPinterestAccountId] = useState('');
@@ -144,7 +148,11 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       setCustomScheduleDate(initialDate);
       setSchedulingMode('custom_datetime');
     }
-  }, [initialDate]);
+    if (initialTime) {
+      setCustomScheduleTime(initialTime);
+      setSchedulingMode('custom_datetime');
+    }
+  }, [initialDate, initialTime]);
 
   useEffect(() => {
     if (initialTopic) {
@@ -204,10 +212,17 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [selectedBoardId, setSelectedBoardId] = useState<string>(recommendedBoard?.id || boards[0]?.id || 'b-1');
 
   useEffect(() => {
-    if (recommendedBoard) {
+    // An explicit board selected in the calendar takes precedence over topic-based recommendations.
+    if (!initialBoardId && recommendedBoard) {
       setSelectedBoardId(recommendedBoard.id);
     }
-  }, [recommendedBoard]);
+  }, [recommendedBoard, initialBoardId]);
+
+  useEffect(() => {
+    if (initialBoardId && boards.some((board) => board.id === initialBoardId)) {
+      setSelectedBoardId(initialBoardId);
+    }
+  }, [initialBoardId, boards]);
 
   const [tone, setTone] = useState<string>('inspirational');
   const [destinationUrl, setDestinationUrl] = useState('');
