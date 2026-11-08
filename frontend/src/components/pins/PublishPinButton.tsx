@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Send, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { apiRequest, ApiError } from '../../lib/api';
 
@@ -24,46 +24,90 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
   const [accountId, setAccountId] = useState('');
   const [boards, setBoards] = useState<PinterestBoard[]>([]);
   const [selectedBoard, setSelectedBoard] = useState<string>(boardId || '');
+  const [accountsLoading, setAccountsLoading] = useState(true);
+  const [boardsLoading, setBoardsLoading] = useState(false);
+  const publishLockRef = useRef(false);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
+    setAccountsLoading(true);
     apiRequest('/integrations/pinterest/status')
       .then((data) => {
+        if (!active) return;
         const list: PinterestAccount[] = Array.isArray(data?.accounts) ? data.accounts : [];
         setAccounts(list);
-        if (list.length === 1) setAccountId(list[0].id);
+        setAccountId(list.length === 1 ? list[0].id : '');
       })
-      .catch(() => setError('Не удалось загрузить Pinterest-аккаунты'));
+      .catch(() => {
+        if (active) setError('Не удалось загрузить Pinterest-аккаунты');
+      })
+      .finally(() => {
+        if (active) setAccountsLoading(false);
+      });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
+    let active = true;
     if (!accountId) {
       setBoards([]);
-      setSelectedBoard(boardId || '');
-      return;
+      setSelectedBoard('');
+      setBoardsLoading(false);
+      return () => { active = false; };
     }
+
+    // Never leave the previous account's board selected while the new list loads.
+    setBoards([]);
+    setSelectedBoard('');
+    setBoardsLoading(true);
+    setError(null);
     apiRequest(`/integrations/pinterest/boards?account_id=${encodeURIComponent(accountId)}`)
       .then((data) => {
-        const list: PinterestBoard[] = data?.boards || [];
+        if (!active) return;
+        const list: PinterestBoard[] = Array.isArray(data?.boards) ? data.boards : [];
         setBoards(list);
-        setSelectedBoard((current) =>
-          current && list.some((board) => board.id === current) ? current : list[0]?.id || ''
-        );
+        const requestedBoard = boardId
+          ? list.find((board) => board.id === boardId)
+          : list[0];
+        setSelectedBoard(requestedBoard?.id || '');
+        if (boardId && !requestedBoard) {
+          setError('Выбранная доска недоступна для этого Pinterest-аккаунта. Выберите другую доску.');
+        } else if (!list.length) {
+          setError('В выбранном Pinterest-аккаунте нет доступных досок.');
+        }
       })
       .catch((e) => {
+        if (!active) return;
         const err = e as ApiError;
         setBoards([]);
+        setSelectedBoard('');
         setError(err?.message || 'Не удалось загрузить доски Pinterest');
+      })
+      .finally(() => {
+        if (active) setBoardsLoading(false);
       });
+    return () => { active = false; };
   }, [accountId, boardId]);
 
+  const handleAccountChange = (nextAccountId: string) => {
+    // Clear synchronously so a rapid click cannot publish to the old account's board.
+    setAccountId(nextAccountId);
+    setBoards([]);
+    setSelectedBoard('');
+    setBoardsLoading(Boolean(nextAccountId));
+    setError(null);
+  };
+
   const handlePublish = async () => {
+    if (publishLockRef.current || accountsLoading || boardsLoading || !accountId || !selectedBoard) return;
+    publishLockRef.current = true;
     setError(null);
     setBusy(true);
     try {
-      const data = await apiRequest(`/pins/${pinId}/publish`, {
+      const data = await apiRequest(`/pins/${encodeURIComponent(pinId)}/publish`, {
         method: 'POST',
         body: JSON.stringify({ board_id: selectedBoard, account_id: accountId }),
       });
@@ -72,6 +116,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
       const err = e as ApiError;
       setError(err?.message || 'Не удалось опубликовать пин');
     } finally {
+      publishLockRef.current = false;
       setBusy(false);
     }
   };
@@ -89,7 +134,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
       {accounts.length > 1 && (
         <select
           value={accountId}
-          onChange={(e) => setAccountId(e.target.value)}
+          onChange={(e) => handleAccountChange(e.target.value)}
           className="w-full text-[11px] rounded-lg border border-subtle bg-surface px-2 py-1.5 text-primary-theme"
         >
           <option value="">Выберите Pinterest-аккаунт</option>
@@ -115,11 +160,11 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
 
       <button
         onClick={handlePublish}
-        disabled={busy || !accountId || !selectedBoard}
+        disabled={busy || accountsLoading || boardsLoading || !accountId || !selectedBoard}
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold accent-btn disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-        <span>{busy ? 'Публикуем…' : 'Опубликовать в Pinterest'}</span>
+        <span>{busy ? 'Публикуем…' : boardsLoading || accountsLoading ? 'Загружаем…' : 'Опубликовать в Pinterest'}</span>
       </button>
 
       {error && (
