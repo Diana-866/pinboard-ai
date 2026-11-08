@@ -99,8 +99,11 @@ begin
       v_effective_plan := 'none';
     end if;
     v_effective_period_end := coalesce(v_user_period_end, v_subscription_period_end);
+    -- A paid subscription must resolve to a finite accumulated entitlement
+    -- end. NULL is reserved for an explicit manual grant (no paid row).
     v_active := v_effective_plan <> 'none'
-      and (v_effective_period_end is null or v_effective_period_end > now());
+      and v_effective_period_end is not null
+      and v_effective_period_end > now();
   else
     -- A manual grant has no subscription row, but an explicit expiry still
     -- applies. NULL means an intentionally unlimited manual grant.
