@@ -1205,6 +1205,47 @@ app.get("/boards/:id/pins", requireAuth, async (req, res) => {
   }
 });
 
+// Read-only recovery endpoint: exposes only the authenticated user's request status
+// and completed pin fields. Provider prompts, task IDs, raw errors and tokens stay private.
+app.get("/generation/requests/:key", requireAuth, async (req, res) => {
+  try {
+    const idempotencyKey = String(req.params.key || "");
+    if (!/^[A-Za-z0-9_-]{16,128}$/.test(idempotencyKey)) {
+      throw httpError(422, "Некорректный ключ восстановления генерации");
+    }
+    const { data: request, error } = await supabase
+      .from("pin_generation_requests")
+      .select("id, board_id, status, pins, created_at, updated_at")
+      .eq("user_id", String(req.userId))
+      .eq("idempotency_key", idempotencyKey)
+      .maybeSingle();
+    if (error) throw error;
+    if (!request) throw httpError(404, "Запрос генерации не найден");
+
+    const pins = request.status === "completed" && Array.isArray(request.pins)
+      ? request.pins.map((pin) => ({
+          id: pin.id,
+          title: pin.title || "",
+          description: pin.description || "",
+          image_url: pin.image_url || "",
+          model_used: pin.model_used || null,
+          aspect_ratio: pin.aspect_ratio || null,
+          credits_cost: pin.credits_cost == null ? null : pin.credits_cost,
+        }))
+      : [];
+
+    res.json({
+      status: request.status,
+      board_id: request.board_id,
+      pins,
+      created_at: request.created_at,
+      updated_at: request.updated_at,
+    });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["standard", "pro", "agency", "start"]), async (req, res) => {
   let idempotencyKey = req.get("Idempotency-Key");
   let generationRequestStarted = false;
