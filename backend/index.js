@@ -6,6 +6,7 @@ const rateLimit = require("express-rate-limit");
 const { parseMultipartFields } = require("./prodamusWebhookBody");
 const { isOwnedByUser } = require("./resourceOwnership");
 const { serializeGenerationRecovery } = require("./generationRecovery");
+const { isAllowedPinImageUploadMime } = require("./imageUploadValidation");
 
 const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
@@ -191,7 +192,7 @@ const webhookMultipart = multer({
 const imageUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => cb(null, ["image/png", "image/jpeg", "image/webp", "image/gif"].includes(String(file.mimetype || "").split(";")[0].trim().toLowerCase())),
+  fileFilter: (req, file, cb) => cb(null, isAllowedPinImageUploadMime(file.mimetype)),
 });
 
 if (!process.env.JWT_SECRET) {
