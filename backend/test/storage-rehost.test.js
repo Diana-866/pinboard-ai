@@ -26,6 +26,7 @@ let lookupFailure = lookupError;
 const calls = [];
 let uploadError = null;
 let quarantinePrimaryPath = false;
+let deletedPrimaryPath = false;
 let completedRecoveryKey = null;
 let completedRecoveryPath = null;
 let missingPublicUrlPath = null;
@@ -77,9 +78,9 @@ mockModule(modulePaths[4], {
     calls.push({ type: "upload", path: objectPath });
     uploadPaths.push(objectPath);
     if (uploadError) throw uploadError;
-    if (quarantinePrimaryPath && objectPath === `pins/generation-${crypto.createHash("sha256").update("stable-provider-result-key").digest("hex").slice(0, 32)}.png`) {
-      const error = new Error("path quarantined");
-      error.code = "path_quarantined";
+    if ((quarantinePrimaryPath || deletedPrimaryPath) && objectPath === `pins/generation-${crypto.createHash("sha256").update("stable-provider-result-key").digest("hex").slice(0, 32)}.png`) {
+      const error = new Error(deletedPrimaryPath ? "path already deleted" : "path quarantined");
+      error.code = deletedPrimaryPath ? "already_deleted" : "path_quarantined";
       throw error;
     }
     return true;
@@ -154,6 +155,27 @@ test("quarantined deterministic upload recovers on a stable fresh path", async (
   assert.deepEqual(uploadPaths, [primaryPath, recoveryPath]);
   assert.notEqual(primaryPath, recoveryPath);
   quarantinePrimaryPath = false;
+  lookupFailure = lookupError;
+});
+
+
+test("deleted deterministic upload path recovers on a fresh immutable path", async () => {
+  lookupFailure = null;
+  deletedPrimaryPath = true;
+  uploadPaths.length = 0;
+  lookupKeys.length = 0;
+  const result = await rehostImage("https://provider.example.invalid/result.png", {
+    idempotencyKey: "stable-provider-result-key",
+  });
+  const primaryPath = `pins/generation-${crypto.createHash("sha256").update("stable-provider-result-key").digest("hex").slice(0, 32)}.png`;
+  const recoveryPath = `pins/generation-${crypto.createHash("sha256").update("stable-provider-result-key:storage-recovery:1").digest("hex").slice(0, 32)}.png`;
+  assert.equal(result.endsWith(recoveryPath), true);
+  assert.deepEqual(uploadPaths, [primaryPath, recoveryPath]);
+  assert.deepEqual(lookupKeys, [
+    "stable-provider-result-key",
+    "stable-provider-result-key:storage-recovery:1",
+  ]);
+  deletedPrimaryPath = false;
   lookupFailure = lookupError;
 });
 
