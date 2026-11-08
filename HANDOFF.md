@@ -1211,3 +1211,10 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Добавлены unit tests для каждого обязательного поля. Документация: `docs/audits/AUD-226-pinterest-worker-full-identity-fencing.md`.
 - Коммиты: route `db49112ecb495cdc70845e5476f47775b447f7a4`, helper `db3e48ad928187420d9d7c6b27036437c0163508`, worker guard `799c95042122eba2fb03553f78003a370036bb80`, tests `01cf780fd183c0b6952ff88d51b1d8c78ea6a104`.
 - Node/PostgreSQL tests, lint и build не запускались. Production, Pinterest API, deployment и merge не затрагивались.
+
+## AUD-227 — Stop schedule retries when subscription is inactive
+- The Pinterest worker now marks the local inactive-subscription gate as explicitly non-retryable. This prevents an older `failed/retry_safe=true` publication journal from repeatedly requeueing a schedule while the user has no eligible plan.
+- Added a regression test: expired subscription + old retry-safe journal => terminal `failed`, no retry timestamp.
+- Details: `docs/audits/AUD-227-inactive-subscription-schedule-retry.md`.
+- No Pinterest request is sent when the tariff gate rejects the schedule. Transient backend/database errors and confirmed safe Pinterest rejections retain their existing retry behavior.
+- Tests have not been executed locally; no production migration, deployment, or merge was performed.
