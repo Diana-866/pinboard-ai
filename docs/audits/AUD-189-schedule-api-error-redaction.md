@@ -12,7 +12,7 @@ GET /schedule использовал `select("*")` и возвращал стр�
 
 - Добавлен pure helper `sanitizeScheduleForClient` в `backend/pinterestSchedule.js`.
 - Helper удаляет только `last_error`, сохраняя остальные поля расписания и рассчитанные UI-поля (`retryable`, `retry_reason`, `failure_reason`).
-- Все три ветви GET /schedule используют санитайзер: обычный ответ, ошибка загрузки metadata и штатное обогащение failed rows.
+- Все ветви GET /schedule используют санитайзер: обычный ответ без failed rows, ошибка загрузки metadata, failed rows и обычные (не failed) rows внутри смешанного ответа.
 - Исходный объект не мутируется; поле остаётся в базе для внутренней диагностики и поддержки.
 - Добавлен regression test, который проверяет отсутствие `last_error` в клиентском объекте, сохранение безопасных полей и неизменность исходной строки.
 
