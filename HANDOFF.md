@@ -1273,3 +1273,10 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 
 - Regression SQL дополнен отрицательным случаем: если одновременно отсутствуют pins.image_url и snapshot_image_url, retry возвращает pin_unavailable и оставляет расписание failed.
 - CI по HEAD после AUD-232: Prodamus webhook tests, atomic-payment integration и persisted-boards integration — failure. Все failed jobs вернули logs_url=null и steps=null; fetch logs завершился BlobNotFound 404. Причина failure неизвестна, тесты не считать пройденными.
+
+## AUD-233 — скрытие worker claim token из API расписаний (2026-11-09)
+
+- Найдено: API возвращал `pin_schedules.claim_token` вместе с полями расписания. Это внутренний fencing token, который нужен только worker для подтверждения владения заданием.
+- `sanitizeScheduleForClient` теперь удаляет `last_error` и `claim_token`; sanitizer применён к ответам календаря, созданию расписания, восстановлению legacy account, смене доски, ручному retry и отмене.
+- Unit regression расширен: публичный объект не содержит `claim_token`/`last_error`, исходная DB-shaped запись не мутируется.
+- Статус: FIX IMPLEMENTED / CI UNVERIFIED. Node/CI фактическое выполнение не подтверждено; GitHub jobs на текущем PR завершаются failure без шагов/логов (BlobNotFound). Production не менялся, PR #4 остаётся Draft/open, merge/deploy не выполнялись.
