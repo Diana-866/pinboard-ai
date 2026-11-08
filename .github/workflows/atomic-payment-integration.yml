@@ -259,6 +259,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/081_pinterest_publish_completion_board_integrity.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/082_pinterest_operator_publication_reconciliation.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/083_quarantine_expired_pin_image_deletions.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/089_recover_completed_pin_image_uploads.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/090_prevent_reuse_of_deleted_pin_image_paths.sql
       - name: Verify Pinterest refresh uncertainty fence
         env:
