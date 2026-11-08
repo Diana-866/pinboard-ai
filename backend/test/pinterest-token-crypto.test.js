@@ -66,6 +66,20 @@ test("missing or invalid encryption key fails closed for writes", () => {
   process.env.PINTEREST_TOKEN_ENCRYPTION_KEY = "not-a-valid-key";
   assert.equal(hasEncryptionKey(), false);
   assert.throws(() => encryptToken("must-not-be-stored-plaintext"));
+
+  const validBase64 = Buffer.alloc(32, 21).toString("base64");
+  process.env.PINTEREST_TOKEN_ENCRYPTION_KEY = validBase64 + "!";
+  assert.equal(hasEncryptionKey(), false);
+  assert.throws(() => encryptToken("must-not-be-stored-plaintext"));
+
+  process.env.PINTEREST_TOKEN_ENCRYPTION_KEY = validBase64.slice(0, -2) + "!!";
+  assert.equal(hasEncryptionKey(), false);
+  assert.throws(() => encryptToken("must-not-be-stored-plaintext"));
+
+  // Canonical unpadded Base64 is accepted for deployment environments that
+  // omit trailing padding, while malformed encodings are rejected.
+  process.env.PINTEREST_TOKEN_ENCRYPTION_KEY = validBase64.replace(/=+$/, "");
+  assert.equal(hasEncryptionKey(), true);
 });
 
 test.after(() => {
