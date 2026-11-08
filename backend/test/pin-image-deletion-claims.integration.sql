@@ -166,6 +166,7 @@ declare
   v_path text := 'pins/generation-dddddddddddddddddddddddddddddddd.webp';
   v_token uuid := gen_random_uuid();
   v_count integer;
+  v_result jsonb;
 begin
   insert into public.pin_image_object_lifecycle(
     bucket_id, object_path, state, claim_token, claim_expires_at, attempts
@@ -219,14 +220,14 @@ begin
 end;
 $body$;
 
--- A live claim is exclusive. An expired claim can be retried with a new
--- fencing token only while no durable references exist.
+-- A live claim is exclusive. An expired external deletion is permanently
+-- quarantined because the original Storage request may still complete late.
 do $body$
 declare
   v_path text := 'pins/generation-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.webp';
   v_first_token uuid;
-  v_second_token uuid;
   v_result jsonb;
+  v_state text;
 begin
   v_result := public.claim_pin_image_deletion('pin-images', v_path, 60);
   if coalesce((v_result ->> 'claimed')::boolean, false) is not true then
@@ -245,31 +246,34 @@ begin
    where bucket_id = 'pin-images' and object_path = v_path;
 
   v_result := public.claim_pin_image_deletion('pin-images', v_path, 60);
-  if coalesce((v_result ->> 'claimed')::boolean, false) is not true then
-    raise exception 'expired deletion claim was not safely retried: %', v_result;
+  if coalesce((v_result ->> 'claimed')::boolean, false) is not false
+     or v_result ->> 'reason' <> 'path_quarantined' then
+    raise exception 'expired deletion claim was not permanently quarantined: %', v_result;
   end if;
-  v_second_token := (v_result ->> 'claim_token')::uuid;
 
-  if v_second_token = v_first_token then
-    raise exception 'expired claim retry did not rotate the fencing token';
+  select state into v_state
+    from public.pin_image_object_lifecycle
+   where bucket_id = 'pin-images' and object_path = v_path;
+  if v_state <> 'quarantined' then
+    raise exception 'expired deletion path was not retired: %', v_state;
   end if;
 
   if public.finalize_pin_image_deletion(
        'pin-images', v_path, v_first_token, true, null
      ) then
-    raise exception 'stale worker unexpectedly finalized a newer claim';
+    raise exception 'stale worker finalized a quarantined deletion';
   end if;
 
-  if not public.finalize_pin_image_deletion(
-       'pin-images', v_path, v_second_token, true, null
-     ) then
-    raise exception 'current claim could not be finalized';
+  v_result := public.begin_pin_image_upload('pin-images', v_path, 60);
+  if coalesce((v_result ->> 'reserved')::boolean, false) is not false
+     or v_result ->> 'reason' <> 'path_quarantined' then
+    raise exception 'expired deletion path was reused for upload: %', v_result;
   end if;
 
   v_result := public.claim_pin_image_deletion('pin-images', v_path, 60);
   if coalesce((v_result ->> 'claimed')::boolean, false) is not false
-     or v_result ->> 'reason' <> 'already_deleted' then
-    raise exception 'deleted object was claimable again: %', v_result;
+     or v_result ->> 'reason' <> 'path_quarantined' then
+    raise exception 'quarantined deletion path was claimed again: %', v_result;
   end if;
 end;
 $body$;
