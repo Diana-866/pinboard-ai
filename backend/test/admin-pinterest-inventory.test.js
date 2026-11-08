@@ -77,6 +77,24 @@ test("attempt matching is scoped by both pin and Pinterest account", async () =>
   assert.equal(result.items[0].actionable_reconciliation, true);
 });
 
+test("attempt identity includes owner and operational errors redact credential-like values", async () => {
+  reset();
+  attemptRows.push({
+    ...attemptRows[0],
+    id: "attempt-wrong-owner",
+    user_id: "different-user",
+    status: "failed",
+    retry_safe: true,
+    last_error: "Authorization: Bearer secret-value",
+  });
+  scheduleRows[0].last_error = "request failed?access_token=private-value";
+  const result = await inventory.listPinterestSchedules({}, NOW);
+  assert.equal(result.items[0].attempt.status, "unknown");
+  assert.equal(result.items[0].attempt.last_error, "remote outcome unknown");
+  assert.equal(result.items[0].last_error, "request failed?access_token=[redacted]");
+  assert.equal("user_id" in result.items[0], false);
+});
+
 test("stale publishing and overdue scheduled rows are classified without changing state", async () => {
   reset();
   scheduleRows = [
