@@ -8,6 +8,7 @@ const supabase = require("./supabase");
 const mail = require("./mail");
 const { getEmailCopy, getPlanTitle, getLocale } = require("./email-locales");
 const prodamus = require("./prodamus");
+const { createPaymentOrderId } = require("./paymentOrderId");
 const { persistWebhookException } = require("./billingWebhookAudit");
 const { httpError, validateEnum } = require("./validate");
 const { normalizePlan } = require("./tariff");
@@ -83,7 +84,7 @@ async function createPayment(userId, body) {
   if (userError || !user) throw httpError(404, "Пользователь не найден");
 
   const amount = PLANS[plan][currency];
-  const orderId = `pp-${plan}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const orderId = createPaymentOrderId("pp", plan);
 
   // 1. Пишем платёж как pending: это наш источник правды и ключ идемпотентности.
   const { data: sub, error: insertError } = await supabase
