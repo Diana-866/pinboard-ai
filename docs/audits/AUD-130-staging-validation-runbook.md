@@ -75,4 +75,4 @@ Do not apply migration 078 or enable these routes against Production until all o
 - Migration 078 and SQL integration test are committed to the feature branch but have not been executed.
 - Backend adapter, routes, and unit tests are committed but have not been executed.
 - No staging database, Production database, provider API, or deployment was touched by this work.
-- GitHub currently reports no check-runs for the inspected branch head. Its Vercel status is `failure` with description `Deployment rate limited — retry in 24 hours.` This is a deployment quota status, not a failing application test.
+- On the inspected branch commit `34d9a6d`, GitHub Actions reported failures for the persisted-boards frontend/backend jobs, atomic-payment integration job, and Prodamus backend-tests job. GitHub returned `steps=null` and `logs_url=null`; retrieving job logs returned `BlobNotFound`. The cause is unknown; none of these runs is evidence of passing tests or of an application defect. Vercel reports `build-rate-limit`, which is a deployment quota status, not an application test result.
