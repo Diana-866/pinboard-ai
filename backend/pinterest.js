@@ -28,6 +28,13 @@ const supabase = require("./supabase");
 const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
 const { httpError } = require("./validate");
 const { classifyScheduleFailure, canRetryScheduleFailure, getScheduleRetryDelayMinutes, resolvePinScheduleSnapshot } = require("./pinterestSchedule");
+const {
+  createBrowserBinding,
+  readCookie,
+  matchesBrowserBinding,
+  serializeBindingCookie,
+  clearBindingCookie,
+} = require("./pinterestOAuthBrowserBinding");
 
 const AUTHORIZE_URL = "https://www.pinterest.com/oauth/";
 const TOKEN_URL = "https://api.pinterest.com/v5/oauth/token";
@@ -76,13 +83,14 @@ function frontendBase() {
 // ---------- state (защита OAuth-редиректа от подмены) ----------
 
 /** Короткоживущий подписанный state: userId + версия сессии, срок 15 минут. */
-function createState(userId, tokenVersion = 0, attemptId, generation) {
+function createState(userId, tokenVersion = 0, attemptId, generation, browserBindingHash) {
   return jwt.sign(
     {
       userId,
       tokenVersion: Number(tokenVersion) || 0,
       attemptId,
       generation: Number(generation),
+      browserBindingHash,
       purpose: "pinterest_oauth",
     },
     process.env.JWT_SECRET,
@@ -100,7 +108,9 @@ function readStateClaims(state) {
       typeof decoded.attemptId !== "string" ||
       !/^[0-9a-f-]{36}$/i.test(decoded.attemptId) ||
       !Number.isSafeInteger(Number(decoded.generation)) ||
-      Number(decoded.generation) < 1
+      Number(decoded.generation) < 1 ||
+      typeof decoded.browserBindingHash !== "string" ||
+      !/^[a-f0-9]{64}$/i.test(decoded.browserBindingHash)
     ) {
       throw new Error("не тот state");
     }
@@ -709,7 +719,11 @@ function registerRoutes(app, deps) {
       });
       if (beginError) throw beginError;
       if (generation == null) throw httpError(503, "Не удалось начать подключение Pinterest. Попробуйте позже.");
-      const state = createState(req.userId, account.token_version, attemptId, generation);
+      // Bind this short-lived OAuth state to the browser that initiated the flow.
+      // Only the hash is signed into state; the raw secret stays in an HttpOnly cookie.
+      const browserBinding = createBrowserBinding();
+      const state = createState(req.userId, account.token_version, attemptId, generation, browserBinding.hash);
+      res.setHeader("Set-Cookie", serializeBindingCookie(browserBinding.secret));
       const params = new URLSearchParams({
         client_id: clientId(),
         redirect_uri: redirectUri(),
@@ -726,8 +740,14 @@ function registerRoutes(app, deps) {
   // Возврат с Pinterest: браузер приходит без нашего токена, проверяем подписанный state
   app.get("/integrations/pinterest/callback", pinterestOAuthCallbackLimiter, async (req, res) => {
     const back = (q) => `${frontendBase()}/app?pinterest=${q}`;
+    // Clear the one-time browser proof on every callback outcome.
+    res.setHeader("Set-Cookie", clearBindingCookie());
     try {
       const stateClaims = readStateClaims(req.query.state);
+      const browserBindingSecret = readCookie(req.headers.cookie);
+      if (!matchesBrowserBinding(browserBindingSecret, stateClaims.browserBindingHash)) {
+        throw httpError(400, "Pinterest connection must be completed in the browser where it was started.");
+      }
       const userId = stateClaims.userId;
       // Password reset increments token_version. A callback started by an old
       // session must not reconnect an external Pinterest account afterwards.
