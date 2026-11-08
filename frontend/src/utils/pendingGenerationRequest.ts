@@ -153,6 +153,38 @@ export function writePendingGenerationRequest(
   return false;
 }
 
+/** Enumerate saved request identities without exposing request content or mutating storage. */
+export function listPendingGenerationRequests(
+  storage: StorageLike | undefined = getDefaultStorage(),
+): PendingGenerationRequest[] {
+  const found = new Map<string, PendingGenerationRequest>();
+  const add = (request: PendingGenerationRequest | null) => {
+    if (!request || !/^fp1:[a-f0-9]{16}$/.test(request.fingerprint) ||
+        !/^[A-Za-z0-9_-]{16,128}$/.test(request.idempotencyKey)) return;
+    if (!found.has(request.fingerprint)) found.set(request.fingerprint, request);
+  };
+
+  for (const request of inMemoryRequests.values()) add(request);
+
+  for (const target of [storage, getLegacySessionStorage()]) {
+    if (!target || typeof (target as StorageLike).length !== 'number' ||
+        typeof (target as StorageLike).key !== 'function') continue;
+    try {
+      const entries = target as StorageLike;
+      for (let index = 0; index < (entries.length || 0); index += 1) {
+        const key = entries.key?.(index);
+        if (!key?.startsWith(REQUEST_KEY_PREFIX)) continue;
+        const request = parseRequest(entries.getItem(key));
+        if (request?.fingerprint === key.slice(REQUEST_KEY_PREFIX.length)) add(request);
+      }
+    } catch {
+      // Storage may be disabled or revoked; keep identities found elsewhere.
+    }
+  }
+
+  return Array.from(found.values(), (request) => ({ ...request }));
+}
+
 /** Clear one completed/abandoned request without erasing other pending generations. */
 export function clearPendingGenerationRequest(
   fingerprint?: string,
