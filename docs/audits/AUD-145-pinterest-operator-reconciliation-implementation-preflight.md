@@ -80,3 +80,15 @@ A first guarded implementation has now been added on the feature branch:
 ## Verification still required
 
 The SQL migration and PostgreSQL fixture have not yet been executed in a local disposable database. Node tests have not been run locally. CI status for the latest commit must be checked; historical workflow log archives have repeatedly returned BlobNotFound, so a failed check without readable logs cannot be attributed to the new code. Do not apply migration 082 to production or expose the endpoint in a deployment until PostgreSQL integration tests pass.
+
+
+## Static review and privilege-test follow-up (2026-11-08)
+
+- Rechecked migration 082 against migrations 015-017, 031-033, 049-050, 055, and 056-061. The referenced ownership columns and account-scoped partial unique index match the migration assumptions: schedule/attempt owner IDs are text UUIDs; account, pin, and schedule IDs are UUIDs; the publication conflict target matches the partial unique index from migration 033.
+- Rechecked the route: it is behind `adminActionLimiter`, `requireAuth`, and `requireAdmin`; the operator ID passed to the RPC comes from the verified request identity, not the request body. The SECURITY DEFINER RPC independently locks/rechecks admin status.
+- Rechecked the transaction ordering and state fence: operator/target user rows are locked in UUID order, followed by account → schedule → attempt; the schedule must be stale `unknown`, and the attempt may be stale `unknown` or `processing` with `retry_safe=false`. Existing schedule/attempt/publication remote IDs must agree with the supplied IDs.
+- Extended the disposable SQL fixture to assert no direct table privileges for anon/authenticated/service_role, no RPC EXECUTE for anon/authenticated, EXECUTE for service_role, and rejection of TRUNCATE in addition to UPDATE. The fixture remains wrapped in BEGIN/ROLLBACK.
+- Corrected the fixture prerequisite comment: migration 078 is not a dependency of this fixture or migration 082.
+- Latest GitHub Actions for HEAD `110061ff4bc6346eee7a1f0073d3855b724cd008`: Persisted boards, Atomic payment, and Prodamus workflows all report failure. All four job-log downloads returned Azure `BlobNotFound`; the available job metadata does not expose step outcomes. Therefore the failure stage is still unknown, and no claim is made that SQL or Node tests ran.
+- CI workflow applies migrations 015-075, then 080-082; it skips 076-079 in this disposable harness. Migration 082 does not reference objects introduced by those skipped migrations, but the harness is not a byte-for-byte replay of the complete production migration sequence.
+- No local PostgreSQL/Node tests, production migrations, live database operations, Pinterest API calls, cron changes, or deployment were performed.
