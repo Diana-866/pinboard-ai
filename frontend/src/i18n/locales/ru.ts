@@ -318,6 +318,8 @@ export const ru: TranslationSchema = {
     statusPublishing: "Публикуется",
     statusFailed: "Ошибка публикации",
     statusUnknown: "Нужна проверка",
+    unknownPublishHelpTitle: 'Pinterest мог получить этот пин',
+    unknownPublishHelpBody: 'Не удалось подтвердить результат публикации. Не нажимайте «Повторить» и не создавайте такое же расписание: это может привести к дубликату. Проверьте выбранный аккаунт и доску Pinterest. Если публикация не найдена однозначно, оставьте запись для проверки поддержкой.',
     statusQueued: "В очереди",
     generateDateTitle: "Сгенерировать пины на дату",
     primeSlotLabel: "Слот 20:15 (пиковое время)",
