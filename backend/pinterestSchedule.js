@@ -43,6 +43,10 @@ async function persistPublishFailureJournal(rpc, params) {
 }
 
 
+function isScheduleClaimUpdateConfirmed(result) {
+  return Boolean(result && !result.error && result.data && result.data.id);
+}
+
 function hasMatchingScheduleAttemptIdentity(attempt, schedule) {
   if (!attempt || !schedule) return false;
   return String(attempt.user_id || "") === String(schedule.user_id || "")
@@ -92,6 +96,7 @@ module.exports = {
   getScheduleRetryDelayMinutes,
   buildScheduleWorkerFailureState,
   hasMatchingScheduleAttemptIdentity,
+  isScheduleClaimUpdateConfirmed,
   persistPublishFailureJournal,
   isPinterestPublishOutcomeUnknown,
   buildPinScheduleSnapshot,
