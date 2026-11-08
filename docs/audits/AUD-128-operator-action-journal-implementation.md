@@ -33,6 +33,7 @@ The SQL integration file creates isolated users and generation/regeneration requ
 - Denial of direct journal privileges to service_role/anon/authenticated.
 - Execute grants only for the four intended service_role RPCs; the internal worker remains inaccessible.
 - UPDATE and TRUNCATE rejection.
+- Operator-owned target request (`operator_user_id` equals the target account), verifying the sorted lock query safely handles one distinct user row.
 
 ## Important remaining work / verification limits
 
