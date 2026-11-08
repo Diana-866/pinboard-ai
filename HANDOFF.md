@@ -1374,3 +1374,13 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Добавлены регрессии для истёкшего/некорректного expiry с refresh token и без него; существующий backend test workflow покрывает этот файл.
 - Изменения: `backend/pinterestPublicAccount.js`, `backend/test/pinterest-public-account.test.js`, `docs/audits/AUD-242-pinterest-expired-access-token-refresh.md`.
 - Node/Frontend/PostgreSQL tests локально не запускались. CI на новом HEAD требует проверки. Production, реальные Pinterest API-вызовы, миграции, deployment и merge не затрагивались.
+
+
+## AUD-243 — учитывать Retry-After Pinterest при безопасном повторе (2026-11-09)
+- Исправлен общий Pinterest request wrapper: при HTTP 429 безопасные повторные запросы теперь учитывают `Retry-After` в секундах или HTTP-date вместо безусловной паузы 2 секунды.
+- Некорректный/отсутствующий заголовок сохраняет fallback 2 секунды; задержка ограничена 60 секундами, отрицательное ожидание невозможно.
+- Повтор по-прежнему выполняется максимум один раз. Для POST публикации `retryRateLimit:false` остаётся обязательным: автоматического повтора после 429 нет, чтобы не создавать дубли.
+- Добавлены unit-регрессии и отдельный Node test step в `.github/workflows/atomic-payment-integration.yml`.
+- Пользовательский эффект: чтение досок после rate limit не будет преждевременно повторяться вопреки сроку Pinterest; безопасная защита публикаций от дубликатов сохранена.
+- Статус: FIX + TEST + CI WIRING ADDED / EXECUTION UNVERIFIED. Локальный Node test не запускался; дождаться реального CI. Production, реальные Pinterest API, БД, deployment и merge не затрагивались.
+- Документ: `docs/audits/AUD-243-pinterest-retry-after-rate-limit.md`.
