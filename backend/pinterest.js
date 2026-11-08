@@ -29,7 +29,7 @@ const supabase = require("./supabase");
 const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
 const { httpError } = require("./validate");
 const { getPinterestTokenExpiresAt } = require("./pinterestOAuth");
-const { classifyScheduleFailure, canRetryScheduleFailure, getScheduleRetryDelayMinutes, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown, persistPublishFailureJournal } = require("./pinterestSchedule");
+const { buildScheduleWorkerFailureState, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown, persistPublishFailureJournal } = require("./pinterestSchedule");
 const {
   createBrowserBinding,
   readCookie,
@@ -1010,41 +1010,52 @@ function registerRoutes(app, deps) {
           // and cleared that token.
           results.push({ schedule_id: schedule.id, status: "published" });
         } catch (e) {
-          const { data: attempt, error: attemptLookupError } = await supabase
-            .from("pinterest_publish_attempts")
-            .select("status, pinterest_pin_id, retry_safe")
-            .eq("pin_id", schedule.pin_id)
-            .eq("pinterest_account_id", schedule.pinterest_account_id)
-            .maybeSingle();
-          // If the journal cannot be read, the outcome is not safe to classify
-          // as failed: the remote pin may already exist. Keep it non-retryable.
-          const finalStatus = classifyScheduleFailure(attempt, attemptLookupError);
-          const message = String(
-            attemptLookupError
-              ? "Could not verify publication journal after worker error: " + attemptLookupError.message
-              : e && e.message || "Publication failed"
-          ).slice(0, 500);
-          const retryable = canRetryScheduleFailure(attempt, attemptLookupError, e);
-          const retryLimit = 5;
-          const shouldRetry = retryable && Number(schedule.attempts || 0) < retryLimit;
-          const retryAt = shouldRetry
-            ? new Date(Date.now() + getScheduleRetryDelayMinutes(schedule.attempts) * 60_000).toISOString()
-            : null;
-          const nextStatus = shouldRetry ? "scheduled" : finalStatus;
-          const { error: scheduleUpdateError } = await supabase
-            .from("pin_schedules")
-            .update({
-              status: nextStatus,
-              claim_token: null,
-              pinterest_pin_id: finalStatus === "published" ? attempt.pinterest_pin_id : null,
-              published_at: finalStatus === "published" ? new Date().toISOString() : null,
-              last_error: finalStatus === "published" ? null : message,
-              next_attempt_at: retryAt,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", schedule.id)
-            .eq("status", "publishing")
-            .eq("claim_token", schedule.claim_token);
+          let attempt = null;
+          let attemptLookupError = null;
+          try {
+            const lookup = await supabase
+              .from("pinterest_publish_attempts")
+              .select("status, pinterest_pin_id, retry_safe")
+              .eq("pin_id", schedule.pin_id)
+              .eq("pinterest_account_id", schedule.pinterest_account_id)
+              .maybeSingle();
+            attempt = lookup.data;
+            attemptLookupError = lookup.error;
+          } catch (lookupError) {
+            // A rejected transport promise is just as uncertain as a returned
+            // Supabase error. Never infer that the remote publish did not happen.
+            attemptLookupError = lookupError;
+          }
+
+          const failure = buildScheduleWorkerFailureState({
+            attempt,
+            attemptLookupError,
+            error: e,
+            attempts: schedule.attempts,
+          });
+          const { finalStatus, message, retryAt, nextStatus } = failure;
+          let scheduleUpdateError = null;
+          try {
+            const update = await supabase
+              .from("pin_schedules")
+              .update({
+                status: nextStatus,
+                claim_token: null,
+                pinterest_pin_id: finalStatus === "published" ? attempt.pinterest_pin_id : null,
+                published_at: finalStatus === "published" ? new Date().toISOString() : null,
+                last_error: finalStatus === "published" ? null : message,
+                next_attempt_at: retryAt,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", schedule.id)
+              .eq("status", "publishing")
+              .eq("claim_token", schedule.claim_token);
+            scheduleUpdateError = update.error;
+          } catch (updateError) {
+            // Keep processing the rest of the claimed batch. This row remains
+            // fenced by its claim token and is reconciled by stale-claim recovery.
+            scheduleUpdateError = updateError;
+          }
           if (scheduleUpdateError) {
             console.error("[pinterest-worker] не удалось сохранить итоговый статус расписания:", scheduleUpdateError.message);
           }
