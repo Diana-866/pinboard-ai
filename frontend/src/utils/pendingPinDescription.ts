@@ -6,6 +6,14 @@ export interface PendingPinDescription {
 
 const STORAGE_PREFIX = 'pinposy.pending-pin-description.v1';
 
+function getDefaultStorage(): Storage | undefined {
+  try {
+    return typeof window !== 'undefined' ? window.localStorage : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 const storageKey = (boardId: string, pinId: string): string =>
   `${STORAGE_PREFIX}:${encodeURIComponent(boardId)}:${encodeURIComponent(pinId)}`;
 
