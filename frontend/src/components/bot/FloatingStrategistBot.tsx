@@ -9,6 +9,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
+import { getDemoNavigationTarget } from '../../utils/demoNavigation';
 
 interface Message {
   id: string;
@@ -100,29 +101,7 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
     if (!query) return;
 
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const lower = query.toLocaleLowerCase(language);
-    const hasAny = (terms: string[]) => terms.some((term) => lower.includes(term));
-    let targetTab: string | undefined;
-
-    // This is deliberately a small navigation helper, not an AI classifier.
-    // Match common wording across every supported interface language.
-    if (hasAny(['доск', 'board', 'pinnwand', 'tablero', 'tableau', 'pasta', '画板', '看板'])) {
-      targetTab = 'boards';
-    } else if (hasAny(['календар', 'время', 'час', 'когда', 'schedule', 'calendar', 'time', 'zeit', 'planen', 'horario', 'programar', 'heure', 'planifier', 'agendar', '日历', '排期', '时间'])) {
-      targetTab = 'calendar';
-    } else if (hasAny(['генерац', 'пин', 'созда', 'generate', 'create', 'erstelle', 'erstellen', 'crear', 'créer', 'criar', '生成', '创建'])) {
-      targetTab = 'generator';
-    } else if (hasAny(['конкурент', 'competitor', 'wettbewerb', 'competidor', 'concurrent', 'concorr'])) {
-      targetTab = 'competitors';
-    } else if (hasAny(['ключ', 'keyword', 'schlüssel', 'palabra', 'mot-clé', 'palavra-chave', '关键词'])) {
-      targetTab = 'keywords';
-    } else if (hasAny(['аналит', 'статист', 'показател', 'analytics', 'metric', 'statistic', 'kennzahl', 'statistik', 'métrica', 'estadíst', 'statistique', 'indicateur', 'métrica', 'dados', '数据', '指标'])) {
-      targetTab = 'analytics';
-    } else if (hasAny(['тариф', 'оплат', 'цена', 'plan', 'price', 'pricing', 'tarif', 'precio', 'preço', 'plano', '价格'])) {
-      targetTab = 'pricing';
-    } else if (hasAny(['настрой', 'setting', 'einstellung', 'configuración', 'paramètre', 'configuração', '设置'])) {
-      targetTab = 'settings';
-    }
+    const targetTab = getDemoNavigationTarget(query, language);
 
     const messageId = Date.now();
     setMessages((prev) => [
