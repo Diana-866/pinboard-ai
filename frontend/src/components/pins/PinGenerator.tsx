@@ -209,6 +209,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoadingSavedPins, setIsLoadingSavedPins] = useState(false);
   const [savedPinsLoadError, setSavedPinsLoadError] = useState('');
+  const [savedPinsReloadAttempt, setSavedPinsReloadAttempt] = useState(0);
   const [isSavingAspectRatio, setIsSavingAspectRatio] = useState(false);
   const [descriptionSaveState, setDescriptionSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const descriptionSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -278,7 +279,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         console.error('[pins] Не удалось восстановить сохранённые пины:', error);
         if (active) {
           setGeneratedPins([]);
-          setSavedPinsLoadError('Не удалось загрузить сохранённые пины. Попробуйте выбрать доску ещё раз.');
+          setSavedPinsLoadError('Не удалось загрузить сохранённые пины. Проверьте соединение и попробуйте ещё раз.');
         }
       })
       .finally(() => {
@@ -317,7 +318,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         });
       }
     };
-  }, [selectedBoardId, boards]);
+  }, [selectedBoardId, boards, savedPinsReloadAttempt]);
 
   // Quick preset topic suggestions
   const topicPresets = [
@@ -1033,8 +1034,16 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             </div>
           )}
           {savedPinsLoadError && (
-            <div className="custom-card p-4 rounded-xl text-sm text-red-600" role="alert">
-              {savedPinsLoadError}
+            <div className="custom-card p-4 rounded-xl text-sm text-red-600 space-y-3" role="alert">
+              <p>{savedPinsLoadError}</p>
+              <button
+                type="button"
+                onClick={() => setSavedPinsReloadAttempt((attempt) => attempt + 1)}
+                disabled={isLoadingSavedPins}
+                className="px-4 py-2 rounded-lg border border-current font-semibold disabled:opacity-50"
+              >
+                Повторить загрузку
+              </button>
             </div>
           )}
 
