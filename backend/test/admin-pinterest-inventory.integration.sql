@@ -45,14 +45,14 @@ begin
     v_user,array['unknown'],10,0
   );
   select item into v_item
-    from jsonb_array_elements(v_inventory) as item
+    from jsonb_array_elements(v_inventory) as entries(item)
    where item->>'id'=v_schedule::text;
 
   if v_item is null then raise exception 'admin inventory omitted the recovery schedule'; end if;
   if v_item->>'creative_title' is distinct from v_title then
     raise exception 'admin inventory did not prefer immutable snapshot title';
   end if;
-  if length(v_item->>'creative_description')<>500 then
+  if length(v_item->>'creative_description') is distinct from 500 then
     raise exception 'admin inventory description was not bounded to 500 characters';
   end if;
   if v_item ? 'snapshot_title' or v_item ? 'snapshot_image_url'
