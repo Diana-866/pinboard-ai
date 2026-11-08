@@ -324,6 +324,7 @@ jobs:
         run: |
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-unknown-schedule-reconciliation.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-stale-schedule-recovery.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-schedule-cancellation-race.integration.sql
       - name: Verify stale Pinterest refresh cannot undo disconnect
         env:
           PGPASSWORD: postgres
