@@ -22,15 +22,15 @@ Before testing:
 4. Run the complete `backend/test/provider-refund-operator-actions.integration.sql` file in one transaction. The script creates temporary test users/requests, checks atomic rollback and journal protections, then ends with `ROLLBACK`.
 5. Confirm the SQL editor reports success and that no fixture users or requests remain.
 6. Run the additional multi-session concurrency checks before approving the migration:
-   - Session A holds the operator row lock while Session B attempts demotion and an action.
+   - Session A holds the operator row lock while Session B attempts demotion and an action; verify the action rechecks `is_admin` after acquiring both user locks.
    - Two operators attempt the same logical action with different action UUIDs.
-   - Two operators concurrently target one another's accounts.
+   - Two operators concurrently target one another's accounts (A targets B while B targets A); verify both transactions request user locks in ascending UUID order and neither is left in a deadlock cycle.
    - Operator deletion races with an action.
    - Target-account deletion races with an action.
    - The same operator acts on their own request.
    Record which transaction commits and verify there is no duplicate journal row or partial financial mutation.
 
-The current SQL integration script does not prove multi-session concurrency. A passing single-session script is necessary but not sufficient.
+The current SQL integration script does not prove multi-session concurrency. Migration 078 now acquires the operator and target user rows in ascending UUID order to avoid cross-target lock inversion; the two-session test must still confirm the actual PostgreSQL behavior. A passing single-session script is necessary but not sufficient.
 
 ## Backend validation
 
