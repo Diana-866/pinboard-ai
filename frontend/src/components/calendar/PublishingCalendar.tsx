@@ -502,6 +502,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
             { value: 'scheduled', label: t.calendar.statusScheduled },
             { value: 'publishing', label: t.calendar.statusPublishing },
             { value: 'published', label: t.calendar.statusPublished },
+            { value: 'cancelled', label: t.calendar.statusCancelled },
             { value: 'failed', label: t.calendar.statusFailed },
             { value: 'unknown', label: t.calendar.statusUnknown },
           ].map(({ value, label }) => (
@@ -691,6 +692,8 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                       ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
                       : pin.status === 'unknown'
                       ? 'bg-orange-500/10 text-orange-700 dark:text-orange-400'
+                      : pin.status === 'cancelled'
+                      ? 'bg-gray-500/10 text-gray-600 dark:text-gray-400'
                       : 'bg-accent-pill text-primary-theme'
                   }`}>
                     {pin.status === 'published'
@@ -701,6 +704,8 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                       ? t.calendar.statusPublishing
                       : pin.status === 'unknown'
                       ? t.calendar.statusUnknown
+                      : pin.status === 'cancelled'
+                      ? t.calendar.statusCancelled
                       : t.calendar.statusQueued}
                   </span>
                 </div>
@@ -826,6 +831,8 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                     ? t.calendar.statusPublishing
                     : selectedPin.status === 'unknown'
                     ? t.calendar.statusUnknown
+                    : selectedPin.status === 'cancelled'
+                    ? t.calendar.statusCancelled
                     : selectedPin.status === 'draft'
                     ? t.calendar.statusDraft
                     : t.calendar.statusQueued}
