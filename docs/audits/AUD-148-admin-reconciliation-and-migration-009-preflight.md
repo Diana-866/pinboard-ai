@@ -75,3 +75,17 @@ A follow-up route review found that both mutating Storage lifecycle endpoints we
 Both routes already required authenticated administrator access, so this was not an authorization bypass. However, they perform database/storage lifecycle work and were inconsistent with the API's administrative action throttling policy. Added `adminActionLimiter` before `requireAuth` and `requireAdmin`, ensuring unauthenticated traffic is also throttled.
 
 Added `backend/test/admin-storage-rate-limit.test.js` to guard both route middleware chains against regression. This is a source-registration assertion, not an HTTP integration test. The test has been committed but has not been executed; CI and local test results are not yet available.
+
+## 6. Core-table privileges and SECURITY DEFINER search paths
+
+Reviewed `001_baseline.sql`, migrations 039–043, 076 and 079.
+
+Source-level findings:
+- The baseline enables RLS on all ten core tables. The custom application JWT is not a Supabase Auth JWT, so `auth.uid()` evaluates to NULL for normal application requests; the backend uses the service-role client.
+- The baseline explicitly revokes client grants on the first five core tables. It does not explicitly revoke grants on the remaining five in that file, but their RLS policies are SELECT-only for user-owned rows (and `auth_tokens` has no client policy). Migration 076 later applies a uniform explicit revoke from PUBLIC/anon/authenticated to all ten tables and grants the required CRUD privileges to service_role.
+- Migration 039 independently closes direct client grants on Pinterest credential/publication tables and grants backend access to service_role.
+- Migrations 040, 041 and 043 restore catalog-first `pg_catalog, public` search paths on the reviewed SECURITY DEFINER Pinterest, credit-balance and schedule-claim functions. Migration 043 is important because it documents that migration 034 replaced the schedule claim function after migration 040 and reset its path.
+- Migration 076 verifies that each expected core table exists before applying RLS and grants; it fails closed rather than silently skipping a missing table.
+- Migration 079 exposes a normalized provider-cost view and revokes it from PUBLIC/anon/authenticated, granting SELECT only to service_role. Unknown provider costs remain NULL rather than being represented as zero.
+
+No confirmed client privilege escalation was found in these reviewed migrations. The baseline's incomplete explicit revoke list is a hardening inconsistency, but the RLS policies shown in the same baseline prevent the custom-JWT client from reading protected rows or writing through those five tables; migration 076 supplies the consistent explicit privilege boundary later in the migration chain. These are source-level findings only; grants, view ownership and effective privileges have not been queried on a live or disposable PostgreSQL instance.
