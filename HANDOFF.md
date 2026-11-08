@@ -1258,3 +1258,5 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Пользовательский эффект: нельзя случайно повторить публикацию на основании чужого/устаревшего журнала другой доски. Серверная кнопка скрывается, а БД независимо блокирует запрос даже от старого клиента.
 - Тесты локально не запускались; CI ещё должен подтвердить фактическое выполнение. Production DB, Pinterest API, deployment и merge не затрагивались.
 - Документ: docs/audits/AUD-231-pinterest-failed-schedule-retry-identity.md.
+
+- CI follow-up по HEAD с изменениями кода и workflow: atomic-payment integration, Prodamus webhook tests и persisted-boards integration завершились failure. GitHub API вернул steps=null и logs_url=null; причина неизвестна, новые Node/SQL regression tests не считать пройденными. После обновления документации требуется учитывать отдельный новый HEAD/повторный CI.
