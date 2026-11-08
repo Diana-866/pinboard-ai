@@ -1641,7 +1641,7 @@ app.get("/schedule", requireAuth, async (req, res) => {
     const activeAccountIds = new Set((accountsResult.data || []).map((account) => String(account.id)));
     const activeScheduleStatuses = new Set(["scheduled", "publishing", "published", "unknown"]);
     const enriched = rows.map((row) => {
-      if (row.status !== "failed") return { ...row, retryable: false, retry_reason: null, failure_reason: null };
+      if (row.status !== "failed") return sanitizeScheduleForClient({ ...row, retryable: false, retry_reason: null, failure_reason: null });
       const accountId = row.pinterest_account_id ? String(row.pinterest_account_id) : null;
       const attempt = attempts.find((item) =>
         String(item.pin_id) === String(row.pin_id) &&
