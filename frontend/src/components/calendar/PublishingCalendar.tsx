@@ -34,7 +34,7 @@ interface PublishingCalendarProps {
   onAddPin: (pin: ScheduledPinItem) => void;
   onCancelSchedule?: (pin: ScheduledPinItem) => Promise<void>;
   onRetrySchedule?: (pin: ScheduledPinItem) => Promise<void>;
-  onChangeFailedScheduleBoard?: (pin: ScheduledPinItem, pinterestBoardId: string) => Promise<void>;
+  onChangeFailedScheduleBoard?: (pin: ScheduledPinItem, pinterestBoardId: string, boardName: string) => Promise<void>;
   onReconcileLegacySchedule?: (pin: ScheduledPinItem, accountId: string) => Promise<void>;
   onGoToGenerator: (topic?: string, date?: string) => void;
   onOpenReview?: () => void;
@@ -1012,7 +1012,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                       disabled={!replacementBoardId || busyScheduleAction !== null}
                       onClick={() => void runScheduleAction(`change-board:${selectedPin.id}`, async () => {
                         try {
-                          await onChangeFailedScheduleBoard(selectedPin, replacementBoardId);
+                          await onChangeFailedScheduleBoard(selectedPin, replacementBoardId, replacementBoards.find((board) => board.id === replacementBoardId)?.name || '');
                           setSelectedPin(null);
                         } catch {
                           // The parent reports the API error; keep the details open.
