@@ -8,7 +8,6 @@ import {
   Layers,
   Users,
   MessageSquare,
-  ArrowRight,
   TrendingUp,
   X,
   HelpCircle,
@@ -245,15 +244,6 @@ export const PricingView: React.FC = () => {
   const [payingPackId, setPayingPackId] = useState<string | null>(null);
   const checkoutBusy = payingId !== null || payingPackId !== null;
 
-  // AI Strategist Bot Chat Demo state
-  const [chatMessages, setChatMessages] = useState<Array<{ sender: 'ai' | 'user'; text: string }>>([
-    {
-      sender: 'ai',
-      text: t.pricing.aiBotSubtitle,
-    },
-  ]);
-  const [chatInput, setChatInput] = useState('');
-
   // 4 Subscription Plans based on exact user specification
   const plans = [
     {
@@ -390,27 +380,6 @@ export const PricingView: React.FC = () => {
       setPayError(e?.message || t.pricing.paymentError || 'Не удалось создать платёж');
       setPayingPackId(null);
     }
-  };
-
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
-
-    const userText = chatInput.trim();
-    setChatMessages((prev) => [...prev, { sender: 'user', text: userText }]);
-    setChatInput('');
-
-    setTimeout(() => {
-      let reply = `PinPosy AI: «${userText}». `;
-      if (userText.toLowerCase().includes('аккаунт') || userText.toLowerCase().includes('account')) {
-        reply += 'Для ведения нескольких клиентов или досок рекомендуем тариф «Про» (до 10 аккаунтов) или «Agency» (без ограничений).';
-      } else if (userText.toLowerCase().includes('сгора') || userText.toLowerCase().includes('burn') || userText.toLowerCase().includes('expire')) {
-        reply += t.pricing.deductionRule;
-      } else {
-        reply += 'Для большинства активных авторов оптимален тариф «Про» — 1 500 кредитов/мес и ночная автогенерация с утверждением в 1 клик.';
-      }
-      setChatMessages((prev) => [...prev, { sender: 'ai', text: reply }]);
-    }, 600);
   };
 
   return (
@@ -917,62 +886,48 @@ export const PricingView: React.FC = () => {
         </div>
       )}
 
-      {/* AI Strategist Chat Assistant Section */}
-      <div className="custom-card p-6 rounded-3xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-subtle pb-3">
+      {/* Transparent static preview; no fake live AI interaction. */}
+      <section className="custom-card p-6 rounded-3xl space-y-4" aria-labelledby="ai-strategist-preview-title">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-subtle pb-3">
           <div>
-            <h3 className="text-base font-bold text-primary-theme font-heading flex items-center gap-2">
+            <h3 id="ai-strategist-preview-title" className="text-base font-bold text-primary-theme font-heading flex items-center gap-2">
               <MessageSquare className="w-4 h-4 text-accent-ghost" />
               <span>{t.pricing.aiBotTitle}</span>
             </h3>
-            <p className="text-xs text-muted-theme mt-0.5">
-              {t.pricing.aiBotSubtitle}
+            <p className="text-xs text-muted-theme mt-1">
+              {language === 'ru'
+                ? 'Предварительный просмотр примера диалога'
+                : 'A preview of an example conversation'}
             </p>
           </div>
-          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 self-start sm:self-auto">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>{t.pricing.aiBotOnline}</span>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 self-start">
+            {language === 'ru' ? 'Демонстрация' : 'Demo'}
           </span>
         </div>
 
-        {/* Chat History */}
-        <div className="space-y-3 max-h-64 overflow-y-auto p-4 rounded-2xl bg-subtle">
-          {chatMessages.map((msg, idx) => (
-            <div
-              key={idx}
-              className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-lg p-3 rounded-2xl text-xs md:text-sm leading-relaxed ${
-                  msg.sender === 'user'
-                    ? 'accent-btn rounded-br-xs'
-                    : 'bg-surface border border-subtle text-primary-theme rounded-bl-xs shadow-xs'
-                }`}
-              >
-                {msg.text}
-              </div>
-            </div>
-          ))}
-        </div>
+        <p className="text-xs leading-relaxed text-secondary-theme" role="note">
+          {language === 'ru'
+            ? 'Это статический пример интерфейса. Сообщения ниже не отправляются на сервер, а ответы не генерируются ИИ.'
+            : 'This is a static interface example. Messages below are not sent to a server and the replies are not AI-generated.'}
+        </p>
 
-        {/* Chat Input */}
-        <form onSubmit={handleSendMessage} className="flex gap-2">
-          <input
-            type="text"
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            placeholder={t.pricing.aiBotPlaceholder}
-            className="flex-1 px-3.5 py-2.5 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
-          />
-          <button
-            type="submit"
-            className="accent-btn px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
-          >
-            <span>{t.pricing.aiBotAsk}</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </form>
-      </div>
+        <div className="space-y-3 p-4 rounded-2xl bg-subtle">
+          <div className="flex justify-end">
+            <div className="max-w-lg p-3 rounded-2xl rounded-br-xs accent-btn text-xs md:text-sm leading-relaxed">
+              {language === 'ru'
+                ? 'Как выбрать тариф для нескольких клиентских аккаунтов?'
+                : 'How should I choose a plan for several client accounts?'}
+            </div>
+          </div>
+          <div className="flex justify-start">
+            <div className="max-w-lg p-3 rounded-2xl rounded-bl-xs bg-surface border border-subtle text-primary-theme shadow-xs text-xs md:text-sm leading-relaxed">
+              {language === 'ru'
+                ? 'Сравните лимит подключённых аккаунтов, месячный объём кредитов и нужные функции. Параметры тарифов указаны в карточках выше.'
+                : 'Compare connected-account limits, monthly credits, and the features you need. The plan cards above list these details.'}
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };
