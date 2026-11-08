@@ -6,7 +6,7 @@ The frontend stored the active generation fingerprint and idempotency key in `se
 The stored fingerprint also contained the full serialized request, including the user's topic.
 
 ## Change
-- `frontend/src/utils/pendingGenerationRequest.ts`: use `localStorage` for the active generation identity so it survives tab/browser restarts; retain an in-memory fallback when storage is blocked.
+- `frontend/src/utils/pendingGenerationRequest.ts`: use `localStorage` for the active generation identity so it survives tab/browser restarts; fall back to the legacy tab-scoped store and in-memory state when persistent storage is blocked.
 - Store a compact deterministic fingerprint instead of the raw request text. The backend remains authoritative and rejects any request/key mismatch.
 - Migrate the previous combined and legacy session-scoped records, normalizing old raw fingerprints and removing migrated session entries.
 - Clear both persistent and legacy session entries after a completed generation.
