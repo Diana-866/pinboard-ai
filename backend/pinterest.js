@@ -800,7 +800,7 @@ function registerRoutes(app, deps) {
   });
 
   // Отключение: удаляем строку с токенами
-  app.post("/integrations/pinterest/disconnect", requireAuth, async (req, res) => {
+  app.post("/integrations/pinterest/disconnect", requireAuth, pinterestAccountLimiter, async (req, res) => {
     try {
       const accounts = await getAccounts(req.userId);
       const requestedId = req.body && req.body.account_id ? String(req.body.account_id) : null;
