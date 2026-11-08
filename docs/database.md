@@ -25,18 +25,18 @@ SQL Editor → New query → вставить файл целиком → **Run*
 | `001_baseline.sql` | Единственная каноническая базовая схема для новой установки. Создаёт базовые таблицы/колонки и заменяет старую цепочку `001_base_schema.sql` + `002–008`. |
 | `db/archive/001_base_schema.sql` | Архивная копия старой базовой миграции. Не запускать в новой установке и не применять вместе с `001_baseline.sql`. |
 
-## Последующие миграции 009–082
+## Последующие миграции 009–083
 
-После `001_baseline.sql` нужно последовательно применить **все** файлы `db/migrations/009_*.sql` … `082_*.sql` в порядке номеров. Не запускай старые `002–008`: их базовые объекты уже включены в baseline. Последующие миграции добавляют ограничения и атомарные операции платежей/кредитов, auth recovery, Pinterest OAuth/publication lifecycle, журналирование, административные операции и дополнительные проверки безопасности.
+После `001_baseline.sql` нужно последовательно применить **все** файлы `db/migrations/009_*.sql` … `083_*.sql` в порядке номеров. Не запускай старые `002–008`: их базовые объекты уже включены в baseline. Последующие миграции добавляют ограничения и атомарные операции платежей/кредитов, auth recovery, Pinterest OAuth/publication lifecycle, журналирование, административные операции и дополнительные проверки безопасности.
 
-Текущая ветка содержит цепочку миграций вплоть до 082. Отдельные миграции feature-ветки могут требовать согласованного backend/frontend rollout; наличие файла не означает, что его можно без проверки применять к production. Для auth recovery особенно важны:
+Текущая ветка содержит цепочку миграций вплоть до 083. Отдельные миграции feature-ветки могут требовать согласованного backend/frontend rollout; наличие файла не означает, что его можно без проверки применять к production. Для auth recovery особенно важны:
 - `020_atomic_password_reset.sql` — атомарный выпуск/погашение reset-токена;
 - `021_atomic_email_verification.sql` и `022_atomic_email_verification_issuance.sql` — атомарное подтверждение email и выпуск verification-ссылок с cooldown;
 - `023_revoke_sessions_after_password_reset.sql` — добавляет `users.token_version` и увеличивает его в той же транзакции, что меняет пароль и погашает reset-токен;
 - `024_password_reset_email_cooldown.sql` и `025_drop_legacy_password_reset_overload.sql` — per-account cooldown и удаление старой трёхпараметрической RPC-сигнатуры, обходившей cooldown;
 - `055_auth_token_version.sql` — идемпотентно закрепляет колонку, DEFAULT 0, NOT NULL и CHECK >= 0 для baseline/схем, где колонка ещё не была создана.
 
-Не путать наличие колонки с наличием RPC: функции auth recovery определяются миграциями 020–025. Применять всю цепочку по порядку; 055 не заменяет миграции 020–025. Миграции 034–082 из feature branch не следует применять к production без отдельного согласованного rollout, резервной копии и проверки на staging.
+Не путать наличие колонки с наличием RPC: функции auth recovery определяются миграциями 020–025. Применять всю цепочку по порядку; 055 не заменяет миграции 020–025. Миграции 034–083 из feature branch не следует применять к production без отдельного согласованного rollout, резервной копии и проверки на staging.
 
 Pinterest multi-account rollout:
 - `031_pinterest_account_scoped_foundation.sql` adds stable account references, nullable credentials for soft disconnect, and per-account refresh leases.
@@ -49,7 +49,7 @@ Pinterest multi-account rollout:
 - `019_prevent_late_subscription_downgrade.sql` защищает текущий тариф от запоздавшего вебхука.
 - `030_transactional_email_outbox.sql` зависит от `subscriptions` и `users.preferred_language`; заменяет `activate_paid_subscription`, чтобы событие письма записывалось атомарно с активацией тарифа, и создаёт служебные RPC для очереди.
 
-Миграции 030–082 находятся в feature branch и **не применялись** к рабочей Supabase базе. Не запускай их в production отдельно от согласованного rollout backend/frontend-кода: сначала резервная копия, проверка всей цепочки на отдельной базе и явное подтверждение владельца проекта.
+Миграции 030–083 находятся в feature branch и **не применялись** к рабочей Supabase базе. Не запускай их в production отдельно от согласованного rollout backend/frontend-кода: сначала резервная копия, проверка всей цепочки на отдельной базе и явное подтверждение владельца проекта.
 
 ## Как проверить, что всё применилось
 
