@@ -130,3 +130,18 @@ Added an integration SQL scenario to `backend/test/pinterest-multi-account-oauth
 - No production migration, database write, or deployment occurred.
 
 A final regression check after removing the early `none` return caught one related edge case: the manual-grant fallback treated `period_end = NULL` as unlimited even when the normalized plan itself was `none`. The fallback now requires both a non-`none` plan and an unexpired (or intentionally null) period. Added a test for `none + NULL expiry + no successful subscription`, which must remain inactive.
+
+
+## Follow-up finding — NULL expiry on a paid subscription could become permanent access
+
+A successful subscription row with both `subscriptions.period_end` and `users.tariff_period_end` NULL was previously treated as active indefinitely by the backend resolver. The same condition existed in the Pinterest OAuth account-cap RPC. This differs from migration 019, where successful paid activation assigns a 30-day period, and from the explicit manual-grant policy where NULL expiry is intentionally unlimited only when no successful paid subscription exists.
+
+Fixed:
+- `backend/tariff.js` now requires a non-NULL future accumulated expiry when a successful paid subscription exists.
+- Migration 080 applies the same fail-closed rule in the Pinterest OAuth RPC.
+- Added backend tests for malformed paid expiry and for a valid accumulated user expiry when the per-order expiry is NULL.
+- Added a PostgreSQL OAuth integration scenario requiring `plan_required` for a successful paid row with no expiry in either source.
+
+Manual grants remain eligible for NULL/unlimited expiry only when there is no successful paid subscription. A valid accumulated `users.tariff_period_end` still authorizes a paid subscription even if its individual row has NULL `period_end`.
+
+Verification remains source-level until CI runs these tests and applies migration 080 in a disposable PostgreSQL database. No production database or deployment was changed.
