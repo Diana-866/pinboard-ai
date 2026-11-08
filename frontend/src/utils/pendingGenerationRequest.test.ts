@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   clearPendingGenerationRequest,
+  createGenerationFingerprint,
   readPendingGenerationRequest,
   writePendingGenerationRequest,
 } from './pendingGenerationRequest';
@@ -15,33 +16,58 @@ function memoryStorage() {
   };
 }
 
-test('generation identity persists and is restored from session storage', () => {
+test('generation fingerprint is stable and does not contain the original topic', () => {
+  const raw = JSON.stringify({ topic: 'private campaign idea', boardId: 'board-1' });
+  const fingerprint = createGenerationFingerprint(raw);
+  assert.equal(fingerprint, createGenerationFingerprint(raw));
+  assert.match(fingerprint, /^fp1:[a-f0-9]{16}$/);
+  assert.equal(fingerprint.includes('private campaign idea'), false);
+});
+
+test('generation identity persists and can be restored after page memory is cleared', () => {
   clearPendingGenerationRequest(undefined);
   const storage = memoryStorage();
-  assert.equal(writePendingGenerationRequest('fingerprint-a', 'stable-key-00000001', storage), true);
+  const fingerprint = createGenerationFingerprint('fingerprint-a');
+  assert.equal(writePendingGenerationRequest(fingerprint, 'stable-key-00000001', storage), true);
+  clearPendingGenerationRequest(undefined);
   assert.deepEqual(readPendingGenerationRequest(storage), {
-    fingerprint: 'fingerprint-a',
+    fingerprint,
     idempotencyKey: 'stable-key-00000001',
   });
 });
 
-test('blocked session storage does not prevent generation or same-page retry', () => {
+test('legacy raw fingerprint is upgraded to a compact fingerprint', () => {
+  clearPendingGenerationRequest(undefined);
+  const storage = memoryStorage();
+  storage.setItem('pinposy_generation_request_v1', JSON.stringify({
+    fingerprint: '{"topic":"old private topic"}',
+    idempotencyKey: 'stable-key-legacy-0001',
+  }));
+  assert.deepEqual(readPendingGenerationRequest(storage), {
+    fingerprint: createGenerationFingerprint('{"topic":"old private topic"}'),
+    idempotencyKey: 'stable-key-legacy-0001',
+  });
+  assert.equal(storage.getItem('pinposy_generation_request_v1')?.includes('old private topic'), false);
+});
+
+test('blocked persistent storage does not prevent same-page retry', () => {
   clearPendingGenerationRequest(undefined);
   const blockedStorage = {
     getItem: () => { throw new Error('SecurityError'); },
     setItem: () => { throw new Error('SecurityError'); },
     removeItem: () => { throw new Error('SecurityError'); },
   };
-  assert.equal(writePendingGenerationRequest('fingerprint-b', 'stable-key-00000002', blockedStorage), false);
+  const fingerprint = createGenerationFingerprint('fingerprint-b');
+  assert.equal(writePendingGenerationRequest(fingerprint, 'stable-key-00000002', blockedStorage), false);
   assert.deepEqual(readPendingGenerationRequest(blockedStorage), {
-    fingerprint: 'fingerprint-b',
+    fingerprint,
     idempotencyKey: 'stable-key-00000002',
   });
 });
 
-test('clearing a completed request removes only the active in-memory identity', () => {
+test('clearing a completed request removes the persisted identity', () => {
   const storage = memoryStorage();
-  writePendingGenerationRequest('fingerprint-c', 'stable-key-00000003', storage);
+  writePendingGenerationRequest(createGenerationFingerprint('fingerprint-c'), 'stable-key-00000003', storage);
   clearPendingGenerationRequest(storage);
   assert.equal(readPendingGenerationRequest(storage), null);
 });
