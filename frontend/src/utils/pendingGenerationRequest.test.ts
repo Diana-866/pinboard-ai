@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   clearPendingGenerationRequest,
+  listPendingGenerationRequests,
   createGenerationFingerprint,
   readPendingGenerationRequest,
   writePendingGenerationRequest,
@@ -145,4 +146,52 @@ test('full cleanup removes all scoped generation records', () => {
   assert.equal(storage.length, 2);
   clearPendingGenerationRequest(undefined, storage);
   assert.equal(storage.length, 0);
+});
+
+
+test('enumerates pending identities from persistent storage without changing them', () => {
+  clearPendingGenerationRequest();
+  const storage = memoryStorage();
+  const first = createGenerationFingerprint('recovery-a');
+  const second = createGenerationFingerprint('recovery-b');
+  writePendingGenerationRequest(first, 'stable-key-recovery-0001', storage);
+  writePendingGenerationRequest(second, 'stable-key-recovery-0002', storage);
+
+  const listed = listPendingGenerationRequests(storage);
+  assert.deepEqual(new Set(listed.map((item) => item.fingerprint)), new Set([first, second]));
+  assert.equal(storage.length, 2);
+  assert.equal(readPendingGenerationRequest(first, storage)?.idempotencyKey, 'stable-key-recovery-0001');
+});
+
+test('merges session fallback, deduplicates identities, and ignores malformed entries', () => {
+  clearPendingGenerationRequest();
+  const persistent = memoryStorage();
+  const session = memoryStorage();
+  const first = createGenerationFingerprint('recovery-session-a');
+  const second = createGenerationFingerprint('recovery-session-b');
+  persistent.setItem(`pinposy_generation_request_v2:${first}`, JSON.stringify({
+    fingerprint: first, idempotencyKey: 'stable-key-session-0001',
+  }));
+  session.setItem(`pinposy_generation_request_v2:${first}`, JSON.stringify({
+    fingerprint: first, idempotencyKey: 'stable-key-session-0001',
+  }));
+  session.setItem(`pinposy_generation_request_v2:${second}`, JSON.stringify({
+    fingerprint: second, idempotencyKey: 'stable-key-session-0002',
+  }));
+  session.setItem('pinposy_generation_request_v2:bad', JSON.stringify({
+    fingerprint: 'bad', idempotencyKey: 'short',
+  }));
+
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { sessionStorage: session } });
+  try {
+    const listed = listPendingGenerationRequests(persistent);
+    assert.equal(listed.length, 2);
+    assert.equal(listed.find((item) => item.fingerprint === second)?.idempotencyKey, 'stable-key-session-0002');
+    assert.equal(session.length, 3);
+  } finally {
+    if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow);
+    else Reflect.deleteProperty(globalThis, 'window');
+    clearPendingGenerationRequest();
+  }
 });
