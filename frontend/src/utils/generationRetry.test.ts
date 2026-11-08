@@ -46,7 +46,7 @@ test('prefers randomUUID when the browser supports it', () => {
 
 test('fails closed when secure browser randomness is unavailable', () => {
   assert.throws(
-    () => createGenerationIdempotencyKey(undefined),
+    () => createGenerationIdempotencyKey({} as unknown as Crypto),
     /HTTPS/,
   );
 });
