@@ -1235,3 +1235,14 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Пользовательский эффект: PinPosy больше не сможет молча заменить уже сохранённый Pinterest Pin ID другим только потому, что attempt и publication ledger согласны между собой. Неопределённость остаётся заблокированной до отдельного расследования.
 - Тесты SQL не запускались локально; CI должен подтвердить исполнение. Production DB, Pinterest API, deployment и merge не затрагивались.
 - Документ: `docs/audits/AUD-229-pinterest-schedule-remote-pin-identity-fencing.md`.
+
+
+## Дополнение к handoff — 2026-11-09 (AUD-230: точная идентичность журнала при смене доски failed-расписания)
+
+- Найден пробел в RPC смены доски для failed schedule: перед повторной постановкой в очередь проверялись `status='failed'` и `retry_safe=true`, но не проверялись владелец и исходная доска самой попытки.
+- Добавлена migration 094: retry-safe журнал разрешает смену доски только если его `user_id` и `pinterest_board_id` совпадают с заблокированной строкой расписания. Несовпадение возвращает `attempt_identity_mismatch`, оставляет запись failed и не меняет доску.
+- Backend переводит эту причину в понятный HTTP 409: автоматическая смена доски заблокирована, требуется сверка.
+- Добавлен PostgreSQL regression test: чужая доска не может разрешить переназначение; точное совпадение владельца/исходной доски и retry_safe=true разрешает переход на новую проверенную доску.
+- CI теперь явно применяет исходную migration 086, затем 094, и запускает новый SQL test.
+- SQL tests не запускались локально; CI должен подтвердить их. Production DB, Pinterest API, deployment и merge не затрагивались.
+- Документ: `docs/audits/AUD-230-pinterest-failed-board-reassignment-attempt-identity.md`.
