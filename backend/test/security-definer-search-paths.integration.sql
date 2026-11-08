@@ -53,3 +53,44 @@ begin
 
 end;
 $test$;
+
+-- Cover every SECURITY DEFINER function in public, including RPCs added by
+-- later migrations. The explicit list above additionally verifies that the
+-- intended application RPCs remain executable by service_role.
+do $catalog_test$
+declare
+  v_function record;
+  v_search_path text;
+begin
+  for v_function in
+    select p.oid, p.oid::regprocedure as signature, p.proconfig
+      from pg_catalog.pg_proc p
+      join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public'
+       and p.prosecdef
+  loop
+    select regexp_replace(setting, '\\s', '', 'g')
+      into v_search_path
+      from unnest(coalesce(v_function.proconfig, array[]::text[])) as setting
+     where setting like 'search_path=%'
+     limit 1;
+
+    if v_search_path is null
+       or v_search_path not in (
+         'search_path=pg_catalog,public',
+         'search_path=pg_catalog'
+       ) then
+      raise exception
+        'SECURITY DEFINER function % has an untrusted or missing search_path (config=%)',
+        v_function.signature, v_function.proconfig;
+    end if;
+
+    if has_function_privilege('anon', v_function.oid, 'EXECUTE')
+       or has_function_privilege('authenticated', v_function.oid, 'EXECUTE') then
+      raise exception
+        'SECURITY DEFINER function % is executable by anon or authenticated',
+        v_function.signature;
+    end if;
+  end loop;
+end;
+$catalog_test$;
