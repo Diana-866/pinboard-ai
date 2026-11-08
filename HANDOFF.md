@@ -1093,3 +1093,12 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Добавлены unit tests для возвращённой DB-ошибки, rejected promise и успешной записи.
 - Тесты, lint, интеграционные SQL и сборка фактически не запускались. Production DB, Pinterest API, deployment и merge не затрагивались.
 - Подробности: `docs/audits/AUD-216-pinterest-failure-journal-write-safety.md`.
+
+
+## Дополнение к handoff — 2026-11-09 (AUD-217)
+
+- Публичный статус Pinterest-аккаунта теперь fail-closed обрабатывает некорректную непустую дату истечения токена: такой аккаунт помечается `needs_reauth`, а не выглядит исправным.
+- Состояние `refresh_state=uncertain` и ранее истёкший срок также требуют повторной авторизации. Отсутствующая дата сама по себе не объявляется просроченной.
+- Добавлены unit tests для malformed, missing, expired и future expiry.
+- Тесты/сборка/lint фактически не запускались. Production, Pinterest API, deployment и merge не затрагивались.
+- Подробности: `docs/audits/AUD-217-malformed-pinterest-token-expiry.md`.
