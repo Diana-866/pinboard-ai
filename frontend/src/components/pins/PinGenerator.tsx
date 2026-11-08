@@ -25,7 +25,7 @@ import { apiRequest } from '../../lib/api';
 import { getDefaultTimezone } from '../../utils/timezone';
 import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure } from '../../utils/generationRetry';
 import { clearPendingPinDescriptionIfMatches, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
-import { clearPendingGenerationRequest, createGenerationFingerprint, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
+import { clearPendingGenerationRequest, createGenerationFingerprint, listPendingGenerationRequests, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
 import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
 import { rollbackPinAspectRatioIfUnchanged } from '../../utils/pinAspectRatio';
 import {
@@ -232,6 +232,66 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [generatedPins, setGeneratedPins] = useState<GeneratedPinVariation[]>([]);
   const [activePinIndex, setActivePinIndex] = useState(0);
   const [scheduledSuccess, setScheduledSuccess] = useState(false);
+  const [recoverableGenerations, setRecoverableGenerations] = useState<Array<{
+    key: string;
+    status: 'processing' | 'completed' | 'failed' | 'unknown';
+    boardId: string;
+    pinCount: number;
+  }>>([]);
+  const [isCheckingRecoveries, setIsCheckingRecoveries] = useState(false);
+
+  // Look up saved generation identities after login/reload. This is read-only:
+  // it never starts generation, clears a key, or changes the user's credit balance.
+  useEffect(() => {
+    let active = true;
+    let token = '';
+    try { token = localStorage.getItem('token') || ''; } catch { /* storage may be blocked */ }
+    if (!token) return () => { active = false; };
+
+    const identities = listPendingGenerationRequests().slice(-10).reverse();
+    if (!identities.length) {
+      setRecoverableGenerations([]);
+      return () => { active = false; };
+    }
+
+    setIsCheckingRecoveries(true);
+    const check = async () => {
+      const found: Array<{
+        key: string;
+        status: 'processing' | 'completed' | 'failed' | 'unknown';
+        boardId: string;
+        pinCount: number;
+      }> = [];
+      // Keep requests sequential to avoid a burst against a sleeping/free backend.
+      for (const identity of identities) {
+        if (!active) return;
+        try {
+          const result = await apiRequest(`/generation/requests/${encodeURIComponent(identity.idempotencyKey)}`);
+          const status = ['processing', 'completed', 'failed', 'unknown'].includes(result?.status)
+            ? result.status as 'processing' | 'completed' | 'failed' | 'unknown'
+            : 'unknown';
+          found.push({
+            key: identity.fingerprint,
+            status,
+            boardId: typeof result?.board_id === 'string' ? result.board_id : '',
+            pinCount: status === 'completed' && Array.isArray(result?.pins) ? result.pins.length : 0,
+          });
+        } catch (error: any) {
+          // A 404 can mean an old local key whose server record has expired.
+          // Preserve it: a transient/auth/network error must never erase recovery data.
+          if (error?.status === 404) continue;
+          if (error?.status === 401) return;
+          // Keep checking other independent requests after a single failure.
+        }
+      }
+      if (active) setRecoverableGenerations(found);
+    };
+
+    void check().finally(() => {
+      if (active) setIsCheckingRecoveries(false);
+    });
+    return () => { active = false; };
+  }, []);
 
   // Restore the selected board's persisted pins whenever the board changes or the generator remounts.
   useEffect(() => {
@@ -695,6 +755,81 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
           {t.generator.subtitle}
         </p>
       </div>
+
+      {isCheckingRecoveries && (
+        <div className="custom-card p-3 rounded-xl text-xs text-secondary-theme flex items-center gap-2" role="status">
+          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+          {language === 'ru' ? 'Проверяем, можно ли восстановить прошлые генерации…' :
+            language === 'es' ? 'Comprobando generaciones anteriores…' :
+            language === 'de' ? 'Frühere Generierungen werden geprüft…' :
+            language === 'fr' ? 'Vérification des générations précédentes…' :
+            language === 'pt' ? 'Verificando gerações anteriores…' :
+            language === 'zh' ? '正在检查之前的生成记录…' : 'Checking previous generations…'}
+        </div>
+      )}
+      {recoverableGenerations.length > 0 && (
+        <section className="custom-card p-4 rounded-xl space-y-3" aria-label="Generation recovery">
+          <div className="flex items-center gap-2">
+            <RefreshCw className="w-4 h-4 text-accent-ghost" />
+            <h2 className="text-sm font-bold text-primary-theme">
+              {language === 'ru' ? 'Восстановление генераций' :
+                language === 'es' ? 'Recuperar generaciones' :
+                language === 'de' ? 'Generierungen wiederherstellen' :
+                language === 'fr' ? 'Récupérer les générations' :
+                language === 'pt' ? 'Recuperar gerações' :
+                language === 'zh' ? '恢复之前的生成' : 'Recover previous generations'}
+            </h2>
+          </div>
+          <p className="text-xs text-secondary-theme">
+            {language === 'ru' ? 'Проверка не запускает генерацию и не списывает кредиты.' :
+              language === 'es' ? 'La comprobación no genera contenido ni consume créditos.' :
+              language === 'de' ? 'Die Prüfung startet keine Generierung und verbraucht keine Credits.' :
+              language === 'fr' ? 'La vérification ne lance aucune génération et ne dépense aucun crédit.' :
+              language === 'pt' ? 'A verificação não inicia uma geração nem gasta créditos.' :
+              language === 'zh' ? '检查不会重新生成内容，也不会扣除积分。' :
+              'Checking does not start a new generation or spend credits.'}
+          </p>
+          <div className="space-y-2">
+            {recoverableGenerations.map((item) => {
+              const board = boards.find((candidate) => candidate.id === item.boardId);
+              const label = item.status === 'completed'
+                ? (language === 'ru' ? `Готово: ${item.pinCount} пин(ов)` : `Completed: ${item.pinCount} pin(s)`)
+                : item.status === 'processing'
+                  ? (language === 'ru' ? 'Генерация ещё выполняется' : 'Generation is still processing')
+                  : item.status === 'failed'
+                    ? (language === 'ru' ? 'Предыдущая генерация завершилась ошибкой' : 'Previous generation failed')
+                    : (language === 'ru' ? 'Результат пока не подтверждён' : 'Result is not confirmed yet');
+              return (
+                <div key={item.key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg bg-subtle border border-subtle">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-primary-theme">{label}</p>
+                    {board && <p className="text-[11px] text-muted-theme">{board.name}</p>}
+                  </div>
+                  {item.status === 'completed' && item.pinCount > 0 && board && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // The completed pins are already persisted. Switch to their board;
+                        // the existing board loader restores them without another AI call.
+                        setSelectedBoardId(item.boardId);
+                        setSavedPinsReloadAttempt((attempt) => attempt + 1);
+                      }}
+                      className="px-3 py-2 rounded-lg accent-btn text-xs font-semibold"
+                    >
+                      {language === 'ru' ? 'Открыть готовые пины' : 'Open saved pins'}
+                    </button>
+                  )}
+                  {item.status === 'completed' && !board && (
+                    <span className="text-[11px] text-muted-theme">
+                      {language === 'ru' ? 'Доска недоступна в текущем списке' : 'Board is unavailable'}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Form & Configuration (7 cols) */}
