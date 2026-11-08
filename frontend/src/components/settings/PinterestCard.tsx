@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, AlertCircle, Link2, Loader2, RefreshCw, Unlink } from 'lucide-react';
 import { apiRequest, ApiError } from '../../lib/api';
 import { useI18n } from '../../i18n/i18nContext';
@@ -39,6 +39,7 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
   const [accounts, setAccounts] = useState<PinterestAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [boards, setBoards] = useState<PinterestBoard[]>([]);
+  const boardsRequestId = useRef(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,15 +70,18 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
   };
 
   const loadBoards = async (accountId: string | null) => {
+    const requestId = ++boardsRequestId.current;
     if (!accountId || accountId === 'legacy') {
       setBoards([]);
       return;
     }
     try {
       const data = await apiRequest(`/integrations/pinterest/boards?account_id=${encodeURIComponent(accountId)}`);
-      setBoards(data?.boards || []);
+      // Account switching and manual refreshes can overlap. Only the latest
+      // request may update the visible board list.
+      if (requestId === boardsRequestId.current) setBoards(data?.boards || []);
     } catch {
-      setBoards([]);
+      if (requestId === boardsRequestId.current) setBoards([]);
     }
   };
 
