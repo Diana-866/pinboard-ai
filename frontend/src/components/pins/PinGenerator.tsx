@@ -200,7 +200,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   }, [recommendedBoard]);
 
   const [tone, setTone] = useState<string>('inspirational');
-  const [destinationUrl, setDestinationUrl] = useState('https://pinposy.com/blog/scandinavian-interior-styling');
+  const [destinationUrl, setDestinationUrl] = useState('');
   const [canvasStyle, setCanvasStyle] = useState<'minimal' | 'glass' | 'split'>('glass');
 
   const [isGenerating, setIsGenerating] = useState(false);
