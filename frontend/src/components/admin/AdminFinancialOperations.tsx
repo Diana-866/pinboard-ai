@@ -49,7 +49,7 @@ function ageLabel(value: number | null) {
   return minutes ? `${hours} ч. ${minutes} мин.` : `${hours} ч.`;
 }
 
-function OperationTable({ title, rows, empty }: { title: string; rows: Operation[]; empty: string }) {
+function OperationTable({ title, rows, empty, rowLabel }: { title: string; rows: Operation[]; empty: string; rowLabel: string }) {
   return (
     <section className="custom-card overflow-hidden">
       <div className="flex items-center justify-between gap-3 border-b border-subtle px-4 py-3">
@@ -74,7 +74,7 @@ function OperationTable({ title, rows, empty }: { title: string; rows: Operation
               {rows.map((row, index) => (
                 <tr key={row.request_id || row.reservation_id || index} className="border-b border-subtle/60 last:border-0">
                   <td className="px-4 py-3 align-top">
-                    <div className="font-semibold text-primary-theme">{row.operation === 'generation' ? 'Генерация' : row.operation === 'regeneration' ? 'Перегенерация' : 'Резерв кредитов'}</div>
+                    <div className="font-semibold text-primary-theme">{rowLabel}</div>
                     <div className="mt-0.5 max-w-[180px] truncate font-mono text-[10px] text-muted-theme">{row.request_id || row.reservation_id}</div>
                     {row.task_counts && <div className="mt-1 text-[10px] text-muted-theme">Задач: {row.task_counts.total} · успех: {row.task_counts.succeeded} · ошибка: {row.task_counts.failed} · неизвестно: {row.task_counts.unknown}</div>}
                     {row.amount_credits != null && <div className="mt-1 text-[10px] text-muted-theme">Зарезервировано: {row.amount_credits} кр.</div>}
@@ -146,9 +146,9 @@ export const AdminFinancialOperations: React.FC = () => {
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />
             <div><strong>Безопасный режим просмотра.</strong> Этот раздел ничего не списывает, не возвращает и не закрывает автоматически. Возраст операции сам по себе не доказывает, что провайдер завершил задачу или вернул деньги.</div>
           </div>
-          <OperationTable title="Генерации" rows={data.generation} empty="Старых незавершённых генераций нет." />
-          <OperationTable title="Перегенерации" rows={data.regeneration} empty="Старых незавершённых перегенераций нет." />
-          <OperationTable title="Активные резервы кредитов" rows={data.reservations} empty="Старых активных резервов нет." />
+          <OperationTable title="Генерации" rowLabel="Генерация" rows={data.generation} empty="Старых незавершённых генераций нет." />
+          <OperationTable title="Перегенерации" rowLabel="Перегенерация" rows={data.regeneration} empty="Старых незавершённых перегенераций нет." />
+          <OperationTable title="Активные резервы кредитов" rowLabel="Резерв кредитов" rows={data.reservations} empty="Старых активных резервов нет." />
           {(data.truncated.generation || data.truncated.regeneration || data.truncated.reservations) && (
             <p className="text-[11px] text-amber-700 dark:text-amber-300">Показана только первая часть очереди (до {data.limit_per_category} записей в каждой категории). Обновите список позже, чтобы увидеть следующие операции.</p>
           )}
