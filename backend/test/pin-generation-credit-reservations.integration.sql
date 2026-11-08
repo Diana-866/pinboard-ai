@@ -95,8 +95,15 @@ begin
   v_request := public.begin_pin_generation_request(v_user::text, v_board, v_key, repeat('e', 64));
   v_result := public.reserve_pin_generation_credits(v_user::text, v_key, 2);
   if v_result->>'status' <> 'reserved' then raise exception 'no-image-task reservation was not created'; end if;
-  perform public.fail_pin_generation_request(v_user::text, v_key,
-    (v_request->>'claim_token')::uuid, 'text_provider_outcome_unknown', true);
+  update public.pin_generation_requests
+     set updated_at = clock_timestamp() - interval '31 minutes'
+   where user_id = v_user::text and idempotency_key = v_key;
+  v_result := public.begin_pin_generation_request(
+    v_user::text, v_board, v_key, repeat('e', 64)
+  );
+  if v_result->>'status' <> 'unknown' then
+    raise exception 'stale request without image tasks did not remain unknown: %', v_result;
+  end if;
   select status into v_status from public.pin_generation_credit_reservations
    where user_id = v_user::text and idempotency_key = v_key;
   if v_status <> 'released' then raise exception 'unused reservation was not released: %', v_status; end if;
