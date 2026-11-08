@@ -403,6 +403,7 @@ export const zh: TranslationSchema = {
     pinterestDisconnectWarning: "此操作会从 PinPosy 删除该账户的令牌，但不会撤销 Pinterest 上的 OAuth 授权。该账户尚未发布的排队任务将标记为失败；已经发出的请求仍可能完成。是否继续？",
     pinterestAccountFallback: "Pinterest 账户",
     pinterestReauthRequired: "需要重新授权",
+    pinterestReauthDescription: "重新连接此 Pinterest 账户，即可再次加载画板并发布 Pin。"
     pinterestPinsLabel: "Pin",
     billingSection: '套餐与 AI 额度管理',
     billingSectionDesc: '查看本月智能分析与 Pin 自动生成额度的使用进度。',
