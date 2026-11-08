@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { apiRequest } from '../lib/api';
 import { useI18n } from '../i18n/i18nContext';
 import { getAuthCopy } from '../i18n/authCopy';
@@ -11,7 +11,29 @@ import { getAuthCopy } from '../i18n/authCopy';
  */
 export const CheckEmail: React.FC = () => {
   const [params] = useSearchParams();
-  const email = params.get('email') || '';
+  const navigate = useNavigate();
+  const [email, setEmail] = useState(() => {
+    const legacyEmail = params.get('email') || '';
+    try {
+      return legacyEmail || sessionStorage.getItem('pinposy.pendingVerificationEmail') || '';
+    } catch {
+      return legacyEmail;
+    }
+  });
+
+  // Older links used ?email=. Migrate that value to tab-scoped storage and
+  // immediately remove it from the address bar/history.
+  useEffect(() => {
+    const legacyEmail = params.get('email');
+    if (!legacyEmail) return;
+    setEmail(legacyEmail);
+    try {
+      sessionStorage.setItem('pinposy.pendingVerificationEmail', legacyEmail);
+    } catch {
+      // Continue with the in-memory value for this page view.
+    }
+    navigate('/check-email', { replace: true });
+  }, [navigate, params]);
   const [resent, setResent] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
