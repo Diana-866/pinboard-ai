@@ -5,6 +5,7 @@ const {
   classifyScheduleFailure,
   canRetryScheduleFailure,
   getScheduleRetryDelayMinutes,
+  isPinterestPublishOutcomeUnknown,
   buildPinScheduleSnapshot,
   resolvePinScheduleSnapshot,
   classifyLegacyScheduleAccount,
@@ -152,4 +153,17 @@ test("retryability blocks missing account, board, pin, publication, and duplicat
   assert.equal(getScheduleRetryability({ ...schedule, pins: { image_url: null } }, null, false, true, false).reason, "pin_unavailable");
   assert.equal(getScheduleRetryability(schedule, null, true, true, false).reason, "publication_exists");
   assert.equal(getScheduleRetryability(schedule, null, false, true, true).reason, "active_schedule_exists");
+});
+
+
+test("thrown Pinterest 5xx responses are ambiguous and cannot authorize a retry", () => {
+  for (const status of [500, 502, 503, 504, 0, NaN]) {
+    assert.equal(isPinterestPublishOutcomeUnknown(status), true, `status ${status}`);
+  }
+});
+
+test("explicit Pinterest client rejections are known not to have created a pin", () => {
+  for (const status of [400, 401, 403, 404, 409, 422]) {
+    assert.equal(isPinterestPublishOutcomeUnknown(status), false, `status ${status}`);
+  }
 });
