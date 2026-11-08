@@ -39,6 +39,9 @@ export const CheckEmail: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const { language } = useI18n();
   const t = getAuthCopy(language);
+  const missingEmailMessage = language === 'ru'
+    ? 'Адрес не найден в этой вкладке. Вернитесь к регистрации и отправьте форму ещё раз.'
+    : 'The email address is unavailable in this tab. Return to registration and submit the form again.';
 
   async function handleResend() {
     setError('');
@@ -71,6 +74,12 @@ export const CheckEmail: React.FC = () => {
           )}
         </p>
 
+        {!email && (
+          <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+            {missingEmailMessage}
+          </div>
+        )}
+
         {resent && (
           <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
             {t.checkEmailResentNotice}
@@ -84,7 +93,7 @@ export const CheckEmail: React.FC = () => {
 
         <button
           onClick={handleResend}
-          disabled={loading}
+          disabled={loading || !email}
           className="mt-6 w-full rounded-xl border border-subtle py-3 text-sm font-semibold text-primary-theme hover:bg-page transition-colors disabled:opacity-50"
         >
           {loading ? t.checkEmailSending : t.checkEmailResend}
