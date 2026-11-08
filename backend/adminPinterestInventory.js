@@ -12,6 +12,16 @@ function parseBoundedInt(value, fallback, min, max, label) {
   return parsed;
 }
 
+function sanitizeOperationalError(value) {
+  if (value === null || value === undefined) return null;
+  return String(value)
+    .replace(/Bearer\\s+[^\\s,;]+/gi, "Bearer [redacted]")
+    .replace(/\\beyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\b/g, "[redacted-token]")
+    .replace(/(access_token|refresh_token|client_secret|client_id|authorization|api[_-]?key|token)\\s*([=:])\\s*[^\\s,;&]+/gi, "$1$2[redacted]")
+    .replace(/([?&](?:access_token|refresh_token|token|key|secret)=)[^&#\\s]+/gi, "$1[redacted]")
+    .slice(0, 320);
+}
+
 function parseFilters(query = {}) {
   const limit = parseBoundedInt(query.limit, 50, 1, 100, "limit");
   const offset = parseBoundedInt(query.offset, 0, 0, 10000, "offset");
@@ -49,13 +59,13 @@ async function listPinterestSchedules(query = {}, now = Date.now()) {
 
   const attemptsByIdentity = new Map();
   for (const attempt of attempts) {
-    const key = `${attempt.pin_id}:${attempt.pinterest_account_id || "legacy"}`;
+    const key = `${attempt.user_id}:${attempt.pin_id}:${attempt.pinterest_account_id || "legacy"}`;
     attemptsByIdentity.set(key, attempt);
   }
 
   const staleBefore = now - 20 * 60 * 1000;
   const items = rows.map((row) => {
-    const attempt = attemptsByIdentity.get(`${row.pin_id}:${row.pinterest_account_id || "legacy"}`) || null;
+    const attempt = attemptsByIdentity.get(`${row.user_id}:${row.pin_id}:${row.pinterest_account_id || "legacy"}`) || null;
     let category = "normal";
     if (row.status === "unknown") category = "unknown";
     else if (row.status === "publishing" && Date.parse(row.updated_at) <= staleBefore) category = "stale_publishing";
@@ -65,7 +75,6 @@ async function listPinterestSchedules(query = {}, now = Date.now()) {
 
     return {
       schedule_id: row.id,
-      user_id: row.user_id,
       pin_id: row.pin_id,
       pinterest_account_id: row.pinterest_account_id,
       pinterest_board_id: row.pinterest_board_id,
@@ -76,7 +85,7 @@ async function listPinterestSchedules(query = {}, now = Date.now()) {
       updated_at: row.updated_at,
       attempts: row.attempts,
       next_attempt_at: row.next_attempt_at,
-      last_error: row.last_error,
+      last_error: sanitizeOperationalError(row.last_error),
       claim_present: Boolean(row.claim_token),
       category,
       attempt: attempt ? {
@@ -84,7 +93,7 @@ async function listPinterestSchedules(query = {}, now = Date.now()) {
         retry_safe: attempt.retry_safe,
         attempt_count: attempt.attempt_count,
         updated_at: attempt.updated_at,
-        last_error: attempt.last_error,
+        last_error: sanitizeOperationalError(attempt.last_error),
         pinterest_pin_id: attempt.pinterest_pin_id,
         pinterest_board_id: attempt.pinterest_board_id,
       } : null,
