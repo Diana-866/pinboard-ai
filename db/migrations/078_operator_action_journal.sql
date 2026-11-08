@@ -21,7 +21,7 @@ create table if not exists public.provider_refund_operator_actions (
       and evidence_type in ('provider_dashboard','provider_support','payment_statement','manual_review')
       and evidence_reference is not null
       and length(trim(evidence_reference)) between 8 and 500
-      and trim(evidence_reference) ~ '^[A-Za-z0-9][A-Za-z0-9._/#:-]{7,499}
+      and trim(evidence_reference) ~ '^[A-Za-z0-9][A-Za-z0-9._/#:-]{7,499}$'
       and after_state in ('provider_refunded','provider_not_refunded')
       and ((request_kind='generation' and task_index between 1 and 10)
         or (request_kind='regeneration' and task_index=0)))
@@ -138,7 +138,7 @@ begin
        or p_evidence_reference is null
        or length(trim(p_evidence_reference))<8
        or length(p_evidence_reference)>500
-       or trim(p_evidence_reference) !~ '^[A-Za-z0-9][A-Za-z0-9._/#:-]{7,499} and coalesce(p_task_index,0) not between 1 and 10)
+       or trim(p_evidence_reference) !~ '^[A-Za-z0-9][A-Za-z0-9._/#:-]{7,499}$'
        or (p_request_kind='regeneration' and p_task_index<>0) then
       raise exception 'invalid provider-refund reconciliation evidence';
     end if;
