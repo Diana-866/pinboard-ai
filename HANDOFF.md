@@ -1224,3 +1224,14 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Mismatched board or missing publication ledger remains `unknown` and non-retryable. A safe failure is requeued only for the exact board recorded in its journal.
 - Added `backend/test/pinterest-stale-schedule-recovery.integration.sql` and wired migration/test into PostgreSQL CI.
 - Not applied to production; SQL integration test not yet executed; no deployment or merge.
+
+
+## Дополнение к handoff — 2026-11-09 (AUD-229: полная сверка remote Pinterest Pin ID)
+
+- Найден недостающий элемент identity: автоматическая сверка сравнивала remote Pin ID между attempt journal и publication ledger, но не сверяла его с уже заполненным `pin_schedules.pinterest_pin_id`.
+- Добавлена migration 093: обе автоматические ветки восстановления (unknown → published и stale publishing recovery) теперь требуют, чтобы ID в расписании был пустым либо точно совпадал с remote ID в обоих независимых источниках.
+- Если в расписании уже записан другой remote ID, запись остаётся unknown; существующий ID не перезаписывается, повторная публикация не разрешается.
+- Добавлены регрессионные SQL-сценарии для обоих механизмов и подключение migration 093 к atomic-payment PostgreSQL CI после 091/092.
+- Пользовательский эффект: PinPosy больше не сможет молча заменить уже сохранённый Pinterest Pin ID другим только потому, что attempt и publication ledger согласны между собой. Неопределённость остаётся заблокированной до отдельного расследования.
+- Тесты SQL не запускались локально; CI должен подтвердить исполнение. Production DB, Pinterest API, deployment и merge не затрагивались.
+- Документ: `docs/audits/AUD-229-pinterest-schedule-remote-pin-identity-fencing.md`.
