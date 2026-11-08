@@ -4,6 +4,11 @@
 -- for every pin on the page, then discarded all but the newest per identity.
 -- Select the newest matching attempt with a lateral LIMIT 1 in PostgreSQL.
 
+create index if not exists pinterest_publish_attempts_inventory_latest_idx
+  on public.pinterest_publish_attempts(
+    user_id, pin_id, pinterest_account_id, updated_at desc, id desc
+  );
+
 create or replace function public.admin_list_pinterest_schedule_inventory(
   p_operator_user_id uuid,
   p_statuses text[],
