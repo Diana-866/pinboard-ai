@@ -2109,7 +2109,7 @@ app.get("/admin/mail/:uid", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-app.post("/admin/mail/reply", requireAuth, requireAdmin, async (req, res) => {
+app.post("/admin/mail/reply", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
   try {
     const to = String((req.body && req.body.to) || "").trim();
     const subject = String((req.body && req.body.subject) || "").trim();
