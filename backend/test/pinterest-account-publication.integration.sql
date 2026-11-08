@@ -44,6 +44,8 @@ declare
   v_account_b uuid;
   v_account_c uuid;
   v_disconnect_race_pin uuid;
+  v_reconnect_pin uuid;
+  v_reconnect_schedule uuid;
   v_disconnect_race_schedule uuid;
   v_disconnect_race_token uuid;
   v_result jsonb;
@@ -466,6 +468,19 @@ begin
     null;
   end;
 
+  -- A separate schedule with no publish attempt must remain failed after OAuth reconnect.
+  -- Reconnect restores the same account row, but must never silently resume old jobs.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/reconnect.png', 'Reconnect schedule', '', 'approved', 'flux-schnell', 0)
+  returning id into v_reconnect_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status
+  ) values (
+    v_user::text, v_reconnect_pin, v_account_a, now() + interval '1 day',
+    'UTC', 'board-a', 'scheduled'
+  ) returning id into v_reconnect_schedule;
+
   -- Disconnecting A must fail only A's future schedules; B remains queued.
   v_disconnected := public.disconnect_pinterest_account_v2(v_user::text, v_account_a);
   if v_disconnected is distinct from true then
@@ -478,6 +493,27 @@ begin
   if (select status from public.pin_schedules
        where user_id=v_user::text and pin_id=v_pin and pinterest_account_id=v_account_b) <> 'scheduled' then
     raise exception 'disconnecting account A changed account B schedule';
+  end if;
+
+  -- Simulate a successful OAuth callback for the same external identity.
+  -- The stable account UUID is reused; the old schedule remains failed until
+  -- the user explicitly presses Retry in PinPosy.
+  update public.pinterest_accounts
+     set access_token = 'enc:a-reconnected',
+         refresh_token = 'enc:ar-reconnected',
+         disconnected_at = null,
+         updated_at = now()
+   where id = v_account_a and user_id = v_user::text;
+  if (not found)
+     or (select pinterest_account_id from public.pin_schedules where id=v_reconnect_schedule) <> v_account_a
+     or (select status from public.pin_schedules where id=v_reconnect_schedule) <> 'failed' then
+    raise exception 'OAuth reconnect changed account identity or silently resumed an old schedule';
+  end if;
+
+  v_result := public.retry_failed_pin_schedule(v_user::text, v_reconnect_schedule);
+  if v_result->>'ok' <> 'true'
+     or (select status from public.pin_schedules where id=v_reconnect_schedule) <> 'scheduled' then
+    raise exception 'explicit retry after reconnect did not resume the safe schedule: %', v_result;
   end if;
 
   -- A claimed/in-flight job is not cancelled underneath its remote request.
