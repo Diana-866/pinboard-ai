@@ -157,7 +157,7 @@ test("quarantined deterministic upload recovers on a stable fresh path", async (
 });
 
 
-test("retry reuses a completed recovery upload after a process restart", async () => {
+test("retry reuses a previously completed recovery upload", async () => {
   lookupFailure = null;
   quarantinePrimaryPath = true;
   uploadPaths.length = 0;
