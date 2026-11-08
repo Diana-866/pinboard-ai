@@ -548,10 +548,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
   const handlePushToCalendar = async () => {
     if (!currentPin || schedulingPinLockRef.current) return;
-      schedulingPinLockRef.current = true;
-      setIsSchedulingPin(true);
-      try {
-  
+    schedulingPinLockRef.current = true;
+    setIsSchedulingPin(true);
+    try {
       // A debounced description may not have entered the per-pin request queue yet.
       // Flush it before scheduling so the calendar action cannot overtake the latest edit.
       const pendingDescription = pendingDescriptionSaveRef.current?.pinId === currentPin.id
