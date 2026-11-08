@@ -75,4 +75,4 @@ The new concurrency script is wired into CI but has **not yet been observed exec
 
 ## Recommended next step
 
-Add a PostgreSQL concurrency test harness that runs two or more sessions and forces the key interleavings: claim vs recovery; completion vs operator reconciliation; completion vs disconnect; and worker late-success vs stale recovery. Until then, retain the existing fail-closed unknown state and do not add automatic retries for ambiguous Pinterest outcomes.
+Extend the new PostgreSQL concurrency harness to cover the remaining interleavings: claim vs stale recovery; completion vs account disconnect; and late worker success vs stale recovery. The completion vs operator-reconciliation race now has a dedicated CI script, but still requires a green run. Until all critical races are exercised successfully, retain the existing fail-closed unknown state and do not add automatic retries for ambiguous Pinterest outcomes.
