@@ -820,6 +820,17 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
               </div>
             </div>
 
+            {selectedPin.status === 'unknown' && (
+              <div role="alert" className="rounded-xl border border-orange-500/40 bg-orange-500/5 p-3 space-y-1.5">
+                <p className="text-xs font-semibold text-primary-theme">
+                  {t.calendar.unknownPublishHelpTitle}
+                </p>
+                <p className="text-xs leading-relaxed text-secondary-theme">
+                  {t.calendar.unknownPublishHelpBody}
+                </p>
+              </div>
+            )}
+
             {selectedPin.status === 'failed' && !selectedPin.pinterestAccountId && onReconcileLegacySchedule && (
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
                 <p className="text-xs font-semibold text-primary-theme">
