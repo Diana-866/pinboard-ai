@@ -70,7 +70,10 @@ async function getTariffState(userId, db = supabase) {
   // The user period end is the accumulated entitlement horizon. A late older
   // webhook can have a later per-order period_end without owning the current plan.
   const periodEnd = user.tariff_period_end || sub.period_end || null;
-  const active = plan !== "none" && (!periodEnd || new Date(periodEnd).getTime() > Date.now());
+  // A successful paid order must have a finite entitlement horizon. NULL is
+  // valid only for an explicit manual grant (the no-subscription branch above),
+  // never as an accidental permanent paid subscription.
+  const active = plan !== "none" && !!periodEnd && new Date(periodEnd).getTime() > Date.now();
   return { plan, active, periodEnd };
 }
 
