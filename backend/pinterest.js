@@ -29,7 +29,7 @@ const supabase = require("./supabase");
 const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
 const { httpError } = require("./validate");
 const { getPinterestTokenExpiresAt } = require("./pinterestOAuth");
-const { buildScheduleWorkerFailureState, hasMatchingScheduleAttemptIdentity, isScheduleClaimUpdateConfirmed, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown, persistPublishFailureJournal } = require("./pinterestSchedule");
+const { buildScheduleWorkerFailureState, hasMatchingScheduleAttemptIdentity, isScheduleClaimUpdateConfirmed, resolvePublishedReservation, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown, persistPublishFailureJournal } = require("./pinterestSchedule");
 const {
   createBrowserBinding,
   readCookie,
@@ -589,11 +589,67 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
 
   const reservationStatus = reservation && reservation.status;
   if (reservationStatus === "published") {
+    const existingPublication = resolvePublishedReservation(reservation, boardId);
+
+    // A scheduled claim can encounter an already-published ledger entry after
+    // a previous worker completed the remote POST but failed to finalize this
+    // schedule row. Reconcile this exact claim instead of reporting success
+    // while leaving the calendar entry stuck in "publishing".
+    if (scheduleClaim) {
+      const finalized = await supabase
+        .from("pin_schedules")
+        .update({
+          status: "published",
+          pinterest_pin_id: existingPublication.pinterest_pin_id,
+          published_at: new Date().toISOString(),
+          claim_token: null,
+          last_error: null,
+          next_attempt_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", scheduleClaim.scheduleId)
+        .eq("user_id", String(userId))
+        .eq("pin_id", pinId)
+        .eq("pinterest_account_id", accountId)
+        .eq("pinterest_board_id", boardId)
+        .eq("status", "publishing")
+        .eq("claim_token", scheduleClaim.claimToken)
+        .select("id")
+        .maybeSingle();
+
+      if (finalized.error) {
+        throw httpError(503, "Публикация уже подтверждена, но не удалось обновить расписание. Повторная отправка заблокирована; требуется сверка.");
+      }
+      if (!isScheduleClaimUpdateConfirmed(finalized)) {
+        // A concurrent late-success completion may have finalized the row
+        // after the reservation RPC returned. Accept only that exact durable
+        // state; never treat a lost claim as a successful update.
+        const current = await supabase
+          .from("pin_schedules")
+          .select("status, pinterest_pin_id, pinterest_board_id")
+          .eq("id", scheduleClaim.scheduleId)
+          .eq("user_id", String(userId))
+          .maybeSingle();
+        if (current.error) {
+          throw httpError(503, "Не удалось проверить итог расписания Pinterest. Повторная отправка заблокирована.");
+        }
+        const row = current.data;
+        if (
+          !row ||
+          row.status !== "published" ||
+          String(row.pinterest_pin_id || "") !== existingPublication.pinterest_pin_id ||
+          String(row.pinterest_board_id || "") !== existingPublication.pinterest_board_id
+        ) {
+          throw httpError(409, "Задание расписания больше не принадлежит этому обработчику. Требуется сверка.");
+        }
+      }
+    }
+
     return {
       ok: true,
       already_published: true,
-      pinterest_pin_id: reservation.pinterest_pin_id,
-      board_id: reservation.pinterest_board_id || boardId,
+      pinterest_pin_id: existingPublication.pinterest_pin_id,
+      board_id: existingPublication.pinterest_board_id,
     };
   }
   if (reservationStatus === "processing") {
