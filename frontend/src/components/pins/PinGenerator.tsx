@@ -532,6 +532,11 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   };
 
   const currentPin = generatedPins[activePinIndex];
+  const currentDescriptionSaveState = currentPin
+    ? descriptionSavePinId === currentPin.id
+      ? descriptionSaveState
+      : readPendingPinDescription(selectedBoardId, currentPin.id) ? 'error' : 'idle'
+    : 'idle';
 
   const persistPinPatch = (pinId: string, patch: Record<string, string>) => {
     const pending = pendingPinSavesRef.current;
@@ -1426,20 +1431,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                       {t.generator.descriptionLabel}
                     </label>
                     <span className="text-[11px] text-muted-theme" aria-live="polite">
-                      {(descriptionSavePinId === currentPin.id
-                        ? descriptionSaveState
-                        : readPendingPinDescription(selectedBoardId, currentPin.id) ? 'error' : 'idle') === 'saving' ? 'Сохранение…' :
-                        (descriptionSavePinId === currentPin.id
-                          ? descriptionSaveState
-                          : readPendingPinDescription(selectedBoardId, currentPin.id) ? 'error' : 'idle') === 'saved' ? 'Сохранено' :
-                        (descriptionSavePinId === currentPin.id
-                          ? descriptionSaveState
-                          : readPendingPinDescription(selectedBoardId, currentPin.id) ? 'error' : 'idle') === 'error' ? 'Не сохранено — проверьте соединение' : ''}
+                      {currentDescriptionSaveState === 'saving' ? 'Сохранение…' :
+                        currentDescriptionSaveState === 'saved' ? 'Сохранено' :
+                        currentDescriptionSaveState === 'error' ? 'Не сохранено — проверьте соединение' : ''}
                       {' '}{currentPin.description.length} / 500
                     </span>
-                    {(descriptionSavePinId === currentPin.id
-                      ? descriptionSaveState
-                      : readPendingPinDescription(selectedBoardId, currentPin.id) ? 'error' : 'idle') === 'error' && (
+                    {currentDescriptionSaveState === 'error' && (
                       <button
                         type="button"
                         className="text-[11px] text-accent underline underline-offset-2"
