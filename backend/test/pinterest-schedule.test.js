@@ -6,6 +6,7 @@ const {
   canRetryScheduleFailure,
   getScheduleRetryDelayMinutes,
   buildScheduleWorkerFailureState,
+  hasMatchingScheduleAttemptIdentity,
   persistPublishFailureJournal,
   isPinterestPublishOutcomeUnknown,
   buildPinScheduleSnapshot,
@@ -263,6 +264,28 @@ test("thrown journal transport errors are normalized to a safe 503", async () =>
   );
 });
 
+
+test("worker trusts a published journal only when user, pin, account and board all match", () => {
+  const schedule = {
+    user_id: "user-1",
+    pin_id: "pin-1",
+    pinterest_account_id: "account-1",
+    pinterest_board_id: "board-1",
+  };
+  const attempt = {
+    user_id: "user-1",
+    pin_id: "pin-1",
+    pinterest_account_id: "account-1",
+    pinterest_board_id: "board-1",
+    status: "published",
+    pinterest_pin_id: "remote-1",
+  };
+  assert.equal(hasMatchingScheduleAttemptIdentity(attempt, schedule), true);
+  for (const field of ["user_id", "pin_id", "pinterest_account_id", "pinterest_board_id"]) {
+    assert.equal(hasMatchingScheduleAttemptIdentity({ ...attempt, [field]: "different" }, schedule), false, field);
+  }
+  assert.equal(hasMatchingScheduleAttemptIdentity(null, schedule), false);
+});
 
 test("worker journal lookup failure remains unknown and never authorizes a retry", () => {
   const state = buildScheduleWorkerFailureState({
