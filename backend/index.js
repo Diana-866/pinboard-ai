@@ -2008,7 +2008,27 @@ app.post("/schedule/:id/cancel", requireAuth, pinterestScheduleLimiter, async (r
       .select("*")
       .maybeSingle();
     if (error) throw error;
-    if (!data) throw httpError(404, "Запланированная публикация не найдена или уже обрабатывается");
+    if (!data) {
+      // Distinguish a missing/foreign schedule from a real state conflict.
+      // The conditional UPDATE above is the cancellation linearization point:
+      // if the worker claimed first, never overwrite its publishing claim.
+      const { data: current, error: currentError } = await supabase
+        .from("pin_schedules")
+        .select("status")
+        .eq("id", req.params.id)
+        .eq("user_id", String(req.userId))
+        .maybeSingle();
+      if (currentError) throw currentError;
+      if (!current) throw httpError(404, "Запланированная публикация не найдена");
+      const message = current.status === "publishing"
+        ? "Публикация уже началась и не может быть отменена. Дождитесь результата."
+        : current.status === "published"
+          ? "Публикация уже отправлена в Pinterest и не может быть отменена."
+          : current.status === "cancelled"
+            ? "Эта публикация уже отменена."
+            : "Статус публикации уже изменился. Обновите расписание и попробуйте снова.";
+      throw httpError(409, message);
+    }
     if (data.snapshot_image_url) {
       await deletePinImageIfUnreferenced(data.snapshot_image_url).catch((cleanupError) => {
         console.error("[storage] не удалось очистить изображение отменённого расписания:", cleanupError && cleanupError.message);
