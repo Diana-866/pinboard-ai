@@ -82,42 +82,24 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
     { q: t.bot.quickQuestion5, a: t.bot.quickAnswer5, actionTab: 'keywords' },
   ];
 
-  const handleSelectQuickQuestion = (question: string, answer: string, actionTab?: string) => {
-    const userMsg: Message = {
-      id: `usr-${Date.now()}`,
-      sender: 'user',
-      text: question,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
-    setIsTyping(true);
-
-    setTimeout(() => {
-      setIsTyping(false);
-      const botMsg: Message = {
-        id: `bot-${Date.now()}`,
+  const handleSelectQuickQuestion = (question: string, actionTab?: string) => {
+    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setMessages((prev) => [
+      ...prev,
+      { id: `usr-${Date.now()}`, sender: 'user', text: question, timestamp },
+      {
+        id: `bot-${Date.now()}-notice`,
         sender: 'bot',
-        text: answer,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        text: 'Ассистент пока работает в демонстрационном режиме и не подключён к вашим данным Pinterest. Я не могу достоверно оценить статистику аккаунта, тренды или конкурентов. Перейдите в соответствующий раздел, чтобы посмотреть доступные функции.',
+        timestamp,
         action: actionTab
           ? {
-              label:
-                actionTab === 'analytics'
-                  ? 'Перейти в раздел «Аналитика»'
-                  : actionTab === 'calendar'
-                  ? 'Открыть Smart Schedule'
-                  : actionTab === 'generator'
-                  ? 'Сгенерировать новые пины'
-                  : actionTab === 'boards'
-                  ? 'Управление досками'
-                  : 'Исследовать ключевые слова',
+              label: 'Открыть соответствующий раздел',
               tab: actionTab,
             }
           : undefined,
-      };
-      setMessages((prev) => [...prev, botMsg]);
-    }, 700);
+      },
+    ]);
   };
 
   const handleSendMessage = (e?: React.FormEvent) => {
@@ -125,69 +107,42 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
     const query = inputMessage.trim();
     if (!query) return;
 
-    const userMsg: Message = {
-      id: `usr-${Date.now()}`,
-      sender: 'user',
-      text: query,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
+    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const lower = query.toLowerCase();
+    let targetTab: string | undefined;
 
-    setMessages((prev) => [...prev, userMsg]);
+    if (lower.includes('доск') || lower.includes('board') || lower.includes('seo')) {
+      targetTab = 'boards';
+    } else if (lower.includes('время') || lower.includes('час') || lower.includes('когда') || lower.includes('time') || lower.includes('schedule')) {
+      targetTab = 'calendar';
+    } else if (lower.includes('генерац') || lower.includes('пин') || lower.includes('созда') || lower.includes('generate')) {
+      targetTab = 'generator';
+    } else if (lower.includes('конкурент') || lower.includes('competitor')) {
+      targetTab = 'competitors';
+    }
+
+    setMessages((prev) => [
+      ...prev,
+      { id: `usr-${Date.now()}`, sender: 'user', text: query, timestamp },
+    ]);
     setInputMessage('');
     setIsTyping(true);
 
-    // Context-grounded intelligent answer generation
-    setTimeout(() => {
+    window.setTimeout(() => {
       setIsTyping(false);
-      let reply = '';
-      let targetTab: string | undefined = undefined;
-      const lower = query.toLowerCase();
-
-      if (lower.includes('доск') || lower.includes('board') || lower.includes('seo')) {
-        reply =
-          'На основе аудита вашего аккаунта @botanika_nordic: доска «Скандинавский интерьер» имеет наивысший SEO-потенциал (94%), а на доске «Идеи подарков» не хватает свежих пинов (пауза 6 дней). Рекомендую добавить 4 пина в очередь для восстановления темпа показов!';
-        targetTab = 'boards';
-      } else if (lower.includes('время') || lower.includes('час') || lower.includes('когда') || lower.includes('time') || lower.includes('schedule')) {
-        reply =
-          'Ваша аудитория наиболее активна с 18:00 до 21:30 UTC по будням и с 14:00 по воскресеньям. Все эти интервалы отмечены в календаре как «Оптимальные слоты». Публикуйте по 5-8 пинов ежедневно с интервалом не менее 2 часов.';
-        targetTab = 'calendar';
-      } else if (lower.includes('генерац') || lower.includes('пин') || lower.includes('созда') || lower.includes('generate')) {
-        reply =
-          'Генератор готов к работе! Сейчас в тренде вирусный формат 9:16 со стилем «Glassmorphism» и акцентной типографикой. Вы можете запустить пакетную генерацию сразу от 1 до 25 пинов.';
-        targetTab = 'generator';
-      } else if (lower.includes('конкурент') || lower.includes('competitor')) {
-        reply =
-          'Мы отслеживаем конкурентов в вашей нише и только что добавили блок «Рекомендованные похожие конкуренты». Алгоритм нашел 4 растущих профиля со схожей аудиторией, вы можете изучить их профили и добавить в 1 клик!';
-        targetTab = 'competitors';
-      } else if (lower.includes('нагрузк') || lower.includes('очеред') || lower.includes('задержк') || lower.includes('долго') || lower.includes('sla')) {
-        reply =
-          'Согласно регламенту сервиса: в периоды пиковых нагрузок генерация пакетов пинов может занимать до 24–48 часов в Smart Queue. При этом аналитика, чат-стратег и планировщик работают без задержек. Как только ваш пакет будет готов, колокольчик в шапке покажет уведомление!';
-      } else {
-        reply =
-          'Отличный стратегический вопрос! По текущей динамике аккаунта @botanika_nordic ваш охват вырос на +24.8% за месяц, а Save Rate составляет 4.8% (выше среднерыночного 2.8%). Для максимального масштабирования рекомендую протестировать соотношение 9:16 и усилить ключевые фразы в заголовках.';
-      }
-
-      const botMsg: Message = {
-        id: `bot-${Date.now()}`,
-        sender: 'bot',
-        text: reply,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        action: targetTab
-          ? {
-              label:
-                targetTab === 'generator'
-                  ? 'Перейти в генератор'
-                  : targetTab === 'calendar'
-                  ? 'Открыть календарь'
-                  : targetTab === 'boards'
-                  ? 'Открыть доски'
-                  : 'Открыть анализ конкурентов',
-              tab: targetTab,
-            }
-          : undefined,
-      };
-      setMessages((prev) => [...prev, botMsg]);
-    }, 900);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `bot-${Date.now()}`,
+          sender: 'bot',
+          text: 'Ассистент пока работает в демонстрационном режиме и не подключён к вашим данным Pinterest. Я не могу достоверно оценить статистику аккаунта, тренды или конкурентов. Перейдите в соответствующий раздел, чтобы посмотреть доступные функции.',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          action: targetTab
+            ? { label: 'Открыть соответствующий раздел', tab: targetTab }
+            : undefined,
+        },
+      ]);
+    }, 250);
   };
 
   const handleResetChat = () => {
@@ -371,7 +326,7 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
                 <button
                   key={idx}
                   type="button"
-                  onClick={() => handleSelectQuickQuestion(item.q, item.a, item.actionTab)}
+                  onClick={() => handleSelectQuickQuestion(item.q, item.actionTab)}
                   className="shrink-0 text-[11px] px-2.5 py-1 rounded-lg border border-subtle bg-subtle hover:border-strong text-primary-theme transition-all cursor-pointer whitespace-nowrap active:scale-95"
                 >
                   {item.q}
