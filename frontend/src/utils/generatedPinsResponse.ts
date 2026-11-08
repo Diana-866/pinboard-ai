@@ -8,6 +8,7 @@ export function requireGeneratedPinsArray(value: unknown): any[] {
     throw new Error('Сервер вернул некорректный результат генерации. Повторите проверку сохранённых результатов.');
   }
 
+  const seenIds = new Set<string>();
   for (const pin of value) {
     if (!pin || typeof pin !== 'object' || Array.isArray(pin)) {
       throw new Error('Сервер вернул неполные данные пина. Ключ восстановления сохранён.');
@@ -15,6 +16,10 @@ export function requireGeneratedPinsArray(value: unknown): any[] {
     if (typeof pin.id !== 'string' || !pin.id.trim()) {
       throw new Error('У сохранённого пина отсутствует идентификатор. Ключ восстановления сохранён.');
     }
+    if (seenIds.has(pin.id)) {
+      throw new Error('Сервер вернул повторяющийся идентификатор пина. Ключ восстановления сохранён.');
+    }
+    seenIds.add(pin.id);
     if (typeof pin.image_url !== 'string' || !pin.image_url.trim()) {
       throw new Error('У сохранённого пина отсутствует постоянная ссылка на изображение. Ключ восстановления сохранён.');
     }
