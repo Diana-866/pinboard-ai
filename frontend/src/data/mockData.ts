@@ -63,6 +63,7 @@ export interface ScheduledPinItem {
   status: 'scheduled' | 'publishing' | 'published' | 'failed' | 'unknown' | 'cancelled' | 'draft';
   retryable?: boolean;
   retryReason?: string;
+  failureReason?: 'board_unavailable' | null;
   impressions?: number;
   saves?: number;
   clicks?: number;
