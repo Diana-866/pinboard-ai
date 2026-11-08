@@ -7,6 +7,8 @@ const REQUEST_KEY = 'pinposy_generation_request_v1';
 const LEGACY_FINGERPRINT_KEY = 'pinposy_generation_fingerprint';
 const LEGACY_IDEMPOTENCY_KEY = 'pinposy_generation_key';
 const REQUEST_KEY_PREFIX = 'pinposy_generation_request_v2:';
+const FINGERPRINT_PATTERN = /^fp1:[a-f0-9]{16}$/;
+const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_-]{16,128}$/;
 let inMemoryRequests = new Map<string, PendingGenerationRequest>();
 
 /** Store a compact fingerprint, never the user's raw topic or generation settings. */
@@ -52,8 +54,10 @@ function parseRequest(raw: string | null): PendingGenerationRequest | null {
   try {
     const value = JSON.parse(raw) as Partial<PendingGenerationRequest>;
     if (typeof value.fingerprint !== 'string' || !value.fingerprint ||
-        typeof value.idempotencyKey !== 'string' || !value.idempotencyKey) return null;
-    return { fingerprint: normalizeFingerprint(value.fingerprint), idempotencyKey: value.idempotencyKey };
+        typeof value.idempotencyKey !== 'string') return null;
+    const fingerprint = normalizeFingerprint(value.fingerprint);
+    if (!FINGERPRINT_PATTERN.test(fingerprint) || !IDEMPOTENCY_KEY_PATTERN.test(value.idempotencyKey)) return null;
+    return { fingerprint, idempotencyKey: value.idempotencyKey };
   } catch {
     return null;
   }
@@ -130,8 +134,9 @@ export function writePendingGenerationRequest(
   idempotencyKey: string,
   storage: Pick<Storage, 'setItem'> | undefined = getDefaultStorage(),
 ): boolean {
-  if (!fingerprint || !idempotencyKey) return false;
+  if (!fingerprint || typeof idempotencyKey !== 'string') return false;
   const normalized = normalizeFingerprint(fingerprint);
+  if (!FINGERPRINT_PATTERN.test(normalized) || !IDEMPOTENCY_KEY_PATTERN.test(idempotencyKey)) return false;
   const request = { fingerprint: normalized, idempotencyKey };
   inMemoryRequests.set(normalized, request);
   if (storage) {
@@ -159,8 +164,8 @@ export function listPendingGenerationRequests(
 ): PendingGenerationRequest[] {
   const found = new Map<string, PendingGenerationRequest>();
   const add = (request: PendingGenerationRequest | null) => {
-    if (!request || !/^fp1:[a-f0-9]{16}$/.test(request.fingerprint) ||
-        !/^[A-Za-z0-9_-]{16,128}$/.test(request.idempotencyKey)) return;
+    if (!request || !FINGERPRINT_PATTERN.test(request.fingerprint) ||
+        !IDEMPOTENCY_KEY_PATTERN.test(request.idempotencyKey)) return;
     if (!found.has(request.fingerprint)) found.set(request.fingerprint, request);
   };
 
