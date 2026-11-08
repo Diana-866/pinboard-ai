@@ -25,6 +25,7 @@ const provider = {
     requestId: "chatcmpl-test-usage",
   }),
   generateImage: async () => { throw new Error("simulated image provider failure"); },
+  waitForImageTask: async () => { throw new Error("unexpected task polling"); },
 };
 const storage = { rehostImage: async (url) => url };
 
@@ -620,6 +621,55 @@ test("unrecoverable succeeded tasks never submit a duplicate provider create req
     task_index: 1,
     reason: "successful_result_unrecoverable",
   }]);
+});
+
+
+test("a journaled provider task ID is polled even if its last persisted state is submitting", async () => {
+  let createCalls = 0;
+  let pollCalls = 0;
+  provider.generateText = async () => {
+    throw new Error("recovery must not generate new text");
+  };
+  provider.generateImage = async () => {
+    createCalls += 1;
+    throw new Error("must not create another provider task");
+  };
+  provider.waitForImageTask = async (taskId) => {
+    pollCalls += 1;
+    assert.equal(taskId, "provider-task-submitting-recovery");
+    return { pending: true, taskId };
+  };
+
+  const pins = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {
+      loadPlan: async () => [{
+        task_index: 1,
+        title: "Submitted task",
+        description: "Saved description",
+        prompt: "immutable saved prompt",
+        model: "flux-schnell",
+        aspect_ratio: "2:3",
+        provider_idempotency_key: "stable-provider-key-submitting",
+        provider_task_id: "provider-task-submitting-recovery",
+        status: "submitting",
+      }],
+      updateTask: async () => {},
+    }
+  );
+
+  assert.equal(createCalls, 0);
+  assert.equal(pollCalls, 1);
+  assert.deepEqual(pins.pendingTasks, [{
+    task_index: 1,
+    task_id: "provider-task-submitting-recovery",
+  }]);
+  assert.deepEqual(pins.unknownTasks, []);
 });
 
 test("restore original module cache entries", () => {
