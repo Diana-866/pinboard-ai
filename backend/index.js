@@ -1847,6 +1847,71 @@ app.post("/pins/:id/schedule", requireAuth, pinterestScheduleLimiter, requireTar
   }
 });
 
+app.post("/schedule/:id/change-board", requireAuth, pinterestScheduleLimiter, requireTariff(["start", "pro", "agency"]), async (req, res) => {
+  try {
+    const newBoardId = String((req.body && req.body.pinterest_board_id) || "").trim();
+    if (!newBoardId || newBoardId.length > 128) {
+      throw httpError(422, "Выберите доску Pinterest из списка доступных досок.");
+    }
+
+    const { data: schedule, error: scheduleError } = await supabase
+      .from("pin_schedules")
+      .select("id, user_id, pin_id, pinterest_account_id, pinterest_board_id, status")
+      .eq("id", req.params.id)
+      .eq("user_id", String(req.userId))
+      .maybeSingle();
+    if (scheduleError) throw scheduleError;
+    if (!schedule) throw httpError(404, "Расписание не найдено");
+    if (schedule.status !== "failed") {
+      throw httpError(409, "Заменить доску можно только у публикации со статусом «Ошибка».");
+    }
+    if (!schedule.pinterest_account_id) {
+      throw httpError(409, "У расписания не указан Pinterest-аккаунт. Сначала восстановите привязку аккаунта.");
+    }
+
+    // Verify the replacement board against the same connected Pinterest identity.
+    // The database RPC repeats all safety checks atomically before re-queueing.
+    const pinterest = require("./pinterest");
+    await pinterest.resolveAccount(req.userId, schedule.pinterest_account_id);
+    await pinterest.verifyPinterestBoard(
+      req.userId,
+      newBoardId,
+      schedule.pinterest_account_id
+    );
+
+    const { data: changed, error: changeError } = await supabase.rpc("change_failed_pin_schedule_board", {
+      p_user_id: String(req.userId),
+      p_schedule_id: schedule.id,
+      p_new_board_id: newBoardId,
+    });
+    if (changeError) throw changeError;
+    if (!changed || changed.ok !== true) {
+      const reasons = {
+        account_unavailable: [409, "Pinterest-аккаунт отключён. Подключите его заново."],
+        schedule_not_retryable: [409, "Расписание уже изменилось и больше не доступно для смены доски."],
+        publication_attempt_exists: [409, "Попытка публикации уже могла состояться. Смена доски заблокирована во избежание дубликата."],
+        active_schedule_exists: [409, "Для этого пина уже существует другое активное расписание."],
+        pin_unavailable: [404, "Исходный пин больше недоступен."],
+        invalid_board: [422, "Некорректный идентификатор доски Pinterest."],
+        schedule_not_found: [404, "Расписание не найдено."],
+      };
+      const [status, message] = reasons[changed && changed.reason] || [409, "Не удалось безопасно изменить доску публикации."];
+      throw httpError(status, message);
+    }
+
+    const { data: updated, error: readError } = await supabase
+      .from("pin_schedules")
+      .select("*, pins(id, board_id, title, description, image_url, status, boards(id, title))")
+      .eq("id", schedule.id)
+      .eq("user_id", String(req.userId))
+      .single();
+    if (readError) throw readError;
+    res.json(sanitizeScheduleForClient(updated));
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 app.post("/schedule/:id/retry", requireAuth, pinterestScheduleLimiter, requireTariff(["start", "pro", "agency"]), async (req, res) => {
   try {
     const { data: schedule, error: scheduleError } = await supabase
