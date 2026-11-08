@@ -974,6 +974,11 @@ function registerRoutes(app, deps) {
       // Keep claimed work comfortably below the 20-minute stale-claim recovery window.
       // The worker processes this batch sequentially; a large batch could make later
       // rows look abandoned before this instance reaches them.
+      // Repair only rows backed by an exact successful attempt + publication ledger match.
+      // This is positive-only: unknown rows without matching evidence remain fenced.
+      const { error: reconcileError } = await supabase.rpc("reconcile_confirmed_pinterest_schedule_successes");
+      if (reconcileError) throw reconcileError;
+
       const limit = Math.max(1, Math.min(Number(req.body && req.body.limit) || 10, 10));
       const { data: dueRows, error: claimError } = await supabase.rpc("claim_due_pin_schedules", {
         p_limit: limit,
