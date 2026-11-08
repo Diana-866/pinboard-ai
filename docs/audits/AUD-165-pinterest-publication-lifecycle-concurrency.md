@@ -508,3 +508,6 @@ The generation and one-time commit checks prevent stale tabs, replay after a suc
 **Tests updated:** `backend/test/admin-pinterest-inventory.test.js` now covers one-RPC bounded access, operator identity propagation, DB-side admin denial, redaction, classification, and invalid inputs. The test suite has been updated but has not yet been executed against the repository's installed dependencies. The SQL migration has not been applied to production or verified against a live Supabase database.
 
 **Expected result:** an admin page of up to 100 schedules now transfers at most 100 schedule rows and at most one latest attempt per schedule, rather than all historical attempts for those pins. The database still needs to execute the indexed lookup; production query plans and latency must be measured after the migration is applied in a staging database.
+
+
+**Follow-up implementation note:** during the post-change source review, the error-redaction regular expressions were corrected to retain their intended single-backslash JavaScript regex escapes. The final source now matches bearer tokens, JWT-shaped strings, credential key/value pairs, and credential query parameters as intended. The focused test file asserts these redactions, but execution is still pending.
