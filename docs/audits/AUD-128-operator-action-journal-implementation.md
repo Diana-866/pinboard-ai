@@ -36,7 +36,7 @@ The SQL integration file creates isolated users and generation/regeneration requ
 
 ## Important remaining work / verification limits
 
-- This is database-layer work only. No Express admin mutation endpoint has been added yet. A future backend endpoint must pass the authenticated operator ID from verified `req.userId`, never from a browser-supplied body field.
+- The database layer is complemented by the four Express admin mutation endpoints and unit tests documented in `AUD-129-admin-provider-refund-api.md`. The backend passes the authenticated operator ID from verified `req.userId`, never from a browser-supplied body field; migration 078 independently rechecks that identity under row lock.
 - The migration and integration SQL have **not** been executed. No PostgreSQL/Supabase database or SQL parser is available in this execution context; GitHub source review is not a substitute for applying migration 078 to a disposable database and running the integration file.
 - Multi-session concurrency tests remain required for demotion/action races, two operators targeting the same request, cross-target actions (A targets B while B targets A), operator deletion, target-account deletion, and operator==target. The migration now orders the two user-row locks by UUID, but a single-session transaction fixture cannot prove these interleavings.
 - Do not apply migration 078 to Production until the disposable-database run passes and the concurrency cases are covered.
