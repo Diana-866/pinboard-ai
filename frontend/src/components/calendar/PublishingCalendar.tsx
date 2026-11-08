@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
 import { BoardItem, ScheduledPinItem, PinterestAccount } from '../../data/mockData';
+import { apiRequest } from '../../lib/api';
 import {
   getDefaultTimezone,
   saveUserTimezone,
