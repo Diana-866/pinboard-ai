@@ -359,7 +359,13 @@ test("stale upload quarantine retires exact paths with their current fencing tok
     ],
   });
   const result = await quarantineStalePinImageUploads({ supabase });
-  assert.deepEqual(result, { inspected: 2, quarantined: 2, skipped: 0, failed: 0 });
+  assert.deepEqual(result, {
+    inspected: 2, quarantined: 2, skipped: 0, failed: 0,
+    items: [
+      { object_path: "pins/1730000000000-ab12cd34.webp", attempts: null, claim_expires_at: null, updated_at: null, status: "quarantined", reason: "path_permanently_retired" },
+      { object_path: "pins/1730000000001-ab12cd34.webp", attempts: null, claim_expires_at: null, updated_at: null, status: "quarantined", reason: "path_permanently_retired" },
+    ],
+  });
   const calls = supabase.calls.filter((call) => call.name === "quarantine_stale_pin_image_upload");
   assert.equal(calls.length, 2);
   assert.equal(calls[0].args.p_upload_token, "token-a");
@@ -371,7 +377,13 @@ test("stale upload quarantine skips rows without a valid fencing token", async (
     staleUploads: [{ bucket_id: "pin-images", object_path: "pins/1730000000000-ab12cd34.webp" }],
   });
   const result = await quarantineStalePinImageUploads({ supabase });
-  assert.deepEqual(result, { inspected: 1, quarantined: 0, skipped: 1, failed: 0 });
+  assert.deepEqual(result, {
+    inspected: 1, quarantined: 0, skipped: 1, failed: 0,
+    items: [{
+      object_path: "pins/1730000000000-ab12cd34.webp", attempts: null,
+      claim_expires_at: null, updated_at: null, status: "skipped", reason: "invalid_inventory_row",
+    }],
+  });
   assert.equal(supabase.calls.some((call) => call.name === "quarantine_stale_pin_image_upload"), false);
 });
 
@@ -381,18 +393,26 @@ test("stale upload reconciliation is observational even when the exact object is
       bucket_id: "pin-images",
       object_path: "pins/1730000000000-ab12cd34.webp",
       upload_token: "stale-upload-token",
+      attempts: 3,
+      claim_expires_at: "2026-11-08T22:00:00.000Z",
+      updated_at: "2026-11-08T21:50:00.000Z",
     }],
   });
   const result = await reconcileStalePinImageUploads({ supabase });
-  assert.deepEqual(result, {
-    inspected: 1,
-    objectVisible: 1,
-    objectMissing: 0,
-    unresolved: [{
-      object_path: "pins/1730000000000-ab12cd34.webp",
-      reason: "object_visible_requires_operator_confirmation",
-    }],
+  assert.equal(result.inspected, 1);
+  assert.equal(result.objectVisible, 1);
+  assert.equal(result.objectMissing, 0);
+  assert.deepEqual(result.unresolved[0], {
+    object_path: "pins/1730000000000-ab12cd34.webp",
+    attempts: 3,
+    claim_expires_at: "2026-11-08T22:00:00.000Z",
+    updated_at: "2026-11-08T21:50:00.000Z",
+    stale_for_seconds: result.unresolved[0].stale_for_seconds,
+    reason: "object_visible_requires_operator_confirmation",
+    safe_action: "keep_fenced_until_original_upload_is_confirmed_stopped",
   });
+  assert.equal(Number.isInteger(result.unresolved[0].stale_for_seconds), true);
+  assert.equal(JSON.stringify(result).includes("stale-upload-token"), false);
   assert.deepEqual(supabase.calls.map((call) => call.name || call.type), [
     "list_stale_pin_image_uploads", "list",
   ]);
@@ -405,12 +425,15 @@ test("stale upload reconciliation keeps missing objects fenced", async () => {
       bucket_id: "pin-images",
       object_path: "pins/1730000000000-ab12cd34.webp",
       upload_token: "stale-upload-token",
+      attempts: 2,
     }],
     listData: [],
   });
   const result = await reconcileStalePinImageUploads({ supabase });
   assert.equal(result.objectMissing, 1);
   assert.equal(result.unresolved[0].reason, "object_missing_keep_fenced");
+  assert.equal(result.unresolved[0].safe_action, "keep_fenced_and_check_provider_or_storage_logs");
+  assert.equal(result.unresolved[0].attempts, 2);
   assert.equal(supabase.calls.some((call) => call.name === "finalize_pin_image_upload"), false);
 });
 
@@ -427,5 +450,6 @@ test("stale upload reconciliation does not change state when Storage inventory f
   assert.equal(result.objectVisible, 0);
   assert.equal(result.objectMissing, 0);
   assert.equal(result.unresolved[0].reason, "storage_inventory_failed");
+  assert.equal(result.unresolved[0].safe_action, "retry_read_only_reconciliation");
   assert.equal(supabase.calls.some((call) => call.name === "finalize_pin_image_upload"), false);
 });
