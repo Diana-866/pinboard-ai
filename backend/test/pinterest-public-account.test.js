@@ -31,10 +31,20 @@ test("public Pinterest account projection exposes metadata but never credentials
   assert.equal("user_id" in result, false);
 });
 
-test("expired token metadata requests reauthorization", () => {
+test("expired access token with a refresh token remains recoverable without OAuth reconnect", () => {
   const result = toPublicPinterestAccount({
     ...secretAccount,
     refresh_state: "ready",
+    expires_at: "2026-11-07T10:00:00.000Z",
+  }, Date.parse("2026-11-07T11:00:00.000Z"));
+  assert.equal(result.needs_reauth, false);
+});
+
+test("expired access token without a refresh token requires OAuth reconnect", () => {
+  const result = toPublicPinterestAccount({
+    ...secretAccount,
+    refresh_state: "ready",
+    refresh_token: null,
     expires_at: "2026-11-07T10:00:00.000Z",
   }, Date.parse("2026-11-07T11:00:00.000Z"));
   assert.equal(result.needs_reauth, true);
@@ -48,10 +58,20 @@ test("disconnect response projection excludes all token material", () => {
 });
 
 
-test("malformed non-empty token expiry is reported as requiring reauthorization", () => {
+test("malformed expiry with a refresh token remains eligible for safe token refresh", () => {
   const result = toPublicPinterestAccount({
     ...secretAccount,
     refresh_state: "ready",
+    expires_at: "not-a-date",
+  }, Date.parse("2026-11-07T11:00:00.000Z"));
+  assert.equal(result.needs_reauth, false);
+});
+
+test("malformed expiry without a refresh token requires OAuth reconnect", () => {
+  const result = toPublicPinterestAccount({
+    ...secretAccount,
+    refresh_state: "ready",
+    refresh_token: null,
     expires_at: "not-a-date",
   }, Date.parse("2026-11-07T11:00:00.000Z"));
   assert.equal(result.needs_reauth, true);
