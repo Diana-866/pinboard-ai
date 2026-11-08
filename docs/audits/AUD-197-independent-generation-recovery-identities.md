@@ -9,6 +9,8 @@
 - Успешная генерация удаляет только собственную запись.
 - Другие незавершённые запросы остаются доступными после reload/browser restart.
 - Добавлен поиск tab-scoped v2 записи, если localStorage недоступен.
+- Исправлен fallback и для случая, когда обращение к свойству localStorage само выбрасывает SecurityError: запись всё равно пытается сохраниться в sessionStorage.
+- Полная очистка теперь перечисляет и удаляет все scoped v2 keys, а не только старые legacy keys.
 - Старый единый sessionStorage формат мигрируется в scoped format; raw fingerprint нормализуется в compact fingerprint.
 - Fingerprint не содержит исходную тему и настройки. Серверная проверка полного запроса остаётся авторитетной.
 
@@ -18,7 +20,7 @@
 - `frontend/src/components/pins/PinGenerator.tsx`
 
 ## Проверки
-Добавлены unit tests на независимые ключи двух запросов, выборочную очистку, восстановление после сброса памяти, миграцию legacy sessionStorage, compact fingerprint и blocked storage fallback.
+Добавлены unit tests на независимые ключи двух запросов, выборочную очистку, восстановление после сброса памяти, миграцию legacy sessionStorage, compact fingerprint, blocked storage fallback, inaccessible localStorage getter и полную очистку scoped-записей.
 
 Тесты не запускались в этой среде: локального checkout репозитория и установленных frontend dependencies нет. Требуется дождаться GitHub Actions на новом HEAD.
 
