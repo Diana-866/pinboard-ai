@@ -723,7 +723,31 @@ function registerRoutes(app, deps) {
       // Only the hash is signed into state; the raw secret stays in an HttpOnly cookie.
       const browserBinding = createBrowserBinding();
       const state = createState(req.userId, account.token_version, attemptId, generation, browserBinding.hash);
-      res.setHeader("Set-Cookie", serializeBindingCookie(browserBinding.secret));
+      // The browser submits the proof to a top-level backend navigation. This
+      // makes the cookie first-party even when the SPA and API are on different
+      // registrable domains (where third-party Set-Cookie may be blocked).
+      const startUrl = new URL("/integrations/pinterest/start", redirectUri()).toString();
+      res.json({
+        start_url: startUrl,
+        state,
+        browser_binding_secret: browserBinding.secret,
+      });
+    } catch (e) {
+      handleError(res, e);
+    }
+  });
+
+  // Complete the browser-binding step as a top-level form POST before leaving for Pinterest.
+  // This avoids relying on third-party cookies during the SPA -> API fetch.
+  app.post("/integrations/pinterest/start", pinterestOAuthStartLimiter, express.urlencoded({ extended: false, limit: "8kb" }), async (req, res) => {
+    try {
+      const state = String(req.body && req.body.state || "");
+      const secret = String(req.body && req.body.browser_binding_secret || "");
+      const stateClaims = readStateClaims(state);
+      if (!matchesBrowserBinding(secret, stateClaims.browserBindingHash)) {
+        throw httpError(400, "Pinterest connection must be started from the original PinPosy browser session.");
+      }
+      res.setHeader("Set-Cookie", serializeBindingCookie(secret));
       const params = new URLSearchParams({
         client_id: clientId(),
         redirect_uri: redirectUri(),
@@ -731,9 +755,10 @@ function registerRoutes(app, deps) {
         scope: SCOPES.join(","),
         state,
       });
-      res.json({ authorize_url: `${AUTHORIZE_URL}?${params.toString()}` });
+      res.redirect(302, `${AUTHORIZE_URL}?${params.toString()}`);
     } catch (e) {
-      handleError(res, e);
+      console.error("[pinterest] OAuth start failed:", e && e.message);
+      res.status(e.status || 400).send("Pinterest connection could not be started. Return to PinPosy and try again.");
     }
   });
 
