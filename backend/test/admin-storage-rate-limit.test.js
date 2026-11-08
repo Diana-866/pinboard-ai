@@ -14,3 +14,8 @@ for (const route of [
     assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
   });
 }
+
+test("POST /admin/mail/reply applies the admin action limiter before authentication", () => {
+  const registration = 'app.post("/admin/mail/reply", adminActionLimiter, requireAuth, requireAdmin,';
+  assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
+});
