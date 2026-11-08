@@ -28,6 +28,7 @@ const jwt = require("jsonwebtoken");
 const supabase = require("./supabase");
 const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
 const { httpError } = require("./validate");
+const { getPinterestTokenExpiresAt } = require("./pinterestOAuth");
 const { classifyScheduleFailure, canRetryScheduleFailure, getScheduleRetryDelayMinutes, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown, persistPublishFailureJournal } = require("./pinterestSchedule");
 const {
   createBrowserBinding,
@@ -830,10 +831,13 @@ function registerRoutes(app, deps) {
       const me = await callPinterest("GET", "/user_account", { token: tokenResponse.access_token });
       if (me.ok && me.data) profile = me.data;
 
-      const now = Date.now();
-      const expiresAt = tokenResponse && tokenResponse.expires_in
-        ? new Date(now + Number(tokenResponse.expires_in) * 1000).toISOString()
-        : null;
+      let expiresAt;
+      try {
+        expiresAt = getPinterestTokenExpiresAt(tokenResponse && tokenResponse.expires_in);
+      } catch (expiryError) {
+        console.error("[pinterest] OAuth token response contained an invalid expiry:", expiryError && expiryError.message);
+        throw httpError(502, "Pinterest вернул некорректный срок действия токена. Подключение не сохранено.");
+      }
       if (!profile || !profile.id) {
         throw httpError(502, "Pinterest не вернул идентификатор аккаунта. Подключение не сохранено.");
       }
