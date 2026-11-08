@@ -624,7 +624,7 @@ app.post("/projects/:id/analyze", requireAuth, aiLimiter, async (req, res) => {
 
     if (updateError) throw updateError;
 
-    res.json(sanitizeScheduleForClient(updated));
+    res.json(updated);
   } catch (e) {
     handleError(res, e);
   }
