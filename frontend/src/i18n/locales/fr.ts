@@ -540,6 +540,8 @@ export const fr: TranslationSchema = {
     suggestedTitle: 'Explorer les sections de l’application :',
     demoReply: 'Ceci est uniquement une démonstration de navigation. Je ne peux pas analyser vos données Pinterest ni fournir de recommandations générées par IA.',
     openSection: 'Ouvrir la section',
+    dock: 'Ancrer l’assistant au bord de l’écran',
+    undock: 'Ouvrir l’assistant PinPosy',
   },
 
   notifications: {
