@@ -79,11 +79,12 @@ export function clearPendingGenerationRequest(
 ): void {
   inMemoryRequest = null;
   if (!storage) return;
-  try {
-    storage.removeItem(REQUEST_KEY);
-    storage.removeItem(LEGACY_FINGERPRINT_KEY);
-    storage.removeItem(LEGACY_IDEMPOTENCY_KEY);
-  } catch {
-    // A stale key is harmless: the next request fingerprint will rotate it.
+  for (const key of [REQUEST_KEY, LEGACY_FINGERPRINT_KEY, LEGACY_IDEMPOTENCY_KEY]) {
+    try {
+      storage.removeItem(key);
+    } catch {
+      // Continue clearing other keys; a stale key is harmless because each
+      // new request compares its full fingerprint before reusing an identity.
+    }
   }
 }
