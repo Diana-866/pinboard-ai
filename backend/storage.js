@@ -176,8 +176,8 @@ async function rehostImage(sourceUrl, options = {}) {
         !["path_quarantined", "already_deleted"].includes(primaryError.code)) {
       throw primaryError;
     }
-    // A quarantined deterministic path is permanently retired because an old
-    // Storage request may still finish late. Retry on bounded, deterministic
+    // A quarantined or already-deleted deterministic path is permanently retired.
+    // Retry on bounded, deterministic
     // recovery paths derived from the original provider key. The same retry
     // key is reused after process restarts, so a completed fallback is found
     // rather than uploaded again. Never skip an in-progress or referenced path.
