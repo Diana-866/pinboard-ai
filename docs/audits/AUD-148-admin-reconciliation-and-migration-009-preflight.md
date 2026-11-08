@@ -108,3 +108,12 @@ No confirmed client privilege escalation was found in these reviewed migrations.
 - This is defense-in-depth for a privileged outbound-email action; it does not replace MFA/session controls or provider-side mail quotas.
 - Commits: `822269d` (route), `24d443c` (regression test).
 - Test status: not run locally in this environment; CI must confirm. No email was sent and no production environment was changed.
+
+
+## AUD-151 — payment-creation throttling (2026-11-08)
+
+- Reviewed the authenticated subscription and credit-pack purchase creation routes. Both created pending purchase records and initiated payment-provider work without a dedicated request limiter.
+- Added a shared `paymentCreationLimiter` to `POST /billing/create-payment` and `POST /billing/credits`: 10 requests per 15-minute window, using the standard client-IP key. It runs after `requireAuth`. The limiter is in-process and is not a distributed/global quota across multiple backend instances.
+- Added source-registration regression assertions for both middleware chains. These assertions do not exercise HTTP behavior or the rate-limit store.
+- This is abuse-resistance hardening, not an idempotency guarantee: repeated requests within the allowed quota may still create multiple pending orders. Durable per-user idempotency/cooldown and provider reconciliation remain separate follow-up work.
+- Test status: not run locally in this environment. No live payment requests, production database changes, deployment, or merge were performed.
