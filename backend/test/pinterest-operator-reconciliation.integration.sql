@@ -16,6 +16,24 @@ declare
   v_attempt_status text;
   v_schedule_status text;
 begin
+  if has_table_privilege('anon','public.pinterest_operator_reconciliations','SELECT')
+     or has_table_privilege('anon','public.pinterest_operator_reconciliations','INSERT')
+     or has_table_privilege('authenticated','public.pinterest_operator_reconciliations','SELECT')
+     or has_table_privilege('authenticated','public.pinterest_operator_reconciliations','INSERT')
+     or has_table_privilege('service_role','public.pinterest_operator_reconciliations','SELECT')
+     or has_table_privilege('service_role','public.pinterest_operator_reconciliations','INSERT')
+     or has_table_privilege('service_role','public.pinterest_operator_reconciliations','UPDATE')
+     or has_table_privilege('service_role','public.pinterest_operator_reconciliations','DELETE')
+     or has_table_privilege('service_role','public.pinterest_operator_reconciliations','TRUNCATE') then
+    raise exception 'operator reconciliation journal has unexpected direct table grants';
+  end if;
+
+  if has_function_privilege('anon','public.admin_reconcile_pinterest_unknown_publication(uuid,uuid,text,text,text,text,uuid)','EXECUTE')
+     or has_function_privilege('authenticated','public.admin_reconcile_pinterest_unknown_publication(uuid,uuid,text,text,text,text,uuid)','EXECUTE')
+     or not has_function_privilege('service_role','public.admin_reconcile_pinterest_unknown_publication(uuid,uuid,text,text,text,text,uuid)','EXECUTE') then
+    raise exception 'operator reconciliation RPC has unexpected execute grants';
+  end if;
+
   insert into public.users(id,email,token_version,is_admin)
   values(v_user,'pinterest-admin-reconcile-'||v_user||'@example.invalid',0,true);
 
@@ -86,6 +104,13 @@ begin
        set evidence_reference='tampered-reference'
      where action_id=v_action;
     raise exception 'append-only reconciliation receipt allowed UPDATE';
+  exception when raise_exception then
+    if sqlerrm not like '%append-only%' then raise; end if;
+  end;
+
+  begin
+    execute 'truncate table public.pinterest_operator_reconciliations';
+    raise exception 'append-only reconciliation receipt allowed TRUNCATE';
   exception when raise_exception then
     if sqlerrm not like '%append-only%' then raise; end if;
   end;
