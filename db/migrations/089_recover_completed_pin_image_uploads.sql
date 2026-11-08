@@ -11,6 +11,7 @@ begin
   end if;
   select l.object_path into v_path from public.pin_image_object_lifecycle l
    where l.bucket_id = p_bucket_id and l.state = 'active'
+     and l.last_error_code is null
      and l.object_path ~ ('^pins/generation-' || p_object_digest || '[.](png|jpe?g|webp|gif)$')
    order by l.updated_at desc limit 1;
   return v_path;
