@@ -403,6 +403,7 @@ export const pt: TranslationSchema = {
     pinterestDisconnectWarning: "Isso remove os tokens da conta do PinPosy, mas não revoga a autorização OAuth no Pinterest. As futuras publicações agendadas dessa conta serão marcadas como falhas; uma solicitação em andamento ainda poderá terminar. Continuar?",
     pinterestAccountFallback: "Conta do Pinterest",
     pinterestReauthRequired: "É necessária uma nova autorização",
+    pinterestReauthDescription: "Reconecte esta conta do Pinterest para carregar pastas e publicar Pins novamente.",
     pinterestPinsLabel: "pins",
     billingSection: 'Plano e Alocação de Créditos IA',
     billingSectionDesc: 'Monitore seus créditos mensais de inteligência e capacidade de automação.',
