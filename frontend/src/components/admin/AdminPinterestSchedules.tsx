@@ -129,14 +129,14 @@ export const AdminPinterestSchedules: React.FC = () => {
     try {
       await apiRequest("/admin/pinterest/reconcile-unknown-publication", {
         method: "POST",
-        body: {
+        body: JSON.stringify({
           schedule_id: item.schedule_id,
           pinterest_pin_id: pinId,
           pinterest_board_id: boardId,
           evidence_type: evidenceType,
           evidence_reference: reference,
           action_id: actionId,
-        },
+        }),
       });
       setReconciliationSuccess("Публикация подтверждена и восстановлена в журнале PinPosy.");
       setReconciliationScheduleId(null);
