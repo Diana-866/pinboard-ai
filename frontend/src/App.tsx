@@ -56,6 +56,8 @@ const MainApp: React.FC = () => {
   const [boards, setBoards] = useState<BoardItem[]>([]);
   const [boardsLoadError, setBoardsLoadError] = useState('');
   const [scheduledPins, setScheduledPins] = useState<ScheduledPinItem[]>([]);
+  const [scheduleLoadError, setScheduleLoadError] = useState('');
+  const [scheduleReloadToken, setScheduleReloadToken] = useState(0);
   const [prefilledTopic, setPrefilledTopic] = useState<string>('');
   const [prefilledDate, setPrefilledDate] = useState<string>('');
   const [isBotOpen, setIsBotOpen] = useState<boolean>(false);
@@ -101,14 +103,22 @@ const MainApp: React.FC = () => {
 
 
 
+  // Never show a previous user's schedule after an account switch.
+  React.useEffect(() => {
+    setScheduledPins([]);
+    setScheduleLoadError('');
+  }, [user?.id]);
+
   // Расписание загружается из БД; демонстрационные публикации не показываем.
   React.useEffect(() => {
     let cancelled = false;
     async function loadSchedule() {
       if (!user?.id) {
         setScheduledPins([]);
+        setScheduleLoadError('');
         return;
       }
+      setScheduleLoadError('');
       try {
         const rows = await apiRequest('/schedule');
         if (cancelled) return;
@@ -140,12 +150,12 @@ const MainApp: React.FC = () => {
         setScheduledPins(mapped);
       } catch (error) {
         console.error('[schedule] Не удалось загрузить расписание:', error);
-        if (!cancelled) setScheduledPins([]);
+        if (!cancelled) setScheduleLoadError('Не удалось загрузить расписание. Проверьте соединение и попробуйте ещё раз. Существующие публикации не удалены.');
       }
     }
     loadSchedule();
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [user?.id, scheduleReloadToken]);
 
   // Тарифные «замочки»: генерацию и разделы открывают Старт/Про/Agency;
   // тариф «Аналитика» (990₽) и «нет тарифа» оставляют замочки (миграция 004)
@@ -566,6 +576,8 @@ const MainApp: React.FC = () => {
           {activeTab === 'calendar' && (
             <PublishingCalendar
               scheduledPins={scheduledPins}
+              scheduleLoadError={scheduleLoadError}
+              onRetryLoadSchedule={() => setScheduleReloadToken((value) => value + 1)}
               boards={boards}
               onAddPin={handleSchedulePin}
               onCancelSchedule={handleCancelScheduledPin}
