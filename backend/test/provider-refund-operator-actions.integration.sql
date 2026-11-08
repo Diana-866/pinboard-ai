@@ -2,7 +2,20 @@
 -- Run after migrations 053-078 in a disposable PostgreSQL/Supabase-compatible DB.
 begin;
 
-do $$
+create or replace function public._test_reject_operator_action_insert()
+returns trigger language plpgsql as $trigger$
+begin
+  if current_setting('app.test_reject_journal_insert',true)='on' then
+    raise exception 'injected journal failure';
+  end if;
+  return new;
+end;
+$trigger$;
+create trigger _test_reject_operator_action_insert
+  before insert on public.provider_refund_operator_actions
+  for each row execute function public._test_reject_operator_action_insert();
+
+do $
 declare
   v_admin uuid := gen_random_uuid();
   v_target uuid := gen_random_uuid();
@@ -47,16 +60,9 @@ begin
     v_target::text,v_key,v_claim,1,'admin_gen_task','failed',0.90,null,500,'UPSTREAM_ERROR',null
   );
 
-  create or replace function public._test_reject_operator_action_insert()
-  returns trigger language plpgsql as $trigger$
-  begin raise exception 'injected journal failure'; end;
-  $trigger$;
-  create trigger _test_reject_operator_action_insert
-    before insert on public.provider_refund_operator_actions
-    for each row execute function public._test_reject_operator_action_insert();
-
   v_action:=gen_random_uuid();
   begin
+    perform set_config('app.test_reject_journal_insert','on',true);
     perform public.admin_reconcile_pin_generation_provider_refund(
       v_admin,v_request_id,1,false,'provider_dashboard','ticket-generation-001',v_action
     );
@@ -73,9 +79,6 @@ begin
   select count(*) into v_count from public.provider_refund_reconciliation_audit
    where user_id=v_target::text and idempotency_key=v_key;
   if v_count<>0 then raise exception 'reconciliation audit survived failed journal insert'; end if;
-
-  drop trigger _test_reject_operator_action_insert on public.provider_refund_operator_actions;
-  drop function public._test_reject_operator_action_insert();
 
   v_at:=public.admin_reconcile_pin_generation_provider_refund(
     v_admin,v_request_id,1,false,'provider_dashboard','ticket-generation-001',v_action
@@ -164,8 +167,11 @@ begin
 end;
 $$;
 
--- Append-only trigger rejects mutation even when executed as the table owner.
-do $$
+drop trigger _test_reject_operator_action_insert on public.provider_refund_operator_actions;
+drop function public._test_reject_operator_action_insert();
+
+-- Append-only triggers reject UPDATE and TRUNCATE even when executed as owner.
+do $
 begin
   begin
     update public.provider_refund_operator_actions
@@ -175,7 +181,13 @@ begin
   exception when others then
     if sqlerrm not like '%append-only%' then raise; end if;
   end;
+  begin
+    truncate table public.provider_refund_operator_actions;
+    raise exception 'operator journal TRUNCATE was accepted';
+  exception when others then
+    if sqlerrm not like '%append-only%' then raise; end if;
+  end;
 end;
-$$;
+$;
 
 rollback;
