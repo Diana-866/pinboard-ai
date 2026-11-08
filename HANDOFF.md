@@ -1166,3 +1166,15 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Повторно сверены migration 091, baseline 001, SQL integration test, worker hook и workflow hooks. Схема таблицы подтверждает отсутствие `updated_at`; migration теперь использует существующий `created_at`.
 - GitHub Actions для трёх workflow завершились failure, но GitHub не отдал логи job (BlobNotFound), а шаги вернулись пустыми. Поэтому причину failure нельзя честно приписать SQL или коду; это пока не подтверждённые проверки.
 - Исправление: `ad93235bbca2699fa13e64c601ead44fd0aa9cc6`.
+
+
+## Дополнение к handoff — 2026-11-09 (AUD-223: точная идентичность журнала Pinterest-расписания)
+
+- При проверке восстановления worker обнаружено, что чтение журнала попытки фильтровалось по pin и Pinterest account, но не проверяло в возвращённой записи владельца и целевую Pinterest-доску.
+- Исправлено: lookup дополнительно фильтруется по `user_id`; перед тем как доверять статусу `published`, worker требует точного совпадения user, pin, account и board с текущим захваченным расписанием.
+- При несовпадении журнал считается недостоверным: статус остаётся `unknown`, remote ID не переносится в расписание, автоматический повтор не разрешается.
+- Добавлен pure helper `hasMatchingScheduleAttemptIdentity` и тесты на совпадение/несовпадение каждого из четырёх полей.
+- Пользовательский эффект: PinPosy не покажет расписание опубликованным на основании чужой или относящейся к другой доске записи; при конфликте данных безопасно остановится вместо ложного успеха или потенциального дубля.
+- Файлы: `backend/pinterest.js`, `backend/pinterestSchedule.js`, `backend/test/pinterest-schedule.test.js`, `docs/audits/AUD-223-pinterest-schedule-journal-identity.md`.
+- Исходники повторно прочитаны после коммитов. Unit tests, SQL integration, lint и build фактически не запускались; CI workflow runs на предыдущем HEAD завершались failure без доступных job logs. Production, Pinterest API, deployment и merge не затрагивались.
+- Коммиты: `8e827b45dba271d8fdbb6a235f2ce49af2e6a349`, `86bc7519405360544b7b60cdeb5436d0d08620dd`, `3035da95f315e33d54213e9355883a762356cb2b`, документ `daa6904833637ce46213ed92a40eef08e2dee6d3`.
