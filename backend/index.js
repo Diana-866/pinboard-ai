@@ -8,6 +8,7 @@ const { parseMultipartFields } = require("./prodamusWebhookBody");
 const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
 const { getFinancialOperationsQueue } = require("./adminFinancialOperations");
+const adminProviderRefundActions = require("./adminProviderRefundActions");
 const {
   httpError,
   validateEmail,
@@ -111,6 +112,15 @@ const verifyLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Слишком много запросов. Попробуйте через 15 минут." },
+});
+
+const adminActionLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => String(req.userId || req.ip),
+  message: { error: "Слишком много административных операций. Попробуйте позже." },
 });
 
 const imageUploadLimiter = rateLimit({
@@ -1995,6 +2005,36 @@ app.get("/billing/health", (req, res) => {
 require("./pinterest").registerRoutes(app, { requireAuth, requireTariff, handleError });
 
 // --- Админка ---
+
+function registerAdminProviderRefundRoute(route, action) {
+  app.post(route, requireAuth, requireAdmin, adminActionLimiter, async (req, res) => {
+    try {
+      const result = await action(req.userId, req.body || {});
+      res.json(result);
+    } catch (e) {
+      handleError(res, e);
+    }
+  });
+}
+
+// Operator identity always comes from the verified JWT (req.userId), never
+// from a request body field. Migration 078 re-checks and locks that identity.
+registerAdminProviderRefundRoute(
+  "/admin/provider-refunds/generation/reconcile",
+  adminProviderRefundActions.reconcileGeneration
+);
+registerAdminProviderRefundRoute(
+  "/admin/provider-refunds/regeneration/reconcile",
+  adminProviderRefundActions.reconcileRegeneration
+);
+registerAdminProviderRefundRoute(
+  "/admin/provider-refunds/generation/finalize",
+  adminProviderRefundActions.finalizeGeneration
+);
+registerAdminProviderRefundRoute(
+  "/admin/provider-refunds/regeneration/finalize",
+  adminProviderRefundActions.finalizeRegeneration
+);
 
 // Reconcile only stale uploads whose exact object is already visible in Storage.
 // Missing objects remain fenced: absence is not proof that a remote request ended.
