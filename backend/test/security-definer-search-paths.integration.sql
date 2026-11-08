@@ -69,7 +69,7 @@ begin
      where n.nspname = 'public'
        and p.prosecdef
   loop
-    select regexp_replace(setting, '\\s', '', 'g')
+    select regexp_replace(setting, '[[:space:]]', '', 'g')
       into v_search_path
       from unnest(coalesce(v_function.proconfig, array[]::text[])) as setting
      where setting like 'search_path=%'
