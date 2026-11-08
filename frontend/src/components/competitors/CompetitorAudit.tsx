@@ -272,7 +272,7 @@ export const CompetitorAudit: React.FC<CompetitorAuditProps> = ({
                     {t.competitors.monthlyViews}
                   </span>
                   <span className="font-mono font-bold text-primary-theme">
-                    {formatNumber(comp.monthlyViews)}
+                    {comp.monthlyViews > 0 ? formatNumber(comp.monthlyViews) : '—'}
                   </span>
                 </div>
                 <div>
@@ -280,7 +280,7 @@ export const CompetitorAudit: React.FC<CompetitorAuditProps> = ({
                     {t.competitors.saves}
                   </span>
                   <span className="font-mono font-bold text-primary-theme">
-                    {formatNumber(comp.monthlySaves || 120000)}
+                    {comp.monthlySaves > 0 ? formatNumber(comp.monthlySaves) : '—'}
                   </span>
                 </div>
               </div>
@@ -288,10 +288,10 @@ export const CompetitorAudit: React.FC<CompetitorAuditProps> = ({
               <div className="flex items-center justify-between text-[11px] pt-1 text-secondary-theme">
                 <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3 text-muted-theme" />
-                  <span>{comp.bestTimeToPin}</span>
+                  <span>{comp.bestTimeToPin || '—'}</span>
                 </span>
                 <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                  +{comp.growth30d}% 30d
+                  {comp.growth30d > 0 ? `+${comp.growth30d}% 30d` : '—'}
                 </span>
               </div>
             </div>
@@ -447,13 +447,13 @@ export const CompetitorAudit: React.FC<CompetitorAuditProps> = ({
               </a>
             </div>
             <p className="text-xs text-secondary-theme mt-1">
-              {t.competitors.dominantFormatLabel}: <span className="font-semibold text-primary-theme">{selectedCompetitor.dominantFormat}</span> · {selectedCompetitor.pinFrequency} {t.competitors.pinsPerDayLabel}
+              {selectedCompetitor.dominantFormat || '—'} · {selectedCompetitor.pinFrequency > 0 ? selectedCompetitor.pinFrequency : '—'} {t.competitors.pinsPerDayLabel}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              Visual CTR Score: {selectedCompetitor.visualCtrScore} / 10
+              Visual CTR Score: {selectedCompetitor.visualCtrScore > 0 ? `${selectedCompetitor.visualCtrScore} / 10` : '—'}
             </span>
           </div>
         </div>
