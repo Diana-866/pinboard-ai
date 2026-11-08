@@ -60,7 +60,7 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
       id: 'msg-welcome',
       sender: 'bot',
       text: t.bot.welcomeMessage,
-      timestamp: 'Только что',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ];
 
@@ -75,11 +75,11 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
   }, [isOpen, messages, isTyping]);
 
   const quickQuestions = [
-    { q: t.bot.quickQuestion1, a: t.bot.quickAnswer1, actionTab: 'analytics' },
-    { q: t.bot.quickQuestion2, a: t.bot.quickAnswer2, actionTab: 'calendar' },
-    { q: t.bot.quickQuestion3, a: t.bot.quickAnswer3, actionTab: 'generator' },
-    { q: t.bot.quickQuestion4, a: t.bot.quickAnswer4, actionTab: 'boards' },
-    { q: t.bot.quickQuestion5, a: t.bot.quickAnswer5, actionTab: 'keywords' },
+    { q: t.bot.quickQuestion1, actionTab: 'analytics' },
+    { q: t.bot.quickQuestion2, actionTab: 'calendar' },
+    { q: t.bot.quickQuestion3, actionTab: 'generator' },
+    { q: t.bot.quickQuestion4, actionTab: 'boards' },
+    { q: t.bot.quickQuestion5, actionTab: 'keywords' },
   ];
 
   const handleSelectQuickQuestion = (question: string, actionTab?: string) => {
@@ -90,11 +90,11 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
       {
         id: `bot-${Date.now()}-notice`,
         sender: 'bot',
-        text: 'Ассистент пока работает в демонстрационном режиме и не подключён к вашим данным Pinterest. Я не могу достоверно оценить статистику аккаунта, тренды или конкурентов. Перейдите в соответствующий раздел, чтобы посмотреть доступные функции.',
+        text: t.bot.demoReply,
         timestamp,
         action: actionTab
           ? {
-              label: 'Открыть соответствующий раздел',
+              label: t.bot.openSection,
               tab: actionTab,
             }
           : undefined,
@@ -135,7 +135,7 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
         {
           id: `bot-${Date.now()}`,
           sender: 'bot',
-          text: 'Ассистент пока работает в демонстрационном режиме и не подключён к вашим данным Pinterest. Я не могу достоверно оценить статистику аккаунта, тренды или конкурентов. Перейдите в соответствующий раздел, чтобы посмотреть доступные функции.',
+          text: t.bot.demoReply,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           action: targetTab
             ? { label: 'Открыть соответствующий раздел', tab: targetTab }
@@ -179,9 +179,8 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
             >
               <Bot className="w-5 h-5 sm:w-6 sm:h-6 text-inherit drop-shadow-xs" />
 
-              {/* Online Green Pulsing Indicator */}
-              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-surface animate-ping" />
-              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-surface shadow-xs" />
+              {/* Amber indicator: this is a demo, not a live AI connection. */}
+              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-amber-500 rounded-full border-2 border-surface shadow-xs" />
 
               {/* Unread Indicator Badge */}
               {hasUnread && (
@@ -196,7 +195,7 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
               <span className="text-xs font-bold text-primary-theme font-heading">
                 {t.bot.title}
               </span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
             </div>
           </div>
         )}
@@ -223,7 +222,7 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
             <div className="flex items-center gap-3 min-w-0">
               <div className="relative w-9 h-9 rounded-xl accent-btn flex items-center justify-center shrink-0 shadow-xs">
                 <Bot className="w-4 h-4 text-inherit" />
-                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-surface" />
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-amber-500 rounded-full border-2 border-surface" />
               </div>
               <div className="min-w-0">
                 <h3 className="text-sm font-bold text-primary-theme font-heading truncate leading-tight">
@@ -232,6 +231,9 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
                 <p className="text-[11px] text-muted-theme truncate leading-tight">
                   {t.bot.subtitle}
                 </p>
+                <span className="inline-flex mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                  {t.bot.statusOnline}
+                </span>
               </div>
             </div>
 
