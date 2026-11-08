@@ -43,9 +43,10 @@ function evidence(body) {
     ? body.evidence_reference.trim()
     : "";
 
+  const looksLikeBareUrl = /^(www\\.)?([a-z0-9-]+\\.)+[a-z]{2,}(\\/|$)/i.test(evidenceReference);
   if (!EVIDENCE_TYPES.has(evidenceType) ||
       !SAFE_EVIDENCE_REFERENCE_RE.test(evidenceReference) ||
-      evidenceReference.includes("://")) {
+      evidenceReference.includes("://") || looksLikeBareUrl) {
     throw httpError(422, "Укажите допустимый тип подтверждения и безопасный номер обращения/документа");
   }
 
