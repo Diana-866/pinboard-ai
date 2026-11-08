@@ -43,6 +43,14 @@ async function persistPublishFailureJournal(rpc, params) {
 }
 
 
+function hasMatchingScheduleAttemptIdentity(attempt, schedule) {
+  if (!attempt || !schedule) return false;
+  return String(attempt.user_id || "") === String(schedule.user_id || "")
+    && String(attempt.pin_id || "") === String(schedule.pin_id || "")
+    && String(attempt.pinterest_account_id || "") === String(schedule.pinterest_account_id || "")
+    && String(attempt.pinterest_board_id || "") === String(schedule.pinterest_board_id || "");
+}
+
 function buildScheduleWorkerFailureState({
   attempt = null,
   attemptLookupError = null,
@@ -83,6 +91,7 @@ module.exports = {
   canRetryScheduleFailure,
   getScheduleRetryDelayMinutes,
   buildScheduleWorkerFailureState,
+  hasMatchingScheduleAttemptIdentity,
   persistPublishFailureJournal,
   isPinterestPublishOutcomeUnknown,
   buildPinScheduleSnapshot,
