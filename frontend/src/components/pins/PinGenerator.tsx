@@ -24,7 +24,7 @@ import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { getDefaultTimezone } from '../../utils/timezone';
 import { isDefinitiveGenerationFailure } from '../../utils/generationRetry';
-import { clearPendingPinDescription, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
+import { clearPendingPinDescription, clearPendingPinDescriptionIfMatches, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
 import { clearPendingGenerationRequest, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
 import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
 import {
@@ -307,7 +307,11 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             body: JSON.stringify({ description: pendingDescription.description }),
           }))
           .then((result) => {
-            clearPendingPinDescription(pendingDescription.boardId, pendingDescription.pinId);
+            clearPendingPinDescriptionIfMatches(
+              pendingDescription.boardId,
+              pendingDescription.pinId,
+              pendingDescription.description,
+            );
             return result;
           });
         pending.set(pendingDescription.pinId, request);
@@ -481,7 +485,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     if (revision === descriptionSaveRevisionRef.current) setDescriptionSaveState('saving');
     try {
       await persistPinPatch(pinId, { description });
-      clearPendingPinDescription(boardId, pinId);
+      // A slower, older PATCH may finish after the user has typed a newer draft.
+      // Remove only the exact value this request saved; preserve any newer text.
+      clearPendingPinDescriptionIfMatches(boardId, pinId, description);
       if (revision === descriptionSaveRevisionRef.current) setDescriptionSaveState('saved');
     } catch (error) {
       console.error('[pins] Не удалось сохранить описание:', error);
