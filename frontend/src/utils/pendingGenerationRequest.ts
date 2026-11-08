@@ -81,6 +81,11 @@ export function readPendingGenerationRequest(
   const legacyStorage = getLegacySessionStorage();
   if (legacyStorage) {
     try {
+      const scopedSession = parseRequest(legacyStorage.getItem(storageKey(normalized)));
+      if (scopedSession?.fingerprint === normalized) {
+        inMemoryRequests.set(normalized, scopedSession);
+        return { ...scopedSession };
+      }
       const legacy = parseRequest(legacyStorage.getItem(REQUEST_KEY));
       if (legacy?.fingerprint === normalized) {
         inMemoryRequests.set(normalized, legacy);
