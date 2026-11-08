@@ -214,8 +214,26 @@ async function deleteManagedPinImageObject({ supabase, bucket = "pin-images", ob
   return true;
 }
 
+
+async function findCompletedManagedPinImageUpload({ supabase, bucket = "pin-images", idempotencyKey }) {
+  if (!idempotencyKey) return null;
+  const { data: objectPath, error: lookupError } = await supabase.rpc("find_completed_pin_image_upload", {
+    p_bucket_id: bucket, p_idempotency_key: String(idempotencyKey),
+  });
+  if (lookupError) throw lookupError;
+  if (typeof objectPath !== "string" || !/^pins\/generation-[a-f0-9]{32}\.(?:png|jpe?g|webp|gif)$/i.test(objectPath)) return null;
+  const parts = objectPath.split("/");
+  const filename = parts.pop();
+  const folder = parts.join("/");
+  const { data: objects, error: listError } = await supabase.storage.from(bucket)
+    .list(folder, { search: filename, limit: 100, offset: 0 });
+  if (listError) throw listError;
+  if (!(objects || []).some((object) => object && object.name === filename)) return null;
+  return objectPath;
+}
 module.exports = {
   deleteManagedPinImageObject,
+  findCompletedManagedPinImageUpload,
   validatePinImageBucketConfiguration,
   EXPECTED_PIN_IMAGE_MIMES,
   uploadManagedPinImageObject,
