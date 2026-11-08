@@ -290,6 +290,7 @@ export const zh: TranslationSchema = {
     schedulePinBtn: '排期新 Pin',
     emptyDay: '今日暂无排期',
     statusScheduled: '已排期',
+    statusCancelled: '已取消',
     statusPublished: '已发布',
     openPinterestPin: "在 Pinterest 中打开 Pin",
     statusDraft: '草稿',
