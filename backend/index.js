@@ -1974,6 +1974,7 @@ app.post("/schedule/:id/retry", requireAuth, pinterestScheduleLimiter, requireTa
         account_unavailable: [409, "Pinterest-аккаунт отключён. Подключите его заново."],
         schedule_not_retryable: [409, "Это расписание уже изменилось и больше не доступно для повтора."],
         publication_attempt_exists: [409, "Попытка отправки уже была зарегистрирована. Повтор заблокирован во избежание дубликата."],
+        attempt_identity_mismatch: [409, "Журнал предыдущей попытки относится к другому аккаунту или доске. Повтор заблокирован; требуется сверка."],
         active_schedule_exists: [409, "Для этого пина уже есть другое активное расписание в выбранном Pinterest-аккаунте."],
         board_missing: [422, "У расписания не указана доска Pinterest."],
         pin_unavailable: [404, "Пин больше недоступен."],
