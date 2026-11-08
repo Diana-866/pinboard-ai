@@ -84,6 +84,7 @@ begin
      or length(trim(p_pinterest_pin_id))>200
      or nullif(trim(coalesce(p_pinterest_board_id,'')),'') is null
      or length(trim(p_pinterest_board_id))>200
+     or p_evidence_type is null
      or p_evidence_type not in ('pinterest_dashboard','pinterest_api','support_confirmation')
      or p_evidence_reference is null
      or length(trim(p_evidence_reference))<8
@@ -109,6 +110,9 @@ begin
 
   if not exists(select 1 from public.users where id=p_operator_user_id and is_admin is true) then
     raise exception 'administrator privileges required' using errcode='42501';
+  end if;
+  if not exists(select 1 from public.users where id=v_owner) then
+    raise exception 'Pinterest schedule owner not found' using errcode='P0002';
   end if;
 
   -- Exact replay is permitted only for the same actor and full payload.
@@ -140,7 +144,8 @@ begin
      or v_schedule.claim_token is not null
      or v_schedule.updated_at>clock_timestamp()-interval '20 minutes'
      or v_schedule.pinterest_account_id is null
-     or v_schedule.pinterest_board_id is distinct from trim(p_pinterest_board_id) then
+     or v_schedule.pinterest_board_id is distinct from trim(p_pinterest_board_id)
+     or (v_schedule.pinterest_pin_id is not null and v_schedule.pinterest_pin_id is distinct from trim(p_pinterest_pin_id)) then
     raise exception 'Pinterest schedule is not eligible for reconciliation' using errcode='23514';
   end if;
 
@@ -151,6 +156,7 @@ begin
   if not found
      or v_attempt.user_id is distinct from v_schedule.user_id
      or v_attempt.pinterest_board_id is distinct from v_schedule.pinterest_board_id
+     or (v_attempt.pinterest_pin_id is not null and v_attempt.pinterest_pin_id is distinct from trim(p_pinterest_pin_id))
      or v_attempt.status not in ('unknown','processing')
      or v_attempt.retry_safe is distinct from false
      or v_attempt.updated_at>clock_timestamp()-interval '20 minutes' then
