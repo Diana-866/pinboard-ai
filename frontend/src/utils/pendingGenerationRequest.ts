@@ -3,8 +3,9 @@ export interface PendingGenerationRequest {
   idempotencyKey: string;
 }
 
-const FINGERPRINT_KEY = 'pinposy_generation_fingerprint';
-const IDEMPOTENCY_KEY = 'pinposy_generation_key';
+const REQUEST_KEY = 'pinposy_generation_request_v1';
+const LEGACY_FINGERPRINT_KEY = 'pinposy_generation_fingerprint';
+const LEGACY_IDEMPOTENCY_KEY = 'pinposy_generation_key';
 let inMemoryRequest: PendingGenerationRequest | null = null;
 
 function getDefaultStorage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | undefined {
@@ -23,19 +24,35 @@ function getDefaultStorage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'
 export function readPendingGenerationRequest(
   storage: Pick<Storage, 'getItem'> | undefined = getDefaultStorage(),
 ): PendingGenerationRequest | null {
-  if (storage) {
-    try {
-      const fingerprint = storage.getItem(FINGERPRINT_KEY);
-      const idempotencyKey = storage.getItem(IDEMPOTENCY_KEY);
-      if (fingerprint && idempotencyKey) {
-        inMemoryRequest = { fingerprint, idempotencyKey };
-        return inMemoryRequest;
+  // Prefer the current page's value: it remains authoritative if a storage
+  // write was rejected after an older legacy key pair had already existed.
+  if (inMemoryRequest) return { ...inMemoryRequest };
+  if (!storage) return null;
+  try {
+    const raw = storage.getItem(REQUEST_KEY);
+    if (raw) {
+      const value = JSON.parse(raw) as Partial<PendingGenerationRequest>;
+      if (typeof value.fingerprint === 'string' && value.fingerprint &&
+          typeof value.idempotencyKey === 'string' && value.idempotencyKey) {
+        inMemoryRequest = {
+          fingerprint: value.fingerprint,
+          idempotencyKey: value.idempotencyKey,
+        };
+        return { ...inMemoryRequest };
       }
-    } catch {
-      // Fall through to the page-lifetime copy.
     }
+
+    // One-time compatibility with sessions created before the combined key.
+    const fingerprint = storage.getItem(LEGACY_FINGERPRINT_KEY);
+    const idempotencyKey = storage.getItem(LEGACY_IDEMPOTENCY_KEY);
+    if (fingerprint && idempotencyKey) {
+      inMemoryRequest = { fingerprint, idempotencyKey };
+      return { ...inMemoryRequest };
+    }
+  } catch {
+    // Fall through to the page-lifetime copy.
   }
-  return inMemoryRequest ? { ...inMemoryRequest } : null;
+  return null;
 }
 
 export function writePendingGenerationRequest(
@@ -47,8 +64,9 @@ export function writePendingGenerationRequest(
   inMemoryRequest = { fingerprint, idempotencyKey };
   if (!storage) return false;
   try {
-    storage.setItem(FINGERPRINT_KEY, fingerprint);
-    storage.setItem(IDEMPOTENCY_KEY, idempotencyKey);
+    // A single storage write avoids pairing a new fingerprint with an old key
+    // if the browser rejects one of two consecutive setItem calls.
+    storage.setItem(REQUEST_KEY, JSON.stringify(inMemoryRequest));
     return true;
   } catch {
     // Generation can still proceed; retries remain safe while this page is alive.
@@ -62,8 +80,9 @@ export function clearPendingGenerationRequest(
   inMemoryRequest = null;
   if (!storage) return;
   try {
-    storage.removeItem(FINGERPRINT_KEY);
-    storage.removeItem(IDEMPOTENCY_KEY);
+    storage.removeItem(REQUEST_KEY);
+    storage.removeItem(LEGACY_FINGERPRINT_KEY);
+    storage.removeItem(LEGACY_IDEMPOTENCY_KEY);
   } catch {
     // A stale key is harmless: the next request fingerprint will rotate it.
   }
