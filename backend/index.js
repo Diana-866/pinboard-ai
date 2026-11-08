@@ -2052,7 +2052,7 @@ app.post("/admin/pinterest/reconcile-unknown-publication", adminActionLimiter, r
 
 // Reconcile only stale uploads whose exact object is already visible in Storage.
 // Missing objects remain fenced: absence is not proof that a remote request ended.
-app.post("/admin/storage/reconcile-stale-uploads", requireAuth, requireAdmin, async (req, res) => {
+app.post("/admin/storage/reconcile-stale-uploads", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
   try {
     const result = await reconcileStalePinImageUploads({
       supabase,
@@ -2068,7 +2068,7 @@ app.post("/admin/storage/reconcile-stale-uploads", requireAuth, requireAdmin, as
 
 // Permanently retire stale upload paths. Any late Storage completion becomes
 // an unreferenced orphan; the path is never reused or automatically deleted.
-app.post("/admin/storage/quarantine-stale-uploads", requireAuth, requireAdmin, async (req, res) => {
+app.post("/admin/storage/quarantine-stale-uploads", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
   try {
     const result = await quarantineStalePinImageUploads({
       supabase,
