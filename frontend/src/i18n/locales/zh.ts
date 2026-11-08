@@ -318,6 +318,8 @@ export const zh: TranslationSchema = {
     statusPublishing: "发布中",
     statusFailed: "发布失败",
     statusUnknown: "需要检查",
+    unknownPublishHelpTitle: 'Pinterest 可能已收到此 Pin',
+    unknownPublishHelpBody: '目前无法确认发布结果。请勿重试，也不要再次安排相同的 Pin，否则可能产生重复内容。请检查所选 Pinterest 账号和画板。如果无法明确找到该 Pin，请保留此记录并联系支持人员核查。
     statusQueued: "排队中",
     generateDateTitle: "为此日期生成 Pin",
     primeSlotLabel: "20:15 黄金时段",
