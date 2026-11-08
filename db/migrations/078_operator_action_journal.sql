@@ -143,6 +143,7 @@ begin
        or trim(p_evidence_reference) !~ '^[A-Za-z0-9][A-Za-z0-9._/#:-]{7,499}$'
        or position('://' in lower(trim(p_evidence_reference)))>0
        or (p_request_kind='generation' and coalesce(p_task_index,0) not between 1 and 10)
+       or (p_request_kind='regeneration' and p_task_index<>0) then
       raise exception 'invalid provider-refund reconciliation evidence';
     end if;
   elsif p_task_index<>0 or p_provider_refunded is not null
