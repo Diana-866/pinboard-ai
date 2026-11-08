@@ -10,6 +10,7 @@
 //   3. Один локальный пин публикуется не более одного раза в каждый Pinterest-аккаунт (account-scoped journal).
 
 const axios = require("axios");
+const express = require("express");
 const {
   pinterestReadLimiter,
   pinterestPublishLimiter,
