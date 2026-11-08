@@ -28,6 +28,11 @@ import { clearPendingPinDescriptionIfMatches, readPendingPinDescription, writePe
 import { clearPendingGenerationRequest, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
 import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
 import {
+  rememberPinTitleSelection,
+  resolvePinTitleSelection,
+  restorePinTitleSelectionIfCurrent,
+} from '../../utils/pinTitleSelection';
+import {
   GeneratedPinVariation,
   SupportedAspectRatio,
 } from '../../services/gemini';
@@ -473,7 +478,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     const pinId = currentPin.id;
     const previousTitle = pinTitleSelectionRef.current.get(pinId) ?? currentPin.selectedTitle;
     // Record synchronously: a schedule click can happen before this PATCH resolves.
-    pinTitleSelectionRef.current.set(pinId, title);
+    rememberPinTitleSelection(pinTitleSelectionRef.current, pinId, title);
     try {
       await persistPinPatch(pinId, { title });
       setGeneratedPins((previous) => previous.map((pin) => pin.id === pinId ? {
@@ -483,9 +488,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       } : pin));
     } catch (error) {
       // Do not roll back a newer choice made while this request was in flight.
-      if (pinTitleSelectionRef.current.get(pinId) === title) {
-        pinTitleSelectionRef.current.set(pinId, previousTitle);
-      }
+      restorePinTitleSelectionIfCurrent(pinTitleSelectionRef.current, pinId, title, previousTitle);
       console.error('[pins] Не удалось сохранить название:', error);
       window.alert(error instanceof Error ? error.message : t.generator.errorSaveTitle);
     }
@@ -606,7 +609,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     // До подтверждения Pinterest любой элемент остаётся запланированным, не published.
     const status = 'scheduled' as const;
 
-    const scheduledTitle = pinTitleSelectionRef.current.get(currentPin.id) ?? currentPin.selectedTitle;
+    const scheduledTitle = resolvePinTitleSelection(pinTitleSelectionRef.current, currentPin.id, currentPin.selectedTitle);
     const newScheduledPin: ScheduledPinItem = {
       id: `pending-${Date.now()}`,
       pinId: currentPin.id,
