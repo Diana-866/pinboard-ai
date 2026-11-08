@@ -61,6 +61,8 @@ const MainApp: React.FC = () => {
   const [scheduleReloadToken, setScheduleReloadToken] = useState(0);
   const [prefilledTopic, setPrefilledTopic] = useState<string>('');
   const [prefilledDate, setPrefilledDate] = useState<string>('');
+  const [prefilledTime, setPrefilledTime] = useState<string>('');
+  const [prefilledBoardId, setPrefilledBoardId] = useState<string>('');
   const [isBotOpen, setIsBotOpen] = useState<boolean>(false);
 
   const { toast, clearToast } = useNotifications();
@@ -477,13 +479,13 @@ const MainApp: React.FC = () => {
     }
   };
 
-  const handleGenerateFromTopic = (topic?: string, date?: string) => {
+  const handleGenerateFromTopic = (topic?: string, date?: string, time?: string, boardId?: string) => {
     if (topic) {
       setPrefilledTopic(topic);
     }
-    if (date) {
-      setPrefilledDate(date);
-    }
+    if (date) setPrefilledDate(date);
+    if (time) setPrefilledTime(time);
+    if (boardId) setPrefilledBoardId(boardId);
     setActiveTab('generator');
   };
 
@@ -590,6 +592,8 @@ const MainApp: React.FC = () => {
               boards={boards}
               initialTopic={prefilledTopic}
               initialDate={prefilledDate}
+              initialTime={prefilledTime}
+              initialBoardId={prefilledBoardId}
               onSchedulePin={handleSchedulePin}
               onGoToCalendar={() => setActiveTab('calendar')}
             />
@@ -618,7 +622,7 @@ const MainApp: React.FC = () => {
               onRetrySchedule={handleRetryScheduledPin}
               onChangeFailedScheduleBoard={handleChangeFailedScheduleBoard}
               onReconcileLegacySchedule={handleReconcileLegacySchedule}
-              onGoToGenerator={(topic, date) => handleGenerateFromTopic(topic, date)}
+              onGoToGenerator={(topic, date, time, boardId) => handleGenerateFromTopic(topic, date, time, boardId)}
               onOpenReview={() => setActiveTab('review')}
               accounts={accounts}
               pendingCount={pendingCount}
