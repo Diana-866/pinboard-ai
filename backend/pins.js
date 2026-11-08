@@ -219,7 +219,7 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
       // on recovery; never issue another create request just because the prior
       // backend process timed out while the provider was still working.
       const hasRecoverableProviderTask = !!task.provider_task_id &&
-        ["queued", "running", "unknown"].includes(task.status);
+        ["submitting", "queued", "running", "unknown"].includes(task.status);
       const image = hasRecoverableProviderTask
         ? await waitForImageTask(task.provider_task_id, providerCallbacks)
         : await generateImage(
