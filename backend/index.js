@@ -562,7 +562,7 @@ app.post("/projects", requireAuth, async (req, res) => {
       .select()
       .single();
     if (error) throw error;
-    res.status(201).json(sanitizeScheduleForClient(data));
+    res.status(201).json(data);
   } catch (e) {
     handleError(res, e);
   }
@@ -1865,7 +1865,7 @@ app.post("/pins/:id/schedule", requireAuth, pinterestScheduleLimiter, requireTar
       throw httpError(409, "Этот пин уже находится в расписании или был опубликован");
     }
     if (error) throw error;
-    res.status(201).json(data);
+    res.status(201).json(sanitizeScheduleForClient(data));
   } catch (e) {
     handleError(res, e);
   }
