@@ -521,18 +521,29 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
     // A debounced description may not have entered the per-pin request queue yet.
     // Flush it before scheduling so the calendar action cannot overtake the latest edit.
-    const pendingDescription = pendingDescriptionSaveRef.current;
-    if (pendingDescription?.pinId === currentPin.id) {
+    const pendingDescription = pendingDescriptionSaveRef.current?.pinId === currentPin.id
+      ? pendingDescriptionSaveRef.current
+      : null;
+    const recoveredDescription = readPendingPinDescription(selectedBoardId, currentPin.id);
+    const descriptionToFlush = pendingDescription || (recoveredDescription ? {
+      boardId: selectedBoardId,
+      pinId: currentPin.id,
+      description: recoveredDescription.description,
+      revision: descriptionSaveRevisionRef.current,
+    } : null);
+    if (descriptionToFlush) {
       if (descriptionSaveTimerRef.current) {
         clearTimeout(descriptionSaveTimerRef.current);
         descriptionSaveTimerRef.current = null;
       }
-      pendingDescriptionSaveRef.current = null;
+      if (pendingDescriptionSaveRef.current?.pinId === currentPin.id) {
+        pendingDescriptionSaveRef.current = null;
+      }
       const revision = ++descriptionSaveRevisionRef.current;
       const saved = await savePinDescription(
-        pendingDescription.boardId,
-        pendingDescription.pinId,
-        pendingDescription.description,
+        descriptionToFlush.boardId,
+        descriptionToFlush.pinId,
+        descriptionToFlush.description,
         revision,
       );
       if (!saved) {
