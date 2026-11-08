@@ -10,7 +10,7 @@ The generation UI accepted any non-empty array returned by the generation endpoi
 - The validator requires 1–10 pin objects, a non-empty stable pin ID, and an absolute HTTPS image URL for every pin.
 - `PinGenerator.handleGenerate` now validates first. Only after validation succeeds does it update the canvas and clear the pending generation identity.
 - Invalid payloads enter the existing error path and retain the same idempotency key, allowing the user to retry/reconcile the already-persisted server result without starting a new paid generation.
-- Added focused tests for valid responses, empty/oversized payloads, missing IDs/URLs, malformed URLs, non-HTTPS URLs, and malformed entries.
+- Added focused tests for valid responses, empty/oversized payloads, missing IDs/URLs, malformed URLs, non-HTTPS URLs, malformed entries, and duplicate pin IDs (which could otherwise collide in React/UI editing state).
 
 ## User impact
 
