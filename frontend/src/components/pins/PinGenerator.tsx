@@ -27,6 +27,7 @@ import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure } from '.
 import { clearPendingPinDescriptionIfMatches, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
 import { clearPendingGenerationRequest, createGenerationFingerprint, listPendingGenerationRequests, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
 import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
+import { requireGeneratedPinsArray } from '../../utils/generatedPinsResponse';
 import { rollbackPinAspectRatioIfUnchanged } from '../../utils/pinAspectRatio';
 import {
   rememberPinTitleSelection,
@@ -466,11 +467,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         body: JSON.stringify(requestBody),
       });
 
-      if (!Array.isArray(rows) || rows.length === 0) {
-        throw new Error(t.generator.errorNoPins);
-      }
+      // Do not discard the recovery identity until every returned pin has the
+      // durable fields required by the canvas. A malformed success payload is
+      // recoverable from the server with the same key; it is not a completed UI result.
+      const validatedRows = requireGeneratedPinsArray(rows);
 
-      const results: GeneratedPinVariation[] = rows.map((row: any) => ({
+      const results: GeneratedPinVariation[] = validatedRows.map((row: any) => ({
         id: String(row.id),
         titles: [row.title || currentTopic],
         selectedTitle: row.title || currentTopic,
