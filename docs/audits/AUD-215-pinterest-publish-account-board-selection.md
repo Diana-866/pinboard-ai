@@ -23,14 +23,14 @@ A caller-provided `boardId` also silently fell back to the first board if it was
 4. Added a synchronous `useRef` lock around publication to close the rapid double-click gap before React updates state.
 5. Extracted `resolvePublishBoardId()` into `frontend/src/utils/publishBoardSelection.ts`:
    - an explicit requested board is selected only if it belongs to the loaded account board list;
-   - an unavailable explicit board returns an empty selection and an error instead of silently selecting another board;
+   - an unavailable explicit board returns an empty selection and an error instead of silently selecting another board; the user is shown a board selector and can explicitly choose a replacement;
    - the first board is selected only when no explicit board was requested.
 6. Added a no-account hint and disabled publish until a Pinterest account and a valid board are available.
 7. Added `frontend/src/utils/publishBoardSelection.test.ts` for matching, mismatching, default, and empty board lists.
 
 ## User impact
 
-If a user changes from Pinterest account A to account B, PinPosy no longer leaves account A's board selected while B's boards load. The publish button remains disabled until a valid board for B is selected. If the caller asked to publish to a specific board that does not belong to B, the component stops and explains the mismatch instead of quietly publishing somewhere else. Rapid repeated clicks are blocked in the UI.
+If a user changes from Pinterest account A to account B, PinPosy no longer leaves account A's board selected while B's boards load. The publish button remains disabled until a valid board for B is selected. If the caller asked to publish to a specific board that does not belong to B, the component stops, explains the mismatch, and reveals a selector so the user can explicitly choose a replacement instead of quietly publishing somewhere else. Rapid repeated clicks are blocked in the UI.
 
 ## Validation
 
@@ -45,4 +45,4 @@ If a user changes from Pinterest account A to account B, PinPosy no longer leave
 - `1f69202a8125131afdc5ae14b7033b54423d954d` — account-switch, loading, stale-request, and double-click guards
 - `26aa0014f39b1b4700c0f3b533d77d0de2965858` — board selection helper
 - `e11059659a6c9bb6757706a168cf9cc0b4794452` — board selection tests
-- `1be720309a041d87fac4b37886b1e5b88e522d1e` — explicit board ownership validation and no-account hint
+- `1be720309a041d87fac4b37886b1e5b88e522d1e` — explicit board ownership validation, replacement selector, and no-account hint
