@@ -66,6 +66,12 @@ async function uploadPinImage(file, options = {}) {
     if (error && (error.code === "upload_in_progress" || error.code === "deletion_in_progress")) {
       throw httpError(409, "Изображение сейчас обрабатывается. Повторите запрос позже");
     }
+    if (error && error.code === "path_quarantined") {
+      // A quarantined deterministic key is intentionally never reused: an
+      // earlier Storage request may still complete asynchronously. Surface a
+      // conflict instead of disguising this lifecycle fence as an HTTP 500.
+      throw httpError(409, "Сохранение этого изображения остановлено для защиты от дубликатов. Нужна безопасная повторная попытка");
+    }
     if (error && error.httpStatus) throw error;
     throw httpError(500, "Не удалось сохранить изображение: " + (error && error.message));
   }
