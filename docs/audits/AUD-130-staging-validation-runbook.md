@@ -101,6 +101,37 @@ Required disposable-PostgreSQL concurrency scenarios remain:
 
 For each schedule, record the exact statements/transactions, committed outcome, SQLSTATE (especially 40P01/40001), reservation status, final user balance, and journal/audit row counts. The test must prove both absence of a deadlock and preservation of the credit invariant; merely observing that one transaction eventually succeeds is insufficient.
 
+## Backend/provider-boundary review
+
+Reviewed `backend/index.js`, `backend/pins.js`, `backend/gptunnel.js`, `backend/creditsBilling.js`, and the focused provider-recovery tests.
+
+Observed safeguards:
+
+- Multi-pin generation requires an `Idempotency-Key`, stores a request fingerprint and claim token, persists its immutable task plan, quotes image tasks before submission, and reserves credits before billable image work.
+- Provider task IDs are journaled as soon as GPTunnel accepts a task, before polling. Recovery polls a saved task ID instead of creating another task.
+- Each image task has a persisted provider idempotency key. If the provider accepts a task but the HTTP response is lost before its task ID is saved, recovery reuses the same key and immutable prompt. This still depends on GPTunnel honoring that key for the relevant retention period.
+- Provider-confirmed success (price and result URL) is journaled before Storage rehosting. A Storage failure can therefore retry the durable copy without creating a new provider task.
+- A provider-confirmed failure is recorded separately from an ambiguous transport failure. Ambiguous outcomes remain fenced/unknown rather than being treated as a confirmed failure and automatically billed again.
+- Regeneration similarly persists quote, reservation, provider task/result, and final settlement; retries with an existing provider task ID poll/recover that task.
+- Text-plan generation is also marked as a billable boundary before the GPTunnel request. Usage is persisted after the response and before parsing the generated plan. A lost/failed response is treated as an uncertain outcome, not blindly retried under a fresh provider call.
+- Credit-purchase webhook fulfillment is delegated to the atomic `credit_paid_purchase` SQL function; duplicate webhook delivery is covered by a dedicated concurrent SQL script.
+
+Existing focused test assets found (not executed during this review):
+- `backend/test/gptunnel-recovery.test.js`: persisted task polling without a second create call.
+- `backend/test/pins-provider-boundary.test.js`: provider boundary marking, quote-before-submit, same-key recovery, and Storage failure recovery.
+- `backend/test/generation-concurrency.sh`: duplicate completion, stale claim fencing, and failure-vs-completion race.
+- `backend/test/credit-concurrency.sh`: concurrent duplicate purchase fulfillment produces one credit ledger entry.
+- `backend/test/prodamus-ambiguous-checkout.test.js`: ambiguous payment-link creation remains pending rather than being marked failed.
+
+Remaining risk / verification gaps:
+1. Provider-side idempotency semantics and retention are not verified from this repository. The safety argument for an ambiguous image-create timeout depends on GPTunnel treating the same idempotency key as the same task.
+2. Text completion has no idempotency key visible in the reviewed GPTunnel request. The backend deliberately fences an ambiguous text request; reconciliation/UX for permanently unknown text-plan requests should be reviewed separately.
+3. The current scripts cover same-request duplicate completion and duplicate purchase fulfillment, but not a full cross-operation schedule of image reservation vs purchase fulfillment vs negative balance adjustment, nor generation vs regeneration for one user.
+4. The regeneration path has a durable task-ID recovery route, but the focused tests should explicitly cover the ambiguous create-response timeout case (provider accepted request, response lost, retry uses identical provider key and does not create a second task).
+5. No test command, PostgreSQL instance, provider API, Storage, or live webhook was run as part of this source review.
+
+No confirmed duplicate-charge or second-provider-create defect was established from the reviewed source. The listed gaps remain release gates rather than assumed-safe behavior.
+
 ## Current execution status
 
 - Migration 078 and SQL integration test are committed to the feature branch but have not been executed.
