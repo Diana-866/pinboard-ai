@@ -1102,3 +1102,14 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Добавлены unit tests для malformed, missing, expired и future expiry.
 - Тесты/сборка/lint фактически не запускались. Production, Pinterest API, deployment и merge не затрагивались.
 - Подробности: `docs/audits/AUD-217-malformed-pinterest-token-expiry.md`.
+
+
+## Дополнение к handoff — 2026-11-09 (AUD-218: единый статус переподключения Pinterest)
+
+- После AUD-217 обнаружил, что endpoint `GET /integrations/pinterest/status` формировал legacy-поле `needs_reauth` собственной старой проверкой даты. Поэтому массив `accounts` уже мог показывать некорректную дату как требующую переподключения, а backward-compatible поле верхнего уровня — как здоровое подключение.
+- Исправлено: legacy-поле теперь использует общую `isPinterestReauthRequired`, то есть обе формы ответа одинаково обрабатывают `refresh_state=uncertain`, просроченную и malformed дату.
+- В `PinterestCard.tsx` добавлен явный сценарий для выбранного аккаунта с `needs_reauth`: доски не запрашиваются, вместо пустого списка досок показывается предупреждение и кнопка повторного OAuth-подключения. Кнопка ручной синхронизации досок для такого аккаунта скрыта.
+- Пользовательский эффект: испорченная дата или неопределённый refresh больше не выглядят как нормальное подключение; пользователь видит следующий шаг прямо в настройках и не получает бессмысленную ошибку загрузки досок.
+- Source-level проверка выполнена повторным чтением изменённых файлов с feature branch. Существующие backend unit tests уже покрывают malformed/missing/expired/future expiry через общую функцию, но тесты фактически не запускались. Frontend lint/build не запускались.
+- Не было Pinterest API-запросов, production DB изменений, deployment или merge. PR #4 остаётся Draft/open/unmerged.
+- Коммиты: `7425d86b7d6ee5918d123ccd2355c8081e3a4c52` (единая backend-проверка), `584ad5f628bbe12e061b41d0264243ab1ec69937` (UX переподключения).
