@@ -1,5 +1,5 @@
 -- Run only in disposable PostgreSQL after migrations 015-017, 031-033,
--- 047-061, 078, and 081-082. All fixture writes are rolled back.
+-- 047-061, and 081-082. All fixture writes are rolled back.
 begin;
 
 do $$
