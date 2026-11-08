@@ -234,7 +234,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [scheduledSuccess, setScheduledSuccess] = useState(false);
   const [recoverableGenerations, setRecoverableGenerations] = useState<Array<{
     key: string;
-    status: 'processing' | 'completed' | 'failed' | 'unknown';
+    status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found';
     boardId: string;
     pinCount: number;
   }>>([]);
@@ -279,7 +279,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         } catch (error: any) {
           // A 404 can mean an old local key whose server record has expired.
           // Preserve it: a transient/auth/network error must never erase recovery data.
-          if (error?.status === 404) continue;
+          if (error?.status === 404) {
+            found.push({ key: identity.fingerprint, status: 'not_found', boardId: '', pinCount: 0 });
+            continue;
+          }
           if (error?.status === 401) return;
           // Keep checking other independent requests after a single failure.
         }
@@ -798,6 +801,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   ? (language === 'ru' ? 'Генерация ещё выполняется' : 'Generation is still processing')
                   : item.status === 'failed'
                     ? (language === 'ru' ? 'Предыдущая генерация завершилась ошибкой' : 'Previous generation failed')
+                    : item.status === 'not_found'
+                    ? (language === 'ru' ? 'Запрос не найден на сервере — ключ сохранён' : 'Request not found on server — recovery key kept')
                     : (language === 'ru' ? 'Результат пока не подтверждён' : 'Result is not confirmed yet');
               return (
                 <div key={item.key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg bg-subtle border border-subtle">
