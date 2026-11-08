@@ -40,3 +40,10 @@ This is a partial source review, not a complete proof of every route, table, fun
 ## Verification boundary
 
 Application change: `backend/supabase.js` now fails fast in production without `SUPABASE_SERVICE_ROLE_KEY` (commit `af82e574d9b9daf1213b49aaaf4b253dee95d64a`). No Supabase SQL was executed and no production data was read, deleted, or modified. CI has not yet reported a run for this commit; Vercel status is pending at the time of review. Do not infer test success from source inspection.
+
+
+## Production Supabase configuration regression coverage (2026-11-08)
+- Added `backend/test/supabase-config.test.js` with isolated child-process checks for two startup paths: production without a service-role key must exit with the explicit configuration error; production with a configured service-role key must initialize successfully.
+- The missing-key case explicitly sets both key variables to empty strings so inherited developer/CI environment secrets cannot make the test pass accidentally.
+- The test has been committed, but has not been executed locally or in CI. The latest HEAD is `bef687a8459e2eb5b691d5dd2ae275dc99ed57f7`; GitHub reports no PR workflow runs and no combined status checks for this SHA at the time of review. Do not treat this as a passing test.
+- No Supabase connection, SQL execution, migration, or production change was performed.
