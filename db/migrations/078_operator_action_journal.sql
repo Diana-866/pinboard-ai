@@ -22,6 +22,8 @@ create table if not exists public.provider_refund_operator_actions (
       and evidence_reference is not null
       and length(trim(evidence_reference)) between 8 and 500
       and trim(evidence_reference) ~ '^[A-Za-z0-9][A-Za-z0-9._/#:-]{7,499}$'
+      and position('://' in lower(trim(evidence_reference)))=0
+      and before_state='refund_unknown'
       and after_state in ('provider_refunded','provider_not_refunded')
       and ((request_kind='generation' and task_index between 1 and 10)
         or (request_kind='regeneration' and task_index=0)))
