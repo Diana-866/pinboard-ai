@@ -110,9 +110,28 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
     setError(null);
     setBusy(true);
     try {
-      const data = await apiRequest('/integrations/pinterest/link', { method: 'POST', credentials: 'include' });
-      if (!data?.authorize_url) throw new Error('Сервер не вернул ссылку авторизации');
-      window.location.href = data.authorize_url;
+      const data = await apiRequest('/integrations/pinterest/link', { method: 'POST' });
+      if (!data?.start_url || !data?.state || !data?.browser_binding_secret) {
+        throw new Error('Сервер не вернул данные для безопасного подключения');
+      }
+      // A top-level form POST makes the API cookie first-party; ordinary
+      // cross-origin fetch cookies can be blocked by browser privacy controls.
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = data.start_url;
+      const fields = {
+        state: data.state,
+        browser_binding_secret: data.browser_binding_secret,
+      };
+      for (const [name, value] of Object.entries(fields)) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+      }
+      document.body.appendChild(form);
+      form.submit();
     } catch (e) {
       const err = e as ApiError;
       setError(
