@@ -89,3 +89,13 @@ Source-level findings:
 - Migration 079 exposes a normalized provider-cost view and revokes it from PUBLIC/anon/authenticated, granting SELECT only to service_role. Unknown provider costs remain NULL rather than being represented as zero.
 
 No confirmed client privilege escalation was found in these reviewed migrations. The baseline's incomplete explicit revoke list is a hardening inconsistency, but the RLS policies shown in the same baseline prevent the custom-JWT client from reading protected rows or writing through those five tables; migration 076 supplies the consistent explicit privilege boundary later in the migration chain. These are source-level findings only; grants, view ownership and effective privileges have not been queried on a live or disposable PostgreSQL instance.
+
+## AUD-149 follow-up — complete SECURITY DEFINER catalog regression coverage (2026-11-08)
+
+- A review of the existing `backend/test/security-definer-search-paths.integration.sql` found that its explicit signature list covered only a subset of the RPCs present in the current migration chain; later SECURITY DEFINER functions from migrations 046–082 were not automatically included.
+- Extended the same integration test with a catalog-driven pass over every `SECURITY DEFINER` function in schema `public`. It now requires a catalog-first `search_path` (`pg_catalog, public` or `pg_catalog`) and rejects EXECUTE access for `anon` and `authenticated`. The existing explicit list continues to assert that intended application RPCs are executable by `service_role`.
+- This is regression-test hardening, not a claim that a production privilege defect was found. Source review found the older `public`-only search paths on superseded definitions later corrected by migrations 040, 041 and 043; the current migration definitions inspected in this pass use catalog-first paths.
+- The test is wired into `.github/workflows/atomic-payment-integration.yml` after migrations through 082.
+- Commit: `582c31fc82f73bc9278477eef303b5b547c9d7b6`.
+- CI on this HEAD: all three PR workflows (persisted boards, Prodamus webhook, atomic payment/PostgreSQL) concluded `failure`; GitHub returned jobs with `steps=null` and `logs_url=null`. Therefore this added SQL assertion has **not** been executed/validated yet. Vercel status is `pending`.
+- No production database, live payments, Pinterest publishing, deployment, or merge was performed.
