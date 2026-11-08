@@ -59,6 +59,18 @@ function resolvePublishedReservation(reservation, expectedBoardId) {
   return { pinterest_pin_id: pinterestPinId, pinterest_board_id: pinterestBoardId };
 }
 
+function hasCompleteScheduleClaimIdentity(schedule) {
+  return Boolean(
+    schedule &&
+    String(schedule.id || "").trim() &&
+    String(schedule.user_id || "").trim() &&
+    String(schedule.pin_id || "").trim() &&
+    String(schedule.pinterest_account_id || "").trim() &&
+    String(schedule.pinterest_board_id || "").trim() &&
+    String(schedule.claim_token || "").trim()
+  );
+}
+
 function hasMatchingScheduleAttemptIdentity(attempt, schedule) {
   if (!attempt || !schedule) return false;
   return String(attempt.user_id || "") === String(schedule.user_id || "")
@@ -108,6 +120,7 @@ module.exports = {
   getScheduleRetryDelayMinutes,
   buildScheduleWorkerFailureState,
   hasMatchingScheduleAttemptIdentity,
+  hasCompleteScheduleClaimIdentity,
   isScheduleClaimUpdateConfirmed,
   resolvePublishedReservation,
   persistPublishFailureJournal,
