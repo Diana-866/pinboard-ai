@@ -35,6 +35,7 @@ app.set("trust proxy", 1); // за прокси (Render/nginx) реальный 
 app.use(helmet()); // безопасные HTTP-заголовки (B12)
 app.use(
   cors({
+    credentials: true,
     origin: function (origin, callback) {
       // Домены, которые всегда разрешены (включая новый pinposy.com) + все из FRONTEND_URL через запятую
       const allowedOrigins = [
