@@ -54,6 +54,7 @@ const MainApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [boards, setBoards] = useState<BoardItem[]>([]);
+  const [boardsLoadError, setBoardsLoadError] = useState('');
   const [scheduledPins, setScheduledPins] = useState<ScheduledPinItem[]>([]);
   const [prefilledTopic, setPrefilledTopic] = useState<string>('');
   const [prefilledDate, setPrefilledDate] = useState<string>('');
@@ -68,8 +69,9 @@ const MainApp: React.FC = () => {
   React.useEffect(() => {
     let cancelled = false;
     async function loadBoards() {
+      setBoards([]);
+      setBoardsLoadError('');
       if (!user?.id) {
-        setBoards([]);
         return;
       }
       try {
@@ -89,7 +91,7 @@ const MainApp: React.FC = () => {
         setBoards(mapped);
       } catch (error) {
         console.error('[boards] Не удалось загрузить доски:', error);
-        if (!cancelled) setBoards([]);
+        if (!cancelled) setBoardsLoadError('Не удалось загрузить доски. Проверьте соединение и обновите страницу. Ваши доски не удалены.');
       } finally {
       }
     }
@@ -579,6 +581,7 @@ const MainApp: React.FC = () => {
           {activeTab === 'boards' && (
             <BoardsManager
               boards={boards}
+              loadError={boardsLoadError}
               onAddBoard={handleAddBoard}
             />
           )}
