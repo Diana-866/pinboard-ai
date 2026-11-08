@@ -143,6 +143,7 @@ const MainApp: React.FC = () => {
             status: parsePersistedScheduleStatus(row.status),
             retryable: row.retryable === true,
             retryReason: row.retry_reason || undefined,
+            failureReason: row.failure_reason === 'board_unavailable' ? 'board_unavailable' : null,
             destinationUrl: row.snapshot_image_url ? (row.snapshot_destination_url || '') : (row.destination_url || ''),
             pinterestBoardId: row.pinterest_board_id || undefined,
             pinterestAccountId: row.pinterest_account_id || undefined,
