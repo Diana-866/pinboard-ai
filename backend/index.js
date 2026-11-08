@@ -1671,11 +1671,6 @@ app.get("/schedule", requireAuth, async (req, res) => {
         String(item.pin_id) === String(row.pin_id) &&
         String(item.pinterest_account_id || "") === String(accountId || "")
       ) || null;
-      // Retry eligibility is tied to the exact journal identity, including
-      // owner and original Pinterest board—not merely pin/account/status.
-      const matchingAttempt = attempt && hasMatchingScheduleAttemptIdentity(attempt, row)
-        ? attempt
-        : attempt;
       const hasPublication = publications.some((item) =>
         String(item.pin_id) === String(row.pin_id) &&
         String(item.pinterest_account_id || "") === String(accountId || "")
@@ -1688,7 +1683,7 @@ app.get("/schedule", requireAuth, async (req, res) => {
       );
       const retry = getScheduleRetryability(
         row,
-        matchingAttempt,
+        attempt,
         hasPublication,
         !!accountId && activeAccountIds.has(accountId),
         hasActiveDuplicate
