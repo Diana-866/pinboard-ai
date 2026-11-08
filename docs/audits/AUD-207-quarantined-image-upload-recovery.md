@@ -21,7 +21,7 @@ If an image upload path was permanently quarantined after an ambiguous Storage f
 - Simulates the original deterministic path being quarantined.
 - Verifies the backend selects a distinct, deterministic recovery path.
 - Verifies the fallback URL points to the fresh path.
-- Simulates a process restart after a fallback upload has completed; verifies the retry finds the same recovery key and returns the existing object without uploading it again.
+- Simulates a retry when the recovery key already has a completed object; verifies the backend returns that object without uploading it again. The test exercises the lookup/reuse contract, not an actual operating-system process restart.
 
 ## Safety boundaries
 
