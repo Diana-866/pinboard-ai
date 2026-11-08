@@ -516,6 +516,28 @@ begin
     raise exception 'explicit retry after reconnect did not resume the safe schedule: %', v_result;
   end if;
 
+  -- A preflight-failed schedule with no publication attempt may be moved
+  -- to a newly verified board without rebuilding or losing its pin snapshot.
+  update public.pin_schedules
+     set status = 'failed',
+         pinterest_board_id = 'deleted-board',
+         last_error = 'Selected board is no longer available',
+         updated_at = now()
+   where id = v_reconnect_schedule;
+  v_result := public.change_failed_pin_schedule_board(v_user::text, v_reconnect_schedule, 'replacement-board');
+  if v_result->>'ok' <> 'true'
+     or (select status from public.pin_schedules where id=v_reconnect_schedule) <> 'scheduled'
+     or (select pinterest_board_id from public.pin_schedules where id=v_reconnect_schedule) <> 'replacement-board'
+     or (select pin_id from public.pin_schedules where id=v_reconnect_schedule) <> v_reconnect_pin then
+    raise exception 'safe board reassignment did not preserve and requeue the original pin: %', v_result;
+  end if;
+  if exists (
+    select 1 from public.pinterest_publish_attempts
+     where pin_id=v_reconnect_pin and pinterest_account_id=v_account_a
+  ) then
+    raise exception 'board reassignment unexpectedly created a publication attempt';
+  end if;
+
   -- A claimed/in-flight job is not cancelled underneath its remote request.
   if (select status from public.pin_schedules
        where user_id=v_user::text and pin_id=v_inflight_pin
