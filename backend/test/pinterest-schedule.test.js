@@ -11,6 +11,7 @@ const {
   classifyLegacyScheduleAccount,
   getScheduleRetryability,
   getScheduleFailureReason,
+  sanitizeScheduleForClient,
 } = require("../pinterestSchedule");
 
 test("a disconnected Pinterest account before publication is a terminal failure", () => {
@@ -141,6 +142,23 @@ test("failed schedules expose a safe board-unavailable reason without leaking ra
     status: "scheduled",
     last_error: "Выбранная доска не найдена",
   }), null);
+});
+
+test("public schedule payloads never expose raw provider diagnostics", () => {
+  const row = {
+    id: "schedule-1",
+    status: "failed",
+    last_error: "Provider response included internal diagnostic details",
+    failure_reason: "board_unavailable",
+    retryable: false,
+  };
+  const publicRow = sanitizeScheduleForClient(row);
+  assert.equal(publicRow.id, "schedule-1");
+  assert.equal(publicRow.failure_reason, "board_unavailable");
+  assert.equal(publicRow.retryable, false);
+  assert.equal(Object.hasOwn(publicRow, "last_error"), false);
+  // Sanitizing the API object must not mutate the database-shaped source row.
+  assert.match(row.last_error, /internal diagnostic details/);
 });
 
 test("retryability allows a failed schedule without any publication attempt", () => {
