@@ -203,6 +203,9 @@ function getScheduleRetryability(schedule, attempt, hasPublication, accountActiv
     return { retryable: false, reason: "pin_unavailable" };
   }
   if (hasPublication) return { retryable: false, reason: "publication_exists" };
+  if (attempt && !hasMatchingScheduleAttemptIdentity(attempt, schedule)) {
+    return { retryable: false, reason: "attempt_identity_mismatch" };
+  }
   if (attempt && !(attempt.status === "failed" && attempt.retry_safe === true)) {
     return { retryable: false, reason: "attempt_not_retryable" };
   }
