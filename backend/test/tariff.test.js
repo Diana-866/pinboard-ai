@@ -134,3 +134,41 @@ test("no paid subscription and no manual plan is inactive when expiry is null", 
     { plan: "none", active: false, periodEnd: null }
   );
 });
+
+
+test("successful paid subscription with no entitlement end fails closed", async () => {
+  const client = makeClient({
+    userResult: {
+      data: { tariff_plan: "agency", tariff_period_end: null },
+      error: null,
+    },
+    subscriptionResult: {
+      data: { plan: "agency", status: "success", period_end: null },
+      error: null,
+    },
+  });
+
+  assert.deepEqual(
+    await getTariffState("user-1", client),
+    { plan: "agency", active: false, periodEnd: null }
+  );
+});
+
+test("paid subscription can use the accumulated user entitlement end", async () => {
+  const futureEnd = new Date(Date.now() + 60_000).toISOString();
+  const client = makeClient({
+    userResult: {
+      data: { tariff_plan: "pro", tariff_period_end: futureEnd },
+      error: null,
+    },
+    subscriptionResult: {
+      data: { plan: "pro", status: "success", period_end: null },
+      error: null,
+    },
+  });
+
+  assert.deepEqual(
+    await getTariffState("user-1", client),
+    { plan: "pro", active: true, periodEnd: futureEnd }
+  );
+});
