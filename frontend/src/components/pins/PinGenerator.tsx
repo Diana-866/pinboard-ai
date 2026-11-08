@@ -477,18 +477,26 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     if (!currentPin) return;
     const pinId = currentPin.id;
     const previousTitle = pinTitleSelectionRef.current.get(pinId) ?? currentPin.selectedTitle;
-    // Record synchronously: a schedule click can happen before this PATCH resolves.
+    // Record and show the choice immediately: a schedule click can happen before
+    // this PATCH resolves, and the user should not have to wait for the network UI.
     rememberPinTitleSelection(pinTitleSelectionRef.current, pinId, title);
+    setGeneratedPins((previous) => previous.map((pin) => pin.id === pinId ? {
+      ...pin,
+      selectedTitle: title,
+      headlineOverlay: title.length > 36 ? title.slice(0, 36) + '...' : title,
+    } : pin));
     try {
       await persistPinPatch(pinId, { title });
-      setGeneratedPins((previous) => previous.map((pin) => pin.id === pinId ? {
-        ...pin,
-        selectedTitle: title,
-        headlineOverlay: title.length > 36 ? title.slice(0, 36) + '...' : title,
-      } : pin));
     } catch (error) {
       // Do not roll back a newer choice made while this request was in flight.
-      restorePinTitleSelectionIfCurrent(pinTitleSelectionRef.current, pinId, title, previousTitle);
+      const restored = restorePinTitleSelectionIfCurrent(pinTitleSelectionRef.current, pinId, title, previousTitle);
+      if (restored) {
+        setGeneratedPins((previous) => previous.map((pin) => pin.id === pinId && pin.selectedTitle === title ? {
+          ...pin,
+          selectedTitle: previousTitle,
+          headlineOverlay: previousTitle.length > 36 ? previousTitle.slice(0, 36) + '...' : previousTitle,
+        } : pin));
+      }
       console.error('[pins] Не удалось сохранить название:', error);
       window.alert(error instanceof Error ? error.message : t.generator.errorSaveTitle);
     }
