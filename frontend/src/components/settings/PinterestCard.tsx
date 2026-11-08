@@ -110,7 +110,7 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
     setError(null);
     setBusy(true);
     try {
-      const data = await apiRequest('/integrations/pinterest/link', { method: 'POST' });
+      const data = await apiRequest('/integrations/pinterest/link', { method: 'POST', credentials: 'include' });
       if (!data?.authorize_url) throw new Error('Сервер не вернул ссылку авторизации');
       window.location.href = data.authorize_url;
     } catch (e) {
