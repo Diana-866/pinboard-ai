@@ -108,3 +108,23 @@ Do not repurpose `PATCH /me/tariff` for this. A dedicated workflow needs an expl
 - Source-level inspection only.
 - No Node test suite executed; the new regression is committed but not yet run.
 - No SQL, production database, payments, or deployments were touched.
+
+## Follow-up finding — delayed webhook ordering differed between backend and Pinterest OAuth SQL
+
+Migration 019 explicitly preserves the plan from the newest-created successful paid order when an older payment webhook arrives late. However, both the backend resolver and the Pinterest OAuth commit RPC in migration 038 previously sorted successful orders by `period_end DESC` before creation time. A delayed older order can receive a later accumulated `period_end`, causing the wrong plan to win (for example, an old Agency order overriding a newer Analytics purchase).
+
+The backend resolver now orders by `created_at DESC, id DESC`, matching migration 019. It uses `users.tariff_period_end` as the accumulated entitlement horizon, because a delayed older webhook can extend that horizon without becoming the current plan.
+
+Added forward-only migration:
+- `db/migrations/080_pinterest_oauth_effective_entitlement_precedence.sql`
+- The OAuth RPC now always checks successful subscriptions, even when the cached user plan is `none`.
+- It selects the newest-created successful order for the plan and uses the accumulated user period end for expiry.
+- Manual grants remain the fallback only when no successful paid subscription exists.
+
+Added an integration SQL scenario to `backend/test/pinterest-multi-account-oauth.integration.sql`: stale `none` cache + older Agency order with later `period_end` + newer Analytics order must allow one Pinterest account and reject the second at the Analytics cap.
+
+## Verification update
+
+- Backend source, regression tests, migration 080, and SQL integration scenario were committed to the feature branch.
+- The migration and SQL integration scenario have not been executed against PostgreSQL; SQL syntax and runtime behavior remain unverified.
+- No production migration, database write, or deployment occurred.
