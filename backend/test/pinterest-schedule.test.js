@@ -8,6 +8,7 @@ const {
   buildScheduleWorkerFailureState,
   hasMatchingScheduleAttemptIdentity,
   isScheduleClaimUpdateConfirmed,
+  resolvePublishedReservation,
   persistPublishFailureJournal,
   isPinterestPublishOutcomeUnknown,
   buildPinScheduleSnapshot,
@@ -286,6 +287,21 @@ test("worker trusts a published journal only when user, pin, account and board a
     assert.equal(hasMatchingScheduleAttemptIdentity({ ...attempt, [field]: "different" }, schedule), false, field);
   }
   assert.equal(hasMatchingScheduleAttemptIdentity(null, schedule), false);
+});
+
+test("existing published reservation is accepted only for the exact board and a non-empty remote ID", () => {
+  assert.deepEqual(
+    resolvePublishedReservation({ pinterest_pin_id: " remote-1 ", pinterest_board_id: " board-1 " }, "board-1"),
+    { pinterest_pin_id: "remote-1", pinterest_board_id: "board-1" }
+  );
+  assert.throws(
+    () => resolvePublishedReservation({ pinterest_pin_id: "remote-1", pinterest_board_id: "board-2" }, "board-1"),
+    (error) => error.httpStatus === 409 && error.code === "PINTEREST_PUBLICATION_IDENTITY_MISMATCH"
+  );
+  assert.throws(
+    () => resolvePublishedReservation({ pinterest_pin_id: "", pinterest_board_id: "board-1" }, "board-1"),
+    (error) => error.httpStatus === 409
+  );
 });
 
 test("worker confirms a conditional schedule update actually changed its claimed row", () => {
