@@ -15,7 +15,7 @@ begin
   update public.pin_schedules s
      set status='published',
          pinterest_pin_id=a.pinterest_pin_id,
-         published_at=coalesce(s.published_at,a.updated_at,p.updated_at,clock_timestamp()),
+         published_at=coalesce(s.published_at,a.updated_at,p.created_at,clock_timestamp()),
          claim_token=null,
          last_error=null,
          next_attempt_at=null,
