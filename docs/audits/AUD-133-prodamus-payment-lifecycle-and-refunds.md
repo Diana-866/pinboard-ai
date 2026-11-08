@@ -102,3 +102,10 @@ The official Prodamus help page documents repeated URL-notification attempts ove
 - Existing test assets were inspected but not executed in a PostgreSQL/Node runtime.
 - No Prodamus API, live checkout, refund, webhook, Supabase production database, or production environment was accessed.
 - No migration or production configuration was changed.
+
+
+## Follow-up regression added (2026-11-08)
+
+Added a backend webhook regression in `backend/test/prodamus-webhook.test.js` for a signed success callback that arrives after a purchase has already been credited but carries an amount different from the stored order amount. The expected behavior is: persist an `amount_mismatch` audit record, do not invoke the credit RPC, and do not downgrade the already-successful purchase.
+
+This test is committed but has not been executed in the current environment. It supplements the existing source-level evidence that callback amount/currency validation occurs before the already-credited idempotency return.
