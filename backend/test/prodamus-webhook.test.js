@@ -383,6 +383,62 @@ test("credit cancel racing after success cannot overwrite credited purchase", as
   assert.equal(db.state.purchase.balance_credited_at, "2026-11-07T00:00:00.000Z");
 });
 
+test("credited purchase still audits a later signed success callback with a mismatched amount", async () => {
+  const db = createPaymentDb({
+    purchase: {
+      id: "purchase-already-credited",
+      provider_payment_id: "ppc-already-credited",
+      amount: 490,
+      currency: "rub",
+      credits: 100,
+      package_id: "pack_100",
+      balance_credited_at: "2026-11-07T00:00:00.000Z",
+      status: "success",
+    },
+    activate: async () => ({ data: null, error: null }),
+    credit: async () => {
+      throw new Error("an already-credited purchase must not call fulfillment for a mismatched event");
+    },
+  });
+  const auditRecords = [];
+  const auditedDb = {
+    ...db,
+    from(table) {
+      if (table === "billing_webhook_exceptions") {
+        return {
+          insert: async (record) => {
+            auditRecords.push(record);
+            return { error: null };
+          },
+        };
+      }
+      return db.from(table);
+    },
+  };
+
+  const response = createWebhookResponse();
+  await require("../creditsBilling").handleCreditsWebhook(
+    signedWebhook({
+      order_id: "ppc-already-credited",
+      payment_status: "success",
+      sum: "489.00",
+      currency: "rub",
+    }),
+    response,
+    { supabase: auditedDb }
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.ignored, "amount mismatch");
+  assert.equal(response.body.review_required, true);
+  assert.equal(db.state.purchase.status, "success");
+  assert.equal(db.state.purchase.balance_credited_at, "2026-11-07T00:00:00.000Z");
+  assert.equal(db.rpcCalls.credit, 0);
+  assert.equal(auditRecords.length, 1);
+  assert.equal(auditRecords[0].reason, "amount_mismatch");
+  assert.equal(auditRecords[0].expected_amount, 490);
+});
+
 test("subscription cancel callback after successful activation cannot downgrade the paid plan", async () => {
   const db = createPaymentDb({
     subscription: { id: "sub-cancel-race", provider_payment_id: "pp-sub-cancel-race", amount: 1990, currency: "rub", status: "success" },
