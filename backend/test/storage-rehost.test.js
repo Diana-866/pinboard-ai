@@ -1,5 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
 
 const modulePaths = [
   require.resolve("../supabase"),
@@ -24,6 +25,8 @@ const lookupError = new Error("temporary database outage");
 let lookupFailure = lookupError;
 const calls = [];
 let uploadError = null;
+let quarantinePrimaryPath = false;
+const uploadPaths = [];
 const supabase = {
   storage: {
     async listBuckets() {
@@ -62,11 +65,20 @@ mockModule(modulePaths[3], {
 });
 mockModule(modulePaths[4], {
   extractManagedPinImagePath() { return null; },
-  buildPinImageObjectPath() { return "pins/generation-0123456789abcdef0123456789abcdef.png"; },
-  uploadManagedPinImageObject() {
-    calls.push({ type: "upload" });
+  buildPinImageObjectPath(_extension, key) {
+    const digest = crypto.createHash("sha256").update(String(key)).digest("hex").slice(0, 32);
+    return `pins/generation-${digest}.png`;
+  },
+  uploadManagedPinImageObject({ objectPath }) {
+    calls.push({ type: "upload", path: objectPath });
+    uploadPaths.push(objectPath);
     if (uploadError) throw uploadError;
-    throw new Error("unexpected upload");
+    if (quarantinePrimaryPath && objectPath === `pins/generation-${crypto.createHash("sha256").update("stable-provider-result-key").digest("hex").slice(0, 32)}.png`) {
+      const error = new Error("path quarantined");
+      error.code = "path_quarantined";
+      throw error;
+    }
+    return true;
   },
   deleteManagedPinImageObject() { throw new Error("not used in this test"); },
   findCompletedManagedPinImageUpload: async () => { calls.push({ type: "lookup" }); if (lookupFailure) throw lookupFailure; return null; },
@@ -122,4 +134,21 @@ test("restore original module cache entries", () => {
     else delete require.cache[path];
   }
   delete require.cache[require.resolve("../storage")];
+});
+
+
+test("quarantined deterministic upload recovers on a stable fresh path", async () => {
+  lookupFailure = null;
+  quarantinePrimaryPath = true;
+  uploadPaths.length = 0;
+  const result = await rehostImage("https://provider.example.invalid/result.png", {
+    idempotencyKey: "stable-provider-result-key",
+  });
+  const primaryPath = `pins/generation-${crypto.createHash("sha256").update("stable-provider-result-key").digest("hex").slice(0, 32)}.png`;
+  const recoveryPath = `pins/generation-${crypto.createHash("sha256").update("stable-provider-result-key:storage-recovery:1").digest("hex").slice(0, 32)}.png`;
+  assert.match(result, new RegExp(recoveryPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.deepEqual(uploadPaths, [primaryPath, recoveryPath]);
+  assert.notEqual(primaryPath, recoveryPath);
+  quarantinePrimaryPath = false;
+  lookupFailure = lookupError;
 });
