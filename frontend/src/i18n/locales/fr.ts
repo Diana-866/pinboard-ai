@@ -318,6 +318,8 @@ export const fr: TranslationSchema = {
     statusPublishing: "Publication en cours",
     statusFailed: "Échec de publication",
     statusUnknown: "Vérification requise",
+    unknownPublishHelpTitle: 'Pinterest a peut-être reçu cette épingle',
+    unknownPublishHelpBody: 'Le résultat de la publication n’a pas pu être confirmé. Ne réessayez pas et ne programmez pas la même épingle une seconde fois : cela pourrait créer un doublon. Vérifiez le compte et le tableau Pinterest sélectionnés. Si vous ne trouvez pas clairement l’épingle, laissez le support examiner cet élément.',
     statusQueued: "En attente",
     generateDateTitle: "Générer des épingles pour cette date",
     primeSlotLabel: "Créneau de 20 h 15 (heure de pointe)",
