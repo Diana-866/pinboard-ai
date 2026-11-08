@@ -1246,3 +1246,15 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - CI теперь явно применяет исходную migration 086, затем 094, и запускает новый SQL test.
 - SQL tests не запускались локально; CI должен подтвердить их. Production DB, Pinterest API, deployment и merge не затрагивались.
 - Документ: `docs/audits/AUD-230-pinterest-failed-board-reassignment-attempt-identity.md`.
+
+## Дополнение к handoff — 2026-11-09 (AUD-231: точная идентичность журнала при ручном повторе Pinterest-расписания)
+
+- Найден пробел: ручной retry RPC и расчёт доступности кнопки «Повторить» доверяли журналу по pin/account и retry_safe, но не проверяли владельца и исходную Pinterest-доску журнала.
+- Добавлена migration 095: retry_failed_pin_schedule теперь блокирует существующий журнал, если user_id или pinterest_board_id не совпадает с failed schedule. Статус должен быть строго failed, retry_safe строго true. Сохраняется порядок блокировок account → schedule → attempt и service_role-only доступ.
+- GET /schedule теперь загружает user_id и pinterest_board_id попытки; helper getScheduleRetryability проверяет полную идентичность owner/pin/account/board. Календарь не предлагает повтор при конфликте.
+- Endpoint ручного retry переводит attempt_identity_mismatch в HTTP 409 с понятным сообщением о необходимости сверки.
+- Добавлены unit regression tests на несовпадение каждого identity-поля и PostgreSQL integration test: чужая доска блокирует retry и не меняет статус; точный retry-safe журнал разрешает повтор.
+- Migration 095 и SQL test подключены к atomic-payment integration workflow после migration 094.
+- Пользовательский эффект: нельзя случайно повторить публикацию на основании чужого/устаревшего журнала другой доски. Серверная кнопка скрывается, а БД независимо блокирует запрос даже от старого клиента.
+- Тесты локально не запускались; CI ещё должен подтвердить фактическое выполнение. Production DB, Pinterest API, deployment и merge не затрагивались.
+- Документ: docs/audits/AUD-231-pinterest-failed-schedule-retry-identity.md.
