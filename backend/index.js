@@ -119,7 +119,8 @@ const adminActionLimiter = rateLimit({
   limit: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => String(req.userId || req.ip),
+  // Run before authentication so invalid-token traffic is rate-limited too.
+  // express-rate-limit's default IP key normalizes IPv6 addresses safely.
   message: { error: "Слишком много административных операций. Попробуйте позже." },
 });
 
@@ -2007,7 +2008,7 @@ require("./pinterest").registerRoutes(app, { requireAuth, requireTariff, handleE
 // --- Админка ---
 
 function registerAdminProviderRefundRoute(route, action) {
-  app.post(route, requireAuth, requireAdmin, adminActionLimiter, async (req, res) => {
+  app.post(route, adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
     try {
       const result = await action(req.userId, req.body || {});
       res.json(result);
