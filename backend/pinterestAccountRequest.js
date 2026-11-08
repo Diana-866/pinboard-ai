@@ -2,6 +2,23 @@
  * Execute one Pinterest API request with account-scoped token recovery.
  * Kept separate from HTTP/database wiring so token retry semantics are testable.
  */
+const DEFAULT_RATE_LIMIT_WAIT_MS = 2000;
+const MAX_RATE_LIMIT_WAIT_MS = 60000;
+
+function getPinterestRetryDelayMs(value, now = Date.now()) {
+  if (value === null || value === undefined || value === "") return DEFAULT_RATE_LIMIT_WAIT_MS;
+  const raw = String(value).trim();
+  let delay;
+  if (/^\\d+(?:\\.\\d+)?$/.test(raw)) {
+    delay = Number(raw) * 1000;
+  } else {
+    const retryAt = Date.parse(raw);
+    delay = Number.isFinite(retryAt) ? retryAt - now : DEFAULT_RATE_LIMIT_WAIT_MS;
+  }
+  if (!Number.isFinite(delay)) return DEFAULT_RATE_LIMIT_WAIT_MS;
+  return Math.max(0, Math.min(MAX_RATE_LIMIT_WAIT_MS, Math.ceil(delay)));
+}
+
 async function executeWithAccountToken(
   account,
   handler,
@@ -13,9 +30,8 @@ async function executeWithAccountToken(
   let refreshed = false;
   let rateLimited = false;
 
-  // Each recovery is allowed once. This also handles a 401 after the single
-  // 429 retry without risking an unbounded request loop. Callers performing
-  // non-idempotent writes can disable 429 replay to avoid duplicate creates.
+  // Each recovery is allowed once. Callers performing non-idempotent writes
+  // disable 429 replay so a provider response can never create a duplicate.
   while (true) {
     const result = await handler(currentAccount.access_token);
     if (result.status === 401 && !refreshed) {
@@ -25,11 +41,14 @@ async function executeWithAccountToken(
     }
     if (result.status === 429 && retryRateLimit && !rateLimited) {
       rateLimited = true;
-      await wait(2000);
+      const delay = Number(result.retryAfterMs);
+      await wait(Number.isFinite(delay) && delay >= 0
+        ? Math.min(MAX_RATE_LIMIT_WAIT_MS, Math.ceil(delay))
+        : DEFAULT_RATE_LIMIT_WAIT_MS);
       continue;
     }
     return result;
   }
 }
 
-module.exports = { executeWithAccountToken };
+module.exports = { executeWithAccountToken, getPinterestRetryDelayMs };
