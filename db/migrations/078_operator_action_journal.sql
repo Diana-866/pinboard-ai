@@ -110,10 +110,47 @@ begin
     raise exception 'invalid administrator provider-refund action';
   end if;
 
-  -- Operator-first lock serializes the action against administrator demotion
-  -- and operator deletion. A demotion committed first makes this action fail.
-  perform 1 from public.users where id=p_operator_user_id for update;
-  if not found or not exists (
+  -- Fast authorization gate avoids exposing whether a request exists to a
+  -- caller who is already known not to be an administrator. This read is not
+  -- the concurrency guard; the role is rechecked after the row lock below.
+  if not exists (
+    select 1 from public.users where id=p_operator_user_id and is_admin is true
+  ) then
+    raise exception 'administrator privileges required';
+  end if;
+
+  -- Discovery reads do not lock request rows. They only identify the target
+  -- account so both user rows can be locked in a globally deterministic order.
+  if p_request_kind='generation' then
+    select user_id,idempotency_key into v_owner,v_request_key
+      from public.pin_generation_requests where id=p_request_id;
+  else
+    select user_id,idempotency_key into v_owner,v_request_key
+      from public.pin_regeneration_requests where id=p_request_id;
+  end if;
+  if not found then raise exception 'target request not found'; end if;
+
+  select id into v_target_user
+    from public.users where id::text=v_owner;
+  if not found then raise exception 'target user not found'; end if;
+
+  -- Lock operator and target rows in UUID order. Always using the same order
+  -- prevents a cross-target deadlock when operator A targets B while B targets A.
+  -- The subsequent role check is protected by the operator row lock: a demotion
+  -- committed first is observed here; a later demotion must wait for this action.
+  perform 1
+    from public.users
+   where id in (p_operator_user_id,v_target_user)
+   order by id
+   for update;
+
+  if not exists (select 1 from public.users where id=p_operator_user_id) then
+    raise exception 'administrator privileges required';
+  end if;
+  if not exists (select 1 from public.users where id=v_target_user) then
+    raise exception 'target user not found';
+  end if;
+  if not exists (
     select 1 from public.users where id=p_operator_user_id and is_admin is true
   ) then
     raise exception 'administrator privileges required';
@@ -156,21 +193,8 @@ begin
     raise exception 'invalid finalization action payload';
   end if;
 
-  -- Discovery read only: owner and idempotency key are never caller supplied.
-  if p_request_kind='generation' then
-    select user_id,idempotency_key into v_owner,v_request_key
-      from public.pin_generation_requests where id=p_request_id;
-  else
-    select user_id,idempotency_key into v_owner,v_request_key
-      from public.pin_regeneration_requests where id=p_request_id;
-  end if;
-  if not found then raise exception 'target request not found'; end if;
-
-  -- Global lock order: operator -> target user -> request -> tasks -> reservation.
-  select id into v_target_user
-    from public.users where id::text=v_owner for update;
-  if not found then raise exception 'target user not found'; end if;
-
+  -- Owner and idempotency key were discovered above; now lock the request.
+  -- Remaining order is request -> generation tasks -> active reservation.
   if p_request_kind='generation' then
     perform 1 from public.pin_generation_requests
      where id=p_request_id and user_id=v_owner and idempotency_key=v_request_key
