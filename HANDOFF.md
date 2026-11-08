@@ -1344,3 +1344,14 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Пользовательский эффект: отключение блокирует новые публикации, но не стирает подтверждённый результат уже начатого запроса. PinPosy сможет помнить, что пин уже создан в Pinterest, и не провоцировать дубликат после повторного подключения.
 - Статус: REGRESSION TEST ADDED / STATIC READ-BACK + CI PENDING. SQL локально не запускался. Production DB, Pinterest API, deployment и merge не затрагивались.
 - Документ: `docs/audits/AUD-239-pinterest-late-success-after-disconnect.md`.
+
+
+## AUD-240 — устаревший OAuth callback после повторного подключения (2026-11-09)
+
+- Статически проверен OAuth fencing: state содержит attempt ID, generation, token version и browser binding; commit RPC блокирует OAuth state row и сверяет все fence-поля до изменения account row. Новый attempt/disconnect инвалидирует старые callbacks. Та же external Pinterest identity reconnect использует прежний account UUID.
+- Нового runtime-дефекта не найдено; существующий fencing не переписывался.
+- Усилен `backend/test/pinterest-oauth.integration.sql`: attempt C стартует до disconnect; после disconnect новый attempt D подключает ту же внешнюю identity в прежнюю account row; запоздавший callback C приходит с тем же external ID, но старыми username/access/refresh tokens. Тест требует stale rejection и сохранения свежего username/token pair, connected state и account UUID.
+- CI workflow уже запускает этот SQL test, отдельный workflow step/migration не нужен.
+- Пользовательский эффект: запоздавшая OAuth-вкладка не может затереть токены нового подключения того же Pinterest-аккаунта.
+- Статус: REGRESSION TEST ADDED / STATIC READ-BACK + CI PENDING. SQL локально не запускался. Production DB, Pinterest API, deploy и merge не затрагивались.
+- Документ: `docs/audits/AUD-240-pinterest-stale-oauth-callback-after-reconnect.md`.
