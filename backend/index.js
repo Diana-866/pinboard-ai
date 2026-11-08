@@ -433,7 +433,7 @@ app.patch("/me", requireAuth, async (req, res) => {
       .select("id, email, name, surname, credits_balance, tariff_plan, preferred_language, is_admin")
       .single();
     if (error) throw httpError(500, "Не удалось обновить профиль — нужно применить миграцию 003");
-    res.json(data);
+    res.json(sanitizeScheduleForClient(data));
   } catch (e) {
     handleError(res, e);
   }
@@ -501,7 +501,7 @@ app.patch("/me/onboarding", requireAuth, async (req, res) => {
       }
     }
 
-    res.json(data);
+    res.json(sanitizeScheduleForClient(data));
   } catch (e) {
     handleError(res, e);
   }
@@ -539,7 +539,7 @@ app.patch("/me/tariff", requireAuth, async (req, res) => {
     if (error) {
       throw httpError(500, "Не удалось сохранить тариф — нужно применить миграцию 004 (db/migrations/004_onboarding.sql)");
     }
-    res.json(data);
+    res.json(sanitizeScheduleForClient(data));
   } catch (e) {
     handleError(res, e);
   }
@@ -562,7 +562,7 @@ app.post("/projects", requireAuth, async (req, res) => {
       .select()
       .single();
     if (error) throw error;
-    res.status(201).json(data);
+    res.status(201).json(sanitizeScheduleForClient(data));
   } catch (e) {
     handleError(res, e);
   }
@@ -575,7 +575,7 @@ app.get("/projects", requireAuth, async (req, res) => {
       .select("*")
       .eq("user_id", req.userId);
     if (error) throw error;
-    res.json(data);
+    res.json(sanitizeScheduleForClient(data));
   } catch (e) {
     handleError(res, e);
   }
@@ -590,7 +590,7 @@ app.get("/projects/:id", requireAuth, async (req, res) => {
       .eq("user_id", req.userId)
       .single();
     if (error || !data) throw httpError(404, "Проект не найден");
-    res.json(data);
+    res.json(sanitizeScheduleForClient(data));
   } catch (e) {
     handleError(res, e);
   }
@@ -624,7 +624,7 @@ app.post("/projects/:id/analyze", requireAuth, aiLimiter, async (req, res) => {
 
     if (updateError) throw updateError;
 
-    res.json(updated);
+    res.json(sanitizeScheduleForClient(updated));
   } catch (e) {
     handleError(res, e);
   }
@@ -677,7 +677,7 @@ app.get("/projects/:id/boards", requireAuth, async (req, res) => {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    res.json(data);
+    res.json(sanitizeScheduleForClient(data));
   } catch (e) {
     handleError(res, e);
   }
@@ -739,7 +739,7 @@ app.patch("/pins/:id", requireAuth, async (req, res) => {
       .select()
       .single();
     if (error) throw error;
-    res.json(data);
+    res.json(sanitizeScheduleForClient(data));
   } catch (e) {
     handleError(res, e);
   }
@@ -758,7 +758,7 @@ app.post("/pins/:id/status", requireAuth, async (req, res) => {
       .select()
       .single();
     if (error) throw error;
-    res.json(data);
+    res.json(sanitizeScheduleForClient(data));
   } catch (e) {
     handleError(res, e);
   }
@@ -790,7 +790,7 @@ app.post("/pins/:id/image", requireAuth, imageUploadLimiter, imageUpload.single(
         console.error("[storage] не удалось очистить старое изображение пина:", cleanupError && cleanupError.message);
       });
     }
-    res.json(data);
+    res.json(sanitizeScheduleForClient(data));
   } catch (e) {
     handleError(res, e);
   }
@@ -1151,7 +1151,7 @@ app.patch("/boards/:id", requireAuth, async (req, res) => {
       .single();
 
     if (error) throw error;
-    res.json(data);
+    res.json(sanitizeScheduleForClient(data));
   } catch (e) {
     handleError(res, e);
   }
@@ -1176,7 +1176,7 @@ app.get("/boards", requireAuth, async (req, res) => {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    res.json(data);
+    res.json(sanitizeScheduleForClient(data));
   } catch (e) {
     handleError(res, e);
   }
@@ -1200,7 +1200,7 @@ app.get("/boards/:id/pins", requireAuth, async (req, res) => {
       .eq("board_id", req.params.id)
       .order("created_at", { ascending: true });
     if (error) throw error;
-    res.json(data);
+    res.json(sanitizeScheduleForClient(data));
   } catch (e) {
     handleError(res, e);
   }
@@ -1771,7 +1771,7 @@ app.post("/schedule/:id/reconcile-account", requireAuth, pinterestScheduleLimite
       .eq("user_id", String(req.userId))
       .single();
     if (readError) throw readError;
-    res.json(updated);
+    res.json(sanitizeScheduleForClient(updated));
   } catch (e) {
     handleError(res, e);
   }
@@ -1991,7 +1991,7 @@ app.post("/schedule/:id/retry", requireAuth, pinterestScheduleLimiter, requireTa
       .eq("user_id", String(req.userId))
       .single();
     if (readError) throw readError;
-    res.json(updated);
+    res.json(sanitizeScheduleForClient(updated));
   } catch (e) {
     handleError(res, e);
   }
@@ -2014,7 +2014,7 @@ app.post("/schedule/:id/cancel", requireAuth, pinterestScheduleLimiter, async (r
         console.error("[storage] не удалось очистить изображение отменённого расписания:", cleanupError && cleanupError.message);
       });
     }
-    res.json(data);
+    res.json(sanitizeScheduleForClient(data));
   } catch (e) {
     handleError(res, e);
   }
@@ -2269,7 +2269,7 @@ app.get("/admin/financial-operations/unresolved", requireAuth, requireAdmin, asy
 app.get("/admin/subscriptions", requireAuth, requireAdmin, async (req, res) => {
   try {
     const data = await billing.listAllSubscriptions(Number(req.query.limit) || 200);
-    res.json(data);
+    res.json(sanitizeScheduleForClient(data));
   } catch (e) {
     handleError(res, e);
   }
