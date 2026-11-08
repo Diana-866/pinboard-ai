@@ -13,6 +13,8 @@ function memoryStorage() {
     getItem: (key: string) => values.get(key) ?? null,
     setItem: (key: string, value: string) => { values.set(key, value); },
     removeItem: (key: string) => { values.delete(key); },
+    key: (index: number) => Array.from(values.keys())[index] ?? null,
+    get length() { return values.size; },
   };
 }
 
@@ -103,4 +105,44 @@ test('clearing one completed request does not erase another', () => {
   clearPendingGenerationRequest(first, storage);
   assert.equal(readPendingGenerationRequest(first, storage), null);
   assert.equal(readPendingGenerationRequest(second, storage)?.idempotencyKey, 'stable-key-00000004');
+});
+
+test('session storage is used when accessing local storage itself is blocked', () => {
+  clearPendingGenerationRequest();
+  const sessionStorage = memoryStorage();
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    get() {
+      return {
+        get localStorage() { throw new Error('SecurityError'); },
+        sessionStorage,
+      };
+    },
+  });
+  const fingerprint = createGenerationFingerprint('storage-access-blocked');
+  try {
+    assert.equal(writePendingGenerationRequest(fingerprint, 'stable-key-fallback-0001'), false);
+    assert.deepEqual(readPendingGenerationRequest(fingerprint), {
+      fingerprint,
+      idempotencyKey: 'stable-key-fallback-0001',
+    });
+    assert.ok(sessionStorage.getItem(`pinposy_generation_request_v2:${fingerprint}`));
+  } finally {
+    if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow);
+    else Reflect.deleteProperty(globalThis, 'window');
+    clearPendingGenerationRequest();
+  }
+});
+
+test('full cleanup removes all scoped generation records', () => {
+  clearPendingGenerationRequest();
+  const storage = memoryStorage();
+  const first = createGenerationFingerprint('cleanup-a');
+  const second = createGenerationFingerprint('cleanup-b');
+  writePendingGenerationRequest(first, 'stable-key-cleanup-0001', storage);
+  writePendingGenerationRequest(second, 'stable-key-cleanup-0002', storage);
+  assert.equal(storage.length, 2);
+  clearPendingGenerationRequest(undefined, storage);
+  assert.equal(storage.length, 0);
 });
