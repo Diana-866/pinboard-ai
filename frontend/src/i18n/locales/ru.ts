@@ -552,6 +552,8 @@ export const ru: TranslationSchema = {
     thinking: 'Готовлю демонстрационную подсказку по навигации…',
     clearChat: 'Очистить историю',
     suggestedTitle: 'Разделы приложения:',
+    demoReply: 'Это только демонстрация навигации. Я не анализирую данные Pinterest и не выдаю рекомендации, сгенерированные ИИ.',
+    openSection: 'Открыть раздел',
   },
 
   notifications: {
