@@ -538,6 +538,8 @@ export const en: TranslationSchema = {
     thinking: 'Preparing a demo navigation hint…',
     clearChat: 'Reset Chat',
     suggestedTitle: 'Explore app sections:',
+    demoReply: 'This is a navigation demo only. I cannot analyze your Pinterest data or provide AI-generated recommendations.',
+    openSection: 'Open section',
   },
 
   notifications: {
