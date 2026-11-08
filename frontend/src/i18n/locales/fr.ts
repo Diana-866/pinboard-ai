@@ -403,6 +403,7 @@ export const fr: TranslationSchema = {
     pinterestDisconnectWarning: "Cela supprime les jetons du compte dans PinPosy, mais ne révoque pas l’autorisation OAuth auprès de Pinterest. Les futures publications en attente de ce compte seront marquées comme échouées ; une requête déjà en cours peut encore aboutir. Continuer ?",
     pinterestAccountFallback: "Compte Pinterest",
     pinterestReauthRequired: "Une nouvelle autorisation est requise",
+    pinterestReauthDescription: "Reconnectez ce compte Pinterest pour charger les tableaux et publier des Épingles.",
     pinterestPinsLabel: "épingles",
     billingSection: 'Abonnement et crédits IA',
     billingSectionDesc: 'Suivez votre solde mensuel de crédits d’automatisation et vos quotas d’utilisation.',
