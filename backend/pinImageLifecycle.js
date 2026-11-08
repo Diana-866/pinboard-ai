@@ -117,11 +117,18 @@ async function quarantineStalePinImageUploads({ supabase, olderThanSeconds = 900
   });
   if (inventoryError) throw inventoryError;
 
-  const result = { inspected: 0, quarantined: 0, skipped: 0, failed: 0 };
+  const result = { inspected: 0, quarantined: 0, skipped: 0, failed: 0, items: [] };
   for (const row of staleUploads || []) {
     result.inspected += 1;
+    const item = {
+      object_path: typeof row.object_path === "string" ? row.object_path : null,
+      attempts: Number.isInteger(Number(row.attempts)) ? Number(row.attempts) : null,
+      claim_expires_at: row.claim_expires_at || null,
+      updated_at: row.updated_at || null,
+    };
     if (row.bucket_id !== "pin-images" || !row.object_path || !row.upload_token) {
       result.skipped += 1;
+      result.items.push({ ...item, status: "skipped", reason: "invalid_inventory_row" });
       continue;
     }
     const { data, error } = await supabase.rpc("quarantine_stale_pin_image_upload", {
@@ -131,10 +138,13 @@ async function quarantineStalePinImageUploads({ supabase, olderThanSeconds = 900
     });
     if (error) {
       result.failed += 1;
+      result.items.push({ ...item, status: "failed", reason: "quarantine_rpc_failed" });
     } else if (data === true) {
       result.quarantined += 1;
+      result.items.push({ ...item, status: "quarantined", reason: "path_permanently_retired" });
     } else {
       result.skipped += 1;
+      result.items.push({ ...item, status: "skipped", reason: "claim_changed_or_path_referenced" });
     }
   }
   return result;
@@ -155,11 +165,20 @@ async function reconcileStalePinImageUploads({ supabase, olderThanSeconds = 900,
   const result = { inspected: 0, objectVisible: 0, objectMissing: 0, unresolved: [] };
   for (const row of staleUploads || []) {
     result.inspected += 1;
+    const metadata = {
+      object_path: typeof row.object_path === "string" ? row.object_path : null,
+      attempts: Number.isInteger(Number(row.attempts)) ? Number(row.attempts) : null,
+      claim_expires_at: row.claim_expires_at || null,
+      updated_at: row.updated_at || null,
+      stale_for_seconds: Number.isFinite(Date.parse(row.claim_expires_at))
+        ? Math.max(0, Math.floor((Date.now() - Date.parse(row.claim_expires_at)) / 1000))
+        : null,
+    };
     const parts = String(row.object_path || "").split("/");
     const filename = parts.pop();
     const folder = parts.join("/");
     if (!filename || !folder || row.bucket_id !== "pin-images" || !row.upload_token) {
-      result.unresolved.push({ object_path: row.object_path || null, reason: "invalid_inventory_row" });
+      result.unresolved.push({ ...metadata, reason: "invalid_inventory_row", safe_action: "inspect_inventory_without_changing_storage" });
       continue;
     }
 
@@ -167,15 +186,15 @@ async function reconcileStalePinImageUploads({ supabase, olderThanSeconds = 900,
       .from(row.bucket_id)
       .list(folder, { search: filename, limit: 100, offset: 0 });
     if (listError) {
-      result.unresolved.push({ object_path: row.object_path, reason: "storage_inventory_failed" });
+      result.unresolved.push({ ...metadata, reason: "storage_inventory_failed", safe_action: "retry_read_only_reconciliation" });
       continue;
     }
     if ((objects || []).some((object) => object && object.name === filename)) {
       result.objectVisible += 1;
-      result.unresolved.push({ object_path: row.object_path, reason: "object_visible_requires_operator_confirmation" });
+      result.unresolved.push({ ...metadata, reason: "object_visible_requires_operator_confirmation", safe_action: "keep_fenced_until_original_upload_is_confirmed_stopped" });
     } else {
       result.objectMissing += 1;
-      result.unresolved.push({ object_path: row.object_path, reason: "object_missing_keep_fenced" });
+      result.unresolved.push({ ...metadata, reason: "object_missing_keep_fenced", safe_action: "keep_fenced_and_check_provider_or_storage_logs" });
     }
   }
   return result;
