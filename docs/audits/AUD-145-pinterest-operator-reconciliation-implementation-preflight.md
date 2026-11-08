@@ -62,3 +62,21 @@ The API derives the operator from the verified JWT (req.userId). Do not accept o
 ## Verification limits
 
 This is a source-level contract review only. No database migration was applied, no live Pinterest account or publication was queried, and no test suite was executed. PR #4 remains Draft and must not be merged until the migration and integration tests run successfully.
+
+
+## Implementation progress (2026-11-08)
+
+A first guarded implementation has now been added on the feature branch:
+
+- Migration 082 creates an RLS-protected, service-role-inaccessible append-only reconciliation journal with action UUID and one-reconciliation-per-schedule uniqueness.
+- The SECURITY DEFINER RPC rechecks administrator status under deterministic operator/target user locks, then follows the Pinterest account → schedule → attempt lock order.
+- Only a stale schedule in unknown state with no claim token is eligible. The matching attempt must be stale processing/unknown, retry_safe=false, and match the owner, pin, account and reserved board.
+- Existing remote pin/board identity on the attempt, schedule or publication ledger must match exactly. Legacy account-ambiguous history is rejected.
+- A successful action writes the publication ledger, updates only the selected unknown schedule and its attempt, and appends the immutable receipt in one transaction. It never marks a publication as not created and never enables retry.
+- Added backend validation and the rate-limited authenticated admin route POST /admin/pinterest/reconcile-unknown-publication. Operator identity is taken from req.userId, not the body.
+- Added Node unit tests for request validation, narrow RPC arguments, actor identity derivation and safe error mapping.
+- Added a disposable PostgreSQL integration fixture for successful reconciliation, exact replay, changed-payload replay rejection, append-only receipt protection and duplicate schedule rejection. Wired migration 082 and the fixture into the atomic-payment PostgreSQL workflow.
+
+## Verification still required
+
+The SQL migration and PostgreSQL fixture have not yet been executed in a local disposable database. Node tests have not been run locally. CI status for the latest commit must be checked; historical workflow log archives have repeatedly returned BlobNotFound, so a failed check without readable logs cannot be attributed to the new code. Do not apply migration 082 to production or expose the endpoint in a deployment until PostgreSQL integration tests pass.
