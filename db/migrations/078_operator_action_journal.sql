@@ -63,6 +63,8 @@ before update or delete on public.provider_refund_operator_actions
 for each row execute function public.reject_provider_refund_operator_action_mutation();
 
 -- TRUNCATE does not fire row-level DELETE triggers, so block it separately.
+drop trigger if exists provider_refund_operator_actions_no_truncate
+  on public.provider_refund_operator_actions;
 create trigger provider_refund_operator_actions_no_truncate
 before truncate on public.provider_refund_operator_actions
 for each statement execute function public.reject_provider_refund_operator_action_mutation();
@@ -138,7 +140,173 @@ begin
        or p_evidence_reference is null
        or length(trim(p_evidence_reference))<8
        or length(p_evidence_reference)>500
-       or trim(p_evidence_reference) !~ '^[A-Za-z0-9][A-Za-z0-9._/#:-]{7,499}$'
+       or trim(p_evidence_reference) !~ '^[A-Za-z0-9][A-Za-z0-9._/#:-]{7,499}='regeneration' and p_task_index<>0) then
+      raise exception 'invalid provider-refund reconciliation evidence';
+    end if;
+  elsif p_task_index<>0 or p_provider_refunded is not null
+        or p_evidence_type is not null or p_evidence_reference is not null then
+    raise exception 'invalid finalization action payload';
+  end if;
+
+  -- Discovery read only: owner and idempotency key are never caller supplied.
+  if p_request_kind='generation' then
+    select user_id,idempotency_key into v_owner,v_request_key
+      from public.pin_generation_requests where id=p_request_id;
+  else
+    select user_id,idempotency_key into v_owner,v_request_key
+      from public.pin_regeneration_requests where id=p_request_id;
+  end if;
+  if not found then raise exception 'target request not found'; end if;
+
+  -- Global lock order: operator -> target user -> request -> tasks -> reservation.
+  select id into v_target_user
+    from public.users where id::text=v_owner for update;
+  if not found then raise exception 'target user not found'; end if;
+
+  if p_request_kind='generation' then
+    perform 1 from public.pin_generation_requests
+     where id=p_request_id and user_id=v_owner and idempotency_key=v_request_key
+     for update;
+  else
+    perform 1 from public.pin_regeneration_requests
+     where id=p_request_id and user_id=v_owner and idempotency_key=v_request_key
+     for update;
+  end if;
+  if not found then raise exception 'target request changed during lock acquisition'; end if;
+
+  if p_request_kind='generation' then
+    if p_action_kind='reconcile_refund' then
+      select provider_task_id into v_provider_task_id
+        from public.pin_generation_tasks
+       where generation_request_id=p_request_id
+         and user_id=v_owner and task_index=p_task_index
+       for update;
+      if not found then raise exception 'generation task not found'; end if;
+    else
+      perform 1 from public.pin_generation_tasks
+       where generation_request_id=p_request_id and user_id=v_owner
+       order by task_index for update;
+    end if;
+  end if;
+
+  perform 1 from public.pin_generation_credit_reservations
+   where user_id=v_owner and idempotency_key=v_request_key and status='reserved'
+   for update;
+  if not found then raise exception 'active credit reservation not found'; end if;
+
+  -- Delegate all business rules and mutations to the established RPCs.
+  if p_action_kind='reconcile_refund' and p_request_kind='generation' then
+    perform public.reconcile_pin_generation_provider_refund(
+      v_owner,v_request_key,p_task_index,v_provider_task_id,
+      p_provider_refunded,p_evidence_reference
+    );
+  elsif p_action_kind='reconcile_refund' and p_request_kind='regeneration' then
+    select provider_task_id into v_provider_task_id
+      from public.pin_regeneration_requests
+     where id=p_request_id and user_id=v_owner;
+    perform public.reconcile_pin_regeneration_provider_refund(
+      v_owner,v_request_key,v_provider_task_id,p_provider_refunded,p_evidence_reference
+    );
+  elsif p_action_kind='finalize_failure' and p_request_kind='generation' then
+    perform public.finalize_reconciled_pin_generation_failure(v_owner,v_request_key);
+  else
+    perform public.finalize_reconciled_pin_regeneration_failure(v_owner,v_request_key);
+  end if;
+
+  v_at:=clock_timestamp();
+  insert into public.provider_refund_operator_actions(
+    action_id,request_kind,target_request_id,operator_user_id,action_kind,
+    task_index,provider_refunded,evidence_type,evidence_reference,
+    before_state,after_state,created_at
+  ) values (
+    p_action_id,p_request_kind,p_request_id,p_operator_user_id,p_action_kind,
+    p_task_index,p_provider_refunded,p_evidence_type,
+    case when p_evidence_reference is null then null else trim(p_evidence_reference) end,
+    case when p_action_kind='reconcile_refund' then 'refund_unknown' else 'processing' end,
+    case when p_action_kind='finalize_failure' then 'failed'
+         when p_provider_refunded then 'provider_refunded' else 'provider_not_refunded' end,
+    v_at
+  ) on conflict do nothing;
+  get diagnostics v_inserted=row_count;
+  if v_inserted<>1 then
+    raise exception 'logical administrator action already recorded';
+  end if;
+  return v_at;
+end;
+$$;
+
+revoke all on function public._admin_record_provider_refund_action(uuid,text,bigint,text,integer,boolean,text,text,uuid)
+  from public,anon,authenticated,service_role;
+
+create or replace function public.admin_reconcile_pin_generation_provider_refund(
+  p_operator_user_id uuid,p_request_id bigint,p_task_index integer,
+  p_provider_refunded boolean,p_evidence_type text,p_evidence_reference text,p_action_id uuid
+) returns timestamptz
+language sql security definer
+set search_path=pg_catalog,public
+as $$
+  select public._admin_record_provider_refund_action(
+    p_operator_user_id,'generation',p_request_id,'reconcile_refund',p_task_index,
+    p_provider_refunded,p_evidence_type,p_evidence_reference,p_action_id
+  );
+$$;
+
+create or replace function public.admin_reconcile_pin_regeneration_provider_refund(
+  p_operator_user_id uuid,p_request_id bigint,
+  p_provider_refunded boolean,p_evidence_type text,p_evidence_reference text,p_action_id uuid
+) returns timestamptz
+language sql security definer
+set search_path=pg_catalog,public
+as $$
+  select public._admin_record_provider_refund_action(
+    p_operator_user_id,'regeneration',p_request_id,'reconcile_refund',0,
+    p_provider_refunded,p_evidence_type,p_evidence_reference,p_action_id
+  );
+$$;
+
+create or replace function public.admin_finalize_reconciled_pin_generation_failure(
+  p_operator_user_id uuid,p_request_id bigint,p_action_id uuid
+) returns timestamptz
+language sql security definer
+set search_path=pg_catalog,public
+as $$
+  select public._admin_record_provider_refund_action(
+    p_operator_user_id,'generation',p_request_id,'finalize_failure',0,
+    null,null,null,p_action_id
+  );
+$$;
+
+create or replace function public.admin_finalize_reconciled_pin_regeneration_failure(
+  p_operator_user_id uuid,p_request_id bigint,p_action_id uuid
+) returns timestamptz
+language sql security definer
+set search_path=pg_catalog,public
+as $$
+  select public._admin_record_provider_refund_action(
+    p_operator_user_id,'regeneration',p_request_id,'finalize_failure',0,
+    null,null,null,p_action_id
+  );
+$$;
+
+revoke all on function public.admin_reconcile_pin_generation_provider_refund(uuid,bigint,integer,boolean,text,text,uuid)
+  from public,anon,authenticated;
+revoke all on function public.admin_reconcile_pin_regeneration_provider_refund(uuid,bigint,boolean,text,text,uuid)
+  from public,anon,authenticated;
+revoke all on function public.admin_finalize_reconciled_pin_generation_failure(uuid,bigint,uuid)
+  from public,anon,authenticated;
+revoke all on function public.admin_finalize_reconciled_pin_regeneration_failure(uuid,bigint,uuid)
+  from public,anon,authenticated;
+
+grant execute on function public.admin_reconcile_pin_generation_provider_refund(uuid,bigint,integer,boolean,text,text,uuid)
+  to service_role;
+grant execute on function public.admin_reconcile_pin_regeneration_provider_refund(uuid,bigint,boolean,text,text,uuid)
+  to service_role;
+grant execute on function public.admin_finalize_reconciled_pin_generation_failure(uuid,bigint,uuid)
+  to service_role;
+grant execute on function public.admin_finalize_reconciled_pin_regeneration_failure(uuid,bigint,uuid)
+  to service_role;
+
+       or position('://' in lower(trim(p_evidence_reference)))>0
        or (p_request_kind='regeneration' and p_task_index<>0) then
       raise exception 'invalid provider-refund reconciliation evidence';
     end if;
