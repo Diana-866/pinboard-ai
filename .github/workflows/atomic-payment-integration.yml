@@ -267,6 +267,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/093_pinterest_schedule_remote_pin_identity_fencing.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/094_pinterest_failed_board_reassignment_requires_exact_attempt_identity.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/095_pinterest_failed_schedule_retry_requires_exact_attempt_identity.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/096_pinterest_failed_schedule_retry_uses_immutable_snapshot.sql
       - name: Verify Pinterest refresh uncertainty fence
         env:
           PGPASSWORD: postgres
