@@ -1893,6 +1893,7 @@ app.post("/schedule/:id/change-board", requireAuth, pinterestScheduleLimiter, re
         active_schedule_exists: [409, "Для этого пина уже существует другое активное расписание."],
         pin_unavailable: [404, "Исходный пин больше недоступен."],
         invalid_board: [422, "Некорректный идентификатор доски Pinterest."],
+        board_change_not_applicable: [409, "Сменить доску можно только после подтверждённой ошибки доступа к предыдущей доске."],
         schedule_not_found: [404, "Расписание не найдено."],
       };
       const [status, message] = reasons[changed && changed.reason] || [409, "Не удалось безопасно изменить доску публикации."];
