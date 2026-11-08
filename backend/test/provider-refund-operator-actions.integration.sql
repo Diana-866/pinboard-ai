@@ -15,7 +15,7 @@ create trigger _test_reject_operator_action_insert
   before insert on public.provider_refund_operator_actions
   for each row execute function public._test_reject_operator_action_insert();
 
-do $
+do $test$
 declare
   v_admin uuid := gen_random_uuid();
   v_target uuid := gen_random_uuid();
@@ -149,7 +149,7 @@ begin
     raise exception 'expected four operator journal rows (two reconciliations and two finalizations), got %',v_count;
   end if;
 end;
-$$;
+$test$;
 
 -- Direct API-role access is denied; RPC execution is the only supported path.
 do $$
@@ -171,7 +171,7 @@ drop trigger _test_reject_operator_action_insert on public.provider_refund_opera
 drop function public._test_reject_operator_action_insert();
 
 -- Append-only triggers reject UPDATE and TRUNCATE even when executed as owner.
-do $
+do $test$
 begin
   begin
     update public.provider_refund_operator_actions
@@ -188,6 +188,6 @@ begin
     if sqlerrm not like '%append-only%' then raise; end if;
   end;
 end;
-$;
+$test$;
 
 rollback;
