@@ -41,6 +41,7 @@ module.exports = {
   resolvePinScheduleSnapshot,
   classifyLegacyScheduleAccount,
   getScheduleRetryability,
+  getScheduleFailureReason,
 };
 
 
@@ -86,6 +87,15 @@ function classifyLegacyScheduleAccount(accounts, requestedAccountId = null) {
   return { status: "selected", account: active[0] };
 }
 
+
+function getScheduleFailureReason(schedule) {
+  if (!schedule || schedule.status !== "failed") return null;
+  const message = String(schedule.last_error || "");
+  if (/Выбранная доска не найдена или недоступна|не подтвердил принадлежность выбранной доски аккаунту/i.test(message)) {
+    return "board_unavailable";
+  }
+  return null;
+}
 
 function getScheduleRetryability(schedule, attempt, hasPublication, accountActive, hasActiveDuplicate) {
   if (!schedule || schedule.status !== "failed") return { retryable: false, reason: "not_failed" };
