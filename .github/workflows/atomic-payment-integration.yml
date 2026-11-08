@@ -262,6 +262,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/089_recover_completed_pin_image_uploads.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/090_prevent_reuse_of_deleted_pin_image_paths.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/091_reconcile_confirmed_pinterest_unknown_schedules.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/092_pinterest_stale_schedule_recovery_requires_exact_publication_evidence.sql
       - name: Verify Pinterest refresh uncertainty fence
         env:
           PGPASSWORD: postgres
@@ -316,6 +317,7 @@ jobs:
           PGPASSWORD: postgres
         run: |
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-unknown-schedule-reconciliation.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-stale-schedule-recovery.integration.sql
       - name: Verify stale Pinterest refresh cannot undo disconnect
         env:
           PGPASSWORD: postgres
