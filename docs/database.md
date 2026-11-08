@@ -24,13 +24,6 @@ SQL Editor → New query → вставить файл целиком → **Run*
 | `000_check_schema.sql` | Только SELECT к системным каталогам. Ничего не меняет. На пустой базе список отсутствующих объектов ожидаем; после полного применения цепочки он должен быть пустым. |
 | `001_baseline.sql` | Единственная каноническая базовая схема для новой установки. Создаёт базовые таблицы/колонки и заменяет старую цепочку `001_base_schema.sql` + `002–008`. |
 | `db/archive/001_base_schema.sql` | Архивная копия старой базовой миграции. Не запускать в новой установке и не применять вместе с `001_baseline.sql`. |
-| `002_auth_tokens.sql` | Таблица `auth_tokens` (sha256-хэши одноразовых токенов: сброс пароля, подтверждение email). RLS включён, политик нет — таблица обслуживается только сервисным ключом. |
-| `003_users_profile.sql` | `alter table users add column if not exists name/surname text`. |
-| `004_onboarding.sql` | `users.onboarded boolean default false`, `users.tariff_plan text default 'none'` + CHECK `('none','analytics','start','pro','agency')`; переносит старый тариф `standard` → `pro`. |
-| `005_email_verified.sql` | `users.email_verified boolean default false`. Колонка добавляется только если её ещё нет; при первом добавлении существующим пользователям ставится `true` (чтобы никого не отрезать от кабинета). Повторный запуск бэкфилл не повторяет. |
-| `006_subscriptions.sql` | Таблица `subscriptions` (Prodamus, один платёж = одна строка по `provider_payment_id`) + `users.tariff_period_end timestamptz`. |
-| `007_credit_purchases.sql` | Таблица `credit_purchases` — разовые покупки пакетов кредитов (`pack_100/500/1000`), защита от двойного зачисления (`balance_credited_at`). |
-| `008_pinterest_accounts.sql` | Начальная схема Pinterest: аккаунты и журнал публикаций. Ограничение «один аккаунт на пользователя» снимается миграцией 032; итоговая уникальность — внешний Pinterest ID в пределах пользователя. |
 
 ## Последующие миграции 009–082
 
@@ -43,7 +36,7 @@ SQL Editor → New query → вставить файл целиком → **Run*
 - `024_password_reset_email_cooldown.sql` и `025_drop_legacy_password_reset_overload.sql` — per-account cooldown и удаление старой трёхпараметрической RPC-сигнатуры, обходившей cooldown;
 - `055_auth_token_version.sql` — идемпотентно закрепляет колонку, DEFAULT 0, NOT NULL и CHECK >= 0 для baseline/схем, где колонка ещё не была создана.
 
-Не путать наличие колонки с наличием RPC: функции auth recovery определяются миграциями 020–025. Применять всю цепочку по порядку; 055 не заменяет миграции 020–025. Миграции 034–055 из feature branch не следует применять к production без отдельного согласованного rollout, резервной копии и проверки на staging.
+Не путать наличие колонки с наличием RPC: функции auth recovery определяются миграциями 020–025. Применять всю цепочку по порядку; 055 не заменяет миграции 020–025. Миграции 034–082 из feature branch не следует применять к production без отдельного согласованного rollout, резервной копии и проверки на staging.
 
 Pinterest multi-account rollout:
 - `031_pinterest_account_scoped_foundation.sql` adds stable account references, nullable credentials for soft disconnect, and per-account refresh leases.
@@ -56,11 +49,11 @@ Pinterest multi-account rollout:
 - `019_prevent_late_subscription_downgrade.sql` защищает текущий тариф от запоздавшего вебхука.
 - `030_transactional_email_outbox.sql` зависит от `subscriptions` и `users.preferred_language`; заменяет `activate_paid_subscription`, чтобы событие письма записывалось атомарно с активацией тарифа, и создаёт служебные RPC для очереди.
 
-Миграции 030–033 находятся в feature branch и **не применялись** к рабочей Supabase базе. Не запускай их в production отдельно от согласованного rollout backend/frontend-кода: сначала резервная копия, проверка всей цепочки на отдельной базе и явное подтверждение владельца проекта.
+Миграции 030–082 находятся в feature branch и **не применялись** к рабочей Supabase базе. Не запускай их в production отдельно от согласованного rollout backend/frontend-кода: сначала резервная копия, проверка всей цепочки на отдельной базе и явное подтверждение владельца проекта.
 
 ## Как проверить, что всё применилось
 
-1. Запусти `000_check_schema.sql` — раздел 4 («чего не хватает») должен вернуть **0 строк**.
+1. Запусти `db/migrations/000_check_schema.sql` — раздел 4 («чего не хватает») должен вернуть **0 строк**.
 2. Функция:
    ```sql
    select proname from pg_proc where proname = 'adjust_credits_balance';
