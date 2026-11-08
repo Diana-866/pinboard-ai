@@ -538,6 +538,8 @@ export const zh: TranslationSchema = {
     thinking: '正在准备演示导航提示…',
     clearChat: '清空会话',
     suggestedTitle: '浏览应用功能页面：',
+    demoReply: '这只是导航演示。我无法分析你的 Pinterest 数据，也不会提供 AI 生成的个性化建议。',
+    openSection: '打开页面',
   },
 
   notifications: {
