@@ -538,6 +538,8 @@ export const fr: TranslationSchema = {
     thinking: 'Préparation d’une suggestion de navigation…',
     clearChat: 'Effacer l’historique',
     suggestedTitle: 'Explorer les sections de l’application :',
+    demoReply: 'Ceci est uniquement une démonstration de navigation. Je ne peux pas analyser vos données Pinterest ni fournir de recommandations générées par IA.',
+    openSection: 'Ouvrir la section',
   },
 
   notifications: {
