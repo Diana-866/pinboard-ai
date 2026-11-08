@@ -10,6 +10,7 @@ const {
   resolvePinScheduleSnapshot,
   classifyLegacyScheduleAccount,
   getScheduleRetryability,
+  getScheduleFailureReason,
 } = require("../pinterestSchedule");
 
 test("a disconnected Pinterest account before publication is a terminal failure", () => {
@@ -122,6 +123,25 @@ test("legacy schedule account recovery rejects an account not in the user's acti
   });
 });
 
+
+test("failed schedules expose a safe board-unavailable reason without leaking raw provider errors", () => {
+  assert.equal(getScheduleFailureReason({
+    status: "failed",
+    last_error: "Выбранная доска не найдена или недоступна подключённому Pinterest-аккаунту",
+  }), "board_unavailable");
+  assert.equal(getScheduleFailureReason({
+    status: "failed",
+    last_error: "Pinterest не подтвердил принадлежность выбранной доски аккаунту",
+  }), "board_unavailable");
+  assert.equal(getScheduleFailureReason({
+    status: "failed",
+    last_error: "Unexpected internal error with provider details",
+  }), null);
+  assert.equal(getScheduleFailureReason({
+    status: "scheduled",
+    last_error: "Выбранная доска не найдена",
+  }), null);
+});
 
 test("retryability allows a failed schedule without any publication attempt", () => {
   assert.deepEqual(getScheduleRetryability({
