@@ -22,7 +22,7 @@ import { AI_CONTENT_LANGUAGES, useI18n } from '../../i18n/i18nContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
-import { getDefaultTimezone } from '../../utils/timezone';
+import { formatInstantInTimezone, getDefaultTimezone } from '../../utils/timezone';
 import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure } from '../../utils/generationRetry';
 import { clearPendingPinDescriptionIfMatches, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
 import { clearPendingGenerationRequest, createGenerationFingerprint, listPendingGenerationRequests, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
@@ -692,9 +692,13 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         return;
       }
   
+      // Derive both date and time from the same instant in the user's selected
+      // timezone. Using the UI locale here can emit 12-hour strings (e.g. 5:30 PM),
+      // which the scheduling API correctly rejects because it expects HH:mm.
+      const nowInUserTimezone = formatInstantInTimezone(new Date(), getDefaultTimezone(language));
       const scheduledDate =
         schedulingMode === 'publish_now'
-          ? formatLocalDate(new Date())
+          ? nowInUserTimezone.date
           : schedulingMode === 'custom_datetime'
           ? customScheduleDate
           : (() => {
@@ -705,7 +709,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   
       const scheduledTime =
         schedulingMode === 'publish_now'
-          ? new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', timeZone: getDefaultTimezone(language) }).format(new Date())
+          ? nowInUserTimezone.time
           : schedulingMode === 'custom_datetime'
           ? customScheduleTime
           : '20:15';
