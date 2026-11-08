@@ -1178,10 +1178,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   </label>
                   <div className="space-y-1.5">
                     {currentPin.titles.map((titleOption, idx) => (
-                      <div
+                      <button
                         key={idx}
-                        onClick={() => handleTitleSelect(titleOption)}
-                        className={`p-2.5 rounded-xl border text-xs md:text-sm cursor-pointer transition-all flex items-start gap-2.5 ${
+                        type="button"
+                        aria-pressed={currentPin.selectedTitle === titleOption}
+                        onClick={() => { void handleTitleSelect(titleOption); }}
+                        className={`w-full text-left p-2.5 rounded-xl border text-xs md:text-sm cursor-pointer transition-all flex items-start gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                           currentPin.selectedTitle === titleOption
                             ? 'border-accent bg-subtle text-primary-theme font-medium shadow-xs'
                             : 'border-subtle bg-app-input text-secondary-theme hover:bg-subtle'
@@ -1199,7 +1201,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                           )}
                         </div>
                         <span className="flex-1">{titleOption}</span>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
