@@ -15,6 +15,8 @@ type PinterestAttempt = {
 type PinterestSchedule = {
   schedule_id: string;
   pin_id: string | null;
+  creative_title: string;
+  creative_description: string;
   pinterest_account_id: string | null;
   pinterest_account: { username: string | null; pinterest_user_id: string | null; connected: boolean } | null;
   pinterest_board_id: string | null;
@@ -241,6 +243,15 @@ export const AdminPinterestSchedules: React.FC = () => {
                 </div>
                 <span className="text-[11px] text-muted-theme font-mono">ID: {item.schedule_id}</span>
               </div>
+
+              {(item.creative_title || item.creative_description) && (
+                <div className="rounded-xl border border-subtle bg-surface/60 p-3 text-xs space-y-1">
+                  <p className="font-semibold text-primary-theme">Содержание запланированного пина</p>
+                  {item.creative_title && <p className="text-secondary-theme"><span className="text-muted-theme">Заголовок:</span> {item.creative_title}</p>}
+                  {item.creative_description && <p className="text-secondary-theme whitespace-pre-wrap break-words"><span className="text-muted-theme">Описание:</span> {item.creative_description}</p>}
+                  <p className="text-muted-theme">Это текст, сохранённый при создании расписания; он помогает найти соответствующий пин в Pinterest.</p>
+                </div>
+              )}
 
               <div className="rounded-xl border border-subtle bg-surface/60 p-3 text-xs space-y-1">
                 <p className="font-semibold text-primary-theme">Целевой Pinterest-аккаунт</p>
