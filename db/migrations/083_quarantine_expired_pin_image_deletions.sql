@@ -58,7 +58,7 @@ begin
      where bucket_id = p_bucket_id
        and object_path = p_object_path
        and state = 'deleting'
-       and claim_expires_at <= now();
+       and (claim_expires_at is null or claim_expires_at <= now());
 
     return jsonb_build_object('claimed', false, 'reason', 'path_quarantined');
   end if;
