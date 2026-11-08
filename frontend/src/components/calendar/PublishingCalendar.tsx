@@ -37,7 +37,7 @@ interface PublishingCalendarProps {
   onRetrySchedule?: (pin: ScheduledPinItem) => Promise<void>;
   onChangeFailedScheduleBoard?: (pin: ScheduledPinItem, pinterestBoardId: string, boardName: string) => Promise<void>;
   onReconcileLegacySchedule?: (pin: ScheduledPinItem, accountId: string) => Promise<void>;
-  onGoToGenerator: (topic?: string, date?: string) => void;
+  onGoToGenerator: (topic?: string, date?: string, time?: string, boardId?: string) => void;
   onOpenReview?: () => void;
   accounts?: PinterestAccount[];
   pendingCount?: number;
@@ -285,7 +285,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
       isOpen: true,
       date: dateStr,
       time: timeStr,
-      boardId: boards[0]?.id || 'b-1',
+      boardId: boards[0]?.id || '',
     });
     setSlotTopic('Minimalist Scandinavian styling and warm beige palette');
   };
@@ -294,7 +294,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
     e.preventDefault();
     if (!slotModalData) return;
 
-    onGoToGenerator(slotTopic, slotModalData.date);
+    onGoToGenerator(slotTopic, slotModalData.date, slotModalData.time, slotModalData.boardId);
     setSlotModalData(null);
   };
 
