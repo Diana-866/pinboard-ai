@@ -29,7 +29,7 @@ const supabase = require("./supabase");
 const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
 const { httpError } = require("./validate");
 const { getPinterestTokenExpiresAt } = require("./pinterestOAuth");
-const { buildScheduleWorkerFailureState, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown, persistPublishFailureJournal } = require("./pinterestSchedule");
+const { buildScheduleWorkerFailureState, hasMatchingScheduleAttemptIdentity, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown, persistPublishFailureJournal } = require("./pinterestSchedule");
 const {
   createBrowserBinding,
   readCookie,
@@ -1020,12 +1020,17 @@ function registerRoutes(app, deps) {
           try {
             const lookup = await supabase
               .from("pinterest_publish_attempts")
-              .select("status, pinterest_pin_id, retry_safe")
+              .select("user_id, pin_id, pinterest_account_id, pinterest_board_id, status, pinterest_pin_id, retry_safe")
+              .eq("user_id", String(schedule.user_id))
               .eq("pin_id", schedule.pin_id)
               .eq("pinterest_account_id", schedule.pinterest_account_id)
               .maybeSingle();
             attempt = lookup.data;
             attemptLookupError = lookup.error;
+            if (!attemptLookupError && attempt && !hasMatchingScheduleAttemptIdentity(attempt, schedule)) {
+              attemptLookupError = new Error("Publication journal identity does not match the claimed schedule");
+              attempt = null;
+            }
           } catch (lookupError) {
             // A rejected transport promise is just as uncertain as a returned
             // Supabase error. Never infer that the remote publish did not happen.
