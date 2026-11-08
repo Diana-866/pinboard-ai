@@ -403,6 +403,7 @@ export const ru: TranslationSchema = {
     pinterestDisconnectWarning: "Отключение удалит токены из PinPosy, но не отзывает разрешение в Pinterest. Будущие публикации в очереди этого аккаунта будут помечены как ошибочные; уже выполняющийся запрос может завершиться. Продолжить?",
     pinterestAccountFallback: "Аккаунт Pinterest",
     pinterestReauthRequired: "Требуется повторная авторизация",
+    pinterestReauthDescription: "Переподключите этот Pinterest-аккаунт, чтобы снова загружать доски и публиковать пины.",
     pinterestPinsLabel: "пинов",
     billingSection: 'Тарифный план и кредиты',
     billingSectionDesc: 'Контролируйте доступные ежемесячные кредиты автоматизации и возможности аккаунта.',
