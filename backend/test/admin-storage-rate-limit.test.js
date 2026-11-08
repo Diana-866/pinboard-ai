@@ -34,3 +34,20 @@ test("POST /resend-verification applies a dedicated outbound-mail limiter", () =
   assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
   assert.ok(source.includes("const resendVerificationLimiter = rateLimit({"));
 });
+
+
+test("AI generation routes share a per-authenticated-user limiter", () => {
+  assert.ok(
+    source.includes("keyGenerator: (req) => String(req.userId)"),
+    "Expected the AI limiter to key by the verified user ID"
+  );
+  for (const route of [
+    "/projects/:id/analyze",
+    "/projects/:id/boards/generate",
+    "/pins/:id/regenerate",
+    "/boards/:id/pins/generate",
+  ]) {
+    const registration = 'app.post("' + route + '", requireAuth, aiLimiter,';
+    assert.ok(source.includes(registration), "Expected authenticated per-user AI limiter: " + registration);
+  }
+});
