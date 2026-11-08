@@ -45,7 +45,7 @@ function mapRpcError(error) {
   if (/administrator privileges required/i.test(message)) {
     return httpError(403, "Доступ запрещён");
   }
-  if (/schedule not found|account not found/i.test(message)) {
+  if (/schedule not found|account not found|schedule owner not found/i.test(message)) {
     return httpError(404, "Публикация или аккаунт не найдены");
   }
   if (/invalid Pinterest reconciliation payload/i.test(message)) {
