@@ -5,6 +5,7 @@ const {
   classifyScheduleFailure,
   canRetryScheduleFailure,
   getScheduleRetryDelayMinutes,
+  buildScheduleWorkerFailureState,
   persistPublishFailureJournal,
   isPinterestPublishOutcomeUnknown,
   buildPinScheduleSnapshot,
@@ -260,4 +261,58 @@ test("thrown journal transport errors are normalized to a safe 503", async () =>
     }, {}),
     (error) => error.httpStatus === 503 && error.code === "PUBLISH_JOURNAL_PERSISTENCE_FAILED"
   );
+});
+
+
+test("worker journal lookup failure remains unknown and never authorizes a retry", () => {
+  const state = buildScheduleWorkerFailureState({
+    attempt: null,
+    attemptLookupError: new Error("database connection reset"),
+    error: new Error("worker failed"),
+    attempts: 1,
+    now: Date.parse("2026-11-09T12:00:00.000Z"),
+  });
+  assert.equal(state.finalStatus, "unknown");
+  assert.equal(state.retryable, false);
+  assert.equal(state.shouldRetry, false);
+  assert.equal(state.nextStatus, "unknown");
+  assert.equal(state.retryAt, null);
+  assert.match(state.message, /Could not verify publication journal/);
+});
+
+test("worker safely retries only a journal-confirmed retry-safe rejection", () => {
+  const state = buildScheduleWorkerFailureState({
+    attempt: { status: "failed", retry_safe: true },
+    error: Object.assign(new Error("Pinterest rejected before creation"), { httpStatus: 403 }),
+    attempts: 2,
+    now: Date.parse("2026-11-09T12:00:00.000Z"),
+  });
+  assert.equal(state.finalStatus, "failed");
+  assert.equal(state.shouldRetry, true);
+  assert.equal(state.nextStatus, "scheduled");
+  assert.equal(state.retryAt, "2026-11-09T12:02:00.000Z");
+});
+
+test("worker does not retry after reaching the bounded retry limit", () => {
+  const state = buildScheduleWorkerFailureState({
+    attempt: { status: "failed", retry_safe: true },
+    error: new Error("temporary"),
+    attempts: 5,
+    now: Date.parse("2026-11-09T12:00:00.000Z"),
+  });
+  assert.equal(state.retryable, true);
+  assert.equal(state.shouldRetry, false);
+  assert.equal(state.nextStatus, "failed");
+  assert.equal(state.retryAt, null);
+});
+
+test("a confirmed publication remains published even if later worker work fails", () => {
+  const state = buildScheduleWorkerFailureState({
+    attempt: { status: "published", pinterest_pin_id: "remote-1" },
+    error: new Error("post-publication worker failure"),
+    attempts: 1,
+  });
+  assert.equal(state.finalStatus, "published");
+  assert.equal(state.nextStatus, "published");
+  assert.equal(state.shouldRetry, false);
 });
