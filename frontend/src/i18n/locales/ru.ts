@@ -554,6 +554,8 @@ export const ru: TranslationSchema = {
     suggestedTitle: 'Разделы приложения:',
     demoReply: 'Это только демонстрация навигации. Я не анализирую данные Pinterest и не выдаю рекомендации, сгенерированные ИИ.',
     openSection: 'Открыть раздел',
+    dock: 'Прикрепить помощника к краю экрана',
+    undock: 'Развернуть помощника PinPosy',
   },
 
   notifications: {
