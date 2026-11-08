@@ -360,3 +360,42 @@ begin
   end if;
 end;
 $$;
+
+
+-- A successful paid row without either per-order or accumulated expiry is
+-- malformed and must not authorize Pinterest OAuth as an unlimited plan.
+do $$
+declare
+  v_user uuid := gen_random_uuid();
+  v_attempt uuid;
+  v_generation bigint;
+  v_result jsonb;
+begin
+  insert into public.users(id, email, token_version, tariff_plan, tariff_period_end)
+  values (
+    v_user,
+    'pinterest-null-paid-expiry-' || v_user || '@example.invalid',
+    0,
+    'agency',
+    null
+  );
+
+  insert into public.subscriptions(
+    user_id, plan, status, amount, currency, period_start, period_end, created_at
+  ) values (
+    v_user::text, 'agency', 'success', 0, 'rub', now(), null, now()
+  );
+
+  v_attempt := gen_random_uuid();
+  v_generation := public.begin_pinterest_oauth_attempt(v_user::text, v_attempt, 0);
+  v_result := public.commit_pinterest_oauth_attempt_v2(
+    v_user::text, v_attempt, v_generation, 0,
+    'null-expiry-' || v_user, 'null_expiry', 'enc:null-expiry', 'enc:refresh-null-expiry',
+    'boards:read,pins:write', now() + interval '1 hour'
+  );
+
+  if v_result->>'ok' <> 'false' or v_result->>'reason' <> 'plan_required' then
+    raise exception 'paid subscription with null entitlement end incorrectly authorized Pinterest OAuth: %', v_result;
+  end if;
+end;
+$$;
