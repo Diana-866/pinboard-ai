@@ -28,7 +28,7 @@ const jwt = require("jsonwebtoken");
 const supabase = require("./supabase");
 const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
 const { httpError } = require("./validate");
-const { classifyScheduleFailure, canRetryScheduleFailure, getScheduleRetryDelayMinutes, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown } = require("./pinterestSchedule");
+const { classifyScheduleFailure, canRetryScheduleFailure, getScheduleRetryDelayMinutes, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown, persistPublishFailureJournal } = require("./pinterestSchedule");
 const {
   createBrowserBinding,
   readCookie,
@@ -520,24 +520,19 @@ async function getPinWithOwner(pinId, userId) {
 }
 
 async function persistFailedPublishAttempt({ userId, pinId, accountId, message, outcomeUnknown }) {
-  const { error } = await supabase.rpc("fail_pinterest_publish_v2", {
-    p_user_id: String(userId),
-    p_pin_id: pinId,
-    p_pinterest_account_id: accountId,
-    p_error: String(message || "Pinterest publication failed").slice(0, 500),
-    p_outcome_unknown: Boolean(outcomeUnknown),
-  });
-  if (error) {
-    // Keep the original processing reservation fenced. A later retry must not
-    // assume that the remote POST was rejected when its journal update failed.
-    console.error("[pinterest] не удалось сохранить исход публикации:", error.message);
-    throw httpError(
-      503,
-      "Не удалось сохранить результат обращения к Pinterest. Публикация заблокирована до сверки; не запускайте её повторно."
-    );
+  try {
+    await persistPublishFailureJournal((name, params) => supabase.rpc(name, params), {
+      p_user_id: String(userId),
+      p_pin_id: pinId,
+      p_pinterest_account_id: accountId,
+      p_error: String(message || "Pinterest publication failed").slice(0, 500),
+      p_outcome_unknown: Boolean(outcomeUnknown),
+    });
+  } catch (error) {
+    console.error("[pinterest] не удалось сохранить исход публикации:", error && error.message);
+    throw error;
   }
 }
-
 async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationUrl, accountId = null, scheduleClaim = null, scheduleSnapshot = null) {
   const boardId = String(pinterestBoardId || "").trim();
   if (!boardId) throw httpError(422, "board_id обязателен: выберите доску Pinterest");
