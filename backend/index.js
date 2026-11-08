@@ -163,7 +163,7 @@ const imageUploadLimiter = rateLimit({
 const { generateImage, checkImage, imageTaskResult, providerTaskError, quoteImageTask } = require("./gptunnel");
 const { register, login, verifyToken } = require("./auth");
 const supabase = require("./supabase");
-const { buildPinScheduleSnapshot, classifyLegacyScheduleAccount, getScheduleRetryability, getScheduleFailureReason, sanitizeScheduleForClient } = require("./pinterestSchedule");
+const { buildPinScheduleSnapshot, classifyLegacyScheduleAccount, getScheduleRetryability, getScheduleFailureReason, hasMatchingScheduleAttemptIdentity, sanitizeScheduleForClient } = require("./pinterestSchedule");
 const { pinterestScheduleLimiter } = require("./pinterestRateLimit");
 const { analyzeSite } = require("./analyze");
 const { generateBoards } = require("./boards");
@@ -1637,7 +1637,7 @@ app.get("/schedule", requireAuth, async (req, res) => {
     const accountIds = [...new Set(failedRows.map((row) => row.pinterest_account_id).filter(Boolean).map(String))];
     const [attemptsResult, publicationsResult, accountsResult] = await Promise.all([
       supabase.from("pinterest_publish_attempts")
-        .select("pin_id, pinterest_account_id, status, retry_safe")
+        .select("user_id, pin_id, pinterest_account_id, pinterest_board_id, status, retry_safe")
         .in("pin_id", pinIds),
       supabase.from("pinterest_publications")
         .select("pin_id, pinterest_account_id")
@@ -1671,6 +1671,11 @@ app.get("/schedule", requireAuth, async (req, res) => {
         String(item.pin_id) === String(row.pin_id) &&
         String(item.pinterest_account_id || "") === String(accountId || "")
       ) || null;
+      // Retry eligibility is tied to the exact journal identity, including
+      // owner and original Pinterest board—not merely pin/account/status.
+      const matchingAttempt = attempt && hasMatchingScheduleAttemptIdentity(attempt, row)
+        ? attempt
+        : attempt;
       const hasPublication = publications.some((item) =>
         String(item.pin_id) === String(row.pin_id) &&
         String(item.pinterest_account_id || "") === String(accountId || "")
@@ -1683,7 +1688,7 @@ app.get("/schedule", requireAuth, async (req, res) => {
       );
       const retry = getScheduleRetryability(
         row,
-        attempt,
+        matchingAttempt,
         hasPublication,
         !!accountId && activeAccountIds.has(accountId),
         hasActiveDuplicate
