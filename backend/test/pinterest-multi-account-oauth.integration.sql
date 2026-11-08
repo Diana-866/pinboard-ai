@@ -310,3 +310,53 @@ begin
   end if;
 end;
 $$;
+
+
+-- Paid entitlement resolution must ignore a stale users.tariff_plan='none'
+-- cache and follow newest-created plan, not the older order with the later
+-- per-order period_end produced by a delayed webhook.
+do $$
+declare
+  v_user uuid := gen_random_uuid();
+  v_attempt uuid;
+  v_generation bigint;
+  v_result jsonb;
+begin
+  insert into public.users(id, email, token_version, tariff_plan, tariff_period_end)
+  values (
+    v_user,
+    'pinterest-effective-entitlement-' || v_user || '@example.invalid',
+    0,
+    'none',
+    now() + interval '90 days'
+  );
+
+  insert into public.subscriptions(
+    user_id, plan, status, amount, currency, period_start, period_end, created_at
+  ) values
+    (v_user::text, 'agency', 'success', 0, 'rub', now(), now() + interval '90 days', now() - interval '2 days'),
+    (v_user::text, 'analytics', 'success', 0, 'rub', now(), now() + interval '20 days', now() - interval '1 day');
+
+  v_attempt := gen_random_uuid();
+  v_generation := public.begin_pinterest_oauth_attempt(v_user::text, v_attempt, 0);
+  v_result := public.commit_pinterest_oauth_attempt_v2(
+    v_user::text, v_attempt, v_generation, 0,
+    'effective-a-' || v_user, 'effective_a', 'enc:effective-a', 'enc:refresh-a',
+    'boards:read,pins:write', now() + interval '1 hour'
+  );
+  if v_result->>'ok' <> 'true' then
+    raise exception 'valid paid subscription hidden by stale none cache: %', v_result;
+  end if;
+
+  v_attempt := gen_random_uuid();
+  v_generation := public.begin_pinterest_oauth_attempt(v_user::text, v_attempt, 0);
+  v_result := public.commit_pinterest_oauth_attempt_v2(
+    v_user::text, v_attempt, v_generation, 0,
+    'effective-b-' || v_user, 'effective_b', 'enc:effective-b', 'enc:refresh-b',
+    'boards:read,pins:write', now() + interval '1 hour'
+  );
+  if v_result->>'ok' <> 'false' or v_result->>'reason' <> 'account_limit_reached' then
+    raise exception 'delayed older agency order overrode newest analytics plan: %', v_result;
+  end if;
+end;
+$$;
