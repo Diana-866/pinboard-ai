@@ -29,7 +29,7 @@ const supabase = require("./supabase");
 const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
 const { httpError } = require("./validate");
 const { getPinterestTokenExpiresAt } = require("./pinterestOAuth");
-const { buildScheduleWorkerFailureState, hasCompleteScheduleClaimIdentity, hasMatchingScheduleAttemptIdentity, isScheduleClaimUpdateConfirmed, resolvePublishedReservation, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown, persistPublishFailureJournal } = require("./pinterestSchedule");
+const { buildScheduleWorkerFailureState, hasCompleteScheduleClaimIdentity, hasMatchingScheduleAttemptIdentity, isScheduleClaimUpdateConfirmed, resolvePublishedReservation, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown, matchesConfirmedPublicationLedger, persistPublishFailureJournal } = require("./pinterestSchedule");
 const {
   createBrowserBinding,
   readCookie,
@@ -732,6 +732,41 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
     p_pinterest_board_id: boardId,
   });
   if (completeError) {
+    // A PostgREST/network error does not prove that the SQL transaction rolled
+    // back. Check the durable ledger before writing an "unknown" failure over
+    // a completion that may already have committed atomically.
+    let confirmedLedger = null;
+    try {
+      const lookup = await supabase
+        .from("pinterest_publications")
+        .select("user_id, pin_id, pinterest_account_id, pinterest_pin_id, pinterest_board_id")
+        .eq("user_id", String(userId))
+        .eq("pin_id", pinId)
+        .eq("pinterest_account_id", accountId)
+        .maybeSingle();
+      if (!lookup.error && matchesConfirmedPublicationLedger(lookup.data, {
+        user_id: String(userId),
+        pin_id: pinId,
+        pinterest_account_id: accountId,
+        pinterest_pin_id: remoteId,
+        pinterest_board_id: boardId,
+      })) {
+        confirmedLedger = lookup.data;
+      }
+    } catch (lookupError) {
+      console.error("[pinterest] не удалось проверить журнал после неоднозначного ответа БД:", lookupError && lookupError.message);
+    }
+
+    if (confirmedLedger) {
+      console.warn("[pinterest] completion RPC вернул ошибку, но точная публикация уже подтверждена журналом");
+      return {
+        ok: true,
+        already_published: true,
+        pinterest_pin_id: remoteId,
+        board_id: boardId,
+      };
+    }
+
     await persistFailedPublishAttempt({
       userId,
       pinId,
