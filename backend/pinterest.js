@@ -1114,6 +1114,10 @@ function registerRoutes(app, deps) {
                 updated_at: new Date().toISOString(),
               })
               .eq("id", schedule.id)
+              .eq("user_id", String(schedule.user_id))
+              .eq("pin_id", String(schedule.pin_id))
+              .eq("pinterest_account_id", String(schedule.pinterest_account_id))
+              .eq("pinterest_board_id", String(schedule.pinterest_board_id))
               .eq("status", "publishing")
               .eq("claim_token", schedule.claim_token)
               .select("id")
