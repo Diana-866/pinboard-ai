@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, reconcileStalePinImageUploads, deleteManagedPinImageObject, validatePinImageBucketConfiguration } = require("./pinImageLifecycle");
+const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, reconcileStalePinImageUploads, quarantineStalePinImageUploads, deleteManagedPinImageObject, validatePinImageBucketConfiguration } = require("./pinImageLifecycle");
 
 const base = "https://project.supabase.co";
 
