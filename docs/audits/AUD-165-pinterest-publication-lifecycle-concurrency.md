@@ -80,3 +80,16 @@ The new concurrency script is wired into CI but has **not yet been observed exec
 ## Recommended next step
 
 Extend the new PostgreSQL concurrency harness to cover the remaining interleavings: claim vs stale recovery; completion vs account disconnect; and late worker success vs stale recovery. The completion vs operator-reconciliation race now has a dedicated CI script, but still requires a green run. Until all critical races are exercised successfully, retain the existing fail-closed unknown state and do not add automatic retries for ambiguous Pinterest outcomes.
+
+
+### AUD-165-06 — Disconnect after reservation does not cancel a prepared POST
+
+**Finding: documented race window; no claim of hard cancellation.** The SQL reservation and disconnect operations serialize on the Pinterest account row. If disconnect commits first, the reservation rejects and no attempt is created. If reservation commits first, the attempt is durable and the reservation transaction releases its account lock before the external request.
+
+The backend then calls `withAccount()`, which re-reads the active account and obtains the token before calling `executeWithAccountToken()`. This blocks the common case where disconnect has already committed before that read. However, there is still a time-of-check/time-of-use interval between the active-account read/token selection and the actual `POST /pins`. A disconnect can commit in that interval; the already-read token can still be passed to the HTTP handler. The disconnect RPC clears credentials in PinPosy and fails future queued schedules, but does not revoke the provider token at Pinterest.
+
+Therefore the actual guarantee is narrower than “disconnect cancels every not-yet-sent publish”: disconnect that wins before reservation prevents the attempt; disconnect after reservation prevents later account reads and future queued work, but cannot guarantee cancellation of a request whose token has already been read or whose HTTP request is already in flight. The durable attempt journal still prevents an ambiguous request from being automatically replayed.
+
+**Disposition:** no code change made in this audit. Holding a database row lock across a remote HTTP request would make provider latency/timeout part of a database transaction and is not an acceptable default fix. A final pre-send state check can shrink, but cannot eliminate, the race. If product semantics require strict cancellation, design a separate revocation/cancellation protocol and define its linearization point; do not describe local disconnect as an atomic cancellation of external publication. UI/help text should say that a publication already starting may still complete after disconnect.
+
+**Coverage note:** `backend/test/pinterest-account-publication.integration.sql` verifies the disconnect-first case (disconnect commits, then reservation is rejected) and verifies that disconnect leaves an already-publishing schedule for journal reconciliation. It does not test or prove cancellation after the backend has read the access token. The concurrency harness currently covers completion/reconciliation and completion/stale-recovery races, not this external HTTP boundary.
