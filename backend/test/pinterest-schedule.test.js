@@ -7,6 +7,7 @@ const {
   getScheduleRetryDelayMinutes,
   buildScheduleWorkerFailureState,
   hasMatchingScheduleAttemptIdentity,
+  hasCompleteScheduleClaimIdentity,
   isScheduleClaimUpdateConfirmed,
   resolvePublishedReservation,
   persistPublishFailureJournal,
@@ -302,6 +303,23 @@ test("existing published reservation is accepted only for the exact board and a 
     () => resolvePublishedReservation({ pinterest_pin_id: "", pinterest_board_id: "board-1" }, "board-1"),
     (error) => error.httpStatus === 409
   );
+});
+
+test("worker failure mutation requires every schedule identity and claim field", () => {
+  const schedule = {
+    id: "schedule-1",
+    user_id: "user-1",
+    pin_id: "pin-1",
+    pinterest_account_id: "account-1",
+    pinterest_board_id: "board-1",
+    claim_token: "claim-1",
+  };
+  assert.equal(hasCompleteScheduleClaimIdentity(schedule), true);
+  for (const field of Object.keys(schedule)) {
+    const incomplete = { ...schedule, [field]: " " };
+    assert.equal(hasCompleteScheduleClaimIdentity(incomplete), false, field);
+  }
+  assert.equal(hasCompleteScheduleClaimIdentity(null), false);
 });
 
 test("worker confirms a conditional schedule update actually changed its claimed row", () => {
