@@ -3,6 +3,7 @@ import { AdminMail } from './AdminMail';
 import { AdminEmailOutbox } from './AdminEmailOutbox';
 import { AdminSubscriptions } from './AdminSubscriptions';
 import { AdminBillingExceptions } from './AdminBillingExceptions';
+import { AdminFinancialOperations } from './AdminFinancialOperations';
 import { AdminPinterestSchedules } from './AdminPinterestSchedules';
 import {
   Users,
@@ -291,6 +292,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
           </button>
 
           <button
+            onClick={() => setAdminTab('financial_operations')}
+            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              adminTab === 'financial_operations'
+                ? 'accent-btn shadow-xs'
+                : 'text-secondary-theme hover:text-primary-theme hover:bg-subtle'
+            }`}
+          >
+            <AlertCircle className="w-4 h-4" />
+            <span>7. Незавершённые операции</span>
+          </button>
+
+          <button
             onClick={() => setAdminTab('subscriptions')}
             className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               adminTab === 'subscriptions'
@@ -299,7 +312,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
             }`}
           >
             <Receipt className="w-4 h-4" />
-            <span>7. Подписки и платежи</span>
+            <span>8. Подписки и платежи</span>
           </button>
 
           <button
@@ -311,7 +324,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span>8. Pinterest — очередь</span>
+            <span>9. Pinterest — очередь</span>
           </button>
         </div>
       </div>
@@ -334,6 +347,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
         {adminTab === 'email_outbox' && <AdminEmailOutbox />}
         {adminTab === 'subscriptions' && <AdminSubscriptions />}
         {adminTab === 'billing_exceptions' && <AdminBillingExceptions />}
+        {adminTab === 'financial_operations' && <AdminFinancialOperations />}
         {adminTab === 'pinterest' && <AdminPinterestSchedules />}
         {/* ============================================================ */}
         {/* TAB 1: USERS & DETAILED GENERATION STATS                     */}
