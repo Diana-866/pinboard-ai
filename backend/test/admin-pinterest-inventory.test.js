@@ -95,6 +95,21 @@ test("attempt identity includes owner and operational errors redact credential-l
   assert.equal("user_id" in result.items[0], false);
 });
 
+test("legacy null-account attempts select the newest journal row deterministically", async () => {
+  reset();
+  scheduleRows[0].pinterest_account_id = null;
+  attemptRows = [
+    { ...attemptRows[0], pinterest_account_id: null, status: "unknown", updated_at: "2026-11-08T11:59:00.000Z" },
+    { ...attemptRows[0], id: "older-legacy-attempt", pinterest_account_id: null, status: "failed", updated_at: "2026-11-08T10:00:00.000Z" },
+  ];
+  const result = await inventory.listPinterestSchedules({}, NOW);
+  assert.equal(result.items[0].attempt.status, "unknown");
+  assert.deepEqual(
+    calls[1].filters.filter(([kind]) => kind === "order").map(([, column, options]) => [column, options.ascending]),
+    [["updated_at", false], ["id", false]],
+  );
+});
+
 test("stale publishing and overdue scheduled rows are classified without changing state", async () => {
   reset();
   scheduleRows = [
