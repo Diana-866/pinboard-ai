@@ -926,21 +926,11 @@ function registerRoutes(app, deps) {
           const remoteId = String(published.pinterest_pin_id || "");
           if (!remoteId) throw new Error("Pinterest publication returned no remote ID");
 
-          const { error: updateError } = await supabase
-            .from("pin_schedules")
-            .update({
-              status: "published",
-              claim_token: null,
-              pinterest_pin_id: remoteId,
-              published_at: new Date().toISOString(),
-              last_error: null,
-              next_attempt_at: null,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", schedule.id)
-            .eq("status", "publishing")
-            .eq("claim_token", schedule.claim_token);
-          if (updateError) throw updateError;
+          // publishPin has already committed the remote ID and reconciled the
+          // matching schedule atomically via complete_pinterest_publish_v2.
+          // Do not issue a second conditional UPDATE with the now-consumed claim
+          // token: the completion RPC has already changed status to published
+          // and cleared that token.
           results.push({ schedule_id: schedule.id, status: "published" });
         } catch (e) {
           const { data: attempt, error: attemptLookupError } = await supabase
