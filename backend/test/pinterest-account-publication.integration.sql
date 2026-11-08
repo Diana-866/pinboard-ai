@@ -481,6 +481,16 @@ begin
     'UTC', 'board-a', 'scheduled'
   ) returning id into v_reconnect_schedule;
 
+  -- A remote request that already passed the durable reservation boundary may
+  -- finish after the user disconnects the account. Reserve it before disconnect;
+  -- the confirmed success must still be written to the ledger afterwards.
+  v_result := public.begin_pinterest_publish_v2(
+    v_user::text, v_inflight_pin, v_account_a, 'board-a'
+  );
+  if v_result->>'status' <> 'started' then
+    raise exception 'in-flight publication could not reserve before disconnect: %', v_result;
+  end if;
+
   -- Disconnecting A must fail only A's future schedules; B remains queued.
   v_disconnected := public.disconnect_pinterest_account_v2(v_user::text, v_account_a);
   if v_disconnected is distinct from true then
@@ -493,6 +503,33 @@ begin
   if (select status from public.pin_schedules
        where user_id=v_user::text and pin_id=v_pin and pinterest_account_id=v_account_b) <> 'scheduled' then
     raise exception 'disconnecting account A changed account B schedule';
+  end if;
+
+  -- Disconnect cannot revoke an HTTP request already accepted by Pinterest.
+  -- Its late 2xx must be durably reconciled even though local credentials are
+  -- now cleared; otherwise a later reconnect could create a duplicate pin.
+  perform public.complete_pinterest_publish_v2(
+    v_user::text, v_inflight_pin, v_account_a, 'remote-after-disconnect', 'board-a'
+  );
+  if not exists (
+       select 1 from public.pinterest_publications
+        where user_id=v_user::text and pin_id=v_inflight_pin
+          and pinterest_account_id=v_account_a
+          and pinterest_board_id='board-a'
+          and pinterest_pin_id='remote-after-disconnect'
+     )
+     or (select status from public.pinterest_publish_attempts
+          where pin_id=v_inflight_pin and pinterest_account_id=v_account_a) <> 'published'
+     or (select status from public.pin_schedules
+          where user_id=v_user::text and pin_id=v_inflight_pin
+            and pinterest_account_id=v_account_a) <> 'published'
+     or (select claim_token from public.pin_schedules
+          where user_id=v_user::text and pin_id=v_inflight_pin
+            and pinterest_account_id=v_account_a) is not null
+     or (select access_token from public.pinterest_accounts where id=v_account_a) is not null
+     or (select refresh_token from public.pinterest_accounts where id=v_account_a) is not null
+     or (select disconnected_at from public.pinterest_accounts where id=v_account_a) is null then
+    raise exception 'late confirmed publication was not reconciled after disconnect or credentials were restored';
   end if;
 
   -- Simulate a successful OAuth callback for the same external identity.
