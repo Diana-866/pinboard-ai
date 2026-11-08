@@ -172,6 +172,39 @@ begin
     if sqlerrm not like '%insufficient credits after active generation reservations%' then raise; end if;
   end;
 
+  -- Unknown request without a durable image task: release the unused image
+  -- reservation but keep the request blocked from blind replay.
+  v_key := 'reserve-unknown-no-image-tasks-' || v_user;
+  v_request := public.begin_pin_generation_request(v_user::text, v_board, v_key, repeat('e', 64));
+  v_result := public.reserve_pin_generation_credits(v_user::text, v_key, 2);
+  if v_result->>'status' <> 'reserved' then raise exception 'no-image-task reservation was not created'; end if;
+  perform public.fail_pin_generation_request(v_user::text, v_key,
+    (v_request->>'claim_token')::uuid, 'text_provider_outcome_unknown', true);
+  select status into v_status from public.pin_generation_credit_reservations
+   where user_id = v_user::text and idempotency_key = v_key;
+  if v_status <> 'released' then raise exception 'unused reservation was not released: %', v_status; end if;
+  if not exists (select 1 from public.pin_generation_requests
+    where user_id = v_user::text and idempotency_key = v_key and status = 'unknown') then
+    raise exception 'no-image-task request was incorrectly made retryable';
+  end if;
+
+  -- An existing image task means the provider may have accepted billable work;
+  -- its reservation must remain protected while the outcome is unknown.
+  v_key := 'reserve-unknown-with-image-task-' || v_user;
+  v_request := public.begin_pin_generation_request(v_user::text, v_board, v_key, repeat('f', 64));
+  v_result := public.reserve_pin_generation_credits(v_user::text, v_key, 2);
+  insert into public.pin_generation_tasks(
+    generation_request_id, user_id, board_id, task_index, title, description,
+    prompt, model, aspect_ratio, status
+  )
+  select id, v_user::text, v_board, 1, 'Unknown image task', '',
+         'Image task prompt', 'flux-schnell', '2:3', 'submitting'
+    from public.pin_generation_requests where user_id = v_user::text and idempotency_key = v_key;
+  perform public.fail_pin_generation_request(v_user::text, v_key,
+    (v_request->>'claim_token')::uuid, 'image_provider_outcome_unknown', true);
+  select status into v_status from public.pin_generation_credit_reservations
+   where user_id = v_user::text and idempotency_key = v_key;
+  if v_status <> 'reserved' then raise exception 'unknown image outcome released reservation: %', v_status; end if;
   raise notice 'Pin generation credit reservation checks passed';
 end;
 $$;
