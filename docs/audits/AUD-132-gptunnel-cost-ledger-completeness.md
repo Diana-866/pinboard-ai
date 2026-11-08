@@ -84,3 +84,39 @@ These should be tested with synthetic provider fixtures and a disposable Postgre
 - No customer balance, payment, or production service was accessed or changed.
 
 **Status:** IMAGE_QUOTE_TO_ACTUAL_SETTLEMENT_SOURCE_CONFIRMED / TEXT_USAGE_MISSING_COST_EXPLICIT / TEXT_AMBIGUOUS_RESPONSE_RECOVERY_GAP / UNIFIED_COST_REPORTING_GAP / RUNTIME_UNVERIFIED.
+
+
+## Reporting groundwork added — migration 079
+
+Added `db/migrations/079_gptunnel_provider_cost_reporting_view.sql`, which defines the read-only `public.gptunnel_provider_cost_ledger` view over the three existing source journals:
+
+- multi-pin generation image tasks;
+- single-pin regeneration requests;
+- text-plan usage rows.
+
+The normalized output includes source row ID, request key, provider task/request ID, model, quoted RUB cost, gross RUB cost, refund fact, net known RUB cost, accounting status, reconciliation timestamp, and creation timestamp.
+
+Important semantics:
+- A confirmed refunded failed image task has net known cost 0 while retaining any gross price.
+- A confirmed unrefunded failed image task retains its gross price as net known provider expense.
+- A failed task with unknown refund state has NULL net known cost and `refund_unknown`.
+- Missing text cost has NULL net known cost and `cost_missing`.
+- Pending/legacy outcomes remain unresolved; NULL is never converted to zero.
+- SELECT is granted only to `service_role`; no source journal is modified.
+
+Suggested aggregate query after applying the migration to a disposable database:
+
+```sql
+select
+  operation_type,
+  accounting_status,
+  count(*) as operation_count,
+  sum(gross_cost_rub) as gross_known_rub,
+  sum(net_known_cost_rub) as net_known_rub,
+  count(*) filter (where net_known_cost_rub is null) as unresolved_count
+from public.gptunnel_provider_cost_ledger
+group by operation_type, accounting_status
+order by operation_type, accounting_status;
+```
+
+The view is reporting groundwork, not a verified financial reconciliation: it must be compared with GPTunnel account statements, and its SQL has not yet been executed in PostgreSQL.
