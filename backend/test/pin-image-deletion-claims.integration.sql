@@ -476,6 +476,18 @@ begin
       case when v_state = 'deleting' then now() + interval '10 minutes' else null end
     );
 
+    v_result := public.begin_pin_image_upload('pin-images', v_path, 60);
+    if coalesce((v_result ->> 'reserved')::boolean, false) is not false then
+      raise exception 'upload reservation unexpectedly reused a % image path', v_state;
+    end if;
+    if v_state = 'deleting' and v_result ->> 'reason' <> 'deletion_in_progress' then
+      raise exception 'deleting image path returned unexpected upload reason: %', v_result;
+    elsif v_state = 'deleted' and v_result ->> 'reason' <> 'already_deleted' then
+      raise exception 'deleted image path was not permanently retired: %', v_result;
+    elsif v_state = 'quarantined' and v_result ->> 'reason' <> 'path_quarantined' then
+      raise exception 'quarantined image path returned unexpected upload reason: %', v_result;
+    end if;
+
     begin
       update public.pins set image_url = v_url where id = v_pin_id;
       raise exception 'reference write unexpectedly accepted for lifecycle state %', v_state;
