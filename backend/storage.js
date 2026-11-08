@@ -70,7 +70,9 @@ async function uploadPinImage(file, options = {}) {
       // A quarantined deterministic key is intentionally never reused: an
       // earlier Storage request may still complete asynchronously. Surface a
       // conflict instead of disguising this lifecycle fence as an HTTP 500.
-      throw httpError(409, "Сохранение этого изображения остановлено для защиты от дубликатов. Нужна безопасная повторная попытка");
+      const conflict = httpError(409, "Сохранение этого изображения остановлено для защиты от дубликатов. Выполняется безопасное восстановление по новому адресу");
+      conflict.code = "path_quarantined";
+      throw conflict;
     }
     if (error && error.httpStatus) throw error;
     throw httpError(500, "Не удалось сохранить изображение: " + (error && error.message));
@@ -154,5 +156,39 @@ async function rehostImage(sourceUrl, options = {}) {
   // Keep the provider-download error boundary separate from the durable
   // Storage/lifecycle write. A failed upload finalization is not a provider
   // download failure; preserve its 409/503/500 status for safe recovery.
-  return uploadPinImage(downloadedImage, options);
+  try {
+    return await uploadPinImage(downloadedImage, options);
+  } catch (primaryError) {
+    if (!options.idempotencyKey || !primaryError || primaryError.code !== "path_quarantined") {
+      throw primaryError;
+    }
+    // A quarantined deterministic path is permanently retired because an old
+    // Storage request may still finish late. Retry on bounded, deterministic
+    // recovery paths derived from the original provider key. The same retry
+    // key is reused after process restarts, so a completed fallback is found
+    // rather than uploaded again. Never skip an in-progress or referenced path.
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      const recoveryKey = `${options.idempotencyKey}:storage-recovery:${attempt}`;
+      try {
+        const existingPath = await findCompletedManagedPinImageUpload({
+          supabase, bucket: BUCKET, idempotencyKey: recoveryKey,
+        });
+        if (existingPath) {
+          const { data } = supabase.storage.from(BUCKET).getPublicUrl(existingPath);
+          if (data && data.publicUrl) return data.publicUrl;
+        }
+        return await uploadPinImage(downloadedImage, {
+          ...options,
+          idempotencyKey: recoveryKey,
+        });
+      } catch (recoveryError) {
+        if (!recoveryError || recoveryError.code !== "path_quarantined") {
+          throw recoveryError;
+        }
+        // This exact recovery path is also permanently retired; advance to
+        // the next stable slot. Other conflicts remain hard stops.
+      }
+    }
+    throw httpError(409, "Не удалось восстановить изображение: все безопасные адреса загрузки исчерпаны");
+  }
 }
