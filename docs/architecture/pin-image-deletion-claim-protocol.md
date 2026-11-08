@@ -152,7 +152,7 @@ PostgreSQL concurrency tests (two independent sessions):
 PostgreSQL integration coverage (`backend/test/pin-image-deletion-claims.integration.sql`):
 - upload reservation blocks deletion and concurrent reference writes; a referenced object cannot be overwritten; deletion becomes possible after the reference is removed;
 - URL allow-list, traversal rejection, RPC/table privileges and all four trigger registrations;
-- live-claim exclusivity, expired-claim token rotation, stale-token finalization rejection;
+- live-claim exclusivity, permanent quarantine of expired deletion claims, stale-token finalization rejection;
 - pin and active schedule references block deletion; cancelled schedules release their reference;
 - terminal multi-pin and single-pin regeneration journal rows continue to retain their stored image until the journal row is pruned.
 
