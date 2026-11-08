@@ -82,3 +82,44 @@ test("successful subscription selection has deterministic null and tie ordering"
     { column: "id", options: { ascending: false } },
   ]);
 });
+
+test("successful subscription is authoritative over stale denormalized user tariff fields", async () => {
+  const client = makeClient({
+    userResult: {
+      data: { tariff_plan: "agency", tariff_period_end: null },
+      error: null,
+    },
+    subscriptionResult: {
+      data: {
+        plan: "start",
+        status: "success",
+        period_end: "2020-01-01T00:00:00.000Z",
+      },
+      error: null,
+    },
+  });
+
+  assert.deepEqual(
+    await getTariffState("user-1", client),
+    { plan: "start", active: false, periodEnd: "2020-01-01T00:00:00.000Z" }
+  );
+});
+
+test("current successful subscription entitlement overrides a stale expired user cache", async () => {
+  const futureEnd = new Date(Date.now() + 60_000).toISOString();
+  const client = makeClient({
+    userResult: {
+      data: { tariff_plan: "none", tariff_period_end: "2020-01-01T00:00:00.000Z" },
+      error: null,
+    },
+    subscriptionResult: {
+      data: { plan: "pro", status: "success", period_end: futureEnd },
+      error: null,
+    },
+  });
+
+  assert.deepEqual(
+    await getTariffState("user-1", client),
+    { plan: "pro", active: true, periodEnd: futureEnd }
+  );
+});
