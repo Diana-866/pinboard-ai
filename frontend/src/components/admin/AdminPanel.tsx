@@ -3,6 +3,7 @@ import { AdminMail } from './AdminMail';
 import { AdminEmailOutbox } from './AdminEmailOutbox';
 import { AdminSubscriptions } from './AdminSubscriptions';
 import { AdminBillingExceptions } from './AdminBillingExceptions';
+import { AdminPinterestSchedules } from './AdminPinterestSchedules';
 import {
   Users,
   DollarSign,
@@ -52,7 +53,7 @@ interface AdminPanelProps {
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
   const { logout } = useAuth();
   // Navigation tabs within Admin Panel
-  const [adminTab, setAdminTab] = useState<'users' | 'accounting' | 'night_and_bot' | 'mail' | 'subscriptions' | 'billing_exceptions' | 'email_outbox'>('users');
+  const [adminTab, setAdminTab] = useState<'users' | 'accounting' | 'night_and_bot' | 'mail' | 'subscriptions' | 'billing_exceptions' | 'email_outbox' | 'pinterest'>('users');
 
   // Search & Filter for Users tab
   const [userSearch, setUserSearch] = useState('');
@@ -300,6 +301,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
             <Receipt className="w-4 h-4" />
             <span>7. Подписки и платежи</span>
           </button>
+
+          <button
+            onClick={() => setAdminTab('pinterest')}
+            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              adminTab === 'pinterest'
+                ? 'accent-btn shadow-xs'
+                : 'text-secondary-theme hover:text-primary-theme hover:bg-subtle'
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            <span>8. Pinterest — очередь</span>
+          </button>
         </div>
       </div>
 
@@ -321,6 +334,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
         {adminTab === 'email_outbox' && <AdminEmailOutbox />}
         {adminTab === 'subscriptions' && <AdminSubscriptions />}
         {adminTab === 'billing_exceptions' && <AdminBillingExceptions />}
+        {adminTab === 'pinterest' && <AdminPinterestSchedules />}
         {/* ============================================================ */}
         {/* TAB 1: USERS & DETAILED GENERATION STATS                     */}
         {/* ============================================================ */}
