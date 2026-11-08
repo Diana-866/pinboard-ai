@@ -1218,3 +1218,9 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Details: `docs/audits/AUD-227-inactive-subscription-schedule-retry.md`.
 - No Pinterest request is sent when the tariff gate rejects the schedule. Transient backend/database errors and confirmed safe Pinterest rejections retain their existing retry behavior.
 - Tests have not been executed locally; no production migration, deployment, or merge was performed.
+
+## AUD-228 — Exact evidence for stale Pinterest schedule recovery
+- Added migration 092 to override `claim_due_pin_schedules`: a stale `publishing` schedule becomes `published` only when the publication attempt and durable publication ledger match the schedule's exact user, pin, account, board, and remote pin ID.
+- Mismatched board or missing publication ledger remains `unknown` and non-retryable. A safe failure is requeued only for the exact board recorded in its journal.
+- Added `backend/test/pinterest-stale-schedule-recovery.integration.sql` and wired migration/test into PostgreSQL CI.
+- Not applied to production; SQL integration test not yet executed; no deployment or merge.
