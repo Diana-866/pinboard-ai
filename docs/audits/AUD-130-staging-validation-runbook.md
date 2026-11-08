@@ -82,6 +82,7 @@ Observed lock patterns:
 - Regeneration reservation and completion (066): user row → regeneration request → reservation row; completion later updates the pin and request.
 - Regeneration quote/resize paths (068): user row → regeneration request → reservation row.
 - Generic balance adjustments (074) and the legacy regeneration debit (075): user row first; active reservations are then considered before reducing the available balance.
+- Paid credit purchase fulfillment (010): purchase row → user balance row → credit transaction → purchase credited marker. It only adds credits; it does not consume reserved credits. The reviewed reservation/adjustment functions do not subsequently lock a purchase row, so no reverse purchase/user lock edge was found.
 - Reconciliations (073): request → task (generation only); they do not subsequently acquire a user-row lock.
 - Failure finalization (077): user row → request → tasks (generation) → reservation.
 - Operator wrapper (078): operator and target user rows sorted by UUID → request → tasks ordered by task_index → active reservation. The delegated 073/077 calls operate on rows already locked by the wrapper.
@@ -90,12 +91,13 @@ No concrete user/request/reservation lock-order inversion was identified in thes
 
 Required disposable-PostgreSQL concurrency scenarios remain:
 1. Two generation reservations for one user racing with a credit adjustment.
-2. Generation completion racing with regeneration reservation/resize for the same user.
-3. Regeneration completion racing with the legacy regeneration debit.
-4. Reconciliation racing with failure finalization for the same request.
-5. Two operators reconciling the same request using different action UUIDs.
-6. Cross-target operator actions (A targets B while B targets A).
-7. Administrator demotion and operator/target deletion racing with an action.
+2. Paid credit purchase fulfillment racing with a new reservation and with a negative credit adjustment.
+3. Generation completion racing with regeneration reservation/resize for the same user.
+4. Regeneration completion racing with the legacy regeneration debit.
+5. Reconciliation racing with failure finalization for the same request.
+6. Two operators reconciling the same request using different action UUIDs.
+7. Cross-target operator actions (A targets B while B targets A).
+8. Administrator demotion and operator/target deletion racing with an action.
 
 For each schedule, record the exact statements/transactions, committed outcome, SQLSTATE (especially 40P01/40001), reservation status, final user balance, and journal/audit row counts. The test must prove both absence of a deadlock and preservation of the credit invariant; merely observing that one transaction eventually succeeds is insufficient.
 
