@@ -4,26 +4,15 @@ const assert = require("node:assert/strict");
 const supabasePath = require.resolve("../supabase");
 const modulePath = require.resolve("../adminPinterestInventory");
 const calls = [];
-let scheduleRows = [];
-let attemptRows = [];
+let rows = [];
+let rpcError = null;
 
-function query(table) {
-  const state = { table, filters: [], selected: null, range: null };
-  const builder = {
-    select(columns) { state.selected = columns; return builder; },
-    in(column, values) { state.filters.push(["in", column, values]); return builder; },
-    order(column, options) { state.filters.push(["order", column, options]); return builder; },
-    range(start, end) { state.range = [start, end]; return builder; },
-    then(resolve, reject) {
-      calls.push(state);
-      const result = table === "pin_schedules" ? scheduleRows : attemptRows;
-      return Promise.resolve({ data: result, error: null }).then(resolve, reject);
-    },
-  };
-  return builder;
-}
-
-const supabaseMock = { from: query };
+const supabaseMock = {
+  rpc(name, args) {
+    calls.push({ name, args });
+    return Promise.resolve({ data: rows, error: rpcError });
+  },
+};
 require.cache[supabasePath] = {
   id: supabasePath, filename: supabasePath, loaded: true, exports: supabaseMock,
 };
@@ -31,9 +20,12 @@ delete require.cache[modulePath];
 const inventory = require("../adminPinterestInventory");
 
 const NOW = Date.parse("2026-11-08T12:00:00.000Z");
+const ADMIN_ID = "a1b2c3d4-e5f6-47a8-9b0c-123456789abc";
+
 function reset() {
   calls.length = 0;
-  scheduleRows = [{
+  rpcError = null;
+  rows = [{
     id: "schedule-1", user_id: "user-1", pin_id: "pin-1",
     pinterest_account_id: "account-1", pinterest_board_id: "board-1",
     pinterest_pin_id: null, status: "unknown",
@@ -41,22 +33,26 @@ function reset() {
     updated_at: "2026-11-08T11:00:00.000Z", attempts: 1,
     next_attempt_at: null, last_error: "outcome unknown",
     claim_token: null, snapshot_title: "must not leak",
-  }];
-  attemptRows = [{
-    id: "attempt-1", user_id: "user-1", pin_id: "pin-1",
-    pinterest_account_id: "account-1", pinterest_board_id: "board-1",
-    pinterest_pin_id: null, status: "unknown", retry_safe: false,
-    attempt_count: 1, updated_at: "2026-11-08T11:00:00.000Z",
-    last_error: "remote outcome unknown",
+    attempt: {
+      status: "unknown", retry_safe: false, attempt_count: 1,
+      updated_at: "2026-11-08T11:00:00.000Z",
+      last_error: "remote outcome unknown", pinterest_pin_id: null,
+      pinterest_board_id: "board-1", id: "must not leak",
+    },
   }];
 }
 
-test("inventory is bounded, read-only and exposes only allowlisted operational fields", async () => {
+test("inventory uses one bounded database RPC and exposes only allowlisted operational fields", async () => {
   reset();
-  const result = await inventory.listPinterestSchedules({ limit: "10", offset: "0" }, NOW);
-  assert.equal(calls.length, 2);
-  assert.deepEqual(calls.map((call) => call.table), ["pin_schedules", "pinterest_publish_attempts"]);
-  assert.deepEqual(calls[0].range, [0, 9]);
+  const result = await inventory.listPinterestSchedules({ limit: "10", offset: "0" }, NOW, ADMIN_ID);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].name, "admin_list_pinterest_schedule_inventory");
+  assert.deepEqual(calls[0].args, {
+    p_operator_user_id: ADMIN_ID,
+    p_statuses: ["scheduled", "publishing", "unknown"],
+    p_limit: 10,
+    p_offset: 0,
+  });
   assert.equal(result.read_only, true);
   assert.equal(result.items[0].category, "unknown");
   assert.equal(result.items[0].actionable_reconciliation, true);
@@ -64,100 +60,68 @@ test("inventory is bounded, read-only and exposes only allowlisted operational f
   assert.equal("claim_token" in result.items[0], false);
   assert.equal("snapshot_title" in result.items[0], false);
   assert.equal("id" in result.items[0].attempt, false);
-});
-
-test("attempt matching is scoped by both pin and Pinterest account", async () => {
-  reset();
-  attemptRows.push({
-    ...attemptRows[0], id: "attempt-other-account",
-    pinterest_account_id: "account-2", status: "failed", retry_safe: true,
-  });
-  const result = await inventory.listPinterestSchedules({}, NOW);
-  assert.equal(result.items[0].attempt.status, "unknown");
-  assert.equal(result.items[0].actionable_reconciliation, true);
-});
-
-test("attempt identity includes owner and operational errors redact credential-like values", async () => {
-  reset();
-  attemptRows.push({
-    ...attemptRows[0],
-    id: "attempt-wrong-owner",
-    user_id: "different-user",
-    status: "failed",
-    retry_safe: true,
-    last_error: "Authorization: Bearer secret-value",
-  });
-  scheduleRows[0].last_error = "request failed?access_token=private-value";
-  const result = await inventory.listPinterestSchedules({}, NOW);
-  assert.equal(result.items[0].attempt.status, "unknown");
-  assert.equal(result.items[0].attempt.last_error, "remote outcome unknown");
-  assert.equal(result.items[0].last_error, "request failed?access_token=[redacted]");
   assert.equal("user_id" in result.items[0], false);
 });
 
-test("operational errors redact bearer tokens, JWTs and credential key-value pairs", async () => {
+test("attempt is already scoped to the schedule identity by the database query", async () => {
   reset();
-  scheduleRows[0].last_error =
+  rows[0].attempt = {
+    status: "failed", retry_safe: true, attempt_count: 2,
+    updated_at: "2026-11-08T11:59:00.000Z",
+    last_error: "previous account attempt", pinterest_pin_id: null,
+    pinterest_board_id: "board-1",
+  };
+  const result = await inventory.listPinterestSchedules({}, NOW, ADMIN_ID);
+  assert.equal(result.items[0].attempt.status, "failed");
+  assert.equal(result.items[0].actionable_reconciliation, false);
+});
+
+test("operational errors redact credential-like values", async () => {
+  reset();
+  rows[0].last_error =
     "Authorization: Bearer secret-value eyJabcdefghij.klmnopqrst.uvwxyzABCD access_token=private-value";
-  const result = await inventory.listPinterestSchedules({}, NOW);
+  const result = await inventory.listPinterestSchedules({}, NOW, ADMIN_ID);
   assert.equal(
     result.items[0].last_error,
     "Authorization: Bearer [redacted] [redacted-token] access_token=[redacted]",
   );
 });
 
-test("legacy null-account attempts select the newest journal row deterministically", async () => {
-  reset();
-  scheduleRows[0].pinterest_account_id = null;
-  attemptRows = [
-    { ...attemptRows[0], pinterest_account_id: null, status: "unknown", updated_at: "2026-11-08T11:59:00.000Z" },
-    { ...attemptRows[0], id: "older-legacy-attempt", pinterest_account_id: null, status: "failed", updated_at: "2026-11-08T10:00:00.000Z" },
-  ];
-  const result = await inventory.listPinterestSchedules({}, NOW);
-  assert.equal(result.items[0].attempt.status, "unknown");
-  assert.deepEqual(
-    calls[1].filters.filter(([kind]) => kind === "order").map(([, column, options]) => [column, options.ascending]),
-    [["updated_at", false], ["id", false]],
-  );
-});
-
 test("stale publishing and overdue scheduled rows are classified without changing state", async () => {
   reset();
-  scheduleRows = [
-    { ...scheduleRows[0], id: "stale", status: "publishing", updated_at: "2026-11-08T11:00:00.000Z" },
-    { ...scheduleRows[0], id: "due", status: "scheduled", scheduled_at: "2026-11-08T10:00:00.000Z" },
+  rows = [
+    { ...rows[0], id: "stale", status: "publishing", updated_at: "2026-11-08T11:00:00.000Z" },
+    { ...rows[0], id: "due", status: "scheduled", scheduled_at: "2026-11-08T10:00:00.000Z" },
   ];
-  attemptRows = [];
-  const result = await inventory.listPinterestSchedules({}, NOW);
+  const result = await inventory.listPinterestSchedules({}, NOW, ADMIN_ID);
   assert.deepEqual(result.items.map((item) => item.category), ["stale_publishing", "overdue_scheduled"]);
   assert.equal(result.items.some((item) => item.actionable_reconciliation), false);
-  assert.equal(calls.some((call) => call.range !== null), true);
 });
 
-test("invalid status and unbounded pagination inputs are rejected", async () => {
+test("invalid status, pagination and operator identity are rejected before database access", async () => {
   reset();
   assert.throws(() => inventory.parseFilters({ status: "unknown,deleted" }), { httpStatus: 422 });
   assert.throws(() => inventory.parseFilters({ limit: "1000" }), { httpStatus: 422 });
   assert.throws(() => inventory.parseFilters({ offset: "-1" }), { httpStatus: 422 });
+  await assert.rejects(inventory.listPinterestSchedules({}, NOW), { httpStatus: 401 });
+  await assert.rejects(inventory.listPinterestSchedules({}, NOW, "not-a-uuid"), { httpStatus: 401 });
   assert.equal(calls.length, 0);
 });
 
-test("empty schedule page does not query attempt journal", async () => {
+test("database rechecks administrator status and a denied operator receives 403", async () => {
   reset();
-  scheduleRows = [];
-  const result = await inventory.listPinterestSchedules({}, NOW);
-  assert.equal(result.count, 0);
+  rpcError = { message: "administrator privileges required" };
+  await assert.rejects(
+    inventory.listPinterestSchedules({}, NOW, ADMIN_ID),
+    { httpStatus: 403 },
+  );
   assert.equal(calls.length, 1);
 });
 
-test("fresh or identity-conflicting attempts are not advertised for reconciliation", async () => {
+test("empty page is returned without a second unbounded journal query", async () => {
   reset();
-  attemptRows[0].updated_at = "2026-11-08T11:55:00.000Z";
-  let result = await inventory.listPinterestSchedules({}, NOW);
-  assert.equal(result.items[0].actionable_reconciliation, false);
-
-  reset();
-  attemptRows[0].pinterest_board_id = "different-board";
-  result = await inventory.listPinterestSchedules({}, NOW);
-  assert.equal(result.items[0].actionable_reconciliation, false);
+  rows = [];
+  const result = await inventory.listPinterestSchedules({}, NOW, ADMIN_ID);
+  assert.equal(result.count, 0);
+  assert.equal(calls.length, 1);
 });
