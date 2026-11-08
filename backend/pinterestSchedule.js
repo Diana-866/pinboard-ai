@@ -47,6 +47,18 @@ function isScheduleClaimUpdateConfirmed(result) {
   return Boolean(result && !result.error && result.data && result.data.id);
 }
 
+function resolvePublishedReservation(reservation, expectedBoardId) {
+  const pinterestPinId = String(reservation && reservation.pinterest_pin_id || "").trim();
+  const pinterestBoardId = String(reservation && reservation.pinterest_board_id || "").trim();
+  if (!pinterestPinId || !pinterestBoardId || pinterestBoardId !== String(expectedBoardId || "").trim()) {
+    const error = new Error("Existing Pinterest publication does not match the scheduled destination");
+    error.httpStatus = 409;
+    error.code = "PINTEREST_PUBLICATION_IDENTITY_MISMATCH";
+    throw error;
+  }
+  return { pinterest_pin_id: pinterestPinId, pinterest_board_id: pinterestBoardId };
+}
+
 function hasMatchingScheduleAttemptIdentity(attempt, schedule) {
   if (!attempt || !schedule) return false;
   return String(attempt.user_id || "") === String(schedule.user_id || "")
@@ -97,6 +109,7 @@ module.exports = {
   buildScheduleWorkerFailureState,
   hasMatchingScheduleAttemptIdentity,
   isScheduleClaimUpdateConfirmed,
+  resolvePublishedReservation,
   persistPublishFailureJournal,
   isPinterestPublishOutcomeUnknown,
   buildPinScheduleSnapshot,
