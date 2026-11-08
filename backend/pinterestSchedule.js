@@ -27,6 +27,18 @@ function isPinterestPublishOutcomeUnknown(httpStatus) {
   return ![400, 401, 403, 404, 409, 422].includes(status);
 }
 
+async function persistPublishFailureJournal(rpc, params) {
+  const { error } = await rpc("fail_pinterest_publish_v2", params);
+  if (error) {
+    const persistenceError = new Error(
+      "Не удалось сохранить результат обращения к Pinterest. Публикация заблокирована до сверки; не запускайте её повторно."
+    );
+    persistenceError.httpStatus = 503;
+    persistenceError.code = "PUBLISH_JOURNAL_PERSISTENCE_FAILED";
+    throw persistenceError;
+  }
+}
+
 function getScheduleRetryDelayMinutes(attempts) {
   const count = Math.max(1, Number(attempts) || 1);
   return Math.min(30, 2 ** Math.min(count - 1, 5));
@@ -36,6 +48,7 @@ module.exports = {
   classifyScheduleFailure,
   canRetryScheduleFailure,
   getScheduleRetryDelayMinutes,
+  persistPublishFailureJournal,
   isPinterestPublishOutcomeUnknown,
   buildPinScheduleSnapshot,
   resolvePinScheduleSnapshot,
