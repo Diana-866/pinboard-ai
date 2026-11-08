@@ -993,6 +993,11 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                   <p className="text-xs text-secondary-theme">{language === 'ru' ? 'Загружаем доски…' : 'Loading boards…'}</p>
                 ) : replacementBoards.length > 0 ? (
                   <>
+                    {replacementBoards.every((board) => board.id === selectedPin.pinterestBoardId) && (
+                      <p className="text-xs text-secondary-theme">
+                        {language === 'ru' ? 'У этого аккаунта пока нет другой доступной доски.' : 'This account has no other available board.'}
+                      </p>
+                    )}
                     <select
                       value={replacementBoardId}
                       onChange={(event) => setReplacementBoardId(event.target.value)}
