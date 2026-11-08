@@ -1270,3 +1270,6 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Пользовательский эффект: пользователь может повторить безопасную неудачную публикацию по сохранённому изображению, даже если оригинальный пин впоследствии отредактировали или у него удалили изображение. Повтор использует зафиксированный при планировании креатив.
 - Локальные тесты не запускались; требуется CI-подтверждение. Production DB, deploy, Pinterest API и merge не затрагивались.
 - Документ: docs/audits/AUD-232-pinterest-retry-immutable-snapshot.md.
+
+- Regression SQL дополнен отрицательным случаем: если одновременно отсутствуют pins.image_url и snapshot_image_url, retry возвращает pin_unavailable и оставляет расписание failed.
+- CI по HEAD после AUD-232: Prodamus webhook tests, atomic-payment integration и persisted-boards integration — failure. Все failed jobs вернули logs_url=null и steps=null; fetch logs завершился BlobNotFound 404. Причина failure неизвестна, тесты не считать пройденными.
