@@ -131,6 +131,27 @@ test("database authorization and conflict errors are mapped to safe HTTP errors"
   );
 
   reset();
+  rpcResult = { data: null, error: { message: "generation request not found" } };
+  await assert.rejects(
+    actions.finalizeGeneration(OPERATOR_ID, { request_id: "12", action_id: ACTION_ID }),
+    { httpStatus: 404, message: "Операция или задача не найдена" }
+  );
+
+  reset();
+  rpcResult = { data: null, error: { message: "invalid generation reconciliation finalization" } };
+  await assert.rejects(
+    actions.finalizeGeneration(OPERATOR_ID, { request_id: "12", action_id: ACTION_ID }),
+    { httpStatus: 422 }
+  );
+
+  reset();
+  rpcResult = { data: null, error: { message: "generation request was not finalized by refund reconciliation" } };
+  await assert.rejects(
+    actions.finalizeGeneration(OPERATOR_ID, { request_id: "12", action_id: ACTION_ID }),
+    { httpStatus: 409 }
+  );
+
+  reset();
   rpcResult = { data: null, error: { message: "secret database detail" } };
   await assert.rejects(
     actions.finalizeGeneration(OPERATOR_ID, { request_id: "12", action_id: ACTION_ID }),
