@@ -28,6 +28,7 @@ declare
   v_claim uuid;
   v_key text;
   v_action uuid;
+  v_generation_action uuid;
   v_at timestamptz;
   v_refunded boolean;
   v_status text;
@@ -93,6 +94,7 @@ begin
   end if;
   select count(*) into v_count from public.provider_refund_operator_actions where action_id=v_action;
   if v_count<>1 then raise exception 'exact replay created duplicate journal rows'; end if;
+  v_generation_action:=v_action;
 
   -- Same action UUID with altered evidence must be rejected.
   begin
@@ -148,6 +150,19 @@ begin
   if v_count<>4 then
     raise exception 'expected four operator journal rows (two reconciliations and two finalizations), got %',v_count;
   end if;
+
+  -- A previously valid action UUID cannot be replayed after operator demotion.
+  update public.users set is_admin=false where id=v_admin;
+  begin
+    perform public.admin_reconcile_pin_generation_provider_refund(
+      v_admin,
+      (select id from public.pin_generation_requests where user_id=v_target::text and idempotency_key like 'admin-action-generation-%'),
+      1,false,'provider_dashboard','ticket-generation-001',v_generation_action
+    );
+    raise exception 'demoted operator replay was accepted';
+  exception when others then
+    if sqlerrm not like '%administrator privileges required%' then raise; end if;
+  end;
 end;
 $test$;
 
@@ -163,6 +178,14 @@ begin
   if not has_function_privilege('service_role',
     'public.admin_reconcile_pin_generation_provider_refund(uuid,bigint,integer,boolean,text,text,uuid)','EXECUTE') then
     raise exception 'service_role cannot execute the admin reconciliation RPC';
+  end if;
+  if has_function_privilege('anon',
+    'public.admin_reconcile_pin_generation_provider_refund(uuid,bigint,integer,boolean,text,text,uuid)','EXECUTE')
+     or has_function_privilege('authenticated',
+    'public.admin_reconcile_pin_generation_provider_refund(uuid,bigint,integer,boolean,text,text,uuid)','EXECUTE')
+     or has_function_privilege('service_role',
+    'public._admin_record_provider_refund_action(uuid,text,bigint,text,integer,boolean,text,text,uuid)','EXECUTE') then
+    raise exception 'unexpected execute privilege on admin RPC or internal worker';
   end if;
 end;
 $$;
