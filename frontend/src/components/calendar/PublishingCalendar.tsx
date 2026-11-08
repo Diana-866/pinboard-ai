@@ -922,6 +922,11 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
             )}
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-subtle">
               {selectedPin.status === 'failed' && selectedPin.retryable === true && !!selectedPin.pinterestAccountId && onRetrySchedule && (
+              <p className="text-[11px] text-secondary-theme">
+                Это задание не возобновляется автоматически после переподключения Pinterest. Нажмите «Повторить», чтобы снова поставить его в очередь.
+              </p>
+            )}
+            {selectedPin.status === 'failed' && selectedPin.retryable === true && !!selectedPin.pinterestAccountId && onRetrySchedule && (
                 <button
                   type="button"
                   disabled={busyScheduleAction !== null}
