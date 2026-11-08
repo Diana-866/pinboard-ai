@@ -281,7 +281,7 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
                     {t.settings.pinterestReauthRequired}
                   </p>
                   <p className="text-xs text-secondary-theme">
-                    Переподключите этот Pinterest-аккаунт, чтобы снова загружать доски и публиковать пины.
+                    {t.settings.pinterestReauthDescription}
                   </p>
                   <button
                     type="button"
