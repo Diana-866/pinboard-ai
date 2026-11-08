@@ -1,7 +1,7 @@
 # AUD-165 — Pinterest publication lifecycle and concurrency audit
 
 **Branch:** `feat/persisted-boards-api`  
-**Reviewed HEAD:** `88b90815381544f211409c5d1f4291bd32c557b9`  
+**Reviewed HEAD:** `b2076cccafac05f1662ed4a5fbf9656a205fd93d`  
 **Scope:** schedule claim → durable attempt journal → Pinterest create request → local completion; stale-worker recovery; manual positive-evidence reconciliation.  
 **Change type:** audit only. No production calls, database writes, migrations, or provider requests were performed.
 
@@ -447,3 +447,20 @@ The current backend publishing path calls only `begin_pinterest_publish_v2` (or 
 The operator reconciliation RPC is positive-only: it requires an aged `unknown` schedule and aged `unknown/processing` attempt, validates owner/account/board consistency and an evidence reference, inserts an append-only receipt keyed by unique `action_id`, and permits exact idempotent replay only for the same actor and payload. A unique constraint on `schedule_id` prevents a second operator receipt for the same schedule. It cannot mark a publication as absent or requeue it.
 
 **Conclusion:** no new duplicate-attempt, duplicate-receipt, or conflicting-identity defect was confirmed in the reviewed current publishing and operator-reconciliation paths. This conclusion is based on static inspection of migrations 033, 035, 056, 057, 059, 061, 081, 082 and the current `backend/pinterest.js` / `backend/pinterestSchedule.js`; it is not a substitute for executing the database concurrency tests against the exact migration set. PostgreSQL row locks serialize conflicting writers/lockers on the same rows until transaction end, which is the basis for these guarantees (official PostgreSQL explicit-locking documentation).
+
+
+### Follow-up verification — Pinterest OAuth refresh concurrency
+
+**Review result:** no new concurrent-refresh defect was confirmed in the current implementation. The refresh path is account-scoped and uses the durable `pinterest_account_refresh_leases` table, keyed by `pinterest_account_id`, rather than a process-local mutex. The acquisition RPC only replaces an expired lease; the commit RPC verifies the same live lease ID and the expected account-row `updated_at` before persisting the rotated credentials. This serializes refresh attempts across backend instances and prevents a stale lease owner from blindly overwriting a reconnect or a newer row version.
+
+Before contacting Pinterest, `refreshAccessToken()` changes the account's `refresh_state` from `ready` to `uncertain` using an optimistic row-version predicate. A competing caller that cannot acquire the lease waits for the first caller's result; if the lease expires while the account remains uncertain, it fails closed instead of replaying the old refresh token. The provider request has a 10-second HTTP timeout while the lease is requested for 30 seconds (the SQL function clamps lease duration to 10–60 seconds). If the process crashes or the response is ambiguous, the uncertainty marker remains and requires OAuth reconnection. A successful response is accepted only when both access and refresh tokens plus a positive `expires_in` are present. Database commit ambiguity is handled by retrying the same commit payload, not by repeating the provider refresh request.
+
+The reconnect path is also fenced: OAuth callback commit is guarded by the user's current OAuth attempt ID, generation and session token version. The account upsert preserves a prior refresh token if Pinterest omits a replacement; migration 062 ensures that changing only the access token does not clear the uncertainty marker. The refresh commit additionally requires the exact pre-request row version and live lease, so a reconnect that wins the race is not overwritten by a late refresh response.
+
+**Relevant evidence inspected:** `backend/pinterest.js::refreshAccessToken`, `backend/pinterestAccountRequest.js::executeWithAccountToken`, `backend/pinterestRefreshRecovery.js`, `backend/pinterestAccountRecord.js`; migrations 026–028, 031–032, 036 and 062; tests `backend/test/pinterest-refresh-recovery.test.js`, `backend/test/pinterest-account-record.test.js`, and `backend/test/pinterest-account-request.test.js`. The tests cover uncertainty-state classification, active/expired lease interpretation, optimistic row-version migration, and account-specific 401 refresh delegation. No dedicated test was found that runs two independent refresh callers against a real PostgreSQL database or simulates a provider refresh response arriving after lease expiry.
+
+**Impact / residual risk:** no confirmed duplicate refresh-token submission or stale-token overwrite in the inspected paths. The remaining gap is integration-level concurrency coverage and operational visibility into stuck `uncertain` accounts/expired leases. Add a two-session database test for simultaneous refresh, lease expiry, reconnect-vs-refresh, and ambiguous provider response; expose counts and age of accounts stuck in `uncertain`. This is a verification/operability recommendation, not a confirmed production defect.
+
+**External contract:** Pinterest's current OAuth documentation describes refresh-token grant requests, the returned access/refresh token fields, the 30-day access-token lifetime, and the continuous refresh-token validity window. OAuth Security BCP RFC 9700 explains the security implications of refresh-token rotation and replay. The audit does not assume that every provider error means the refresh token was consumed; the code conservatively fences ambiguous outcomes.
+
+**Verification and scope:** static source, migration, and test inspection only. No tests were executed, no live Pinterest request or account was accessed, and no production database or secrets were read. No application code, migration, or production state was changed by this review.
