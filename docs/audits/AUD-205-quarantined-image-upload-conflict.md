@@ -19,3 +19,26 @@ If an old upload path has been quarantined for safety, PinPosy no longer tells t
 - Reviewed the updated storage handler and regression test on the feature branch.
 - Node tests were not executed in this environment; there is no local checkout with installed dependencies.
 - No production database, Storage bucket, provider account, payment flow, or deployment was changed.
+
+## Дополнительное исправление: не путать сбой Storage со сбоем провайдера
+
+### Finding
+
+В `rehostImage` загрузка изображения от AI-провайдера и запись в постоянный Storage находились в одном блоке обработки ошибок. Если скачивание проходило успешно, но загрузка в Storage или фиксация lifecycle-журнала завершалась ошибкой, backend мог вернуть HTTP 502 с сообщением о проблеме получения изображения у провайдера. Это скрывало реальное место сбоя и мешало понять, что нужно повторить восстановление сохранения.
+
+### Change
+
+- Разделил скачивание provider result и запись в Storage на отдельные error boundaries.
+- Ошибки скачивания по-прежнему возвращают 502.
+- Ошибки Storage/lifecycle теперь сохраняют собственный HTTP-статус и сообщение, включая 409/503.
+- Добавлен regression test: после успешного mock-скачивания ошибка Storage 503 должна выйти наружу как 503, а не как 502.
+
+### User impact
+
+Если картинка уже получена от провайдера, но постоянное сохранение временно не удалось, PinPosy больше не сообщает, будто провайдер не отдал изображение. Это точнее показывает проблему и не маскирует защитные статусы восстановления.
+
+### Verification update
+
+- Проверены актуальные исходники и regression test на feature branch.
+- Node-тесты по-прежнему не запускались: нет локального checkout с установленными зависимостями.
+- Production и рабочая база не затрагивались.
