@@ -209,6 +209,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [isSavingAspectRatio, setIsSavingAspectRatio] = useState(false);
   const [descriptionSaveState, setDescriptionSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const descriptionSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingDescriptionSaveRef = React.useRef<{ pinId: string; description: string; revision: number } | null>(null);
   const descriptionSaveRevisionRef = React.useRef(0);
   const generationKeyRef = React.useRef<string | null>(null);
   // Serialize edits per pin and let scheduling wait for the final persisted version.
@@ -272,7 +273,34 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         if (active) setIsLoadingSavedPins(false);
       });
 
-    return () => { active = false; };
+    return () => {
+      active = false;
+      // A debounced description belongs to the previous board selection. Flush it
+      // before switching boards or leaving the generator so the last keystrokes
+      // are not silently discarded by clearing the timer.
+      if (descriptionSaveTimerRef.current) {
+        clearTimeout(descriptionSaveTimerRef.current);
+        descriptionSaveTimerRef.current = null;
+      }
+      const pendingDescription = pendingDescriptionSaveRef.current;
+      pendingDescriptionSaveRef.current = null;
+      if (pendingDescription) {
+        const pending = pendingPinSavesRef.current;
+        const previous = pending.get(pendingDescription.pinId) || Promise.resolve();
+        const request = previous
+          .catch(() => undefined)
+          .then(() => apiRequest(`/pins/${encodeURIComponent(pendingDescription.pinId)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ description: pendingDescription.description }),
+          }));
+        pending.set(pendingDescription.pinId, request);
+        void request.finally(() => {
+          if (pending.get(pendingDescription.pinId) === request) pending.delete(pendingDescription.pinId);
+        }).catch((error) => {
+          console.error('[pins] Не удалось завершить отложенное сохранение описания:', error);
+        });
+      }
+    };
   }, [selectedBoardId, boards]);
 
   // Quick preset topic suggestions
@@ -457,8 +485,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     if (descriptionSaveTimerRef.current) clearTimeout(descriptionSaveTimerRef.current);
     descriptionSaveTimerRef.current = setTimeout(() => {
       descriptionSaveTimerRef.current = null;
+      pendingDescriptionSaveRef.current = null;
       void savePinDescription(pinId, description, revision);
     }, 800);
+    pendingDescriptionSaveRef.current = { pinId, description, revision };
   };
 
   const handlePushToCalendar = async () => {
