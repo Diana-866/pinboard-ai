@@ -25,4 +25,13 @@ function hasActiveRefreshLease(lease, now = Date.now()) {
   return Number.isFinite(leaseUntil) && leaseUntil > now;
 }
 
-module.exports = { isCommittedTokenRefresh, hasActiveRefreshLease };
+/**
+ * A 429 is an explicit rate-limit rejection, not an ambiguous transport
+ * outcome. The caller may safely clear the pre-request uncertainty fence and
+ * retry later; 5xx and network failures must remain fenced.
+ */
+function isExplicitRefreshRateLimit(status) {
+  return Number(status) === 429;
+}
+
+module.exports = { isCommittedTokenRefresh, hasActiveRefreshLease, isExplicitRefreshRateLimit };
