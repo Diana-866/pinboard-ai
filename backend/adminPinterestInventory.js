@@ -16,11 +16,11 @@ function parseBoundedInt(value, fallback, min, max, label) {
 function sanitizeOperationalError(value) {
   if (value === null || value === undefined) return null;
   return String(value)
-    .replace(/Bearer\\s+[^\\s,;]+/gi, "Bearer [redacted]")
-    .replace(/\\beyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\b/g, "[redacted-token]")
-    .replace(/(authorization)\\s*([=:])\\s*(?!Bearer \\[redacted\\])[^\\s,;&]+/gi, "$1$2[redacted]")
-    .replace(/(access_token|refresh_token|client_secret|client_id|api[_-]?key|token)\\s*([=:])\\s*[^\\s,;&]+/gi, "$1$2[redacted]")
-    .replace(/([?&](?:access_token|refresh_token|token|key|secret)=)[^&#\\s]+/gi, "$1[redacted]")
+    .replace(/Bearer\s+[^\s,;]+/gi, "Bearer [redacted]")
+    .replace(/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g, "[redacted-token]")
+    .replace(/(authorization)\s*([=:])\s*(?!Bearer \[redacted\])[^\s,;&]+/gi, "$1$2[redacted]")
+    .replace(/(access_token|refresh_token|client_secret|client_id|api[_-]?key|token)\s*([=:])\s*[^\s,;&]+/gi, "$1$2[redacted]")
+    .replace(/([?&](?:access_token|refresh_token|token|key|secret)=)[^&#\s]+/gi, "$1[redacted]")
     .slice(0, 320);
 }
 
