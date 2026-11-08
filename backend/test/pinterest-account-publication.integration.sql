@@ -636,6 +636,27 @@ begin
     raise exception 'editing a pin rewrote the immutable schedule snapshot';
   end if;
 
+  -- Snapshot values are immutable once captured, even for service-role writes.
+  begin
+    update public.pin_schedules
+       set snapshot_title='Tampered snapshot'
+     where id=v_delete_before_schedule;
+    raise exception 'schedule snapshot update was unexpectedly accepted';
+  exception when sqlstate '55000' then
+    null;
+  end;
+
+  -- Deleting the source pin must not cascade-delete queued publication work.
+  begin
+    delete from public.pins where id=v_snapshot_pin;
+    raise exception 'source pin deletion was unexpectedly accepted while scheduled';
+  exception when foreign_key_violation then
+    null;
+  end;
+  if not exists (select 1 from public.pin_schedules where id=v_delete_before_schedule and status='scheduled') then
+    raise exception 'source pin deletion removed its durable schedule';
+  end if;
+
   -- A newer failed history row must not be selected instead of the active
   -- publishing row when completion establishes its schedule lock.
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
@@ -674,8 +695,8 @@ begin
     raise exception 'completion did not persist the published schedule, clear its claim, and preserve failed history';
   end if;
 
-  -- Deleting the pin before the durable publication boundary cascades the
-  -- queued schedule and leaves no publication attempt to send remotely.
+  -- A queued schedule now retains its source pin. Deletion must fail closed
+  -- instead of cascading away work that the worker has not yet reserved.
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
   values (v_board, 'https://cdn.example.invalid/delete-before.png', 'Delete before', '', 'approved', 'flux-schnell', 0)
   returning id into v_delete_before_pin;
@@ -686,15 +707,19 @@ begin
     v_user::text, v_delete_before_pin, v_account_a, now() - interval '1 minute',
     'UTC', 'board-a', 'scheduled'
   ) returning id into v_delete_before_schedule;
-  delete from public.pins where id=v_delete_before_pin;
-  if exists (select 1 from public.pin_schedules where id=v_delete_before_schedule)
+  begin
+    delete from public.pins where id=v_delete_before_pin;
+    raise exception 'source pin deletion unexpectedly removed a queued schedule';
+  exception when foreign_key_violation then
+    null;
+  end;
+  if not exists (select 1 from public.pin_schedules where id=v_delete_before_schedule and status='scheduled')
      or exists (select 1 from public.pinterest_publish_attempts where pin_id=v_delete_before_pin and pinterest_account_id=v_account_a) then
-    raise exception 'deleting a pin before publish reservation left a queued schedule or attempt';
+    raise exception 'queued schedule was not retained after blocked source pin deletion';
   end if;
 
-  -- Once the durable attempt has begun, deleting the local pin cannot cancel
-  -- an already-authorized external request. The attempt/publication ledger has
-  -- no cascading pin FK and must retain the eventual remote result for audit.
+  -- Deletion remains blocked after the durable attempt begins as well. The
+  -- worker keeps both its schedule and source pin identity through completion.
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
   values (v_board, 'https://cdn.example.invalid/delete-after.png', 'Delete after', '', 'approved', 'flux-schnell', 0)
   returning id into v_delete_after_pin;
@@ -713,13 +738,18 @@ begin
   if v_result->>'status' <> 'started' then
     raise exception 'scheduled publish did not reserve its durable attempt before delete: %', v_result;
   end if;
-  delete from public.pins where id=v_delete_after_pin;
-  if exists (select 1 from public.pin_schedules where id=v_delete_after_schedule)
+  begin
+    delete from public.pins where id=v_delete_after_pin;
+    raise exception 'source pin deletion unexpectedly removed an in-flight schedule';
+  exception when foreign_key_violation then
+    null;
+  end;
+  if not exists (select 1 from public.pin_schedules where id=v_delete_after_schedule and status='publishing')
      or not exists (
        select 1 from public.pinterest_publish_attempts
         where pin_id=v_delete_after_pin and pinterest_account_id=v_account_a and status='processing'
      ) then
-    raise exception 'deleting a pin after begin did not preserve the in-flight attempt journal';
+    raise exception 'in-flight schedule or attempt was not retained after blocked source pin deletion';
   end if;
   perform public.complete_pinterest_publish_v2(
     v_user::text, v_delete_after_pin, v_account_a, 'remote-after-delete', 'board-a'
