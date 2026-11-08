@@ -1149,6 +1149,19 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                         descriptionSaveState === 'error' ? 'Не сохранено — проверьте соединение' : ''}
                       {' '}{currentPin.description.length} / 500
                     </span>
+                    {descriptionSaveState === 'error' && (
+                      <button
+                        type="button"
+                        className="text-[11px] text-accent underline underline-offset-2"
+                        onClick={() => {
+                          const revision = ++descriptionSaveRevisionRef.current;
+                          writePendingPinDescription(selectedBoardId, currentPin.id, currentPin.description);
+                          void savePinDescription(selectedBoardId, currentPin.id, currentPin.description, revision);
+                        }}
+                      >
+                        Повторить сохранение
+                      </button>
+                    )}
                   </div>
                   <textarea
                     value={currentPin.description}
@@ -1158,6 +1171,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                         clearTimeout(descriptionSaveTimerRef.current);
                         descriptionSaveTimerRef.current = null;
                       }
+                      pendingDescriptionSaveRef.current = null;
                       const revision = ++descriptionSaveRevisionRef.current;
                       writePendingPinDescription(selectedBoardId, currentPin.id, event.currentTarget.value);
                        void savePinDescription(selectedBoardId, currentPin.id, event.currentTarget.value, revision);
