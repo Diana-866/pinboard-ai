@@ -71,6 +71,36 @@ test("imageTaskResult rejects incomplete provider task results", () => {
   }), /некорректный результат/i);
 });
 
+test("imageTaskResult rejects non-HTTPS and credential-bearing result URLs", () => {
+  const base = {
+    id: "0123456789abcdef01234567",
+    status: "done",
+    price: 0.6,
+  };
+  for (const url of [
+    "http://provider.example.invalid/image.png",
+    "javascript:alert(1)",
+    "https://user:password@provider.example.invalid/image.png",
+    "not-a-url",
+  ]) {
+    assert.throws(
+      () => imageTaskResult({ ...base, result: [{ url }] }),
+      /некорректный результат/i,
+      url
+    );
+  }
+});
+
+test("imageTaskResult normalizes a valid HTTPS result URL", () => {
+  const result = imageTaskResult({
+    id: "0123456789abcdef01234567",
+    status: "done",
+    result: [{ url: "https://provider.example.invalid/image.png" }],
+    price: 0.6,
+  });
+  assert.equal(result.url, "https://provider.example.invalid/image.png");
+});
+
 test("generateImage persists accepted task ID before polling", async () => {
   const originalPost = axios.post;
   const originalGet = axios.get;
