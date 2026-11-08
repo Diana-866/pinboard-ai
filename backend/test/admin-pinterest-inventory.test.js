@@ -105,3 +105,15 @@ test("empty schedule page does not query attempt journal", async () => {
   assert.equal(result.count, 0);
   assert.equal(calls.length, 1);
 });
+
+test("fresh or identity-conflicting attempts are not advertised for reconciliation", async () => {
+  reset();
+  attemptRows[0].updated_at = "2026-11-08T11:55:00.000Z";
+  let result = await inventory.listPinterestSchedules({}, NOW);
+  assert.equal(result.items[0].actionable_reconciliation, false);
+
+  reset();
+  attemptRows[0].pinterest_board_id = "different-board";
+  result = await inventory.listPinterestSchedules({}, NOW);
+  assert.equal(result.items[0].actionable_reconciliation, false);
+});
