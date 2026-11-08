@@ -1190,3 +1190,14 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Файлы: `backend/pinterest.js`, `backend/pinterestSchedule.js`, `backend/test/pinterest-schedule.test.js`, `docs/audits/AUD-224-pinterest-worker-claim-update-confirmation.md`.
 - Исходники повторно прочитаны после коммитов. Unit tests, SQL integration, lint и build фактически не запускались; CI не подтверждён. Production, Pinterest API, deployment и merge не затрагивались.
 - Коммиты: `f1af1cbf6212e87efe9685e09c4349609cedb8e8`, `d4ab191e71351db5cb94e7ecc1131a0ff467da63`, `67d0da922ee594e8eb154aa59199efad9d8c41c6`, документ `9d9bd1a32f10a89e2b4d2795ac86bc8d6d8f68f9`.
+
+
+## Дополнение к handoff — 2026-11-09 (AUD-225: финализация расписания при уже существующей публикации)
+
+- Обнаружен путь восстановления: reservation RPC может вернуть `published`, если запись Pinterest-публикации уже существует. Раньше backend сразу возвращал успех, не завершая текущую строку расписания, поэтому календарь мог оставаться в `publishing` до следующей stale-reconciliation.
+- Добавлена строгая проверка существующей публикации: remote pin ID обязателен, Pinterest board должен точно совпадать с назначением расписания.
+- Для worker claim теперь выполняется условное обновление только конкретной строки расписания с точным user/pin/account/board и действующим claim token. Если строку уже завершил конкурентный процесс, успех принимается только после повторного чтения и подтверждения точного статуса/remote ID/board.
+- При ошибке БД, несовпадении доски или потерянном claim backend не запускает повторный Pinterest POST и не сообщает ложный успех.
+- Добавлены unit tests на корректный identity, неправильную доску и пустой remote ID. Изменения записаны в `docs/audits/AUD-225-existing-publication-schedule-finalization.md`.
+- Исходники повторно прочитаны после коммитов; Node/PostgreSQL tests, lint и build фактически не запускались. Production, Pinterest API, deployment и merge не затрагивались.
+- Коммиты: helper `3767a4a38366fa790904e7e5e8ce384941682c37`, tests `15cddc6a4de7052e36d89aba4c80834951b85446`, backend integration `e26169abaa3b62f7684ff973392cff277aefd2c2`.
