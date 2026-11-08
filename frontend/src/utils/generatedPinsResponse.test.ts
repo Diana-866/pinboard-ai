@@ -35,3 +35,11 @@ test('rejects null entries and nested arrays', () => {
   assert.throws(() => requireGeneratedPinsArray([null]), /неполные данные/);
   assert.throws(() => requireGeneratedPinsArray([[{ id: 'pin-1', image_url: 'https://storage.example/pin.png' }]]), /неполные данные/);
 });
+
+test('rejects duplicate pin IDs so separate saved results cannot overwrite each other in the UI', () => {
+  const duplicate = [
+    { id: 'pin-1', image_url: 'https://storage.example/one.png' },
+    { id: 'pin-1', image_url: 'https://storage.example/two.png' },
+  ];
+  assert.throws(() => requireGeneratedPinsArray(duplicate), /повторяющийся идентификатор/);
+});
