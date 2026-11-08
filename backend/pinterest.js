@@ -28,7 +28,7 @@ const jwt = require("jsonwebtoken");
 const supabase = require("./supabase");
 const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
 const { httpError } = require("./validate");
-const { classifyScheduleFailure, canRetryScheduleFailure, getScheduleRetryDelayMinutes, resolvePinScheduleSnapshot } = require("./pinterestSchedule");
+const { classifyScheduleFailure, canRetryScheduleFailure, getScheduleRetryDelayMinutes, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown } = require("./pinterestSchedule");
 const {
   createBrowserBinding,
   readCookie,
