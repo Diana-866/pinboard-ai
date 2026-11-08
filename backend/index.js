@@ -2067,7 +2067,7 @@ registerAdminProviderRefundRoute(
 // Read-only Pinterest operations inventory. It never claims, retries, or publishes schedules.
 app.get("/admin/pinterest/schedules", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
   try {
-    const result = await adminPinterestInventory.listPinterestSchedules(req.query || {});
+    const result = await adminPinterestInventory.listPinterestSchedules(req.query || {}, Date.now(), req.userId);
     res.json(result);
   } catch (e) {
     handleError(res, e);
