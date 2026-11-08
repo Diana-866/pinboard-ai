@@ -1280,3 +1280,10 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - `sanitizeScheduleForClient` теперь удаляет `last_error` и `claim_token`; sanitizer применён к ответам календаря, созданию расписания, восстановлению legacy account, смене доски, ручному retry и отмене.
 - Unit regression расширен: публичный объект не содержит `claim_token`/`last_error`, исходная DB-shaped запись не мутируется.
 - Статус: FIX IMPLEMENTED / CI UNVERIFIED. Node/CI фактическое выполнение не подтверждено; GitHub jobs на текущем PR завершаются failure без шагов/логов (BlobNotFound). Production не менялся, PR #4 остаётся Draft/open, merge/deploy не выполнялись.
+
+## AUD-234 — тест восстановления stale Pinterest worker (2026-11-09)
+
+- Расширен `backend/test/pinterest-stale-schedule-recovery.integration.sql`: проверяется, что stale claim переочередится только при `failed + retry_safe=true` для точной той же доски; безопасный отказ для другой доски оставляет расписание в `failed` без `next_attempt_at`.
+- Исправлена очистка fixture: удаляется также publication ledger для сценария несовпадающего remote pin ID.
+- Workflow уже применяет миграции 091–096 и запускает этот SQL test; workflow/production migration не менялись.
+- Статус: TEST ADDED / CI UNVERIFIED. SQL не выполнялся локально; GitHub Actions по-прежнему без runner steps/logs. Production/deploy/merge не затрагивались.
