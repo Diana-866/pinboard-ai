@@ -97,6 +97,28 @@ test('blocked persistent storage does not prevent same-page retry', () => {
   });
 });
 
+test('rejects malformed persisted identities before they can be retried', () => {
+  clearPendingGenerationRequest();
+  const storage = memoryStorage();
+  const fingerprint = createGenerationFingerprint('malformed-identity');
+  storage.setItem(`pinposy_generation_request_v2:${fingerprint}`, JSON.stringify({
+    fingerprint,
+    idempotencyKey: 'not-a-valid-key',
+  }));
+  assert.equal(readPendingGenerationRequest(fingerprint, storage), null);
+  assert.equal(listPendingGenerationRequests(storage).length, 0);
+});
+
+test('does not persist invalid idempotency keys or malformed fp1 fingerprints', () => {
+  clearPendingGenerationRequest();
+  const storage = memoryStorage();
+  const fingerprint = createGenerationFingerprint('invalid-write');
+  assert.equal(writePendingGenerationRequest(fingerprint, 'short', storage), false);
+  assert.equal(writePendingGenerationRequest('fp1:invalid', 'stable-key-valid-0001', storage), false);
+  assert.equal(storage.length, 0);
+  assert.equal(listPendingGenerationRequests(storage).length, 0);
+});
+
 test('clearing one completed request does not erase another', () => {
   const storage = memoryStorage();
   const first = createGenerationFingerprint('fingerprint-c');
