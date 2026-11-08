@@ -71,7 +71,8 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
 
   const loadBoards = async (accountId: string | null) => {
     const requestId = ++boardsRequestId.current;
-    if (!accountId || accountId === 'legacy') {
+    const account = accounts.find((item) => item.id === accountId);
+    if (!accountId || accountId === 'legacy' || account?.needs_reauth) {
       setBoards([]);
       return;
     }
@@ -104,7 +105,7 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
 
   useEffect(() => {
     loadBoards(selectedAccountId);
-  }, [selectedAccountId]);
+  }, [selectedAccountId, accounts]);
 
   const handleConnect = async () => {
     setError(null);
@@ -265,14 +266,33 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
                 <span className="font-semibold text-secondary-theme text-xs">
                   {t.settings.pinterestBoardsTitle} {selectedAccount.username ? `@${selectedAccount.username}` : ''}
                 </span>
-                <button
-                  onClick={() => loadBoards(selectedAccount.id)}
-                  className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-accent-ghost hover:underline"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" /> {t.settings.syncData}
-                </button>
+                {!selectedAccount.needs_reauth && (
+                  <button
+                    onClick={() => loadBoards(selectedAccount.id)}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-accent-ghost hover:underline"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" /> {t.settings.syncData}
+                  </button>
+                )}
               </div>
-              {boards.length === 0 ? (
+              {selectedAccount.needs_reauth ? (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                    {t.settings.pinterestReauthRequired}
+                  </p>
+                  <p className="text-xs text-secondary-theme">
+                    Переподключите этот Pinterest-аккаунт, чтобы снова загружать доски и публиковать пины.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleConnect}
+                    disabled={busy || loading || status?.configured === false}
+                    className="accent-btn px-3 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
+                  >
+                    {t.settings.pinterestConnectButton}
+                  </button>
+                </div>
+              ) : boards.length === 0 ? (
                 <p className="text-xs text-muted-theme">{t.settings.pinterestBoardsEmpty}</p>
               ) : (
                 <ul className="divide-y divide-subtle rounded-xl border border-subtle">
