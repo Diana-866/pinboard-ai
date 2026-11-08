@@ -138,7 +138,7 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
           text: t.bot.demoReply,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           action: targetTab
-            ? { label: 'Открыть соответствующий раздел', tab: targetTab }
+            ? { label: t.bot.openSection, tab: targetTab }
             : undefined,
         },
       ]);
@@ -232,7 +232,7 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
                   {t.bot.subtitle}
                 </p>
                 <span className="inline-flex mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300">
-                  {t.bot.statusOnline}
+                  {t.bot.statusBadge}
                 </span>
               </div>
             </div>
