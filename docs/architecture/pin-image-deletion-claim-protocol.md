@@ -1,6 +1,6 @@
 # Storage object deletion-claim protocol — implementation and rollout notes
 
-**Implementation status:** migration `070_pin_image_deletion_claim_protocol.sql` and the backend upload-reservation/deletion-claim executors are committed on `feat/persisted-boards-api`. The migration uses database triggers on all four reference tables as the reference-write gate and a lifecycle-row upload reservation before every managed Storage upload. Upload reservations serialize byte writes with deletion claims and reject overwrites while any durable reference exists. It has not yet been applied to Supabase or exercised against a live PostgreSQL instance.
+**Implementation status:** migrations `070_pin_image_deletion_claim_protocol.sql`, `083_quarantine_expired_pin_image_deletions.sql` and `089_recover_completed_pin_image_uploads.sql`, plus the backend upload-reservation/deletion-claim executors, are committed on `feat/persisted-boards-api`. The lifecycle protocol uses database triggers on all four reference tables and a lifecycle-row reservation before every managed Storage upload. The migrations have not been applied to Supabase or exercised against a live PostgreSQL instance.
 
 **Prepared:** 2026-11-07  
 **Target branch:** `feat/persisted-boards-api`  
@@ -23,7 +23,7 @@ A read-then-delete helper alone cannot enforce this invariant because Supabase S
 Add `public.pin_image_object_lifecycle` with:
 - `bucket_id text not null` (currently `pin-images`)
 - `object_path text not null` (validated managed path, never arbitrary URL)
-- `state text not null check (state in ('active','uploading','deleting','delete_failed','deleted'))`
+- `state text not null check (state in ('active','uploading','deleting','delete_failed','deleted','quarantined'))`
 - `claim_token uuid` (upload or deletion fencing token)
 - `claim_expires_at timestamptz` (diagnostic expiry; never auto-releases an ambiguous operation)
 - `attempts integer not null default 0`
@@ -91,12 +91,12 @@ Called before the external Storage API:
 - set `state='deleting'`, random claim token and bounded expiry;
 - return claim token only after transaction commits.
 
-The claim expiry is for crash recovery, not permission to race. Migration 070 allows a later claim request to rotate an expired claim token and retry the idempotent Storage removal only after confirming that no durable references exist. A stale worker holding the old token cannot finalize the newer claim. If a durable reference is discovered under an expired claim, the row deliberately remains `deleting`; it is not reopened because the original Storage request may still be in flight. Such a row requires operator reconciliation rather than unsafe automatic release.
+The claim expiry is diagnostic, not permission to race. Migration 083 supersedes the original migration-070 retry behavior: when a later claim request encounters an expired `deleting` row, it permanently moves that path to `quarantined` instead of rotating the token or retrying the remote delete. The original Storage request may still complete after its lease expires, and PostgreSQL cannot cancel that remote side effect. A quarantined path rejects new references, uploads and deletion claims; a stale worker token cannot finalize it. This intentionally trades a possible unreferenced Storage orphan for protection against deleting or overwriting a newer image.
 
 ### 4. `finalize_pin_image_deletion`
 
 Requires matching bucket/path/token:
-- on confirmed Storage delete (including confirmed object-not-found), mark `deleted`, clear claim;
+- on confirmed Storage delete or explicit object-not-found (HTTP 404), mark `deleted`, clear claim;
 - on failure, mark `delete_failed`, clear claim, increment attempts, store sanitized error code;
 - never mark deleted based only on timeout or unknown response.
 
@@ -167,7 +167,7 @@ Backend tests:
 
 ## Rollout sequence
 
-1. Add migration and SQL concurrency tests.
+1. Add migrations and SQL lifecycle/concurrency tests.
 2. Add backend lifecycle helper and unit tests.
 3. Confirm all four reference tables are covered by triggers and route all managed uploads/deletions through their lifecycle helpers.
 4. Add stale-claim reconciliation endpoint/job, initially disabled.
@@ -175,6 +175,6 @@ Backend tests:
 6. Deploy backend only after migration and staging verification.
 7. Enable periodic reconciliation after observing metrics.
 
-## Current rollout blockers\n\n- Apply migration 070 manually in Supabase SQL Editor after a backup. Until then, the updated backend upload and cleanup paths will fail closed because the lifecycle RPCs do not exist.\n- Run the Node test suite and PostgreSQL integration/concurrency tests against a disposable database. These have not been run from this session.\n- Add an operator-facing reconciliation path for stale uploads and deletion claims. The admin stale-upload endpoint is observational only; visible and missing objects both remain fenced pending a separately designed operator resolution procedure. Expired deletion claims with no references can be retried with a rotated fencing token.\n- Decide when generation task journals may be pruned and add a safe orphan-cleanup policy.\n\n## Non-goals
+## Current rollout blockers\n\n- Apply migrations 070, 083 and 089 in order manually in Supabase SQL Editor after a backup. Until then, the updated backend upload and cleanup paths will fail closed because the lifecycle RPCs do not exist.\n- Run the Node test suite and PostgreSQL integration/concurrency tests against a disposable database. These have not been run from this session.\n- Add an operator-facing reconciliation path for stale uploads and deletion claims. The admin stale-upload endpoint is observational only; visible and missing objects both remain fenced pending a separately designed operator resolution procedure. Expired deletion claims with no references can be retried with a rotated fencing token.\n- Decide when generation task journals may be pruned and add a safe orphan-cleanup policy.\n\n## Non-goals
 
 This protocol does not change public/private bucket visibility, existing RLS policy state, retention policy for terminal generation journals, or storage-provider redundancy. Those require separate decisions.
