@@ -146,7 +146,7 @@ test("quarantined deterministic upload recovers on a stable fresh path", async (
   });
   const primaryPath = `pins/generation-${crypto.createHash("sha256").update("stable-provider-result-key").digest("hex").slice(0, 32)}.png`;
   const recoveryPath = `pins/generation-${crypto.createHash("sha256").update("stable-provider-result-key:storage-recovery:1").digest("hex").slice(0, 32)}.png`;
-  assert.match(result, new RegExp(recoveryPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.equal(result.endsWith(recoveryPath), true);
   assert.deepEqual(uploadPaths, [primaryPath, recoveryPath]);
   assert.notEqual(primaryPath, recoveryPath);
   quarantinePrimaryPath = false;
