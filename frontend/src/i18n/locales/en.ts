@@ -318,6 +318,8 @@ export const en: TranslationSchema = {
     statusPublishing: "Publishing",
     statusFailed: "Publication failed",
     statusUnknown: "Needs review",
+    unknownPublishHelpTitle: 'Pinterest may have received this pin',
+    unknownPublishHelpBody: 'The result could not be confirmed. Do not retry or schedule the same pin again: it may create a duplicate. Check the selected Pinterest account and board. If the pin is not clearly found, leave this item for support to review.',
     statusQueued: "Queued",
     generateDateTitle: "Generate pins for this date",
     primeSlotLabel: "20:15 slot (prime time)",
