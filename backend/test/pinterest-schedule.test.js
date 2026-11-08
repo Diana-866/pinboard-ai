@@ -10,6 +10,7 @@ const {
   hasCompleteScheduleClaimIdentity,
   isScheduleClaimUpdateConfirmed,
   resolvePublishedReservation,
+  matchesConfirmedPublicationLedger,
   persistPublishFailureJournal,
   isPinterestPublishOutcomeUnknown,
   buildPinScheduleSnapshot,
@@ -323,6 +324,26 @@ test("existing published reservation is accepted only for the exact board and a 
     () => resolvePublishedReservation({ pinterest_pin_id: "", pinterest_board_id: "board-1" }, "board-1"),
     (error) => error.httpStatus === 409
   );
+});
+
+test("ambiguous completion is confirmed only by an exact durable publication ledger match", () => {
+  const expected = {
+    user_id: "user-1",
+    pin_id: "pin-1",
+    pinterest_account_id: "account-1",
+    pinterest_board_id: "board-1",
+    pinterest_pin_id: "remote-pin-1",
+  };
+  assert.equal(matchesConfirmedPublicationLedger({ ...expected }, expected), true);
+  for (const field of Object.keys(expected)) {
+    assert.equal(
+      matchesConfirmedPublicationLedger({ ...expected, [field]: "different" }, expected),
+      false,
+      field
+    );
+  }
+  assert.equal(matchesConfirmedPublicationLedger(null, expected), false);
+  assert.equal(matchesConfirmedPublicationLedger({ ...expected }, null), false);
 });
 
 test("worker failure mutation requires every schedule identity and claim field", () => {
