@@ -36,3 +36,11 @@ A broken server response will no longer produce a card with a missing image or u
 - No production database, live API, deployment, or merge was performed.
 
 Status: FIXED_UNVERIFIED.
+
+## Дополнительное исправление — AUD-249: pin-scoped description save status
+
+The description save indicator was component-global. A delayed successful/failed PATCH for pin A could update the label while the user was viewing pin B, making the save indicator misleading.
+
+The UI now tracks the pin ID associated with the save state. When another pin is selected, its own state is shown; if it has a local recovery draft, it is shown as unsaved with the retry action. Restored drafts are scoped the same way.
+
+Verification: static readback pending; no local unit tests, TypeScript, or frontend build were run. Status: FIXED_UNVERIFIED.
