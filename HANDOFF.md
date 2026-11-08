@@ -1386,3 +1386,12 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Документ: `docs/audits/AUD-243-pinterest-retry-after-rate-limit.md`.
 
 - Дополнительная проверка AUD-243 выявила JS edge case: `Date.parse("-1")` может принять отрицательное число за дату. Парсер теперь отклоняет числовые значения со знаком и использует fallback 2 секунды. Изолированный Node smoke test для seconds/date/malformed values прошёл; это не заменяет полный `node --test` suite.
+
+
+## AUD-244 — надёжная загрузка списка Pinterest-досок (2026-11-09)
+- Исправлена пагинация `GET /integrations/pinterest/boards`: вместо прежнего потолка 8×250 (2 000) поддерживается до 20×250 (5 000) досок.
+- Вынесен helper `backend/pinterestBoardsPagination.js`: обнаруживает повторный bookmark до повторного запроса, не отдаёт частичный список как полный при ошибке/исчерпании лимита и сохраняет provider errors.
+- Добавлены тесты `backend/test/pinterest-boards-pagination.test.js` на полный список, повтор cursor, лимит и ошибку Pinterest; тест включён в atomic-payment workflow.
+- Пользовательский эффект: большой аккаунт может получить полный список большего числа досок; при сбое пагинации PinPosy не выдаёт неполный список за полный и не зацикливает повторные страницы.
+- Статус: IMPLEMENTED / STATIC READ-BACK PENDING / CI UNVERIFIED. Локальный Node test не запускался. Production, реальные Pinterest API, deployment и merge не затрагивались.
+- Документ: `docs/audits/AUD-244-pinterest-board-pagination-guard.md`.
