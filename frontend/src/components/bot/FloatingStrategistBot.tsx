@@ -138,7 +138,7 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
                 setIsDocked(true);
               }}
               className="hidden group-hover:flex sm:flex mr-1 p-1 rounded-full bg-surface border border-subtle text-muted-theme hover:text-primary-theme transition-all shadow-xs cursor-pointer opacity-70 hover:opacity-100"
-              title="Припарковать бота к краю экрана"
+              title={t.bot.dock}
             >
               <ArrowRight className="w-3 h-3" />
             </button>
@@ -179,7 +179,7 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
             type="button"
             onClick={() => setIsDocked(false)}
             className="flex items-center gap-1.5 py-2 px-3 rounded-l-2xl accent-btn text-xs font-semibold shadow-lg hover:scale-105 active:scale-95 transition-all cursor-pointer border-l-2 border-t border-b border-subtle"
-            title="Развернуть ИИ-стратега"
+            title={t.bot.undock}
           >
             <Bot className="w-3.5 h-3.5 text-inherit" />
             <span className="hidden sm:inline">ИИ-Стратег</span>
