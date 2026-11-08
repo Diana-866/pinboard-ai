@@ -1412,3 +1412,12 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Изменения: `frontend/src/components/calendar/PublishingCalendar.tsx`, `frontend/src/App.tsx`, `frontend/src/components/pins/PinGenerator.tsx`.
 - Статус: IMPLEMENTED / STATIC READ-BACK PASSED / FRONTEND BUILD UNVERIFIED. Локальный frontend build, TypeScript и component tests не запускались. Production, рабочая БД, Pinterest API, deployment и merge не затрагивались.
 - Документ: `docs/audits/AUD-246-calendar-slot-context-to-generator.md`.
+
+
+## AUD-247 — корректное время режима «Опубликовать сейчас» (2026-11-09)
+- Ранее дата рассчитывалась по часовому поясу устройства, а время форматировалось локалью интерфейса. При 12-часовой локали получалось значение вроде `5:30 PM`, не соответствующее контракту API `HH:mm`; при отличии сохранённого часового пояса PinPosy от часового пояса устройства дата могла расходиться со временем.
+- Теперь дата и время вычисляются из одного instant через `formatInstantInTimezone` в выбранном часовом поясе PinPosy. Это гарантирует согласованную пару и 24-часовое `HH:mm`.
+- Добавлен regression test: полночь в Лондоне и предыдущий календарный день в Нью-Йорке.
+- Изменения: `frontend/src/components/pins/PinGenerator.tsx`, `frontend/src/utils/timezone.test.ts`, `docs/audits/AUD-247-publish-now-timezone-format.md`.
+- Статус: IMPLEMENTED / STATIC READ-BACK PENDING / NODE TEST AND FRONTEND BUILD UNVERIFIED. Production, рабочая БД, Pinterest API, deployment и merge не затрагивались.
+- Документ: `docs/audits/AUD-247-publish-now-timezone-format.md`.
