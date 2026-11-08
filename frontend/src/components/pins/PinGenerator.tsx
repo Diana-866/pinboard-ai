@@ -27,6 +27,7 @@ import { isDefinitiveGenerationFailure } from '../../utils/generationRetry';
 import { clearPendingPinDescriptionIfMatches, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
 import { clearPendingGenerationRequest, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
 import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
+import { rollbackPinAspectRatioIfUnchanged } from '../../utils/pinAspectRatio';
 import {
   rememberPinTitleSelection,
   resolvePinTitleSelection,
@@ -469,11 +470,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       await persistPinPatch(pinId, { aspect_ratio: newRatio });
     } catch (error) {
       // Roll back only this pin and only if no newer UI choice replaced this value.
-      setGeneratedPins((previous) => previous.map((pin) =>
-        pin.id === pinId && pin.aspectRatio === newRatio
-          ? { ...pin, aspectRatio: previousRatio }
-          : pin
-      ));
+      setGeneratedPins((previous) =>
+        rollbackPinAspectRatioIfUnchanged(previous, pinId, newRatio, previousRatio)
+      );
       console.error('[pins] Не удалось сохранить формат:', error);
       window.alert(error instanceof Error ? error.message : 'Не удалось сохранить формат изображения. Попробуйте ещё раз.');
     } finally {
