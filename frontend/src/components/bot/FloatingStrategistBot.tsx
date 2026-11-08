@@ -1,19 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  MessageSquare,
   X,
-  Minimize2,
-  Sparkles,
   Bot,
   Send,
   RotateCcw,
-  Clock,
   ArrowRight,
-  TrendingUp,
   AlertCircle,
   HelpCircle,
-  BarChart2,
-  CheckCircle2,
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
 
@@ -39,7 +32,7 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
   isOpen: controlledIsOpen,
   onToggleOpen,
 }) => {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [internalIsOpen, setInternalIsOpen] = useState<boolean>(false);
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
   const setIsOpen = (open: boolean) => {
@@ -51,7 +44,6 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
   };
 
   const [inputMessage, setInputMessage] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
   const [hasUnread, setHasUnread] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -72,7 +64,7 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       setHasUnread(false);
     }
-  }, [isOpen, messages, isTyping]);
+  }, [isOpen, messages]);
 
   const quickQuestions = [
     { q: t.bot.quickQuestion1, actionTab: 'analytics' },
@@ -108,41 +100,43 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
     if (!query) return;
 
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const lower = query.toLowerCase();
+    const lower = query.toLocaleLowerCase(language);
+    const hasAny = (terms: string[]) => terms.some((term) => lower.includes(term));
     let targetTab: string | undefined;
 
-    if (lower.includes('доск') || lower.includes('board') || lower.includes('seo')) {
+    // This is deliberately a small navigation helper, not an AI classifier.
+    // Match common wording across every supported interface language.
+    if (hasAny(['доск', 'board', 'pinnwand', 'tablero', 'tableau', 'pasta', '画板', '看板'])) {
       targetTab = 'boards';
-    } else if (lower.includes('время') || lower.includes('час') || lower.includes('когда') || lower.includes('time') || lower.includes('schedule')) {
+    } else if (hasAny(['календар', 'время', 'час', 'когда', 'schedule', 'calendar', 'time', 'zeit', 'planen', 'horario', 'programar', 'heure', 'planifier', 'agendar', '日历', '排期', '时间'])) {
       targetTab = 'calendar';
-    } else if (lower.includes('генерац') || lower.includes('пин') || lower.includes('созда') || lower.includes('generate')) {
+    } else if (hasAny(['генерац', 'пин', 'созда', 'generate', 'create', 'erstelle', 'erstellen', 'crear', 'créer', 'criar', '生成', '创建'])) {
       targetTab = 'generator';
-    } else if (lower.includes('конкурент') || lower.includes('competitor')) {
+    } else if (hasAny(['конкурент', 'competitor', 'wettbewerb', 'competidor', 'concurrent', 'concorr'])) {
       targetTab = 'competitors';
+    } else if (hasAny(['ключ', 'keyword', 'schlüssel', 'palabra', 'mot-clé', 'palavra-chave', '关键词'])) {
+      targetTab = 'keywords';
+    } else if (hasAny(['аналит', 'статист', 'показател', 'analytics', 'metric', 'statistic', 'kennzahl', 'statistik', 'métrica', 'estadíst', 'statistique', 'indicateur', 'métrica', 'dados', '数据', '指标'])) {
+      targetTab = 'analytics';
+    } else if (hasAny(['тариф', 'оплат', 'цена', 'plan', 'price', 'pricing', 'tarif', 'precio', 'preço', 'plano', '价格'])) {
+      targetTab = 'pricing';
+    } else if (hasAny(['настрой', 'setting', 'einstellung', 'configuración', 'paramètre', 'configuração', '设置'])) {
+      targetTab = 'settings';
     }
 
+    const messageId = Date.now();
     setMessages((prev) => [
       ...prev,
-      { id: `usr-${Date.now()}`, sender: 'user', text: query, timestamp },
+      { id: `usr-${messageId}`, sender: 'user', text: query, timestamp },
+      {
+        id: `bot-${messageId}`,
+        sender: 'bot',
+        text: t.bot.demoReply,
+        timestamp,
+        action: targetTab ? { label: t.bot.openSection, tab: targetTab } : undefined,
+      },
     ]);
     setInputMessage('');
-    setIsTyping(true);
-
-    window.setTimeout(() => {
-      setIsTyping(false);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `bot-${Date.now()}`,
-          sender: 'bot',
-          text: t.bot.demoReply,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          action: targetTab
-            ? { label: t.bot.openSection, tab: targetTab }
-            : undefined,
-        },
-      ]);
-    }, 250);
   };
 
   const handleResetChat = () => {
@@ -303,15 +297,6 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
                 </span>
               </div>
             ))}
-
-            {/* Typing Indicator */}
-            {isTyping && (
-              <div className="flex items-center gap-1.5 p-3 rounded-2xl bg-surface border border-subtle w-24 text-secondary-theme">
-                <span className="w-2 h-2 rounded-full bg-accent animate-bounce" />
-                <span className="w-2 h-2 rounded-full bg-accent animate-bounce [animation-delay:0.2s]" />
-                <span className="w-2 h-2 rounded-full bg-accent animate-bounce [animation-delay:0.4s]" />
-              </div>
-            )}
 
             <div ref={messagesEndRef} />
           </div>
