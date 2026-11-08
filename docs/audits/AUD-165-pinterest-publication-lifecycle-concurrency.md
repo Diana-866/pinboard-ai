@@ -483,3 +483,12 @@ The generation and one-time commit checks prevent stale tabs, replay after a suc
 **Implementation verification:** application changes committed in `7072924` (initial backend binding), `4808b18` (first-party OAuth start endpoint), `b69749c` (frontend top-level form submission), and `dced062` (restore original CORS policy), and `63a6d34` (import the Express URL-encoded form parser), and `e239faa` (only clear a matched one-time cookie); helper and test files added in `cddf32c` and `6cb0a71`. Static review confirms that the callback checks browser binding before token exchange. Automated test execution and browser-level end-to-end verification have not yet been run; deployment is not performed. Cookie delivery occurs through a top-level navigation to the backend host, then Pinterest's top-level GET callback; it does not depend on third-party cookie acceptance or credentialed CORS.
 
 **Focused test result:** the browser-binding helper and its three Node test cases were exercised in an isolated Node.js test harness: 3 passed, 0 failed. This is not a run of the complete backend test suite or a browser-level test of the cross-domain navigation; those remain outstanding.
+
+
+### AUD-165-33 — Fail-closed handling for incomplete ownership relations
+
+**Finding:** the board and pin ownership helpers dereferenced nested PostgREST relations before checking ownership. If a referenced project/board relation was unexpectedly absent or malformed, the route could throw a TypeError and return a generic 500 instead of treating the resource as unavailable. This was not a cross-user data disclosure path, but it weakened the fail-closed authorization boundary and obscured broken referential state.
+
+**Resolved on this branch:** introduced `backend/resourceOwnership.js` with a small ownership comparison that rejects missing, empty, and non-string identifiers and compares UUID text case-insensitively. `getBoardWithOwnerCheck` and `getPinWithOwnerCheck` now pass optional nested relation values to that helper and return the same 404 used for an absent/foreign resource. Added `backend/test/resource-ownership.test.js` for same-owner UUID case normalization, foreign-owner rejection, and malformed/missing values.
+
+**Scope:** this hardens the application-layer checks used with the backend's server-side service-role client. It does not change RLS policies, grants, or production data. It does not claim that every route or every table has been exhaustively tested for tenant isolation.
