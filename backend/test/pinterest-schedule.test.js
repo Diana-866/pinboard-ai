@@ -398,3 +398,32 @@ test("a confirmed publication remains published even if later worker work fails"
   assert.equal(state.nextStatus, "published");
   assert.equal(state.shouldRetry, false);
 });
+
+test("retryability rejects a safe journal whose owner, pin, account, or board differs from the schedule", () => {
+  const schedule = {
+    status: "failed",
+    user_id: "user-1",
+    pin_id: "pin-1",
+    pinterest_account_id: "account-1",
+    pinterest_board_id: "board-1",
+    pins: { image_url: "https://cdn.example/pin.jpg" },
+  };
+  const attempt = {
+    user_id: "user-1",
+    pin_id: "pin-1",
+    pinterest_account_id: "account-1",
+    pinterest_board_id: "board-1",
+    status: "failed",
+    retry_safe: true,
+  };
+  assert.deepEqual(getScheduleRetryability(schedule, attempt, false, true, false), {
+    retryable: true, reason: null,
+  });
+  for (const field of ["user_id", "pin_id", "pinterest_account_id", "pinterest_board_id"]) {
+    assert.deepEqual(
+      getScheduleRetryability(schedule, { ...attempt, [field]: "different" }, false, true, false),
+      { retryable: false, reason: "attempt_identity_mismatch" },
+      field
+    );
+  }
+});
