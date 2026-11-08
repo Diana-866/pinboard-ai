@@ -1332,3 +1332,15 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Пользовательский эффект: вместо ложного «не найдено» пользователь видит конфликт, если публикация уже началась; запрос отмены не может перезаписать worker-owned состояние, а отменённая заранее запись не попадёт в очередь.
 - Статус: FIX + REGRESSION TEST ADDED / CI UNVERIFIED. Локальная PostgreSQL среда отсутствует, SQL не запускался. Production DB, Pinterest API, deployment и merge не затрагивались.
 - Документ: `docs/audits/AUD-238-pinterest-cancellation-publication-race.md`.
+
+
+## AUD-239 — подтверждённая публикация после отключения Pinterest (2026-11-09)
+
+- Проверена граница отключения: новая публикация резервируется только при активном аккаунте под блокировкой account row; disconnect синхронизирован с этой же строкой. Если disconnect фиксируется первым, новый publish не стартует.
+- Уже отправленный внешний HTTP-запрос невозможно отменить локальным disconnect. Поэтому `complete_pinterest_publish_v2` намеренно допускает финализацию по сохранённой identity даже после отключения аккаунта, сохраняя фактический remote success и предотвращая риск повторной публикации после reconnect.
+- Найден пробел в тестах: прежний integration test проверял сохранение статуса in-flight schedule при disconnect, но не проверял поздний успешный ответ Pinterest после disconnect.
+- Расширен `backend/test/pinterest-account-publication.integration.sql`: durable attempt создаётся до disconnect; после очистки токенов и отключения аккаунта вызывается completion; проверяется точная запись publication ledger, attempt/schedule = published, claim_token очищен, токены остаются null.
+- Workflow уже запускает этот SQL test; дополнительная migration не нужна.
+- Пользовательский эффект: отключение блокирует новые публикации, но не стирает подтверждённый результат уже начатого запроса. PinPosy сможет помнить, что пин уже создан в Pinterest, и не провоцировать дубликат после повторного подключения.
+- Статус: REGRESSION TEST ADDED / STATIC READ-BACK + CI PENDING. SQL локально не запускался. Production DB, Pinterest API, deployment и merge не затрагивались.
+- Документ: `docs/audits/AUD-239-pinterest-late-success-after-disconnect.md`.
