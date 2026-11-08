@@ -487,10 +487,11 @@ test("storage failure after provider success preserves the billable result for s
     }
   );
 
-  assert.equal(providerCalls.length, 2);
+  // The provider create boundary is crossed only once. Recovery rehosts the
+  // already-journaled successful URL and must not submit another billable task.
+  assert.equal(providerCalls.length, 1);
+  assert.equal(storageAttempts, 2);
   assert.equal(providerCalls[0].key, "stable-provider-key-storage-recovery");
-  assert.equal(providerCalls[1].key, providerCalls[0].key);
-  assert.equal(providerCalls[1].prompt, providerCalls[0].prompt);
   assert.equal(secondAttempt.length, 1);
   assert.equal(secondAttempt[0].image_url, "https://storage.example.invalid/durable-result.png");
   assert.equal(secondAttempt[0].credits_cost, 0.75);
