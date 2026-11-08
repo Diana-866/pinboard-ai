@@ -90,10 +90,12 @@ export function readPendingGenerationRequest(
             idempotencyKey: value.idempotencyKey,
           };
           try {
-            storage?.setItem(REQUEST_KEY, JSON.stringify(inMemoryRequest));
-            legacyStorage.removeItem(REQUEST_KEY);
+            if (storage) {
+              storage.setItem(REQUEST_KEY, JSON.stringify(inMemoryRequest));
+              legacyStorage.removeItem(REQUEST_KEY);
+            }
           } catch {
-            // The session copy remains usable for this page.
+            // The session copy remains usable for this page and future reloads.
           }
           return { ...inMemoryRequest };
         }
@@ -107,11 +109,13 @@ export function readPendingGenerationRequest(
           idempotencyKey,
         };
         try {
-          storage?.setItem(REQUEST_KEY, JSON.stringify(inMemoryRequest));
-          legacyStorage.removeItem(LEGACY_FINGERPRINT_KEY);
-          legacyStorage.removeItem(LEGACY_IDEMPOTENCY_KEY);
+          if (storage) {
+            storage.setItem(REQUEST_KEY, JSON.stringify(inMemoryRequest));
+            legacyStorage.removeItem(LEGACY_FINGERPRINT_KEY);
+            legacyStorage.removeItem(LEGACY_IDEMPOTENCY_KEY);
+          }
         } catch {
-          // The session copy remains usable for this page.
+          // The session copy remains usable for this page and future reloads.
         }
         return { ...inMemoryRequest };
       }
@@ -134,6 +138,16 @@ export function writePendingGenerationRequest(
     storage.setItem(REQUEST_KEY, JSON.stringify(inMemoryRequest));
     return true;
   } catch {
+    // If persistent storage is unavailable (for example, quota/security
+    // restrictions), retain the old tab-scoped fallback where possible.
+    const sessionStorage = getLegacySessionStorage();
+    if (sessionStorage) {
+      try {
+        sessionStorage.setItem(REQUEST_KEY, JSON.stringify(inMemoryRequest));
+      } catch {
+        // In-memory retry remains available for this page lifetime.
+      }
+    }
     return false;
   }
 }
