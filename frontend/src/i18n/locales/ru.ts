@@ -290,6 +290,7 @@ export const ru: TranslationSchema = {
     schedulePinBtn: 'Запланировать новый пин',
     emptyDay: 'Нет запланированных пинов',
     statusScheduled: 'Запланирован',
+    statusCancelled: 'Отменён',
     statusPublished: 'Опубликован',
     openPinterestPin: "Открыть пин в Pinterest",
     statusDraft: 'Черновик',
