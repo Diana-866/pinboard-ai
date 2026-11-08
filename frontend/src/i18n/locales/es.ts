@@ -290,6 +290,7 @@ export const es: TranslationSchema = {
     schedulePinBtn: 'Programar Nuevo Pin',
     emptyDay: 'Sin pines programados',
     statusScheduled: 'Programado',
+    statusCancelled: 'Cancelado',
     statusPublished: 'Publicado',
     openPinterestPin: "Abrir pin en Pinterest",
     statusDraft: 'Borrador',
