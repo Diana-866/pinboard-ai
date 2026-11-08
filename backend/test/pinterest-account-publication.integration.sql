@@ -521,7 +521,7 @@ begin
   update public.pin_schedules
      set status = 'failed',
          pinterest_board_id = 'deleted-board',
-         last_error = 'Selected board is no longer available',
+         last_error = 'Выбранная доска не найдена или недоступна подключённому Pinterest-аккаунту',
          updated_at = now()
    where id = v_reconnect_schedule;
   v_result := public.change_failed_pin_schedule_board(v_user::text, v_reconnect_schedule, 'replacement-board');
