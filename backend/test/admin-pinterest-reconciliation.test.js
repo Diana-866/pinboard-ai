@@ -111,3 +111,45 @@ test("database authorization, eligibility and identity conflicts map to safe HTT
     message: "Не удалось выполнить сверку публикации",
   });
 });
+
+test("concurrent duplicate schedule reconciliation is reported as a conflict, not a server failure", async () => {
+  reset();
+  rpcResult = {
+    data: null,
+    error: {
+      code: "23505",
+      message: 'duplicate key value violates unique constraint "pinterest_operator_reconciliations_schedule_unique"',
+    },
+  };
+  await assert.rejects(actions.reconcileUnknownPublication(OPERATOR_ID, payload()), {
+    httpStatus: 409,
+    message: "Эта публикация уже сверяется или данные действия отличаются от ранее принятого запроса",
+  });
+});
+
+test("replayed action ID with a different payload is reported as a conflict", async () => {
+  reset();
+  rpcResult = {
+    data: null,
+    error: {
+      code: "23505",
+      message: "action id replay payload mismatch",
+    },
+  };
+  await assert.rejects(actions.reconcileUnknownPublication(OPERATOR_ID, payload()), {
+    httpStatus: 409,
+    message: "Эта публикация уже сверяется или данные действия отличаются от ранее принятого запроса",
+  });
+});
+
+test("serialization race is reported as a retryable state conflict", async () => {
+  reset();
+  rpcResult = {
+    data: null,
+    error: { code: "40001", message: "could not serialize access due to concurrent update" },
+  };
+  await assert.rejects(actions.reconcileUnknownPublication(OPERATOR_ID, payload()), {
+    httpStatus: 409,
+    message: "Эта публикация уже сверяется или данные действия отличаются от ранее принятого запроса",
+  });
+});
