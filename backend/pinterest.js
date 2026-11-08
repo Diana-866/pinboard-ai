@@ -601,11 +601,11 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
   try {
     result = await withAccount(userId, (token) => callPinterest("POST", "/pins", { token, body }), accountId, { retryRateLimit: false });
   } catch (e) {
-    // 409/422/403/404/503 означают, что запрос на создание пина не дошёл
-    // до успешного вызова Pinterest (например, аккаунт не подключён).
-    // Сетевые 502/таймауты остаются неоднозначными и требуют сверки.
+    // Only explicit client-side rejections are known not to have created a pin.
+    // Every 5xx (including 503) is ambiguous: a gateway may fail after Pinterest
+    // has processed the POST. Keep the attempt non-retryable to prevent duplicates.
     const status = Number(e && e.httpStatus);
-    const outcomeUnknown = ![403, 404, 409, 422, 503].includes(status);
+    const outcomeUnknown = isPinterestPublishOutcomeUnknown(status);
     await supabase.rpc("fail_pinterest_publish_v2", {
       p_user_id: String(userId),
       p_pin_id: pinId,
