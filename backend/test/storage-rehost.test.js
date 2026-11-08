@@ -7,6 +7,7 @@ const modulePaths = [
   require.resolve("../imageValidation"),
   require.resolve("../publicUrl"),
   require.resolve("../pinImageLifecycle"),
+  require.resolve("axios"),
 ];
 const originals = new Map(modulePaths.map((path) => [path, require.cache[path]]));
 
@@ -20,6 +21,7 @@ function mockModule(path, exports) {
 }
 
 const lookupError = new Error("temporary database outage");
+let lookupFailure = lookupError;
 const calls = [];
 let uploadError = null;
 const supabase = {
@@ -55,8 +57,8 @@ mockModule(modulePaths[2], {
   validateImageBuffer() { return { ext: "png", mime: "image/png" }; },
 });
 mockModule(modulePaths[3], {
-  assertPublicUrl: async () => { throw new Error("provider download must not start"); },
-  createPinnedLookup() { throw new Error("provider download must not start"); },
+  assertPublicUrl: async () => ({ url: "https://provider.example.invalid/result.png", host: "provider.example.invalid", addresses: ["203.0.113.10"] }),
+  createPinnedLookup() { return (_hostname, _options, callback) => callback(null, "203.0.113.10", 4); },
 });
 mockModule(modulePaths[4], {
   extractManagedPinImagePath() { return null; },
@@ -67,9 +69,12 @@ mockModule(modulePaths[4], {
     throw new Error("unexpected upload");
   },
   deleteManagedPinImageObject() { throw new Error("not used in this test"); },
-  findCompletedManagedPinImageUpload: async () => { calls.push({ type: "lookup" }); throw lookupError; },
+  findCompletedManagedPinImageUpload: async () => { calls.push({ type: "lookup" }); if (lookupFailure) throw lookupFailure; return null; },
   validatePinImageBucketConfiguration() {},
   EXPECTED_PIN_IMAGE_MIMES: ["image/png", "image/jpeg", "image/webp", "image/gif"],
+});
+mockModule(modulePaths[5], {
+  get: async () => ({ data: Buffer.from("image"), headers: { "content-type": "image/png" } }),
 });
 
 const { rehostImage, uploadPinImage } = require("../storage");
@@ -96,6 +101,18 @@ test("quarantined deterministic upload path is reported as a conflict, not an in
   );
   assert.deepEqual(calls.slice(-1), [{ type: "upload" }]);
   uploadError = null;
+});
+
+test("rehost preserves Storage finalization errors instead of misreporting provider download failure", async () => {
+  lookupFailure = null;
+  uploadError = Object.assign(new Error("upload finalization unavailable"), { httpStatus: 503 });
+  await assert.rejects(
+    rehostImage("https://provider.example.invalid/result.png", { idempotencyKey: "stable-provider-result-key" }),
+    (error) => error.httpStatus === 503 && /upload finalization unavailable/.test(error.message)
+  );
+  assert.equal(calls.some((call) => call.type === "upload"), true);
+  uploadError = null;
+  lookupFailure = lookupError;
 });
 
 test("restore original module cache entries", () => {
