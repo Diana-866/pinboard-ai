@@ -179,9 +179,14 @@ function classifyLegacyScheduleAccount(accounts, requestedAccountId = null) {
 
 function sanitizeScheduleForClient(schedule) {
   if (!schedule || typeof schedule !== "object") return schedule;
-  // Provider diagnostics may contain internal response details. Keep them in
-  // the database/server logs, but never expose raw last_error to browser clients.
-  const { last_error: _privateLastError, ...publicSchedule } = schedule;
+  // Provider diagnostics and worker claim tokens are server-only. The claim
+  // token is a fencing capability used to authorize one worker's DB writes;
+  // it must never be exposed in browser/API payloads.
+  const {
+    last_error: _privateLastError,
+    claim_token: _privateClaimToken,
+    ...publicSchedule
+  } = schedule;
   return publicSchedule;
 }
 
