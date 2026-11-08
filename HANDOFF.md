@@ -1287,3 +1287,14 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Исправлена очистка fixture: удаляется также publication ledger для сценария несовпадающего remote pin ID.
 - Workflow уже применяет миграции 091–096 и запускает этот SQL test; workflow/production migration не менялись.
 - Статус: TEST ADDED / CI UNVERIFIED. SQL не выполнялся локально; GitHub Actions по-прежнему без runner steps/logs. Production/deploy/merge не затрагивались.
+
+## AUD-235 — восстановление неоднозначного ответа финализации Pinterest (2026-11-09)
+
+- Найден реальный риск: Pinterest уже вернул remote Pin ID, а `complete_pinterest_publish_v2` ответил сетевой/PostgREST ошибкой. Такой ответ не доказывает rollback: транзакция могла уже сохранить publication ledger, attempt=`published` и schedule=`published`.
+- Старый error path сразу вызывал `fail_pinterest_publish_v2` с `outcome_unknown=true`. Если completion уже commit-нулся, этот вызов мог понизить успешную попытку до `unknown` и стереть положительное доказательство для последующей reconciliation.
+- Добавлен `matchesConfirmedPublicationLedger`: точное совпадение user, local pin, Pinterest account, board и remote Pinterest Pin ID.
+- После неоднозначной ошибки completion backend теперь сначала читает `pinterest_publications`. Если точная строка найдена, он возвращает уже подтверждённый успех и НЕ вызывает failure-journal RPC. Если чтение не удалось, строки нет или identity расходится — остаётся прежний безопасный путь `unknown`, без повторного POST.
+- Добавлены unit regression cases: точное совпадение, несовпадение каждого identity-поля, null ledger/expected.
+- Пользовательский эффект: при потере ответа БД после уже сохранённой публикации PinPosy не должен сам стирать подтверждение успеха и оставлять календарь в неопределённости. Повторная публикация не запускается.
+- Файлы: `backend/pinterestSchedule.js`, `backend/pinterest.js`, `backend/test/pinterest-schedule.test.js`, `docs/audits/AUD-235-pinterest-ambiguous-completion-ledger-recovery.md`.
+- Статус: FIX IMPLEMENTED / STATIC REVIEW PENDING / CI UNVERIFIED. Node/SQL tests, lint и build фактически не запускались. Production DB, Pinterest API, deployment и merge не затрагивались.
