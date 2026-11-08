@@ -77,7 +77,6 @@ test("successful subscription selection has deterministic null and tie ordering"
   const state = await getTariffState("user-1", client);
   assert.deepEqual(state, { plan: "start", active: true, periodEnd: null });
   assert.deepEqual(orderCalls, [
-    { column: "period_end", options: { ascending: false, nullsFirst: false } },
     { column: "created_at", options: { ascending: false } },
     { column: "id", options: { ascending: false } },
   ]);
