@@ -1384,3 +1384,5 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Пользовательский эффект: чтение досок после rate limit не будет преждевременно повторяться вопреки сроку Pinterest; безопасная защита публикаций от дубликатов сохранена.
 - Статус: FIX + TEST + CI WIRING ADDED / EXECUTION UNVERIFIED. Локальный Node test не запускался; дождаться реального CI. Production, реальные Pinterest API, БД, deployment и merge не затрагивались.
 - Документ: `docs/audits/AUD-243-pinterest-retry-after-rate-limit.md`.
+
+- Дополнительная проверка AUD-243 выявила JS edge case: `Date.parse("-1")` может принять отрицательное число за дату. Парсер теперь отклоняет числовые значения со знаком и использует fallback 2 секунды. Изолированный Node smoke test для seconds/date/malformed values прошёл; это не заменяет полный `node --test` suite.
