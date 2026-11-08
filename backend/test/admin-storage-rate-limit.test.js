@@ -27,3 +27,10 @@ for (const route of ["/billing/create-payment", "/billing/credits"]) {
     assert.ok(source.includes(registration), "Expected middleware chain: " + registration);
   });
 }
+
+
+test("POST /resend-verification applies a dedicated outbound-mail limiter", () => {
+  const registration = 'app.post("/resend-verification", resendVerificationLimiter,';
+  assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
+  assert.ok(source.includes("const resendVerificationLimiter = rateLimit({"));
+});
