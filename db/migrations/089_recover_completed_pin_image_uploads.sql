@@ -6,25 +6,12 @@ returns text language plpgsql security definer set search_path = pg_catalog, pub
 declare v_path text;
 begin
   if p_bucket_id is distinct from 'pin-images' or p_object_digest is null
-     or p_object_digest !~ '^[a-f0-9]{32}
+     or p_object_digest !~ '^[a-f0-9]{32}$' then
     raise exception 'invalid completed pin image lookup';
   end if;
   select l.object_path into v_path from public.pin_image_object_lifecycle l
    where l.bucket_id = p_bucket_id and l.state = 'active'
      and l.object_path ~ ('^pins/generation-' || p_object_digest || '[.](png|jpe?g|webp|gif)$')
-   order by l.updated_at desc limit 1;
-  return v_path;
-end;
-$$;
-revoke all on function public.find_completed_pin_image_upload(text,text) from public, anon, authenticated;
-grant execute on function public.find_completed_pin_image_upload(text,text) to service_role;
- then
-    raise exception 'invalid completed pin image lookup';
-  end if;
-  v_digest := substr(encode(digest(p_idempotency_key, 'sha256'), 'hex'), 1, 32);
-  select l.object_path into v_path from public.pin_image_object_lifecycle l
-   where l.bucket_id = p_bucket_id and l.state = 'active'
-     and l.object_path ~ ('^pins/generation-' || v_digest || '[.](png|jpe?g|webp|gif)$')
    order by l.updated_at desc limit 1;
   return v_path;
 end;
