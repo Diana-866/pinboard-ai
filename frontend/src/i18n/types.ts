@@ -571,6 +571,8 @@ export interface TranslationSchema {
     statusOnline: string;
     disclaimerPeak: string;
     welcomeMessage: string;
+    demoReply: string;
+    openSection: string;
     quickQuestion1: string;
     quickAnswer1: string;
     quickQuestion2: string;
