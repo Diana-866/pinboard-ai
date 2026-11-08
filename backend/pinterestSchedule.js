@@ -42,6 +42,37 @@ async function persistPublishFailureJournal(rpc, params) {
   throw persistenceError;
 }
 
+
+function buildScheduleWorkerFailureState({
+  attempt = null,
+  attemptLookupError = null,
+  error = null,
+  attempts = 0,
+  now = Date.now(),
+  retryLimit = 5,
+}) {
+  const finalStatus = classifyScheduleFailure(attempt, attemptLookupError);
+  const message = String(
+    attemptLookupError
+      ? "Could not verify publication journal after worker error: " + String(attemptLookupError.message || "lookup failed")
+      : error && error.message || "Publication failed"
+  ).slice(0, 500);
+  const retryable = canRetryScheduleFailure(attempt, attemptLookupError, error);
+  const shouldRetry = retryable && Number(attempts || 0) < retryLimit;
+  const retryAt = shouldRetry
+    ? new Date(now + getScheduleRetryDelayMinutes(attempts) * 60_000).toISOString()
+    : null;
+
+  return {
+    finalStatus,
+    message,
+    retryable,
+    shouldRetry,
+    retryAt,
+    nextStatus: shouldRetry ? "scheduled" : finalStatus,
+  };
+}
+
 function getScheduleRetryDelayMinutes(attempts) {
   const count = Math.max(1, Number(attempts) || 1);
   return Math.min(30, 2 ** Math.min(count - 1, 5));
@@ -51,6 +82,7 @@ module.exports = {
   classifyScheduleFailure,
   canRetryScheduleFailure,
   getScheduleRetryDelayMinutes,
+  buildScheduleWorkerFailureState,
   persistPublishFailureJournal,
   isPinterestPublishOutcomeUnknown,
   buildPinScheduleSnapshot,
