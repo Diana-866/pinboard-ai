@@ -22,7 +22,7 @@
 ## Проверки
 Добавлены unit tests на независимые ключи двух запросов, выборочную очистку, восстановление после сброса памяти, миграцию legacy sessionStorage, compact fingerprint, blocked storage fallback, inaccessible localStorage getter и полную очистку scoped-записей.
 
-Тесты не запускались в этой среде: локального checkout репозитория и установленных frontend dependencies нет. Требуется дождаться GitHub Actions на новом HEAD.
+Тесты не запускались локально: локального checkout репозитория и установленных frontend dependencies нет. В GitHub Actions на HEAD `cb307380425458c2d373bcd8372d3d66c4b45cc0` проверки frontend/backend/postgres завершились failure практически сразу; job logs недоступны через текущий GitHub connector (BlobNotFound), поэтому причину этих трёх job failures пока нельзя подтвердить. Отдельно commit status Vercel явно сообщает: `Deployment rate limited — retry in 24 hours`. Это ограничение деплоя Vercel, а не доказательство ошибки в изменённом frontend-коде. Production-деплой не выполнялся.
 
 ## Влияние для пользователя
 Если генерация A зависла из-за потери ответа, а пользователь затем запускает генерацию B, сохранённый ключ A больше не затирается ключом B. Успешное завершение B также не удаляет возможность восстановить A. Это снижает риск повторного платного запуска и потери уже созданной сервером задачи.
