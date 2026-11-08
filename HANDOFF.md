@@ -1012,3 +1012,16 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - **Not verified at runtime:** migration and PostgreSQL script were not executed; Bash/Node/CI were not run. Apply migration 066 only to a disposable test database first and run the SQL integration script before any staging rollout. No production changes or PR merge.
 
 **Status:** AUD-076 / REGENERATION_RESERVATION_WIRED / SQL_RUNTIME_UNVERIFIED / DO_NOT_DEPLOY.
+
+
+## Дополнение к handoff — 2026-11-08 (AUD-165: Pinterest publication + OAuth refresh audit)
+
+- Продолжен статический аудит Pinterest lifecycle: ручной retry, классификация provider errors, 429/rate-limit, multi-instance pacing, справедливость очереди, stale-claim recovery, fencing, uniqueness/reconciliation и OAuth refresh concurrency.
+- Подтверждённые риски публикационного lifecycle уже описаны в `docs/audits/AUD-165-pinterest-publication-lifecycle-concurrency.md`: permanent 4xx ранее классифицировались как retry-safe; 429 reset headers не учитывались; разные задания одного аккаунта могут отправляться параллельно разными backend instances; due queue не имеет стабильного tie-breaker/tenant fairness; stale-claim recovery не ограничен размером batch и не имеет отдельного partial index по publishing.updated_at; ручной retry мог разрешить расписание с не-approved pin. Это audit findings/design recommendations, а не утверждение, что production уже испытывает эти сбои.
+- Проверен OAuth refresh path: account-scoped PostgreSQL lease, lease ID fencing, optimistic `updated_at` compare, `refresh_state='uncertain'` до внешнего запроса, fail-closed при неоднозначном исходе, OAuth callback generation/session fencing. Новая гонка с подтверждённым риском потери/перезаписи токена не обнаружена.
+- Остаточный тестовый пробел: нет отдельного теста с двумя независимыми PostgreSQL-сессиями/процессами, одновременно обновляющими один Pinterest account, включая lease expiry и reconnect-vs-refresh. Runtime/CI тесты на этом HEAD не выполнялись.
+- Обновлён `docs/audits/AUD-165-pinterest-publication-lifecycle-concurrency.md`, последний audit-only commit: `3b5ec27bb86fb54fe4c5fb09fc16754814baee69`.
+- Изменялись только документы аудита/передачи контекста. В рамках сегодняшнего аудита не менялись пользовательские маршруты, React UI, backend logic, SQL migrations, production DB, environment secrets, DNS, billing, deployment или Pinterest credentials. Не запускались реальные публикации и платежи.
+- PR #4 остаётся Draft/open/unmerged; `mergeable=false`. Для commit `3b5ec27` GitHub Actions workflow runs не обнаружены, combined status пустой. Не считать проверки зелёными.
+- Следующие автономные задачи: аудит OAuth callback/state reuse и reconnect/disconnect races; затем продолжить аудит payment/refund lifecycle, provider cost accounting, storage/backup/restore, auth/permissions, UX and release readiness. До запуска отдельно требуется disposable PostgreSQL CI, Pinterest sandbox/Standard access проверки и ручная проверка production env/cron/keys владельцем.
+- **Запрет на запуск:** текущий код/миграции не считать готовыми к production deploy только на основании статического аудита. Не применять новые миграции к рабочей БД, не включать cron и не переключать DNS до завершения аудита, тестов, резервного копирования и согласованного cutover.
