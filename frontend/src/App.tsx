@@ -122,7 +122,10 @@ const MainApp: React.FC = () => {
       try {
         const rows = await apiRequest('/schedule');
         if (cancelled) return;
-        const mapped: ScheduledPinItem[] = (Array.isArray(rows) ? rows : []).map((row: any) => {
+        if (!Array.isArray(rows)) {
+          throw new Error('Invalid schedule response: expected an array');
+        }
+        const mapped: ScheduledPinItem[] = rows.map((row: any) => {
           const date = new Date(row.scheduled_at);
           const local = formatInstantInTimezone(date, getDefaultTimezone());
           const pinterestPinId = String(row.pinterest_pin_id || '').trim();
