@@ -239,6 +239,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     pinCount: number;
   }>>([]);
   const [isCheckingRecoveries, setIsCheckingRecoveries] = useState(false);
+  const [recoveryCheckAttempt, setRecoveryCheckAttempt] = useState(0);
 
   // Look up saved generation identities after login/reload. This is read-only:
   // it never starts generation, clears a key, or changes the user's credit balance.
@@ -294,7 +295,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       if (active) setIsCheckingRecoveries(false);
     });
     return () => { active = false; };
-  }, []);
+  }, [recoveryCheckAttempt]);
 
   // Restore the selected board's persisted pins whenever the board changes or the generator remounts.
   useEffect(() => {
@@ -772,16 +773,28 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       )}
       {recoverableGenerations.length > 0 && (
         <section className="custom-card p-4 rounded-xl space-y-3" aria-label="Generation recovery">
-          <div className="flex items-center gap-2">
-            <RefreshCw className="w-4 h-4 text-accent-ghost" />
-            <h2 className="text-sm font-bold text-primary-theme">
-              {language === 'ru' ? 'Восстановление генераций' :
-                language === 'es' ? 'Recuperar generaciones' :
-                language === 'de' ? 'Generierungen wiederherstellen' :
-                language === 'fr' ? 'Récupérer les générations' :
-                language === 'pt' ? 'Recuperar gerações' :
-                language === 'zh' ? '恢复之前的生成' : 'Recover previous generations'}
-            </h2>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <RefreshCw className="w-4 h-4 text-accent-ghost shrink-0" />
+              <h2 className="text-sm font-bold text-primary-theme">
+                {language === 'ru' ? 'Восстановление генераций' :
+                  language === 'es' ? 'Recuperar generaciones' :
+                  language === 'de' ? 'Generierungen wiederherstellen' :
+                  language === 'fr' ? 'Récupérer les générations' :
+                  language === 'pt' ? 'Recuperar gerações' :
+                  language === 'zh' ? '恢复之前的生成' : 'Recover previous generations'}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setRecoveryCheckAttempt((attempt) => attempt + 1)}
+              disabled={isCheckingRecoveries}
+              className="shrink-0 px-3 py-2 rounded-lg border border-subtle text-xs font-semibold text-secondary-theme hover:text-primary-theme disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isCheckingRecoveries
+                ? (language === 'ru' ? 'Проверяем…' : 'Checking…')
+                : (language === 'ru' ? 'Проверить снова' : 'Check again')}
+            </button>
           </div>
           <p className="text-xs text-secondary-theme">
             {language === 'ru' ? 'Проверка не запускает генерацию и не списывает кредиты.' :
