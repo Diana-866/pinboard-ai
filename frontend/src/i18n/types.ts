@@ -573,6 +573,8 @@ export interface TranslationSchema {
     welcomeMessage: string;
     demoReply: string;
     openSection: string;
+    dock: string;
+    undock: string;
     quickQuestion1: string;
     quickAnswer1: string;
     quickQuestion2: string;
