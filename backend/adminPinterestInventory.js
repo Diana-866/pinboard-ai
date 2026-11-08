@@ -2,6 +2,7 @@ const supabase = require("./supabase");
 const { httpError } = require("./validate");
 
 const ALLOWED_STATUSES = new Set(["scheduled", "publishing", "unknown", "failed", "published"]);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function parseBoundedInt(value, fallback, min, max, label) {
   if (value === undefined || value === null || value === "") return fallback;
@@ -15,11 +16,11 @@ function parseBoundedInt(value, fallback, min, max, label) {
 function sanitizeOperationalError(value) {
   if (value === null || value === undefined) return null;
   return String(value)
-    .replace(/Bearer\s+[^\s,;]+/gi, "Bearer [redacted]")
-    .replace(/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g, "[redacted-token]")
-    .replace(/(authorization)\s*([=:])\s*(?!Bearer \[redacted\])[^\s,;&]+/gi, "$1$2[redacted]")
-    .replace(/(access_token|refresh_token|client_secret|client_id|api[_-]?key|token)\s*([=:])\s*[^\s,;&]+/gi, "$1$2[redacted]")
-    .replace(/([?&](?:access_token|refresh_token|token|key|secret)=)[^&#\s]+/gi, "$1[redacted]")
+    .replace(/Bearer\\s+[^\\s,;]+/gi, "Bearer [redacted]")
+    .replace(/\\beyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\b/g, "[redacted-token]")
+    .replace(/(authorization)\\s*([=:])\\s*(?!Bearer \\[redacted\\])[^\\s,;&]+/gi, "$1$2[redacted]")
+    .replace(/(access_token|refresh_token|client_secret|client_id|api[_-]?key|token)\\s*([=:])\\s*[^\\s,;&]+/gi, "$1$2[redacted]")
+    .replace(/([?&](?:access_token|refresh_token|token|key|secret)=)[^&#\\s]+/gi, "$1[redacted]")
     .slice(0, 320);
 }
 
@@ -35,42 +36,32 @@ function parseFilters(query = {}) {
   return { limit, offset, statuses: [...new Set(statuses)] };
 }
 
-async function listPinterestSchedules(query = {}, now = Date.now()) {
+async function listPinterestSchedules(query = {}, now = Date.now(), operatorUserId) {
   const filters = parseFilters(query);
-  const { data: schedules, error } = await supabase
-    .from("pin_schedules")
-    .select("id,user_id,pin_id,pinterest_account_id,pinterest_board_id,pinterest_pin_id,status,scheduled_at,published_at,updated_at,attempts,next_attempt_at,last_error,claim_token")
-    .in("status", filters.statuses)
-    .order("updated_at", { ascending: false })
-    .order("id", { ascending: false })
-    .range(filters.offset, filters.offset + filters.limit - 1);
-  if (error) throw error;
-
-  const rows = schedules || [];
-  const pinIds = [...new Set(rows.map((row) => row.pin_id).filter(Boolean))];
-  let attempts = [];
-  if (pinIds.length) {
-    const { data, error: attemptError } = await supabase
-      .from("pinterest_publish_attempts")
-      .select("id,user_id,pin_id,pinterest_account_id,pinterest_board_id,pinterest_pin_id,status,retry_safe,attempt_count,updated_at,last_error")
-      .in("pin_id", pinIds)
-      .order("updated_at", { ascending: false })
-      .order("id", { ascending: false });
-    if (attemptError) throw attemptError;
-    attempts = data || [];
+  if (typeof operatorUserId !== "string" || !UUID_RE.test(operatorUserId)) {
+    throw httpError(401, "Не авторизован");
   }
 
-  const attemptsByIdentity = new Map();
-  for (const attempt of attempts) {
-    const key = `${attempt.user_id}:${attempt.pin_id}:${attempt.pinterest_account_id || "legacy"}`;
-    // Legacy null-account rows are not covered by the account-scoped unique
-    // index. Keep the newest one; the query above orders newest first.
-    if (!attemptsByIdentity.has(key)) attemptsByIdentity.set(key, attempt);
+  // The SECURITY DEFINER RPC re-checks admin status and selects only the
+  // newest attempt for each schedule in PostgreSQL. Never fetch the full
+  // attempt journal into Node memory for a paginated schedule page.
+  const { data, error } = await supabase.rpc("admin_list_pinterest_schedule_inventory", {
+    p_operator_user_id: operatorUserId,
+    p_statuses: filters.statuses,
+    p_limit: filters.limit,
+    p_offset: filters.offset,
+  });
+  if (error) {
+    if (/administrator privileges required/i.test(String(error.message || ""))) {
+      throw httpError(403, "Доступ запрещён");
+    }
+    throw error;
   }
+  if (!Array.isArray(data)) throw httpError(500, "Не удалось загрузить очередь Pinterest");
 
   const staleBefore = now - 20 * 60 * 1000;
-  const items = rows.map((row) => {
-    const attempt = attemptsByIdentity.get(`${row.user_id}:${row.pin_id}:${row.pinterest_account_id || "legacy"}`) || null;
+  const items = data.map((row) => {
+    const attempt = row.attempt || null;
     let category = "normal";
     if (row.status === "unknown") category = "unknown";
     else if (row.status === "publishing" && Date.parse(row.updated_at) <= staleBefore) category = "stale_publishing";
@@ -102,8 +93,6 @@ async function listPinterestSchedules(query = {}, now = Date.now()) {
         pinterest_pin_id: attempt.pinterest_pin_id,
         pinterest_board_id: attempt.pinterest_board_id,
       } : null,
-      // Discovery is informational only. Reconciliation still validates all
-      // evidence, identities, age, and eligibility in its own SQL transaction.
       actionable_reconciliation: row.status === "unknown" &&
         !row.claim_token &&
         Date.parse(row.updated_at) <= staleBefore &&
@@ -125,4 +114,4 @@ async function listPinterestSchedules(query = {}, now = Date.now()) {
   };
 }
 
-module.exports = { listPinterestSchedules, parseFilters };
+module.exports = { listPinterestSchedules, parseFilters, sanitizeOperationalError };
