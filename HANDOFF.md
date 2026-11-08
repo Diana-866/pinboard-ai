@@ -1403,3 +1403,12 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Сохранена защита от гонок между переключением аккаунтов и ручными повторами: обновлять UI может только последний запрос.
 - Статус: IMPLEMENTED / STATIC READ-BACK PENDING / FRONTEND BUILD UNVERIFIED. Полный frontend build и component tests не запускались. Production, Pinterest API, deployment и merge не затрагивались.
 - Документ: `docs/audits/AUD-245-pinterest-boards-fetch-error-ui.md`.
+
+
+## AUD-246 — календарь передаёт выбранный слот в генератор (2026-11-09)
+- Исправлен разрыв между календарём и генератором: ранее дата передавалась, но выбранное время и рабочая доска терялись. Теперь callback передаёт тему, дату, время и ID выбранной доски.
+- Генератор применяет переданные дату/время и сохраняет явный выбор доски вместо автоматической тематической рекомендации. Удалён фиктивный fallback ID `b-1`, который мог запускать загрузку пинов несуществующей доски до появления реальных данных.
+- Контекст календаря очищается при переходах без календарных параметров, чтобы не переносить старое время/доску в следующую независимую генерацию.
+- Изменения: `frontend/src/components/calendar/PublishingCalendar.tsx`, `frontend/src/App.tsx`, `frontend/src/components/pins/PinGenerator.tsx`.
+- Статус: IMPLEMENTED / STATIC READ-BACK PENDING / FRONTEND BUILD UNVERIFIED. Локальный frontend build, TypeScript и component tests не запускались. Production, рабочая БД, Pinterest API, deployment и merge не затрагивались.
+- Документ: `docs/audits/AUD-246-calendar-slot-context-to-generator.md`.
