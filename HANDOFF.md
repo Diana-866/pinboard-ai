@@ -1298,3 +1298,14 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Пользовательский эффект: при потере ответа БД после уже сохранённой публикации PinPosy не должен сам стирать подтверждение успеха и оставлять календарь в неопределённости. Повторная публикация не запускается.
 - Файлы: `backend/pinterestSchedule.js`, `backend/pinterest.js`, `backend/test/pinterest-schedule.test.js`, `docs/audits/AUD-235-pinterest-ambiguous-completion-ledger-recovery.md`.
 - Статус: FIX IMPLEMENTED / STATIC READ-BACK COMPLETE / CI FAILURE UNDIAGNOSED. Node/SQL tests, lint и build локально не запускались. На текущем HEAD GitHub Actions atomic-payment integration, Prodamus webhook tests и persisted-boards integration завершились failure; GitHub вернул `steps=null` и `logs_url=null`, поэтому причина неизвестна и тесты не считать пройденными. Vercel status — `build-rate-limit` (лимит сборок, не установленная ошибка исходников). Production DB, Pinterest API, deployment и merge не затрагивались.
+
+## AUD-236 — контекст креатива для ручного восстановления Pinterest (2026-11-09)
+
+- Найден UX-пробел в уже существующей безопасной ручной сверке: если backend упал после создания пина Pinterest, но до сохранения remote ID, администратор видел локальный Pin ID/аккаунт/доску, но не видел неизменяемые заголовок и описание, с которыми создавалась публикация. Поиск правильного пина в Pinterest был затруднён.
+- Добавлена миграция `097_admin_pinterest_inventory_creative_context.sql`: admin inventory RPC возвращает `creative_title` (snapshot title, fallback на live title, до 200 символов) и `creative_description` (snapshot description, fallback на live description, до 500 символов).
+- Не возвращаются image URL, destination URL, storage paths, claim token и прочие приватные поля.
+- Backend allowlists/truncates новые поля; Admin Pinterest Schedules показывает заголовок и описание запланированного креатива.
+- Добавлен Node unit regression на поля/лимиты и PostgreSQL integration test на snapshot precedence и отсутствие утечки URL/private fields.
+- Migration 097 и integration test добавлены в `.github/workflows/atomic-payment-integration.yml`.
+- Пользовательский эффект: оператору легче найти именно тот уже созданный Pinterest-пин в нужном профиле и на нужной доске, когда remote ID потерян из-за падения backend. Это не включает автоматический retry и не помечает публикацию успешной без внешнего подтверждения.
+- Статус: IMPLEMENTED / STATIC READ-BACK PENDING / CI UNVERIFIED. Локально Node/SQL tests, lint/build не выполнялись. Production migration/deploy/Pinterest API/merge не выполнялись.
