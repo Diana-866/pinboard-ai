@@ -385,6 +385,35 @@ const MainApp: React.FC = () => {
     }
   };
 
+  const handleChangeFailedScheduleBoard = async (
+    pin: ScheduledPinItem,
+    pinterestBoardId: string,
+    boardName: string
+  ) => {
+    try {
+      const saved = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/change-board`, {
+        method: 'POST',
+        body: JSON.stringify({ pinterest_board_id: pinterestBoardId }),
+      });
+      const date = formatInstantInTimezone(new Date(saved.scheduled_at), getDefaultTimezone());
+      setScheduledPins((prev) => prev.map((item) => item.id === pin.id ? {
+        ...item,
+        scheduledDate: date.date,
+        scheduledTime: date.time,
+        status: 'scheduled',
+        pinterestBoardId,
+        boardName: boardName || item.boardName,
+        retryable: false,
+        retryReason: undefined,
+        failureReason: null,
+      } : item));
+    } catch (error) {
+      console.error('[schedule] Не удалось сменить Pinterest-доску:', error);
+      window.alert(error instanceof Error ? error.message : 'Не удалось сменить доску Pinterest');
+      throw error;
+    }
+  };
+
   const handleRetryScheduledPin = async (pin: ScheduledPinItem) => {
     try {
       const saved = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/retry`, {
@@ -587,6 +616,7 @@ const MainApp: React.FC = () => {
               onAddPin={handleSchedulePin}
               onCancelSchedule={handleCancelScheduledPin}
               onRetrySchedule={handleRetryScheduledPin}
+              onChangeFailedScheduleBoard={handleChangeFailedScheduleBoard}
               onReconcileLegacySchedule={handleReconcileLegacySchedule}
               onGoToGenerator={(topic, date) => handleGenerateFromTopic(topic, date)}
               onOpenReview={() => setActiveTab('review')}
