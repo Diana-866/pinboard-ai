@@ -1036,3 +1036,12 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Коммиты: `89c101669258b8a9e03518b0ef467aa24e9e869c` (код), `3ef9c7d7e427765270b5f85e1b3d4bb317c18bce` (аудит).
 - Source-level проверка выполнена повторным чтением UI-файла. Frontend test/build/lint не запускались: локального checkout и установленных зависимостей нет. Не было запросов к Prodamus, реальных оплат, production DB изменений, deployment или merge.
 - Следующий приоритет: продолжить поиск подтверждённого риска в generation/credit settlement и платежном lifecycle; не добавлять speculative refund webhook или server-side order reuse без подтверждённого контракта Prodamus.
+
+## Дополнение к handoff — 2026-11-08 (AUD-212: честный preview AI Strategist)
+
+- Обнаружено несоответствие продукта интерфейсу: блок AI Strategist на странице тарифов выглядел как работающий онлайн-чат (зелёный индикатор «online» и поле ввода), но ответы формировались локальным `setTimeout` и несколькими проверками ключевых слов. Запрос к AI/backend не выполнялся.
+- Удалены фальшивый ввод, локальная имитация переписки и canned-response handler. Вместо них показан статический пример диалога с явным бейджем «Демонстрация / Demo» и пояснением на русском/английском, что сообщения не отправляются на сервер и ответы не генерируются ИИ.
+- Пользовательский эффект: посетитель видит пример будущего интерфейса, но не принимает демонстрационный текст за реальный ответ работающего AI-сервиса. Для восстановления интерактивного чата нужен отдельный настоящий backend endpoint с авторизацией, тарифными/кредитными ограничениями и защитой от злоупотреблений.
+- Изменён `frontend/src/components/pricing/PricingView.tsx`; добавлен `docs/audits/AUD-212-transparent-ai-assistant-preview.md`.
+- Коммиты: `a78ae393248fd4a90a3608cfb953d1c709ce4c25` (UI), `c4635a78d259a6e5d10ec42ee05f3ef06bd7592c` (аудит).
+- Компонент повторно загружен с GitHub; JSX closing structure и статический preview просмотрены. Frontend lint/tests/build не запускались: локального checkout и зависимостей нет. Не было AI-запросов, production изменений, deployment или merge.
