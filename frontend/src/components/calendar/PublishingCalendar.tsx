@@ -871,6 +871,35 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
               </div>
             )}
 
+            {selectedPin.status === 'failed' && selectedPin.failureReason === 'board_unavailable' && (
+              <div role="alert" className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-3 space-y-1.5">
+                <p className="text-xs font-semibold text-primary-theme">
+                  {language === 'ru' ? 'Доска Pinterest недоступна' :
+                   language === 'de' ? 'Pinterest-Board nicht verfügbar' :
+                   language === 'es' ? 'Tablero de Pinterest no disponible' :
+                   language === 'fr' ? 'Tableau Pinterest indisponible' :
+                   language === 'pt' ? 'Pasta do Pinterest indisponível' :
+                   language === 'zh' ? 'Pinterest 画板不可用' :
+                   'Pinterest board unavailable'}
+                </p>
+                <p className="text-xs leading-relaxed text-secondary-theme">
+                  {language === 'ru'
+                    ? 'Доска была удалена или доступ к ней потерян. PinPosy не будет повторять публикацию на этой доске. Выберите доступную доску и создайте новое расписание для этого пина.'
+                    : language === 'de'
+                    ? 'Das Board wurde gelöscht oder der Zugriff ist verloren gegangen. PinPosy wiederholt die Veröffentlichung dort nicht. Wählen Sie ein verfügbares Board und planen Sie diesen Pin erneut.'
+                    : language === 'es'
+                    ? 'El tablero se eliminó o ya no tienes acceso. PinPosy no volverá a publicar allí. Elige un tablero disponible y programa este pin de nuevo.'
+                    : language === 'fr'
+                    ? 'Le tableau a été supprimé ou vous n’y avez plus accès. PinPosy ne réessaiera pas sur ce tableau. Choisissez un tableau disponible et reprogrammez cette épingle.'
+                    : language === 'pt'
+                    ? 'A pasta foi excluída ou o acesso foi perdido. O PinPosy não tentará publicar nela novamente. Escolha uma pasta disponível e agende este Pin outra vez.'
+                    : language === 'zh'
+                    ? '该画板已被删除或您已失去访问权限。PinPosy 不会在此画板上重试。请选择可用画板并重新安排此 Pin。'
+                    : 'The board was deleted or access was lost. PinPosy will not retry this publication there. Choose an available board and schedule this Pin again.'}
+                </p>
+              </div>
+            )}
+
             {selectedPin.status === 'failed' && !selectedPin.pinterestAccountId && onReconcileLegacySchedule && (
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
                 <p className="text-xs font-semibold text-primary-theme">
