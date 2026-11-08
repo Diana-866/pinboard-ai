@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const {
   toPublicPinterestAccount,
   toDisconnectedPinterestAccount,
+  isPinterestReauthRequired,
 } = require("../pinterestPublicAccount");
 
 const secretAccount = {
@@ -44,4 +45,25 @@ test("disconnect response projection excludes all token material", () => {
   assert.deepEqual(result, { id: "account-1", username: "sample" });
   assert.equal(JSON.stringify(result).includes("access-secret"), false);
   assert.equal(JSON.stringify(result).includes("refresh-secret"), false);
+});
+
+
+test("malformed non-empty token expiry is reported as requiring reauthorization", () => {
+  const result = toPublicPinterestAccount({
+    ...secretAccount,
+    refresh_state: "ready",
+    expires_at: "not-a-date",
+  }, Date.parse("2026-11-07T11:00:00.000Z"));
+  assert.equal(result.needs_reauth, true);
+});
+
+test("missing expiry metadata alone does not invent an expired token state", () => {
+  assert.equal(isPinterestReauthRequired({ refresh_state: "ready", expires_at: null }, Date.now()), false);
+});
+
+test("a future valid token expiry remains healthy", () => {
+  assert.equal(isPinterestReauthRequired({
+    refresh_state: "ready",
+    expires_at: "2026-11-07T12:00:00.000Z",
+  }, Date.parse("2026-11-07T11:00:00.000Z")), false);
 });
