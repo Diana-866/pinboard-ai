@@ -5,9 +5,18 @@ const PREFIX = "enc:v1:";
 function parseEncryptionKey(rawValue, variableName) {
   const raw = String(rawValue || "").trim();
   if (!raw) throw new Error(`${variableName} is not configured`);
-  const key = /^[0-9a-f]{64}$/i.test(raw) ? Buffer.from(raw, "hex") : Buffer.from(raw, "base64");
-  if (key.length !== 32) {
-    throw new Error(`${variableName} must decode to exactly 32 bytes (base64 or 64-char hex)`);
+  if (/^[0-9a-f]{64}$/i.test(raw)) return Buffer.from(raw, "hex");
+
+  // Buffer.from(..., "base64") is intentionally permissive: it silently
+  // ignores invalid characters and accepts non-canonical encodings. Reject
+  // those inputs so a mistyped deployment secret cannot become a different key.
+  const key = Buffer.from(raw, "base64");
+  const canonicalBase64 = key.toString("base64");
+  if (
+    key.length !== 32 ||
+    (raw !== canonicalBase64 && raw !== canonicalBase64.replace(/=+$/, ""))
+  ) {
+    throw new Error(`${variableName} must be canonical base64 for exactly 32 bytes or 64-char hex`);
   }
   return key;
 }
