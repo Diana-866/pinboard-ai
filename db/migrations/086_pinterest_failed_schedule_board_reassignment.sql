@@ -48,6 +48,12 @@ begin
     return jsonb_build_object('ok', false, 'reason', 'schedule_not_retryable');
   end if;
 
+  -- Only repair the specific terminal preflight failure this action is designed for.
+  -- Never let a generic/ambiguous publication failure be re-routed to another board.
+  if coalesce(v_schedule.last_error, '') !~* '(Выбранная доска не найдена или недоступна|Pinterest не подтвердил принадлежность выбранной доски аккаунту)' then
+    return jsonb_build_object('ok', false, 'reason', 'board_change_not_applicable');
+  end if;
+
   -- A publication attempt is acceptable only when its terminal journal
   -- explicitly proves that the remote POST did not have an ambiguous outcome.
   select * into v_attempt
