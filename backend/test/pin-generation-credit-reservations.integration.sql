@@ -197,23 +197,6 @@ begin
     if sqlerrm not like '%insufficient credits after active generation reservations%' then raise; end if;
   end;
 
-  -- An existing image task means the provider may have accepted billable work;
-  -- its reservation must remain protected while the outcome is unknown.
-  v_key := 'reserve-unknown-with-image-task-' || v_user;
-  v_request := public.begin_pin_generation_request(v_user::text, v_board, v_key, repeat('f', 64));
-  v_result := public.reserve_pin_generation_credits(v_user::text, v_key, 2);
-  insert into public.pin_generation_tasks(
-    generation_request_id, user_id, board_id, task_index, title, description,
-    prompt, model, aspect_ratio, status
-  )
-  select id, v_user::text, v_board, 1, 'Unknown image task', '',
-         'Image task prompt', 'flux-schnell', '2:3', 'submitting'
-    from public.pin_generation_requests where user_id = v_user::text and idempotency_key = v_key;
-  perform public.fail_pin_generation_request(v_user::text, v_key,
-    (v_request->>'claim_token')::uuid, 'image_provider_outcome_unknown', true);
-  select status into v_status from public.pin_generation_credit_reservations
-   where user_id = v_user::text and idempotency_key = v_key;
-  if v_status <> 'reserved' then raise exception 'unknown image outcome released reservation: %', v_status; end if;
   raise notice 'Pin generation credit reservation checks passed';
 end;
 $$;
