@@ -97,12 +97,16 @@ const authLimiter = rateLimit({
   message: { error: "Слишком много попыток. Попробуйте через 15 минут." },
 });
 
-// Лимит для дорогих AI-эндпоинтов: генерация тратит реальный баланс GPTunnel (B12)
+// One shared per-account budget for every billable AI route. These routes run
+// requireAuth first, so the key is the verified application user ID rather than
+// a client-controlled header or a rotating IP address. MemoryStore is still
+// process-local; a shared store is required for a cross-instance global quota.
 const aiLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 12,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => String(req.userId),
   message: { error: "Слишком много запросов. Подождите минуту." },
 });
 
@@ -589,7 +593,7 @@ app.get("/projects/:id", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/projects/:id/analyze", aiLimiter, requireAuth, async (req, res) => {
+app.post("/projects/:id/analyze", requireAuth, aiLimiter, async (req, res) => {
   try {
     const { data: project, error: fetchError } = await supabase
       .from("projects")
@@ -625,7 +629,7 @@ app.post("/projects/:id/analyze", aiLimiter, requireAuth, async (req, res) => {
 
 // --- Доски ---
 
-app.post("/projects/:id/boards/generate", aiLimiter, requireAuth, requireTariff(["standard", "pro", "agency", "start"]), async (req, res) => {
+app.post("/projects/:id/boards/generate", requireAuth, aiLimiter, requireTariff(["standard", "pro", "agency", "start"]), async (req, res) => {
   try {
     const { data: project, error: fetchError } = await supabase
       .from("projects")
@@ -789,7 +793,7 @@ app.post("/pins/:id/image", requireAuth, imageUploadLimiter, imageUpload.single(
   }
 });
 
-app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standard", "pro", "agency", "start"]), async (req, res) => {
+app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standard", "pro", "agency", "start"]), async (req, res) => {
   let claimToken = null;
   let idempotencyKey = req.get("Idempotency-Key");
   let requestStarted = false;
@@ -1199,7 +1203,7 @@ app.get("/boards/:id/pins", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["standard", "pro", "agency", "start"]), async (req, res) => {
+app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["standard", "pro", "agency", "start"]), async (req, res) => {
   let idempotencyKey = req.get("Idempotency-Key");
   let generationRequestStarted = false;
   let providerGenerationStarted = false;
