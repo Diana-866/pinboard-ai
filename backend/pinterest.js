@@ -19,6 +19,7 @@ const {
   pinterestWorkerLimiter,
 } = require("./pinterestRateLimit");
 const { executeWithAccountToken, getPinterestRetryDelayMs } = require("./pinterestAccountRequest");
+const { fetchAllPinterestBoards } = require("./pinterestBoardsPagination");
 const { toPublicPinterestAccount, toDisconnectedPinterestAccount, isPinterestReauthRequired } = require("./pinterestPublicAccount");
 const { isCommittedTokenRefresh, hasActiveRefreshLease, isExplicitRefreshRateLimit } = require("./pinterestRefreshRecovery");
 const { decodePinterestAccountRecord } = require("./pinterestAccountRecord");
@@ -1027,25 +1028,12 @@ function registerRoutes(app, deps) {
   app.get("/integrations/pinterest/boards", requireAuth, pinterestReadLimiter, async (req, res) => {
     try {
       const accountId = req.query.account_id ? String(req.query.account_id) : null;
-      const result = await withAccount(req.userId, async (token) => {
-        const items = [];
-        let bookmark = null;
-        for (let page = 0; page < 8; page += 1) {
+      const result = await withAccount(req.userId, (token) =>
+        fetchAllPinterestBoards((bookmark) => {
           const params = new URLSearchParams({ page_size: "250" });
           if (bookmark) params.set("bookmark", bookmark);
-          const pageResult = await callPinterest("GET", `/boards?${params.toString()}`, { token });
-          if (!pageResult.ok) return pageResult;
-          items.push(...((pageResult.data && pageResult.data.items) || []));
-          bookmark = pageResult.data && pageResult.data.bookmark;
-          if (!bookmark) return { ...pageResult, data: { items } };
-        }
-        // Не отдаём незаметно неполный список, если Pinterest изменит лимиты.
-        return {
-          ok: false,
-          status: 502,
-          data: { message: "Pinterest вернул больше страниц досок, чем поддерживает текущая загрузка" },
-        };
-      }, accountId);
+          return callPinterest("GET", `/boards?${params.toString()}`, { token });
+        }), accountId);
       if (!result.ok) {
         throw httpError(502, `Pinterest не отдал доски: ${pinterestMessage(result.data, "неизвестная ошибка")}`);
       }
