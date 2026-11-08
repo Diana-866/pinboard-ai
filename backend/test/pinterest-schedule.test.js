@@ -7,6 +7,7 @@ const {
   getScheduleRetryDelayMinutes,
   buildScheduleWorkerFailureState,
   hasMatchingScheduleAttemptIdentity,
+  isScheduleClaimUpdateConfirmed,
   persistPublishFailureJournal,
   isPinterestPublishOutcomeUnknown,
   buildPinScheduleSnapshot,
@@ -285,6 +286,13 @@ test("worker trusts a published journal only when user, pin, account and board a
     assert.equal(hasMatchingScheduleAttemptIdentity({ ...attempt, [field]: "different" }, schedule), false, field);
   }
   assert.equal(hasMatchingScheduleAttemptIdentity(null, schedule), false);
+});
+
+test("worker confirms a conditional schedule update actually changed its claimed row", () => {
+  assert.equal(isScheduleClaimUpdateConfirmed({ data: { id: "schedule-1" }, error: null }), true);
+  assert.equal(isScheduleClaimUpdateConfirmed({ data: null, error: null }), false);
+  assert.equal(isScheduleClaimUpdateConfirmed({ data: null, error: new Error("database unavailable") }), false);
+  assert.equal(isScheduleClaimUpdateConfirmed(null), false);
 });
 
 test("worker journal lookup failure remains unknown and never authorizes a retry", () => {
