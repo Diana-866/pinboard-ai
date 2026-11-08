@@ -318,6 +318,8 @@ export const de: TranslationSchema = {
     statusPublishing: "Wird veröffentlicht",
     statusFailed: "Veröffentlichungsfehler",
     statusUnknown: "Prüfung erforderlich",
+    unknownPublishHelpTitle: 'Pinterest könnte diesen Pin erhalten haben',
+    unknownPublishHelpBody: 'Das Veröffentlichungsergebnis konnte nicht bestätigt werden. Bitte nicht erneut versuchen und denselben Pin nicht noch einmal planen – dadurch könnte ein Duplikat entstehen. Prüfen Sie das ausgewählte Pinterest-Konto und Board. Wenn Sie den Pin nicht eindeutig finden, lassen Sie diesen Eintrag vom Support prüfen.',
     statusQueued: "In Warteschlange",
     generateDateTitle: "Pins für dieses Datum erstellen",
     primeSlotLabel: "20:15-Zeitfenster (Hauptzeit)",
