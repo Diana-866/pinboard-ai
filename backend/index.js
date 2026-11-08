@@ -191,7 +191,7 @@ const webhookMultipart = multer({
 const imageUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => cb(null, ["image/png", "image/jpeg", "image/webp"].includes(String(file.mimetype || "").toLowerCase())),
+  fileFilter: (req, file, cb) => cb(null, ["image/png", "image/jpeg", "image/webp", "image/gif"].includes(String(file.mimetype || "").split(";")[0].trim().toLowerCase())),
 });
 
 if (!process.env.JWT_SECRET) {
