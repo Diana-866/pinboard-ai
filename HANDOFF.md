@@ -1421,3 +1421,11 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Изменения: `frontend/src/components/pins/PinGenerator.tsx`, `frontend/src/utils/timezone.test.ts`, `docs/audits/AUD-247-publish-now-timezone-format.md`.
 - Статус: IMPLEMENTED / STATIC READ-BACK PENDING / NODE TEST AND FRONTEND BUILD UNVERIFIED. Production, рабочая БД, Pinterest API, deployment и merge не затрагивались.
 - Документ: `docs/audits/AUD-247-publish-now-timezone-format.md`.
+
+## Дополнение к handoff — 2026-11-09 (AUD-248)
+
+- Усилена проверка ответа `GET /boards/:id/pins` на фронтенде: кроме массива теперь проверяются объект каждой записи, непустой уникальный `id`, непустой абсолютный HTTPS `image_url`.
+- Пустой массив по-прежнему считается корректной пустой доской. Некорректная запись больше не превращается в карточку с пустой картинкой или неоднозначным ID: загрузка доски показывает ошибку и предлагает повторить запрос.
+- Добавлены unit regression tests для пустого списка, неверного формата ответа, null/не-объектных записей, отсутствующего/повторного ID, отсутствующей/битой/HTTP-ссылки изображения.
+- Статическая проверка исходников после записи выполнена. Node tests, frontend build и TypeScript не запускались в этой среде; CI на новом HEAD ещё не подтверждён. Production и база данных не менялись.
+- AUD-248: FIXED_UNVERIFIED до выполнения тестов в CI.
