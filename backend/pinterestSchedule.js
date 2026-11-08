@@ -28,15 +28,18 @@ function isPinterestPublishOutcomeUnknown(httpStatus) {
 }
 
 async function persistPublishFailureJournal(rpc, params) {
-  const { error } = await rpc("fail_pinterest_publish_v2", params);
-  if (error) {
-    const persistenceError = new Error(
-      "Не удалось сохранить результат обращения к Pinterest. Публикация заблокирована до сверки; не запускайте её повторно."
-    );
-    persistenceError.httpStatus = 503;
-    persistenceError.code = "PUBLISH_JOURNAL_PERSISTENCE_FAILED";
-    throw persistenceError;
+  try {
+    const { error } = await rpc("fail_pinterest_publish_v2", params);
+    if (!error) return;
+  } catch (error) {
+    // A rejected transport promise is just as uncertain as a returned DB error.
   }
+  const persistenceError = new Error(
+    "Не удалось сохранить результат обращения к Pinterest. Публикация заблокирована до сверки; не запускайте её повторно."
+  );
+  persistenceError.httpStatus = 503;
+  persistenceError.code = "PUBLISH_JOURNAL_PERSISTENCE_FAILED";
+  throw persistenceError;
 }
 
 function getScheduleRetryDelayMinutes(attempts) {
