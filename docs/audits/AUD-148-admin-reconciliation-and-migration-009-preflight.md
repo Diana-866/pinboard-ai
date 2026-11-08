@@ -175,3 +175,13 @@ No confirmed client privilege escalation was found in these reviewed migrations.
 - Billing remains unchanged: no credit debit/reservation is introduced. Whether project analysis and board generation are plan-included or separately billable is an explicit product decision. A provider-cost ledger can be added independently, preserving `cost_missing` rather than inventing zero cost.
 - No migration, handler, or UI behavior changed in this audit step. Implementation is deferred until the frontend caller and its retry lifecycle are identified, so a server-only idempotency key would not falsely promise protection against client retries.
 - Verification: source review only. No Node/PostgreSQL tests, GPTunnel calls, production database operations, deployment, or merge were performed.
+
+
+## AUD-157 — frontend caller trace for project board generation (2026-11-08)
+
+- Traced the dashboard action in `frontend/src/components/dashboard/DashboardView.tsx` through `App.tsx`: `onQuickGenerate` invokes `handleGenerateFromTopic`, which only stores optional topic/date and switches to the pin-generator tab. It does not call `POST /projects/:id/boards/generate`.
+- `frontend/src/components/boards/BoardsManager.tsx` creates a board through the ordinary `POST /boards` route; it does not invoke the AI board-generation endpoint. A targeted scan of the frontend source tree found no caller for `/projects/:id/boards/generate`.
+- The active pin-generation workflow in `frontend/src/components/pins/PinGenerator.tsx` already demonstrates a client idempotency contract: it builds a request fingerprint, persists an idempotency key and fingerprint in `sessionStorage`, sends `Idempotency-Key` through `apiRequest`, retains the key for ambiguous/in-progress outcomes, and rotates it only after a definitive failure. This is a useful pattern to adapt only if a real UI flow for project board generation is introduced.
+- The board-generation endpoint is therefore currently an unreferenced backend capability in the inspected frontend, rather than the action triggered by the dashboard's Generate button. Implementing client key persistence now would add dead code and leave the endpoint's intended product workflow undefined.
+- Decision: defer endpoint idempotency implementation until the product/UI explicitly exposes AI board generation. If retained as an internal API, first define its caller contract and response-recovery UX. The separate risk for any direct API clients remains: repeated calls can issue duplicate provider text requests and insert duplicate boards.
+- No code or runtime behavior changed in this step. Verification: frontend source trace only; no tests, provider calls, production DB operations, deployment, or merge.
