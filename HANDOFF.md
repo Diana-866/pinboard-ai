@@ -1320,3 +1320,15 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Пользовательский эффект: при одновременном пробуждении двух экземпляров PinPosy одна запланированная публикация не должна обрабатываться обоими; заблокированная строка не блокирует обработку следующей свободной.
 - Статус: TEST ADDED / STATIC READ-BACK COMPLETE / CI UNVERIFIED. Локальная PostgreSQL среда недоступна, shell/SQL test не запускался. Production DB, Pinterest API, deployment и merge не затрагивались.
 - Документ: `docs/audits/AUD-237-pinterest-schedule-claim-concurrency.md`.
+
+
+## AUD-238 — гонки отмены и публикации Pinterest (2026-11-09)
+
+- Проверена точка синхронизации отмены: API обновляет только `status='scheduled'`; worker claim переводит запись в `publishing` с fencing token. Если отмена первая — worker не должен claim-ить строку; если worker первый — отмена не должна сбросить токен или изменить статус.
+- Исправлен UX `POST /schedule/:id/cancel`: после неуспешного условного UPDATE backend различает отсутствующую/чужую запись (404) и существующую запись с уже изменившимся статусом (409). Для `publishing` и `published` пользователь получает объяснение, что отмена уже невозможна. Повторное чтение не меняет состояние.
+- Добавлен `backend/test/pinterest-schedule-cancellation-race.integration.sql`: cancel-first подтверждает, что worker не забирает cancelled запись; worker-first подтверждает, что cancel не изменяет publishing status и не очищает claim token. Тест транзакционный и заканчивается rollback.
+- SQL test подключён в `.github/workflows/atomic-payment-integration.yml`.
+- Смена доски проверена по backend flow: разрешена только для failed, а RPC повторяет проверку актуального состояния в БД перед изменением; completion/failure worker fenced точной identity и claim token. Не менял уже защищённую логику без найденного дефекта.
+- Пользовательский эффект: вместо ложного «не найдено» пользователь видит конфликт, если публикация уже началась; запрос отмены не может перезаписать worker-owned состояние, а отменённая заранее запись не попадёт в очередь.
+- Статус: FIX + REGRESSION TEST ADDED / CI UNVERIFIED. Локальная PostgreSQL среда отсутствует, SQL не запускался. Production DB, Pinterest API, deployment и merge не затрагивались.
+- Документ: `docs/audits/AUD-238-pinterest-cancellation-publication-race.md`.
