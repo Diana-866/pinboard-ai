@@ -127,3 +127,13 @@ No confirmed client privilege escalation was found in these reviewed migrations.
 - Added regression assertions for the disconnect middleware chain and the account-action budget.
 - The rate limiter uses the existing process-local MemoryStore; it is not a global quota across multiple backend instances. The action is already ownership-scoped and uses the database RPC; this change only bounds repeated calls.
 - Test status: not run locally in this environment. No Pinterest OAuth, external API calls, live publishing, production changes, deployment or merge were performed.
+
+
+## AUD-153 — verification-email resend throttling (2026-11-08)
+
+- Reviewed public authentication and email-verification routes. Registration/login and password reset already use the general 10-per-15-minute auth limiter; token verification and resend shared the broader 30-per-15-minute verification limiter.
+- `POST /resend-verification` can trigger outbound email delivery, so sharing the 30-request token-verification budget allowed a comparatively large email burst from one client IP.
+- Added a dedicated IP-based limiter of 5 requests per 15 minutes for resend only. The token-application endpoint retains its separate 30-per-15-minute budget. The generic response behavior remains unchanged to avoid account enumeration.
+- Added a source-registration regression assertion for the dedicated middleware.
+- Limiting is process-local with the existing express-rate-limit MemoryStore and does not enforce a global quota across multiple backend instances. Provider-level quotas and per-account delivery cooldowns remain useful additional controls.
+- Test status: not run locally in this environment. No email was sent, production was not changed, and no deployment or merge was performed.
