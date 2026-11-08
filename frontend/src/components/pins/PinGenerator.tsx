@@ -24,6 +24,7 @@ import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { getDefaultTimezone } from '../../utils/timezone';
 import { isDefinitiveGenerationFailure } from '../../utils/generationRetry';
+import { clearPendingPinDescription, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
 import {
   GeneratedPinVariation,
   SupportedAspectRatio,
@@ -209,7 +210,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [isSavingAspectRatio, setIsSavingAspectRatio] = useState(false);
   const [descriptionSaveState, setDescriptionSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const descriptionSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingDescriptionSaveRef = React.useRef<{ pinId: string; description: string; revision: number } | null>(null);
+  const pendingDescriptionSaveRef = React.useRef<{ boardId: string; pinId: string; description: string; revision: number } | null>(null);
   const descriptionSaveRevisionRef = React.useRef(0);
   const generationKeyRef = React.useRef<string | null>(null);
   // Serialize edits per pin and let scheduling wait for the final persisted version.
@@ -247,7 +248,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             id: String(row.id),
             titles: [title],
             selectedTitle: title,
-            description: String(row.description || ''),
+            description: readPendingPinDescription(selectedBoardId, String(row.id))?.description ?? String(row.description || ''),
             altText: '',
             suggestedBoard: selectedBoard.name,
             keywords: [],
@@ -292,7 +293,11 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
           .then(() => apiRequest(`/pins/${encodeURIComponent(pendingDescription.pinId)}`, {
             method: 'PATCH',
             body: JSON.stringify({ description: pendingDescription.description }),
-          }));
+          }))
+          .then((result) => {
+            clearPendingPinDescription(pendingDescription.boardId, pendingDescription.pinId);
+            return result;
+          });
         pending.set(pendingDescription.pinId, request);
         void request.finally(() => {
           if (pending.get(pendingDescription.pinId) === request) pending.delete(pendingDescription.pinId);
@@ -462,10 +467,11 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     }
   };
 
-  const savePinDescription = async (pinId: string, description: string, revision: number) => {
+  const savePinDescription = async (boardId: string, pinId: string, description: string, revision: number) => {
     if (revision === descriptionSaveRevisionRef.current) setDescriptionSaveState('saving');
     try {
       await persistPinPatch(pinId, { description });
+      clearPendingPinDescription(boardId, pinId);
       if (revision === descriptionSaveRevisionRef.current) setDescriptionSaveState('saved');
     } catch (error) {
       console.error('[pins] Не удалось сохранить описание:', error);
@@ -486,9 +492,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     descriptionSaveTimerRef.current = setTimeout(() => {
       descriptionSaveTimerRef.current = null;
       pendingDescriptionSaveRef.current = null;
-      void savePinDescription(pinId, description, revision);
+      void savePinDescription(selectedBoardId, pinId, description, revision);
     }, 800);
-    pendingDescriptionSaveRef.current = { pinId, description, revision };
+    writePendingPinDescription(selectedBoardId, pinId, description);
+    pendingDescriptionSaveRef.current = { boardId: selectedBoardId, pinId, description, revision };
   };
 
   const handlePushToCalendar = async () => {
@@ -1145,7 +1152,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                         descriptionSaveTimerRef.current = null;
                       }
                       const revision = ++descriptionSaveRevisionRef.current;
-                      void savePinDescription(currentPin.id, event.currentTarget.value, revision);
+                      writePendingPinDescription(selectedBoardId, currentPin.id, event.currentTarget.value);
+                       void savePinDescription(selectedBoardId, currentPin.id, event.currentTarget.value, revision);
                     }}
                     rows={4}
                     className="w-full p-3 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent leading-relaxed"
