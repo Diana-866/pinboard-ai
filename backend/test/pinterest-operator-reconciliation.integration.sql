@@ -126,6 +126,89 @@ begin
     if sqlerrm not like '%not eligible for reconciliation%' then raise; end if;
   end;
 
+  -- Fresh/terminal states are deliberately not eligible for operator reconciliation.
+  update public.pin_schedules
+     set status='failed',updated_at=clock_timestamp()-interval '30 minutes'
+   where id=v_schedule;
+  begin
+    perform public.admin_reconcile_pinterest_unknown_publication(
+      v_user,v_schedule,'remote-pin-123456','remote-board-1',
+      'pinterest_dashboard','case-2026-0001',gen_random_uuid()
+    );
+    raise exception 'failed schedule was accepted for reconciliation';
+  exception when check_violation then
+    if sqlerrm not like '%not eligible for reconciliation%' then raise; end if;
+  end;
+  update public.pin_schedules set status='published' where id=v_schedule;
+
+  -- A stale attempt is insufficient if the schedule itself is still fresh.
+  update public.pin_schedules
+     set status='unknown',claim_token=null,updated_at=clock_timestamp()
+   where id=v_schedule;
+  update public.pinterest_publish_attempts
+     set status='processing',updated_at=clock_timestamp()-interval '30 minutes'
+   where pin_id=v_pin and pinterest_account_id=v_account;
+  begin
+    perform public.admin_reconcile_pinterest_unknown_publication(
+      v_user,v_schedule,'remote-pin-123456','remote-board-1',
+      'pinterest_dashboard','case-2026-0001',gen_random_uuid()
+    );
+    raise exception 'fresh schedule was accepted for reconciliation';
+  exception when check_violation then
+    if sqlerrm not like '%not eligible for reconciliation%' then raise; end if;
+  end;
+
+  -- A stale schedule is insufficient while its attempt is still fresh.
+  update public.pin_schedules
+     set updated_at=clock_timestamp()-interval '30 minutes'
+   where id=v_schedule;
+  update public.pinterest_publish_attempts
+     set updated_at=clock_timestamp()
+   where pin_id=v_pin and pinterest_account_id=v_account;
+  begin
+    perform public.admin_reconcile_pinterest_unknown_publication(
+      v_user,v_schedule,'remote-pin-123456','remote-board-1',
+      'pinterest_dashboard','case-2026-0001',gen_random_uuid()
+    );
+    raise exception 'fresh attempt was accepted for reconciliation';
+  exception when check_violation then
+    if sqlerrm not like '%attempt is not eligible for reconciliation%' then raise; end if;
+  end;
+
+  -- The schedule cannot claim a different board from the reserved attempt.
+  update public.pinterest_publish_attempts
+     set updated_at=clock_timestamp()-interval '30 minutes'
+   where pin_id=v_pin and pinterest_account_id=v_account;
+  update public.pin_schedules
+     set pinterest_board_id='remote-board-2'
+   where id=v_schedule;
+  begin
+    perform public.admin_reconcile_pinterest_unknown_publication(
+      v_user,v_schedule,'remote-pin-123456','remote-board-2',
+      'pinterest_dashboard','case-2026-0001',gen_random_uuid()
+    );
+    raise exception 'board-mismatched attempt was accepted';
+  exception when check_violation then
+    if sqlerrm not like '%attempt is not eligible for reconciliation%' then raise; end if;
+  end;
+
+  -- Matching schedule/attempt IDs cannot overwrite a conflicting publication ledger row.
+  update public.pinterest_publish_attempts
+     set pinterest_board_id='remote-board-1',pinterest_pin_id='remote-pin-conflict'
+   where pin_id=v_pin and pinterest_account_id=v_account;
+  update public.pin_schedules
+     set pinterest_board_id='remote-board-1',pinterest_pin_id='remote-pin-conflict'
+   where id=v_schedule;
+  begin
+    perform public.admin_reconcile_pinterest_unknown_publication(
+      v_user,v_schedule,'remote-pin-conflict','remote-board-1',
+      'pinterest_dashboard','case-2026-0001',gen_random_uuid()
+    );
+    raise exception 'conflicting publication identity was overwritten';
+  exception when check_violation then
+    if sqlerrm not like '%conflicting remote Pinterest publication identity%' then raise; end if;
+  end;
+
   raise notice 'Pinterest operator reconciliation checks passed';
 end;
 $$;
