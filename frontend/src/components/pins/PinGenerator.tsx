@@ -217,6 +217,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [savedPinsLoadError, setSavedPinsLoadError] = useState('');
   const [savedPinsReloadAttempt, setSavedPinsReloadAttempt] = useState(0);
   const [savingAspectRatioPinId, setSavingAspectRatioPinId] = useState<string | null>(null);
+  const [isSchedulingPin, setIsSchedulingPin] = useState(false);
+  const schedulingPinLockRef = React.useRef(false);
   const [descriptionSaveState, setDescriptionSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const descriptionSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingDescriptionSaveRef = React.useRef<{ boardId: string; pinId: string; description: string; revision: number } | null>(null);
@@ -545,123 +547,130 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   };
 
   const handlePushToCalendar = async () => {
-    if (!currentPin) return;
-
-    // A debounced description may not have entered the per-pin request queue yet.
-    // Flush it before scheduling so the calendar action cannot overtake the latest edit.
-    const pendingDescription = pendingDescriptionSaveRef.current?.pinId === currentPin.id
-      ? pendingDescriptionSaveRef.current
-      : null;
-    const recoveredDescription = readPendingPinDescription(selectedBoardId, currentPin.id);
-    const descriptionToFlush = pendingDescription || (recoveredDescription ? {
-      boardId: selectedBoardId,
-      pinId: currentPin.id,
-      description: recoveredDescription.description,
-      revision: descriptionSaveRevisionRef.current,
-    } : null);
-    if (descriptionToFlush) {
-      if (descriptionSaveTimerRef.current) {
-        clearTimeout(descriptionSaveTimerRef.current);
-        descriptionSaveTimerRef.current = null;
+    if (!currentPin || schedulingPinLockRef.current) return;
+      schedulingPinLockRef.current = true;
+      setIsSchedulingPin(true);
+      try {
+  
+      // A debounced description may not have entered the per-pin request queue yet.
+      // Flush it before scheduling so the calendar action cannot overtake the latest edit.
+      const pendingDescription = pendingDescriptionSaveRef.current?.pinId === currentPin.id
+        ? pendingDescriptionSaveRef.current
+        : null;
+      const recoveredDescription = readPendingPinDescription(selectedBoardId, currentPin.id);
+      const descriptionToFlush = pendingDescription || (recoveredDescription ? {
+        boardId: selectedBoardId,
+        pinId: currentPin.id,
+        description: recoveredDescription.description,
+        revision: descriptionSaveRevisionRef.current,
+      } : null);
+      if (descriptionToFlush) {
+        if (descriptionSaveTimerRef.current) {
+          clearTimeout(descriptionSaveTimerRef.current);
+          descriptionSaveTimerRef.current = null;
+        }
+        if (pendingDescriptionSaveRef.current?.pinId === currentPin.id) {
+          pendingDescriptionSaveRef.current = null;
+        }
+        const revision = ++descriptionSaveRevisionRef.current;
+        const saved = await savePinDescription(
+          descriptionToFlush.boardId,
+          descriptionToFlush.pinId,
+          descriptionToFlush.description,
+          revision,
+        );
+        if (!saved) {
+          window.alert('Не удалось сохранить последнее описание. Исправьте соединение и повторите сохранение перед планированием.');
+          return;
+        }
       }
-      if (pendingDescriptionSaveRef.current?.pinId === currentPin.id) {
-        pendingDescriptionSaveRef.current = null;
+  
+      // Read the queue after flushing the debounce: the flush itself may have enqueued
+      // the final PATCH, and title/format updates may also still be in flight.
+      const pendingSave = pendingPinSavesRef.current.get(currentPin.id);
+      if (pendingSave) {
+        try {
+          await pendingSave;
+        } catch (error) {
+          console.error('[pins] Не удалось завершить сохранение перед планированием:', error);
+          window.alert(error instanceof Error ? error.message : t.generator.errorSaveSchedule);
+          return;
+        }
       }
-      const revision = ++descriptionSaveRevisionRef.current;
-      const saved = await savePinDescription(
-        descriptionToFlush.boardId,
-        descriptionToFlush.pinId,
-        descriptionToFlush.description,
-        revision,
-      );
-      if (!saved) {
-        window.alert('Не удалось сохранить последнее описание. Исправьте соединение и повторите сохранение перед планированием.');
+      if (!selectedPinterestBoardId) {
+        window.alert('Сначала подключите Pinterest и выберите доску назначения. Без неё публикацию нельзя добавить в расписание.');
         return;
       }
-    }
-
-    // Read the queue after flushing the debounce: the flush itself may have enqueued
-    // the final PATCH, and title/format updates may also still be in flight.
-    const pendingSave = pendingPinSavesRef.current.get(currentPin.id);
-    if (pendingSave) {
+  
+      const board = boards.find((b) => b.id === selectedBoardId) || boards[0];
+      if (!board) {
+        window.alert('Сначала создайте внутреннюю доску PinPosy для этого пина.');
+        return;
+      }
+  
+      const scheduledDate =
+        schedulingMode === 'publish_now'
+          ? formatLocalDate(new Date())
+          : schedulingMode === 'custom_datetime'
+          ? customScheduleDate
+          : (() => {
+              const tomorrow = new Date();
+              tomorrow.setDate(tomorrow.getDate() + 1);
+              return formatLocalDate(tomorrow);
+            })();
+  
+      const scheduledTime =
+        schedulingMode === 'publish_now'
+          ? new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', timeZone: getDefaultTimezone(language) }).format(new Date())
+          : schedulingMode === 'custom_datetime'
+          ? customScheduleTime
+          : '20:15';
+  
+      // До подтверждения Pinterest любой элемент остаётся запланированным, не published.
+      const status = 'scheduled' as const;
+  
+      const scheduledTitle = resolvePinTitleSelection(pinTitleSelectionRef.current, currentPin.id, currentPin.selectedTitle);
+      const newScheduledPin: ScheduledPinItem = {
+        id: `pending-${Date.now()}`,
+        pinId: currentPin.id,
+        title: scheduledTitle,
+        boardId: board.id,
+        boardName: board.name,
+        pinterestBoardId: selectedPinterestBoardId || undefined,
+        pinterestAccountId: selectedPinterestAccountId || undefined,
+        imageUrl: currentPin.imageUrl,
+        scheduledDate,
+        scheduledTime,
+        status,
+        isOptimalSlot: true,
+        destinationUrl,
+      };
+  
       try {
-        await pendingSave;
+        await onSchedulePin(newScheduledPin);
       } catch (error) {
-        console.error('[pins] Не удалось завершить сохранение перед планированием:', error);
         window.alert(error instanceof Error ? error.message : t.generator.errorSaveSchedule);
         return;
       }
+      setScheduledSuccess(true);
+      setTimeout(() => setScheduledSuccess(false), 4000);
+  
+      enqueueTask({
+        title: t.generator.scheduledToastTitle,
+        message: t.generator.scheduledToastMessageTemplate
+          .replace('{title}', scheduledTitle.slice(0, 32))
+          .replace('{date}', scheduledDate)
+          .replace('{time}', scheduledTime),
+        type: 'generation',
+        actionTab: 'calendar',
+        durationMs: 2500,
+        completionTitle: t.generator.scheduledCompletionTitle,
+        completionMessage: t.generator.scheduledCompletionMessageTemplate.replace('{board}', board.name),
+      });
+    } finally {
+      schedulingPinLockRef.current = false;
+      setIsSchedulingPin(false);
     }
-    if (!selectedPinterestBoardId) {
-      window.alert('Сначала подключите Pinterest и выберите доску назначения. Без неё публикацию нельзя добавить в расписание.');
-      return;
-    }
-
-    const board = boards.find((b) => b.id === selectedBoardId) || boards[0];
-    if (!board) {
-      window.alert('Сначала создайте внутреннюю доску PinPosy для этого пина.');
-      return;
-    }
-
-    const scheduledDate =
-      schedulingMode === 'publish_now'
-        ? formatLocalDate(new Date())
-        : schedulingMode === 'custom_datetime'
-        ? customScheduleDate
-        : (() => {
-            const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            return formatLocalDate(tomorrow);
-          })();
-
-    const scheduledTime =
-      schedulingMode === 'publish_now'
-        ? new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', timeZone: getDefaultTimezone(language) }).format(new Date())
-        : schedulingMode === 'custom_datetime'
-        ? customScheduleTime
-        : '20:15';
-
-    // До подтверждения Pinterest любой элемент остаётся запланированным, не published.
-    const status = 'scheduled' as const;
-
-    const scheduledTitle = resolvePinTitleSelection(pinTitleSelectionRef.current, currentPin.id, currentPin.selectedTitle);
-    const newScheduledPin: ScheduledPinItem = {
-      id: `pending-${Date.now()}`,
-      pinId: currentPin.id,
-      title: scheduledTitle,
-      boardId: board.id,
-      boardName: board.name,
-      pinterestBoardId: selectedPinterestBoardId || undefined,
-      pinterestAccountId: selectedPinterestAccountId || undefined,
-      imageUrl: currentPin.imageUrl,
-      scheduledDate,
-      scheduledTime,
-      status,
-      isOptimalSlot: true,
-      destinationUrl,
-    };
-
-    try {
-      await onSchedulePin(newScheduledPin);
-    } catch (error) {
-      window.alert(error instanceof Error ? error.message : t.generator.errorSaveSchedule);
-      return;
-    }
-    setScheduledSuccess(true);
-    setTimeout(() => setScheduledSuccess(false), 4000);
-
-    enqueueTask({
-      title: t.generator.scheduledToastTitle,
-      message: t.generator.scheduledToastMessageTemplate
-        .replace('{title}', scheduledTitle.slice(0, 32))
-        .replace('{date}', scheduledDate)
-        .replace('{time}', scheduledTime),
-      type: 'generation',
-      actionTab: 'calendar',
-      durationMs: 2500,
-      completionTitle: t.generator.scheduledCompletionTitle,
-      completionMessage: t.generator.scheduledCompletionMessageTemplate.replace('{board}', board.name),
-    });
   };
 
   // Canvas data binding
@@ -1329,11 +1338,11 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               <div className="pt-3 border-t border-subtle flex flex-col sm:flex-row items-center gap-3">
                 <button
                   onClick={handlePushToCalendar}
-                  disabled={!selectedPinterestAccountId || !selectedPinterestBoardId || !currentPin}
+                  disabled={!selectedPinterestAccountId || !selectedPinterestBoardId || !currentPin || isSchedulingPin}
                   className="w-full sm:flex-1 accent-btn py-2.5 px-4 rounded-xl text-xs md:text-sm font-semibold flex items-center justify-center gap-2 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Calendar className="w-4 h-4" />
-                  <span>{t.generator.pushToCalendarBtn}</span>
+                  <span>{isSchedulingPin ? 'Сохраняем в календарь…' : t.generator.pushToCalendarBtn}</span>
                 </button>
 
                 <button
