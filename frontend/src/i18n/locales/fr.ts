@@ -290,6 +290,7 @@ export const fr: TranslationSchema = {
     schedulePinBtn: 'Programmer une nouvelle épingle',
     emptyDay: 'Aucune épingle programmée',
     statusScheduled: 'Programmé',
+    statusCancelled: 'Annulé',
     statusPublished: 'Publié',
     openPinterestPin: "Ouvrir l’épingle sur Pinterest",
     statusDraft: 'Brouillon',
