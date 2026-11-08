@@ -28,6 +28,7 @@ let uploadError = null;
 let quarantinePrimaryPath = false;
 let completedRecoveryKey = null;
 let completedRecoveryPath = null;
+let missingPublicUrlPath = null;
 const lookupKeys = [];
 const uploadPaths = [];
 const supabase = {
@@ -44,7 +45,7 @@ const supabase = {
       return {
         getPublicUrl(path) {
           calls.push({ type: "public-url", bucket, path });
-          return { data: { publicUrl: `https://project.supabase.co/storage/v1/object/public/${bucket}/${path}` } };
+          return { data: path === missingPublicUrlPath ? null : { publicUrl: `https://project.supabase.co/storage/v1/object/public/${bucket}/${path}` } };
         },
       };
     },
@@ -179,5 +180,29 @@ test("retry reuses a previously completed recovery upload", async () => {
   completedRecoveryKey = null;
   completedRecoveryPath = null;
   quarantinePrimaryPath = false;
+  lookupFailure = lookupError;
+});
+
+
+test("does not re-upload an object when its completed record exists but its public URL is unavailable", async () => {
+  lookupFailure = null;
+  quarantinePrimaryPath = false;
+  uploadPaths.length = 0;
+  lookupKeys.length = 0;
+  completedRecoveryKey = "stable-provider-result-key";
+  completedRecoveryPath = `pins/generation-${crypto.createHash("sha256").update(completedRecoveryKey).digest("hex").slice(0, 32)}.png`;
+  missingPublicUrlPath = completedRecoveryPath;
+
+  await assert.rejects(
+    rehostImage("https://provider.example.invalid/result.png", { idempotencyKey: "stable-provider-result-key" }),
+    (error) => error.httpStatus === 503 && /ссылка на него временно недоступна/.test(error.message)
+  );
+
+  assert.deepEqual(uploadPaths, []);
+  assert.deepEqual(lookupKeys, ["stable-provider-result-key"]);
+
+  completedRecoveryKey = null;
+  completedRecoveryPath = null;
+  missingPublicUrlPath = null;
   lookupFailure = lookupError;
 });
