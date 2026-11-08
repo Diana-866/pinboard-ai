@@ -212,7 +212,11 @@ async function deleteManagedPinImageObject({ supabase, bucket = "pin-images", ob
   // A thrown transport error is ambiguous: Storage may have received the
   // request. Keep the claim fenced for reconciliation instead of reopening refs.
   const { error: removeError } = await supabase.storage.from(bucket).remove([objectPath]);
-  if (removeError && !isDefiniteStorageRejection(removeError)) {
+  const status = Number(removeError && (removeError.statusCode ?? removeError.status));
+  // DELETE is idempotent: an explicit object-not-found response confirms the
+  // desired end state just as surely as a successful remove response.
+  const objectAlreadyMissing = status === 404;
+  if (removeError && !objectAlreadyMissing && !isDefiniteStorageRejection(removeError)) {
     // A server/transport-style error may arrive after the delete committed.
     // Do not reopen reference writes until Storage outcome is independently known.
     throw removeError;
@@ -221,15 +225,15 @@ async function deleteManagedPinImageObject({ supabase, bucket = "pin-images", ob
     p_bucket_id: bucket,
     p_object_path: objectPath,
     p_claim_token: claim.claim_token,
-    p_deleted: !removeError,
-    p_error_code: removeError
+    p_deleted: !removeError || objectAlreadyMissing,
+    p_error_code: removeError && !objectAlreadyMissing
       ? String(removeError.code || removeError.name || "storage_delete_failed").slice(0, 64)
       : null,
   });
 
   if (finalizeError) throw finalizeError;
   if (finalized !== true) throw new Error("Pin image deletion claim could not be finalized");
-  if (removeError) throw removeError;
+  if (removeError && !objectAlreadyMissing) throw removeError;
   return true;
 }
 
