@@ -26,6 +26,7 @@ import { getDefaultTimezone } from '../../utils/timezone';
 import { isDefinitiveGenerationFailure } from '../../utils/generationRetry';
 import { clearPendingPinDescription, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
 import { clearPendingGenerationRequest, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
+import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
 import {
   GeneratedPinVariation,
   SupportedAspectRatio,
@@ -242,10 +243,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         if (!active) return;
         // A malformed/empty HTTP payload is not the same as a board with zero
         // pins. Never turn an unexpected API response into a silent empty state.
-        if (!Array.isArray(rows)) {
-          throw new Error('Сервер вернул некорректный список сохранённых пинов.');
-        }
-        const restored = rows.map((row: any) => {
+        const restored = requireSavedPinsArray(rows).map((row: any) => {
           const title = String(row.title || 'Без названия');
           const ratio = ALL_ASPECT_RATIOS.some((item) => item.id === row.aspect_ratio)
             ? row.aspect_ratio as SupportedAspectRatio
