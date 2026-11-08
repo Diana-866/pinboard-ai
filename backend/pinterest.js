@@ -766,14 +766,14 @@ function registerRoutes(app, deps) {
   // Возврат с Pinterest: браузер приходит без нашего токена, проверяем подписанный state
   app.get("/integrations/pinterest/callback", pinterestOAuthCallbackLimiter, async (req, res) => {
     const back = (q) => `${frontendBase()}/app?pinterest=${q}`;
-    // Clear the one-time browser proof on every callback outcome.
-    res.setHeader("Set-Cookie", clearBindingCookie());
     try {
       const stateClaims = readStateClaims(req.query.state);
       const browserBindingSecret = readCookie(req.headers.cookie);
       if (!matchesBrowserBinding(browserBindingSecret, stateClaims.browserBindingHash)) {
         throw httpError(400, "Pinterest connection must be completed in the browser where it was started.");
       }
+      // Consume the one-time browser proof only after it has been matched.
+      res.setHeader("Set-Cookie", clearBindingCookie());
       const userId = stateClaims.userId;
       // Password reset increments token_version. A callback started by an old
       // session must not reconnect an external Pinterest account afterwards.
