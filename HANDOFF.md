@@ -1410,5 +1410,5 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Генератор применяет переданные дату/время и сохраняет явный выбор доски вместо автоматической тематической рекомендации. Удалён фиктивный fallback ID `b-1`, который мог запускать загрузку пинов несуществующей доски до появления реальных данных.
 - Контекст календаря очищается при переходах без календарных параметров, чтобы не переносить старое время/доску в следующую независимую генерацию.
 - Изменения: `frontend/src/components/calendar/PublishingCalendar.tsx`, `frontend/src/App.tsx`, `frontend/src/components/pins/PinGenerator.tsx`.
-- Статус: IMPLEMENTED / STATIC READ-BACK PENDING / FRONTEND BUILD UNVERIFIED. Локальный frontend build, TypeScript и component tests не запускались. Production, рабочая БД, Pinterest API, deployment и merge не затрагивались.
+- Статус: IMPLEMENTED / STATIC READ-BACK PASSED / FRONTEND BUILD UNVERIFIED. Локальный frontend build, TypeScript и component tests не запускались. Production, рабочая БД, Pinterest API, deployment и merge не затрагивались.
 - Документ: `docs/audits/AUD-246-calendar-slot-context-to-generator.md`.
