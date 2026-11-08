@@ -1113,3 +1113,13 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Source-level проверка выполнена повторным чтением изменённых файлов с feature branch. Существующие backend unit tests уже покрывают malformed/missing/expired/future expiry через общую функцию, но тесты фактически не запускались. Frontend lint/build не запускались.
 - Не было Pinterest API-запросов, production DB изменений, deployment или merge. PR #4 остаётся Draft/open/unmerged.
 - Коммиты: `7425d86b7d6ee5918d123ccd2355c8081e3a4c52` (единая backend-проверка), `584ad5f628bbe12e061b41d0264243ab1ec69937` (UX переподключения).
+
+
+## Дополнение к handoff — 2026-11-09 (AUD-219: локализованное восстановление Pinterest)
+
+- В продолжение AUD-218 обнаружен UX-дефект: предупреждение и описание повторной авторизации было частично зашито на русском прямо в компоненте настроек, хотя PinPosy поддерживает семь языков.
+- Добавлен ключ `pinterestReauthDescription` в типы i18n и все семь локалей: ru/en/de/es/fr/pt/zh. Компонент `PinterestCard.tsx` теперь получает текст через `t.settings`, а не показывает русскую строку всем пользователям.
+- Пользовательский эффект: при проблеме Pinterest пользователь получает объяснение и действие переподключения на выбранном языке интерфейса.
+- Изменения проверены повторным чтением исходников после коммитов. TypeScript build/lint и тесты не запускались; полноту переводов подтвердил source-level поиском по семи локалям и типам.
+- Production, Pinterest API, база данных, deployment и merge не затрагивались.
+- Коммиты: `2435bc7e3fcbcc2ccdd2265b509008d6ddf4706b` (тип), `fa520921ed63a334d8436004e8a787b4e5bb0e59` (ru), `4e37d97341181e4e453742e3da9863bdc319ec4c` (en), `efb5c0a955b1d9ad83f971c7bf23abc23bccb221` (de), `9a72cb7929fe35a31b5a0f08c26abc0c6d9ea4ae` (es), `e3d211d66bb62a28cef867ebfe5c2584730aa949` (fr), `ab52baa8e687b853fffd1096f220641c1fa2e96f` (pt), `08f8f9a8aaf3681ee28aeae9f63b795ad8b57fe0` (zh), `c240eb90cdad69382d865fd1add356ef4ef4ff90` (component).
