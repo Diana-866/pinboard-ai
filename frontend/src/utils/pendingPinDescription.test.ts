@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   clearPendingPinDescription,
+  clearPendingPinDescriptionIfMatches,
   readPendingPinDescription,
   writePendingPinDescription,
 } from './pendingPinDescription';
@@ -42,4 +43,31 @@ test('malformed stored data is ignored safely', () => {
   const storage = memoryStorage();
   storage.setItem('pinposy.pending-pin-description.v1:board%3A1:pin%3A1', '{broken');
   assert.equal(readPendingPinDescription('board:1', 'pin:1', storage), null);
+});
+
+
+test('an older successful save cannot clear a newer local draft', () => {
+  const storage = memoryStorage();
+  writePendingPinDescription('board-1', 'pin-1', 'First version', storage);
+  writePendingPinDescription('board-1', 'pin-1', 'Newer version', storage);
+
+  assert.equal(
+    clearPendingPinDescriptionIfMatches('board-1', 'pin-1', 'First version', storage),
+    false,
+  );
+  assert.equal(
+    readPendingPinDescription('board-1', 'pin-1', storage)?.description,
+    'Newer version',
+  );
+});
+
+test('a successful save clears the matching recovery draft', () => {
+  const storage = memoryStorage();
+  writePendingPinDescription('board-1', 'pin-1', 'Saved version', storage);
+
+  assert.equal(
+    clearPendingPinDescriptionIfMatches('board-1', 'pin-1', 'Saved version', storage),
+    true,
+  );
+  assert.equal(readPendingPinDescription('board-1', 'pin-1', storage), null);
 });
