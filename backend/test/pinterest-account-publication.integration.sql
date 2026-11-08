@@ -596,8 +596,11 @@ begin
     v_user::text, v_lock_order_pin, v_account_a, 'remote-lock-order', 'board-a'
   );
   if (select status from public.pin_schedules where id=v_lock_order_active_schedule) <> 'published'
+     or (select claim_token from public.pin_schedules where id=v_lock_order_active_schedule) is not null
+     or (select pinterest_pin_id from public.pin_schedules where id=v_lock_order_active_schedule) <> 'remote-lock-order'
+     or (select published_at from public.pin_schedules where id=v_lock_order_active_schedule) is null
      or (select status from public.pin_schedules where id=v_lock_order_failed_schedule) <> 'failed' then
-    raise exception 'completion did not reconcile the active schedule while preserving failed history';
+    raise exception 'completion did not persist the published schedule, clear its claim, and preserve failed history';
   end if;
 
   -- Deleting the pin before the durable publication boundary cascades the
