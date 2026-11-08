@@ -24,7 +24,7 @@ create table if not exists public.provider_refund_operator_actions (
       and length(trim(evidence_reference)) between 8 and 500
       and trim(evidence_reference) ~ '^[A-Za-z0-9][A-Za-z0-9._/#:-]{7,499}$'
       and position('://' in lower(trim(evidence_reference)))=0
-      and lower(trim(evidence_reference)) !~ '^(www\\.)?([a-z0-9-]+\\.)+[a-z]{2,}(/|$)'
+      and lower(trim(evidence_reference)) !~ '^(www[.])?([a-z0-9-]+[.])+[a-z]{2,}(/|$)'
       and before_state='refund_unknown'
       and after_state in ('provider_refunded','provider_not_refunded')
       and ((request_kind='generation' and task_index between 1 and 10)
@@ -146,7 +146,7 @@ begin
        or length(p_evidence_reference)>500
        or trim(p_evidence_reference) !~ '^[A-Za-z0-9][A-Za-z0-9._/#:-]{7,499}$'
        or position('://' in lower(trim(p_evidence_reference)))>0
-       or lower(trim(p_evidence_reference)) ~ '^(www\\.)?([a-z0-9-]+\\.)+[a-z]{2,}(/|$)'
+       or lower(trim(p_evidence_reference)) ~ '^(www[.])?([a-z0-9-]+[.])+[a-z]{2,}(/|$)'
        or (p_request_kind='generation' and coalesce(p_task_index,0) not between 1 and 10)
        or (p_request_kind='regeneration' and p_task_index<>0) then
       raise exception 'invalid provider-refund reconciliation evidence';
