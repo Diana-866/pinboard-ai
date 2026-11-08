@@ -568,7 +568,7 @@ export interface TranslationSchema {
     floatingButton: string;
     title: string;
     subtitle: string;
-    statusOnline: string;
+    statusBadge: string;
     disclaimerPeak: string;
     welcomeMessage: string;
     demoReply: string;
