@@ -538,6 +538,8 @@ export const es: TranslationSchema = {
     thinking: 'Preparando una sugerencia de navegación…',
     clearChat: 'Reiniciar Chat',
     suggestedTitle: 'Explora las secciones de la aplicación:',
+    demoReply: 'Esto es solo una demostración de navegación. No puedo analizar tus datos de Pinterest ni ofrecer recomendaciones generadas por IA.',
+    openSection: 'Abrir sección',
   },
 
   notifications: {
