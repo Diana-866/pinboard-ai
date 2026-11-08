@@ -60,10 +60,10 @@ function mapRpcError(error) {
   if (/target request not found|target user not found|generation task not found/i.test(message)) {
     return httpError(404, "Операция или задача не найдена");
   }
-  if (/invalid administrator provider-refund action|invalid provider-refund reconciliation evidence|invalid finalization action payload/i.test(message)) {
+  if (/invalid administrator provider-refund action|invalid provider-refund reconciliation evidence|invalid provider refund reconciliation|invalid finalization action payload/i.test(message)) {
     return httpError(422, "Некорректные параметры административного действия");
   }
-  if (/not awaiting reconciliation|not eligible for reconciliation|not reconciled|all generation tasks must be failed|active credit reservation|logical administrator action already recorded|action id replay payload mismatch|already finalized|changed during lock acquisition/i.test(message)) {
+  if (/not awaiting reconciliation|not eligible for reconciliation|not reconciled|all generation tasks must be failed|active credit reservation|credit reservation is not active|logical administrator action already recorded|action id replay payload mismatch|already finalized|changed during lock acquisition/i.test(message)) {
     return httpError(409, "Операция изменилась или больше не доступна для этого действия");
   }
   return httpError(500, "Не удалось выполнить административную операцию");
