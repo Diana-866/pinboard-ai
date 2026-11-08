@@ -110,8 +110,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
         !selectedPin ||
         selectedPin.status !== 'failed' ||
         selectedPin.failureReason !== 'board_unavailable' ||
-        !selectedPin.pinterestAccountId ||
-        !onChangeFailedScheduleBoard
+        !selectedPin.pinterestAccountId
       ) {
         setReplacementBoards([]);
         setReplacementBoardId('');
@@ -159,7 +158,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
     };
     void loadReplacementBoards();
     return () => { active = false; };
-  }, [selectedPin?.id, selectedPin?.status, selectedPin?.failureReason, selectedPin?.pinterestAccountId, selectedPin?.pinterestBoardId, onChangeFailedScheduleBoard, language]);
+  }, [selectedPin?.id, selectedPin?.status, selectedPin?.failureReason, selectedPin?.pinterestAccountId, selectedPin?.pinterestBoardId, language]);
 
   // Browser-local manual planning targets; these do not trigger automation.
   const [selectedAccountId, setSelectedAccountId] = useState<string>(accounts[0]?.id || 'acc-1');
