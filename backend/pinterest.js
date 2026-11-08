@@ -519,6 +519,25 @@ async function getPinWithOwner(pinId, userId) {
   return data;
 }
 
+async function persistFailedPublishAttempt({ userId, pinId, accountId, message, outcomeUnknown }) {
+  const { error } = await supabase.rpc("fail_pinterest_publish_v2", {
+    p_user_id: String(userId),
+    p_pin_id: pinId,
+    p_pinterest_account_id: accountId,
+    p_error: String(message || "Pinterest publication failed").slice(0, 500),
+    p_outcome_unknown: Boolean(outcomeUnknown),
+  });
+  if (error) {
+    // Keep the original processing reservation fenced. A later retry must not
+    // assume that the remote POST was rejected when its journal update failed.
+    console.error("[pinterest] не удалось сохранить исход публикации:", error.message);
+    throw httpError(
+      503,
+      "Не удалось сохранить результат обращения к Pinterest. Публикация заблокирована до сверки; не запускайте её повторно."
+    );
+  }
+}
+
 async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationUrl, accountId = null, scheduleClaim = null, scheduleSnapshot = null) {
   const boardId = String(pinterestBoardId || "").trim();
   if (!boardId) throw httpError(422, "board_id обязателен: выберите доску Pinterest");
@@ -615,24 +634,24 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
     // has processed the POST. Keep the attempt non-retryable to prevent duplicates.
     const status = Number(e && e.httpStatus);
     const outcomeUnknown = isPinterestPublishOutcomeUnknown(status);
-    await supabase.rpc("fail_pinterest_publish_v2", {
-      p_user_id: String(userId),
-      p_pin_id: pinId,
-      p_pinterest_account_id: accountId,
-      p_error: "Pinterest request failed: " + String(e && e.message || "unknown error"),
-      p_outcome_unknown: outcomeUnknown,
-    }).catch(() => {});
+    await persistFailedPublishAttempt({
+      userId,
+      pinId,
+      accountId,
+      message: "Pinterest request failed: " + String(e && e.message || "unknown error"),
+      outcomeUnknown,
+    });
     throw e;
   }
 
   if (!result.ok) {
     const outcomeUnknown = result.status === 408 || result.status === 429 || result.status >= 500;
-    await supabase.rpc("fail_pinterest_publish_v2", {
-      p_user_id: String(userId),
-      p_pin_id: pinId,
-      p_pinterest_account_id: accountId,
-      p_error: "Pinterest HTTP " + result.status + ": " + pinterestMessage(result.data, "unknown error"),
-      p_outcome_unknown: outcomeUnknown,
+    await persistFailedPublishAttempt({
+      userId,
+      pinId,
+      accountId,
+      message: "Pinterest HTTP " + result.status + ": " + pinterestMessage(result.data, "unknown error"),
+      outcomeUnknown,
     });
     console.error("[pinterest] публикация не удалась:", result.status, pinterestMessage(result.data, ""));
     if (outcomeUnknown) {
@@ -643,12 +662,12 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
 
   const remoteId = String((result.data && result.data.id) || "");
   if (!remoteId) {
-    await supabase.rpc("fail_pinterest_publish_v2", {
-      p_user_id: String(userId),
-      p_pin_id: pinId,
-      p_pinterest_account_id: accountId,
-      p_error: "Pinterest returned success without a pin id",
-      p_outcome_unknown: true,
+    await persistFailedPublishAttempt({
+      userId,
+      pinId,
+      accountId,
+      message: "Pinterest returned success without a pin id",
+      outcomeUnknown: true,
     });
     throw httpError(502, "Pinterest не вернул ID созданного пина. Повторная публикация заблокирована.");
   }
@@ -661,13 +680,17 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
     p_pinterest_board_id: boardId,
   });
   if (completeError) {
-    await supabase.rpc("fail_pinterest_publish_v2", {
-      p_user_id: String(userId),
-      p_pin_id: pinId,
-      p_pinterest_account_id: accountId,
-      p_error: "Pinterest created pin " + remoteId + " but local commit failed: " + completeError.message,
-      p_outcome_unknown: true,
-    }).catch(() => {});
+    await persistFailedPublishAttempt({
+      userId,
+      pinId,
+      accountId,
+      message: "Pinterest created pin " + remoteId + " but local commit failed: " + completeError.message,
+      outcomeUnknown: true,
+    }).catch((journalError) => {
+      // The completed publication row may already exist; never replace the
+      // primary commit diagnostic with a secondary journal-update failure.
+      console.error("[pinterest] дополнительная фиксация неизвестного исхода не удалась:", journalError && journalError.message);
+    });
     console.error("[pinterest] пин создан, но не удалось сохранить подтверждение:", completeError.message);
     throw httpError(503, "Pinterest создал пин, но PinPosy не смог сохранить подтверждение. Повторная публикация заблокирована; требуется сверка.");
   }
