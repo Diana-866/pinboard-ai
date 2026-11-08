@@ -49,9 +49,11 @@ The integration SQL covers claim fencing, stale recovery, account scoping, retry
 
 The local journal prevents PinPosy from intentionally issuing a second create request after an ambiguous result. It cannot roll back a remote pin or guarantee exactly-once behavior across a network boundary. The operational policy must remain: unknown means inspect Pinterest and reconcile only with positive evidence; never infer non-publication merely from a missing local confirmation.
 
-### AUD-165-04 — Worker schedule updates are conditional but do not inspect affected-row counts
+### AUD-165-04 — Redundant worker completion UPDATE removed
 
-After `publishPin` has already called the transactional completion RPC, the worker performs a follow-up conditional schedule update using the old claim token. The code checks the Supabase error but not the number of rows affected. The completion RPC is the authoritative state transition, so this does not appear to create a duplicate-publication path; however, the follow-up update can be a no-op after another valid transition while the worker still reports its local result. Consider removing this redundant write or explicitly selecting/counting the affected row and reporting a state conflict. No change was made because the completion RPC already owns the durable transition and changing response semantics needs a focused test.
+The audit found that `publishPin` calls `complete_pinterest_publish_v2`, which already atomically marks matching active/uncertain schedules as `published`, stores the remote pin ID and clears the claim token. The worker then attempted a second conditional UPDATE requiring the old `status='publishing'` and old claim token. That predicate is already false after the completion RPC, so the second UPDATE normally affected zero rows while the worker still reported success.
+
+**Resolved on this branch:** the redundant worker UPDATE has been removed. The completion RPC is now the single authoritative transition. The PostgreSQL integration fixture was strengthened to assert that completion stores the remote ID, sets `published_at`, clears `claim_token`, and leaves failed historical schedules unchanged. The SQL test has not yet been executed in this audit.
 
 ## Verification status
 
