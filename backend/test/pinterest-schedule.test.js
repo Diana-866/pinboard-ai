@@ -172,6 +172,7 @@ test("public schedule payloads never expose raw provider diagnostics", () => {
     id: "schedule-1",
     status: "failed",
     last_error: "Provider response included internal diagnostic details",
+    claim_token: "private-worker-claim-token",
     failure_reason: "board_unavailable",
     retryable: false,
   };
@@ -180,8 +181,10 @@ test("public schedule payloads never expose raw provider diagnostics", () => {
   assert.equal(publicRow.failure_reason, "board_unavailable");
   assert.equal(publicRow.retryable, false);
   assert.equal(Object.hasOwn(publicRow, "last_error"), false);
+  assert.equal(Object.hasOwn(publicRow, "claim_token"), false);
   // Sanitizing the API object must not mutate the database-shaped source row.
   assert.match(row.last_error, /internal diagnostic details/);
+  assert.equal(row.claim_token, "private-worker-claim-token");
 });
 
 test("retryability allows a failed schedule without any publication attempt", () => {
