@@ -28,6 +28,6 @@ A disposable-PostgreSQL integration fixture covers a wrong board at direct compl
 
 - Source and test files were re-read from GitHub after commit.
 - PostgreSQL migration and integration fixture were not executed in this environment.
-- CI workflow is updated to apply migration 081 and run the new integration fixture; its result must be checked after GitHub Actions executes.
+- CI workflow is updated to apply migration 081 and run the new integration fixture. The latest PR-head runs (commit `f41cfb16eb821a9028416f77ca85b6fa66606f47`) reported failure in all three workflows: Prodamus run `42438917325`, atomic-payment run `42438917407`, and persisted-boards run `42438917329`. All four job-log downloads returned `BlobNotFound`; step details are unavailable, so it is unknown whether the new SQL fixture was reached. Do not count the migration or fixture as CI-passed.
 - No Supabase/Production migration was applied; no Pinterest API call, retry, cron run, or deployment was performed.
 - This does not yet add the administrator-facing unknown-publication reconciliation API or append-only operator journal. Those remain a separate follow-up after the destination-integrity guard is validated.
