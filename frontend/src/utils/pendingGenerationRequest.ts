@@ -25,7 +25,9 @@ function normalizeFingerprint(value: string): string {
   return value.startsWith('fp1:') ? value : createGenerationFingerprint(value);
 }
 
-function getDefaultStorage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem' | 'key' | 'length'> | undefined {
+type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> & Partial<Pick<Storage, 'key' | 'length'>>;
+
+function getDefaultStorage(): StorageLike | undefined {
   try {
     return typeof window !== 'undefined' ? window.localStorage : undefined;
   } catch {
@@ -132,27 +134,29 @@ export function writePendingGenerationRequest(
   const normalized = normalizeFingerprint(fingerprint);
   const request = { fingerprint: normalized, idempotencyKey };
   inMemoryRequests.set(normalized, request);
-  if (!storage) return false;
-  try {
-    storage.setItem(storageKey(normalized), JSON.stringify(request));
-    return true;
-  } catch {
-    const sessionStorage = getLegacySessionStorage();
-    if (sessionStorage) {
-      try {
-        sessionStorage.setItem(storageKey(normalized), JSON.stringify(request));
-      } catch {
-        // In-memory retry remains available for this page lifetime.
-      }
+  if (storage) {
+    try {
+      storage.setItem(storageKey(normalized), JSON.stringify(request));
+      return true;
+    } catch {
+      // Try tab-scoped storage below.
     }
-    return false;
   }
+  const sessionStorage = getLegacySessionStorage();
+  if (sessionStorage) {
+    try {
+      sessionStorage.setItem(storageKey(normalized), JSON.stringify(request));
+    } catch {
+      // In-memory retry remains available for this page lifetime.
+    }
+  }
+  return false;
 }
 
 /** Clear one completed/abandoned request without erasing other pending generations. */
 export function clearPendingGenerationRequest(
   fingerprint?: string,
-  storage: Pick<Storage, 'removeItem'> | undefined = getDefaultStorage(),
+  storage: Pick<Storage, 'removeItem'> & Partial<Pick<Storage, 'key' | 'length'>> | undefined = getDefaultStorage(),
 ): void {
   if (fingerprint) {
     const normalized = normalizeFingerprint(fingerprint);
@@ -164,9 +168,24 @@ export function clearPendingGenerationRequest(
     return;
   }
   inMemoryRequests.clear();
-  for (const target of [storage, getLegacySessionStorage()]) {
+  const targets = [storage, getLegacySessionStorage()];
+  for (const target of targets) {
     for (const key of [REQUEST_KEY, LEGACY_FINGERPRINT_KEY, LEGACY_IDEMPOTENCY_KEY]) {
       try { target?.removeItem(key); } catch { /* Best-effort legacy cleanup. */ }
+    }
+    if (target && typeof target.length === 'number' && typeof target.key === 'function') {
+      const scopedKeys: string[] = [];
+      try {
+        for (let index = 0; index < target.length; index += 1) {
+          const key = target.key(index);
+          if (key?.startsWith(REQUEST_KEY_PREFIX)) scopedKeys.push(key);
+        }
+      } catch {
+        // Still attempt legacy cleanup when storage enumeration is blocked.
+      }
+      for (const key of scopedKeys) {
+        try { target.removeItem(key); } catch { /* Best-effort scoped cleanup. */ }
+      }
     }
   }
 }
