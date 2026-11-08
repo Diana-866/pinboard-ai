@@ -42,6 +42,14 @@ function evidence(body) {
 
 function mapRpcError(error) {
   const message = String((error && error.message) || "");
+  const code = String((error && error.code) || "");
+  // Concurrent operators may race on the unique schedule/action constraints.
+  // The database rejects the duplicate safely; report a conflict, not a server
+  // failure that could encourage blind retries or duplicate operator actions.
+  if (code === "23505" || code === "40001" ||
+      /duplicate key value violates unique constraint|action id replay payload mismatch/i.test(message)) {
+    return httpError(409, "Эта публикация уже сверяется или данные действия отличаются от ранее принятого запроса");
+  }
   if (/administrator privileges required/i.test(message)) {
     return httpError(403, "Доступ запрещён");
   }
@@ -51,7 +59,7 @@ function mapRpcError(error) {
   if (/invalid Pinterest reconciliation payload/i.test(message)) {
     return httpError(422, "Некорректные параметры сверки публикации");
   }
-  if (/not eligible for reconciliation|replay payload mismatch|conflicting remote Pinterest publication identity|legacy account mapping|ownership mismatch|changed during reconciliation/i.test(message)) {
+  if (/not eligible for reconciliation|conflicting remote Pinterest publication identity|legacy account mapping|ownership mismatch|changed during reconciliation/i.test(message)) {
     return httpError(409, "Публикация изменилась или не подходит для безопасной сверки");
   }
   return httpError(500, "Не удалось выполнить сверку публикации");
