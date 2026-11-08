@@ -73,6 +73,11 @@ async function listPinterestSchedules(query = {}, now = Date.now(), operatorUser
       schedule_id: row.id,
       pin_id: row.pin_id,
       pinterest_account_id: row.pinterest_account_id,
+      pinterest_account: row.pinterest_account && typeof row.pinterest_account === "object" ? {
+        username: typeof row.pinterest_account.username === "string" ? row.pinterest_account.username : null,
+        pinterest_user_id: typeof row.pinterest_account.pinterest_user_id === "string" ? row.pinterest_account.pinterest_user_id : null,
+        connected: row.pinterest_account.connected === true,
+      } : null,
       pinterest_board_id: row.pinterest_board_id,
       pinterest_pin_id: row.pinterest_pin_id,
       status: row.status,
