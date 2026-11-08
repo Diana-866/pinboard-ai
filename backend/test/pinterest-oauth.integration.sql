@@ -92,6 +92,32 @@ begin
     raise exception 'OAuth generation reset after disconnect';
   end if;
 
+  -- Reconnect the same Pinterest identity with a fresh attempt. A delayed
+  -- callback from the pre-disconnect attempt must not overwrite the new tokens,
+  -- username, or stable account row even when it reports the same external ID.
+  v_committed := public.commit_pinterest_oauth_attempt_v2(
+    v_user::text, v_attempt_d, v_generation_d, 0,
+    'pinterest-user-current', 'reconnected_user', 'enc:reconnected-access', 'enc:reconnected-refresh',
+    'boards:read,pins:write', now() + interval '2 hours'
+  );
+  if v_committed->>'ok' <> 'true'
+     or (v_committed->>'account_id')::uuid <> v_account_id then
+    raise exception 'fresh reconnect did not restore the stable Pinterest account row: %', v_committed;
+  end if;
+
+  v_committed := public.commit_pinterest_oauth_attempt_v2(
+    v_user::text, v_attempt_c, v_generation_c, 0,
+    'pinterest-user-current', 'stale_callback_user', 'enc:stale-access', 'enc:stale-refresh',
+    'boards:read,pins:write', now() + interval '1 hour'
+  );
+  if v_committed->>'ok' <> 'false'
+     or (select username from public.pinterest_accounts where id = v_account_id) <> 'reconnected_user'
+     or (select access_token from public.pinterest_accounts where id = v_account_id) <> 'enc:reconnected-access'
+     or (select refresh_token from public.pinterest_accounts where id = v_account_id) <> 'enc:reconnected-refresh'
+     or (select disconnected_at from public.pinterest_accounts where id = v_account_id) is not null then
+    raise exception 'delayed pre-reconnect callback overwrote the current Pinterest credentials: %', v_committed;
+  end if;
+
   -- Expired attempts cannot commit, even if the signed state is otherwise valid.
   v_generation_e := public.begin_pinterest_oauth_attempt(v_user::text, v_attempt_e, 0);
   update public.pinterest_oauth_connection_state
