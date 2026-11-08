@@ -21,6 +21,7 @@ import { PinGenerator } from './components/pins/PinGenerator';
 import { KeywordExplorer } from './components/keywords/KeywordExplorer';
 import { CompetitorAudit } from './components/competitors/CompetitorAudit';
 import { PublishingCalendar } from './components/calendar/PublishingCalendar';
+import { parsePersistedScheduleStatus } from './utils/scheduleStatus';
 import { BoardsManager } from './components/boards/BoardsManager';
 import { AnalyticsView } from './components/analytics/AnalyticsView';
 import { PricingView } from './components/pricing/PricingView';
@@ -139,7 +140,7 @@ const MainApp: React.FC = () => {
             imageUrl: row.snapshot_image_url || row.pins?.image_url || '',
             scheduledDate: local.date,
             scheduledTime: local.time,
-            status: row.status === 'published' ? 'published' : row.status === 'failed' ? 'failed' : row.status === 'publishing' ? 'publishing' : row.status === 'unknown' ? 'unknown' : 'scheduled',
+            status: parsePersistedScheduleStatus(row.status),
             retryable: row.retryable === true,
             retryReason: row.retry_reason || undefined,
             destinationUrl: row.snapshot_image_url ? (row.snapshot_destination_url || '') : (row.destination_url || ''),
