@@ -27,6 +27,7 @@ function userLimiter(windowMs, limit) {
 const pinterestReadLimiter = userLimiter(60 * 1000, 10);
 const pinterestPublishLimiter = userLimiter(60 * 1000, 5);
 const pinterestScheduleLimiter = userLimiter(60 * 1000, 10);
+const pinterestAccountLimiter = userLimiter(60 * 1000, 5);
 const pinterestOAuthStartLimiter = userLimiter(15 * 60 * 1000, 5);
 
 // OAuth callback and the secret-protected worker have no authenticated user;
@@ -48,6 +49,7 @@ module.exports = {
     read: { windowMs: 60 * 1000, limit: 10 },
     publish: { windowMs: 60 * 1000, limit: 5 },
     schedule: { windowMs: 60 * 1000, limit: 10 },
+    account: { windowMs: 60 * 1000, limit: 5 },
     oauthStart: { windowMs: 15 * 60 * 1000, limit: 5 },
     oauthCallback: { windowMs: 15 * 60 * 1000, limit: 10 },
     worker: { windowMs: 60 * 1000, limit: 6 },
@@ -55,6 +57,7 @@ module.exports = {
   pinterestReadLimiter,
   pinterestPublishLimiter,
   pinterestScheduleLimiter,
+  pinterestAccountLimiter,
   pinterestOAuthStartLimiter,
   pinterestOAuthCallbackLimiter,
   pinterestWorkerLimiter,
