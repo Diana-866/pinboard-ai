@@ -57,7 +57,14 @@ export const Register: React.FC = () => {
       });
       // JWT при регистрации не выдаётся: сначала подтверждение email.
       // Экран «Проверьте почту» с кнопкой повторной отправки.
-      navigate(`/check-email?email=${encodeURIComponent(email.trim())}`, { replace: true });
+      // Keep the address out of the URL, browser history and Referer headers.
+      // sessionStorage survives refreshes in the same tab without becoming a durable profile store.
+      try {
+        sessionStorage.setItem('pinposy.pendingVerificationEmail', email.trim());
+      } catch {
+        // The confirmation screen still works with a generic message if storage is unavailable.
+      }
+      navigate('/check-email', { replace: true });
     } catch (err: any) {
       setError(err.message || t.registerError);
       setLoading(false);
