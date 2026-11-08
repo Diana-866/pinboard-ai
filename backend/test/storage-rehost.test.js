@@ -163,7 +163,7 @@ test("retry reuses a completed recovery upload after a process restart", async (
   uploadPaths.length = 0;
   lookupKeys.length = 0;
   completedRecoveryKey = "stable-provider-result-key:storage-recovery:1";
-  completedRecoveryPath = "pins/already-completed-recovery.png";
+  completedRecoveryPath = `pins/generation-${crypto.createHash("sha256").update(completedRecoveryKey).digest("hex").slice(0, 32)}.png`;
 
   const result = await rehostImage("https://provider.example.invalid/result.png", {
     idempotencyKey: "stable-provider-result-key",
