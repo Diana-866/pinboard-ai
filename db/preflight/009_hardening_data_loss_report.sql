@@ -8,23 +8,23 @@
 -- A zero count is not a substitute for a verified backup.
 
 with source_rows as (
-  select 'auth_tokens'::text as table_name, id::text as row_id, user_id::text as user_id,
+  select 'auth_tokens'::text as table_name, user_id::text as user_id,
          false as nullable_user_id
     from public.auth_tokens
   union all
-  select 'credit_transactions', id::text, user_id::text, true
+  select 'credit_transactions', user_id::text, true
     from public.credit_transactions
   union all
-  select 'subscriptions', id::text, user_id::text, false
+  select 'subscriptions', user_id::text, false
     from public.subscriptions
   union all
-  select 'credit_purchases', id::text, user_id::text, false
+  select 'credit_purchases', user_id::text, false
     from public.credit_purchases
   union all
-  select 'pinterest_accounts', id::text, user_id::text, false
+  select 'pinterest_accounts', user_id::text, false
     from public.pinterest_accounts
   union all
-  select 'pinterest_publications', id::text, user_id::text, false
+  select 'pinterest_publications', user_id::text, false
     from public.pinterest_publications
 ),
 classified as (
