@@ -51,23 +51,32 @@ test('generation identity persists and can be restored after page memory is clea
   });
 });
 
-test('legacy raw fingerprint is upgraded to a scoped compact fingerprint', () => {
+test('legacy raw fingerprint is upgraded and migrated from session storage', () => {
   clearPendingGenerationRequest();
   const storage = memoryStorage();
+  const sessionStorage = memoryStorage();
   const rawFingerprint = '{"topic":"old private topic"}';
   const fingerprint = createGenerationFingerprint(rawFingerprint);
-  storage.setItem('pinposy_generation_request_v1', JSON.stringify({
+  sessionStorage.setItem('pinposy_generation_request_v1', JSON.stringify({
     fingerprint: rawFingerprint,
     idempotencyKey: 'stable-key-legacy-0001',
   }));
-  // Legacy migration is read from sessionStorage; validate the compact format
-  // and scoped storage through the public write/read path as well.
-  writePendingGenerationRequest(fingerprint, 'stable-key-legacy-0001', storage);
-  assert.deepEqual(readPendingGenerationRequest(fingerprint, storage), {
-    fingerprint,
-    idempotencyKey: 'stable-key-legacy-0001',
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: { sessionStorage },
   });
-  assert.equal(storage.getItem(`pinposy_generation_request_v2:${fingerprint}`)?.includes('old private topic'), false);
+  try {
+    assert.deepEqual(readPendingGenerationRequest(fingerprint, storage), {
+      fingerprint,
+      idempotencyKey: 'stable-key-legacy-0001',
+    });
+    assert.equal(storage.getItem(`pinposy_generation_request_v2:${fingerprint}`)?.includes('old private topic'), false);
+    assert.equal(sessionStorage.getItem('pinposy_generation_request_v1'), null);
+  } finally {
+    if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow);
+    else Reflect.deleteProperty(globalThis, 'window');
+  }
 });
 
 test('blocked persistent storage does not prevent same-page retry', () => {
