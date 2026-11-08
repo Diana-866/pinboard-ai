@@ -14,9 +14,9 @@ The migration adds `public.provider_refund_operator_actions`, an append-only jou
 - Evidence type is allowlisted. Evidence references are bounded to 8–500 safe ASCII identifier characters; whitespace, email-like values, and URL schemes are not accepted.
 - Direct table access is revoked from PUBLIC, anon, authenticated, and service_role. UPDATE, DELETE, and TRUNCATE are blocked by triggers.
 - Four narrow SECURITY DEFINER RPCs are exposed to service_role: generation/regeneration reconciliation and generation/regeneration finalization. The internal worker is not executable by API roles.
-- Each call locks the operator row first and checks `is_admin IS TRUE`. This serializes action execution against administrator demotion.
+- Each call first performs a non-locking admin admission check, discovers the target owner, then locks the operator and target user rows in ascending UUID order and rechecks `is_admin IS TRUE` under lock. The locked recheck serializes action execution against administrator demotion without allowing cross-target lock inversion.
 - The worker derives target owner, request idempotency key, and provider task ID from database rows. The client cannot nominate another owner or provider task.
-- Lock order is operator → target user → request → generation tasks in task_index order → active credit reservation.
+- Lock order is user rows sorted by UUID (operator + target; one row when they are the same user) → request → generation tasks in `task_index` order → active credit reservation. Sorting both user rows prevents the A-targets-B / B-targets-A deadlock pattern while retaining the demotion race guarantee.
 - The existing migrations 073/077 RPCs remain the only financial workflow mutators. The operator journal insert occurs in the same SQL transaction, so a journal insert failure rolls back the provider-refund fact or finalization.
 - Reconciliation action receipts record the unknown-to-known refund fact; finalization receipts record processing-to-failed. No raw provider payload, request key, prompt, claim token, or provider secret is stored.
 
@@ -38,7 +38,7 @@ The SQL integration file creates isolated users and generation/regeneration requ
 
 - This is database-layer work only. No Express admin mutation endpoint has been added yet. A future backend endpoint must pass the authenticated operator ID from verified `req.userId`, never from a browser-supplied body field.
 - The migration and integration SQL have **not** been executed. No PostgreSQL/Supabase database or SQL parser is available in this execution context; GitHub source review is not a substitute for applying migration 078 to a disposable database and running the integration file.
-- Multi-session concurrency tests remain required for demotion/action races, two operators targeting the same request, operator deletion, target-account deletion, and operator==target. A single-session transaction fixture cannot prove these interleavings.
+- Multi-session concurrency tests remain required for demotion/action races, two operators targeting the same request, cross-target actions (A targets B while B targets A), operator deletion, target-account deletion, and operator==target. The migration now orders the two user-row locks by UUID, but a single-session transaction fixture cannot prove these interleavings.
 - Do not apply migration 078 to Production until the disposable-database run passes and the concurrency cases are covered.
 
 ## Review notes
