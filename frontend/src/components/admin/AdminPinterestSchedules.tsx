@@ -16,6 +16,7 @@ type PinterestSchedule = {
   schedule_id: string;
   pin_id: string | null;
   pinterest_account_id: string | null;
+  pinterest_account: { username: string | null; pinterest_user_id: string | null; connected: boolean } | null;
   pinterest_board_id: string | null;
   pinterest_pin_id: string | null;
   status: string;
@@ -122,7 +123,7 @@ export const AdminPinterestSchedules: React.FC = () => {
       setReconciliationError("Укажите Pinterest Pin ID, Board ID и номер подтверждения (не менее 8 символов).");
       return;
     }
-    if (!window.confirm("Подтверждаете, что этот пин действительно найден в нужном Pinterest-аккаунте и на указанной доске? Это действие зафиксирует публикацию как успешную.")) return;
+    if (!window.confirm("Подтверждаете, что этот пин найден именно в профиле, указанном в карточке, и на указанной доске? Это действие зафиксирует публикацию как успешную.")) return;
     setReconciling(true);
     setReconciliationError("");
     setReconciliationSuccess("");
@@ -239,6 +240,13 @@ export const AdminPinterestSchedules: React.FC = () => {
                   <span className="px-2 py-1 rounded-lg text-[11px] font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-300">{CATEGORY_LABELS[item.category] || item.category}</span>
                 </div>
                 <span className="text-[11px] text-muted-theme font-mono">ID: {item.schedule_id}</span>
+              </div>
+
+              <div className="rounded-xl border border-subtle bg-surface/60 p-3 text-xs space-y-1">
+                <p className="font-semibold text-primary-theme">Целевой Pinterest-аккаунт</p>
+                <p className="text-secondary-theme">Профиль: <strong>{item.pinterest_account?.username ? `@${item.pinterest_account.username}` : "имя не сохранено"}</strong></p>
+                <p className="text-secondary-theme">Pinterest User ID: <span className="font-mono break-all">{item.pinterest_account?.pinterest_user_id || "не сохранён"}</span></p>
+                <p className={item.pinterest_account?.connected ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}>{item.pinterest_account?.connected ? "Аккаунт подключён" : "Аккаунт отключён или недоступен"}</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 text-xs">
