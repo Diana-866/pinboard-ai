@@ -26,10 +26,10 @@ begin
   returning id into v_pin;
   insert into public.pin_schedules(
     user_id,pin_id,pinterest_account_id,scheduled_at,timezone,
-    pinterest_board_id,status,last_error
+    pinterest_board_id,status,last_error,snapshot_image_url
   ) values(
     v_user::text,v_pin,v_account,now()-interval '1 hour','UTC',
-    'schedule-board','failed','Temporary Pinterest rejection'
+    'schedule-board','failed','Temporary Pinterest rejection','https://cdn.example.invalid/immutable-snapshot.png'
   ) returning id into v_schedule;
 
   -- A safe failure for a different board must not authorize this retry.
@@ -52,10 +52,14 @@ begin
   update public.pinterest_publish_attempts
      set pinterest_board_id='schedule-board'
    where pin_id=v_pin and pinterest_account_id=v_account;
+
+  -- The live pin image may be removed after scheduling. The immutable
+  -- schedule snapshot must remain sufficient for a safe retry.
+  update public.pins set image_url=null where id=v_pin;
   v_result:=public.retry_failed_pin_schedule(v_user::text,v_schedule);
   if v_result->>'ok' <> 'true'
      or (select status from public.pin_schedules where id=v_schedule)<>'scheduled' then
-    raise exception 'matching retry-safe attempt did not permit retry: %',v_result;
+    raise exception 'matching retry-safe attempt with an immutable snapshot did not permit retry: %',v_result;
   end if;
 
   raise notice 'Pinterest failed-schedule retry identity checks passed';
