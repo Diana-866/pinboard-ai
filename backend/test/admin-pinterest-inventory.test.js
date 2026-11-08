@@ -33,7 +33,9 @@ function reset() {
     scheduled_at: "2026-11-08T10:00:00.000Z", published_at: null,
     updated_at: "2026-11-08T11:00:00.000Z", attempts: 1,
     next_attempt_at: null, last_error: "outcome unknown",
-    claim_token: null, snapshot_title: "must not leak",
+    claim_token: null, snapshot_title: "private database column",
+    creative_title: "A scheduled Pinterest creative",
+    creative_description: "The immutable description captured when scheduling.",
     attempt: {
       status: "unknown", retry_safe: false, attempt_count: 1,
       updated_at: "2026-11-08T11:00:00.000Z",
@@ -60,9 +62,21 @@ test("inventory uses one bounded database RPC and exposes only allowlisted opera
   assert.equal(result.items[0].attempt.retry_safe, false);
   assert.deepEqual(result.items[0].pinterest_account, { username: "pinposy_test", pinterest_user_id: "remote-user-1", connected: true });
   assert.equal("claim_token" in result.items[0], false);
+  assert.equal(result.items[0].creative_title, "A scheduled Pinterest creative");
+  assert.equal(result.items[0].creative_description, "The immutable description captured when scheduling.");
   assert.equal("snapshot_title" in result.items[0], false);
+  assert.equal("creative_image_url" in result.items[0], false);
   assert.equal("id" in result.items[0].attempt, false);
   assert.equal("user_id" in result.items[0], false);
+});
+
+test("creative context is bounded before it reaches the admin UI", async () => {
+  reset();
+  rows[0].creative_title = "T".repeat(300);
+  rows[0].creative_description = "D".repeat(700);
+  const result = await inventory.listPinterestSchedules({}, NOW, ADMIN_ID);
+  assert.equal(result.items[0].creative_title.length, 200);
+  assert.equal(result.items[0].creative_description.length, 500);
 });
 
 test("attempt is already scoped to the schedule identity by the database query", async () => {
