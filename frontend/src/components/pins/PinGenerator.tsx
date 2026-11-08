@@ -25,7 +25,7 @@ import { apiRequest } from '../../lib/api';
 import { getDefaultTimezone } from '../../utils/timezone';
 import { isDefinitiveGenerationFailure } from '../../utils/generationRetry';
 import { clearPendingPinDescriptionIfMatches, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
-import { clearPendingGenerationRequest, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
+import { clearPendingGenerationRequest, createGenerationFingerprint, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
 import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
 import { rollbackPinAspectRatioIfUnchanged } from '../../utils/pinAspectRatio';
 import {
@@ -387,7 +387,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         aspect_ratio: aspectRatio,
         mixed_ratios: targetRatios,
       };
-      requestFingerprint = JSON.stringify({ boardId: selectedBoard.id, ...requestBody });
+      requestFingerprint = createGenerationFingerprint(JSON.stringify({ boardId: selectedBoard.id, ...requestBody }));
       const storedRequest = readPendingGenerationRequest();
       if (storedRequest?.fingerprint !== requestFingerprint || !storedRequest.idempotencyKey) {
         generationKeyRef.current = globalThis.crypto.randomUUID().replace(/-/g, '_');
