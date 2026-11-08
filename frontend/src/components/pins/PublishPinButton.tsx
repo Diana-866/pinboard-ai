@@ -151,16 +151,22 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
         </select>
       )}
 
-      {!boardId && boards.length > 0 && (
-        <select
-          value={selectedBoard}
-          onChange={(e) => setSelectedBoard(e.target.value)}
-          className="w-full text-[11px] rounded-lg border border-subtle bg-surface px-2 py-1.5 text-primary-theme"
-        >
-          {boards.map((board) => (
-            <option key={board.id} value={board.id}>{board.name}</option>
-          ))}
-        </select>
+      {boards.length > 0 && (
+        (!boardId || !boards.some((board) => board.id === boardId)) && (
+          <select
+            value={selectedBoard}
+            onChange={(e) => {
+              setSelectedBoard(e.target.value);
+              setError(null);
+            }}
+            className="w-full text-[11px] rounded-lg border border-subtle bg-surface px-2 py-1.5 text-primary-theme"
+          >
+            <option value="">Выберите доску Pinterest</option>
+            {boards.map((board) => (
+              <option key={board.id} value={board.id}>{board.name}</option>
+            ))}
+          </select>
+        )
       )}
 
       <button
