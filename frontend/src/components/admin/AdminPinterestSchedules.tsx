@@ -84,6 +84,69 @@ export const AdminPinterestSchedules: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [reconciliationScheduleId, setReconciliationScheduleId] = useState<string | null>(null);
+  const [remotePinId, setRemotePinId] = useState("");
+  const [remoteBoardId, setRemoteBoardId] = useState("");
+  const [evidenceType, setEvidenceType] = useState<"pinterest_dashboard" | "pinterest_api" | "support_confirmation">("pinterest_dashboard");
+  const [evidenceReference, setEvidenceReference] = useState("");
+  const [actionId, setActionId] = useState("");
+  const [reconciling, setReconciling] = useState(false);
+  const [reconciliationError, setReconciliationError] = useState("");
+  const [reconciliationSuccess, setReconciliationSuccess] = useState("");
+  
+  const createActionId = () => {
+    const bytes = new Uint8Array(16);
+    window.crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  };
+
+  const openReconciliation = (item: PinterestSchedule) => {
+    setReconciliationScheduleId(item.schedule_id);
+    setRemotePinId(item.pinterest_pin_id || item.attempt?.pinterest_pin_id || "");
+    setRemoteBoardId(item.pinterest_board_id || item.attempt?.pinterest_board_id || "");
+    setEvidenceType("pinterest_dashboard");
+    setEvidenceReference("");
+    setActionId(createActionId());
+    setReconciliationError("");
+    setReconciliationSuccess("");
+  };
+
+  const submitReconciliation = async (item: PinterestSchedule) => {
+    const pinId = remotePinId.trim();
+    const boardId = remoteBoardId.trim();
+    const reference = evidenceReference.trim();
+    if (!pinId || !boardId || !/^[A-Za-z0-9][A-Za-z0-9._/#:-]{7,199}$/.test(reference)) {
+      setReconciliationError("Укажите Pinterest Pin ID, Board ID и номер подтверждения (не менее 8 символов).");
+      return;
+    }
+    if (!window.confirm("Подтверждаете, что этот пин действительно найден в нужном Pinterest-аккаунте и на указанной доске? Это действие зафиксирует публикацию как успешную.")) return;
+    setReconciling(true);
+    setReconciliationError("");
+    setReconciliationSuccess("");
+    try {
+      await apiRequest("/admin/pinterest/reconcile-unknown-publication", {
+        method: "POST",
+        body: {
+          schedule_id: item.schedule_id,
+          pinterest_pin_id: pinId,
+          pinterest_board_id: boardId,
+          evidence_type: evidenceType,
+          evidence_reference: reference,
+          action_id: actionId,
+        },
+      });
+      setReconciliationSuccess("Публикация подтверждена и восстановлена в журнале PinPosy.");
+      setReconciliationScheduleId(null);
+      await load(true);
+    } catch (err) {
+      setReconciliationError(err instanceof Error ? err.message : "Не удалось выполнить сверку. Запись не следует повторно публиковать.");
+    } finally {
+      setReconciling(false);
+    }
+  };
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -129,10 +192,11 @@ export const AdminPinterestSchedules: React.FC = () => {
       <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 flex items-start gap-3 text-sm">
         <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
         <div>
-          <p className="font-semibold text-primary-theme">Только чтение</p>
-          <p className="text-muted-theme mt-0.5">Здесь нельзя публиковать, повторять отправку, отменять задачи или менять записи в базе. Подсказка о возможности сверки не является разрешением на действие.</p>
+          <p className="font-semibold text-primary-theme">Безопасная сверка без повторной публикации</p>
+          <p className="text-muted-theme mt-0.5">Публикации нельзя отправить повторно из этого раздела. Для записи со статусом «Результат неизвестен» можно только зафиксировать уже найденный в Pinterest пин. Отсутствие пина не считается доказательством и не разблокирует повтор.</p>
         </div>
       </div>
+      {reconciliationSuccess && <div role="status" className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-300">{reconciliationSuccess}</div>}
 
       <div className="custom-card rounded-2xl p-4">
         <label htmlFor="pinterest-status-filter" className="block text-xs font-semibold text-muted-theme mb-2">Фильтр статуса</label>
@@ -201,9 +265,43 @@ export const AdminPinterestSchedules: React.FC = () => {
               )}
 
               {item.actionable_reconciliation && (
-                <div className="rounded-xl bg-sky-500/5 border border-sky-500/20 p-3 text-xs text-sky-800 dark:text-sky-200">
-                  <Clock className="w-3.5 h-3.5 inline mr-1" />
-                  Есть предварительные признаки для проверки через серверную процедуру сверки. Это не гарантия допуска и не запускает сверку.
+                <div className="rounded-xl bg-sky-500/5 border border-sky-500/20 p-3 space-y-3 text-xs text-sky-800 dark:text-sky-200">
+                  <div>
+                    <Clock className="w-3.5 h-3.5 inline mr-1" />
+                    Запись достаточно старая для ручной сверки. Сервер повторно проверит все условия и не позволит завершить её, если состояние изменилось.
+                  </div>
+                  {reconciliationScheduleId === item.schedule_id ? (
+                    <div className="space-y-2 text-primary-theme">
+                      <label className="block">
+                        <span className="block mb-1 font-semibold">Pinterest Pin ID — укажите ID уже существующего пина</span>
+                        <input value={remotePinId} onChange={(event) => setRemotePinId(event.target.value)} maxLength={200} autoComplete="off" className="w-full rounded-lg border border-subtle bg-surface px-3 py-2 font-mono" />
+                      </label>
+                      <label className="block">
+                        <span className="block mb-1 font-semibold">Pinterest Board ID</span>
+                        <input value={remoteBoardId} onChange={(event) => setRemoteBoardId(event.target.value)} maxLength={200} autoComplete="off" className="w-full rounded-lg border border-subtle bg-surface px-3 py-2 font-mono" />
+                      </label>
+                      <label className="block">
+                        <span className="block mb-1 font-semibold">Где подтверждено</span>
+                        <select value={evidenceType} onChange={(event) => setEvidenceType(event.target.value as typeof evidenceType)} className="w-full rounded-lg border border-subtle bg-surface px-3 py-2">
+                          <option value="pinterest_dashboard">В кабинете Pinterest</option>
+                          <option value="pinterest_api">Через Pinterest API</option>
+                          <option value="support_confirmation">Подтверждение поддержки Pinterest</option>
+                        </select>
+                      </label>
+                      <label className="block">
+                        <span className="block mb-1 font-semibold">Номер обращения / записи-подтверждения (не URL)</span>
+                        <input value={evidenceReference} onChange={(event) => setEvidenceReference(event.target.value)} maxLength={200} autoComplete="off" className="w-full rounded-lg border border-subtle bg-surface px-3 py-2" />
+                      </label>
+                      <p className="text-amber-700 dark:text-amber-300">Важно: используйте эту форму только если вы лично нашли именно этот пин в нужном аккаунте и на нужной доске. Нельзя вводить выдуманный ID или отмечать публикацию успешной только потому, что запрос завершился ошибкой.</p>
+                      {reconciliationError && <p role="alert" className="text-rose-700 dark:text-rose-300">{reconciliationError}</p>}
+                      <div className="flex flex-wrap gap-2">
+                        <button type="button" onClick={() => void submitReconciliation(item)} disabled={reconciling} className="rounded-lg bg-sky-700 px-3 py-2 font-semibold text-white disabled:opacity-50">{reconciling ? "Сверяем…" : "Подтвердить найденную публикацию"}</button>
+                        <button type="button" onClick={() => { setReconciliationScheduleId(null); setReconciliationError(""); }} disabled={reconciling} className="rounded-lg border border-subtle px-3 py-2 font-semibold disabled:opacity-50">Отмена</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button type="button" onClick={() => openReconciliation(item)} className="rounded-lg border border-sky-600/40 px-3 py-2 font-semibold hover:bg-sky-500/10">Сверить уже опубликованный пин</button>
+                  )}
                 </div>
               )}
             </article>
