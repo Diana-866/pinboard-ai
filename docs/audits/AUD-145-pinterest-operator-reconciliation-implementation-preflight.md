@@ -92,3 +92,16 @@ The SQL migration and PostgreSQL fixture have not yet been executed in a local d
 - Latest GitHub Actions for HEAD `110061ff4bc6346eee7a1f0073d3855b724cd008`: Persisted boards, Atomic payment, and Prodamus workflows all report failure. All four job-log downloads returned Azure `BlobNotFound`; the available job metadata does not expose step outcomes. Therefore the failure stage is still unknown, and no claim is made that SQL or Node tests ran.
 - CI workflow applies migrations 015-075, then 080-082; it skips 076-079 in this disposable harness. Migration 082 does not reference objects introduced by those skipped migrations, but the harness is not a byte-for-byte replay of the complete production migration sequence.
 - No local PostgreSQL/Node tests, production migrations, live database operations, Pinterest API calls, cron changes, or deployment were performed.
+
+
+
+## Negative eligibility regression coverage (2026-11-08)
+
+Extended `backend/test/pinterest-operator-reconciliation.integration.sql` with rollback-only negative cases proving that:
+- a terminal `failed` schedule is rejected;
+- a fresh `unknown` schedule is rejected even when its attempt is stale;
+- a fresh `processing` attempt is rejected even when its schedule is stale;
+- a schedule whose reserved board differs from the attempt is rejected;
+- matching schedule/attempt remote IDs cannot overwrite a conflicting existing publication ledger identity.
+
+These cases complement the existing positive stale-processing reconciliation, exact replay, changed-action replay rejection, immutable journal, and one-receipt-per-schedule checks. The SQL fixture has not yet been executed: the latest GitHub Actions reruns again failed with zero reported steps and unavailable Azure log blobs. Do not treat this added coverage as passing until a real PostgreSQL run completes.
