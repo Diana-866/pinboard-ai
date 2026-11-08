@@ -358,23 +358,24 @@ app.get("/me", requireAuth, async (req, res) => {
 
     if (error || !row) throw httpError(404, "Пользователь не найден");
 
+    // Keep the profile payload aligned with the same authoritative entitlement
+    // resolver used by protected API routes. Raw users.* fields can be stale
+    // after a successful subscription or an expired paid period.
+    const tariffState = await getTariffState(req.userId);
+    const effectivePlan = tariffState.plan;
+
     res.json({
       id: row.id,
       email: row.email,
       name: row.name ?? null,
       surname: row.surname ?? null,
       credits_balance: row.credits_balance ?? 0,
-      // LEGACY migration: тариф теперь читается из tariff_plan (backend/tariff.js
-      // нормализует алиасы); legacy-поле subscription_tier больше не отдаётся.
-      subscription_tier: normalizePlan(row.tariff_plan) === "none" ? "free" : normalizePlan(row.tariff_plan),
+      // Legacy compatibility field now reflects the effective entitlement.
+      subscription_tier: effectivePlan === "none" ? "free" : effectivePlan,
       onboarded: row.onboarded ?? false,
-      tariff_plan: row.tariff_plan ?? "none",
-      // Дата окончания оплаченного периода (миграция 006). null — тариф без срока/не оплачен.
-      tariff_period_end: row.tariff_period_end ?? null,
-      // Активна ли подписка прямо сейчас: кабинет по этому полю снимает «замочки».
-      subscription_active:
-        (row.tariff_plan || "none") !== "none" &&
-        (!row.tariff_period_end || new Date(row.tariff_period_end).getTime() > Date.now()),
+      tariff_plan: effectivePlan,
+      tariff_period_end: tariffState.periodEnd,
+      subscription_active: tariffState.active,
       payment_provider: "prodamus",
       email_verified: row.email_verified ?? true, // миграция 005; нет колонки — считаем подтверждённым
       preferred_language: row.preferred_language || "en",
