@@ -19,3 +19,7 @@ If a failed schedule's publication history belongs to another board or account, 
 - Source files and workflow were written through GitHub and are awaiting a real CI run.
 - No local Node or PostgreSQL test execution was available in this environment.
 - No production migration was applied; no Pinterest request, deployment, or PR merge was performed.
+
+## CI follow-up
+- The PR workflows associated with the current HEAD were observed: atomic-payment integration, Prodamus webhook tests, and persisted-boards integration all concluded with failure.
+- GitHub's job API returned steps=null and logs_url=null for the failed jobs. The cause is therefore unknown; do not treat the regression tests as passed or attribute the failure to this migration without logs.
