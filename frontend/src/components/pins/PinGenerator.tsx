@@ -209,6 +209,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [isSavingAspectRatio, setIsSavingAspectRatio] = useState(false);
   const [descriptionSaveState, setDescriptionSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const descriptionSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const descriptionSaveRevisionRef = React.useRef(0);
   const generationKeyRef = React.useRef<string | null>(null);
   // Serialize edits per pin and let scheduling wait for the final persisted version.
   const pendingPinSavesRef = React.useRef<Map<string, Promise<unknown>>>(new Map());
@@ -433,14 +434,14 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     }
   };
 
-  const savePinDescription = async (pinId: string, description: string) => {
-    setDescriptionSaveState('saving');
+  const savePinDescription = async (pinId: string, description: string, revision: number) => {
+    if (revision === descriptionSaveRevisionRef.current) setDescriptionSaveState('saving');
     try {
       await persistPinPatch(pinId, { description });
-      setDescriptionSaveState('saved');
+      if (revision === descriptionSaveRevisionRef.current) setDescriptionSaveState('saved');
     } catch (error) {
       console.error('[pins] Не удалось сохранить описание:', error);
-      setDescriptionSaveState('error');
+      if (revision === descriptionSaveRevisionRef.current) setDescriptionSaveState('error');
     }
   };
 
@@ -452,10 +453,11 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     updated[activePinIndex] = { ...currentPin, description };
     setGeneratedPins(updated);
     setDescriptionSaveState('idle');
+    const revision = ++descriptionSaveRevisionRef.current;
     if (descriptionSaveTimerRef.current) clearTimeout(descriptionSaveTimerRef.current);
     descriptionSaveTimerRef.current = setTimeout(() => {
       descriptionSaveTimerRef.current = null;
-      void savePinDescription(pinId, description);
+      void savePinDescription(pinId, description, revision);
     }, 800);
   };
 
@@ -1112,7 +1114,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                         clearTimeout(descriptionSaveTimerRef.current);
                         descriptionSaveTimerRef.current = null;
                       }
-                      void savePinDescription(currentPin.id, event.currentTarget.value);
+                      const revision = ++descriptionSaveRevisionRef.current;
+                      void savePinDescription(currentPin.id, event.currentTarget.value, revision);
                     }}
                     rows={4}
                     className="w-full p-3 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent leading-relaxed"
