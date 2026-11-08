@@ -23,7 +23,7 @@ import { useNotifications } from '../../context/NotificationContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { getDefaultTimezone } from '../../utils/timezone';
-import { isDefinitiveGenerationFailure } from '../../utils/generationRetry';
+import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure } from '../../utils/generationRetry';
 import { clearPendingPinDescriptionIfMatches, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
 import { clearPendingGenerationRequest, createGenerationFingerprint, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
 import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
@@ -390,7 +390,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       requestFingerprint = createGenerationFingerprint(JSON.stringify({ boardId: selectedBoard.id, ...requestBody }));
       const storedRequest = readPendingGenerationRequest(requestFingerprint);
       if (storedRequest?.fingerprint !== requestFingerprint || !storedRequest.idempotencyKey) {
-        generationKeyRef.current = globalThis.crypto.randomUUID().replace(/-/g, '_');
+        generationKeyRef.current = createGenerationIdempotencyKey();
         writePendingGenerationRequest(requestFingerprint, generationKeyRef.current);
       } else {
         // Restore the durable request identity after a remount or page reload.
@@ -430,7 +430,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       // The server only emits generation_request_failed after a definitive failure.
       // Rotate the key then; unknown/in-progress outcomes must keep their original key.
       if (isDefinitiveGenerationFailure(err)) {
-        generationKeyRef.current = globalThis.crypto.randomUUID().replace(/-/g, '_');
+        generationKeyRef.current = createGenerationIdempotencyKey();
         if (requestFingerprint) writePendingGenerationRequest(requestFingerprint, generationKeyRef.current);
       }
       console.error('Error generating pins:', err);
