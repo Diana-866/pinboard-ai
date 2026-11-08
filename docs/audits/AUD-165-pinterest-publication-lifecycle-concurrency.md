@@ -138,3 +138,14 @@ The diagnostic `000_check_schema.sql` is read-only, but its expected-object list
 **Regression coverage:** the PostgreSQL integration fixture now asserts that an expired deletion claim becomes quarantined, the stale worker token cannot finalize it, and neither upload nor another delete claim can reuse it. While updating the fixture, also corrected a missing `v_result jsonb` declaration in the stale-upload quarantine test block.
 
 **Rollout:** migration 083 is wired into the PostgreSQL integration workflow after 082; the canonical fresh-install guide now includes 083. The migration has not been applied to production. The SQL integration fixture and workflow have not yet been observed executing successfully; this is a code-level remediation pending CI verification.
+
+
+### AUD-165-11 — Financial hardening migrations were omitted from the PostgreSQL CI chain
+
+**Finding confirmed:** the atomic-payment integration workflow applied migrations 070–075 and then jumped to 080–082. Migrations 076–079 were present in the repository but were not applied by this workflow, and their corresponding checks were not invoked there. This left the core-table client-privilege hardening (076), reconciled provider-failure finalization (077), append-only operator action journal and admin RPC wrappers (078), and normalized GPTunnel cost reporting view (079) outside this workflow's schema/test path.
+
+**Remediation committed:** the workflow now applies 076, 077, 078 and 079 in numeric order after 075, then runs `provider-refund-operator-actions.integration.sql` and `core-table-privileges.integration.sql`. These tests cover operator identity revalidation/demotion, exact idempotent replay, mismatched replay rejection, atomic audit-journal rollback, reservation release on finalization, append-only journal restrictions, and client-role table grants. The workflow already runs the credit-reservation ledger guard tests for the legacy balance RPCs.
+
+**Backend route review:** the four admin refund endpoints run `requireAuth` and `requireAdmin`; operator identity comes from the verified JWT, not request JSON. The SQL entry points in migration 078 lock operator/target user rows in deterministic order and recheck `is_admin` under lock before any mutation. The action journal is append-only and the business mutations delegate to the established reconciliation/finalization RPCs. No client-callable legacy credit adjustment route was found; the backend's generic balance adjustment helper calls the service-role RPC and its negative adjustments are guarded by active reservations in migrations 074–075.
+
+**Verification:** workflow and test wiring were inspected in source, but the workflow has not yet completed on a runner. No claim is made that these SQL tests passed. No production database was changed.
