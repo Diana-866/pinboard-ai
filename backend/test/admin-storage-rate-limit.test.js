@@ -19,3 +19,11 @@ test("POST /admin/mail/reply applies the admin action limiter before authenticat
   const registration = 'app.post("/admin/mail/reply", adminActionLimiter, requireAuth, requireAdmin,';
   assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
 });
+
+
+for (const route of ["/billing/create-payment", "/billing/credits"]) {
+  test(route + " applies the payment creation limiter after authentication", () => {
+    const registration = 'app.post("' + route + '", requireAuth, paymentCreationLimiter,';
+    assert.ok(source.includes(registration), "Expected middleware chain: " + registration);
+  });
+}
