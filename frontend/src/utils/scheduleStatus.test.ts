@@ -8,8 +8,8 @@ test('preserves every persisted publication status, including cancelled', () => 
   }
 });
 
-test('does not disguise unknown or malformed statuses as scheduled', () => {
+test('maps unknown or malformed API statuses to the safe unknown state', () => {
   for (const status of ['canceled', 'deleted', 'queued', '', null, undefined, 42]) {
-    assert.throws(() => parsePersistedScheduleStatus(status), /Unsupported persisted schedule status/);
+    assert.equal(parsePersistedScheduleStatus(status), 'unknown');
   }
 });
