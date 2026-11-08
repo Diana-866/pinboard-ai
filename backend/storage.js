@@ -97,14 +97,19 @@ module.exports = { uploadPinImage, rehostImage, deletePinImageIfUnreferenced };
 // Скачивает картинку по URL (например, временную ссылку GPTunnel) и кладёт её в хранилище.
 // URL из ответа внешнего провайдера считается недоверенным: запрещаем private IP,
 // DNS rebinding и redirects, чтобы не превратить сервер в SSRF-прокси.
+function getManagedPinImagePublicUrl(objectPath) {
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(objectPath);
+  if (!data || typeof data.publicUrl !== "string" || !data.publicUrl.trim()) {
+    throw httpError(503, "Изображение уже сохранено, но ссылка на него временно недоступна. Повторите восстановление позже");
+  }
+  return data.publicUrl;
+}
+
 async function rehostImage(sourceUrl, options = {}) {
   if (options.idempotencyKey) {
     try {
       const existingPath = await findCompletedManagedPinImageUpload({ supabase, bucket: BUCKET, idempotencyKey: options.idempotencyKey });
-      if (existingPath) {
-        const { data } = supabase.storage.from(BUCKET).getPublicUrl(existingPath);
-        if (data && data.publicUrl) return data.publicUrl;
-      }
+      if (existingPath) return getManagedPinImagePublicUrl(existingPath);
     } catch (error) {
       // Without a successful lookup we cannot know whether this idempotency key
       // already owns a completed object. Do not download/re-upload blindly:
@@ -173,10 +178,7 @@ async function rehostImage(sourceUrl, options = {}) {
         const existingPath = await findCompletedManagedPinImageUpload({
           supabase, bucket: BUCKET, idempotencyKey: recoveryKey,
         });
-        if (existingPath) {
-          const { data } = supabase.storage.from(BUCKET).getPublicUrl(existingPath);
-          if (data && data.publicUrl) return data.publicUrl;
-        }
+        if (existingPath) return getManagedPinImagePublicUrl(existingPath);
         return await uploadPinImage(downloadedImage, {
           ...options,
           idempotencyKey: recoveryKey,
