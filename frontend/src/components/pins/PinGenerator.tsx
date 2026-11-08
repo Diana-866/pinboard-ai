@@ -218,6 +218,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const generationKeyRef = React.useRef<string | null>(null);
   // Serialize edits per pin and let scheduling wait for the final persisted version.
   const pendingPinSavesRef = React.useRef<Map<string, Promise<unknown>>>(new Map());
+  // Keep the user's latest title choice available to scheduling even before React
+  // has rendered the PATCH response and replaced the currentPin closure.
+  const pinTitleSelectionRef = React.useRef<Map<string, string>>(new Map());
   const [generatedPins, setGeneratedPins] = useState<GeneratedPinVariation[]>([]);
   const [activePinIndex, setActivePinIndex] = useState(0);
   const [scheduledSuccess, setScheduledSuccess] = useState(false);
@@ -468,6 +471,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const handleTitleSelect = async (title: string) => {
     if (!currentPin) return;
     const pinId = currentPin.id;
+    const previousTitle = pinTitleSelectionRef.current.get(pinId) ?? currentPin.selectedTitle;
+    // Record synchronously: a schedule click can happen before this PATCH resolves.
+    pinTitleSelectionRef.current.set(pinId, title);
     try {
       await persistPinPatch(pinId, { title });
       setGeneratedPins((previous) => previous.map((pin) => pin.id === pinId ? {
@@ -476,6 +482,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         headlineOverlay: title.length > 36 ? title.slice(0, 36) + '...' : title,
       } : pin));
     } catch (error) {
+      // Do not roll back a newer choice made while this request was in flight.
+      if (pinTitleSelectionRef.current.get(pinId) === title) {
+        pinTitleSelectionRef.current.set(pinId, previousTitle);
+      }
       console.error('[pins] Не удалось сохранить название:', error);
       window.alert(error instanceof Error ? error.message : t.generator.errorSaveTitle);
     }
@@ -596,10 +606,11 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     // До подтверждения Pinterest любой элемент остаётся запланированным, не published.
     const status = 'scheduled' as const;
 
+    const scheduledTitle = pinTitleSelectionRef.current.get(currentPin.id) ?? currentPin.selectedTitle;
     const newScheduledPin: ScheduledPinItem = {
       id: `pending-${Date.now()}`,
       pinId: currentPin.id,
-      title: currentPin.selectedTitle,
+      title: scheduledTitle,
       boardId: board.id,
       boardName: board.name,
       pinterestBoardId: selectedPinterestBoardId || undefined,
@@ -624,7 +635,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     enqueueTask({
       title: t.generator.scheduledToastTitle,
       message: t.generator.scheduledToastMessageTemplate
-        .replace('{title}', currentPin.selectedTitle.slice(0, 32))
+        .replace('{title}', scheduledTitle.slice(0, 32))
         .replace('{date}', scheduledDate)
         .replace('{time}', scheduledTime),
       type: 'generation',
