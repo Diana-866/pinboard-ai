@@ -5,7 +5,7 @@ const https = require("node:https");
 const { httpError } = require("./validate");
 const { MAX_IMAGE_BYTES, validateImageBuffer } = require("./imageValidation");
 const { assertPublicUrl, createPinnedLookup } = require("./publicUrl");
-const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, deleteManagedPinImageObject, validatePinImageBucketConfiguration, EXPECTED_PIN_IMAGE_MIMES } = require("./pinImageLifecycle");
+const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, deleteManagedPinImageObject, findCompletedManagedPinImageUpload, validatePinImageBucketConfiguration, EXPECTED_PIN_IMAGE_MIMES } = require("./pinImageLifecycle");
 
 const BUCKET = "pin-images";
 const ALLOWED_IMAGE_MIMES = EXPECTED_PIN_IMAGE_MIMES;
@@ -90,6 +90,18 @@ module.exports = { uploadPinImage, rehostImage, deletePinImageIfUnreferenced };
 // URL из ответа внешнего провайдера считается недоверенным: запрещаем private IP,
 // DNS rebinding и redirects, чтобы не превратить сервер в SSRF-прокси.
 async function rehostImage(sourceUrl, options = {}) {
+  if (options.idempotencyKey) {
+    try {
+      const existingPath = await findCompletedManagedPinImageUpload({ supabase, bucket: BUCKET, idempotencyKey: options.idempotencyKey });
+      if (existingPath) {
+        const { data } = supabase.storage.from(BUCKET).getPublicUrl(existingPath);
+        if (data && data.publicUrl) return data.publicUrl;
+      }
+    } catch (error) {
+      // A lookup failure falls back to the existing fenced provider-download flow.
+      console.warn("[storage] не удалось проверить ранее сохранённое изображение:", error && error.message);
+    }
+  }
   const axios = require("axios");
   let validated;
   try {
