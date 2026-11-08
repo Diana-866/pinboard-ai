@@ -25,7 +25,7 @@ The current user-facing API has:
 
 There is no endpoint or operator UI to record a Pinterest pin ID discovered manually after an ambiguous publish. The existing `reconcile-account` endpoint is specifically for legacy schedules with a missing account ID; it is not a publication reconciliation endpoint. The late-success RPC is callable by the backend only when the original worker still has the actual Pinterest response.
 
-The calendar currently renders the `unknown` status label, but the inspected detail panel does not explain what the user should do next. This can leave a user unsure whether they should retry or create another schedule.
+The calendar originally rendered only the `unknown` status label. This audit added a localized warning to the selected-item detail panel in all seven supported interface languages. It explicitly says the publish outcome is unconfirmed, warns against retrying or scheduling the same pin again, and recommends checking the selected account and board or contacting support.
 
 ## Safe operating rule until a dedicated workflow exists
 
@@ -45,12 +45,23 @@ Design a separate privileged, audited reconciliation action rather than broadeni
 4. Permit only an idempotent transition to `published` when the remote ID is consistent. If an existing remote ID conflicts, reject and leave the row blocked for investigation.
 5. Write an append-only operator audit event containing actor, schedule/pin/account IDs, remote ID, reason, previous/new states, and timestamp. Do not permit an operator to declare an ambiguous attempt absent and requeue it without a separate, much stronger evidence protocol.
 6. Add integration tests for same-ID idempotency, conflicting remote ID, wrong owner/account, duplicate schedules, missing attempt, cancelled/failed rows, concurrent worker completion, and audit-event creation.
-7. Update the calendar with a localized `unknown` explanation: publication may have happened; do not retry or create a duplicate; contact support/operator for reconciliation.
+7. **Completed in this audit:** the calendar now displays a localized `unknown` explanation: publication may have happened; do not retry or create a duplicate; check the selected account/board and contact support for reconciliation.
 
 ## Outcome
 
-No unsafe retry or direct SQL repair was introduced. Existing backend safeguards are strong, but manual reconciliation of a discovered remote pin and user-facing guidance remain missing. This audit is documentation only; no production database, Pinterest account, cron, or deployment was touched.
+No unsafe retry or direct SQL repair was introduced. Existing backend safeguards are strong. The user-facing warning is now implemented; manual operator reconciliation of a discovered remote pin remains missing. No production database, Pinterest account, cron, or deployment was touched.
+
+## Follow-up implementation in this audit
+
+- Added `unknownPublishHelpTitle` and `unknownPublishHelpBody` to all seven locale dictionaries (`en`, `ru`, `es`, `pt`, `de`, `fr`, `zh`) and to `TranslationSchema`.
+- Added an accessible `role="alert"` warning to the selected schedule detail in `PublishingCalendar.tsx`, shown only for `status === 'unknown'`. No retry action was added; existing retry remains restricted to server-approved `failed` rows.
+- Changed files: `frontend/src/components/calendar/PublishingCalendar.tsx`, `frontend/src/i18n/types.ts`, and `frontend/src/i18n/locales/{en,ru,es,pt,de,fr,zh}.ts`.
 
 ## Verification limits
 
 Repository source files were read from the working branch. No local Node tests, frontend build, PostgreSQL integration suite, live Pinterest API request, or CI workflow was executed as part of this audit.
+
+
+## CI status observed after frontend changes
+
+GitHub reported failing workflow runs associated with the audited branch commit: `Prodamus webhook tests`, `Atomic payment fulfillment integration`, and `Persisted boards integration checks` (frontend and backend jobs). The workflow-log download endpoint returned `BlobNotFound`, so the failure causes could not be diagnosed from this session. These are reported as failures, not as passing checks; no claim is made that this localized UI change caused them.
