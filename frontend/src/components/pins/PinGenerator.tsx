@@ -240,7 +240,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     apiRequest(`/boards/${encodeURIComponent(selectedBoardId)}/pins`)
       .then((rows) => {
         if (!active) return;
-        const restored = (Array.isArray(rows) ? rows : []).map((row: any) => {
+        // A malformed/empty HTTP payload is not the same as a board with zero
+        // pins. Never turn an unexpected API response into a silent empty state.
+        if (!Array.isArray(rows)) {
+          throw new Error('Сервер вернул некорректный список сохранённых пинов.');
+        }
+        const restored = rows.map((row: any) => {
           const title = String(row.title || 'Без названия');
           const ratio = ALL_ASPECT_RATIOS.some((item) => item.id === row.aspect_ratio)
             ? row.aspect_ratio as SupportedAspectRatio
