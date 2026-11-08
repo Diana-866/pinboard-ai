@@ -98,8 +98,11 @@ async function rehostImage(sourceUrl, options = {}) {
         if (data && data.publicUrl) return data.publicUrl;
       }
     } catch (error) {
-      // A lookup failure falls back to the existing fenced provider-download flow.
+      // Without a successful lookup we cannot know whether this idempotency key
+      // already owns a completed object. Do not download/re-upload blindly:
+      // preserve the journaled provider result and let the same request retry.
       console.warn("[storage] не удалось проверить ранее сохранённое изображение:", error && error.message);
+      throw httpError(503, "Не удалось проверить ранее сохранённое изображение. Повторите восстановление позже");
     }
   }
   const axios = require("axios");
