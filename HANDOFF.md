@@ -1309,3 +1309,14 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Migration 097 и integration test добавлены в `.github/workflows/atomic-payment-integration.yml`.
 - Пользовательский эффект: оператору легче найти именно тот уже созданный Pinterest-пин в нужном профиле и на нужной доске, когда remote ID потерян из-за падения backend. Это не включает автоматический retry и не помечает публикацию успешной без внешнего подтверждения.
 - Статус: IMPLEMENTED / STATIC READ-BACK COMPLETE / CI FAILURE UNDIAGNOSED. Локально Node/SQL tests, lint/build не выполнялись. На текущем HEAD Prodamus webhook, persisted-boards frontend/backend и atomic-payment PostgreSQL workflows завершились failure; GitHub вернул `steps=null` и `logs_url=null`, поэтому причину определить нельзя и новые проверки не считать пройденными. Vercel сообщает `build-rate-limit`. Production migration/deploy/Pinterest API/merge не выполнялись.
+
+
+## AUD-237 — конкурентный захват Pinterest-расписаний (2026-11-09)
+
+- Проверена текущая DB coordination: `claim_due_pin_schedules` использует `FOR UPDATE SKIP LOCKED`, атомарно переводит строку в `publishing` и назначает уникальный `claim_token`. Последующие записи worker ограждены identity расписания и токеном. Process-local mutex не заменялся наугад: он не решает межсерверную конкуренцию.
+- Добавлен `backend/test/pinterest-schedule-claim-concurrency.sh`: два независимых PostgreSQL worker-вызова одновременно конкурируют за очередь из двух заданий при удерживаемой блокировке первой строки. Проверяется, что доступное второе задание получает ровно один worker, второй не получает дубликат, а после снятия блокировки первая строка забирается отдельно.
+- Финальная проверка требует для обоих заданий `publishing`, `attempts=1`, непустые и разные `claim_token`.
+- Новый regression script подключён в `.github/workflows/atomic-payment-integration.yml` после Pinterest publication concurrency test. Отдельная миграция не нужна: тест проверяет уже существующий атомарный DB claim.
+- Пользовательский эффект: при одновременном пробуждении двух экземпляров PinPosy одна запланированная публикация не должна обрабатываться обоими; заблокированная строка не блокирует обработку следующей свободной.
+- Статус: TEST ADDED / STATIC READ-BACK COMPLETE / CI UNVERIFIED. Локальная PostgreSQL среда недоступна, shell/SQL test не запускался. Production DB, Pinterest API, deployment и merge не затрагивались.
+- Документ: `docs/audits/AUD-237-pinterest-schedule-claim-concurrency.md`.
