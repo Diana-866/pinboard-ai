@@ -108,6 +108,7 @@ test("invalid IDs, task indexes, refund facts, and evidence are rejected before 
   await assert.rejects(actions.reconcileGeneration(OPERATOR_ID, { ...base, task_index: 0 }), { httpStatus: 422 });
   await assert.rejects(actions.reconcileGeneration(OPERATOR_ID, { ...base, provider_refunded: "false" }), { httpStatus: 422 });
   await assert.rejects(actions.reconcileGeneration(OPERATOR_ID, { ...base, evidence_reference: "https://example.com/ticket" }), { httpStatus: 422 });
+  await assert.rejects(actions.reconcileGeneration(OPERATOR_ID, { ...base, evidence_reference: "example.com/ticket" }), { httpStatus: 422 });
   await assert.rejects(actions.reconcileGeneration(OPERATOR_ID, { ...base, evidence_reference: "a@b.example" }), { httpStatus: 422 });
   await assert.rejects(actions.finalizeGeneration(OPERATOR_ID, { request_id: "9223372036854775808", action_id: ACTION_ID }), { httpStatus: 422 });
   await assert.rejects(actions.finalizeGeneration(OPERATOR_ID, { request_id: "12", action_id: "not-a-uuid" }), { httpStatus: 422 });
