@@ -1395,3 +1395,11 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Пользовательский эффект: большой аккаунт может получить полный список большего числа досок; при сбое пагинации PinPosy не выдаёт неполный список за полный и не зацикливает повторные страницы.
 - Статус: IMPLEMENTED / STATIC READ-BACK PENDING / CI UNVERIFIED. Локальный Node test не запускался. Production, реальные Pinterest API, deployment и merge не затрагивались.
 - Документ: `docs/audits/AUD-244-pinterest-board-pagination-guard.md`.
+
+
+## AUD-245 — ошибки загрузки Pinterest-досок видны пользователю (2026-11-09)
+- В `frontend/src/components/settings/PinterestCard.tsx` ошибка загрузки досок больше не превращается в пустой список. Добавлены отдельные состояния loading/error, alert с сообщением API и кнопка повторной синхронизации.
+- Пустое состояние показывается только после успешного ответа с нулём досок; временная ошибка Pinterest/сети больше не выглядит как отсутствие досок.
+- Сохранена защита от гонок между переключением аккаунтов и ручными повторами: обновлять UI может только последний запрос.
+- Статус: IMPLEMENTED / STATIC READ-BACK PENDING / FRONTEND BUILD UNVERIFIED. Полный frontend build и component tests не запускались. Production, Pinterest API, deployment и merge не затрагивались.
+- Документ: `docs/audits/AUD-245-pinterest-boards-fetch-error-ui.md`.
