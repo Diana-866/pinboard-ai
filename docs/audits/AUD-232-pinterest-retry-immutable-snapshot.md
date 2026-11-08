@@ -16,3 +16,8 @@ A user can still safely retry a failed scheduled Pin even if they later removed 
 - Migration, SQL test, workflow, and documentation were written through GitHub and re-read for verification.
 - Tests have not been executed locally. CI must confirm the disposable PostgreSQL regression.
 - No production migration, deployment, Pinterest API request, or PR merge was performed.
+
+## CI follow-up
+- The three workflows triggered for the resulting PR HEAD all concluded with failure: Prodamus webhook tests, atomic-payment integration, and persisted-boards integration.
+- Each failed job returned logs_url=null and steps=null; fetching the job logs returned GitHub BlobNotFound (404). The failure cause cannot be established from the available run metadata.
+- The SQL regression now also asserts the negative case: retry remains blocked with pin_unavailable when both the live image and immutable snapshot are absent.
