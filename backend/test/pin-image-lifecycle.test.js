@@ -1,8 +1,19 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, reconcileStalePinImageUploads, quarantineStalePinImageUploads, deleteManagedPinImageObject, validatePinImageBucketConfiguration } = require("./pinImageLifecycle");
+const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, reconcileStalePinImageUploads, quarantineStalePinImageUploads, deleteManagedPinImageObject, validatePinImageBucketConfiguration, isDefiniteStorageRejection } = require("./pinImageLifecycle");
 
 const base = "https://project.supabase.co";
+
+test("classifies only definite client-side Storage rejections as safe to finalize", () => {
+  for (const status of [400, 401, 403, 404, 422]) {
+    assert.equal(isDefiniteStorageRejection({ statusCode: status }), true, `status ${status}`);
+  }
+  for (const status of [408, 409, 425, 429, 500, 502, 503]) {
+    assert.equal(isDefiniteStorageRejection({ statusCode: status }), false, `status ${status}`);
+  }
+  assert.equal(isDefiniteStorageRejection(new Error("network timeout")), false);
+  assert.equal(isDefiniteStorageRejection({ statusCode: "not-a-status" }), false);
+});
 
 test("accepts the exact public pin image bucket configuration", () => {
   assert.equal(validatePinImageBucketConfiguration({
