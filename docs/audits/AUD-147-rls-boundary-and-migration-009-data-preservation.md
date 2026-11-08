@@ -10,7 +10,7 @@
 
 `backend/supabase.js` initializes the server client with `SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY`. The schema intentionally revokes direct table privileges from public client roles and relies on the service role to bypass RLS. If the service-role secret is absent, the backend silently falls back to the anon key; requests requiring protected table writes or service-only RPCs will fail under RLS/grants.
 
-This fallback does not itself expose the service key, but it can make an incomplete deployment appear initialized until a protected operation is attempted. Recommended hardening: fail startup in production when `SUPABASE_SERVICE_ROLE_KEY` is absent, and retain anon fallback only for explicitly supported local/test configurations. This is a recommendation, not yet a code change.
+This fallback does not itself expose the service key, but it can make an incomplete deployment appear initialized until a protected operation is attempted. Implemented on this branch: production startup now throws a clear configuration error when `SUPABASE_SERVICE_ROLE_KEY` is absent. The anon-key fallback remains available outside production for local/test configurations. This change has not yet been executed in CI.
 
 ### 2. Migration 009 performs destructive cleanup before adding foreign keys
 
@@ -32,11 +32,11 @@ This is a partial source review, not a complete proof of every route, table, fun
 
 ## Recommended next actions
 
-1. Add a production startup guard requiring `SUPABASE_SERVICE_ROLE_KEY`; test the missing-key failure path.
+1. Run a Node regression test for the production missing-key startup guard and verify the normal service-role path.
 2. Add a read-only SQL preflight for every destructive cleanup branch in migration 009, with counts and export instructions.
 3. Review every post-baseline table migration for `ENABLE ROW LEVEL SECURITY`, grants/revokes, and narrowly scoped policies.
 4. Add disposable-PostgreSQL tests for cross-user board/pin access and execution privileges of all `SECURITY DEFINER` RPCs.
 
 ## Verification boundary
 
-No files were changed in application code in this audit. No Supabase SQL was executed and no production data was read, deleted, or modified. CI remains unverified: previous job-log downloads returned `BlobNotFound`; do not infer test success from source inspection.
+Application change: `backend/supabase.js` now fails fast in production without `SUPABASE_SERVICE_ROLE_KEY` (commit `af82e574d9b9daf1213b49aaaf4b253dee95d64a`). No Supabase SQL was executed and no production data was read, deleted, or modified. CI has not yet reported a run for this commit; Vercel status is pending at the time of review. Do not infer test success from source inspection.
