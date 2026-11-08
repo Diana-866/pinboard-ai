@@ -453,6 +453,7 @@ declare
   v_path text;
   v_url text;
   v_token uuid := gen_random_uuid();
+  v_result jsonb;
 begin
   insert into public.users(id, email)
   values (v_user_id, v_user_id::text || '@pin-image-fenced-reference-test.invalid');
