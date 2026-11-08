@@ -99,3 +99,12 @@ No confirmed client privilege escalation was found in these reviewed migrations.
 - Commit: `582c31fc82f73bc9278477eef303b5b547c9d7b6`.
 - CI on this HEAD: all three PR workflows (persisted boards, Prodamus webhook, atomic payment/PostgreSQL) concluded `failure`; GitHub returned jobs with `steps=null` and `logs_url=null`. Therefore this added SQL assertion has **not** been executed/validated yet. Vercel status is `pending`.
 - No production database, live payments, Pinterest publishing, deployment, or merge was performed.
+
+## AUD-150 — admin support-mail reply rate limiting (2026-11-08)
+
+- Reviewed mutating admin route registrations after the storage limiter fix. `POST /admin/mail/reply` required `requireAuth` and `requireAdmin`, but did not use the shared `adminActionLimiter`.
+- Added `adminActionLimiter` before authentication on the support-mail reply route, so the same 20-actions-per-minute IP-based guard also applies to outbound admin replies.
+- Extended `backend/test/admin-storage-rate-limit.test.js` with a registration assertion for the mail-reply middleware chain.
+- This is defense-in-depth for a privileged outbound-email action; it does not replace MFA/session controls or provider-side mail quotas.
+- Commits: `822269d` (route), `24d443c` (regression test).
+- Test status: not run locally in this environment; CI must confirm. No email was sent and no production environment was changed.
