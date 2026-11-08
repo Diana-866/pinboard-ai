@@ -107,9 +107,9 @@ function getManagedPinImagePublicUrl(objectPath) {
 
 async function rehostImage(sourceUrl, options = {}) {
   if (options.idempotencyKey) {
+    let existingPath;
     try {
-      const existingPath = await findCompletedManagedPinImageUpload({ supabase, bucket: BUCKET, idempotencyKey: options.idempotencyKey });
-      if (existingPath) return getManagedPinImagePublicUrl(existingPath);
+      existingPath = await findCompletedManagedPinImageUpload({ supabase, bucket: BUCKET, idempotencyKey: options.idempotencyKey });
     } catch (error) {
       // Without a successful lookup we cannot know whether this idempotency key
       // already owns a completed object. Do not download/re-upload blindly:
@@ -117,6 +117,9 @@ async function rehostImage(sourceUrl, options = {}) {
       console.warn("[storage] не удалось проверить ранее сохранённое изображение:", error && error.message);
       throw httpError(503, "Не удалось проверить ранее сохранённое изображение. Повторите восстановление позже");
     }
+    // A completed object must never fall through to a new upload just because
+    // URL construction is temporarily unavailable.
+    if (existingPath) return getManagedPinImagePublicUrl(existingPath);
   }
   const axios = require("axios");
   let validated;
