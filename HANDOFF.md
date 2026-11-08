@@ -1365,3 +1365,12 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Добавлены unit-регрессии классификации 429 и PostgreSQL-сценарий условного снятия fence + защита от stale cleanup после reconnect. Существующий workflow уже запускает SQL-файл.
 - Изменения: `backend/pinterest.js`, `backend/pinterestRefreshRecovery.js`, `backend/test/pinterest-refresh-recovery.test.js`, `backend/test/pinterest-refresh-disconnect-fencing.integration.sql`, `docs/audits/AUD-241-pinterest-refresh-rate-limit-recovery.md`.
 - Тесты Node/PostgreSQL локально не запускались; CI на новом HEAD требует отдельной проверки. Не считать проверки пройденными до реального зелёного запуска. Production не менялся, миграции не применялись, deployment и merge не выполнялись.
+
+
+## AUD-242 — не требовать повторный OAuth при истечении access token (2026-11-09)
+- `expires_at` относится к access token, который можно обновить существующим refresh token. Раньше любой истёкший/некорректный expiry преждевременно включал `needs_reauth` и блокировал загрузку досок в настройках.
+- Теперь OAuth reconnect требуется, если refresh state `uncertain`, либо access token уже истёк/expiry повреждён и refresh token отсутствует. При наличии refresh token штатный API flow может выполнить безопасное обновление по 401.
+- Отсутствующий expiry для legacy-записей остаётся нейтральным.
+- Добавлены регрессии для истёкшего/некорректного expiry с refresh token и без него; существующий backend test workflow покрывает этот файл.
+- Изменения: `backend/pinterestPublicAccount.js`, `backend/test/pinterest-public-account.test.js`, `docs/audits/AUD-242-pinterest-expired-access-token-refresh.md`.
+- Node/Frontend/PostgreSQL tests локально не запускались. CI на новом HEAD требует проверки. Production, реальные Pinterest API-вызовы, миграции, deployment и merge не затрагивались.
