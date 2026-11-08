@@ -1260,3 +1260,13 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Документ: docs/audits/AUD-231-pinterest-failed-schedule-retry-identity.md.
 
 - CI follow-up по HEAD с изменениями кода и workflow: atomic-payment integration, Prodamus webhook tests и persisted-boards integration завершились failure. GitHub API вернул steps=null и logs_url=null; причина неизвестна, новые Node/SQL regression tests не считать пройденными. После обновления документации требуется учитывать отдельный новый HEAD/повторный CI.
+
+## Дополнение к handoff — 2026-11-09 (AUD-232: повтор расписания по неизменяемому снимку)
+
+- Найдена несогласованность: UI разрешал retry, если у расписания есть snapshot_image_url, но retry_failed_pin_schedule в БД требовал актуальный pins.image_url. После удаления/замены изображения исходного пина пользователь видел доступный повтор, который БД отклоняла.
+- Добавлена migration 096: функция требует существующую принадлежащую пользователю запись pin и принимает непустой pins.image_url ИЛИ непустой snapshot_image_url расписания. Проверки аккаунта, расписания, attempt identity, retry_safe, уже существующей публикации и активных дубликатов сохранены; lock order account → schedule → attempt и service_role-only grant сохранены.
+- Integration test расширен: после проверки блокировки чужой доски он устанавливает точную доску в журнале, удаляет pins.image_url и проверяет, что snapshot_image_url позволяет безопасный retry. Если нет ни live image, ни snapshot — retry по-прежнему блокируется.
+- Migration 096 добавлена в atomic-payment integration workflow после 095; SQL regression test уже подключён в предыдущей задаче и теперь проверяет оба сценария.
+- Пользовательский эффект: пользователь может повторить безопасную неудачную публикацию по сохранённому изображению, даже если оригинальный пин впоследствии отредактировали или у него удалили изображение. Повтор использует зафиксированный при планировании креатив.
+- Локальные тесты не запускались; требуется CI-подтверждение. Production DB, deploy, Pinterest API и merge не затрагивались.
+- Документ: docs/audits/AUD-232-pinterest-retry-immutable-snapshot.md.
