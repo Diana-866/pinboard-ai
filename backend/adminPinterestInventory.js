@@ -52,7 +52,9 @@ async function listPinterestSchedules(query = {}, now = Date.now()) {
     const { data, error: attemptError } = await supabase
       .from("pinterest_publish_attempts")
       .select("id,user_id,pin_id,pinterest_account_id,pinterest_board_id,pinterest_pin_id,status,retry_safe,attempt_count,updated_at,last_error")
-      .in("pin_id", pinIds);
+      .in("pin_id", pinIds)
+      .order("updated_at", { ascending: false })
+      .order("id", { ascending: false });
     if (attemptError) throw attemptError;
     attempts = data || [];
   }
@@ -60,7 +62,9 @@ async function listPinterestSchedules(query = {}, now = Date.now()) {
   const attemptsByIdentity = new Map();
   for (const attempt of attempts) {
     const key = `${attempt.user_id}:${attempt.pin_id}:${attempt.pinterest_account_id || "legacy"}`;
-    attemptsByIdentity.set(key, attempt);
+    // Legacy null-account rows are not covered by the account-scoped unique
+    // index. Keep the newest one; the query above orders newest first.
+    if (!attemptsByIdentity.has(key)) attemptsByIdentity.set(key, attempt);
   }
 
   const staleBefore = now - 20 * 60 * 1000;
