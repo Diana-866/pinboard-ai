@@ -63,6 +63,8 @@ Added `backend/test/pinterest-publication-concurrency.sh` and wired it into `.gi
 Both operations use the same externally confirmed remote pin identity. Either serialized winner is acceptable: completion may publish first and cause stale reconciliation to reject, or reconciliation may record the operator receipt first and completion may finish idempotently. In both cases the expected final state is one published schedule, no claim token, one matching publication row, and one published attempt; the operator receipt may exist zero or one time.
 
 The new concurrency script is wired into CI but has **not yet been observed executing successfully**. A green workflow run is still required before treating this race as verified.
+- Follow-up review found that the append-only reconciliation receipt trigger would reject fixture cleanup if the operator path won the race. The script now disables only that mutation trigger briefly while deleting its isolated CI fixture, then immediately re-enables it. This requires the disposable CI database owner (the workflow uses `postgres`); it does not alter the migration or production permissions.
+- Cleanup correction committed as `d222be2c3c24cff9ad2ca960fb1fd542730f1c3b`. At this HEAD, GitHub returned no PR workflow runs; the combined status contains only Vercel `failure` (`build-rate-limit`). PostgreSQL concurrency test remains unexecuted/unverified.
 
 ## Verification status
 
