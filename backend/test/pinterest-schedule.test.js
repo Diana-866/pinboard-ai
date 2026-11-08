@@ -42,6 +42,16 @@ test("a failed journal retries only when the database marks it safe", () => {
   assert.equal(canRetryScheduleFailure({ status: "processing", retry_safe: true }, null, Object.assign(new Error("503"), { httpStatus: 503 })), false);
 });
 
+test("a terminal Pinterest board preflight rejection overrides an older retry-safe journal", () => {
+  const previousSafeAttempt = { status: "failed", retry_safe: true };
+  const deletedBoardError = Object.assign(new Error("Selected Pinterest board is unavailable"), {
+    httpStatus: 422,
+    retryable: false,
+  });
+
+  assert.equal(canRetryScheduleFailure(previousSafeAttempt, null, deletedBoardError), false);
+});
+
 test("transient pre-publication failures can retry when no publish attempt exists", () => {
   assert.equal(canRetryScheduleFailure(null, null, Object.assign(new Error("temporary upstream failure"), { httpStatus: 502 })), true);
   assert.equal(canRetryScheduleFailure(null, null, Object.assign(new Error("temporary service failure"), { httpStatus: 503 })), true);
