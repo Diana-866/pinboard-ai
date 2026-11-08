@@ -492,3 +492,19 @@ The generation and one-time commit checks prevent stale tabs, replay after a suc
 **Resolved on this branch:** introduced `backend/resourceOwnership.js` with a small ownership comparison that rejects missing, empty, and non-string identifiers and compares UUID text case-insensitively. `getBoardWithOwnerCheck` and `getPinWithOwnerCheck` now pass optional nested relation values to that helper and return the same 404 used for an absent/foreign resource. Added `backend/test/resource-ownership.test.js` for same-owner UUID case normalization, foreign-owner rejection, and malformed/missing values.
 
 **Scope:** this hardens the application-layer checks used with the backend's server-side service-role client. It does not change RLS policies, grants, or production data. It does not claim that every route or every table has been exhaustively tested for tenant isolation.
+
+
+### AUD-165-34 — Admin Pinterest inventory loaded unbounded attempt history (fixed in code + migration)
+
+**Impact:** the schedule list itself was paginated (up to 100 rows), but the backend then selected every publication-attempt row for all pin IDs on that page and retained only the newest row for each (user, pin, account) identity in Node.js. A pin with a long retry/reconciliation history could therefore make a single admin page load an arbitrarily large attempt journal. This was an application memory/latency amplification issue, not a tenant data disclosure.
+
+**Implementation:** `backend/adminPinterestInventory.js` now makes one call to `admin_list_pinterest_schedule_inventory` and maps only the returned schedule rows plus their latest matching attempt. `backend/index.js` passes the verified JWT operator ID to the RPC. Migration `084_admin_pinterest_inventory_latest_attempt.sql` adds a composite lookup index and a `SECURITY DEFINER` RPC that:
+- rechecks `users.is_admin` inside PostgreSQL (the route check is not the only gate);
+- validates statuses, page size (1–100), and offset (0–10000);
+- paginates schedules before looking up attempts;
+- uses a correlated `ORDER BY updated_at DESC, id DESC LIMIT 1` lookup scoped by owner, pin, and nullable Pinterest account;
+- returns only the allowlisted schedule and attempt fields needed by the UI.
+
+**Tests updated:** `backend/test/admin-pinterest-inventory.test.js` now covers one-RPC bounded access, operator identity propagation, DB-side admin denial, redaction, classification, and invalid inputs. The test suite has been updated but has not yet been executed against the repository's installed dependencies. The SQL migration has not been applied to production or verified against a live Supabase database.
+
+**Expected result:** an admin page of up to 100 schedules now transfers at most 100 schedule rows and at most one latest attempt per schedule, rather than all historical attempts for those pins. The database still needs to execute the indexed lookup; production query plans and latency must be measured after the migration is applied in a staging database.
