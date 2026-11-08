@@ -388,7 +388,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         mixed_ratios: targetRatios,
       };
       requestFingerprint = createGenerationFingerprint(JSON.stringify({ boardId: selectedBoard.id, ...requestBody }));
-      const storedRequest = readPendingGenerationRequest();
+      const storedRequest = readPendingGenerationRequest(requestFingerprint);
       if (storedRequest?.fingerprint !== requestFingerprint || !storedRequest.idempotencyKey) {
         generationKeyRef.current = globalThis.crypto.randomUUID().replace(/-/g, '_');
         writePendingGenerationRequest(requestFingerprint, generationKeyRef.current);
@@ -425,7 +425,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       setGeneratedPins(results);
       setActivePinIndex(0);
       generationKeyRef.current = null;
-      clearPendingGenerationRequest();
+      clearPendingGenerationRequest(requestFingerprint);
     } catch (err) {
       // The server only emits generation_request_failed after a definitive failure.
       // Rotate the key then; unknown/in-progress outcomes must keep their original key.
