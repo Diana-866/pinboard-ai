@@ -4,12 +4,15 @@ import { rollbackPinAspectRatioIfUnchanged } from './pinAspectRatio';
 
 test('failed ratio save rolls back only the affected pin', () => {
   const pins = [
-    { id: 'pin-1', aspectRatio: '1:1' },
+    { id: 'pin-1', aspectRatio: '9:16' },
     { id: 'pin-2', aspectRatio: '2:3' },
   ];
   assert.deepEqual(
     rollbackPinAspectRatioIfUnchanged(pins, 'pin-1', '9:16', '1:1'),
-    pins,
+    [
+      { id: 'pin-1', aspectRatio: '1:1' },
+      { id: 'pin-2', aspectRatio: '2:3' },
+    ],
   );
 });
 
