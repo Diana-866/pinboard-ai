@@ -47,6 +47,15 @@ function isScheduleClaimUpdateConfirmed(result) {
   return Boolean(result && !result.error && result.data && result.data.id);
 }
 
+function matchesConfirmedPublicationLedger(ledger, expected) {
+  if (!ledger || !expected) return false;
+  return String(ledger.user_id || "") === String(expected.user_id || "")
+    && String(ledger.pin_id || "") === String(expected.pin_id || "")
+    && String(ledger.pinterest_account_id || "") === String(expected.pinterest_account_id || "")
+    && String(ledger.pinterest_board_id || "") === String(expected.pinterest_board_id || "")
+    && String(ledger.pinterest_pin_id || "") === String(expected.pinterest_pin_id || "");
+}
+
 function resolvePublishedReservation(reservation, expectedBoardId) {
   const pinterestPinId = String(reservation && reservation.pinterest_pin_id || "").trim();
   const pinterestBoardId = String(reservation && reservation.pinterest_board_id || "").trim();
@@ -123,6 +132,7 @@ module.exports = {
   hasCompleteScheduleClaimIdentity,
   isScheduleClaimUpdateConfirmed,
   resolvePublishedReservation,
+  matchesConfirmedPublicationLedger,
   persistPublishFailureJournal,
   isPinterestPublishOutcomeUnknown,
   buildPinScheduleSnapshot,
