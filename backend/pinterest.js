@@ -19,7 +19,7 @@ const {
   pinterestWorkerLimiter,
 } = require("./pinterestRateLimit");
 const { executeWithAccountToken } = require("./pinterestAccountRequest");
-const { toPublicPinterestAccount, toDisconnectedPinterestAccount } = require("./pinterestPublicAccount");
+const { toPublicPinterestAccount, toDisconnectedPinterestAccount, isPinterestReauthRequired } = require("./pinterestPublicAccount");
 const { isCommittedTokenRefresh, hasActiveRefreshLease } = require("./pinterestRefreshRecovery");
 const { decodePinterestAccountRecord } = require("./pinterestAccountRecord");
 const crypto = require("crypto");
@@ -720,7 +720,7 @@ function registerRoutes(app, deps) {
         // Backward-compatible fields for the current single-account settings card.
         username: primary ? primary.username : null,
         expires_at: primary ? primary.expires_at : null,
-        needs_reauth: !!(primary && (primary.refresh_state === "uncertain" || (primary.expires_at && new Date(primary.expires_at).getTime() < Date.now()))),
+        needs_reauth: isPinterestReauthRequired(primary),
       });
     } catch (e) {
       handleError(res, e);
