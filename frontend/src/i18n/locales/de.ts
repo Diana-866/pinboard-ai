@@ -403,6 +403,7 @@ export const de: TranslationSchema = {
     pinterestDisconnectWarning: "Dadurch werden die Kontotoken aus PinPosy entfernt, die Pinterest-OAuth-Berechtigung jedoch nicht widerrufen. Zukünftige geplante Veröffentlichungen dieses Kontos werden als fehlgeschlagen markiert; ein laufender Vorgang kann noch abgeschlossen werden. Fortfahren?",
     pinterestAccountFallback: "Pinterest-Konto",
     pinterestReauthRequired: "Erneute Autorisierung erforderlich",
+    pinterestReauthDescription: "Verbinden Sie dieses Pinterest-Konto erneut, um Pinnwände zu laden und Pins zu veröffentlichen.",
     pinterestPinsLabel: "Pins",
     billingSection: 'Tarif & KI-Credits',
     billingSectionDesc: 'Überwachen Sie Ihr monatliches Guthaben für Automatisierung und Recherche.',
