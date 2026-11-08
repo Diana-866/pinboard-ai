@@ -18,7 +18,7 @@ const {
   pinterestOAuthCallbackLimiter,
   pinterestWorkerLimiter,
 } = require("./pinterestRateLimit");
-const { executeWithAccountToken } = require("./pinterestAccountRequest");
+const { executeWithAccountToken, getPinterestRetryDelayMs } = require("./pinterestAccountRequest");
 const { toPublicPinterestAccount, toDisconnectedPinterestAccount, isPinterestReauthRequired } = require("./pinterestPublicAccount");
 const { isCommittedTokenRefresh, hasActiveRefreshLease, isExplicitRefreshRateLimit } = require("./pinterestRefreshRecovery");
 const { decodePinterestAccountRecord } = require("./pinterestAccountRecord");
@@ -143,7 +143,12 @@ async function callPinterest(method, path, { token, body } = {}) {
       timeout: TIMEOUT_MS,
       validateStatus: () => true,
     });
-    return { ok: res.status >= 200 && res.status < 300, status: res.status, data: res.data };
+    return {
+      ok: res.status >= 200 && res.status < 300,
+      status: res.status,
+      data: res.data,
+      ...(res.status === 429 ? { retryAfterMs: getPinterestRetryDelayMs(res.headers && res.headers["retry-after"]) } : {}),
+    };
   } catch (e) {
     // сеть/таймаут
     console.error(`[pinterest] сеть недоступна (${method} ${path}):`, e && e.message);
@@ -483,7 +488,7 @@ async function refreshAccessToken(account) {
 /**
  * Запрос к Pinterest от имени пользователя.
  * 401 -> один раз обновляем токен и повторяем.
- * 429 -> одна повторная попытка через 2 секунды.
+ * 429 -> одна безопасная повторная попытка с учётом Retry-After Pinterest.
  */
 async function withAccount(userId, handler, accountId = null, options = {}) {
   requireConfigured();
