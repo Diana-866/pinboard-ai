@@ -120,3 +120,10 @@ The diagnostic `000_check_schema.sql` is read-only, but its expected-object list
 
 
 **Follow-up remediation on `55f4734`:** the active `db/migrations/001_base_schema.sql` entry was removed after confirming its identical archive copy exists at `db/archive/001_base_schema.sql`. The active numbered entrypoint is now only `db/migrations/001_baseline.sql`. `docs/database.md` was updated to prescribe baseline → every migration 009–082, and the active read-only diagnostic now points to the baseline. Legacy `002–008` files remain in the tree but are explicitly marked “do not run” by the canonical instructions; they have not been applied or deleted. No database was changed. The current Vercel status is still failing with `build-rate-limit`; GitHub Actions for the latest docs-only HEAD have not yet appeared.
+
+
+### AUD-165-09 — Pinterest admin inventory error redaction
+
+**Finding confirmed:** `backend/adminPinterestInventory.js::sanitizeOperationalError` used over-escaped regular expressions (`\\\\s`, `\\\\b`, `\\\\.`) inside regex literals. In JavaScript these patterns match literal backslash sequences rather than whitespace/word boundaries/dots, so a bearer credential and JWT could pass through the admin inventory response unredacted. The existing test covered a query-string token but did not cover bearer headers or JWTs.
+
+**Fix committed:** corrected the regex escaping, handled Authorization headers without removing the visible `Bearer` scheme, and added a regression test covering bearer token, JWT, and `access_token` key/value redaction. A standalone Node check of the sanitizer expression produced the expected fully redacted string. The repository's full test suite and new test have **not** been run successfully in CI; the GitHub runner issue remains. This fix does not rotate any credentials and does not change production data.
