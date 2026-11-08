@@ -66,6 +66,11 @@ async function uploadPinImage(file, options = {}) {
     if (error && (error.code === "upload_in_progress" || error.code === "deletion_in_progress")) {
       throw httpError(409, "Изображение сейчас обрабатывается. Повторите запрос позже");
     }
+    if (error && error.code === "already_deleted") {
+      const conflict = httpError(409, "Адрес этого изображения уже был удалён и не может использоваться повторно");
+      conflict.code = "already_deleted";
+      throw conflict;
+    }
     if (error && error.code === "path_quarantined") {
       // A quarantined deterministic key is intentionally never reused: an
       // earlier Storage request may still complete asynchronously. Surface a
@@ -167,7 +172,8 @@ async function rehostImage(sourceUrl, options = {}) {
   try {
     return await uploadPinImage(downloadedImage, options);
   } catch (primaryError) {
-    if (!options.idempotencyKey || !primaryError || primaryError.code !== "path_quarantined") {
+    if (!options.idempotencyKey || !primaryError ||
+        !["path_quarantined", "already_deleted"].includes(primaryError.code)) {
       throw primaryError;
     }
     // A quarantined deterministic path is permanently retired because an old
@@ -187,7 +193,7 @@ async function rehostImage(sourceUrl, options = {}) {
           idempotencyKey: recoveryKey,
         });
       } catch (recoveryError) {
-        if (!recoveryError || recoveryError.code !== "path_quarantined") {
+        if (!recoveryError || !["path_quarantined", "already_deleted"].includes(recoveryError.code)) {
           throw recoveryError;
         }
         // This exact recovery path is also permanently retired; advance to
