@@ -117,3 +117,13 @@ No confirmed client privilege escalation was found in these reviewed migrations.
 - Added source-registration regression assertions for both middleware chains. These assertions do not exercise HTTP behavior or the rate-limit store.
 - This is abuse-resistance hardening, not an idempotency guarantee: repeated requests within the allowed quota may still create multiple pending orders. Durable per-user idempotency/cooldown and provider reconciliation remain separate follow-up work.
 - Test status: not run locally in this environment. No live payment requests, production database changes, deployment, or merge were performed.
+
+
+## AUD-152 — Pinterest account disconnect throttling (2026-11-08)
+
+- Reviewed the Pinterest OAuth, board-read, manual-publication, scheduling, retry, reconciliation and worker route registrations alongside their dedicated limiter module. The main external API operations already use separate per-user or IP budgets; the authenticated internal worker is secret-protected and IP-limited.
+- Found `POST /integrations/pinterest/disconnect` lacked its own limiter despite performing account lookup and a database RPC that changes connection state.
+- Added a separate per-user `pinterestAccountLimiter` of 5 requests per minute and applied it after `requireAuth`. It does not share the OAuth, board-read, schedule or publish buckets.
+- Added regression assertions for the disconnect middleware chain and the account-action budget.
+- The rate limiter uses the existing process-local MemoryStore; it is not a global quota across multiple backend instances. The action is already ownership-scoped and uses the database RPC; this change only bounds repeated calls.
+- Test status: not run locally in this environment. No Pinterest OAuth, external API calls, live publishing, production changes, deployment or merge were performed.
