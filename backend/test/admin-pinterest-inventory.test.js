@@ -28,6 +28,7 @@ function reset() {
   rows = [{
     id: "schedule-1", user_id: "user-1", pin_id: "pin-1",
     pinterest_account_id: "account-1", pinterest_board_id: "board-1",
+    pinterest_account: { username: "pinposy_test", pinterest_user_id: "remote-user-1", connected: true },
     pinterest_pin_id: null, status: "unknown",
     scheduled_at: "2026-11-08T10:00:00.000Z", published_at: null,
     updated_at: "2026-11-08T11:00:00.000Z", attempts: 1,
@@ -57,6 +58,7 @@ test("inventory uses one bounded database RPC and exposes only allowlisted opera
   assert.equal(result.items[0].category, "unknown");
   assert.equal(result.items[0].actionable_reconciliation, true);
   assert.equal(result.items[0].attempt.retry_safe, false);
+  assert.deepEqual(result.items[0].pinterest_account, { username: "pinposy_test", pinterest_user_id: "remote-user-1", connected: true });
   assert.equal("claim_token" in result.items[0], false);
   assert.equal("snapshot_title" in result.items[0], false);
   assert.equal("id" in result.items[0].attempt, false);
