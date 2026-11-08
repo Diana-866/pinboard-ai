@@ -16,6 +16,13 @@ function canRetryScheduleFailure(attempt, attemptLookupError, error) {
   return !Number.isFinite(status) || status === 0 || status === 502 || status === 503;
 }
 
+// Any server-side 5xx from a thrown request path is treated as ambiguous.
+// A gateway may return 503 after the remote service has already processed POST /pins.
+function isPinterestPublishOutcomeUnknown(httpStatus) {
+  const status = Number(httpStatus);
+  return ![400, 401, 403, 404, 409, 422].includes(status);
+}
+
 function getScheduleRetryDelayMinutes(attempts) {
   const count = Math.max(1, Number(attempts) || 1);
   return Math.min(30, 2 ** Math.min(count - 1, 5));
@@ -25,6 +32,7 @@ module.exports = {
   classifyScheduleFailure,
   canRetryScheduleFailure,
   getScheduleRetryDelayMinutes,
+  isPinterestPublishOutcomeUnknown,
   buildPinScheduleSnapshot,
   resolvePinScheduleSnapshot,
   classifyLegacyScheduleAccount,
