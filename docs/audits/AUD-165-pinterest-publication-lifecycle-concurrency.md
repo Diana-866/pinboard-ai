@@ -65,6 +65,7 @@ Both operations use the same externally confirmed remote pin identity. Either se
 The new concurrency script is wired into CI but has **not yet been observed executing successfully**. A green workflow run is still required before treating this race as verified.
 - Follow-up review found that the append-only reconciliation receipt trigger would reject fixture cleanup if the operator path won the race. The script now disables only that mutation trigger briefly while deleting its isolated CI fixture, then immediately re-enables it. This requires the disposable CI database owner (the workflow uses `postgres`); it does not alter the migration or production permissions.
 - Cleanup correction committed as `d222be2c3c24cff9ad2ca960fb1fd542730f1c3b`. At this HEAD, GitHub returned no PR workflow runs; the combined status contains only Vercel `failure` (`build-rate-limit`). PostgreSQL concurrency test remains unexecuted/unverified.
+- Extended the same CI script with a second independent race: a late `complete_pinterest_publish_v2` call versus `claim_due_pin_schedules` stale recovery. Both contenders are forced to wait on the same schedule row; after release, the assertion requires one published schedule, cleared claim token, matching published attempt, and exactly one publication row. This tests both valid serialization orders without calling Pinterest. Added in `5e192de6d1cd833ac608ecb28a279fc359bec8ee`; execution remains pending.
 
 ## Verification status
 
