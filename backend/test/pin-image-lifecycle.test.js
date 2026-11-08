@@ -195,6 +195,25 @@ test("confirmed Storage deletion is finalized with the matching claim token", as
   assert.equal(supabase.calls[2].args.p_deleted, true);
 });
 
+test("Storage object-not-found finalizes deletion as successful and releases the path", async () => {
+  const missingObject = Object.assign(new Error("object not found"), {
+    code: "not_found",
+    statusCode: 404,
+  });
+  const supabase = makeStorageClient({ removeError: missingObject });
+  assert.equal(
+    await deleteManagedPinImageObject({ supabase, objectPath: "pins/1730000000000-ab12cd34.webp" }),
+    true
+  );
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), [
+    "claim_pin_image_deletion", "remove", "finalize_pin_image_deletion",
+  ]);
+  const finalize = supabase.calls.find((call) => call.name === "finalize_pin_image_deletion");
+  assert.equal(finalize.args.p_claim_token, "claim-123");
+  assert.equal(finalize.args.p_deleted, true);
+  assert.equal(finalize.args.p_error_code, null);
+});
+
 test("definite Storage rejection is finalized as failed before surfacing the error", async () => {
   const storageError = Object.assign(new Error("storage rejected"), { code: "storage_rejected", statusCode: 400 });
   const supabase = makeStorageClient({ removeError: storageError });
