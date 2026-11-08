@@ -10,6 +10,7 @@ const { requireAdmin, getStats } = require("./admin");
 const { getFinancialOperationsQueue } = require("./adminFinancialOperations");
 const adminProviderRefundActions = require("./adminProviderRefundActions");
 const adminPinterestReconciliation = require("./adminPinterestReconciliation");
+const adminPinterestInventory = require("./adminPinterestInventory");
 const {
   httpError,
   validateEmail,
@@ -2061,6 +2062,16 @@ registerAdminProviderRefundRoute(
   "/admin/provider-refunds/regeneration/finalize",
   adminProviderRefundActions.finalizeRegeneration
 );
+
+// Read-only Pinterest operations inventory. It never claims, retries, or publishes schedules.
+app.get("/admin/pinterest/schedules", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await adminPinterestInventory.listPinterestSchedules(req.query || {});
+    res.json(result);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
 
 // Positive-only reconciliation for a Pinterest publication already confirmed externally.
 // The operator identity is derived from the verified JWT; the database rechecks admin status.
