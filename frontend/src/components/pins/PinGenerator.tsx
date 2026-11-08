@@ -25,6 +25,7 @@ import { apiRequest } from '../../lib/api';
 import { getDefaultTimezone } from '../../utils/timezone';
 import { isDefinitiveGenerationFailure } from '../../utils/generationRetry';
 import { clearPendingPinDescription, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
+import { clearPendingGenerationRequest, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
 import {
   GeneratedPinVariation,
   SupportedAspectRatio,
@@ -339,6 +340,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     setScheduledSuccess(false);
 
     const currentTopic = topic.trim() || 'Aesthetic Minimalist Inspiration';
+    let requestFingerprint = '';
     try {
       const selectedBoard = boards.find((b) => b.id === selectedBoardId);
 
@@ -366,16 +368,14 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         aspect_ratio: aspectRatio,
         mixed_ratios: targetRatios,
       };
-      const requestFingerprint = JSON.stringify({ boardId: selectedBoard.id, ...requestBody });
-      const storedFingerprint = sessionStorage.getItem('pinposy_generation_fingerprint');
-      const storedKey = sessionStorage.getItem('pinposy_generation_key');
-      if (storedFingerprint !== requestFingerprint || !storedKey) {
+      requestFingerprint = JSON.stringify({ boardId: selectedBoard.id, ...requestBody });
+      const storedRequest = readPendingGenerationRequest();
+      if (storedRequest?.fingerprint !== requestFingerprint || !storedRequest.idempotencyKey) {
         generationKeyRef.current = globalThis.crypto.randomUUID().replace(/-/g, '_');
-        sessionStorage.setItem('pinposy_generation_fingerprint', requestFingerprint);
-        sessionStorage.setItem('pinposy_generation_key', generationKeyRef.current);
+        writePendingGenerationRequest(requestFingerprint, generationKeyRef.current);
       } else {
         // Restore the durable request identity after a remount or page reload.
-        generationKeyRef.current = storedKey;
+        generationKeyRef.current = storedRequest.idempotencyKey;
       }
       const rows = await apiRequest(`/boards/${encodeURIComponent(selectedBoard.id)}/pins/generate`, {
         method: 'POST',
@@ -406,14 +406,13 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       setGeneratedPins(results);
       setActivePinIndex(0);
       generationKeyRef.current = null;
-      sessionStorage.removeItem('pinposy_generation_fingerprint');
-      sessionStorage.removeItem('pinposy_generation_key');
+      clearPendingGenerationRequest();
     } catch (err) {
       // The server only emits generation_request_failed after a definitive failure.
       // Rotate the key then; unknown/in-progress outcomes must keep their original key.
       if (isDefinitiveGenerationFailure(err)) {
         generationKeyRef.current = globalThis.crypto.randomUUID().replace(/-/g, '_');
-        sessionStorage.setItem('pinposy_generation_key', generationKeyRef.current);
+        if (requestFingerprint) writePendingGenerationRequest(requestFingerprint, generationKeyRef.current);
       }
       console.error('Error generating pins:', err);
       window.alert(err instanceof Error ? err.message : t.generator.errorGeneratePins);
