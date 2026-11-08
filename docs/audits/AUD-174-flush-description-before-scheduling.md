@@ -7,8 +7,8 @@ The description editor saves with an 800 ms debounce. The schedule action previo
 ## Implementation
 
 - Changed the description-save routine to return an explicit success/failure result.
-- Before creating a calendar item, the generator now cancels the pending debounce for the active pin and immediately sends its latest pending description.
-- Scheduling stops with a clear message if that save fails; the user can retry rather than silently scheduling stale metadata.
+- Before creating a calendar item, the generator now cancels the pending debounce for the active pin and immediately sends its latest pending description. It also checks the browser recovery draft, so a previous failed PATCH can be retried even after its debounce timer has fired.
+- Scheduling stops with a clear message if that save fails; the user can retry rather than silently scheduling stale metadata. The handler then awaits the per-pin queue, covering the final description PATCH and any in-flight title/format updates.
 - After the debounce flush, the handler reads and awaits the per-pin save queue, covering the final description PATCH and any in-flight title/format updates.
 
 ## User-visible effect
