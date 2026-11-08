@@ -540,6 +540,8 @@ export const en: TranslationSchema = {
     suggestedTitle: 'Explore app sections:',
     demoReply: 'This is a navigation demo only. I cannot analyze your Pinterest data or provide AI-generated recommendations.',
     openSection: 'Open section',
+    dock: 'Dock helper to screen edge',
+    undock: 'Open PinPosy helper',
   },
 
   notifications: {
