@@ -137,3 +137,15 @@ No confirmed client privilege escalation was found in these reviewed migrations.
 - Added a source-registration regression assertion for the dedicated middleware.
 - Limiting is process-local with the existing express-rate-limit MemoryStore and does not enforce a global quota across multiple backend instances. Provider-level quotas and per-account delivery cooldowns remain useful additional controls.
 - Test status: not run locally in this environment. No email was sent, production was not changed, and no deployment or merge was performed.
+
+
+## AUD-154 — authenticated AI-generation throttling (2026-11-08)
+
+- Reviewed all backend AI provider entry points and route registrations: project analysis, board generation, pin generation, and pin regeneration. Each route invokes GPTunnel-backed work.
+- The shared 12-requests-per-minute AI limiter previously ran before authentication and therefore keyed requests by client IP. Rotating IPs could avoid the per-client ceiling, while unrelated users behind one NAT shared a bucket.
+- Moved the limiter after `requireAuth` on all four routes and keyed it by the verified `req.userId`. The same account budget now spans all four endpoints, preventing route switching from multiplying the per-account allowance.
+- Added a source-registration regression test covering the limiter key and all four middleware chains.
+- The limiter still uses express-rate-limit's process-local MemoryStore. It is **not** a global account quota across multiple backend instances; a shared Redis-compatible store or database-backed quota is required for that guarantee. Account rotation remains outside the protection of a per-account limiter.
+- This change does not add idempotency to board generation or change its billing semantics. Existing pin generation and regeneration request journals/reservations remain the mechanisms for duplicate-request recovery and credit safety.
+- Test status: regression test added but not run locally. No GPTunnel requests, production database changes, deployment, or merge were performed.
+- Commits: `6347e2b` (limiter and route order), `a55f398` (regression test).
