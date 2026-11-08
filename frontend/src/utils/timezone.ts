@@ -91,25 +91,41 @@ export const SUPPORTED_TIMEZONES: TimezoneOption[] = [
 
 const TIMEZONE_STORAGE_KEY = 'pinposy_user_timezone';
 
+/** Accept only real IANA timezone identifiers before they enter scheduling state. */
+export const isValidIanaTimezone = (value: unknown): value is string => {
+  if (typeof value !== 'string' || !value.trim()) return false;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value.trim() }).format(0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export const getDefaultTimezone = (lang?: string): string => {
   try {
     const saved = localStorage.getItem(TIMEZONE_STORAGE_KEY);
-    if (saved) return saved;
+    if (saved) {
+      if (isValidIanaTimezone(saved)) return saved.trim();
+      // A stale or manually edited browser preference must not break the calendar.
+      localStorage.removeItem(TIMEZONE_STORAGE_KEY);
+    }
 
     // Preserve the browser's exact IANA timezone. Region-level fallbacks
     // (for example, mapping every European city to London) shift local times.
     const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (detected) return detected;
+    if (isValidIanaTimezone(detected)) return detected;
   } catch {
-    // ignore
+    // ignore unavailable storage or Intl runtime errors
   }
 
   return lang === 'ru' ? 'Europe/Moscow' : 'Etc/UTC';
 };
 
 export const saveUserTimezone = (tz: string) => {
+  if (!isValidIanaTimezone(tz)) return;
   try {
-    localStorage.setItem(TIMEZONE_STORAGE_KEY, tz);
+    localStorage.setItem(TIMEZONE_STORAGE_KEY, tz.trim());
   } catch {
     // ignore
   }
