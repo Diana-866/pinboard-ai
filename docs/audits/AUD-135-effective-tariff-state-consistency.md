@@ -71,3 +71,40 @@ The tests exercise the shared resolver. They do not execute the Express `/me` ro
 - `backend/index.js`
 - `backend/test/tariff.test.js`
 - `docs/audits/AUD-135-effective-tariff-state-consistency.md`
+
+## Follow-up finding — paid entitlement could be hidden by a stale `none` cache
+
+A deeper review of `backend/tariff.js:getTariffState` found that it returned immediately when `users.tariff_plan` normalized to `none`, before querying `subscriptions`. This contradicted the documented precedence rule and meant that a valid successful subscription could be invisible whenever the denormalized user cache was stale at `none`.
+
+Fixed in the follow-up:
+- Always query the latest successful subscription, regardless of the cached user plan.
+- If a successful subscription exists, derive the effective plan and expiry from it.
+- Use the manual user plan only when no successful subscription exists.
+- Continue to fail closed on subscription-query errors.
+- Explicitly keep a successful row with a normalized `none` plan inactive.
+
+The regression test already added in `backend/test/tariff.test.js` for a current successful `pro` subscription overriding a stale `none` cache now exercises the previously broken branch.
+
+## Manual admin tariff operations — no user-targeted grant/revoke API found
+
+The only tariff mutation route found in `backend/index.js` is `PATCH /me/tariff`. In production it checks that the caller is an administrator, but it still updates only `req.userId` (the administrator's own user row). It accepts only a plan name, does not accept a target user, period end, reason, or idempotency key, and does not create an audit record.
+
+No `/admin/users/:id/tariff` grant/revoke endpoint was found among the registered admin routes. The existing `GET /admin/subscriptions` route is read-only. Therefore the current backend does not provide a proper audited admin workflow for granting, extending, or revoking another user's manual entitlement.
+
+Do not repurpose `PATCH /me/tariff` for this. A dedicated workflow needs an explicit data model and precedence policy:
+- target user and actor admin;
+- plan, start/end timestamps, reason/ticket;
+- immutable grant history and explicit revocation;
+- idempotency key and concurrency/overlap policy;
+- defined precedence against paid subscriptions and refunds;
+- effective entitlement resolution across manual grants and paid subscriptions.
+
+## Admin statistics caveat
+
+`backend/admin.js:getStats` groups by `users.tariff_plan` only. It is a cache breakdown, not a count of active entitlements. Rename/label it accordingly or replace it with an efficient aggregate over the canonical entitlement data in a separate reporting change. Avoid per-user N+1 subscription lookups.
+
+## Follow-up verification
+
+- Source-level inspection only.
+- No Node test suite executed; the new regression is committed but not yet run.
+- No SQL, production database, payments, or deployments were touched.
