@@ -115,6 +115,16 @@ const verifyLimiter = rateLimit({
   message: { error: "Слишком много запросов. Попробуйте через 15 минут." },
 });
 
+// Payment creation writes pending orders and calls the external payment provider.
+// Bound bursts per client IP; authentication runs first on these routes.
+const paymentCreationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Слишком много попыток создать платёж. Попробуйте через 15 минут." },
+});
+
 const adminActionLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 20,
@@ -1943,7 +1953,7 @@ app.get("/billing/plans", (req, res) => {
 });
 
 // Создание платежа: pending-запись в subscriptions + ссылка на оплату Prodamus
-app.post("/billing/create-payment", requireAuth, async (req, res) => {
+app.post("/billing/create-payment", requireAuth, paymentCreationLimiter, async (req, res) => {
   try {
     const result = await billing.createPayment(req.userId, req.body);
     res.status(201).json(result);
@@ -1976,7 +1986,7 @@ app.get("/billing/credit-packs", (req, res) => {
 });
 
 // Создание покупки пакета: pending-запись в credit_purchases + ссылка на оплату Prodamus
-app.post("/billing/credits", requireAuth, async (req, res) => {
+app.post("/billing/credits", requireAuth, paymentCreationLimiter, async (req, res) => {
   try {
     const result = await creditsBilling.createCreditsPayment(req.userId, req.body);
     res.status(201).json(result);
