@@ -113,12 +113,12 @@ echo "Concurrent Pinterest worker completion/operator reconciliation passed for 
 # Race a late worker success against stale-claim recovery. The blocker holds
 # the schedule row while both operations start; after release, either order
 # must converge to the same published remote identity without a retry.
-PGAPPNAME=pinterest-stale-recovery-race-locker "\${psql_base[@]}" -c "begin; select id from public.pin_schedules where id = '$RECOVERY_SCHEDULE_ID' for update; select pg_sleep(6); commit;" >/tmp/pinterest-stale-recovery-race-locker.log 2>&1 &
+PGAPPNAME=pinterest-stale-recovery-race-locker "${psql_base[@]}" -c "begin; select id from public.pin_schedules where id = '$RECOVERY_SCHEDULE_ID' for update; select pg_sleep(6); commit;" >/tmp/pinterest-stale-recovery-race-locker.log 2>&1 &
 RECOVERY_LOCK_PID=$!
 
 recovery_locked=0
 for _ in $(seq 1 80); do
-  active="$("\${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name = 'pinterest-stale-recovery-race-locker' and position('pg_sleep' in query) > 0")"
+  active="$("${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name = 'pinterest-stale-recovery-race-locker' and position('pg_sleep' in query) > 0")"
   if [[ "$active" == "1" ]]; then recovery_locked=1; break; fi
   sleep 0.1
 done
@@ -128,14 +128,14 @@ if [[ "$recovery_locked" != "1" ]]; then
   exit 1
 fi
 
-PGAPPNAME=pinterest-stale-recovery-race-completion "\${psql_base[@]}" -At -c "select public.complete_pinterest_publish_v2('$USER_ID', '$RECOVERY_PIN_ID', '$ACCOUNT_ID', '$RECOVERY_REMOTE_PIN_ID', 'remote-board-recovery-race')" >/tmp/pinterest-stale-recovery-race-completion.log 2>&1 &
+PGAPPNAME=pinterest-stale-recovery-race-completion "${psql_base[@]}" -At -c "select public.complete_pinterest_publish_v2('$USER_ID', '$RECOVERY_PIN_ID', '$ACCOUNT_ID', '$RECOVERY_REMOTE_PIN_ID', 'remote-board-recovery-race')" >/tmp/pinterest-stale-recovery-race-completion.log 2>&1 &
 LATE_COMPLETION_PID=$!
-PGAPPNAME=pinterest-stale-recovery-race-recovery "\${psql_base[@]}" -At -c "select count(*) from public.claim_due_pin_schedules(10)" >/tmp/pinterest-stale-recovery-race-recovery.log 2>&1 &
+PGAPPNAME=pinterest-stale-recovery-race-recovery "${psql_base[@]}" -At -c "select count(*) from public.claim_due_pin_schedules(10)" >/tmp/pinterest-stale-recovery-race-recovery.log 2>&1 &
 STALE_RECOVERY_PID=$!
 
 recovery_waiters=0
 for _ in $(seq 1 100); do
-  recovery_waiters="$("\${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name in ('pinterest-stale-recovery-race-completion', 'pinterest-stale-recovery-race-recovery') and wait_event_type = 'Lock')"
+  recovery_waiters="$("${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name in ('pinterest-stale-recovery-race-completion', 'pinterest-stale-recovery-race-recovery') and wait_event_type = 'Lock')"
   if [[ "$recovery_waiters" == "2" ]]; then break; fi
   sleep 0.1
 done
@@ -149,7 +149,7 @@ wait "$RECOVERY_LOCK_PID"
 wait "$LATE_COMPLETION_PID"
 wait "$STALE_RECOVERY_PID"
 
-"\${psql_base[@]}" <<SQL
+"${psql_base[@]}" <<SQL
 do \$\$
 declare
   v_schedule_status text;
