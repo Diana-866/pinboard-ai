@@ -13,6 +13,12 @@ The generator option labelled “Publish now” previously described sending a p
 
 The background worker is a separate endpoint, `POST /internal/pinterest/schedule/run`, protected by `PINPOSY_SCHEDULER_SECRET` and intended to be invoked by an external cron. Therefore the UI cannot promise immediate publication at the moment the user clicks the option; publication depends on the next worker invocation and normal eligibility checks.
 
+## Additional finding — destination URL default
+
+The generator previously prefilled the destination URL with `https://pinposy.com/blog/scandinavian-interior-styling`. The schedule endpoint accepts an explicit destination URL and freezes it into the scheduled pin snapshot; therefore a user who did not notice the prefilled value could publish a pin linking to a placeholder path rather than their own content.
+
+Changed the generator's initial destination URL to empty. The backend then resolves the destination to the project's configured website URL when available, or leaves it unset if the project has no website URL. This preserves the user's ability to enter a specific URL while removing the fabricated default.
+
 ## Change
 
 Updated `publishNowLabel` and `publishNowDescription` in all seven supported UI locales (ru, en, es, pt, de, fr, zh) to describe queuing for the next publisher run rather than immediate Pinterest publication.
@@ -22,6 +28,7 @@ No scheduling API, worker behavior, cron configuration, database state, or produ
 ## Verification
 
 - Re-read all seven locale files from `feat/persisted-boards-api` after the writes and confirmed the new strings are present.
+- Re-read `frontend/src/components/pins/PinGenerator.tsx` after the change and confirmed the destination URL initializer is empty.
 - Source inspection confirms the frontend option creates a `scheduled` record and the backend worker is invoked through a separate internal endpoint.
 - Tests, build, lint, CI, external cron configuration, and live Pinterest publication were not run or verified.
 - No merge or deployment performed.
