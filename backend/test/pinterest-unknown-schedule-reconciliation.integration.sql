@@ -1,4 +1,4 @@
--- Run only in disposable PostgreSQL after migrations 031-061, 081 and 091.
+-- Run only in disposable PostgreSQL after migrations 031-061, 081, 091 and 093.
 -- Reconciliation is positive-only and requires exact attempt + publication agreement.
 do $$
 declare
@@ -76,6 +76,24 @@ begin
   if v_reconciled <> 0
      or (select status from public.pin_schedules where id=v_schedule) <> 'unknown' then
     raise exception 'mismatched publication evidence incorrectly promoted schedule';
+  end if;
+
+  -- Even if attempt and ledger agree, a conflicting remote ID already stored
+  -- on the schedule is part of the identity and must keep it fenced.
+  update public.pinterest_publish_attempts
+     set pinterest_pin_id='remote-confirmed-123'
+   where pin_id=v_pin and pinterest_account_id=v_account;
+  update public.pinterest_publications
+     set pinterest_pin_id='remote-confirmed-123'
+   where pin_id=v_pin and pinterest_account_id=v_account;
+  update public.pin_schedules
+     set pinterest_pin_id='remote-already-recorded'
+   where id=v_schedule;
+  v_reconciled := public.reconcile_confirmed_pinterest_schedule_successes();
+  if v_reconciled <> 0
+     or (select status from public.pin_schedules where id=v_schedule) <> 'unknown'
+     or (select pinterest_pin_id from public.pin_schedules where id=v_schedule) <> 'remote-already-recorded' then
+    raise exception 'schedule remote pin identity conflict incorrectly promoted schedule';
   end if;
 
   delete from public.pin_schedules where id=v_schedule;
