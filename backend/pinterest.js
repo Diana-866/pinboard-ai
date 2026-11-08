@@ -472,7 +472,9 @@ async function withAccount(userId, handler, accountId = null, options = {}) {
 async function verifyPinterestBoard(userId, pinterestBoardId, accountId = null) {
   const boardId = String(pinterestBoardId || "").trim();
   if (!boardId || boardId.length > 128) {
-    throw httpError(422, "Выберите существующую доску Pinterest перед планированием публикации");
+    const error = httpError(422, "Выберите существующую доску Pinterest перед планированием публикации");
+    error.retryable = false;
+    throw error;
   }
 
   const boardResult = await withAccount(userId, (token) =>
@@ -481,14 +483,21 @@ async function verifyPinterestBoard(userId, pinterestBoardId, accountId = null) 
   );
   if (!boardResult.ok) {
     if ([403, 404].includes(boardResult.status)) {
-      throw httpError(422, "Выбранная доска не найдена или недоступна подключённому Pinterest-аккаунту");
+      const error = httpError(422, "Выбранная доска не найдена или недоступна подключённому Pinterest-аккаунту");
+      // This is a GET /boards preflight rejection, before POST /pins. A stale
+      // retry_safe journal entry must not turn a deleted/inaccessible board
+      // into another automatic retry.
+      error.retryable = false;
+      throw error;
     }
     throw httpError(502, "Не удалось проверить выбранную доску Pinterest. Попробуйте позже.");
   }
 
   const verifiedBoardId = String((boardResult.data && boardResult.data.id) || "");
   if (verifiedBoardId !== boardId) {
-    throw httpError(422, "Pinterest не подтвердил принадлежность выбранной доски аккаунту");
+    const error = httpError(422, "Pinterest не подтвердил принадлежность выбранной доски аккаунту");
+    error.retryable = false;
+    throw error;
   }
   return verifiedBoardId;
 }
