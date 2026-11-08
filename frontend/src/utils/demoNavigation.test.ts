@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getDemoNavigationTarget } from './demoNavigation.js';
+import { getDemoNavigationTarget } from './demoNavigation';
 
 test('routes common section requests across supported interface languages', () => {
   const cases: Array<[string, string, string]> = [
