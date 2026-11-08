@@ -215,7 +215,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [isLoadingSavedPins, setIsLoadingSavedPins] = useState(false);
   const [savedPinsLoadError, setSavedPinsLoadError] = useState('');
   const [savedPinsReloadAttempt, setSavedPinsReloadAttempt] = useState(0);
-  const [isSavingAspectRatio, setIsSavingAspectRatio] = useState(false);
+  const [savingAspectRatioPinId, setSavingAspectRatioPinId] = useState<string | null>(null);
   const [descriptionSaveState, setDescriptionSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const descriptionSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingDescriptionSaveRef = React.useRef<{ boardId: string; pinId: string; description: string; revision: number } | null>(null);
@@ -457,19 +457,27 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
   // Persist the selected pin's format so it survives a reload and is used by later API operations.
   const handleActivePinRatioChange = async (newRatio: SupportedAspectRatio) => {
-    if (!currentPin || currentPin.aspectRatio === newRatio || isSavingAspectRatio) return;
+    if (!currentPin || currentPin.aspectRatio === newRatio || savingAspectRatioPinId === currentPin.id) return;
     const pinId = currentPin.id;
-    setIsSavingAspectRatio(true);
+    const previousRatio = currentPin.aspectRatio;
+    // Update the canvas immediately, while the server save runs in the background.
+    setGeneratedPins((previous) => previous.map((pin) =>
+      pin.id === pinId ? { ...pin, aspectRatio: newRatio } : pin
+    ));
+    setSavingAspectRatioPinId(pinId);
     try {
       await persistPinPatch(pinId, { aspect_ratio: newRatio });
-      setGeneratedPins((previous) => previous.map((pin) =>
-        pin.id === pinId ? { ...pin, aspectRatio: newRatio } : pin
-      ));
     } catch (error) {
+      // Roll back only this pin and only if no newer UI choice replaced this value.
+      setGeneratedPins((previous) => previous.map((pin) =>
+        pin.id === pinId && pin.aspectRatio === newRatio
+          ? { ...pin, aspectRatio: previousRatio }
+          : pin
+      ));
       console.error('[pins] Не удалось сохранить формат:', error);
       window.alert(error instanceof Error ? error.message : 'Не удалось сохранить формат изображения. Попробуйте ещё раз.');
     } finally {
-      setIsSavingAspectRatio(false);
+      setSavingAspectRatioPinId((activeId) => activeId === pinId ? null : activeId);
     }
   };
 
@@ -1163,7 +1171,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                         key={item.id}
                         type="button"
                         onClick={() => { void handleActivePinRatioChange(item.id); }}
-                        disabled={isSavingAspectRatio}
+                        disabled={savingAspectRatioPinId === currentPin.id}
                         className={`px-2 py-1 text-xs font-mono rounded-lg border transition-all cursor-pointer disabled:opacity-50 disabled:cursor-wait ${
                           currentPin.aspectRatio === item.id
                             ? 'accent-btn font-bold shadow-xs'
