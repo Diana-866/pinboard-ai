@@ -33,3 +33,12 @@ The new branch HEAD triggered all three PR workflows; all concluded `failure`. G
 ## Classification refinement
 
 The diagnostic now labels each row according to database-reference presence, Storage visibility, and lifecycle state. It highlights inconsistent combinations (for example, a live DB reference with no visible object, or a lifecycle row marked deleted while the object remains visible) and returns an operator action hint. These are diagnostic classifications only: no state mutation, queue reopening, or Storage deletion is performed. Added Node tests for referenced, quarantined, and deleted lifecycle cases.
+
+
+## Post-change verification and corrections
+
+A read-back pass caught literal backslash-n sequences accidentally inserted into the lifecycle export, CI YAML command separators, and test source. These were corrected and the affected files were read back; the changed source/test/workflow files now contain no such literal sequences. The diagnostic was further enhanced with classifications for reference presence, Storage visibility, and lifecycle states; Node tests cover representative inconsistent combinations.
+
+Latest HEAD: `7af1064c82f73696bf06eb7fabea2e6019df95b1`.
+
+The three latest PR workflows still conclude `failure`, but the raw GitHub Jobs API shows `runner_id=0`, empty `steps`, and a runtime of roughly two seconds. No runner was allocated, so no test command ran and this is not evidence of a code-level test failure. Vercel independently reports `build-rate-limit`.
