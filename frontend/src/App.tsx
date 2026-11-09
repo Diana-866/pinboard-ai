@@ -420,12 +420,31 @@ const MainApp: React.FC = () => {
     pinterestBoardId: string,
     boardName: string
   ) => {
+    let saved: any;
     try {
-      const saved = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/change-board`, {
+      saved = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/change-board`, {
         method: 'POST',
         body: JSON.stringify({ pinterest_board_id: pinterestBoardId }),
       });
-      const date = formatInstantInTimezone(new Date(saved.scheduled_at), getDefaultTimezone());
+    } catch (originalError) {
+      // The RPC may have committed the board change before the HTTP response was lost.
+      // Reconcile only against this exact schedule ID, target board, account and queued state.
+      try {
+        const rows = await apiRequest('/schedule');
+        if (!Array.isArray(rows)) throw originalError;
+        const matches = rows.filter((row: any) =>
+          String(row?.id || '') === pin.id &&
+          row?.status === 'scheduled' &&
+          String(row?.pinterest_board_id || '') === pinterestBoardId &&
+          String(row?.pinterest_account_id || '') === String(pin.pinterestAccountId || '')
+        );
+        if (matches.length !== 1) throw originalError;
+        saved = matches[0];
+      } catch {
+        throw originalError;
+      }
+    }
+    const date = formatInstantInTimezone(new Date(saved.scheduled_at), getDefaultTimezone());
       setScheduledPins((prev) => prev.map((item) => item.id === pin.id ? {
         ...item,
         scheduledDate: date.date,
@@ -445,11 +464,30 @@ const MainApp: React.FC = () => {
   };
 
   const handleRetryScheduledPin = async (pin: ScheduledPinItem) => {
+    let saved: any;
     try {
-      const saved = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/retry`, {
+      saved = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/retry`, {
         method: 'POST',
       });
-      const date = formatInstantInTimezone(new Date(saved.scheduled_at), getDefaultTimezone());
+    } catch (originalError) {
+      // Retry is a guarded DB transition. If its response is lost, accept only
+      // the same schedule after it is visibly back in the queue on the same destination.
+      try {
+        const rows = await apiRequest('/schedule');
+        if (!Array.isArray(rows)) throw originalError;
+        const matches = rows.filter((row: any) =>
+          String(row?.id || '') === pin.id &&
+          row?.status === 'scheduled' &&
+          String(row?.pinterest_board_id || '') === String(pin.pinterestBoardId || '') &&
+          String(row?.pinterest_account_id || '') === String(pin.pinterestAccountId || '')
+        );
+        if (matches.length !== 1) throw originalError;
+        saved = matches[0];
+      } catch {
+        throw originalError;
+      }
+    }
+    const date = formatInstantInTimezone(new Date(saved.scheduled_at), getDefaultTimezone());
       setScheduledPins((prev) => prev.map((item) => item.id === pin.id ? {
         ...item,
         scheduledDate: date.date,
