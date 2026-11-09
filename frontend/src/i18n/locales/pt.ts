@@ -361,6 +361,9 @@ export const pt: TranslationSchema = {
     categoryFashion: "Moda e guarda-roupa cápsula",
     savingLabel: "Salvando…",
     saveErrorFallback: "Não foi possível salvar a pasta. Verifique a conexão e tente novamente.",
+    loadingLabel: "Carregando suas pastas…",
+    retryLabel: "Tentar novamente",
+    loadErrorFallback: "Não foi possível carregar suas pastas. Verifique a conexão e tente novamente. Suas pastas não foram excluídas.",
   },
 
   analytics: {
