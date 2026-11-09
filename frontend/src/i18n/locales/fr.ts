@@ -361,6 +361,9 @@ export const fr: TranslationSchema = {
     categoryFashion: "Mode et garde-robe capsule",
     savingLabel: "Enregistrement…",
     saveErrorFallback: "Impossible d’enregistrer le tableau. Vérifiez votre connexion et réessayez.",
+    loadingLabel: "Chargement de vos tableaux…",
+    retryLabel: "Réessayer",
+    loadErrorFallback: "Impossible de charger vos tableaux. Vérifiez votre connexion et réessayez. Vos tableaux n’ont pas été supprimés.",
   },
 
   analytics: {
