@@ -24,7 +24,7 @@ A Storage response that definitively rejects a delete is finalized as `delete_fa
 ## Current limitations
 
 - This is reference-checked cleanup on replacement/cancellation, not a periodic orphan sweeper.
-- Completed generation and regeneration journals currently have no expiry/pruning workflow. Their image URLs remain durable references even after a pin is replaced or deleted, so generated objects can accumulate indefinitely. Do not remove these journal references or delete those objects until an explicit idempotency-retention policy and replay behavior are implemented together.
+- Completed generation and regeneration journals now have an explicit, operator-triggered replay-expiry tombstone phase (migration 105). Their image URLs are still retained as durable references after tombstoning; they are not yet cleared and no Storage deletion is performed. Generated objects can therefore still accumulate until the later reference-retirement and fenced worker phases are implemented.
 - Existing orphan objects created before this code are not inventoried or deleted.
 - There is no dedicated object registry with a delayed deletion state. A very narrow race between a concurrent schedule insert and the final Storage remove is not fully eliminated; the schedule endpoint re-reads the pin after remote board verification to reduce stale-snapshot windows.
 - Cleanup is best-effort. Storage removal failures are logged; the user's successful pin update remains committed. Definitive failures can now be retried by an administrator through the bounded recovery endpoint; ambiguous outcomes remain fenced and are not included in that retry inventory. A Storage 404 is treated as successful deletion only when both the error code and message identify the target object/key as missing; a generic 404 (for example, a missing bucket/endpoint) is recorded as a failed deletion instead.
@@ -43,3 +43,14 @@ This is deliberately an inventory-only first phase. It does not change idempoten
 ### Regeneration replay payload references (migration 104)
 
 A regeneration journal has two independently persisted replay surfaces: `storage_url` and `result_pin.image_url`. Migration 104 makes both durable references visible to the deletion claim and retention inventory. This is defense in depth for legacy or inconsistent rows where the saved replay payload contains the managed URL but `storage_url` is null or differs. A path remains protected until both replay surfaces and all other live references are retired. The migration does not expire idempotency keys or delete Storage objects.
+
+
+## Replay expiry tombstones and durable queue staging
+
+Migration 105 adds `replay_expired_at` to generation and regeneration request journals and a service-role-only `pin_image_retention_queue`. Administrators can trigger the bounded operation through `POST /admin/storage/expire-replay-results` with `days` (default 90, range 30–3650) and `limit` (default 100, maximum 100).
+
+Only rows with status `completed`, older than the selected retention window, and not already tombstoned are eligible. Processing, unknown, failed, and other uncertain provider outcomes are never expired. The expiry RPC preserves each row and its unique idempotency key, stamps `replay_expired_at`, and adds every managed image path from its generation task/result or regeneration storage/replay payload to a deduplicated queue in state `awaiting_reference_retirement`.
+
+After expiry, both generation and regeneration begin RPCs return `status = expired` for the same key. The backend responds with HTTP 410 and code `idempotency_result_expired`; it does not submit another provider task. The operation is rate-limited and admin-only.
+
+This is intentionally a staging phase, not cleanup: replay payloads and task URLs are not cleared, queue items are not claimable for Storage deletion, and no Storage object is deleted. A subsequent transaction must clear retired replay references only after tombstones exist, verify remaining pin/schedule/journal references, then promote safe queue entries for the existing fenced deletion claim protocol. The queue's current state must not be interpreted as permission to delete.
