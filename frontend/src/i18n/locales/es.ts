@@ -350,6 +350,17 @@ export const es: TranslationSchema = {
     optimizeBoardBtn: 'Optimizar SEO con IA',
     targetPinsWeekly: 'Meta Semanal de Pines',
     recommendedKeywords: 'Palabras Clave Faltantes',
+    boardTitleLabel: "Nombre del tablero",
+    boardTitlePlaceholder: "p. ej., cerámica y decoración artesanal",
+    boardCategoryLabel: "Categoría",
+    categoryHomeDecor: "Hogar y arquitectura",
+    categoryRecipes: "Recetas y cocina",
+    categoryWellness: "Belleza y bienestar",
+    categoryTravel: "Viajes y escapadas",
+    categoryDigitalProducts: "Productos digitales y SaaS",
+    categoryFashion: "Moda y armario cápsula",
+    savingLabel: "Guardando…",
+    saveErrorFallback: "No se pudo guardar el tablero. Comprueba la conexión e inténtalo de nuevo.",
   },
 
   analytics: {
