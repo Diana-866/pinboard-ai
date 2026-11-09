@@ -19,6 +19,7 @@ const {
   getScheduleRetryability,
   getScheduleFailureReason,
   sanitizeScheduleForClient,
+  createScheduleClaimHeartbeat,
 } = require("../pinterestSchedule");
 
 test("confirmed publication ledger matching requires every identity field to be non-empty", () => {
@@ -492,4 +493,47 @@ test("schedule worker claim size is enforced server-side as one until leases are
   const source = fs.readFileSync(path.join(__dirname, "../pinterest.js"), "utf8");
   assert.match(source, /const limit = 1;/);
   assert.doesNotMatch(source, /const limit = Math\.max\(1, Math\.min\(Number\(req\.body && req\.body\.limit\)/);
+});
+
+
+test("schedule claim heartbeat renews while active, avoids overlap, and stops cleanly", async () => {
+  let calls = 0;
+  let active = 0;
+  let maxActive = 0;
+  const warnings = [];
+  const stop = createScheduleClaimHeartbeat({
+    intervalMs: 10,
+    renew: async () => {
+      calls += 1;
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      active -= 1;
+      return true;
+    },
+    logger: { warn: (...args) => warnings.push(args) },
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 75));
+  stop();
+  const callsAtStop = calls;
+  await new Promise((resolve) => setTimeout(resolve, 35));
+
+  assert.ok(callsAtStop >= 2, "long-running work should renew its lease repeatedly");
+  assert.equal(calls, callsAtStop, "stopped heartbeat must not schedule more renewals");
+  assert.equal(maxActive, 1, "slow database heartbeats must never overlap");
+  assert.deepEqual(warnings, []);
+});
+
+test("schedule claim heartbeat warns once when fencing token is no longer current", async () => {
+  const warnings = [];
+  const stop = createScheduleClaimHeartbeat({
+    intervalMs: 10,
+    renew: async () => false,
+    logger: { warn: (...args) => warnings.push(args) },
+  });
+  await new Promise((resolve) => setTimeout(resolve, 45));
+  stop();
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0][0], /claim is no longer current/);
 });
