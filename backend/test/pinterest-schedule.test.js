@@ -537,3 +537,17 @@ test("schedule claim heartbeat warns once when fencing token is no longer curren
   assert.equal(warnings.length, 1);
   assert.match(warnings[0][0], /claim is no longer current/);
 });
+
+
+test("schedule claim heartbeat logs one warning when the renewal request throws", async () => {
+  const warnings = [];
+  const stop = createScheduleClaimHeartbeat({
+    intervalMs: 10,
+    renew: async () => { throw new Error("database connection reset"); },
+    logger: { warn: (...args) => warnings.push(args) },
+  });
+  await new Promise((resolve) => setTimeout(resolve, 45));
+  stop();
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0][0], /heartbeat failed/);
+});
