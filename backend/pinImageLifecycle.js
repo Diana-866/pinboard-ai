@@ -82,6 +82,20 @@ function isStorageObjectNotFound(error) {
     /(?:object|key).*(?:not found|does not exist)|(?:not found|does not exist).*(?:object|key)/.test(message);
 }
 
+async function finalizeLifecycleRpcWithRetry(supabase, functionName, args) {
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const result = await supabase.rpc(functionName, args);
+      if (!result.error) return result;
+      lastError = result.error;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error("Lifecycle finalization failed");
+}
+
 async function uploadManagedPinImageObject({ supabase, bucket = "pin-images", objectPath, file, contentType }) {
   const { data: reservation, error: reserveError } = await supabase.rpc("begin_pin_image_upload", {
     p_bucket_id: bucket,
@@ -107,7 +121,7 @@ async function uploadManagedPinImageObject({ supabase, bucket = "pin-images", ob
     throw uploadError;
   }
 
-  const { data: finalized, error: finalizeError } = await supabase.rpc("finalize_pin_image_upload", {
+  const { data: finalized } = await finalizeLifecycleRpcWithRetry(supabase, "finalize_pin_image_upload", {
     p_bucket_id: bucket,
     p_object_path: objectPath,
     p_upload_token: reservation.upload_token,
@@ -116,8 +130,6 @@ async function uploadManagedPinImageObject({ supabase, bucket = "pin-images", ob
       ? String(uploadError.code || uploadError.name || "storage_upload_failed").slice(0, 64)
       : null,
   });
-
-  if (finalizeError) throw finalizeError;
   if (finalized !== true) throw new Error("Pin image upload reservation could not be finalized");
   if (uploadError) throw uploadError;
   return true;
@@ -233,7 +245,7 @@ async function deleteManagedPinImageObject({ supabase, bucket = "pin-images", ob
     // Do not reopen reference writes until Storage outcome is independently known.
     throw removeError;
   }
-  const { data: finalized, error: finalizeError } = await supabase.rpc("finalize_pin_image_deletion", {
+  const { data: finalized } = await finalizeLifecycleRpcWithRetry(supabase, "finalize_pin_image_deletion", {
     p_bucket_id: bucket,
     p_object_path: objectPath,
     p_claim_token: claim.claim_token,
@@ -242,8 +254,6 @@ async function deleteManagedPinImageObject({ supabase, bucket = "pin-images", ob
       ? String(removeError.code || removeError.name || "storage_delete_failed").slice(0, 64)
       : null,
   });
-
-  if (finalizeError) throw finalizeError;
   if (finalized !== true) throw new Error("Pin image deletion claim could not be finalized");
   if (removeError && !objectAlreadyMissing) throw removeError;
   return true;
