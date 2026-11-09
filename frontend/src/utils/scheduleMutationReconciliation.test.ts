@@ -14,7 +14,9 @@ const expected = {
 
 const persisted = {
   id: 'schedule-1',
+  pin_id: 'pin-1',
   status: 'scheduled',
+  scheduled_at: '2026-11-09T18:00:00.000Z',
   pinterest_board_id: 'board-new',
   pinterest_account_id: 'account-1',
 };
@@ -49,7 +51,7 @@ test('does not confirm malformed, missing, or ambiguous schedule lists', () => {
 
 test('confirms cancellation only when a valid active schedule list omits the schedule', () => {
   assert.equal(isScheduleAbsentFromActiveList([], 'schedule-1'), true);
-  assert.equal(isScheduleAbsentFromActiveList([{ id: 'schedule-2' }], 'schedule-1'), true);
+  assert.equal(isScheduleAbsentFromActiveList([{ ...persisted, id: 'schedule-2' }], 'schedule-1'), true);
   assert.equal(isScheduleAbsentFromActiveList([persisted], 'schedule-1'), false);
 });
 
@@ -59,4 +61,7 @@ test('does not treat malformed or incomplete schedule lists as cancellation', ()
   assert.equal(isScheduleAbsentFromActiveList([null], 'schedule-1'), false);
   assert.equal(isScheduleAbsentFromActiveList([{}], 'schedule-1'), false);
   assert.equal(isScheduleAbsentFromActiveList([{ id: '' }], 'schedule-1'), false);
+  assert.equal(isScheduleAbsentFromActiveList([{ id: 'schedule-2' }], 'schedule-1'), false);
+  assert.equal(isScheduleAbsentFromActiveList([{ ...persisted, scheduled_at: 'not-a-date' }], 'schedule-1'), false);
+  assert.equal(isScheduleAbsentFromActiveList([{ ...persisted, pinterest_board_id: undefined }], 'schedule-1'), false);
 });
