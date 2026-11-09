@@ -451,13 +451,23 @@ const MainApp: React.FC = () => {
   const handleAddBoard = async (board: BoardItem) => {
     try {
       let projects = await apiRequest('/projects');
-      if (!Array.isArray(projects) || projects.length === 0) {
+      if (!Array.isArray(projects)) {
+        throw new Error('Сервер вернул некорректный список проектов. Обновите страницу и попробуйте ещё раз.');
+      }
+      if (projects.length === 0) {
         const project = await apiRequest('/projects', {
           method: 'POST',
           body: JSON.stringify({ niche: board.category, language: aiContentLanguage }),
         });
+        if (!project || !project.id) {
+          throw new Error('Не удалось создать проект для новой доски.');
+        }
         projects = [project];
       }
+      if (!projects[0]?.id) {
+        throw new Error('Не найден проект для новой доски. Обновите страницу и попробуйте ещё раз.');
+      }
+
       const saved = await apiRequest('/boards', {
         method: 'POST',
         body: JSON.stringify({
@@ -466,16 +476,23 @@ const MainApp: React.FC = () => {
           description: board.category,
         }),
       });
+      if (!saved || saved.id == null) {
+        throw new Error('Сервер не подтвердил сохранение доски. Обновите список перед повторной попыткой.');
+      }
+
       const persisted: BoardItem = {
         ...board,
         id: String(saved.id),
         name: saved.title || board.name,
         category: board.category,
       };
-      setBoards((prev) => [persisted, ...prev]);
+      setBoards((prev) => [persisted, ...prev.filter((item) => item.id !== persisted.id)]);
+      setBoardsLoadError('');
     } catch (error) {
       console.error('[boards] Не удалось создать доску:', error);
-      window.alert(error instanceof Error ? error.message : 'Не удалось сохранить доску');
+      throw error instanceof Error
+        ? error
+        : new Error('Не удалось сохранить доску. Проверьте соединение и попробуйте ещё раз.');
     }
   };
 
