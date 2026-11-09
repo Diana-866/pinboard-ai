@@ -1117,6 +1117,90 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
   }
 });
 
+
+/**
+ * Manual-review queue is durable user data, separate from the autonomous
+ * Pinterest publication scheduler. Each row is owner-scoped and contains only
+ * the fields needed to render/review a saved pin.
+ */
+app.get("/review-queue", requireAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("pin_review_queue")
+      .select("id,pin_id,payload,created_at,updated_at")
+      .eq("user_id", String(req.userId))
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    res.json((data || []).map((row) => ({ ...row.payload, id: row.id, pinId: row.pin_id || row.payload.pinId || undefined })));
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+app.put("/review-queue/:id", requireAuth, async (req, res) => {
+  try {
+    const id = String(req.params.id || "").trim();
+    const payload = req.body && req.body.pin;
+    if (!id || id.length > 100 || !payload || typeof payload !== "object" || Array.isArray(payload)) {
+      throw httpError(422, "Некорректная запись очереди проверки");
+    }
+    if (String(payload.id || "") !== id) throw httpError(422, "ID записи не совпадает");
+    const title = String(payload.title || "").trim();
+    const description = String(payload.description || "");
+    if (!title || title.length > 100 || description.length > 500) {
+      throw httpError(422, "Проверьте заголовок и описание пина");
+    }
+    const safePayload = {
+      id,
+      title,
+      description,
+      boardName: String(payload.boardName || "").slice(0, 120),
+      boardId: String(payload.boardId || "").slice(0, 100),
+      imageUrl: String(payload.imageUrl || "").slice(0, 2048),
+      aspectRatio: String(payload.aspectRatio || "2:3").slice(0, 10),
+      reason: String(payload.reason || "").slice(0, 1000),
+      trendMetric: String(payload.trendMetric || "").slice(0, 160),
+      scheduledTime: String(payload.scheduledTime || "").slice(0, 5),
+      scheduledDate: String(payload.scheduledDate || "").slice(0, 10),
+      destinationUrl: String(payload.destinationUrl || "").slice(0, 2048),
+      accountHandle: payload.accountHandle ? String(payload.accountHandle).slice(0, 100) : undefined,
+      accountId: payload.accountId ? String(payload.accountId).slice(0, 100) : undefined,
+      pinId: payload.pinId ? String(payload.pinId).slice(0, 100) : undefined,
+    };
+    const { data, error } = await supabase
+      .from("pin_review_queue")
+      .upsert({
+        id,
+        user_id: String(req.userId),
+        pin_id: safePayload.pinId || null,
+        payload: safePayload,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id,id" })
+      .select("id,pin_id,payload,created_at,updated_at")
+      .single();
+    if (error) throw error;
+    res.json({ ...data.payload, id: data.id, pinId: data.pin_id || undefined });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+app.delete("/review-queue/:id", requireAuth, async (req, res) => {
+  try {
+    const id = String(req.params.id || "").trim();
+    if (!id || id.length > 100) throw httpError(422, "Некорректный ID записи");
+    const { error } = await supabase
+      .from("pin_review_queue")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", String(req.userId));
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 // --- Генерация пинов ---
 
 // Создание доски в постоянной базе данных. project_id проверяется по владельцу.
