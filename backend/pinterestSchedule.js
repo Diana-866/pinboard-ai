@@ -150,7 +150,41 @@ module.exports = {
   getScheduleRetryability,
   getScheduleFailureReason,
   sanitizeScheduleForClient,
+  createScheduleClaimHeartbeat,
 };
+
+// Renew a single claimed row while its worker is still processing it. Failed
+// heartbeats are observable but never treated as proof that a remote publish
+// did not happen; the durable publish journal remains the source of truth.
+function createScheduleClaimHeartbeat({ renew, logger = console, intervalMs = 60_000 }) {
+  if (typeof renew !== "function") throw new TypeError("schedule claim renew callback is required");
+  let stopped = false;
+  let inFlight = false;
+  let warningLogged = false;
+  const timer = setInterval(async () => {
+    if (stopped || inFlight) return;
+    inFlight = true;
+    try {
+      const renewed = await renew();
+      if (!renewed && !warningLogged) {
+        warningLogged = true;
+        logger.warn("[pinterest-worker] schedule claim is no longer current; publication outcome remains journal-controlled");
+      }
+    } catch (error) {
+      if (!warningLogged) {
+        warningLogged = true;
+        logger.warn("[pinterest-worker] schedule claim heartbeat failed; publication outcome remains journal-controlled");
+      }
+    } finally {
+      inFlight = false;
+    }
+  }, Math.max(1_000, Number(intervalMs) || 60_000));
+  if (typeof timer.unref === "function") timer.unref();
+  return () => {
+    stopped = true;
+    clearInterval(timer);
+  };
+}
 
 
 // Pure helpers for the immutable creative attached to a scheduled Pinterest publish.
