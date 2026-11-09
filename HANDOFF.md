@@ -1851,3 +1851,12 @@ The backend already computes safe retryability and a machine-readable reason for
 - Changed frontend files and tests were read back from the PR branch.
 - Tests, typecheck, and production build were not executed locally.
 - No production migration, deployment, merge, or worker action was performed.
+
+
+## 2026-11-09 — AUD-291 owner-scoped Pinterest retry metadata
+
+- Tightened the failed-schedule metadata reads in `GET /schedule`: publication-attempt and confirmed-publication lookups now explicitly filter by the authenticated `user_id`, rather than relying only on pin IDs and implicit database row policies.
+- Added a second owner-identity check when matching the returned attempt and publication rows to a failed schedule. This keeps retryability decisions tenant-scoped even if a query policy is accidentally broadened in a future change.
+- Preserved the existing account, pin, and board identity checks; no retry eligibility was relaxed and no raw provider diagnostics or worker claim tokens are exposed.
+- The change is limited to the read-only schedule metadata path; no schema migration is required.
+- GitHub read-back and CI recheck are pending. Tests, lint, typecheck, and build have not been executed locally. No production DB changes, deployment, merge, or worker action was performed.
