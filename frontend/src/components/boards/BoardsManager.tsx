@@ -10,7 +10,7 @@ interface BoardsManagerProps {
   loadError?: string;
   isLoading?: boolean;
   onRetry?: () => void;
-  onAddBoard: (board: BoardItem) => Promise<void> | void;
+  onAddBoard: (board: BoardItem, createRequestId: string) => Promise<void> | void;
 }
 
 export const BoardsManager: React.FC<BoardsManagerProps> = ({
@@ -27,6 +27,7 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
   const [category, setCategory] = useState('Home Decor');
   const [saving, setSaving] = useState(false);
   const [createError, setCreateError] = useState('');
+  const [createRequestId, setCreateRequestId] = useState(() => crypto.randomUUID());
 
   const closeCreateModal = () => {
     if (saving) return;
@@ -80,7 +81,7 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
         </div>
 
         <button
-          onClick={() => { setCreateError(''); setCreateModalOpen(true); }}
+          onClick={() => { setCreateError(''); setCreateRequestId(crypto.randomUUID()); setCreateModalOpen(true); }}
           className="accent-btn self-start sm:self-auto px-4 py-2 rounded-xl text-xs md:text-sm font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
         >
           <Plus className="w-4 h-4" />
@@ -161,7 +162,7 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
                 <input
                   type="text"
                   value={boardName}
-                  onChange={(e) => setBoardName(e.target.value)}
+                  onChange={(e) => { setBoardName(e.target.value); setCreateRequestId(crypto.randomUUID()); }}
                   placeholder={t.boards.boardTitlePlaceholder}
                   className="w-full px-3 py-2 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
                   maxLength={100}
@@ -175,7 +176,7 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
                 </label>
                 <select
                   value={category}
-                  onChange={(e) => setCategory(e.target.value)}
+                  onChange={(e) => { setCategory(e.target.value); setCreateRequestId(crypto.randomUUID()); }}
                   className="w-full px-3 py-2 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
                 >
                   <option value="Home Decor">{t.boards.categoryHomeDecor}</option>
