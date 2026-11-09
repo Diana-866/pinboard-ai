@@ -372,6 +372,62 @@ async function processPendingPinImageRetentionQueue({ supabase, limit = 10 }) {
   return result;
 }
 
+async function inspectBlockedPinImageRetentionQueue({ supabase, limit = 50 }) {
+  const boundedLimit = Number.isInteger(limit) ? Math.min(100, Math.max(1, limit)) : 50;
+  const { data: rows, error: inventoryError } = await supabase.rpc("list_blocked_pin_image_retention_queue", {
+    p_limit: boundedLimit,
+  });
+  if (inventoryError) throw inventoryError;
+
+  const result = { inspected: 0, objectVisible: 0, objectMissing: 0, inventoryFailed: 0, hasReferences: 0, items: [] };
+  for (const row of rows || []) {
+    result.inspected += 1;
+    const item = {
+      object_path: typeof row.object_path === "string" ? row.object_path : null,
+      source_types: Array.isArray(row.source_types) ? row.source_types : [],
+      queue_attempts: Number.isInteger(Number(row.attempts)) ? Number(row.attempts) : null,
+      queue_error_code: row.last_error_code || null,
+      queue_updated_at: row.queue_updated_at || null,
+      lifecycle_state: row.lifecycle_state || "missing",
+      lifecycle_attempts: Number.isInteger(Number(row.lifecycle_attempts)) ? Number(row.lifecycle_attempts) : null,
+      lifecycle_error_code: row.lifecycle_error_code || null,
+      lifecycle_updated_at: row.lifecycle_updated_at || null,
+      has_reference: row.has_reference === true,
+    };
+    if (item.has_reference) result.hasReferences += 1;
+
+    if (row.bucket_id !== "pin-images" ||
+        typeof row.object_path !== "string" ||
+        !/^pins\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp|gif)$/i.test(row.object_path)) {
+      result.inventoryFailed += 1;
+      result.items.push({ ...item, status: "invalid_inventory_row", safe_action: "inspect_database_record_no_storage_action" });
+      continue;
+    }
+
+    const parts = row.object_path.split("/");
+    const filename = parts.pop();
+    const folder = parts.join("/");
+    const { data: objects, error: listError } = await supabase.storage
+      .from(row.bucket_id)
+      .list(folder, { search: filename, limit: 100, offset: 0 });
+    if (listError) {
+      result.inventoryFailed += 1;
+      result.items.push({ ...item, status: "storage_inventory_failed", safe_action: "retry_read_only_inventory" });
+      continue;
+    }
+
+    const visible = (objects || []).some((object) => object && object.name === filename);
+    if (visible) result.objectVisible += 1;
+    else result.objectMissing += 1;
+    result.items.push({
+      ...item,
+      status: visible ? "object_present" : "object_absent",
+      safe_action: "manual_reconciliation_only_no_automatic_retry_or_unblock",
+    });
+  }
+  return result;
+}
+
 async function inspectQuarantinedPinImageObjects({ supabase, limit = 50 }) {
   const boundedLimit = Number.isInteger(limit) ? Math.min(100, Math.max(1, limit)) : 50;
   const { data: rows, error: inventoryError } = await supabase.rpc("list_quarantined_pin_image_objects", {
@@ -450,7 +506,7 @@ module.exports = {
   isStorageObjectNotFound,
   reconcileStalePinImageUploads,
   quarantineStalePinImageUploads,
-  inspectQuarantinedPinImageObjects,
+  inspectQuarantinedPinImageObjects,\n  inspectBlockedPinImageRetentionQueue,
   retryFailedPinImageDeletions,
   processPendingPinImageRetentionQueue,
   extractManagedPinImagePath,
