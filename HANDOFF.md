@@ -1570,3 +1570,14 @@ A subsequent code review caught and fixed a runtime wiring defect: `retryFailedP
 - Did not weaken SQL reference guards: completed generation/regeneration requests can replay saved pin responses, and deleting their image objects would return broken URLs on retries. A safe fix requires a coordinated idempotency TTL, expired-key API behavior, journal retirement, and bounded cleanup inventory.
 - Updated `docs/storage-lifecycle.md` and added `docs/audits/AUD-263-generated-image-journal-retention.md`. Existing SQL integration assertions already cover completed generation and regeneration journal references after the visible pin reference is removed; they were reviewed but not executed locally.
 - No migration was added, no production data/Storage was changed, and no deployment or merge was performed. Node/PostgreSQL CI execution remains to be verified.
+
+
+## AUD-264 — bounded generated-image retention inventory (2026-11-09)
+
+- Added migration `103_pin_image_retention_candidate_inventory.sql` with read-only RPC `list_pin_image_retention_candidates(30..3650 days, 1..100 rows)`, executable only by `service_role`.
+- Added admin endpoint `GET /admin/storage/retention-candidates?days=90&limit=100`, protected by authentication, DB-backed admin authorization, and the admin action rate limiter.
+- The inventory groups object paths from completed generation task journals, completed generation replay payloads, and completed regeneration journals. It excludes objects still referenced by live pins, non-cancelled schedule snapshots, non-terminal/recent task journals, recent regeneration journals, and recent generation replay payloads. It only lists lifecycle rows in `active` or `delete_failed` state.
+- Added PostgreSQL integration coverage for old completed journals, active pin references, recent regeneration references, recent generation replay payload references, bounded inputs, and RPC privilege restrictions. Added route middleware coverage and wired migration/test into the atomic-payment integration workflow.
+- This is a read-only first phase: no idempotency records are expired, no URLs are cleared, and no Storage objects are deleted. A later phase must implement durable transactional retirement plus a crash-safe deletion queue before enabling cleanup.
+- Files changed: migration 103; `backend/index.js`; `backend/test/pin-image-retention-inventory.integration.sql`; `backend/test/admin-storage-rate-limit.test.js`; `.github/workflows/atomic-payment-integration.yml`; `docs/storage-lifecycle.md`.
+- Local PostgreSQL/Node tests were not run. CI status must be checked on the new HEAD; no production migration, Storage operation, deployment, or merge was performed.
