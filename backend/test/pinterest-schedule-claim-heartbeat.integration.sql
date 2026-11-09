@@ -1,4 +1,4 @@
--- Run in disposable PostgreSQL after all migrations, including 113.
+-- Run in disposable PostgreSQL after all migrations, including 113 and 114.
 -- A heartbeat may renew only the exact currently publishing claim.
 do $$
 declare
