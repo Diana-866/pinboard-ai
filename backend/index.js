@@ -11,6 +11,7 @@ const { serializePinImageUploadError } = require("./imageUploadErrors");
 const { buildPinImageRateLimitKey } = require("./pinImageRateLimitKey");
 const { applyPinImageCompareAndSwapFilter } = require("./pinImageCompareAndSwap");
 const { buildBoardPatch } = require("./boardPatch");
+const { serializeBoardForClient } = require("./boardSerialization");
 const { buildPinPatch } = require("./pinPatch");
 
 const { getBalance, adjustBalance } = require("./credits");
@@ -581,7 +582,7 @@ app.post("/projects", requireAuth, async (req, res) => {
       .select()
       .single();
     if (error) throw error;
-    res.status(201).json(data);
+    res.status(201).json(serializeBoardForClient(data));
   } catch (e) {
     handleError(res, e);
   }
@@ -701,20 +702,6 @@ app.get("/projects/:id/boards", requireAuth, async (req, res) => {
     handleError(res, e);
   }
 });
-
-function serializeBoardForClient(board) {
-  if (!board || typeof board !== "object" || Array.isArray(board)) return board;
-  const {
-    create_request_id: _createRequestId,
-    create_request_fingerprint: _createRequestFingerprint,
-    ...publicBoard
-  } = board;
-  if (publicBoard.projects && typeof publicBoard.projects === "object") {
-    const { user_id: _projectUserId, ...publicProject } = publicBoard.projects;
-    publicBoard.projects = publicProject;
-  }
-  return publicBoard;
-}
 
 async function getBoardWithOwnerCheck(boardId, userId) {
   const { data: board, error } = await supabase
@@ -1189,7 +1176,7 @@ app.post("/boards", requireAuth, async (req, res) => {
         throw httpError(409, "Этот запрос уже использован для другой доски. Начните создание заново.");
       }
       const { create_request_fingerprint: _fingerprint, ...publicBoard } = data;
-      return res.status(200).json(publicBoard);
+      return res.status(200).json(serializeBoardForClient(publicBoard));
     }
 
     const { data, error } = await supabase
@@ -1221,7 +1208,7 @@ app.patch("/boards/:id", requireAuth, async (req, res) => {
 
     if (error) throw error;
     if (!data) throw httpError(404, "Доска больше не существует");
-    res.json(data);
+    res.json(serializeBoardForClient(data));
   } catch (e) {
     handleError(res, e);
   }
@@ -1246,7 +1233,7 @@ app.get("/boards", requireAuth, async (req, res) => {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    res.json(data);
+    res.json((data || []).map(serializeBoardForClient));
   } catch (e) {
     handleError(res, e);
   }
@@ -1255,7 +1242,7 @@ app.get("/boards", requireAuth, async (req, res) => {
 app.get("/boards/:id", requireAuth, async (req, res) => {
   try {
     const board = await getBoardWithOwnerCheck(req.params.id, req.userId);
-    res.json(board);
+    res.json(serializeBoardForClient(board));
   } catch (e) {
     handleError(res, e);
   }
