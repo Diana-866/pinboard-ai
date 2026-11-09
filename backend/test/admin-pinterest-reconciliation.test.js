@@ -153,3 +153,15 @@ test("serialization race is reported as a retryable state conflict", async () =>
     message: "Эта публикация уже сверяется или данные действия отличаются от ранее принятого запроса",
   });
 });
+
+
+test("malformed or missing RPC confirmation never reports a publication as reconciled", async () => {
+  for (const data of [null, {}, 123, "not-a-timestamp"]) {
+    reset();
+    rpcResult = { data, error: null };
+    await assert.rejects(actions.reconcileUnknownPublication(OPERATOR_ID, payload()), {
+      httpStatus: 500,
+      message: "Не удалось подтвердить сохранение сверки публикации",
+    });
+  }
+});
