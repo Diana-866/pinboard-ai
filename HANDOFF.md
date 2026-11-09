@@ -1619,3 +1619,13 @@ A subsequent code review caught and fixed a runtime wiring defect: `retryFailedP
 - Added migration 107_pin_image_upload_replay_reference_guard.sql. begin_pin_image_upload now rejects paths referenced by generation request pins[].image_url or regeneration request result_pin.image_url, while preserving existing upload lifecycle state checks and 128-bit path validation.
 - Added SQL regression coverage for both generation and regeneration replay-only references; updated the test prerequisite comment, storage lifecycle docs, and atomic-payment workflow to apply migration 107 after 106.
 - Local PostgreSQL tests were not run. No production migration, Storage operation, deployment, or merge was performed.
+
+
+## AUD-269 — transactional retirement of expired image replay references (2026-11-09)
+
+- Implemented migration 108 with bounded service-role-only RPC `retire_expired_pin_image_replay_references(1..100)`. It clears generation replay `pins`, generation task `storage_url`, and regeneration `storage_url` / `result_pin` only after the corresponding journal has an expiry tombstone. Idempotency rows/keys remain, and repeat use of an expired key still returns HTTP 410.
+- Queue paths move from `awaiting_reference_retirement` to `pending` only when no live pin, non-cancelled schedule, generation task, generation replay payload, or regeneration journal references them. Shared paths remain blocked until all references are retired. Existing processing leases and other queue states are preserved.
+- Added admin-only, rate-limited `POST /admin/storage/retire-expired-replay-references`; added SQL regression coverage and route middleware coverage; migration 108 is wired into atomic-payment integration CI.
+- Safety boundary: this phase does not call Storage or delete objects. A later bounded worker must claim pending queue rows, pass each path through `claim_pin_image_deletion`, and finalize/retry durably. No scheduler is enabled.
+- Local Node/PostgreSQL tests were not run. CI must confirm execution. No production migration, Storage operation, deployment, or merge was performed.
+- Document: `docs/audits/AUD-269-transactional-expired-replay-reference-retirement.md`.
