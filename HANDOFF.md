@@ -1859,4 +1859,5 @@ The backend already computes safe retryability and a machine-readable reason for
 - Added a second owner-identity check when matching the returned attempt and publication rows to a failed schedule. This keeps retryability decisions tenant-scoped even if a query policy is accidentally broadened in a future change.
 - Preserved the existing account, pin, and board identity checks; no retry eligibility was relaxed and no raw provider diagnostics or worker claim tokens are exposed.
 - The change is limited to the read-only schedule metadata path; no schema migration is required.
-- GitHub read-back and CI recheck are pending. Tests, lint, typecheck, and build have not been executed locally. No production DB changes, deployment, merge, or worker action was performed.
+- GitHub read-back confirmed the query filters and in-memory owner checks. On HEAD `6696dc11ec5500a80c544d87422b8b9dabb7d80f`, GitHub workflow-run lookup returned no runs; the only combined status is Vercel `failure` with `build-rate-limit`. Tests, lint, typecheck, and build have not been executed locally. No production DB changes, deployment, merge, or worker action was performed.
+- AUD-291 code commit: `e5864fa4717b8720d79be331b10082caeee8832f`; final documentation HEAD: `6696dc11ec5500a80c544d87422b8b9dabb7d80f`.
