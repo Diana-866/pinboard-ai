@@ -26,6 +26,7 @@ import { formatInstantInTimezone, getDefaultTimezone } from '../../utils/timezon
 import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure } from '../../utils/generationRetry';
 import { clearPendingPinDescriptionIfMatches, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
 import { enqueuePinSave } from '../../utils/pendingPinSaveQueue';
+import { isCurrentPinDescriptionSave } from '../../utils/pinDescriptionSaveGuard';
 import { clearPendingGenerationRequest, createGenerationFingerprint, listPendingGenerationRequests, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
 import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
 import { requireGeneratedPinsArray } from '../../utils/generatedPinsResponse';
@@ -625,9 +626,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   };
 
   const savePinDescription = async (boardId: string, pinId: string, description: string, revision: number) => {
-    const isCurrentSave = () =>
-      revision === descriptionSaveRevisionRef.current &&
-      boardId === descriptionSaveBoardIdRef.current;
+    const isCurrentSave = () => isCurrentPinDescriptionSave({
+      revision,
+      currentRevision: descriptionSaveRevisionRef.current,
+      boardId,
+      currentBoardId: descriptionSaveBoardIdRef.current,
+    });
     if (isCurrentSave()) {
       setDescriptionSavePinId(pinId);
       setDescriptionSaveState('saving');
