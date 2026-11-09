@@ -71,6 +71,17 @@ function isDefiniteStorageRejection(error) {
     ![408, 409, 425, 429].includes(status);
 }
 
+function isStorageObjectNotFound(error) {
+  const status = Number(error && (error.statusCode ?? error.status));
+  const code = String(error && error.code || "").trim().toLowerCase();
+  const message = String(error && error.message || "").trim().toLowerCase();
+  // A generic 404 is not proof that the target object is absent: the bucket,
+  // endpoint or project may be missing. Require an object-specific response.
+  return status === 404 &&
+    ["not_found", "object_not_found", "no_such_key"].includes(code) &&
+    /(?:object|key).*(?:not found|does not exist)|(?:not found|does not exist).*(?:object|key)/.test(message);
+}
+
 async function uploadManagedPinImageObject({ supabase, bucket = "pin-images", objectPath, file, contentType }) {
   const { data: reservation, error: reserveError } = await supabase.rpc("begin_pin_image_upload", {
     p_bucket_id: bucket,
@@ -217,7 +228,7 @@ async function deleteManagedPinImageObject({ supabase, bucket = "pin-images", ob
   const status = Number(removeError && (removeError.statusCode ?? removeError.status));
   // DELETE is idempotent: an explicit object-not-found response confirms the
   // desired end state just as surely as a successful remove response.
-  const objectAlreadyMissing = status === 404;
+  const objectAlreadyMissing = isStorageObjectNotFound(removeError);
   if (removeError && !objectAlreadyMissing && !isDefiniteStorageRejection(removeError)) {
     // A server/transport-style error may arrive after the delete committed.
     // Do not reopen reference writes until Storage outcome is independently known.
@@ -315,6 +326,7 @@ module.exports = {
   EXPECTED_PIN_IMAGE_MIMES,
   uploadManagedPinImageObject,
   isDefiniteStorageRejection,
+  isStorageObjectNotFound,
   reconcileStalePinImageUploads,
   quarantineStalePinImageUploads,
   inspectQuarantinedPinImageObjects,
