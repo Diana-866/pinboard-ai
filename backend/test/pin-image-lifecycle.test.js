@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects, retryFailedPinImageDeletions, deleteManagedPinImageObject, findCompletedManagedPinImageUpload, validatePinImageBucketConfiguration, isDefiniteStorageRejection, isStorageObjectNotFound } = require("./pinImageLifecycle");
+const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects, retryFailedPinImageDeletions, processPendingPinImageRetentionQueue, deleteManagedPinImageObject, findCompletedManagedPinImageUpload, validatePinImageBucketConfiguration, isDefiniteStorageRejection, isStorageObjectNotFound } = require("./pinImageLifecycle");
 
 const base = "https://project.supabase.co";
 
@@ -675,4 +675,32 @@ test("failed deletion retry keeps ambiguous Storage outcomes fenced", async () =
   assert.equal(result.items[0].error_code, "gateway_timeout");
   assert.equal(supabase.calls.some((call) => call.name === "finalize_pin_image_deletion"), false);
   assert.equal(supabase.calls.some((call) => call.type === "remove"), true);
+});
+
+test("retention queue worker blocks invalid claims without touching Storage", async () => {
+  const calls = [];
+  const supabase = {
+    rpc: async (name, args) => {
+      calls.push({ name, args });
+      if (name === "claim_pin_image_retention_queue") {
+        return { data: [{ bucket_id: "unexpected-bucket", object_path: "foreign/object.webp", claim_token: "claim-token" }], error: null };
+      }
+      if (name === "finalize_pin_image_retention_queue_item") {
+        return { data: true, error: null };
+      }
+      throw new Error("unexpected RPC " + name);
+    },
+    storage: {
+      from() {
+        throw new Error("Storage must not be called for an invalid queue claim");
+      },
+    },
+  };
+  const result = await processPendingPinImageRetentionQueue({ supabase, limit: 50 });
+  assert.equal(result.claimed, 1);
+  assert.equal(result.blocked, 1);
+  assert.equal(result.deleted, 0);
+  assert.equal(calls[0].args.p_limit, 25);
+  assert.equal(calls[1].args.p_completed, false);
+  assert.equal(calls[1].args.p_error_code, "invalid_retention_queue_claim");
 });
