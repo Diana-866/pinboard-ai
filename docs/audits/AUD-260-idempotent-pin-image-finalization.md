@@ -16,6 +16,7 @@ A Storage upload/delete could complete and its PostgreSQL lifecycle finalization
 - Added Node unit coverage for transient finalize RPC errors on both upload and deletion.
 - Added PostgreSQL integration coverage for idempotent success/failure, wrong tokens, and conflicting terminal outcomes.
 - Added migration 100 to atomic-payment integration CI and documented the behavior in docs/storage-lifecycle.md and HANDOFF.md.
+- Fixed a pre-existing malformed YAML line in the same workflow: the managed-image lifecycle test step and the following step had been serialized with literal `\\n` characters on one line. The workflow now has separate valid `name` and `run` entries.
 
 ## Verification status
 
