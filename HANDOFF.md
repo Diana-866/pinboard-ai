@@ -1726,3 +1726,10 @@ Repository files were read back after updates. Local Node/PostgreSQL execution w
 - Existing allow-listed updates, description clearing, title validation, and aspect-ratio validation are preserved.
 - Added `docs/audits/AUD-277-strict-board-and-pin-patch-fields.md`.
 - Source files and tests were written and read back; tests have not been executed in this environment. No deployment, production DB change, or merge.
+
+## 2026-11-09 — AUD-278 board update delete race
+
+- `PATCH /boards/:id` now uses `maybeSingle()` for the project-scoped update and returns HTTP 404 if the row disappears after the ownership lookup instead of surfacing a no-row PostgREST response as a generic server error.
+- Existing ownership verification and project_id scope are preserved.
+- Added `docs/audits/AUD-278-board-update-delete-race.md`.
+- Route read-back confirmed the change; tests have not been run. No deployment, production DB change, or merge.
