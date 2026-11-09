@@ -25,6 +25,7 @@ import { apiRequest } from '../../lib/api';
 import { formatInstantInTimezone, getDefaultTimezone } from '../../utils/timezone';
 import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure } from '../../utils/generationRetry';
 import { clearPendingPinDescriptionIfMatches, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
+import { enqueuePinSave } from '../../utils/pendingPinSaveQueue';
 import { clearPendingGenerationRequest, createGenerationFingerprint, listPendingGenerationRequests, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
 import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
 import { requireGeneratedPinsArray } from '../../utils/generatedPinsResponse';
@@ -399,26 +400,22 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       const pendingDescription = pendingDescriptionSaveRef.current;
       pendingDescriptionSaveRef.current = null;
       if (pendingDescription) {
-        const pending = pendingPinSavesRef.current;
-        const previous = pending.get(pendingDescription.pinId) || Promise.resolve();
-        const request = previous
-          .catch(() => undefined)
-          .then(() => apiRequest(`/pins/${encodeURIComponent(pendingDescription.pinId)}`, {
+        const request = enqueuePinSave(
+          pendingPinSavesRef.current,
+          pendingDescription.pinId,
+          () => apiRequest(`/pins/${encodeURIComponent(pendingDescription.pinId)}`, {
             method: 'PATCH',
             body: JSON.stringify({ description: pendingDescription.description }),
-          }))
-          .then((result) => {
+          }).then((result) => {
             clearPendingPinDescriptionIfMatches(
               pendingDescription.boardId,
               pendingDescription.pinId,
               pendingDescription.description,
             );
             return result;
-          });
-        pending.set(pendingDescription.pinId, request);
-        void request.finally(() => {
-          if (pending.get(pendingDescription.pinId) === request) pending.delete(pendingDescription.pinId);
-        }).catch((error) => {
+          }),
+        );
+        void request.catch((error) => {
           console.error('[pins] Не удалось завершить отложенное сохранение описания:', error);
         });
       }
@@ -539,19 +536,14 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     : 'idle';
 
   const persistPinPatch = (pinId: string, patch: Record<string, string>) => {
-    const pending = pendingPinSavesRef.current;
-    const previous = pending.get(pinId) || Promise.resolve();
-    const request = previous
-      .catch(() => undefined)
-      .then(() => apiRequest(`/pins/${encodeURIComponent(pinId)}`, {
+    return enqueuePinSave(
+      pendingPinSavesRef.current,
+      pinId,
+      () => apiRequest(`/pins/${encodeURIComponent(pinId)}`, {
         method: 'PATCH',
         body: JSON.stringify(patch),
-      }));
-    pending.set(pinId, request);
-    void request.finally(() => {
-      if (pending.get(pinId) === request) pending.delete(pinId);
-    }).catch(() => undefined);
-    return request;
+      }),
+    );
   };
 
   // Persist the selected pin's format so it survives a reload and is used by later API operations.
