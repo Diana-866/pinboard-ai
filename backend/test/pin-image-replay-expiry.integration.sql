@@ -97,8 +97,10 @@ begin
     raise exception 'uncertain provider requests were incorrectly expired';
   end if;
 
-  select count(*), (array_agg(source_types))[1]
-    into v_queue_count, v_source_types
+  select count(*) into v_queue_count
+    from public.pin_image_retention_queue
+   where bucket_id = 'pin-images' and object_path = v_shared_path;
+  select source_types into v_source_types
     from public.pin_image_retention_queue
    where bucket_id = 'pin-images' and object_path = v_shared_path;
   if v_queue_count <> 1
