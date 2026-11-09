@@ -1258,7 +1258,10 @@ app.get("/generation/requests/:key", requireAuth, async (req, res) => {
     if (error) throw error;
     if (!request) throw httpError(404, "Запрос генерации не найден");
     if (request.replay_expired_at) {
-      throw httpError(410, "Срок хранения результата генерации истёк", "idempotency_result_expired");
+      return res.status(410).json({
+        error: "Срок хранения результата генерации истёк. Используйте новый ключ идемпотентности для новой операции.",
+        code: "idempotency_result_expired",
+      });
     }
 
     res.json(serializeGenerationRecovery(request));
