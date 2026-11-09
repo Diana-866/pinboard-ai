@@ -211,6 +211,7 @@ begin
     'Retirement test', 'test-model', '2:3', 'succeeded', v_retirement_url,
     now()-interval '120 days', now()-interval '120 days'
   );
+  update public.pins set image_url = v_retirement_url where id = v_pin_id;
   perform public.expire_pin_image_replay_results(90, 100);
   v_retirement_state := public.retire_expired_pin_image_replay_references(100);
   if coalesce((v_retirement_state ->> 'retired_generation_requests')::integer,0) < 1 then
@@ -225,6 +226,15 @@ begin
   ) then
     raise exception 'generation replay image URLs were not cleared';
   end if;
+  if not exists (
+    select 1 from public.pin_image_retention_queue
+     where bucket_id = 'pin-images' and object_path = v_retirement_path
+       and state = 'awaiting_reference_retirement'
+  ) then
+    raise exception 'live pin reference did not keep the queue path blocked';
+  end if;
+  update public.pins set image_url = null where id = v_pin_id;
+  perform public.retire_expired_pin_image_replay_references(100);
   if not exists (
     select 1 from public.pin_image_retention_queue
      where bucket_id = 'pin-images' and object_path = v_retirement_path and state = 'pending'
