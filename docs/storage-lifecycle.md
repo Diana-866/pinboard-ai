@@ -59,3 +59,8 @@ This is intentionally a staging phase, not cleanup: replay payloads and task URL
 ### Generation replay payload references (migration 106)
 
 Generation idempotency journals also persist a replayable pins JSON array independently of pin_generation_tasks.storage_url. Migration 106 adds pin_generation_requests.pins[].image_url to the final deletion-claim reference check. This protects legacy/inconsistent journals where a task URL is missing but the saved generation response still points at the object. The deletion claim and retention inventory now account for both generation replay payloads and regeneration replay payloads. The SQL integration test verifies that a generation replay URL blocks deletion until its journal is removed.
+
+
+### Upload reservation replay-reference guard (migration 107)
+
+The upload reservation RPC now checks the same two replay payloads as the deletion claim: generation request pins[].image_url and regeneration request result_pin.image_url. This prevents a reused object path from being overwritten while an old idempotent response still points to it, including legacy rows where the task/storage URL column is missing. The SQL integration test verifies both replay sources block upload reservation.
