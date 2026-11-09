@@ -1251,12 +1251,15 @@ app.get("/generation/requests/:key", requireAuth, async (req, res) => {
     }
     const { data: request, error } = await supabase
       .from("pin_generation_requests")
-      .select("id, board_id, status, pins, created_at, updated_at")
+      .select("id, board_id, status, pins, replay_expired_at, created_at, updated_at")
       .eq("user_id", String(req.userId))
       .eq("idempotency_key", idempotencyKey)
       .maybeSingle();
     if (error) throw error;
     if (!request) throw httpError(404, "Запрос генерации не найден");
+    if (request.replay_expired_at) {
+      throw httpError(410, "Срок хранения результата генерации истёк", "idempotency_result_expired");
+    }
 
     res.json(serializeGenerationRecovery(request));
   } catch (e) {
