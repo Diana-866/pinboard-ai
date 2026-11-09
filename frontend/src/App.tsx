@@ -280,12 +280,15 @@ const MainApp: React.FC = () => {
 
   // Restore the authenticated user's review queue from the backend. Never use
   // localStorage: it is not an ownership boundary and can leak across accounts.
+  React.useLayoutEffect(() => {
+    pendingReviewUserIdRef.current = user?.id || '';
+    pendingReviewPinsRef.current = [];
+    setPendingReviewPins([]);
+  }, [user?.id]);
+
   React.useEffect(() => {
     let active = true;
     const ownerId = user?.id || '';
-    pendingReviewUserIdRef.current = ownerId;
-    pendingReviewPinsRef.current = [];
-    setPendingReviewPins([]);
     if (!ownerId) return () => { active = false; };
 
     apiRequest('/review-queue')
@@ -380,7 +383,10 @@ const MainApp: React.FC = () => {
     const enqueueById = (id: string, operation: () => Promise<unknown>) => {
       const chains = reviewQueueWriteChainsRef.current;
       const previousOperation = chains.get(id) || Promise.resolve();
-      const currentOperation = previousOperation.catch(() => undefined).then(operation);
+      const currentOperation = previousOperation.catch(() => undefined).then(() => {
+        if (pendingReviewUserIdRef.current !== ownerId) throw new Error('Review queue owner changed before persistence.');
+        return operation();
+      });
       chains.set(id, currentOperation);
       currentOperation.finally(() => {
         if (chains.get(id) === currentOperation) chains.delete(id);
