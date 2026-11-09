@@ -746,3 +746,71 @@ test("retention queue worker deletes only after the final lifecycle claim and fe
   assert.equal(calls[3].args.p_claim_token, "queue-token");
   assert.equal(calls[3].args.p_completed, true);
 });
+
+
+test("blocked retention queue inspection is read-only and reports Storage visibility", async () => {
+  const calls = [];
+  const supabase = {
+    rpc: async (name, args) => {
+      calls.push(["rpc", name, args]);
+      return {
+        data: [{
+          bucket_id: "pin-images",
+          object_path: "pins/1730000000000-abcdef0123456789abcdef0123456789.webp",
+          source_types: ["generation_replay"],
+          attempts: 3,
+          last_error_code: "storage_delete_unresolved",
+          queue_updated_at: "2026-11-09T00:00:00Z",
+          lifecycle_state: "deleting",
+          lifecycle_attempts: 1,
+          lifecycle_error_code: null,
+          lifecycle_updated_at: "2026-11-09T00:00:00Z",
+          has_reference: false,
+        }],
+        error: null,
+      };
+    },
+    storage: {
+      from: (bucket) => ({
+        list: async (folder, options) => {
+          calls.push(["list", bucket, folder, options]);
+          return { data: [{ name: "1730000000000-abcdef0123456789abcdef0123456789.webp" }], error: null };
+        },
+        remove: async () => {
+          calls.push(["remove"]);
+          throw new Error("DELETE must never be called by diagnostics");
+        },
+      }),
+    },
+  };
+
+  const { inspectBlockedPinImageRetentionQueue } = require("./pinImageLifecycle");
+  const result = await inspectBlockedPinImageRetentionQueue({ supabase, limit: 10 });
+  assert.equal(result.inspected, 1);
+  assert.equal(result.objectVisible, 1);
+  assert.equal(result.hasReferences, 0);
+  assert.equal(result.items[0].status, "object_present");
+  assert.equal(result.items[0].lifecycle_state, "deleting");
+  assert.equal(result.items[0].safe_action, "manual_reconciliation_only_no_automatic_retry_or_unblock");
+  assert.deepEqual(calls.map((call) => call[0]), ["rpc", "list"]);
+});
+
+test("blocked retention queue inspection fails closed on invalid paths without Storage access", async () => {
+  let storageCalls = 0;
+  const supabase = {
+    rpc: async () => ({
+      data: [{ bucket_id: "pin-images", object_path: "../foreign.webp", source_types: [], attempts: 1 }],
+      error: null,
+    }),
+    storage: {
+      from: () => ({
+        list: async () => { storageCalls += 1; return { data: [], error: null }; },
+      }),
+    },
+  };
+  const { inspectBlockedPinImageRetentionQueue } = require("./pinImageLifecycle");
+  const result = await inspectBlockedPinImageRetentionQueue({ supabase });
+  assert.equal(result.inventoryFailed, 1);
+  assert.equal(result.items[0].status, "invalid_inventory_row");
+  assert.equal(storageCalls, 0);
+});
