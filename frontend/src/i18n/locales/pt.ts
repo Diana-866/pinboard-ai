@@ -350,6 +350,17 @@ export const pt: TranslationSchema = {
     optimizeBoardBtn: 'Otimizar SEO com IA',
     targetPinsWeekly: 'Meta Semanal de Pins',
     recommendedKeywords: 'Palavras-Chave Recomendadas',
+    boardTitleLabel: "Nome da pasta",
+    boardTitlePlaceholder: "ex.: cerâmica artesanal e decoração",
+    boardCategoryLabel: "Categoria",
+    categoryHomeDecor: "Casa e arquitetura",
+    categoryRecipes: "Receitas e culinária",
+    categoryWellness: "Beleza e bem-estar",
+    categoryTravel: "Viagens e escapadas",
+    categoryDigitalProducts: "Produtos digitais e SaaS",
+    categoryFashion: "Moda e guarda-roupa cápsula",
+    savingLabel: "Salvando…",
+    saveErrorFallback: "Não foi possível salvar a pasta. Verifique a conexão e tente novamente.",
   },
 
   analytics: {
