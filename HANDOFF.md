@@ -1786,3 +1786,12 @@ Repository files were read back after updates. Local Node/PostgreSQL execution w
 - Re-runs the existing reference-aware image cleanup on the already-cancelled path; it does not issue an unguarded Storage delete.
 - Preserves the conditional scheduled-to-cancelled update as the linearization point. Publishing/published states remain non-cancellable, and owner scoping is unchanged.
 - Added `docs/audits/AUD-285-idempotent-schedule-cancellation.md`. Automated tests, lint, typecheck, and build have not been executed. No production DB changes, deployment, or merge.
+
+
+## 2026-11-09 — AUD-286 worker-claim-aware schedule mutation reconciliation
+
+- Fixed the race where retry/change-board commits a schedule back to `scheduled`, but the worker claims it as `publishing` before the client's lost-response reconciliation read.
+- Reconciliation accepts only an exact schedule ID + Pinterest board + Pinterest account match with status `scheduled` or `publishing`. All other/ambiguous states remain non-success.
+- Calendar state preserves the persisted status using `parsePersistedScheduleStatus`, so a worker-owned row is not rendered as merely queued.
+- Added regression test for the worker-claimed state. See `docs/audits/AUD-286-worker-claim-aware-schedule-reconciliation.md`.
+- Automated tests, lint, typecheck, and build have not been executed in this environment. No production DB changes, deployment, or merge.
