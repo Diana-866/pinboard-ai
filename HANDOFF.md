@@ -1688,4 +1688,4 @@ Repository files were read back after updates. Local Node/PostgreSQL execution w
 - Local frontend lint/tests could not be executed in this environment. Latest PR CI has no allocated runners (`runner_id=0`, empty steps); do not treat its failure state as test execution or green CI. Vercel reports `build-rate-limit`.
 - No deployment, production DB change, merge, or external service mutation was performed.
 
-**AUD-272 latest branch HEAD:** `8b112ff576b18846e83aa7e59b3778ebf88eacf2`.
+**AUD-272 source-code commit:** `8b112ff576b18846e83aa7e59b3778ebf88eacf2`. **Latest branch HEAD (documentation-only follow-up):** `04e00c78469f52e5131a75d4efe8ffd6e3e99885`.
