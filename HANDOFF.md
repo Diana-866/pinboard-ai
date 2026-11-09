@@ -1733,3 +1733,11 @@ Repository files were read back after updates. Local Node/PostgreSQL execution w
 - Existing ownership verification and project_id scope are preserved.
 - Added `docs/audits/AUD-278-board-update-delete-race.md`.
 - Route read-back confirmed the change; tests have not been run. No deployment, production DB change, or merge.
+
+
+## 2026-11-09 — AUD-279 localized pin-description save feedback
+
+- Replaced hard-coded Russian save status and retry text in the pin generator with locale keys.
+- Added typed translations for saving, saved, save-error, and retry-save states across ru, en, es, pt, de, fr, and zh.
+- Read-back verification confirms all seven locales contain the new keys and the UI consumes the typed translations.
+- Lint, typecheck, and frontend tests have not been run; no production DB changes, deployment, or merge.
