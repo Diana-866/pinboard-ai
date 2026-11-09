@@ -1561,3 +1561,12 @@ A subsequent code review caught and fixed a runtime wiring defect: `retryFailedP
 - Добавлен PostgreSQL integration test: резервирование, финализация upload, claim deletion и финализация удаления пути с 32-hex suffix. Миграция 102 добавлена после 101 в atomic-payment integration workflow.
 - Обновлены `docs/storage-lifecycle.md` и `docs/audits/AUD-262-128-bit-image-deletion-claim-compatibility.md`.
 - Проверка: изменённые файлы перечитаны из GitHub; SQL test добавлен, но локально PostgreSQL не запускался. Production migration 102 не применялась; Storage, deployment и merge не затрагивались.
+
+
+## AUD-263 — generated image journal retention (2026-11-09)
+
+- Found and corrected a documentation/implementation mismatch: `docs/storage-lifecycle.md` incorrectly claimed completed/failed generation journal rows were historical and did not block deletion. Migration 102's active deletion claim checks every `pin_generation_tasks.storage_url` and `pin_regeneration_requests.storage_url` reference, regardless of parent status.
+- Effect: generated images can remain in Storage indefinitely after a visible pin is replaced/deleted, because completed idempotency journals remain replayable. This is a real storage-retention limitation, not a safe-to-ignore reference.
+- Did not weaken SQL reference guards: completed generation/regeneration requests can replay saved pin responses, and deleting their image objects would return broken URLs on retries. A safe fix requires a coordinated idempotency TTL, expired-key API behavior, journal retirement, and bounded cleanup inventory.
+- Updated `docs/storage-lifecycle.md` and added `docs/audits/AUD-263-generated-image-journal-retention.md`. Existing SQL integration assertions already cover completed generation and regeneration journal references after the visible pin reference is removed; they were reviewed but not executed locally.
+- No migration was added, no production data/Storage was changed, and no deployment or merge was performed. Node/PostgreSQL CI execution remains to be verified.
