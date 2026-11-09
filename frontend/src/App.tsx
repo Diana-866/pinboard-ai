@@ -38,6 +38,7 @@ import {
   PinterestAccount,
 } from './data/mockData';
 import { mapPersistedBoards } from './utils/persistedBoards';
+import { findPersistedScheduleMutation } from './utils/scheduleMutationReconciliation';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Landing } from './pages/Landing';
@@ -431,15 +432,13 @@ const MainApp: React.FC = () => {
       // Reconcile only against this exact schedule ID, target board, account and queued state.
       try {
         const rows = await apiRequest('/schedule');
-        if (!Array.isArray(rows)) throw originalError;
-        const matches = rows.filter((row: any) =>
-          String(row?.id || '') === pin.id &&
-          row?.status === 'scheduled' &&
-          String(row?.pinterest_board_id || '') === pinterestBoardId &&
-          String(row?.pinterest_account_id || '') === String(pin.pinterestAccountId || '')
-        );
-        if (matches.length !== 1) throw originalError;
-        saved = matches[0];
+        saved = findPersistedScheduleMutation(rows, {
+          scheduleId: pin.id,
+          status: 'scheduled',
+          pinterestBoardId,
+          pinterestAccountId: String(pin.pinterestAccountId || ''),
+        });
+        if (!saved) throw originalError;
       } catch {
         throw originalError;
       }
@@ -474,15 +473,13 @@ const MainApp: React.FC = () => {
       // the same schedule after it is visibly back in the queue on the same destination.
       try {
         const rows = await apiRequest('/schedule');
-        if (!Array.isArray(rows)) throw originalError;
-        const matches = rows.filter((row: any) =>
-          String(row?.id || '') === pin.id &&
-          row?.status === 'scheduled' &&
-          String(row?.pinterest_board_id || '') === String(pin.pinterestBoardId || '') &&
-          String(row?.pinterest_account_id || '') === String(pin.pinterestAccountId || '')
-        );
-        if (matches.length !== 1) throw originalError;
-        saved = matches[0];
+        saved = findPersistedScheduleMutation(rows, {
+          scheduleId: pin.id,
+          status: 'scheduled',
+          pinterestBoardId: String(pin.pinterestBoardId || ''),
+          pinterestAccountId: String(pin.pinterestAccountId || ''),
+        });
+        if (!saved) throw originalError;
       } catch {
         throw originalError;
       }
