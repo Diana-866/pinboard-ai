@@ -12,6 +12,7 @@ const { buildPinImageRateLimitKey } = require("./pinImageRateLimitKey");
 const { applyPinImageCompareAndSwapFilter } = require("./pinImageCompareAndSwap");
 const { buildBoardPatch } = require("./boardPatch");
 const { serializeBoardForClient } = require("./boardSerialization");
+const { serializeProjectForClient } = require("./projectSerialization");
 const { buildPinPatch } = require("./pinPatch");
 
 const { getBalance, adjustBalance } = require("./credits");
@@ -582,7 +583,7 @@ app.post("/projects", requireAuth, async (req, res) => {
       .select()
       .single();
     if (error) throw error;
-    res.status(201).json(serializeBoardForClient(data));
+    res.status(201).json(serializeProjectForClient(data));
   } catch (e) {
     handleError(res, e);
   }
@@ -595,7 +596,7 @@ app.get("/projects", requireAuth, async (req, res) => {
       .select("*")
       .eq("user_id", req.userId);
     if (error) throw error;
-    res.json(data);
+    res.json(Array.isArray(data) ? data.map(serializeProjectForClient) : data);
   } catch (e) {
     handleError(res, e);
   }
@@ -610,7 +611,7 @@ app.get("/projects/:id", requireAuth, async (req, res) => {
       .eq("user_id", req.userId)
       .single();
     if (error || !data) throw httpError(404, "Проект не найден");
-    res.json(data);
+    res.json(serializeProjectForClient(data));
   } catch (e) {
     handleError(res, e);
   }
