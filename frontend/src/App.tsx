@@ -346,16 +346,41 @@ const MainApp: React.FC = () => {
       window.alert('Проверьте дату и время публикации.');
       return;
     }
-    const saved = await apiRequest(`/pins/${encodeURIComponent(pin.pinId)}/schedule`, {
-      method: 'POST',
-      body: JSON.stringify({
-        scheduled_at: localDateTime.toISOString(),
-        timezone,
-        destination_url: pin.destinationUrl || undefined,
-        pinterest_board_id: pin.pinterestBoardId || undefined,
-        pinterest_account_id: pin.pinterestAccountId || undefined,
-      }),
-    });
+    const schedulePayload = {
+      scheduled_at: localDateTime.toISOString(),
+      timezone,
+      destination_url: pin.destinationUrl || undefined,
+      pinterest_board_id: pin.pinterestBoardId || undefined,
+      pinterest_account_id: pin.pinterestAccountId || undefined,
+    };
+    let saved: any;
+    try {
+      saved = await apiRequest(`/pins/${encodeURIComponent(pin.pinId)}/schedule`, {
+        method: 'POST',
+        body: JSON.stringify(schedulePayload),
+      });
+    } catch (originalError) {
+      // The server may have committed the schedule even when the response was
+      // lost. The API's one-active-schedule-per-pin constraint prevents a
+      // duplicate, but a blind retry would otherwise look like a failed action.
+      // Reconcile against the user's persisted schedule list before surfacing
+      // the original error; never infer success from a loose pin-ID match alone.
+      try {
+        const rows = await apiRequest('/schedule');
+        if (!Array.isArray(rows)) throw new Error('Некорректный ответ расписания');
+        const expectedTime = localDateTime.getTime();
+        const matches = rows.filter((row: any) =>
+          String(row?.pin_id || '') === pin.pinId &&
+          new Date(row?.scheduled_at).getTime() === expectedTime &&
+          String(row?.pinterest_board_id || '') === String(pin.pinterestBoardId || '') &&
+          String(row?.pinterest_account_id || '') === String(pin.pinterestAccountId || '')
+        );
+        if (matches.length !== 1) throw originalError;
+        saved = matches[0];
+      } catch {
+        throw originalError;
+      }
+    }
     const date = formatInstantInTimezone(new Date(saved.scheduled_at), timezone);
     const persisted: ScheduledPinItem = {
       ...pin,
