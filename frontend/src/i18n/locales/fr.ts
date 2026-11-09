@@ -350,6 +350,17 @@ export const fr: TranslationSchema = {
     optimizeBoardBtn: 'Optimisation SEO par IA',
     targetPinsWeekly: 'Objectif hebdomadaire',
     recommendedKeywords: 'Mots-clés stratégiques manquants',
+    boardTitleLabel: "Nom du tableau",
+    boardTitlePlaceholder: "ex. : céramique et décoration artisanale",
+    boardCategoryLabel: "Catégorie",
+    categoryHomeDecor: "Maison et architecture",
+    categoryRecipes: "Recettes et cuisine",
+    categoryWellness: "Beauté et bien-être",
+    categoryTravel: "Voyages et escapades",
+    categoryDigitalProducts: "Produits numériques et SaaS",
+    categoryFashion: "Mode et garde-robe capsule",
+    savingLabel: "Enregistrement…",
+    saveErrorFallback: "Impossible d’enregistrer le tableau. Vérifiez votre connexion et réessayez.",
   },
 
   analytics: {
