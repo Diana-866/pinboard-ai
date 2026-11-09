@@ -94,3 +94,10 @@ A blocked item requires investigation; do not manually reset it to pending unles
 ## Verification
 
 Repository files were read back after updates. Local Node/PostgreSQL execution was unavailable; the new tests are wired into CI but are not claimed as passing until the workflow actually runs.
+
+
+### Blocked retention queue diagnostics (migration 110)
+
+Migration 110 adds a read-only, service-role-only inventory for rows in `pin_image_retention_queue.state = 'blocked'`. The admin endpoint `GET /admin/storage/retention-queue/blocked?limit=50` reports queue attempts/error code/source types, the matching image-lifecycle state and error (when present), and whether a database reference is still visible. It also performs a read-only Storage listing to report whether the object is currently visible.
+
+Storage listing is not proof that an earlier timed-out DELETE has stopped, nor is absence proof that the lifecycle/reference state is consistent. The endpoint never changes queue/lifecycle state, never retries deletion, and never unblocks an item. Every result requires manual reconciliation; do not reset blocked rows directly to pending.
