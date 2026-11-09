@@ -28,3 +28,8 @@ Repository changes are written on the feature branch. Local Node/PostgreSQL exec
 ## Latest CI observation
 
 The new branch HEAD triggered all three PR workflows; all concluded `failure`. GitHub returned jobs with no step summaries or log URLs, and log download returned `BlobNotFound`. The separate Vercel status remains `build-rate-limit`. The test results are therefore unconfirmed, not passing; the available evidence does not identify a code-level failure.
+
+
+## Classification refinement
+
+The diagnostic now labels each row according to database-reference presence, Storage visibility, and lifecycle state. It highlights inconsistent combinations (for example, a live DB reference with no visible object, or a lifecycle row marked deleted while the object remains visible) and returns an operator action hint. These are diagnostic classifications only: no state mutation, queue reopening, or Storage deletion is performed. Added Node tests for referenced, quarantined, and deleted lifecycle cases.
