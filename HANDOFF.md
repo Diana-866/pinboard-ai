@@ -1870,3 +1870,11 @@ The backend already computes safe retryability and a machine-readable reason for
 - Existing `backend/test/pinterest-publication-concurrency.sh` has a publishing fixture with a non-null UUID claim token and asserts that it is null after the completion/stale-recovery race; the script is wired into atomic-payment integration CI, after migration 112.
 - During follow-up, detected that the draft filename's numeric prefix 100 collided with an existing migration 100. Renumbered the new migration to 112, added it after migration 111 in CI, updated the audit report, and removed the colliding draft file.
 - Migration and test source were read back. The PostgreSQL integration script was not executed here. No production SQL was executed; migration 112 is not applied. No deploy or merge.
+
+
+## 2026-11-09 — AUD-293 strict Pinterest publication-ledger identity
+
+- Hardened `matchesConfirmedPublicationLedger`: confirmation now requires non-empty, trimmed, exact matches for all five identity fields (owner, local pin, Pinterest account, Pinterest board, remote Pinterest pin). Missing/blank values can no longer compare equal and falsely confirm a publication.
+- Added regression tests for exact matching, null inputs, blank values on either side, and whitespace-only ledger values.
+- Added `docs/audits/AUD-293-strict-pinterest-publication-ledger-identity.md`.
+- Source and test files were read back after writing. Tests, lint, typecheck, and build have not been executed. No production DB changes, deployment, or merge.
