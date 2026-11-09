@@ -310,6 +310,68 @@ async function retryFailedPinImageDeletions({ supabase, limit = 25 }) {
   return result;
 }
 
+async function processPendingPinImageRetentionQueue({ supabase, limit = 10 }) {
+  const boundedLimit = Number.isInteger(limit) ? Math.min(25, Math.max(1, limit)) : 10;
+  const { data: claims, error: claimError } = await supabase.rpc("claim_pin_image_retention_queue", {
+    p_limit: boundedLimit,
+    p_claim_ttl_seconds: 900,
+  });
+  if (claimError) throw claimError;
+
+  const result = { claimed: 0, deleted: 0, blocked: 0, finalizeFailed: 0, items: [] };
+  for (const row of claims || []) {
+    result.claimed += 1;
+    const item = { object_path: row.object_path, status: "blocked" };
+    let completed = false;
+    let errorCode = null;
+    if (row.bucket_id === "pin-images" &&
+        typeof row.object_path === "string" &&
+        /^pins\\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\\.(?:png|jpe?g|webp|gif)$/i.test(row.object_path) &&
+        row.claim_token) {
+      try {
+        // This is the final DB reference/fencing barrier immediately before Storage.
+        completed = await deleteManagedPinImageObject({
+          supabase, bucket: row.bucket_id, objectPath: row.object_path,
+        });
+        if (!completed) errorCode = "deletion_claim_refused";
+      } catch (error) {
+        // Any ambiguous remote outcome is permanently blocked at the queue layer.
+        // The lifecycle row itself remains deleting/quarantined as appropriate.
+        errorCode = String(error && (error.code || error.name) || "storage_delete_unresolved").slice(0, 64);
+      }
+    } else {
+      errorCode = "invalid_retention_queue_claim";
+    }
+
+    try {
+      const { data: finalized, error: finalizeError } = await supabase.rpc("finalize_pin_image_retention_queue_item", {
+        p_bucket_id: row.bucket_id,
+        p_object_path: row.object_path,
+        p_claim_token: row.claim_token,
+        p_completed: completed,
+        p_error_code: errorCode,
+      });
+      if (finalizeError || finalized !== true) {
+        result.finalizeFailed += 1;
+        item.status = "finalization_unconfirmed";
+        item.reason = "queue_lease_or_token_changed";
+      } else if (completed) {
+        result.deleted += 1;
+        item.status = "completed";
+      } else {
+        result.blocked += 1;
+        item.reason = errorCode || "deletion_not_confirmed";
+      }
+    } catch {
+      result.finalizeFailed += 1;
+      item.status = "finalization_unconfirmed";
+      item.reason = "queue_finalize_rpc_failed";
+    }
+    result.items.push(item);
+  }
+  return result;
+}
+
 async function inspectQuarantinedPinImageObjects({ supabase, limit = 50 }) {
   const boundedLimit = Number.isInteger(limit) ? Math.min(100, Math.max(1, limit)) : 50;
   const { data: rows, error: inventoryError } = await supabase.rpc("list_quarantined_pin_image_objects", {
