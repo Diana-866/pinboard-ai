@@ -389,7 +389,7 @@ async function inspectBlockedPinImageRetentionQueue({ supabase, limit = 50 }) {
       queue_error_code: row.last_error_code || null,
       queue_updated_at: row.queue_updated_at || null,
       lifecycle_state: row.lifecycle_state || "missing",
-      lifecycle_attempts: Number.isInteger(Number(row.lifecycle_attempts)) ? Number(row.lifecycle_attempts) : null,
+      lifecycle_attempts: row.lifecycle_attempts != null && Number.isInteger(Number(row.lifecycle_attempts)) ? Number(row.lifecycle_attempts) : null,
       lifecycle_error_code: row.lifecycle_error_code || null,
       lifecycle_updated_at: row.lifecycle_updated_at || null,
       has_reference: row.has_reference === true,
