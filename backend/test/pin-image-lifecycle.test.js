@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, reconcileStalePinImageUploads, quarantineStalePinImageUploads, deleteManagedPinImageObject, findCompletedManagedPinImageUpload, validatePinImageBucketConfiguration, isDefiniteStorageRejection } = require("./pinImageLifecycle");
+const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects, deleteManagedPinImageObject, findCompletedManagedPinImageUpload, validatePinImageBucketConfiguration, isDefiniteStorageRejection } = require("./pinImageLifecycle");
 
 const base = "https://project.supabase.co";
 
@@ -134,6 +134,10 @@ function makeStorageClient(options = {}) {
       if (name === "finalize_pin_image_upload") {
         return { data: options.uploadFinalizeData === undefined ? true : options.uploadFinalizeData,
           error: options.uploadFinalizeError || null };
+      }
+      if (name === "list_quarantined_pin_image_objects") {
+        return { data: options.quarantinedObjects === undefined ? [] : options.quarantinedObjects,
+          error: options.quarantinedInventoryError || null };
       }
       if (name === "list_stale_pin_image_uploads") {
         return { data: options.staleUploads === undefined ? [] : options.staleUploads,
@@ -483,4 +487,52 @@ test("stale upload reconciliation does not change state when Storage inventory f
   assert.equal(result.unresolved[0].reason, "storage_inventory_failed");
   assert.equal(result.unresolved[0].safe_action, "retry_read_only_reconciliation");
   assert.equal(supabase.calls.some((call) => call.name === "finalize_pin_image_upload"), false);
+});
+
+
+test("quarantined object inventory reports present and absent objects without deleting or reopening them", async () => {
+  const supabase = makeStorageClient({
+    quarantinedObjects: [
+      { bucket_id: "pin-images", object_path: "pins/1730000000000-ab12cd34.webp", attempts: 2, last_error_code: "stale_delete_quarantined", updated_at: "2026-11-09T00:00:00Z", has_reference: false },
+      { bucket_id: "pin-images", object_path: "pins/generation-0123456789abcdef0123456789abcdef.png", attempts: 1, last_error_code: "stale_upload_quarantined", updated_at: "2026-11-09T00:01:00Z", has_reference: true },
+    ],
+    listData: [{ name: "1730000000000-ab12cd34.webp" }],
+  });
+  const result = await inspectQuarantinedPinImageObjects({ supabase, limit: 200 });
+  assert.equal(result.inspected, 2);
+  assert.equal(result.objectVisible, 2);
+  assert.equal(result.objectMissing, 0);
+  assert.equal(result.items[0].status, "object_present");
+  assert.equal(result.items[0].safe_action, "manual_review_only_no_automatic_delete_or_unquarantine");
+  assert.equal(result.items[1].has_reference, true);
+  assert.equal(result.items[1].safe_action, "investigate_reference_guard_before_any_action");
+  assert.equal(supabase.calls[0].args.p_limit, 50);
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), [
+    "list_quarantined_pin_image_objects", "list", "list",
+  ]);
+  assert.equal(supabase.calls.some((call) => call.type === "remove" || call.name === "claim_pin_image_deletion"), false);
+});
+
+test("quarantined inventory rejects malformed paths and reports Storage listing errors safely", async () => {
+  const supabase = makeStorageClient({
+    quarantinedObjects: [
+      { bucket_id: "pin-images", object_path: "../secrets.txt", has_reference: false },
+      { bucket_id: "pin-images", object_path: "pins/1730000000000-ab12cd34.webp", has_reference: false },
+    ],
+    listError: new Error("storage unavailable"),
+  });
+  const result = await inspectQuarantinedPinImageObjects({ supabase });
+  assert.equal(result.inventoryFailed, 2);
+  assert.equal(result.items[0].status, "invalid_inventory_row");
+  assert.equal(result.items[1].status, "storage_inventory_failed");
+  assert.equal(supabase.calls.some((call) => call.type === "remove"), false);
+});
+
+test("quarantined inventory RPC errors fail closed", async () => {
+  const supabase = makeStorageClient({ quarantinedInventoryError: new Error("migration missing") });
+  await assert.rejects(
+    inspectQuarantinedPinImageObjects({ supabase }),
+    /migration missing/
+  );
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), ["list_quarantined_pin_image_objects"]);
 });
