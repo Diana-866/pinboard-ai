@@ -14,6 +14,10 @@ declare
   v_state jsonb;
   v_queue_count integer;
   v_source_types text[];
+  v_queue_token uuid := gen_random_uuid();
+  v_queue_state text;
+  v_saved_queue_token uuid;
+  v_fresh_state jsonb;
 begin
   insert into public.users(id, email)
   values (v_user_id, v_user_id::text || '@pin-image-expiry-test.invalid');
@@ -66,6 +70,15 @@ begin
     now()-interval '120 days', now()-interval '120 days'
   );
 
+  -- A pre-existing in-flight queue claim must not be reset by an upsert
+  -- when another expired journal references the same object.
+  insert into public.pin_image_retention_queue(
+    bucket_id, object_path, state, source_types, claim_token, claim_expires_at
+  ) values (
+    'pin-images', v_shared_path, 'processing', array['existing_worker'],
+    v_queue_token, now() + interval '5 minutes'
+  );
+
   v_state := public.expire_pin_image_replay_results(90, 100);
   if (v_state ->> 'expired_generation_requests')::integer < 1
      or (v_state ->> 'expired_regeneration_requests')::integer < 1
@@ -108,9 +121,24 @@ begin
      or not ('regeneration_replay' = any(v_source_types)) then
     raise exception 'shared image path was not deduplicated in durable queue: %', v_source_types;
   end if;
+  select state, claim_token into v_queue_state, v_saved_queue_token
+    from public.pin_image_retention_queue
+   where bucket_id = 'pin-images' and object_path = v_shared_path;
+  if v_queue_state <> 'processing' or v_saved_queue_token is distinct from v_queue_token then
+    raise exception 'expiry upsert overwrote a live queue claim: state %, token %',
+      v_queue_state, v_saved_queue_token;
+  end if;
 
   -- The idempotency keys survive, but their old result can no longer be replayed
   -- or silently start a new provider task.
+  v_fresh_state := public.begin_pin_generation_request(
+    v_user_id::text, v_board_id, 'pin-expiry-fresh-generation-0001', repeat('e',64)
+  );
+  if v_fresh_state ->> 'status' <> 'started'
+     or nullif(v_fresh_state ->> 'claim_token','') is null then
+    raise exception 'fresh generation did not preserve claim-fencing token: %', v_fresh_state;
+  end if;
+
   v_state := public.begin_pin_generation_request(
     v_user_id::text, v_board_id, v_generation_key, repeat('a',64)
   );
