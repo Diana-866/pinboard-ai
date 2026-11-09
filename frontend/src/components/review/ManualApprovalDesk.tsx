@@ -719,29 +719,27 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                   const file = e.target.files?.[0];
                   if (!file) return;
                   try {
-                    const dataUrl = await new Promise<string>((resolve, reject) => {
-                      const reader = new FileReader();
-                      reader.onload = () => resolve(reader.result as string);
-                      reader.onerror = () => reject(new Error('Не удалось прочитать изображение.'));
-                      reader.readAsDataURL(file);
+                    if (!currentPin.pinId) {
+                      throw new Error('Сначала сохраните пин в генераторе — только сохранённому пину можно заменить изображение.');
+                    }
+                    const fd = new FormData();
+                    fd.append('image', file);
+                    const API = (import.meta as any).env?.VITE_API_URL || 'https://pinboard-ai-backend.onrender.com';
+                    const response = await fetch(API + '/pins/' + encodeURIComponent(currentPin.pinId) + '/image', {
+                      method: 'POST',
+                      headers: { Authorization: 'Bearer ' + localStorage.getItem('token') },
+                      body: fd,
                     });
-
-                    if (currentPin.pinId) {
-                      const fd = new FormData();
-                      fd.append('image', file);
-                      const API = (import.meta as any).env?.VITE_API_URL || 'https://pinboard-ai-backend.onrender.com';
-                      const response = await fetch(API + '/pins/' + encodeURIComponent(currentPin.pinId) + '/image', {
-                        method: 'POST',
-                        headers: { Authorization: 'Bearer ' + localStorage.getItem('token') },
-                        body: fd,
-                      });
-                      if (!response.ok) {
-                        throw new Error('Не удалось сохранить изображение на сервере. Попробуйте ещё раз.');
-                      }
+                    if (!response.ok) {
+                      throw new Error('Не удалось сохранить изображение на сервере. Попробуйте ещё раз.');
+                    }
+                    const savedPin = await response.json();
+                    if (typeof savedPin.image_url !== 'string' || !savedPin.image_url) {
+                      throw new Error('Сервер не вернул постоянную ссылку на изображение.');
                     }
 
                     updateQueue((prev) =>
-                      prev.map((p) => (p.id === currentPin.id ? { ...p, imageUrl: dataUrl } : p))
+                      prev.map((p) => (p.id === currentPin.id ? { ...p, imageUrl: savedPin.image_url } : p))
                     );
                   } catch (error) {
                     window.alert(error instanceof Error ? error.message : 'Не удалось обновить изображение.');
