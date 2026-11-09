@@ -174,7 +174,7 @@ const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
 const { calculateGenerationReservation, calculateQuotedGenerationPricing } = require("./generationPricing");
 const { uploadPinImage, rehostImage, deletePinImageIfUnreferenced } = require("./storage");
-const { reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects, retryFailedPinImageDeletions } = require("./pinImageLifecycle");
+const { reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects, retryFailedPinImageDeletions, processPendingPinImageRetentionQueue } = require("./pinImageLifecycle");
 const { validateDevTopupRequest } = require("./devTopup");
 const mail = require("./mail");
 const passwordReset = require("./password-reset");
@@ -2325,6 +2325,19 @@ app.post("/admin/storage/retire-expired-replay-references", adminActionLimiter, 
     });
     if (error) throw error;
     res.json({ ...data, replay_reference_retirement_only: true });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// Process only queue rows released by transactional replay retirement. Every object
+// still passes through claim_pin_image_deletion immediately before Storage DELETE.
+app.post("/admin/storage/process-retention-queue", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const parsedLimit = Number.parseInt(String(req.body && req.body.limit || "10"), 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(25, Math.max(1, parsedLimit)) : 10;
+    const result = await processPendingPinImageRetentionQueue({ supabase, limit });
+    res.json({ ...result, storage_deletion_worker: true });
   } catch (e) {
     handleError(res, e);
   }
