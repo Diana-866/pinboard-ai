@@ -29,11 +29,13 @@ function createWorker({ config, client = axios, logger = console, intervalMs = P
   let active = false;
   let stopped = false;
 
+  const safeBatchLimit = Math.max(1, Math.min(10, Number(batchLimit) || 10));
+
   async function tick() {
     if (stopped || active) return;
     active = true;
     try {
-      const response = await client.post(config.endpoint, { limit: batchLimit }, {
+      const response = await client.post(config.endpoint, { limit: safeBatchLimit }, {
         timeout: timeoutMs,
         headers: { "x-pinposy-scheduler-secret": config.secret },
       });
