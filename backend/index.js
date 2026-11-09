@@ -8,6 +8,7 @@ const { isOwnedByUser } = require("./resourceOwnership");
 const { serializeGenerationRecovery } = require("./generationRecovery");
 const { isAllowedPinImageUploadMime } = require("./imageUploadValidation");
 const { serializePinImageUploadError } = require("./imageUploadErrors");
+const { buildPinImageRateLimitKey } = require("./pinImageRateLimitKey");
 
 const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
@@ -158,7 +159,7 @@ const imageUploadLimiter = rateLimit({
   limit: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => String(req.userId || req.ip),
+  keyGenerator: buildPinImageRateLimitKey,
   message: { error: "Слишком много загрузок изображений. Попробуйте позже." },
 });
 
