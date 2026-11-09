@@ -452,6 +452,7 @@ module.exports = {
   quarantineStalePinImageUploads,
   inspectQuarantinedPinImageObjects,
   retryFailedPinImageDeletions,
+  processPendingPinImageRetentionQueue,
   extractManagedPinImagePath,
   buildPinImageObjectPath,
 };
