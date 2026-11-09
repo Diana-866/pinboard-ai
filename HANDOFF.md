@@ -1813,3 +1813,13 @@ Repository files were read back after updates. Local Node/PostgreSQL execution w
 - This prevents an incomplete or truncated list containing only unrelated IDs from being treated as proof that a cancellation committed.
 - Extended regression cases for incomplete rows, invalid timestamps, and missing destination identity. The worker/cancellation database protocol is unchanged.
 - GitHub read-back performed. Automated tests, lint, typecheck, and build have not been executed. No production DB changes, deployment, or merge.
+
+
+# AUD-289 — safe calendar restoration after reload and API errors (2026-11-09)
+
+- Added strict validation for persisted schedule responses: the top-level value must be an array and every row must include a non-empty schedule ID, pin ID, status, and parseable scheduled timestamp. A malformed row rejects the entire refresh instead of replacing the calendar with partial/empty data.
+- Added explicit calendar loading state for the initial fetch and retries. The calendar now shows an accessible loading status; retry is disabled while a request is active.
+- A failed refresh preserves the last successfully loaded schedule in memory and displays the existing retry/error notice. The queue no longer presents the ordinary “empty” state while data is loading or unavailable.
+- Account-switch isolation remains: schedules are cleared immediately for the new user, and stale requests are ignored; loading is also reset safely when a request is cancelled.
+- Added `frontend/src/utils/persistedSchedule.ts` and Node regression tests for empty lists, retained failure metadata, malformed top-level payloads, and invalid/incomplete rows.
+- GitHub read-back and CI recheck are pending. Tests, typecheck, and build have not been executed locally. No production DB changes, deployment, merge, or worker changes were made.
