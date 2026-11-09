@@ -51,3 +51,10 @@ test("AI generation routes share a per-authenticated-user limiter", () => {
     assert.ok(source.includes(registration), "Expected authenticated per-user AI limiter: " + registration);
   }
 });
+
+
+test("GET /admin/storage/retention-candidates is read-only and rate-limited before authentication", () => {
+  const registration = 'app.get("/admin/storage/retention-candidates", adminActionLimiter, requireAuth, requireAdmin,';
+  assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
+  assert.ok(source.includes('supabase.rpc("list_pin_image_retention_candidates"'));
+});
