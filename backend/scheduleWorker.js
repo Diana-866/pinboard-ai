@@ -12,7 +12,7 @@ const REQUEST_TIMEOUT_MS = Math.max(10_000, Number(process.env.PINPOSY_SCHEDULER
 const BATCH_LIMIT = Math.max(1, Math.min(10, Number(process.env.PINPOSY_SCHEDULER_BATCH_LIMIT) || 10));
 
 function getWorkerConfig(env = process.env) {
-  const baseUrl = String(env.PINPOSY_BACKEND_URL || env.PUBLIC_BACKEND_URL || "").trim().replace(/\\/+$/, "");
+  const baseUrl = String(env.PINPOSY_BACKEND_URL || env.PUBLIC_BACKEND_URL || "").trim().replace(/[/]+$/, "");
   const secret = String(env.PINPOSY_SCHEDULER_SECRET || "");
   if (!baseUrl) throw new Error("PINPOSY_BACKEND_URL (or PUBLIC_BACKEND_URL) is required");
   let parsed;
