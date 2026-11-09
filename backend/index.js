@@ -13,6 +13,7 @@ const { applyPinImageCompareAndSwapFilter } = require("./pinImageCompareAndSwap"
 const { buildBoardPatch } = require("./boardPatch");
 const { serializeBoardForClient } = require("./boardSerialization");
 const { serializeProjectForClient } = require("./projectSerialization");
+const { sortProjectsForProvisioning } = require("./projectProvisioningOrder");
 const { buildPinPatch } = require("./pinPatch");
 
 const { getBalance, adjustBalance } = require("./credits");
@@ -596,7 +597,7 @@ app.get("/projects", requireAuth, async (req, res) => {
       .select("*")
       .eq("user_id", req.userId);
     if (error) throw error;
-    res.json(Array.isArray(data) ? data.map(serializeProjectForClient) : data);
+    res.json(sortProjectsForProvisioning(data).map(serializeProjectForClient));
   } catch (e) {
     handleError(res, e);
   }
