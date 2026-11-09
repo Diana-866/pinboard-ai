@@ -1186,7 +1186,7 @@ app.post("/boards", requireAuth, async (req, res) => {
       .single();
 
     if (error) throw error;
-    res.status(201).json(data);
+    res.status(201).json(serializeBoardForClient(data));
   } catch (e) {
     handleError(res, e);
   }
