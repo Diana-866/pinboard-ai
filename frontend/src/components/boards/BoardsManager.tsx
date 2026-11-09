@@ -8,7 +8,7 @@ import { BoardItem } from '../../data/mockData';
 interface BoardsManagerProps {
   boards: BoardItem[];
   loadError?: string;
-  onAddBoard: (board: BoardItem) => void;
+  onAddBoard: (board: BoardItem) => Promise<void> | void;
 }
 
 export const BoardsManager: React.FC<BoardsManagerProps> = ({
@@ -21,14 +21,23 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [boardName, setBoardName] = useState('');
   const [category, setCategory] = useState('Home Decor');
+  const [saving, setSaving] = useState(false);
+  const [createError, setCreateError] = useState('');
 
-  const handleCreateBoard = (e: React.FormEvent) => {
+  const closeCreateModal = () => {
+    if (saving) return;
+    setCreateModalOpen(false);
+    setCreateError('');
+  };
+
+  const handleCreateBoard = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!boardName.trim()) return;
+    const title = boardName.trim();
+    if (!title || saving) return;
 
     const newBoard: BoardItem = {
-      id: `b-${Date.now()}`,
-      name: boardName.trim(),
+      id: `draft-${Date.now()}`,
+      name: title,
       category,
       pinCount: 0,
       monthlyViews: 0,
@@ -38,9 +47,19 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
       coverImage: '/src/assets/images/pin_home_decor_1790670043705.jpg',
     };
 
-    onAddBoard(newBoard);
-    setBoardName('');
-    setCreateModalOpen(false);
+    setSaving(true);
+    setCreateError('');
+    try {
+      await onAddBoard(newBoard);
+      setBoardName('');
+      setCreateModalOpen(false);
+    } catch (error) {
+      setCreateError(error instanceof Error
+        ? error.message
+        : 'Не удалось сохранить доску. Проверьте соединение и попробуйте ещё раз.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -57,7 +76,7 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
         </div>
 
         <button
-          onClick={() => setCreateModalOpen(true)}
+          onClick={() => { setCreateError(''); setCreateModalOpen(true); }}
           className="accent-btn self-start sm:self-auto px-4 py-2 rounded-xl text-xs md:text-sm font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
         >
           <Plus className="w-4 h-4" />
@@ -104,16 +123,21 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
       {/* Create Board Modal */}
       {createModalOpen && (
         <div
-          onClick={() => setCreateModalOpen(false)}
+          onClick={closeCreateModal}
           className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in"
         >
           <div
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-board-title"
             className="custom-card max-w-md w-full p-6 rounded-2xl space-y-4 shadow-2xl"
           >
-            <h2 className="text-lg font-bold text-primary-theme font-heading">
+            <h2 id="create-board-title" className="text-lg font-bold text-primary-theme font-heading">
               {t.boards.createBoardBtn}
             </h2>
+
+            {createError && <p role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600">{createError}</p>}
 
             <form onSubmit={handleCreateBoard} className="space-y-4">
               <div>
@@ -126,6 +150,7 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
                   onChange={(e) => setBoardName(e.target.value)}
                   placeholder="e.g. Earthy Ceramic Pottery & Clay Decor"
                   className="w-full px-3 py-2 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
+                  maxLength={100}
                   required
                 />
               </div>
@@ -151,16 +176,18 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setCreateModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-medium border border-subtle text-secondary-theme hover:bg-subtle cursor-pointer"
+                  onClick={closeCreateModal}
+                  disabled={saving}
+                  className="px-4 py-2 rounded-xl text-xs font-medium border border-subtle text-secondary-theme hover:bg-subtle cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {t.common.cancel}
                 </button>
                 <button
                   type="submit"
-                  className="accent-btn px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer shadow-xs"
+                  disabled={saving || !boardName.trim()}
+                  className="accent-btn px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {t.common.create}
+                  {saving ? 'Сохранение…' : t.common.create}
                 </button>
               </div>
             </form>
