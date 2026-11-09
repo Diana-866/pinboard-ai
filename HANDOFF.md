@@ -1527,3 +1527,13 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Добавлены регрессионные тесты на object-specific 404, generic 404 и поведение deletion lifecycle. Обновлён `docs/storage-lifecycle.md`.
 - Проверка: изменения перечитаны из GitHub. Локальный Node/PostgreSQL запуск не выполнялся; GitHub Actions на текущем HEAD возвращает failure без доступных логов/steps. Production DB/Storage, deploy и merge не затрагивались.
 - Документ: `docs/audits/AUD-259-storage-delete-404-classification.md`.
+
+
+## AUD-260 — повторяемая финализация жизненного цикла изображений (2026-11-09)
+
+- Найден дефект потерянного подтверждения: Storage мог успешно загрузить/удалить объект, PostgreSQL мог зафиксировать финализацию, но ответ RPC терялся. Повтор того же RPC раньше возвращал false, потому что исходный claim token уже был очищен; приложение ошибочно воспринимало завершённую операцию как неудачную.
+- Добавлена миграция 100_idempotent_pin_image_lifecycle_finalization.sql: lifecycle-таблица хранит last_finalized_token; повтор финализации принимается только при совпадении исходного токена и точного терминального результата (успех/ошибка и код). Чужой токен и конфликтующий исход отклоняются.
+- Backend теперь делает не более одной повторной попытки RPC-финализации загрузки или удаления с теми же аргументами и тем же fencing token. Неоднозначные Storage upload/delete запросы не повторяются автоматически; их защита quarantine/fencing сохранена.
+- Добавлены Node regression tests для временного отказа ответа finalize RPC и PostgreSQL integration assertions для повторного успеха/ошибки, неправильного токена и конфликтующего исхода. Миграция 100 добавлена в atomic-payment CI.
+- Проверка: файлы записаны в GitHub и требуют read-back. Локальные Node/PostgreSQL тесты здесь не запускались; CI на актуальном HEAD ещё не подтверждён. Миграция не применялась к рабочей Supabase БД; production Storage, deployment и merge не затрагивались.
+- Документ: docs/audits/AUD-260-idempotent-pin-image-finalization.md.
