@@ -848,6 +848,12 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
       p_model: model, p_prompt: prompt, p_amount: cost,
     });
     if (beginError) throw beginError;
+    if (state.status === "expired") {
+      return res.status(410).json({
+        error: "Срок хранения результата перегенерации истёк. Используйте новый ключ идемпотентности для новой операции.",
+        code: "idempotency_result_expired",
+      });
+    }
     if (state.status === "completed") return res.status(200).json(state.pin);
     if (state.status === "processing") {
       res.set("Retry-After", "5");
@@ -1303,6 +1309,12 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
       p_fingerprint: requestFingerprint,
     });
     if (requestError) throw requestError;
+    if (requestState.status === "expired") {
+      return res.status(410).json({
+        error: "Срок хранения результата генерации истёк. Используйте новый ключ идемпотентности для новой операции.",
+        code: "idempotency_result_expired",
+      });
+    }
     if (requestState.status === "completed") return res.status(200).json(requestState.pins || []);
     if (requestState.status === "processing") {
       res.set("Retry-After", "5");
@@ -2270,6 +2282,26 @@ app.get("/admin/storage/retention-candidates", adminActionLimiter, requireAuth, 
     });
     if (error) throw error;
     res.json({ retention_days: days, read_only: true, candidates: data || [] });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// Expire only old, definitively completed replay results. The SQL RPC preserves
+// idempotency tombstones and queues image paths for a later fenced cleanup phase;
+// this operation does not clear payloads or delete Storage objects.
+app.post("/admin/storage/expire-replay-results", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const parsedDays = Number.parseInt(String(req.body && req.body.days || "90"), 10);
+    const parsedLimit = Number.parseInt(String(req.body && req.body.limit || "100"), 10);
+    const days = Number.isFinite(parsedDays) ? Math.min(3650, Math.max(30, parsedDays)) : 90;
+    const limit = Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 100;
+    const { data, error } = await supabase.rpc("expire_pin_image_replay_results", {
+      p_retention_days: days,
+      p_limit: limit,
+    });
+    if (error) throw error;
+    res.json({ ...data, retention_days: days, replay_expiry_only: true });
   } catch (e) {
     handleError(res, e);
   }
