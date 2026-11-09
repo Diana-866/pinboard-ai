@@ -1,4 +1,6 @@
-# PinPosy (pinboard-ai) — план разработки
+# PinPosy (pinboard-ai) — исторический план разработки
+
+> **Внимание:** этот файл содержит исходный backlog от 2026-10-16 и сохранён для истории. Он больше не является главным источником актуальных требований или процентов. Использовать [docs/MASTER_REQUIREMENTS.md](docs/MASTER_REQUIREMENTS.md) как канонический продуктовый реестр, [docs/INFRASTRUCTURE_REQUIREMENTS.md](docs/INFRASTRUCTURE_REQUIREMENTS.md) для инфраструктуры и [docs/LAUNCH_CONTROL.md](docs/LAUNCH_CONTROL.md) для операционного журнала.
 
 > Обновлено: 2026-10-16
 > Сайт: https://pinboard-ai-web.vercel.app · Бэкенд: Render · БД: Supabase · AI: GPTunnel · Фронт: Vercel
