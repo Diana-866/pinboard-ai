@@ -1947,3 +1947,12 @@ The backend already computes safe retryability and a machine-readable reason for
 - Generator now observes `user.id`, clears account/board selections on identity changes, ignores stale requests, clears old Pinterest boards immediately when changing accounts, and validates returned account/board fields.
 - Added `docs/audits/AUD-301-pinterest-generator-user-switch.md`.
 - Tests, lint, typecheck, and build have not been run. No production DB changes, deployment, or merge.
+
+
+## AUD-302 — ignore stale pin-description save completions after board switch (2026-11-09)
+
+- Found that an in-flight description PATCH could finish after the user switched internal boards. Its captured revision could still match, allowing the old request to update the shared save-status indicator in the new board context.
+- Added a synchronous ref for the currently selected board and `isCurrentPinDescriptionSave` guard. Save-start, success, and failure status updates now require both the latest edit revision and the same active board identity.
+- The PATCH remains addressed by the original pin ID; the fix does not redirect writes, alter the API, or discard the persisted/local draft reconciliation behavior.
+- Added unit coverage for current-board/current-revision success, previous-board completion rejection, and stale-revision rejection.
+- GitHub source read-back verified. Tests, lint, typecheck, and build have not been run; no CI pass claimed. No production DB changes, deployment, or merge.
