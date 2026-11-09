@@ -40,6 +40,7 @@ import {
 import { mapPersistedBoards } from './utils/persistedBoards';
 import { getOrCreateProject } from './utils/projectProvisioning';
 import { validatePersistedScheduleRows } from './utils/persistedSchedule';
+import { mergeRestoredReviewQueue } from './utils/reviewQueueHydration';
 import { isReviewQueueOwnerCurrent } from './utils/reviewQueueOwnerFence';
 import { findPersistedScheduleMutation, isScheduleAbsentFromActiveList } from './utils/scheduleMutationReconciliation';
 
@@ -279,6 +280,8 @@ const MainApp: React.FC = () => {
   const reviewQueueWriteChainsRef = React.useRef<Map<string, Promise<unknown>>>(new Map());
   const pendingReviewUserIdRef = React.useRef(user?.id || '');
   const pendingReviewOwnerGenerationRef = React.useRef(0);
+  const reviewQueueHydratingRef = React.useRef(false);
+  const reviewQueueTouchedIdsRef = React.useRef<Set<string>>(new Set());
 
   // Restore the authenticated user's review queue from the backend. Never use
   // localStorage: it is not an ownership boundary and can leak across accounts.
@@ -287,6 +290,8 @@ const MainApp: React.FC = () => {
     // an earlier A -> B -> A session must not become valid again.
     pendingReviewOwnerGenerationRef.current += 1;
     pendingReviewUserIdRef.current = user?.id || '';
+    reviewQueueHydratingRef.current = Boolean(user?.id);
+    reviewQueueTouchedIdsRef.current = new Set();
     pendingReviewPinsRef.current = [];
     setPendingReviewPins([]);
   }, [user?.id]);
@@ -305,11 +310,20 @@ const MainApp: React.FC = () => {
       .then((rows) => {
         if (!active || !isCurrentOwner()) return;
         const safeRows = Array.isArray(rows) ? rows as PendingReviewPin[] : [];
-        pendingReviewPinsRef.current = safeRows;
-        setPendingReviewPins(safeRows);
+        const hydratedRows = mergeRestoredReviewQueue(
+          safeRows,
+          pendingReviewPinsRef.current,
+          reviewQueueTouchedIdsRef.current,
+        );
+        reviewQueueHydratingRef.current = false;
+        reviewQueueTouchedIdsRef.current.clear();
+        pendingReviewPinsRef.current = hydratedRows;
+        setPendingReviewPins(hydratedRows);
       })
       .catch((error) => {
         if (!active || !isCurrentOwner()) return;
+        reviewQueueHydratingRef.current = false;
+        reviewQueueTouchedIdsRef.current.clear();
         console.error('[review-queue] Не удалось восстановить очередь:', error);
         window.dispatchEvent(new CustomEvent('pinposy:review-queue-error'));
       });
@@ -390,6 +404,18 @@ const MainApp: React.FC = () => {
     const previous = pendingReviewPinsRef.current;
     const next = updater(previous);
     if (next === previous) return;
+    if (reviewQueueHydratingRef.current) {
+      const previousById = new Map(previous.map((pin) => [pin.id, pin]));
+      const nextById = new Map(next.map((pin) => [pin.id, pin]));
+      for (const id of previousById.keys()) {
+        if (!nextById.has(id)) reviewQueueTouchedIdsRef.current.add(id);
+      }
+      for (const id of nextById.keys()) {
+        if (!previousById.has(id) || JSON.stringify(previousById.get(id)) !== JSON.stringify(nextById.get(id))) {
+          reviewQueueTouchedIdsRef.current.add(id);
+        }
+      }
+    }
     pendingReviewPinsRef.current = next;
     setPendingReviewPins(next);
 
