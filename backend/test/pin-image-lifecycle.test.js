@@ -500,10 +500,11 @@ test("quarantined object inventory reports present and absent objects without de
   });
   const result = await inspectQuarantinedPinImageObjects({ supabase, limit: 200 });
   assert.equal(result.inspected, 2);
-  assert.equal(result.objectVisible, 2);
-  assert.equal(result.objectMissing, 0);
+  assert.equal(result.objectVisible, 1);
+  assert.equal(result.objectMissing, 1);
   assert.equal(result.items[0].status, "object_present");
   assert.equal(result.items[0].safe_action, "manual_review_only_no_automatic_delete_or_unquarantine");
+  assert.equal(result.items[1].status, "object_absent");
   assert.equal(result.items[1].has_reference, true);
   assert.equal(result.items[1].safe_action, "investigate_reference_guard_before_any_action");
   assert.equal(supabase.calls[0].args.p_limit, 50);
