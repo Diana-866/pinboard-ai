@@ -737,8 +737,9 @@ app.patch("/pins/:id", requireAuth, async (req, res) => {
       .eq("id", req.params.id)
       .eq("board_id", pin.board_id)
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
+    if (!data) throw httpError(404, "Пин больше не существует");
     res.json(data);
   } catch (e) {
     handleError(res, e);
@@ -748,7 +749,7 @@ app.patch("/pins/:id", requireAuth, async (req, res) => {
 app.post("/pins/:id/status", requireAuth, async (req, res) => {
   try {
     const pin = await getPinWithOwnerCheck(req.params.id, req.userId);
-    const { status } = req.body;
+    const status = req.body && !Array.isArray(req.body) ? req.body.status : undefined;
     if (!["approved", "rejected"].includes(status)) throw httpError(422, "Некорректный статус");
     const { data, error } = await supabase
       .from("pins")
@@ -756,8 +757,9 @@ app.post("/pins/:id/status", requireAuth, async (req, res) => {
       .eq("id", req.params.id)
       .eq("board_id", pin.board_id)
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
+    if (!data) throw httpError(404, "Пин больше не существует");
     res.json(data);
   } catch (e) {
     handleError(res, e);
