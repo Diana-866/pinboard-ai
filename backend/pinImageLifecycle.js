@@ -42,7 +42,7 @@ function extractManagedPinImagePath(publicUrl, supabaseUrl, bucket = "pin-images
     const objectPath = decodeURIComponent(objectUrl.pathname.slice(prefix.length));
     // Only remove objects created by uploadPinImage; leave legacy or foreign
     // object names untouched rather than guessing their ownership.
-    if (!/^pins\/(?:[0-9]+-[a-z0-9]{1,16}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp|gif)$/i.test(objectPath)) return null;
+    if (!/^pins\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp|gif)$/i.test(objectPath)) return null;
     return objectPath;
   } catch {
     return null;
@@ -58,7 +58,7 @@ function buildPinImageObjectPath(extension, idempotencyKey = null) {
     const digest = crypto.createHash("sha256").update(String(idempotencyKey)).digest("hex").slice(0, 32);
     return `pins/generation-${digest}.${ext}`;
   }
-  // Use cryptographic entropy for public object names; timestamps are useful for\n  // operations, but Math.random() is not suitable for access-resistant identifiers.\n  return `pins/${Date.now()}-${crypto.randomBytes(8).toString("hex")}.${ext}`;
+  // Use cryptographic entropy for public object names; timestamps are useful for\n  // operations, but Math.random() is not suitable for access-resistant identifiers.\n  return `pins/${Date.now()}-${crypto.randomBytes(16).toString("hex")}.${ext}`;
 }
 
 function isDefiniteStorageRejection(error) {
