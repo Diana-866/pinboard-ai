@@ -8,7 +8,7 @@
 const axios = require("axios");
 
 const POLL_INTERVAL_MS = Math.max(5_000, Number(process.env.PINPOSY_SCHEDULER_INTERVAL_MS) || 30_000);
-const REQUEST_TIMEOUT_MS = Math.max(10_000, Number(process.env.PINPOSY_SCHEDULER_REQUEST_TIMEOUT_MS) || 120_000);
+const MAX_REQUEST_TIMEOUT_MS = 15 * 60_000; // Stay below the 20-minute stale-claim recovery window.\nconst REQUEST_TIMEOUT_MS = Math.min(\n  MAX_REQUEST_TIMEOUT_MS,\n  Math.max(10_000, Number(process.env.PINPOSY_SCHEDULER_REQUEST_TIMEOUT_MS) || 120_000)\n);
 const BATCH_LIMIT = Math.max(1, Math.min(10, Number(process.env.PINPOSY_SCHEDULER_BATCH_LIMIT) || 10));
 
 function getWorkerConfig(env = process.env) {
@@ -29,14 +29,14 @@ function createWorker({ config, client = axios, logger = console, intervalMs = P
   let active = false;
   let stopped = false;
 
-  const safeBatchLimit = Math.max(1, Math.min(10, Number(batchLimit) || 10));
+  const safeBatchLimit = Math.max(1, Math.min(10, Number(batchLimit) || 10));\n  // Keep even explicitly injected/test configuration below PostgreSQL's stale-claim fence.\n  const safeTimeoutMs = Math.min(MAX_REQUEST_TIMEOUT_MS, Math.max(10_000, Number(timeoutMs) || REQUEST_TIMEOUT_MS));
 
   async function tick() {
     if (stopped || active) return;
     active = true;
     try {
       const response = await client.post(config.endpoint, { limit: safeBatchLimit }, {
-        timeout: timeoutMs,
+        timeout: safeTimeoutMs,
         headers: { "x-pinposy-scheduler-secret": config.secret },
       });
       const data = response && response.data;
@@ -100,4 +100,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { getWorkerConfig, createWorker };
+module.exports = { getWorkerConfig, createWorker, MAX_REQUEST_TIMEOUT_MS };
