@@ -18,6 +18,8 @@ declare
   v_queue_state text;
   v_saved_queue_token uuid;
   v_fresh_state jsonb;
+  v_bounded_generation_id bigint;
+  v_bounded_count integer;
 begin
   insert into public.users(id, email)
   values (v_user_id, v_user_id::text || '@pin-image-expiry-test.invalid');
@@ -152,6 +154,37 @@ begin
   );
   if v_state ->> 'status' <> 'expired' then
     raise exception 'expired regeneration key did not return tombstone status: %', v_state;
+  end if;
+
+  -- The configured limit is shared by both journal types, not applied twice.
+  insert into public.pin_generation_requests(
+    user_id, board_id, idempotency_key, status, request_fingerprint, pins,
+    created_at, updated_at
+  ) values (
+    v_user_id::text, v_board_id, 'pin-expiry-generation-bounded-0001',
+    'completed', repeat('f',64), '[]'::jsonb,
+    now()-interval '120 days', now()-interval '120 days'
+  ) returning id into v_bounded_generation_id;
+  insert into public.pin_regeneration_requests(
+    user_id, pin_id, idempotency_key, request_fingerprint, model, prompt, amount,
+    status, created_at, updated_at
+  ) values (
+    v_user_id::text, v_pin_id, 'pin-expiry-regeneration-bounded-01', repeat('1',64),
+    'test-model', 'Bounded batch', 1, 'completed',
+    now()-interval '120 days', now()-interval '120 days'
+  );
+  perform public.expire_pin_image_replay_results(90, 1);
+  select count(*) into v_bounded_count
+    from public.pin_generation_requests
+   where id = v_bounded_generation_id and replay_expired_at is not null;
+  v_bounded_count := v_bounded_count + (
+    select count(*)::integer from public.pin_regeneration_requests
+     where user_id = v_user_id::text
+       and idempotency_key = 'pin-expiry-regeneration-bounded-01'
+       and replay_expired_at is not null
+  );
+  if v_bounded_count <> 1 then
+    raise exception 'expiry RPC did not enforce a shared total batch limit: %', v_bounded_count;
   end if;
 
   if not has_function_privilege('service_role',
