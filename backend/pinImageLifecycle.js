@@ -389,6 +389,7 @@ module.exports = {
   reconcileStalePinImageUploads,
   quarantineStalePinImageUploads,
   inspectQuarantinedPinImageObjects,
+  retryFailedPinImageDeletions,
   extractManagedPinImagePath,
   buildPinImageObjectPath,
 };
