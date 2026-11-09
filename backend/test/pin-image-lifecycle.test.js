@@ -139,7 +139,8 @@ function makeStorageClient(options = {}) {
         return { data: options.uploadFinalizeData === undefined ? true : options.uploadFinalizeData,
           error: options.uploadFinalizeError || null };
       }
-      if (name === "list_failed_pin_image_deletions") return { data: options.failedDeletions === undefined ? [] : options.failedDeletions, error: options.failedInventoryError || null };\n      if (name === "list_quarantined_pin_image_objects") {
+      if (name === "list_failed_pin_image_deletions") return { data: options.failedDeletions === undefined ? [] : options.failedDeletions, error: options.failedInventoryError || null };
+      if (name === "list_quarantined_pin_image_objects") {
         return { data: options.quarantinedObjects === undefined ? [] : options.quarantinedObjects,
           error: options.quarantinedInventoryError || null };
       }
