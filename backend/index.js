@@ -1203,9 +1203,10 @@ app.patch("/boards/:id", requireAuth, async (req, res) => {
       .eq("id", req.params.id)
       .eq("project_id", board.project_id)
       .select("*")
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
+    if (!data) throw httpError(404, "Доска больше не существует");
     res.json(data);
   } catch (e) {
     handleError(res, e);
