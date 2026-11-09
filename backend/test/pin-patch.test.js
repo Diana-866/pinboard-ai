@@ -27,6 +27,10 @@ test("buildPinPatch rejects empty titles, empty patches and unknown-only patches
   assert.throws(() => buildPinPatch({ title: "  " }, ratios), { httpStatus: 422 });
   assert.throws(() => buildPinPatch({}, ratios), { httpStatus: 422 });
   assert.throws(() => buildPinPatch({ ignored: true }, ratios), { httpStatus: 422 });
+  assert.throws(() => buildPinPatch({ title: "Updated", descripton: "typo" }, ratios), {
+    httpStatus: 422,
+    message: "Неизвестные поля обновления пина",
+  });
 });
 
 test("buildPinPatch rejects non-string descriptions", () => {
