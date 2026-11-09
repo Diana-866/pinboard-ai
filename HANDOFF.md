@@ -1778,3 +1778,11 @@ Repository files were read back after updates. Local Node/PostgreSQL execution w
 - Added `frontend/src/utils/scheduleMutationReconciliation.ts` and tests for exact match, mismatched identity/state, malformed/empty results, and ambiguous duplicates.
 - The reconciliation is read-only and does not issue a second retry or board-change operation. Cancellation is not inferred from an absent row because `GET /schedule` deliberately filters cancelled schedules.
 - Tests, typecheck, and build have not been executed in this environment. No production DB changes, deployment, or merge.
+
+
+## 2026-11-09 — AUD-285 idempotent schedule cancellation
+
+- Repeating cancellation for a schedule already cancelled by the same authenticated owner now returns the persisted cancelled schedule instead of HTTP 409. This recovers the common lost-response case without requiring the filtered `GET /schedule` endpoint to expose cancelled rows.
+- Re-runs the existing reference-aware image cleanup on the already-cancelled path; it does not issue an unguarded Storage delete.
+- Preserves the conditional scheduled-to-cancelled update as the linearization point. Publishing/published states remain non-cancellable, and owner scoping is unchanged.
+- Added `docs/audits/AUD-285-idempotent-schedule-cancellation.md`. Automated tests, lint, typecheck, and build have not been executed. No production DB changes, deployment, or merge.
