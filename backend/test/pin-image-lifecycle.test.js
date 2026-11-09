@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects, deleteManagedPinImageObject, findCompletedManagedPinImageUpload, validatePinImageBucketConfiguration, isDefiniteStorageRejection, isStorageObjectNotFound } = require("./pinImageLifecycle");
+const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects, retryFailedPinImageDeletions, deleteManagedPinImageObject, findCompletedManagedPinImageUpload, validatePinImageBucketConfiguration, isDefiniteStorageRejection, isStorageObjectNotFound } = require("./pinImageLifecycle");
 
 const base = "https://project.supabase.co";
 
@@ -139,7 +139,7 @@ function makeStorageClient(options = {}) {
         return { data: options.uploadFinalizeData === undefined ? true : options.uploadFinalizeData,
           error: options.uploadFinalizeError || null };
       }
-      if (name === "list_quarantined_pin_image_objects") {
+      if (name === "list_failed_pin_image_deletions") return { data: options.failedDeletions === undefined ? [] : options.failedDeletions, error: options.failedInventoryError || null };\n      if (name === "list_quarantined_pin_image_objects") {
         return { data: options.quarantinedObjects === undefined ? [] : options.quarantinedObjects,
           error: options.quarantinedInventoryError || null };
       }
@@ -610,4 +610,54 @@ test("quarantined inventory RPC errors fail closed", async () => {
     /migration missing/
   );
   assert.deepEqual(supabase.calls.map((call) => call.name || call.type), ["list_quarantined_pin_image_objects"]);
+});
+
+test("failed deletion retry inventory safely retries only valid managed paths", async () => {
+  const supabase = makeStorageClient({
+    failedDeletions: [
+      { bucket_id: "pin-images", object_path: "pins/1730000000000-ab12cd34.webp", attempts: 2, last_error_code: "storage_rejected" },
+      { bucket_id: "other-bucket", object_path: "pins/1730000000001-ab12cd34.webp", attempts: 1 },
+      { bucket_id: "pin-images", object_path: "foreign/object.webp", attempts: 1 },
+    ],
+  });
+  const result = await retryFailedPinImageDeletions({ supabase, limit: 200 });
+  assert.equal(result.inspected, 3);
+  assert.equal(result.deleted, 1);
+  assert.equal(result.skipped, 2);
+  assert.equal(result.failed, 0);
+  assert.deepEqual(supabase.calls.filter((call) => call.name || call.type).map((call) => call.name || call.type), [
+    "list_failed_pin_image_deletions", "claim_pin_image_deletion", "remove", "finalize_pin_image_deletion",
+  ]);
+  const inventory = supabase.calls.find((call) => call.name === "list_failed_pin_image_deletions");
+  assert.equal(inventory.args.p_limit, 100);
+});
+
+test("failed deletion retry respects claim refusal and never calls Storage for referenced paths", async () => {
+  const supabase = makeStorageClient({
+    failedDeletions: [{ bucket_id: "pin-images", object_path: "pins/1730000000000-ab12cd34.webp", attempts: 3 }],
+    claimData: { claimed: false, reason: "referenced" },
+  });
+  const result = await retryFailedPinImageDeletions({ supabase });
+  assert.equal(result.skipped, 1);
+  assert.equal(result.deleted, 0);
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), [
+    "list_failed_pin_image_deletions", "claim_pin_image_deletion",
+  ]);
+});
+
+test("failed deletion retry reports bounded per-object errors and fails closed on inventory errors", async () => {
+  const storageError = Object.assign(new Error("Storage rejected"), { code: "storage_rejected", statusCode: 400 });
+  const supabase = makeStorageClient({
+    failedDeletions: [{ bucket_id: "pin-images", object_path: "pins/1730000000000-ab12cd34.webp", attempts: 2 }],
+    removeError: storageError,
+  });
+  const result = await retryFailedPinImageDeletions({ supabase });
+  assert.equal(result.failed, 1);
+  assert.equal(result.items[0].status, "failed");
+  assert.equal(result.items[0].error_code, "storage_rejected");
+
+  const inventoryError = new Error("migration missing");
+  const broken = makeStorageClient({ failedInventoryError: inventoryError });
+  await assert.rejects(retryFailedPinImageDeletions({ supabase: broken }), (error) => error === inventoryError);
+  assert.deepEqual(broken.calls.map((call) => call.name || call.type), ["list_failed_pin_image_deletions"]);
 });
