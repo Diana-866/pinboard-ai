@@ -21,6 +21,39 @@ const {
   sanitizeScheduleForClient,
 } = require("../pinterestSchedule");
 
+test("confirmed publication ledger matching requires every identity field to be non-empty", () => {
+  const identity = {
+    user_id: "user-1",
+    pin_id: "pin-1",
+    pinterest_account_id: "account-1",
+    pinterest_board_id: "board-1",
+    pinterest_pin_id: "remote-pin-1",
+  };
+
+  assert.equal(matchesConfirmedPublicationLedger({ ...identity }, { ...identity }), true);
+
+  for (const field of Object.keys(identity)) {
+    assert.equal(
+      matchesConfirmedPublicationLedger({ ...identity, [field]: "" }, { ...identity, [field]: "" }),
+      false,
+      `blank ledger and expected ${field}`
+    );
+    assert.equal(
+      matchesConfirmedPublicationLedger({ ...identity, [field]: "   " }, { ...identity }),
+      false,
+      `whitespace ledger ${field}`
+    );
+    assert.equal(
+      matchesConfirmedPublicationLedger({ ...identity }, { ...identity, [field]: "" }),
+      false,
+      `blank expected ${field}`
+    );
+  }
+
+  assert.equal(matchesConfirmedPublicationLedger(null, identity), false);
+  assert.equal(matchesConfirmedPublicationLedger(identity, null), false);
+});
+
 test("a disconnected Pinterest account before publication is a terminal failure", () => {
   assert.equal(classifyScheduleFailure(null, null), "failed");
 });
