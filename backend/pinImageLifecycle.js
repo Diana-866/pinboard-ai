@@ -58,7 +58,9 @@ function buildPinImageObjectPath(extension, idempotencyKey = null) {
     const digest = crypto.createHash("sha256").update(String(idempotencyKey)).digest("hex").slice(0, 32);
     return `pins/generation-${digest}.${ext}`;
   }
-  // Use cryptographic entropy for public object names; timestamps are useful for\n  // operations, but Math.random() is not suitable for access-resistant identifiers.\n  return `pins/${Date.now()}-${crypto.randomBytes(16).toString("hex")}.${ext}`;
+  // Use cryptographic entropy for public object names; timestamps are useful for
+  // operations, but Math.random() is not suitable for access-resistant identifiers.
+  return `pins/${Date.now()}-${crypto.randomBytes(16).toString("hex")}.${ext}`;
 }
 
 function isDefiniteStorageRejection(error) {
