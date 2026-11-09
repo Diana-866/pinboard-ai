@@ -2255,6 +2255,26 @@ app.post("/admin/storage/retry-failed-deletions", adminActionLimiter, requireAut
   }
 });
 
+// Read-only inventory of completed generated-image journal references that are older than
+// the retention window and have no live pin/schedule/provider-journal references.
+// This endpoint does not expire idempotency keys or delete Storage objects.
+app.get("/admin/storage/retention-candidates", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const parsedDays = Number.parseInt(String(req.query.days || "90"), 10);
+    const parsedLimit = Number.parseInt(String(req.query.limit || "100"), 10);
+    const days = Number.isFinite(parsedDays) ? Math.min(3650, Math.max(30, parsedDays)) : 90;
+    const limit = Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 100;
+    const { data, error } = await supabase.rpc("list_pin_image_retention_candidates", {
+      p_retention_days: days,
+      p_limit: limit,
+    });
+    if (error) throw error;
+    res.json({ retention_days: days, read_only: true, candidates: data || [] });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 // Read-only inventory of permanently quarantined image paths. It never deletes or reopens objects.
 app.get("/admin/storage/quarantined-objects", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
   try {
