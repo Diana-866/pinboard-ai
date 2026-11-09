@@ -41,6 +41,8 @@ jobs:
         run: node --test backend/test/pinterest-boards-pagination.test.js
       - name: Test pin image upload validation, errors, and rate-limit keys
         run: node --test backend/test/image-upload-validation.test.js backend/test/image-upload-errors.test.js backend/test/pin-image-rate-limit-key.test.js
+      - name: Test concurrent pin image replacement guard
+        run: node --test backend/test/pin-image-compare-and-swap.test.js
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update
