@@ -107,6 +107,15 @@ begin
        where public.managed_pin_image_object_path(g.storage_url) = grouped.object_path
          and (g.status <> 'completed' or g.updated_at > v_cutoff)
     )
+    and not exists (
+      select 1
+        from public.pin_generation_requests r
+        cross join lateral jsonb_array_elements(
+          case when jsonb_typeof(r.pins) = 'array' then r.pins else '[]'::jsonb end
+        ) as item(value)
+       where public.managed_pin_image_object_path(item.value ->> 'image_url') = grouped.object_path
+         and (r.status <> 'completed' or r.updated_at > v_cutoff)
+    )
   order by grouped.oldest_reference_at asc, grouped.object_path asc
   limit p_limit;
 end;
