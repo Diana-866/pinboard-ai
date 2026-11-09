@@ -226,6 +226,14 @@ begin
   ) then
     raise exception 'generation replay image URLs were not cleared';
   end if;
+
+  if not exists (
+    select 1 from public.pin_regeneration_requests
+     where user_id = v_user_id::text and idempotency_key = v_regeneration_key
+       and replay_expired_at is not null and storage_url is null and result_pin is null
+  ) then
+    raise exception 'regeneration replay image URLs were not cleared';
+  end if;
   if not exists (
     select 1 from public.pin_image_retention_queue
      where bucket_id = 'pin-images' and object_path = v_retirement_path
