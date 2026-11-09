@@ -388,6 +388,9 @@ export interface TranslationSchema {
     categoryFashion: string;
     savingLabel: string;
     saveErrorFallback: string;
+    loadingLabel: string;
+    retryLabel: string;
+    loadErrorFallback: string;
   };
 
   // Analytics
