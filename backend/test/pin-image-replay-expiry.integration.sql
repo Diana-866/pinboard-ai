@@ -24,6 +24,8 @@ declare
   v_retirement_path text := 'pins/generation-bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc.webp';
   v_retirement_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc.webp';
   v_retirement_state jsonb;
+  v_active_path text := 'pins/generation-cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd.webp';
+  v_active_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd.webp';
 begin
   insert into public.users(id, email)
   values (v_user_id, v_user_id::text || '@pin-image-expiry-test.invalid');
@@ -248,6 +250,27 @@ begin
      where bucket_id = 'pin-images' and object_path = v_retirement_path and state = 'pending'
   ) then
     raise exception 'unreferenced retired path was not released to pending queue';
+  end if;
+
+  -- A non-terminal journal must continue blocking the path even when the
+  -- expired replay that originally queued it has been cleared.
+  insert into public.pin_generation_requests(
+    user_id, board_id, idempotency_key, status, request_fingerprint, pins
+  ) values (
+    v_user_id::text, v_board_id, 'pin-expiry-retirement-active-01',
+    'processing', repeat('3',64),
+    jsonb_build_array(jsonb_build_object('image_url',v_active_url))
+  );
+  insert into public.pin_image_retention_queue(
+    bucket_id, object_path, state, source_types
+  ) values ('pin-images', v_active_path, 'awaiting_reference_retirement', array['generation_replay']);
+  perform public.retire_expired_pin_image_replay_references(100);
+  if not exists (
+    select 1 from public.pin_image_retention_queue
+     where bucket_id = 'pin-images' and object_path = v_active_path
+       and state = 'awaiting_reference_retirement'
+  ) then
+    raise exception 'non-terminal generation journal did not block queue release';
   end if;
   v_state := public.begin_pin_generation_request(
     v_user_id::text, v_board_id, 'pin-expiry-retirement-generation-01', repeat('2',64)
