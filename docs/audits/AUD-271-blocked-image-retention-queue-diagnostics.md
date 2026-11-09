@@ -13,7 +13,7 @@ Migration 109 and its worker correctly stop automatic retries when a Storage DEL
 - The RPC reports source types, queue attempts/error/timestamps, matching lifecycle state/error/attempts, and current database-reference visibility across live pins, non-cancelled schedule snapshots, generation tasks, generation replay JSON, regeneration storage URLs, and regeneration replay JSON.
 - Added a read-only backend inspection helper and admin-only, rate-limited endpoint `GET /admin/storage/retention-queue/blocked?limit=50`.
 - The helper lists the object in Supabase Storage and reports present/absent/inventory-failed. This is observational only.
-- Added SQL integration coverage and route middleware coverage; wired migration and SQL test into atomic-payment CI.
+- Added SQL integration coverage, route middleware coverage, and Node tests proving the diagnostic performs only read-only Storage listing (never remove) and rejects invalid paths before Storage access; wired migration and SQL test into atomic-payment CI.
 - Updated storage lifecycle operations documentation and handoff.
 
 ## Safety boundary
@@ -23,3 +23,8 @@ No blocked row is reset to pending. No Storage DELETE is issued. Storage listing
 ## Verification
 
 Repository changes are written on the feature branch. Local Node/PostgreSQL execution is unavailable in this environment; CI is configured but has not yet confirmed the migration/test. No production migration, Storage operation, deployment, or merge was performed.
+
+
+## Latest CI observation
+
+The new branch HEAD triggered all three PR workflows; all concluded `failure`. GitHub returned jobs with no step summaries or log URLs, and log download returned `BlobNotFound`. The separate Vercel status remains `build-rate-limit`. The test results are therefore unconfirmed, not passing; the available evidence does not identify a code-level failure.
