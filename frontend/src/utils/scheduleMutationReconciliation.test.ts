@@ -4,7 +4,7 @@ import { findPersistedScheduleMutation } from './scheduleMutationReconciliation'
 
 const expected = {
   scheduleId: 'schedule-1',
-  status: 'scheduled',
+  statuses: ['scheduled', 'publishing'],
   pinterestBoardId: 'board-new',
   pinterestAccountId: 'account-1',
 };
@@ -20,12 +20,12 @@ test('confirms the exact persisted schedule mutation', () => {
   assert.deepEqual(findPersistedScheduleMutation([persisted], expected), persisted);
 });
 
-test('does not confirm a different schedule, board, account, or status', () => {
+test('accepts a matching schedule already claimed by the worker', () => {\n  const publishing = { ...persisted, status: 'publishing' };\n  assert.deepEqual(findPersistedScheduleMutation([publishing], expected), publishing);\n});\n\ntest('does not confirm a different schedule, board, account, or status', () => {
   for (const row of [
     { ...persisted, id: 'schedule-other' },
     { ...persisted, pinterest_board_id: 'board-old' },
     { ...persisted, pinterest_account_id: 'account-other' },
-    { ...persisted, status: 'failed' },
+    { ...persisted, status: 'failed' },\n    { ...persisted, status: 'unknown' },
   ]) {
     assert.equal(findPersistedScheduleMutation([row], expected), null);
   }
