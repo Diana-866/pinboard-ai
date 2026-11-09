@@ -50,7 +50,11 @@ begin
      or has_function_privilege('anon',
        'public.list_quarantined_pin_image_objects(integer)', 'EXECUTE')
      or has_function_privilege('authenticated',
-       'public.list_quarantined_pin_image_objects(integer)', 'EXECUTE') then
+       'public.list_quarantined_pin_image_objects(integer)', 'EXECUTE')
+     or has_function_privilege('anon',
+       'public.list_failed_pin_image_deletions(integer)', 'EXECUTE')
+     or has_function_privilege('authenticated',
+       'public.list_failed_pin_image_deletions(integer)', 'EXECUTE') then
     raise exception 'untrusted role can execute pin image lifecycle RPC';
   end if;
 
@@ -67,7 +71,9 @@ begin
      or not has_function_privilege('service_role',
        'public.quarantine_stale_pin_image_upload(text,text,uuid)', 'EXECUTE')
      or not has_function_privilege('service_role',
-       'public.list_quarantined_pin_image_objects(integer)', 'EXECUTE') then
+       'public.list_quarantined_pin_image_objects(integer)', 'EXECUTE')
+     or not has_function_privilege('service_role',
+       'public.list_failed_pin_image_deletions(integer)', 'EXECUTE') then
     raise exception 'service_role is missing pin image lifecycle RPC permission';
   end if;
 
