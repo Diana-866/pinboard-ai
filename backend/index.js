@@ -193,7 +193,13 @@ const webhookMultipart = multer({
 }).none();
 const imageUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+    files: 1,
+    fields: 10,
+    fieldSize: 16 * 1024,
+    parts: 11,
+  },
   fileFilter: (req, file, cb) => {
     if (!isAllowedPinImageUploadMime(file.mimetype)) {
       const error = new Error("unsupported_image_type");
