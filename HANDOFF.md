@@ -1989,3 +1989,12 @@ The backend already computes safe retryability and a machine-readable reason for
 - Added a synchronous user-identity ref and a layout-effect reset. On identity change, previously loaded schedule rows and the prior load error are cleared before the browser paints; ordinary schedule reloads for the same user retain existing rows while refreshing.
 - This is a frontend visibility guard; API ownership filters remain authoritative.
 - No database changes. Tests, lint, typecheck, and build have not been run. No deployment or merge.
+
+
+## AUD-307 — isolate manual-review queue on authenticated-user switch (2026-11-09)
+
+- Found that the shared `pendingReviewPins` queue in `MainApp` survived account changes, allowing one signed-in user to see the previous user's pending review cards.
+- Added a layout-effect reset keyed to authenticated user identity so the queue is cleared before the next account is painted.
+- Added an owner-identity guard to queue updates so callbacks from a child rendered for the previous account cannot repopulate the new user's queue after the switch.
+- Removed writes to the legacy global `pinposy_pending_pins` localStorage key. The queue was not restored from that key, and a global key is unsafe for multi-account browser sessions.
+- No backend, database, deployment, or merge changes. Tests, lint, typecheck, and build have not been run.
