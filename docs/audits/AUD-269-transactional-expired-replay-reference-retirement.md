@@ -13,7 +13,7 @@ Migration 105 had created expiry tombstones and staged paths, but replay payload
 - Queue rows are promoted from `awaiting_reference_retirement` to `pending` only after checking for remaining references in live pins, non-cancelled schedules, generation tasks, generation replay payloads, and regeneration journals. A shared path remains blocked until every reference is gone.
 - Existing queue claims and non-awaiting states are not overwritten. The operation does not call Storage and does not bypass the final `claim_pin_image_deletion` barrier.
 - Added admin-only, rate-limited `POST /admin/storage/retire-expired-replay-references` with a bounded batch size.
-- Added SQL regression coverage for clearing replay URLs, preserving the expired-key response, and promoting a now-unreferenced path; added route middleware coverage and wired migration 108 into atomic-payment integration CI.
+- Added SQL regression coverage for clearing generation/regeneration replay URLs, preserving the expired-key response, keeping a live pin and a non-terminal journal blocked, and promoting a path only after its references disappear; added route middleware coverage and wired migration 108 into atomic-payment integration CI.
 
 ## Safety boundary
 
