@@ -484,3 +484,12 @@ test("retryability rejects a safe journal whose owner, pin, account, or board di
     );
   }
 });
+
+
+test("schedule worker claim size is enforced server-side as one until leases are renewable", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const source = fs.readFileSync(path.join(__dirname, "../pinterest.js"), "utf8");
+  assert.match(source, /const limit = 1;/);
+  assert.doesNotMatch(source, /const limit = Math\.max\(1, Math\.min\(Number\(req\.body && req\.body\.limit\)/);
+});
