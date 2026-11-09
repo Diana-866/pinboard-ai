@@ -63,6 +63,17 @@ const MainApp: React.FC = () => {
   const [boardsLoading, setBoardsLoading] = useState(false);
   const [boardsReloadToken, setBoardsReloadToken] = useState(0);
   const [scheduledPins, setScheduledPins] = useState<ScheduledPinItem[]>([]);
+  // Schedule rows belong to the authenticated user. Clear the previous account's
+  // calendar immediately on identity change, without clearing it on ordinary reloads.
+  const scheduleUserIdRef = React.useRef(user?.id || '');
+  React.useEffect(() => {
+    const nextUserId = user?.id || '';
+    if (scheduleUserIdRef.current !== nextUserId) {
+      scheduleUserIdRef.current = nextUserId;
+      setScheduledPins([]);
+      setScheduleLoadError('');
+    }
+  }, [user?.id]);
   const [scheduleLoadError, setScheduleLoadError] = useState('');
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleReloadToken, setScheduleReloadToken] = useState(0);
