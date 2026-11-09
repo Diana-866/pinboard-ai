@@ -1964,3 +1964,10 @@ The backend already computes safe retryability and a machine-readable reason for
 - The change now enqueues the previous pin's pending description before the shared debounce slot is reassigned to a different pin/board. The timer callback clears the pending slot only if it still owns that revision, preventing an old callback from clearing a newer card's pending save.
 - Added `pendingPinDescriptionSwitch.ts` and regression tests for same-pin edits, switching pins on the same board, and switching boards.
 - Tests, lint, typecheck, and build have not been run. No production DB changes, deployment, or merge.
+
+
+## AUD-304 — title selection rollback
+- Разделены последнее оптимистичное название и последнее подтверждённое сервером.
+- При ошибке текущего выбора интерфейс откатывается к последнему успешно сохранённому названию, а не к предыдущему неподтверждённому выбору.
+- Добавлены регрессионные сценарии в frontend/src/utils/pinTitleSelection.test.ts.
+- Runtime-тесты/lint/build не запускались; GitHub Actions runner failures и Vercel build-rate-limit остаются открытыми.
