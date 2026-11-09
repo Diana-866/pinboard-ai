@@ -8,8 +8,6 @@ declare
   v_request_id bigint;
   v_old_path text := 'pins/generation-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.png';
   v_old_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.png';
-  v_live_path text := 'pins/generation-ffffffffffffffffffffffffffffffff.png';
-  v_live_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-ffffffffffffffffffffffffffffffff.png';
   v_count integer;
   v_result record;
 begin
@@ -71,6 +69,19 @@ begin
    where object_path = v_old_path;
   if v_count <> 0 then
     raise exception 'retention inventory ignored a live regeneration reference';
+  end if;
+
+  insert into public.pin_generation_requests(
+    user_id, board_id, idempotency_key, status, request_fingerprint, pins
+  ) values (
+    v_user_id::text, v_board_id, 'pin-retention-inventory-live-generation-001',
+    'completed', repeat('c', 64), jsonb_build_array(jsonb_build_object('image_url', v_old_url))
+  );
+  select count(*) into v_count
+    from public.list_pin_image_retention_candidates(90, 100)
+   where object_path = v_old_path;
+  if v_count <> 0 then
+    raise exception 'retention inventory ignored a recent generation replay result';
   end if;
 
   if has_function_privilege('anon', 'public.list_pin_image_retention_candidates(integer,integer)', 'EXECUTE')
