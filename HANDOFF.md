@@ -1668,3 +1668,10 @@ Repository files were read back after updates. Local Node/PostgreSQL execution w
 
 
 **AUD-271 classification refinement:** blocked queue diagnostics now emit a bounded diagnosis and safe operator action for each observed combination of DB reference, Storage visibility, and lifecycle state. Distinguishes references with missing objects, quarantined paths, deleted lifecycle records whose object remains visible, potentially in-flight deletes, previous delete failures, active lifecycle rows, and missing lifecycle records. Added Node coverage for representative combinations. No branch ever reopens a blocked item or issues Storage DELETE.
+
+
+**Дополнительная проверка AUD-271 (после записи изменений):**
+- Повторное чтение выявило ошибочные буквальные символы `\\n` вместо переводов строк в экспорте lifecycle-модуля, двух строках workflow и двух тестовых местах. Исправлено; затронутые файлы повторно прочитаны, в них больше нет буквальных последовательностей `\\n`.
+- Диагностика дополнена классификацией по состоянию жизненного цикла, наличию ссылки в БД и видимости объекта. Добавлены проверки комбинаций: объект с живой ссылкой, отсутствующий quarantined-объект и видимый объект при lifecycle=`deleted`.
+- Последний HEAD: `7af1064c82f73696bf06eb7fabea2e6019df95b1`.
+- Три последних workflow на этом HEAD снова завершились `failure`, но raw GitHub Jobs API показывает для всех `runner_id=0`, `steps=[]`, длительность около двух секунд. Runner вообще не был выделен; это не результат выполнения тестов и не доказательство ошибки приложения. Vercel отдельно сообщает `build-rate-limit`.
