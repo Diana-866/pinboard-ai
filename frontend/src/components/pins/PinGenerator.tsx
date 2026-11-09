@@ -40,6 +40,7 @@ import {
   SupportedAspectRatio,
 } from '../../services/gemini';
 import { PinCanvas, PinCanvasData, ASPECT_RATIO_SPECS } from './PinCanvas';
+import { useAuth } from '../../context/AuthContext';
 
 interface PinGeneratorProps {
   boards: BoardItem[];
@@ -82,6 +83,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   onGoToCalendar,
 }) => {
   const { t, aiContentLanguage, setAiContentLanguage, language } = useI18n();
+  const { user } = useAuth();
+  const userId = user?.id || '';
   const { enqueueTask } = useNotifications();
 
   const [pinCount, setPinCount] = useState<number>(5);
@@ -108,40 +111,58 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
   useEffect(() => {
     let active = true;
+    // A mounted generator can survive an auth-context user switch. Clear every
+    // account-scoped value before loading the new owner's Pinterest connections.
+    setPinterestAccounts([]);
+    setSelectedPinterestAccountId('');
+    setPinterestBoards([]);
+    setSelectedPinterestBoardId('');
+    if (!userId) return () => { active = false; };
+
     apiRequest('/integrations/pinterest/status')
       .then((data) => {
         if (!active) return;
-        const rows = Array.isArray(data?.accounts) ? data.accounts : [];
+        const rows = Array.isArray(data?.accounts)
+          ? data.accounts.filter((account: any) => account && typeof account.id === 'string' && account.id.trim())
+          : [];
         setPinterestAccounts(rows);
         if (rows.length === 1) setSelectedPinterestAccountId(rows[0].id);
       })
       .catch(() => {
-        if (active) setPinterestAccounts([]);
+        if (active) {
+          setPinterestAccounts([]);
+          setSelectedPinterestAccountId('');
+        }
       });
     return () => { active = false; };
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     let active = true;
-    if (!selectedPinterestAccountId) {
-      setPinterestBoards([]);
-      setSelectedPinterestBoardId('');
+    setPinterestBoards([]);
+    setSelectedPinterestBoardId('');
+    if (!userId || !selectedPinterestAccountId) {
       return () => { active = false; };
     }
     apiRequest(`/integrations/pinterest/boards?account_id=${encodeURIComponent(selectedPinterestAccountId)}`)
       .then((data) => {
         if (!active) return;
-        const rows = Array.isArray(data?.boards) ? data.boards : [];
+        const rows = Array.isArray(data?.boards)
+          ? data.boards.filter((board: any) =>
+              board && typeof board.id === 'string' && board.id.trim() &&
+              typeof board.name === 'string' && board.name.trim())
+          : [];
         setPinterestBoards(rows);
-        setSelectedPinterestBoardId((current) =>
-          current && rows.some((board) => board.id === current) ? current : rows[0]?.id || ''
-        );
+        setSelectedPinterestBoardId(rows[0]?.id || '');
       })
       .catch(() => {
-        if (active) setPinterestBoards([]);
+        if (active) {
+          setPinterestBoards([]);
+          setSelectedPinterestBoardId('');
+        }
       });
     return () => { active = false; };
-  }, [selectedPinterestAccountId]);
+  }, [userId, selectedPinterestAccountId]);
 
 
   useEffect(() => {
