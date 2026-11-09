@@ -1611,3 +1611,11 @@ A subsequent code review caught and fixed a runtime wiring defect: `retryFailedP
 - Added a PostgreSQL regression case with a completed generation journal containing a managed image URL but no task row. It verifies deletion is blocked while the replay journal exists and becomes claimable after the journal is removed.
 - Updated the deletion-claims integration test prerequisite comment, storage lifecycle documentation, and atomic-payment workflow to apply migration 106 after 105.
 - Local PostgreSQL tests were not run. The migration and integration test are wired into CI; current PR status must be checked for actual execution. No production migration, Storage operation, deployment, or merge was performed.
+
+
+## AUD-268 — upload reservation replay-reference guard (2026-11-09)
+
+- Found the inverse of AUD-267: the upload reservation RPC could reuse an object path if it existed only in a saved generation/regeneration replay payload but was absent from task.storage_url / regeneration.storage_url. That could overwrite an image still returned by an idempotent replay.
+- Added migration 107_pin_image_upload_replay_reference_guard.sql. begin_pin_image_upload now rejects paths referenced by generation request pins[].image_url or regeneration request result_pin.image_url, while preserving existing upload lifecycle state checks and 128-bit path validation.
+- Added SQL regression coverage for both generation and regeneration replay-only references; updated the test prerequisite comment, storage lifecycle docs, and atomic-payment workflow to apply migration 107 after 106.
+- Local PostgreSQL tests were not run. No production migration, Storage operation, deployment, or merge was performed.
