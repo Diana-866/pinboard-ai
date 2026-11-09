@@ -2,6 +2,12 @@ const { httpError, optionalString } = require("./validate");
 
 function buildBoardPatch(body) {
   const input = body && typeof body === "object" && !Array.isArray(body) ? body : {};
+  const allowedFields = new Set(["title", "description"]);
+  const unknownFields = Object.keys(input).filter((key) => !allowedFields.has(key));
+  if (unknownFields.length > 0) {
+    throw httpError(422, "Неизвестные поля обновления доски");
+  }
+
   const patch = {};
 
   if (Object.prototype.hasOwnProperty.call(input, "title")) {
