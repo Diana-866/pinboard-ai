@@ -41,3 +41,9 @@ This is deliberately an administrator-triggered recovery action, not an unattend
 - CI must be inspected after GitHub Actions runs; do not treat unobserved tests as passing.
 - Migration 101 has not been applied to production Supabase.
 - No production Storage mutation, deployment, or PR merge was performed.
+
+## Follow-up correction
+
+- A post-change integration review found that `retryFailedPinImageDeletions` was imported by `backend/index.js` and covered by unit tests but omitted from `module.exports`. This made the admin route call an undefined helper. The helper is now exported from `backend/pinImageLifecycle.js`.
+- Extended `backend/test/pin-image-deletion-claims.integration.sql` to assert that `list_failed_pin_image_deletions(integer)` is not executable by `anon`/`authenticated` and is executable by `service_role`; updated its migration prerequisite comment to include 101.
+- Read-back verification confirms the export and privilege assertions are present. The current GitHub Actions attempts still expose no job steps or logs, so test execution remains unverified.
