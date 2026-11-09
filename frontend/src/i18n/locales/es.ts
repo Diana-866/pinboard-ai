@@ -361,6 +361,9 @@ export const es: TranslationSchema = {
     categoryFashion: "Moda y armario cápsula",
     savingLabel: "Guardando…",
     saveErrorFallback: "No se pudo guardar el tablero. Comprueba la conexión e inténtalo de nuevo.",
+    loadingLabel: "Cargando tus tableros…",
+    retryLabel: "Reintentar",
+    loadErrorFallback: "No pudimos cargar tus tableros. Comprueba la conexión e inténtalo de nuevo. Tus tableros no se han eliminado.",
   },
 
   analytics: {
