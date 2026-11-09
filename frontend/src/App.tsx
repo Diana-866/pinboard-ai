@@ -504,10 +504,19 @@ const MainApp: React.FC = () => {
         method: 'POST',
       });
       setScheduledPins((prev) => prev.filter((item) => item.id !== pin.id));
-    } catch (error) {
-      console.error('[schedule] Не удалось отменить публикацию:', error);
-      window.alert(error instanceof Error ? error.message : 'Не удалось отменить публикацию');
-      throw error;
+    } catch (originalError) {
+      // GET /schedule intentionally omits cancelled rows. A valid list without
+      // this previously visible schedule confirms that cancellation committed
+      // even if the POST response was lost. Any malformed/failed read is inconclusive.
+      try {
+        const rows = await apiRequest('/schedule');
+        if (!isScheduleAbsentFromActiveList(rows, pin.id)) throw originalError;
+        setScheduledPins((prev) => prev.filter((item) => item.id !== pin.id));
+      } catch {
+        console.error('[schedule] Не удалось подтвердить отмену публикации:', originalError);
+        window.alert(originalError instanceof Error ? originalError.message : 'Не удалось отменить публикацию');
+        throw originalError;
+      }
     }
   };
 
