@@ -1427,7 +1427,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               {currentPin && (
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold text-secondary-theme uppercase tracking-wider">
+                    <label htmlFor="pin-description" className="text-xs font-semibold text-secondary-theme uppercase tracking-wider">
                       {t.generator.descriptionLabel}
                     </label>
                     <span className="text-[11px] text-muted-theme" aria-live="polite">
@@ -1451,6 +1451,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     )}
                   </div>
                   <textarea
+                    id="pin-description"
                     value={currentPin.description}
                     onChange={handleDescriptionChange}
                     maxLength={500}
