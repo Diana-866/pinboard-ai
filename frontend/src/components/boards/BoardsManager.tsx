@@ -56,7 +56,7 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
     } catch (error) {
       setCreateError(error instanceof Error
         ? error.message
-        : 'Не удалось сохранить доску. Проверьте соединение и попробуйте ещё раз.');
+        : t.boards.saveErrorFallback);
     } finally {
       setSaving(false);
     }
@@ -142,13 +142,13 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
             <form onSubmit={handleCreateBoard} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-secondary-theme uppercase tracking-wider mb-1.5">
-                  Board Title
+                  {t.boards.boardTitleLabel}
                 </label>
                 <input
                   type="text"
                   value={boardName}
                   onChange={(e) => setBoardName(e.target.value)}
-                  placeholder="e.g. Earthy Ceramic Pottery & Clay Decor"
+                  placeholder={t.boards.boardTitlePlaceholder}
                   className="w-full px-3 py-2 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
                   maxLength={100}
                   required
@@ -157,19 +157,19 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-secondary-theme uppercase tracking-wider mb-1.5">
-                  Category
+                  {t.boards.boardCategoryLabel}
                 </label>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   className="w-full px-3 py-2 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
                 >
-                  <option value="Home Decor">Home Decor & Architecture</option>
-                  <option value="Recipes">Recipes & Culinary</option>
-                  <option value="Wellness">Clean Beauty & Wellness</option>
-                  <option value="Travel">Travel & Escapes</option>
-                  <option value="Digital Products">Digital Products & SaaS</option>
-                  <option value="Fashion">Fashion & Capsule Wardrobe</option>
+                  <option value="Home Decor">{t.boards.categoryHomeDecor}</option>
+                  <option value="Recipes">{t.boards.categoryRecipes}</option>
+                  <option value="Wellness">{t.boards.categoryWellness}</option>
+                  <option value="Travel">{t.boards.categoryTravel}</option>
+                  <option value="Digital Products">{t.boards.categoryDigitalProducts}</option>
+                  <option value="Fashion">{t.boards.categoryFashion}</option>
                 </select>
               </div>
 
@@ -187,7 +187,7 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
                   disabled={saving || !boardName.trim()}
                   className="accent-btn px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {saving ? 'Сохранение…' : t.common.create}
+                  {saving ? t.boards.savingLabel : t.common.create}
                 </button>
               </div>
             </form>
