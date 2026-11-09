@@ -38,6 +38,7 @@ import {
   PinterestAccount,
 } from './data/mockData';
 import { mapPersistedBoards } from './utils/persistedBoards';
+import { getOrCreateProject } from './utils/projectProvisioning';
 import { validatePersistedScheduleRows } from './utils/persistedSchedule';
 import { findPersistedScheduleMutation, isScheduleAbsentFromActiveList } from './utils/scheduleMutationReconciliation';
 
@@ -527,28 +528,19 @@ const MainApp: React.FC = () => {
 
   const handleAddBoard = async (board: BoardItem, createRequestId: string) => {
     try {
-      let projects = await apiRequest('/projects');
-      if (!Array.isArray(projects)) {
-        throw new Error('Сервер вернул некорректный список проектов. Обновите страницу и попробуйте ещё раз.');
-      }
-      if (projects.length === 0) {
-        const project = await apiRequest('/projects', {
+      const project = await getOrCreateProject(
+        String(user?.id || ''),
+        () => apiRequest('/projects'),
+        () => apiRequest('/projects', {
           method: 'POST',
           body: JSON.stringify({ niche: board.category, language: aiContentLanguage }),
-        });
-        if (!project || !project.id) {
-          throw new Error('Не удалось создать проект для новой доски.');
-        }
-        projects = [project];
-      }
-      if (!projects[0]?.id) {
-        throw new Error('Не найден проект для новой доски. Обновите страницу и попробуйте ещё раз.');
-      }
+        }),
+      );
 
       const saved = await apiRequest('/boards', {
         method: 'POST',
         body: JSON.stringify({
-          project_id: projects[0].id,
+          project_id: project.id,
           title: board.name,
           description: board.category,
           create_request_id: createRequestId,
