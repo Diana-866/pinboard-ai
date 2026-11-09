@@ -1878,3 +1878,14 @@ The backend already computes safe retryability and a machine-readable reason for
 - Added regression tests for exact matching, null inputs, blank values on either side, and whitespace-only ledger values.
 - Added `docs/audits/AUD-293-strict-pinterest-publication-ledger-identity.md`.
 - Source and test files were read back after writing. Tests, lint, typecheck, and build have not been executed. No production DB changes, deployment, or merge.
+
+
+## AUD-294 — fail-closed confirmation for manual Pinterest reconciliation (2026-11-09)
+
+- Reviewed the existing admin-only manual reconciliation path for Pinterest schedules with `unknown` status. Operator identity comes from the verified request; the route and database RPC both enforce admin access.
+- Fixed a response-integrity gap: the backend previously treated any truthy RPC response as proof that reconciliation was saved and returned status `published`.
+- Success now requires a parseable persisted timestamp string from the RPC. The timestamp is normalized to ISO 8601; null, object, numeric, or malformed responses fail closed with HTTP 500.
+- Added Node regression coverage for missing/malformed RPC confirmation. Existing valid timestamp path remains covered.
+- No SQL behavior, automatic retry, Pinterest API, production DB, deployment, or merge changes.
+- Files: `backend/adminPinterestReconciliation.js`, `backend/test/admin-pinterest-reconciliation.test.js`, `docs/audits/AUD-294-pinterest-reconciliation-response-integrity.md`.
+- Status: FIX IMPLEMENTED / STATIC READ-BACK PENDING / TESTS NOT RUN. Local Node/SQL tests, lint, and build were not run; CI must not be treated as passing.
