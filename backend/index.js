@@ -1706,9 +1706,11 @@ app.get("/schedule", requireAuth, async (req, res) => {
     const [attemptsResult, publicationsResult, accountsResult] = await Promise.all([
       supabase.from("pinterest_publish_attempts")
         .select("user_id, pin_id, pinterest_account_id, pinterest_board_id, status, retry_safe")
+        .eq("user_id", String(req.userId))
         .in("pin_id", pinIds),
       supabase.from("pinterest_publications")
-        .select("pin_id, pinterest_account_id")
+        .select("user_id, pin_id, pinterest_account_id")
+        .eq("user_id", String(req.userId))
         .in("pin_id", pinIds),
       accountIds.length
         ? supabase.from("pinterest_accounts")
@@ -1736,10 +1738,12 @@ app.get("/schedule", requireAuth, async (req, res) => {
       if (row.status !== "failed") return sanitizeScheduleForClient({ ...row, retryable: false, retry_reason: null, failure_reason: null });
       const accountId = row.pinterest_account_id ? String(row.pinterest_account_id) : null;
       const attempt = attempts.find((item) =>
+        String(item.user_id || "") === String(req.userId) &&
         String(item.pin_id) === String(row.pin_id) &&
         String(item.pinterest_account_id || "") === String(accountId || "")
       ) || null;
       const hasPublication = publications.some((item) =>
+        String(item.user_id || "") === String(req.userId) &&
         String(item.pin_id) === String(row.pin_id) &&
         String(item.pinterest_account_id || "") === String(accountId || "")
       );
