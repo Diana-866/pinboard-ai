@@ -21,6 +21,7 @@ import {
 import { useI18n } from '../../i18n/i18nContext';
 import { BoardItem, ScheduledPinItem, PinterestAccount } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
+import { getScheduleRetryReasonMessage } from '../../utils/scheduleRetryReason';
 import {
   getDefaultTimezone,
   saveUserTimezone,
@@ -1091,9 +1092,9 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
               </div>
             )}
 
-            {selectedPin.status === 'failed' && selectedPin.retryable === false && !!selectedPin.pinterestAccountId && (
-              <p className="text-[11px] text-secondary-theme">
-                Безопасный повтор этой публикации не подтверждён сервером.
+            {selectedPin.status === 'failed' && selectedPin.retryable === false && (
+              <p role="alert" className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-relaxed text-secondary-theme">
+                {getScheduleRetryReasonMessage(selectedPin.retryReason, language)}
               </p>
             )}
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-subtle">
