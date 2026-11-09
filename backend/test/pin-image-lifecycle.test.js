@@ -683,7 +683,7 @@ test("retention queue worker blocks invalid claims without touching Storage", as
     rpc: async (name, args) => {
       calls.push({ name, args });
       if (name === "claim_pin_image_retention_queue") {
-        return { data: [{ bucket_id: "unexpected-bucket", object_path: "foreign/object.webp", claim_token: "claim-token" }], error: null };
+        return { data: [{ bucket_id: "pin-images", object_path: "foreign/object.webp", claim_token: "claim-token" }], error: null };
       }
       if (name === "finalize_pin_image_retention_queue_item") {
         return { data: true, error: null };
