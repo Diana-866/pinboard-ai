@@ -46,3 +46,63 @@ test("worker prevents overlapping ticks", async () => {
   release();
   await first;
 });
+
+
+test("worker releases its lock after a failed request and can retry", async () => {
+  let calls = 0;
+  const errors = [];
+  const worker = createWorker({
+    config: { endpoint: "https://api.example.com/internal/pinterest/schedule/run", secret: "secret-value" },
+    client: { post: async () => {
+      calls += 1;
+      if (calls === 1) throw new Error("temporary network failure");
+      return { data: { ok: true, claimed: 0, published: 0, failed: 0, unknown: 0 } };
+    } },
+    logger: { info() {}, error: (...args) => errors.push(args) },
+  });
+
+  await worker.tick();
+  await worker.tick();
+
+  assert.equal(calls, 2);
+  assert.equal(errors.length, 1);
+});
+
+test("worker rejects malformed backend responses without exposing credentials", async () => {
+  const errors = [];
+  const worker = createWorker({
+    config: { endpoint: "https://api.example.com/internal/pinterest/schedule/run", secret: "secret-value" },
+    client: { post: async () => ({ data: { ok: false, error: "secret-value" } }) },
+    logger: { info() {}, error: (...args) => errors.push(args) },
+  });
+
+  await worker.tick();
+
+  assert.equal(errors.length, 1);
+  assert.equal(JSON.stringify(errors).includes("secret-value"), false);
+  assert.match(errors[0][1].message, /invalid worker response/);
+});
+
+test("stop prevents future polling and waits for the active request", async () => {
+  let calls = 0;
+  let release;
+  const worker = createWorker({
+    config: { endpoint: "https://api.example.com/internal/pinterest/schedule/run", secret: "secret-value" },
+    client: { post: async () => {
+      calls += 1;
+      await new Promise((resolve) => { release = resolve; });
+      return { data: { ok: true } };
+    } },
+    logger: { info() {}, error() {} },
+    intervalMs: 5,
+  });
+
+  worker.start();
+  await new Promise((resolve) => setImmediate(resolve));
+  const stopping = worker.stop();
+  release();
+  await stopping;
+  await new Promise((resolve) => setTimeout(resolve, 15));
+
+  assert.equal(calls, 1);
+});
