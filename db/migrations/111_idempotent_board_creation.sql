@@ -20,17 +20,11 @@ BEGIN
       CHECK (
         (create_request_id IS NULL AND create_request_fingerprint IS NULL)
         OR
-        (create_request_id IS NOT NULL AND create_request_fingerprint IS NOT NULL AND create_request_fingerprint ~ '^[0-9a-f]{64}
-      );
-  END IF;
-END
-$$;
-
-COMMENT ON COLUMN public.boards.create_request_id IS
-  'Client-generated UUID used to replay one logical board creation without duplicates.';
-COMMENT ON COLUMN public.boards.create_request_fingerprint IS
-  'SHA-256 fingerprint of the immutable create payload; rejects reuse of a request key with different content.';
-)
+        (
+          create_request_id IS NOT NULL
+          AND create_request_fingerprint IS NOT NULL
+          AND create_request_fingerprint ~ '^[0-9a-f]{64}$'
+        )
       );
   END IF;
 END
