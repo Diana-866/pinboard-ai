@@ -22,6 +22,6 @@ Cancelling a schedule triggers the same reference check for its snapshot image. 
 - This is reference-checked cleanup on replacement/cancellation, not a periodic orphan sweeper.
 - Existing orphan objects created before this code are not inventoried or deleted.
 - There is no dedicated object registry with a delayed deletion state. A very narrow race between a concurrent schedule insert and the final Storage remove is not fully eliminated; the schedule endpoint re-reads the pin after remote board verification to reduce stale-snapshot windows.
-- Cleanup is best-effort. Storage removal failures are logged; the user's successful pin update remains committed.
+- Cleanup is best-effort. Storage removal failures are logged; the user's successful pin update remains committed. A Storage 404 is treated as successful deletion only when both the error code and message identify the target object/key as missing; a generic 404 (for example, a missing bucket/endpoint) is recorded as a failed deletion instead.
 
 Do not delete objects manually based only on age. Before a one-time cleanup, export candidate object paths and cross-check all database references, including schedule snapshots and in-progress generation tasks.
