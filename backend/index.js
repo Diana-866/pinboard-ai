@@ -702,6 +702,20 @@ app.get("/projects/:id/boards", requireAuth, async (req, res) => {
   }
 });
 
+function serializeBoardForClient(board) {
+  if (!board || typeof board !== "object" || Array.isArray(board)) return board;
+  const {
+    create_request_id: _createRequestId,
+    create_request_fingerprint: _createRequestFingerprint,
+    ...publicBoard
+  } = board;
+  if (publicBoard.projects && typeof publicBoard.projects === "object") {
+    const { user_id: _projectUserId, ...publicProject } = publicBoard.projects;
+    publicBoard.projects = publicProject;
+  }
+  return publicBoard;
+}
+
 async function getBoardWithOwnerCheck(boardId, userId) {
   const { data: board, error } = await supabase
     .from("boards")
