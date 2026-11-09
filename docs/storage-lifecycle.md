@@ -64,3 +64,10 @@ Generation idempotency journals also persist a replayable pins JSON array indepe
 ### Upload reservation replay-reference guard (migration 107)
 
 The upload reservation RPC now checks the same two replay payloads as the deletion claim: generation request pins[].image_url and regeneration request result_pin.image_url. This prevents a reused object path from being overwritten while an old idempotent response still points to it, including legacy rows where the task/storage URL column is missing. The SQL integration test verifies both replay sources block upload reservation.
+
+
+### Transactional replay-reference retirement (migration 108)
+
+Migration 108 adds the bounded, service-role-only RPC `retire_expired_pin_image_replay_references(limit)`, exposed through the admin-only, rate-limited `POST /admin/storage/retire-expired-replay-references` endpoint. It only processes rows already marked with `replay_expired_at`: generation response `pins` are replaced with an empty array, generation task `storage_url` values are cleared, and regeneration `storage_url` / `result_pin` values are cleared. Idempotency rows and keys remain, so the same key continues to return HTTP 410 rather than creating a new paid task.
+
+The RPC then promotes at most `limit` queue rows from `awaiting_reference_retirement` to `pending`, but only if no live pin, non-cancelled schedule, generation task, generation replay payload, or regeneration journal still references the path. Shared paths remain blocked until every journal reference has been retired. Existing queue claims and other queue states are not rewritten. This operation never calls Storage and does not itself delete objects; pending paths must still pass the existing final `claim_pin_image_deletion` reference/fencing barrier before any Storage removal.
