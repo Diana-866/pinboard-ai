@@ -10,7 +10,7 @@ security definer
 set search_path = pg_catalog, public
 as $$
 declare
-  v_renewed boolean := false;
+  v_rows integer := 0;
 begin
   if p_schedule_id is null or p_claim_token is null then
     return false;
@@ -22,8 +22,8 @@ begin
      and status = 'publishing'
      and claim_token = p_claim_token;
 
-  get diagnostics v_renewed = row_count;
-  return v_renewed;
+  get diagnostics v_rows = row_count;
+  return v_rows > 0;
 end;
 $$;
 
