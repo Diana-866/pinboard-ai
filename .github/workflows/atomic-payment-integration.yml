@@ -285,6 +285,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/099_pin_image_quarantine_inventory.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/100_idempotent_pin_image_lifecycle_finalization.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/101_retryable_pin_image_deletion_inventory.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/102_pin_image_deletion_support_128_bit_random_ids.sql
       - name: Verify Pinterest refresh uncertainty fence
         env:
           PGPASSWORD: postgres
