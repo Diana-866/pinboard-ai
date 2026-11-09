@@ -373,7 +373,7 @@ const MainApp: React.FC = () => {
           String(row?.pin_id || '') === pin.pinId &&
           new Date(row?.scheduled_at).getTime() === expectedTime &&
           String(row?.pinterest_board_id || '') === String(pin.pinterestBoardId || '') &&
-          String(row?.pinterest_account_id || '') === String(pin.pinterestAccountId || '')
+          (!pin.pinterestAccountId || String(row?.pinterest_account_id || '') === String(pin.pinterestAccountId))
         );
         if (matches.length !== 1) throw originalError;
         saved = matches[0];
