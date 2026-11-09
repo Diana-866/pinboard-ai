@@ -361,6 +361,9 @@ export const en: TranslationSchema = {
     categoryFashion: "Fashion & Capsule Wardrobe",
     savingLabel: "Saving…",
     saveErrorFallback: "Could not save the board. Check your connection and try again.",
+    loadingLabel: "Loading your boards…",
+    retryLabel: "Retry",
+    loadErrorFallback: "We couldn't load your boards. Check your connection and try again. Your boards have not been deleted.",
   },
 
   analytics: {
