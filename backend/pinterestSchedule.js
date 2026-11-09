@@ -178,7 +178,7 @@ function createScheduleClaimHeartbeat({ renew, logger = console, intervalMs = 60
     } finally {
       inFlight = false;
     }
-  }, Math.max(1_000, Number(intervalMs) || 60_000));
+  }, Math.max(10, Number(intervalMs) || 60_000));
   if (typeof timer.unref === "function") timer.unref();
   return () => {
     stopped = true;
