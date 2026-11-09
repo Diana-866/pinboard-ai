@@ -14,19 +14,18 @@ test("worker config requires a secure backend URL and long secret", () => {
   );
 });
 
-test("worker posts a bounded batch with its secret and logs only aggregate results", async () => {
+test("worker claims only one row per run to protect the fixed stale-claim lease", async () => {
   const calls = [];
   const logs = [];
   const worker = createWorker({
     config: { endpoint: "https://api.example.com/internal/pinterest/schedule/run", secret: "secret-value" },
-    client: { post: async (...args) => { calls.push(args); return { data: { ok: true, claimed: 2, published: 1, failed: 1, unknown: 0 } }; } },
+    client: { post: async (...args) => { calls.push(args); return { data: { ok: true, claimed: 1, published: 1, failed: 0, unknown: 0 } }; } },
     logger: { info: (...args) => logs.push(args), error: (...args) => logs.push(args) },
-    batchLimit: 99,
   });
   await worker.tick();
   assert.equal(calls.length, 1);
-  assert.deepEqual(calls[0][0], "https://api.example.com/internal/pinterest/schedule/run");
-  assert.deepEqual(calls[0][1], { limit: 10 });
+  assert.equal(calls[0][0], "https://api.example.com/internal/pinterest/schedule/run");
+  assert.deepEqual(calls[0][1], { limit: 1 });
   assert.equal(calls[0][2].headers["x-pinposy-scheduler-secret"], "secret-value");
   assert.equal(JSON.stringify(logs).includes("secret-value"), false);
 });
