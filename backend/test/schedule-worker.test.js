@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { getWorkerConfig, createWorker } = require("../scheduleWorker");
+const { getWorkerConfig, createWorker, MAX_REQUEST_TIMEOUT_MS } = require("../scheduleWorker");
 
 test("worker config requires a secure backend URL and long secret", () => {
   assert.throws(() => getWorkerConfig({ PINPOSY_SCHEDULER_SECRET: "x".repeat(32) }), /BACKEND_URL/);
@@ -105,4 +105,22 @@ test("stop prevents future polling and waits for the active request", async () =
   await new Promise((resolve) => setTimeout(resolve, 15));
 
   assert.equal(calls, 1);
+});
+
+test("worker caps request timeout below stale-claim recovery even when configured too high", async () => {
+  let requestOptions;
+  const worker = createWorker({
+    config: { endpoint: "https://api.example.com/internal/pinterest/schedule/run", secret: "secret-value" },
+    client: { post: async (_url, _body, options) => {
+      requestOptions = options;
+      return { data: { ok: true } };
+    } },
+    logger: { info() {}, error() {} },
+    timeoutMs: 60 * 60_000,
+  });
+
+  await worker.tick();
+
+  assert.equal(MAX_REQUEST_TIMEOUT_MS, 15 * 60_000);
+  assert.equal(requestOptions.timeout, MAX_REQUEST_TIMEOUT_MS);
 });
