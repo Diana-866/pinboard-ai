@@ -719,3 +719,54 @@ begin
   end if;
 end;
 $body$;
+
+
+-- AUD-265: the saved regeneration response is a durable reference even if a
+-- legacy/inconsistent row has result_pin.image_url but a null storage_url.
+do $body$
+declare
+  v_user_id uuid := gen_random_uuid();
+  v_project_id uuid := gen_random_uuid();
+  v_board_id uuid := gen_random_uuid();
+  v_pin_id uuid := gen_random_uuid();
+  v_path text := 'pins/generation-12121212121212121212121212121212.webp';
+  v_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-12121212121212121212121212121212.webp';
+  v_result jsonb;
+begin
+  insert into public.users(id, email)
+  values (v_user_id, v_user_id::text || '@pin-image-replay-reference-test.invalid');
+  insert into public.projects(id, user_id) values (v_project_id, v_user_id);
+  insert into public.boards(id, project_id) values (v_board_id, v_project_id);
+  insert into public.pins(id, board_id) values (v_pin_id, v_board_id);
+
+  insert into public.pin_regeneration_requests(
+    user_id, pin_id, idempotency_key, request_fingerprint, model, prompt, amount,
+    status, storage_url, result_pin, created_at, updated_at
+  ) values (
+    v_user_id::text, v_pin_id, 'pin-image-regen-replay-reference-001',
+    repeat('d', 64), 'test-model', 'replay reference', 1,
+    'completed', null, jsonb_build_object('id', v_pin_id, 'image_url', v_url),
+    now() - interval '120 days', now() - interval '120 days'
+  );
+
+  v_result := public.claim_pin_image_deletion('pin-images', v_path, 60);
+  if coalesce((v_result ->> 'claimed')::boolean, false) is not false
+     or v_result ->> 'reason' <> 'referenced' then
+    raise exception 'deletion claim ignored regeneration replay payload image_url: %', v_result;
+  end if;
+
+  select * into v_result
+    from public.list_pin_image_retention_candidates(90, 100)
+   where object_path = v_path;
+  if not found or not ('regeneration_replay' = any(v_result.source_types)) then
+    raise exception 'retention inventory omitted regeneration replay payload image_url';
+  end if;
+
+  delete from public.pin_regeneration_requests
+   where idempotency_key = 'pin-image-regen-replay-reference-001';
+  v_result := public.claim_pin_image_deletion('pin-images', v_path, 60);
+  if coalesce((v_result ->> 'claimed')::boolean, false) is not true then
+    raise exception 'replay image remained blocked after its durable journal was removed: %', v_result;
+  end if;
+end;
+$body$;
