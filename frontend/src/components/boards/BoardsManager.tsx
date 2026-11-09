@@ -81,7 +81,7 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
         </div>
 
         <button
-          onClick={() => { setCreateError(''); setCreateRequestId(crypto.randomUUID()); setCreateModalOpen(true); }}
+          onClick={() => { setCreateError(''); setCreateModalOpen(true); }}
           className="accent-btn self-start sm:self-auto px-4 py-2 rounded-xl text-xs md:text-sm font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
         >
           <Plus className="w-4 h-4" />
