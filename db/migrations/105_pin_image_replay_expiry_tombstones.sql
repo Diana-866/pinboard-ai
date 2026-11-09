@@ -109,8 +109,6 @@ begin
                 from unnest(public.pin_image_retention_queue.source_types || excluded.source_types) as merged_sources(source_type)
                 order by merged_sources.source_type
             ),
-            state = case when public.pin_image_retention_queue.state = 'completed'
-                         then 'completed' else 'awaiting_reference_retirement' end,
             updated_at = clock_timestamp();
       v_queued_count := v_queued_count + 1;
     end loop;
@@ -137,74 +135,48 @@ grant execute on function public.expire_pin_image_replay_results(integer, intege
   to service_role;
 
 create or replace function public.begin_pin_generation_request(
-  p_user_id text, p_board_id uuid, p_idempotency_key text, p_fingerprint text
-) returns jsonb
-language plpgsql security definer
-set search_path = pg_catalog, public
-as $$
-declare
-  v_request public.pin_generation_requests%rowtype;
-  v_inserted integer;
-  v_has_plan boolean;
+  p_user_id text,p_board_id uuid,p_idempotency_key text,p_fingerprint text
+) returns jsonb language plpgsql security definer
+set search_path=pg_catalog,public as $$
+declare v_request public.pin_generation_requests%rowtype; v_inserted integer; v_has_plan boolean;
 begin
   if p_user_id is null or p_board_id is null or p_idempotency_key is null
-     or length(p_idempotency_key) < 16 or length(p_idempotency_key) > 128
-     or p_fingerprint is null or length(p_fingerprint) <> 64 then
-    raise exception 'invalid idempotency request';
-  end if;
-  if not exists (
-    select 1 from public.boards b join public.projects p on p.id=b.project_id
-    where b.id=p_board_id and p.user_id::text=p_user_id
-  ) then raise exception 'board not found or not owned by user'; end if;
-
+     or length(p_idempotency_key)<16 or length(p_idempotency_key)>128
+     or p_fingerprint is null or length(p_fingerprint)<>64 then raise exception 'invalid idempotency request'; end if;
+  if not exists(select 1 from public.boards b join public.projects p on p.id=b.project_id
+                where b.id=p_board_id and p.user_id::text=p_user_id)
+    then raise exception 'board not found or not owned by user'; end if;
   insert into public.pin_generation_requests(user_id,board_id,idempotency_key,status,request_fingerprint)
   values(p_user_id,p_board_id,p_idempotency_key,'processing',p_fingerprint)
-  on conflict (user_id,idempotency_key) do nothing;
-  get diagnostics v_inserted = row_count;
-
+  on conflict(user_id,idempotency_key) do nothing;
+  get diagnostics v_inserted=row_count;
   select * into v_request from public.pin_generation_requests
-   where user_id=p_user_id and idempotency_key=p_idempotency_key
-   for update;
-
-  if v_request.board_id <> p_board_id then raise exception 'idempotency key already used for another board'; end if;
-  if v_request.request_fingerprint <> p_fingerprint then raise exception 'idempotency key reused with different request'; end if;
+   where user_id=p_user_id and idempotency_key=p_idempotency_key for update;
+  if v_request.board_id<>p_board_id then raise exception 'idempotency key already used for another board'; end if;
+  if v_request.request_fingerprint<>p_fingerprint then raise exception 'idempotency key reused with different request'; end if;
   if v_request.replay_expired_at is not null then
     return jsonb_build_object('status','expired');
   end if;
-  if v_inserted = 1 then return jsonb_build_object('status','started'); end if;
-
-  if v_request.status='completed' then
-    return jsonb_build_object('status','completed','pins',v_request.pins);
-  end if;
-
-  select exists (
-    select 1 from public.pin_generation_tasks t
-     where t.generation_request_id = v_request.id
-  ) into v_has_plan;
-
-  if v_request.status='processing' and v_request.updated_at < now() - interval '30 minutes' then
+  if v_inserted=1 then return jsonb_build_object('status','started','claim_token',v_request.claim_token); end if;
+  if v_request.status='completed' then return jsonb_build_object('status','completed','pins',v_request.pins); end if;
+  select exists(select 1 from public.pin_generation_tasks t where t.generation_request_id=v_request.id) into v_has_plan;
+  if v_request.status='processing' and v_request.updated_at<clock_timestamp()-interval '30 minutes' then
     if v_has_plan then
-      update public.pin_generation_requests set updated_at=now() where id=v_request.id;
-      return jsonb_build_object('status','resume');
+      update public.pin_generation_requests set claim_token=gen_random_uuid(),updated_at=clock_timestamp()
+       where id=v_request.id returning * into v_request;
+      return jsonb_build_object('status','resume','claim_token',v_request.claim_token);
     end if;
-    update public.pin_generation_requests
-       set status='unknown', error_code='stale_provider_outcome', updated_at=now()
-     where id=v_request.id;
+    update public.pin_generation_requests set status='unknown',claim_token=null,
+      error_code='stale_provider_outcome',updated_at=clock_timestamp() where id=v_request.id;
     return jsonb_build_object('status','unknown','message','Provider outcome requires reconciliation');
-  elsif v_request.status='processing' then
-    return jsonb_build_object('status','processing');
+  elsif v_request.status='processing' then return jsonb_build_object('status','processing');
   elsif v_request.status='unknown' and v_has_plan then
-    update public.pin_generation_requests
-       set status='processing', error_code=null, updated_at=now()
-     where id=v_request.id;
-    return jsonb_build_object('status','resume');
-  elsif v_request.status='unknown' then
-    return jsonb_build_object('status','unknown','message','Provider outcome requires reconciliation');
-  else
-    return jsonb_build_object('status','failed','error_code',v_request.error_code);
-  end if;
-end;
-$$;
+    update public.pin_generation_requests set status='processing',claim_token=gen_random_uuid(),
+      error_code=null,updated_at=clock_timestamp() where id=v_request.id returning * into v_request;
+    return jsonb_build_object('status','resume','claim_token',v_request.claim_token);
+  elsif v_request.status='unknown' then return jsonb_build_object('status','unknown','message','Provider outcome requires reconciliation');
+  else return jsonb_build_object('status','failed','error_code',v_request.error_code); end if;
+end; $$;
 
 create or replace function public.begin_pin_regeneration_request(
   p_user_id text,p_pin_id uuid,p_idempotency_key text,p_fingerprint text,
