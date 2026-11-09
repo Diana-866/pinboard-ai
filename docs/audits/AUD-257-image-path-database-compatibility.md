@@ -41,3 +41,7 @@ CI применяет миграцию 098 и запускает существ�
 ## Статус проверки
 
 Файлы записаны и подлежат статическому read-back. Локальные Node/PostgreSQL тесты не запускались; CI для нового HEAD должен подтвердить выполнение. Миграция не применялась к production Supabase, реальные Storage-операции не выполнялись, deployment и merge не производились.
+
+## Фактический статус CI на момент read-back
+
+На HEAD `58c8f2d160c93b36e678a7a54e0a1a80844e918a` GitHub показал `Prodamus webhook tests` как `failure`, а `Persisted boards integration checks` как `queued` после повторного запуска failed jobs. Для завершившегося failure GitHub Jobs API вернул `steps=null` и `logs_url=null`, поэтому причина не установлена. Нельзя считать SQL или Node тесты успешно выполненными. Vercel status остаётся `build-rate-limit`.
