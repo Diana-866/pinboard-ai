@@ -217,6 +217,10 @@ export interface TranslationSchema {
     resultsTitle: string;
     titleOptions: string;
     descriptionLabel: string;
+    descriptionSaving: string;
+    descriptionSaved: string;
+    descriptionSaveError: string;
+    retryDescriptionSave: string;
     altTextLabel: string;
     targetUrlLabel: string;
     targetUrlPlaceholder: string;
