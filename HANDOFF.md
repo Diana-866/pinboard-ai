@@ -1462,3 +1462,14 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Пользовательский эффект: вместо непонятного «передайте файл» или HTML/500 при большом файле пользователь получает понятную причину и может исправить загрузку.
 - Статус: IMPLEMENTED / STATIC READ-BACK PENDING / NODE TEST AND CI UNVERIFIED. Локальные Node-тесты, backend build и реальные HTTP multipart-проверки не запускались. Production, Storage, база данных, deployment и merge не затрагивались.
 - Документ: `docs/audits/AUD-252-pin-image-upload-error-responses.md`.
+
+
+## AUD-253 — защита лимита загрузки изображений от IPv6-ротации (2026-11-09)
+
+- Найдено: `imageUploadLimiter` использовал пользовательский ключ `req.userId || req.ip`. В отличие от стандартного key generator `express-rate-limit`, этот вариант не нормализовал IPv6 по подсети. Клиент мог менять IPv6-адреса внутри одной подсети и получать отдельные IP-бакеты, обходя лимит загрузок.
+- Исправлено: добавлен `backend/pinImageRateLimitKey.js`; для авторизованных запросов ключ стабилен по user ID, для остальных применяется официальный `ipKeyGenerator` из зафиксированной в lockfile версии `express-rate-limit@8.7.0` (IPv6 subnet normalization). Пространства ключей `user:` и `ip:` разделены; отсутствующий IP попадает в консервативный общий бакет.
+- Добавлены тесты: два IPv6 адреса в одном /56 дают один бакет; разные /56 разделяются; пользовательский ID переживает смену IP; IPv4 остаётся адресным; отсутствующий IP безопасно обработан.
+- CI теперь устанавливает backend зависимости через `npm ci --prefix backend` и запускает новый тест вместе с тестами загрузки.
+- Пользовательский эффект: смена IPv6-адреса в пределах своей подсети больше не должна давать дополнительные попытки загрузки. Авторизованный пользователь ограничивается единым лимитом независимо от смены IP.
+- Статус: IMPLEMENTED / STATIC READ-BACK PENDING / CI UNVERIFIED. Unit-тесты локально не запускались. Не менялись лимит 20 загрузок за 15 минут, production, Storage, БД, deployment или merge.
+- Документ: `docs/audits/AUD-253-ipv6-upload-rate-limit-bypass.md`.
