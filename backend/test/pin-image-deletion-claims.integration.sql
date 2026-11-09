@@ -1,4 +1,4 @@
--- Pin image deletion-claim schema contract. Run after migrations 070, 083 and 090.
+-- Pin image deletion-claim schema contract. Run after migrations 070, 083, 090 and 098.
 do $body$
 declare
   v_path text;
@@ -498,5 +498,42 @@ begin
       end if;
     end;
   end loop;
+end;
+$body$;
+
+-- AUD-257: backend-generated 128-bit random paths must pass every SQL
+-- parser/reservation/deletion guard, while legacy shorter paths remain valid.
+do $body$
+declare
+  v_path text := 'pins/1730000000003-0123456789abcdef0123456789abcdef.webp';
+  v_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/1730000000003-0123456789abcdef0123456789abcdef.webp';
+  v_reservation jsonb;
+  v_upload_token uuid;
+  v_claim jsonb;
+  v_delete_token uuid;
+begin
+  if public.managed_pin_image_object_path(v_url) is distinct from v_path then
+    raise exception '128-bit random managed path was not parsed by SQL';
+  end if;
+
+  v_reservation := public.begin_pin_image_upload('pin-images', v_path, 60);
+  if coalesce((v_reservation ->> 'reserved')::boolean, false) is not true then
+    raise exception '128-bit random path was rejected by upload reservation: %', v_reservation;
+  end if;
+  v_upload_token := (v_reservation ->> 'upload_token')::uuid;
+
+  if not public.finalize_pin_image_upload('pin-images', v_path, v_upload_token, true, null) then
+    raise exception '128-bit random path upload reservation did not finalize';
+  end if;
+
+  v_claim := public.claim_pin_image_deletion('pin-images', v_path, 60);
+  if coalesce((v_claim ->> 'claimed')::boolean, false) is not true then
+    raise exception '128-bit random path was rejected by deletion claim: %', v_claim;
+  end if;
+  v_delete_token := (v_claim ->> 'claim_token')::uuid;
+
+  if not public.finalize_pin_image_deletion('pin-images', v_path, v_delete_token, true, null) then
+    raise exception '128-bit random path deletion claim did not finalize';
+  end if;
 end;
 $body$;
