@@ -37,8 +37,8 @@ jobs:
         run: node --test backend/test/pinterest-account-request.test.js
       - name: Test Pinterest board pagination
         run: node --test backend/test/pinterest-boards-pagination.test.js
-      - name: Test pin image upload MIME validation
-        run: node --test backend/test/image-upload-validation.test.js
+      - name: Test pin image upload validation and error responses
+        run: node --test backend/test/image-upload-validation.test.js backend/test/image-upload-errors.test.js
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update
