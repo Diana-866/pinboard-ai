@@ -59,6 +59,10 @@
 - [ ] I2.4 Настроить process supervision/restart, graceful shutdown и корректное завершение фоновых задач.
 - [ ] I2.5 Проверить deploy, rollback, cold start, restart и потерю одного узла.
 - [ ] I2.6 Настроить секреты вне Git и frontend bundle; доступ к ним ограничен.
+- [ ] I2.7 Запустить scheduler/worker как независимый серверный процесс/service, не связанный с web request, браузером или пользовательской сессией.
+- [ ] I2.8 Обеспечить durable queue из PostgreSQL/надёжного брокера: restart/deploy worker не теряет запланированные публикации и claim/lease безопасно восстанавливается.
+- [ ] I2.9 После downtime worker сверяет просроченные задания и выполняет catch-up по утверждённой политике без пропуска и дубликатов.
+- [ ] I2.10 Worker имеет отдельные health checks, backlog/lag metrics, alerts, graceful shutdown и runbook восстановления.
 
 ### I3. PostgreSQL и перенос данных
 - [ ] I3.1 Выбрать managed PostgreSQL или проверенную self-managed схему с учётом бюджета и компетенций сопровождения.
