@@ -174,7 +174,7 @@ const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
 const { calculateGenerationReservation, calculateQuotedGenerationPricing } = require("./generationPricing");
 const { uploadPinImage, rehostImage, deletePinImageIfUnreferenced } = require("./storage");
-const { reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects } = require("./pinImageLifecycle");
+const { reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects, retryFailedPinImageDeletions } = require("./pinImageLifecycle");
 const { validateDevTopupRequest } = require("./devTopup");
 const mail = require("./mail");
 const passwordReset = require("./password-reset");
@@ -2241,6 +2241,19 @@ app.post("/admin/storage/reconcile-stale-uploads", adminActionLimiter, requireAu
   }
 });
 
+
+// Retry only definitively failed deletions. The claim RPC rechecks all durable references
+// under a row lock; ambiguous in-flight claims and quarantined paths remain non-retryable.
+app.post("/admin/storage/retry-failed-deletions", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const parsedLimit = Number.parseInt(String(req.body && req.body.limit || "25"), 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 25;
+    const result = await retryFailedPinImageDeletions({ supabase, limit });
+    res.json(result);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
 
 // Read-only inventory of permanently quarantined image paths. It never deletes or reopens objects.
 app.get("/admin/storage/quarantined-objects", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
