@@ -377,6 +377,17 @@ export interface TranslationSchema {
     optimizeBoardBtn: string;
     targetPinsWeekly: string;
     recommendedKeywords: string;
+    boardTitleLabel: string;
+    boardTitlePlaceholder: string;
+    boardCategoryLabel: string;
+    categoryHomeDecor: string;
+    categoryRecipes: string;
+    categoryWellness: string;
+    categoryTravel: string;
+    categoryDigitalProducts: string;
+    categoryFashion: string;
+    savingLabel: string;
+    saveErrorFallback: string;
   };
 
   // Analytics
