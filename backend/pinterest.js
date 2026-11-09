@@ -1086,7 +1086,9 @@ function registerRoutes(app, deps) {
       const { error: reconcileError } = await supabase.rpc("reconcile_confirmed_pinterest_schedule_successes");
       if (reconcileError) throw reconcileError;
 
-      const limit = Math.max(1, Math.min(Number(req.body && req.body.limit) || 10, 10));
+      // No renewable claim heartbeat exists yet. Enforce one claim per request
+      // on the server; never trust a caller-supplied batch size for leased work.
+      const limit = 1;
       const { data: dueRows, error: claimError } = await supabase.rpc("claim_due_pin_schedules", {
         p_limit: limit,
       });
