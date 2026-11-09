@@ -49,11 +49,20 @@ function isScheduleClaimUpdateConfirmed(result) {
 
 function matchesConfirmedPublicationLedger(ledger, expected) {
   if (!ledger || !expected) return false;
-  return String(ledger.user_id || "") === String(expected.user_id || "")
-    && String(ledger.pin_id || "") === String(expected.pin_id || "")
-    && String(ledger.pinterest_account_id || "") === String(expected.pinterest_account_id || "")
-    && String(ledger.pinterest_board_id || "") === String(expected.pinterest_board_id || "")
-    && String(ledger.pinterest_pin_id || "") === String(expected.pinterest_pin_id || "");
+  const identityFields = [
+    "user_id",
+    "pin_id",
+    "pinterest_account_id",
+    "pinterest_board_id",
+    "pinterest_pin_id",
+  ];
+  // A missing/blank identity must never compare equal merely because both
+  // sides normalize to an empty string. Confirmation requires a full ledger.
+  return identityFields.every((field) => {
+    const actual = String(ledger[field] == null ? "" : ledger[field]).trim();
+    const wanted = String(expected[field] == null ? "" : expected[field]).trim();
+    return actual.length > 0 && wanted.length > 0 && actual === wanted;
+  });
 }
 
 function resolvePublishedReservation(reservation, expectedBoardId) {
