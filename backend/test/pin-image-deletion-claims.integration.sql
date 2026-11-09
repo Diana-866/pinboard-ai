@@ -636,6 +636,7 @@ $body$;
 do $body$
 declare
   v_path text := 'pins/1730000000999-failedretry01.webp';
+  v_quarantined_path text := 'pins/1730000000998-quarantine01.webp';
   v_count integer;
 begin
   insert into public.pin_image_object_lifecycle(
@@ -646,6 +647,14 @@ begin
     set state = 'delete_failed', claim_token = null, claim_expires_at = null,
         attempts = 4, last_error_code = 'storage_rejected';
 
+  insert into public.pin_image_object_lifecycle(
+    bucket_id, object_path, state, attempts, last_error_code
+  ) values (
+    'pin-images', v_quarantined_path, 'quarantined', 5, 'stale_delete_quarantined'
+  ) on conflict (bucket_id, object_path) do update
+    set state = 'quarantined', claim_token = null, claim_expires_at = null,
+        attempts = 5, last_error_code = 'stale_delete_quarantined';
+
   select count(*) into v_count
     from public.list_failed_pin_image_deletions(25) i
    where i.bucket_id = 'pin-images'
@@ -654,6 +663,13 @@ begin
      and i.last_error_code = 'storage_rejected';
   if v_count <> 1 then
     raise exception 'failed deletion inventory omitted retryable object';
+  end if;
+
+  select count(*) into v_count
+    from public.list_failed_pin_image_deletions(25) i
+   where i.object_path = v_quarantined_path;
+  if v_count <> 0 then
+    raise exception 'failed deletion inventory included quarantined object';
   end if;
 
   begin
