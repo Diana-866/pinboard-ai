@@ -1665,3 +1665,6 @@ Repository files were read back after updates. Local Node/PostgreSQL execution w
 
 
 **AUD-271 CI recheck:** New HEAD `e09b3ae5abc2b5bd477fcab76579212d55e8bd6e` triggered all three PR workflows. All report `failure`, but GitHub exposes no job steps/log URLs (`steps=null`, `logs_url=null`); attempts to download job logs return `BlobNotFound`. The Vercel status is separately `failure` with `build-rate-limit`. Therefore no SQL or Node test result is confirmed. Do not treat these failures as evidence of a specific code defect, but do not claim green CI either.
+
+
+**AUD-271 classification refinement:** blocked queue diagnostics now emit a bounded diagnosis and safe operator action for each observed combination of DB reference, Storage visibility, and lifecycle state. Distinguishes references with missing objects, quarantined paths, deleted lifecycle records whose object remains visible, potentially in-flight deletes, previous delete failures, active lifecycle rows, and missing lifecycle records. Added Node coverage for representative combinations. No branch ever reopens a blocked item or issues Storage DELETE.
