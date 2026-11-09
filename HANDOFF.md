@@ -1484,3 +1484,13 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Пользовательский эффект: endpoint принимает только компактную форму с одним изображением и не расходует память на неограниченные дополнительные поля; корректные загрузки PNG/JPG/WebP/GIF до 5 МиБ не затронуты.
 - Статус: IMPLEMENTED / STATIC READ-BACK AND CI EXECUTION PENDING. Node-тесты и реальные multipart HTTP-проверки не запускались в этой среде. Production, Storage, БД, deployment и merge не затрагивались.
 - Документ: docs/audits/AUD-254-multipart-upload-limits.md.
+
+
+## AUD-255 — защита от гонки при одновременной замене изображения пина (2026-11-09)
+
+- Найдено: два параллельных POST /pins/:id/image могли прочитать один и тот же старый image_url, загрузить два объекта, а затем оба безусловно обновить строку. Более медленный запрос мог перезаписать результат более нового запроса; проигравший объект мог остаться сиротой в Storage.
+- Исправлено: обновление pins.image_url теперь compare-and-swap — WHERE дополнительно проверяет ранее прочитанный image_url. Для исходного NULL применяется IS NULL. Если строка уже изменилась, UPDATE не затрагивает запись, новый объект очищается через защищённый reference-aware lifecycle, клиент получает HTTP 409 с просьбой обновить карточку.
+- Добавлен helper backend/pinImageCompareAndSwap.js и unit regression tests для существующего URL и NULL; тест включён в atomic-payment CI.
+- Пользовательский эффект: медленная параллельная загрузка больше не может молча затереть более новое изображение; конфликт виден пользователю, а лишний файл безопасно удаляется при отсутствии ссылок.
+- Статус: IMPLEMENTED / STATIC READ-BACK AND CI EXECUTION PENDING. Node tests и реальный конкурентный HTTP-тест не запускались локально. Production, Storage, БД, deployment и merge не затрагивались.
+- Документ: docs/audits/AUD-255-concurrent-pin-image-replacement.md.
