@@ -225,7 +225,6 @@ async function deleteManagedPinImageObject({ supabase, bucket = "pin-images", ob
   // A thrown transport error is ambiguous: Storage may have received the
   // request. Keep the claim fenced for reconciliation instead of reopening refs.
   const { error: removeError } = await supabase.storage.from(bucket).remove([objectPath]);
-  const status = Number(removeError && (removeError.statusCode ?? removeError.status));
   // DELETE is idempotent: an explicit object-not-found response confirms the
   // desired end state just as surely as a successful remove response.
   const objectAlreadyMissing = isStorageObjectNotFound(removeError);
