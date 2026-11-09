@@ -1861,3 +1861,11 @@ The backend already computes safe retryability and a machine-readable reason for
 - The change is limited to the read-only schedule metadata path; no schema migration is required.
 - GitHub read-back confirmed the query filters and in-memory owner checks. On HEAD `6696dc11ec5500a80c544d87422b8b9dabb7d80f`, GitHub workflow-run lookup returned no runs; the only combined status is Vercel `failure` with `build-rate-limit`. Tests, lint, typecheck, and build have not been executed locally. No production DB changes, deployment, merge, or worker action was performed.
 - AUD-291 code commit: `e5864fa4717b8720d79be331b10082caeee8832f`.
+
+
+## 2026-11-09 — AUD-292 clear Pinterest schedule claim on confirmed publication
+
+- Found a mismatch between the current SQL definition of `complete_pinterest_publish_v2` (migration 081) and the worker success-path assumption: the RPC marks the schedule `published` but does not clear its prior `claim_token`.
+- Added forward-only migration `db/migrations/100_pinterest_publish_completion_clears_claim.sql`. It preserves account → all matching active/uncertain schedules in stable order → attempt lock ordering, exact owner/board/remote identity guards, and service-role-only execution. The schedule update now clears `claim_token` atomically with publication completion.
+- Existing `backend/test/pinterest-publication-concurrency.sh` has a publishing fixture with a non-null UUID claim token and asserts that it is null after the completion/stale-recovery race; this is the regression check after migration 100 is applied.
+- Migration and test source were read back. The PostgreSQL integration script was not executed here. No production SQL was executed; migration 100 is not applied. No deploy or merge.
