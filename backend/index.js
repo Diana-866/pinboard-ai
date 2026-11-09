@@ -2082,19 +2082,27 @@ app.post("/schedule/:id/cancel", requireAuth, pinterestScheduleLimiter, async (r
       // if the worker claimed first, never overwrite its publishing claim.
       const { data: current, error: currentError } = await supabase
         .from("pin_schedules")
-        .select("status")
+        .select("*, pins(id, board_id, title, description, image_url, status, boards(id, title))")
         .eq("id", req.params.id)
         .eq("user_id", String(req.userId))
         .maybeSingle();
       if (currentError) throw currentError;
       if (!current) throw httpError(404, "Запланированная публикация не найдена");
+      if (current.status === "cancelled") {
+        // A previous cancellation may have committed while its HTTP response was
+        // lost. Repeating cleanup is safe because it rechecks every live reference.
+        if (current.snapshot_image_url) {
+          await deletePinImageIfUnreferenced(current.snapshot_image_url).catch((cleanupError) => {
+            console.error("[storage] не удалось повторить очистку изображения отменённого расписания:", cleanupError && cleanupError.message);
+          });
+        }
+        return res.json(sanitizeScheduleForClient(current));
+      }
       const message = current.status === "publishing"
         ? "Публикация уже началась и не может быть отменена. Дождитесь результата."
         : current.status === "published"
           ? "Публикация уже отправлена в Pinterest и не может быть отменена."
-          : current.status === "cancelled"
-            ? "Эта публикация уже отменена."
-            : "Статус публикации уже изменился. Обновите расписание и попробуйте снова.";
+          : "Статус публикации уже изменился. Обновите расписание и попробуйте снова.";
       throw httpError(409, message);
     }
     if (data.snapshot_image_url) {
