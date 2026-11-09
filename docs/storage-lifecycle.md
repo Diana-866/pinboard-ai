@@ -17,12 +17,16 @@ For generation tasks, the storage object key is derived from the stable provider
 
 Cancelling a schedule triggers the same reference check for its snapshot image. Published and failed schedules keep their snapshot image because they remain visible/retryable records.
 
+## Recovering definitively failed deletions
+
+A Storage response that definitively rejects a delete is finalized as `delete_failed`; it is safe to retry because the provider rejected that request rather than leaving an unknown in-flight outcome. Migration 101 adds a bounded, service-role-only inventory for these rows. An administrator can trigger `POST /admin/storage/retry-failed-deletions` with an optional JSON limit (default 25, capped at 100). Each candidate is re-claimed through `claim_pin_image_deletion`, which locks the lifecycle row and rechecks pin, schedule snapshot, generation-task, and regeneration-journal references before contacting Storage. Referenced objects are skipped; active claims and quarantined paths remain fenced. Per-object failures are returned without aborting the rest of the batch. This is an operator-triggered recovery action, not an unattended sweeper.
+
 ## Current limitations
 
 - This is reference-checked cleanup on replacement/cancellation, not a periodic orphan sweeper.
 - Existing orphan objects created before this code are not inventoried or deleted.
 - There is no dedicated object registry with a delayed deletion state. A very narrow race between a concurrent schedule insert and the final Storage remove is not fully eliminated; the schedule endpoint re-reads the pin after remote board verification to reduce stale-snapshot windows.
-- Cleanup is best-effort. Storage removal failures are logged; the user's successful pin update remains committed. A Storage 404 is treated as successful deletion only when both the error code and message identify the target object/key as missing; a generic 404 (for example, a missing bucket/endpoint) is recorded as a failed deletion instead.
+- Cleanup is best-effort. Storage removal failures are logged; the user's successful pin update remains committed. Definitive failures can now be retried by an administrator through the bounded recovery endpoint; ambiguous outcomes remain fenced and are not included in that retry inventory. A Storage 404 is treated as successful deletion only when both the error code and message identify the target object/key as missing; a generic 404 (for example, a missing bucket/endpoint) is recorded as a failed deletion instead.
 - Lifecycle finalization is retry-safe: migration 100 stores the exact last finalized fencing token and terminal outcome. If PostgreSQL commits a finalize RPC but its response is lost, replaying that RPC with the same token/outcome is acknowledged; a different token or conflicting outcome is rejected. Backend makes at most one retry of the upload/deletion finalization RPC. Ambiguous Storage operations themselves are not blindly retried: expired in-flight claims remain quarantined to prevent a late remote request from racing a new write/delete.
 
 Do not delete objects manually based only on age. Before a one-time cleanup, export candidate object paths and cross-check all database references, including schedule snapshots and in-progress generation tasks.
