@@ -241,7 +241,7 @@ begin
   ) then
     raise exception 'live pin reference did not keep the queue path blocked';
   end if;
-  update public.pins set image_url = null where id = v_pin_id;
+  update public.pins set image_url = 'https://example.invalid/retired-image.webp' where id = v_pin_id;
   perform public.retire_expired_pin_image_replay_references(100);
   if not exists (
     select 1 from public.pin_image_retention_queue
