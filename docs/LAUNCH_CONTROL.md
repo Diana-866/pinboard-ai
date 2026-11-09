@@ -1,6 +1,8 @@
 # PinPosy — план доведения до публичного запуска
 
-Последнее обновление: 2026-11-07  
+> **Единый реестр требований и источник процентов:** [docs/MASTER_REQUIREMENTS.md](./MASTER_REQUIREMENTS.md). Инфраструктурный этап и его отдельный процент: [docs/INFRASTRUCTURE_REQUIREMENTS.md](./INFRASTRUCTURE_REQUIREMENTS.md). Этот файл — операционный план, правила автономной работы и журнал. При расхождении продуктового scope приоритет у MASTER_REQUIREMENTS.md.
+
+Последнее обновление: 2026-11-09  
 Рабочий репозиторий: `Diana-866/pinboard-ai`  
 Рабочая ветка на момент составления: `feat/persisted-boards-api`  
 Последний подтверждённый HEAD на момент AUD-062: `6401be2a41932f1e4360d11cfb0897ce7b919b81`
