@@ -1981,3 +1981,11 @@ The backend already computes safe retryability and a machine-readable reason for
 - Saving state is retained while a newer queued ratio request remains pending.
 - Added regression coverage for two consecutive failed optimistic choices returning to the original server-confirmed ratio.
 - Tests, lint, typecheck, and build have not been run. No production DB changes, deployment, or merge.
+
+
+## AUD-306 — clear calendar data on authenticated-user switch (2026-11-09)
+
+- Found an account-isolation UI gap: the schedule loader cancelled stale responses, but it kept the previous user's already-rendered schedule rows while the next user's schedule request was pending.
+- Added a synchronous user-identity ref and a layout-effect reset. On identity change, previously loaded schedule rows and the prior load error are cleared before the browser paints; ordinary schedule reloads for the same user retain existing rows while refreshing.
+- This is a frontend visibility guard; API ownership filters remain authoritative.
+- No database changes. Tests, lint, typecheck, and build have not been run. No deployment or merge.
