@@ -350,6 +350,17 @@ export const zh: TranslationSchema = {
     optimizeBoardBtn: 'AI 一键 SEO 优化',
     targetPinsWeekly: '每周目标篇数',
     recommendedKeywords: '缺失的高搜索量关键词',
+    boardTitleLabel: "画板名称",
+    boardTitlePlaceholder: "例如：陶艺与手工装饰",
+    boardCategoryLabel: "类别",
+    categoryHomeDecor: "家居与建筑",
+    categoryRecipes: "食谱与烹饪",
+    categoryWellness: "美容与健康",
+    categoryTravel: "旅行与度假",
+    categoryDigitalProducts: "数字产品与 SaaS",
+    categoryFashion: "时尚与胶囊衣橱",
+    savingLabel: "正在保存…",
+    saveErrorFallback: "无法保存画板。请检查网络连接后重试。",
   },
 
   analytics: {
