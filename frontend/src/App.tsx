@@ -451,7 +451,7 @@ const MainApp: React.FC = () => {
     }
   };
 
-  const handleAddBoard = async (board: BoardItem) => {
+  const handleAddBoard = async (board: BoardItem, createRequestId: string) => {
     try {
       let projects = await apiRequest('/projects');
       if (!Array.isArray(projects)) {
