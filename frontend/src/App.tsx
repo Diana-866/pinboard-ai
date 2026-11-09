@@ -477,6 +477,7 @@ const MainApp: React.FC = () => {
           project_id: projects[0].id,
           title: board.name,
           description: board.category,
+          create_request_id: createRequestId,
         }),
       });
       if (!saved || saved.id == null) {
