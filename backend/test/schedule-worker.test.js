@@ -26,7 +26,7 @@ test("worker posts a bounded batch with its secret and logs only aggregate resul
   await worker.tick();
   assert.equal(calls.length, 1);
   assert.deepEqual(calls[0][0], "https://api.example.com/internal/pinterest/schedule/run");
-  assert.deepEqual(calls[0][1], { limit: 99 });
+  assert.deepEqual(calls[0][1], { limit: 10 });
   assert.equal(calls[0][2].headers["x-pinposy-scheduler-secret"], "secret-value");
   assert.equal(JSON.stringify(logs).includes("secret-value"), false);
 });
