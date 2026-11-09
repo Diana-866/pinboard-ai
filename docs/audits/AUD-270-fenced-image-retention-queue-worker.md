@@ -19,3 +19,11 @@ A blocked item requires investigation; do not manually reset it to pending unles
 ## Verification
 
 Repository files were read back after updates. Local Node/PostgreSQL execution was unavailable; the new tests are wired into CI but are not claimed as passing until the workflow actually runs.
+
+
+## Follow-up hardening during implementation
+
+- Corrected a malformed path-validation conditional in the existing failed-deletion retry loop. Invalid paths are now skipped explicitly; valid managed paths continue to the final DB claim.
+- Corrected the retention worker's JavaScript path regex so it matches a literal slash and dot as intended.
+- Added a successful-path unit test proving the order: queue claim → final lifecycle deletion claim → Storage remove → lifecycle finalization → queue-token finalization.
+- Added a fail-closed test proving malformed queue paths never invoke Storage and are blocked under the queue token.
