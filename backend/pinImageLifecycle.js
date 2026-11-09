@@ -379,13 +379,13 @@ async function inspectBlockedPinImageRetentionQueue({ supabase, limit = 50 }) {
   });
   if (inventoryError) throw inventoryError;
 
-  const result = { inspected: 0, objectVisible: 0, objectMissing: 0, inventoryFailed: 0, hasReferences: 0, items: [] };
+  const result = { inspected: 0, objectVisible: 0, objectMissing: 0, inventoryFailed: 0, hasReferences: 0, diagnoses: {}, items: [] };
   for (const row of rows || []) {
     result.inspected += 1;
     const item = {
       object_path: typeof row.object_path === "string" ? row.object_path : null,
       source_types: Array.isArray(row.source_types) ? row.source_types : [],
-      queue_attempts: Number.isInteger(Number(row.attempts)) ? Number(row.attempts) : null,
+      queue_attempts: row.attempts != null && Number.isInteger(Number(row.attempts)) ? Number(row.attempts) : null,
       queue_error_code: row.last_error_code || null,
       queue_updated_at: row.queue_updated_at || null,
       lifecycle_state: row.lifecycle_state || "missing",
@@ -419,11 +419,43 @@ async function inspectBlockedPinImageRetentionQueue({ supabase, limit = 50 }) {
     const visible = (objects || []).some((object) => object && object.name === filename);
     if (visible) result.objectVisible += 1;
     else result.objectMissing += 1;
-    result.items.push({
-      ...item,
-      status: visible ? "object_present" : "object_absent",
-      safe_action: "manual_reconciliation_only_no_automatic_retry_or_unblock",
-    });
+
+    let diagnosis;
+    let safeAction;
+    if (item.has_reference) {
+      diagnosis = visible ? "database_reference_object_present" : "database_reference_object_missing";
+      safeAction = visible
+        ? "preserve_object_and_investigate_why_queue_was_blocked"
+        : "repair_reference_or_restore_object_before_queue_resolution";
+    } else if (item.lifecycle_state === "quarantined") {
+      diagnosis = visible ? "quarantined_object_present" : "quarantined_object_absent";
+      safeAction = visible
+        ? "keep_path_retired_and_investigate_late_storage_write"
+        : "keep_path_retired_operator_closeout_only";
+    } else if (item.lifecycle_state === "deleted") {
+      diagnosis = visible ? "deleted_lifecycle_object_still_visible" : "deleted_lifecycle_object_absent";
+      safeAction = visible
+        ? "investigate_storage_lifecycle_inconsistency_keep_path_retired"
+        : "verify_reference_guard_and_operator_closeout_only";
+    } else if (item.lifecycle_state === "deleting") {
+      diagnosis = "deletion_may_still_be_in_flight";
+      safeAction = "keep_fenced_until_external_operation_is_confirmed_stopped";
+    } else if (item.lifecycle_state === "delete_failed") {
+      diagnosis = "lifecycle_delete_failed";
+      safeAction = "manual_review_before_any_new_delete_claim";
+    } else if (item.lifecycle_state === "active") {
+      diagnosis = "active_lifecycle_with_blocked_queue";
+      safeAction = "manual_review_and_recheck_reference_guard";
+    } else if (item.lifecycle_state === "missing") {
+      diagnosis = "lifecycle_record_missing";
+      safeAction = "investigate_missing_lifecycle_row_no_delete";
+    } else {
+      diagnosis = "unclassified_lifecycle_state";
+      safeAction = "manual_reconciliation_only_no_automatic_retry_or_unblock";
+    }
+
+    result.diagnoses[diagnosis] = (result.diagnoses[diagnosis] || 0) + 1;
+    result.items.push({ ...item, status: visible ? "object_present" : "object_absent", diagnosis, safe_action: safeAction });
   }
   return result;
 }
