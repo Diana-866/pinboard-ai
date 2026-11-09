@@ -20,6 +20,8 @@ A Storage upload/delete could complete and its PostgreSQL lifecycle finalization
 
 ## Verification status
 
-GitHub file writes completed. Read-back and CI status must be checked on the resulting PR head. Local Node/PostgreSQL tests were not executed in this environment. Do not treat tests as passing until GitHub Actions has actually run the jobs.
+Read-back confirmed on PR head `a0c132335f748a92a0676bf9abc14755193a881d`. The malformed literal-\\n workflow line is now split into separate YAML step entries, and migration 100 is included in the atomic-payment workflow.
 
-Migration 100 has not been applied to production Supabase. No production Storage operations, deployment, or PR merge were performed.
+The three PR workflows (atomic-payment integration, persisted boards integration, and Prodamus webhook tests) report `failure`. GitHub Jobs API returned `steps=null` and `logs_url=null`; attempts to download the logs returned `BlobNotFound`. Therefore it is not possible to confirm that the runner executed the test steps, and the new Node/PostgreSQL tests must not be treated as passing. Vercel preview also reports `build-rate-limit`.
+
+Migration 100 has not been applied to production Supabase. No production Storage operations, deployment, or PR merge were performed. PR #4 remains open and Draft.
