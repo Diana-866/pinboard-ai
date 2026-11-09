@@ -1956,3 +1956,11 @@ The backend already computes safe retryability and a machine-readable reason for
 - The PATCH remains addressed by the original pin ID; the fix does not redirect writes, alter the API, or discard the persisted/local draft reconciliation behavior.
 - Added unit coverage for current-board/current-revision success, previous-board completion rejection, and stale-revision rejection.
 - GitHub source read-back verified. Tests, lint, typecheck, and build have not been run; no CI pass claimed. No production DB changes, deployment, or merge.
+
+
+## AUD-303 — flush pin description debounce when switching cards (2026-11-09)
+
+- Found a real data-loss race: the editor uses one debounce timer and one pending-save slot for all cards. Typing in pin A and switching to pin B before the 800 ms timer fired caused B's edit to cancel A's timer and overwrite the pending slot. A's latest text remained only as a local recovery draft and was not sent to the API during that interaction.
+- The change now enqueues the previous pin's pending description before the shared debounce slot is reassigned to a different pin/board. The timer callback clears the pending slot only if it still owns that revision, preventing an old callback from clearing a newer card's pending save.
+- Added `pendingPinDescriptionSwitch.ts` and regression tests for same-pin edits, switching pins on the same board, and switching boards.
+- Tests, lint, typecheck, and build have not been run. No production DB changes, deployment, or merge.
