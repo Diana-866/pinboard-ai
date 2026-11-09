@@ -28,6 +28,13 @@ test("maps an unexpected multipart file field to a client error", () => {
   assert.equal(serializePinImageUploadError({ code: "LIMIT_UNEXPECTED_FILE" }).status, 422);
 });
 
+test("maps multipart field and part limits to safe client errors", () => {
+  for (const code of ["LIMIT_FIELD_COUNT", "LIMIT_PART_COUNT", "LIMIT_FILE_COUNT"]) {
+    assert.equal(serializePinImageUploadError({ code }).status, 422, code);
+  }
+  assert.equal(serializePinImageUploadError({ code: "LIMIT_FIELD_VALUE" }).status, 413);
+});
+
 test("does not hide unknown middleware errors", () => {
   assert.equal(serializePinImageUploadError(new Error("unexpected")), null);
   assert.equal(serializePinImageUploadError(null), null);
