@@ -1763,3 +1763,10 @@ Repository files were read back after updates. Local Node/PostgreSQL execution w
 - This closes a race where a new debounced/queued edit could be added after the handler captured the pending-save promise, allowing the calendar item to be created before that newer edit was persisted.
 - The existing description flush, per-pin queue wait, and finally lock release remain in place.
 - Added docs/audits/AUD-282-freeze-pin-edits-during-scheduling.md. Automated tests, lint, typecheck, and build have not been run. No production DB changes, deployment, or merge.
+
+## 2026-11-09 — AUD-283 reconcile ambiguous schedule creation
+
+- The frontend schedule handler now reconciles a rejected schedule POST against the authenticated user's persisted schedule list. This covers a committed insert whose HTTP response was lost, as well as a uniqueness conflict caused by an already-persisted request.
+- Success is accepted only for exactly one row matching the same pin ID, exact scheduled instant, Pinterest board ID, and Pinterest account ID. A failed/malformed/ambiguous read preserves and rethrows the original POST error.
+- Reconciliation is read-only; it does not create schedules or weaken the backend one-active-schedule-per-pin uniqueness guard.
+- Added docs/audits/AUD-283-reconcile-ambiguous-schedule-creation.md. Automated tests, lint, typecheck, and build have not been run. No production DB changes, deployment, or merge.
