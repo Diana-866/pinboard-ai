@@ -40,6 +40,7 @@ import {
 import { mapPersistedBoards } from './utils/persistedBoards';
 import { getOrCreateProject } from './utils/projectProvisioning';
 import { validatePersistedScheduleRows } from './utils/persistedSchedule';
+import { isReviewQueueOwnerCurrent } from './utils/reviewQueueOwnerFence';
 import { findPersistedScheduleMutation, isScheduleAbsentFromActiveList } from './utils/scheduleMutationReconciliation';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -277,10 +278,14 @@ const MainApp: React.FC = () => {
   const pendingReviewPinsRef = React.useRef<PendingReviewPin[]>([]);
   const reviewQueueWriteChainsRef = React.useRef<Map<string, Promise<unknown>>>(new Map());
   const pendingReviewUserIdRef = React.useRef(user?.id || '');
+  const pendingReviewOwnerGenerationRef = React.useRef(0);
 
   // Restore the authenticated user's review queue from the backend. Never use
   // localStorage: it is not an ownership boundary and can leak across accounts.
   React.useLayoutEffect(() => {
+    // Increment even when the same account signs back in: stale async work from
+    // an earlier A -> B -> A session must not become valid again.
+    pendingReviewOwnerGenerationRef.current += 1;
     pendingReviewUserIdRef.current = user?.id || '';
     pendingReviewPinsRef.current = [];
     setPendingReviewPins([]);
@@ -289,17 +294,22 @@ const MainApp: React.FC = () => {
   React.useEffect(() => {
     let active = true;
     const ownerId = user?.id || '';
+    const ownerSnapshot = { userId: ownerId, generation: pendingReviewOwnerGenerationRef.current };
+    const isCurrentOwner = () => isReviewQueueOwnerCurrent(ownerSnapshot, {
+      userId: pendingReviewUserIdRef.current,
+      generation: pendingReviewOwnerGenerationRef.current,
+    });
     if (!ownerId) return () => { active = false; };
 
     apiRequest('/review-queue')
       .then((rows) => {
-        if (!active || pendingReviewUserIdRef.current !== ownerId) return;
+        if (!active || !isCurrentOwner()) return;
         const safeRows = Array.isArray(rows) ? rows as PendingReviewPin[] : [];
         pendingReviewPinsRef.current = safeRows;
         setPendingReviewPins(safeRows);
       })
       .catch((error) => {
-        if (!active || pendingReviewUserIdRef.current !== ownerId) return;
+        if (!active || !isCurrentOwner()) return;
         console.error('[review-queue] Не удалось восстановить очередь:', error);
         window.dispatchEvent(new CustomEvent('pinposy:review-queue-error'));
       });
@@ -369,8 +379,13 @@ const MainApp: React.FC = () => {
 
   const handleUpdatePendingPins = (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => {
     const ownerId = user?.id || '';
+    const ownerSnapshot = { userId: ownerId, generation: pendingReviewOwnerGenerationRef.current };
+    const isCurrentOwner = () => isReviewQueueOwnerCurrent(ownerSnapshot, {
+      userId: pendingReviewUserIdRef.current,
+      generation: pendingReviewOwnerGenerationRef.current,
+    });
     // Ignore callbacks from a child rendered for the previous account.
-    if (!ownerId || pendingReviewUserIdRef.current !== ownerId) return;
+    if (!isCurrentOwner()) return;
 
     const previous = pendingReviewPinsRef.current;
     const next = updater(previous);
@@ -384,7 +399,7 @@ const MainApp: React.FC = () => {
       const chains = reviewQueueWriteChainsRef.current;
       const previousOperation = chains.get(id) || Promise.resolve();
       const currentOperation = previousOperation.catch(() => undefined).then(() => {
-        if (pendingReviewUserIdRef.current !== ownerId) throw new Error('Review queue owner changed before persistence.');
+        if (!isCurrentOwner()) throw new Error('Review queue owner changed before persistence.');
         return operation();
       });
       chains.set(id, currentOperation);
@@ -406,7 +421,7 @@ const MainApp: React.FC = () => {
     Promise.all([...writes, ...removals]).catch((error) => {
       console.error('[review-queue] Не удалось сохранить изменения очереди:', error);
       // Do not overwrite newer edits or a newly authenticated user's queue.
-      if (pendingReviewUserIdRef.current === ownerId && pendingReviewPinsRef.current === next) {
+      if (isCurrentOwner() && pendingReviewPinsRef.current === next) {
         pendingReviewPinsRef.current = previous;
         setPendingReviewPins(previous);
       }
