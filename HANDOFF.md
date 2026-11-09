@@ -1906,3 +1906,11 @@ The backend already computes safe retryability and a machine-readable reason for
 - Constraint accepts either both idempotency fields NULL (legacy clients) or a UUID plus a lowercase 64-character SHA-256 fingerprint.
 - PostgreSQL execution/integration tests have not been run. Confirm migration 111 has not been applied before applying the corrected file; inspect an existing constraint first if it has.
 - No production SQL, deployment, or merge.
+
+
+## AUD-297 — omit internal board identity metadata from API responses (2026-11-09)
+
+- Added shared `serializeBoardForClient` to sanitize board create (keyed and legacy), PATCH, list, and detail responses.
+- API output no longer includes internal request UUID/fingerprint or nested project `user_id`; ownership checks retain full internal DB rows.
+- Added `backend/boardSerialization.js` and `backend/test/board-serialization.test.js`.
+- Tests/lint/build not run; no CI pass claimed. No production DB changes, deployment, or merge.
