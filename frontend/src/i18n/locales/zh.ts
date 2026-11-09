@@ -361,6 +361,9 @@ export const zh: TranslationSchema = {
     categoryFashion: "时尚与胶囊衣橱",
     savingLabel: "正在保存…",
     saveErrorFallback: "无法保存画板。请检查网络连接后重试。",
+    loadingLabel: "正在加载你的画板…",
+    retryLabel: "重试",
+    loadErrorFallback: "无法加载画板。请检查网络连接后重试。你的画板并未被删除。",
   },
 
   analytics: {
