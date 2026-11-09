@@ -165,6 +165,8 @@ const MainApp: React.FC = () => {
       } catch (error) {
         console.error('[schedule] Не удалось загрузить расписание:', error);
         if (!cancelled) setScheduleLoadError('Не удалось загрузить расписание. Проверьте соединение и попробуйте ещё раз. Существующие публикации не удалены.');
+      } finally {
+        if (!cancelled) setScheduleLoading(false);
       }
     }
     loadSchedule();
