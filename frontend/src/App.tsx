@@ -38,7 +38,7 @@ import {
   PinterestAccount,
 } from './data/mockData';
 import { mapPersistedBoards } from './utils/persistedBoards';
-import { findPersistedScheduleMutation } from './utils/scheduleMutationReconciliation';
+import { findPersistedScheduleMutation, isScheduleAbsentFromActiveList } from './utils/scheduleMutationReconciliation';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Landing } from './pages/Landing';
