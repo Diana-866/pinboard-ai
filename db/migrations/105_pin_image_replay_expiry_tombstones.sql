@@ -79,8 +79,6 @@ begin
                 from unnest(public.pin_image_retention_queue.source_types || excluded.source_types) source_type
                 order by source_type
             ),
-            state = case when public.pin_image_retention_queue.state = 'completed'
-                         then 'completed' else 'awaiting_reference_retirement' end,
             updated_at = clock_timestamp();
       v_queued_count := v_queued_count + 1;
     end loop;
