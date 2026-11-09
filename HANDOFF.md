@@ -1689,3 +1689,17 @@ Repository files were read back after updates. Local Node/PostgreSQL execution w
 - No deployment, production DB change, merge, or external service mutation was performed.
 
 **AUD-272 source-code commit:** `8b112ff576b18846e83aa7e59b3778ebf88eacf2`. **Latest branch HEAD (documentation-only follow-up):** `04e00c78469f52e5131a75d4efe8ffd6e3e99885`.
+
+
+# AUD-273 — resilient persisted-board loading (2026-11-09)
+
+- Extracted `mapPersistedBoards` into `frontend/src/utils/persistedBoards.ts`; it accepts a valid empty list, handles project relation object/array forms, trims values, and rejects malformed payloads/rows rather than misrepresenting them as an empty account.
+- Added `frontend/src/utils/persistedBoards.test.ts` covering mapping, relation variants, valid empty response, non-array response, and malformed rows.
+- Added a localized loading state and accessible live status to Boards Manager, plus an in-product retry button on API load failure. Retry keeps the last successfully loaded boards visible until the refresh succeeds.
+- Preserved account isolation: clear board state on user switch and ignore late responses from a prior account.
+- Added loading/retry/error translation keys to all seven locales (en, ru, es, pt, de, fr, zh).
+- Read-back checks confirmed helper use, test coverage presence, account reset/cancellation, retry behavior, and all new translation keys exactly once per locale.
+- Local `npm test` and `npm run lint` were not run (no local checkout/Node runtime). CI jobs report failure but have `runner_id=0` and zero steps, so no tests ran; Vercel's separate status is `build-rate-limit`. Do not claim green CI.
+- No deployment, production DB change, merge, or external service mutation.
+
+**AUD-273 source-code HEAD:** `133ceb0ebf195741f561dd18eaad1416b70b4ef7`.
