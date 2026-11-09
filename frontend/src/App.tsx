@@ -274,13 +274,32 @@ const MainApp: React.FC = () => {
   // Synchronized Pending Review Pins queue (Shared between Dashboard, Calendar, Sidebar & ManualApprovalDesk).
   // Queue entries are session-local and must never survive an authenticated-user switch.
   const [pendingReviewPins, setPendingReviewPins] = useState<PendingReviewPin[]>([]);
+  const pendingReviewPinsRef = React.useRef<PendingReviewPin[]>([]);
   const pendingReviewUserIdRef = React.useRef(user?.id || '');
-  React.useLayoutEffect(() => {
-    const nextUserId = user?.id || '';
-    if (pendingReviewUserIdRef.current !== nextUserId) {
-      pendingReviewUserIdRef.current = nextUserId;
-      setPendingReviewPins([]);
-    }
+
+  // Restore the authenticated user's review queue from the backend. Never use
+  // localStorage: it is not an ownership boundary and can leak across accounts.
+  React.useEffect(() => {
+    let active = true;
+    const ownerId = user?.id || '';
+    pendingReviewUserIdRef.current = ownerId;
+    pendingReviewPinsRef.current = [];
+    setPendingReviewPins([]);
+    if (!ownerId) return () => { active = false; };
+
+    apiRequest('/review-queue')
+      .then((rows) => {
+        if (!active || pendingReviewUserIdRef.current !== ownerId) return;
+        const safeRows = Array.isArray(rows) ? rows as PendingReviewPin[] : [];
+        pendingReviewPinsRef.current = safeRows;
+        setPendingReviewPins(safeRows);
+      })
+      .catch((error) => {
+        if (!active || pendingReviewUserIdRef.current !== ownerId) return;
+        console.error('[review-queue] Не удалось восстановить очередь:', error);
+        window.dispatchEvent(new CustomEvent('pinposy:review-queue-error'));
+      });
+    return () => { active = false; };
   }, [user?.id]);
 
   const handlePinterestStatusChange = React.useCallback((status: { configured: boolean; account_limit?: number | null; accounts?: Array<{ id: string; username?: string | null; pinterest_user_id?: string | null; needs_reauth?: boolean }> }) => {
@@ -346,10 +365,35 @@ const MainApp: React.FC = () => {
 
   const handleUpdatePendingPins = (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => {
     const ownerId = user?.id || '';
-    setPendingReviewPins((prev) => {
-      // Ignore callbacks from a child rendered for the previous account.
-      if (!ownerId || pendingReviewUserIdRef.current !== ownerId) return prev;
-      return updater(prev);
+    // Ignore callbacks from a child rendered for the previous account.
+    if (!ownerId || pendingReviewUserIdRef.current !== ownerId) return;
+
+    const previous = pendingReviewPinsRef.current;
+    const next = updater(previous);
+    if (next === previous) return;
+    pendingReviewPinsRef.current = next;
+    setPendingReviewPins(next);
+
+    const previousById = new Map(previous.map((pin) => [pin.id, pin]));
+    const nextById = new Map(next.map((pin) => [pin.id, pin]));
+    const writes = next
+      .filter((pin) => !previousById.has(pin.id) || JSON.stringify(previousById.get(pin.id)) !== JSON.stringify(pin))
+      .map((pin) => apiRequest(`/review-queue/${encodeURIComponent(pin.id)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ pin }),
+      }));
+    const removals = previous
+      .filter((pin) => !nextById.has(pin.id))
+      .map((pin) => apiRequest(`/review-queue/${encodeURIComponent(pin.id)}`, { method: 'DELETE' }));
+
+    Promise.all([...writes, ...removals]).catch((error) => {
+      console.error('[review-queue] Не удалось сохранить изменения очереди:', error);
+      // Do not overwrite newer edits or a newly authenticated user's queue.
+      if (pendingReviewUserIdRef.current === ownerId && pendingReviewPinsRef.current === next) {
+        pendingReviewPinsRef.current = previous;
+        setPendingReviewPins(previous);
+      }
+      window.dispatchEvent(new CustomEvent('pinposy:review-queue-error'));
     });
   };
 
