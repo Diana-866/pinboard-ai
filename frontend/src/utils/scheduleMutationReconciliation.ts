@@ -1,6 +1,6 @@
 export interface PersistedScheduleMutationExpectation {
   scheduleId: string;
-  status: string;
+  statuses: readonly string[];
   pinterestBoardId: string;
   pinterestAccountId: string;
 }
@@ -20,7 +20,7 @@ export function findPersistedScheduleMutation(
     typeof row === 'object' &&
     !Array.isArray(row) &&
     String(row.id || '') === expected.scheduleId &&
-    row.status === expected.status &&
+    expected.statuses.includes(String(row.status || '')) &&
     String(row.pinterest_board_id || '') === expected.pinterestBoardId &&
     String(row.pinterest_account_id || '') === expected.pinterestAccountId
   );
