@@ -1506,3 +1506,14 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Проверка: изменённые файлы повторно читаются из GitHub; локальные Node/PostgreSQL тесты здесь не запускались. До полноценного GitHub Actions прогона считать runtime-проверки неподтверждёнными. Миграция не применялась к рабочей Supabase БД; production, Storage, deployment и merge не затрагивались.
 - Документ: `docs/audits/AUD-257-image-path-database-compatibility.md`.
 - Дополнение по CI на HEAD `58c8f2d`: два workflow появились. `Persisted boards integration checks` после повторного запуска находится в `queued`; `Prodamus webhook tests` остался `failure`, GitHub Jobs API не предоставил шаги (`steps=null`) и логи (`logs_url=null`), поэтому причина неизвестна. Успешный прогон AUD-257 пока не подтверждён. Vercel preview по-прежнему сообщает `build-rate-limit`.
+
+
+## AUD-258 — инвентаризация quarantined изображений (2026-11-09)
+
+- Найден эксплуатационный пробел: зависшие/неоднозначные Storage операции безопасно переводят object path в `quarantined`, но администратор не мог проверить, остался ли объект физически в бакете.
+- Добавлена миграция `099_pin_image_quarantine_inventory.sql`: read-only RPC показывает quarantined пути, число попыток, код причины, дату изменения и наличие ссылок в пинах, расписаниях и журналах генерации. Доступ только через `service_role`; прямой доступ к lifecycle-таблице не расширяется.
+- Backend добавил `inspectQuarantinedPinImageObjects` и admin endpoint `GET /admin/storage/quarantined-objects?limit=50`. Endpoint ограничивает выборку 1–100, проверяет формат каждого пути и сверяет точное имя в Storage.
+- Добавлены Node unit tests, SQL integration assertions и применение миграции 099 в atomic-payment CI.
+- Важно: инвентаризация ничего не удаляет и не снимает quarantine. Наличие объекта и отсутствие ссылок сами по себе не доказывают, что старый удалённый запрос завершился; автоматическое удаление могло бы нарушить fencing.
+- Проверки: изменения внесены в ветку; локальные Node/PostgreSQL тесты не запускались. CI на текущем HEAD требуется проверить. Миграция не применялась к production; Storage, deployment и merge не затрагивались.
+- Документ: `docs/audits/AUD-258-quarantined-image-inventory.md`.
