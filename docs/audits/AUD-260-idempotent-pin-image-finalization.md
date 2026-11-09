@@ -20,7 +20,7 @@ A Storage upload/delete could complete and its PostgreSQL lifecycle finalization
 
 ## Verification status
 
-Read-back confirmed on PR head `a0c132335f748a92a0676bf9abc14755193a881d`. The malformed literal-\\n workflow line is now split into separate YAML step entries, and migration 100 is included in the atomic-payment workflow.
+Read-back confirmed on PR head `821dadbd4f739dfeccba68ccbf06a04ee7829ca9`. The code/workflow changes were already present on the preceding tested source commit `a0c132335f748a92a0676bf9abc14755193a881d`; the final commit after that only updated verification notes. The malformed literal-\\n workflow line is now split into separate YAML step entries, and migration 100 is included in the atomic-payment workflow.
 
 The three PR workflows (atomic-payment integration, persisted boards integration, and Prodamus webhook tests) report `failure`. GitHub Jobs API returned `steps=null` and `logs_url=null`; attempts to download the logs returned `BlobNotFound`. Therefore it is not possible to confirm that the runner executed the test steps, and the new Node/PostgreSQL tests must not be treated as passing. Vercel preview also reports `build-rate-limit`.
 
