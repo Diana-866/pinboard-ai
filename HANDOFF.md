@@ -1553,3 +1553,11 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 ### AUD-261 follow-up correction
 
 A subsequent code review caught and fixed a runtime wiring defect: `retryFailedPinImageDeletions` had not been included in `module.exports`, although `backend/index.js` imported it and the unit tests referenced it. The export is now present. The SQL integration test also explicitly verifies that the new failed-deletion inventory RPC is restricted to `service_role`, and its prerequisite comment includes migration 101. Latest GitHub Actions runs still have `steps=null`/`logs_url=null`; tests remain unverified. No production migration, Storage mutation, deployment, or merge was performed.
+
+## AUD-262 — совместимость удаления с 128-битными именами изображений (2026-11-09)
+
+- Найден критический дефект согласованности миграций: генератор backend создаёт timestamp-based object paths с 32 hex-символами случайности; миграция 098 расширила parser и `begin_pin_image_upload`, но действующая `claim_pin_image_deletion` из миграции 083 всё ещё принимала только 1–16 символов. В результате новые изображения могли успешно загружаться и сохраняться, но последующий claim удаления отклонял их.
+- Добавлена миграция `102_pin_image_deletion_support_128_bit_random_ids.sql`: повторно устанавливает quarantine/fencing-safe реализацию claim-функции с regex, принимающим 1–32 символа для timestamp suffix. Логика блокировки активного claim, quarantine истёкшего неопределённого delete, проверки durable references, TTL и service_role-only grants сохранена.
+- Добавлен PostgreSQL integration test: резервирование, финализация upload, claim deletion и финализация удаления пути с 32-hex suffix. Миграция 102 добавлена после 101 в atomic-payment integration workflow.
+- Обновлены `docs/storage-lifecycle.md` и `docs/audits/AUD-262-128-bit-image-deletion-claim-compatibility.md`.
+- Проверка: изменённые файлы перечитаны из GitHub; SQL test добавлен, но локально PostgreSQL не запускался. Production migration 102 не применялась; Storage, deployment и merge не затрагивались.
