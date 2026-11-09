@@ -6,7 +6,7 @@ The schedule POST can commit in the database while its HTTP response is lost. Th
 ## Change
 - The App schedule handler now builds the exact schedule payload once and attempts the POST.
 - If the POST rejects, it performs a read-only GET of the authenticated user's schedule list.
-- It treats the operation as successful only when exactly one row matches the pin ID, exact scheduled instant, Pinterest board ID, and Pinterest account ID.
+- It treats the operation as successful only when exactly one row matches the pin ID, exact scheduled instant, Pinterest board ID, and—when the request explicitly selected one—the Pinterest account ID. If the server selected the account, the match still requires the exact pin, time, and board.
 - If the read fails, is malformed, or does not produce exactly one exact match, the original POST error is re-thrown unchanged.
 - The recovered row flows through the existing persisted-schedule mapping and state update, using the server's canonical schedule ID and timestamp.
 
