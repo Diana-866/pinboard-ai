@@ -1675,3 +1675,17 @@ Repository files were read back after updates. Local Node/PostgreSQL execution w
 - Диагностика дополнена классификацией по состоянию жизненного цикла, наличию ссылки в БД и видимости объекта. Добавлены проверки комбинаций: объект с живой ссылкой, отсутствующий quarantined-объект и видимый объект при lifecycle=`deleted`.
 - Последний HEAD: `7af1064c82f73696bf06eb7fabea2e6019df95b1`.
 - Три последних workflow на этом HEAD снова завершились `failure`, но raw GitHub Jobs API показывает для всех `runner_id=0`, `steps=[]`, длительность около двух секунд. Runner вообще не был выделен; это не результат выполнения тестов и не доказательство ошибки приложения. Vercel отдельно сообщает `build-rate-limit`.
+
+
+# AUD-272 — reliable, localized board creation (2026-11-09)
+
+- Fixed the Boards Manager create flow: it now awaits the backend save, closes only on success, disables repeat submits/dismissal while pending, and retains the entered form values with an inline accessible error on failure.
+- The App save callback now validates the projects response and project ID, verifies the returned board has a persisted ID, inserts using that server ID, and propagates failures back to the form rather than swallowing them in an alert.
+- Added a 100-character title limit matching the API and dialog accessibility semantics.
+- Localized form labels, placeholder, category options, saving label, and fallback error across all seven supported interface languages (en, ru, es, pt, de, fr, zh); updated the shared translation type.
+- Added `docs/audits/AUD-272-board-creation-retry-feedback.md`.
+- Read-back verification confirms all seven locale files and the translation schema contain each new key exactly once. Source checks confirm the async-save/error path and response validation.
+- Local frontend lint/tests could not be executed in this environment. Latest PR CI has no allocated runners (`runner_id=0`, empty steps); do not treat its failure state as test execution or green CI. Vercel reports `build-rate-limit`.
+- No deployment, production DB change, merge, or external service mutation was performed.
+
+**AUD-272 latest branch HEAD:** `8b112ff576b18846e83aa7e59b3778ebf88eacf2`.
