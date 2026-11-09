@@ -1602,3 +1602,12 @@ A subsequent code review caught and fixed a runtime wiring defect: `retryFailedP
 - Changed files: migration 105; `backend/index.js`; `backend/test/pin-image-replay-expiry.integration.sql`; `backend/test/admin-storage-rate-limit.test.js`; workflow; `docs/storage-lifecycle.md`; this handoff.
 - A follow-up review caught and corrected two edge cases before handoff: migration 105 now reuses the latest generation begin RPC from migration 046 instead of reverting to the older 045 claim behavior, and queue upserts no longer rewrite a `processing` state while a worker lease/token is active. The batch limit is enforced across generation and regeneration rows together.
 - Local Node/PostgreSQL tests were not run. Current PR HEAD has no reported workflow runs yet; combined status shows only the Vercel `build-rate-limit` failure. CI must confirm migration/test execution. No production migration, Storage operation, deployment, or merge was performed.
+
+
+## AUD-267 — generation replay image-reference deletion guard (2026-11-09)
+
+- Found a mismatch between retention inventory and the final deletion claim: generation replay results persist image URLs in pin_generation_requests.pins[], but claim_pin_image_deletion checked only pin_generation_tasks.storage_url. A legacy/inconsistent row with a missing task URL could therefore retain a replayable image URL without blocking deletion.
+- Added migration 106_pin_generation_replay_image_reference_guard.sql, extending the final claim function with a safe JSON-array scan of generation replay payloads. Existing pin, schedule, generation-task, regeneration storage, and regeneration replay guards remain intact; service-role-only execute privileges are preserved.
+- Added a PostgreSQL regression case with a completed generation journal containing a managed image URL but no task row. It verifies deletion is blocked while the replay journal exists and becomes claimable after the journal is removed.
+- Updated the deletion-claims integration test prerequisite comment, storage lifecycle documentation, and atomic-payment workflow to apply migration 106 after 105.
+- Local PostgreSQL tests were not run. The migration and integration test are wired into CI; current PR status must be checked for actual execution. No production migration, Storage operation, deployment, or merge was performed.
