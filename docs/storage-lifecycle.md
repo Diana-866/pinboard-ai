@@ -53,7 +53,7 @@ Only rows with status `completed`, older than the selected retention window, and
 
 After expiry, both generation and regeneration begin RPCs return `status = expired` for the same key. The backend responds with HTTP 410 and code `idempotency_result_expired`; it does not submit another provider task. The operation is rate-limited and admin-only.
 
-This is intentionally a staging phase, not cleanup: replay payloads and task URLs are not cleared, queue items are not claimable for Storage deletion, and no Storage object is deleted. A subsequent transaction must clear retired replay references only after tombstones exist, verify remaining pin/schedule/journal references, then promote safe queue entries for the existing fenced deletion claim protocol. The queue's current state must not be interpreted as permission to delete.
+This migration is the tombstone-and-staging phase only: it does not clear replay payloads or delete Storage objects. Migration 108 adds the separate transactional reference-retirement step described below. Even after a queue row becomes `pending`, that state is not permission to delete: a worker must still acquire its own lease and pass the exact path through the existing fenced deletion-claim protocol.
 
 
 ### Generation replay payload references (migration 106)
