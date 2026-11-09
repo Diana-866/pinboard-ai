@@ -21,7 +21,7 @@ Ambiguous outcomes are different: timeouts, transport failures, throttling, conf
 - Added authenticated, admin-only, rate-limited endpoint:
   - `POST /admin/storage/retry-failed-deletions`
   - Optional JSON `limit`, default 25, maximum 100.
-- Added Node regression tests and SQL integration assertions, including explicit exclusion of quarantined paths and validation of the inventory limit.
+- Added Node regression tests and SQL integration assertions, including explicit exclusion of quarantined paths, validation of the inventory limit, and a 503/timeout regression asserting that ambiguous outcomes are not finalized or retried automatically.
 - Added migration to `.github/workflows/atomic-payment-integration.yml`.
 - Documented operator recovery in `docs/storage-lifecycle.md` and `HANDOFF.md`.
 
