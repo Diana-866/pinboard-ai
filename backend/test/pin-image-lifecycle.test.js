@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects, deleteManagedPinImageObject, findCompletedManagedPinImageUpload, validatePinImageBucketConfiguration, isDefiniteStorageRejection } = require("./pinImageLifecycle");
+const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects, deleteManagedPinImageObject, findCompletedManagedPinImageUpload, validatePinImageBucketConfiguration, isDefiniteStorageRejection, isStorageObjectNotFound } = require("./pinImageLifecycle");
 
 const base = "https://project.supabase.co";
 
@@ -209,6 +209,35 @@ test("confirmed Storage deletion is finalized with the matching claim token", as
   ]);
   assert.equal(supabase.calls[2].args.p_claim_token, "claim-123");
   assert.equal(supabase.calls[2].args.p_deleted, true);
+});
+
+test("only object-specific 404 responses confirm that the target object is absent", () => {
+  assert.equal(isStorageObjectNotFound(Object.assign(new Error("Object not found"), {
+    code: "not_found", statusCode: 404,
+  })), true);
+  assert.equal(isStorageObjectNotFound(Object.assign(new Error("Bucket not found"), {
+    code: "not_found", statusCode: 404,
+  })), false);
+  assert.equal(isStorageObjectNotFound(Object.assign(new Error("Not found"), {
+    code: "not_found", statusCode: 404,
+  })), false);
+  assert.equal(isStorageObjectNotFound(Object.assign(new Error("Object not found"), {
+    code: "not_found", statusCode: 500,
+  })), false);
+});
+
+test("generic Storage 404 is finalized as a failure, not mistaken for an absent object", async () => {
+  const bucketMissing = Object.assign(new Error("Bucket not found"), {
+    code: "not_found", statusCode: 404,
+  });
+  const supabase = makeStorageClient({ removeError: bucketMissing });
+  await assert.rejects(
+    deleteManagedPinImageObject({ supabase, objectPath: "pins/1730000000000-ab12cd34.webp" }),
+    (error) => error === bucketMissing
+  );
+  const finalize = supabase.calls.find((call) => call.name === "finalize_pin_image_deletion");
+  assert.equal(finalize.args.p_deleted, false);
+  assert.equal(finalize.args.p_error_code, "not_found");
 });
 
 test("Storage object-not-found finalizes deletion as successful and releases the path", async () => {
