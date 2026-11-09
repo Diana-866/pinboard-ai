@@ -791,7 +791,7 @@ test("blocked retention queue inspection is read-only and reports Storage visibi
   assert.equal(result.hasReferences, 0);
   assert.equal(result.items[0].status, "object_present");
   assert.equal(result.items[0].lifecycle_state, "deleting");
-  assert.equal(result.items[0].safe_action, "manual_reconciliation_only_no_automatic_retry_or_unblock");
+  assert.equal(result.items[0].diagnosis, "deletion_may_still_be_in_flight");\n  assert.equal(result.items[0].safe_action, "keep_fenced_until_external_operation_is_confirmed_stopped");
   assert.deepEqual(calls.map((call) => call[0]), ["rpc", "list"]);
 });
 
@@ -813,4 +813,34 @@ test("blocked retention queue inspection fails closed on invalid paths without S
   assert.equal(result.inventoryFailed, 1);
   assert.equal(result.items[0].status, "invalid_inventory_row");
   assert.equal(storageCalls, 0);
+});
+
+
+test("blocked retention queue diagnostics distinguish referenced, quarantined, and deleted objects", async () => {
+  const rows = [
+    { bucket_id: "pin-images", object_path: "pins/1730000000000-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.webp", attempts: 1, lifecycle_state: "active", has_reference: true },
+    { bucket_id: "pin-images", object_path: "pins/1730000000001-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.webp", attempts: 2, lifecycle_state: "quarantined", has_reference: false },
+    { bucket_id: "pin-images", object_path: "pins/1730000000002-cccccccccccccccccccccccccccccccc.webp", attempts: 3, lifecycle_state: "deleted", has_reference: false },
+  ];
+  const visibleNames = new Set([rows[0].object_path.split("/")[1], rows[2].object_path.split("/")[1]]);
+  const supabase = {
+    rpc: async () => ({ data: rows, error: null }),
+    storage: {
+      from: () => ({
+        list: async (_folder, options) => ({
+          data: visibleNames.has(options.search) ? [{ name: options.search }] : [],
+          error: null,
+        }),
+      }),
+    },
+  };
+  const { inspectBlockedPinImageRetentionQueue } = require("./pinImageLifecycle");
+  const result = await inspectBlockedPinImageRetentionQueue({ supabase });
+  assert.equal(result.diagnoses.database_reference_object_present, 1);
+  assert.equal(result.diagnoses.quarantined_object_absent, 1);
+  assert.equal(result.diagnoses.deleted_lifecycle_object_still_visible, 1);
+  assert.equal(result.items[0].safe_action, "preserve_object_and_investigate_why_queue_was_blocked");
+  assert.equal(result.items[1].safe_action, "keep_path_retired_operator_closeout_only");
+  assert.equal(result.items[2].safe_action, "investigate_storage_lifecycle_inconsistency_keep_path_retired");
+  assert.equal(result.items.every((item) => item.safe_action !== "automatic_delete"), true);
 });
