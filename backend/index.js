@@ -7,6 +7,7 @@ const { parseMultipartFields } = require("./prodamusWebhookBody");
 const { isOwnedByUser } = require("./resourceOwnership");
 const { serializeGenerationRecovery } = require("./generationRecovery");
 const { isAllowedPinImageUploadMime } = require("./imageUploadValidation");
+const { serializePinImageUploadError } = require("./imageUploadErrors");
 
 const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
@@ -192,7 +193,14 @@ const webhookMultipart = multer({
 const imageUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => cb(null, isAllowedPinImageUploadMime(file.mimetype)),
+  fileFilter: (req, file, cb) => {
+    if (!isAllowedPinImageUploadMime(file.mimetype)) {
+      const error = new Error("unsupported_image_type");
+      error.code = "unsupported_image_type";
+      return cb(error);
+    }
+    cb(null, true);
+  },
 });
 
 if (!process.env.JWT_SECRET) {
@@ -765,11 +773,22 @@ app.post("/pins/:id/status", requireAuth, async (req, res) => {
   }
 });
 
+// Multer runs before the async route handler, so translate its known errors here
+// instead of letting Express return a generic HTML 500 response.
+function handlePinImageUpload(req, res, next) {
+  imageUpload.single("image")(req, res, (error) => {
+    if (!error) return next();
+    const response = serializePinImageUploadError(error);
+    if (response) return res.status(response.status).json({ error: response.message, code: response.code });
+    return next(error);
+  });
+}
+
 // Своя картинка пина: постоянное хранилище вместо временных ссылок GPTunnel
-app.post("/pins/:id/image", requireAuth, imageUploadLimiter, imageUpload.single("image"), async (req, res) => {
+app.post("/pins/:id/image", requireAuth, imageUploadLimiter, handlePinImageUpload, async (req, res) => {
   try {
     const pin = await getPinWithOwnerCheck(req.params.id, req.userId);
-    if (!req.file) throw httpError(422, "Передайте файл в поле image (PNG/JPG/WebP, до 5 МБ)");
+    if (!req.file) throw httpError(422, "Передайте файл в поле image (PNG/JPG/WebP/GIF, до 5 МиБ)");
     const url = await uploadPinImage(req.file);
     const { data, error } = await supabase
       .from("pins")
