@@ -274,6 +274,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   // Keep the user's latest title choice available to scheduling even before React
   // has rendered the PATCH response and replaced the currentPin closure.
   const pinTitleSelectionRef = React.useRef<Map<string, string>>(new Map());
+  // Track only server-confirmed titles separately from optimistic user selections.
+  const pinTitleConfirmedRef = React.useRef<Map<string, string>>(new Map());
   const [generatedPins, setGeneratedPins] = useState<GeneratedPinVariation[]>([]);
   const [activePinIndex, setActivePinIndex] = useState(0);
   const [scheduledSuccess, setScheduledSuccess] = useState(false);
@@ -600,9 +602,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const handleTitleSelect = async (title: string) => {
     if (schedulingPinLockRef.current || !currentPin) return;
     const pinId = currentPin.id;
-    const previousTitle = pinTitleSelectionRef.current.get(pinId) ?? currentPin.selectedTitle;
-    // Record and show the choice immediately: a schedule click can happen before
-    // this PATCH resolves, and the user should not have to wait for the network UI.
+    // Keep the optimistic choice for scheduling, but never use it as the rollback
+    // target: only a successful PATCH may advance the confirmed server value.
     rememberPinTitleSelection(pinTitleSelectionRef.current, pinId, title);
     setGeneratedPins((previous) => previous.map((pin) => pin.id === pinId ? {
       ...pin,
@@ -611,14 +612,18 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     } : pin));
     try {
       await persistPinPatch(pinId, { title });
+      pinTitleConfirmedRef.current.set(pinId, title);
     } catch (error) {
-      // Do not roll back a newer choice made while this request was in flight.
-      const restored = restorePinTitleSelectionIfCurrent(pinTitleSelectionRef.current, pinId, title, previousTitle);
+      // A prior queued choice may have succeeded while this request was waiting.
+      // Roll back to that confirmed value (or the original server value), never
+      // to another unconfirmed optimistic choice.
+      const confirmedTitle = pinTitleConfirmedRef.current.get(pinId) ?? currentPin.selectedTitle;
+      const restored = restorePinTitleSelectionIfCurrent(pinTitleSelectionRef.current, pinId, title, confirmedTitle);
       if (restored) {
         setGeneratedPins((previous) => previous.map((pin) => pin.id === pinId && pin.selectedTitle === title ? {
           ...pin,
-          selectedTitle: previousTitle,
-          headlineOverlay: previousTitle.length > 36 ? previousTitle.slice(0, 36) + '...' : previousTitle,
+          selectedTitle: confirmedTitle,
+          headlineOverlay: confirmedTitle.length > 36 ? confirmedTitle.slice(0, 36) + '...' : confirmedTitle,
         } : pin));
       }
       console.error('[pins] Не удалось сохранить название:', error);
