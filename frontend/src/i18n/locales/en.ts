@@ -350,6 +350,17 @@ export const en: TranslationSchema = {
     optimizeBoardBtn: 'AI SEO Optimize',
     targetPinsWeekly: 'Weekly Target',
     recommendedKeywords: 'Missing High-Volume Keywords',
+    boardTitleLabel: "Board title",
+    boardTitlePlaceholder: "e.g. Earthy Ceramic Pottery & Clay Decor",
+    boardCategoryLabel: "Category",
+    categoryHomeDecor: "Home Decor & Architecture",
+    categoryRecipes: "Recipes & Culinary",
+    categoryWellness: "Clean Beauty & Wellness",
+    categoryTravel: "Travel & Escapes",
+    categoryDigitalProducts: "Digital Products & SaaS",
+    categoryFashion: "Fashion & Capsule Wardrobe",
+    savingLabel: "Saving…",
+    saveErrorFallback: "Could not save the board. Check your connection and try again.",
   },
 
   analytics: {
