@@ -631,3 +631,36 @@ begin
   end if;
 end;
 $body$;
+
+-- Failed deletion inventory is bounded, service-role-only, and excludes uncertain/quarantined states.
+do $body$
+declare
+  v_path text := 'pins/1730000000999-failedretry01.webp';
+  v_count integer;
+begin
+  insert into public.pin_image_object_lifecycle(
+    bucket_id, object_path, state, attempts, last_error_code
+  ) values (
+    'pin-images', v_path, 'delete_failed', 4, 'storage_rejected'
+  ) on conflict (bucket_id, object_path) do update
+    set state = 'delete_failed', claim_token = null, claim_expires_at = null,
+        attempts = 4, last_error_code = 'storage_rejected';
+
+  select count(*) into v_count
+    from public.list_failed_pin_image_deletions(25) i
+   where i.bucket_id = 'pin-images'
+     and i.object_path = v_path
+     and i.attempts = 4
+     and i.last_error_code = 'storage_rejected';
+  if v_count <> 1 then
+    raise exception 'failed deletion inventory omitted retryable object';
+  end if;
+
+  begin
+    perform * from public.list_failed_pin_image_deletions(101);
+    raise exception 'failed deletion inventory accepted oversized limit';
+  exception when others then
+    if sqlerrm = 'failed deletion inventory accepted oversized limit' then raise; end if;
+  end;
+end;
+$body$;
