@@ -30,7 +30,7 @@ const supabase = require("./supabase");
 const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
 const { httpError } = require("./validate");
 const { getPinterestTokenExpiresAt } = require("./pinterestOAuth");
-const { buildScheduleWorkerFailureState, hasCompleteScheduleClaimIdentity, hasMatchingScheduleAttemptIdentity, isScheduleClaimUpdateConfirmed, resolvePublishedReservation, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown, matchesConfirmedPublicationLedger, persistPublishFailureJournal } = require("./pinterestSchedule");
+const { buildScheduleWorkerFailureState, hasCompleteScheduleClaimIdentity, hasMatchingScheduleAttemptIdentity, isScheduleClaimUpdateConfirmed, resolvePublishedReservation, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown, matchesConfirmedPublicationLedger, persistPublishFailureJournal, createScheduleClaimHeartbeat } = require("./pinterestSchedule");
 const {
   createBrowserBinding,
   readCookie,
@@ -1096,6 +1096,18 @@ function registerRoutes(app, deps) {
 
       const results = [];
       for (const schedule of dueRows || []) {
+        const stopClaimHeartbeat = createScheduleClaimHeartbeat({
+          intervalMs: 60_000,
+          renew: async () => {
+            const { data, error } = await supabase.rpc("renew_pin_schedule_claim", {
+              p_schedule_id: schedule.id,
+              p_claim_token: schedule.claim_token,
+            });
+            if (error) throw error;
+            return data === true;
+          },
+          logger: console,
+        });
         try {
           // Background jobs must enforce the same paid-plan gate as manual publishing.
           const tariff = await getTariffState(schedule.user_id);
@@ -1201,6 +1213,8 @@ function registerRoutes(app, deps) {
             retry_at: !scheduleUpdateError ? retryAt : undefined,
             error: finalStatus === "published" && !scheduleUpdateError ? undefined : message,
           });
+        } finally {
+          stopClaimHeartbeat();
         }
       }
 
