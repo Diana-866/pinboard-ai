@@ -257,6 +257,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [savedPinsLoadError, setSavedPinsLoadError] = useState('');
   const [savedPinsReloadAttempt, setSavedPinsReloadAttempt] = useState(0);
   const [savingAspectRatioPinId, setSavingAspectRatioPinId] = useState<string | null>(null);
+  // Keep rollback targets separate from optimistic canvas selections.
+  const pinAspectRatioConfirmedRef = React.useRef<Map<string, SupportedAspectRatio>>(new Map());
   const [isSchedulingPin, setIsSchedulingPin] = useState(false);
   const schedulingPinLockRef = React.useRef(false);
   const [descriptionSaveState, setDescriptionSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -393,6 +395,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             aspectRatio: ratio,
           };
         });
+        restored.forEach((pin) => pinAspectRatioConfirmedRef.current.set(pin.id, pin.aspectRatio));
         setGeneratedPins(restored);
         setActivePinIndex(0);
         const firstPinWithDraft = restored.find((pin) => readPendingPinDescription(selectedBoardId, pin.id));
@@ -539,6 +542,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         aspectRatio: row.aspect_ratio || selectedSingleRatio,
       }));
 
+      results.forEach((pin) => pinAspectRatioConfirmedRef.current.set(pin.id, pin.aspectRatio));
       setGeneratedPins(results);
       setActivePinIndex(0);
       generationKeyRef.current = null;
@@ -577,25 +581,30 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
   // Persist the selected pin's format so it survives a reload and is used by later API operations.
   const handleActivePinRatioChange = async (newRatio: SupportedAspectRatio) => {
-    if (schedulingPinLockRef.current || !currentPin || currentPin.aspectRatio === newRatio || savingAspectRatioPinId === currentPin.id) return;
+    if (schedulingPinLockRef.current || !currentPin || currentPin.aspectRatio === newRatio) return;
     const pinId = currentPin.id;
-    const previousRatio = currentPin.aspectRatio;
-    // Update the canvas immediately, while the server save runs in the background.
+    const confirmedRatio = pinAspectRatioConfirmedRef.current.get(pinId) ?? currentPin.aspectRatio;
+    // Queue rapid choices instead of disabling the control while a PATCH is in flight.
+    // The queue preserves request order; rollback always targets the last server-confirmed value.
     setGeneratedPins((previous) => previous.map((pin) =>
       pin.id === pinId ? { ...pin, aspectRatio: newRatio } : pin
     ));
     setSavingAspectRatioPinId(pinId);
     try {
       await persistPinPatch(pinId, { aspect_ratio: newRatio });
+      pinAspectRatioConfirmedRef.current.set(pinId, newRatio);
     } catch (error) {
-      // Roll back only this pin and only if no newer UI choice replaced this value.
       setGeneratedPins((previous) =>
-        rollbackPinAspectRatioIfUnchanged(previous, pinId, newRatio, previousRatio)
+        rollbackPinAspectRatioIfUnchanged(previous, pinId, newRatio, confirmedRatio)
       );
       console.error('[pins] Не удалось сохранить формат:', error);
       window.alert(error instanceof Error ? error.message : 'Не удалось сохранить формат изображения. Попробуйте ещё раз.');
     } finally {
-      setSavingAspectRatioPinId((activeId) => activeId === pinId ? null : activeId);
+      // An earlier request must not clear the saving state while a newer queued
+      // ratio PATCH for the same pin is still pending.
+      if (!pendingPinSavesRef.current.has(pinId)) {
+        setSavingAspectRatioPinId((activeId) => activeId === pinId ? null : activeId);
+      }
     }
   };
 
@@ -1419,7 +1428,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                         key={item.id}
                         type="button"
                         onClick={() => { void handleActivePinRatioChange(item.id); }}
-                        disabled={isSchedulingPin || savingAspectRatioPinId === currentPin.id}
+                        disabled={isSchedulingPin}
                         className={`px-2 py-1 text-xs font-mono rounded-lg border transition-all cursor-pointer disabled:opacity-50 disabled:cursor-wait ${
                           currentPin.aspectRatio === item.id
                             ? 'accent-btn font-bold shadow-xs'
