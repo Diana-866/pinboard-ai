@@ -23,7 +23,7 @@ begin
   for v_generation in
     select r.* from public.pin_generation_requests r
      where r.status = 'completed' and r.replay_expired_at is not null
-       and r.pins is distinct from '[]'::jsonb
+       and (r.pins is distinct from '[]'::jsonb or exists (\n         select 1 from public.pin_generation_tasks t\n          where t.generation_request_id = r.id and t.storage_url is not null\n       ))
      order by r.replay_expired_at, r.id
      limit p_limit for update skip locked
   loop
