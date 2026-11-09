@@ -271,9 +271,17 @@ const MainApp: React.FC = () => {
   const [activeAccountId, setActiveAccountId] = useState<string>('');
   const [maxAccounts, setMaxAccounts] = useState<number>(0);
 
-  // Synchronized Pending Review Pins queue (Shared between Dashboard, Calendar, Sidebar & ManualApprovalDesk)
-  // No review items are loaded until real generated pins are queued.
+  // Synchronized Pending Review Pins queue (Shared between Dashboard, Calendar, Sidebar & ManualApprovalDesk).
+  // Queue entries are session-local and must never survive an authenticated-user switch.
   const [pendingReviewPins, setPendingReviewPins] = useState<PendingReviewPin[]>([]);
+  const pendingReviewUserIdRef = React.useRef(user?.id || '');
+  React.useLayoutEffect(() => {
+    const nextUserId = user?.id || '';
+    if (pendingReviewUserIdRef.current !== nextUserId) {
+      pendingReviewUserIdRef.current = nextUserId;
+      setPendingReviewPins([]);
+    }
+  }, [user?.id]);
 
   const handlePinterestStatusChange = React.useCallback((status: { configured: boolean; account_limit?: number | null; accounts?: Array<{ id: string; username?: string | null; pinterest_user_id?: string | null; needs_reauth?: boolean }> }) => {
     const rows = Array.isArray(status.accounts) ? status.accounts : [];
@@ -337,14 +345,11 @@ const MainApp: React.FC = () => {
   }, [user?.id, handlePinterestStatusChange]);
 
   const handleUpdatePendingPins = (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => {
+    const ownerId = user?.id || '';
     setPendingReviewPins((prev) => {
-      const next = updater(prev);
-      try {
-        localStorage.setItem('pinposy_pending_pins', JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-      return next;
+      // Ignore callbacks from a child rendered for the previous account.
+      if (!ownerId || pendingReviewUserIdRef.current !== ownerId) return prev;
+      return updater(prev);
     });
   };
 
