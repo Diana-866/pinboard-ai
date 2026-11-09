@@ -278,7 +278,7 @@ async function retryFailedPinImageDeletions({ supabase, limit = 25 }) {
     };
     if (row.bucket_id !== "pin-images" ||
         typeof row.object_path !== "string" ||
-        /^pins\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp|gif)$/i.test(row.object_path) &&
+        !/^pins\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp|gif)$/i.test(row.object_path)) {
       result.skipped += 1;
       result.items.push({ ...item, status: "skipped", reason: "invalid_inventory_row" });
       continue;
@@ -326,7 +326,7 @@ async function processPendingPinImageRetentionQueue({ supabase, limit = 10 }) {
     let errorCode = null;
     if (row.bucket_id === "pin-images" &&
         typeof row.object_path === "string" &&
-        /^pins\\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\\.(?:png|jpe?g|webp|gif)$/i.test(row.object_path) &&
+        /^pins\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp|gif)$/i.test(row.object_path) &&
         row.claim_token) {
       try {
         // This is the final DB reference/fencing barrier immediately before Storage.
