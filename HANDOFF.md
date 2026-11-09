@@ -1889,3 +1889,12 @@ The backend already computes safe retryability and a machine-readable reason for
 - No SQL behavior, automatic retry, Pinterest API, production DB, deployment, or merge changes.
 - Files: `backend/adminPinterestReconciliation.js`, `backend/test/admin-pinterest-reconciliation.test.js`, `docs/audits/AUD-294-pinterest-reconciliation-response-integrity.md`.
 - Status: FIX IMPLEMENTED / STATIC READ-BACK PENDING / TESTS NOT RUN. Local Node/SQL tests, lint, and build were not run; CI must not be treated as passing.
+
+
+## AUD-295 — prevent stale Pinterest admin inventory responses (2026-11-09)
+
+- Found a UI race in the admin Pinterest schedule inventory: a slow response for an old status filter could overwrite the latest filter's rows, and could also clear the latest request's loading/error state.
+- Added request identity fencing in `frontend/src/components/admin/AdminPinterestSchedules.tsx`. Only the most recent request can update rows or request state; in-flight requests are invalidated on filter change/unmount.
+- Manual unknown-publication reconciliation and its idempotency key behavior are unchanged. No API or SQL changes.
+- Files: `frontend/src/components/admin/AdminPinterestSchedules.tsx`, `docs/audits/AUD-295-pinterest-admin-inventory-stale-response.md`.
+- Status: FIX IMPLEMENTED / STATIC READ-BACK PENDING / TESTS NOT RUN. Frontend tests, lint, and build were not run locally; CI not confirmed. No production data, deployment, or merge.
