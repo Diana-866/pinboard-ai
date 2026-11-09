@@ -361,6 +361,9 @@ export const ru: TranslationSchema = {
     categoryFashion: "Мода и гардероб",
     savingLabel: "Сохранение…",
     saveErrorFallback: "Не удалось сохранить доску. Проверьте соединение и попробуйте ещё раз.",
+    loadingLabel: "Загружаем ваши доски…",
+    retryLabel: "Повторить",
+    loadErrorFallback: "Не удалось загрузить доски. Проверьте соединение и попробуйте ещё раз. Ваши доски не удалены.",
   },
 
   analytics: {
