@@ -30,3 +30,9 @@ The authenticated `POST /boards` route previously used a plain insert. If Postgr
 ## Rollout requirement
 
 Apply `db/migrations/111_idempotent_board_creation.sql` to the target database before deploying the backend code that writes the new columns. Do not deploy the updated backend ahead of the migration.
+
+
+## Follow-up hardening
+
+- Disabled the title and category controls while a board save is in flight. This prevents the visible form state from diverging from the payload already submitted and keeps the request key tied to the submitted values.
+- Connected the title/category labels to their respective controls with explicit `htmlFor`/IDs.
