@@ -1,4 +1,4 @@
--- Replay expiry tombstones and durable queue staging for migration 105.
+-- Replay expiry, transactional reference retirement, and durable queue safety (migrations 105/108).
 -- This phase never clears journal payloads and never deletes Storage objects.
 do $body$
 declare
@@ -269,6 +269,21 @@ begin
      or has_table_privilege('service_role', 'public.pin_image_retention_queue', 'UPDATE') then
     raise exception 'service_role has direct retention queue table access';
   end if;
+
+  if not has_function_privilege('service_role',
+       'public.retire_expired_pin_image_replay_references(integer)', 'EXECUTE')
+     or has_function_privilege('anon',
+       'public.retire_expired_pin_image_replay_references(integer)', 'EXECUTE')
+     or has_function_privilege('authenticated',
+       'public.retire_expired_pin_image_replay_references(integer)', 'EXECUTE') then
+    raise exception 'replay retirement RPC privileges are incorrect';
+  end if;
+  begin
+    perform public.retire_expired_pin_image_replay_references(101);
+    raise exception 'retirement RPC accepted limit above 100';
+  exception when raise_exception then
+    if sqlerrm = 'retirement RPC accepted limit above 100' then raise; end if;
+  end;
 
   begin
     perform public.expire_pin_image_replay_results(1,100);
