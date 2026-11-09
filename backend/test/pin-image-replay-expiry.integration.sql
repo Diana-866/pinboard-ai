@@ -20,6 +20,10 @@ declare
   v_fresh_state jsonb;
   v_bounded_generation_id bigint;
   v_bounded_count integer;
+  v_retirement_id bigint;
+  v_retirement_path text := 'pins/generation-bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc.webp';
+  v_retirement_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc.webp';
+  v_retirement_state jsonb;
 begin
   insert into public.users(id, email)
   values (v_user_id, v_user_id::text || '@pin-image-expiry-test.invalid');
@@ -185,6 +189,53 @@ begin
   );
   if v_bounded_count <> 1 then
     raise exception 'expiry RPC did not enforce a shared total batch limit: %', v_bounded_count;
+  end if;
+
+  -- A tombstoned generation replay can now be retired transactionally.
+  -- The durable key remains, while the saved image URLs are erased and the
+  -- queue becomes pending only after all DB references have disappeared.
+  insert into public.pin_generation_requests(
+    user_id, board_id, idempotency_key, status, request_fingerprint, pins,
+    created_at, updated_at
+  ) values (
+    v_user_id::text, v_board_id, 'pin-expiry-retirement-generation-01',
+    'completed', repeat('2',64),
+    jsonb_build_array(jsonb_build_object('image_url',v_retirement_url)),
+    now()-interval '120 days', now()-interval '120 days'
+  ) returning id into v_retirement_id;
+  insert into public.pin_generation_tasks(
+    generation_request_id, user_id, board_id, task_index, title, prompt, model,
+    aspect_ratio, status, storage_url, created_at, updated_at
+  ) values (
+    v_retirement_id, v_user_id::text, v_board_id, 1, 'Retirement image',
+    'Retirement test', 'test-model', '2:3', 'succeeded', v_retirement_url,
+    now()-interval '120 days', now()-interval '120 days'
+  );
+  perform public.expire_pin_image_replay_results(90, 100);
+  v_retirement_state := public.retire_expired_pin_image_replay_references(100);
+  if coalesce((v_retirement_state ->> 'retired_generation_requests')::integer,0) < 1 then
+    raise exception 'expired generation replay payload was not retired: %', v_retirement_state;
+  end if;
+  if not exists (
+    select 1 from public.pin_generation_requests
+     where id = v_retirement_id and replay_expired_at is not null and pins = '[]'::jsonb
+  ) or exists (
+    select 1 from public.pin_generation_tasks
+     where generation_request_id = v_retirement_id and storage_url is not null
+  ) then
+    raise exception 'generation replay image URLs were not cleared';
+  end if;
+  if not exists (
+    select 1 from public.pin_image_retention_queue
+     where bucket_id = 'pin-images' and object_path = v_retirement_path and state = 'pending'
+  ) then
+    raise exception 'unreferenced retired path was not released to pending queue';
+  end if;
+  v_state := public.begin_pin_generation_request(
+    v_user_id::text, v_board_id, 'pin-expiry-retirement-generation-01', repeat('2',64)
+  );
+  if v_state ->> 'status' <> 'expired' then
+    raise exception 'retired generation key no longer returns its tombstone: %', v_state;
   end if;
 
   if not has_function_privilege('service_role',
