@@ -262,6 +262,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const descriptionSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingDescriptionSaveRef = React.useRef<{ boardId: string; pinId: string; description: string; revision: number } | null>(null);
   const descriptionSaveRevisionRef = React.useRef(0);
+  // Async saves may finish after the user switches boards. Keep the latest
+  // board identity synchronously available to completion handlers.
+  const descriptionSaveBoardIdRef = React.useRef(selectedBoardId);
+  descriptionSaveBoardIdRef.current = selectedBoardId;
   const generationKeyRef = React.useRef<string | null>(null);
   // Serialize edits per pin and let scheduling wait for the final persisted version.
   const pendingPinSavesRef = React.useRef<Map<string, Promise<unknown>>>(new Map());
@@ -621,7 +625,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   };
 
   const savePinDescription = async (boardId: string, pinId: string, description: string, revision: number) => {
-    if (revision === descriptionSaveRevisionRef.current) {
+    const isCurrentSave = () =>
+      revision === descriptionSaveRevisionRef.current &&
+      boardId === descriptionSaveBoardIdRef.current;
+    if (isCurrentSave()) {
       setDescriptionSavePinId(pinId);
       setDescriptionSaveState('saving');
     }
@@ -630,11 +637,11 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       // A slower, older PATCH may finish after the user has typed a newer draft.
       // Remove only the exact value this request saved; preserve any newer text.
       clearPendingPinDescriptionIfMatches(boardId, pinId, description);
-      if (revision === descriptionSaveRevisionRef.current) setDescriptionSaveState('saved');
+      if (isCurrentSave()) setDescriptionSaveState('saved');
       return true;
     } catch (error) {
       console.error('[pins] Не удалось сохранить описание:', error);
-      if (revision === descriptionSaveRevisionRef.current) setDescriptionSaveState('error');
+      if (isCurrentSave()) setDescriptionSaveState('error');
       return false;
     }
   };
