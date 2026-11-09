@@ -55,7 +55,8 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
     setSaving(true);
     setCreateError('');
     try {
-      await onAddBoard(newBoard);
+      await onAddBoard(newBoard, createRequestId);
+      setCreateRequestId(crypto.randomUUID());
       setBoardName('');
       setCreateModalOpen(false);
     } catch (error) {
