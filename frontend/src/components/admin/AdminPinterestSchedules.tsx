@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, Clock, RefreshCw, ShieldCheck } from "lucide-react";
 import { apiRequest } from "../../lib/api";
 
@@ -96,6 +96,7 @@ export const AdminPinterestSchedules: React.FC = () => {
   const [reconciling, setReconciling] = useState(false);
   const [reconciliationError, setReconciliationError] = useState("");
   const [reconciliationSuccess, setReconciliationSuccess] = useState("");
+  const inventoryRequestIdRef = useRef(0);
   
   const createActionId = () => {
     const bytes = new Uint8Array(16);
@@ -152,6 +153,7 @@ export const AdminPinterestSchedules: React.FC = () => {
   };
 
   const load = useCallback(async (isRefresh = false) => {
+    const requestId = ++inventoryRequestIdRef.current;
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     setError("");
@@ -161,17 +163,27 @@ export const AdminPinterestSchedules: React.FC = () => {
       if (!result || !Array.isArray(result.items) || result.read_only !== true) {
         throw new Error("Сервер вернул неожиданный формат списка Pinterest.");
       }
+      // A slow response for an older filter must not overwrite the newest
+      // inventory (or clear its loading/error state).
+      if (requestId !== inventoryRequestIdRef.current) return;
       setData(result as InventoryResponse);
     } catch (err) {
+      if (requestId !== inventoryRequestIdRef.current) return;
       setError(err instanceof Error ? err.message : "Не удалось загрузить очередь Pinterest.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (requestId === inventoryRequestIdRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [status]);
 
   useEffect(() => {
     void load();
+    return () => {
+      // Invalidate in-flight requests when the filter changes or this panel unmounts.
+      inventoryRequestIdRef.current += 1;
+    };
   }, [load]);
 
   return (
