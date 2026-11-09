@@ -80,3 +80,10 @@ test("POST /admin/storage/process-retention-queue is admin-only, rate-limited, a
   assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
   assert.ok(source.includes("processPendingPinImageRetentionQueue({ supabase, limit })"));
 });
+
+\ntest("GET /admin/storage/retention-queue/blocked is read-only, admin-only, and rate-limited", () => {
+  const registration = 'app.get("/admin/storage/retention-queue/blocked", adminActionLimiter, requireAuth, requireAdmin,';
+  assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
+  assert.ok(source.includes('inspectBlockedPinImageRetentionQueue({ supabase, limit })'));
+  assert.ok(source.includes('automatic_reconciliation: false'));
+});
