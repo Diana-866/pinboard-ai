@@ -1755,3 +1755,11 @@ Repository files were read back after updates. Local Node/PostgreSQL execution w
 - Saves for one pin remain FIFO, failures do not block later edits, and an older completion cannot clear a newer queued request.
 - Added three regression tests for ordering, recovery after failure, and independence across pins.
 - GitHub read-back verified the helper, tests, and both component call sites. Tests, typecheck, and build have not been run. No production DB changes, deployment, or merge.
+
+## 2026-11-09 — AUD-282 freeze pin edits during scheduling
+
+- Pin title, aspect-ratio, and description edits now reject interaction as soon as the synchronous scheduling lock is acquired; matching UI controls are disabled while the calendar save is running.
+- Pin navigation tabs are disabled during scheduling to keep the visible editor aligned with the pin captured by the scheduling action.
+- This closes a race where a new debounced/queued edit could be added after the handler captured the pending-save promise, allowing the calendar item to be created before that newer edit was persisted.
+- The existing description flush, per-pin queue wait, and finally lock release remain in place.
+- Added docs/audits/AUD-282-freeze-pin-edits-during-scheduling.md. Automated tests, lint, typecheck, and build have not been run. No production DB changes, deployment, or merge.
