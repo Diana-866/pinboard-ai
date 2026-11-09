@@ -240,6 +240,57 @@ async function deleteManagedPinImageObject({ supabase, bucket = "pin-images", ob
 }
 
 
+async function inspectQuarantinedPinImageObjects({ supabase, limit = 50 }) {
+  const boundedLimit = Number.isInteger(limit) ? Math.min(100, Math.max(1, limit)) : 50;
+  const { data: rows, error: inventoryError } = await supabase.rpc("list_quarantined_pin_image_objects", {
+    p_limit: boundedLimit,
+  });
+  if (inventoryError) throw inventoryError;
+
+  const result = { inspected: 0, objectVisible: 0, objectMissing: 0, inventoryFailed: 0, items: [] };
+  for (const row of rows || []) {
+    result.inspected += 1;
+    const item = {
+      object_path: typeof row.object_path === "string" ? row.object_path : null,
+      attempts: Number.isInteger(Number(row.attempts)) ? Number(row.attempts) : null,
+      last_error_code: row.last_error_code || null,
+      updated_at: row.updated_at || null,
+      has_reference: row.has_reference === true,
+    };
+    if (row.bucket_id !== "pin-images" ||
+        typeof row.object_path !== "string" ||
+        !/^pins\\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\\.(?:png|jpe?g|webp|gif)$/i.test(row.object_path)) {
+      result.inventoryFailed += 1;
+      result.items.push({ ...item, status: "invalid_inventory_row", safe_action: "inspect_database_record" });
+      continue;
+    }
+
+    const parts = row.object_path.split("/");
+    const filename = parts.pop();
+    const folder = parts.join("/");
+    const { data: objects, error: listError } = await supabase.storage
+      .from(row.bucket_id)
+      .list(folder, { search: filename, limit: 100, offset: 0 });
+    if (listError) {
+      result.inventoryFailed += 1;
+      result.items.push({ ...item, status: "storage_inventory_failed", safe_action: "retry_read_only_inventory" });
+      continue;
+    }
+    const visible = (objects || []).some((object) => object && object.name === filename);
+    if (visible) result.objectVisible += 1;
+    else result.objectMissing += 1;
+    result.items.push({
+      ...item,
+      status: visible ? "object_present" : "object_absent",
+      safe_action: item.has_reference
+        ? "investigate_reference_guard_before_any_action"
+        : "manual_review_only_no_automatic_delete_or_unquarantine",
+    });
+  }
+  return result;
+}
+
+
 async function findCompletedManagedPinImageUpload({ supabase, bucket = "pin-images", idempotencyKey }) {
   if (!idempotencyKey) return null;
   const { data: objectPath, error: lookupError } = await supabase.rpc("find_completed_pin_image_upload", {
@@ -266,6 +317,7 @@ module.exports = {
   isDefiniteStorageRejection,
   reconcileStalePinImageUploads,
   quarantineStalePinImageUploads,
+  inspectQuarantinedPinImageObjects,
   extractManagedPinImagePath,
   buildPinImageObjectPath,
 };
