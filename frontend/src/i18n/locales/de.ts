@@ -361,6 +361,9 @@ export const de: TranslationSchema = {
     categoryFashion: "Mode & Capsule Wardrobe",
     savingLabel: "Wird gespeichert…",
     saveErrorFallback: "Die Pinnwand konnte nicht gespeichert werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+    loadingLabel: "Ihre Pinnwände werden geladen…",
+    retryLabel: "Erneut versuchen",
+    loadErrorFallback: "Ihre Pinnwände konnten nicht geladen werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut. Ihre Pinnwände wurden nicht gelöscht.",
   },
 
   analytics: {
