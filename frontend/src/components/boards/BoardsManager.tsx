@@ -8,12 +8,16 @@ import { BoardItem } from '../../data/mockData';
 interface BoardsManagerProps {
   boards: BoardItem[];
   loadError?: string;
+  isLoading?: boolean;
+  onRetry?: () => void;
   onAddBoard: (board: BoardItem) => Promise<void> | void;
 }
 
 export const BoardsManager: React.FC<BoardsManagerProps> = ({
   boards,
   loadError,
+  isLoading = false,
+  onRetry,
   onAddBoard,
 }) => {
   const { t } = useI18n();
@@ -85,15 +89,25 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
       </div>
 
       {/* Boards Grid */}
-      {loadError ? (
-        <div role="alert" className="custom-card p-8 rounded-2xl text-center text-sm text-secondary-theme">
-          {loadError}
+      {loadError && (
+        <div role="alert" className="custom-card p-5 rounded-2xl text-sm text-secondary-theme flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <span>{loadError}</span>
+          {onRetry && (
+            <button type="button" onClick={onRetry} className="accent-btn px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer">
+              {t.boards.retryLabel}
+            </button>
+          )}
         </div>
-      ) : boards.length === 0 ? (
+      )}
+      {isLoading && boards.length === 0 ? (
+        <div role="status" aria-live="polite" className="custom-card p-8 rounded-2xl text-center text-sm text-secondary-theme">
+          {t.boards.loadingLabel}
+        </div>
+      ) : boards.length === 0 && !loadError ? (
         <div className="custom-card p-8 rounded-2xl text-center text-sm text-secondary-theme">
           {t.dashboard.emptyBoards}
         </div>
-      ) : (
+      ) : boards.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {boards.map((board) => (
           <div key={board.id} className="custom-card p-5 rounded-2xl space-y-4">
