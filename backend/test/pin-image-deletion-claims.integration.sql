@@ -814,3 +814,52 @@ begin
   end if;
 end;
 $body$;
+
+
+-- AUD-268: upload reservation must also reject reuse of paths that remain
+-- reachable through saved generation/regeneration replay payloads.
+do $body$
+declare
+  v_user_id uuid := gen_random_uuid();
+  v_project_id uuid := gen_random_uuid();
+  v_board_id uuid := gen_random_uuid();
+  v_generation_path text := 'pins/generation-56565656565656565656565656565656.webp';
+  v_regeneration_path text := 'pins/generation-78787878787878787878787878787878.webp';
+  v_generation_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-56565656565656565656565656565656.webp';
+  v_regeneration_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-78787878787878787878787878787878.webp';
+  v_result jsonb;
+begin
+  insert into public.users(id, email)
+  values (v_user_id, v_user_id::text || '@pin-image-upload-replay-test.invalid');
+  insert into public.projects(id, user_id) values (v_project_id, v_user_id);
+  insert into public.boards(id, project_id) values (v_board_id, v_project_id);
+
+  insert into public.pin_generation_requests(
+    user_id, board_id, idempotency_key, status, request_fingerprint, pins
+  ) values (
+    v_user_id::text, v_board_id, 'pin-upload-generation-replay-reference-01',
+    'completed', repeat('a',64), jsonb_build_array(jsonb_build_object('image_url',v_generation_url))
+  );
+  v_result := public.begin_pin_image_upload('pin-images', v_generation_path, 600);
+  if coalesce((v_result ->> 'reserved')::boolean, true) is not false
+     or v_result ->> 'reason' <> 'referenced' then
+    raise exception 'upload reservation ignored generation replay payload: %', v_result;
+  end if;
+
+  insert into public.pins(id, board_id) values (gen_random_uuid(), v_board_id);
+
+  insert into public.pin_regeneration_requests(
+    user_id, pin_id, idempotency_key, request_fingerprint, model, prompt, amount,
+    status, result_pin
+  )
+  select v_user_id::text, p.id, 'pin-upload-regeneration-replay-01', repeat('b',64),
+         'test-model', 'Replay reference', 1, 'completed',
+         jsonb_build_object('id',p.id,'image_url',v_regeneration_url)
+    from public.pins p where p.board_id = v_board_id limit 1;
+  v_result := public.begin_pin_image_upload('pin-images', v_regeneration_path, 600);
+  if coalesce((v_result ->> 'reserved')::boolean, true) is not false
+     or v_result ->> 'reason' <> 'referenced' then
+    raise exception 'upload reservation ignored regeneration replay payload: %', v_result;
+  end if;
+end;
+$body$;
