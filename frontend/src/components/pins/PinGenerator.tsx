@@ -27,6 +27,7 @@ import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure } from '.
 import { clearPendingPinDescriptionIfMatches, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
 import { enqueuePinSave } from '../../utils/pendingPinSaveQueue';
 import { isCurrentPinDescriptionSave } from '../../utils/pinDescriptionSaveGuard';
+import { shouldFlushPendingPinDescription } from '../../utils/pendingPinDescriptionSwitch';
 import { clearPendingGenerationRequest, createGenerationFingerprint, listPendingGenerationRequests, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
 import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
 import { requireGeneratedPinsArray } from '../../utils/generatedPinsResponse';
@@ -661,7 +662,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     }
     // The debounce timer is shared by the editor. Switching to another pin
     // must enqueue the previous pin's last keystrokes before replacing its slot.
-    if (previousPending && (previousPending.boardId !== selectedBoardId || previousPending.pinId !== pinId)) {
+    if (previousPending && shouldFlushPendingPinDescription(previousPending, selectedBoardId, pinId)) {
       pendingDescriptionSaveRef.current = null;
       void savePinDescription(
         previousPending.boardId,
