@@ -58,3 +58,12 @@ test("GET /admin/storage/retention-candidates is read-only and rate-limited befo
   assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
   assert.ok(source.includes('supabase.rpc("list_pin_image_retention_candidates"'));
 });
+
+
+test("POST /admin/storage/expire-replay-results is admin-only, rate-limited, and uses the bounded expiry RPC", () => {
+  const registration = 'app.post("/admin/storage/expire-replay-results", adminActionLimiter, requireAuth, requireAdmin,';
+  assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
+  assert.ok(source.includes('supabase.rpc("expire_pin_image_replay_results"'));
+  assert.ok(source.includes('state.status === "expired"'));
+  assert.ok(source.includes('code: "idempotency_result_expired"'));
+});
