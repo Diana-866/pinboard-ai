@@ -74,3 +74,9 @@ test("POST /admin/storage/retire-expired-replay-references is admin-only, rate-l
   assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
   assert.ok(source.includes('supabase.rpc("retire_expired_pin_image_replay_references"'));
 });
+
+test("POST /admin/storage/process-retention-queue is admin-only, rate-limited, and uses the fenced worker", () => {
+  const registration = 'app.post("/admin/storage/process-retention-queue", adminActionLimiter, requireAuth, requireAdmin,';
+  assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
+  assert.ok(source.includes("processPendingPinImageRetentionQueue({ supabase, limit })"));
+});
