@@ -1939,3 +1939,11 @@ The backend already computes safe retryability and a machine-readable reason for
 - Added `backend/projectProvisioningOrder.js`: projects are ordered oldest-first by `created_at`, then by ID for deterministic tie-breaking. Applied before serialization in `GET /projects`.
 - Added `backend/test/project-provisioning-order.test.js` for ordering, tie-breaking, input immutability, and malformed results.
 - No migration or production DB changes. Tests, lint, typecheck, and build have not been run; no CI pass claimed. No deployment or merge.
+
+
+## AUD-301 — reset Pinterest generator state on user switch (2026-11-09)
+
+- Found that Pinterest account connections were fetched only on generator mount. If auth identity changed while the generator remained mounted, the old user's account/board state could remain visible.
+- Generator now observes `user.id`, clears account/board selections on identity changes, ignores stale requests, clears old Pinterest boards immediately when changing accounts, and validates returned account/board fields.
+- Added `docs/audits/AUD-301-pinterest-generator-user-switch.md`.
+- Tests, lint, typecheck, and build have not been run. No production DB changes, deployment, or merge.
