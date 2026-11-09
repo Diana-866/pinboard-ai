@@ -1805,3 +1805,11 @@ Repository files were read back after updates. Local Node/PostgreSQL execution w
 - Added `isScheduleAbsentFromActiveList` and regression tests for confirmed absence, still-present schedules, and malformed/incomplete responses. The existing reconciliation test file's literal escaped newline sequences were normalized.
 - Backend cancellation semantics, owner scoping, worker guards, and reference-aware Storage cleanup were not changed.
 - GitHub read-back performed. Automated tests, lint, typecheck, and build have not been executed. No production DB changes, deployment, or merge.
+
+
+## 2026-11-09 — AUD-288 strict schedule-list validation for cancellation recovery
+
+- Tightened `isScheduleAbsentFromActiveList`: every row must now include non-empty schedule/pin IDs and status, a parseable scheduled timestamp, and explicit nullable Pinterest board/account identity fields.
+- This prevents an incomplete or truncated list containing only unrelated IDs from being treated as proof that a cancellation committed.
+- Extended regression cases for incomplete rows, invalid timestamps, and missing destination identity. The worker/cancellation database protocol is unchanged.
+- GitHub read-back performed. Automated tests, lint, typecheck, and build have not been executed. No production DB changes, deployment, or merge.
