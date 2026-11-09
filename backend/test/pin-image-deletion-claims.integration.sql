@@ -686,3 +686,36 @@ begin
   end;
 end;
 $body$;
+
+-- New 128-bit random object suffixes must be accepted by the deletion claim RPC,
+-- not only by upload reservation and URL parsing.
+do $body$
+declare
+  v_path text := 'pins/1730000000999-0123456789abcdef0123456789abcdef.webp';
+  v_reservation jsonb;
+  v_claim jsonb;
+begin
+  v_reservation := public.begin_pin_image_upload('pin-images', v_path, 60);
+  if coalesce((v_reservation ->> 'reserved')::boolean, false) is not true then
+    raise exception '128-bit image path upload reservation failed: %', v_reservation;
+  end if;
+
+  if not public.finalize_pin_image_upload(
+    'pin-images', v_path, (v_reservation ->> 'upload_token')::uuid, true, null
+  ) then
+    raise exception '128-bit image path upload finalization failed';
+  end if;
+
+  v_claim := public.claim_pin_image_deletion('pin-images', v_path, 60);
+  if coalesce((v_claim ->> 'claimed')::boolean, false) is not true
+     or nullif(v_claim ->> 'claim_token', '') is null then
+    raise exception '128-bit image path deletion claim failed: %', v_claim;
+  end if;
+
+  if not public.finalize_pin_image_deletion(
+    'pin-images', v_path, (v_claim ->> 'claim_token')::uuid, true, null
+  ) then
+    raise exception '128-bit image path deletion finalization failed';
+  end if;
+end;
+$body$;
