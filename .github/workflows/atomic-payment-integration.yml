@@ -33,12 +33,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
       - name: Test Pinterest account request retry policy
         run: node --test backend/test/pinterest-account-request.test.js
       - name: Test Pinterest board pagination
         run: node --test backend/test/pinterest-boards-pagination.test.js
-      - name: Test pin image upload validation and error responses
-        run: node --test backend/test/image-upload-validation.test.js backend/test/image-upload-errors.test.js
+      - name: Test pin image upload validation, errors, and rate-limit keys
+        run: node --test backend/test/image-upload-validation.test.js backend/test/image-upload-errors.test.js backend/test/pin-image-rate-limit-key.test.js
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update
