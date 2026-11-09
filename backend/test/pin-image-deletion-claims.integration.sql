@@ -1,4 +1,4 @@
--- Pin image deletion-claim schema contract. Run after migrations 070, 083, 090, 098, 099 and 100.
+-- Pin image deletion-claim schema contract. Run after migrations 070, 083, 090, 098, 099, 100 and 101.
 do $body$
 declare
   v_path text;
