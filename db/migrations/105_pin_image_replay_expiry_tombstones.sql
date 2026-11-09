@@ -47,6 +47,7 @@ declare
   v_generation_count integer := 0;
   v_regeneration_count integer := 0;
   v_queued_count integer := 0;
+  v_remaining integer;
 begin
   if p_retention_days is null or p_retention_days < 30 or p_retention_days > 3650
      or p_limit is null or p_limit < 1 or p_limit > 100 then
@@ -88,11 +89,12 @@ begin
     v_generation_count := v_generation_count + 1;
   end loop;
 
+  v_remaining := greatest(0, p_limit - v_generation_count);
   for v_regeneration in
     select r.* from public.pin_regeneration_requests r
      where r.status = 'completed' and r.replay_expired_at is null
        and r.updated_at <= now() - make_interval(days => p_retention_days)
-     order by r.updated_at, r.id limit p_limit for update skip locked
+     order by r.updated_at, r.id limit v_remaining for update skip locked
   loop
     for v_path in
       select distinct paths.object_path from (
