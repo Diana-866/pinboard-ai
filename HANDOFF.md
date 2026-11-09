@@ -1914,3 +1914,11 @@ The backend already computes safe retryability and a machine-readable reason for
 - API output no longer includes internal request UUID/fingerprint or nested project `user_id`; ownership checks retain full internal DB rows.
 - Added `backend/boardSerialization.js` and `backend/test/board-serialization.test.js`.
 - Tests/lint/build not run; no CI pass claimed. No production DB changes, deployment, or merge.
+
+
+## AUD-298 — project API owner identity serialization (2026-11-09)
+
+- Added a dedicated project response serializer that omits internal `user_id` while preserving public project fields.
+- Applied it to project create, list, and detail endpoints. Ownership filters and internal DB rows are unchanged.
+- Added `backend/projectSerialization.js` and `backend/test/project-serialization.test.js`.
+- Tests, lint, typecheck, and build have not been run. No production DB changes, deployment, or merge.
