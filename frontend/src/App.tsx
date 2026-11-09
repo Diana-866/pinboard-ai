@@ -434,7 +434,7 @@ const MainApp: React.FC = () => {
         const rows = await apiRequest('/schedule');
         saved = findPersistedScheduleMutation(rows, {
           scheduleId: pin.id,
-          status: 'scheduled',
+          statuses: ['scheduled', 'publishing'],
           pinterestBoardId,
           pinterestAccountId: String(pin.pinterestAccountId || ''),
         });
@@ -448,7 +448,7 @@ const MainApp: React.FC = () => {
         ...item,
         scheduledDate: date.date,
         scheduledTime: date.time,
-        status: 'scheduled',
+        status: parsePersistedScheduleStatus(saved.status),
         pinterestBoardId,
         boardName: boardName || item.boardName,
         retryable: false,
@@ -475,7 +475,7 @@ const MainApp: React.FC = () => {
         const rows = await apiRequest('/schedule');
         saved = findPersistedScheduleMutation(rows, {
           scheduleId: pin.id,
-          status: 'scheduled',
+          statuses: ['scheduled', 'publishing'],
           pinterestBoardId: String(pin.pinterestBoardId || ''),
           pinterestAccountId: String(pin.pinterestAccountId || ''),
         });
@@ -489,7 +489,7 @@ const MainApp: React.FC = () => {
         ...item,
         scheduledDate: date.date,
         scheduledTime: date.time,
-        status: 'scheduled',
+        status: parsePersistedScheduleStatus(saved.status),
       } : item));
     } catch (error) {
       console.error('[schedule] Не удалось повторить публикацию:', error);
