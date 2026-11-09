@@ -116,6 +116,8 @@ test("GIF objects are supported and recognized for safe cleanup", () => {
 
 function makeStorageClient(options = {}) {
   const calls = [];
+  let uploadFinalizeIndex = 0;
+  let deletionFinalizeIndex = 0;
   const supabase = {
     calls,
     async rpc(name, args) {
@@ -132,6 +134,8 @@ function makeStorageClient(options = {}) {
           : options.uploadReservation, error: options.reserveError || null };
       }
       if (name === "finalize_pin_image_upload") {
+        const queued = options.uploadFinalizeResponses && options.uploadFinalizeResponses[uploadFinalizeIndex++];
+        if (queued) return queued;
         return { data: options.uploadFinalizeData === undefined ? true : options.uploadFinalizeData,
           error: options.uploadFinalizeError || null };
       }
@@ -146,6 +150,10 @@ function makeStorageClient(options = {}) {
       if (name === "quarantine_stale_pin_image_upload") {
         return { data: options.quarantineData === undefined ? true : options.quarantineData,
           error: options.quarantineError || null };
+      }
+      if (name === "finalize_pin_image_deletion") {
+        const queued = options.finalizeResponses && options.finalizeResponses[deletionFinalizeIndex++];
+        if (queued) return queued;
       }
       return { data: options.finalizeData === undefined ? true : options.finalizeData,
         error: options.finalizeError || null };
@@ -209,6 +217,23 @@ test("confirmed Storage deletion is finalized with the matching claim token", as
   ]);
   assert.equal(supabase.calls[2].args.p_claim_token, "claim-123");
   assert.equal(supabase.calls[2].args.p_deleted, true);
+});
+
+test("deletion finalization retries a transient database response using the same fencing token", async () => {
+  const transient = new Error("database response lost");
+  const supabase = makeStorageClient({
+    finalizeResponses: [
+      { data: null, error: transient },
+      { data: true, error: null },
+    ],
+  });
+  assert.equal(await deleteManagedPinImageObject({
+    supabase, objectPath: "pins/1730000000000-ab12cd34.webp",
+  }), true);
+  const finalizations = supabase.calls.filter((call) => call.name === "finalize_pin_image_deletion");
+  assert.equal(finalizations.length, 2);
+  assert.equal(finalizations[0].args.p_claim_token, "claim-123");
+  assert.deepEqual(finalizations[1].args, finalizations[0].args);
 });
 
 test("only object-specific 404 responses confirm that the target object is absent", () => {
@@ -413,6 +438,26 @@ test("failed upload finalization does not report a successful upload", async () 
     }),
     (error) => error === rpcError
   );
+});
+
+test("upload finalization retries a transient database response using the same fencing token", async () => {
+  const transient = new Error("database response lost");
+  const supabase = makeStorageClient({
+    uploadFinalizeResponses: [
+      { data: null, error: transient },
+      { data: true, error: null },
+    ],
+  });
+  assert.equal(await uploadManagedPinImageObject({
+    supabase,
+    objectPath: "pins/1730000000000-ab12cd34.webp",
+    file: Buffer.from("image"),
+    contentType: "image/webp",
+  }), true);
+  const finalizations = supabase.calls.filter((call) => call.name === "finalize_pin_image_upload");
+  assert.equal(finalizations.length, 2);
+  assert.equal(finalizations[0].args.p_upload_token, "upload-123");
+  assert.deepEqual(finalizations[1].args, finalizations[0].args);
 });
 
 test("stale upload quarantine retires exact paths with their current fencing tokens", async () => {
