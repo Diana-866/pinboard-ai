@@ -31,3 +31,10 @@ A Storage response that definitively rejects a delete is finalized as `delete_fa
 - Lifecycle finalization is retry-safe: migration 100 stores the exact last finalized fencing token and terminal outcome. If PostgreSQL commits a finalize RPC but its response is lost, replaying that RPC with the same token/outcome is acknowledged; a different token or conflicting outcome is rejected. Backend makes at most one retry of the upload/deletion finalization RPC. Ambiguous Storage operations themselves are not blindly retried: expired in-flight claims remain quarantined to prevent a late remote request from racing a new write/delete.
 
 Do not delete objects manually based only on age. Before a one-time cleanup, export candidate object paths and cross-check all database references, including schedule snapshots and all generation/regeneration journal rows (not only in-progress tasks).
+
+
+## Read-only retention candidate inventory
+
+Migration 103 adds a bounded, service-role-only RPC, exposed to administrators as `GET /admin/storage/retention-candidates?days=90&limit=100`. It reports managed image paths referenced only by completed generation/regeneration journals older than the selected retention window. It excludes paths still referenced by pins, non-cancelled schedule snapshots, recent or non-terminal generation tasks, recent regeneration requests, or recent generation replay payloads. The default is 90 days; allowed windows are 30–3650 days and result limits are 1–100.
+
+This is deliberately an inventory-only first phase. It does not change idempotency replay behavior, clear journal URLs, or delete Storage objects. A future cleanup worker must retire replay payloads and journal references transactionally before attempting the normal fenced deletion claim. A crash-safe durable cleanup queue is still required before automatic deletion is enabled.
