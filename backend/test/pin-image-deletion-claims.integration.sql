@@ -732,6 +732,7 @@ declare
   v_path text := 'pins/generation-12121212121212121212121212121212.webp';
   v_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-12121212121212121212121212121212.webp';
   v_result jsonb;
+  v_sources text[];
 begin
   insert into public.users(id, email)
   values (v_user_id, v_user_id::text || '@pin-image-replay-reference-test.invalid');
@@ -755,10 +756,10 @@ begin
     raise exception 'deletion claim ignored regeneration replay payload image_url: %', v_result;
   end if;
 
-  select * into v_result
+  select source_types into v_sources
     from public.list_pin_image_retention_candidates(90, 100)
    where object_path = v_path;
-  if not found or not ('regeneration_replay' = any(v_result.source_types)) then
+  if not found or not ('regeneration_replay' = any(v_sources)) then
     raise exception 'retention inventory omitted regeneration replay payload image_url';
   end if;
 
