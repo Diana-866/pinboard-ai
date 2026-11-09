@@ -21,17 +21,16 @@ export function resolvePinTitleSelection(
 }
 
 /**
- * Roll back a failed request only if it is still the newest choice. A slower
- * failed request must not overwrite a more recent title selected by the user.
+ * Roll back a failed request only if it is still the newest choice. The caller
+ * supplies the last server-confirmed title, not the previous optimistic choice.
  */
 export function restorePinTitleSelectionIfCurrent(
   selections: Map<string, string>,
   pinId: string,
   failedTitle: string,
-  previousTitle: string | undefined,
+  confirmedTitle: string,
 ): boolean {
   if (selections.get(pinId) !== failedTitle) return false;
-  if (previousTitle === undefined) selections.delete(pinId);
-  else selections.set(pinId, previousTitle);
+  selections.set(pinId, confirmedTitle);
   return true;
 }
