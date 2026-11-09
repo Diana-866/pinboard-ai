@@ -157,27 +157,31 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
 
             <form onSubmit={handleCreateBoard} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-secondary-theme uppercase tracking-wider mb-1.5">
+                <label htmlFor="create-board-name" className="block text-xs font-semibold text-secondary-theme uppercase tracking-wider mb-1.5">
                   {t.boards.boardTitleLabel}
                 </label>
                 <input
+                  id="create-board-name"
                   type="text"
                   value={boardName}
                   onChange={(e) => { setBoardName(e.target.value); setCreateRequestId(crypto.randomUUID()); }}
                   placeholder={t.boards.boardTitlePlaceholder}
                   className="w-full px-3 py-2 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
                   maxLength={100}
+                  disabled={saving}
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-secondary-theme uppercase tracking-wider mb-1.5">
+                <label htmlFor="create-board-category" className="block text-xs font-semibold text-secondary-theme uppercase tracking-wider mb-1.5">
                   {t.boards.boardCategoryLabel}
                 </label>
                 <select
+                  id="create-board-category"
                   value={category}
                   onChange={(e) => { setCategory(e.target.value); setCreateRequestId(crypto.randomUUID()); }}
+                  disabled={saving}
                   className="w-full px-3 py-2 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
                 >
                   <option value="Home Decor">{t.boards.categoryHomeDecor}</option>
