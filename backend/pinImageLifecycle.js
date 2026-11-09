@@ -260,6 +260,56 @@ async function deleteManagedPinImageObject({ supabase, bucket = "pin-images", ob
 }
 
 
+async function retryFailedPinImageDeletions({ supabase, limit = 25 }) {
+  const boundedLimit = Number.isInteger(limit) ? Math.min(100, Math.max(1, limit)) : 25;
+  const { data: rows, error: inventoryError } = await supabase.rpc("list_failed_pin_image_deletions", {
+    p_limit: boundedLimit,
+  });
+  if (inventoryError) throw inventoryError;
+
+  const result = { inspected: 0, deleted: 0, skipped: 0, failed: 0, items: [] };
+  for (const row of rows || []) {
+    result.inspected += 1;
+    const item = {
+      object_path: typeof row.object_path === "string" ? row.object_path : null,
+      attempts: Number.isInteger(Number(row.attempts)) ? Number(row.attempts) : null,
+      previous_error_code: row.last_error_code || null,
+      updated_at: row.updated_at || null,
+    };
+    if (row.bucket_id !== "pin-images" ||
+        typeof row.object_path !== "string" ||
+        !/^pins\\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\\.(?:png|jpe?g|webp|gif)$/i.test(row.object_path)) {
+      result.skipped += 1;
+      result.items.push({ ...item, status: "skipped", reason: "invalid_inventory_row" });
+      continue;
+    }
+
+    try {
+      // claim_pin_image_deletion rechecks every durable DB reference under a
+      // row lock. It refuses active claims and permanently quarantined paths.
+      const deleted = await deleteManagedPinImageObject({
+        supabase, bucket: row.bucket_id, objectPath: row.object_path,
+      });
+      if (deleted) {
+        result.deleted += 1;
+        result.items.push({ ...item, status: "deleted", reason: "retry_succeeded" });
+      } else {
+        result.skipped += 1;
+        result.items.push({ ...item, status: "skipped", reason: "claim_refused_or_reference_found" });
+      }
+    } catch (error) {
+      result.failed += 1;
+      result.items.push({
+        ...item,
+        status: "failed",
+        reason: "storage_or_lifecycle_retry_failed",
+        error_code: String(error && (error.code || error.name) || "retry_failed").slice(0, 64),
+      });
+    }
+  }
+  return result;
+}
+
 async function inspectQuarantinedPinImageObjects({ supabase, limit = 50 }) {
   const boundedLimit = Number.isInteger(limit) ? Math.min(100, Math.max(1, limit)) : 50;
   const { data: rows, error: inventoryError } = await supabase.rpc("list_quarantined_pin_image_objects", {
