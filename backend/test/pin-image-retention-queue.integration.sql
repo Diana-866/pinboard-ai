@@ -9,9 +9,9 @@ begin
   insert into public.pin_image_retention_queue(bucket_id, object_path, state)
   values ('pin-images', v_path, 'pending');
 
-  select c into v_claim
-    from public.claim_pin_image_retention_queue(25, 900) c
-   where c ->> 'object_path' = v_path;
+  select claimed.value into v_claim
+    from public.claim_pin_image_retention_queue(25, 900) as claimed(value)
+   where claimed.value ->> 'object_path' = v_path;
   if v_claim is null
      or v_claim ->> 'bucket_id' <> 'pin-images'
      or v_claim ->> 'object_path' <> v_path
@@ -59,9 +59,9 @@ begin
   -- but must never be treated as completed or sent to Storage.
   insert into public.pin_image_retention_queue(bucket_id, object_path, state)
   values ('pin-images', 'foreign/object.webp', 'pending');
-  select c into v_claim
-    from public.claim_pin_image_retention_queue(25, 900) c
-   where c ->> 'object_path' = 'foreign/object.webp';
+  select claimed.value into v_claim
+    from public.claim_pin_image_retention_queue(25, 900) as claimed(value)
+   where claimed.value ->> 'object_path' = 'foreign/object.webp';
   if v_claim ->> 'object_path' <> 'foreign/object.webp' then
     raise exception 'malformed queue row was not claimed for fail-closed handling: %', v_claim;
   end if;
