@@ -275,6 +275,7 @@ const MainApp: React.FC = () => {
   // Queue entries are session-local and must never survive an authenticated-user switch.
   const [pendingReviewPins, setPendingReviewPins] = useState<PendingReviewPin[]>([]);
   const pendingReviewPinsRef = React.useRef<PendingReviewPin[]>([]);
+  const reviewQueueWriteChainsRef = React.useRef<Map<string, Promise<unknown>>>(new Map());
   const pendingReviewUserIdRef = React.useRef(user?.id || '');
 
   // Restore the authenticated user's review queue from the backend. Never use
@@ -376,15 +377,25 @@ const MainApp: React.FC = () => {
 
     const previousById = new Map(previous.map((pin) => [pin.id, pin]));
     const nextById = new Map(next.map((pin) => [pin.id, pin]));
+    const enqueueById = (id: string, operation: () => Promise<unknown>) => {
+      const chains = reviewQueueWriteChainsRef.current;
+      const previousOperation = chains.get(id) || Promise.resolve();
+      const currentOperation = previousOperation.catch(() => undefined).then(operation);
+      chains.set(id, currentOperation);
+      currentOperation.finally(() => {
+        if (chains.get(id) === currentOperation) chains.delete(id);
+      }).catch(() => undefined);
+      return currentOperation;
+    };
     const writes = next
       .filter((pin) => !previousById.has(pin.id) || JSON.stringify(previousById.get(pin.id)) !== JSON.stringify(pin))
-      .map((pin) => apiRequest(`/review-queue/${encodeURIComponent(pin.id)}`, {
+      .map((pin) => enqueueById(pin.id, () => apiRequest(`/review-queue/${encodeURIComponent(pin.id)}`, {
         method: 'PUT',
         body: JSON.stringify({ pin }),
-      }));
+      })));
     const removals = previous
       .filter((pin) => !nextById.has(pin.id))
-      .map((pin) => apiRequest(`/review-queue/${encodeURIComponent(pin.id)}`, { method: 'DELETE' }));
+      .map((pin) => enqueueById(pin.id, () => apiRequest(`/review-queue/${encodeURIComponent(pin.id)}`, { method: 'DELETE' })));
 
     Promise.all([...writes, ...removals]).catch((error) => {
       console.error('[review-queue] Не удалось сохранить изменения очереди:', error);
