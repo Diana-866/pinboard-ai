@@ -37,6 +37,7 @@ import {
   ScheduledPinItem,
   PinterestAccount,
 } from './data/mockData';
+import { mapPersistedBoards } from './utils/persistedBoards';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Landing } from './pages/Landing';
@@ -91,27 +92,7 @@ const MainApp: React.FC = () => {
       setBoardsLoadError('');
       try {
         const rows = await apiRequest('/boards');
-        if (!Array.isArray(rows)) {
-          throw new Error(t.boards.loadErrorFallback);
-        }
-        const mapped: BoardItem[] = rows.map((row: any) => {
-          if (!row || (typeof row.id !== 'string' && typeof row.id !== 'number') ||
-              typeof row.title !== 'string' || !row.title.trim()) {
-            throw new Error(t.boards.loadErrorFallback);
-          }
-          const project = Array.isArray(row.projects) ? row.projects[0] : row.projects;
-          return {
-            id: String(row.id),
-            name: row.title.trim(),
-            category: project?.niche || row.description || '—',
-            pinCount: 0,
-            monthlyViews: 0,
-            seoScore: 0,
-            missingKeywords: [],
-            targetWeeklyPins: 7,
-            coverImage: '/src/assets/images/pin_home_decor_1790670043705.jpg',
-          };
-        });
+        const mapped = mapPersistedBoards(rows, t.boards.loadErrorFallback);
         if (!cancelled) setBoards(mapped);
       } catch (error) {
         console.error('[boards] Не удалось загрузить доски:', error);
