@@ -174,7 +174,7 @@ const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
 const { calculateGenerationReservation, calculateQuotedGenerationPricing } = require("./generationPricing");
 const { uploadPinImage, rehostImage, deletePinImageIfUnreferenced } = require("./storage");
-const { reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects, retryFailedPinImageDeletions, processPendingPinImageRetentionQueue } = require("./pinImageLifecycle");
+const { reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects, inspectBlockedPinImageRetentionQueue, retryFailedPinImageDeletions, processPendingPinImageRetentionQueue } = require("./pinImageLifecycle");
 const { validateDevTopupRequest } = require("./devTopup");
 const mail = require("./mail");
 const passwordReset = require("./password-reset");
@@ -2338,6 +2338,19 @@ app.post("/admin/storage/process-retention-queue", adminActionLimiter, requireAu
     const limit = Number.isFinite(parsedLimit) ? Math.min(25, Math.max(1, parsedLimit)) : 10;
     const result = await processPendingPinImageRetentionQueue({ supabase, limit });
     res.json({ ...result, storage_deletion_worker: true });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// Read-only diagnostics for blocked replay-retention queue rows. Storage presence is
+// observational only: this endpoint never retries a delete or reopens a queue item.
+app.get("/admin/storage/retention-queue/blocked", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const parsedLimit = Number.parseInt(String(req.query.limit || "50"), 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 50;
+    const result = await inspectBlockedPinImageRetentionQueue({ supabase, limit });
+    res.json({ ...result, read_only: true, automatic_reconciliation: false });
   } catch (e) {
     handleError(res, e);
   }
