@@ -11,6 +11,7 @@ const { serializePinImageUploadError } = require("./imageUploadErrors");
 const { buildPinImageRateLimitKey } = require("./pinImageRateLimitKey");
 const { applyPinImageCompareAndSwapFilter } = require("./pinImageCompareAndSwap");
 const { buildBoardPatch } = require("./boardPatch");
+const { buildPinPatch } = require("./pinPatch");
 
 const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
@@ -728,26 +729,7 @@ async function getPinWithOwnerCheck(pinId, userId) {
 app.patch("/pins/:id", requireAuth, async (req, res) => {
   try {
     const pin = await getPinWithOwnerCheck(req.params.id, req.userId);
-    const body = req.body || {};
-    const update = {};
-    if (Object.prototype.hasOwnProperty.call(body, "title")) {
-      const title = optionalString(body.title, { max: 100 });
-      if (!title) throw httpError(422, "Название пина не может быть пустым");
-      update.title = title;
-    }
-    if (Object.prototype.hasOwnProperty.call(body, "description")) {
-      update.description = optionalString(body.description, { max: 500 }) || "";
-    }
-    if (Object.prototype.hasOwnProperty.call(body, "aspect_ratio")) {
-      const aspectRatio = optionalString(body.aspect_ratio, { max: 8 });
-      if (!ASPECT_RATIOS.includes(aspectRatio)) {
-        throw httpError(422, "Некорректный формат изображения");
-      }
-      update.aspect_ratio = aspectRatio;
-    }
-    if (Object.keys(update).length === 0) {
-      throw httpError(422, "Нечего обновлять: передайте title и/или description");
-    }
+    const update = buildPinPatch(req.body, ASPECT_RATIOS);
 
     const { data, error } = await supabase
       .from("pins")
