@@ -38,6 +38,7 @@ import {
   PinterestAccount,
 } from './data/mockData';
 import { mapPersistedBoards } from './utils/persistedBoards';
+import { validatePersistedScheduleRows } from './utils/persistedSchedule';
 import { findPersistedScheduleMutation, isScheduleAbsentFromActiveList } from './utils/scheduleMutationReconciliation';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -62,6 +63,7 @@ const MainApp: React.FC = () => {
   const [boardsReloadToken, setBoardsReloadToken] = useState(0);
   const [scheduledPins, setScheduledPins] = useState<ScheduledPinItem[]>([]);
   const [scheduleLoadError, setScheduleLoadError] = useState('');
+  const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleReloadToken, setScheduleReloadToken] = useState(0);
   const [prefilledTopic, setPrefilledTopic] = useState<string>('');
   const [prefilledDate, setPrefilledDate] = useState<string>('');
@@ -114,6 +116,7 @@ const MainApp: React.FC = () => {
   React.useEffect(() => {
     setScheduledPins([]);
     setScheduleLoadError('');
+    setScheduleLoading(Boolean(user?.id));
   }, [user?.id]);
 
   // Расписание загружается из БД; демонстрационные публикации не показываем.
@@ -123,15 +126,15 @@ const MainApp: React.FC = () => {
       if (!user?.id) {
         setScheduledPins([]);
         setScheduleLoadError('');
+        setScheduleLoading(false);
         return;
       }
+      setScheduleLoading(true);
       setScheduleLoadError('');
       try {
-        const rows = await apiRequest('/schedule');
+        const response = await apiRequest('/schedule');
         if (cancelled) return;
-        if (!Array.isArray(rows)) {
-          throw new Error('Invalid schedule response: expected an array');
-        }
+        const rows = validatePersistedScheduleRows(response);
         const mapped: ScheduledPinItem[] = rows.map((row: any) => {
           const date = new Date(row.scheduled_at);
           const local = formatInstantInTimezone(date, getDefaultTimezone());
@@ -705,6 +708,7 @@ const MainApp: React.FC = () => {
             <PublishingCalendar
               scheduledPins={scheduledPins}
               scheduleLoadError={scheduleLoadError}
+              scheduleLoading={scheduleLoading}
               onRetryLoadSchedule={() => setScheduleReloadToken((value) => value + 1)}
               boards={boards}
               onAddPin={handleSchedulePin}
