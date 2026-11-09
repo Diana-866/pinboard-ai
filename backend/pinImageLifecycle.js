@@ -259,7 +259,7 @@ async function inspectQuarantinedPinImageObjects({ supabase, limit = 50 }) {
     };
     if (row.bucket_id !== "pin-images" ||
         typeof row.object_path !== "string" ||
-        !/^pins\\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\\.(?:png|jpe?g|webp|gif)$/i.test(row.object_path)) {
+        !/^pins\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp|gif)$/i.test(row.object_path)) {
       result.inventoryFailed += 1;
       result.items.push({ ...item, status: "invalid_inventory_row", safe_action: "inspect_database_record" });
       continue;
