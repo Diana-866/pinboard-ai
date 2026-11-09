@@ -75,7 +75,7 @@ test("rejects paths outside the generated pin object naming scheme", () => {
 });
 
 
-test("generation upload object keys are deterministic for the same provider idempotency key", () => {
+test("ordinary upload object paths use cryptographically random, cleanup-compatible identifiers", () => {\n  const first = buildPinImageObjectPath("webp");\n  const second = buildPinImageObjectPath("webp");\n  assert.match(first, /^pins\\/\\d+-[a-f0-9]{16}\\.webp$/);\n  assert.match(second, /^pins\\/\\d+-[a-f0-9]{16}\\.webp$/);\n  assert.notEqual(first, second);\n  assert.equal(\n    extractManagedPinImagePath(`https://project.supabase.co/storage/v1/object/public/pin-images/${first}`, base),\n    first\n  );\n});\n\ntest("generation upload object keys are deterministic for the same provider idempotency key", () => {
   const first = buildPinImageObjectPath("webp", "provider-task-key-123");
   const retry = buildPinImageObjectPath("webp", "provider-task-key-123");
   const other = buildPinImageObjectPath("webp", "provider-task-key-456");
