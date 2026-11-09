@@ -1971,3 +1971,13 @@ The backend already computes safe retryability and a machine-readable reason for
 - При ошибке текущего выбора интерфейс откатывается к последнему успешно сохранённому названию, а не к предыдущему неподтверждённому выбору.
 - Добавлены регрессионные сценарии в frontend/src/utils/pinTitleSelection.test.ts.
 - Runtime-тесты/lint/build не запускались; GitHub Actions runner failures и Vercel build-rate-limit остаются открытыми.
+
+
+## AUD-305 — queue rapid pin aspect-ratio changes safely (2026-11-09)
+
+- Found that the aspect-ratio controls were disabled while a PATCH was pending, preventing users from correcting a choice until the network responded.
+- More importantly, the existing rollback target was the previous optimistic ratio. If rapid changes were allowed and consecutive PATCHes failed, the UI could restore a ratio that the server had never confirmed.
+- Ratio changes now use the existing per-pin FIFO save queue without blocking subsequent choices. A separate ref tracks the last server-confirmed ratio, and failed latest choices roll back to that value only when they are still the displayed selection.
+- Saving state is retained while a newer queued ratio request remains pending.
+- Added regression coverage for two consecutive failed optimistic choices returning to the original server-confirmed ratio.
+- Tests, lint, typecheck, and build have not been run. No production DB changes, deployment, or merge.
