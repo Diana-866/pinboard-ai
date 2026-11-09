@@ -9,6 +9,7 @@ const { serializeGenerationRecovery } = require("./generationRecovery");
 const { isAllowedPinImageUploadMime } = require("./imageUploadValidation");
 const { serializePinImageUploadError } = require("./imageUploadErrors");
 const { buildPinImageRateLimitKey } = require("./pinImageRateLimitKey");
+const { applyPinImageCompareAndSwapFilter } = require("./pinImageCompareAndSwap");
 
 const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
@@ -797,20 +798,21 @@ app.post("/pins/:id/image", requireAuth, imageUploadLimiter, handlePinImageUploa
     const pin = await getPinWithOwnerCheck(req.params.id, req.userId);
     if (!req.file) throw httpError(422, "Передайте файл в поле image (PNG/JPG/WebP/GIF, до 5 МиБ)");
     const url = await uploadPinImage(req.file);
-    const { data, error } = await supabase
+    let updateQuery = supabase
       .from("pins")
       .update({ image_url: url })
       .eq("id", req.params.id)
-      .eq("board_id", pin.board_id)
-      .select()
-      .single();
-    if (error) {
-      // The object was uploaded before the database update. Clean it up on a
-      // failed update, but let the reference checks protect ambiguous commits.
+      .eq("board_id", pin.board_id);
+    updateQuery = applyPinImageCompareAndSwapFilter(updateQuery, pin.image_url);
+    const { data, error } = await updateQuery.select().maybeSingle();
+    if (error || !data) {
+      // Compare-and-swap prevents a slower upload from overwriting a newer
+      // image. A missing row means another request changed image_url first.
       await deletePinImageIfUnreferenced(url).catch((cleanupError) => {
-        console.error("[storage] не удалось очистить новое изображение после ошибки обновления пина:", cleanupError && cleanupError.message);
+        console.error("[storage] не удалось очистить новое изображение после конфликта обновления пина:", cleanupError && cleanupError.message);
       });
-      throw error;
+      if (error) throw error;
+      throw httpError(409, "Изображение пина уже изменилось. Обновите карточку и повторите загрузку.");
     }
     if (pin.image_url && pin.image_url !== url) {
       await deletePinImageIfUnreferenced(pin.image_url).catch((cleanupError) => {
