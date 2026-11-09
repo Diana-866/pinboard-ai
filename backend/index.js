@@ -1137,9 +1137,13 @@ app.post("/boards", requireAuth, async (req, res) => {
     const projectId = optionalString(req.body && req.body.project_id, { max: 64 });
     const title = optionalString(req.body && req.body.title, { max: 100 });
     const description = optionalString(req.body && req.body.description, { max: 500 }) || "";
+    const requestId = optionalString(req.body && req.body.create_request_id, { max: 36 });
 
     if (!projectId) throw httpError(422, "Укажите project_id");
     if (!title) throw httpError(422, "Название доски обязательно");
+    if (requestId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)) {
+      throw httpError(422, "Некорректный ключ создания доски");
+    }
 
     const { data: project, error: projectError } = await supabase
       .from("projects")
@@ -1149,6 +1153,44 @@ app.post("/boards", requireAuth, async (req, res) => {
       .single();
 
     if (projectError || !project) throw httpError(404, "Проект не найден");
+
+    // Legacy clients may omit the key. New clients reuse one UUID for every
+    // retry of the same logical create operation. The database unique index
+    // makes concurrent retries converge on one row.
+    if (requestId) {
+      const fingerprint = crypto.createHash("sha256")
+        .update(JSON.stringify({ project_id: project.id, title, description }))
+        .digest("hex");
+      const { error: insertError } = await supabase
+        .from("boards")
+        .upsert({
+          project_id: project.id,
+          title,
+          description,
+          status: "new",
+          create_request_id: requestId,
+          create_request_fingerprint: fingerprint,
+        }, {
+          onConflict: "project_id,create_request_id",
+          ignoreDuplicates: true,
+        });
+
+      if (insertError) throw insertError;
+
+      const { data, error } = await supabase
+        .from("boards")
+        .select("*")
+        .eq("project_id", project.id)
+        .eq("create_request_id", requestId)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) throw new Error("Не удалось подтвердить создание доски");
+      if (data.create_request_fingerprint !== fingerprint) {
+        throw httpError(409, "Этот запрос уже использован для другой доски. Начните создание заново.");
+      }
+      return res.status(200).json(data);
+    }
 
     const { data, error } = await supabase
       .from("boards")
