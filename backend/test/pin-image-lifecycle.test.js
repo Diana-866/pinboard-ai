@@ -704,3 +704,45 @@ test("retention queue worker blocks invalid claims without touching Storage", as
   assert.equal(calls[1].args.p_completed, false);
   assert.equal(calls[1].args.p_error_code, "invalid_retention_queue_claim");
 });
+
+test("retention queue worker deletes only after the final lifecycle claim and fences queue completion", async () => {
+  const calls = [];
+  const supabase = {
+    rpc: async (name, args) => {
+      calls.push({ name, args });
+      if (name === "claim_pin_image_retention_queue") {
+        return { data: [{
+          bucket_id: "pin-images",
+          object_path: "pins/1730000000000-abcdef0123456789abcdef0123456789.webp",
+          claim_token: "queue-token",
+        }], error: null };
+      }
+      if (name === "claim_pin_image_deletion") {
+        return { data: { claimed: true, claim_token: "lifecycle-token" }, error: null };
+      }
+      if (name === "finalize_pin_image_deletion") return { data: true, error: null };
+      if (name === "finalize_pin_image_retention_queue_item") return { data: true, error: null };
+      throw new Error("unexpected RPC " + name);
+    },
+    storage: {
+      from(bucket) {
+        assert.equal(bucket, "pin-images");
+        return { remove: async (paths) => {
+          assert.deepEqual(paths, ["pins/1730000000000-abcdef0123456789abcdef0123456789.webp"]);
+          return { data: [{}], error: null };
+        } };
+      },
+    },
+  };
+  const result = await processPendingPinImageRetentionQueue({ supabase, limit: 1 });
+  assert.equal(result.deleted, 1);
+  assert.equal(result.blocked, 0);
+  assert.deepEqual(calls.map((call) => call.name), [
+    "claim_pin_image_retention_queue",
+    "claim_pin_image_deletion",
+    "finalize_pin_image_deletion",
+    "finalize_pin_image_retention_queue_item",
+  ]);
+  assert.equal(calls[3].args.p_claim_token, "queue-token");
+  assert.equal(calls[3].args.p_completed, true);
+});
