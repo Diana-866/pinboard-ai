@@ -350,6 +350,17 @@ export const ru: TranslationSchema = {
     optimizeBoardBtn: 'ИИ-оптимизация SEO',
     targetPinsWeekly: 'Цель в неделю',
     recommendedKeywords: 'Недостающие популярные ключи',
+    boardTitleLabel: "Название доски",
+    boardTitlePlaceholder: "Например: керамика и декор из глины",
+    boardCategoryLabel: "Категория",
+    categoryHomeDecor: "Дом и интерьер",
+    categoryRecipes: "Рецепты и кулинария",
+    categoryWellness: "Красота и здоровье",
+    categoryTravel: "Путешествия",
+    categoryDigitalProducts: "Цифровые продукты и SaaS",
+    categoryFashion: "Мода и гардероб",
+    savingLabel: "Сохранение…",
+    saveErrorFallback: "Не удалось сохранить доску. Проверьте соединение и попробуйте ещё раз.",
   },
 
   analytics: {
