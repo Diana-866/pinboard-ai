@@ -34,3 +34,23 @@ test('failed ratio save does not change another pin', () => {
     [{ id: 'pin-1', aspectRatio: '1:1' }, pins[1]],
   );
 });
+
+
+test('two failed queued ratio choices return to the last server-confirmed ratio', () => {
+  const originalServerRatio = '2:3';
+  const optimisticAfterFirstChoice = [{ id: 'pin-1', aspectRatio: '9:16' }];
+  const optimisticAfterSecondChoice = [{ id: 'pin-1', aspectRatio: '1:1' }];
+
+  // The first failure must not roll back over the newer optimistic choice.
+  assert.deepEqual(
+    rollbackPinAspectRatioIfUnchanged(optimisticAfterSecondChoice, 'pin-1', '9:16', originalServerRatio),
+    optimisticAfterSecondChoice,
+  );
+  // If the second request also fails, it must return to the server value,
+  // not to the first choice which was never confirmed.
+  assert.deepEqual(
+    rollbackPinAspectRatioIfUnchanged(optimisticAfterSecondChoice, 'pin-1', '1:1', originalServerRatio),
+    [{ id: 'pin-1', aspectRatio: originalServerRatio }],
+  );
+  assert.equal(optimisticAfterFirstChoice[0].aspectRatio, '9:16');
+});
