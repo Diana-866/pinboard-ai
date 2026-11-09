@@ -350,6 +350,17 @@ export const de: TranslationSchema = {
     optimizeBoardBtn: 'KI-SEO-Optimierung',
     targetPinsWeekly: 'Wöchentliches Pin-Ziel',
     recommendedKeywords: 'Fehlende Trend-Keywords',
+    boardTitleLabel: "Name der Pinnwand",
+    boardTitlePlaceholder: "z. B. Keramik und handgefertigte Dekoration",
+    boardCategoryLabel: "Kategorie",
+    categoryHomeDecor: "Wohnen & Architektur",
+    categoryRecipes: "Rezepte & Kulinarik",
+    categoryWellness: "Beauty & Wellness",
+    categoryTravel: "Reisen & Ausflüge",
+    categoryDigitalProducts: "Digitale Produkte & SaaS",
+    categoryFashion: "Mode & Capsule Wardrobe",
+    savingLabel: "Wird gespeichert…",
+    saveErrorFallback: "Die Pinnwand konnte nicht gespeichert werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
   },
 
   analytics: {
