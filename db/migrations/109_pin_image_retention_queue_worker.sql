@@ -66,9 +66,11 @@ as $function$
 declare
   v_rows integer;
 begin
+  -- Finalization only changes the exact queue row protected by its token;
+  -- path validation is deliberately not repeated here so malformed rows can
+  -- be safely marked blocked without ever reaching Storage.
   if p_bucket_id is distinct from 'pin-images'
      or p_object_path is null
-     or p_object_path !~* '^pins/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})[.](?:png|jpe?g|webp|gif)$'
      or p_claim_token is null then
     raise exception 'invalid retention queue finalization';
   end if;
