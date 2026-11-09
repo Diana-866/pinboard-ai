@@ -1652,3 +1652,13 @@ A blocked item requires investigation; do not manually reset it to pending unles
 ## Verification
 
 Repository files were read back after updates. Local Node/PostgreSQL execution was unavailable; the new tests are wired into CI but are not claimed as passing until the workflow actually runs.
+
+
+# AUD-271 — read-only diagnostics for blocked image-retention queue (2026-11-09)
+
+- Added migration 110 with bounded service-role-only RPC `list_blocked_pin_image_retention_queue(1..100)`. It reports blocked queue metadata, matching image lifecycle state/error/attempts, and a fresh DB reference check across live pins, active schedule snapshots, generation tasks/replay payloads, and regeneration storage/replay payloads.
+- Added `inspectBlockedPinImageRetentionQueue` and admin-only, rate-limited `GET /admin/storage/retention-queue/blocked?limit=50`. It adds read-only Storage object visibility and returns explicit safe-action guidance.
+- The diagnostic deliberately never retries Storage DELETE, changes queue state, or reopens a blocked path. Storage listing is only an observation and cannot prove that an earlier timed-out request has stopped.
+- Added SQL integration coverage for diagnostics, source/error/attempt metadata, reference boolean, RPC privileges and bounds; added route registration coverage. Migration/test wired into atomic-payment integration CI.
+- Updated `docs/storage-lifecycle.md`.
+- Local Node/PostgreSQL execution was not available. Tests are wired into CI but not claimed as passing. No production migration, Storage deletion, deployment, or merge was performed.
