@@ -654,16 +654,33 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     if (schedulingPinLockRef.current || !currentPin) return;
     const description = e.target.value;
     const pinId = currentPin.id;
+    const previousPending = pendingDescriptionSaveRef.current;
+    if (descriptionSaveTimerRef.current) {
+      clearTimeout(descriptionSaveTimerRef.current);
+      descriptionSaveTimerRef.current = null;
+    }
+    // The debounce timer is shared by the editor. Switching to another pin
+    // must enqueue the previous pin's last keystrokes before replacing its slot.
+    if (previousPending && (previousPending.boardId !== selectedBoardId || previousPending.pinId !== pinId)) {
+      pendingDescriptionSaveRef.current = null;
+      void savePinDescription(
+        previousPending.boardId,
+        previousPending.pinId,
+        previousPending.description,
+        previousPending.revision,
+      );
+    }
     const updated = [...generatedPins];
     updated[activePinIndex] = { ...currentPin, description };
     setGeneratedPins(updated);
     setDescriptionSavePinId(pinId);
     setDescriptionSaveState('idle');
     const revision = ++descriptionSaveRevisionRef.current;
-    if (descriptionSaveTimerRef.current) clearTimeout(descriptionSaveTimerRef.current);
     descriptionSaveTimerRef.current = setTimeout(() => {
       descriptionSaveTimerRef.current = null;
-      pendingDescriptionSaveRef.current = null;
+      if (pendingDescriptionSaveRef.current?.revision === revision) {
+        pendingDescriptionSaveRef.current = null;
+      }
       void savePinDescription(selectedBoardId, pinId, description, revision);
     }, 800);
     writePendingPinDescription(selectedBoardId, pinId, description);
