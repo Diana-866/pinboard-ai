@@ -56,6 +56,8 @@ const MainApp: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [boards, setBoards] = useState<BoardItem[]>([]);
   const [boardsLoadError, setBoardsLoadError] = useState('');
+  const [boardsLoading, setBoardsLoading] = useState(false);
+  const [boardsReloadToken, setBoardsReloadToken] = useState(0);
   const [scheduledPins, setScheduledPins] = useState<ScheduledPinItem[]>([]);
   const [scheduleLoadError, setScheduleLoadError] = useState('');
   const [scheduleReloadToken, setScheduleReloadToken] = useState(0);
@@ -66,43 +68,63 @@ const MainApp: React.FC = () => {
   const [isBotOpen, setIsBotOpen] = useState<boolean>(false);
 
   const { toast, clearToast } = useNotifications();
-  const { aiContentLanguage } = useI18n();
+  const { aiContentLanguage, t } = useI18n();
   const { refreshUser } = useAuth();
  const { activeViewMode, setActiveViewMode, isPrivacyModalOpen, closePrivacyModal, isAdmin, user } = useAuth();
+
+  // Never expose the previous account's boards after an account switch.
+  React.useEffect(() => {
+    setBoards([]);
+    setBoardsLoadError('');
+    setBoardsLoading(Boolean(user?.id));
+  }, [user?.id]);
 
   // Доски загружаются из API, а не из демонстрационного массива браузера.
   React.useEffect(() => {
     let cancelled = false;
     async function loadBoards() {
-      setBoards([]);
-      setBoardsLoadError('');
       if (!user?.id) {
+        setBoardsLoading(false);
         return;
       }
+      setBoardsLoading(true);
+      setBoardsLoadError('');
       try {
         const rows = await apiRequest('/boards');
-        if (cancelled) return;
-        const mapped: BoardItem[] = (Array.isArray(rows) ? rows : []).map((row: any) => ({
-          id: String(row.id),
-          name: row.title || 'Без названия',
-          category: row.projects?.niche || row.description || 'Без категории',
-          pinCount: 0,
-          monthlyViews: 0,
-          seoScore: 0,
-          missingKeywords: [],
-          targetWeeklyPins: 7,
-          coverImage: '/src/assets/images/pin_home_decor_1790670043705.jpg',
-        }));
-        setBoards(mapped);
+        if (!Array.isArray(rows)) {
+          throw new Error(t.boards.loadErrorFallback);
+        }
+        const mapped: BoardItem[] = rows.map((row: any) => {
+          if (!row || (typeof row.id !== 'string' && typeof row.id !== 'number') ||
+              typeof row.title !== 'string' || !row.title.trim()) {
+            throw new Error(t.boards.loadErrorFallback);
+          }
+          const project = Array.isArray(row.projects) ? row.projects[0] : row.projects;
+          return {
+            id: String(row.id),
+            name: row.title.trim(),
+            category: project?.niche || row.description || '—',
+            pinCount: 0,
+            monthlyViews: 0,
+            seoScore: 0,
+            missingKeywords: [],
+            targetWeeklyPins: 7,
+            coverImage: '/src/assets/images/pin_home_decor_1790670043705.jpg',
+          };
+        });
+        if (!cancelled) setBoards(mapped);
       } catch (error) {
         console.error('[boards] Не удалось загрузить доски:', error);
-        if (!cancelled) setBoardsLoadError('Не удалось загрузить доски. Проверьте соединение и обновите страницу. Ваши доски не удалены.');
+        if (!cancelled) {
+          setBoardsLoadError(error instanceof Error ? error.message : t.boards.loadErrorFallback);
+        }
       } finally {
+        if (!cancelled) setBoardsLoading(false);
       }
     }
     loadBoards();
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [user?.id, boardsReloadToken, t.boards.loadErrorFallback]);
 
 
 
@@ -650,6 +672,8 @@ const MainApp: React.FC = () => {
             <BoardsManager
               boards={boards}
               loadError={boardsLoadError}
+              isLoading={boardsLoading}
+              onRetry={() => setBoardsReloadToken((value) => value + 1)}
               onAddBoard={handleAddBoard}
             />
           )}
