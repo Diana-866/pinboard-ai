@@ -67,3 +67,10 @@ test("POST /admin/storage/expire-replay-results is admin-only, rate-limited, and
   assert.ok(source.includes('state.status === "expired"'));
   assert.ok(source.includes('code: "idempotency_result_expired"'));
 });
+
+
+test("POST /admin/storage/retire-expired-replay-references is admin-only, rate-limited, and bounded", () => {
+  const registration = 'app.post("/admin/storage/retire-expired-replay-references", adminActionLimiter, requireAuth, requireAdmin,';
+  assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
+  assert.ok(source.includes('supabase.rpc("retire_expired_pin_image_replay_references"'));
+});
