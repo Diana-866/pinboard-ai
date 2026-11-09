@@ -33,6 +33,9 @@ This is deliberately an administrator-triggered recovery action, not an unattend
 
 ## Verification and rollout
 
+- CI verification on HEAD `40c2b58ec8a6ec58e22ce5a9d4b50636e73f9476`: all three PR workflows report `failure`; GitHub job metadata has `steps=null`, and log downloads return `BlobNotFound`. The cause is not observable, so none of the Node/PostgreSQL checks can be marked passed. Vercel preview separately reports `build-rate-limit`.
+
+
 - Regression tests were added but not run locally in this environment.
 - SQL integration assertions were added but not executed against a local PostgreSQL instance here.
 - CI must be inspected after GitHub Actions runs; do not treat unobserved tests as passing.
