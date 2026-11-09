@@ -1898,3 +1898,11 @@ The backend already computes safe retryability and a machine-readable reason for
 - Manual unknown-publication reconciliation and its idempotency key behavior are unchanged. No API or SQL changes.
 - Files: `frontend/src/components/admin/AdminPinterestSchedules.tsx`, `docs/audits/AUD-295-pinterest-admin-inventory-stale-response.md`.
 - Status: FIX IMPLEMENTED / STATIC READ-BACK PENDING / TESTS NOT RUN. Frontend tests, lint, and build were not run locally; CI not confirmed. No production data, deployment, or merge.
+
+
+## AUD-296 — repair idempotent board-creation migration (2026-11-09)
+
+- Corrected malformed SQL in `db/migrations/111_idempotent_board_creation.sql`: closed and anchored the SHA-256 hex regex, balanced the CHECK/DO blocks, and removed the duplicated trailing fragment.
+- Constraint accepts either both idempotency fields NULL (legacy clients) or a UUID plus a lowercase 64-character SHA-256 fingerprint.
+- PostgreSQL execution/integration tests have not been run. Confirm migration 111 has not been applied before applying the corrected file; inspect an existing constraint first if it has.
+- No production SQL, deployment, or merge.
