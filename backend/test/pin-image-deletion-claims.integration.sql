@@ -1,4 +1,4 @@
--- Pin image deletion-claim schema contract. Run after migrations 070, 083, 090, 098 and 099.
+-- Pin image deletion-claim schema contract. Run after migrations 070, 083, 090, 098, 099 and 100.
 do $body$
 declare
   v_path text;
@@ -576,5 +576,58 @@ begin
       raise;
     end if;
   end;
+end;
+$body$;
+
+
+-- AUD-260: finalization retries acknowledge only the exact token and terminal outcome.
+do $body$
+declare
+  v_upload_path text := 'pins/generation-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.webp';
+  v_failed_upload_path text := 'pins/generation-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.webp';
+  v_delete_path text := 'pins/generation-cccccccccccccccccccccccccccccccc.webp';
+  v_failed_delete_path text := 'pins/generation-dddddddddddddddddddddddddddddddd.webp';
+  v_result jsonb;
+  v_token uuid;
+begin
+  v_result := public.begin_pin_image_upload('pin-images', v_upload_path, 60);
+  v_token := (v_result ->> 'upload_token')::uuid;
+  if not public.finalize_pin_image_upload('pin-images', v_upload_path, v_token, true, null)
+     or not public.finalize_pin_image_upload('pin-images', v_upload_path, v_token, true, null) then
+    raise exception 'successful upload finalization was not idempotent for its original token';
+  end if;
+  if public.finalize_pin_image_upload('pin-images', v_upload_path, gen_random_uuid(), true, null) then
+    raise exception 'upload finalization accepted a different fencing token';
+  end if;
+
+  v_result := public.begin_pin_image_upload('pin-images', v_failed_upload_path, 60);
+  v_token := (v_result ->> 'upload_token')::uuid;
+  if not public.finalize_pin_image_upload('pin-images', v_failed_upload_path, v_token, false, 'storage rejected')
+     or not public.finalize_pin_image_upload('pin-images', v_failed_upload_path, v_token, false, 'storage rejected') then
+    raise exception 'failed upload finalization was not idempotent for its original outcome';
+  end if;
+  if public.finalize_pin_image_upload('pin-images', v_failed_upload_path, v_token, true, null) then
+    raise exception 'upload finalization accepted a conflicting terminal outcome';
+  end if;
+
+  v_result := public.claim_pin_image_deletion('pin-images', v_delete_path, 60);
+  v_token := (v_result ->> 'claim_token')::uuid;
+  if not public.finalize_pin_image_deletion('pin-images', v_delete_path, v_token, true, null)
+     or not public.finalize_pin_image_deletion('pin-images', v_delete_path, v_token, true, null) then
+    raise exception 'successful deletion finalization was not idempotent for its original token';
+  end if;
+  if public.finalize_pin_image_deletion('pin-images', v_delete_path, gen_random_uuid(), true, null) then
+    raise exception 'deletion finalization accepted a different fencing token';
+  end if;
+
+  v_result := public.claim_pin_image_deletion('pin-images', v_failed_delete_path, 60);
+  v_token := (v_result ->> 'claim_token')::uuid;
+  if not public.finalize_pin_image_deletion('pin-images', v_failed_delete_path, v_token, false, 'storage rejected')
+     or not public.finalize_pin_image_deletion('pin-images', v_failed_delete_path, v_token, false, 'storage rejected') then
+    raise exception 'failed deletion finalization was not idempotent for its original outcome';
+  end if;
+  if public.finalize_pin_image_deletion('pin-images', v_failed_delete_path, v_token, true, null) then
+    raise exception 'deletion finalization accepted a conflicting terminal outcome';
+  end if;
 end;
 $body$;
