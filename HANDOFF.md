@@ -1795,3 +1795,13 @@ Repository files were read back after updates. Local Node/PostgreSQL execution w
 - Calendar state preserves the persisted status using `parsePersistedScheduleStatus`, so a worker-owned row is not rendered as merely queued.
 - Added regression test for the worker-claimed state. See `docs/audits/AUD-286-worker-claim-aware-schedule-reconciliation.md`.
 - Automated tests, lint, typecheck, and build have not been executed in this environment. No production DB changes, deployment, or merge.
+
+
+## 2026-11-09 — AUD-287 reconcile ambiguous schedule cancellation
+
+- Calendar cancellation now recovers from a lost POST response by reading the authenticated `GET /schedule` list, which intentionally excludes cancelled rows.
+- Absence is accepted only when the response is a valid array and every row has a non-empty string ID. If the target remains present, the response is malformed, or the read fails, the original cancellation error is preserved.
+- The frontend removes the calendar item only after a successful POST or strict read-after-error confirmation. It does not send a second cancellation request.
+- Added `isScheduleAbsentFromActiveList` and regression tests for confirmed absence, still-present schedules, and malformed/incomplete responses. The existing reconciliation test file's literal escaped newline sequences were normalized.
+- Backend cancellation semantics, owner scoping, worker guards, and reference-aware Storage cleanup were not changed.
+- GitHub read-back performed. Automated tests, lint, typecheck, and build have not been executed. No production DB changes, deployment, or merge.
