@@ -1710,3 +1710,10 @@ Repository files were read back after updates. Local Node/PostgreSQL execution w
 - Added `backend/boardPatch.js` and `backend/test/board-patch.test.js`; empty titles, invalid description types, and empty patches are rejected with 422.
 - Existing ownership check and project-scoped update remain in place.
 - Tests have not yet been executed; no production DB changes, deploy, or merge.
+
+## 2026-11-09 — AUD-276 pin editing and race safety
+
+- Extracted presence-aware pin patch validation into `backend/pinPatch.js`; users can clear descriptions without changing omitted fields.
+- Added strict title/aspect-ratio/empty-patch validation and `backend/test/pin-patch.test.js`.
+- Pin patch/status updates now return 404 when the pin is deleted between owner lookup and update; malformed status bodies return 422.
+- Ownership checks and board-scoped writes remain intact. Tests not yet executed; no production DB changes, deployment, or merge.
