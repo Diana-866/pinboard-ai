@@ -1748,3 +1748,10 @@ Repository files were read back after updates. Local Node/PostgreSQL execution w
 - Added a matching `htmlFor="pin-description"` / `id="pin-description"` relationship for the pin SEO description editor.
 - This restores explicit accessible naming and label-click focus behavior without changing autosave logic.
 - Component and audit report read-back verified. Automated lint, typecheck, and tests have not been run.
+
+## 2026-11-09 — AUD-281 deterministic per-pin save queue
+
+- Extracted the per-pin PATCH serialization into `frontend/src/utils/pendingPinSaveQueue.ts`; both regular pin edits and the board-switch/unmount description flush now share it.
+- Saves for one pin remain FIFO, failures do not block later edits, and an older completion cannot clear a newer queued request.
+- Added three regression tests for ordering, recovery after failure, and independence across pins.
+- GitHub read-back verified the helper, tests, and both component call sites. Tests, typecheck, and build have not been run. No production DB changes, deployment, or merge.
