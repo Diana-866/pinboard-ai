@@ -1,3 +1,5 @@
+const fs = require("node:fs");
+const path = require("node:path");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { serializeGenerationRecovery } = require("../generationRecovery");
@@ -62,4 +64,12 @@ test("unexpected database status is normalized to unknown", () => {
   });
   assert.equal(result.status, "unknown");
   assert.deepEqual(result.pins, []);
+});
+
+
+test("generation recovery returns a machine-readable 410 after replay expiry", () => {
+  const source = fs.readFileSync(path.join(__dirname, "..", "index.js"), "utf8");
+  assert.ok(source.includes('.select("id, board_id, status, pins, replay_expired_at, created_at, updated_at")'));
+  assert.ok(source.includes('code: "idempotency_result_expired"'));
+  assert.ok(source.includes('return res.status(410).json({'));
 });
