@@ -1659,6 +1659,9 @@ Repository files were read back after updates. Local Node/PostgreSQL execution w
 - Added migration 110 with bounded service-role-only RPC `list_blocked_pin_image_retention_queue(1..100)`. It reports blocked queue metadata, matching image lifecycle state/error/attempts, and a fresh DB reference check across live pins, active schedule snapshots, generation tasks/replay payloads, and regeneration storage/replay payloads.
 - Added `inspectBlockedPinImageRetentionQueue` and admin-only, rate-limited `GET /admin/storage/retention-queue/blocked?limit=50`. It adds read-only Storage object visibility and returns explicit safe-action guidance.
 - The diagnostic deliberately never retries Storage DELETE, changes queue state, or reopens a blocked path. Storage listing is only an observation and cannot prove that an earlier timed-out request has stopped.
-- Added SQL integration coverage for diagnostics, source/error/attempt metadata, reference boolean, RPC privileges and bounds; added route registration coverage. Migration/test wired into atomic-payment integration CI.
+- Added SQL integration coverage for diagnostics, source/error/attempt metadata, reference boolean, RPC privileges and bounds; added route registration coverage plus Node tests proving the inspection only lists Storage objects (never calls remove) and rejects invalid paths before Storage access. Migration/test wired into atomic-payment integration CI.
 - Updated `docs/storage-lifecycle.md`.
 - Local Node/PostgreSQL execution was not available. Tests are wired into CI but not claimed as passing. No production migration, Storage deletion, deployment, or merge was performed.
+
+
+**AUD-271 CI recheck:** New HEAD `e09b3ae5abc2b5bd477fcab76579212d55e8bd6e` triggered all three PR workflows. All report `failure`, but GitHub exposes no job steps/log URLs (`steps=null`, `logs_url=null`); attempts to download job logs return `BlobNotFound`. The Vercel status is separately `failure` with `build-rate-limit`. Therefore no SQL or Node test result is confirmed. Do not treat these failures as evidence of a specific code defect, but do not claim green CI either.
