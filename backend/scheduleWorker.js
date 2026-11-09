@@ -13,7 +13,10 @@ const REQUEST_TIMEOUT_MS = Math.min(
   MAX_REQUEST_TIMEOUT_MS,
   Math.max(10_000, Number(process.env.PINPOSY_SCHEDULER_REQUEST_TIMEOUT_MS) || 120_000)
 );
-const BATCH_LIMIT = Math.max(1, Math.min(10, Number(process.env.PINPOSY_SCHEDULER_BATCH_LIMIT) || 10));
+// A schedule claim has a fixed 20-minute recovery age and no heartbeat yet.
+// Claim one row per HTTP run so later rows cannot age while waiting behind a
+// slow Pinterest upload/publication in the same sequential batch.
+const BATCH_LIMIT = 1;
 
 function getWorkerConfig(env = process.env) {
   const baseUrl = String(env.PINPOSY_BACKEND_URL || env.PUBLIC_BACKEND_URL || "").trim().replace(/[/]+$/, "");
@@ -28,13 +31,14 @@ function getWorkerConfig(env = process.env) {
   return { endpoint: baseUrl + "/internal/pinterest/schedule/run", secret };
 }
 
-function createWorker({ config, client = axios, logger = console, intervalMs = POLL_INTERVAL_MS, timeoutMs = REQUEST_TIMEOUT_MS, batchLimit = BATCH_LIMIT }) {
+function createWorker({ config, client = axios, logger = console, intervalMs = POLL_INTERVAL_MS, timeoutMs = REQUEST_TIMEOUT_MS }) {
   let timer = null;
   let active = false;
   let stopped = false;
 
-  const safeBatchLimit = Math.max(1, Math.min(10, Number(batchLimit) || 10));
-  // Keep even explicitly injected/test configuration below PostgreSQL's stale-claim fence.
+  // Until the database claim has a renewable lease, never claim a queue behind
+  // another potentially slow external publication.
+  const safeBatchLimit = BATCH_LIMIT;
   const safeTimeoutMs = Math.min(MAX_REQUEST_TIMEOUT_MS, Math.max(10_000, Number(timeoutMs) || REQUEST_TIMEOUT_MS));
 
   async function tick() {
