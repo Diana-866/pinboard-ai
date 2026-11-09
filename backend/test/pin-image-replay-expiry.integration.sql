@@ -1,5 +1,5 @@
 -- Replay expiry, transactional reference retirement, and durable queue safety (migrations 105/108).
--- This phase never clears journal payloads and never deletes Storage objects.
+-- The retirement phase clears tombstoned replay payloads but never deletes Storage objects.
 do $body$
 declare
   v_user_id uuid := gen_random_uuid();
