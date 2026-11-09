@@ -83,14 +83,20 @@ async function reconcileUnknownPublication(operatorUserId, body = {}) {
     p_action_id: actionId,
   });
   if (error) throw mapRpcError(error);
-  if (!data) throw httpError(500, "Не удалось получить подтверждение сверки публикации");
+  // A successful RPC must return its persisted timestamp. Never tell the
+  // operator that the schedule is published based on an empty or malformed
+  // response (for example, a proxy error body or an unexpected RPC shape).
+  const recordedAt = typeof data === "string" && Number.isFinite(Date.parse(data))
+    ? new Date(data).toISOString()
+    : null;
+  if (!recordedAt) throw httpError(500, "Не удалось подтвердить сохранение сверки публикации");
 
   return {
     ok: true,
     action_id: actionId,
     schedule_id: scheduleId,
     status: "published",
-    recorded_at: data,
+    recorded_at: recordedAt,
   };
 }
 
