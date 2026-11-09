@@ -1922,3 +1922,12 @@ The backend already computes safe retryability and a machine-readable reason for
 - Applied it to project create, list, and detail endpoints. Ownership filters and internal DB rows are unchanged.
 - Added `backend/projectSerialization.js` and `backend/test/project-serialization.test.js`.
 - Tests, lint, typecheck, and build have not been run. No production DB changes, deployment, or merge.
+
+
+## AUD-299 — single-flight default project provisioning (2026-11-09)
+
+- Added per-user in-flight coordination for the initial project read/create path used by board creation.
+- Concurrent board-create flows in one browser runtime share one provisioning operation; users remain isolated. Failed attempts release the lock and retries re-read persisted projects before creating.
+- Added `frontend/src/utils/projectProvisioning.ts` and `.test.ts`; wired `App.tsx` to use it.
+- This is runtime-level coordination, not a cross-tab/device database uniqueness guarantee.
+- Tests, lint, and build have not been run. No production DB changes, deployment, or merge.
