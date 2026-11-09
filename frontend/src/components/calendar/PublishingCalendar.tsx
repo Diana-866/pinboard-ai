@@ -30,6 +30,7 @@ import {
 interface PublishingCalendarProps {
   scheduledPins: ScheduledPinItem[];
   scheduleLoadError?: string;
+  scheduleLoading?: boolean;
   onRetryLoadSchedule?: () => void;
   boards: BoardItem[];
   onAddPin: (pin: ScheduledPinItem) => void;
@@ -53,6 +54,7 @@ const formatLocalDate = (date: Date): string => {
 export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
   scheduledPins,
   scheduleLoadError = '',
+  scheduleLoading = false,
   onRetryLoadSchedule,
   boards,
   onAddPin,
@@ -329,6 +331,11 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-10">
+      {scheduleLoading && (
+        <div role="status" aria-live="polite" className="rounded-xl border border-accent/30 bg-subtle p-3 text-xs text-secondary-theme">
+          Загружаем сохранённое расписание…
+        </div>
+      )}
       {scheduleLoadError && (
         <div role="alert" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/5 p-3">
           <p className="text-xs leading-relaxed text-secondary-theme">{scheduleLoadError}</p>
@@ -336,6 +343,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
             <button
               type="button"
               onClick={onRetryLoadSchedule}
+              disabled={scheduleLoading}
               className="shrink-0 rounded-lg border border-amber-500/40 px-3 py-2 text-xs font-semibold text-primary-theme hover:bg-amber-500/10"
             >
               Загрузить снова
@@ -777,7 +785,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
             ))
           ) : (
             <div className="p-8 text-center text-xs text-muted-theme">
-              {t.calendar.emptyQueue}
+              {scheduleLoading ? 'Загружаем расписание…' : scheduleLoadError ? 'Расписание временно недоступно. Повторите загрузку.' : t.calendar.emptyQueue}
             </div>
           )}
         </div>
