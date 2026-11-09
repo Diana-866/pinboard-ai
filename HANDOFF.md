@@ -1581,3 +1581,12 @@ A subsequent code review caught and fixed a runtime wiring defect: `retryFailedP
 - This is a read-only first phase: no idempotency records are expired, no URLs are cleared, and no Storage objects are deleted. A later phase must implement durable transactional retirement plus a crash-safe deletion queue before enabling cleanup.
 - Files changed: migration 103; `backend/index.js`; `backend/test/pin-image-retention-inventory.integration.sql`; `backend/test/admin-storage-rate-limit.test.js`; `.github/workflows/atomic-payment-integration.yml`; `docs/storage-lifecycle.md`.
 - Local PostgreSQL/Node tests were not run. CI status must be checked on the new HEAD; no production migration, Storage operation, deployment, or merge was performed.
+
+
+## AUD-265 — regeneration replay image-reference guard (2026-11-09)
+
+- Found a gap in the existing deletion/retention guards: completed regeneration requests persist both `storage_url` and a replayable `result_pin` JSON payload. The existing claim/inventory logic only inspected `storage_url`. If a legacy or inconsistent row retained `result_pin.image_url` while `storage_url` was null/different, the saved idempotent response could reference an image that cleanup was allowed to delete.
+- Added migration `104_pin_regeneration_replay_image_reference_guard.sql`: deletion claims now treat `result_pin.image_url` as a durable reference; the bounded retention inventory reports it as `regeneration_replay` and excludes paths still referenced by recent/non-terminal replay rows.
+- Added a PostgreSQL integration regression case with a completed regeneration journal whose `storage_url` is null but `result_pin.image_url` contains a managed Storage URL. It verifies deletion is blocked, inventory includes the replay reference, and the path becomes claimable only after the journal is removed.
+- Migration 104 and the regression test are wired into atomic-payment integration CI. Local PostgreSQL tests were not run; GitHub Actions must confirm execution. No production migration, Storage operation, deployment, or merge was performed.
+- This closes one reference-consistency gap; it does not yet implement journal expiry or automatic retention cleanup.
