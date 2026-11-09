@@ -1931,3 +1931,11 @@ The backend already computes safe retryability and a machine-readable reason for
 - Added `frontend/src/utils/projectProvisioning.ts` and `.test.ts`; wired `App.tsx` to use it.
 - This is runtime-level coordination, not a cross-tab/device database uniqueness guarantee.
 - Tests, lint, and build have not been run. No production DB changes, deployment, or merge.
+
+
+## AUD-300 — deterministic default-project selection (2026-11-09)
+
+- Found that `GET /projects` returned rows without an explicit order, while board creation selects the first project. This could make a retry choose another project and bypass board idempotency scoped to `(project_id, create_request_id)`.
+- Added `backend/projectProvisioningOrder.js`: projects are ordered oldest-first by `created_at`, then by ID for deterministic tie-breaking. Applied before serialization in `GET /projects`.
+- Added `backend/test/project-provisioning-order.test.js` for ordering, tie-breaking, input immutability, and malformed results.
+- No migration or production DB changes. Tests, lint, typecheck, and build have not been run; no CI pass claimed. No deployment or merge.
