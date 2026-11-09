@@ -1717,3 +1717,12 @@ Repository files were read back after updates. Local Node/PostgreSQL execution w
 - Added strict title/aspect-ratio/empty-patch validation and `backend/test/pin-patch.test.js`.
 - Pin patch/status updates now return 404 when the pin is deleted between owner lookup and update; malformed status bodies return 422.
 - Ownership checks and board-scoped writes remain intact. Tests not yet executed; no production DB changes, deployment, or merge.
+
+
+## 2026-11-09 — AUD-277 strict board and pin patch fields
+
+- Board and pin PATCH handlers now reject unknown request keys with HTTP 422, including when a valid field is also present. This prevents typoed fields from being silently ignored while another part of the edit succeeds.
+- Added regression assertions for mixed valid + misspelled keys in `backend/test/board-patch.test.js` and `backend/test/pin-patch.test.js`.
+- Existing allow-listed updates, description clearing, title validation, and aspect-ratio validation are preserved.
+- Added `docs/audits/AUD-277-strict-board-and-pin-patch-fields.md`.
+- Source files and tests were written and read back; tests have not been executed in this environment. No deployment, production DB change, or merge.
