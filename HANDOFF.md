@@ -1517,3 +1517,13 @@ No confirmed credit-spending bypass was found in the reviewed paths. This remain
 - Важно: инвентаризация ничего не удаляет и не снимает quarantine. Наличие объекта и отсутствие ссылок сами по себе не доказывают, что старый удалённый запрос завершился; автоматическое удаление могло бы нарушить fencing.
 - Проверки: изменения внесены в ветку; локальные Node/PostgreSQL тесты не запускались. CI на текущем HEAD требуется проверить. Миграция не применялась к production; Storage, deployment и merge не затрагивались.
 - Документ: `docs/audits/AUD-258-quarantined-image-inventory.md`.
+
+
+## AUD-259 — точная классификация Storage 404 при удалении (2026-11-09)
+
+- Исправлен дефект: ранее любой Storage HTTP 404 трактовался как доказательство отсутствия именно объекта, после чего lifecycle мог выставить `deleted`. 404 от отсутствующего бакета/endpoint не подтверждает успешное удаление целевого файла.
+- Добавлена `isStorageObjectNotFound(error)`: успех только при статусе 404, object-specific code (`not_found`, `object_not_found`, `no_such_key`) и сообщении, явно указывающем на отсутствие object/key.
+- Общий 404 (например, `Bucket not found`) теперь token-checked финализируется как `delete_failed`, после чего ошибка возвращается вызывающему коду. 5xx и transport errors остаются fenced без финализации.
+- Добавлены регрессионные тесты на object-specific 404, generic 404 и поведение deletion lifecycle. Обновлён `docs/storage-lifecycle.md`.
+- Проверка: изменения перечитаны из GitHub. Локальный Node/PostgreSQL запуск не выполнялся; GitHub Actions на текущем HEAD возвращает failure без доступных логов/steps. Production DB/Storage, deploy и merge не затрагивались.
+- Документ: `docs/audits/AUD-259-storage-delete-404-classification.md`.
