@@ -399,3 +399,16 @@
 - Test added: `backend/test/pin-regeneration-credit-reservations.sh`.
 - **Gate:** migration and test have not been run. Do not deploy. First apply all pending migrations to a disposable PostgreSQL database in order, run the SQL test suite, and verify unknown/failure recovery and credit balances. Only then consider staging.
 - No user action is required while autonomous repository work continues. When the user returns, provide the database test instructions as a separate short action block; do not request credentials in chat.
+
+
+## Уточнение владельца: публикации продолжаются после logout (2026-11-09)
+
+Владелец подтвердил критическое продуктовое правило: если пользователь заранее запланировал публикации, они должны выйти в назначенное время независимо от того, вошёл ли он в PinPosy. Logout, закрытие браузера, истечение сессии или переход на другой PinPosy-аккаунт не должны отменять, ставить на паузу или удалять серверную очередь. Worker работает независимо от сессии и браузера, в том числе при долгосрочном расписании.
+
+- Явная отмена/редактирование пользователем меняет соответствующее задание.
+- Подтверждённое удаление PinPosy-аккаунта отменяет его будущие публикации и блокирует дальнейшую обработку этих заданий.
+- Disconnect Pinterest-интеграции не стирает расписание: задания сохраняются в состоянии ожидания повторной авторизации/восстановления доступа, пока пользователь не отменит их или не удалит PinPosy-аккаунт.
+- После рестарта worker должен восстановить обработку и корректно разобрать просроченные задания без потери и дубликатов.
+- Очередь ручной проверки (P4) и очередь запланированных публикаций (P6) — две разные очереди; persistence требуется для обеих, но публикации дополнительно должны автономно исполняться.
+
+Требования добавлены в MASTER_REQUIREMENTS.md (P6.14–P6.19) и INFRASTRUCTURE_REQUIREMENTS.md (I2.7–I2.10). До внедрения и тестов это требования, а не заявление о том, что production worker уже работает.
