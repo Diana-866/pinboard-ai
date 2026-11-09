@@ -26,3 +26,27 @@ export function findPersistedScheduleMutation(
   );
   return matches.length === 1 ? matches[0] : null;
 }
+
+
+/**
+ * GET /schedule excludes cancelled rows. Treat absence as confirmation only
+ * when the complete response is a structurally valid list of identifiable rows.
+ */
+export function isScheduleAbsentFromActiveList(
+  rows: unknown,
+  scheduleId: string,
+): boolean {
+  if (!Array.isArray(rows)) return false;
+  for (const row of rows) {
+    if (
+      !row ||
+      typeof row !== 'object' ||
+      Array.isArray(row) ||
+      typeof row.id !== 'string' ||
+      row.id.trim().length === 0
+    ) {
+      return false;
+    }
+  }
+  return !rows.some((row) => row.id === scheduleId);
+}
