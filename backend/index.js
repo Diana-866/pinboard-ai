@@ -174,7 +174,7 @@ const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
 const { calculateGenerationReservation, calculateQuotedGenerationPricing } = require("./generationPricing");
 const { uploadPinImage, rehostImage, deletePinImageIfUnreferenced } = require("./storage");
-const { reconcileStalePinImageUploads, quarantineStalePinImageUploads } = require("./pinImageLifecycle");
+const { reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects } = require("./pinImageLifecycle");
 const { validateDevTopupRequest } = require("./devTopup");
 const mail = require("./mail");
 const passwordReset = require("./password-reset");
@@ -2241,6 +2241,18 @@ app.post("/admin/storage/reconcile-stale-uploads", adminActionLimiter, requireAu
   }
 });
 
+
+// Read-only inventory of permanently quarantined image paths. It never deletes or reopens objects.
+app.get("/admin/storage/quarantined-objects", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const parsedLimit = Number.parseInt(String(req.query.limit || "50"), 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 50;
+    const result = await inspectQuarantinedPinImageObjects({ supabase, limit });
+    res.json(result);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
 
 // Permanently retire stale upload paths. Any late Storage completion becomes
 // an unreferenced orphan; the path is never reused or automatically deleted.
