@@ -76,8 +76,8 @@ begin
       on conflict (bucket_id, object_path) do update
         set source_types = array(
               select distinct source_type
-                from unnest(public.pin_image_retention_queue.source_types || excluded.source_types) source_type
-                order by source_type
+                from unnest(public.pin_image_retention_queue.source_types || excluded.source_types) as merged_sources(source_type)
+                order by merged_sources.source_type
             ),
             updated_at = clock_timestamp();
       v_queued_count := v_queued_count + 1;
@@ -106,8 +106,8 @@ begin
       on conflict (bucket_id, object_path) do update
         set source_types = array(
               select distinct source_type
-                from unnest(public.pin_image_retention_queue.source_types || excluded.source_types) source_type
-                order by source_type
+                from unnest(public.pin_image_retention_queue.source_types || excluded.source_types) as merged_sources(source_type)
+                order by merged_sources.source_type
             ),
             state = case when public.pin_image_retention_queue.state = 'completed'
                          then 'completed' else 'awaiting_reference_retirement' end,
