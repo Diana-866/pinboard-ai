@@ -1770,3 +1770,11 @@ Repository files were read back after updates. Local Node/PostgreSQL execution w
 - Success is accepted only for exactly one row matching the same pin ID, exact scheduled instant, Pinterest board ID, and, when explicitly supplied, Pinterest account ID; if the backend selected the account, exact pin/time/board matching is still required. A failed/malformed/ambiguous read preserves and rethrows the original POST error.
 - Reconciliation is read-only; it does not create schedules or weaken the backend one-active-schedule-per-pin uniqueness guard.
 - Added docs/audits/AUD-283-reconcile-ambiguous-schedule-creation.md. Automated tests, lint, typecheck, and build have not been run. No production DB changes, deployment, or merge.
+
+
+## 2026-11-09 — AUD-284 reconcile lost schedule retry and board-change responses
+
+- Calendar retry and failed-schedule board-change handlers now recover from a lost HTTP response by reading the authenticated schedule list and accepting only one exact match for schedule ID, queued status, Pinterest board, and Pinterest account.
+- Added `frontend/src/utils/scheduleMutationReconciliation.ts` and tests for exact match, mismatched identity/state, malformed/empty results, and ambiguous duplicates.
+- The reconciliation is read-only and does not issue a second retry or board-change operation. Cancellation is not inferred from an absent row because `GET /schedule` deliberately filters cancelled schedules.
+- Tests, typecheck, and build have not been executed in this environment. No production DB changes, deployment, or merge.
