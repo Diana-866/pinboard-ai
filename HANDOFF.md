@@ -1741,3 +1741,10 @@ Repository files were read back after updates. Local Node/PostgreSQL execution w
 - Added typed translations for saving, saved, save-error, and retry-save states across ru, en, es, pt, de, fr, and zh.
 - Read-back verification confirms all seven locales contain the new keys and the UI consumes the typed translations.
 - Lint, typecheck, and frontend tests have not been run; no production DB changes, deployment, or merge.
+
+
+## 2026-11-09 — AUD-280 pin description label association
+
+- Added a matching `htmlFor="pin-description"` / `id="pin-description"` relationship for the pin SEO description editor.
+- This restores explicit accessible naming and label-click focus behavior without changing autosave logic.
+- Component and audit report read-back verified. Automated lint, typecheck, and tests have not been run.
