@@ -25,6 +25,10 @@ test("buildBoardPatch rejects empty titles and empty patches", () => {
   assert.throws(() => buildBoardPatch({ title: "   " }), { httpStatus: 422 });
   assert.throws(() => buildBoardPatch({}), { httpStatus: 422 });
   assert.throws(() => buildBoardPatch({ unknown: "ignored" }), { httpStatus: 422 });
+  assert.throws(() => buildBoardPatch({ title: "Updated", descripton: "typo" }), {
+    httpStatus: 422,
+    message: "Неизвестные поля обновления доски",
+  });
 });
 
 test("buildBoardPatch rejects non-string descriptions", () => {
