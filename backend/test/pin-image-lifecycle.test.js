@@ -662,3 +662,17 @@ test("failed deletion retry reports bounded per-object errors and fails closed o
   await assert.rejects(retryFailedPinImageDeletions({ supabase: broken }), (error) => error === inventoryError);
   assert.deepEqual(broken.calls.map((call) => call.name || call.type), ["list_failed_pin_image_deletions"]);
 });
+
+test("failed deletion retry keeps ambiguous Storage outcomes fenced", async () => {
+  const ambiguousError = Object.assign(new Error("Storage gateway timeout"), { code: "gateway_timeout", statusCode: 503 });
+  const supabase = makeStorageClient({
+    failedDeletions: [{ bucket_id: "pin-images", object_path: "pins/1730000000000-ab12cd34.webp", attempts: 4 }],
+    removeError: ambiguousError,
+  });
+  const result = await retryFailedPinImageDeletions({ supabase });
+  assert.equal(result.failed, 1);
+  assert.equal(result.items[0].status, "failed");
+  assert.equal(result.items[0].error_code, "gateway_timeout");
+  assert.equal(supabase.calls.some((call) => call.name === "finalize_pin_image_deletion"), false);
+  assert.equal(supabase.calls.some((call) => call.type === "remove"), true);
+});
