@@ -1,4 +1,4 @@
--- Pin image deletion-claim schema contract. Run after migrations 070, 083, 090 and 098.
+-- Pin image deletion-claim schema contract. Run after migrations 070, 083, 090, 098 and 099.
 do $body$
 declare
   v_path text;
@@ -46,7 +46,11 @@ begin
      or has_function_privilege('anon',
        'public.quarantine_stale_pin_image_upload(text,text,uuid)', 'EXECUTE')
      or has_function_privilege('authenticated',
-       'public.quarantine_stale_pin_image_upload(text,text,uuid)', 'EXECUTE') then
+       'public.quarantine_stale_pin_image_upload(text,text,uuid)', 'EXECUTE')
+     or has_function_privilege('anon',
+       'public.list_quarantined_pin_image_objects(integer)', 'EXECUTE')
+     or has_function_privilege('authenticated',
+       'public.list_quarantined_pin_image_objects(integer)', 'EXECUTE') then
     raise exception 'untrusted role can execute pin image lifecycle RPC';
   end if;
 
@@ -61,7 +65,9 @@ begin
      or not has_function_privilege('service_role',
        'public.list_stale_pin_image_uploads(integer,integer)', 'EXECUTE')
      or not has_function_privilege('service_role',
-       'public.quarantine_stale_pin_image_upload(text,text,uuid)', 'EXECUTE') then
+       'public.quarantine_stale_pin_image_upload(text,text,uuid)', 'EXECUTE')
+     or not has_function_privilege('service_role',
+       'public.list_quarantined_pin_image_objects(integer)', 'EXECUTE') then
     raise exception 'service_role is missing pin image lifecycle RPC permission';
   end if;
 
@@ -535,5 +541,40 @@ begin
   if not public.finalize_pin_image_deletion('pin-images', v_path, v_delete_token, true, null) then
     raise exception '128-bit random path deletion claim did not finalize';
   end if;
+end;
+$body$;
+
+
+-- Quarantine inventory is read-only, bounded, and available only to service_role.
+do $body$
+declare
+  v_path text := 'pins/generation-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.webp';
+  v_count integer;
+begin
+  insert into public.pin_image_object_lifecycle(
+    bucket_id, object_path, state, claim_token, claim_expires_at, attempts, last_error_code
+  ) values (
+    'pin-images', v_path, 'quarantined', null, null, 3, 'stale_delete_quarantined'
+  );
+
+  select count(*) into v_count
+    from public.list_quarantined_pin_image_objects(50) q
+   where q.bucket_id = 'pin-images'
+     and q.object_path = v_path
+     and q.attempts = 3
+     and q.last_error_code = 'stale_delete_quarantined'
+     and q.has_reference is false;
+  if v_count <> 1 then
+    raise exception 'quarantined object inventory did not expose the expected safe metadata';
+  end if;
+
+  begin
+    perform * from public.list_quarantined_pin_image_objects(101);
+    raise exception 'quarantined inventory accepted an oversized limit';
+  exception when raise_exception then
+    if sqlerrm = 'quarantined inventory accepted an oversized limit' then
+      raise;
+    end if;
+  end;
 end;
 $body$;
