@@ -1189,7 +1189,8 @@ app.post("/boards", requireAuth, async (req, res) => {
       if (data.create_request_fingerprint !== fingerprint) {
         throw httpError(409, "Этот запрос уже использован для другой доски. Начните создание заново.");
       }
-      return res.status(200).json(data);
+      const { create_request_fingerprint: _fingerprint, ...publicBoard } = data;
+      return res.status(200).json(publicBoard);
     }
 
     const { data, error } = await supabase
