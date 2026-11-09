@@ -27,5 +27,4 @@ The failed-schedule branch of `GET /schedule` derived retryability from publicat
 ## Commits
 
 - Code: `e5864fa4717b8720d79be331b10082caeee8832f`.
-- Final documentation HEAD: `6696dc11ec5500a80c544d87422b8b9dabb7d80f`.
 - No production DB change, deployment, merge, or worker action was performed.
