@@ -1431,9 +1431,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                       {t.generator.descriptionLabel}
                     </label>
                     <span className="text-[11px] text-muted-theme" aria-live="polite">
-                      {currentDescriptionSaveState === 'saving' ? 'Сохранение…' :
-                        currentDescriptionSaveState === 'saved' ? 'Сохранено' :
-                        currentDescriptionSaveState === 'error' ? 'Не сохранено — проверьте соединение' : ''}
+                      {currentDescriptionSaveState === 'saving' ? t.generator.descriptionSaving :
+                        currentDescriptionSaveState === 'saved' ? t.generator.descriptionSaved :
+                        currentDescriptionSaveState === 'error' ? t.generator.descriptionSaveError : ''}
                       {' '}{currentPin.description.length} / 500
                     </span>
                     {currentDescriptionSaveState === 'error' && (
@@ -1446,7 +1446,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                           void savePinDescription(selectedBoardId, currentPin.id, currentPin.description, revision);
                         }}
                       >
-                        Повторить сохранение
+                        {t.generator.retryDescriptionSave}
                       </button>
                     )}
                   </div>
