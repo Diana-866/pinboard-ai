@@ -1703,3 +1703,10 @@ Repository files were read back after updates. Local Node/PostgreSQL execution w
 - No deployment, production DB change, merge, or external service mutation.
 
 **AUD-273 source-code HEAD:** `133ceb0ebf195741f561dd18eaad1416b70b4ef7`.
+
+## 2026-11-09 — AUD-275 board patch semantics
+
+- Fixed `PATCH /boards/:id`: a supplied empty/whitespace/null description now clears the description instead of being mistaken for an omitted field.
+- Added `backend/boardPatch.js` and `backend/test/board-patch.test.js`; empty titles, invalid description types, and empty patches are rejected with 422.
+- Existing ownership check and project-scoped update remain in place.
+- Tests have not yet been executed; no production DB changes, deploy, or merge.
