@@ -20,6 +20,12 @@ The failed-schedule branch of `GET /schedule` derived retryability from publicat
 ## Verification
 
 - Source patch was based on a fresh read of the current PR branch and exact expected query blocks.
-- GitHub read-back and CI recheck are pending.
+- GitHub read-back confirmed the exact query filters and owner checks.
+- On final HEAD `6696dc11ec5500a80c544d87422b8b9dabb7d80f`, GitHub workflow-run lookup returned no runs. The combined status contains only Vercel `failure` with `build-rate-limit`; this does not provide a build/test result.
 - Automated tests, lint, typecheck, and build have not been run locally; no successful CI result is claimed.
+
+## Commits
+
+- Code: `e5864fa4717b8720d79be331b10082caeee8832f`.
+- Final documentation HEAD: `6696dc11ec5500a80c544d87422b8b9dabb7d80f`.
 - No production DB change, deployment, merge, or worker action was performed.
