@@ -10,6 +10,7 @@ const { isAllowedPinImageUploadMime } = require("./imageUploadValidation");
 const { serializePinImageUploadError } = require("./imageUploadErrors");
 const { buildPinImageRateLimitKey } = require("./pinImageRateLimitKey");
 const { applyPinImageCompareAndSwapFilter } = require("./pinImageCompareAndSwap");
+const { buildBoardPatch } = require("./boardPatch");
 
 const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
@@ -1210,15 +1211,7 @@ app.post("/boards", requireAuth, async (req, res) => {
 app.patch("/boards/:id", requireAuth, async (req, res) => {
   try {
     const board = await getBoardWithOwnerCheck(req.params.id, req.userId);
-    const title = optionalString(req.body && req.body.title, { max: 100 });
-    const description = optionalString(req.body && req.body.description, { max: 500 });
-    if (title === null && description === null) {
-      throw httpError(422, "Передайте title и/или description");
-    }
-
-    const patch = {};
-    if (title !== null) patch.title = title;
-    if (description !== null) patch.description = description;
+    const patch = buildBoardPatch(req.body);
 
     const { data, error } = await supabase
       .from("boards")
