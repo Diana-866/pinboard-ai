@@ -2307,6 +2307,23 @@ app.post("/admin/storage/expire-replay-results", adminActionLimiter, requireAuth
   }
 });
 
+// Retire only replay payloads already protected by expiry tombstones. The SQL
+// transaction clears journal image URLs and releases queue paths only when no
+// live pin, schedule, or remaining journal reference exists; Storage is untouched.
+app.post("/admin/storage/retire-expired-replay-references", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const parsedLimit = Number.parseInt(String(req.body && req.body.limit || "50"), 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 50;
+    const { data, error } = await supabase.rpc("retire_expired_pin_image_replay_references", {
+      p_limit: limit,
+    });
+    if (error) throw error;
+    res.json({ ...data, replay_reference_retirement_only: true });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 // Read-only inventory of permanently quarantined image paths. It never deletes or reopens objects.
 app.get("/admin/storage/quarantined-objects", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
   try {
