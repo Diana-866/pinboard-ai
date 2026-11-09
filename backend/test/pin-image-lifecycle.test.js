@@ -791,7 +791,8 @@ test("blocked retention queue inspection is read-only and reports Storage visibi
   assert.equal(result.hasReferences, 0);
   assert.equal(result.items[0].status, "object_present");
   assert.equal(result.items[0].lifecycle_state, "deleting");
-  assert.equal(result.items[0].diagnosis, "deletion_may_still_be_in_flight");\n  assert.equal(result.items[0].safe_action, "keep_fenced_until_external_operation_is_confirmed_stopped");
+  assert.equal(result.items[0].diagnosis, "deletion_may_still_be_in_flight");
+  assert.equal(result.items[0].safe_action, "keep_fenced_until_external_operation_is_confirmed_stopped");
   assert.deepEqual(calls.map((call) => call[0]), ["rpc", "list"]);
 });
 
