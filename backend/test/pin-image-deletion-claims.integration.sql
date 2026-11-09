@@ -771,3 +771,46 @@ begin
   end if;
 end;
 $body$;
+
+
+-- AUD-267: the generation response payload is a durable replay reference even
+-- when a legacy/inconsistent task row has a null storage_url or is missing.
+do $body$
+declare
+  v_user_id uuid := gen_random_uuid();
+  v_project_id uuid := gen_random_uuid();
+  v_board_id uuid := gen_random_uuid();
+  v_path text := 'pins/generation-34343434343434343434343434343434.webp';
+  v_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-34343434343434343434343434343434.webp';
+  v_result jsonb;
+begin
+  insert into public.users(id, email)
+  values (v_user_id, v_user_id::text || '@pin-image-generation-replay-test.invalid');
+  insert into public.projects(id, user_id) values (v_project_id, v_user_id);
+  insert into public.boards(id, project_id) values (v_board_id, v_project_id);
+
+  insert into public.pin_generation_requests(
+    user_id, board_id, idempotency_key, status, request_fingerprint, pins,
+    created_at, updated_at
+  ) values (
+    v_user_id::text, v_board_id, 'pin-image-generation-replay-reference-01',
+    'completed', repeat('e', 64),
+    jsonb_build_array(jsonb_build_object('image_url', v_url)),
+    now() - interval '120 days', now() - interval '120 days'
+  );
+
+  v_result := public.claim_pin_image_deletion('pin-images', v_path, 60);
+  if coalesce((v_result ->> 'claimed')::boolean, false) is not false
+     or v_result ->> 'reason' <> 'referenced' then
+    raise exception 'deletion claim ignored generation replay payload pins[].image_url: %', v_result;
+  end if;
+
+  delete from public.pin_generation_requests
+   where user_id = v_user_id::text
+     and idempotency_key = 'pin-image-generation-replay-reference-01';
+  v_result := public.claim_pin_image_deletion('pin-images', v_path, 60);
+  if coalesce((v_result ->> 'claimed')::boolean, false) is not true then
+    raise exception 'generation replay image remained blocked after its journal was removed: %', v_result;
+  end if;
+end;
+$body$;
