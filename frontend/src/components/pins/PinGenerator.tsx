@@ -548,7 +548,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
   // Persist the selected pin's format so it survives a reload and is used by later API operations.
   const handleActivePinRatioChange = async (newRatio: SupportedAspectRatio) => {
-    if (!currentPin || currentPin.aspectRatio === newRatio || savingAspectRatioPinId === currentPin.id) return;
+    if (schedulingPinLockRef.current || !currentPin || currentPin.aspectRatio === newRatio || savingAspectRatioPinId === currentPin.id) return;
     const pinId = currentPin.id;
     const previousRatio = currentPin.aspectRatio;
     // Update the canvas immediately, while the server save runs in the background.
@@ -571,7 +571,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   };
 
   const handleTitleSelect = async (title: string) => {
-    if (!currentPin) return;
+    if (schedulingPinLockRef.current || !currentPin) return;
     const pinId = currentPin.id;
     const previousTitle = pinTitleSelectionRef.current.get(pinId) ?? currentPin.selectedTitle;
     // Record and show the choice immediately: a schedule click can happen before
@@ -619,7 +619,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   };
 
   const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    if (!currentPin) return;
+    if (schedulingPinLockRef.current || !currentPin) return;
     const description = e.target.value;
     const pinId = currentPin.id;
     const updated = [...generatedPins];
@@ -1332,6 +1332,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     <button
                       key={idx}
                       onClick={() => setActivePinIndex(idx)}
+                      disabled={isSchedulingPin}
                       className={`px-3 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
                         activePinIndex === idx
                           ? 'accent-btn shadow-xs'
@@ -1363,7 +1364,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                         key={item.id}
                         type="button"
                         onClick={() => { void handleActivePinRatioChange(item.id); }}
-                        disabled={savingAspectRatioPinId === currentPin.id}
+                        disabled={isSchedulingPin || savingAspectRatioPinId === currentPin.id}
                         className={`px-2 py-1 text-xs font-mono rounded-lg border transition-all cursor-pointer disabled:opacity-50 disabled:cursor-wait ${
                           currentPin.aspectRatio === item.id
                             ? 'accent-btn font-bold shadow-xs'
@@ -1391,6 +1392,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                         type="button"
                         aria-pressed={currentPin.selectedTitle === titleOption}
                         onClick={() => { void handleTitleSelect(titleOption); }}
+                        disabled={isSchedulingPin}
                         className={`w-full text-left p-2.5 rounded-xl border text-xs md:text-sm cursor-pointer transition-all flex items-start gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                           currentPin.selectedTitle === titleOption
                             ? 'border-accent bg-subtle text-primary-theme font-medium shadow-xs'
@@ -1446,6 +1448,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     id="pin-description"
                     value={currentPin.description}
                     onChange={handleDescriptionChange}
+                    disabled={isSchedulingPin}
                     maxLength={500}
                     onBlur={(event) => {
                       if (descriptionSaveTimerRef.current) {
