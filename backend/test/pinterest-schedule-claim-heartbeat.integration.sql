@@ -21,7 +21,7 @@ begin
   values(v_board,'https://cdn.example.invalid/lease.png','Lease heartbeat','','approved','flux-schnell',0)
   returning id into v_pin;
   insert into public.pin_schedules(user_id,pin_id,pinterest_account_id,scheduled_at,timezone,pinterest_board_id,status,claim_token,updated_at)
-  values(v_user::text,v_pin,v_account,now()-interval '1 hour','UTC','remote-board','publishing',v_token,now()-interval '30 minutes')
+  values(v_user::text,v_pin,v_account,now()+interval '1 hour','UTC','remote-board','publishing',v_token,now()-interval '30 minutes')
   returning id into v_schedule;
 
   select public.renew_pin_schedule_claim(v_schedule,v_token) into v_renewed;
@@ -32,6 +32,23 @@ begin
 
   select public.renew_pin_schedule_claim(v_schedule,gen_random_uuid()) into v_renewed;
   if v_renewed then raise exception 'stale fencing token renewed a schedule'; end if;
+
+  -- A recent heartbeat must protect an active claim from stale recovery.
+  perform * from public.claim_due_pin_schedules(1);
+  if not exists(select 1 from public.pin_schedules where id=v_schedule and status='publishing' and claim_token=v_token) then
+    raise exception 'freshly renewed claim was incorrectly recovered';
+  end if;
+
+  -- Once the lease is genuinely stale, a pre-POST claim with no attempt journal
+  -- may be safely requeued; keep scheduled_at in the future so this call does
+  -- not immediately claim it again.
+  update public.pin_schedules
+     set updated_at=now()-interval '21 minutes'
+   where id=v_schedule;
+  perform * from public.claim_due_pin_schedules(1);
+  if not exists(select 1 from public.pin_schedules where id=v_schedule and status='scheduled' and claim_token is null) then
+    raise exception 'stale pre-POST claim was not safely requeued';
+  end if;
 
   update public.pin_schedules set status='unknown' where id=v_schedule;
   select public.renew_pin_schedule_claim(v_schedule,v_token) into v_renewed;
