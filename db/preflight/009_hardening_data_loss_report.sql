@@ -1,7 +1,9 @@
--- READ-ONLY preflight for db/migrations/009_hardening.sql.
--- Run against a restored copy or read-only production connection BEFORE migration 009.
--- This file contains SELECT statements only. Export the detailed result sets before
--- approving any cleanup. It does not archive, repair, delete, update, or alter data.
+-- HISTORICAL READ-ONLY REPORT for the archived db/archive/009_hardening.sql.
+-- Migration 009 is not part of the executable migration chain and must not be run
+-- automatically. Use this report only if a future, explicitly approved migration
+-- review needs to quantify the historical rows that the archived script would affect.
+-- Run against a restored copy or read-only connection. This file contains SELECTs only;
+-- it does not archive, repair, delete, update, or alter data.
 --
 -- The first result summarizes rows that migration 009 may null or delete.
 -- The following result sets expose the exact candidate rows for external export.
