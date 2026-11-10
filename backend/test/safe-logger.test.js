@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { logError, logWarning, logInfo } = require("../safeLogger");
+const { logError, logWarning, logInfo, runWithCorrelationId } = require("../safeLogger");
 
 test("logs only the allowlisted event, status, and normalized error code", () => {
   const original = console.error;
@@ -93,4 +93,43 @@ test("warning and info events use the same safe event-name contract", () => {
     event: "pinterest.oauth_connected",
   });
   assert.equal(warnings[0].includes("private@example.com"), false);
+});
+
+test("correlation ID is attached to logs inside async request context only", async () => {
+  const original = console.error;
+  const output = [];
+  console.error = (value) => output.push(value);
+  const correlationId = "123e4567-e89b-12d3-a456-426614174000";
+  try {
+    await runWithCorrelationId(correlationId, async () => {
+      await Promise.resolve();
+      logError("http.request_failed", { message: "private payload" }, 500);
+    });
+    logError("outside.request", null, 500);
+  } finally {
+    console.error = original;
+  }
+  assert.deepEqual(JSON.parse(output[0]), {
+    level: "error",
+    event: "http.request_failed",
+    status: 500,
+    correlation_id: correlationId,
+  });
+  assert.deepEqual(JSON.parse(output[1]), {
+    level: "error",
+    event: "outside.request",
+    status: 500,
+  });
+});
+
+test("correlation context rejects arbitrary caller-controlled values", () => {
+  const original = console.info;
+  const output = [];
+  console.info = (value) => output.push(value);
+  try {
+    runWithCorrelationId("email=person@example.com", () => logInfo("test.event"));
+  } finally {
+    console.info = original;
+  }
+  assert.deepEqual(JSON.parse(output[0]), { level: "info", event: "test.event" });
 });
