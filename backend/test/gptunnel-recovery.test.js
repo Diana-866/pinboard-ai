@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const axios = require("axios");
-const { waitForImageTask } = require("../gptunnel");
+const { generateImage, waitForImageTask } = require("../gptunnel");
 
 test("waitForImageTask polls the persisted task and never creates another task", async (t) => {
   const originalGet = axios.get;
@@ -84,4 +84,52 @@ test("poll exhaustion returns the same persisted task as pending without creatin
     { id: "provider-task-still-running", status: "running" },
     { id: "provider-task-still-running", status: "running" },
   ]);
+});
+
+
+test("synchronous provider completion is journaled before generateImage returns", async (t) => {
+  const originalPost = axios.post;
+  const originalGet = axios.get;
+  const payloads = [];
+  let pollCalls = 0;
+  axios.post = async (url, payload) => {
+    payloads.push({ url, payload });
+    return {
+      data: {
+        id: "provider-task-immediate",
+        status: "done",
+        price: 3.25,
+        result: [{ url: "https://provider.example/immediate.png" }],
+      },
+    };
+  };
+  axios.get = async () => {
+    pollCalls += 1;
+    throw new Error("an immediately completed task must not be polled");
+  };
+  t.after(() => {
+    axios.post = originalPost;
+    axios.get = originalGet;
+  });
+
+  const updates = [];
+  const result = await generateImage(
+    "test prompt",
+    "flux-schnell",
+    "2:3",
+    "generation-key-123456",
+    { onTaskUpdate: async (id, status) => updates.push({ id, status }) }
+  );
+
+  assert.deepEqual(result, {
+    url: "https://provider.example/immediate.png",
+    price: 3.25,
+    taskId: "provider-task-immediate",
+  });
+  assert.deepEqual(updates, [
+    { id: "provider-task-immediate", status: "succeeded" },
+  ]);
+  assert.equal(payloads.length, 1);
+  assert.equal(payloads[0].payload.idempotency_key, "generation-key-123456");
+  assert.equal(pollCalls, 0);
 });
