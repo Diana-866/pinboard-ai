@@ -1102,8 +1102,18 @@ function registerRoutes(app, deps) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
+    const schedulerRunId = crypto.randomUUID();
+    let schedulerMonitorStarted = false;
     try {
       requireConfigured();
+      const { data: monitorStarted, error: monitorStartError } = await supabase.rpc("begin_pinterest_scheduler_run", {
+        p_run_id: schedulerRunId,
+      });
+      if (monitorStartError || monitorStarted !== true) {
+        throw monitorStartError || new Error("Scheduler monitor did not confirm run start");
+      }
+      schedulerMonitorStarted = true;
+
       // Keep each request bounded to one item; its claim is renewed while work is active.
       // Repair only rows backed by an exact successful attempt + publication ledger match.
       // This is positive-only: unknown rows without matching evidence remain fenced.
@@ -1280,16 +1290,43 @@ function registerRoutes(app, deps) {
         }
       }
 
-      res.json({
-        ok: true,
+      const runSummary = {
         claimed: (dueRows || []).length,
         published: results.filter((r) => r.status === "published").length,
         failed: results.filter((r) => r.status === "failed").length,
         scheduled: results.filter((r) => r.status === "scheduled").length,
         unknown: results.filter((r) => r.status === "unknown").length,
-        results,
+      };
+      const { data: monitorCompleted, error: monitorCompleteError } = await supabase.rpc("complete_pinterest_scheduler_run", {
+        p_run_id: schedulerRunId,
+        p_status: "succeeded",
+        p_claimed: runSummary.claimed,
+        p_published: runSummary.published,
+        p_failed: runSummary.failed,
+        p_scheduled: runSummary.scheduled,
+        p_unknown: runSummary.unknown,
       });
+      if (monitorCompleteError || monitorCompleted !== true) {
+        throw monitorCompleteError || new Error("Scheduler monitor did not confirm run completion");
+      }
+      res.json({ ok: true, ...runSummary, results });
     } catch (e) {
+      if (schedulerMonitorStarted) {
+        try {
+          const { error: monitorFailureError } = await supabase.rpc("complete_pinterest_scheduler_run", {
+            p_run_id: schedulerRunId,
+            p_status: "failed",
+            p_claimed: 0,
+            p_published: 0,
+            p_failed: 0,
+            p_scheduled: 0,
+            p_unknown: 0,
+          });
+          if (monitorFailureError) logError("pinterest.event_030");
+        } catch {
+          logError("pinterest.event_030");
+        }
+      }
       logError("pinterest.event_028");
       res.status(500).json({ error: "Pinterest schedule worker failed" });
     }
