@@ -64,6 +64,17 @@ async function beginPaymentCreation(userId, idempotencyKey, kind, productId, cur
   );
 }
 
+async function attachPaymentCreationOrder(userId, idempotencyKey, orderId) {
+  const { data, error } = await supabase.rpc("attach_payment_creation_order", {
+    p_user_id: String(userId),
+    p_idempotency_key: idempotencyKey,
+    p_order_id: String(orderId),
+  });
+  if (error) throw error;
+  if (data !== true) throw new Error("payment provider order reference was not attached");
+  return true;
+}
+
 async function completePaymentCreation(userId, idempotencyKey, result) {
   const { data, error } = await supabase.rpc("complete_payment_creation_request", {
     p_user_id: String(userId),
@@ -103,6 +114,7 @@ async function failPaymentCreation(userId, idempotencyKey, error) {
 module.exports = {
   beginPaymentCreation,
   completePaymentCreation,
+  attachPaymentCreationOrder,
   markPaymentCreationUnknown,
   failPaymentCreation,
   paymentRequestFingerprint,
