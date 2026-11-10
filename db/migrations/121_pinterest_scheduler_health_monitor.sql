@@ -50,8 +50,7 @@ $$;
 create or replace function public.complete_pinterest_scheduler_run(
   p_run_id uuid, p_status text, p_claimed integer default 0,
   p_published integer default 0, p_failed integer default 0,
-  p_scheduled integer default 0, p_unknown integer default 0,
-  p_error_code text default null
+  p_scheduled integer default 0, p_unknown integer default 0
 ) returns boolean
 language plpgsql
 security definer
@@ -61,9 +60,9 @@ begin
   if p_run_id is null or p_status not in ('succeeded', 'failed') then
     raise exception 'invalid scheduler completion';
   end if;
-  if greatest(coalesce(p_claimed, 0), coalesce(p_published, 0),
-              coalesce(p_failed, 0), coalesce(p_scheduled, 0),
-              coalesce(p_unknown, 0)) < 0 then
+  if coalesce(p_claimed, 0) < 0 or coalesce(p_published, 0) < 0
+     or coalesce(p_failed, 0) < 0 or coalesce(p_scheduled, 0) < 0
+     or coalesce(p_unknown, 0) < 0 then
     raise exception 'invalid scheduler counters';
   end if;
   update public.pinterest_scheduler_monitor
@@ -74,9 +73,7 @@ begin
          failed = greatest(0, coalesce(p_failed, 0)),
          scheduled = greatest(0, coalesce(p_scheduled, 0)),
          unknown = greatest(0, coalesce(p_unknown, 0)),
-         last_error_code = case
-           when p_status = 'failed' then 'worker_run_failed'
-           else null end,
+         last_error_code = case when p_status = 'failed' then 'worker_run_failed' else null end,
          updated_at = clock_timestamp()
    where singleton_key = 'pinterest_scheduler'
      and last_run_id = p_run_id;
@@ -86,7 +83,7 @@ $$;
 
 revoke all on function public.begin_pinterest_scheduler_run(uuid)
   from public, anon, authenticated;
-revoke all on function public.complete_pinterest_scheduler_run(uuid,text,integer,integer,integer,integer,integer,text)
+revoke all on function public.complete_pinterest_scheduler_run(uuid,text,integer,integer,integer,integer,integer)
   from public, anon, authenticated;
 grant execute on function public.begin_pinterest_scheduler_run(uuid) to service_role;
 grant execute on function public.complete_pinterest_scheduler_run(uuid,text,integer,integer,integer,integer,integer,text)
