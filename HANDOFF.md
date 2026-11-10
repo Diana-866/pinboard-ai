@@ -2261,3 +2261,39 @@ Add an authenticated route-level integration matrix with two users and fixtures 
 
 - GitHub source and test review only; tests, lint, and build were not run.
 - No production data, provider calls, Storage writes, SQL migrations, deployment, or PR merge.
+
+
+# AUD-318 — Prodamus payment and webhook security audit
+
+Date: 2026-11-10
+
+## Scope
+
+Reviewed the shared webhook dispatch, Prodamus signature verification and amount parsing, subscription and credit checkout creation, payment-order identifiers, idempotency migrations 116–118, subscription activation migrations 011/019, credit fulfillment integration coverage, and webhook regression tests. Source-only review; no provider account or live callback was used.
+
+## Findings
+
+- **Webhook authenticity is checked before order lookup or mutation.** The handler requires the `Sign` / `x-sign` header and verifies HMAC-SHA256 using `PRODAMUS_SECRET_WEBHOOK` (falling back to `PRODAMUS_SECRET`). Comparison uses `timingSafeEqual` on fixed-length hashes. Outgoing checkout signing uses the separate shop secret.
+- **Client input cannot choose the price or credited quantity.** Subscription plans/currency and credit package IDs are allowlisted; amounts and credits are computed from server-side catalogs. Credit purchases currently accept RUB only. The payment URL is validated by the provider helper.
+- **Order IDs are not guessable sequence numbers.** `paymentOrderId.js` uses 96 bits from `crypto.randomBytes` in addition to a type/product prefix and timestamp. Subscription and credit prefixes are distinct (`pp-` vs `ppc-`), and the shared webhook dispatches credit orders to the credit handler.
+- **Signed amount and currency are checked before fulfillment.** Foreign-currency orders require explicit currency and `currency_sum`; mismatched currency, missing/nonpositive amount, unsupported status, unknown order, or missing order ID is not fulfilled and is sent to the webhook-exception audit path. Amount mismatch is compared to the stored server-side amount with a 0.01 tolerance.
+- **Credit fulfillment is transactionally idempotent.** `credit_paid_purchase` commits the balance increment, ledger row and purchase success marker together. Migration 118 only settles the matching checkout request when the exact local payment ID, user, order ID, kind and fulfilled state agree.
+- **Subscription activation is transactionally serialized.** `activate_paid_subscription` locks the subscription and user rows, creates the paid period once, and migration 019 prevents a late older payment from replacing a newer plan label. Duplicate callbacks observe the existing activation.
+- **Checkout creation is fenced against duplicate invoices.** Migration 116 records a per-user idempotency key and fingerprint; migration 117 stores a unique provider order ID before the remote call; ambiguous provider outcomes are fenced as unknown rather than blindly creating another invoice. Migration 118 prevents a checkout response from returning a URL after the webhook already settled the order.
+- **Regression tests already cover important races:** concurrent duplicate subscription callbacks, concurrent credit callbacks, ambiguous commit retries, settlement retries, amount mismatch, cancel-after-success, late valid success, and signed nested payloads.
+
+## Remaining assurance gaps
+
+- Tests use locally generated HMAC signatures and mocked payment database/RPC behavior; this audit did not verify an actual Prodamus sandbox callback against the configured merchant account and provider's current signing/amount conventions.
+- No tests were executed in this audit. Existing tests are source-reviewed only.
+- Payment refunds/reversals after a successful fulfillment are not automatic entitlement/credit clawbacks in the reviewed webhook flow. Treat provider refund/chargeback handling as a separate operator-controlled reconciliation workflow; do not infer that a refund callback is already safely reversed by the normal paid webhook handler.
+- The webhook endpoint currently returns 200 for unknown orders and several deliberately ignored/review-required callbacks after durable audit, which avoids pointless provider retries but makes the admin exception queue and reconciliation monitoring operationally important.
+
+## Result
+
+No confirmed path was found in the reviewed code for a forged unsigned callback, client-selected payment amount, duplicate credit grant, or duplicate subscription activation. No code change was justified from the source evidence. Actual Prodamus sandbox verification and refund/chargeback operational policy remain open checks.
+
+## Verification and safety
+
+- GitHub source and test review only; tests, lint, and build were not run.
+- No Prodamus API calls, sandbox payments, real credits, database writes, SQL migration execution, deployment, or PR merge.
