@@ -26,6 +26,8 @@ This policy explains what data we collect, why, how we protect it, and what righ
 - boards and pins created for you: titles, descriptions, generated images;
 - generation and credit history.
 
+**Image visibility:** Images attached to pins (including images you upload) are stored in a public object-storage bucket so that Pinterest and other external services can retrieve them. Anyone who obtains an image's public URL may view that image without signing in to PinPosy. Do not upload confidential documents, private photographs, personal data, or other content that you do not want to be publicly accessible. Removing an image from PinPosy does not recall copies already downloaded, cached by browsers/CDNs, or saved by Pinterest or other third parties.
+
 ### 2.3 Pinterest data (only after you connect an account)
 
 When you connect your Pinterest account via the official OAuth flow, we access **only your** account:
