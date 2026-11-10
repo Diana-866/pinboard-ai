@@ -672,6 +672,67 @@ test("a journaled provider task ID is polled even if its last persisted state is
   assert.deepEqual(pins.unknownTasks, []);
 });
 
+
+test("invalid pin-plan fields fail before quote validation or billable image submission", async () => {
+  let quoteChecked = false;
+  let imageSubmitted = false;
+  provider.generateText = async () => JSON.stringify([
+    { title: "Valid first idea", description: "Description", image_prompt: "Prompt" },
+    { title: 42, description: "Wrong title type", image_prompt: "Prompt" },
+  ]);
+  provider.generateImage = async () => {
+    imageSubmitted = true;
+    throw new Error("image provider must not be called");
+  };
+
+  await assert.rejects(
+    generatePins(
+      { id: "board-invalid-plan", title: "Test board", description: "" },
+      { niche: "test", tone: "neutral", language: "en" },
+      "flux-schnell",
+      2,
+      "2:3",
+      null,
+      { ensureTaskQuotes: async () => { quoteChecked = true; return []; } }
+    ),
+    (error) => error.httpStatus === 502
+  );
+
+  assert.equal(quoteChecked, false);
+  assert.equal(imageSubmitted, false);
+});
+
+test("pin-plan parser keeps requested partial count and normalizes optional description", async () => {
+  provider.generateText = async () => JSON.stringify([
+    { title: "Only one idea", image_prompt: "A valid image prompt" },
+  ]);
+  let quotedTasks = null;
+  provider.generateImage = async () => {
+    throw new Error("stop after validating and quoting the partial plan");
+  };
+
+  const pins = await generatePins(
+    { id: "board-partial-plan", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    2,
+    "2:3",
+    null,
+    {
+      ensureTaskQuotes: async (tasks) => {
+        quotedTasks = tasks;
+        return tasks;
+      },
+    }
+  );
+
+  assert.equal(quotedTasks.length, 1);
+  assert.equal(quotedTasks[0].title, "Only one idea");
+  assert.equal(quotedTasks[0].description, "");
+  assert.equal(quotedTasks[0].prompt, "A valid image prompt");
+  assert.equal(pins.plannedTaskCount, 1);
+});
+
 test("restore original module cache entries", () => {
   if (originalGptunnel) require.cache[gptunnelPath] = originalGptunnel;
   else delete require.cache[gptunnelPath];
