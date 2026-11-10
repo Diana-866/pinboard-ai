@@ -16,9 +16,10 @@
 --   * users.id — uuid; у projects.user_id — тоже uuid (FK на users.id);
 --   * у auth_tokens / credit_transactions / subscriptions / credit_purchases /
 --     pinterest_accounts / pinterest_publications колонка user_id — TEXT
---     (так пишет код бэкенда). FK на users.id на эти колонки вешает
---     миграция 009_hardening.sql (после конвертации типа в uuid).
---   * credit_transactions.amount — numeric (целое конвертирует 009);
+--     (так пишет код бэкенда). Тип остаётся TEXT: archived migration 009
+--     преобразовывала его в UUID и удаляла часть исторических строк.
+--     FK на users.id для этих TEXT-колонок не создаётся.
+--   * credit_transactions.amount — numeric; не меняем тип автоматически;
 --   * pins.credits_cost — numeric, pins.scheduled_date — date;
 --   * created_at в users/projects/boards/pins/credit_transactions —
 --     timestamp WITHOUT time zone (исторически), в остальных — timestamptz.
@@ -34,7 +35,7 @@ create table if not exists public.users (
   email             text not null,
   password_hash     text,
   credits_balance   integer default 0,
-  subscription_tier text default 'free',          -- LEGACY: читается только через tariff_plan (см. 009 + backend/tariff.js)
+  subscription_tier text default 'free',          -- LEGACY: читается только через tariff_plan (backend/tariff.js)
   is_admin          boolean default false,
   name              text,
   surname           text,
@@ -326,7 +327,7 @@ grant execute on function public.adjust_credits_balance(text, integer)
 --    NULL, поэтому политики блокируют anon/authenticated; весь доступ идёт
 --    сервисным ключом (service_role, bypassrls). boards/pins не имеют user_id —
 --    доступ через EXISTS-джойн по projects. Жёсткое ужесточение политики
---    users (только SELECT, запись — только service_role) — в 009_hardening.sql.
+--    users: только SELECT для клиентской роли; запись — только service_role.
 -- ----------------------------------------------------------------------------
 alter table public.users                   enable row level security;
 alter table public.projects                enable row level security;
@@ -339,12 +340,11 @@ alter table public.credit_purchases        enable row level security;
 alter table public.pinterest_accounts      enable row level security;
 alter table public.pinterest_publications  enable row level security;
 
--- users: своя строка по id
+-- users: только чтение своей строки; любые записи выполняет backend service_role.
 drop policy if exists users_own_row on public.users;
 create policy users_own_row on public.users
-  for all
-  using (auth.uid()::text = id::text)
-  with check (auth.uid()::text = id::text);
+  for select
+  using (auth.uid()::text = id::text);
 
 -- projects: своя строка по user_id
 drop policy if exists projects_own_row on public.projects;
@@ -396,7 +396,7 @@ create policy pins_own_row on public.pins
   );
 
 -- credit_transactions: своя строка по user_id
--- (user_id::text — работает и для исторического TEXT, и для uuid после 009)
+-- (user_id хранится как TEXT; сравнение с auth.uid() выполняется как TEXT)
 drop policy if exists credit_transactions_own_row on public.credit_transactions;
 create policy credit_transactions_own_row on public.credit_transactions
   for all
@@ -405,7 +405,7 @@ create policy credit_transactions_own_row on public.credit_transactions
 
 -- subscriptions / credit_purchases / pinterest_* : только чтение своих строк
 -- (запись всегда через сервисный ключ бэкенда; user_id::text — совместимо
--- и с TEXT, и с uuid после 009)
+-- user_id хранится как TEXT)
 drop policy if exists subscriptions_select_own on public.subscriptions;
 create policy subscriptions_select_own on public.subscriptions
   for select using ((user_id)::text = auth.uid()::text);
