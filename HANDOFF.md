@@ -3007,3 +3007,12 @@ Date: 2026-11-10
 - Добавлен admin-only read-only `GET /admin/operations/pinterest-scheduler`, helper `backend/pinterestSchedulerHealth.js`, tests и документация. Статус completed run становится stale после 3 минут; незавершённый запуск допускается до 20 минут (согласовано с stale claim recovery). `not_seen` означает, что после migration 121 ещё не было вызова.
 - Heartbeat подтверждает вызов защищённого endpoint, но не доступность Pinterest API и не заменяет анализ возраста очереди/unknown публикаций. Migration 121 НЕ применялась к Supabase; сначала staging, SQL/runtime tests, затем согласованный rollout. `docs/database.md` обновлён до миграции 121.
 - Source readback выполнен; runtime tests/SQL/lint/build/CI/production heartbeat не запускались. PR #4 остаётся open Draft; merge/deploy/production DB/SMTP/payments/Pinterest API не выполнялись.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-362)
+
+- Проверено, что heartbeat-инфраструктура была частично подготовлена ранее: SQL migration 121 (теперь 122), pure helper `pinterestSchedulerHealth.js`, admin GET `/admin/operations/pinterest-scheduler`, unit tests.
+- Найдена коллизия номеров: `121_atomic_pin_generation_text_plan.sql` и `121_pinterest_scheduler_health_monitor.sql`. Исправлено: heartbeat migration перенесена на `122_pinterest_scheduler_health_monitor.sql`; migration 121 сохранена без изменений. Docs/database.md и scheduler setup приведены к диапазону 010–122.
+- Более важный gap: worker отправляет POST на `/internal/pinterest/schedule/run`, но такого Express route нет среди зарегистрированных маршрутов backend/index.js. Worker также не вызывает RPC `begin_pinterest_scheduler_run` / `complete_pinterest_scheduler_run`. Следовательно, scheduler и heartbeat нельзя считать работоспособными на текущем commit. Документация исправлена, чтобы не предлагать включать их в production.
+- Следующий этап должен отдельно спроектировать и реализовать защищённый internal endpoint, обработку одной записи с сохранением claim fencing / retry-safe / unknown semantics, heartbeat start/complete и интеграционные тесты. Не переписывать бизнес-логику публикации без изучения всех существующих helpers/RPC.
+- No DB migration applied, no production request, Pinterest API, payment, email delivery, or deployment. Tests/lint/build/CI not run. PR #4 remains open Draft.
