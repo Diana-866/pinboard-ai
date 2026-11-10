@@ -12,8 +12,9 @@
 
 ## Security properties
 
-- The logger still emits only fixed fields: level, event, optional bounded status, optional validated error code and optional validated correlation ID.
+- The logger still emits only fixed fields: level, event, optional bounded status, optional error code from a fixed allowlist and optional validated correlation ID.
 - It still excludes messages, stack traces, causes, request/response objects, headers and arbitrary metadata.
+- Error codes are now emitted only from a fixed allowlist of known Node/network and selected PostgreSQL/PostgREST codes; syntactically plausible but unknown values are omitted.
 - Correlation IDs remain server-generated for HTTP requests and worker/outbox scopes; the logger rejects malformed values but does not treat UUID syntax as proof of trust or authorization.
 
 ## Validation and limitations
