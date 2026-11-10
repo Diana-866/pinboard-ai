@@ -3295,3 +3295,13 @@ Date: 2026-11-10
 - Добавлены docs/audits/AUD-386-pinterest-scheduler-worker-resilience.md и docs/runbooks/pinterest-scheduler-operations-aud-386.md.
 - Остаточное ограничение: monitor — singleton latest-run heartbeat, не независимый OS/process heartbeat. При timeout HTTP клиента backend request может продолжаться; безопасность обеспечивают DB lease + journal/fencing, а не предположение об отмене запроса.
 - Node tests/SQL integration/lint/build/CI/staging не запускались; migrations 122–123 не применялись; production worker не включался; Pinterest API/DB/payments/deploy не затрагивались.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-387: cross-system backup consistency)
+
+- Уточнена зависимость восстановления: PostgreSQL и байты Supabase Storage bucket pin-images должны входить в единый согласованный backup set; URL и строки БД не восстанавливают сами изображения.
+- Зафиксирована необходимость manifest с единым consistency window/versioned object strategy, object paths/count/bytes/checksums, DB snapshot/schema/migration revision, commit SHA и retention.
+- Pinterest AES-256-GCM token ciphertext требует точного active PINTEREST_TOKEN_ENCRYPTION_KEY; во время ротации также может требоваться PINTEREST_TOKEN_ENCRYPTION_KEY_PREVIOUS. Ключи должны быть в независимом secret vault.
+- Добавлены AUD-387 и runbook с изолированным restore, финансовой сверкой и выключенными внешними side effects.
+- AUD-370 остаётся актуальным: в репозитории не найден независимый backup pipeline для DB/Storage, backup alerting или evidence restore drill. Provider dashboards не проверялись; RPO/RTO неизвестны.
+- Код не менялся: выбор поставщиков, создание backup, escrow и restore drill требуют инфраструктурных действий. Production не затрагивался.
