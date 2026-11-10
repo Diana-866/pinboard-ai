@@ -161,28 +161,34 @@ function createScheduleClaimHeartbeat({ renew, logger = console, intervalMs = 60
   let stopped = false;
   let inFlight = false;
   let warningLogged = false;
-  const timer = setInterval(async () => {
+  let pendingRenewal = null;
+  const timer = setInterval(() => {
     if (stopped || inFlight) return;
     inFlight = true;
-    try {
-      const renewed = await renew();
-      if (!renewed && !warningLogged) {
-        warningLogged = true;
-        logger.warn("[pinterest-worker] schedule claim is no longer current; publication outcome remains journal-controlled");
+    pendingRenewal = (async () => {
+      try {
+        const renewed = await renew();
+        if (!renewed && !warningLogged) {
+          warningLogged = true;
+          logger.warn("[pinterest-worker] schedule claim is no longer current; publication outcome remains journal-controlled");
+        }
+      } catch (error) {
+        if (!warningLogged) {
+          warningLogged = true;
+          logger.warn("[pinterest-worker] schedule claim heartbeat failed; publication outcome remains journal-controlled");
+        }
+      } finally {
+        inFlight = false;
+        pendingRenewal = null;
       }
-    } catch (error) {
-      if (!warningLogged) {
-        warningLogged = true;
-        logger.warn("[pinterest-worker] schedule claim heartbeat failed; publication outcome remains journal-controlled");
-      }
-    } finally {
-      inFlight = false;
-    }
+    })();
   }, Math.max(10, Number(intervalMs) || 60_000));
   if (typeof timer.unref === "function") timer.unref();
-  return () => {
+  return async () => {
     stopped = true;
     clearInterval(timer);
+    // Do not let a renewal request outlive the schedule's final state transition.
+    if (pendingRenewal) await pendingRenewal;
   };
 }
 
