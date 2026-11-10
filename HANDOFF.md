@@ -2743,3 +2743,16 @@ Date: 2026-11-10
 - Не запускались local Node/npm, DB, GPTunnel, миграции, платежи или deploy. Vercel build-rate-limit отдельно от backend GitHub Actions.
 - PR #4 остаётся Draft и unmerged. Следующий шаг — получить GitHub Actions run от PR update/maintainer, изучить focused + full backend + E2E результаты и исправить только реальные ошибки.
 
+
+
+## Дополнение к handoff — 2026-11-10 (AUD-337)
+
+- Проверены AI routes/helpers: website analysis -> legacy `generateText()`; board ideas -> legacy `generateText()`; pin plan -> `generateTextWithUsage()`. Основные image routes: `POST /boards/:id/pins/generate` и `POST /pins/:id/regenerate`.
+- Image generation paths имеют durable idempotency, credit reservation, quote/task journals, task recovery, actual-price settlement и atomic completion/debit. Pin-plan usage сохраняется через `record_pin_generation_text_usage` до parsing.
+- Finding: `backend/pins.js` валидирует только JSON array/non-empty; далее truthy filter, String coercion и truncation title 200 / description 2000 / image_prompt 12000. Нет строгой проверки типов, whitespace-only и точного количества после filter. Это schema-hardening gap, не доказанный exploit.
+- Finding: pin plan вызывает `generateTextWithUsage(..., { requireUsage:false })`; если total_cost отсутствует, callback передаёт `p_total_cost_rub:null`, но image quoting/submission может продолжиться. Unknown cost не приравнивается к нулю, однако strict spend policy не fail-closed. Риск согласуется с AUD-329/330.
+- Legacy analysis/board suggestions остаются без durable usage journal, поскольку legacy `generateText()` возвращает только content. См. AUD-331–333.
+- Добавлен `docs/audits/AUD-337-ai-generation-callsite-spend-review.md`; source изменений нет.
+- Тесты/lint/typecheck/build/HTTP не запускались. Нет GPTunnel calls, Supabase reads/writes, migrations, payments или deploy.
+- Следующий этап AUD-338: bounded parser/validator для pin-plan JSON с сохранением JSON-with-prose compatibility и partial-task semantics; отдельно зафиксировать policy, должен ли missing text cost блокировать image generation или оставаться явным reconciliation state.
+
