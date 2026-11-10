@@ -1,3 +1,4 @@
+const { logError, logWarning, logInfo } = require("./safeLogger");
 const bcrypt = require("bcryptjs");
 const { signSessionToken, verifySessionToken } = require("./sessionToken");
 const supabase = require("./supabase");
@@ -25,7 +26,7 @@ async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage)
     .eq("email", email)
     .maybeSingle();
   if (lookupError) {
-    console.error("[register] не удалось проверить email:", lookupError.message);
+    logError("auth.event");
     throw httpError(503, "Не удалось проверить данные аккаунта — попробуйте позже");
   }
   if (existing) {
@@ -65,7 +66,7 @@ async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage)
       throw httpError(409, "Пользователь с таким email уже существует");
     }
     if (!missingOptionalColumn) {
-      console.error("[register] не удалось создать аккаунт:", result.error.message);
+      logError("auth.event");
       throw httpError(503, "Не удалось создать аккаунт — попробуйте позже");
     }
 
@@ -78,7 +79,7 @@ async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage)
       if (result.error.code === "23505") {
         throw httpError(409, "Пользователь с таким email уже существует");
       }
-      console.error("[register] резервное создание аккаунта не выполнено:", result.error.message);
+      logError("auth.event");
       throw httpError(503, "Не удалось создать аккаунт — попробуйте позже");
     }
   }
@@ -89,9 +90,7 @@ async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage)
   // Токен (sha256 в auth_tokens, purpose='email_verify', TTL 24 ч) + письмо.
   const sent = await emailVerify.issueVerificationToken(data);
   if (!sent) {
-    console.warn(
-      "[register] письмо подтверждения не отправлено — пользователь сможет запросить повторно"
-    );
+    logWarning("auth.event");
   }
 
   return {
@@ -115,7 +114,7 @@ async function login(rawEmail, rawPassword) {
     .maybeSingle();
 
   if (lookupError) {
-    console.error("[login] не удалось получить аккаунт:", lookupError.message);
+    logError("auth.event");
     throw httpError(503, "Сервис авторизации временно недоступен — попробуйте позже");
   }
 
@@ -146,7 +145,7 @@ async function login(rawEmail, rawPassword) {
     throw err;
   }
   if (user.email_verified == null) {
-    console.warn("[login] users.email_verified отсутствует — примените миграцию 005 (вход без подтверждения)");
+    logWarning("auth.event");
   }
 
   const token = signSessionToken(user, process.env.JWT_SECRET);
