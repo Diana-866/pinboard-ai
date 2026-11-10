@@ -15,7 +15,7 @@ const { serializeBoardForClient } = require("./boardSerialization");
 const { serializeProjectForClient } = require("./projectSerialization");
 const { sortProjectsForProvisioning } = require("./projectProvisioningOrder");
 const { buildPinPatch } = require("./pinPatch");
-const { logError, logWarning } = require("./safeLogger");
+const { logError, logWarning, logInfo } = require("./safeLogger");
 
 const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
@@ -96,7 +96,7 @@ app.post("/billing/webhook", parseProdamusWebhook, async (req, res) => {
     );
     await (isCreditsOrder ? creditsBilling.handleCreditsWebhook : billing.handleWebhook)(req, res);
   } catch (e) {
-    console.error("[billing] ошибка обработки вебхука:", e && e.message);
+    logError("index.event_022");
     if (!res.headersSent) res.status(500).json({ ok: false, error: "internal" });
   }
 });
@@ -219,10 +219,10 @@ const imageUpload = multer({
 });
 
 if (!process.env.JWT_SECRET) {
-  console.warn("[startup] JWT_SECRET не задан — регистрация и вход работать не будут");
+  logWarning("index.event_021");
 }
 if (!process.env.GPTUNNEL_API_KEY) {
-  console.warn("[startup] GPTUNNEL_API_KEY не задан — AI-генерация работать не будет");
+  logWarning("index.event_020");
 }
 
 async function requireAuth(req, res, next) {
@@ -241,7 +241,7 @@ async function requireAuth(req, res, next) {
       .maybeSingle();
 
     if (error) {
-      console.error("[auth] не удалось проверить версию сессии:", error.message);
+      logError("index.event_019");
       return res.status(503).json({ error: "Сервис авторизации временно недоступен" });
     }
     if (!account || Number(decoded.tokenVersion || 0) !== Number(account.token_version || 0)) {
@@ -346,7 +346,7 @@ app.post("/resend-verification", resendVerificationLimiter, async (req, res) => 
             .eq("id", decoded.userId)
             .maybeSingle();
           if (accountError) {
-            console.error("[email-verify] не удалось проверить версию сессии:", accountError.message);
+            logError("index.event_018");
             throw httpError(503, "Сервис подтверждения email временно недоступен — попробуйте позже");
           }
           if (
@@ -484,7 +484,7 @@ app.patch("/me/onboarding", requireAuth, async (req, res) => {
       .single();
 
     if (error) {
-      console.error("[onboarding] не удалось обновить users:", error.message, error.code || "");
+      logError("index.event_017");
       throw httpError(500, "Не удалось сохранить онбординг. Проверьте, что миграция 004 применена в Supabase.");
     }
 
@@ -495,7 +495,7 @@ app.patch("/me/onboarding", requireAuth, async (req, res) => {
       .eq("user_id", req.userId)
       .limit(1);
     if (lookupError) {
-      console.error("[onboarding] не удалось проверить проекты:", lookupError.message, lookupError.code || "");
+      logError("index.event_016");
     } else if (!existing || existing.length === 0) {
       const { error: projError } = await supabase.from("projects").insert({
         user_id: req.userId,
@@ -505,7 +505,7 @@ app.patch("/me/onboarding", requireAuth, async (req, res) => {
       });
       if (projError) {
         // Онбординг уже сохранён — проект можно создать позже из кабинета.
-        console.error("[onboarding] не удалось создать первую запись проекта:", projError.message, projError.code || "");
+        logError("index.event_015");
       }
     } else {
       // Пользователь мог создать проект до завершения онбординга — обновляем его,
@@ -520,7 +520,7 @@ app.patch("/me/onboarding", requireAuth, async (req, res) => {
           .eq("id", existing[0].id)
           .eq("user_id", req.userId);
         if (projectUpdateError) {
-          console.error("[onboarding] не удалось обновить первый проект:", projectUpdateError.message, projectUpdateError.code || "");
+          logError("index.event_014");
         }
       }
     }
@@ -804,14 +804,14 @@ app.post("/pins/:id/image", requireAuth, imageUploadLimiter, handlePinImageUploa
       // Compare-and-swap prevents a slower upload from overwriting a newer
       // image. A missing row means another request changed image_url first.
       await deletePinImageIfUnreferenced(url).catch((cleanupError) => {
-        console.error("[storage] не удалось очистить новое изображение после конфликта обновления пина:", cleanupError && cleanupError.message);
+        logError("index.event_013");
       });
       if (error) throw error;
       throw httpError(409, "Изображение пина уже изменилось. Обновите карточку и повторите загрузку.");
     }
     if (pin.image_url && pin.image_url !== url) {
       await deletePinImageIfUnreferenced(pin.image_url).catch((cleanupError) => {
-        console.error("[storage] не удалось очистить старое изображение пина:", cleanupError && cleanupError.message);
+        logError("index.event_012");
       });
     }
     res.json(data);
@@ -921,7 +921,7 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
           // resumable so a top-up or transient DB recovery can retry safely.
           p_status: "unknown",
           p_error_code: "regeneration_reservation_failed",
-        }).catch((journalError) => console.error("[regeneration] не удалось зафиксировать отказ резерва:", journalError && journalError.message));
+        }).catch((journalError) => logError("index.event_011"));
         requestStarted = false;
         if (/insufficient available credits/i.test(reservationError.message || "")) {
           throw httpError(402, "Недостаточно доступных кредитов для перегенерации");
@@ -1072,7 +1072,7 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
 
     if (pin.image_url && pin.image_url !== storedUrl) {
       await deletePinImageIfUnreferenced(pin.image_url).catch((cleanupError) => {
-        console.error("[storage] не удалось очистить старое изображение после перегенерации:", cleanupError && cleanupError.message);
+        logError("index.event_010");
       });
     }
     return res.json(completed.pin);
@@ -1108,7 +1108,7 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
           if (outcomeError) throw outcomeError;
           providerFailureRecorded = true;
         } catch (journalError) {
-          console.error("[regeneration] не удалось сохранить provider outcome:", journalError && journalError.message);
+          logError("index.event_009");
         }
       }
       await supabase.rpc("update_pin_regeneration_request", {
@@ -1118,7 +1118,7 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
         p_status: providerFailureRecorded ? "failed" : "unknown",
         p_error_code: providerFailureRecorded ? "provider_generation_failed" :
           (e && e.status === 402 ? "insufficient_balance" : "regeneration_outcome_unknown"),
-      }).catch((journalError) => console.error("[regeneration] не удалось обновить журнал:", journalError && journalError.message));
+      }).catch((journalError) => logError("index.event_008"));
     }
     handleError(res, e);
   }
@@ -1748,7 +1748,7 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
           p_outcome_unknown: providerGenerationStarted,
         });
       } catch (markError) {
-        console.error("[generation] не удалось отметить запрос как failed:", markError && markError.message);
+        logError("index.event_007");
       }
     }
     handleError(res, e);
@@ -1797,7 +1797,7 @@ app.get("/schedule", requireAuth, async (req, res) => {
 
     const metadataError = attemptsResult.error || publicationsResult.error || accountsResult.error;
     if (metadataError) {
-      console.error("[schedule] не удалось вычислить retryability:", metadataError.message);
+      logError("index.event_006");
       return res.json(rows.map((row) => row.status === "failed"
         ? sanitizeScheduleForClient({ ...row, retryable: false, retry_reason: "metadata_unavailable", failure_reason: getScheduleFailureReason(row) })
         : sanitizeScheduleForClient({ ...row, retryable: false, retry_reason: null, failure_reason: null })));
@@ -2170,7 +2170,7 @@ app.post("/schedule/:id/cancel", requireAuth, pinterestScheduleLimiter, async (r
         // lost. Repeating cleanup is safe because it rechecks every live reference.
         if (current.snapshot_image_url) {
           await deletePinImageIfUnreferenced(current.snapshot_image_url).catch((cleanupError) => {
-            console.error("[storage] не удалось повторить очистку изображения отменённого расписания:", cleanupError && cleanupError.message);
+            logError("index.event_005");
           });
         }
         return res.json(sanitizeScheduleForClient(current));
@@ -2184,7 +2184,7 @@ app.post("/schedule/:id/cancel", requireAuth, pinterestScheduleLimiter, async (r
     }
     if (data.snapshot_image_url) {
       await deletePinImageIfUnreferenced(data.snapshot_image_url).catch((cleanupError) => {
-        console.error("[storage] не удалось очистить изображение отменённого расписания:", cleanupError && cleanupError.message);
+        logError("index.event_004");
       });
     }
     res.json(sanitizeScheduleForClient(data));
@@ -2667,7 +2667,7 @@ app.use((err, req, res, next) => {
   if (err && err.type === "entity.too.large") {
     return res.status(413).json({ error: "Слишком большой запрос" });
   }
-  console.error(err);
+  logError("index.event_003");
   res.status(500).json({ error: "Внутренняя ошибка сервера, попробуйте позже" });
 });
 
@@ -2678,13 +2678,13 @@ const PORT = process.env.PORT || 3000;
 // is awake. A Render sleep can delay retries until the next request/startup.
 function dispatchSubscriptionEmailOutbox() {
   billing.dispatchPendingSubscriptionEmails(10).catch((error) => {
-    console.error("[mail-outbox] dispatch failed:", error && error.message);
+    logError("index.event_002");
   });
 }
 const emailOutboxTimer = setInterval(dispatchSubscriptionEmailOutbox, 60 * 1000);
 if (typeof emailOutboxTimer.unref === "function") emailOutboxTimer.unref();
 
 app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
+  logInfo("index.event_001");
   dispatchSubscriptionEmailOutbox();
 });
