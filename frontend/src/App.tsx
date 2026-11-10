@@ -134,11 +134,19 @@ const MainApp: React.FC = () => {
     setScheduleLoading(Boolean(user?.id));
   }, [user?.id]);
 
-  // Re-map persisted UTC timestamps when the calendar's publishing timezone changes.
+  // Re-map persisted UTC timestamps when the publishing timezone changes,
+  // and reconcile worker-updated statuses when the user returns to this tab.
   React.useEffect(() => {
-    const reloadForTimezone = () => setScheduleReloadToken((value) => value + 1);
-    window.addEventListener('pinposy:timezone-changed', reloadForTimezone);
-    return () => window.removeEventListener('pinposy:timezone-changed', reloadForTimezone);
+    const reloadSchedule = () => setScheduleReloadToken((value) => value + 1);
+    const reloadWhenVisible = () => {
+      if (document.visibilityState === 'visible') reloadSchedule();
+    };
+    window.addEventListener('pinposy:timezone-changed', reloadSchedule);
+    document.addEventListener('visibilitychange', reloadWhenVisible);
+    return () => {
+      window.removeEventListener('pinposy:timezone-changed', reloadSchedule);
+      document.removeEventListener('visibilitychange', reloadWhenVisible);
+    };
   }, []);
 
   // Расписание загружается из БД; демонстрационные публикации не показываем.
