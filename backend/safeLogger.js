@@ -17,9 +17,9 @@ function safeErrorCode(error) {
   }
 }
 
-function logError(event, error, status) {
+function logEvent(level, event, error, status) {
   const record = {
-    level: "error",
+    level: level === "warn" ? "warn" : "error",
     event: safeEventName(event),
   };
   if (Number.isInteger(status) && status >= 400 && status <= 599) record.status = status;
@@ -29,4 +29,12 @@ function logError(event, error, status) {
   console.error(JSON.stringify(record));
 }
 
-module.exports = { logError };
+function logError(event, error, status) {
+  return logEvent("error", event, error, status);
+}
+
+function logWarning(event, error, status) {
+  return logEvent("warn", event, error, status);
+}
+
+module.exports = { logError, logWarning };
