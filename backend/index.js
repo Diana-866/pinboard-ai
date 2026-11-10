@@ -2577,6 +2577,25 @@ app.get("/admin/billing/email-outbox", requireAuth, requireAdmin, async (req, re
   }
 });
 
+// Read-only, privacy-safe freshness/status for the separately invoked Pinterest scheduler.
+app.get("/admin/operations/pinterest-scheduler", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("pinterest_scheduler_monitor")
+      .select("status, last_started_at, last_completed_at, claimed, published, failed, scheduled, unknown, last_error_code")
+      .eq("singleton_key", "pinterest_scheduler")
+      .maybeSingle();
+    if (error) throw error;
+    const { summarizePinterestSchedulerHealth } = require("./pinterestSchedulerHealth");
+    res.json({
+      generated_at: new Date().toISOString(),
+      ...summarizePinterestSchedulerHealth(data),
+    });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 // Read-only inventory of payment checkout requests whose provider outcome is unresolved.
 app.get("/admin/billing/payment-creation-requests", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
   try {
