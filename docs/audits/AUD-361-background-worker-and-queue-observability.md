@@ -1,41 +1,39 @@
 # AUD-361 — background worker and queue observability
 
 **Date:** 2026-11-11  
-**Status:** source-level review; email queue diagnostics improved; external monitoring still required
+**Status:** source implementation + migration 122; runtime/database validation pending
 
-## Scope
+## Scope and existing observability
 
-Reviewed the API liveness route, dedicated Pinterest scheduler worker, read-only Pinterest schedule inventory, transactional email outbox health endpoint, related tests, migration 030, and scheduler operations guide.
+- `GET /health` returns `{ ok: true }` and is API liveness only; it does not prove DB, SMTP, Pinterest API, worker activity or queue freshness.
+- `GET /admin/pinterest/schedules` is authenticated/admin-only and read-only. It classifies overdue scheduled rows, stale publishing rows (20-minute boundary) and unknown outcomes; it does not claim, retry or publish.
+- `GET /admin/billing/email-outbox` is authenticated/admin-only and privacy-safe. It reports pending/sending/stale/dead counts, bounded dead-row metadata and age metrics without recipient email or message payload.
+- `billing.getEmailOutboxHealth` includes `due_pending`, `oldest_due_pending_at` and `oldest_due_pending_age_seconds`; these distinguish due retries from pending rows still waiting for backoff. The original pending count and oldest-created timestamp remain for compatibility.
+- The subscription email dispatcher runs in-process on a one-minute timer and on payment callbacks. A sleeping/stopped API can delay retries.
+- Pin image retention has an admin-triggered processing endpoint and blocked-queue inventory, not an independently supervised always-on worker. `pin_review_queue` is intentionally a human-review queue.
+- The Pinterest worker polls every 30 seconds by default, claims one row per request and had no durable invocation heartbeat before this change.
 
-## Existing observability
+## Durable Pinterest scheduler heartbeat
 
-- `GET /health` returns `{ ok: true }` and is a process liveness response only. It does not prove database connectivity, SMTP availability, Pinterest API availability, worker activity, or queue freshness.
-- `GET /admin/pinterest/schedules` is protected by authentication and administrator authorization. It uses a bounded, read-only RPC and classifies overdue scheduled rows, publishing rows stale for 20 minutes, and unknown outcomes. It does not claim, retry, or publish.
-- `GET /admin/billing/email-outbox` is protected by authentication and administrator authorization. It reports aggregate states and bounded dead-row metadata without recipient email or payload.
-- The dedicated worker polls every 30 seconds by default, sends one claim per request, and logs per-run counters or a safe failure event. It has no HTTP health listener or durable heartbeat of its own.
+- Added `db/migrations/122_pinterest_scheduler_health_monitor.sql` (migration 121 already exists for atomic pin-generation text plan; the heartbeat migration therefore uses 122).
+- The migration creates a singleton monitor record and service-role-only `begin_pinterest_scheduler_run` / `complete_pinterest_scheduler_run` RPCs. It stores only run UUID, timestamps, status, aggregate counters and a fixed error code.
+- `POST /internal/pinterest/schedule/run` is registered by `backend/pinterest.js` through `registerRoutes`, called from `backend/index.js`. After scheduler-secret authentication it records run start, performs the existing claim-fenced schedule flow, then records aggregate completion counters.
+- The begin RPC refuses to overwrite a currently running record until its 20-minute safety window expires. Completion is fenced by run UUID so a delayed older run cannot overwrite a newer monitor record.
+- Added admin-only, read-only `GET /admin/operations/pinterest-scheduler`, backed by `backend/pinterestSchedulerHealth.js`.
+- Statuses: `not_seen` (no invocation after migration), `running` (less than 20 minutes since start), `healthy` / `failed` (completed within 3 minutes), and `stale` (completed more than 3 minutes ago or a run still active after 20 minutes).
+- Added `backend/test/pinterest-scheduler-health.test.js` for never-seen, healthy, failed, long-running and stale summaries.
+- Updated scheduler setup and database migration instructions through migration 122.
 
-## Change
+## Privacy and safety boundaries
 
-Extended `billing.getEmailOutboxHealth` with:
-- `due_pending`: pending rows whose `next_attempt_at` is already due;
-- `oldest_due_pending_at`;
-- `oldest_due_pending_age_seconds`.
+- Heartbeat data excludes user IDs, pin/board IDs, Pinterest remote IDs, access/refresh tokens, request bodies, provider payloads and arbitrary exception text.
+- Admin health routes require authentication and administrator authorization; they are not public probes.
+- The heartbeat proves that the protected scheduler endpoint was invoked. It does not prove Pinterest API availability, does not replace schedule queue-age/unknown reconciliation, and is not an independent OS-process heartbeat.
+- Keep exactly one scheduler mode enabled (dedicated worker OR external cron); do not add a second scheduler merely to generate heartbeat traffic.
 
-The existing `pending` count and `oldest_pending_at` remain unchanged for compatibility. This distinction matters because a pending row may be intentionally waiting for its retry backoff; creation age alone is not evidence that it is overdue.
+## Validation limits
 
-Updated `backend/test/email-outbox.test.js` to cover the new due metrics while retaining assertions that customer addresses and message payloads are not exposed.
-
-## Operational gaps and safe recommendations
-
-1. Monitor API liveness separately from queue state. A green `/health` response must not be treated as proof that background jobs are running.
-2. For the selected single scheduler deployment, monitor worker log freshness or configure an external heartbeat check. The repository does not currently persist a worker heartbeat, and this audit does not configure an external provider.
-3. Alert on Pinterest `unknown` outcomes for operator reconciliation; investigate `stale_publishing` after the existing 20-minute classification boundary; alert on `overdue_scheduled` rows after a service-specific lateness tolerance is agreed.
-4. For email, alert on `dead > 0` and `stale_sending > 0`; use `due_pending` and `oldest_due_pending_age_seconds` rather than total pending count or creation age to detect delayed delivery. Thresholds must account for retry backoff and hosting sleep.
-5. Do not expose admin diagnostic endpoints publicly or add a second scheduler merely to generate heartbeat traffic. Keep exactly one scheduler mode enabled.
-
-## Verification limits
-
-- Source and test changes were read back from the feature branch.
-- Node tests, lint, build, CI, production configuration, and external monitoring provider were not run or changed.
-- No database migration/schema change, live Supabase query, SMTP delivery, Pinterest API call, payment action, or deployment occurred.
-- PR #4 remains open and Draft.
+- Changed source, docs and migration were read back from the feature branch; the internal route registration and RPC calls were verified by source inspection.
+- Runtime tests, SQL execution, lint, build, CI, production configuration, live heartbeat and external monitoring were not run.
+- Migration 122 has NOT been applied to Supabase. No production query/write, SMTP delivery, Pinterest API/OAuth, payment action, deployment or provider setting change occurred.
+- PR #4 remains open and Draft. Vercel's latest known status was `build-rate-limit`; no passing CI is claimed.
