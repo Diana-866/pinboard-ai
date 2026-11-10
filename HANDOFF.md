@@ -2998,3 +2998,12 @@ Date: 2026-11-10
 - Обновлён privacy-safe unit test email outbox health: проверяет due count/age и прежнюю фильтрацию PII/payload. Тесты не запускались.
 - Внешний мониторинг остаётся конфигурацией оператора: API liveness, worker heartbeat/log freshness, очередь Pinterest и due/dead/stale email outbox. Нельзя включать второй scheduler только ради heartbeat. Production thresholds/provider integrations пока не задавались.
 - No DB schema changes, production queries, email delivery, Pinterest calls, deployment, payment or account mutations. Runtime tests/lint/build/CI not run; PR #4 remains open Draft.
+
+## Дополнение к handoff — 2026-11-11 (AUD-361)
+
+- `GET /health` — только liveness API; он не подтверждает работу фонового scheduler. Существующий `GET /admin/billing/email-outbox` уже даёт privacy-safe counts/oldest pending/dead diagnostics без email и payload. Outbox dispatch выполняется in-process таймером раз в минуту и при callback; sleep/stopped API задерживает retry.
+- Pin image retention queue имеет admin-triggered processing endpoint и read-only blocked inventory, но не отдельный постоянно работающий worker. `pin_review_queue` остаётся human-review queue и не должна публиковаться автоматически.
+- Добавлена migration `121_pinterest_scheduler_health_monitor.sql`: singleton monitor, service-role-only begin/complete RPC, UUID fencing run completion и защита от перекрытия запусков в пределах 20 минут. В Pinterest internal schedule endpoint после проверки scheduler secret фиксируются start/completion и только агрегированные счётчики; никаких пользовательских/публикационных ID, токенов, payload или произвольного текста ошибки.
+- Добавлен admin-only read-only `GET /admin/operations/pinterest-scheduler`, helper `backend/pinterestSchedulerHealth.js`, tests и документация. Статус completed run становится stale после 3 минут; незавершённый запуск допускается до 20 минут (согласовано с stale claim recovery). `not_seen` означает, что после migration 121 ещё не было вызова.
+- Heartbeat подтверждает вызов защищённого endpoint, но не доступность Pinterest API и не заменяет анализ возраста очереди/unknown публикаций. Migration 121 НЕ применялась к Supabase; сначала staging, SQL/runtime tests, затем согласованный rollout. `docs/database.md` обновлён до миграции 121.
+- Source readback выполнен; runtime tests/SQL/lint/build/CI/production heartbeat не запускались. PR #4 остаётся open Draft; merge/deploy/production DB/SMTP/payments/Pinterest API не выполнялись.
