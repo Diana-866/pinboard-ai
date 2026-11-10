@@ -308,12 +308,9 @@ app.post("/login", authLimiter, async (req, res) => {
   }
 });
 
-// Подтверждение email: переход по ссылке из письма (применяем токен).
-// Два режима одного роута:
-//  - прямой переход по ссылке (Accept: text/html) — классический 302-редирект
-//    на фронт: успех → /login?verified=1, ошибка → /verify-email?status=error;
-//  - вызов со страницы VerifyEmail.tsx (Accept: application/json) — JSON-ответ,
-//    страница сама показывает успех/ошибку и делает переход ко входу.
+// Подтверждение email. Письмо ведёт на frontend-страницу VerifyEmail.tsx,
+// которая извлекает токен из URL fragment и отправляет его сюда POST-запросом.
+// Этот endpoint возвращает JSON; навигацией и отображением результата управляет frontend.
 app.post("/verify-email", verifyLimiter, async (req, res) => {
   try {
     await emailVerify.applyVerification(req.body && req.body.token);
