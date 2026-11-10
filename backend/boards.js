@@ -1,5 +1,4 @@
 const { generateText } = require("./gptunnel");
-const { httpError } = require("./validate");
 const { parseBoardIdeasResponse } = require("./textOutputValidation");
 
 async function generateBoards(project) {
