@@ -16,7 +16,7 @@ const { persistWebhookException } = require("./billingWebhookAudit");
 const { httpError, validateEnum } = require("./validate");
 const { CREDIT_PACKS, normalizePackId, packAmount } = require("./creditPacks");
 const { createPaymentOrderId } = require("./paymentOrderId");
-const { beginPaymentCreation, attachPaymentCreationOrder, completePaymentCreation, markPaymentCreationUnknown, failPaymentCreation } = require("./paymentCreationIdempotency");
+const { beginPaymentCreation, attachPaymentCreationOrder, denyUnsentPaymentRecord, completePaymentCreation, markPaymentCreationUnknown, failPaymentCreation } = require("./paymentCreationIdempotency");
 
 // Префикс order_id покупок кредитов: по нему общий вебхук /billing/webhook
 // различает подписки (pp-…) и пакеты кредитов (ppc-…).
@@ -110,10 +110,17 @@ async function createCreditsPayment(userId, body, idempotencyKey) {
   try {
     await attachPaymentCreationOrder(userId, idempotencyKey, orderId);
   } catch (error) {
-    await supabase.from("credit_purchases").update({ status: "denied" }).eq("id", purchase.id).eq("status", "pending");
+    try {
+      await denyUnsentPaymentRecord("credit_purchases", purchase.id);
+    } catch (cleanupError) {
+      console.error("[credits-billing] не удалось подтвердить отмену локальной записи без отправленного счёта:", {
+        recordId: purchase.id,
+        error: cleanupError && cleanupError.message,
+      });
+    }
     await failPaymentCreation(userId, idempotencyKey, error);
     console.error("[credits-billing] не удалось сохранить идентификатор заказа до обращения к провайдеру:", error.message);
-    throw httpError(503, "Не удалось безопасно подготовить заказ. Счёт провайдеру не отправлялся; попробуйте создать новую попытку оплаты.");
+    throw httpError(503, "Не удалось безопасно подготовить заказ. Счёт провайдеру не отправлялся; статус заказа требует проверки.");
   }
 
   const base = publicBase();
