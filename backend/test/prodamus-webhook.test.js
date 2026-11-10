@@ -132,7 +132,7 @@ test("always sends the required empty SYS field for a self-written integration",
     });
     const params = new URL(result.url).searchParams;
     assert.equal(params.get("sys"), "");
-    assert.equal(params.get("urlNotification"), "https://api.pinposy.com/billing/webhook");
+    assert.equal(params.has("urlNotification"), false);
     assert.equal(params.get("products[0][name]"), "PinPosy / Старт");
     assert.match(params.get("signature") || "", /^[a-f0-9]{64}$/);
     const { signature, ...unsignedPayload } = result.payload;
@@ -479,3 +479,32 @@ test("a valid late success callback can activate an order previously marked deni
   assert.equal(db.rpcCalls.activate, 1);
 });
 
+
+test("includes a per-request webhook URL only when Prodamus SYS is configured", async () => {
+  const previous = {
+    PRODAMUS_SECRET: process.env.PRODAMUS_SECRET,
+    PRODAMUS_OFFLINE: process.env.PRODAMUS_OFFLINE,
+    PRODAMUS_URL: process.env.PRODAMUS_URL,
+    PRODAMUS_SYS: process.env.PRODAMUS_SYS,
+  };
+  try {
+    process.env.PRODAMUS_SECRET = "shop-secret-test";
+    process.env.PRODAMUS_OFFLINE = "1";
+    process.env.PRODAMUS_URL = "https://example.payform.ru/";
+    process.env.PRODAMUS_SYS = "pinposy_custom";
+    const result = await prodamus.createPaymentLink({
+      orderId: "pp-start-with-sys",
+      amount: 1990,
+      description: "PinPosy / Старт",
+      urlNotification: "https://api.pinposy.com/billing/webhook",
+    });
+    const params = new URL(result.url).searchParams;
+    assert.equal(params.get("sys"), "pinposy_custom");
+    assert.equal(params.get("urlNotification"), "https://api.pinposy.com/billing/webhook");
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
