@@ -118,7 +118,10 @@ if (require.main === module) {
       if (shuttingDown) return;
       shuttingDown = true;
       console.info("[schedule-worker] stopping", { signal });
-      await worker.stop();
+      const drained = await worker.stop();
+      if (!drained) {
+        console.warn("[schedule-worker] shutdown drain timed out; unfinished work will be recovered from PostgreSQL");
+      }
       process.exit(0);
     };
     process.once("SIGTERM", () => { void shutdown("SIGTERM"); });
