@@ -2225,7 +2225,7 @@ app.get("/billing/plans", (req, res) => {
 // Создание платежа: pending-запись в subscriptions + ссылка на оплату Prodamus
 app.post("/billing/create-payment", requireAuth, paymentCreationLimiter, async (req, res) => {
   try {
-    const result = await billing.createPayment(req.userId, req.body);
+    const result = await billing.createPayment(req.userId, req.body, req.get("Idempotency-Key"));
     res.status(201).json(result);
   } catch (e) {
     handleError(res, e);
@@ -2258,7 +2258,7 @@ app.get("/billing/credit-packs", (req, res) => {
 // Создание покупки пакета: pending-запись в credit_purchases + ссылка на оплату Prodamus
 app.post("/billing/credits", requireAuth, paymentCreationLimiter, async (req, res) => {
   try {
-    const result = await creditsBilling.createCreditsPayment(req.userId, req.body);
+    const result = await creditsBilling.createCreditsPayment(req.userId, req.body, req.get("Idempotency-Key"));
     res.status(201).json(result);
   } catch (e) {
     handleError(res, e);
