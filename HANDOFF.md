@@ -2929,3 +2929,11 @@ Date: 2026-11-10
 - safeLogger поддерживает error/warn/info; тест safe-logger.test.js расширен проверками warning/info и исключения email из serialized log.
 - Остальные backend-модули ещё не прошли полный аудит; correlation ID и отдельный ограниченный diagnostic channel не реализованы.
 - AUD-353 partial implementation. Тесты, lint, build, CI не запускались; production logs, платежи, OAuth, БД и deployment не затрагивались. Изменения платёжной/кредитной логики не планировались.
+
+## Дополнение к handoff — 2026-11-11 (AUD-354)
+
+- На safeLogger переведены ещё 29 прямых console-вызовов в mail.js (2), email-verify.js (8), password-reset.js (6), pins.js (5), prodamus.js (2), scheduleWorker.js (3), paymentCreationIdempotency.js (2), tariff.js (1).
+- Удалён вывод сырых provider response bodies, database/provider error messages, email subjects, task indexes и shutdown metadata из этих логов. Публичные ошибки и бизнес-логику не менял намеренно.
+- В source-level sweep 63 backend JavaScript modules прямые console-вызовы найдены только в уже мигрированных местах и в самих output primitives safeLogger.js. Это не аудит зависимостей или deployed logs.
+- Следующий этап: безопасные request correlation IDs, затем проверка не-JavaScript/runtime/hosted logs и retention.
+- Runtime tests, lint, build и CI не запускались. Production logs, платежи, email, Pinterest API/OAuth, БД и deploy не затрагивались.
