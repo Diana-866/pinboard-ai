@@ -13,6 +13,14 @@ function getAuthStorage(): Storage | null {
   }
 }
 
+export function readLocalStorageValue(key: string): string | null {
+  try {
+    return getAuthStorage()?.getItem(key) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function readAuthToken(): string | null {
   try {
     const token = getAuthStorage()?.getItem("token");
