@@ -3186,3 +3186,5 @@ Date: 2026-11-10
 - Ограничение: project provisioning deduplicated только в пределах одного runtime браузера; cross-tab race сохраняется. Не меняли политику проектов, так как у пользователя может быть несколько проектов.
 - Добавлены `docs/audits/AUD-378-frontend-api-contracts-and-session-failures.md` и `docs/runbooks/frontend-auth-and-api-recovery-aud-378.md`.
 - Тесты, TypeScript lint, build, CI и браузерные проверки не запускались. Production, БД, миграции и внешние сервисы не затрагивались.
+
+- Regression-test discovery: `frontend/package.json` test script now includes both `src/utils/*.test.ts` and `src/lib/*.test.ts`, so the new auth-storage test is part of the normal frontend suite.
