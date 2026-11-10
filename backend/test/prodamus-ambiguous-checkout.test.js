@@ -71,6 +71,10 @@ function rpc(name, args) {
   }
   const existing = db.paymentRequests.get(key);
   if (!existing) return Promise.resolve({ data: null, error: { message: "request not found" } });
+  if (name === "attach_payment_creation_order") {
+    existing.providerOrderId = args.p_order_id;
+    return Promise.resolve({ data: true, error: null });
+  }
   if (name === "mark_payment_creation_unknown") {
     existing.status = "unknown";
     return Promise.resolve({ data: true, error: null });
@@ -117,6 +121,7 @@ test("subscription remains pending when Prodamus link request has an ambiguous o
     assert.equal(db.subscriptions.length, 1);
     assert.equal(db.subscriptions[0].status, "pending");
     assert.ok(db.subscriptions[0].provider_payment_id);
+    assert.equal(db.paymentRequests.get("ambiguous-user:subscription-retry-key-001").providerOrderId, db.subscriptions[0].provider_payment_id);
     await assert.rejects(
       billing.createPayment("ambiguous-user", { plan: "start", currency: "rub" }, "subscription-retry-key-001"),
       /неопределён/
@@ -146,6 +151,7 @@ test("credit purchase remains pending when Prodamus link request has an ambiguou
     assert.equal(db.credit_purchases.length, 1);
     assert.equal(db.credit_purchases[0].status, "pending");
     assert.ok(db.credit_purchases[0].provider_payment_id);
+    assert.equal(db.paymentRequests.get("ambiguous-user:credits-retry-key-001").providerOrderId, db.credit_purchases[0].provider_payment_id);
     assert.equal(db.credit_purchases[0].balance_credited_at, undefined);
     await assert.rejects(
       creditsBilling.createCreditsPayment("ambiguous-user", { package_id: "pack_100" }, "credits-retry-key-001"),
