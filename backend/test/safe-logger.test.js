@@ -50,7 +50,7 @@ test("normalizes event names and ignores unsafe error codes and invalid statuses
   }
   assert.deepEqual(JSON.parse(output[0]), {
     level: "error",
-    event: "payment_webhook_secret",
+    event: "unclassified_error",
   });
 });
 
@@ -132,4 +132,35 @@ test("correlation context rejects arbitrary caller-controlled values", () => {
     console.info = original;
   }
   assert.deepEqual(JSON.parse(output[0]), { level: "info", event: "test.event" });
+});
+
+test("does not turn arbitrary PII text into a sanitized event identifier", () => {
+  const original = console.info;
+  const output = [];
+  console.info = (value) => output.push(value);
+  try {
+    logInfo("person@example.com");
+    logInfo("user 123456789");
+    logInfo("billing.webhook_failed");
+  } finally {
+    console.info = original;
+  }
+  assert.equal(JSON.parse(output[0]).event, "unclassified_error");
+  assert.equal(JSON.parse(output[1]).event, "unclassified_error");
+  assert.equal(JSON.parse(output[2]).event, "billing.webhook_failed");
+  assert.equal(output[0].includes("person"), false);
+});
+
+test("accepts only canonical UUID versions and variants for correlation context", () => {
+  const original = console.info;
+  const output = [];
+  console.info = (value) => output.push(value);
+  try {
+    runWithCorrelationId("ffffffff-ffff-ffff-ffff-ffffffffffff", () => logInfo("test.event"));
+    runWithCorrelationId("123e4567-e89b-12d3-a456-426614174000", () => logInfo("test.event"));
+  } finally {
+    console.info = original;
+  }
+  assert.equal(Object.hasOwn(JSON.parse(output[0]), "correlation_id"), false);
+  assert.equal(JSON.parse(output[1]).correlation_id, "123e4567-e89b-12d3-a456-426614174000");
 });
