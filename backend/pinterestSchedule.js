@@ -52,6 +52,10 @@ async function persistPublishFailureJournal(rpc, params) {
 }
 
 
+function isScheduleClaimLostError(error) {
+  return Boolean(error && error.code === "SCHEDULE_CLAIM_LOST");
+}
+
 function isScheduleClaimUpdateConfirmed(result) {
   return Boolean(result && !result.error && result.data && result.data.id);
 }
@@ -151,6 +155,7 @@ module.exports = {
   hasMatchingScheduleAttemptIdentity,
   hasCompleteScheduleClaimIdentity,
   isScheduleClaimUpdateConfirmed,
+  isScheduleClaimLostError,
   resolvePublishedReservation,
   matchesConfirmedPublicationLedger,
   persistPublishFailureJournal,
