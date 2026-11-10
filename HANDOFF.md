@@ -2116,3 +2116,24 @@ Date: 2026-11-10
 
 - Static GitHub read-back only. Backend tests have not been executed in this pass; no test pass claimed.
 - No provider requests, credit ledger operations, SQL migrations, production data, deployment, or PR merge.
+
+
+# AUD-313 — journal provider tasks completed in the create response
+
+Date: 2026-11-10
+
+## Finding
+
+The provider can return an image task already in `done` state directly from the task-creation POST. Previously `generateImage` returned the parsed result immediately, bypassing `onTaskUpdate`. A backend crash between receiving that response and recording the terminal provider outcome could therefore leave the durable task journal in `submitting` without the immutable provider task ID. Recovery would have to repeat the create call with the provider idempotency key.
+
+## Change
+
+- Parse and validate the synchronous completed result first.
+- Before returning it, call the existing task-journal callback with the provider task ID and `succeeded` status.
+- Preserve the normal polling path for queued/running tasks and the existing failure path.
+- Added a regression test asserting the immediate task ID/status callback occurs, the same idempotency key is sent, and no unnecessary poll is issued.
+
+## Verification and safety
+
+- GitHub read-back only; backend tests, lint, and build have not been executed in this pass.
+- No GPTunnel requests, credit operations, database migrations, production data, deployment, or PR merge.
