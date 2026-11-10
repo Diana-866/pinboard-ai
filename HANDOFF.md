@@ -2071,3 +2071,26 @@ The pricing view fetched subscription and credit-purchase history when the authe
 
 - GitHub read-back is required after the writes. Frontend tests, lint, and build have not been executed; no CI pass claimed.
 - No API authorization rules or database records were changed. No production data, deployment, or PR merge.
+
+
+# AUD-311 — scope generation recovery UI to the authenticated account
+
+Date: 2026-11-10
+
+## Finding
+
+The PinGenerator recovery-status lookup read locally persisted generation idempotency keys and ran once per component mount, but its effect did not depend on the authenticated user ID. If the user switched accounts while the component remained mounted, recovery rows fetched for the previous account could remain visible or a late response could update the new account's UI. The recovery list contains board identifiers and completed pin counts, so it must be account-scoped even though the server endpoint enforces ownership.
+
+## Change
+
+- Added a layout-effect identity fence that clears recovery rows and the loading indicator before painting a newly authenticated account.
+- Made the read-only recovery lookup depend on `userId`, so React cancels the previous account's in-flight effect on identity change.
+- Captured the owner at request start and checked it again before committing results or loading-state changes.
+- Avoids recovery lookups when there is no authenticated owner or token.
+- Reused the existing `isCurrentBillingOwner` guard; its unit tests cover matching, switched, missing, and empty identities.
+
+## Verification and safety
+
+- GitHub read-back is required. Frontend test/lint/build execution is not available in this GitHub-only pass; no CI pass claimed.
+- Recovery remains read-only: no generation request is started, no idempotency key is deleted, and no credits or provider tasks are changed.
+- No production data, deployment, or PR merge.
