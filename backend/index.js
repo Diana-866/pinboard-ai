@@ -677,7 +677,9 @@ app.post("/projects/:id/boards/generate", requireAuth, aiLimiter, requireTariff(
     const { data: inserted, error: insertError } = await supabase.from("boards").insert(rows).select();
     if (insertError) throw insertError;
 
-    res.status(201).json(inserted);
+    // Generated boards use the same public response contract as every other
+    // board endpoint; database-only idempotency metadata stays server-side.
+    res.status(201).json((inserted || []).map(serializeBoardForClient));
   } catch (e) {
     handleError(res, e);
   }
