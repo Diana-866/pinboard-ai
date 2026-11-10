@@ -708,6 +708,11 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
 
   let result;
   try {
+    // Fence the external side effect immediately before POST /pins. A worker
+    // whose lease was replaced must not publish after losing schedule ownership.
+    if (scheduleClaim && typeof scheduleClaim.assertClaimCurrent === "function") {
+      await scheduleClaim.assertClaimCurrent();
+    }
     result = await withAccount(userId, (token) => callPinterest("POST", "/pins", { token, body }), accountId, { retryRateLimit: false });
   } catch (e) {
     // Only explicit client-side rejections are known not to have created a pin.
@@ -1126,7 +1131,22 @@ function registerRoutes(app, deps) {
             schedule.pinterest_board_id,
             schedule.destination_url,
             schedule.pinterest_account_id,
-            { scheduleId: schedule.id, claimToken: schedule.claim_token },
+            {
+              scheduleId: schedule.id,
+              claimToken: schedule.claim_token,
+              assertClaimCurrent: async () => {
+                const { data, error } = await supabase.rpc("renew_pin_schedule_claim", {
+                  p_schedule_id: schedule.id,
+                  p_claim_token: schedule.claim_token,
+                });
+                if (error) throw error;
+                if (data !== true) {
+                  const lostClaimError = httpError(409, "Расписание больше не принадлежит этому обработчику");
+                  lostClaimError.code = "SCHEDULE_CLAIM_LOST";
+                  throw lostClaimError;
+                }
+              },
+            },
             schedule
           );
           const remoteId = String(published.pinterest_pin_id || "");
