@@ -3335,3 +3335,13 @@ Date: 2026-11-10
 - Выявлен критичный lock-order конфликт для будущей реализации: payment fulfillment блокирует payment row перед user row, а lifecycle transition будет блокировать user row. До внедрения нужно унифицировать порядок user → financial row → ledger/reservation и покрыть конкурентными SQL tests.
 - Разработан phased migration plan M1–M6 и обязательная test matrix. Документ не является исполняемой миграцией.
 - Добавлен `docs/audits/AUD-390-account-lifecycle-architecture.md`. Код/SQL не менялись; production, provider dashboards и data не затрагивались.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-391: auth lifecycle gates)
+
+- Проверены `auth.js`, `password-reset.js`, `email-verify.js`, `sessionToken.js`, `requireAuth`, migrations 020–024/055 и SQL integration tests.
+- Подтверждены существующие защиты: JWT HS256 + token_version, reset token SHA-256/одноразовость/атомарная смена пароля, cooldown на уровне БД, явное подтверждение email, generic reset/resend ответы.
+- Для будущего deletion lifecycle найдены критичные недостающие gates: login и requireAuth не читают account_status; SQL RPC issuance/consumption reset и email verification проверяют только наличие пользователя. Старые ссылки могут оставаться пригодными после запроса удаления, пока функции не будут изменены.
+- Зафиксирован отдельный product/security decision: можно ли повторно зарегистрировать email после удаления. При разрешении reuse новая учётная запись обязана иметь новый UUID и не наследовать данные; keyed HMAC tombstone предпочтительнее обычного email hash.
+- SQL функции reset/verification уже используют user-first → auth_token lock order; lifecycle RPC должен соблюдать его. Добавлена матрица конкурентных тестов.
+- Создан `docs/audits/AUD-391-auth-lifecycle-deletion-gates.md`. Код/SQL не менялись; тесты и production не запускались.
