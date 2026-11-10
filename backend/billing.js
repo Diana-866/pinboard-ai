@@ -9,7 +9,7 @@ const mail = require("./mail");
 const { getEmailCopy, getPlanTitle, getLocale } = require("./email-locales");
 const prodamus = require("./prodamus");
 const { createPaymentOrderId } = require("./paymentOrderId");
-const { beginPaymentCreation, attachPaymentCreationOrder, denyUnsentPaymentRecord, completePaymentCreation, markPaymentCreationUnknown, failPaymentCreation } = require("./paymentCreationIdempotency");
+const { beginPaymentCreation, attachPaymentCreationOrder, denyUnsentPaymentRecord, completePaymentCreation, settlePaymentCreationRequest, markPaymentCreationUnknown, failPaymentCreation } = require("./paymentCreationIdempotency");
 const { persistWebhookException } = require("./billingWebhookAudit");
 const { httpError, validateEnum } = require("./validate");
 const { normalizePlan } = require("./tariff");
@@ -395,6 +395,15 @@ async function handleWebhook(req, res, dependencies = {}) {
   if (activationError || !activation) {
     console.error("[billing] атомарная активация не выполнена:", activationError && activationError.message);
     return res.status(500).json({ ok: false, error: "activation failed" });
+  }
+
+  // Close the matching checkout idempotency record only after the atomic
+  // subscription activation has committed. A missing record is a legacy order.
+  try {
+    await settlePaymentCreationRequest(orderId, "subscription", sub.id, db);
+  } catch (settlementError) {
+    console.error("[billing] не удалось закрыть запись создания оплаченного заказа:", settlementError.message);
+    return res.status(500).json({ ok: false, error: "payment reconciliation failed" });
   }
 
   // Also drain older pending events on duplicate callbacks: a previous process may
