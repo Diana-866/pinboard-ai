@@ -93,6 +93,7 @@ test("warning and info events use the same safe event-name contract", () => {
     event: "pinterest.oauth_connected",
   });
   assert.equal(warnings[0].includes("private@example.com"), false);
+  assert.equal(infos[0].includes("private@example.com"), false);
 });
 
 test("correlation ID is attached to logs inside async request context only", async () => {
