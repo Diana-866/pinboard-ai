@@ -3121,3 +3121,14 @@ Date: 2026-11-10
 - Добавлены `docs/audits/AUD-372-account-deletion-and-data-lifecycle.md` и `docs/runbooks/account-deletion-aud-372.md`.
 - Не добавлялся поверхностный DELETE endpoint и не менялась схема: сначала нужны согласованные финансовые/юридические правила, lifecycle state machine, SQL lock order и тесты.
 - Live DB/provider settings/users/payments/Storage не проверялись; tests/build/CI не запускались; production не менялся.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-373: financial ledger reconciliation)
+
+- Повторно проверены credit purchase webhook/RPC, subscription activation, generation reservations, generic balance adjustment, refund runbook.
+- Подтверждены атомарность credit_paid_purchase (purchase lock + balance + purchase-linked ledger row + balance_credited_at), unique purchase_id, idempotent webhook retry; subscription activation транзакционная; generation reservation/settlement защищают spendable balance.
+- AUD-373-01: migration 074 сохраняет service_role EXECUTE на legacy `adjust_credits_balance(text, integer)`; функция меняет users.credits_balance без credit_transactions. Текущий backend helper использует ledgered RPC, но внешние/deployed callers не проверялись. Не отзывать grant без инвентаризации.
+- AUD-373-02: независимый scheduled read-only balance-vs-ledger reconciliation не найден. Нужны baseline/cutover rules, отчёт без автоисправления и human-reviewed ledger corrections.
+- AUD-373-03: refunds остаются manual-only, нет first-class refund ledger/partial refund totals; автоматизация требует политики частичных возвратов, уже потраченных кредитов, перекрывающихся подписок и chargebacks.
+- Добавлены `docs/audits/AUD-373-financial-ledger-and-balance-reconciliation.md` и `docs/runbooks/financial-balance-reconciliation-aud-373.md`.
+- Tests/SQL/CI/live Supabase/Prodamus не запускались; финансовые данные, grants, secrets и production не менялись.
