@@ -2937,3 +2937,12 @@ Date: 2026-11-10
 - В source-level sweep 63 backend JavaScript modules прямые console-вызовы найдены только в уже мигрированных местах и в самих output primitives safeLogger.js. Это не аудит зависимостей или deployed logs.
 - Следующий этап: безопасные request correlation IDs, затем проверка не-JavaScript/runtime/hosted logs и retention.
 - Runtime tests, lint, build и CI не запускались. Production logs, платежи, email, Pinterest API/OAuth, БД и deploy не затрагивались.
+
+## Дополнение к handoff — 2026-11-11 (AUD-355)
+
+- `safeLogger.js` получил AsyncLocalStorage-контекст: error/warn/info события автоматически получают allowlisted `correlation_id` в пределах async request context.
+- В раннем Express middleware генерируется server-owned UUID через `crypto.randomUUID()`, он возвращается в `x-request-id`; входящий client correlation header не используется.
+- В `safe-logger.test.js` добавлены проверки async propagation, изоляции вне контекста и отклонения malformed ID.
+- В `scheduleWorker.js` устранён остаточный raw `error.message`: production default теперь использует safeLogger и пишет только `schedule_worker.batch_failed`; тест обновлён.
+- Ограничение: correlation context пока не переносится в detached jobs/самостоятельные worker ticks/provider logs; CORS expose header не включён.
+- Runtime tests, lint, build и CI не запускались. Production requests/logs, платежи, email, Pinterest API/OAuth, БД и deployment не затрагивались.
