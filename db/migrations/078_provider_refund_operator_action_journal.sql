@@ -79,6 +79,9 @@ begin
   end if;
 
   perform pg_advisory_xact_lock(hashtextextended(p_action_id::text,0));
+  if not exists (select 1 from public.users u where u.id=p_operator_user_id and u.is_admin is true) then
+    raise exception 'operator is not an administrator';
+  end if;
 
   select * into v_existing from public.provider_refund_operator_actions a
    where a.action_id=p_action_id;
@@ -161,6 +164,9 @@ begin
   end if;
 
   perform pg_advisory_xact_lock(hashtextextended(p_action_id::text,0));
+  if not exists (select 1 from public.users u where u.id=p_operator_user_id and u.is_admin is true) then
+    raise exception 'operator is not an administrator';
+  end if;
   select * into v_existing from public.provider_refund_operator_actions a where a.action_id=p_action_id;
   if found then
     if v_existing.request_kind <> 'regeneration'
@@ -229,6 +235,9 @@ begin
     raise exception 'invalid operator finalization';
   end if;
   perform pg_advisory_xact_lock(hashtextextended(p_action_id::text,0));
+  if not exists (select 1 from public.users u where u.id=p_operator_user_id and u.is_admin is true) then
+    raise exception 'operator is not an administrator';
+  end if;
   select * into v_existing from public.provider_refund_operator_actions a where a.action_id=p_action_id;
   if found then
     if v_existing.request_kind <> 'generation'
@@ -281,6 +290,9 @@ begin
     raise exception 'invalid operator finalization';
   end if;
   perform pg_advisory_xact_lock(hashtextextended(p_action_id::text,0));
+  if not exists (select 1 from public.users u where u.id=p_operator_user_id and u.is_admin is true) then
+    raise exception 'operator is not an administrator';
+  end if;
   select * into v_existing from public.provider_refund_operator_actions a where a.action_id=p_action_id;
   if found then
     if v_existing.request_kind <> 'regeneration'
