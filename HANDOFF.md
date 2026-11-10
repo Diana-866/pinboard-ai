@@ -2720,3 +2720,15 @@ Date: 2026-11-10
 - Не выполнялись GPTunnel calls, production DB writes, миграции, платежи или deploy.
 - Следующий этап AUD-335: проверить реальные типы/ограничения колонок БД и обработку HTTP ошибок для новых 502, добавить helper-level parse/error tests; затем добиться реального запуска backend test suite до merge.
 
+
+
+## Дополнение к handoff — 2026-11-10 (AUD-335)
+
+- Проверен `db/migrations/001_baseline.sql`: `projects.niche/site_summary` и `boards.title/description` имеют тип PostgreSQL `text`; новые application limits (80/1200, 40/500) совместимы с baseline и строже типа БД. Live Supabase не опрашивался, drift/ручные изменения не исключены.
+- Проверен `handleError()`: берёт `e.httpStatus`, HTTP 502 клиенту отдаёт generic 5xx message, подробность остаётся в server log. Новые validation errors соответствуют этой политике.
+- Парсинг вынесен в `parseAnalysisResponse()` и `parseBoardIdeasResponse()` в `backend/textOutputValidation.js`; helpers используют единые parser функции. Добавлены тесты валидного JSON, текста вокруг JSON, malformed/empty responses и HTTP 502 классификации.
+- Удалён неиспользуемый import в `backend/boards.js`.
+- Все изменённые файлы перечитаны из GitHub. Тесты/lint/typecheck/build/integration не запускались; успех не заявляется.
+- Не было live Supabase queries/writes, GPTunnel calls, миграций, платежей или deploy.
+- Следующий этап AUD-336: проверить test runner/CI и безопасно запустить focused + backend suite; исправить только подтверждённые сбои. Не merge/deploy до тестовых результатов и устранения/объяснения Vercel build quota issue.
+
