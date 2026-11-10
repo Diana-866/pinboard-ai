@@ -2816,3 +2816,13 @@ Date: 2026-11-10
 - Добавлен regression test: сбой записи плана после успешного текстового ответа блокирует quote/image provider boundaries.
 - Рекомендация: отдельный durable journal нормализованного текстового плана или админская сверка. Не повторять платный текстовый запрос автоматически.
 - AUD-342 source/test/report readback; runtime tests/CI не запускались. Production не менялся.
+
+
+## Дополнение к handoff — 2026-11-10 (AUD-343)
+
+- Добавлена миграция `121_atomic_pin_generation_text_plan.sql`: service-role RPC `record_pin_generation_text_plan` атомарно записывает GPTunnel usage и нормализованный план задач, используя существующие claim-fenced RPC. Ошибка сохранения плана откатывает usage insert в рамках того же вызова.
+- Backend теперь использует объединённый RPC для валидного плана; проверка котировок и image provider выполняются только после успешного сохранения.
+- Если модель вернула некорректный JSON/план, usage сохраняется отдельно, затем запрос завершается ошибкой; неверный план не становится image tasks.
+- Добавлены provider-boundary тест и SQL integration assertions для успешной атомарной записи и rollback usage при невалидном плане.
+- Ограничение: crash/timeout после принятия текстового запроса провайдером, но до получения ответа backend, не может быть восстановлен без provider-side response retrieval; unknown/no-auto-retry защита сохраняется.
+- Перед deploy обязательно применить migration 121. Runtime tests/SQL integration/lint/build/CI не запускались; production не менялся.
