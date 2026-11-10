@@ -24,6 +24,7 @@ import { useI18n } from '../../i18n/i18nContext';
 import { useAuth } from '../../context/AuthContext';
 import { payAndRedirect, PayablePlan, SubscriptionRow, buyCreditsAndRedirect, CreditPurchaseRow, releasePaymentIdempotencyKey } from '../../lib/billing';
 import { apiRequest } from '../../lib/api';
+import { isTerminalCreditPurchaseStatus, isTerminalSubscriptionPaymentStatus } from '../../utils/paymentTerminalStatus';
 
 export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initialPlanId = null }) => {
   const { t, language } = useI18n();
@@ -188,15 +189,22 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
           ? (purchaseResult as any).purchases
           : [];
 
-        const previouslyPendingIds = new Set([
-          ...history.filter((row) => row.status === 'pending').map((row) => row.id),
-          ...purchases.filter((row) => row.status === 'pending').map((row) => row.id),
-        ]);
+        // Keep the two ledgers separate and fail closed: an unfamiliar status
+        // (for example, "unknown" or "processing") must never release a checkout
+        // idempotency key while the provider outcome may still be unresolved.
+        const previouslyPendingSubscriptionIds = new Set(
+          history.filter((row) => row.status === 'pending').map((row) => row.id)
+        );
+        const previouslyPendingPurchaseIds = new Set(
+          purchases.filter((row) => row.status === 'pending').map((row) => row.id)
+        );
         const settledSubscriptions = nextHistory.filter((row: SubscriptionRow) =>
-          previouslyPendingIds.has(row.id) && row.status !== 'pending'
+          previouslyPendingSubscriptionIds.has(row.id) &&
+          isTerminalSubscriptionPaymentStatus(row.status)
         );
         const settledPurchases = nextPurchases.filter((row: CreditPurchaseRow) =>
-          previouslyPendingIds.has(row.id) && row.status !== 'pending'
+          previouslyPendingPurchaseIds.has(row.id) &&
+          isTerminalCreditPurchaseStatus(row.status)
         );
         const newlyPaid = [
           ...settledSubscriptions.filter((row) => row.status === 'success'),
