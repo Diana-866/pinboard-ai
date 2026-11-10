@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   CreditCard,
   Sparkles,
@@ -128,24 +128,19 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
       });
   }, [language, t.pricing.popularBadge]);
 
-  // История платежей пользователя — доказательство, что вебхук сработал
-  const loadHistory = () => {
-    if (!user) return;
-    apiRequest('/billing/subscriptions')
-      .then((res: any) => {
-        setHistory(res?.subscriptions || []);
-        setTariffEnd(res?.tariff?.periodEnd || null);
-      })
-      .catch(() => {});
-  };
-  // История покупок пакетов (credit_purchases, миграция 007): видно, что вебхук зачислил баланс
+  // Billing history is private to the authenticated account. Clear it before
+  // painting a newly selected account, and fence responses from the old owner.
   const [purchases, setPurchases] = useState<CreditPurchaseRow[]>([]);
-  const loadPurchases = () => {
-    if (!user) return;
-    apiRequest('/billing/credit-purchases')
-      .then((res: any) => setPurchases(res?.purchases || []))
-      .catch(() => {});
-  };
+  const billingOwnerIdRef = useRef<string | undefined>(user?.id);
+
+  useLayoutEffect(() => {
+    if (billingOwnerIdRef.current === user?.id) return;
+    billingOwnerIdRef.current = user?.id;
+    setHistory([]);
+    setPurchases([]);
+    setTariffEnd(null);
+  }, [user?.id]);
+
   const purchaseStatusLabels: Record<string, string> = {
     success: t.purchases?.statusSuccess || 'Оплачено',
     pending: t.purchases?.statusPending || 'Ожидает оплаты',
@@ -154,11 +149,37 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
   };
 
   useEffect(() => {
-    loadPurchases();
+    if (!user?.id) {
+      setPurchases([]);
+      return;
+    }
+    let active = true;
+    apiRequest('/billing/credit-purchases')
+      .then((res: any) => {
+        if (active && billingOwnerIdRef.current === user.id) {
+          setPurchases(Array.isArray(res?.purchases) ? res.purchases : []);
+        }
+      })
+      .catch(() => {});
+    return () => { active = false; };
   }, [user?.id, user?.credits_balance]);
 
   useEffect(() => {
-    loadHistory();
+    if (!user?.id) {
+      setHistory([]);
+      setTariffEnd(null);
+      return;
+    }
+    let active = true;
+    apiRequest('/billing/subscriptions')
+      .then((res: any) => {
+        if (active && billingOwnerIdRef.current === user.id) {
+          setHistory(Array.isArray(res?.subscriptions) ? res.subscriptions : []);
+          setTariffEnd(res?.tariff?.periodEnd || null);
+        }
+      })
+      .catch(() => {});
+    return () => { active = false; };
   }, [user?.id, user?.tariff_plan]);
 
   // A provider webhook may arrive after the customer returns from checkout.
