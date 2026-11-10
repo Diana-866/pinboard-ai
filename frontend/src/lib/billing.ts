@@ -28,7 +28,10 @@ function getPaymentIdempotencyKey(scope: string): string {
 function releaseFailedPaymentIdempotencyKey(scope: string, error: unknown): void {
   // The server marks requests failed only before calling Prodamus. Unlike an
   // unknown provider outcome, this state is safe to retry with a fresh key.
-  if (error instanceof ApiError && error.data?.code === 'payment_request_not_reusable') {
+  if (
+    error instanceof ApiError &&
+    ['payment_request_not_reusable', 'payment_already_settled'].includes(String(error.data?.code || ''))
+  ) {
     clearPaymentIdempotencyKey(scope);
   }
 }
