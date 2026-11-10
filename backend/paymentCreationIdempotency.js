@@ -57,6 +57,13 @@ async function beginPaymentCreation(userId, idempotencyKey, kind, productId, cur
       "Платёжный провайдер мог создать счёт, но ответ не был получен. Повторное создание заблокировано до сверки."
     );
   }
+  if (data && data.status === "settled") {
+    throw paymentRequestError(
+      409,
+      "payment_already_settled",
+      "Этот платёж уже подтверждён. Обновите данные аккаунта и историю покупок перед новой оплатой."
+    );
+  }
   throw paymentRequestError(
     409,
     "payment_request_not_reusable",
