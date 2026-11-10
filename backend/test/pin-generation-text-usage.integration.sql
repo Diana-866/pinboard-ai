@@ -1,4 +1,4 @@
--- Run after migrations 014, 044, 045, 046 and 069 in disposable PostgreSQL CI.
+-- Run after migrations 014, 044, 045, 046, 069 and 121 in disposable PostgreSQL CI.
 begin;
 
 do $$
@@ -102,6 +102,47 @@ begin
   exception when others then
     if sqlerrm <> 'generation claim token mismatch' then raise; end if;
   end;
+
+  -- Usage and normalized plan must be committed atomically by the combined RPC.
+  v_key := 'text-plan-atomic-'||v_user;
+  v_state := public.begin_pin_generation_request(
+    v_user::text,v_board,v_key,repeat('d',64)
+  );
+  v_claim := (v_state->>'claim_token')::uuid;
+  perform public.record_pin_generation_text_plan(
+    v_user::text,v_key,v_claim,'chatcmpl-plan-001','gpt-4o',
+    '{"promptTokens":20,"completionTokens":10,"totalTokens":30}'::jsonb,
+    0.01,
+    '[{"title":"Atomic plan","description":"Description","prompt":"A test image","model":"flux-schnell","aspect_ratio":"2:3"}]'::jsonb
+  );
+  select count(*) into v_count from public.pin_generation_text_usage
+   where user_id=v_user::text and idempotency_key=v_key and total_cost_rub=0.01;
+  if v_count<>1 then raise exception 'combined RPC did not persist usage'; end if;
+  select count(*) into v_count from public.pin_generation_tasks t
+   join public.pin_generation_requests r on r.id=t.generation_request_id
+   where r.user_id=v_user::text and r.idempotency_key=v_key and t.title='Atomic plan';
+  if v_count<>1 then raise exception 'combined RPC did not persist task plan'; end if;
+
+  -- If plan validation fails, the usage insert from the same RPC must roll back.
+  v_key := 'text-plan-rollback-'||v_user;
+  v_state := public.begin_pin_generation_request(
+    v_user::text,v_board,v_key,repeat('e',64)
+  );
+  v_claim := (v_state->>'claim_token')::uuid;
+  begin
+    perform public.record_pin_generation_text_plan(
+      v_user::text,v_key,v_claim,'chatcmpl-plan-002','gpt-4o',
+      '{"promptTokens":20,"completionTokens":10,"totalTokens":30}'::jsonb,
+      0.01,
+      '[{"title":"Invalid plan","description":"Description","prompt":"A test image","model":"flux-schnell","aspect_ratio":"invalid"}]'::jsonb
+    );
+    raise exception 'combined RPC accepted invalid plan';
+  exception when others then
+    if sqlerrm not like 'invalid generation task at index%' then raise; end if;
+  end;
+  select count(*) into v_count from public.pin_generation_text_usage
+   where user_id=v_user::text and idempotency_key=v_key;
+  if v_count<>0 then raise exception 'failed plan write left a text usage orphan'; end if;
 
   raise notice 'GPTunnel text usage ledger checks passed';
 end;
