@@ -1,5 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects, retryFailedPinImageDeletions, processPendingPinImageRetentionQueue, deleteManagedPinImageObject, findCompletedManagedPinImageUpload, validatePinImageBucketConfiguration, isDefiniteStorageRejection, isStorageObjectNotFound } = require("./pinImageLifecycle");
 
 const base = "https://project.supabase.co";
@@ -844,4 +846,21 @@ test("blocked retention queue diagnostics distinguish referenced, quarantined, a
   assert.equal(result.items[1].safe_action, "keep_path_retired_operator_closeout_only");
   assert.equal(result.items[2].safe_action, "investigate_storage_lifecycle_inconsistency_keep_path_retired");
   assert.equal(result.items.every((item) => item.safe_action !== "automatic_delete"), true);
+});
+
+
+test("retention queue migration grants service_role the exact finalization RPC and revokes public roles", () => {
+  const migration = fs.readFileSync(
+    path.join(__dirname, "..", "..", "db", "migrations", "109_pin_image_retention_queue_worker.sql"),
+    "utf8"
+  );
+  const signature = "public.finalize_pin_image_retention_queue_item(text,text,uuid,boolean,text)";
+  assert.ok(migration.includes(`revoke all on function ${signature}`));
+  assert.ok(migration.includes(`grant execute on function ${signature}`));
+  assert.ok(migration.includes("to service_role;"));
+  assert.equal(
+    migration.includes("public.finalize_pin_image_retention_queue(text,text,uuid,boolean,text)"),
+    false,
+    "GRANT must not target the nonexistent function name"
+  );
 });
