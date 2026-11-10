@@ -3274,3 +3274,14 @@ Date: 2026-11-10
 - POST /pins по-прежнему не повторяется автоматически после 429.
 - Добавлены `docs/audits/AUD-384-pinterest-publish-outcome-classification.md` и `docs/runbooks/pinterest-publication-outcome-recovery-aud-384.md`.
 - Тесты/lint/build не запускались; production/Pinterest API/DB/payments не затрагивались.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-385: end-to-end Pinterest recovery audit)
+
+- Проверены inventory RPC/UI, operator reconciliation service + SQL transaction, positive-only worker reconciliation, remote Pin ID fencing и failed-schedule retry authorization.
+- Подтверждены проверки возраста unknown schedule/attempt, отсутствия claim, владельца, account/board/pin identity, уже сохранённого remote Pin ID, append-only operator receipt и idempotent action replay.
+- Retry failed schedule допускается только при точном совпадении owner/pin/account/board, `retry_safe=true`, отсутствии publication ledger/active duplicate и наличии live image или immutable schedule snapshot.
+- UI отделяет подтверждение уже найденного пина от повторной публикации и показывает target profile/User ID + сохранённый creative context.
+- Уязвимость/основание для изменения SQL в проверенных путях не выявлены; код и миграции не менялись.
+- Добавлены `docs/audits/AUD-385-pinterest-ambiguous-publication-recovery.md` и `docs/runbooks/pinterest-ambiguous-publication-recovery-aud-385.md`.
+- SQL integration scripts не запускались, миграции не применялись к Supabase, Node tests/lint/build/CI/browser не запускались. Production/Pinterest API/payments не затрагивались.
