@@ -1,3 +1,4 @@
+const { logError } = require("./safeLogger");
 // Тарифные «замочки» на уровне API (а не только в UI).
 // Правило продукта:
 //   none / analytics — только аналитика, генерация запрещена;
@@ -114,7 +115,7 @@ function requireTariff(plans = GENERATION_PLANS) {
       req.tariff = state;
       next();
     } catch (e) {
-      console.error("[requireTariff]", e && e.message);
+      logError("tariff.event_001", "[requireTariff]", e && e.message);
       res.status(500).json({ error: "Не удалось проверить тариф" });
     }
   };
