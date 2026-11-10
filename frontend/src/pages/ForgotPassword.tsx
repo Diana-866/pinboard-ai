@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiRequest } from '../lib/api';
+import { useI18n } from '../i18n/i18nContext';
+import { getAuthCopy } from '../i18n/authCopy';
 
 export const ForgotPassword: React.FC = () => {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { language } = useI18n();
+  const t = getAuthCopy(language);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -15,11 +19,11 @@ export const ForgotPassword: React.FC = () => {
     try {
       await apiRequest('/forgot-password', {
         method: 'POST',
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email: email.trim(), language }),
       });
       setSent(true);
     } catch (err: any) {
-      setError(err.message || 'Не удалось отправить письмо. Попробуйте позже.');
+      setError(err.message || t.forgotError);
     } finally {
       setLoading(false);
     }
@@ -28,14 +32,14 @@ export const ForgotPassword: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-page px-4">
       <div className="w-full max-w-sm rounded-2xl border border-subtle bg-surface p-8 md:p-10 shadow-sm">
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-primary-theme">Забыли пароль?</h1>
+        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-primary-theme">{t.forgotTitle}</h1>
         <p className="mb-6 text-sm text-secondary-theme">
-          Укажите email — пришлём ссылку для смены пароля.
+          {t.forgotSubtitle}
         </p>
 
         {sent ? (
           <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3.5 py-3 text-sm text-emerald-700 dark:text-emerald-300">
-            Если такой email зарегистрирован, письмо со ссылкой уже отправлено. Проверьте почту (и папку «Спам»).
+            {t.forgotSent}
           </div>
         ) : (
           <form onSubmit={handleSubmit}>
@@ -44,7 +48,7 @@ export const ForgotPassword: React.FC = () => {
                 {error}
               </div>
             )}
-            <label htmlFor="email" className="mb-1 block text-xs font-medium text-secondary-theme">Email</label>
+            <label htmlFor="email" className="mb-1 block text-xs font-medium text-secondary-theme">{t.email}</label>
             <input
               id="email"
               type="email"
@@ -61,13 +65,13 @@ export const ForgotPassword: React.FC = () => {
               disabled={loading}
               className="mt-5 w-full rounded-xl bg-[#C25E6F] py-3 text-sm font-bold text-white hover:bg-[#B14E60] transition-colors disabled:opacity-50"
             >
-              {loading ? 'Отправляем…' : 'Отправить ссылку'}
+              {loading ? t.sendingLink : t.sendLink}
             </button>
           </form>
         )}
 
         <p className="mt-5 text-center text-sm text-secondary-theme">
-          <Link to="/login" className="font-medium text-[#C25E6F]">← Вернуться ко входу</Link>
+          <Link to="/login" className="font-medium text-[#C25E6F]">{t.backToLogin}</Link>
         </p>
       </div>
     </div>

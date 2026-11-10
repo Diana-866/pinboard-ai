@@ -1,0 +1,90 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+
+const source = fs.readFileSync(path.join(__dirname, "..", "index.js"), "utf8");
+
+for (const route of [
+  "/admin/storage/reconcile-stale-uploads",
+  "/admin/storage/quarantine-stale-uploads",
+]) {
+  test(`${route} applies the admin action limiter before authentication`, () => {
+    const registration = `app.post("${route}", adminActionLimiter, requireAuth, requireAdmin,`;
+    assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
+  });
+}
+
+test("POST /admin/mail/reply applies the admin action limiter before authentication", () => {
+  const registration = 'app.post("/admin/mail/reply", adminActionLimiter, requireAuth, requireAdmin,';
+  assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
+});
+
+
+for (const route of ["/billing/create-payment", "/billing/credits"]) {
+  test(route + " applies the payment creation limiter after authentication", () => {
+    const registration = 'app.post("' + route + '", requireAuth, paymentCreationLimiter,';
+    assert.ok(source.includes(registration), "Expected middleware chain: " + registration);
+  });
+}
+
+
+test("POST /resend-verification applies a dedicated outbound-mail limiter", () => {
+  const registration = 'app.post("/resend-verification", resendVerificationLimiter,';
+  assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
+  assert.ok(source.includes("const resendVerificationLimiter = rateLimit({"));
+});
+
+
+test("AI generation routes share a per-authenticated-user limiter", () => {
+  assert.ok(
+    source.includes("keyGenerator: (req) => String(req.userId)"),
+    "Expected the AI limiter to key by the verified user ID"
+  );
+  for (const route of [
+    "/projects/:id/analyze",
+    "/projects/:id/boards/generate",
+    "/pins/:id/regenerate",
+    "/boards/:id/pins/generate",
+  ]) {
+    const registration = 'app.post("' + route + '", requireAuth, aiLimiter,';
+    assert.ok(source.includes(registration), "Expected authenticated per-user AI limiter: " + registration);
+  }
+});
+
+
+test("GET /admin/storage/retention-candidates is read-only and rate-limited before authentication", () => {
+  const registration = 'app.get("/admin/storage/retention-candidates", adminActionLimiter, requireAuth, requireAdmin,';
+  assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
+  assert.ok(source.includes('supabase.rpc("list_pin_image_retention_candidates"'));
+});
+
+
+test("POST /admin/storage/expire-replay-results is admin-only, rate-limited, and uses the bounded expiry RPC", () => {
+  const registration = 'app.post("/admin/storage/expire-replay-results", adminActionLimiter, requireAuth, requireAdmin,';
+  assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
+  assert.ok(source.includes('supabase.rpc("expire_pin_image_replay_results"'));
+  assert.ok(source.includes('state.status === "expired"'));
+  assert.ok(source.includes('code: "idempotency_result_expired"'));
+});
+
+
+test("POST /admin/storage/retire-expired-replay-references is admin-only, rate-limited, and bounded", () => {
+  const registration = 'app.post("/admin/storage/retire-expired-replay-references", adminActionLimiter, requireAuth, requireAdmin,';
+  assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
+  assert.ok(source.includes('supabase.rpc("retire_expired_pin_image_replay_references"'));
+});
+
+test("POST /admin/storage/process-retention-queue is admin-only, rate-limited, and uses the fenced worker", () => {
+  const registration = 'app.post("/admin/storage/process-retention-queue", adminActionLimiter, requireAuth, requireAdmin,';
+  assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
+  assert.ok(source.includes("processPendingPinImageRetentionQueue({ supabase, limit })"));
+});
+
+
+test("GET /admin/storage/retention-queue/blocked is read-only, admin-only, and rate-limited", () => {
+  const registration = 'app.get("/admin/storage/retention-queue/blocked", adminActionLimiter, requireAuth, requireAdmin,';
+  assert.ok(source.includes(registration), `Expected middleware chain: ${registration}`);
+  assert.ok(source.includes('inspectBlockedPinImageRetentionQueue({ supabase, limit })'));
+  assert.ok(source.includes('automatic_reconciliation: false'));
+});

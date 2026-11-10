@@ -53,17 +53,25 @@ export interface KeywordItem {
 
 export interface ScheduledPinItem {
   id: string;
+  pinId?: string;
   title: string;
   boardId: string;
   boardName: string;
   imageUrl: string;
   scheduledDate: string; // ISO date string
   scheduledTime: string;
-  status: 'scheduled' | 'published' | 'draft';
+  status: 'scheduled' | 'publishing' | 'published' | 'failed' | 'unknown' | 'cancelled' | 'draft';
+  retryable?: boolean;
+  retryReason?: string;
+  failureReason?: 'board_unavailable' | null;
   impressions?: number;
   saves?: number;
   clicks?: number;
   destinationUrl: string;
+  pinterestBoardId?: string;
+  pinterestAccountId?: string;
+  pinterestPinId?: string;
+  pinterestPinUrl?: string;
   isOptimalSlot?: boolean;
   accountId?: string;
   accountHandle?: string;

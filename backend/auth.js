@@ -1,10 +1,8 @@
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
+const { signSessionToken, verifySessionToken } = require("./sessionToken");
 const supabase = require("./supabase");
 const { httpError, validateEmail, validatePassword } = require("./validate");
 const emailVerify = require("./email-verify");
-
-const TOKEN_TTL = "7d";
 
 // Точное сообщение для 403 при неподтверждённом email (ТЗ, п.3).
 const MSG_NEED_VERIFY = "Подтвердите email — письмо отправлено повторно";
@@ -17,48 +15,82 @@ const DUMMY_HASH = bcrypt.hashSync("invalid-placeholder-password", 10);
 // Вместо токена — письмо со ссылкой подтверждения (users.email_verified, миграция 005).
 // Почтовый сбой не ломает регистрацию: письмо можно запросить повторно на /login
 // или из кабинета (POST /resend-verification).
-async function register(rawEmail, rawPassword, rawName, rawSurname) {
+async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage) {
   const email = validateEmail(rawEmail);
   const password = validatePassword(rawPassword);
 
-  const { data: existing } = await supabase
+  const { data: existing, error: lookupError } = await supabase
     .from("users")
     .select("id")
     .eq("email", email)
     .maybeSingle();
+  if (lookupError) {
+    console.error("[register] не удалось проверить email:", lookupError.message);
+    throw httpError(503, "Не удалось проверить данные аккаунта — попробуйте позже");
+  }
   if (existing) {
     throw httpError(409, "Пользователь с таким email уже существует");
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  const profile = {};
+  const profile = { preferred_language: require('./email-locales').normalizeLanguage(rawLanguage) };
   if ((rawName || "").trim()) profile.name = rawName.trim().slice(0, 80);
   if ((rawSurname || "").trim()) profile.surname = rawSurname.trim().slice(0, 80);
 
-  // Если миграция 003 (колонки name/surname) ещё не применена — регистрируем без профиля
-  let data, error;
-  try {
-    ({ data, error } = await supabase
-      .from("users")
-      .insert({ email, password_hash: passwordHash, credits_balance: 0, ...profile })
-      .select()
-      .single());
-    if (error) throw error;
-  } catch (eCol) {
-    ({ data, error } = await supabase
-      .from("users")
-      .insert({ email, password_hash: passwordHash, credits_balance: 0 })
-      .select()
-      .single());
+  // Backward compatibility: retry without optional profile columns ONLY when
+  // Postgres/PostgREST explicitly reports one of those columns missing.
+  // Never retry arbitrary failures (e.g. duplicate email or DB outage) as a
+  // second insert, because that can hide the real error or create partial state.
+  let data;
+  const insertUser = (row) => supabase
+    .from("users")
+    .insert(row)
+    .select()
+    .single();
+
+  let result = await insertUser({
+    email,
+    password_hash: passwordHash,
+    credits_balance: 0,
+    ...profile,
+  });
+
+  if (result.error) {
+    const missingOptionalColumn =
+      ["42703", "PGRST204"].includes(result.error.code) &&
+      /\b(name|surname|preferred_language)\b/i.test(result.error.message || "");
+
+    if (result.error.code === "23505") {
+      throw httpError(409, "Пользователь с таким email уже существует");
+    }
+    if (!missingOptionalColumn) {
+      console.error("[register] не удалось создать аккаунт:", result.error.message);
+      throw httpError(503, "Не удалось создать аккаунт — попробуйте позже");
+    }
+
+    result = await insertUser({
+      email,
+      password_hash: passwordHash,
+      credits_balance: 0,
+    });
+    if (result.error) {
+      if (result.error.code === "23505") {
+        throw httpError(409, "Пользователь с таким email уже существует");
+      }
+      console.error("[register] резервное создание аккаунта не выполнено:", result.error.message);
+      throw httpError(503, "Не удалось создать аккаунт — попробуйте позже");
+    }
   }
-  if (error) throw new Error(error.message);
+
+  data = result.data;
+
 
   // Токен (sha256 в auth_tokens, purpose='email_verify', TTL 24 ч) + письмо.
   const sent = await emailVerify.issueVerificationToken(data);
   if (!sent) {
     console.warn(
-      `[register] письмо подтверждения не отправлено для ${email} — пользователь сможет запросить повторно`
+      "[register] письмо подтверждения не отправлено — пользователь сможет запросить повторно"
     );
   }
 
@@ -76,11 +108,16 @@ async function login(rawEmail, rawPassword) {
   const email = validateEmail(rawEmail);
   validatePassword(rawPassword); // единая проверка формата, чтобы не раскрывать наличие аккаунта
 
-  const { data: user } = await supabase
+  const { data: user, error: lookupError } = await supabase
     .from("users")
     .select("*")
     .eq("email", email)
     .maybeSingle();
+
+  if (lookupError) {
+    console.error("[login] не удалось получить аккаунт:", lookupError.message);
+    throw httpError(503, "Сервис авторизации временно недоступен — попробуйте позже");
+  }
 
   // Пароль проверяем ДО проверки email_verified: иначе по коду ответа (403 vs 401)
   // можно было бы отличить существующий неподтверждённый аккаунт от несуществующего.
@@ -112,7 +149,7 @@ async function login(rawEmail, rawPassword) {
     console.warn("[login] users.email_verified отсутствует — примените миграцию 005 (вход без подтверждения)");
   }
 
-  const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: TOKEN_TTL });
+  const token = signSessionToken(user, process.env.JWT_SECRET);
   return {
     token,
     user: {
@@ -127,7 +164,7 @@ async function login(rawEmail, rawPassword) {
 }
 
 function verifyToken(token) {
-  return jwt.verify(token, process.env.JWT_SECRET);
+  return verifySessionToken(token, process.env.JWT_SECRET);
 }
 
 module.exports = { register, login, verifyToken, MSG_NEED_VERIFY };
