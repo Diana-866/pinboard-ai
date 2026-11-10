@@ -71,6 +71,29 @@ begin
     raise exception 'settled subscription checkout must not retain/replay its payment URL';
   end if;
 
+  -- If the webhook settles before the checkout HTTP response is saved, the
+  -- completion RPC must refuse to return the already-paid checkout URL.
+  v_failed := false;
+  begin
+    perform public.complete_payment_creation_request(
+      v_user_id::text, 'settlement-sub-key-0001',
+      jsonb_build_object(
+        'ok', true,
+        'order_id', 'pp-settlement-sub-0001',
+        'payment_url', 'https://pinposy.payform.ru/already-paid'
+      )
+    );
+  exception when others then
+    if sqlerrm like '%payment already settled before checkout response was saved%' then
+      v_failed := true;
+    else
+      raise;
+    end if;
+  end;
+  if not v_failed then
+    raise exception 'settled checkout must never return a reusable payment URL';
+  end if;
+
   select public.settle_payment_creation_request(
     'pp-settlement-sub-0001', 'subscription', v_subscription_id
   ) into v_settled;
