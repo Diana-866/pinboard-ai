@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { apiRequest, ApiError } from "../lib/api";
-import { clearAuthToken, readAuthToken } from "../lib/authStorage";
+import { clearAuthToken, readAuthToken, readLocalStorageValue } from "../lib/authStorage";
 
 export interface User {
   id: string;
@@ -61,7 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     try {
       const data = await apiRequest("/me");
-      const localLanguage = localStorage.getItem("pinposy_lang");
+      const localLanguage = readLocalStorageValue("pinposy_lang");
       if (localLanguage && ["en", "ru", "es", "pt", "de", "fr", "zh"].includes(localLanguage) && localLanguage !== data.preferred_language) {
         try {
           await apiRequest("/me", { method: "PATCH", body: JSON.stringify({ preferred_language: localLanguage }) });
