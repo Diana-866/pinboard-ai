@@ -130,7 +130,9 @@ begin
     if v_request.provider_order_id is distinct from p_result->>'order_id' then
       raise exception 'settled checkout result does not match provider order id';
     end if;
-    return p_result;
+    -- The webhook won the race. Never hand a paid checkout URL back to the
+    -- browser: it could be reopened and charged again.
+    raise exception 'payment already settled before checkout response was saved';
   end if;
 
   if v_request.status = 'ready' then
