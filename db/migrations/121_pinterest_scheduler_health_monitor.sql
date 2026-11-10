@@ -86,7 +86,7 @@ revoke all on function public.begin_pinterest_scheduler_run(uuid)
 revoke all on function public.complete_pinterest_scheduler_run(uuid,text,integer,integer,integer,integer,integer)
   from public, anon, authenticated;
 grant execute on function public.begin_pinterest_scheduler_run(uuid) to service_role;
-grant execute on function public.complete_pinterest_scheduler_run(uuid,text,integer,integer,integer,integer,integer,text)
+grant execute on function public.complete_pinterest_scheduler_run(uuid,text,integer,integer,integer,integer,integer)
   to service_role;
 
 commit;
