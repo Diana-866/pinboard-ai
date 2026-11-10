@@ -70,7 +70,8 @@ export const OnboardingWizard: React.FC = () => {
           productComment: productComment.trim() || '',
         }),
       });
-      await refreshUser();
+      // Keep the wizard mounted until its completion screen is acknowledged.
+      // Refreshing here would flip App.needsOnboarding and unmount this component.
       setDone(intent);
     } catch (e: any) {
       setError(t.saveError);
@@ -78,15 +79,22 @@ export const OnboardingWizard: React.FC = () => {
     }
   }
 
-  const closeWizard = () => {
-    setDone(null);
-    window.dispatchEvent(new CustomEvent('pinposy:navigate-tab', { detail: 'dashboard' }));
+  const finishOnboarding = async (tab: 'dashboard' | 'pricing') => {
+    setError('');
+    const refreshed = await refreshUser();
+    if (!refreshed) {
+      setError(language === 'ru'
+        ? 'Данные сохранены, но не удалось обновить профиль. Проверьте соединение и нажмите ещё раз.'
+        : 'Your details were saved, but the profile could not be refreshed. Check your connection and try again.');
+      return;
+    }
+    // A successful refresh marks onboarding complete in App and unmounts this
+    // wizard. Dispatch navigation afterwards so the requested destination wins.
+    window.dispatchEvent(new CustomEvent('pinposy:navigate-tab', { detail: tab }));
   };
 
-  const goPricing = () => {
-    setDone(null);
-    window.dispatchEvent(new CustomEvent('pinposy:navigate-tab', { detail: 'pricing' }));
-  };
+  const closeWizard = () => finishOnboarding('dashboard');
+  const goPricing = () => finishOnboarding('pricing');
 
   // --- Confirmation after saving onboarding details ---
   if (done) {
@@ -94,6 +102,11 @@ export const OnboardingWizard: React.FC = () => {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-page px-4 py-8">
         <div className="w-full max-w-md rounded-3xl border border-subtle bg-surface p-10 text-center shadow-2xl">
+          {error && (
+            <div role="alert" className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+              {error}
+            </div>
+          )}
           <div
             className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl"
             style={{ backgroundColor: ROSE_LIGHT }}
