@@ -96,15 +96,15 @@ Backend в любом случае принудительно обрабатыв
 
 При таймауте сначала проверь `pin_schedules` и `pinterest_publish_attempts`, а не отправляй публикацию повторно вручную. Записи `unknown` нельзя автоматически переводить в `scheduled`: их нужно сверить в Pinterest и восстановить только по подтверждённым данным.
 
-## Статус heartbeat планировщика — подготовлено, но не подключено
+## Heartbeat планировщика — реализация в feature branch, staging validation pending
 
-Ветка содержит подготовительную миграцию `122_pinterest_scheduler_health_monitor.sql`, helper `backend/pinterestSchedulerHealth.js` и read-only admin endpoint:
+Ветка содержит migration `122_pinterest_scheduler_health_monitor.sql`, helper `backend/pinterestSchedulerHealth.js` и read-only admin endpoint:
 
 `GET /admin/operations/pinterest-scheduler`
 
-Однако на текущем backend commit отсутствует внутренний маршрут `POST /internal/pinterest/schedule/run`, на который настроен `backend/scheduleWorker.js`. Также worker не вызывает RPC `begin_pinterest_scheduler_run` / `complete_pinterest_scheduler_run`. Поэтому heartbeat migration и admin summary пока не получают данные от штатного worker, а worker endpoint нельзя считать подключённым. Наличие migration или admin GET route не означает работоспособность scheduler.
+Внутренний маршрут `POST /internal/pinterest/schedule/run` зарегистрирован в `backend/pinterest.js` через `registerRoutes(app, ...)`, который вызывается из `backend/index.js`. После проверки scheduler secret маршрут вызывает `begin_pinterest_scheduler_run`, выполняет штатный fenced claim/publish flow и фиксирует агрегированный итог через `complete_pinterest_scheduler_run`. Run UUID не позволяет запоздавшему завершению перезаписать запись более нового запуска; begin RPC блокирует перекрывающийся запуск в пределах 20 минут.
 
-**Не применяй migration 122 и не включай worker/cron в production на основании этой документации.** Сначала требуется отдельная реализация и тестирование внутреннего endpoint, безопасной фиксации heartbeat и обработки ошибок, затем полный staging-прогон согласованной цепочки миграций и отдельное подтверждение владельца.
+**Важно:** наличие кода не означает, что migration уже применена или worker реально работает в production. Migration 122 НЕ применялась к Supabase; runtime tests, SQL integration, lint/build/CI и provider dashboard не проверялись. До production rollout нужны staging-прогон migration 122 и backend tests на одном commit, проверка admin status и отдельное подтверждение владельца.
 
 После завершения интеграции ожидаемая модель статусов:
 - `not_seen` — ни одного запуска не зафиксировано;
