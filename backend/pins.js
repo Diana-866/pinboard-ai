@@ -44,11 +44,6 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
       options.onTextProviderSubmission();
     }
     const textResult = await generateTextWithUsage(prompt, { requireUsage: false });
-    if (typeof options.onTextProviderUsage === "function") {
-      await options.onTextProviderUsage(textResult);
-    }
-    const aiResponse = textResult.content;
-
     const ideas = parsePinIdeasResponse(textResult.content, count);
 
     const pool = Array.isArray(ratioPool) && ratioPool.length > 0 ? ratioPool : DEFAULT_ASPECT_RATIOS;
@@ -61,9 +56,18 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
       aspect_ratio: aspectRatio === "mixed" ? pool[Math.floor(Math.random() * pool.length)] : aspectRatio,
     }));
 
-    tasks = typeof options.persistPlan === "function"
-      ? await options.persistPlan(plannedTasks)
-      : plannedTasks;
+    // Prefer one atomic journal operation: usage facts and the normalized plan
+    // must commit together, otherwise a successful paid text response can be orphaned.
+    if (typeof options.persistTextPlan === "function") {
+      tasks = await options.persistTextPlan(textResult, plannedTasks);
+    } else {
+      if (typeof options.onTextProviderUsage === "function") {
+        await options.onTextProviderUsage(textResult);
+      }
+      tasks = typeof options.persistPlan === "function"
+        ? await options.persistPlan(plannedTasks)
+        : plannedTasks;
+    }
   }
 
   if (!Array.isArray(tasks) || tasks.length === 0 || tasks.length > 10) {
