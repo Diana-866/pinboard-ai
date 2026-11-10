@@ -1,3 +1,4 @@
+const { logError, logInfo, logWarning } = require("./safeLogger");
 // Сброс пароля: одноразовый токен по email (Этап 2.4).
 // Требует: auth_tokens (см. db/migrations/002_auth_tokens.sql) и MAIL_* переменные окружения.
 
@@ -37,7 +38,7 @@ async function requestReset(rawEmail, _frontendUrl, requestedLanguage) {
     .maybeSingle();
 
   if (lookupError) {
-    console.error("[password-reset] не удалось проверить аккаунт:", lookupError.message);
+    logError("password-reset.event_006");
     throw httpError(503, "Сервис восстановления пароля временно недоступен — попробуйте позже");
   }
 
@@ -51,10 +52,10 @@ async function requestReset(rawEmail, _frontendUrl, requestedLanguage) {
     });
     if (error || issued !== true) {
       if (error) {
-        console.error("[password-reset] не удалось создать токен:", error.message);
+        logError("password-reset.event_005");
       } else {
         // Cooldown or missing user: intentionally identical public response.
-        console.info("[password-reset] запрос пропущен ограничением частоты или отсутствием аккаунта");
+        logInfo("password-reset.event_004");
       }
       // Не раскрываем существование аккаунта через различия ответов.
     } else {
@@ -67,11 +68,11 @@ async function requestReset(rawEmail, _frontendUrl, requestedLanguage) {
           user.preferred_language || requestedLanguage
         );
       } catch (e) {
-        console.error("[password-reset] письмо не отправлено:", e.message);
+        logError("password-reset.event_003");
       }
     }
   } else if (user) {
-    console.warn("[password-reset] транзакционная почта не настроена");
+    logWarning("password-reset.event_002");
   }
 
   return {
@@ -97,7 +98,7 @@ async function applyReset(rawToken, rawPassword) {
   });
 
   if (error) {
-    console.error("[password-reset] атомарная смена пароля не выполнена:", error.message);
+    logError("password-reset.event_001");
     throw httpError(500, "Не удалось обновить пароль — попробуйте позже");
   }
   if (data !== true) {
