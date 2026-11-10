@@ -2964,3 +2964,10 @@ Date: 2026-11-10
 - Runtime tests, lint, build и CI не запускались. Это source-level проверка, не аудит production log sink/retention/access control. Production/DB/payment/email/Pinterest/deploy не затрагивались.
 
 - Дополнительно в AUD-357: `error_code` теперь проходит не только regex, но и фиксированный allowlist известных Node/network и выбранных PostgreSQL/PostgREST кодов; неизвестные значения опускаются.
+
+## Дополнение к handoff — 2026-11-11 (AUD-358)
+
+- Проверены все 63 non-test JS-модуля `backend/`: дополнительных прямых `console.*`, process-level exception handlers и явных интеграций `morgan`/`winston`/`debug` не найдено. Прямые console sink-вызовы остаются в `backend/safeLogger.js`.
+- В lockfile `pino` присутствует транзитивно через `imapflow`; оба `ImapFlow` клиента в `backend/mail.js` передают `logger: false`. `morgan` и `winston` отсутствуют. `debug` — транзитивная зависимость Express/HTTP-стека; в production переменная `DEBUG` должна быть unset/empty.
+- Остаточный риск: `index.js` и `scheduleWorker.js` не устанавливают `uncaughtException`/`unhandledRejection` handlers. Стандартная диагностика Node может вывести message/stack мимо `safeLogger`. Не менял fatal shutdown semantics в рамках AUD-358; следующий этап AUD-359 — отдельное проектирование и тестирование безопасного завершения процесса.
+- Runtime tests/lint/build/CI и реальные production DEBUG/logging settings не проверялись. Никаких production/DB/payment/email/Pinterest/deploy действий не было.
