@@ -27,6 +27,7 @@ declare
 begin
   if p_order_id is null or length(trim(p_order_id)) < 8
      or length(p_order_id) > 128
+     or p_request_kind is null
      or p_request_kind not in ('subscription', 'credits')
      or p_local_payment_id is null then
     raise exception 'invalid settled payment identity';
