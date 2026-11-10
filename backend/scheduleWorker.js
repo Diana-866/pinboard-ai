@@ -1,6 +1,7 @@
 "use strict";
 
-const { logError, logInfo, logWarning } = require("./safeLogger");
+const crypto = require("node:crypto");
+const { logError, logInfo, logWarning, runWithCorrelationId } = require("./safeLogger");
 
 // Independent process for Pinterest scheduled publications.
 // Run as a dedicated worker service, separate from the web server process.
@@ -55,6 +56,8 @@ function createWorker({
   async function tick() {
     if (stopped || active) return;
     active = true;
+    const correlationId = crypto.randomUUID();
+    return runWithCorrelationId(correlationId, async () => {
     try {
       const response = await client.post(config.endpoint, { limit: safeBatchLimit }, {
         timeout: safeTimeoutMs,
@@ -75,6 +78,7 @@ function createWorker({
     } finally {
       active = false;
     }
+    });
   }
 
   function start() {
