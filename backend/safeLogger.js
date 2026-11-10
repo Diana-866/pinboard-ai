@@ -71,7 +71,7 @@ function logFatalSync(event) {
   if (correlationId) record.correlation_id = correlationId;
   // Fatal diagnostics must be synchronously written before fail-fast process exit.
   // Never inspect or serialize the exception/rejection reason.
-  fs.writeSync(2, `${JSON.stringify(record)}\\n`);
+  fs.writeSync(2, `${JSON.stringify(record)}\n`);
 }
 
 function logInfo(event) {
