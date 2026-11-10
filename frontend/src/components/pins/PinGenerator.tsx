@@ -31,6 +31,7 @@ import { shouldFlushPendingPinDescription } from '../../utils/pendingPinDescript
 import { clearPendingGenerationRequest, createGenerationFingerprint, listPendingGenerationRequests, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
 import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
 import { requireGeneratedPinsArray } from '../../utils/generatedPinsResponse';
+import { isCurrentBillingOwner } from '../../utils/billingOwner';
 import { rollbackPinAspectRatioIfUnchanged } from '../../utils/pinAspectRatio';
 import {
   rememberPinTitleSelection,
@@ -280,14 +281,28 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   }>>([]);
   const [isCheckingRecoveries, setIsCheckingRecoveries] = useState(false);
   const [recoveryCheckAttempt, setRecoveryCheckAttempt] = useState(0);
+  const generationRecoveryOwnerIdRef = React.useRef(userId);
+
+  // Recovery metadata is account-scoped. Clear the previous account's rows
+  // before paint and invalidate any outstanding lookup when identity changes.
+  React.useLayoutEffect(() => {
+    generationRecoveryOwnerIdRef.current = userId;
+    setRecoverableGenerations([]);
+    setIsCheckingRecoveries(false);
+  }, [userId]);
 
   // Look up saved generation identities after login/reload. This is read-only:
   // it never starts generation, clears a key, or changes the user's credit balance.
   useEffect(() => {
     let active = true;
+    const ownerId = userId;
     let token = '';
     try { token = localStorage.getItem('token') || ''; } catch { /* storage may be blocked */ }
-    if (!token) return () => { active = false; };
+    if (!ownerId || !token) {
+      setRecoverableGenerations([]);
+      setIsCheckingRecoveries(false);
+      return () => { active = false; };
+    }
 
     const identities = listPendingGenerationRequests().slice(-10).reverse();
     if (!identities.length) {
@@ -332,14 +347,18 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
           // Keep checking other independent requests after a single failure.
         }
       }
-      if (active) setRecoverableGenerations(found);
+      if (active && isCurrentBillingOwner(generationRecoveryOwnerIdRef.current, ownerId)) {
+        setRecoverableGenerations(found);
+      }
     };
 
     void check().finally(() => {
-      if (active) setIsCheckingRecoveries(false);
+      if (active && isCurrentBillingOwner(generationRecoveryOwnerIdRef.current, ownerId)) {
+        setIsCheckingRecoveries(false);
+      }
     });
     return () => { active = false; };
-  }, [recoveryCheckAttempt]);
+  }, [recoveryCheckAttempt, userId]);
 
   // Restore the selected board's persisted pins whenever the board changes or the generator remounts.
   useEffect(() => {
