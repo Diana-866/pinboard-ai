@@ -2708,3 +2708,15 @@ Date: 2026-11-10
 - Source/SQL не менялись; миграции и production writes не выполнялись; provider calls/deploy/tests/build не запускались.
 - Следующий этап AUD-334: реализовать изолированные unit-тестируемые validators для analysis и board ideas, затем безопасно подключить их в helpers/routes, сохраняя совместимость ответов.
 
+
+
+## Дополнение к handoff — 2026-11-10 (AUD-334)
+
+- Добавлен `backend/textOutputValidation.js`: analysis niche 1–80 символов, summary 1–1200; board ideas — массив 1–5 элементов, title 1–40, description 1–500. Строки trim; лишние поля модели отбрасываются; некорректный результат приводит к HTTP 502.
+- Подключено в `backend/analyze.js` и `backend/boards.js`. Удалён опасный fallback, который сохранял raw provider text в summary при невалидном JSON. Схемы успешных ответов и маршруты сохранены.
+- Промпты дополнены указанием считать содержимое сайта/проекта недоверенными данными. Это только дополнительная подсказка модели, не security boundary.
+- Добавлен `backend/test/text-output-validation.test.js` с тестами валидных данных, trimming, отсутствующих/неверных/пустых полей, превышения лимитов, malformed entries и границ количества досок.
+- Код и тесты перечитаны из GitHub после записи. Тесты, lint, typecheck, build и HTTP integration не запускались — прохождение не подтверждено.
+- Не выполнялись GPTunnel calls, production DB writes, миграции, платежи или deploy.
+- Следующий этап AUD-335: проверить реальные типы/ограничения колонок БД и обработку HTTP ошибок для новых 502, добавить helper-level parse/error tests; затем добиться реального запуска backend test suite до merge.
+
