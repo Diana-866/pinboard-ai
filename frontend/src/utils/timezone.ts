@@ -376,3 +376,39 @@ export const formatInstantInTimezone = (instant: Date, timeZone: string): { date
     time: `${value('hour')}:${value('minute')}`,
   };
 };
+
+/** Build a Sunday-first six-week month grid using the selected timezone's current month. */
+export const getCalendarMonthGrid = (
+  instant: Date,
+  timeZone: string
+): Array<{ dateStr: string; dayNumber: number; isCurrentMonth: boolean }> => {
+  if (!Number.isFinite(instant.getTime())) throw new Error('Invalid instant');
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+  }).formatToParts(instant);
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value || 0);
+  const year = value('year');
+  const month = value('month');
+  if (!year || month < 1 || month > 12) throw new Error('Invalid calendar month');
+
+  const firstOfMonth = new Date(Date.UTC(year, month - 1, 1));
+  const gridStart = new Date(Date.UTC(year, month - 1, 1 - firstOfMonth.getUTCDay()));
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(Date.UTC(
+      gridStart.getUTCFullYear(),
+      gridStart.getUTCMonth(),
+      gridStart.getUTCDate() + index
+    ));
+    return {
+      dateStr: [
+        date.getUTCFullYear().toString().padStart(4, '0'),
+        String(date.getUTCMonth() + 1).padStart(2, '0'),
+        String(date.getUTCDate()).padStart(2, '0'),
+      ].join('-'),
+      dayNumber: date.getUTCDate(),
+      isCurrentMonth: date.getUTCFullYear() === year && date.getUTCMonth() === month - 1,
+    };
+  });
+};
