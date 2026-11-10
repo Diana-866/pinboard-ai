@@ -1,5 +1,17 @@
 "use strict";
 
+const { AsyncLocalStorage } = require("node:async_hooks");
+const correlationStorage = new AsyncLocalStorage();
+
+function runWithCorrelationId(id, callback) {
+  const safeId = typeof id === "string" && /^[a-f0-9-]{36}$/i.test(id) ? id.toLowerCase() : undefined;
+  return correlationStorage.run(safeId, callback);
+}
+
+function currentCorrelationId() {
+  return correlationStorage.getStore();
+}
+
 // Production-safe logger: deliberately serializes only fixed, low-risk fields.
 // Never pass request objects, provider payloads, headers, tokens, or raw errors through.
 function safeEventName(value) {
@@ -23,6 +35,8 @@ function logEvent(level, event, error, status) {
     event: safeEventName(event),
   };
   if (Number.isInteger(status) && status >= 400 && status <= 599) record.status = status;
+  const correlationId = currentCorrelationId();
+  if (correlationId) record.correlation_id = correlationId;
   const code = safeErrorCode(error);
   if (code) record.error_code = code;
   // Intentionally omit message, stack, cause, request, response, and arbitrary metadata.
@@ -39,7 +53,9 @@ function logWarning(event, error, status) {
 
 function logInfo(event) {
   const record = { level: "info", event: safeEventName(event) };
+  const correlationId = currentCorrelationId();
+  if (correlationId) record.correlation_id = correlationId;
   console.info(JSON.stringify(record));
 }
 
-module.exports = { logError, logWarning, logInfo };
+module.exports = { logError, logWarning, logInfo, runWithCorrelationId };
