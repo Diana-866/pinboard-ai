@@ -58,26 +58,26 @@ function createWorker({
     active = true;
     const correlationId = crypto.randomUUID();
     return runWithCorrelationId(correlationId, async () => {
-    try {
-      const response = await client.post(config.endpoint, { limit: safeBatchLimit }, {
-        timeout: safeTimeoutMs,
-        headers: { "x-pinposy-scheduler-secret": config.secret },
-      });
-      const data = response && response.data;
-      if (!data || data.ok !== true) throw new Error("Backend returned an invalid worker response");
-      logger.info("[schedule-worker] batch completed", {
-        claimed: Number(data.claimed) || 0,
-        published: Number(data.published) || 0,
-        failed: Number(data.failed) || 0,
-        scheduled: Number(data.scheduled) || 0,
-        unknown: Number(data.unknown) || 0,
-      });
-    } catch (error) {
-      // Never print request config/headers: they contain the scheduler secret.
-      logger.error("schedule_worker.batch_failed");
-    } finally {
-      active = false;
-    }
+      try {
+        const response = await client.post(config.endpoint, { limit: safeBatchLimit }, {
+          timeout: safeTimeoutMs,
+          headers: { "x-pinposy-scheduler-secret": config.secret },
+        });
+        const data = response && response.data;
+        if (!data || data.ok !== true) throw new Error("Backend returned an invalid worker response");
+        logger.info("schedule_worker.batch_completed", {
+          claimed: Number(data.claimed) || 0,
+          published: Number(data.published) || 0,
+          failed: Number(data.failed) || 0,
+          scheduled: Number(data.scheduled) || 0,
+          unknown: Number(data.unknown) || 0,
+        });
+      } catch (error) {
+        // Never print request config/headers: they contain the scheduler secret.
+        logger.error("schedule_worker.batch_failed");
+      } finally {
+        active = false;
+      }
     });
   }
 
