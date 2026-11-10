@@ -42,7 +42,11 @@ begin
          claimed = 0, published = 0, failed = 0, scheduled = 0, unknown = 0,
          last_error_code = null,
          updated_at = clock_timestamp()
-   where singleton_key = 'pinterest_scheduler';
+   where singleton_key = 'pinterest_scheduler'
+     and (
+       status <> 'running'
+       or last_started_at < clock_timestamp() - interval '20 minutes'
+     );
   return found;
 end;
 $$;
