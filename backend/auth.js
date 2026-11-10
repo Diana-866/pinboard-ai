@@ -1,4 +1,4 @@
-const { logError, logWarning, logInfo } = require("./safeLogger");
+const { logError, logWarning } = require("./safeLogger");
 const bcrypt = require("bcryptjs");
 const { signSessionToken, verifySessionToken } = require("./sessionToken");
 const supabase = require("./supabase");
@@ -26,7 +26,7 @@ async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage)
     .eq("email", email)
     .maybeSingle();
   if (lookupError) {
-    logError("auth.event");
+    logError("auth.event_001");
     throw httpError(503, "Не удалось проверить данные аккаунта — попробуйте позже");
   }
   if (existing) {
@@ -66,7 +66,7 @@ async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage)
       throw httpError(409, "Пользователь с таким email уже существует");
     }
     if (!missingOptionalColumn) {
-      logError("auth.event");
+      logError("auth.event_002");
       throw httpError(503, "Не удалось создать аккаунт — попробуйте позже");
     }
 
@@ -79,7 +79,7 @@ async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage)
       if (result.error.code === "23505") {
         throw httpError(409, "Пользователь с таким email уже существует");
       }
-      logError("auth.event");
+      logError("auth.event_003");
       throw httpError(503, "Не удалось создать аккаунт — попробуйте позже");
     }
   }
@@ -90,7 +90,7 @@ async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage)
   // Токен (sha256 в auth_tokens, purpose='email_verify', TTL 24 ч) + письмо.
   const sent = await emailVerify.issueVerificationToken(data);
   if (!sent) {
-    logWarning("auth.event");
+    logWarning("auth.event_004");
   }
 
   return {
@@ -114,7 +114,7 @@ async function login(rawEmail, rawPassword) {
     .maybeSingle();
 
   if (lookupError) {
-    logError("auth.event");
+    logError("auth.event_005");
     throw httpError(503, "Сервис авторизации временно недоступен — попробуйте позже");
   }
 
@@ -145,7 +145,7 @@ async function login(rawEmail, rawPassword) {
     throw err;
   }
   if (user.email_verified == null) {
-    logWarning("auth.event");
+    logWarning("auth.event_006");
   }
 
   const token = signSessionToken(user, process.env.JWT_SECRET);
