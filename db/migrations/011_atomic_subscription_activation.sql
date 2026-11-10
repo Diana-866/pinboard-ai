@@ -1,5 +1,6 @@
 -- 011_atomic_subscription_activation.sql
--- Requires baseline + hardening migrations (subscriptions.user_id is UUID).
+-- Atomic subscription status, paid period, and user entitlement update.
+-- Works with the current subscriptions.user_id TEXT schema and does not require 009.
 
 create or replace function public.activate_paid_subscription(
   p_subscription_id uuid,
@@ -15,32 +16,29 @@ declare
   v_user public.users%rowtype;
   v_start timestamptz;
   v_end timestamptz;
+  v_already_activated boolean;
 begin
   select * into v_sub
     from public.subscriptions
    where id = p_subscription_id
    for update;
 
-  if not found then
-    raise exception 'subscription not found';
-  end if;
+  if not found then raise exception 'subscription not found'; end if;
 
   select * into v_user
     from public.users
-   where id = v_sub.user_id
+   where id::text = v_sub.user_id::text
    for update;
 
-  if not found then
-    raise exception 'subscription user not found';
-  end if;
+  if not found then raise exception 'subscription user not found'; end if;
 
-  if v_sub.status not in ('pending', 'denied', 'success') then
+  if v_sub.status not in ('pending', 'denied', 'canceled', 'success') then
     raise exception 'subscription is not eligible for activation (status=%)', v_sub.status;
   end if;
 
-  -- Existing successful activation: repair user entitlement if needed,
-  -- but never extend the same paid order twice.
-  if v_sub.status = 'success' and v_sub.period_end is not null then
+  v_already_activated := (v_sub.status = 'success' and v_sub.period_end is not null);
+
+  if v_already_activated then
     v_end := v_sub.period_end;
     v_start := coalesce(v_sub.period_start, v_end - interval '30 days');
   else
@@ -57,7 +55,7 @@ begin
      where id = v_sub.id;
   end if;
 
-  -- Do not let a delayed older webhook downgrade a newer active entitlement.
+  -- A delayed older webhook must not downgrade a newer entitlement.
   if v_user.tariff_period_end is null or v_user.tariff_period_end <= v_end then
     update public.users
        set tariff_plan = v_sub.plan,
@@ -71,7 +69,7 @@ begin
     'period_start', v_start,
     'period_end', v_end,
     'email', v_user.email,
-    'already_activated', (v_sub.status = 'success' and v_sub.period_end is not null)
+    'already_activated', v_already_activated
   );
 end;
 $$;
