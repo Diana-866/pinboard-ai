@@ -2681,3 +2681,16 @@ Date: 2026-11-10
 - Существующая тарификация не меняется: analysis остаётся с текущей доступностью, board ideas сохраняет текущий tariff gate; никаких credit debit/reservation/refund не добавляется.
 - Документ — design only. Исходники и SQL не менялись, миграции не применялись, provider calls не выполнялись, tests/build не запускались.
 - Следующий шаг: AUD-332 — проверить frontend clients и compatibility для обязательного Idempotency-Key; затем реализовать additive DB migration + backend coordinator + route refactor + tests.
+
+
+## Дополнение к handoff — 2026-11-10 (AUD-332)
+
+- Добавлен документ `docs/audits/AUD-332-frontend-legacy-text-routes-compatibility.md`.
+- Проведён targeted frontend review: `frontend/src/lib/api.ts`, `App.tsx`, `BoardsManager.tsx`, `DashboardView.tsx`, `OnboardingWizard.tsx`, `PinGenerator.tsx`, `persistedBoards.ts`.
+- В проверенных frontend-путях не найден вызов `POST /projects/:id/analyze` или `POST /projects/:id/boards/generate`. Онбординг сохраняет `websiteUrl` через `PATCH /me/onboarding`, но не запускает анализ автоматически.
+- Ручное создание доски использует отдельный `POST /boards` и уже передаёт `create_request_id`; не путать этот механизм с AI-генерацией идей досок.
+- `apiRequest` позволяет передавать дополнительные заголовки через `options.headers`; технически будущая передача `Idempotency-Key` не требует изменения helper.
+- Решение: пока не добавлять обязательный header и не менять UI/поведение. Нужна продуктовая развилка: оставить endpoint внутренним, сделать полноценной UI-функцией или удалить после проверки внешних callers/jobs. Не считать отсутствие вызова в проверенных файлах доказательством отсутствия всех внешних интеграций.
+- Source code/SQL не менялись; migrations не запускались; provider calls, production writes, deployment и tests/build не выполнялись.
+- Следующий этап AUD-333: проверить весь backend на регистрацию/вызов legacy routes, их потребителей и контракт; затем принять безопасное решение по endpoints и implementation scope.
+
