@@ -116,9 +116,7 @@ begin
    for update;
   if not found then raise exception 'generation task not found'; end if;
 
-  select u.is_admin into v_task.updated_at
-    from public.users u where u.id=p_operator_user_id;
-  if not found or coalesce((select u.is_admin from public.users u where u.id=p_operator_user_id),false) is not true then
+  if not exists (select 1 from public.users u where u.id=p_operator_user_id and u.is_admin is true) then
     raise exception 'operator is not an administrator';
   end if;
 
