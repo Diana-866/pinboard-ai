@@ -6,9 +6,8 @@
 -- ============================================================================
 
 -- 1. Какие таблицы схемы public реально есть
---    Ожидаем: users, projects, boards, pins, credit_transactions (001),
---    auth_tokens (002), subscriptions (006), credit_purchases (007),
---    pinterest_accounts, pinterest_publications (008).
+--    Ожидаем: все базовые таблицы уже создаются в 001_baseline.sql.
+--    Исторические файлы 002–008 не являются частью канонической цепочки.
 select tablename as table_name
 from pg_tables
 where schemaname = 'public'
