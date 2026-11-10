@@ -24,6 +24,7 @@ function serializeRequest(row, now = Date.now()) {
     : null;
   return {
     id: row.id,
+    provider_order_id: row.provider_order_id || null,
     user_id: row.user_id,
     request_kind: row.request_kind,
     status: row.status,
@@ -40,7 +41,7 @@ async function listPaymentCreationRequests(query = {}, now = Date.now(), db = su
   const limit = parseLimit(query.limit);
   const { data, error } = await db
     .from("payment_creation_requests")
-    .select("id, user_id, request_kind, status, error_code, created_at, updated_at")
+    .select("id, provider_order_id, user_id, request_kind, status, error_code, created_at, updated_at")
     .in("status", ["unknown", "creating"])
     .order("updated_at", { ascending: true })
     .limit(limit);
