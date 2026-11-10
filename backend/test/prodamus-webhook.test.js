@@ -123,16 +123,19 @@ test("always sends the required empty SYS field for a self-written integration",
     process.env.PRODAMUS_SECRET = "shop-secret-test";
     process.env.PRODAMUS_OFFLINE = "1";
     process.env.PRODAMUS_URL = "https://example.payform.ru/";
-    delete process.env.PRODAMUS_SYS;
+    // Whitespace-only configuration must behave like an unset SYS code.
+    process.env.PRODAMUS_SYS = "   ";
     const result = await prodamus.createPaymentLink({
       orderId: "pp-start-test",
       amount: 1990,
       description: "PinPosy / Старт",
       urlNotification: "https://api.pinposy.com/billing/webhook",
+      urlSuccess: "https://pinposy.com/app?payment=success",
     });
     const params = new URL(result.url).searchParams;
     assert.equal(params.get("sys"), "");
     assert.equal(params.has("urlNotification"), false);
+    assert.equal(params.get("urlSuccess"), "https://pinposy.com/app?payment=success");
     assert.equal(params.get("products[0][name]"), "PinPosy / Старт");
     assert.match(params.get("signature") || "", /^[a-f0-9]{64}$/);
     const { signature, ...unsignedPayload } = result.payload;
