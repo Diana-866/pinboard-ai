@@ -38,7 +38,7 @@ function getWorkerConfig(env = process.env) {
 function createWorker({
   config,
   client = axios,
-  logger = console,
+  logger = { info: logInfo, error: logError },
   intervalMs = POLL_INTERVAL_MS,
   timeoutMs = REQUEST_TIMEOUT_MS,
   drainTimeoutMs = DEFAULT_DRAIN_TIMEOUT_MS,
@@ -71,9 +71,7 @@ function createWorker({
       });
     } catch (error) {
       // Never print request config/headers: they contain the scheduler secret.
-      logger.error("[schedule-worker] batch failed", {
-        message: String(error && error.message || "unknown error").slice(0, 300),
-      });
+      logger.error("schedule_worker.batch_failed");
     } finally {
       active = false;
     }
