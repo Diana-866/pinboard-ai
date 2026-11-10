@@ -2683,9 +2683,12 @@ const PORT = process.env.PORT || 3000;
 // mechanism. It runs on startup, after payment callbacks, and while the service
 // is awake. A Render sleep can delay retries until the next request/startup.
 function dispatchSubscriptionEmailOutbox() {
-  billing.dispatchPendingSubscriptionEmails(10).catch((error) => {
-    logError("index.event_002");
-  });
+  const correlationId = crypto.randomUUID();
+  return runWithCorrelationId(correlationId, () =>
+    billing.dispatchPendingSubscriptionEmails(10).catch(() => {
+      logError("index.event_002");
+    })
+  );
 }
 const emailOutboxTimer = setInterval(dispatchSubscriptionEmailOutbox, 60 * 1000);
 if (typeof emailOutboxTimer.unref === "function") emailOutboxTimer.unref();
