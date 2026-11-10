@@ -3264,3 +3264,13 @@ Date: 2026-11-10
 - Логика вынесена в `pinterestAccountState.ts`; добавлены 3 теста `pinterestAccountState.test.ts` для multi-account, последнего аккаунта и server-authoritative list. Скрипт frontend test включает settings tests.
 - Добавлены `docs/audits/AUD-383-pinterest-disconnect-ui-reconciliation.md` и `docs/runbooks/pinterest-disconnect-ui-recovery-aud-383.md`.
 - Тесты/lint/build не запускались. Production/API/Pinterest/DB/Storage/payments не затрагивались.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-384: Pinterest publish outcome classification)
+
+- Унифицирована классификация non-2xx ответов POST /pins: `backend/pinterest.js` теперь использует `isPinterestPublishOutcomeUnknown` и для returned HTTP response, и для thrown error path.
+- Исправлено расхождение, при котором неожиданные 3xx в response path считались определённым отказом, хотя общий классификатор считает неоднозначными все статусы вне явного allowlist 400/401/403/404/409/422.
+- Обновлён `backend/test/pinterest-schedule.test.js`: 0, 3xx, 408, 429, 5xx и некорректный статус проверяются как ambiguous. 401/403 и прочие explicit client rejections остаются в отдельном allowlist test.
+- POST /pins по-прежнему не повторяется автоматически после 429.
+- Добавлены `docs/audits/AUD-384-pinterest-publish-outcome-classification.md` и `docs/runbooks/pinterest-publication-outcome-recovery-aud-384.md`.
+- Тесты/lint/build не запускались; production/Pinterest API/DB/payments не затрагивались.
