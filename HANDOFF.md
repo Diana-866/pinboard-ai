@@ -3175,3 +3175,14 @@ Date: 2026-11-10
 - AUD-377-05: live provider idempotency retention, GPTunnel task retention/cost, Supabase policies, deployed commit and applied migration ledger not verified.
 - Added `docs/audits/AUD-377-gptunnel-generation-and-image-recovery.md` and `docs/runbooks/gptunnel-generation-recovery-aud-377.md`.
 - No code/runtime/SQL/provider/Storage changes, tests, build, CI, generation, balance mutation, migration or deployment were performed.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-378: frontend API contracts and auth storage)
+
+- Сверены frontend/backend контракты досок, проектов и generation recovery. `GET /boards`, `GET/POST /projects`, `POST /boards` и `GET /generation/requests/:key` согласованы с frontend consumers.
+- Board creation UUID + payload fingerprint обеспечивает повторяемое создание; повторное использование UUID с изменёнными данными отклоняется.
+- **Исправлено:** доступ к localStorage для JWT и языка мог выбросить SecurityError до API fetch или после успешного `/me`; 401 cleanup/logout тоже могли прерваться. Добавлен `frontend/src/lib/authStorage.ts`; apiRequest, AuthContext и Login используют безопасные read/write/clear функции. Если браузер не позволяет сохранить JWT, вход останавливается с понятной ошибкой.
+- Добавлен `frontend/src/lib/authStorage.test.ts` для нормального и заблокированного storage.
+- Ограничение: project provisioning deduplicated только в пределах одного runtime браузера; cross-tab race сохраняется. Не меняли политику проектов, так как у пользователя может быть несколько проектов.
+- Добавлены `docs/audits/AUD-378-frontend-api-contracts-and-session-failures.md` и `docs/runbooks/frontend-auth-and-api-recovery-aud-378.md`.
+- Тесты, TypeScript lint, build, CI и браузерные проверки не запускались. Production, БД, миграции и внешние сервисы не затрагивались.
