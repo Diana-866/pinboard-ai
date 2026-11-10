@@ -1,4 +1,4 @@
--- Read-only inventory coverage for migration 103.
+-- Read-only inventory coverage for migrations 103/104, including regeneration replay payload references.
 do $body$
 declare
   v_user_id uuid := gen_random_uuid();
@@ -8,6 +8,8 @@ declare
   v_request_id bigint;
   v_old_path text := 'pins/generation-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.png';
   v_old_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.png';
+  v_replay_path text := 'pins/generation-ffffffffffffffffffffffffffffffff.png';
+  v_replay_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-ffffffffffffffffffffffffffffffff.png';
   v_count integer;
   v_result record;
 begin
@@ -53,6 +55,47 @@ begin
      or not ('generation_result' = any(v_result.source_types))
      or not ('generation_task' = any(v_result.source_types)) then
     raise exception 'retention inventory omitted generation journal reference sources: %', row_to_json(v_result);
+  end if;
+
+  -- Migration 104 must treat result_pin.image_url as a durable reference,
+  -- even when storage_url is NULL (replay-only completed regeneration).
+  insert into public.pin_image_object_lifecycle(bucket_id, object_path, state)
+  values ('pin-images', v_replay_path, 'active')
+  on conflict (bucket_id, object_path) do nothing;
+
+  insert into public.pin_regeneration_requests(
+    user_id, pin_id, idempotency_key, request_fingerprint, model, prompt, amount,
+    status, storage_url, result_pin, created_at, updated_at
+  ) values (
+    v_user_id::text, v_pin_id, 'pin-retention-replay-old-001',
+    repeat('d', 64), 'test-model', 'Completed replay only', 1,
+    'completed', null, jsonb_build_object('image_url', v_replay_url),
+    now() - interval '120 days', now() - interval '120 days'
+  );
+
+  select * into v_result
+    from public.list_pin_image_retention_candidates(90, 100)
+   where object_path = v_replay_path;
+  if not found or not ('regeneration_replay' = any(v_result.source_types)) then
+    raise exception 'old completed regeneration replay image was not inventoried: %', row_to_json(v_result);
+  end if;
+
+  -- A recent or in-progress replay payload must suppress retention, even if
+  -- the request has no storage_url and the image exists only in result_pin.
+  insert into public.pin_regeneration_requests(
+    user_id, pin_id, idempotency_key, request_fingerprint, model, prompt, amount,
+    status, storage_url, result_pin, created_at, updated_at
+  ) values (
+    v_user_id::text, v_pin_id, 'pin-retention-replay-live-001',
+    repeat('e', 64), 'test-model', 'Live replay reference', 1,
+    'processing', null, jsonb_build_object('image_url', v_replay_url),
+    now() - interval '120 days', now()
+  );
+  select count(*) into v_count
+    from public.list_pin_image_retention_candidates(90, 100)
+   where object_path = v_replay_path;
+  if v_count <> 0 then
+    raise exception 'retention inventory ignored a live regeneration replay reference';
   end if;
 
   -- A recent/in-progress journal reference to the same object must suppress it.
