@@ -134,6 +134,13 @@ const MainApp: React.FC = () => {
     setScheduleLoading(Boolean(user?.id));
   }, [user?.id]);
 
+  // Re-map persisted UTC timestamps when the calendar's publishing timezone changes.
+  React.useEffect(() => {
+    const reloadForTimezone = () => setScheduleReloadToken((value) => value + 1);
+    window.addEventListener('pinposy:timezone-changed', reloadForTimezone);
+    return () => window.removeEventListener('pinposy:timezone-changed', reloadForTimezone);
+  }, []);
+
   // Расписание загружается из БД; демонстрационные публикации не показываем.
   React.useEffect(() => {
     let cancelled = false;
@@ -548,7 +555,8 @@ const MainApp: React.FC = () => {
     pinterestBoardId: string,
     boardName: string
   ) => {
-    let saved: any;
+    try {
+      let saved: any;
     try {
       saved = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/change-board`, {
         method: 'POST',
@@ -590,7 +598,8 @@ const MainApp: React.FC = () => {
   };
 
   const handleRetryScheduledPin = async (pin: ScheduledPinItem) => {
-    let saved: any;
+    try {
+      let saved: any;
     try {
       saved = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/retry`, {
         method: 'POST',
