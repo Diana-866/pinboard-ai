@@ -1,0 +1,70 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const { logError } = require("../safeLogger");
+
+test("logs only the allowlisted event, status, and normalized error code", () => {
+  const original = console.error;
+  const output = [];
+  console.error = (value) => output.push(value);
+  try {
+    logError("billing.webhook_failed", { code: "ECONNRESET", message: "token=secret-value" }, 503);
+  } finally {
+    console.error = original;
+  }
+  assert.equal(output.length, 1);
+  assert.deepEqual(JSON.parse(output[0]), {
+    level: "error",
+    event: "billing.webhook_failed",
+    status: 503,
+    error_code: "ECONNRESET",
+  });
+  assert.equal(output[0].includes("secret-value"), false);
+});
+
+test("does not serialize nested causes, provider payloads, or stack traces", () => {
+  const original = console.error;
+  const output = [];
+  console.error = (value) => output.push(value);
+  try {
+    const error = new Error("Authorization: Bearer top-secret");
+    error.response = { data: { access_token: "nested-secret", email: "person@example.com" } };
+    error.cause = { message: "refresh_token=another-secret" };
+    logError("pinterest.callback_failed", error, 500);
+  } finally {
+    console.error = original;
+  }
+  assert.equal(output.length, 1);
+  for (const secret of ["top-secret", "nested-secret", "another-secret", "person@example.com", "Authorization"]) {
+    assert.equal(output[0].includes(secret), false, secret);
+  }
+});
+
+test("normalizes event names and ignores unsafe error codes and invalid statuses", () => {
+  const original = console.error;
+  const output = [];
+  console.error = (value) => output.push(value);
+  try {
+    logError("Payment webhook\nsecret", { code: "token=secret" }, 200);
+  } finally {
+    console.error = original;
+  }
+  assert.deepEqual(JSON.parse(output[0]), {
+    level: "error",
+    event: "payment_webhook_secret",
+  });
+});
+
+test("handles null, primitive, and hostile error objects without leaking details", () => {
+  const original = console.error;
+  const output = [];
+  console.error = (value) => output.push(value);
+  try {
+    logError("generic", null, 500);
+    logError("generic", "private details", 500);
+    logError("generic", { get code() { throw new Error("do-not-log"); } }, 500);
+  } finally {
+    console.error = original;
+  }
+  assert.equal(output.length, 3);
+  assert.ok(output.every((line) => !line.includes("private") && !line.includes("do-not-log")));
+});
