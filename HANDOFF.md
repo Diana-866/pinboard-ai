@@ -3399,3 +3399,16 @@ Artifacts:
 - docs/runbooks/pinterest-deletion-fencing-aud-394.md
 
 No code, tests, SQL, Pinterest API calls, token operations, schedule changes, Storage operations or production data changed. Live migration state unverified.
+
+
+## AUD-395 — account data inventory and deletion/retention boundaries (2026-11-11)
+
+Reviewed canonical baseline schema, key migrations (email outbox, Storage lifecycle, generated text usage, refund/operator journals, manual review queue), backend Storage lifecycle, active RU/EN privacy notices, storage lifecycle guide and prior AUD-350/351/372/387/389/391–394. Inventory covers identity/auth, projects/boards/pins/review queue/schedule snapshots, generation/regeneration prompts and tasks, credit reservations/provider usage/refunds, Storage lifecycle/retention queue, Pinterest OAuth/accounts/publications, subscriptions/credits/payment evidence, email outbox, logs, backups and third-party copies.
+
+Findings: no single owner-to-data manifest; mixed UUID/TEXT owner columns and indirect ownership; RESTRICT dependencies from Pinterest schedules, email outbox and operator/refund journals; image retention candidates are global/age-based and not per-account ownership inventory; pending/dead email rows retain recipient/payload; public Storage and third-party copies cannot be recalled by local DB deletion; backup expiry unverified; RU/EN 30-day erasure promise unsupported by executable workflow/evidence. Existing Storage claim/quarantine/reference-aware lifecycle is a strong reusable component, not full account cleanup.
+
+Artifacts:
+- docs/audits/AUD-395-account-data-inventory-and-erasure-boundaries.md
+- docs/runbooks/account-data-deletion-manifest-aud-395.md
+
+No code, tests, SQL, policy wording, provider calls, Storage operations, account data or production settings changed. Actual deployed FK/migration state and provider retention remain unverified.
