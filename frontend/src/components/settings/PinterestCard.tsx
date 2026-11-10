@@ -47,7 +47,7 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const loadStatus = async () => {
+  const loadStatus = async (): Promise<boolean> => {
     try {
       const data = await apiRequest('/integrations/pinterest/status');
       const nextAccounts: PinterestAccount[] = Array.isArray(data?.accounts)
@@ -63,9 +63,11 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
           ? current
           : nextAccounts[0]?.id || null
       );
+      return true;
     } catch (e) {
       const err = e as ApiError;
       setError(err?.message || t.settings.pinterestConnectError);
+      return false;
     } finally {
       setLoading(false);
     }
@@ -161,12 +163,43 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
     setError(null);
     setBusy(true);
     try {
-      await apiRequest('/integrations/pinterest/disconnect', {
+      const result = await apiRequest('/integrations/pinterest/disconnect', {
         method: 'POST',
         body: JSON.stringify({ account_id: accountId }),
       });
+
+      // The disconnect mutation is authoritative. Update the card immediately
+      // so a failed follow-up status GET cannot leave a stale connected row.
+      const nextAccounts: PinterestAccount[] = Array.isArray(result?.accounts)
+        ? result.accounts
+        : accounts.filter((account) => account.id !== accountId);
+      const nextStatus: PinterestStatus = {
+        ...(status || { configured: true, connected: nextAccounts.length > 0 }),
+        connected: nextAccounts.length > 0,
+        account_count: nextAccounts.length,
+        accounts: nextAccounts,
+      };
+      boardsRequestId.current += 1;
+      setBoards([]);
+      setBoardsError(null);
+      setBoardsLoading(false);
+      setAccounts(nextAccounts);
+      setStatus(nextStatus);
+      setSelectedAccountId((current) =>
+        current && current !== accountId && nextAccounts.some((account) => account.id === current)
+          ? current
+          : nextAccounts[0]?.id || null
+      );
+      onAccountsChanged?.(nextStatus);
       setNotice(t.settings.pinterestDisconnected);
-      await loadStatus();
+
+      // A status refresh is useful, but it must not undo the confirmed local
+      // mutation or hide the fact that the disconnect itself succeeded.
+      const refreshed = await loadStatus();
+      if (!refreshed) {
+        setNotice(t.settings.pinterestDisconnected);
+        setError(t.settings.pinterestConnectError);
+      }
     } catch (e) {
       const err = e as ApiError;
       setError(err?.message || t.settings.pinterestConnectError);
