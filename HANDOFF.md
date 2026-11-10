@@ -2049,3 +2049,24 @@ AUD-308 released a subscription/credit checkout idempotency key after a previous
 
 - GitHub read-back is required after the writes. Tests, lint, TypeScript check, and build have not been executed in this environment; do not treat the added tests as passing.
 - No backend payment state machine, Prodamus webhook, SQL migration, production data, deployment, or PR merge was changed.
+
+
+# AUD-310 — isolate billing history across account switches
+
+Date: 2026-11-10
+
+## Finding
+
+The pricing view fetched subscription and credit-purchase history when the authenticated user changed, but retained the previous account's already-rendered history while the new request was pending. The old requests also had no owner guard, so a slow response for account A could complete after switching to account B and overwrite B's billing history.
+
+## Change
+
+- Added a layout-effect owner transition fence that clears subscription history, credit-purchase history, and tariff period end before the newly authenticated account is painted.
+- Replaced unguarded history loaders with effect-scoped requests that ignore results after cleanup.
+- Added a current-owner check before accepting either response, preventing a late response from a previous account from populating the new account's view.
+- Added `billingOwner.ts` and unit coverage for matching, changed, missing, and empty owner identities.
+
+## Verification and safety
+
+- GitHub read-back is required after the writes. Frontend tests, lint, and build have not been executed; no CI pass claimed.
+- No API authorization rules or database records were changed. No production data, deployment, or PR merge.
