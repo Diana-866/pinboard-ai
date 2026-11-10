@@ -2868,3 +2868,14 @@ Date: 2026-11-10
 - Backup/restore — P0 operational gap: в репозитории нет доказательств независимых DB/Storage backups, отдельного escrow PINTEREST_TOKEN_ENCRYPTION_KEY и previous key, измеренных RPO/RTO или успешного restore drill. DB backup без ключа шифрования Pinterest tokens может быть неполноценным.
 - AUD-114 account deletion/privacy promise blockers остаются открыты.
 - AUD-347 report сохранён. Live Supabase checks, tests, SQL integration, lint/build/CI, production migrations, backup changes, merge/deploy не выполнялись.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-348)
+
+- Проведён source-level failure-mode review для frontend, backend, PostgreSQL, Supabase Storage, GPTunnel, Pinterest, Prodamus, SMTP, DNS и secrets.
+- Подтверждены durable generation/payment/email/scheduler journals и безопасные границы повторов; process restart recovery не равен защите от потери DB provider/account.
+- Pinterest worker отдельный процесс (default poll 30s, 1 row/request), но production worker/cron и мониторинг heartbeat не подтверждены. Не включать worker и внешний cron одновременно.
+- /health — только liveness {ok:true}, не readiness DB/Storage/worker. Нет подтверждённого end-to-end readiness check.
+- Важнейшие P0: независимые encrypted DB backups, Storage backups/checksum, escrow current+previous PINTEREST_TOKEN_ENCRYPTION_KEY, изолированный restore drill с проверкой расшифровки тестового токена.
+- RPO/RTO остаются unknown; automatic failover не подтверждён. Не обещать восстановление до фактического теста.
+- AUD-348 report сохранён. Live provider checks/restore/failover/tests/lint/build/CI не выполнялись; production не менялся.
