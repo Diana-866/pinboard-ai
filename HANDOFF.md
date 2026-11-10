@@ -2570,3 +2570,63 @@ No confirmed CORS wildcard/credential misconfiguration, missing route-level auth
 
 - Reviewed source and existing unit tests; tests, lint, build, load tests, and live HTTP checks were not run.
 - No production requests, deployment settings, secrets, DNS, SQL migrations, payment operations, or PR merge were performed.
+
+
+# AUD-325 — Dependency supply chain, lockfiles, CI install behavior, and secret-scanning visibility
+
+Date: 2026-11-10
+
+## Scope
+
+Reviewed backend/frontend manifests and lockfiles, Dependabot configuration, GitHub Actions workflows, package registry origins, lockfile integrity metadata, install-script flags, and selected current upstream advisories for packages with security-sensitive roles. No package installation or npm audit command was run. GitHub security-alert endpoints were not accessible through the connected repository interface, so repository-level Dependabot/secret-scanning/code-scanning alert state remains unverified.
+
+## Confirmed controls
+
+- Both projects use npm lockfileVersion 3. CI installs dependencies with `npm ci`, which enforces the lockfile rather than resolving fresh semver ranges. Every package entry inspected in both lockfiles had an integrity hash; all resolved tarballs used `https://registry.npmjs.org/`.
+- Dependabot is configured weekly for `/backend`, `/frontend`, and GitHub Actions, with a limit of five open PRs per ecosystem.
+- Workflows declare `permissions: contents: read`. Checkout and setup-node actions in the persisted-board and webhook workflows are pinned to full commit SHAs. The atomic-payment workflow pins checkout to a full SHA.
+- CI uses Node.js 22 in the persisted-board and webhook workflows. `npm ci` is used before lint/test/build or backend tests.
+- Backend direct lock versions include axios 1.20.0, express 4.22.3, multer 2.4.0, helmet 8.3.0, jsonwebtoken 9.0.3, and Supabase JS 2.116.0. Frontend direct versions include React/React DOM 19.3.0, Vite 8.3.2, TypeScript 7.0.2, and @google/genai 2.27.0.
+- Backend lockfile has no packages marked with install scripts. Frontend lockfile marks `@google/genai`, `esbuild`, `fsevents`, and `protobufjs` with install scripts. Such metadata is not proof of malicious behavior; `esbuild`/`fsevents` commonly use platform setup, while each package's exact script and provenance should be verified before adding strict install-script blocking.
+- The frontend manifest directly lists `express` despite the frontend being built with Vite. This may be a leftover/unneeded dependency; no removal was made without a complete import/runtime usage audit.
+
+## Advisory spot-checks
+
+- **Axios:** the lock pins 1.20.0. The September 2026 upstream advisories for axios features (including HTTP/2 session handling, redirect behavior in the fetch adapter, and proxy/DNS handling) list versions below 1.20.0 as affected and 1.20.0 as patched. Current reviewed calls use ordinary Axios calls; the image rehost path sets `proxy: false`, `maxRedirects: 0`, and a timeout. No explicit `httpVersion: 2` or fetch adapter selection was found in the reviewed call sites. This is a version-level spot-check, not a complete dependency-tree audit.
+- **Multer:** the lock pins 2.4.0, the fixed version for CVE-2026-88932 (aborted upload orphaned disk writes). The PinPosy upload path uses memory storage rather than disk storage, which further differs from the vulnerable configuration.
+- These checks do not establish that the complete dependency graph has zero advisories. Only a current `npm audit` / OSV or GitHub Dependabot report over the exact lockfiles can do that.
+
+## Findings / residual risks
+
+### AUD-325-01 — Repository security-alert state not verifiable from current connector
+
+The connected GitHub interface did not expose Dependabot alert, secret-scanning alert, or code-scanning alert endpoints for this repository. The presence of a Dependabot update schedule does not prove Dependabot alerts or security updates are enabled. Check repository Settings → Security & analysis and the Security tab. Enable dependency graph, Dependabot alerts, Dependabot security updates, secret scanning, and push protection wherever available for this repository/plan.
+
+### AUD-325-02 — Install-script allow-list not yet reviewed
+
+The frontend lock contains four install-script-bearing packages. No suspicious registry origin was found, but lock metadata alone does not show the actual script body. Inspect the packed manifests for `@google/genai@2.27.0`, `esbuild@0.28.2`, `fsevents@2.3.3`, and `protobufjs@7.6.6` before enforcing `ignore-scripts` or an install allow-list. Avoid disabling scripts globally without verifying that native/platform setup still works.
+
+### AUD-325-03 — No full dependency vulnerability scan was executed
+
+No `npm audit --json`, OSV scan, SBOM generation, or package installation was performed. The selected axios/multer advisory spot-checks are favorable but are not a clean bill of health for transitive packages. Add a lockfile-based audit to CI with an explicit severity policy and a reviewed exception process; do not fail builds indiscriminately on untriaged low-severity dev-only advisories.
+
+### AUD-325-04 — Workflow coverage and reproducibility gaps
+
+The atomic-payment workflow does not set up a specific Node version, unlike the other workflows, so its npm/node behavior can drift with the runner image. Standardize on the same supported Node 22 setup-node action and lockfile cache. The existing workflows cover different test subsets; a full lockfile audit and consistent `npm ci`/test/lint/build gates should run on every relevant PR target. No workflow files were changed in this audit.
+
+## Result
+
+No non-npm registry source, missing lockfile integrity hash, backend dependency install hook, or confirmed affected axios/multer version was found in the inspected lockfiles. No conclusion is made that the entire dependency tree is vulnerability-free or that repository secret scanning is enabled. No dependency update was warranted solely from this bounded source review.
+
+## Recommended next steps
+
+1. Enable/verify GitHub dependency graph, Dependabot alerts/security updates, secret scanning, and push protection in repository settings.
+2. Run `npm audit --json` against both exact lockfiles (or equivalent CI job) and triage runtime versus development findings.
+3. Inspect the four frontend install-script package manifests and document an allow-list before enabling install-script restrictions.
+4. Pin Node 22 consistently in all workflows and ensure the main CI workflow covers both frontend and backend validation for PRs.
+5. Remove frontend `express` only after confirming no build/deployment script imports it.
+
+## Verification and safety
+
+- GitHub source and lockfile review plus upstream advisory spot-checks only; no `npm ci`, npm audit, lint, test, build, SBOM, or secret scan was run.
+- No dependency version, lockfile, workflow, repository setting, secret, deployment, or production system was changed.
