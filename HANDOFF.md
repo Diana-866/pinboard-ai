@@ -3386,3 +3386,16 @@ Artifacts:
 - docs/runbooks/generation-deletion-fencing-aud-393.md
 
 No code, tests, SQL, GPTunnel calls, Storage operations, balances or production data changed. Live migration state unverified.
+
+
+## AUD-394 — Pinterest OAuth, publication and scheduler fencing during account deletion (2026-11-11)
+
+Reviewed OAuth attempt/callback and multi-account commit, refresh leases, account disconnect, manual publication, scheduled worker claim/reservation/completion, attempt/publication ledgers, stale recovery and SQL race tests. Confirmed signed state/browser binding/one-time generation + token_version, encrypted token storage, refresh lease fencing, disconnect clears local credentials and lease, account-first publication reservation, schedule claim tokens/heartbeat/pre-POST check, account-scoped immutable publication identity, unknown outcome non-retry and late success reconciliation. Findings: OAuth commit locks OAuth state before users (deadlock risk against user-first deletion); OAuth callback has no lifecycle gate during/after external code exchange; scheduler claim_due_pin_schedules does not lock/check owner lifecycle; reservation/completion RPCs have no owner lifecycle predicate; disconnect is not account deletion nor proof of provider-side token revocation; future schedules and in-flight POSTs need distinct handling; account/OAuth state tombstones and FK retention must be planned.
+
+Design: user-first lock order across OAuth, refresh, disconnect, scheduler and publication; lifecycle/version gates inside SECURITY DEFINER RPCs; discard exchanged credentials if deletion wins; hold future schedules, fence before POST, reconcile unknown/late remote success as immutable external facts without restoring local access; preserve minimal account tombstone until all publication facts reconcile; verify Pinterest remote token revocation support rather than assuming it.
+
+Artifacts:
+- docs/audits/AUD-394-pinterest-deletion-fencing.md
+- docs/runbooks/pinterest-deletion-fencing-aud-394.md
+
+No code, tests, SQL, Pinterest API calls, token operations, schedule changes, Storage operations or production data changed. Live migration state unverified.
