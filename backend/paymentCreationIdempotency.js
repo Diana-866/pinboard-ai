@@ -28,7 +28,16 @@ async function beginPaymentCreation(userId, idempotencyKey, kind, productId, cur
     p_request_kind: kind,
     p_request_fingerprint: fingerprint,
   });
-  if (error) throw error;
+  if (error) {
+    if (/idempotency key reused with different payment request/i.test(error.message || "")) {
+      throw paymentRequestError(
+        409,
+        "idempotency_key_reused",
+        "Ключ идемпотентности уже использован для другого тарифа или пакета. Начните новую попытку оплаты."
+      );
+    }
+    throw error;
+  }
 
   if (data && data.status === "started") return { started: true };
   if (data && data.status === "ready" && data.result) {
