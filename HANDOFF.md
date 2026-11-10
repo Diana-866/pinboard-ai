@@ -3506,3 +3506,12 @@ Artifacts:
 - docs/proposals/prodamus-deletion-race-test-contract-aud-401.md
 
 Design only: no Supabase connection/catalog query, no SQL/source/test/workflow/migration changes, no production operation. Next: inspect actual migration/workflow coverage and draft the smallest implementation slice for credit purchase first, including exact new RPC contract, compatibility strategy and test fixture; still no production execution.
+
+## Дополнение к HANDOFF — 2026-11-11 (AUD-400 Prodamus receipt/entitlement)
+
+- Повторно сверены реальные обработчики backend/billing.js::handleWebhook, backend/creditsBilling.js::handleCreditsWebhook, fingerprint helper backend/billingWebhookAudit.js и миграции 010/011/019.
+- Подтверждено: успешные callback сейчас после HMAC ищут локальную покупку/подписку; неизвестный order сохраняется только как exception и получает HTTP 200. Отдельного журнала подтверждённых provider receipts нет.
+- credit_paid_purchase блокирует покупку перед пользователем; activate_paid_subscription блокирует подписку перед пользователем. Обе функции требуют замены на user-first версии с сохранением идемпотентности, active-account late-success и правил продления/выбора тарифа.
+- Fingerprint текущих исключений исключает транспортный attempt, включает payment kind и не сохраняет raw body/PII. Существующую семантику migration 029 менять нельзя без отдельной миграции.
+- AUD-400 дополнен source verification и guardrails: receipt после HMAC до fulfillment; неизвестные order должны остаться unassigned/reviewable; production не должен одновременно выполнять старую и новую выдачу entitlement.
+- Изменены только документы. Код, миграции, SQL, тесты, Supabase, Prodamus и live balances не затрагивались. Тесты не запускались.
