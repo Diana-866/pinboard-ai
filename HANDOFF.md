@@ -2064,6 +2064,7 @@ The pricing view fetched subscription and credit-purchase history when the authe
 - Added a layout-effect owner transition fence that clears subscription history, credit-purchase history, and tariff period end before the newly authenticated account is painted.
 - Replaced unguarded history loaders with effect-scoped requests that ignore results after cleanup.
 - Added a current-owner check before accepting either response, preventing a late response from a previous account from populating the new account's view.
+- Applied the same owner fence to the pending-payment polling cycle, so an in-flight refresh cannot repopulate the new account's view after an identity change.
 - Added `billingOwner.ts` and unit coverage for matching, changed, missing, and empty owner identities.
 
 ## Verification and safety
