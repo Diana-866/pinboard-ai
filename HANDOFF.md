@@ -3373,3 +3373,16 @@ Artifacts:
 - docs/runbooks/financial-deletion-fencing-aud-392.md
 
 No code, tests, SQL, migrations, provider accounts, payments, refunds, balances or production state changed. Live schema/migration state not verified.
+
+
+## AUD-393 — generation and provider spend fencing during account deletion (2026-11-11)
+
+Reviewed GPTunnel create/poll, generation idempotency, claim fencing, task journal/provider outcome, reservations, final settlement, recovery and tests. Confirmed stable provider idempotency/task IDs, same-task polling, unknown-outcome fence, terminal outcome checks, user-first reservation/resize locks, reservation protection, completion journal guard and exactly-once request settlement. Findings: begin generation has no lifecycle gate; completion locks request then calls debit that locks user (inversion against deletion and reservation); accepted provider work cannot be canceled; provider outcome RPC requires processing + claim token and may reject late facts after deletion fences claim; deletion must not release uncertain reservations; Storage cleanup must use trusted path inventory and reference-aware claims; regeneration requires parity.
+
+Design: lifecycle/version gates in all generation and regeneration mutating RPCs; user → request → reservation → tasks → pins/ledger lock order; separate append-only late provider receipt from entitlement/credit settlement; continue polling same known task only; persist cost/refund facts but do not save pins or debit ordinary user credits after deletion; hold uncertain reservations until authoritative reconciliation; use existing Storage claim/quarantine/reference protocol.
+
+Artifacts:
+- docs/audits/AUD-393-generation-deletion-spend-fencing.md
+- docs/runbooks/generation-deletion-fencing-aud-393.md
+
+No code, tests, SQL, GPTunnel calls, Storage operations, balances or production data changed. Live migration state unverified.
