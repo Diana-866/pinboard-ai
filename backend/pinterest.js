@@ -30,7 +30,7 @@ const supabase = require("./supabase");
 const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
 const { httpError } = require("./validate");
 const { getPinterestTokenExpiresAt } = require("./pinterestOAuth");
-const { buildScheduleWorkerFailureState, hasCompleteScheduleClaimIdentity, hasMatchingScheduleAttemptIdentity, isScheduleClaimUpdateConfirmed, resolvePublishedReservation, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown, matchesConfirmedPublicationLedger, persistPublishFailureJournal, createScheduleClaimHeartbeat } = require("./pinterestSchedule");
+const { buildScheduleWorkerFailureState, hasCompleteScheduleClaimIdentity, hasMatchingScheduleAttemptIdentity, isScheduleClaimUpdateConfirmed, resolvePublishedReservation, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown, matchesConfirmedPublicationLedger, persistPublishFailureJournal, createScheduleClaimHeartbeat, isScheduleClaimLostError } = require("./pinterestSchedule");
 const {
   createBrowserBinding,
   readCookie,
@@ -717,6 +717,13 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
       return callPinterest("POST", "/pins", { token, body });
     }, accountId, { retryRateLimit: false });
   } catch (e) {
+    // A lost schedule claim is a definitive pre-POST fence: assertClaimCurrent
+    // runs immediately before callPinterest. This worker no longer owns the
+    // schedule and must not mutate the shared publication attempt journal.
+    // Leaving it processing lets stale recovery/manual reconciliation preserve
+    // the correct unknown outcome without making the schedule ineligible.
+    if (scheduleClaim && isScheduleClaimLostError(e)) throw e;
+
     // Only explicit client-side rejections are known not to have created a pin.
     // Every 5xx (including 503) is ambiguous: a gateway may fail after Pinterest
     // has processed the POST. Keep the attempt non-retryable to prevent duplicates.
