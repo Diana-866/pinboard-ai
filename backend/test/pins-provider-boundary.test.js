@@ -156,6 +156,51 @@ test("text usage journal failure stops before quote and image provider boundarie
   assert.equal(imageSubmitted, false);
 });
 
+test("plan journal failure after text provider success stops before quotes and image submission", async () => {
+  const events = [];
+  provider.generateText = async () => {
+    events.push("text-provider");
+    return JSON.stringify([
+      { title: "Unjournaled plan", description: "Test", image_prompt: "A test image" },
+    ]);
+  };
+  provider.generateImage = async () => {
+    events.push("image-provider");
+    throw new Error("image provider must not be called");
+  };
+
+  await assert.rejects(
+    generatePins(
+      { id: "board-plan-journal-failure", title: "Test board", description: "" },
+      { niche: "test", tone: "neutral", language: "en" },
+      "flux-schnell",
+      1,
+      "2:3",
+      null,
+      {
+        onTextProviderSubmission: () => events.push("text-submission-marked"),
+        onTextProviderUsage: async () => events.push("text-usage-recorded"),
+        persistPlan: async () => {
+          events.push("plan-journal-failed");
+          throw new Error("plan journal unavailable");
+        },
+        ensureTaskQuotes: async () => {
+          events.push("quote");
+          return [];
+        },
+      }
+    ),
+    /plan journal unavailable/
+  );
+
+  assert.deepEqual(events, [
+    "text-submission-marked",
+    "text-provider",
+    "text-usage-recorded",
+    "plan-journal-failed",
+  ]);
+});
+
 test("text-plan generation extracts a JSON array surrounded by provider prose", async () => {
   provider.generateText = async () => [
     "Here is the requested JSON:",
