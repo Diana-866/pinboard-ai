@@ -151,3 +151,25 @@ Current `begin_payment_creation_request` locks the idempotency row, and checkout
 - No SQL was executed against Supabase.
 - No test was run.
 - No provider webhook, refund, checkout, credit balance, subscription or production setting was touched.
+
+## Source verification addendum — 2026-11-11
+
+The current handlers and migrations were re-read after the initial contract was drafted. The following details must be preserved in implementation:
+
+1. backend/billing.js::handleWebhook and backend/creditsBilling.js::handleCreditsWebhook verify HMAC before looking up local payment rows. However, a validly signed callback with an unknown order is currently written only to billing_webhook_exceptions and acknowledged with HTTP 200. This is useful exception evidence, but it is not a successful-provider-receipt journal and does not support later matching/fulfillment without manual reconstruction.
+2. The existing exception fingerprint helper backend/billingWebhookAudit.js::buildWebhookException hashes paymentKind + newline + prodamus.canonicalString(payloadWithoutAttempt). It deliberately removes attempt, scopes fingerprints by payment kind, and avoids storing customer email/raw body. The new receipt path should reuse this canonicalization contract or introduce a versioned shared helper; do not silently change existing exception hash semantics or migration 029 uniqueness.
+3. db/migrations/010_atomic_credit_ledger.sql::credit_paid_purchase locks credit_purchases before updating users. It increments balance, inserts the unique purchase-linked ledger row and sets balance_credited_at atomically. It accepts pending/denied/canceled/success local statuses and is idempotent once the marker is set. Replacement must retain these semantics for active accounts while changing lock order to user-first.
+4. db/migrations/019_prevent_late_subscription_downgrade.sql::activate_paid_subscription locks subscriptions before users; it preserves paid-period extension and newest-order plan-selection. Replacement must preserve both, including already-activated duplicate behavior.
+5. Both webhook handlers perform local order lookup and amount checks before fulfillment RPC. The RPC must independently revalidate all identities and amounts after locking; pre-RPC checks are not a concurrency/security boundary.
+6. The successful receipt must be durably committed before entitlement fulfillment. If receipt insert succeeds but fulfillment response is lost, retry must recover the same receipt ID and continue idempotently. If local order is unknown, retain a durable unassigned receipt and review decision rather than only returning ignored: unknown order_id.
+7. Amount/currency mismatches currently create exception records; credit mismatch may mark local purchase denied, and subscription mismatch may mark subscription denied. Do not let this local status overwrite the provider fact. Preserve existing behavior only where explicitly approved; the receipt/decision journal becomes the reconciliation source for the signed event.
+
+### Implementation guardrails clarified
+
+- Do not dual-write by invoking both old and new fulfillment RPCs in production: that risks double entitlement. Dual-write only the immutable receipt while old fulfillment remains enabled in staging; production cutover must select exactly one entitlement path.
+- Do not insert a receipt before signature verification. Invalid signatures remain rejected and must not enter the trusted receipt journal.
+- A valid signature is not the same as a valid payment: persist the signed fact, then separately classify status, order match, amount and currency. Only a fully validated success can reach the grant RPC.
+- Do not treat a successful receipt insert response as fulfillment. Backend acknowledgement may be 200 only after the signed event is durably recorded and its processing state is durably classified/retryable.
+- Receipt immutability must be enforced for table owner/service_role access paths, not just ordinary roles. SECURITY DEFINER function ownership, trigger bypass rules, grants, and migration execution role require explicit catalog verification.
+
+No implementation, test execution, SQL execution, or live provider operation was performed in this addendum.
