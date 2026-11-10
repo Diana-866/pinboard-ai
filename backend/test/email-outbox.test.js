@@ -64,14 +64,19 @@ test("email outbox health reports counts and dead rows without customer PII or p
       query.select = function(columns, options) { this.columns = columns; this.options = options || {}; return this; };
       query.eq = function(column, value) { this.filters[column] = value; return this; };
       query.lt = function(column, value) { this.filters[`lt:${column}`] = value; return this; };
+      query.lte = function(column, value) { this.filters[`lte:${column}`] = value; return this; };
       query.order = function(column, options) { this.orderBy = [column, options]; return this; };
       query.limit = function(value) { this.limitValue = value; return this; };
       query.then = function(resolve, reject) {
         let result;
         if (this.options.head) {
           const status = this.filters.status;
-          const count = this.filters["lt:locked_until"] ? 1 : ({ pending: 3, sending: 2, dead: 1 })[status] || 0;
+          const count = this.filters["lt:locked_until"] ? 1
+            : this.filters["lte:next_attempt_at"] ? 2
+            : ({ pending: 3, sending: 2, dead: 1 })[status] || 0;
           result = { data: null, count, error: null };
+        } else if (this.filters.status === "pending" && this.filters["lte:next_attempt_at"]) {
+          result = { data: [{ next_attempt_at: "2026-11-07T09:00:00.000Z" }], error: null };
         } else if (this.filters.status === "pending") {
           result = { data: [{ created_at: "2026-11-07T10:00:00.000Z" }], error: null };
         } else {
@@ -94,8 +99,10 @@ test("email outbox health reports counts and dead rows without customer PII or p
   const { getEmailOutboxHealth } = require("../billing");
   const health = await getEmailOutboxHealth(10, { supabase: db });
 
-  assert.deepEqual(health.counts, { pending: 3, sending: 2, stale_sending: 1, dead: 1 });
+  assert.deepEqual(health.counts, { pending: 3, due_pending: 2, sending: 2, stale_sending: 1, dead: 1 });
   assert.equal(health.oldest_pending_at, "2026-11-07T10:00:00.000Z");
+  assert.equal(health.oldest_due_pending_at, "2026-11-07T09:00:00.000Z");
+  assert.ok(health.oldest_due_pending_age_seconds >= 0);
   assert.equal(health.dead_items.length, 1);
   assert.equal(health.dead_items[0].id, "dead-1");
   assert.equal("recipient_email" in health.dead_items[0], false);
