@@ -565,28 +565,29 @@ const MainApp: React.FC = () => {
   ) => {
     try {
       let saved: any;
-    try {
-      saved = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/change-board`, {
-        method: 'POST',
-        body: JSON.stringify({ pinterest_board_id: pinterestBoardId }),
-      });
-    } catch (originalError) {
-      // The RPC may have committed the board change before the HTTP response was lost.
-      // Reconcile only against this exact schedule ID, target board, account and queued state.
       try {
-        const rows = await apiRequest('/schedule');
-        saved = findPersistedScheduleMutation(rows, {
-          scheduleId: pin.id,
-          statuses: ['scheduled', 'publishing'],
-          pinterestBoardId,
-          pinterestAccountId: String(pin.pinterestAccountId || ''),
+        saved = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/change-board`, {
+          method: 'POST',
+          body: JSON.stringify({ pinterest_board_id: pinterestBoardId }),
         });
-        if (!saved) throw originalError;
-      } catch {
-        throw originalError;
+      } catch (originalError) {
+        // The RPC may have committed the board change before the HTTP response was lost.
+        // Reconcile only against this exact schedule ID, target board, account and queued state.
+        try {
+          const rows = await apiRequest('/schedule');
+          saved = findPersistedScheduleMutation(rows, {
+            scheduleId: pin.id,
+            statuses: ['scheduled', 'publishing'],
+            pinterestBoardId,
+            pinterestAccountId: String(pin.pinterestAccountId || ''),
+          });
+          if (!saved) throw originalError;
+        } catch {
+          throw originalError;
+        }
       }
-    }
-    const date = formatInstantInTimezone(new Date(saved.scheduled_at), getDefaultTimezone());
+
+      const date = formatInstantInTimezone(new Date(saved.scheduled_at), getDefaultTimezone());
       setScheduledPins((prev) => prev.map((item) => item.id === pin.id ? {
         ...item,
         scheduledDate: date.date,
@@ -608,27 +609,28 @@ const MainApp: React.FC = () => {
   const handleRetryScheduledPin = async (pin: ScheduledPinItem) => {
     try {
       let saved: any;
-    try {
-      saved = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/retry`, {
-        method: 'POST',
-      });
-    } catch (originalError) {
-      // Retry is a guarded DB transition. If its response is lost, accept only
-      // the same schedule after it is visibly back in the queue on the same destination.
       try {
-        const rows = await apiRequest('/schedule');
-        saved = findPersistedScheduleMutation(rows, {
-          scheduleId: pin.id,
-          statuses: ['scheduled', 'publishing'],
-          pinterestBoardId: String(pin.pinterestBoardId || ''),
-          pinterestAccountId: String(pin.pinterestAccountId || ''),
+        saved = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/retry`, {
+          method: 'POST',
         });
-        if (!saved) throw originalError;
-      } catch {
-        throw originalError;
+      } catch (originalError) {
+        // Retry is a guarded DB transition. If its response is lost, accept only
+        // the same schedule after it is visibly back in the queue on the same destination.
+        try {
+          const rows = await apiRequest('/schedule');
+          saved = findPersistedScheduleMutation(rows, {
+            scheduleId: pin.id,
+            statuses: ['scheduled', 'publishing'],
+            pinterestBoardId: String(pin.pinterestBoardId || ''),
+            pinterestAccountId: String(pin.pinterestAccountId || ''),
+          });
+          if (!saved) throw originalError;
+        } catch {
+          throw originalError;
+        }
       }
-    }
-    const date = formatInstantInTimezone(new Date(saved.scheduled_at), getDefaultTimezone());
+
+      const date = formatInstantInTimezone(new Date(saved.scheduled_at), getDefaultTimezone());
       setScheduledPins((prev) => prev.map((item) => item.id === pin.id ? {
         ...item,
         scheduledDate: date.date,
