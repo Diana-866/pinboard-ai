@@ -3080,3 +3080,12 @@ Date: 2026-11-10
 - GPTunnel text usage без `total_cost` намеренно сохраняется как `cost_missing` / NULL, а не как нулевая стоимость. Это не блокирует результат генерации, но требует последующей сверки фактических расходов.
 - Перед production нужно подтвердить применение миграций 054/065/067/069/071/074/079/088. Интеграционные SQL/shell тесты не запускались.
 - Node tests/lint/build/CI и живые GPTunnel/Supabase операции не выполнялись. Production balances/credits/secrets/deployment не менялись.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-369)
+
+- Проверены восстановление генераций, durable provider task journal, Storage upload/delete fencing, stale upload reconciliation, retention tombstones, queue leases и graceful shutdown.
+- Исправлена миграция 109: GRANT теперь ссылается на `finalize_pin_image_retention_queue_item(text,text,uuid,boolean,text)`, как и определение функции/REVOKE. Добавлен regression contract test в `backend/test/pin-image-lifecycle.test.js`.
+- Важно: cleanup/retention маршруты admin-only и раздельные; автоматический планировщик для этих операций в исходниках не обнаружен. Не включать автоматическую очистку без сверки миграций и dry-run inventory.
+- Наличие миграции 109 в репозитории не подтверждает её применение в production Supabase. Нужно проверить migration ledger и фактические RPC grants.
+- Node tests/lint/build/CI и SQL integration scripts не запускались. Storage/DB/provider/production не изменялись.
