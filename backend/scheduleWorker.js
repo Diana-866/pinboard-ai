@@ -64,6 +64,7 @@ function createWorker({
         claimed: Number(data.claimed) || 0,
         published: Number(data.published) || 0,
         failed: Number(data.failed) || 0,
+        scheduled: Number(data.scheduled) || 0,
         unknown: Number(data.unknown) || 0,
       });
     } catch (error) {
