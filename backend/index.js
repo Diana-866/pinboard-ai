@@ -1476,23 +1476,6 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
       onTextProviderSubmission: () => {
         providerGenerationStarted = true;
       },
-      onTextProviderUsage: async (result) => {
-        const { error } = await supabase.rpc("record_pin_generation_text_usage", {
-          p_user_id: String(req.userId),
-          p_idempotency_key: idempotencyKey,
-          p_claim_token: generationClaimToken,
-          p_provider_request_id: result.requestId || null,
-          p_provider_model: result.model || "unknown",
-          p_usage: result.usage || {},
-          p_total_cost_rub: result.costCurrency === "RUB" ? result.usage?.totalCost : null,
-        });
-        if (error) {
-          const journalError = new Error("Не удалось сохранить фактическую стоимость текстовой генерации");
-          journalError.journalError = true;
-          journalError.cause = error;
-          throw journalError;
-        }
-      },
       onProviderSubmission: () => {
         providerGenerationStarted = true;
       },
@@ -1512,25 +1495,24 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
           (task) => task.status === "prepared"
         );
         if (notYetConfirmedTasks.length > 0) {
-          // Only tasks that may still need a provider submission should reserve
-          // estimated balance. Completed/queued/unknown tasks are reconciled
-          // with their original provider idempotency keys and are not new work.
-          // The request-level reservation already covers the complete plan.
-          // This flag only controls whether prepared tasks may be submitted.
           allowPreparedTaskSubmission = true;
         }
         return data;
       } : undefined,
       allowPreparedTaskSubmission: () => allowPreparedTaskSubmission,
-      persistPlan: async (tasks) => {
-        const { data, error } = await supabase.rpc("save_pin_generation_plan", {
+      persistTextPlan: async (result, tasks) => {
+        const { data, error } = await supabase.rpc("record_pin_generation_text_plan", {
           p_user_id: String(req.userId),
           p_idempotency_key: idempotencyKey,
           p_claim_token: generationClaimToken,
+          p_provider_request_id: result.requestId || null,
+          p_provider_model: result.model || "unknown",
+          p_usage: result.usage || {},
+          p_total_cost_rub: result.costCurrency === "RUB" ? result.usage?.totalCost : null,
           p_tasks: tasks,
         });
         if (error) {
-          const journalError = new Error("Не удалось сохранить план генерации");
+          const journalError = new Error("Не удалось атомарно сохранить стоимость и план текстовой генерации");
           journalError.journalError = true;
           journalError.cause = error;
           throw journalError;
