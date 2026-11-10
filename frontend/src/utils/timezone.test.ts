@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  addCalendarDaysInTimezone,
   formatInstantInTimezone,
   getDefaultTimezone,
   isValidIanaTimezone,
@@ -82,4 +83,16 @@ test('rejects a local time that does not exist during the spring DST transition'
     () => localDateTimeToDate('2026-03-29', '01:30', 'Europe/London'),
     /daylight-saving-time transition/,
   );
+});
+
+test('adds calendar days in the selected timezone across date and DST boundaries', () => {
+  // The browser/runtime timezone is irrelevant: the result is the next calendar
+  // day for the user's selected region, even when the UTC date is different.
+  assert.equal(addCalendarDaysInTimezone(new Date('2026-01-01T23:30:00.000Z'), 'Europe/London', 1), '2026-01-02');
+  assert.equal(addCalendarDaysInTimezone(new Date('2026-01-01T23:30:00.000Z'), 'America/Los_Angeles', 1), '2026-01-02');
+  assert.equal(addCalendarDaysInTimezone(new Date('2026-03-28T12:00:00.000Z'), 'Europe/London', 1), '2026-03-29');
+  assert.equal(addCalendarDaysInTimezone(new Date('2026-12-31T12:00:00.000Z'), 'Europe/Moscow', 1), '2027-01-01');
+  assert.equal(addCalendarDaysInTimezone(new Date('2026-01-01T12:00:00.000Z'), 'Europe/Moscow', -1), '2025-12-31');
+  assert.throws(() => addCalendarDaysInTimezone(new Date('invalid'), 'Europe/London', 1), /Invalid instant/);
+  assert.throws(() => addCalendarDaysInTimezone(new Date(), 'Europe/London', 1.5), /Invalid instant/);
 });
