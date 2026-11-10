@@ -3453,3 +3453,17 @@ Artifacts:
 - docs/proposals/account-deletion-rpc-contracts-aud-398.md
 
 No migration/RPC/route/worker/tests/deployment/production change. Next: design a single consistent lock-order remediation plan and complete schema corrections before implementation.
+
+
+## AUD-399 — Cross-domain lock-order audit (2026-11-11)
+
+Audited canonical migrations and backend routes for Prodamus, Pinterest OAuth/publication/scheduler and GPTunnel generation. Confirmed four lock inversions: subscription→users in activate_paid_subscription (011); credit_purchases→users in credit_paid_purchase (010); OAuth state→users in commit_pinterest_oauth_attempt (028); generation request→nested user balance/pin persistence in complete_pin_generation_request (046→012). Also identified missing lifecycle gate in checkout creation, OAuth begin, Pinterest due-schedule claim, and generation begin/reservation.
+
+Designed target hierarchy users→domain root→domain child; no provider HTTP under DB locks; immutable provider receipts must be independent from granting entitlements. Remediation sequence: Prodamus first; Pinterest OAuth/refresh; Pinterest scheduler/publication; GPTunnel generation/reservations/regeneration; account-deletion rollout only after concurrency tests. Preserve late payment, Pinterest remote success and unknown generation spend. Do not weaken deletion's user-first fence.
+
+Artifacts:
+- docs/audits/AUD-399-cross-domain-lock-order-map.md
+- docs/runbooks/cross-domain-lock-order-remediation-aud-399.md
+- docs/proposals/account-deletion-lock-order-aud-399.md
+
+Design only: no source/SQL/migration/tests/provider calls/production changes. Next: design the Prodamus receipt-vs-entitlement transaction contract and a minimal safe first implementation slice with two-session regression tests.
