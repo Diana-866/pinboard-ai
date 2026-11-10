@@ -135,5 +135,6 @@ module.exports = {
   attachPaymentCreationOrder,
   markPaymentCreationUnknown,
   failPaymentCreation,
+  denyUnsentPaymentRecord,
   paymentRequestFingerprint,
 };
