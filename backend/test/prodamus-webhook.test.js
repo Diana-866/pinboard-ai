@@ -103,6 +103,9 @@ test("accepts secure checkout URLs and rejects unsafe or malformed ones", () => 
     "http://shop.payform.ru/pay",
     "javascript:alert(1)",
     "https://user:pass@shop.payform.ru/pay",
+    "https://evil.example/pay",
+    "https://payform.ru.evil.example/pay",
+    "https://user:pass@shop.payform.ru/pay",
     "not a url",
     "",
   ]) {
