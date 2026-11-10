@@ -16,7 +16,7 @@ const { persistWebhookException } = require("./billingWebhookAudit");
 const { httpError, validateEnum } = require("./validate");
 const { CREDIT_PACKS, normalizePackId, packAmount } = require("./creditPacks");
 const { createPaymentOrderId } = require("./paymentOrderId");
-const { beginPaymentCreation, completePaymentCreation, markPaymentCreationUnknown, failPaymentCreation } = require("./paymentCreationIdempotency");
+const { beginPaymentCreation, attachPaymentCreationOrder, completePaymentCreation, markPaymentCreationUnknown, failPaymentCreation } = require("./paymentCreationIdempotency");
 
 // Префикс order_id покупок кредитов: по нему общий вебхук /billing/webhook
 // различает подписки (pp-…) и пакеты кредитов (ppc-…).
@@ -105,6 +105,15 @@ async function createCreditsPayment(userId, body, idempotencyKey) {
       500,
       "Не удалось создать покупку. Проверьте, что миграция 007 (db/migrations/007_credit_purchases.sql) применена."
     );
+  }
+
+  try {
+    await attachPaymentCreationOrder(userId, idempotencyKey, orderId);
+  } catch (error) {
+    await supabase.from("credit_purchases").update({ status: "denied" }).eq("id", purchase.id).eq("status", "pending");
+    await failPaymentCreation(userId, idempotencyKey, error);
+    console.error("[credits-billing] не удалось сохранить идентификатор заказа до обращения к провайдеру:", error.message);
+    throw httpError(503, "Не удалось безопасно подготовить заказ. Счёт провайдеру не отправлялся; попробуйте создать новую попытку оплаты.");
   }
 
   const base = publicBase();
