@@ -124,15 +124,21 @@ async function createPayment(userId, body, idempotencyKey) {
   try {
     await attachPaymentCreationOrder(userId, idempotencyKey, orderId);
   } catch (error) {
+    let cleanupConfirmed = false;
     try {
       await denyUnsentPaymentRecord("subscriptions", sub.id);
+      cleanupConfirmed = true;
     } catch (cleanupError) {
       console.error("[billing] не удалось подтвердить отмену локальной записи без отправленного счёта:", {
         recordId: sub.id,
         error: cleanupError && cleanupError.message,
       });
+      // Keep this request in the admin reconciliation queue if local cleanup failed.
+      await markPaymentCreationUnknown(userId, idempotencyKey, cleanupError);
     }
-    await failPaymentCreation(userId, idempotencyKey, error);
+    if (cleanupConfirmed) {
+      await failPaymentCreation(userId, idempotencyKey, error);
+    }
     console.error("[billing] не удалось сохранить идентификатор заказа до обращения к провайдеру:", error.message);
     throw httpError(503, "Не удалось безопасно подготовить заказ. Счёт провайдеру не отправлялся; статус заказа требует проверки.");
   }
