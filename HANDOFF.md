@@ -2191,3 +2191,42 @@ No confirmed code defect was found in the reviewed recovery and Storage paths. T
 
 - Repository source review and GitHub read-back only; tests, lint, and build were not run.
 - No provider calls, Storage writes, credits, SQL migrations, production data, deployments, or PR merge.
+
+
+# AUD-316 — database durability, migration data-loss and restore-readiness audit
+
+Date: 2026-11-10
+
+## Scope
+
+Reviewed the canonical baseline, migration ordering guidance, archived destructive migration preflight, core table privileges, database/launch documentation, and storage retention lifecycle. No database connection or production data was accessed.
+
+## Findings
+
+- **No verified independent backup/restore in this repository:** the infrastructure requirements explicitly list independent encrypted database and object-storage backups, retention, alerts, and restore drills as open requirements. The production-readiness audit likewise treats backup/restore rehearsal as a launch gate. Repository evidence does not establish that Supabase backups are enabled, exported independently, or restorable by the project owner. This is an operational evidence gap, not proof that the provider has no backups.
+- **Migration 009 is a destructive historical hazard:** the archived migration converts TEXT user IDs to UUID and deletes malformed/orphaned rows (and publication rows without a matching pin). The read-only preflight report enumerates those candidate rows. The canonical database guide correctly excludes 009 and warns that a zero-count report is not a backup. Do not execute 009.
+- **Migration workflow is manual and has no down migrations:** docs instruct applying one SQL file at a time, stopping on any error, and testing the complete chain on a disposable database before production. A rollback by dropping core tables would destroy user data; production rollback must be forward-fix or restore-based, not a casual reverse migration.
+- **Baseline is for an empty database only:** `001_baseline.sql` uses create-if-not-exists and documents a specific historical schema contract. It must not be treated as a schema repair or run over an existing production database.
+- **Core table client access is hardened:** migration 076 enables RLS and revokes direct grants from public/anon/authenticated for the ten core tables, granting backend service_role access. Production backend refuses to start without `SUPABASE_SERVICE_ROLE_KEY`. This protects the API boundary but makes service-role secret backup/rotation and access control especially important.
+- **Object storage is not a substitute for a database backup:** lifecycle docs describe reference-aware retention and operator-triggered cleanup/reconciliation, not a complete independent backup of all Storage objects. They also document that automatic orphan sweep is not generally available and some ambiguous upload/deletion outcomes remain fenced for operator review.
+- **Generation image recovery has a known time boundary:** the existing production-readiness audit records a 48-hour provider result URL lifetime from provider documentation and notes the absence of an unattended recovery/alert for succeeded tasks lacking a Storage URL. Immediate rehosting reduces exposure, but a Storage outage extending beyond that window can lose an image. The provider TTL should be re-confirmed before launch.
+- **Restore has not been demonstrated:** no evidence in the reviewed repository shows a full restore of PostgreSQL plus Storage into a clean independent environment, integrity comparison, or measured RPO/RTO.
+
+## Required controls before production
+
+1. Enable/verify database backups and export encrypted copies to a separate provider/account under project-owner control.
+2. Back up Storage objects independently, preserving object paths and metadata; verify every referenced pin/schedule image exists after restore.
+3. Back up the Pinterest token encryption keys and all other required secrets separately from database dumps.
+4. Maintain a migration ledger and test the complete ordered migration chain against a disposable PostgreSQL instance before any production rollout.
+5. Perform a clean-room restore drill covering users, projects, boards, pins, credits, payments, generation journals, Pinterest state, and image objects. Compare row counts, foreign-key/orphan checks, image checksums or object availability, then record measured RPO/RTO.
+6. Add an alert/recovery worker for successful provider tasks whose result is persisted but whose Storage URL is still missing; alert well before the documented provider URL expiry.
+
+## Result
+
+No safe code-only change can prove or create independent backups without access to the actual Supabase project and an external backup destination. No production or migration action was taken. The principal blocker is operational: backup configuration, independent copies, and a successful restore drill remain unverified.
+
+## Verification and safety
+
+- GitHub source/documentation review only; no SQL was executed and no production database or Storage was accessed.
+- Tests, lint, build, backup jobs, and restore drills were not run.
+- No migration, data deletion, deployment, provider call, or PR merge.
