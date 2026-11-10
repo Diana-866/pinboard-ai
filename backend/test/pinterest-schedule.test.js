@@ -9,6 +9,7 @@ const {
   hasMatchingScheduleAttemptIdentity,
   hasCompleteScheduleClaimIdentity,
   isScheduleClaimUpdateConfirmed,
+  isScheduleClaimLostError,
   resolvePublishedReservation,
   matchesConfirmedPublicationLedger,
   persistPublishFailureJournal,
@@ -594,4 +595,17 @@ test("schedule claim heartbeat logs one warning when the renewal request throws"
   stop();
   assert.equal(warnings.length, 1);
   assert.match(warnings[0][0], /heartbeat failed/);
+});
+
+
+test("a lost schedule claim is a definitive pre-publication fence", () => {
+  assert.equal(isScheduleClaimLostError(Object.assign(new Error("claim lost"), {
+    code: "SCHEDULE_CLAIM_LOST",
+    httpStatus: 409,
+  })), true);
+  assert.equal(isScheduleClaimLostError(Object.assign(new Error("database unavailable"), {
+    httpStatus: 503,
+  })), false);
+  assert.equal(isScheduleClaimLostError(new Error("ordinary Pinterest failure")), false);
+  assert.equal(isScheduleClaimLostError(null), false);
 });
