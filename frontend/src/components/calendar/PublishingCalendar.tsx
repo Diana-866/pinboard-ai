@@ -23,6 +23,7 @@ import { BoardItem, ScheduledPinItem, PinterestAccount } from '../../data/mockDa
 import { apiRequest } from '../../lib/api';
 import { getScheduleRetryReasonMessage } from '../../utils/scheduleRetryReason';
 import {
+  addCalendarDaysInTimezone,
   getDefaultTimezone,
   saveUserTimezone,
   SUPPORTED_TIMEZONES,
@@ -44,13 +45,6 @@ interface PublishingCalendarProps {
   accounts?: PinterestAccount[];
   pendingCount?: number;
 }
-
-const formatLocalDate = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
   scheduledPins,
@@ -301,30 +295,33 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
     setSlotModalData(null);
   };
 
-  // Generate days for week and month view
-  const today = new Date();
+  // Build calendar dates in the selected publishing timezone, not the browser timezone.
+  // Use UTC-noon date objects only for locale formatting so browser offsets cannot shift labels.
+  const calendarDateAt = (dayOffset: number): { dateStr: string; dateObj: Date } => {
+    const dateStr = addCalendarDaysInTimezone(new Date(), userTimezone, dayOffset);
+    return {
+      dateStr,
+      dateObj: new Date(`${dateStr}T12:00:00.000Z`),
+    };
+  };
   const weekDayLabels = Array.from({ length: 7 }).map((_, index) =>
     formatDate(new Date(Date.UTC(2024, 0, 7 + index)), { weekday: 'short', timeZone: 'UTC' })
   );
   const weekDays = Array.from({ length: 7 }).map((_, i) => {
-    const d = new Date();
-    d.setDate(today.getDate() + i);
+    const { dateStr, dateObj } = calendarDateAt(i);
     return {
-      dateObj: d,
-      dateStr: formatLocalDate(d),
-      dayName: formatDate(d, { weekday: 'short' }),
-      dayNumber: d.getDate(),
-      monthName: formatDate(d, { month: 'short' }),
+      dateStr,
+      dayName: formatDate(dateObj, { weekday: 'short', timeZone: 'UTC' }),
+      dayNumber: dateObj.getUTCDate(),
+      monthName: formatDate(dateObj, { month: 'short', timeZone: 'UTC' }),
     };
   });
 
   const monthDays = Array.from({ length: 28 }).map((_, i) => {
-    const d = new Date();
-    d.setDate(today.getDate() - 3 + i);
+    const { dateStr, dateObj } = calendarDateAt(i - 3);
     return {
-      dateObj: d,
-      dateStr: formatLocalDate(d),
-      dayNumber: d.getDate(),
+      dateStr,
+      dayNumber: dateObj.getUTCDate(),
     };
   });
 
