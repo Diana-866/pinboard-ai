@@ -87,6 +87,10 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
     setBusyScheduleAction(actionKey);
     try {
       await action();
+    } catch (error) {
+      // Individual handlers already show a localized message. Consume the
+      // rejection here because click handlers intentionally use void promises.
+      console.error('[schedule] Действие календаря завершилось ошибкой:', error);
     } finally {
       scheduleActionLockRef.current = null;
       setBusyScheduleAction(null);
