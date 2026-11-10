@@ -2913,3 +2913,11 @@ Date: 2026-11-10
 - RU/EN privacy notices всё ещё недостаточно конкретно раскрывают передачу извлечённых фрагментов пользовательских сайтов в GPTunnel. Обновлять после проверки актуальных условий провайдера, не угадывать retention/training/region.
 - Retention внешних host logs, email outbox и operational journals не подтверждён; нужен утверждённый retention matrix и проверка live provider settings.
 - AUD-351 — source review/report only. Код, policy, DB, production не менялись; tests/lint/build/CI и live logs/provider checks не выполнялись.
+
+## Дополнение к handoff — 2026-11-11 (AUD-352)
+
+- Добавлен backend/safeLogger.js: JSON event logger с allowlist полей (event, HTTP status, ограниченный machine error_code); error.message, stack, cause, request/response, provider payloads, headers и tokens не сериализуются.
+- Добавлены backend/test/safe-logger.test.js: проверки nested secrets, unsafe error codes, invalid status и hostile error object. Тесты пока не запускались.
+- Центральный handleError в backend/index.js переведён на logError/logWarning; публичные HTTP-ответы не менялись.
+- Остальные direct console.* в auth/billing/Pinterest/storage/generation/worker ещё требуют поэтапной миграции. Request correlation ID пока не добавлен.
+- AUD-352 partial implementation; production, БД, платежи, OAuth, deployment не затрагивались; lint/build/CI/runtime tests не выполнялись.
