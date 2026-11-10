@@ -2962,3 +2962,5 @@ Date: 2026-11-10
 - `logWarning` теперь пишет в `console.warn`, а `logError` — в `console.error` (ранее warning с уровнем warn ошибочно направлялся в stderr error channel).
 - Добавлены тесты на PII/free-text event rejection, canonical UUID и warning output channel.
 - Runtime tests, lint, build и CI не запускались. Это source-level проверка, не аудит production log sink/retention/access control. Production/DB/payment/email/Pinterest/deploy не затрагивались.
+
+- Дополнительно в AUD-357: `error_code` теперь проходит не только regex, но и фиксированный allowlist известных Node/network и выбранных PostgreSQL/PostgREST кодов; неизвестные значения опускаются.
