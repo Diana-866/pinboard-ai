@@ -311,6 +311,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/117_payment_creation_provider_order_reference.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/118_settle_payment_creation_after_webhook.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/119_pinterest_unknown_outcome_preserves_known_remote_id.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/120_harden_manual_review_queue_privileges.sql
       - name: Verify Pinterest refresh uncertainty fence
         env:
           PGPASSWORD: postgres
