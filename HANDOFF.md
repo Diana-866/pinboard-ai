@@ -3188,3 +3188,17 @@ Date: 2026-11-10
 - Тесты, TypeScript lint, build, CI и браузерные проверки не запускались. Production, БД, миграции и внешние сервисы не затрагивались.
 
 - Regression-test discovery: `frontend/package.json` test script now includes both `src/utils/*.test.ts` and `src/lib/*.test.ts`, so the new auth-storage test is part of the normal frontend suite.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-379: pin editing, drafts and concurrency)
+
+- Проверены PinGenerator hydration, description drafts, per-pin PATCH queue, title/aspect ratio edits, board/account switches and image replacement.
+- Подтверждены: drafts scoped by board/pin UUID; per-pin writes serialized within component; old save completion cannot clear newer draft; revision/board fence protects save status; scheduling flushes description and waits for queued saves; saved-pin reads are cancelled on selection change.
+- Image upload uses compare-and-swap against observed image_url; stale upload cleanup and old image deletion are reference-aware.
+- **AUD-379-01:** backend PATCH has no expected revision/updated_at predicate. Two tabs/devices can overwrite each other's changes (last-write-wins). Design optimistic concurrency with 409 only after checking deployed schema and all writers.
+- **AUD-379-02:** no dedicated DELETE /pins/:id route found. Safe deletion must coordinate schedules, generation replay refs, review queue and Storage image references; no bare DELETE.
+- **AUD-379-03:** local description draft is browser-profile-only, not cross-device.
+- **AUD-379-04:** unmount flush is best-effort; local draft remains unless exact save succeeds.
+- **AUD-379-05:** image replacement is protected, but general pin deletion lifecycle remains incomplete.
+- Added `docs/audits/AUD-379-pin-editing-drafts-and-concurrency.md` and `docs/runbooks/pin-editing-and-image-lifecycle-aud-379.md`.
+- No code/runtime/SQL/test/build/CI/DB/Storage/provider changes or production operations were performed.
