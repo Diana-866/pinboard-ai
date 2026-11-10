@@ -2297,3 +2297,37 @@ No confirmed path was found in the reviewed code for a forged unsigned callback,
 
 - GitHub source and test review only; tests, lint, and build were not run.
 - No Prodamus API calls, sandbox payments, real credits, database writes, SQL migration execution, deployment, or PR merge.
+
+
+# AUD-319 — payment refund and administrator reconciliation boundary audit
+
+Date: 2026-11-10
+
+## Scope
+
+Reviewed Prodamus status normalization and both subscription/credit webhook handlers, webhook regression coverage, administrator payment exception/pending-order endpoints, and the separate provider-refund reconciliation queue. Source-only review; no merchant account, sandbox, or production records were accessed.
+
+## Findings
+
+- **Prodamus refund/reversal statuses are not fulfillment states.** The normalizer allowlists only `success`, `order_canceled`, and `order_denied`; any other value (including a provider-specific refund/chargeback status) is recorded as unsupported for manual review and does not grant new entitlements.
+- **The normal webhook path does not reverse a prior successful payment.** Subscription cancellation/denial callbacks cannot downgrade an already-successful subscription. Credit cancellation/denial callbacks cannot overwrite a credited purchase. This is correct for delayed/out-of-order cancellation notifications, but a genuine post-settlement refund requires a distinct verified workflow.
+- **Administrator billing endpoints are read-only.** Pending orders and webhook exceptions are exposed only behind `requireAuth` + `requireAdmin`; no endpoint in the reviewed block marks an order failed, reverses a subscription, or removes credits. The pending-order endpoint explicitly warns that age alone is not proof of non-payment.
+- **Do not confuse AI-provider refund reconciliation with customer payment refunds.** Existing provider-refund reconciliation fields and migrations 072–074 concern GPTunnel generation/regeneration cost and credit-reservation settlement, not Prodamus customer refunds.
+- **No safe automatic clawback can be implemented from the currently verified contract.** The repository does not establish the exact Prodamus refund/chargeback callback fields, signature conventions, partial-refund semantics, or how subscription periods should be adjusted. Automatically revoking a whole plan or subtracting a full credit pack based only on an unverified status could harm legitimate users or create negative balances.
+- **Operational gap:** an authenticated, auditable manual reconciliation procedure is still needed for full/partial refunds and chargebacks, with provider evidence, payment/order identity, operator, amount, currency, reason, and a separate idempotent entitlement/credit adjustment ledger.
+
+## Result
+
+No confirmed vulnerability in the existing success/cancel webhook handling was found. No automatic refund clawback or new callback status was added because provider semantics and the product's partial-refund policy are not established in repository evidence. Keep refund/chargeback cases in manual review until the exact merchant contract and policy are verified.
+
+## Recommended next hardening
+
+1. Confirm the merchant's actual Prodamus refund/chargeback notification contract and sandbox examples.
+2. Decide policy for full versus partial credit-pack refunds and subscription refunds after partial service use.
+3. Add a separate immutable refund-adjustment ledger and idempotent RPCs; never mutate the original payment/credit ledger rows in place.
+4. Add operator approval, dual-control for high-value adjustments, and tests for duplicate/out-of-order refund events before enabling any automated callback.
+
+## Verification and safety
+
+- GitHub source and test review only; tests, lint, and build were not run.
+- No Prodamus API calls, sandbox payments, credit changes, subscription changes, database writes, SQL migration execution, deployment, or PR merge.
