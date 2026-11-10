@@ -8,6 +8,7 @@ const {
   generateTextWithUsage,
   quoteImageTask,
   normalizeMediaQuote,
+  imageTaskResult,
   providerTaskError,
 } = require("../gptunnel");
 
@@ -200,4 +201,24 @@ test("providerTaskError rejects invalid provider price as unknown metadata", () 
   });
   assert.equal(error.providerPrice, null);
   assert.equal(error.providerRefunded, true);
+});
+
+
+test("image task result rejects zero or negative provider prices before financial settlement", () => {
+  const base = {
+    id: "provider-task-priced",
+    status: "done",
+    result: [{ url: "https://provider.example/image.png" }],
+  };
+  assert.deepEqual(imageTaskResult({ ...base, price: 1.25 }), {
+    url: "https://provider.example/image.png",
+    price: 1.25,
+    taskId: "provider-task-priced",
+  });
+  for (const price of [0, -0.01, "0", "-1"]) {
+    assert.throws(
+      () => imageTaskResult({ ...base, price }),
+      /некорректный результат генерации/
+    );
+  }
 });
