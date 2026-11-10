@@ -3285,3 +3285,13 @@ Date: 2026-11-10
 - Уязвимость/основание для изменения SQL в проверенных путях не выявлены; код и миграции не менялись.
 - Добавлены `docs/audits/AUD-385-pinterest-ambiguous-publication-recovery.md` и `docs/runbooks/pinterest-ambiguous-publication-recovery-aud-385.md`.
 - SQL integration scripts не запускались, миграции не применялись к Supabase, Node tests/lint/build/CI/browser не запускались. Production/Pinterest API/payments не затрагивались.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-386: Pinterest scheduler resilience)
+
+- Проверены scheduleWorker.js, внутренний scheduler endpoint, claim heartbeat (60 секунд), stale recovery, monitor migrations 122–123, health summary и integration test contracts.
+- Подтверждены durable queue в PostgreSQL, одна задача на запрос, overlap guard в процессе worker, DB claim-token fencing, bounded shutdown (20 секунд), HTTP timeout cap 15 минут против 20-минутного stale window, evidence-based recovery и terminal monitor completion fence.
+- Исправлена неточность в docs/pinterest/scheduler-setup.md: теперь явно сказано, что backend обрабатывает ровно одну запись за вызов, а не «до 10».
+- Добавлены docs/audits/AUD-386-pinterest-scheduler-worker-resilience.md и docs/runbooks/pinterest-scheduler-operations-aud-386.md.
+- Остаточное ограничение: monitor — singleton latest-run heartbeat, не независимый OS/process heartbeat. При timeout HTTP клиента backend request может продолжаться; безопасность обеспечивают DB lease + journal/fencing, а не предположение об отмене запроса.
+- Node tests/SQL integration/lint/build/CI/staging не запускались; migrations 122–123 не применялись; production worker не включался; Pinterest API/DB/payments/deploy не затрагивались.
