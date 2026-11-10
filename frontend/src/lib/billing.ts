@@ -168,7 +168,9 @@ export async function startCreditsPurchase(packageId: string): Promise<CreditsPa
   if (!data?.payment_url) {
     throw new Error('Сервер не вернул ссылку на оплату. Попробуйте ещё раз или напишите в поддержку.');
   }
-  clearPaymentIdempotencyKey(scope);
+  // Keep the key while the checkout is open so a retry or page reload
+  // reuses the same provider invoice instead of creating a second one.
+  // The key is cleared only after the backend reports settled/terminal status.
   return data;
 }
 
