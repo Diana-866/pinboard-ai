@@ -3110,3 +3110,14 @@ Date: 2026-11-10
 - Добавлены `docs/audits/AUD-371-pinterest-key-rotation-and-escrow-readiness.md` и `docs/runbooks/pinterest-key-rotation-aud-371.md`.
 - Правило: не удалять `PINTEREST_TOKEN_ENCRYPTION_KEY_PREVIOUS` по сроку; сохранять соответствующие ключи в независимом vault на срок хранения совместимых DB backups. Для retirement нужен read-only scan всех ciphertexts, обработка конкурентных обновлений и evidence вне production.
 - Live secrets/vault/DB rows не проверялись; Node tests не запускались; production secrets, OAuth, deploy, DB и Storage не менялись.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-372: account deletion and data lifecycle)
+
+- Подтверждено по исходникам: end-to-end account deletion endpoint/worker и lifecycle marker пользователя не обнаружены; прямой DELETE users опасен из-за каскадного удаления финансовых записей и FK email_outbox с ON DELETE RESTRICT.
+- Payment webhook/RPC не учитывают deletion lifecycle; поздний успешный Prodamus webhook может выдать entitlement, если не разделить settlement и entitlement. Требуется общий SQL lock order и concurrency tests.
+- Pinterest disconnect и reference-aware Storage image retention существуют как компонентные механизмы, но не составляют account deletion. Необходимо сохранять uncertain publication/generation/Storage outcomes до сверки.
+- Активные RU/EN privacy notices содержат обещание удаления в течение 30 дней; репозиторий не содержит executable cleanup и backup-expiry evidence, подтверждающих срок. Нужна проверка оператора/юриста и сверка с реальными провайдерами/регионами.
+- Добавлены `docs/audits/AUD-372-account-deletion-and-data-lifecycle.md` и `docs/runbooks/account-deletion-aud-372.md`.
+- Не добавлялся поверхностный DELETE endpoint и не менялась схема: сначала нужны согласованные финансовые/юридические правила, lifecycle state machine, SQL lock order и тесты.
+- Live DB/provider settings/users/payments/Storage не проверялись; tests/build/CI не запускались; production не менялся.
