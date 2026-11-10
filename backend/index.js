@@ -2704,7 +2704,7 @@ const server = app.listen(PORT, () => {
 // Hosted platforms send SIGTERM during deploys/restarts. Stop new HTTP work,
 // stop the in-process outbox timer, and allow active requests a bounded drain.
 let shuttingDown = false;
-function shutdown(signal) {
+function shutdown() {
   if (shuttingDown) return;
   shuttingDown = true;
   logInfo("index.shutdown_started");
@@ -2714,22 +2714,21 @@ function shutdown(signal) {
     logError("index.shutdown_timeout");
     process.exit(1);
   }, 10_000);
-  if (typeof forceExit.unref === "function") forceExit.unref();
 
   server.close((error) => {
     clearTimeout(forceExit);
     if (error) {
       logError("index.shutdown_failed");
-      process.exit(1);
+      process.exitCode = 1;
       return;
     }
     logInfo("index.shutdown_completed");
-    process.exit(0);
+    process.exitCode = 0;
   });
   // Do not wait for idle keep-alive sockets to expire naturally.
   if (typeof server.closeIdleConnections === "function") {
     server.closeIdleConnections();
   }
 }
-process.once("SIGTERM", () => shutdown("SIGTERM"));
-process.once("SIGINT", () => shutdown("SIGINT"));
+process.once("SIGTERM", shutdown);
+process.once("SIGINT", shutdown);
