@@ -1,3 +1,4 @@
+const { logWarning, logError, logInfo } = require("./safeLogger");
 // Подтверждение email при регистрации (миграция 005: users.email_verified).
 //
 // Паттерн токенов — ровно как в password-reset.js:
@@ -76,7 +77,7 @@ async function revokeUnused(userId) {
     .is("used_at", null);
   if (error) {
     // не критично: старая ссылка просто останется действительной до TTL
-    console.warn("[email-verify] не удалось погасить прежние токены:", error.message);
+    logWarning("email-verify.event_008");
   }
 }
 
@@ -95,23 +96,23 @@ async function issueVerificationToken(user) {
   });
 
   if (error) {
-    console.error("[email-verify] атомарный выпуск токена не выполнен:", error.message);
+    logError("email-verify.event_007");
     return false;
   }
   if (issued !== true) return false;
 
   if (!transactionalMailConfigured()) {
-    console.warn("[email-verify] транзакционная почта не настроена — письмо не отправлено");
+    logWarning("email-verify.event_006");
     return false;
   }
 
   const base = (process.env.FRONTEND_URL || "https://pinposy.com").split(",")[0].trim();
   try {
     await sendVerifyEmail(user.email, `${base}/verify-email#token=${encodeURIComponent(token)}`, user.preferred_language);
-    console.log("[email-verify] письмо подтверждения отправлено");
+    logInfo("email-verify.event_005");
     return true;
   } catch (e) {
-    console.error("[email-verify] письмо не отправлено:", e.message);
+    logError("email-verify.event_004");
     return false;
   }
 }
@@ -135,7 +136,7 @@ async function resendVerification(rawEmail, userIdFromToken) {
       .maybeSingle();
 
     if (lookupError) {
-      console.error("[email-verify] не удалось получить аккаунт:", lookupError.message);
+      logError("email-verify.event_003");
       throw httpError(503, "Сервис подтверждения email временно недоступен — попробуйте позже");
     }
 
@@ -174,7 +175,7 @@ async function resendVerification(rawEmail, userIdFromToken) {
       .maybeSingle();
 
     if (lookupError) {
-      console.error("[email-verify] не удалось проверить email:", lookupError.message);
+      logError("email-verify.event_002");
       throw httpError(503, "Сервис подтверждения email временно недоступен — попробуйте позже");
     }
 
@@ -204,7 +205,7 @@ async function applyVerification(rawToken) {
     p_token_hash: sha256(rawToken),
   });
   if (error) {
-    console.error("[email-verify] атомарное подтверждение не выполнено:", error.message);
+    logError("email-verify.event_001");
     throw httpError(500, "Не удалось подтвердить email — попробуйте позже");
   }
   if (data !== true) {
