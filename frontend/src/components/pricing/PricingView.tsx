@@ -25,7 +25,7 @@ import { useAuth } from '../../context/AuthContext';
 import { payAndRedirect, PayablePlan, SubscriptionRow, buyCreditsAndRedirect, CreditPurchaseRow } from '../../lib/billing';
 import { apiRequest } from '../../lib/api';
 
-export const PricingView: React.FC = () => {
+export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initialPlanId = null }) => {
   const { t, language } = useI18n();
   const { user, refreshUser } = useAuth();
   // Реальная оплата: создаём платёж на бэкенде и уводим на страницу Prodamus
@@ -48,6 +48,17 @@ export const PricingView: React.FC = () => {
   const [creditPacksError, setCreditPacksError] = useState<string | null>(null);
   const [planPrices, setPlanPrices] = useState<Record<string, { rub: number; usd: number }>>({});
   const [planPricesError, setPlanPricesError] = useState<string | null>(null);
+  const [highlightedPlanId, setHighlightedPlanId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!initialPlanId || !['analytics', 'start', 'pro', 'agency'].includes(initialPlanId)) return;
+    setActiveTab('plans');
+    setHighlightedPlanId(initialPlanId);
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById('pricing-plan-' + initialPlanId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [initialPlanId]);
 
   // Subscription prices are read from the same backend catalog used to create Prodamus invoices.
   useEffect(() => {
@@ -506,7 +517,8 @@ export const PricingView: React.FC = () => {
               return (
                 <div
                   key={plan.id}
-                  className={`custom-card p-5 md:p-6 rounded-3xl flex flex-col justify-between space-y-6 relative transition-all duration-200 ${
+                  id={`pricing-plan-${plan.id}`}
+                  className={`custom-card ${highlightedPlanId === plan.id ? 'ring-2 ring-accent shadow-xl' : ''}  p-5 md:p-6 rounded-3xl flex flex-col justify-between space-y-6 relative transition-all duration-200 ${
                     plan.popular
                       ? 'ring-2 ring-accent shadow-xl border-accent/40 bg-gradient-to-b from-subtle/50 to-surface'
                       : 'hover:border-strong'
