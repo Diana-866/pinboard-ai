@@ -2921,3 +2921,11 @@ Date: 2026-11-10
 - Центральный handleError в backend/index.js переведён на logError/logWarning; публичные HTTP-ответы не менялись.
 - Остальные direct console.* в auth/billing/Pinterest/storage/generation/worker ещё требуют поэтапной миграции. Request correlation ID пока не добавлен.
 - AUD-352 partial implementation; production, БД, платежи, OAuth, deployment не затрагивались; lint/build/CI/runtime tests не выполнялись.
+
+## Дополнение к handoff — 2026-11-11 (AUD-353)
+
+- На safeLogger переведены все прямые console.log/error/warn/info в backend/index.js (22), auth.js (6), billing.js (24), creditsBilling.js (21), pinterest.js (29), storage.js (3).
+- Используются стабильные имена событий вида module.event_NNN. Обычные логи больше не включают provider/database error messages, order IDs, суммы/описания платежей, Pinterest username/user ID, OAuth denial details и image source URLs из этих точек.
+- safeLogger поддерживает error/warn/info; тест safe-logger.test.js расширен проверками warning/info и исключения email из serialized log.
+- Остальные backend-модули ещё не прошли полный аудит; correlation ID и отдельный ограниченный diagnostic channel не реализованы.
+- AUD-353 partial implementation. Тесты, lint, build, CI не запускались; production logs, платежи, OAuth, БД и deployment не затрагивались. Изменения платёжной/кредитной логики не планировались.
