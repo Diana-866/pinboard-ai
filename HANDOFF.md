@@ -2094,3 +2094,25 @@ The PinGenerator recovery-status lookup read locally persisted generation idempo
 - GitHub read-back is required. Frontend test/lint/build execution is not available in this GitHub-only pass; no CI pass claimed.
 - Recovery remains read-only: no generation request is started, no idempotency key is deleted, and no credits or provider tasks are changed.
 - No production data, deployment, or PR merge.
+
+
+# AUD-312 — cover provider polling exhaustion without duplicate submission
+
+Date: 2026-11-10
+
+## Audit findings
+
+- The image provider task ID is journaled before polling; recovery uses `waitForImageTask(taskId)` rather than issuing another create call.
+- Polling is deliberately bounded (maximum 30 checks). If the task is still queued/running, the helper returns a `pending` result with the same provider task ID. The generation route treats this as unresolved and does not settle credits or insert partial pins.
+- A later same-key recovery loads the saved plan and polls the same provider task again. A provider timeout/network error is treated as uncertain, not as a confirmed failure.
+- Storage rehosting first checks for an existing completed idempotent upload. If that lookup is unavailable, it fails closed rather than blindly uploading a duplicate.
+
+## Change
+
+- Added a focused `gptunnel-recovery.test.js` case for exhausting the bounded polling window while the provider task remains running.
+- The test asserts the exact pending response, same task ID on every poll, and zero provider task creation calls.
+
+## Verification and safety
+
+- Static GitHub read-back only. Backend tests have not been executed in this pass; no test pass claimed.
+- No provider requests, credit ledger operations, SQL migrations, production data, deployment, or PR merge.
