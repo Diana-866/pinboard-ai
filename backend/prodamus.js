@@ -1,3 +1,4 @@
+const { logError } = require("./safeLogger");
 // Работа с Prodamus (платёжная форма payform): подпись ссылок, проверка вебхуков.
 // Документация:
 //   ссылки:  https://help.prodamus.ru/help_documentations_pf1/payform/tekhnicheskaya-dokumentaciya/sozdanie-platezhnoy-ssylki
@@ -317,7 +318,7 @@ async function createPaymentLink({
       validateStatus: () => true,
     });
   } catch (e) {
-    console.error("[prodamus] сеть недоступна:", e.message);
+    logError("prodamus.event_002");
     throw httpError(502, "Платёжный сервис не отвечает — попробуйте позже");
   }
 
@@ -327,7 +328,7 @@ async function createPaymentLink({
     (typeof res.data === "string" && /^https?:\/\//.test(res.data.trim()) ? res.data.trim() : null);
 
   if (!url) {
-    console.error("[prodamus] ответ без ссылки:", res.status, JSON.stringify(res.data).slice(0, 500));
+    logError("prodamus.event_001");
     throw httpError(
       502,
       "Prodamus не вернул ссылку на оплату. Проверьте PRODAMUS_SHOP_ID / PRODAMUS_SECRET / PRODAMUS_URL."
