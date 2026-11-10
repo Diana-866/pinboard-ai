@@ -1437,7 +1437,9 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
     if (requestState.status !== "resume") {
       const balance = await getBalance(req.userId);
       if (balance < estimatedCost) {
-        throw httpError(402, "Недостаточно кредитов для этой генерации");
+        const error = httpError(402, "Недостаточно кредитов для этой генерации");
+        error.details = { code: "generation_insufficient_credits" };
+        throw error;
       }
     }
     // Create the initial estimate reservation only once. A resumed request may
@@ -1453,7 +1455,9 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
       });
       if (reservationError) {
         if (/insufficient available credits/i.test(reservationError.message || "")) {
-          throw httpError(402, "Недостаточно доступных кредитов: часть баланса уже зарезервирована для других генераций.");
+          const error = httpError(402, "Недостаточно доступных кредитов: часть баланса уже зарезервирована для других генераций.");
+          error.details = { code: "generation_insufficient_credits" };
+          throw error;
         }
         throw reservationError;
       }
