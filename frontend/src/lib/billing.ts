@@ -32,11 +32,11 @@ function releaseFailedPaymentIdempotencyKey(scope: string, error: unknown): void
     error instanceof ApiError &&
     ['payment_request_not_reusable', 'payment_already_settled'].includes(String(error.data?.code || ''))
   ) {
-    clearPaymentIdempotencyKey(scope);
+    releasePaymentIdempotencyKey(scope);
   }
 }
 
-function clearPaymentIdempotencyKey(scope: string): void {
+export function releasePaymentIdempotencyKey(scope: string): void {
   const storageKey = `pinposy:payment-idempotency:${scope}`;
   paymentIdempotencyKeys.delete(storageKey);
   try {
