@@ -700,7 +700,9 @@ app.get("/projects/:id/boards", requireAuth, async (req, res) => {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    res.json(data);
+    // Keep legacy board-list responses aligned with the newer /boards API:
+    // internal create-request fingerprints/keys are never part of the client contract.
+    res.json((data || []).map(serializeBoardForClient));
   } catch (e) {
     handleError(res, e);
   }
