@@ -165,3 +165,19 @@ test("accepts only canonical UUID versions and variants for correlation context"
   assert.equal(Object.hasOwn(JSON.parse(output[0]), "correlation_id"), false);
   assert.equal(JSON.parse(output[1]).correlation_id, "123e4567-e89b-12d3-a456-426614174000");
 });
+
+test("omits syntactically valid but unrecognized error codes", () => {
+  const original = console.error;
+  const output = [];
+  console.error = (value) => output.push(value);
+  try {
+    logError("billing.webhook_failed", { code: "PERSON123456" }, 500);
+  } finally {
+    console.error = original;
+  }
+  assert.deepEqual(JSON.parse(output[0]), {
+    level: "error",
+    event: "billing.webhook_failed",
+    status: 500,
+  });
+});
