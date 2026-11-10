@@ -2891,3 +2891,16 @@ Date: 2026-11-10
 - /health и текущие логи не дают достаточной readiness/metrics картины. Нужны CPU/RAM/event-loop/latency, Supabase API/DB/storage/egress, provider spend, worker heartbeat/backlog metrics.
 - Стадии масштабирования и критерии load test задокументированы в docs/audits/AUD-349-capacity-performance-and-horizontal-scaling.md.
 - Нет production метрик/дашбордов/нагрузочных тестов; tests/lint/build/CI не запускались. Live ресурсы/квоты/цены не проверялись; инфраструктура и production не менялись.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-350)
+
+- Сводный privacy/data-lifecycle review завершён; account deletion end-to-end отсутствует, хотя active RU/EN policies обещают 30-day deletion. Не добавлять простое hard-delete cascade: опасны late Prodamus webhooks, финансовая история, FK/outbox, Pinterest schedules и Storage references.
+- Self-service export endpoint/UI отсутствует; AUD-118 — только дизайн. Требуются owner-bound DTO allowlists, secret exclusion, private expiring download и tests.
+- AI website analysis отправляет извлечённые фрагменты пользовательского сайта в GPTunnel; active policy это раскрывает недостаточно явно.
+- Prodamus checkout передаёт email и order/plan/amount/currency metadata. Pinterest получает approved content, destination URL, board and public image URL.
+- Документированный frontend Vercel не отражён в processor inventory active policy; email provider, реальные regions, contracts/subprocessors и transfer safeguards требуют проверки оператором.
+- Raw error object logging в Express и email_outbox retention/redaction требуют отдельной политики. Не доказана конкретная утечка секрета, но текущая модель затрудняет гарантию redaction.
+- Pinterest OAuth token crypto: AES-256-GCM, 32-byte key, previous-key lazy rotation; legacy plaintext может оставаться до lazy migration. Нужна проверка production key, legacy inventory и независимое escrow.
+- pin-images bucket intentionally public; anyone with URL may retrieve. Stale PinSprig privacy source files are maintenance hazard; remove only after repo-wide reference check.
+- AUD-350 report сохранён. Нет live data/provider/legal checks; tests/lint/build/CI/deploy/production changes не выполнялись.
