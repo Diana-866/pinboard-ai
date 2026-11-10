@@ -231,10 +231,18 @@ function validateCheckoutUrl(raw) {
   } catch {
     throw httpError(502, "Prodamus вернул некорректную ссылку на оплату");
   }
+  const configuredHost = new URL(baseUrl()).hostname.toLowerCase();
+  const checkoutHost = checkoutUrl.hostname.toLowerCase();
+  const isProviderHost =
+    checkoutHost === configuredHost ||
+    checkoutHost === "payform.ru" ||
+    checkoutHost.endsWith(".payform.ru");
+
   if (
     checkoutUrl.protocol !== "https:" ||
     checkoutUrl.username ||
-    checkoutUrl.password
+    checkoutUrl.password ||
+    !isProviderHost
   ) {
     throw httpError(502, "Prodamus вернул небезопасную ссылку на оплату");
   }
