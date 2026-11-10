@@ -24,6 +24,7 @@ import { apiRequest } from '../../lib/api';
 import { getScheduleRetryReasonMessage } from '../../utils/scheduleRetryReason';
 import {
   addCalendarDaysInTimezone,
+  getCalendarMonthGrid,
   getDefaultTimezone,
   saveUserTimezone,
   SUPPORTED_TIMEZONES,
@@ -318,13 +319,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
     };
   });
 
-  const monthDays = Array.from({ length: 28 }).map((_, i) => {
-    const { dateStr, dateObj } = calendarDateAt(i - 3);
-    return {
-      dateStr,
-      dayNumber: dateObj.getUTCDate(),
-    };
-  });
+  const monthDays = getCalendarMonthGrid(calendarNow, userTimezone);
 
   const targetAccount = accounts.find((a) => a.id === selectedAccountId) || accounts[0];
 
@@ -689,7 +684,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                 <div
                   key={idx}
                   onClick={() => handleSlotClick(d.dateStr)}
-                  className="min-h-[90px] p-2 rounded-xl bg-subtle/50 border border-subtle hover:border-strong transition-all flex flex-col justify-between cursor-pointer group"
+                  className={`min-h-[90px] p-2 rounded-xl border border-subtle hover:border-strong transition-all flex flex-col justify-between cursor-pointer group ${d.isCurrentMonth ? 'bg-subtle/50' : 'bg-surface/30 opacity-60'}`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-mono font-semibold text-secondary-theme">
