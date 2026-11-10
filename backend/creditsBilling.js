@@ -14,7 +14,6 @@ const supabase = require("./supabase");
 const prodamus = require("./prodamus");
 const { httpError, validateEnum } = require("./validate");
 const { CREDIT_PACKS, normalizePackId, packAmount } = require("./creditPacks");
-const { adjustBalance } = require("./credits");
 
 // Префикс order_id покупок кредитов: по нему общий вебхук /billing/webhook
 // различает подписки (pp-…) и пакеты кредитов (ppc-…).
@@ -109,7 +108,7 @@ async function createCreditsPayment(userId, body) {
       description: `PinPosy — пакет кредитов: ${pack.credits} кредитов (бессрочно)`,
       plan: packageId,
       urlNotification: base ? `${base}/billing/webhook` : undefined,
-      urlReturn: `${frontendBase()}/app?payment=success`,
+      urlSuccess: `${frontendBase()}/app?payment=success`,
     });
   } catch (e) {
     // Ссылка не создана — помечаем строку, чтобы не копить «вечные pending»
@@ -175,91 +174,43 @@ async function handleCreditsWebhook(req, res) {
     return res.json({ ok: true, ignored: "unknown order_id" });
   }
 
-  // Идемпотентность: повторный success по уже зачисленной покупке ничего не меняет
-  if (purchase.status === "success" && status === "success") {
+  if (purchase.balance_credited_at && status === "success") {
     return res.json({ ok: true, idempotent: true, credits: purchase.credits });
   }
 
   if (status !== "success") {
     const mapped = status === "order_canceled" ? "canceled" : "denied";
-    await supabase.from("credit_purchases").update({ status: mapped }).eq("id", purchase.id);
-    console.warn(
-      `[credits-billing] платёж ${orderId}: ${status} (${body.payment_status_description || ""})`
-    );
+    const { error: statusError } = await supabase.from("credit_purchases")
+      .update({ status: mapped }).eq("id", purchase.id)
+      .is("balance_credited_at", null).neq("status", "success");
+    if (statusError) return res.status(500).json({ ok: false, error: "db error" });
     return res.json({ ok: true, status: mapped });
   }
 
-  // Проверка суммы: вебхук с другой суммой фиксируем, но не зачисляем молча
   const expected = Number(purchase.amount);
-  if (sum != null && Number.isFinite(sum) && Math.abs(sum - expected) > 0.01) {
-    console.error(
-      `[credits-billing] сумма не совпадает для ${orderId}: webhook=${sum}, ожидали=${expected}`
-    );
-    await supabase.from("credit_purchases").update({ status: "denied" }).eq("id", purchase.id);
+  if (sum == null || !Number.isFinite(sum) || Math.abs(sum - expected) > 0.01) {
+    console.error(`[credits-billing] сумма не совпадает для ${orderId}: webhook=${body.sum}, ожидали=${expected}`);
+    const { error: mismatchError } = await supabase.from("credit_purchases")
+      .update({ status: "denied" }).eq("id", purchase.id)
+      .is("balance_credited_at", null).neq("status", "success");
+    if (mismatchError) return res.status(500).json({ ok: false, error: "db error" });
     return res.json({ ok: true, ignored: "amount mismatch" });
   }
 
-  // Критическая секция: помечаем оплаченной ТОЛЬКО из pending.
-  // Условный UPDATE возвращает изменённые строки: 0 — значит, зачисление уже
-  // выполнено (или статус изменён) — второй раз баланс не трогаем.
+  // Баланс, журнал и отметка покупки фиксируются в одной транзакции PostgreSQL.
   const paidAt = new Date().toISOString();
-  const { data: activated, error: activateError } = await supabase
-    .from("credit_purchases")
-    .update({ status: "success", paid_at: paidAt })
-    .eq("id", purchase.id)
-    // Разрешённые исходные статусы: pending (обычный случай) и denied
-    // (например, повтор вебхука с правильной суммой после расхождения сумм).
-    // 'success' источником быть не может — поэтому двойного зачисления не бывает.
-    .in("status", ["pending", "denied"])
-    .select();
-
-  if (activateError) {
-    console.error("[credits-billing] не удалось пометить покупку оплаченной:", activateError.message);
-    return res.status(500).json({ ok: false, error: "db error" });
-  }
-  if (!activated || activated.length === 0) {
-    // Кто-то уже провёл этот заказ (параллельный/повторный вебхук) — ничего не начисляем
-    console.log(`[credits-billing] ${orderId}: статус уже изменён, зачисление пропущено`);
-    return res.json({ ok: true, idempotent: true, credits: purchase.credits });
-  }
-
-  // Зачисляем «вечные» кредиты на баланс (transaction: credit_transactions type=topup)
-  try {
-    const newBalance = await adjustBalance(
-      purchase.user_id,
-      purchase.credits,
-      "topup",
-      `Пакет кредитов «${purchase.pack_title || purchase.package_id}» (+${purchase.credits}, не сгорают), заказ ${orderId}`
-    );
-    console.log(
-      `[credits-billing] +${purchase.credits} кредитов зачислено пользователю ${purchase.user_id}, баланс: ${newBalance}`
-    );
-  } catch (e) {
-    // Кредиты не зачислены — откатываем статус, чтобы Prodamus повторил вебхук
-    console.error("[credits-billing] не удалось зачислить кредиты:", e && e.message);
-    await supabase
-      .from("credit_purchases")
-      .update({ status: "pending", paid_at: null })
-      .eq("id", purchase.id)
-      .then(() => {}, () => {});
-    return res.status(500).json({ ok: false, error: "balance update failed" });
-  }
-
-  const { error: creditedError } = await supabase
-    .from("credit_purchases")
-    .update({ balance_credited_at: paidAt })
-    .eq("id", purchase.id);
-  if (creditedError) {
-    // Кредиты уже зачислены, отметка вторична — не ломаем вебхук
-    console.error("[credits-billing] не удалось записать balance_credited_at:", creditedError.message);
-  }
-
-  return res.json({
-    ok: true,
-    status: "success",
-    credits: purchase.credits,
-    order_id: orderId,
+  const { data: newBalance, error: creditError } = await supabase.rpc("credit_paid_purchase", {
+    p_purchase_id: purchase.id,
+    p_paid_at: paidAt,
+    p_description: `Пакет кредитов «${purchase.pack_title || purchase.package_id}» (+${purchase.credits}, не сгорают), заказ ${orderId}`,
   });
+  if (creditError) {
+    console.error("[credits-billing] атомарное зачисление не выполнено:", creditError.message);
+    return res.status(500).json({ ok: false, error: "crediting failed" });
+  }
+
+  console.log(`[credits-billing] покупка ${orderId} обработана; баланс: ${newBalance}`);
+  return res.json({ ok: true, status: "success", credits: purchase.credits, order_id: orderId });
 }
 
 /** История покупок кредитов пользователя (кабинет → «Тарифы» → «Кредиты») */

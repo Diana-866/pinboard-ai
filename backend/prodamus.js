@@ -5,7 +5,7 @@
 //
 // ВАЖНО: файл восстановлен (в архиве версия была повреждена — дублированный блок
 // `const provided` и отсутствовавшие функции-хелперы). Поведение сохранено,
-// подпись: HMAC-SHA256(canonical-строка, secret) в base64 — так её ждёт test/billing-flow.js.
+// подпись: HMAC-SHA256(canonical-строка, secret), hex в поле signature запроса.
 
 const crypto = require("crypto");
 const axios = require("axios");
@@ -27,11 +27,10 @@ function isOffline() {
 }
 
 function baseUrl() {
-  return (
-    String(process.env.PRODAMUS_URL || "https://pinposy.payform.ru/")
-      .trim()
-      .replace(/\/?$/, "/") // всегда завершаем слэшем
-  );
+  const configuredUrl = String(process.env.PRODAMUS_URL || "").trim();
+  const shopId = String(process.env.PRODAMUS_SHOP_ID || "pinposy").trim();
+  const value = configuredUrl || `https://${shopId}.payform.ru/`;
+  return value.replace(/\/?$/, "/"); // всегда завершаем слэшем
 }
 
 /**
@@ -39,34 +38,67 @@ function baseUrl() {
  * ключи сортируются по алфавиту, вложенные объекты/массивы сериализуются в JSON,
  * параметры соединяются через `&` в виде key=value.
  */
-function canonicalString(params) {
-  const flat = {};
-  Object.keys(params || {}).forEach((k) => {
-    if (k === "Sign" || k === "sign") return; // сама подпись в каноническую строку не входит
-    const v = params[k];
-    if (v === undefined || v === null) {
-      flat[k] = "";
-      return;
+function normalizeSignatureValue(value) {
+  if (Array.isArray(value)) return value.map(normalizeSignatureValue);
+  if (value && typeof value === "object") {
+    const normalized = Object.create(null);
+    for (const key of Object.keys(value).sort()) {
+      normalized[key] = normalizeSignatureValue(value[key]);
     }
-    flat[k] = typeof v === "object" ? JSON.stringify(v) : String(v);
-  });
-  // JSON-строка с ключами в отсортированном порядке (replacer-массив) —
-  // ровно тот формат, который ждёт test/billing-flow.js и Prodamus
-  return JSON.stringify(flat, Object.keys(flat).sort());
+    return normalized;
+  }
+  return value === undefined || value === null ? "" : String(value);
+}
+
+function canonicalString(params) {
+  const payload = Object.create(null);
+  for (const key of Object.keys(params || {}).sort()) {
+    if (key === "Sign" || key === "sign") continue;
+    payload[key] = normalizeSignatureValue(params[key]);
+  }
+  // Prodamus требует рекурсивную сортировку ключей и экранирование символа "/".
+  return JSON.stringify(payload).replace(/\//g, "\\/");
 }
 
 /**
- * Подпись payload: HMAC-SHA256 от canonical-строки секретом магазина, в base64.
- * Используется и для создания ссылок (заголовок Sign исходящего запроса),
- * и в тестах — для имитации вебхука.
+ * Prodamus expects nested form fields (products[0][name]), not JSON.stringify
+ * or URLSearchParams' default "[object Object]" conversion.
+ * Signature calculation stays on the original nested payload.
+ */
+function appendFormField(form, key, value) {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => appendFormField(form, `${key}[${index}]`, item));
+    return;
+  }
+  if (value && typeof value === "object") {
+    for (const childKey of Object.keys(value).sort()) {
+      appendFormField(form, `${key}[${childKey}]`, value[childKey]);
+    }
+    return;
+  }
+  form.append(key, value === undefined || value === null ? "" : String(value));
+}
+
+function toFormEncoded(params) {
+  const form = new URLSearchParams();
+  for (const key of Object.keys(params || {}).sort()) {
+    appendFormField(form, key, params[key]);
+  }
+  return form.toString();
+}
+
+/**
+ * Подпись исходящего запроса: HMAC-SHA256 от canonical-строки, hex.
+ * Prodamus ожидает её в параметре signature тела запроса; заголовок Sign
+ * используется для обратных вебхуков.
  */
 function signPayload(params) {
-  const secret = process.env.PRODAMUS_SECRET_WEBHOOK || process.env.PRODAMUS_SECRET;
+  const secret = process.env.PRODAMUS_SECRET;
   if (!secret) throw httpError(500, "PRODAMUS_SECRET не задан");
   return crypto
     .createHmac("sha256", secret)
     .update(canonicalString(params), "utf8")
-    .digest("base64");
+    .digest("hex");
 }
 
 /** Сравнение подписей без утечки по времени (хешируем до фикс. длины) */
@@ -122,16 +154,99 @@ function verifyWebhook(body, headers) {
     const v = payload[k];
     flat[k] = typeof v === "object" && v !== null ? JSON.stringify(v) : v;
   });
-  const expectedFlat = signPayload(flat);
+  const expectedFlat = crypto
+    .createHmac("sha256", secret)
+    .update(canonicalString(flat), "utf8")
+    .digest("base64");
   if (safeEqual(expectedFlat, provided)) return { ok: true };
 
   return { ok: false, reason: "подпись не совпадает" };
+}
+
+/** Map only documented final Prodamus webhook states. Unknown/in-progress
+ * states must not downgrade a pending order to denied. */
+function normalizePaymentStatus(status) {
+  const value = String(status || "").trim().toLowerCase();
+  if (value === "success") return "success";
+  if (value === "order_canceled") return "canceled";
+  if (value === "order_denied") return "denied";
+  return null;
+}
+
+/**
+ * Read the amount and currency from a signed Prodamus webhook.
+ * The generic Prodamus webhook example documents "sum"; integration
+ * guidance for foreign-currency payments additionally identifies
+ * "currency" + "currency_sum" as the payment-currency amount pair.
+ * Require that pair for foreign-currency orders rather than guessing.
+ */
+function getWebhookPaymentAmount(body, expectedCurrency = "rub") {
+  const expected = String(expectedCurrency || "rub").trim().toLowerCase();
+  const rawCurrency = body && body.currency;
+  const hasCurrency = rawCurrency != null && String(rawCurrency).trim() !== "";
+  const receivedCurrency = hasCurrency ? String(rawCurrency).trim().toLowerCase() : null;
+
+  if (!["rub", "usd", "eur", "kzt"].includes(expected)) {
+    return { ok: false, reason: "unsupported_expected_currency" };
+  }
+  if (hasCurrency && receivedCurrency !== expected) {
+    return { ok: false, reason: "currency_mismatch", receivedCurrency };
+  }
+  // Older RUB callbacks may omit currency fields. Never apply that fallback
+  // to foreign-currency orders: currency_sum and currency are mandatory there.
+  if (!hasCurrency && expected !== "rub") {
+    return { ok: false, reason: "currency_missing" };
+  }
+
+  const currencyAmount = body && body.currency_sum;
+  const rawAmount = currencyAmount != null && String(currencyAmount).trim() !== ""
+    ? currencyAmount
+    : expected === "rub" ? body && body.sum : null;
+  const amount = rawAmount == null || String(rawAmount).trim() === ""
+    ? NaN
+    : Number(rawAmount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { ok: false, reason: "amount_missing", receivedCurrency };
+  }
+
+  return {
+    ok: true,
+    amount,
+    currency: receivedCurrency || expected,
+    amountField: currencyAmount != null && String(currencyAmount).trim() !== "" ? "currency_sum" : "sum",
+  };
 }
 
 function formatAmount(amount) {
   const n = Number(amount);
   if (!Number.isFinite(n) || n <= 0) throw httpError(422, "Некорректная сумма платежа");
   return n.toFixed(2);
+}
+
+/** Accept only secure, syntactically valid checkout URLs without embedded credentials. */
+function validateCheckoutUrl(raw) {
+  let checkoutUrl;
+  try {
+    checkoutUrl = new URL(String(raw));
+  } catch {
+    throw httpError(502, "Prodamus вернул некорректную ссылку на оплату");
+  }
+  const configuredHost = new URL(baseUrl()).hostname.toLowerCase();
+  const checkoutHost = checkoutUrl.hostname.toLowerCase();
+  const isProviderHost =
+    checkoutHost === configuredHost ||
+    checkoutHost === "payform.ru" ||
+    checkoutHost.endsWith(".payform.ru");
+
+  if (
+    checkoutUrl.protocol !== "https:" ||
+    checkoutUrl.username ||
+    checkoutUrl.password ||
+    !isProviderHost
+  ) {
+    throw httpError(502, "Prodamus вернул небезопасную ссылку на оплату");
+  }
+  return checkoutUrl.toString();
 }
 
 /**
@@ -147,16 +262,18 @@ async function createPaymentLink({
   description,
   plan,
   urlNotification,
-  urlReturn,
+  urlSuccess,
 }) {
   if (!orderId) throw httpError(500, "Не удалось создать платёж: нет order_id");
   const price = formatAmount(amount);
+  const sys = String(process.env.PRODAMUS_SYS || "").trim();
 
   const payload = {
     do: "link",
     order_id: String(orderId),
     customer_email: email || "",
     currency: String(currency || "rub").toLowerCase(),
+    callbackType: "json",
     products: [
       {
         name: String(description || "Подписка PinPosy").slice(0, 250),
@@ -165,37 +282,34 @@ async function createPaymentLink({
         sku: String(plan || ""),
       },
     ],
-    ...(process.env.PRODAMUS_SYS ? { sys: process.env.PRODAMUS_SYS } : {}),
-    ...(urlNotification ? { urlNotification } : {}),
-    ...(urlReturn ? { urlReturn } : {}),
+    // SYS is a required Prodamus request parameter. For a self-written
+    // integration the documentation explicitly allows an empty value.
+    sys,
+    // A per-request notification URL may require a SYS code issued by Prodamus.
+    // Without SYS, configure the webhook URL in the payment-form settings.
+    ...(sys && urlNotification ? { urlNotification } : {}),
+    ...(urlSuccess ? { urlSuccess } : {}),
     ...(isDemo() ? { demo_mode: "1" } : {}),
   };
 
   const signature = signPayload(payload);
+  const signedPayload = { ...payload, signature };
 
   // Оффлайн-режим: собираем ссылку сами (локальные тесты, нет сети до Prodamus).
   if (isOffline()) {
-    const qs = new URLSearchParams({
-      do: "link",
-      order_id: payload.order_id,
-      products: JSON.stringify(payload.products),
-      customer_email: payload.customer_email,
-      currency: payload.currency,
-      ...(payload.demo_mode ? { demo_mode: "1" } : {}),
-    });
+    const qs = toFormEncoded(signedPayload);
     return {
       url: `${baseUrl()}?${qs.toString()}`,
-      payload,
+      payload: signedPayload,
       raw: { offline: true },
     };
   }
 
   let res;
   try {
-    res = await axios.post(baseUrl(), new URLSearchParams(payload).toString(), {
+    res = await axios.post(baseUrl(), toFormEncoded(signedPayload), {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        Sign: signature,
         Accept: "application/json",
       },
       timeout: 20000,
@@ -218,7 +332,10 @@ async function createPaymentLink({
       "Prodamus не вернул ссылку на оплату. Проверьте PRODAMUS_SHOP_ID / PRODAMUS_SECRET / PRODAMUS_URL."
     );
   }
-  return { url, payload, raw: data || res.data };
+
+  // Never redirect a customer to an insecure or credential-bearing URL,
+  // even if a malformed or compromised upstream response supplies one.
+  return { url: validateCheckoutUrl(url), payload: signedPayload, raw: data || res.data };
 }
 
 module.exports = {
@@ -227,8 +344,12 @@ module.exports = {
   isOffline,
   baseUrl,
   canonicalString,
+  toFormEncoded,
   signPayload,
   safeEqual,
+  normalizePaymentStatus,
+  getWebhookPaymentAmount,
+  validateCheckoutUrl,
   verifyWebhook,
   createPaymentLink,
 };

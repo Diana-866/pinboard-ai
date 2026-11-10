@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
+const { parseMultipartFields } = require("./prodamusWebhookBody");
 
 const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
@@ -48,25 +49,39 @@ app.use(
     },
   })
 );
-// Вебхук Prodamus приходит как application/x-www-form-urlencoded — парсим его
-// отдельным middleware ровно на своём пути, до json-парсера и до CORS-ответов.
-app.post(
-  "/billing/webhook",
-  express.urlencoded({ extended: true, limit: "100kb", type: () => true }),
-  async (req, res) => {
-    try {
-      // Диспетчер по префиксу order_id: "ppc-…" — пакеты кредитов, остальные — подписки.
-      // Подпись и формат вебхука одинаковые, обработка разная.
-      const isCreditsOrder = String((req.body && req.body.order_id) || "").startsWith(
-        creditsBilling.ORDER_PREFIX + "-"
-      );
-      await (isCreditsOrder ? creditsBilling.handleCreditsWebhook : billing.handleWebhook)(req, res);
-    } catch (e) {
-      console.error("[billing] ошибка обработки вебхука:", e && e.message);
-      if (!res.headersSent) res.status(500).json({ ok: false, error: "internal" });
-    }
+// Prodamus may send multipart/form-data (default), urlencoded, or JSON callbacks.
+function parseProdamusWebhook(req, res, next) {
+  if (req.is("multipart/form-data")) {
+    return webhookMultipart(req, res, (error) => {
+      if (error) return res.status(400).json({ ok: false, error: "invalid webhook form" });
+      try {
+        req.body = parseMultipartFields(req.body);
+        next();
+      } catch {
+        res.status(400).json({ ok: false, error: "invalid webhook fields" });
+      }
+    });
   }
-);
+  if (req.is("application/x-www-form-urlencoded")) {
+    return express.urlencoded({ extended: true, limit: "32kb" })(req, res, next);
+  }
+  if (req.is("application/json")) {
+    return express.json({ limit: "32kb" })(req, res, next);
+  }
+  return res.status(415).json({ ok: false, error: "unsupported content type" });
+}
+
+app.post("/billing/webhook", parseProdamusWebhook, async (req, res) => {
+  try {
+    const isCreditsOrder = String((req.body && req.body.order_id) || "").startsWith(
+      creditsBilling.ORDER_PREFIX + "-"
+    );
+    await (isCreditsOrder ? creditsBilling.handleCreditsWebhook : billing.handleWebhook)(req, res);
+  } catch (e) {
+    console.error("[billing] ошибка обработки вебхука:", e && e.message);
+    if (!res.headersSent) res.status(500).json({ ok: false, error: "internal" });
+  }
+});
 
 app.use(express.json({ limit: "100kb" })); // ограничение размера тела (B12)
 
@@ -102,7 +117,8 @@ const supabase = require("./supabase");
 const { analyzeSite } = require("./analyze");
 const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
-const { uploadPinImage } = require("./storage");
+const { uploadPinImage, rehostImage } = require("./storage");
+const { validateDevTopupRequest } = require("./devTopup");
 const mail = require("./mail");
 const passwordReset = require("./password-reset");
 const emailVerify = require("./email-verify");
@@ -114,6 +130,10 @@ const { requireTariff, getTariffState, normalizePlan } = require("./tariff");
 
 // Загрузка своих изображений пинов (замена временных ссылок GPTunnel на постоянные)
 const multer = require("multer");
+const webhookMultipart = multer({
+  storage: multer.memoryStorage(),
+  limits: { fields: 80, fieldSize: 16 * 1024, files: 0 },
+}).none();
 const imageUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
@@ -682,20 +702,28 @@ app.post("/pins/:id/regenerate", aiLimiter, requireAuth, requireTariff(["standar
       throw httpError(502, "Изображение ещё не готово — попробуйте позже, кредиты не списаны");
     }
 
-    await adjustBalance(req.userId, -cost, "regeneration", `Перегенерация пина (${model})`);
-
-    const { data: updated, error } = await supabase
-      .from("pins")
-      .update({ image_url: image.url, credits_cost: cost })
-      .eq("id", req.params.id)
-      .select()
-      .single();
-    if (error) {
-      // возврат кредитов, если пин не сохранился (частичный фикс B6)
-      await adjustBalance(req.userId, cost, "refund", "Возврат кредитов: перегенерация не сохранена").catch(() => {});
-      throw httpError(500, "Не удалось сохранить пин, кредиты возвращены на баланс");
+    const { data: chargeResult, error: chargeError } = await supabase.rpc("update_pin_image_and_charge", {
+      p_user_id: String(req.userId),
+      p_pin_id: req.params.id,
+      p_image_url: image.url,
+      p_amount: cost,
+    });
+    if (chargeError) {
+      if (/insufficient credits/i.test(chargeError.message || "")) {
+        throw httpError(402, "Недостаточно кредитов для перегенерации");
+      }
+      if (/not found or not owned/i.test(chargeError.message || "")) {
+        throw httpError(404, "Пин не найден");
+      }
+      throw chargeError;
     }
 
+    const { data: updated, error: readError } = await supabase
+      .from("pins")
+      .select("*")
+      .eq("id", req.params.id)
+      .single();
+    if (readError || !updated) throw httpError(500, "Изображение обновлено, но не удалось получить результат");
     res.json(updated);
   } catch (e) {
     handleError(res, e);
@@ -797,20 +825,31 @@ app.post("/boards/:id/pins/generate", aiLimiter, requireAuth, requireTariff(["st
     }));
     const totalCharge = markedUpPins.reduce((sum, p) => sum + p.credits_cost, 0);
 
-    await adjustBalance(
-      req.userId,
-      -totalCharge,
-      "generation",
-      `Генерация ${markedUpPins.length} пинов (${model})`
-    );
+    const { data: savedResult, error: saveError } = await supabase.rpc("save_generated_pins_and_charge", {
+      p_user_id: String(req.userId),
+      p_board_id: board.id,
+      p_pins: markedUpPins.map((p) => ({
+        image_url: p.image_url,
+        title: p.title,
+        description: p.description || "",
+        model_used: p.model_used,
+        aspect_ratio: p.aspect_ratio,
+        credits_cost: p.credits_cost,
+      })),
+      p_amount: totalCharge,
+    });
 
-    const { data: inserted, error } = await supabase.from("pins").insert(markedUpPins).select();
-    if (error) {
-      // возврат кредитов, если пины не сохранились (частичный фикс B6)
-      await adjustBalance(req.userId, totalCharge, "refund", "Возврат кредитов: генерация не сохранена").catch(() => {});
-      throw httpError(500, "Не удалось сохранить пины, кредиты возвращены на баланс");
+    if (saveError) {
+      if (/insufficient credits/i.test(saveError.message || "")) {
+        throw httpError(402, "Баланс изменился во время генерации. Недостаточно кредитов для сохранения результата.");
+      }
+      throw saveError;
     }
 
+    const inserted = savedResult && savedResult.pins;
+    if (!Array.isArray(inserted) || inserted.length === 0) {
+      throw httpError(500, "Не удалось сохранить сгенерированные пины");
+    }
     res.status(201).json(inserted);
   } catch (e) {
     handleError(res, e);
@@ -838,12 +877,7 @@ app.get("/credits", requireAuth, async (req, res) => {
 // Тестовое пополнение: только при ENABLE_DEV_TOPUP=true вне production (B11)
 app.post("/credits/dev-topup", async (req, res) => {
   try {
-    if (process.env.NODE_ENV === "production" || process.env.ENABLE_DEV_TOPUP !== "true") {
-      throw httpError(404, "Не найдено");
-    }
-    const { email, amount, adminSecret } = req.body;
-    if (adminSecret !== process.env.ADMIN_SECRET) throw httpError(401, "Не авторизован");
-
+    const { email, amount } = validateDevTopupRequest(req.body);
     const { data: user, error } = await supabase.from("users").select("id").eq("email", email).single();
     if (error || !user) throw httpError(404, "Пользователь не найден");
 

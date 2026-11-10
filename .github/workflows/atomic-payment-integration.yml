@@ -1,0 +1,121 @@
+name: Atomic payment fulfillment integration
+
+on:
+  push:
+    branches:
+      - fix/atomic-payment-fulfillment
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-atomicity:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pinposy_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d pinposy_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Prepare disposable schema
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 <<'SQL'
+          create role anon nologin;
+          create role authenticated nologin;
+          create role service_role nologin;
+          create table public.users (
+            id uuid primary key default gen_random_uuid(),
+            email text not null,
+            credits_balance integer not null default 0,
+            tariff_plan text not null default 'none',
+            tariff_period_end timestamptz
+          );
+          create table public.projects (
+            id uuid primary key default gen_random_uuid(),
+            user_id uuid not null references public.users(id),
+            niche text
+          );
+          create table public.boards (
+            id uuid primary key default gen_random_uuid(),
+            project_id uuid not null references public.projects(id)
+          );
+          create table public.pins (
+            id uuid primary key default gen_random_uuid(),
+            board_id uuid not null references public.boards(id),
+            image_url text,
+            title text,
+            description text,
+            status text default 'pending',
+            model_used text,
+            credits_cost numeric,
+            scheduled_date date,
+            aspect_ratio text default '2:3',
+            created_at timestamp without time zone default now()
+          );
+          create table public.credit_transactions (
+            id uuid primary key default gen_random_uuid(),
+            user_id text,
+            amount numeric,
+            type text,
+            description text,
+            created_at timestamptz default now()
+          );
+          create table public.credit_purchases (
+            id uuid primary key default gen_random_uuid(),
+            user_id text not null,
+            package_id text not null,
+            pack_title text,
+            credits integer not null,
+            status text not null default 'pending',
+            provider_payment_id text,
+            amount numeric not null default 0,
+            currency text not null default 'rub',
+            paid_at timestamptz,
+            balance_credited_at timestamptz,
+            created_at timestamptz not null default now()
+          );
+          create table public.subscriptions (
+            id uuid primary key default gen_random_uuid(),
+            user_id text not null,
+            plan text not null,
+            status text not null default 'pending',
+            provider_payment_id text,
+            amount numeric not null default 0,
+            currency text not null default 'rub',
+            period_start timestamptz,
+            period_end timestamptz,
+            created_at timestamptz not null default now()
+          );
+          SQL
+      - name: Apply atomic migrations
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/010_atomic_credit_ledger.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/011_atomic_subscription_activation.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/012_atomic_generation_charge.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/013_atomic_pin_regeneration.sql
+      - name: Verify duplicate webhooks and ledger consistency
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/postgres-integration.sql
