@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects, retryFailedPinImageDeletions, processPendingPinImageRetentionQueue, deleteManagedPinImageObject, findCompletedManagedPinImageUpload, validatePinImageBucketConfiguration, isDefiniteStorageRejection, isStorageObjectNotFound } = require("./pinImageLifecycle");
+const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects, retryFailedPinImageDeletions, processPendingPinImageRetentionQueue, deleteManagedPinImageObject, findCompletedManagedPinImageUpload, validatePinImageBucketConfiguration, isDefiniteStorageRejection, isStorageObjectNotFound } = require("../pinImageLifecycle");
 
 const base = "https://project.supabase.co";
 
