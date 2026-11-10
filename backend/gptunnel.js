@@ -65,7 +65,7 @@ function imageTaskResult(task) {
     !parsedUrl.hostname ||
     parsedUrl.username ||
     parsedUrl.password ||
-    !Number.isFinite(Number(price)) || Number(price) < 0 ||
+    !Number.isFinite(Number(price)) || Number(price) <= 0 ||
     typeof taskId !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(taskId)
   ) {
     throw new Error("Провайдер вернул некорректный результат генерации");
