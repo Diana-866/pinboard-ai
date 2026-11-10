@@ -11,6 +11,16 @@ const EVIDENCE_TYPES = new Set([
 const SAFE_EVIDENCE_REFERENCE_RE = /^[A-Za-z0-9][A-Za-z0-9._/#:-]{7,499}$/;
 const MAX_BIGINT = 9223372036854775807n;
 
+function validateBodyFields(body, allowedFields) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw httpError(422, "Некорректный формат административного запроса");
+  }
+  const allowed = new Set(allowedFields);
+  if (Object.keys(body).some((key) => !allowed.has(key))) {
+    throw httpError(422, "Запрос содержит неподдерживаемые поля");
+  }
+}
+
 function requestId(value) {
   let normalized;
   if (typeof value === "number") {
@@ -86,6 +96,7 @@ async function invoke(operatorUserId, rpcName, args, response) {
 }
 
 async function reconcileGeneration(operatorUserId, body = {}) {
+  validateBodyFields(body, ["request_id", "task_index", "provider_refunded", "evidence_type", "evidence_reference", "action_id"]);
   const id = requestId(body.request_id);
   const taskIndex = body.task_index;
   if (!Number.isInteger(taskIndex) || taskIndex < 1 || taskIndex > 10) {
@@ -113,6 +124,7 @@ async function reconcileGeneration(operatorUserId, body = {}) {
 }
 
 async function reconcileRegeneration(operatorUserId, body = {}) {
+  validateBodyFields(body, ["request_id", "provider_refunded", "evidence_type", "evidence_reference", "action_id"]);
   const id = requestId(body.request_id);
   if (typeof body.provider_refunded !== "boolean") {
     throw httpError(422, "Необходимо указать подтверждённый статус возврата");
@@ -135,6 +147,7 @@ async function reconcileRegeneration(operatorUserId, body = {}) {
 }
 
 async function finalizeGeneration(operatorUserId, body = {}) {
+  validateBodyFields(body, ["request_id", "action_id"]);
   const id = requestId(body.request_id);
   const idempotencyId = actionId(body.action_id);
   return invoke(operatorUserId, "admin_finalize_reconciled_pin_generation_failure", {
@@ -150,6 +163,7 @@ async function finalizeGeneration(operatorUserId, body = {}) {
 }
 
 async function finalizeRegeneration(operatorUserId, body = {}) {
+  validateBodyFields(body, ["request_id", "action_id"]);
   const id = requestId(body.request_id);
   const idempotencyId = actionId(body.action_id);
   return invoke(operatorUserId, "admin_finalize_reconciled_pin_regeneration_failure", {
@@ -171,6 +185,7 @@ module.exports = {
   finalizeRegeneration,
   requestId,
   actionId,
+  validateBodyFields,
   evidence,
   mapRpcError,
 };
