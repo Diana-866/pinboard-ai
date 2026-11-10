@@ -39,8 +39,6 @@ test("generation reconciliation derives operator identity from the authenticated
     evidence_type: "provider_dashboard",
     evidence_reference: "ticket-2026-001",
     action_id: ACTION_ID,
-    operator_user_id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
-    p_operator_user_id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
   });
 
   assert.equal(calls.length, 1);
@@ -112,6 +110,15 @@ test("invalid IDs, task indexes, refund facts, and evidence are rejected before 
   await assert.rejects(actions.reconcileGeneration(OPERATOR_ID, { ...base, evidence_reference: "a@b.example" }), { httpStatus: 422 });
   await assert.rejects(actions.finalizeGeneration(OPERATOR_ID, { request_id: "9223372036854775808", action_id: ACTION_ID }), { httpStatus: 422 });
   await assert.rejects(actions.finalizeGeneration(OPERATOR_ID, { request_id: "12", action_id: "not-a-uuid" }), { httpStatus: 422 });
+  await assert.rejects(actions.reconcileGeneration(OPERATOR_ID, {
+    ...base,
+    operator_user_id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+  }), { httpStatus: 422 });
+  await assert.rejects(actions.finalizeGeneration(OPERATOR_ID, {
+    request_id: "12",
+    action_id: ACTION_ID,
+    p_operator_user_id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+  }), { httpStatus: 422 });
 
   assert.equal(calls.length, 0);
 });
