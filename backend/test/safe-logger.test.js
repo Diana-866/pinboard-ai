@@ -181,3 +181,19 @@ test("omits syntactically valid but unrecognized error codes", () => {
     status: 500,
   });
 });
+
+test("fatal logger writes only a fixed event synchronously", () => {
+  const fs = require("node:fs");
+  const originalWrite = fs.writeSync;
+  const output = [];
+  fs.writeSync = (fd, value) => { output.push({ fd, value }); return value.length; };
+  try {
+    require("../safeLogger").logFatalSync("process.uncaught_exception");
+  } finally {
+    fs.writeSync = originalWrite;
+  }
+  assert.equal(output.length, 1);
+  assert.equal(output[0].fd, 2);
+  assert.deepEqual(JSON.parse(output[0].value), { level: "fatal", event: "process.uncaught_exception" });
+  assert.equal(output[0].value.endsWith("\n"), true);
+});
