@@ -9,7 +9,7 @@ const mail = require("./mail");
 const { getEmailCopy, getPlanTitle, getLocale } = require("./email-locales");
 const prodamus = require("./prodamus");
 const { createPaymentOrderId } = require("./paymentOrderId");
-const { beginPaymentCreation, attachPaymentCreationOrder, completePaymentCreation, markPaymentCreationUnknown, failPaymentCreation } = require("./paymentCreationIdempotency");
+const { beginPaymentCreation, attachPaymentCreationOrder, denyUnsentPaymentRecord, completePaymentCreation, markPaymentCreationUnknown, failPaymentCreation } = require("./paymentCreationIdempotency");
 const { persistWebhookException } = require("./billingWebhookAudit");
 const { httpError, validateEnum } = require("./validate");
 const { normalizePlan } = require("./tariff");
@@ -124,10 +124,17 @@ async function createPayment(userId, body, idempotencyKey) {
   try {
     await attachPaymentCreationOrder(userId, idempotencyKey, orderId);
   } catch (error) {
-    await supabase.from("subscriptions").update({ status: "denied" }).eq("id", sub.id).eq("status", "pending");
+    try {
+      await denyUnsentPaymentRecord("subscriptions", sub.id);
+    } catch (cleanupError) {
+      console.error("[billing] не удалось подтвердить отмену локальной записи без отправленного счёта:", {
+        recordId: sub.id,
+        error: cleanupError && cleanupError.message,
+      });
+    }
     await failPaymentCreation(userId, idempotencyKey, error);
     console.error("[billing] не удалось сохранить идентификатор заказа до обращения к провайдеру:", error.message);
-    throw httpError(503, "Не удалось безопасно подготовить заказ. Счёт провайдеру не отправлялся; попробуйте создать новую попытку оплаты.");
+    throw httpError(503, "Не удалось безопасно подготовить заказ. Счёт провайдеру не отправлялся; статус заказа требует проверки.");
   }
 
   const base = publicBase();
