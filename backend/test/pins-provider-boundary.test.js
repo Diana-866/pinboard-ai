@@ -120,6 +120,42 @@ test("text provider usage is awaited and persisted before parsing ideas", async 
   assert.deepEqual(events, ["submission", "response", "usage-persisted", "image"]);
 });
 
+test("text usage journal failure stops before quote and image provider boundaries", async () => {
+  let quoteChecked = false;
+  let imageSubmitted = false;
+  provider.generateText = async () => JSON.stringify([
+    { title: "Journal failure pin", description: "Test", image_prompt: "A test image" },
+  ]);
+  provider.generateImage = async () => {
+    imageSubmitted = true;
+    throw new Error("image provider must not be called after journal failure");
+  };
+
+  await assert.rejects(
+    generatePins(
+      { id: "board-journal-failure", title: "Test board", description: "" },
+      { niche: "test", tone: "neutral", language: "en" },
+      "flux-schnell",
+      1,
+      "2:3",
+      null,
+      {
+        onTextProviderUsage: async () => {
+          throw new Error("usage journal unavailable");
+        },
+        ensureTaskQuotes: async () => {
+          quoteChecked = true;
+          return [];
+        },
+      }
+    ),
+    /usage journal unavailable/
+  );
+
+  assert.equal(quoteChecked, false);
+  assert.equal(imageSubmitted, false);
+});
+
 test("text-plan generation extracts a JSON array surrounded by provider prose", async () => {
   provider.generateText = async () => [
     "Here is the requested JSON:",
