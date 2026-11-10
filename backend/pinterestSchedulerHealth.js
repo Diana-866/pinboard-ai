@@ -1,20 +1,33 @@
 "use strict";
 
 const DEFAULT_STALE_AFTER_MS = 3 * 60 * 1000;
+const DEFAULT_RUNNING_TIMEOUT_MS = 20 * 60 * 1000;
 
 function summarizePinterestSchedulerHealth(row, now = Date.now(), staleAfterMs = DEFAULT_STALE_AFTER_MS) {
   if (!row || row.status === "never" || !row.last_started_at) {
-    return { status: "not_seen", stale_after_seconds: Math.floor(staleAfterMs / 1000), last_started_age_seconds: null, last_completed_age_seconds: null };
+    return {
+      status: "not_seen",
+      stale_after_seconds: Math.floor(staleAfterMs / 1000),
+      running_timeout_seconds: Math.floor(DEFAULT_RUNNING_TIMEOUT_MS / 1000),
+      last_started_age_seconds: null,
+      last_completed_age_seconds: null,
+    };
   }
   const startedAt = Date.parse(row.last_started_at);
   const completedAt = row.last_completed_at ? Date.parse(row.last_completed_at) : NaN;
-  const startedAge = Number.isFinite(startedAt) ? Math.max(0, Math.floor((now - startedAt) / 1000)) : null;
-  const completedAge = Number.isFinite(completedAt) ? Math.max(0, Math.floor((now - completedAt) / 1000)) : null;
-  const stale = startedAge === null || startedAge > Math.floor(staleAfterMs / 1000);
-  const status = stale ? "stale" : row.status === "running" ? "running" : row.status === "failed" ? "failed" : "healthy";
+  const startedAgeMs = Number.isFinite(startedAt) ? Math.max(0, now - startedAt) : null;
+  const completedAgeMs = Number.isFinite(completedAt) ? Math.max(0, now - completedAt) : null;
+  const startedAge = startedAgeMs === null ? null : Math.floor(startedAgeMs / 1000);
+  const completedAge = completedAgeMs === null ? null : Math.floor(completedAgeMs / 1000);
+  const isRunning = row.status === "running";
+  const stale = isRunning
+    ? startedAgeMs === null || startedAgeMs > DEFAULT_RUNNING_TIMEOUT_MS
+    : completedAgeMs === null || completedAgeMs > staleAfterMs;
+  const status = stale ? "stale" : isRunning ? "running" : row.status === "failed" ? "failed" : "healthy";
   return {
     status,
     stale_after_seconds: Math.floor(staleAfterMs / 1000),
+    running_timeout_seconds: Math.floor(DEFAULT_RUNNING_TIMEOUT_MS / 1000),
     last_started_age_seconds: startedAge,
     last_completed_age_seconds: completedAge,
     last_started_at: row.last_started_at,
@@ -31,4 +44,4 @@ function summarizePinterestSchedulerHealth(row, now = Date.now(), staleAfterMs =
   };
 }
 
-module.exports = { summarizePinterestSchedulerHealth, DEFAULT_STALE_AFTER_MS };
+module.exports = { summarizePinterestSchedulerHealth, DEFAULT_STALE_AFTER_MS, DEFAULT_RUNNING_TIMEOUT_MS };
