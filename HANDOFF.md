@@ -2656,3 +2656,16 @@ Date: 2026-11-10
 - Тесты и SQL integration harnesses просмотрены как исходники, но не запускались. Нет live GPTunnel API, PostgreSQL, production config или deployment verification.
 - Никакие исходники, миграции, provider credentials, пользовательские балансы, production services или deployments не менялись.
 - Следующий логичный этап: AUD-330 — проверка всех AI/provider entry points на наличие стоимости, учёта, тарифных ограничений и durable spend budget; затем отдельная реализация usage journal для двух legacy text routes после определения product charging policy.
+
+
+## Дополнение к handoff — 2026-11-10 (AUD-330)
+
+- Добавлен `docs/audits/AUD-330-ai-provider-entrypoint-spend-control-inventory.md`.
+- Проведена bounded source inventory прямых GPTunnel call sites в backend JS/TS: project website analysis, board idea generation, multi-pin generation (text planning + image tasks), single-pin regeneration.
+- Матрица в отчёте фиксирует auth/ownership, tariff gate, AI limiter, durable operation identity и usage/cost journal для каждого entry point.
+- Подтверждены повторные риски AUD-329: `POST /projects/:id/analyze` не имеет tariff gate, durable idempotency или provider usage/cost journal; `POST /projects/:id/boards/generate` имеет tariff gate, но не имеет durable idempotency или provider usage/cost journal. Оба используют process-local `aiLimiter`, который не является финансовым бюджетом.
+- Multi-pin generation и single-pin regeneration имеют более сильные DB idempotency/task journals, reservation, quote/actual settlement; text plan usage сохраняется с явным missing-cost состоянием.
+- Не обнаружено дополнительных прямых GPTunnel/OpenAI call sites в bounded scan JS/TS. Это не доказательство отсутствия indirect/provider-side integration.
+- Рекомендованная последовательность: определить product charging policy для analysis/board ideas; внедрить usage-aware durable operation journal; добавить shared/durable per-user и global RUB spend ceilings; расширить cost reporting и тесты ambiguous retries.
+- Только source review; тесты, lint, typecheck, build, SQL и HTTP integration не запускались. Live provider, production config и deployment не проверялись. Никаких исходников, миграций, балансов или production-систем не меняли.
+- Следующий логичный этап: AUD-331 — спроектировать и реализовать безопасный durable usage journal и идемпотентность для legacy analysis/board-generation text routes, начиная с проверки схемы и существующих RPC/migration conventions.
