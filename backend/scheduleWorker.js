@@ -16,6 +16,9 @@ const REQUEST_TIMEOUT_MS = Math.min(
 // Claim one row per HTTP run to keep request duration and recovery scope bounded.
 // The backend also renews the active row's claim while Pinterest work is in flight.
 const BATCH_LIMIT = 1;
+// Keep shutdown inside the short termination grace periods used by hosted workers.
+// Any unfinished request is recovered from its durable DB claim after restart.
+const DEFAULT_DRAIN_TIMEOUT_MS = 20_000;
 
 function getWorkerConfig(env = process.env) {
   const baseUrl = String(env.PINPOSY_BACKEND_URL || env.PUBLIC_BACKEND_URL || "").trim().replace(/[/]+$/, "");
@@ -30,7 +33,14 @@ function getWorkerConfig(env = process.env) {
   return { endpoint: baseUrl + "/internal/pinterest/schedule/run", secret };
 }
 
-function createWorker({ config, client = axios, logger = console, intervalMs = POLL_INTERVAL_MS, timeoutMs = REQUEST_TIMEOUT_MS }) {
+function createWorker({
+  config,
+  client = axios,
+  logger = console,
+  intervalMs = POLL_INTERVAL_MS,
+  timeoutMs = REQUEST_TIMEOUT_MS,
+  drainTimeoutMs = DEFAULT_DRAIN_TIMEOUT_MS,
+}) {
   let timer = null;
   let active = false;
   let stopped = false;
@@ -77,8 +87,15 @@ function createWorker({ config, client = axios, logger = console, intervalMs = P
     stopped = true;
     if (timer) clearInterval(timer);
     timer = null;
-    // Let an in-flight request finish so the backend can persist its result.
-    while (active) await new Promise((resolve) => setTimeout(resolve, 50));
+    // Drain briefly, but never hold SIGTERM for the full HTTP timeout (up to
+    // 15 minutes). If the request outlives the host's shutdown grace period,
+    // PostgreSQL's fenced stale-claim recovery remains the source of truth.
+    const drainMs = Math.max(0, Number(drainTimeoutMs) || 0);
+    const deadline = Date.now() + drainMs;
+    while (active && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, Math.min(50, Math.max(1, deadline - Date.now()))));
+    }
+    return !active;
   }
 
   return { start, stop, tick };
@@ -109,4 +126,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { getWorkerConfig, createWorker, MAX_REQUEST_TIMEOUT_MS };
+module.exports = { getWorkerConfig, createWorker, MAX_REQUEST_TIMEOUT_MS, DEFAULT_DRAIN_TIMEOUT_MS };
