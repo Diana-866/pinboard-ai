@@ -6,6 +6,7 @@ declare
   v_state jsonb;
   v_user_id uuid;
   v_subscription_id uuid;
+  v_unactivated_subscription_id uuid;
   v_purchase_id uuid;
   v_settled boolean;
   v_failed boolean;
@@ -83,6 +84,38 @@ begin
   ) into v_state;
   if v_state->>'status' <> 'settled' or v_state ? 'result' then
     raise exception 'settled checkout must not replay its payment URL, got %', v_state;
+  end if;
+
+  -- A success-looking subscription row without an activated paid period is not fulfilled.
+  insert into public.subscriptions(
+    user_id, plan, status, provider_payment_id, amount, currency
+  ) values (
+    v_user_id::text, 'pro', 'success', 'pp-settlement-sub-no-period',
+    4990, 'rub'
+  ) returning id into v_unactivated_subscription_id;
+
+  select public.begin_payment_creation_request(
+    v_user_id::text, 'settlement-sub-key-no-period',
+    'subscription', repeat('b', 64)
+  ) into v_state;
+  perform public.attach_payment_creation_order(
+    v_user_id::text, 'settlement-sub-key-no-period', 'pp-settlement-sub-no-period'
+  );
+
+  v_failed := false;
+  begin
+    perform public.settle_payment_creation_request(
+      'pp-settlement-sub-no-period', 'subscription', v_unactivated_subscription_id
+    );
+  exception when others then
+    if sqlerrm like '%local payment is not exactly fulfilled%' then
+      v_failed := true;
+    else
+      raise;
+    end if;
+  end;
+  if not v_failed then
+    raise exception 'subscription without an activated paid period must not settle';
   end if;
 
   -- A credit purchase additionally requires the atomic balance marker.
