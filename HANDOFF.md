@@ -3412,3 +3412,16 @@ Artifacts:
 - docs/runbooks/account-data-deletion-manifest-aud-395.md
 
 No code, tests, SQL, policy wording, provider calls, Storage operations, account data or production settings changed. Actual deployed FK/migration state and provider retention remain unverified.
+
+
+## AUD-396 — executable account-deletion workflow architecture (2026-11-11)
+
+Converted AUD-390–395 findings into a concrete design contract; no implementation or migration. Defines monotonic lifecycle states, confirmed request and immutable event journal, per-step jobs with claim/lease fencing, versioned deletion manifest, atomic user-first request acceptance, universal route/worker lifecycle gates, strict lock order, bounded worker protocol, external unknown-outcome handling, ordered phases P0–P10, FK/Storage-safe cleanup, security/observability, rollout/rollback and mandatory staging tests.
+
+Key constraints: user row locked before workflow/domain rows; no external network calls under DB locks; lease expiry is not proof that a provider side effect failed; deletion cannot roll back to active after acceptance; preserve Prodamus settlement, GPTunnel spend and Pinterest remote publication facts while withholding entitlement/retry; Storage deletion reuses reference-aware claim/quarantine protocol; no broad cascade or prefix deletion. Feature flag defaults OFF; no deletion endpoint may be exposed until every release blocker is verified.
+
+Artifacts:
+- docs/audits/AUD-396-executable-account-deletion-workflow-architecture.md
+- docs/runbooks/account-deletion-workflow-aud-396.md
+
+No code, migrations, tests, SQL, provider calls, Storage operations, account data or production settings changed. Design only; deployed schema/FKs, provider retention and legal retention approvals remain unverified.
