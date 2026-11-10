@@ -2954,3 +2954,11 @@ Date: 2026-11-10
 - Каждый запуск subscription email outbox (таймер/старт приложения/вызов после callback) получает отдельный UUID-контекст; ошибка dispatch сохраняет этот ID в safe log.
 - Границы: ID worker tick и ID HTTP-запроса к backend пока независимы, поскольку backend намеренно не доверяет клиентскому correlation header. ID не сохраняются в durable generation/Pinterest rows; для этого потребовались бы отдельное решение по схеме и миграция.
 - Добавлен тест safe-log UUID для worker tick. Runtime tests, lint, build и CI не запускались. Production/DB/payment/email/Pinterest/deploy не затрагивались.
+
+## Дополнение к handoff — 2026-11-11 (AUD-357)
+
+- `safeEventName` больше не превращает произвольный текст в event key. Разрешены только короткие namespaced static IDs `module.event_name`; свободный текст/email заменяется на `unclassified_error`, без сохранения фрагментов.
+- Валидация correlation ID усилена до канонической UUID-формы с допустимыми version/variant; malformed UUID-подобные строки не попадают в лог.
+- `logWarning` теперь пишет в `console.warn`, а `logError` — в `console.error` (ранее warning с уровнем warn ошибочно направлялся в stderr error channel).
+- Добавлены тесты на PII/free-text event rejection, canonical UUID и warning output channel.
+- Runtime tests, lint, build и CI не запускались. Это source-level проверка, не аудит production log sink/retention/access control. Production/DB/payment/email/Pinterest/deploy не затрагивались.
