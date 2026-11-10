@@ -6,6 +6,7 @@ declare
   v_project uuid;
   v_board uuid;
   v_pin uuid;
+  v_orphan_published_pin uuid;
   v_legacy_pin uuid;
   v_reconcile_pin uuid;
   v_unavailable_pin uuid;
@@ -181,6 +182,29 @@ begin
   v_result := public.begin_pinterest_publish_v2(v_user::text, v_pin, v_account_a, 'board-a');
   if v_result->>'status' <> 'published' or v_result->>'pinterest_pin_id' <> 'remote-a' then
     raise exception 'duplicate publication on account A was not idempotent: %', v_result;
+  end if;
+
+  -- A publication on another board is not success for this requested destination.
+  v_result := public.begin_pinterest_publish_v2(v_user::text, v_pin, v_account_a, 'board-other');
+  if v_result->>'status' <> 'unknown'
+     or (select pinterest_board_id from public.pinterest_publications
+          where pin_id=v_pin and pinterest_account_id=v_account_a) <> 'board-a' then
+    raise exception 'existing publication on a different board was accepted as this destination: %',v_result;
+  end if;
+
+  -- A published attempt without its matching publication ledger is not proof
+  -- that Pinterest created the remote pin; it must stay blocked for review.
+  insert into public.pins(board_id,image_url,title,description,status,model_used,credits_cost)
+  values(v_board,'https://cdn.example.invalid/orphan-published.png','Orphan published attempt','','approved','flux-schnell',0)
+  returning id into v_orphan_published_pin;
+  insert into public.pinterest_publish_attempts(
+    user_id,pin_id,pinterest_account_id,pinterest_board_id,status,pinterest_pin_id
+  ) values (
+    v_user::text,v_orphan_published_pin,v_account_a,'board-a','published','remote-orphan'
+  );
+  v_result := public.begin_pinterest_publish_v2(v_user::text,v_orphan_published_pin,v_account_a,'board-a');
+  if v_result->>'status' <> 'unknown' then
+    raise exception 'published attempt without publication ledger was treated as confirmed: %',v_result;
   end if;
 
   -- A separate claimed schedule models a worker already in flight.
@@ -803,7 +827,7 @@ begin
   delete from public.pinterest_publish_attempts where user_id = v_user::text;
   delete from public.pinterest_publications where user_id = v_user::text;
   delete from public.pinterest_accounts where user_id = v_user::text;
-  delete from public.pins where id in (v_pin, v_legacy_pin, v_inflight_pin, v_crash_pin, v_retry_pin, v_manual_retry_pin, v_attempt_retry_pin, v_safe_retry_pin, v_reconcile_pin, v_snapshot_pin, v_unavailable_pin, v_safe_crash_pin, v_unsafe_crash_pin);
+  delete from public.pins where id in (v_pin, v_orphan_published_pin, v_legacy_pin, v_inflight_pin, v_crash_pin, v_retry_pin, v_manual_retry_pin, v_attempt_retry_pin, v_safe_retry_pin, v_reconcile_pin, v_snapshot_pin, v_unavailable_pin, v_safe_crash_pin, v_unsafe_crash_pin);
   delete from public.boards where id = v_board;
   delete from public.projects where id = v_project;
   delete from public.users where id = v_user;
