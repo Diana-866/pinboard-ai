@@ -23,6 +23,8 @@ declare
   v_local_user_id text;
   v_local_order_id text;
   v_local_status text;
+  v_local_period_start timestamptz;
+  v_local_period_end timestamptz;
   v_balance_credited_at timestamptz;
 begin
   if p_order_id is null or length(trim(p_order_id)) < 8
@@ -48,8 +50,9 @@ begin
   end if;
 
   if p_request_kind = 'subscription' then
-    select user_id::text, provider_payment_id, status
-      into v_local_user_id, v_local_order_id, v_local_status
+    select user_id::text, provider_payment_id, status, period_start, period_end
+      into v_local_user_id, v_local_order_id, v_local_status,
+           v_local_period_start, v_local_period_end
       from public.subscriptions
      where id = p_local_payment_id;
   else
@@ -63,6 +66,9 @@ begin
      or v_local_user_id is distinct from v_request.user_id
      or v_local_order_id is distinct from p_order_id
      or v_local_status is distinct from 'success'
+     or (p_request_kind = 'subscription'
+         and (v_local_period_start is null or v_local_period_end is null
+              or v_local_period_end <= v_local_period_start))
      or (p_request_kind = 'credits' and v_balance_credited_at is null) then
     raise exception 'local payment is not exactly fulfilled for checkout request';
   end if;
