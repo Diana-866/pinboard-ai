@@ -2025,3 +2025,27 @@ However, the key was not released when the authenticated pricing view later obse
 - Static GitHub read-back confirmed the helper export/import and transition-based release logic.
 - Automated frontend tests, lint, typecheck, and build have not been executed in this environment. Existing GitHub Actions jobs are failing before exposing job steps/logs; Vercel reports `build-rate-limit`.
 - No production payment, database mutation, deployment, or PR merge was performed.
+
+
+
+# AUD-309 — fail-closed checkout key release on terminal payment states
+
+Date: 2026-11-10
+
+## Finding
+
+AUD-308 released a subscription/credit checkout idempotency key after a previously pending order changed to any status other than `pending`. That was broader than the safe provider-confirmed terminal-state contract: an unexpected future status such as `unknown`, `processing`, or `created` could release the key while the original invoice outcome was still unresolved. The shared ID set also mixed subscription and credit-purchase records.
+
+## Change
+
+- Added `frontend/src/utils/paymentTerminalStatus.ts` with explicit allowlists:
+  - subscriptions: `success`, `canceled`, `denied`, `expired`;
+  - credit purchases: `success`, `canceled`, `denied`.
+- Updated `PricingView.tsx` to release keys only when a row was previously pending and its status is in the relevant allowlist.
+- Separated prior-pending subscription IDs from credit-purchase IDs so the two ledgers cannot cross-match.
+- Added `paymentTerminalStatus.test.ts` covering allowed terminal states and fail-closed unknown/malformed states.
+
+## Verification and safety
+
+- GitHub read-back is required after the writes. Tests, lint, TypeScript check, and build have not been executed in this environment; do not treat the added tests as passing.
+- No backend payment state machine, Prodamus webhook, SQL migration, production data, deployment, or PR merge was changed.
