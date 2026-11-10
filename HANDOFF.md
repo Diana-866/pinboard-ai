@@ -3218,3 +3218,14 @@ Date: 2026-11-10
 - **AUD-380-04:** clarify retry copy means enqueue now, not restore original target time.
 - Added `docs/audits/AUD-380-calendar-schedule-lifecycle-and-mutation-contract.md` and `docs/runbooks/pinterest-calendar-recovery-aud-380.md`.
 - No code/SQL/tests/build/CI/DB/Storage/Pinterest/provider/payment changes or production operations performed.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-381: calendar interactions and DST edge cases)
+
+- Проверены календарные клики, распространение IANA timezone preference, publish-now formatting и преобразование локального времени в абсолютный instant.
+- Подтверждено: календарь строит дни в выбранной timezone; генератор читает сохранённую timezone; publish-now берёт дату/время из одного instant; весенний DST gap отклоняется; offset вычисляется на целевую дату.
+- **AUD-381-01:** повторяющееся время при осеннем DST rollback неоднозначно; helper выбирает один instant без выбора пользователя. Нужна явная политика earlier/later либо отказ с понятной ошибкой и тестами.
+- **AUD-381-02:** schedule tiles в month view — неинтерактивные div внутри кликабельной ячейки дня. Клик по существующему пину всплывает до day cell и открывает генерацию вместо деталей. Исправить на keyboard-accessible button с stopPropagation и открыть schedule detail.
+- **AUD-381-03:** timezone preference хранится в одном browser-local ключе и переносится между аккаунтами в одном браузере. Это приемлемо как device preference; для per-user setting нужна серверная настройка.
+- Добавлены `docs/audits/AUD-381-calendar-interactions-and-dst-edge-cases.md` и `docs/runbooks/calendar-timezone-and-interaction-aud-381.md`.
+- Статическая проверка исходников; тесты/build/lint/CI/browser не запускались. Production, DB, Storage, Pinterest, payments и внешние сервисы не затрагивались.
