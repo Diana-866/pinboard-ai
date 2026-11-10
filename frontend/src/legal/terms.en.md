@@ -1,12 +1,12 @@
 # PinPosy Terms of Service
 
-Last updated: October 17, 2026
+Last updated: November 5, 2026
 
-These Terms govern your use of PinPosy ("the Service"). By creating an account or using the Service, you agree to these Terms. Service URL: https://pinboard-ai-web.vercel.app (will be updated once a custom domain is registered).
+These Terms govern your use of PinPosy ("the Service"). By creating an account or using the Service, you agree to these Terms. Service URL: https://pinposy.com.
 
 ## 1. Operator
 
-The Service is operated by a self-employed individual [FULL LEGAL NAME — to be added], registered in the Russian Federation. Contact: **support@pinposy.com**.
+The Service is operated by Diana Aleksandrovna Bannova, a self-employed individual registered under the Russian professional income tax (NPD) regime in the Russian Federation. Tax ID (INN): **231294708907**. Contact: **support@pinposy.com**.
 
 ## 2. What the Service Does
 
@@ -24,7 +24,7 @@ PinPosy is an AI-assisted tool that helps you analyze your website, discover boa
 - Credits included in a subscription are refreshed each billing cycle and **do not carry over**. Credits purchased as packs **do not expire**.
 - Generation consumes subscription credits first, then pack credits.
 - Payments are processed by a third-party payment provider. We never receive or store your full card details.
-- Credits already used are non-refundable, except where required by law. If you were charged in error or the Service failed to deliver what you paid for, contact us and we will review your case.
+- Credits already used are non-refundable, except where required by law. If you were charged in error, the Service is unavailable, or paid access was not provided, contact **support@pinposy.com** with your payment ID. Once a refund is approved, we will submit a refund request to Prodamus. The time it takes for the funds to reach you depends on the payment provider and your bank and may take up to 30 business days.
 - Prices and plans may change; changes never apply retroactively to a period you have already paid for.
 
 ## 5. High-Demand Periods

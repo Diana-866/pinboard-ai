@@ -1,25 +1,63 @@
 // Почтовый модуль админки: чтение входящих (IMAP) и ответы (SMTP).
 // Включается переменными окружения:
-//   MAIL_IMAP_HOST, MAIL_IMAP_PORT, MAIL_USER, MAIL_PASS
-//   MAIL_SMTP_HOST, MAIL_SMTP_PORT (опц.), MAIL_FROM (опц., по умолчанию MAIL_USER)
-// Если MAIL_* не заданы — эндпоинты отвечают 503 с понятным сообщением.
+//   IMAP: MAIL_IMAP_HOST, MAIL_IMAP_PORT, MAIL_IMAP_USER, MAIL_IMAP_PASS
+//   Ответы поддержки: MAIL_REPLY_SMTP_HOST, MAIL_REPLY_SMTP_PORT,
+//     MAIL_REPLY_SMTP_USER, MAIL_REPLY_SMTP_PASS, MAIL_REPLY_FROM
+//   Транзакционные письма: MAIL_SMTP_HOST, MAIL_SMTP_PORT,
+//     MAIL_SMTP_USER, MAIL_SMTP_PASS, MAIL_FROM
+// MAIL_USER/MAIL_PASS остаются fallback только для IMAP/ответов поддержки; транзакционная почта требует отдельные MAIL_SMTP_*.
 
 const { httpError } = require("./validate");
 
+function getImapAuth() {
+  return {
+    user: process.env.MAIL_IMAP_USER || process.env.MAIL_USER,
+    pass: process.env.MAIL_IMAP_PASS || process.env.MAIL_PASS,
+  };
+}
+
+function getTransactionalSmtpAuth() {
+  return {
+    user: process.env.MAIL_SMTP_USER,
+    pass: process.env.MAIL_SMTP_PASS,
+  };
+}
+
+function getReplySmtpConfig() {
+  const port = Number(process.env.MAIL_REPLY_SMTP_PORT || 465);
+  return {
+    host: process.env.MAIL_REPLY_SMTP_HOST,
+    port,
+    secure: port === 465,
+    requireTLS: port === 587,
+    auth: {
+      user: process.env.MAIL_REPLY_SMTP_USER || process.env.MAIL_USER,
+      pass: process.env.MAIL_REPLY_SMTP_PASS || process.env.MAIL_PASS,
+    },
+    from: process.env.MAIL_REPLY_FROM || process.env.MAIL_REPLY_SMTP_USER || process.env.MAIL_USER,
+  };
+}
+
 function mailConfigured() {
-  return !!(process.env.MAIL_IMAP_HOST && process.env.MAIL_USER && process.env.MAIL_PASS);
+  const auth = getImapAuth();
+  return !!(process.env.MAIL_IMAP_HOST && auth.user && auth.pass);
+}
+
+function transactionalMailConfigured() {
+  const auth = getTransactionalSmtpAuth();
+  return !!(process.env.MAIL_SMTP_HOST && auth.user && auth.pass);
 }
 
 async function listInbox(limit = 30) {
   if (!mailConfigured()) {
-    throw httpError(503, "Почта не настроена: задайте MAIL_IMAP_HOST, MAIL_USER, MAIL_PASS на сервере");
+    throw httpError(503, "Почта не настроена: задайте MAIL_IMAP_HOST, MAIL_IMAP_USER и MAIL_IMAP_PASS на сервере");
   }
   const { ImapFlow } = require("imapflow");
   const client = new ImapFlow({
     host: process.env.MAIL_IMAP_HOST,
     port: Number(process.env.MAIL_IMAP_PORT || 993),
     secure: true,
-    auth: { user: process.env.MAIL_USER, pass: process.env.MAIL_PASS },
+    auth: getImapAuth(),
     logger: false,
   });
 
@@ -59,14 +97,14 @@ async function listInbox(limit = 30) {
 
 async function fetchMessageBody(uid) {
   if (!mailConfigured()) {
-    throw httpError(503, "Почта не настроена: задайте MAIL_IMAP_HOST, MAIL_USER, MAIL_PASS на сервере");
+    throw httpError(503, "Почта не настроена: задайте MAIL_IMAP_HOST, MAIL_IMAP_USER и MAIL_IMAP_PASS на сервере");
   }
   const { ImapFlow } = require("imapflow");
   const client = new ImapFlow({
     host: process.env.MAIL_IMAP_HOST,
     port: Number(process.env.MAIL_IMAP_PORT || 993),
     secure: true,
-    auth: { user: process.env.MAIL_USER, pass: process.env.MAIL_PASS },
+    auth: getImapAuth(),
     logger: false,
   });
   await client.connect();
@@ -96,19 +134,21 @@ async function fetchMessageBody(uid) {
 }
 
 async function replyToMessage(to, subject, text) {
-  if (!process.env.MAIL_SMTP_HOST || !process.env.MAIL_USER || !process.env.MAIL_PASS) {
-    throw httpError(503, "SMTP не настроен: задайте MAIL_SMTP_HOST, MAIL_USER, MAIL_PASS на сервере");
+  const config = getReplySmtpConfig();
+  if (!config.host || !config.auth.user || !config.auth.pass) {
+    throw httpError(503, "SMTP ответов поддержки не настроен: задайте MAIL_REPLY_SMTP_HOST, MAIL_REPLY_SMTP_USER и MAIL_REPLY_SMTP_PASS");
   }
   const nodemailer = require("nodemailer");
   const transporter = nodemailer.createTransport({
-    host: process.env.MAIL_SMTP_HOST,
-    port: Number(process.env.MAIL_SMTP_PORT || 465),
-    secure: Number(process.env.MAIL_SMTP_PORT || 465) === 465,
-    auth: { user: process.env.MAIL_USER, pass: process.env.MAIL_PASS },
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    requireTLS: config.requireTLS,
+    auth: config.auth,
   });
 
   await transporter.sendMail({
-    from: process.env.MAIL_FROM || process.env.MAIL_USER,
+    from: config.from,
     to,
     subject: subject.startsWith("Re:") ? subject : `Re: ${subject}`,
     text,
@@ -118,28 +158,32 @@ async function replyToMessage(to, subject, text) {
 
 // Универсальная отправка письма (используется биллингом: «Тариф активирован»).
 // Не бросает исключение наружу без needThrow — вызывающий код сам решает, критично ли это.
-async function sendMail({ to, subject, text }, { needThrow = true } = {}) {
-  if (!process.env.MAIL_SMTP_HOST || !process.env.MAIL_USER || !process.env.MAIL_PASS) {
+async function sendMail({ to, subject, text, html, messageId }, { needThrow = true } = {}) {
+  if (!transactionalMailConfigured()) {
     if (!needThrow) {
       console.warn("[mail] SMTP не настроен — письмо не отправлено:", subject);
       return { ok: false, skipped: true };
     }
-    throw httpError(503, "SMTP не настроен: задайте MAIL_SMTP_HOST, MAIL_USER, MAIL_PASS на сервере");
+    throw httpError(503, "Транзакционная почта не настроена: задайте MAIL_SMTP_HOST, MAIL_SMTP_USER и MAIL_SMTP_PASS на сервере");
   }
   const nodemailer = require("nodemailer");
+  const port = Number(process.env.MAIL_SMTP_PORT || 465);
   const transporter = nodemailer.createTransport({
     host: process.env.MAIL_SMTP_HOST,
-    port: Number(process.env.MAIL_SMTP_PORT || 465),
-    secure: Number(process.env.MAIL_SMTP_PORT || 465) === 465,
-    auth: { user: process.env.MAIL_USER, pass: process.env.MAIL_PASS },
+    port,
+    secure: port === 465,
+    requireTLS: port === 587,
+    auth: getTransactionalSmtpAuth(),
   });
 
   try {
     await transporter.sendMail({
-      from: process.env.MAIL_FROM || process.env.MAIL_USER,
+      from: process.env.MAIL_FROM || getTransactionalSmtpAuth().user,
       to,
       subject,
       text,
+      ...(html ? { html } : {}),
+      ...(messageId ? { messageId } : {}),
     });
     return { ok: true };
   } catch (e) {
@@ -151,4 +195,4 @@ async function sendMail({ to, subject, text }, { needThrow = true } = {}) {
   }
 }
 
-module.exports = { listInbox, fetchMessageBody, replyToMessage, mailConfigured, sendMail };
+module.exports = { listInbox, fetchMessageBody, replyToMessage, mailConfigured, transactionalMailConfigured, sendMail };

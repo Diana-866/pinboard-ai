@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { apiRequest } from "../lib/api";
+import { apiRequest, ApiError } from "../lib/api";
 
 export interface User {
   id: string;
@@ -13,6 +13,7 @@ export interface User {
   tariff_plan?: 'none' | 'analytics' | 'start' | 'pro' | 'agency';
   /** Подтверждён ли email (колонка users.email_verified, миграция 005). undefined — миграция не применена */
   email_verified?: boolean;
+  preferred_language?: 'en' | 'ru' | 'es' | 'pt' | 'de' | 'fr' | 'zh';
   /** Дата окончания оплаченного периода тарифа (users.tariff_period_end, миграция 006) */
   tariff_period_end?: string | null;
   /** Активна ли оплаченная подписка прямо сейчас — по этому полю кабинет снимает замочки */
@@ -35,7 +36,7 @@ interface AuthContextType {
   isAuthModalOpen: boolean;
   openAuthModal: (mode?: string) => void;
   closeAuthModal: () => void;
-  refreshUser: () => Promise<void>;
+  refreshUser: () => Promise<boolean>;
   logout: () => void;
   updateUserAvatar: (url: string) => void;
   updateUser: (patch: Partial<User>) => void;
@@ -55,10 +56,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const token = localStorage.getItem("token");
     if (!token) {
       setUser(null);
-      return;
+      return false;
     }
     try {
       const data = await apiRequest("/me");
+      const localLanguage = localStorage.getItem("pinposy_lang");
+      if (localLanguage && ["en", "ru", "es", "pt", "de", "fr", "zh"].includes(localLanguage) && localLanguage !== data.preferred_language) {
+        try {
+          await apiRequest("/me", { method: "PATCH", body: JSON.stringify({ preferred_language: localLanguage }) });
+          data.preferred_language = localLanguage;
+        } catch (error) {
+          console.warn("[auth] Could not sync saved interface language:", error);
+        }
+      }
       let avatar: string | undefined;
       try {
         avatar = localStorage.getItem(AVATAR_KEY) || undefined;
@@ -72,9 +82,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         tariff_plan: data.tariff_plan ?? "none",
         avatar,
       });
+      return true;
     } catch (e) {
-      localStorage.removeItem("token");
-      setUser(null);
+      // A transient network/5xx failure must not destroy a still-valid local
+      // session. apiRequest already clears and redirects on protected-route 401.
+      if (e instanceof ApiError && e.status === 401) {
+        localStorage.removeItem("token");
+        setUser(null);
+      } else {
+        console.warn("[auth] Could not refresh the current user; keeping the session for retry:", e);
+      }
+      return false;
     }
   }
 

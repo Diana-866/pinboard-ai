@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { apiRequest } from '../lib/api';
 import { en } from './locales/en';
 import { ru } from './locales/ru';
 import { es } from './locales/es';
@@ -69,17 +70,31 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {
       // ignore
     }
-    return 'ru';
+    // Unsupported browser languages should fall back to English, not Russian.
+    return 'en';
   });
 
   const [aiContentLanguage, setAiContentLanguageState] = useState<string>(() => {
     try {
       const saved = localStorage.getItem(AI_CONTENT_LANG_KEY);
-      if (saved) return saved;
+      if (saved && AI_CONTENT_LANGUAGES.some((item) => item.code === saved)) return saved;
     } catch {
       // ignore
     }
-    return 'en';
+    try {
+      const savedInterfaceLanguage = localStorage.getItem(LANG_STORAGE_KEY);
+      if (savedInterfaceLanguage && AI_CONTENT_LANGUAGES.some((item) => item.code === savedInterfaceLanguage)) {
+        return savedInterfaceLanguage;
+      }
+      const browserLanguage = (navigator.languages?.[0] || navigator.language || '')
+        .toLowerCase()
+        .split('-')[0];
+      if (AI_CONTENT_LANGUAGES.some((item) => item.code === browserLanguage)) return browserLanguage;
+    } catch {
+      // ignore
+    }
+    // Match generated content to the interface language when no content locale is available.
+    return AI_CONTENT_LANGUAGES.some((item) => item.code === language) ? language : 'en';
   });
 
   const setLanguage = (lang: SupportedLanguage) => {
@@ -88,6 +103,17 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem(LANG_STORAGE_KEY, lang);
     } catch {
       // ignore
+    }
+
+    try {
+      if (localStorage.getItem("token")) {
+        void apiRequest("/me", {
+          method: "PATCH",
+          body: JSON.stringify({ preferred_language: lang }),
+        }).catch((error) => console.warn("[i18n] Could not save preferred language:", error));
+      }
+    } catch {
+      // The local UI language remains usable if storage is unavailable.
     }
   };
 

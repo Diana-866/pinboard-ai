@@ -86,7 +86,7 @@ where exists (
       )
 union all
 select 'missing function' as problem, 'adjust_credits_balance(text, integer)' as object,
-       'run db/migrations/001_base_schema.sql' as detail
+       'run db/migrations/001_baseline.sql' as detail
 where not exists (
   select 1 from pg_proc
   where proname = 'adjust_credits_balance'

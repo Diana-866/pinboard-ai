@@ -1,9 +1,26 @@
 const supabase = require("./supabase");
 const { normalizePlan } = require("./tariff");
 
+const STATS_PAGE_SIZE = 500;
+
 function monthKey(dateStr) {
   const d = new Date(dateStr);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+async function fetchAllRows(db, table, columns, pageSize = STATS_PAGE_SIZE) {
+  const rows = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await db
+      .from(table)
+      .select(columns)
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    const page = data || [];
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
 }
 
 async function requireAdmin(req, res, next) {
@@ -16,36 +33,33 @@ async function requireAdmin(req, res, next) {
   }
 }
 
-async function getStats() {
-  // Тариф читается из актуального поля users.tariff_plan (legacy subscription_tier
-  // больше не используется; нормализация алиасов — через backend/tariff.js).
-  const { data: users, error: usersError } = await supabase.from("users").select("id, created_at, tariff_plan");
-  if (usersError) throw usersError;
-
-  const { data: transactions, error: txError } = await supabase
-    .from("credit_transactions")
-    .select("amount, type, created_at");
-  if (txError) throw txError;
+async function getStats(db = supabase) {
+  // Read every page: Supabase applies a row cap to each response by default.
+  const [users, transactions] = await Promise.all([
+    fetchAllRows(db, "users", "id, created_at, tariff_plan"),
+    fetchAllRows(db, "credit_transactions", "amount, type, created_at"),
+  ]);
 
   const signupsByMonth = {};
   users.forEach((u) => {
     const key = monthKey(u.created_at);
-    signupsByMonth[key] = (signupsByMonth[key] || 0) + 1;
+    if (key) signupsByMonth[key] = (signupsByMonth[key] || 0) + 1;
   });
 
   const creditsSoldByMonth = {};
   const creditsSpentByMonth = {};
   transactions.forEach((t) => {
     const key = monthKey(t.created_at);
-    if (t.amount > 0) {
-      creditsSoldByMonth[key] = (creditsSoldByMonth[key] || 0) + Number(t.amount);
-    } else {
-      creditsSpentByMonth[key] = (creditsSpentByMonth[key] || 0) + Math.abs(Number(t.amount));
+    const amount = Number(t.amount);
+    if (!key || !Number.isFinite(amount)) return;
+    if (amount > 0) {
+      creditsSoldByMonth[key] = (creditsSoldByMonth[key] || 0) + amount;
+    } else if (amount < 0) {
+      creditsSpentByMonth[key] = (creditsSpentByMonth[key] || 0) + Math.abs(amount);
     }
   });
 
-  // Разбивка пользователей по тарифам (digital-эквивалент
-  // select tariff_plan, count(*) from users group by 1):
+  // This remains a count of cached tariff labels, not effective active entitlements.
   const tariffPlanBreakdown = {};
   users.forEach((u) => {
     const plan = normalizePlan(u.tariff_plan);
@@ -55,4 +69,4 @@ async function getStats() {
   return { totalUsers: users.length, signupsByMonth, tariffPlanBreakdown, creditsSoldByMonth, creditsSpentByMonth };
 }
 
-module.exports = { requireAdmin, getStats };
+module.exports = { requireAdmin, getStats, monthKey, fetchAllRows };

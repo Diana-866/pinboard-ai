@@ -1,0 +1,680 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+
+const gptunnelPath = require.resolve("../gptunnel");
+const storagePath = require.resolve("../storage");
+const originalGptunnel = require.cache[gptunnelPath];
+const originalStorage = require.cache[storagePath];
+
+const provider = {
+  generateText: async () => "not-json",
+  generateTextWithUsage: async (prompt) => ({
+    content: await provider.generateText(prompt),
+    usage: {
+      promptTokens: 12,
+      completionTokens: 8,
+      totalTokens: 20,
+      promptCost: 0.01,
+      completionCost: 0.02,
+      totalCost: 0.03,
+      cachedPromptTokens: 0,
+      cacheWriteTokens: 0,
+    },
+    costCurrency: "RUB",
+    model: "gpt-4o",
+    requestId: "chatcmpl-test-usage",
+  }),
+  generateImage: async () => { throw new Error("simulated image provider failure"); },
+  waitForImageTask: async () => { throw new Error("unexpected task polling"); },
+};
+const storage = { rehostImage: async (url) => url };
+
+require.cache[gptunnelPath] = {
+  id: gptunnelPath,
+  filename: gptunnelPath,
+  loaded: true,
+  exports: provider,
+};
+require.cache[storagePath] = {
+  id: storagePath,
+  filename: storagePath,
+  loaded: true,
+  exports: storage,
+};
+
+const { generatePins } = require("../pins");
+
+test("text-generation failure does not cross the billable image submission boundary", async () => {
+  let submitted = false;
+  provider.generateText = async () => "not-json";
+
+  await assert.rejects(
+    generatePins(
+      { id: "board-1", title: "Test board", description: "" },
+      { niche: "test", tone: "neutral", language: "en" },
+      "flux-schnell",
+      1,
+      "2:3",
+      null,
+      { onProviderSubmission: () => { submitted = true; } }
+    ),
+    /разобрать идеи/
+  );
+
+  assert.equal(submitted, false);
+});
+
+test("text-plan generation marks the provider submission boundary before calling the text provider", async () => {
+  let submitted = false;
+  provider.generateText = async () => {
+    assert.equal(submitted, true, "callback must run before the billable text provider call");
+    throw new Error("simulated ambiguous text provider failure");
+  };
+
+  await assert.rejects(
+    generatePins(
+      { id: "board-1", title: "Test board", description: "" },
+      { niche: "test", tone: "neutral", language: "en" },
+      "flux-schnell",
+      1,
+      "2:3",
+      null,
+      { onTextProviderSubmission: () => { submitted = true; } }
+    ),
+    /simulated ambiguous text provider failure/
+  );
+
+  assert.equal(submitted, true);
+});
+
+test("text provider usage is awaited and persisted before parsing ideas", async () => {
+  const events = [];
+  provider.generateText = async () => {
+    events.push("response");
+    return JSON.stringify([
+      { title: "Usage pin", description: "Test", image_prompt: "An image" },
+    ]);
+  };
+  provider.generateImage = async () => {
+    events.push("image");
+    throw new Error("stop after usage callback");
+  };
+
+  await generatePins(
+    { id: "board-usage", title: "Usage board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {
+      onTextProviderSubmission: () => events.push("submission"),
+      onTextProviderUsage: async (result) => {
+        assert.equal(result.costCurrency, "RUB");
+        assert.equal(result.usage.totalCost, 0.03);
+        events.push("usage-persisted");
+      },
+    }
+  );
+
+  assert.deepEqual(events, ["submission", "response", "usage-persisted", "image"]);
+});
+
+test("text-plan generation extracts a JSON array surrounded by provider prose", async () => {
+  provider.generateText = async () => [
+    "Here is the requested JSON:",
+    JSON.stringify([{ title: "Wrapped response", description: "Test", image_prompt: "A test image" }]),
+    "End of response.",
+  ].join("\n");
+  provider.generateImage = async () => ({
+    url: "https://provider.example.invalid/wrapped-response.png",
+    price: 0.6,
+    taskId: "provider-task-wrapped-0001",
+  });
+  storage.rehostImage = async () => "https://storage.example.invalid/wrapped-response.png";
+
+  const pins = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {}
+  );
+
+  assert.equal(pins.length, 1);
+  assert.equal(pins[0].title, "Wrapped response");
+  assert.equal(pins[0].image_url, "https://storage.example.invalid/wrapped-response.png");
+  assert.deepEqual(pins.unknownTasks, []);
+});
+
+test("task quote validation completes before the first billable image submission", async () => {
+  const events = [];
+  provider.generateText = async () => JSON.stringify([
+    { title: "Quoted pin", description: "Test", image_prompt: "A quoted image" },
+  ]);
+  provider.generateImage = async () => {
+    events.push("image");
+    return {
+      url: "https://provider.example.invalid/quoted.png",
+      price: 0.6,
+      taskId: "provider-task-quoted-0001",
+    };
+  };
+  storage.rehostImage = async () => "https://storage.example.invalid/quoted.png";
+
+  const pins = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {
+      ensureTaskQuotes: async (tasks) => {
+        events.push("quote");
+        assert.equal(tasks.length, 1);
+        assert.equal(tasks[0].status, undefined);
+        return tasks;
+      },
+      onProviderSubmission: () => events.push("submission"),
+    }
+  );
+
+  assert.deepEqual(events, ["quote", "submission", "image"]);
+  assert.equal(pins.length, 1);
+});
+
+test("quote validation failure prevents any image provider submission", async () => {
+  let imageSubmitted = false;
+  provider.generateText = async () => JSON.stringify([
+    { title: "Unquoted pin", description: "Test", image_prompt: "An unquoted image" },
+  ]);
+  provider.generateImage = async () => {
+    imageSubmitted = true;
+    throw new Error("image provider must not be called");
+  };
+
+  await assert.rejects(
+    generatePins(
+      { id: "board-1", title: "Test board", description: "" },
+      { niche: "test", tone: "neutral", language: "en" },
+      "flux-schnell",
+      1,
+      "2:3",
+      null,
+      { ensureTaskQuotes: async () => { throw new Error("quote validation failed"); } }
+    ),
+    /quote validation failed/
+  );
+
+  assert.equal(imageSubmitted, false);
+});
+
+test("image generation marks the provider submission boundary before calling the image provider", async () => {
+  let submitted = false;
+  provider.generateText = async () => JSON.stringify([
+    { title: "Test pin", description: "Test", image_prompt: "A test image" },
+  ]);
+  provider.generateImage = async () => {
+    assert.equal(submitted, true, "callback must run before the image provider call");
+    throw new Error("simulated image provider failure");
+  };
+
+  const pins = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    { onProviderSubmission: () => { submitted = true; } }
+  );
+
+  assert.equal(submitted, true);
+  assert.equal(pins.length, 0);
+  assert.deepEqual(pins.pendingTasks, []);
+  assert.deepEqual(pins.unknownTasks, [{ task_index: 1 }]);
+  assert.deepEqual(pins.failedTasks, []);
+  assert.equal(pins.plannedTaskCount, 1);
+});
+
+test("journal recovery reuses the saved prompt and provider idempotency key without generating new text", async () => {
+  provider.generateText = async () => {
+    throw new Error("resume must not request new text ideas");
+  };
+  let receivedKey = null;
+  provider.generateImage = async (prompt, model, ratio, key) => {
+    assert.equal(prompt, "immutable saved prompt");
+    assert.equal(model, "flux-schnell");
+    assert.equal(ratio, "2:3");
+    receivedKey = key;
+    return { url: "https://provider.example.invalid/image.png", price: 0.6, taskId: "provider-task-0001" };
+  };
+  storage.rehostImage = async () => "https://storage.example.invalid/image.png";
+
+  const pins = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {
+      loadPlan: async () => [{
+        task_index: 1,
+        title: "Saved title",
+        description: "Saved description",
+        prompt: "immutable saved prompt",
+        model: "flux-schnell",
+        aspect_ratio: "2:3",
+        provider_idempotency_key: "stable-provider-key-0001",
+        status: "unknown",
+      }],
+      updateTask: async () => {},
+    }
+  );
+
+  assert.equal(receivedKey, "stable-provider-key-0001");
+  assert.equal(pins.length, 1);
+  assert.equal(pins[0].image_url, "https://storage.example.invalid/image.png");
+  assert.equal(pins[0].title, "Saved title");
+});
+
+test("recovery does not submit prepared provider tasks when balance is insufficient", async () => {
+  let submitted = false;
+  provider.generateImage = async () => {
+    submitted = true;
+    throw new Error("prepared task must not be submitted without balance");
+  };
+
+  const pins = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {
+      loadPlan: async () => [{
+        task_index: 1,
+        title: "Saved title",
+        description: "Saved description",
+        prompt: "immutable saved prompt",
+        model: "flux-schnell",
+        aspect_ratio: "2:3",
+        provider_idempotency_key: "stable-provider-key-0002",
+        status: "prepared",
+      }],
+      allowPreparedTaskSubmission: () => false,
+    }
+  );
+
+  assert.equal(submitted, false);
+  assert.equal(pins.length, 0);
+  assert.deepEqual(pins.pendingTasks, [{ task_index: 1, status: "awaiting_balance" }]);
+  assert.deepEqual(pins.unknownTasks, []);
+});
+
+test("recovery reconciles ambiguous submitting tasks even when balance is insufficient", async () => {
+  let submitted = false;
+  provider.generateImage = async () => {
+    submitted = true;
+    throw new Error("provider temporarily unavailable");
+  };
+
+  const pins = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {
+      loadPlan: async () => [{
+        task_index: 1,
+        title: "Saved title",
+        description: "Saved description",
+        prompt: "immutable saved prompt",
+        model: "flux-schnell",
+        aspect_ratio: "2:3",
+        provider_idempotency_key: "stable-provider-key-0003",
+        status: "submitting",
+      }],
+      allowPreparedTaskSubmission: () => false,
+    }
+  );
+
+  assert.equal(submitted, true);
+  assert.deepEqual(pins.pendingTasks, []);
+  assert.deepEqual(pins.unknownTasks, [{ task_index: 1 }]);
+});
+
+test("recovery restores completed tasks while leaving unsubmitted tasks pending", async () => {
+  let submitted = false;
+  provider.generateImage = async () => {
+    submitted = true;
+    throw new Error("prepared task should remain pending");
+  };
+
+  const pins = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    2,
+    "2:3",
+    null,
+    {
+      loadPlan: async () => [
+        {
+          task_index: 1,
+          title: "Already completed",
+          description: "Saved description",
+          prompt: "immutable completed prompt",
+          model: "flux-schnell",
+          aspect_ratio: "2:3",
+          provider_idempotency_key: "stable-provider-key-0004",
+          status: "succeeded",
+          storage_url: "https://storage.example.invalid/completed.png",
+          provider_price: 0.6,
+        },
+        {
+          task_index: 2,
+          title: "Not submitted",
+          description: "Saved description",
+          prompt: "immutable pending prompt",
+          model: "flux-schnell",
+          aspect_ratio: "2:3",
+          provider_idempotency_key: "stable-provider-key-0005",
+          status: "prepared",
+        },
+      ],
+      allowPreparedTaskSubmission: () => false,
+    }
+  );
+
+  assert.equal(submitted, false);
+  assert.equal(pins.length, 1);
+  assert.equal(pins[0].title, "Already completed");
+  assert.equal(pins[0].image_url, "https://storage.example.invalid/completed.png");
+  assert.deepEqual(pins.pendingTasks, [{ task_index: 2, status: "awaiting_balance" }]);
+  assert.deepEqual(pins.unknownTasks, []);
+});
+
+test("storage failure after provider success preserves the billable result for same-key recovery", async () => {
+  const providerCalls = [];
+  const journalUpdates = [];
+  let storageAttempts = 0;
+  provider.generateText = async () => {
+    throw new Error("recovery must not generate new text ideas");
+  };
+  provider.generateImage = async (prompt, model, ratio, key) => {
+    providerCalls.push({ prompt, model, ratio, key });
+    return {
+      url: "https://provider.example.invalid/durable-result.png",
+      price: 0.75,
+      taskId: "provider-task-durable-0001",
+    };
+  };
+  storage.rehostImage = async () => {
+    storageAttempts += 1;
+    if (storageAttempts === 1) throw new Error("temporary storage outage");
+    return "https://storage.example.invalid/durable-result.png";
+  };
+
+  const savedTask = {
+    task_index: 1,
+    title: "Durable result",
+    description: "Saved description",
+    prompt: "saved immutable prompt",
+    model: "flux-schnell",
+    aspect_ratio: "2:3",
+    provider_idempotency_key: "stable-provider-key-storage-recovery",
+    status: "unknown",
+  };
+  const firstAttempt = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {
+      loadPlan: async () => [{ ...savedTask }],
+      updateTask: async (index, status, details) => {
+        journalUpdates.push({ index, status, details });
+      },
+    }
+  );
+
+  assert.equal(firstAttempt.length, 0);
+  assert.deepEqual(firstAttempt.unknownTasks, [{ task_index: 1 }]);
+  assert.equal(
+    journalUpdates.some((entry) =>
+      entry.status === "succeeded" &&
+      entry.details.providerResultUrl === "https://provider.example.invalid/durable-result.png" &&
+      entry.details.providerPrice === 0.75
+    ),
+    true,
+    "provider success and its price must be journaled before attempting storage"
+  );
+  assert.equal(
+    journalUpdates.some((entry) => entry.status === "unknown"),
+    false,
+    "storage failure must not regress a provider-succeeded task to unknown"
+  );
+
+  const recoveredTask = {
+    ...savedTask,
+    status: "succeeded",
+    provider_task_id: "provider-task-durable-0001",
+    provider_result_url: "https://provider.example.invalid/durable-result.png",
+    provider_price: 0.75,
+    storage_url: null,
+  };
+  const secondAttempt = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {
+      loadPlan: async () => [recoveredTask],
+      updateTask: async (index, status, details) => {
+        journalUpdates.push({ index, status, details });
+      },
+    }
+  );
+
+  // The provider create boundary is crossed only once. Recovery rehosts the
+  // already-journaled successful URL and must not submit another billable task.
+  assert.equal(providerCalls.length, 1);
+  assert.equal(storageAttempts, 2);
+  assert.equal(providerCalls[0].key, "stable-provider-key-storage-recovery");
+  assert.equal(secondAttempt.length, 1);
+  assert.equal(secondAttempt[0].image_url, "https://storage.example.invalid/durable-result.png");
+  assert.equal(secondAttempt[0].credits_cost, 0.75);
+});
+
+test("a succeeded provider result is rehosted from its saved URL without another provider create call", async () => {
+  provider.generateText = async () => {
+    throw new Error("saved plan recovery must not generate text");
+  };
+  provider.generateImage = async () => {
+    throw new Error("saved provider result must not submit another create request");
+  };
+  let rehostedUrl = null;
+  let journalUpdate = null;
+  storage.rehostImage = async (url, options) => {
+    rehostedUrl = { url, options };
+    return "https://storage.example.invalid/recovered-result.png";
+  };
+
+  const pins = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {
+      loadPlan: async () => [{
+        task_index: 1,
+        title: "Saved result",
+        description: "Saved description",
+        prompt: "immutable saved prompt",
+        model: "flux-schnell",
+        aspect_ratio: "2:3",
+        provider_idempotency_key: "stable-provider-key-saved-result",
+        provider_task_id: "provider-task-saved-result",
+        provider_result_url: "https://provider.example.invalid/saved-result.png",
+        provider_price: 0.75,
+        storage_url: null,
+        status: "succeeded",
+      }],
+      updateTask: async (index, status, details) => {
+        journalUpdate = { index, status, details };
+      },
+    }
+  );
+
+  assert.deepEqual(rehostedUrl, {
+    url: "https://provider.example.invalid/saved-result.png",
+    options: { idempotencyKey: "stable-provider-key-saved-result" },
+  });
+  assert.equal(pins.length, 1);
+  assert.equal(pins[0].image_url, "https://storage.example.invalid/recovered-result.png");
+  assert.equal(pins[0].credits_cost, 0.75);
+  assert.equal(journalUpdate.status, "succeeded");
+  assert.equal(journalUpdate.details.storageUrl, "https://storage.example.invalid/recovered-result.png");
+  assert.deepEqual(pins.unknownTasks, []);
+});
+
+test("a missing permanent storage URL is not returned as a generated pin", async () => {
+  provider.generateText = async () => JSON.stringify([
+    { title: "No storage URL", description: "Test", image_prompt: "A test image" },
+  ]);
+  provider.generateImage = async () => ({
+    url: "https://provider.example.invalid/no-storage.png",
+    price: 0.5,
+    taskId: "provider-task-no-storage-0001",
+  });
+  storage.rehostImage = async () => null;
+
+  const pins = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {}
+  );
+
+  assert.equal(pins.length, 0);
+  assert.deepEqual(pins.unknownTasks, [{ task_index: 1 }]);
+});
+
+test("unrecoverable succeeded tasks never submit a duplicate provider create request", async () => {
+  let providerCreateCalls = 0;
+  provider.generateText = async () => {
+    throw new Error("saved plan recovery must not generate text");
+  };
+  provider.generateImage = async () => {
+    providerCreateCalls += 1;
+    throw new Error("a terminal succeeded task must never be resubmitted");
+  };
+  storage.rehostImage = async () => {
+    throw new Error("there is no saved result URL to rehost");
+  };
+
+  const pins = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {
+      loadPlan: async () => [{
+        task_index: 1,
+        title: "Unrecoverable success",
+        description: "Saved description",
+        prompt: "immutable saved prompt",
+        model: "flux-schnell",
+        aspect_ratio: "2:3",
+        provider_idempotency_key: "stable-provider-key-unrecoverable",
+        provider_task_id: "provider-task-unrecoverable",
+        provider_result_url: null,
+        provider_price: 0.75,
+        storage_url: null,
+        status: "succeeded",
+      }],
+    }
+  );
+
+  assert.equal(providerCreateCalls, 0);
+  assert.equal(pins.length, 0);
+  assert.deepEqual(pins.unknownTasks, [{
+    task_index: 1,
+    reason: "successful_result_unrecoverable",
+  }]);
+});
+
+
+test("a journaled provider task ID is polled even if its last persisted state is submitting", async () => {
+  let createCalls = 0;
+  let pollCalls = 0;
+  provider.generateText = async () => {
+    throw new Error("recovery must not generate new text");
+  };
+  provider.generateImage = async () => {
+    createCalls += 1;
+    throw new Error("must not create another provider task");
+  };
+  provider.waitForImageTask = async (taskId) => {
+    pollCalls += 1;
+    assert.equal(taskId, "provider-task-submitting-recovery");
+    return { pending: true, taskId };
+  };
+
+  const pins = await generatePins(
+    { id: "board-1", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {
+      loadPlan: async () => [{
+        task_index: 1,
+        title: "Submitted task",
+        description: "Saved description",
+        prompt: "immutable saved prompt",
+        model: "flux-schnell",
+        aspect_ratio: "2:3",
+        provider_idempotency_key: "stable-provider-key-submitting",
+        provider_task_id: "provider-task-submitting-recovery",
+        status: "submitting",
+      }],
+      updateTask: async () => {},
+    }
+  );
+
+  assert.equal(createCalls, 0);
+  assert.equal(pollCalls, 1);
+  assert.deepEqual(pins.pendingTasks, [{
+    task_index: 1,
+    task_id: "provider-task-submitting-recovery",
+  }]);
+  assert.deepEqual(pins.unknownTasks, []);
+});
+
+test("restore original module cache entries", () => {
+  if (originalGptunnel) require.cache[gptunnelPath] = originalGptunnel;
+  else delete require.cache[gptunnelPath];
+  if (originalStorage) require.cache[storagePath] = originalStorage;
+  else delete require.cache[storagePath];
+});

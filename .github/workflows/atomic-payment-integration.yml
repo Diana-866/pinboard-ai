@@ -1,12 +1,14 @@
 name: Atomic payment fulfillment integration
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - fix/atomic-payment-fulfillment
   pull_request:
     branches:
       - main
+      - fix/atomic-payment-fulfillment
 
 permissions:
   contents: read
@@ -30,7 +32,23 @@ jobs:
           --health-retries 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+      - name: Test Pinterest account request retry policy
+        run: node --test backend/test/pinterest-account-request.test.js
+      - name: Test Pinterest board pagination
+        run: node --test backend/test/pinterest-boards-pagination.test.js
+      - name: Test pin image upload validation, errors, and rate-limit keys
+        run: node --test backend/test/image-upload-validation.test.js backend/test/image-upload-errors.test.js backend/test/pin-image-rate-limit-key.test.js
+      - name: Test managed pin image lifecycle
+        run: node --test backend/test/pin-image-lifecycle.test.js
+      - name: Test concurrent pin image replacement guard
+        run: node --test backend/test/pin-image-compare-and-swap.test.js
+      - name: Test cleanup of unsent payment records
+        run: node --test backend/test/payment-record-cleanup.test.js
+      - name: Test checkout settlement helper
+        run: node --test backend/test/payment-creation-settlement.test.js
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update
@@ -42,22 +60,38 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 <<'SQL'
           create role anon nologin;
           create role authenticated nologin;
-          create role service_role nologin;
+          create role service_role nologin bypassrls;
           create table public.users (
             id uuid primary key default gen_random_uuid(),
             email text not null,
+            password_hash text,
+            email_verified boolean not null default false,
             credits_balance integer not null default 0,
             tariff_plan text not null default 'none',
             tariff_period_end timestamptz
           );
+          create table public.auth_tokens (
+            id uuid primary key default gen_random_uuid(),
+            user_id text not null,
+            token_hash text not null unique,
+            purpose text not null default 'password_reset',
+            expires_at timestamptz not null,
+            used_at timestamptz,
+            created_at timestamptz default now()
+          );
           create table public.projects (
             id uuid primary key default gen_random_uuid(),
             user_id uuid not null references public.users(id),
-            niche text
+            niche text,
+            tone text,
+            language text
           );
           create table public.boards (
             id uuid primary key default gen_random_uuid(),
-            project_id uuid not null references public.projects(id)
+            project_id uuid not null references public.projects(id),
+            title text,
+            description text,
+            status text
           );
           create table public.pins (
             id uuid primary key default gen_random_uuid(),
@@ -72,6 +106,29 @@ jobs:
             aspect_ratio text default '2:3',
             created_at timestamp without time zone default now()
           );
+          create table public.pinterest_accounts (
+            id uuid primary key default gen_random_uuid(),
+            user_id text not null,
+            pinterest_user_id text,
+            username text,
+            access_token text not null,
+            refresh_token text,
+            scopes text,
+            expires_at timestamptz,
+            created_at timestamptz not null default now(),
+            updated_at timestamptz not null default now()
+          );
+          create unique index uniq_pinterest_accounts_user on public.pinterest_accounts(user_id);
+          create table public.pinterest_publications (
+            id uuid primary key default gen_random_uuid(),
+            user_id text not null,
+            pin_id uuid not null,
+            pinterest_pin_id text not null,
+            pinterest_board_id text not null,
+            created_at timestamptz not null default now()
+          );
+          create unique index uniq_pinterest_publications_pin on public.pinterest_publications(pin_id);
+          create unique index uniq_pinterest_publications_remote on public.pinterest_publications(pinterest_pin_id);
           create table public.credit_transactions (
             id uuid primary key default gen_random_uuid(),
             user_id text,
@@ -106,6 +163,37 @@ jobs:
             period_end timestamptz,
             created_at timestamptz not null default now()
           );
+          -- Minimal baseline helper fixture: migration 041 hardens its function config.
+          create or replace function public.adjust_credits_balance(p_user_id text, p_amount integer)
+          returns integer
+          language plpgsql
+          security definer
+          set search_path = public
+          as $fixture$
+          declare
+            v_new_balance integer;
+          begin
+            if p_user_id is null or p_amount is null then
+              raise exception 'p_user_id and p_amount are required';
+            end if;
+            update public.users
+               set credits_balance = credits_balance + p_amount
+             where id::text = p_user_id
+               and (p_amount >= 0 or credits_balance + p_amount >= 0)
+             returning credits_balance into v_new_balance;
+            if not found then
+              if exists (select 1 from public.users where id::text = p_user_id) then
+                raise exception 'insufficient credits';
+              end if;
+              raise exception 'user not found: %', p_user_id;
+            end if;
+            return v_new_balance;
+          end;
+          $fixture$;
+          revoke all on function public.adjust_credits_balance(text, integer)
+            from public, anon, authenticated;
+          grant execute on function public.adjust_credits_balance(text, integer)
+            to service_role;
           SQL
       - name: Apply atomic migrations
         env:
@@ -115,7 +203,223 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/011_atomic_subscription_activation.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/012_atomic_generation_charge.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/013_atomic_pin_regeneration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/014_idempotent_pin_generation.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/015_persistent_pin_schedule.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/016_pinterest_publish_idempotency.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/017_pinterest_schedule_worker.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/018_preferred_language.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/019_prevent_late_subscription_downgrade.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/020_atomic_password_reset.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/021_atomic_email_verification.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/022_atomic_email_verification_issuance.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/023_revoke_sessions_after_password_reset.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/024_password_reset_email_cooldown.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/025_drop_legacy_password_reset_overload.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/026_pinterest_refresh_token_lease.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/027_pinterest_refresh_token_commit.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/028_pinterest_oauth_attempt_fencing.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/029_billing_webhook_exceptions.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/030_transactional_email_outbox.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/031_pinterest_account_scoped_foundation.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/032_pinterest_multi_account_oauth.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/033_pinterest_account_scoped_publication.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/034_pinterest_schedule_safe_retries.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/035_pinterest_schedule_manual_retry.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/036_pinterest_refresh_uncertainty_fence.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/037_billing_webhook_currency_audit.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/038_pinterest_oauth_manual_tariff_expiry.sql
+          # Simulate permissive Supabase default grants so migration 039 proves it revokes them.
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -c "grant all on public.pinterest_accounts, public.pinterest_publications to anon, authenticated"
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/039_pinterest_sensitive_table_privileges.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/040_harden_security_definer_search_paths.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/041_harden_credit_balance_search_path.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/042_allow_admin_audit_reads.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/043_harden_schedule_claim_search_path.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/044_pin_generation_uncertainty_fence.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/045_pin_generation_task_journal.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/046_pin_generation_claim_fencing.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/047_pinterest_late_success_schedule_reconciliation.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/048_reconcile_historical_pinterest_unknown_schedules.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/049_pinterest_schedule_claim_fencing.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/050_pinterest_unified_safe_retry_policy.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/051_pinterest_schedule_content_snapshot.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/052_reconcile_legacy_pinterest_schedule_accounts.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/053_pin_regeneration_journal.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/054_pin_generation_credit_reservations.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/055_auth_token_version.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/056_pinterest_account_lock_before_publish_reservation.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/057_pinterest_publish_completion_lock_order.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/058_pinterest_publish_completion_active_schedule_lock.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/059_pinterest_completion_lock_all_reconcilable_schedules.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/060_pinterest_schedule_recovery_respects_safe_failure_journal.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/061_pinterest_scheduled_publish_account_lock_order.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/062_pinterest_refresh_fence_requires_rotated_refresh_token.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/063_pin_regeneration_provider_outcomes.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/064_pin_generation_provider_outcomes.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/065_resize_pin_generation_credit_reservation.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/066_pin_regeneration_credit_reservations.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/067_pin_generation_exact_provider_quotes.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/068_exact_quote_single_pin_regeneration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/069_gptunnel_text_usage_ledger.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/070_pin_image_deletion_claim_protocol.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/071_pin_generation_completion_journal_guard.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/072_provider_refund_reconciliation_settlement_guard.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/073_provider_refund_reconciliation_workflow.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/074_respect_active_credit_reservations_in_ledger_adjustments.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/075_guard_legacy_single_pin_regeneration_debit.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/076_harden_core_table_client_privileges.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/077_finalize_reconciled_provider_failures.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/078_operator_action_journal.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/079_gptunnel_provider_cost_reporting_view.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/080_pinterest_oauth_effective_entitlement_precedence.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/081_pinterest_publish_completion_board_integrity.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/082_pinterest_operator_publication_reconciliation.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/083_quarantine_expired_pin_image_deletions.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/084_admin_pinterest_inventory_latest_attempt.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/085_admin_pinterest_inventory_account_identity.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/086_pinterest_failed_schedule_board_reassignment.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/087_pinterest_schedule_snapshot_and_pin_retention.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/088_release_image_credit_reservation_without_image_tasks.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/089_recover_completed_pin_image_uploads.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/090_prevent_reuse_of_deleted_pin_image_paths.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/091_reconcile_confirmed_pinterest_unknown_schedules.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/092_pinterest_stale_schedule_recovery_requires_exact_publication_evidence.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/093_pinterest_schedule_remote_pin_identity_fencing.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/094_pinterest_failed_board_reassignment_requires_exact_attempt_identity.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/095_pinterest_failed_schedule_retry_requires_exact_attempt_identity.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/096_pinterest_failed_schedule_retry_uses_immutable_snapshot.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/097_admin_pinterest_inventory_creative_context.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/098_pin_image_paths_support_128_bit_random_ids.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/099_pin_image_quarantine_inventory.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/100_idempotent_pin_image_lifecycle_finalization.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/101_retryable_pin_image_deletion_inventory.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/102_pin_image_deletion_support_128_bit_random_ids.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/103_pin_image_retention_candidate_inventory.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/104_pin_regeneration_replay_image_reference_guard.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/105_pin_image_replay_expiry_tombstones.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/106_pin_generation_replay_image_reference_guard.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/107_pin_image_upload_replay_reference_guard.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/108_retire_expired_pin_image_replay_references.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/109_pin_image_retention_queue_worker.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/110_pin_image_retention_queue_blocked_inventory.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/111_idempotent_board_creation.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/112_pinterest_publish_completion_clears_claim.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/113_persistent_manual_review_queue.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/114_pinterest_schedule_claim_heartbeat.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/115_pinterest_publish_reservation_requires_exact_existing_identity.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/116_idempotent_prodamus_checkout_creation.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/117_payment_creation_provider_order_reference.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/118_settle_payment_creation_after_webhook.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/119_pinterest_unknown_outcome_preserves_known_remote_id.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/120_harden_manual_review_queue_privileges.sql
+      - name: Verify Pinterest refresh uncertainty fence
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 <<'SQL'
+          do $body$
+          declare
+            v_account_id uuid;
+            v_state text;
+          begin
+            insert into public.pinterest_accounts(
+              user_id, pinterest_user_id, username, access_token, refresh_token
+            ) values (
+              'refresh-fence-test', 'pinterest-refresh-fence-test', 'refresh-fence-test',
+              'access-before', 'refresh-before'
+            ) returning id into v_account_id;
+
+            update public.pinterest_accounts
+               set refresh_state = 'uncertain'
+             where id = v_account_id;
+            update public.pinterest_accounts
+               set username = 'still-uncertain'
+             where id = v_account_id;
+            select refresh_state into v_state
+              from public.pinterest_accounts where id = v_account_id;
+            if v_state <> 'uncertain' then
+              raise exception 'ordinary account update cleared refresh uncertainty';
+            end if;
+
+            update public.pinterest_accounts
+               set access_token = 'access-reconnected', refresh_token = 'refresh-before'
+             where id = v_account_id;
+            select refresh_state into v_state
+              from public.pinterest_accounts where id = v_account_id;
+            if v_state <> 'uncertain' then
+              raise exception 'access-token-only replacement cleared refresh uncertainty';
+            end if;
+
+            update public.pinterest_accounts
+               set refresh_token = 'refresh-after'
+             where id = v_account_id;
+            select refresh_state into v_state
+              from public.pinterest_accounts where id = v_account_id;
+            if v_state <> 'ready' then
+              raise exception 'new refresh-token replacement did not clear uncertainty';
+            end if;
+          end;
+          $body$;
+          SQL
+      - name: Verify confirmed Pinterest unknown schedules are reconciled safely
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-unknown-schedule-reconciliation.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-stale-schedule-recovery.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-schedule-cancellation-race.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-schedule-claim-heartbeat.integration.sql
+      - name: Verify stale Pinterest refresh cannot undo disconnect
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-refresh-disconnect-fencing.integration.sql
       - name: Verify duplicate webhooks and ledger consistency
         env:
           PGPASSWORD: postgres
-        run: psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/postgres-integration.sql
+        run: |
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/prodamus-credit-fulfillment.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/payment-creation-idempotency.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/payment-creation-settlement.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-generation-credit-reservations.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/credit-reservation-ledger-guard.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/legacy-regeneration-reservation-guard.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-generation-provider-quotes.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-generation-completion-guard.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/provider-refund-reconciliation-guard.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/provider-refund-reconciliation-workflow.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/provider-refund-operator-actions.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/core-table-privileges.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-regeneration-exact-quote.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-generation-text-usage.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/auth-recovery.integration.sql
+          bash backend/test/auth-recovery-concurrency.sh
+          bash backend/test/password-reset-issuance-concurrency.sh
+          bash backend/test/email-verification-concurrency.sh
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-sensitive-table-privileges.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/security-definer-search-paths.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/billing-webhook-audit-privileges.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-image-deletion-claims.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-image-retention-inventory.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-image-replay-expiry.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-image-retention-queue.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-image-retention-queue-blocked-inventory.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/board-creation-idempotency.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/postgres-integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-oauth.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-account-foundation.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-multi-account-oauth.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-account-publication.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-known-remote-id-recovery.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-publication-board-integrity.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-operator-reconciliation.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/admin-pinterest-inventory.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-failed-board-reassignment.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-failed-schedule-retry-identity.integration.sql
+          bash backend/test/subscription-concurrency.sh
+          bash backend/test/credit-concurrency.sh
+          bash backend/test/generation-concurrency.sh
+          bash backend/test/pinterest-oauth-concurrency.sh
+          bash backend/test/pinterest-publication-concurrency.sh
+          bash backend/test/pinterest-schedule-claim-concurrency.sh
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-regeneration-journal.integration.sql

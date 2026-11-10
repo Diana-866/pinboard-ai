@@ -4,8 +4,11 @@
  */
 
 import React, { useState } from 'react';
+import { getDefaultTimezone, localDateTimeToDate, formatInstantInTimezone } from './utils/timezone';
+import { apiRequest } from './lib/api';
+import { buildPinterestPinUrl } from './utils/pinterestPinUrl';
 import { ThemeProvider } from './theme/themeContext';
-import { I18nProvider } from './i18n/i18nContext';
+import { I18nProvider, useI18n } from './i18n/i18nContext';
 import { NotificationProvider, useNotifications } from './context/NotificationContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Header } from './components/layout/Header';
@@ -18,6 +21,7 @@ import { PinGenerator } from './components/pins/PinGenerator';
 import { KeywordExplorer } from './components/keywords/KeywordExplorer';
 import { CompetitorAudit } from './components/competitors/CompetitorAudit';
 import { PublishingCalendar } from './components/calendar/PublishingCalendar';
+import { parsePersistedScheduleStatus } from './utils/scheduleStatus';
 import { BoardsManager } from './components/boards/BoardsManager';
 import { AnalyticsView } from './components/analytics/AnalyticsView';
 import { PricingView } from './components/pricing/PricingView';
@@ -26,17 +30,19 @@ import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { LockedSection } from './components/common/LockedSection';
 import {
   ManualApprovalDesk,
-  INITIAL_QUEUE_PINS,
   PendingReviewPin,
 } from './components/review/ManualApprovalDesk';
 import {
-  INITIAL_BOARDS,
-  INITIAL_SCHEDULED_PINS,
-  INITIAL_ACCOUNTS,
   BoardItem,
   ScheduledPinItem,
   PinterestAccount,
 } from './data/mockData';
+import { mapPersistedBoards } from './utils/persistedBoards';
+import { getOrCreateProject } from './utils/projectProvisioning';
+import { validatePersistedScheduleRows } from './utils/persistedSchedule';
+import { mergeRestoredReviewQueue } from './utils/reviewQueueHydration';
+import { isReviewQueueOwnerCurrent } from './utils/reviewQueueOwnerFence';
+import { findPersistedScheduleMutation, isScheduleAbsentFromActiveList } from './utils/scheduleMutationReconciliation';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Landing } from './pages/Landing';
@@ -53,16 +59,149 @@ import { EmailVerifyBanner } from './components/auth/EmailVerifyBanner';
 
 const MainApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [initialPricingPlan, setInitialPricingPlan] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
-  const [boards, setBoards] = useState<BoardItem[]>(INITIAL_BOARDS);
-  const [scheduledPins, setScheduledPins] = useState<ScheduledPinItem[]>(INITIAL_SCHEDULED_PINS);
+  const [boards, setBoards] = useState<BoardItem[]>([]);
+  const [boardsLoadError, setBoardsLoadError] = useState('');
+  const [boardsLoading, setBoardsLoading] = useState(false);
+  const [boardsReloadToken, setBoardsReloadToken] = useState(0);
+  const [scheduledPins, setScheduledPins] = useState<ScheduledPinItem[]>([]);
+  const [scheduleLoadError, setScheduleLoadError] = useState('');
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduleReloadToken, setScheduleReloadToken] = useState(0);
   const [prefilledTopic, setPrefilledTopic] = useState<string>('');
   const [prefilledDate, setPrefilledDate] = useState<string>('');
+  const [prefilledTime, setPrefilledTime] = useState<string>('');
+  const [prefilledBoardId, setPrefilledBoardId] = useState<string>('');
   const [isBotOpen, setIsBotOpen] = useState<boolean>(false);
 
   const { toast, clearToast } = useNotifications();
+  const { aiContentLanguage, t } = useI18n();
   const { refreshUser } = useAuth();
  const { activeViewMode, setActiveViewMode, isPrivacyModalOpen, closePrivacyModal, isAdmin, user } = useAuth();
+
+  // Schedule rows belong to the authenticated user. Clear the previous account's
+  // calendar immediately on identity change, without clearing it on ordinary reloads.
+  const scheduleUserIdRef = React.useRef(user?.id || '');
+  React.useLayoutEffect(() => {
+    const nextUserId = user?.id || '';
+    if (scheduleUserIdRef.current !== nextUserId) {
+      scheduleUserIdRef.current = nextUserId;
+      setScheduledPins([]);
+      setScheduleLoadError('');
+    }
+  }, [user?.id]);
+  // Never expose the previous account's boards after an account switch.
+  React.useEffect(() => {
+    setBoards([]);
+    setBoardsLoadError('');
+    setBoardsLoading(Boolean(user?.id));
+  }, [user?.id]);
+
+  // Доски загружаются из API, а не из демонстрационного массива браузера.
+  React.useEffect(() => {
+    let cancelled = false;
+    async function loadBoards() {
+      if (!user?.id) {
+        setBoardsLoading(false);
+        return;
+      }
+      setBoardsLoading(true);
+      setBoardsLoadError('');
+      try {
+        const rows = await apiRequest('/boards');
+        const mapped = mapPersistedBoards(rows, t.boards.loadErrorFallback);
+        if (!cancelled) setBoards(mapped);
+      } catch (error) {
+        console.error('[boards] Не удалось загрузить доски:', error);
+        if (!cancelled) {
+          setBoardsLoadError(error instanceof Error ? error.message : t.boards.loadErrorFallback);
+        }
+      } finally {
+        if (!cancelled) setBoardsLoading(false);
+      }
+    }
+    loadBoards();
+    return () => { cancelled = true; };
+  }, [user?.id, boardsReloadToken, t.boards.loadErrorFallback]);
+
+
+
+  // Never show a previous user's schedule after an account switch.
+  React.useEffect(() => {
+    setScheduledPins([]);
+    setScheduleLoadError('');
+    setScheduleLoading(Boolean(user?.id));
+  }, [user?.id]);
+
+  // Re-map persisted UTC timestamps when the publishing timezone changes,
+  // and reconcile worker-updated statuses when the user returns to this tab.
+  React.useEffect(() => {
+    const reloadSchedule = () => setScheduleReloadToken((value) => value + 1);
+    const reloadWhenVisible = () => {
+      if (document.visibilityState === 'visible') reloadSchedule();
+    };
+    window.addEventListener('pinposy:timezone-changed', reloadSchedule);
+    document.addEventListener('visibilitychange', reloadWhenVisible);
+    return () => {
+      window.removeEventListener('pinposy:timezone-changed', reloadSchedule);
+      document.removeEventListener('visibilitychange', reloadWhenVisible);
+    };
+  }, []);
+
+  // Расписание загружается из БД; демонстрационные публикации не показываем.
+  React.useEffect(() => {
+    let cancelled = false;
+    async function loadSchedule() {
+      if (!user?.id) {
+        setScheduledPins([]);
+        setScheduleLoadError('');
+        setScheduleLoading(false);
+        return;
+      }
+      setScheduleLoading(true);
+      setScheduleLoadError('');
+      try {
+        const response = await apiRequest('/schedule');
+        if (cancelled) return;
+        const rows = validatePersistedScheduleRows(response);
+        const mapped: ScheduledPinItem[] = rows.map((row: any) => {
+          const date = new Date(row.scheduled_at);
+          const local = formatInstantInTimezone(date, getDefaultTimezone());
+          const pinterestPinId = String(row.pinterest_pin_id || '').trim();
+          const pinterestPinUrl = buildPinterestPinUrl(pinterestPinId);
+          return {
+            id: String(row.id),
+            pinId: String(row.pin_id),
+            title: row.snapshot_image_url ? (row.snapshot_title || 'Без названия') : (row.pins?.title || 'Без названия'),
+            boardId: String(row.pins?.board_id || ''),
+            boardName: row.pins?.boards?.title || 'Без доски',
+            imageUrl: row.snapshot_image_url || row.pins?.image_url || '',
+            scheduledDate: local.date,
+            scheduledTime: local.time,
+            status: parsePersistedScheduleStatus(row.status),
+            retryable: row.retryable === true,
+            retryReason: row.retry_reason || undefined,
+            failureReason: row.failure_reason === 'board_unavailable' ? 'board_unavailable' : null,
+            destinationUrl: row.snapshot_image_url ? (row.snapshot_destination_url || '') : (row.destination_url || ''),
+            pinterestBoardId: row.pinterest_board_id || undefined,
+            pinterestAccountId: row.pinterest_account_id || undefined,
+            pinterestPinId: pinterestPinUrl ? pinterestPinId : undefined,
+            pinterestPinUrl,
+            isOptimalSlot: false,
+          };
+        });
+        setScheduledPins(mapped);
+      } catch (error) {
+        console.error('[schedule] Не удалось загрузить расписание:', error);
+        if (!cancelled) setScheduleLoadError('Не удалось загрузить расписание. Проверьте соединение и попробуйте ещё раз. Существующие публикации не удалены.');
+      } finally {
+        if (!cancelled) setScheduleLoading(false);
+      }
+    }
+    loadSchedule();
+    return () => { cancelled = true; };
+  }, [user?.id, scheduleReloadToken]);
 
   // Тарифные «замочки»: генерацию и разделы открывают Старт/Про/Agency;
   // тариф «Аналитика» (990₽) и «нет тарифа» оставляют замочки (миграция 004)
@@ -77,7 +216,7 @@ const MainApp: React.FC = () => {
     subscriptionActive && ['start', 'pro', 'agency'].includes(normalizedPlan);
   const isSectionLocked = !isTariffUnlocked && activeTab !== 'analytics' && activeTab !== 'pricing';
 
-  // Возврат со страницы оплаты Prodamus: ?payment=success (urlReturn в billing.js).
+  // Возврат со страницы оплаты Prodamus: ?payment=success (urlSuccess в billing.js).
   // Вебхук и редирект идут параллельно, поэтому обновляем /me несколько раз:
   // 0 c, 3 c, 8 c, 15 c — замочки снимаются, как только Prodamus подтвердит платёж.
   React.useEffect(() => {
@@ -101,8 +240,10 @@ const MainApp: React.FC = () => {
   // Событие от визарда/оверлея: перейти в раздел (например, «Тарифы»)
   React.useEffect(() => {
     const handler = (e: Event) => {
-      const tab = (e as CustomEvent<string>).detail;
+      const detail = (e as CustomEvent<string | { tab: string; planId?: string }>).detail;
+      const tab = typeof detail === 'string' ? detail : detail?.tab;
       if (tab) {
+        if (tab === 'pricing' && typeof detail !== 'string') setInitialPricingPlan(detail.planId || null);
         setActiveTab(tab);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -145,106 +286,433 @@ const MainApp: React.FC = () => {
     setActiveViewMode('client');
   };
 
-  // Pinterest Accounts state (User requested fix: "ботаника Nordic подключена 1 из 3")
-  const [accounts, setAccounts] = useState<PinterestAccount[]>(() => {
-    try {
-      const saved = localStorage.getItem('pinposy_accounts');
-      if (saved) return JSON.parse(saved);
-    } catch {
-      // ignore
-    }
-    return INITIAL_ACCOUNTS;
-  });
-  const [activeAccountId, setActiveAccountId] = useState<string>(INITIAL_ACCOUNTS[0]?.id || 'acc-1');
-  const [maxAccounts] = useState<number>(3); // Plan: Start allows up to 3 accounts
+  // Pinterest connections and limits are loaded from the authenticated backend.
+  const [accounts, setAccounts] = useState<PinterestAccount[]>([]);
+  const [activeAccountId, setActiveAccountId] = useState<string>('');
+  const [maxAccounts, setMaxAccounts] = useState<number>(0);
 
-  // Synchronized Pending Review Pins queue (Shared between Dashboard, Calendar, Sidebar & ManualApprovalDesk)
-  const [pendingReviewPins, setPendingReviewPins] = useState<PendingReviewPin[]>(() => {
-    try {
-      const saved = localStorage.getItem('pinposy_pending_pins');
-      if (saved) return JSON.parse(saved);
-    } catch {
-      // ignore
+  // Synchronized Pending Review Pins queue (Shared between Dashboard, Calendar, Sidebar & ManualApprovalDesk).
+  // Queue entries are session-local and must never survive an authenticated-user switch.
+  const [pendingReviewPins, setPendingReviewPins] = useState<PendingReviewPin[]>([]);
+  const pendingReviewPinsRef = React.useRef<PendingReviewPin[]>([]);
+  const reviewQueueWriteChainsRef = React.useRef<Map<string, Promise<unknown>>>(new Map());
+  const pendingReviewUserIdRef = React.useRef(user?.id || '');
+  const pendingReviewOwnerGenerationRef = React.useRef(0);
+  const reviewQueueHydratingRef = React.useRef(false);
+  const reviewQueueTouchedIdsRef = React.useRef<Set<string>>(new Set());
+
+  // Restore the authenticated user's review queue from the backend. Never use
+  // localStorage: it is not an ownership boundary and can leak across accounts.
+  React.useLayoutEffect(() => {
+    // Increment even when the same account signs back in: stale async work from
+    // an earlier A -> B -> A session must not become valid again.
+    pendingReviewOwnerGenerationRef.current += 1;
+    pendingReviewUserIdRef.current = user?.id || '';
+    reviewQueueHydratingRef.current = Boolean(user?.id);
+    reviewQueueTouchedIdsRef.current = new Set();
+    pendingReviewPinsRef.current = [];
+    setPendingReviewPins([]);
+  }, [user?.id]);
+
+  React.useEffect(() => {
+    let active = true;
+    const ownerId = user?.id || '';
+    const ownerSnapshot = { userId: ownerId, generation: pendingReviewOwnerGenerationRef.current };
+    const isCurrentOwner = () => isReviewQueueOwnerCurrent(ownerSnapshot, {
+      userId: pendingReviewUserIdRef.current,
+      generation: pendingReviewOwnerGenerationRef.current,
+    });
+    if (!ownerId) return () => { active = false; };
+
+    apiRequest('/review-queue')
+      .then((rows) => {
+        if (!active || !isCurrentOwner()) return;
+        const safeRows = Array.isArray(rows) ? rows as PendingReviewPin[] : [];
+        const hydratedRows = mergeRestoredReviewQueue(
+          safeRows,
+          pendingReviewPinsRef.current,
+          reviewQueueTouchedIdsRef.current,
+        );
+        reviewQueueHydratingRef.current = false;
+        reviewQueueTouchedIdsRef.current.clear();
+        pendingReviewPinsRef.current = hydratedRows;
+        setPendingReviewPins(hydratedRows);
+      })
+      .catch((error) => {
+        if (!active || !isCurrentOwner()) return;
+        reviewQueueHydratingRef.current = false;
+        reviewQueueTouchedIdsRef.current.clear();
+        console.error('[review-queue] Не удалось восстановить очередь:', error);
+        window.dispatchEvent(new CustomEvent('pinposy:review-queue-error'));
+      });
+    return () => { active = false; };
+  }, [user?.id]);
+
+  const handlePinterestStatusChange = React.useCallback((status: { configured: boolean; account_limit?: number | null; accounts?: Array<{ id: string; username?: string | null; pinterest_user_id?: string | null; needs_reauth?: boolean }> }) => {
+    const rows = Array.isArray(status.accounts) ? status.accounts : [];
+    const mapped: PinterestAccount[] = rows.map((account, index) => ({
+      id: String(account.id),
+      name: account.username || account.pinterest_user_id || `Pinterest ${index + 1}`,
+      handle: account.username ? `@${account.username}` : String(account.pinterest_user_id || ''),
+      avatar: '',
+      boardsCount: 0,
+      monthlyViews: '—',
+      minDailyPins: 8,
+      maxDailyPins: 16,
+      status: account.needs_reauth ? 'error' : 'active',
+      niche: '',
+    }));
+    setAccounts(mapped);
+    setActiveAccountId((current) =>
+      current && mapped.some((account) => account.id === current)
+        ? current
+        : mapped[0]?.id || ''
+    );
+    setMaxAccounts(status.configured === false
+      ? 0
+      : status.account_limit == null ? 99 : Math.max(0, Number(status.account_limit) || 0));
+  }, []);
+
+  React.useEffect(() => {
+    // Remove demo account/review data left by older client builds.
+    localStorage.removeItem('pinposy_accounts');
+    localStorage.removeItem('pinposy_pending_pins');
+  }, []);
+
+  // Pinterest accounts and plan limits come from the server, never from demo/local state.
+  React.useEffect(() => {
+    let active = true;
+    // Clear the previous session immediately so another signed-in user never
+    // sees stale Pinterest profiles or the previous user's plan limit.
+    setAccounts([]);
+    setActiveAccountId('');
+    setMaxAccounts(0);
+
+    if (!user?.id) {
+      return () => { active = false; };
     }
-    return INITIAL_QUEUE_PINS;
-  });
+
+    apiRequest('/integrations/pinterest/status')
+      .then((data) => {
+        if (!active) return;
+        handlePinterestStatusChange(data);
+      })
+      .catch((error) => {
+        console.error('[pinterest] Не удалось загрузить подключённые аккаунты:', error);
+        if (active) {
+          setAccounts([]);
+          setActiveAccountId('');
+          setMaxAccounts(0);
+        }
+      });
+
+    return () => { active = false; };
+  }, [user?.id, handlePinterestStatusChange]);
 
   const handleUpdatePendingPins = (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => {
-    setPendingReviewPins((prev) => {
-      const next = updater(prev);
-      try {
-        localStorage.setItem('pinposy_pending_pins', JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-      return next;
+    const ownerId = user?.id || '';
+    const ownerSnapshot = { userId: ownerId, generation: pendingReviewOwnerGenerationRef.current };
+    const isCurrentOwner = () => isReviewQueueOwnerCurrent(ownerSnapshot, {
+      userId: pendingReviewUserIdRef.current,
+      generation: pendingReviewOwnerGenerationRef.current,
     });
-  };
+    // Ignore callbacks from a child rendered for the previous account.
+    if (!isCurrentOwner()) return;
 
-  const handleUpdateAccountAutoTime = (accountId: string, autoTime: string, nightlyAuto: boolean) => {
-    setAccounts((prev) => {
-      const next = prev.map((a) => (a.id === accountId ? { ...a, autoTime, nightlyAuto } : a));
-      try {
-        localStorage.setItem('pinposy_accounts', JSON.stringify(next));
-      } catch {
-        // ignore
+    const previous = pendingReviewPinsRef.current;
+    const next = updater(previous);
+    if (next === previous) return;
+    if (reviewQueueHydratingRef.current) {
+      const previousById = new Map(previous.map((pin) => [pin.id, pin]));
+      const nextById = new Map(next.map((pin) => [pin.id, pin]));
+      for (const id of previousById.keys()) {
+        if (!nextById.has(id)) reviewQueueTouchedIdsRef.current.add(id);
       }
-      return next;
-    });
-  };
+      for (const id of nextById.keys()) {
+        if (!previousById.has(id) || JSON.stringify(previousById.get(id)) !== JSON.stringify(nextById.get(id))) {
+          reviewQueueTouchedIdsRef.current.add(id);
+        }
+      }
+    }
+    pendingReviewPinsRef.current = next;
+    setPendingReviewPins(next);
 
-  const handleAddAccount = (acc: PinterestAccount) => {
-    setAccounts((prev) => {
-      const next = [...prev, acc];
-      try {
-        localStorage.setItem('pinposy_accounts', JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-      return next;
-    });
-    setActiveAccountId(acc.id);
-  };
+    const previousById = new Map(previous.map((pin) => [pin.id, pin]));
+    const nextById = new Map(next.map((pin) => [pin.id, pin]));
+    const enqueueById = (id: string, operation: () => Promise<unknown>) => {
+      const chains = reviewQueueWriteChainsRef.current;
+      const previousOperation = chains.get(id) || Promise.resolve();
+      const currentOperation = previousOperation.catch(() => undefined).then(() => {
+        if (!isCurrentOwner()) throw new Error('Review queue owner changed before persistence.');
+        return operation();
+      });
+      chains.set(id, currentOperation);
+      currentOperation.finally(() => {
+        if (chains.get(id) === currentOperation) chains.delete(id);
+      }).catch(() => undefined);
+      return currentOperation;
+    };
+    const writes = next
+      .filter((pin) => !previousById.has(pin.id) || JSON.stringify(previousById.get(pin.id)) !== JSON.stringify(pin))
+      .map((pin) => enqueueById(pin.id, () => apiRequest(`/review-queue/${encodeURIComponent(pin.id)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ pin }),
+      })));
+    const removals = previous
+      .filter((pin) => !nextById.has(pin.id))
+      .map((pin) => enqueueById(pin.id, () => apiRequest(`/review-queue/${encodeURIComponent(pin.id)}`, { method: 'DELETE' })));
 
-  const handleRemoveAccount = (id: string) => {
-    setAccounts((prev) => {
-      const next = prev.filter((a) => a.id !== id);
-      try {
-        localStorage.setItem('pinposy_accounts', JSON.stringify(next));
-      } catch {
-        // ignore
+    Promise.all([...writes, ...removals]).catch((error) => {
+      console.error('[review-queue] Не удалось сохранить изменения очереди:', error);
+      // Do not overwrite newer edits or a newly authenticated user's queue.
+      if (isCurrentOwner() && pendingReviewPinsRef.current === next) {
+        pendingReviewPinsRef.current = previous;
+        setPendingReviewPins(previous);
       }
-      if (activeAccountId === id && next.length > 0) {
-        setActiveAccountId(next[0].id);
-      }
-      return next;
+      window.dispatchEvent(new CustomEvent('pinposy:review-queue-error'));
     });
   };
 
   const currentAccount = accounts.find((a) => a.id === activeAccountId) || accounts[0];
   const pendingCount = pendingReviewPins.length;
 
-  const handleSchedulePin = (pin: ScheduledPinItem) => {
-    setScheduledPins((prev) => [pin, ...prev]);
-  };
-
-  const handleAddBoard = (board: BoardItem) => {
-    setBoards((prev) => [board, ...prev]);
-  };
-
-  const handleOptimizeBoard = (boardId: string) => {
-    setBoards((prev) =>
-      prev.map((b) => (b.id === boardId ? { ...b, seoScore: 98 } : b))
-    );
-  };
-
-  const handleGenerateFromTopic = (topic?: string, date?: string) => {
-    if (topic) {
-      setPrefilledTopic(topic);
+  const handleSchedulePin = async (pin: ScheduledPinItem) => {
+    if (!pin.pinId) {
+      window.alert('Не найден ID сохранённого пина. Сначала сохраните пин в генераторе.');
+      return;
     }
-    if (date) {
-      setPrefilledDate(date);
+    const timezone = getDefaultTimezone();
+    let localDateTime: Date;
+    try {
+      localDateTime = localDateTimeToDate(pin.scheduledDate, pin.scheduledTime, timezone);
+    } catch {
+      window.alert('Проверьте дату и время публикации.');
+      return;
     }
+    const schedulePayload = {
+      scheduled_at: localDateTime.toISOString(),
+      timezone,
+      destination_url: pin.destinationUrl || undefined,
+      pinterest_board_id: pin.pinterestBoardId || undefined,
+      pinterest_account_id: pin.pinterestAccountId || undefined,
+    };
+    let saved: any;
+    try {
+      saved = await apiRequest(`/pins/${encodeURIComponent(pin.pinId)}/schedule`, {
+        method: 'POST',
+        body: JSON.stringify(schedulePayload),
+      });
+    } catch (originalError) {
+      // The server may have committed the schedule even when the response was
+      // lost. The API's one-active-schedule-per-pin constraint prevents a
+      // duplicate, but a blind retry would otherwise look like a failed action.
+      // Reconcile against the user's persisted schedule list before surfacing
+      // the original error; never infer success from a loose pin-ID match alone.
+      try {
+        const rows = await apiRequest('/schedule');
+        if (!Array.isArray(rows)) throw new Error('Некорректный ответ расписания');
+        const expectedTime = localDateTime.getTime();
+        const matches = rows.filter((row: any) =>
+          String(row?.pin_id || '') === pin.pinId &&
+          new Date(row?.scheduled_at).getTime() === expectedTime &&
+          String(row?.pinterest_board_id || '') === String(pin.pinterestBoardId || '') &&
+          (!pin.pinterestAccountId || String(row?.pinterest_account_id || '') === String(pin.pinterestAccountId))
+        );
+        if (matches.length !== 1) throw originalError;
+        saved = matches[0];
+      } catch {
+        throw originalError;
+      }
+    }
+    const date = formatInstantInTimezone(new Date(saved.scheduled_at), timezone);
+    const persisted: ScheduledPinItem = {
+      ...pin,
+      id: String(saved.id),
+      pinId: String(saved.pin_id),
+      scheduledDate: date.date,
+      scheduledTime: date.time,
+      status: 'scheduled',
+      pinterestAccountId: saved.pinterest_account_id || pin.pinterestAccountId,
+      accountHandle: accounts.find((account) => account.id === (saved.pinterest_account_id || pin.pinterestAccountId))?.handle || pin.accountHandle,
+    };
+    setScheduledPins((prev) => [persisted, ...prev.filter((item) => item.id !== persisted.id)]);
+  };
+
+  const handleReconcileLegacySchedule = async (pin: ScheduledPinItem, accountId: string) => {
+    try {
+      const saved = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/reconcile-account`, {
+        method: 'POST',
+        body: JSON.stringify({ pinterest_account_id: accountId }),
+      });
+      const account = accounts.find((item) => item.id === String(saved.pinterest_account_id));
+      setScheduledPins((prev) => prev.map((item) => item.id === pin.id ? {
+        ...item,
+        status: 'scheduled',
+        pinterestAccountId: String(saved.pinterest_account_id),
+        accountHandle: account?.handle || account?.name || '',
+      } : item));
+    } catch (error) {
+      console.error('[schedule] Не удалось восстановить старое расписание:', error);
+      window.alert(error instanceof Error ? error.message : 'Не удалось восстановить расписание');
+      throw error;
+    }
+  };
+
+  const handleChangeFailedScheduleBoard = async (
+    pin: ScheduledPinItem,
+    pinterestBoardId: string,
+    boardName: string
+  ) => {
+    try {
+      let saved: any;
+      try {
+        saved = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/change-board`, {
+          method: 'POST',
+          body: JSON.stringify({ pinterest_board_id: pinterestBoardId }),
+        });
+      } catch (originalError) {
+        // The RPC may have committed the board change before the HTTP response was lost.
+        // Reconcile only against this exact schedule ID, target board, account and queued state.
+        try {
+          const rows = await apiRequest('/schedule');
+          saved = findPersistedScheduleMutation(rows, {
+            scheduleId: pin.id,
+            statuses: ['scheduled', 'publishing'],
+            pinterestBoardId,
+            pinterestAccountId: String(pin.pinterestAccountId || ''),
+          });
+          if (!saved) throw originalError;
+        } catch {
+          throw originalError;
+        }
+      }
+
+      const date = formatInstantInTimezone(new Date(saved.scheduled_at), getDefaultTimezone());
+      setScheduledPins((prev) => prev.map((item) => item.id === pin.id ? {
+        ...item,
+        scheduledDate: date.date,
+        scheduledTime: date.time,
+        status: parsePersistedScheduleStatus(saved.status),
+        pinterestBoardId,
+        boardName: boardName || item.boardName,
+        retryable: false,
+        retryReason: undefined,
+        failureReason: null,
+      } : item));
+    } catch (error) {
+      console.error('[schedule] Не удалось сменить Pinterest-доску:', error);
+      window.alert(error instanceof Error ? error.message : 'Не удалось сменить доску Pinterest');
+      throw error;
+    }
+  };
+
+  const handleRetryScheduledPin = async (pin: ScheduledPinItem) => {
+    try {
+      let saved: any;
+      try {
+        saved = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/retry`, {
+          method: 'POST',
+        });
+      } catch (originalError) {
+        // Retry is a guarded DB transition. If its response is lost, accept only
+        // the same schedule after it is visibly back in the queue on the same destination.
+        try {
+          const rows = await apiRequest('/schedule');
+          saved = findPersistedScheduleMutation(rows, {
+            scheduleId: pin.id,
+            statuses: ['scheduled', 'publishing'],
+            pinterestBoardId: String(pin.pinterestBoardId || ''),
+            pinterestAccountId: String(pin.pinterestAccountId || ''),
+          });
+          if (!saved) throw originalError;
+        } catch {
+          throw originalError;
+        }
+      }
+
+      const date = formatInstantInTimezone(new Date(saved.scheduled_at), getDefaultTimezone());
+      setScheduledPins((prev) => prev.map((item) => item.id === pin.id ? {
+        ...item,
+        scheduledDate: date.date,
+        scheduledTime: date.time,
+        status: parsePersistedScheduleStatus(saved.status),
+      } : item));
+    } catch (error) {
+      console.error('[schedule] Не удалось повторить публикацию:', error);
+      window.alert(error instanceof Error ? error.message : 'Не удалось повторить публикацию');
+      throw error;
+    }
+  };
+
+  const handleCancelScheduledPin = async (pin: ScheduledPinItem) => {
+    try {
+      await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/cancel`, {
+        method: 'POST',
+      });
+      setScheduledPins((prev) => prev.filter((item) => item.id !== pin.id));
+    } catch (originalError) {
+      // GET /schedule intentionally omits cancelled rows. A valid list without
+      // this previously visible schedule confirms that cancellation committed
+      // even if the POST response was lost. Any malformed/failed read is inconclusive.
+      try {
+        const rows = await apiRequest('/schedule');
+        if (!isScheduleAbsentFromActiveList(rows, pin.id)) throw originalError;
+        setScheduledPins((prev) => prev.filter((item) => item.id !== pin.id));
+      } catch {
+        console.error('[schedule] Не удалось подтвердить отмену публикации:', originalError);
+        window.alert(originalError instanceof Error ? originalError.message : 'Не удалось отменить публикацию');
+        throw originalError;
+      }
+    }
+  };
+
+  const handleAddBoard = async (board: BoardItem, createRequestId: string) => {
+    try {
+      const project = await getOrCreateProject(
+        String(user?.id || ''),
+        () => apiRequest('/projects'),
+        () => apiRequest('/projects', {
+          method: 'POST',
+          body: JSON.stringify({ niche: board.category, language: aiContentLanguage }),
+        }),
+      );
+
+      const saved = await apiRequest('/boards', {
+        method: 'POST',
+        body: JSON.stringify({
+          project_id: project.id,
+          title: board.name,
+          description: board.category,
+          create_request_id: createRequestId,
+        }),
+      });
+      if (!saved || saved.id == null) {
+        throw new Error('Сервер не подтвердил сохранение доски. Обновите список перед повторной попыткой.');
+      }
+
+      const persisted: BoardItem = {
+        ...board,
+        id: String(saved.id),
+        name: saved.title || board.name,
+        category: board.category,
+      };
+      setBoards((prev) => [persisted, ...prev.filter((item) => item.id !== persisted.id)]);
+      setBoardsLoadError('');
+    } catch (error) {
+      console.error('[boards] Не удалось создать доску:', error);
+      throw error instanceof Error
+        ? error
+        : new Error('Не удалось сохранить доску. Проверьте соединение и попробуйте ещё раз.');
+    }
+  };
+
+  const handleGenerateFromTopic = (topic?: string, date?: string, time?: string, boardId?: string) => {
+    // Each navigation starts with exactly the supplied context; never leak a
+    // previous calendar slot into a later, unrelated generation session.
+    setPrefilledTopic(topic || '');
+    setPrefilledDate(date || '');
+    setPrefilledTime(time || '');
+    setPrefilledBoardId(boardId || '');
     setActiveTab('generator');
   };
 
@@ -331,7 +799,6 @@ const MainApp: React.FC = () => {
               onOpenReview={() => setActiveTab('review')}
               pendingCount={pendingCount}
               currentAccount={currentAccount}
-              onUpdateAccountAutoTime={handleUpdateAccountAutoTime}
             />
           )}
 
@@ -352,6 +819,8 @@ const MainApp: React.FC = () => {
               boards={boards}
               initialTopic={prefilledTopic}
               initialDate={prefilledDate}
+              initialTime={prefilledTime}
+              initialBoardId={prefilledBoardId}
               onSchedulePin={handleSchedulePin}
               onGoToCalendar={() => setActiveTab('calendar')}
             />
@@ -372,38 +841,40 @@ const MainApp: React.FC = () => {
           {activeTab === 'calendar' && (
             <PublishingCalendar
               scheduledPins={scheduledPins}
+              scheduleLoadError={scheduleLoadError}
+              scheduleLoading={scheduleLoading}
+              onRetryLoadSchedule={() => setScheduleReloadToken((value) => value + 1)}
               boards={boards}
               onAddPin={handleSchedulePin}
-              onGoToGenerator={(topic, date) => handleGenerateFromTopic(topic, date)}
+              onCancelSchedule={handleCancelScheduledPin}
+              onRetrySchedule={handleRetryScheduledPin}
+              onChangeFailedScheduleBoard={handleChangeFailedScheduleBoard}
+              onReconcileLegacySchedule={handleReconcileLegacySchedule}
+              onGoToGenerator={(topic, date, time, boardId) => handleGenerateFromTopic(topic, date, time, boardId)}
               onOpenReview={() => setActiveTab('review')}
               accounts={accounts}
               pendingCount={pendingCount}
-              onUpdateAccountAutoTime={handleUpdateAccountAutoTime}
             />
           )}
 
           {activeTab === 'boards' && (
             <BoardsManager
               boards={boards}
+              loadError={boardsLoadError}
+              isLoading={boardsLoading}
+              onRetry={() => setBoardsReloadToken((value) => value + 1)}
               onAddBoard={handleAddBoard}
-              onOptimizeBoard={handleOptimizeBoard}
             />
           )}
 
           {activeTab === 'analytics' && <AnalyticsView />}
 
-          {activeTab === 'pricing' && <PricingView />}
+          {activeTab === 'pricing' && <PricingView initialPlanId={initialPricingPlan} />}
 
           {activeTab === 'settings' && (
             <SettingsView
               onGoToPricing={() => setActiveTab('pricing')}
-              accounts={accounts}
-              activeAccountId={activeAccountId}
-              onSelectAccount={setActiveAccountId}
-              onAddAccount={handleAddAccount}
-              onRemoveAccount={handleRemoveAccount}
-              maxAccounts={maxAccounts}
-              onUpdateAccountAutoTime={handleUpdateAccountAutoTime}
+              onPinterestStatusChange={handlePinterestStatusChange}
             />
           )}
           </LockedSection>

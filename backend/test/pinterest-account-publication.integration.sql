@@ -1,0 +1,895 @@
+-- Run only in disposable PostgreSQL CI after all migrations through 087.
+-- A local pin can be published once per Pinterest identity, not once per user.
+do $$
+declare
+  v_user uuid := gen_random_uuid();
+  v_project uuid;
+  v_board uuid;
+  v_pin uuid;
+  v_orphan_published_pin uuid;
+  v_legacy_pin uuid;
+  v_reconcile_pin uuid;
+  v_unavailable_pin uuid;
+  v_unavailable_schedule uuid;
+  v_unavailable_account uuid;
+  v_reconcile_schedule uuid;
+  v_legacy_history_schedule uuid;
+  v_inflight_pin uuid;
+  v_crash_pin uuid;
+  v_crash_schedule uuid;
+  v_safe_crash_pin uuid;
+  v_safe_crash_schedule uuid;
+  v_unsafe_crash_pin uuid;
+  v_unsafe_crash_schedule uuid;
+  v_old_claim_token uuid;
+  v_new_claim_token uuid;
+  v_retry_pin uuid;
+  v_retry_schedule uuid;
+  v_manual_retry_pin uuid;
+  v_manual_retry_schedule uuid;
+  v_attempt_retry_pin uuid;
+  v_attempt_retry_schedule uuid;
+  v_safe_retry_pin uuid;
+  v_safe_retry_schedule uuid;
+  v_snapshot_pin uuid;
+  v_lock_order_pin uuid;
+  v_lock_order_active_schedule uuid;
+  v_lock_order_failed_schedule uuid;
+  v_lock_order_claim uuid;
+  v_delete_before_pin uuid;
+  v_delete_before_schedule uuid;
+  v_delete_after_pin uuid;
+  v_delete_after_schedule uuid;
+  v_delete_after_claim uuid;
+  v_account_a uuid;
+  v_account_b uuid;
+  v_account_c uuid;
+  v_disconnect_race_pin uuid;
+  v_reconnect_pin uuid;
+  v_reconnect_schedule uuid;
+  v_disconnect_race_schedule uuid;
+  v_disconnect_race_token uuid;
+  v_result jsonb;
+  v_original_schedule_at timestamptz;
+  v_publication_count integer;
+  v_schedule_count integer;
+  v_disconnected boolean;
+  v_scheduled_publish_definition text;
+  v_disconnect_definition text;
+  v_refresh_commit_definition text;
+  v_account_lock_position integer;
+  v_schedule_lock_position integer;
+  v_disconnect_lease_lock_position integer;
+  v_disconnect_account_lock_position integer;
+  v_disconnect_schedule_lock_position integer;
+  v_refresh_lease_lock_position integer;
+  v_refresh_account_lock_position integer;
+begin
+  -- Guard against a later migration silently reintroducing schedule -> account
+  -- lock inversion in the scheduled reservation RPC.
+  select pg_get_functiondef('public.begin_scheduled_pinterest_publish(text,uuid,uuid,uuid,uuid,text)'::regprocedure)
+    into v_scheduled_publish_definition;
+  v_account_lock_position := strpos(v_scheduled_publish_definition, 'from public.pinterest_accounts');
+  v_schedule_lock_position := strpos(v_scheduled_publish_definition, 'from public.pin_schedules');
+  if v_account_lock_position = 0 or v_schedule_lock_position = 0
+     or v_account_lock_position >= v_schedule_lock_position
+     or position('a.disconnected_at is null' in v_scheduled_publish_definition) = 0
+     or position('a.access_token is not null' in v_scheduled_publish_definition) = 0 then
+    raise exception 'scheduled publish RPC must lock and validate the active account before locking its schedule';
+  end if;
+
+  -- Disconnect and token refresh must use the same lease -> account order.
+  -- The scheduled reservation takes account -> schedule and never waits on a
+  -- refresh lease, so this order prevents a lease/account deadlock.
+  select pg_get_functiondef('public.disconnect_pinterest_account_v2(text,uuid)'::regprocedure)
+    into v_disconnect_definition;
+  v_disconnect_lease_lock_position := strpos(v_disconnect_definition, 'delete from public.pinterest_account_refresh_leases');
+  v_disconnect_account_lock_position := strpos(v_disconnect_definition, 'update public.pinterest_accounts');
+  v_disconnect_schedule_lock_position := strpos(v_disconnect_definition, 'update public.pin_schedules');
+  if v_disconnect_lease_lock_position = 0
+     or v_disconnect_account_lock_position = 0
+     or v_disconnect_schedule_lock_position = 0
+     or v_disconnect_lease_lock_position >= v_disconnect_account_lock_position
+     or v_disconnect_account_lock_position >= v_disconnect_schedule_lock_position then
+    raise exception 'Pinterest disconnect must lock refresh lease, then account, then schedules';
+  end if;
+
+  select pg_get_functiondef('public.commit_pinterest_account_token_refresh(text,uuid,uuid,timestamptz,text,text,text,timestamptz)'::regprocedure)
+    into v_refresh_commit_definition;
+  v_refresh_lease_lock_position := strpos(v_refresh_commit_definition, 'from public.pinterest_account_refresh_leases');
+  v_refresh_account_lock_position := strpos(v_refresh_commit_definition, 'update public.pinterest_accounts');
+  if v_refresh_lease_lock_position = 0
+     or v_refresh_account_lock_position = 0
+     or v_refresh_lease_lock_position >= v_refresh_account_lock_position
+     or position('for update' in lower(v_refresh_commit_definition)) = 0 then
+    raise exception 'Pinterest token refresh commit must lock its lease before updating account credentials';
+  end if;
+  insert into public.users(id, email, token_version)
+  values (v_user, 'pinterest-account-publish-' || v_user || '@example.invalid', 0);
+
+  insert into public.projects(user_id, niche) values (v_user, 'multi-account-ci') returning id into v_project;
+  insert into public.boards(project_id, title) values (v_project, 'multi-account-ci') returning id into v_board;
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/multi-account.png', 'Multi account', '', 'pending', 'flux-schnell', 0)
+  returning id into v_pin;
+
+  insert into public.pinterest_accounts(user_id, pinterest_user_id, username, access_token)
+  values (v_user::text, 'account-a-' || v_user, 'account_a', 'enc:a')
+  returning id into v_account_a;
+
+  insert into public.pinterest_accounts(user_id, pinterest_user_id, username, access_token)
+  values (v_user::text, 'account-b-' || v_user, 'account_b', 'enc:b')
+  returning id into v_account_b;
+
+  -- Legacy history without an account mapping must not be guessed or retried.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/legacy.png', 'Legacy pin', '', 'pending', 'flux-schnell', 0)
+  returning id into v_legacy_pin;
+  insert into public.pinterest_publish_attempts(
+    user_id, pin_id, pinterest_board_id, status
+  ) values (
+    v_user::text, v_legacy_pin, 'legacy-board', 'failed'
+  );
+  v_result := public.begin_pinterest_publish_v2(v_user::text, v_legacy_pin, v_account_a, 'board-a');
+  if v_result->>'status' <> 'unknown' then
+    raise exception 'unmapped legacy publication history was allowed to retry: %', v_result;
+  end if;
+
+  -- A legacy schedule with a publish journal must not be assigned to a new identity.
+  insert into public.pin_schedules(
+    user_id, pin_id, scheduled_at, timezone, pinterest_board_id, status
+  ) values (
+    v_user::text, v_legacy_pin, now() + interval '1 day', 'UTC', 'legacy-board', 'failed'
+  ) returning id into v_legacy_history_schedule;
+  v_result := public.reconcile_legacy_pinterest_schedule_account(
+    v_user::text, v_legacy_history_schedule, v_account_a
+  );
+  if v_result->>'reason' <> 'publication_history_exists'
+     or (select pinterest_account_id from public.pin_schedules where id=v_legacy_history_schedule) is not null then
+    raise exception 'legacy schedule with a publication journal was incorrectly reconciled: %', v_result;
+  end if;
+
+  -- A schedule with no publication history can be explicitly bound to the
+  -- account whose remote board was verified by the API layer.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/reconcile.png', 'Reconcile account', '', 'approved', 'flux-schnell', 0)
+  returning id into v_reconcile_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, scheduled_at, timezone, pinterest_board_id, status, last_error
+  ) values (
+    v_user::text, v_reconcile_pin, now() - interval '1 hour', 'UTC', 'board-b', 'failed',
+    'Pinterest account is missing or disconnected'
+  ) returning id into v_reconcile_schedule;
+  v_result := public.reconcile_legacy_pinterest_schedule_account(
+    v_user::text, v_reconcile_schedule, v_account_b
+  );
+  if v_result->>'ok' <> 'true'
+     or (select pinterest_account_id from public.pin_schedules where id=v_reconcile_schedule) <> v_account_b
+     or (select status from public.pin_schedules where id=v_reconcile_schedule) <> 'scheduled'
+     or (select last_error from public.pin_schedules where id=v_reconcile_schedule) is not null then
+    raise exception 'safe legacy schedule reconciliation failed: %', v_result;
+  end if;
+
+  -- Legacy reconciliation must fail closed for a disconnected account.
+  insert into public.pinterest_accounts(user_id, pinterest_user_id, username, access_token)
+  values (v_user::text, 'account-unavailable-' || v_user, 'account_unavailable', 'enc:temporary')
+  returning id into v_unavailable_account;
+  if public.disconnect_pinterest_account_v2(v_user::text, v_unavailable_account) is distinct from true then
+    raise exception 'test setup could not disconnect reconciliation account';
+  end if;
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/unavailable.png', 'Unavailable account', '', 'approved', 'flux-schnell', 0)
+  returning id into v_unavailable_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, scheduled_at, timezone, pinterest_board_id, status
+  ) values (
+    v_user::text, v_unavailable_pin, now() - interval '1 hour', 'UTC', 'board-unavailable', 'failed'
+  ) returning id into v_unavailable_schedule;
+  v_result := public.reconcile_legacy_pinterest_schedule_account(
+    v_user::text, v_unavailable_schedule, v_unavailable_account
+  );
+  if v_result->>'ok' <> 'false'
+     or v_result->>'reason' <> 'account_unavailable'
+     or (select pinterest_account_id from public.pin_schedules where id=v_unavailable_schedule) is not null then
+    raise exception 'legacy schedule was assigned to a disconnected Pinterest account: %', v_result;
+  end if;
+
+  v_result := public.begin_pinterest_publish_v2(v_user::text, v_pin, v_account_a, 'board-a');
+  if v_result->>'status' <> 'started' then
+    raise exception 'first account publication did not start: %', v_result;
+  end if;
+  perform public.complete_pinterest_publish_v2(v_user::text, v_pin, v_account_a, 'remote-a', 'board-a');
+
+  v_result := public.begin_pinterest_publish_v2(v_user::text, v_pin, v_account_b, 'board-b');
+  if v_result->>'status' <> 'started' then
+    raise exception 'same local pin could not be published to second account: %', v_result;
+  end if;
+  perform public.complete_pinterest_publish_v2(v_user::text, v_pin, v_account_b, 'remote-b', 'board-b');
+
+  select count(*) into v_publication_count
+    from public.pinterest_publications
+   where user_id = v_user::text and pin_id = v_pin;
+  if v_publication_count <> 2 then
+    raise exception 'expected one publication per Pinterest account, got %', v_publication_count;
+  end if;
+
+  v_result := public.begin_pinterest_publish_v2(v_user::text, v_pin, v_account_a, 'board-a');
+  if v_result->>'status' <> 'published' or v_result->>'pinterest_pin_id' <> 'remote-a' then
+    raise exception 'duplicate publication on account A was not idempotent: %', v_result;
+  end if;
+
+  -- A publication on another board is not success for this requested destination.
+  v_result := public.begin_pinterest_publish_v2(v_user::text, v_pin, v_account_a, 'board-other');
+  if v_result->>'status' <> 'unknown'
+     or (select pinterest_board_id from public.pinterest_publications
+          where pin_id=v_pin and pinterest_account_id=v_account_a) <> 'board-a' then
+    raise exception 'existing publication on a different board was accepted as this destination: %',v_result;
+  end if;
+
+  -- A published attempt without its matching publication ledger is not proof
+  -- that Pinterest created the remote pin; it must stay blocked for review.
+  insert into public.pins(board_id,image_url,title,description,status,model_used,credits_cost)
+  values(v_board,'https://cdn.example.invalid/orphan-published.png','Orphan published attempt','','approved','flux-schnell',0)
+  returning id into v_orphan_published_pin;
+  insert into public.pinterest_publish_attempts(
+    user_id,pin_id,pinterest_account_id,pinterest_board_id,status,pinterest_pin_id
+  ) values (
+    v_user::text,v_orphan_published_pin,v_account_a,'board-a','published','remote-orphan'
+  );
+  v_result := public.begin_pinterest_publish_v2(v_user::text,v_orphan_published_pin,v_account_a,'board-a');
+  if v_result->>'status' <> 'unknown' then
+    raise exception 'published attempt without publication ledger was treated as confirmed: %',v_result;
+  end if;
+
+  -- A separate claimed schedule models a worker already in flight.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/inflight.png', 'In-flight pin', '', 'pending', 'flux-schnell', 0)
+  returning id into v_inflight_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, claim_token
+  ) values (
+    v_user::text, v_inflight_pin, v_account_a, now() - interval '1 minute',
+    'UTC', 'board-a', 'publishing', gen_random_uuid()
+  );
+
+  -- A stale claim with no attempt journal is safe to requeue, but its old
+  -- worker must be fenced before it can reserve an attempt or send a POST.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/pre-journal-crash.png', 'Pre-journal crash', '', 'pending', 'flux-schnell', 0)
+  returning id into v_crash_pin;
+  v_old_claim_token := gen_random_uuid();
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, claim_token, updated_at
+  ) values (
+    v_user::text, v_crash_pin, v_account_a, now() - interval '1 day',
+    'UTC', 'board-a', 'publishing', v_old_claim_token, now() - interval '21 minutes'
+  ) returning id into v_crash_schedule;
+
+  if exists (
+    select 1 from public.claim_due_pin_schedules(10) where id=v_crash_schedule
+  ) then
+    raise exception 'pre-journal stale claim was re-claimed before its safety backoff';
+  end if;
+  if (select status from public.pin_schedules where id=v_crash_schedule) <> 'scheduled'
+     or (select claim_token from public.pin_schedules where id=v_crash_schedule) is not null
+     or (select next_attempt_at from public.pin_schedules where id=v_crash_schedule) <= now()
+     or exists (select 1 from public.pinterest_publish_attempts where pin_id=v_crash_pin and pinterest_account_id=v_account_a) then
+    raise exception 'stale pre-journal claim was not safely requeued';
+  end if;
+
+  begin
+    perform public.begin_scheduled_pinterest_publish(
+      v_user::text,v_crash_schedule,v_old_claim_token,v_crash_pin,v_account_a,'board-a'
+    );
+    raise exception 'stale worker claim token was accepted after recovery';
+  exception when sqlstate '40001' then
+    null;
+  end;
+
+  update public.pin_schedules
+     set next_attempt_at=now() - interval '1 second'
+   where id=v_crash_schedule;
+  select claim_token into v_new_claim_token
+    from public.claim_due_pin_schedules(10)
+   where id=v_crash_schedule;
+  if v_new_claim_token is null or v_new_claim_token=v_old_claim_token then
+    raise exception 'reclaimed schedule did not receive a fresh fencing token';
+  end if;
+
+  begin
+    perform public.begin_scheduled_pinterest_publish(
+      v_user::text,v_crash_schedule,v_old_claim_token,v_crash_pin,v_account_a,'board-a'
+    );
+    raise exception 'old worker was able to reserve an attempt after a new claim';
+  exception when sqlstate '40001' then
+    null;
+  end;
+
+  v_result := public.begin_scheduled_pinterest_publish(
+    v_user::text,v_crash_schedule,v_new_claim_token,v_crash_pin,v_account_a,'board-a'
+  );
+  if v_result->>'status' <> 'started'
+     or not exists (select 1 from public.pinterest_publish_attempts where pin_id=v_crash_pin and pinterest_account_id=v_account_a) then
+    raise exception 'current schedule claim could not atomically reserve its publish journal: %',v_result;
+  end if;
+
+  -- The worker may lose the RPC response after PostgreSQL committed. Replaying
+  -- the same claim must observe the existing reservation, never start a second
+  -- publish attempt or authorize a second external POST.
+  v_result := public.begin_scheduled_pinterest_publish(
+    v_user::text,v_crash_schedule,v_new_claim_token,v_crash_pin,v_account_a,'board-a'
+  );
+  if v_result->>'status' <> 'processing'
+     or (select count(*) from public.pinterest_publish_attempts
+          where pin_id=v_crash_pin and pinterest_account_id=v_account_a) <> 1
+     or (select status from public.pinterest_publish_attempts
+          where pin_id=v_crash_pin and pinterest_account_id=v_account_a) <> 'processing' then
+    raise exception 'replayed schedule reservation did not remain fenced behind the original attempt: %',v_result;
+  end if;
+
+  -- A caller cannot reuse a valid claim token while changing the destination.
+  begin
+    perform public.begin_scheduled_pinterest_publish(
+      v_user::text,v_crash_schedule,v_new_claim_token,v_crash_pin,v_account_a,'board-substituted'
+    );
+    raise exception 'schedule claim was accepted for a substituted Pinterest board';
+  exception when sqlstate '40001' then
+    null;
+  end;
+
+  -- Recovery must preserve a safely journaled rejection if the worker
+  -- crashes before it can move the schedule from publishing to scheduled.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/safe-crash.png', 'Safe crash', '', 'pending', 'flux-schnell', 0)
+  returning id into v_safe_crash_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, claim_token, updated_at
+  ) values (
+    v_user::text, v_safe_crash_pin, v_account_a, now() - interval '1 day',
+    'UTC', 'board-a', 'publishing', gen_random_uuid(), now() - interval '21 minutes'
+  ) returning id into v_safe_crash_schedule;
+  insert into public.pinterest_publish_attempts(
+    user_id, pin_id, pinterest_account_id, pinterest_board_id, status, retry_safe
+  ) values (
+    v_user::text, v_safe_crash_pin, v_account_a, 'board-a', 'failed', true
+  );
+  perform public.claim_due_pin_schedules(10);
+  if (select status from public.pin_schedules where id=v_safe_crash_schedule) <> 'scheduled'
+     or (select claim_token from public.pin_schedules where id=v_safe_crash_schedule) is not null
+     or (select next_attempt_at from public.pin_schedules where id=v_safe_crash_schedule) <= now() then
+    raise exception 'stale schedule did not preserve the explicitly safe failure retry';
+  end if;
+
+  -- A failed journal without retry_safe is a known terminal rejection, not
+  -- an ambiguous remote outcome and must not be converted into unknown.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/unsafe-crash.png', 'Unsafe crash', '', 'pending', 'flux-schnell', 0)
+  returning id into v_unsafe_crash_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, claim_token, updated_at
+  ) values (
+    v_user::text, v_unsafe_crash_pin, v_account_a, now() - interval '1 day',
+    'UTC', 'board-a', 'publishing', gen_random_uuid(), now() - interval '21 minutes'
+  ) returning id into v_unsafe_crash_schedule;
+  insert into public.pinterest_publish_attempts(
+    user_id, pin_id, pinterest_account_id, pinterest_board_id, status, retry_safe
+  ) values (
+    v_user::text, v_unsafe_crash_pin, v_account_a, 'board-a', 'failed', false
+  );
+  perform public.claim_due_pin_schedules(10);
+  if (select status from public.pin_schedules where id=v_unsafe_crash_schedule) <> 'failed'
+     or (select claim_token from public.pin_schedules where id=v_unsafe_crash_schedule) is not null
+     or (select next_attempt_at from public.pin_schedules where id=v_unsafe_crash_schedule) is not null then
+    raise exception 'stale schedule did not preserve the known non-retryable failure';
+  end if;
+
+  -- A retry backoff must keep a due schedule out of the worker claim set
+  -- until next_attempt_at, then allow it to be claimed normally.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/retry.png', 'Retry pin', '', 'pending', 'flux-schnell', 0)
+  returning id into v_retry_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, next_attempt_at
+  ) values (
+    v_user::text, v_retry_pin, v_account_b, now() - interval '2 minutes',
+    'UTC', 'board-b', 'scheduled', now() + interval '5 minutes'
+  ) returning id into v_retry_schedule;
+
+  if exists (
+    select 1 from public.claim_due_pin_schedules(10) where id = v_retry_schedule
+  ) then
+    raise exception 'schedule was claimed before its retry backoff elapsed';
+  end if;
+
+  update public.pin_schedules
+     set next_attempt_at = now() - interval '1 second'
+   where id = v_retry_schedule;
+  if not exists (
+    select 1 from public.claim_due_pin_schedules(10) where id = v_retry_schedule
+  ) then
+    raise exception 'schedule was not claimed after its retry backoff elapsed';
+  end if;
+  if (select attempts from public.pin_schedules where id = v_retry_schedule) <> 1 then
+    raise exception 'retry schedule claim did not increment attempts exactly once';
+  end if;
+
+  -- Manual retry is allowed only when the journal proves no publish attempt exists.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/manual-retry.png', 'Manual retry pin', '', 'pending', 'flux-schnell', 0)
+  returning id into v_manual_retry_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, last_error
+  ) values (
+    v_user::text, v_manual_retry_pin, v_account_a, now() - interval '1 day',
+    'UTC', 'board-a', 'failed', 'Account disconnected'
+  ) returning id into v_manual_retry_schedule;
+
+  select scheduled_at into v_original_schedule_at from public.pin_schedules where id = v_manual_retry_schedule;
+  v_result := public.retry_failed_pin_schedule(v_user::text, v_manual_retry_schedule);
+  if v_result->>'ok' <> 'true' then
+    raise exception 'safe failed schedule could not be retried: %', v_result;
+  end if;
+  if (select status from public.pin_schedules where id = v_manual_retry_schedule) <> 'scheduled'
+     or (select next_attempt_at from public.pin_schedules where id = v_manual_retry_schedule) is not null
+     or (select attempts from public.pin_schedules where id = v_manual_retry_schedule) <> 0
+     or (select last_error from public.pin_schedules where id = v_manual_retry_schedule) is not null
+     or (select original_scheduled_at from public.pin_schedules where id = v_manual_retry_schedule) is distinct from v_original_schedule_at then
+    raise exception 'manual retry did not restore the schedule cleanly';
+  end if;
+
+  -- A failed journal row is still evidence that the remote request may have
+  -- started; the manual retry RPC must refuse it.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/attempt-retry.png', 'Attempt retry pin', '', 'pending', 'flux-schnell', 0)
+  returning id into v_attempt_retry_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status
+  ) values (
+    v_user::text, v_attempt_retry_pin, v_account_a, now() - interval '1 day',
+    'UTC', 'board-a', 'failed'
+  ) returning id into v_attempt_retry_schedule;
+  insert into public.pinterest_publish_attempts(
+    user_id, pin_id, pinterest_account_id, pinterest_board_id, status
+  ) values (
+    v_user::text, v_attempt_retry_pin, v_account_a, 'board-a', 'failed'
+  );
+
+  v_result := public.retry_failed_pin_schedule(v_user::text, v_attempt_retry_schedule);
+  if v_result->>'ok' <> 'false' or v_result->>'reason' <> 'publication_attempt_exists' then
+    raise exception 'manual retry ignored an existing publish journal: %', v_result;
+  end if;
+  if (select status from public.pin_schedules where id = v_attempt_retry_schedule) <> 'failed' then
+    raise exception 'unsafe schedule was changed despite an existing publish attempt';
+  end if;
+  v_result := public.begin_pinterest_publish_v2(
+    v_user::text,v_attempt_retry_pin,v_account_a,'board-a'
+  );
+  if v_result->>'status' <> 'failed' then
+    raise exception 'direct publish reopened a failed attempt without retry_safe=true: %',v_result;
+  end if;
+
+  -- A durable failed attempt is retryable only when the failure RPC marked it
+  -- as a confirmed pre-create rejection. Manual retry and begin RPC share it.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/safe-retry.png', 'Safe retry pin', '', 'pending', 'flux-schnell', 0)
+  returning id into v_safe_retry_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status
+  ) values (
+    v_user::text, v_safe_retry_pin, v_account_b, now() - interval '1 day',
+    'UTC', 'board-b', 'failed'
+  ) returning id into v_safe_retry_schedule;
+  insert into public.pinterest_publish_attempts(
+    user_id, pin_id, pinterest_account_id, pinterest_board_id, status
+  ) values (
+    v_user::text, v_safe_retry_pin, v_account_b, 'board-b', 'processing'
+  );
+  perform public.fail_pinterest_publish_v2(
+    v_user::text,v_safe_retry_pin,v_account_b,'Pinterest rejected before creation',false
+  );
+  if (select status from public.pinterest_publish_attempts where pin_id=v_safe_retry_pin and pinterest_account_id=v_account_b) <> 'failed'
+     or not (select retry_safe from public.pinterest_publish_attempts where pin_id=v_safe_retry_pin and pinterest_account_id=v_account_b) then
+    raise exception 'confirmed pre-create failure did not persist retry_safe marker';
+  end if;
+
+  v_result := public.retry_failed_pin_schedule(v_user::text, v_safe_retry_schedule);
+  if v_result->>'ok' <> 'true'
+     or (select status from public.pin_schedules where id=v_safe_retry_schedule) <> 'scheduled' then
+    raise exception 'explicitly safe failed attempt could not be manually retried: %',v_result;
+  end if;
+
+  v_result := public.begin_pinterest_publish_v2(
+    v_user::text,v_safe_retry_pin,v_account_b,'board-b'
+  );
+  if v_result->>'status' <> 'started'
+     or (select status from public.pinterest_publish_attempts where pin_id=v_safe_retry_pin and pinterest_account_id=v_account_b) <> 'processing'
+     or (select retry_safe from public.pinterest_publish_attempts where pin_id=v_safe_retry_pin and pinterest_account_id=v_account_b) then
+    raise exception 'direct/scheduled publish did not consume the same safe retry marker: %',v_result;
+  end if;
+
+  -- Omitting the outcome flag is conservative: unknown is the default.
+  perform public.fail_pinterest_publish_v2(
+    v_user::text,v_safe_retry_pin,v_account_b,'missing outcome classification'
+  );
+  if (select status from public.pinterest_publish_attempts where pin_id=v_safe_retry_pin and pinterest_account_id=v_account_b) <> 'unknown'
+     or (select retry_safe from public.pinterest_publish_attempts where pin_id=v_safe_retry_pin and pinterest_account_id=v_account_b) then
+    raise exception 'omitted failure outcome was not conservatively marked unknown';
+  end if;
+  v_result := public.begin_pinterest_publish_v2(v_user::text,v_safe_retry_pin,v_account_b,'board-b');
+  if v_result->>'status' <> 'unknown' then
+    raise exception 'ambiguous attempt was retried after failure classification was omitted: %',v_result;
+  end if;
+
+  -- Active schedules are also unique per pin + Pinterest account.
+  insert into public.pin_schedules(user_id, pin_id, pinterest_account_id, scheduled_at, timezone, pinterest_board_id)
+  values (v_user::text, v_pin, v_account_a, now() + interval '1 day', 'UTC', 'board-a');
+  insert into public.pin_schedules(user_id, pin_id, pinterest_account_id, scheduled_at, timezone, pinterest_board_id)
+  values (v_user::text, v_pin, v_account_b, now() + interval '1 day', 'UTC', 'board-b');
+
+  select count(*) into v_schedule_count
+    from public.pin_schedules
+   where user_id = v_user::text and pin_id = v_pin
+     and status = 'scheduled';
+  if v_schedule_count <> 2 then
+    raise exception 'same pin could not be scheduled independently for two accounts';
+  end if;
+
+  begin
+    insert into public.pin_schedules(user_id, pin_id, pinterest_account_id, scheduled_at, timezone, pinterest_board_id)
+    values (v_user::text, v_pin, v_account_a, now() + interval '2 days', 'UTC', 'board-a');
+    raise exception 'duplicate active schedule for same account was accepted';
+  exception when unique_violation then
+    null;
+  end;
+
+  -- A separate schedule with no publish attempt must remain failed after OAuth reconnect.
+  -- Reconnect restores the same account row, but must never silently resume old jobs.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/reconnect.png', 'Reconnect schedule', '', 'approved', 'flux-schnell', 0)
+  returning id into v_reconnect_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status
+  ) values (
+    v_user::text, v_reconnect_pin, v_account_a, now() + interval '1 day',
+    'UTC', 'board-a', 'scheduled'
+  ) returning id into v_reconnect_schedule;
+
+  -- A remote request that already passed the durable reservation boundary may
+  -- finish after the user disconnects the account. Reserve it before disconnect;
+  -- the confirmed success must still be written to the ledger afterwards.
+  v_result := public.begin_pinterest_publish_v2(
+    v_user::text, v_inflight_pin, v_account_a, 'board-a'
+  );
+  if v_result->>'status' <> 'started' then
+    raise exception 'in-flight publication could not reserve before disconnect: %', v_result;
+  end if;
+
+  -- Disconnecting A must fail only A's future schedules; B remains queued.
+  v_disconnected := public.disconnect_pinterest_account_v2(v_user::text, v_account_a);
+  if v_disconnected is distinct from true then
+    raise exception 'disconnecting account A failed';
+  end if;
+  if (select status from public.pin_schedules
+       where user_id=v_user::text and pin_id=v_pin and pinterest_account_id=v_account_a) <> 'failed' then
+    raise exception 'future schedule for disconnected account A was not failed';
+  end if;
+  if (select status from public.pin_schedules
+       where user_id=v_user::text and pin_id=v_pin and pinterest_account_id=v_account_b) <> 'scheduled' then
+    raise exception 'disconnecting account A changed account B schedule';
+  end if;
+
+  -- Disconnect cannot revoke an HTTP request already accepted by Pinterest.
+  -- Its late 2xx must be durably reconciled even though local credentials are
+  -- now cleared; otherwise a later reconnect could create a duplicate pin.
+  perform public.complete_pinterest_publish_v2(
+    v_user::text, v_inflight_pin, v_account_a, 'remote-after-disconnect', 'board-a'
+  );
+  if not exists (
+       select 1 from public.pinterest_publications
+        where user_id=v_user::text and pin_id=v_inflight_pin
+          and pinterest_account_id=v_account_a
+          and pinterest_board_id='board-a'
+          and pinterest_pin_id='remote-after-disconnect'
+     )
+     or (select status from public.pinterest_publish_attempts
+          where pin_id=v_inflight_pin and pinterest_account_id=v_account_a) <> 'published'
+     or (select status from public.pin_schedules
+          where user_id=v_user::text and pin_id=v_inflight_pin
+            and pinterest_account_id=v_account_a) <> 'published'
+     or (select claim_token from public.pin_schedules
+          where user_id=v_user::text and pin_id=v_inflight_pin
+            and pinterest_account_id=v_account_a) is not null
+     or (select access_token from public.pinterest_accounts where id=v_account_a) is not null
+     or (select refresh_token from public.pinterest_accounts where id=v_account_a) is not null
+     or (select disconnected_at from public.pinterest_accounts where id=v_account_a) is null then
+    raise exception 'late confirmed publication was not reconciled after disconnect or credentials were restored';
+  end if;
+
+  -- Simulate a successful OAuth callback for the same external identity.
+  -- The stable account UUID is reused; the old schedule remains failed until
+  -- the user explicitly presses Retry in PinPosy.
+  update public.pinterest_accounts
+     set access_token = 'enc:a-reconnected',
+         refresh_token = 'enc:ar-reconnected',
+         disconnected_at = null,
+         updated_at = now()
+   where id = v_account_a and user_id = v_user::text;
+  if (not found)
+     or (select pinterest_account_id from public.pin_schedules where id=v_reconnect_schedule) <> v_account_a
+     or (select status from public.pin_schedules where id=v_reconnect_schedule) <> 'failed' then
+    raise exception 'OAuth reconnect changed account identity or silently resumed an old schedule';
+  end if;
+
+  v_result := public.retry_failed_pin_schedule(v_user::text, v_reconnect_schedule);
+  if v_result->>'ok' <> 'true'
+     or (select status from public.pin_schedules where id=v_reconnect_schedule) <> 'scheduled' then
+    raise exception 'explicit retry after reconnect did not resume the safe schedule: %', v_result;
+  end if;
+
+  -- A preflight-failed schedule with no publication attempt may be moved
+  -- to a newly verified board without rebuilding or losing its pin snapshot.
+  update public.pin_schedules
+     set status = 'failed',
+         pinterest_board_id = 'deleted-board',
+         last_error = 'Выбранная доска не найдена или недоступна подключённому Pinterest-аккаунту',
+         updated_at = now()
+   where id = v_reconnect_schedule;
+  v_result := public.change_failed_pin_schedule_board(v_user::text, v_reconnect_schedule, 'replacement-board');
+  if v_result->>'ok' <> 'true'
+     or (select status from public.pin_schedules where id=v_reconnect_schedule) <> 'scheduled'
+     or (select pinterest_board_id from public.pin_schedules where id=v_reconnect_schedule) <> 'replacement-board'
+     or (select pin_id from public.pin_schedules where id=v_reconnect_schedule) <> v_reconnect_pin then
+    raise exception 'safe board reassignment did not preserve and requeue the original pin: %', v_result;
+  end if;
+  if exists (
+    select 1 from public.pinterest_publish_attempts
+     where pin_id=v_reconnect_pin and pinterest_account_id=v_account_a
+  ) then
+    raise exception 'board reassignment unexpectedly created a publication attempt';
+  end if;
+
+  -- Even a failed journal explicitly marked non-retryable must block
+  -- reassignment: changing the destination cannot erase a possible remote side effect.
+  update public.pin_schedules
+     set last_error = 'Выбранная доска не найдена или недоступна подключённому Pinterest-аккаунту',
+         updated_at = now()
+   where id = v_unsafe_crash_schedule;
+  v_result := public.change_failed_pin_schedule_board(v_user::text, v_unsafe_crash_schedule, 'replacement-board');
+  if v_result->>'ok' <> 'false' or v_result->>'reason' <> 'publication_attempt_exists'
+     or (select status from public.pin_schedules where id=v_unsafe_crash_schedule) <> 'failed'
+     or (select pinterest_board_id from public.pin_schedules where id=v_unsafe_crash_schedule) <> 'board-a' then
+    raise exception 'board reassignment bypassed a non-retryable publication attempt: %', v_result;
+  end if;
+
+  -- A claimed/in-flight job is not cancelled underneath its remote request.
+  if (select status from public.pin_schedules
+       where user_id=v_user::text and pin_id=v_inflight_pin
+         and pinterest_account_id=v_account_a) <> 'publishing' then
+    raise exception 'disconnecting account A rewrote an in-flight schedule';
+  end if;
+
+  -- Disconnect must win cleanly if it commits before a worker reserves its
+  -- durable attempt. The worker may not pass the account check and send POST.
+  insert into public.pinterest_accounts(user_id, pinterest_user_id, username, access_token)
+  values (v_user::text, 'account-c-' || v_user, 'account_c', 'enc:temporary')
+  returning id into v_account_c;
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/disconnect-race.png', 'Disconnect race', '', 'pending', 'flux-schnell', 0)
+  returning id into v_disconnect_race_pin;
+  v_disconnect_race_token := gen_random_uuid();
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, claim_token
+  ) values (
+    v_user::text, v_disconnect_race_pin, v_account_c, now() - interval '1 minute',
+    'UTC', 'board-c', 'publishing', v_disconnect_race_token
+  ) returning id into v_disconnect_race_schedule;
+
+  if public.disconnect_pinterest_account_v2(v_user::text, v_account_c) is distinct from true then
+    raise exception 'disconnect race test could not disconnect account C';
+  end if;
+  begin
+    perform public.begin_scheduled_pinterest_publish(
+      v_user::text, v_disconnect_race_schedule, v_disconnect_race_token,
+      v_disconnect_race_pin, v_account_c, 'board-c'
+    );
+    raise exception 'worker reserved a publication after account disconnect committed';
+  exception when sqlstate '42501' then
+    null;
+  end;
+  if exists (
+    select 1 from public.pinterest_publish_attempts
+     where pin_id=v_disconnect_race_pin and pinterest_account_id=v_account_c
+  ) then
+    raise exception 'disconnected account race created a durable publish attempt';
+  end if;
+
+  -- Disconnecting A must not erase either account's already-published history.
+  select count(*) into v_publication_count
+    from public.pinterest_publications
+   where user_id = v_user::text and pin_id = v_pin;
+  if v_publication_count <> 2
+     or not exists (
+       select 1 from public.pinterest_publications
+        where user_id=v_user::text and pin_id=v_pin
+          and pinterest_account_id=v_account_a and pinterest_pin_id='remote-a'
+     )
+     or not exists (
+       select 1 from public.pinterest_publications
+        where user_id=v_user::text and pin_id=v_pin
+          and pinterest_account_id=v_account_b and pinterest_pin_id='remote-b'
+     ) then
+    raise exception 'disconnecting account A changed published history for A or B';
+  end if;
+
+  -- Editing the live pin after scheduling must not rewrite the approved creative snapshot.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/snapshot-before.png', 'Snapshot before', 'Original copy', 'approved', 'flux-schnell', 0)
+  returning id into v_snapshot_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, snapshot_title, snapshot_description,
+    snapshot_image_url, snapshot_destination_url
+  ) values (
+    v_user::text, v_snapshot_pin, v_account_a, now() + interval '1 day', 'UTC',
+    'board-a', 'scheduled', 'Snapshot before', 'Original copy',
+    'https://cdn.example.invalid/snapshot-before.png', 'https://example.invalid/original'
+  ) returning id into v_delete_before_schedule;
+  update public.pins
+     set title='Edited after scheduling',
+         description='Edited copy',
+         image_url='https://cdn.example.invalid/snapshot-after.png'
+   where id=v_snapshot_pin;
+  if (select snapshot_title from public.pin_schedules where id=v_delete_before_schedule) <> 'Snapshot before'
+     or (select snapshot_description from public.pin_schedules where id=v_delete_before_schedule) <> 'Original copy'
+     or (select snapshot_image_url from public.pin_schedules where id=v_delete_before_schedule) <> 'https://cdn.example.invalid/snapshot-before.png' then
+    raise exception 'editing a pin rewrote the immutable schedule snapshot';
+  end if;
+
+  -- Snapshot values are immutable once captured, even for service-role writes.
+  begin
+    update public.pin_schedules
+       set snapshot_title='Tampered snapshot'
+     where id=v_delete_before_schedule;
+    raise exception 'schedule snapshot update was unexpectedly accepted';
+  exception when sqlstate '55000' then
+    null;
+  end;
+
+  -- Deleting the source pin must not cascade-delete queued publication work.
+  begin
+    delete from public.pins where id=v_snapshot_pin;
+    raise exception 'source pin deletion was unexpectedly accepted while scheduled';
+  exception when foreign_key_violation then
+    null;
+  end;
+  if not exists (select 1 from public.pin_schedules where id=v_delete_before_schedule and status='scheduled') then
+    raise exception 'source pin deletion removed its durable schedule';
+  end if;
+
+  -- A newer failed history row must not be selected instead of the active
+  -- publishing row when completion establishes its schedule lock.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/lock-order.png', 'Lock order', '', 'approved', 'flux-schnell', 0)
+  returning id into v_lock_order_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, updated_at
+  ) values (
+    v_user::text, v_lock_order_pin, v_account_a, now() - interval '1 day',
+    'UTC', 'board-a', 'failed', now() + interval '1 minute'
+  ) returning id into v_lock_order_failed_schedule;
+  v_lock_order_claim := gen_random_uuid();
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, claim_token, updated_at
+  ) values (
+    v_user::text, v_lock_order_pin, v_account_a, now() - interval '1 minute',
+    'UTC', 'board-a', 'publishing', v_lock_order_claim, now() - interval '1 minute'
+  ) returning id into v_lock_order_active_schedule;
+  v_result := public.begin_scheduled_pinterest_publish(
+    v_user::text, v_lock_order_active_schedule, v_lock_order_claim,
+    v_lock_order_pin, v_account_a, 'board-a'
+  );
+  if v_result->>'status' <> 'started' then
+    raise exception 'lock-order fixture could not reserve its publication attempt: %', v_result;
+  end if;
+  perform public.complete_pinterest_publish_v2(
+    v_user::text, v_lock_order_pin, v_account_a, 'remote-lock-order', 'board-a'
+  );
+  if (select status from public.pin_schedules where id=v_lock_order_active_schedule) <> 'published'
+     or (select claim_token from public.pin_schedules where id=v_lock_order_active_schedule) is not null
+     or (select pinterest_pin_id from public.pin_schedules where id=v_lock_order_active_schedule) <> 'remote-lock-order'
+     or (select published_at from public.pin_schedules where id=v_lock_order_active_schedule) is null
+     or (select status from public.pin_schedules where id=v_lock_order_failed_schedule) <> 'failed' then
+    raise exception 'completion did not persist the published schedule, clear its claim, and preserve failed history';
+  end if;
+
+  -- A queued schedule now retains its source pin. Deletion must fail closed
+  -- instead of cascading away work that the worker has not yet reserved.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/delete-before.png', 'Delete before', '', 'approved', 'flux-schnell', 0)
+  returning id into v_delete_before_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status
+  ) values (
+    v_user::text, v_delete_before_pin, v_account_a, now() - interval '1 minute',
+    'UTC', 'board-a', 'scheduled'
+  ) returning id into v_delete_before_schedule;
+  begin
+    delete from public.pins where id=v_delete_before_pin;
+    raise exception 'source pin deletion unexpectedly removed a queued schedule';
+  exception when foreign_key_violation then
+    null;
+  end;
+  if not exists (select 1 from public.pin_schedules where id=v_delete_before_schedule and status='scheduled')
+     or exists (select 1 from public.pinterest_publish_attempts where pin_id=v_delete_before_pin and pinterest_account_id=v_account_a) then
+    raise exception 'queued schedule was not retained after blocked source pin deletion';
+  end if;
+
+  -- Deletion remains blocked after the durable attempt begins as well. The
+  -- worker keeps both its schedule and source pin identity through completion.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, 'https://cdn.example.invalid/delete-after.png', 'Delete after', '', 'approved', 'flux-schnell', 0)
+  returning id into v_delete_after_pin;
+  v_delete_after_claim := gen_random_uuid();
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status, claim_token
+  ) values (
+    v_user::text, v_delete_after_pin, v_account_a, now() - interval '1 minute',
+    'UTC', 'board-a', 'publishing', v_delete_after_claim
+  ) returning id into v_delete_after_schedule;
+  v_result := public.begin_scheduled_pinterest_publish(
+    v_user::text, v_delete_after_schedule, v_delete_after_claim,
+    v_delete_after_pin, v_account_a, 'board-a'
+  );
+  if v_result->>'status' <> 'started' then
+    raise exception 'scheduled publish did not reserve its durable attempt before delete: %', v_result;
+  end if;
+  begin
+    delete from public.pins where id=v_delete_after_pin;
+    raise exception 'source pin deletion unexpectedly removed an in-flight schedule';
+  exception when foreign_key_violation then
+    null;
+  end;
+  if not exists (select 1 from public.pin_schedules where id=v_delete_after_schedule and status='publishing')
+     or not exists (
+       select 1 from public.pinterest_publish_attempts
+        where pin_id=v_delete_after_pin and pinterest_account_id=v_account_a and status='processing'
+     ) then
+    raise exception 'in-flight schedule or attempt was not retained after blocked source pin deletion';
+  end if;
+  perform public.complete_pinterest_publish_v2(
+    v_user::text, v_delete_after_pin, v_account_a, 'remote-after-delete', 'board-a'
+  );
+  if not exists (
+    select 1 from public.pinterest_publications
+     where pin_id=v_delete_after_pin and pinterest_account_id=v_account_a
+       and pinterest_pin_id='remote-after-delete'
+  ) then
+    raise exception 'remote publication result was lost after local pin deletion';
+  end if;
+
+  delete from public.pin_schedules where user_id = v_user::text;
+  delete from public.pinterest_publish_attempts where user_id = v_user::text;
+  delete from public.pinterest_publications where user_id = v_user::text;
+  delete from public.pinterest_accounts where user_id = v_user::text;
+  delete from public.pins where id in (v_pin, v_orphan_published_pin, v_legacy_pin, v_inflight_pin, v_crash_pin, v_retry_pin, v_manual_retry_pin, v_attempt_retry_pin, v_safe_retry_pin, v_reconcile_pin, v_snapshot_pin, v_unavailable_pin, v_safe_crash_pin, v_unsafe_crash_pin);
+  delete from public.boards where id = v_board;
+  delete from public.projects where id = v_project;
+  delete from public.users where id = v_user;
+
+  raise notice 'Pinterest account-scoped publication and scheduling checks passed';
+end;
+$$;

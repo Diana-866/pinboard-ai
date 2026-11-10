@@ -28,8 +28,8 @@ function normalizePlan(plan) {
  *  2. Уточняем по последней success-подписке: если period_end в прошлом — тариф истёк.
  *  3. Если строки подписок нет вовсе (тариф выставлен вручную админом) — доверяем users.
  */
-async function getTariffState(userId) {
-  const { data: user, error } = await supabase
+async function getTariffState(userId, db = supabase) {
+  const { data: user, error } = await db
     .from("users")
     .select("tariff_plan, tariff_period_end")
     .eq("id", userId)
@@ -37,26 +37,44 @@ async function getTariffState(userId) {
 
   if (error || !user) throw httpError(404, "Пользователь не найден");
 
-  const plan = normalizePlan(user.tariff_plan);
-  if (plan === "none") return { plan, active: false, periodEnd: null };
+  const cachedPlan = normalizePlan(user.tariff_plan);
 
-  const { data: sub } = await supabase
+  // Always consult paid subscriptions, even when the denormalized user cache
+  // says "none". A stale cache must not hide a successfully paid entitlement.
+  const { data: sub, error: subscriptionError } = await db
     .from("subscriptions")
     .select("plan, status, period_end")
     .eq("user_id", String(userId))
     .eq("status", "success")
-    .order("period_end", { ascending: false })
+    // Migration 019 defines the newest-created paid order as the current plan.
+    // period_end can be later on an older order whose webhook arrived late.
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(1)
     .maybeSingle();
 
+  // A failed subscription lookup is not the same as no subscription.
+  // Fail closed so a transient database error cannot grant paid access.
+  if (subscriptionError) throw subscriptionError;
+
   if (!sub) {
-    // Подписки нет — доверяем users.tariff_plan (ручная выдача, тесты, старые аккаунты).
-    return { plan, active: true, periodEnd: user.tariff_period_end || null };
+    const plan = cachedPlan;
+    // Подписки нет — доверяем ручной выдаче тарифа, но всё равно соблюдаем
+    // срок, если администратор задал tariff_period_end. Null означает бессрочную выдачу.
+    const periodEnd = user.tariff_period_end || null;
+    const active = plan !== "none" && (!periodEnd || new Date(periodEnd).getTime() > Date.now());
+    return { plan, active, periodEnd };
   }
 
-  const periodEnd = sub.period_end || user.tariff_period_end || null;
-  const active = !periodEnd || new Date(periodEnd).getTime() > Date.now();
-  return { plan: normalizePlan(sub.plan || plan), active, periodEnd };
+  const plan = normalizePlan(sub.plan || cachedPlan);
+  // The user period end is the accumulated entitlement horizon. A late older
+  // webhook can have a later per-order period_end without owning the current plan.
+  const periodEnd = user.tariff_period_end || sub.period_end || null;
+  // A successful paid order must have a finite entitlement horizon. NULL is
+  // valid only for an explicit manual grant (the no-subscription branch above),
+  // never as an accidental permanent paid subscription.
+  const active = plan !== "none" && !!periodEnd && new Date(periodEnd).getTime() > Date.now();
+  return { plan, active, periodEnd };
 }
 
 /**
