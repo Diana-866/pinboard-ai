@@ -5,6 +5,12 @@ import { apiRequest } from '../../lib/api';
 type PaymentCreationRequest = {
   id: string;
   provider_order_id: string | null;
+  local_payment_record_id?: string;
+  local_payment_status?: string;
+  product_id?: string;
+  expected_amount?: number | string;
+  currency?: string;
+  local_payment_match: 'matched' | 'missing' | 'identity_mismatch';
   user_id: string;
   request_kind: 'subscription' | 'credits';
   status: 'unknown' | 'creating';
@@ -128,6 +134,19 @@ export const AdminPaymentCreationRequests: React.FC = () => {
                   </div>
                   <p className="font-mono text-xs text-secondary-theme mt-2 break-all">Запрос: {item.id}</p>
                   <p className="font-mono text-xs text-secondary-theme mt-1 break-all">Заказ Prodamus: {item.provider_order_id || "ещё не назначен"}</p>
+                  {item.local_payment_match === 'matched' ? (
+                    <div className="mt-2 rounded-lg border border-subtle bg-subtle/50 p-2 text-xs space-y-1">
+                      <p>Локальная запись: <span className="font-mono">{item.local_payment_record_id}</span></p>
+                      <p>Товар: <strong>{item.product_id}</strong> · статус: <strong>{item.local_payment_status}</strong></p>
+                      <p>Ожидаемая сумма: <strong>{Number(item.expected_amount).toFixed(2)} {String(item.currency).toUpperCase()}</strong></p>
+                    </div>
+                  ) : (
+                    <p role="alert" className="text-xs text-rose-600 mt-2">
+                      {item.local_payment_match === 'identity_mismatch'
+                        ? 'Несовпадение пользователя или типа локального платежа — не подтверждать вручную.'
+                        : 'Локальная запись платежа по этому order_id не найдена — требуется расследование.'}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-theme mt-1">Пользователь: {item.user_id}</p>
                   {item.error_code && <p className="text-xs text-muted-theme mt-1">Код ошибки: <span className="font-mono">{item.error_code}</span></p>}
                 </div>
