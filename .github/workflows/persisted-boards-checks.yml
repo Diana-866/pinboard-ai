@@ -42,5 +42,9 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
       - run: node --check index.js
+      - run: node --check analyze.js
+      - run: node --check boards.js
+      - run: node --check textOutputValidation.js
+      - run: node --test test/text-output-validation.test.js
       - run: npm test
       - run: node ../test/e2e-email-verify.js
