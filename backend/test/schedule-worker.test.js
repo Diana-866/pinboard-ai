@@ -80,7 +80,7 @@ test("worker rejects malformed backend responses without exposing credentials", 
 
   assert.equal(errors.length, 1);
   assert.equal(JSON.stringify(errors).includes("secret-value"), false);
-  assert.match(errors[0][1].message, /invalid worker response/);
+  assert.equal(errors[0][0], "schedule_worker.batch_failed");
 });
 
 test("stop prevents future polling and waits for the active request", async () => {
