@@ -1,4 +1,4 @@
--- AUD-101: run after migrations 001_baseline, 009, 039 and 076
+-- AUD-101/AUD-309: run after migrations 001_baseline, 009, 039, 076 and 120
 -- in disposable PostgreSQL CI. Read-only: this script does not change grants.
 do $$
 declare
@@ -15,7 +15,8 @@ declare
     'subscriptions',
     'credit_purchases',
     'pinterest_accounts',
-    'pinterest_publications'
+    'pinterest_publications',
+    'pin_review_queue'
   ];
   v_client_roles text[] := array['anon', 'authenticated'];
   v_privileges text[] := array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'];
