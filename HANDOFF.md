@@ -2478,3 +2478,41 @@ No confirmed duplicate-publish race, cancellation-overwrites-worker race, unsafe
 
 - GitHub source, migration, and test-fixture review only; tests, lint, and build were not run.
 - No Pinterest API requests, publication attempts, credit debits, database writes, SQL migration execution, deployment, or PR merge.
+
+
+# AUD-323 — Image storage, upload validation, public URLs, and SSRF audit
+
+Date: 2026-11-10
+
+## Scope
+
+Reviewed the authenticated image-upload route, Multer limits, binary image validation, Supabase Storage bucket configuration, public URL/path handling, provider-result rehosting, DNS/IP validation, lifecycle upload/deletion claims, retention queue, and relevant tests/migrations. Source-only review; no Storage objects or production settings were accessed.
+
+## Findings
+
+- **Upload authorization:** `POST /pins/:id/image` requires a valid session and resolves the pin through an owner check before writing its image URL. The update is additionally constrained by pin ID, board ID, and compare-and-swap against the previously observed image URL; a losing concurrent upload is cleaned up only through the reference-aware deletion protocol.
+- **Upload limits and content validation:** Multer uses memory storage with one file, 5 MiB, bounded fields/parts. MIME allowlist is PNG/JPEG/WebP/GIF; server-side validation checks actual file signatures and rejects SVG, arbitrary content, and declared-MIME mismatch. The bucket enforces the same MIME allowlist and 5 MiB ceiling.
+- **Public bucket is intentional:** `pin-images` is configured as public because Pinterest needs a fetchable image URL. Consequently, anyone who obtains a valid object URL can read that image; this is not a private-file store. Random 128-bit object names are used for ordinary uploads; generated-image replay paths use a deterministic SHA-256-derived key. Public visibility should be treated as publication, not access control. No user-private documents or secrets should ever be stored in this bucket.
+- **Provider URL SSRF controls:** rehosting accepts HTTPS only, rejects URL credentials and non-public/invalid destinations, resolves all A/AAAA addresses and rejects the request if any address is private/reserved, then pins the validated DNS answers in the HTTP agent to prevent rebinding. Proxy use is disabled, redirects are disabled, the request has a 30-second timeout and 5 MiB response ceiling. The downloaded body is signature-validated again before upload. Existing tests cover private IPv4/IPv6 ranges, mapped IPv4, pinned lookup host/family mismatch, and embedded URL credentials.
+- **No arbitrary redirect following:** a provider URL redirect does not cause a second request to a potentially untrusted destination; it fails closed. The provider must return a final HTTPS image URL.
+- **Object path ownership:** deletion accepts only URLs matching the configured Supabase origin, project path, public bucket prefix, and the managed `pins/` filename grammar. Foreign/legacy URLs are not deleted by guessing. URL parsing and decode errors return no managed path.
+- **Upload/delete race safety:** every managed upload reserves a path in the lifecycle table; finalization is token-fenced. Ambiguous Storage timeouts remain fenced. Reference triggers serialize pins, schedules, and generation journals against deletion. Deletion requires a database claim after rechecking all durable references; stale/ambiguous paths are quarantined rather than reused. Confirmed deleted paths are permanent tombstones.
+- **Retention/replay:** replay expiry first preserves idempotency tombstones, retires replay URL references transactionally, and only then releases paths to a queue; actual Storage deletion passes through the same reference-aware claim. Administrative storage maintenance routes require authentication and admin authorization.
+- **Residual hardening opportunities:** signature checks establish file format but do not decode/re-encode images or cap pixel dimensions/frame counts. A small compressed image can therefore still be computationally expensive for downstream decoders; consider a bounded image-processing pipeline if uploads become an abuse vector. The public bucket's access semantics are expected, but production bucket configuration and Storage policies were not queried directly in this source-only audit. Add an explicit operational check that anonymous reads are allowed while anonymous writes/listing/deletes remain unavailable.
+- **Test gap:** current tests cover MIME allowlisting, binary signatures, 5 MiB boundary, public URL/IP classification, and pinned DNS lookup. No end-to-end HTTP test was run here for cross-user upload authorization, Storage policy behavior, redirect rejection, actual download byte limits, or public URL access.
+
+## Result
+
+No confirmed cross-user image upload bypass, SVG upload/XSS path, SSRF redirect/DNS-rebinding bypass, unsafe managed-object deletion, or automatic deletion of referenced images was found in the reviewed code. The bucket's public-read behavior is a deliberate Pinterest compatibility requirement and must not be described as private storage. No code change was warranted by this source review.
+
+## Recommended next hardening
+
+1. Verify production Storage bucket/policies independently: public GET works; anonymous upload, overwrite, listing, and delete do not.
+2. Consider decoding and re-encoding uploaded images with strict pixel/frame/resource limits before making them public.
+3. Add HTTP integration tests for owner isolation, redirect rejection, oversized provider responses, and the actual anonymous-read/write boundary.
+4. Keep user documents and other non-public assets in a separate private bucket with signed URLs; never reuse `pin-images` for them.
+
+## Verification and safety
+
+- GitHub source, test, and SQL migration review only; tests, lint, and build were not run.
+- No Supabase API calls, Storage reads/writes/deletes, bucket-policy changes, SQL migration execution, deployment, or PR merge.
