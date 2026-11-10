@@ -170,3 +170,23 @@ test("worker stop prevents polling even when the active request outlives the dra
   assert.equal(calls, 1, "stopped worker must not start another request");
   release();
 });
+
+test("worker tick emits a server-generated correlation ID in safe logs", async () => {
+  const originalInfo = console.info;
+  const output = [];
+  console.info = (value) => output.push(value);
+  try {
+    const worker = createWorker({
+      config: { endpoint: "https://api.example.com/internal/pinterest/schedule/run", secret: "secret-value" },
+      client: { post: async () => ({ data: { ok: true, claimed: 1, published: 1 } }) },
+    });
+    await worker.tick();
+  } finally {
+    console.info = originalInfo;
+  }
+  assert.equal(output.length, 1);
+  const record = JSON.parse(output[0]);
+  assert.equal(record.event, "schedule_worker_batch_completed");
+  assert.match(record.correlation_id, /^[a-f0-9-]{36}$/i);
+  assert.equal(output[0].includes("secret-value"), false);
+});
