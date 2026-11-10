@@ -248,6 +248,37 @@ test("atomic text-plan journal receives usage and normalized tasks before image 
   ]);
 });
 
+test("invalid text plan still journals provider usage and stops before image work", async () => {
+  const events = [];
+  provider.generateText = async () => "not-json";
+
+  await assert.rejects(
+    generatePins(
+      { id: "board-invalid-plan-usage", title: "Test board", description: "" },
+      { niche: "test", tone: "neutral", language: "en" },
+      "flux-schnell",
+      1,
+      "2:3",
+      null,
+      {
+        onTextProviderSubmission: () => events.push("text-submission-marked"),
+        recordTextUsage: async (result) => {
+          assert.equal(result.requestId, "chatcmpl-test-usage");
+          assert.equal(result.usage.totalCost, 0.03);
+          events.push("usage-journaled");
+        },
+        ensureTaskQuotes: async () => {
+          events.push("quotes");
+          return [];
+        },
+      }
+    ),
+    /разобрать идеи/
+  );
+
+  assert.deepEqual(events, ["text-submission-marked", "usage-journaled"]);
+});
+
 test("text-plan generation extracts a JSON array surrounded by provider prose", async () => {
   provider.generateText = async () => [
     "Here is the requested JSON:",
