@@ -31,7 +31,7 @@ function reset() {
   queryError = null;
   rows = [
     {
-      id: "request-unknown", user_id: "user-1", request_kind: "subscription",
+      id: "request-unknown", provider_order_id: "pp-test-order-0001", user_id: "user-1", request_kind: "subscription",
       status: "unknown", error_code: "ECONNRESET",
       created_at: "2026-11-10T10:00:00.000Z", updated_at: "2026-11-10T10:01:00.000Z",
       idempotency_key: "must-not-leak", result: { payment_url: "https://secret.example/pay" },
@@ -49,7 +49,7 @@ test("admin inventory is read-only, bounded and excludes checkout secrets", asyn
   const result = await listPaymentCreationRequests({ limit: "10" }, Date.parse("2026-11-10T10:00:00.000Z"), db);
   assert.deepEqual(calls[0], {
     table: "payment_creation_requests",
-    columns: "id, user_id, request_kind, status, error_code, created_at, updated_at",
+    columns: "id, provider_order_id, user_id, request_kind, status, error_code, created_at, updated_at",
     filter: { column: "status", values: ["unknown", "creating"] },
     order: { column: "updated_at", options: { ascending: true } },
     limit: 10,
@@ -57,6 +57,7 @@ test("admin inventory is read-only, bounded and excludes checkout secrets", asyn
   assert.equal(result.read_only, true);
   assert.equal(result.automatic_reconciliation, false);
   assert.equal(result.unknown_count, 1);
+  assert.equal(result.items[0].provider_order_id, "pp-test-order-0001");
   assert.equal(result.creating_count, 1);
   assert.equal(result.stale_creation_count, 1);
   const serialized = JSON.stringify(result);
