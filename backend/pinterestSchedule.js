@@ -172,6 +172,7 @@ function createScheduleClaimHeartbeat({ renew, logger = console, intervalMs = 60
   let stopped = false;
   let inFlight = false;
   let warningLogged = false;
+  let leaseLost = false;
   let pendingRenewal = null;
   const timer = setInterval(() => {
     if (stopped || inFlight) return;
@@ -179,9 +180,12 @@ function createScheduleClaimHeartbeat({ renew, logger = console, intervalMs = 60
     pendingRenewal = (async () => {
       try {
         const renewed = await renew();
-        if (!renewed && !warningLogged) {
-          warningLogged = true;
-          logger.warn("[pinterest-worker] schedule claim is no longer current; publication outcome remains journal-controlled");
+        if (!renewed) {
+          leaseLost = true;
+          if (!warningLogged) {
+            warningLogged = true;
+            logger.warn("[pinterest-worker] schedule claim is no longer current; publication outcome remains journal-controlled");
+          }
         }
       } catch (error) {
         if (!warningLogged) {
@@ -195,12 +199,14 @@ function createScheduleClaimHeartbeat({ renew, logger = console, intervalMs = 60
     })();
   }, Math.max(10, Number(intervalMs) || 60_000));
   if (typeof timer.unref === "function") timer.unref();
-  return async () => {
+  const stop = async () => {
     stopped = true;
     clearInterval(timer);
     // Do not let a renewal request outlive the schedule's final state transition.
     if (pendingRenewal) await pendingRenewal;
   };
+  stop.isLeaseLost = () => leaseLost;
+  return stop;
 }
 
 
