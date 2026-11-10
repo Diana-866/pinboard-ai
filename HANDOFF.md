@@ -3161,3 +3161,17 @@ Date: 2026-11-10
 - AUD-376-03: live deployment/migration state and scheduler service are unknown; code in branch does not prove production worker is active. AUD-376-04: blocked image-retention rows need monitoring/manual reconciliation.
 - Added `docs/audits/AUD-376-background-workers-and-queue-recovery.md` and `docs/runbooks/background-queue-operations-aud-376.md`.
 - No code/runtime/SQL changes, tests, build, CI, live provider checks, queue mutations, email sends, Pinterest publication, migration or deployment were performed.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-377: GPTunnel generation and image recovery)
+
+- Проверены GPTunnel text/image calls, exact quotes, durable plan/task journal, provider idempotency/task IDs, credit reservations, Storage rehosting and frontend request identity.
+- Подтверждены: plan + task keys persisted before image submissions; exact quote model/currency/aspect ratio validation; credit reservation resized before provider call; provider task ID immutable; known task ID is polled without creating a replacement; provider result is journaled before Storage copy; failed Storage copy retries from saved provider result; final pin/credit settlement guarded atomically.
+- SSRF boundary: HTTPS, public-IP/DNS validation, pinned lookup, redirects/proxy disabled; download max 5 MiB + 30s timeout; image signature/MIME validation; in-memory Buffer, no temporary disk files.
+- AUD-377-01: ambiguous provider create timeout is not proof of failure; keep original idempotency key and reservation until provider reconciliation. Never submit a fresh task blindly.
+- AUD-377-02: missing GPTunnel text cost remains NULL/unknown, not zero; text output may be retained with incomplete provider cost ledger.
+- AUD-377-03: provider + polling + download work may exceed interactive HTTP lifetime; correctness depends on durable journal recovery.
+- AUD-377-04: blocked sessionStorage fallback survives same-page remount only, not full reload; browser may lose retrieval key.
+- AUD-377-05: live provider idempotency retention, GPTunnel task retention/cost, Supabase policies, deployed commit and applied migration ledger not verified.
+- Added `docs/audits/AUD-377-gptunnel-generation-and-image-recovery.md` and `docs/runbooks/gptunnel-generation-recovery-aud-377.md`.
+- No code/runtime/SQL/provider/Storage changes, tests, build, CI, generation, balance mutation, migration or deployment were performed.
