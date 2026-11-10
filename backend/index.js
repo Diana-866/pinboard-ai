@@ -647,7 +647,8 @@ app.post("/projects/:id/analyze", requireAuth, aiLimiter, async (req, res) => {
 
     if (updateError) throw updateError;
 
-    res.json(updated);
+    // Keep the owner identifier private in the analyzed-project response too.
+    res.json(serializeProjectForClient(updated));
   } catch (e) {
     handleError(res, e);
   }
