@@ -45,6 +45,8 @@ jobs:
         run: node --test backend/test/pin-image-lifecycle.test.js
       - name: Test concurrent pin image replacement guard
         run: node --test backend/test/pin-image-compare-and-swap.test.js
+      - name: Test cleanup of unsent payment records
+        run: node --test backend/test/payment-record-cleanup.test.js
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update
