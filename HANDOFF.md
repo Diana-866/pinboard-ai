@@ -2971,3 +2971,10 @@ Date: 2026-11-10
 - В lockfile `pino` присутствует транзитивно через `imapflow`; оба `ImapFlow` клиента в `backend/mail.js` передают `logger: false`. `morgan` и `winston` отсутствуют. `debug` — транзитивная зависимость Express/HTTP-стека; в production переменная `DEBUG` должна быть unset/empty.
 - Остаточный риск: `index.js` и `scheduleWorker.js` не устанавливают `uncaughtException`/`unhandledRejection` handlers. Стандартная диагностика Node может вывести message/stack мимо `safeLogger`. Не менял fatal shutdown semantics в рамках AUD-358; следующий этап AUD-359 — отдельное проектирование и тестирование безопасного завершения процесса.
 - Runtime tests/lint/build/CI и реальные production DEBUG/logging settings не проверялись. Никаких production/DB/payment/email/Pinterest/deploy действий не было.
+
+## Дополнение к handoff — 2026-11-11 (AUD-359)
+
+- Добавлен `backend/fatalProcessHandlers.js`: `uncaughtException` и `unhandledRejection` теперь дают фиксированное событие `process.uncaught_exception` / `process.unhandled_rejection`, синхронно записывают безопасную JSON-строку через `fs.writeSync` и завершают процесс с кодом 1. Исходная ошибка/rejection reason/message/stack/cause не читаются и не сериализуются.
+- Обработчики подключены в API-процессе (`backend/index.js`) и standalone scheduler worker (`backend/scheduleWorker.js`, только при запуске как main). Добавлены unit tests на fail-fast, exit code 1, повторный fatal event, сбой записи и отсутствие утечки причины.
+- Принятое поведение: после fatal event процесс не продолжает работу и не пытается дренировать бизнес-операции — состояние Node может быть повреждено. Обычный SIGTERM/SIGINT worker shutdown сохраняет прежний bounded drain. Хост должен перезапустить завершившийся процесс; его restart policy не проверена.
+- Runtime tests/lint/build/CI не запускались. Один черновой файл ошибочно попал в default branch и сразу удалён отдельным revert-коммитом; implementation/tests/docs находятся в feature branch. Production/DB/payment/email/Pinterest/deploy не затрагивались.
