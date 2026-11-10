@@ -22,7 +22,7 @@ import { AI_CONTENT_LANGUAGES, useI18n } from '../../i18n/i18nContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
-import { formatInstantInTimezone, getDefaultTimezone } from '../../utils/timezone';
+import { addCalendarDaysInTimezone, formatInstantInTimezone, getDefaultTimezone } from '../../utils/timezone';
 import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure } from '../../utils/generationRetry';
 import { clearPendingPinDescriptionIfMatches, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
 import { enqueuePinSave } from '../../utils/pendingPinSaveQueue';
@@ -100,9 +100,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   );
   const [customScheduleDate, setCustomScheduleDate] = useState<string>(() => {
     if (initialDate) return initialDate;
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return formatLocalDate(tomorrow);
+    return addCalendarDaysInTimezone(new Date(), getDefaultTimezone(), 1);
   });
   const [customScheduleTime, setCustomScheduleTime] = useState(initialTime || '20:15');
 
@@ -772,11 +770,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
           ? nowInUserTimezone.date
           : schedulingMode === 'custom_datetime'
           ? customScheduleDate
-          : (() => {
-              const tomorrow = new Date();
-              tomorrow.setDate(tomorrow.getDate() + 1);
-              return formatLocalDate(tomorrow);
-            })();
+          : addCalendarDaysInTimezone(new Date(), getDefaultTimezone(language), 1);
   
       const scheduledTime =
         schedulingMode === 'publish_now'
