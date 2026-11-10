@@ -1500,6 +1500,23 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
         return data;
       } : undefined,
       allowPreparedTaskSubmission: () => allowPreparedTaskSubmission,
+      recordTextUsage: async (result) => {
+        const { error } = await supabase.rpc("record_pin_generation_text_usage", {
+          p_user_id: String(req.userId),
+          p_idempotency_key: idempotencyKey,
+          p_claim_token: generationClaimToken,
+          p_provider_request_id: result.requestId || null,
+          p_provider_model: result.model || "unknown",
+          p_usage: result.usage || {},
+          p_total_cost_rub: result.costCurrency === "RUB" ? result.usage?.totalCost : null,
+        });
+        if (error) {
+          const journalError = new Error("Не удалось сохранить стоимость текстовой генерации с некорректным планом");
+          journalError.journalError = true;
+          journalError.cause = error;
+          throw journalError;
+        }
+      },
       persistTextPlan: async (result, tasks) => {
         const { data, error } = await supabase.rpc("record_pin_generation_text_plan", {
           p_user_id: String(req.userId),
