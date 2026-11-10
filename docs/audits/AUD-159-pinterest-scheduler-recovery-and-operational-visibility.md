@@ -22,11 +22,11 @@ Reviewed the current scheduler worker in `backend/pinterest.js`, the pure retry/
 
 ## Findings / remaining operational risks
 
-### AUD-159-A — no automated alerting for overdue or unknown schedules found
+### AUD-159-A — automated alerting for overdue or unknown schedules remains outstanding
 
-The worker returns per-run counters for `published`, `failed`, `scheduled`, and `unknown`, and logs failures. The reviewed scheduler setup documentation explicitly says the external cron is not configured in production and that monitoring/alerting for overdue `publishing` and unresolved `unknown` rows remains a follow-up.
+The worker returns per-run counters for `published`, `failed`, `scheduled`, and `unknown`, and logs failures. A bounded, read-only operator inventory has since been implemented through `GET /admin/pinterest/schedules` and `admin_list_pinterest_schedule_inventory`. It classifies overdue `scheduled`, stale `publishing`, and `unknown` rows, and exposes only allowlisted operational fields. It does not claim, retry, or publish schedules.
 
-The database safety design prevents unsafe duplicate publication, but it does not itself ensure an operator sees a stuck queue. Once cron is enabled, production readiness requires an external monitor that checks at least:
+This improves manual visibility but is **not automated alerting**. Production readiness still requires an external monitor/alert that checks at least:
 - due rows remaining in `scheduled` beyond the agreed lateness threshold;
 - stale `publishing` rows beyond the 20-minute recovery threshold;
 - `unknown` rows awaiting manual reconciliation;
@@ -34,11 +34,18 @@ The database safety design prevents unsafe duplicate publication, but it does no
 
 This is an operational readiness gap, not a confirmed duplicate-publication defect. Do not enable the cron until the required migrations, encryption key, Pinterest access level, and monitoring are all verified.
 
-### AUD-159-B — worker conditional updates do not verify affected-row count
+### AUD-159-B — RESOLVED: worker conditional updates verify affected-row count
 
-After publication completion, the SQL completion RPC can already transition the schedule to `published` and clear its claim token. The worker then performs a best-effort REST update filtered by `status='publishing'` and the old claim token. Supabase may return no error when that conditional update affects zero rows; the worker currently reports the expected status without distinguishing zero affected rows from a successful update.
+The original finding was that a conditional update could return no database error while affecting zero rows, allowing a stale worker to report a transition it had not persisted.
 
-The database completion RPC is authoritative, so this is not a confirmed state-integrity or duplicate-publication defect. However, the worker's per-run result can be less precise if a claim was concurrently revoked or the schedule was already reconciled. A future hardening change should request returned row IDs (or use a narrow RPC) and explicitly handle zero-row updates as "claim no longer current; reread authoritative schedule state".
+This was addressed in the feature branch:
+- `isScheduleClaimUpdateConfirmed` returns true only when the update returned a row and no error;
+- the worker requests the changed row with `.select("id").maybeSingle()`;
+- a zero-row result is treated as an unconfirmed claim outcome and reported as `unknown`, rather than claiming the intended `scheduled`/`failed` transition;
+- failure-path updates also constrain the full schedule identity and exact claim token;
+- unit tests cover confirmed updates, zero-row responses, database errors, missing responses, and required identity fields.
+
+Relevant audit records: `AUD-224` and `AUD-226`. Commits recorded by AUD-224: `f1af1cbf6212e87efe9685e09c4349609cedb8e8`, `d4ab191e71351db5cb94e7ecc1131a0ff467da63`, and `67d0da922ee594e8eb154aa59199efad9d8c41c6`.
 
 ## Verification limits and production status
 
