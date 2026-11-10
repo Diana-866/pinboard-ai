@@ -1,3 +1,4 @@
+const { logError } = require("./safeLogger");
 const crypto = require("node:crypto");
 const supabase = require("./supabase");
 const { httpError } = require("./validate");
@@ -133,7 +134,7 @@ async function markPaymentCreationUnknown(userId, idempotencyKey, error) {
     p_error_code: errorCode,
   });
   if (updateError) {
-    console.error("[payment-idempotency] не удалось зафиксировать неопределённый исход:", updateError.message);
+    logError("payment_idempotency.event_001", "[payment-idempotency] не удалось зафиксировать неопределённый исход:", updateError.message);
   }
 }
 
@@ -146,7 +147,7 @@ async function failPaymentCreation(userId, idempotencyKey, error) {
     p_error_code: errorCode,
   });
   if (updateError) {
-    console.error("[payment-idempotency] не удалось зафиксировать отказ создания:", updateError.message);
+    logError("payment_idempotency.event_001", "[payment-idempotency] не удалось зафиксировать отказ создания:", updateError.message);
   }
 }
 
