@@ -3326,3 +3326,12 @@ Date: 2026-11-10
 - RU/EN privacy notice обещает удаление в течение 30 дней; репозиторий не доказывает выполнение этого срока или удаление из backup sets. Это release/legal blocker до подтверждения фактического процесса.
 - Добавлены AUD-389 и безопасный runbook. Код, SQL и privacy policy не менялись: нужна согласованная lifecycle/payment settlement схема, lock-order и race tests до реализации.
 - Production DB, Storage, backups, provider dashboards и user data не открывались; SQL/tests/CI/staging не запускались; никаких аккаунтов/данных не удаляли.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-390: account lifecycle architecture)
+
+- Подготовлена schema-level архитектура безопасного удаления: lifecycle state machine, append-only event journal, resumable per-phase job queue, немедленный token_version revoke, центральные lifecycle gates, provider reconciliation, fenced Storage cleanup и restricted financial retention.
+- Карта схемы подтверждает, что root user связи неоднородны: проекты FK на users, boards/pins каскадируют через контент, но credits/subscriptions/purchases/Pinterest/schedules/generation/payment journals в основном хранят user_id без FK; email_outbox.subscription_id RESTRICT, operator action operator_user_id RESTRICT. Точные live FK не проверялись; archived migration 009 не является доказательством production schema.
+- Выявлен критичный lock-order конфликт для будущей реализации: payment fulfillment блокирует payment row перед user row, а lifecycle transition будет блокировать user row. До внедрения нужно унифицировать порядок user → financial row → ledger/reservation и покрыть конкурентными SQL tests.
+- Разработан phased migration plan M1–M6 и обязательная test matrix. Документ не является исполняемой миграцией.
+- Добавлен `docs/audits/AUD-390-account-lifecycle-architecture.md`. Код/SQL не менялись; production, provider dashboards и data не затрагивались.
