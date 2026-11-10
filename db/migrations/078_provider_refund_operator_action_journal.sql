@@ -257,6 +257,9 @@ begin
   select * into v_request from public.pin_generation_requests r
    where r.id=p_request_id and r.user_id=v_user_id for update;
   if not found then raise exception 'generation request not found'; end if;
+  if v_request.status <> 'processing' then
+    raise exception 'generation request is not awaiting operator finalization';
+  end if;
   if not exists (select 1 from public.users u where u.id=p_operator_user_id and u.is_admin is true) then
     raise exception 'operator is not an administrator';
   end if;
@@ -312,6 +315,9 @@ begin
   select * into v_request from public.pin_regeneration_requests r
    where r.id=p_request_id and r.user_id=v_user_id for update;
   if not found then raise exception 'regeneration request not found'; end if;
+  if v_request.status <> 'processing' then
+    raise exception 'regeneration request is not awaiting operator finalization';
+  end if;
   if not exists (select 1 from public.users u where u.id=p_operator_user_id and u.is_admin is true) then
     raise exception 'operator is not an administrator';
   end if;
