@@ -3315,3 +3315,14 @@ Date: 2026-11-10
 - Не найден автоматический financial reconciliation report/job. Для сверки необходимы provider exports Prodamus и opening balance snapshot; unknown payment requests нельзя автоматически закрывать/повторять.
 - Добавлены AUD-388 и финансовый restore runbook. Код/миграции не менялись, так как без opening snapshot/provider evidence автоматический repair небезопасен.
 - Supabase/Prodamus/production данные не открывались; SQL/тесты/CI/staging не запускались; балансы/платежи/подписки не менялись.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-389: account deletion lifecycle)
+
+- Повторно проверены auth/session gate, backend routes/workers, Prodamus, Pinterest disconnect/scheduler, Storage deletion claims, email outbox и RU/EN privacy notices.
+- End-to-end account deletion request/worker/lifecycle state отсутствуют. `requireAuth` проверяет только JWT `token_version`; login и фоновые/платёжные процессы не имеют общего lifecycle predicate.
+- Pinterest disconnect уже безопасно инвалидирует OAuth generation и очищает credentials, но не заменяет account erasure. Image retention worker не является account-wide object inventory.
+- Email outbox содержит recipient/payload и FK `ON DELETE RESTRICT` на subscriptions; архивная migration 009 содержит финансовые/продуктовые каскады, но фактические production FK не проверялись.
+- RU/EN privacy notice обещает удаление в течение 30 дней; репозиторий не доказывает выполнение этого срока или удаление из backup sets. Это release/legal blocker до подтверждения фактического процесса.
+- Добавлены AUD-389 и безопасный runbook. Код, SQL и privacy policy не менялись: нужна согласованная lifecycle/payment settlement схема, lock-order и race tests до реализации.
+- Production DB, Storage, backups, provider dashboards и user data не открывались; SQL/tests/CI/staging не запускались; никаких аккаунтов/данных не удаляли.
