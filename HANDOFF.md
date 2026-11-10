@@ -3229,3 +3229,14 @@ Date: 2026-11-10
 - **AUD-381-03:** timezone preference хранится в одном browser-local ключе и переносится между аккаунтами в одном браузере. Это приемлемо как device preference; для per-user setting нужна серверная настройка.
 - Добавлены `docs/audits/AUD-381-calendar-interactions-and-dst-edge-cases.md` и `docs/runbooks/calendar-timezone-and-interaction-aud-381.md`.
 - Статическая проверка исходников; тесты/build/lint/CI/browser не запускались. Production, DB, Storage, Pinterest, payments и внешние сервисы не затрагивались.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-382: Pinterest account lifecycle and reconnect UX)
+
+- Проверены PinterestCard, account-scoped boards loading, OAuth start/callback fencing, refresh lease/uncertainty handling, disconnect route и SQL lifecycle integration tests.
+- Подтверждено: board response fenced request ID; needs_reauth account не загружает доски; OAuth callback защищён attempt/generation/token-version/browser binding; ambiguous refresh не повторяет старый refresh token; disconnect очищает credentials, переводит будущие queued schedules аккаунта в failed, сохраняет in-flight/published history и не затрагивает другой аккаунт; late remote success сохраняется; reconnect не активирует failed schedules автоматически.
+- **AUD-382-01:** PinterestCard показывает success notice сразу после disconnect POST; последующий loadStatus проглатывает ошибку. При неудачном GET UI может оставить устаревшую строку подключённого аккаунта. Нужен немедленный локальный remove exact account ID + отдельное сообщение о неудаче refresh и regression component test.
+- **AUD-382-02:** предупреждение disconnect корректно говорит, что queued posts станут failed, in-flight запрос может завершиться и OAuth grant не отзывается. После reconnect стоит явно напоминать, что failed schedules требуют ручного безопасного retry.
+- **AUD-382-03:** локальный disconnect не отзывает grant в Pinterest; оставить это явно в UI и дать инструкции/ссылку на remote connected-app settings, не заявлять полное удаление разрешения.
+- Добавлены `docs/audits/AUD-382-pinterest-account-lifecycle-and-reconnect-ux.md` и `docs/runbooks/pinterest-disconnect-and-reconnect-aud-382.md`.
+- Только статический аудит. Тесты/build/lint/CI/browser, Pinterest API, SQL и production не запускались/не затрагивались.
