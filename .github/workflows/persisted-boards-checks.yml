@@ -1,6 +1,7 @@
 name: Persisted boards integration checks
 
 on:
+  workflow_dispatch:
   pull_request:
     branches:
       - fix/atomic-payment-fulfillment
