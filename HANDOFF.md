@@ -3101,3 +3101,12 @@ Date: 2026-11-10
 - Добавлены `docs/audits/AUD-370-independent-backup-and-restore-readiness.md` и `docs/runbooks/backup-restore-aud-370.md`; ссылка добавлена в infrastructure checklist.
 - Live Supabase plan/PITR/dashboard, bucket ACLs, backup settings, key escrow, storage copy and account recovery не проверялись. RPO/RTO неизвестны; full restore не выполнен.
 - Никаких production изменений, экспорта, восстановления, миграций, deploy/merge или внешних side effects не было.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-371: Pinterest key rotation and escrow readiness)
+
+- Подтверждено по исходникам: AES-256-GCM, active + previous key, lazy re-encryption при чтении Pinterest-аккаунта, optimistic CAS по id/user_id/updated_at; uncertain refresh rows не перезаписываются.
+- Выявлен операционный пробел: ротация ленивая, поэтому dormant accounts могут оставаться зашифрованными старым ключом; ciphertext format enc:v1 не содержит key ID; в репозитории не найден полный read-only inventory для подтверждения вывода previous key.
+- Добавлены `docs/audits/AUD-371-pinterest-key-rotation-and-escrow-readiness.md` и `docs/runbooks/pinterest-key-rotation-aud-371.md`.
+- Правило: не удалять `PINTEREST_TOKEN_ENCRYPTION_KEY_PREVIOUS` по сроку; сохранять соответствующие ключи в независимом vault на срок хранения совместимых DB backups. Для retirement нужен read-only scan всех ciphertexts, обработка конкурентных обновлений и evidence вне production.
+- Live secrets/vault/DB rows не проверялись; Node tests не запускались; production secrets, OAuth, deploy, DB и Storage не менялись.
