@@ -1,3 +1,4 @@
+const { logError, logWarning, logInfo } = require("./safeLogger");
 // Pinterest API v5: OAuth 2.0 (вход через Pinterest) и публикация пинов.
 // Документация:
 //   авторизация: https://developers.pinterest.com/docs/getting-started/set-up-authentication-and-authorization/
@@ -152,7 +153,7 @@ async function callPinterest(method, path, { token, body } = {}) {
     };
   } catch (e) {
     // сеть/таймаут
-    console.error(`[pinterest] сеть недоступна (${method} ${path}):`, e && e.message);
+    logError("pinterest.event");
     throw httpError(502, "Pinterest не отвечает. Попробуйте позже.");
   }
 }
@@ -241,7 +242,7 @@ async function exchangeCode(code) {
     }
   );
   if (res.status < 200 || res.status >= 300) {
-    console.error("[pinterest] обмен кода не удался:", res.status, pinterestMessage(res.data, ""));
+    logError("pinterest.event");
     throw httpError(502, "Pinterest не принял код авторизации. Попробуйте подключить заново.");
   }
   return res.data;
@@ -263,7 +264,7 @@ async function refreshAccessToken(account) {
     p_lease_seconds: 30,
   });
   if (leaseError) {
-    console.error("[pinterest] не удалось получить lease обновления токена:", leaseError.message);
+    logError("pinterest.event");
     throw httpError(503, "Не удалось безопасно обновить Pinterest-доступ. Попробуйте позже.");
   }
 
@@ -289,7 +290,7 @@ async function refreshAccessToken(account) {
           .gt("lease_until", new Date().toISOString())
           .maybeSingle();
         if (activeLeaseError) {
-          console.error("[pinterest] не удалось проверить активный refresh lease:", activeLeaseError.message);
+          logError("pinterest.event");
           throw httpError(503, "Не удалось проверить состояние обновления Pinterest-доступа. Повторите запрос позже.");
         }
         if (!hasActiveRefreshLease(activeLease)) {
@@ -338,7 +339,7 @@ async function refreshAccessToken(account) {
       .select("updated_at")
       .maybeSingle();
     if (refreshStartError || !refreshStarted) {
-      console.error("[pinterest] не удалось зафиксировать начало обновления токена:", refreshStartError && refreshStartError.message);
+      logError("pinterest.event");
       throw httpError(503, "Не удалось безопасно начать обновление Pinterest-доступа. Повторите запрос.");
     }
 
@@ -365,11 +366,11 @@ async function refreshAccessToken(account) {
     } catch (requestError) {
       // The server may have rotated the token before the connection failed.
       // Do not expose transport details or retry the old credential.
-      console.error("[pinterest] refresh response was not received; reauthorization is required:", requestError && requestError.code || "network_error");
+      logError("pinterest.event");
       throw httpError(409, "Не удалось подтвердить обновление Pinterest-доступа. Подключите аккаунт заново.");
     }
     if (res.status < 200 || res.status >= 300) {
-      console.error("[pinterest] обновление токена не удалось:", res.status);
+      logError("pinterest.event");
       if (isExplicitRefreshRateLimit(res.status)) {
         // A received 429 explicitly rejects this refresh attempt. Unlike a
         // timeout or 5xx, it is safe to release the pre-request uncertainty
@@ -386,7 +387,7 @@ async function refreshAccessToken(account) {
           .select("id")
           .maybeSingle();
         if (restoreError || !restored) {
-          console.error("[pinterest] не удалось снять uncertainty fence после явного 429:", restoreError && restoreError.message);
+          logError("pinterest.event");
           throw httpError(503, "Pinterest временно ограничил обновление доступа. Состояние подключения не удалось безопасно восстановить; повторите позже.");
         }
         throw httpError(503, "Pinterest временно ограничил частоту обновления доступа. Подождите немного и повторите действие.");
@@ -410,7 +411,7 @@ async function refreshAccessToken(account) {
       typeof refreshedRefreshToken !== "string" || !refreshedRefreshToken.trim() ||
       !Number.isFinite(expiresIn) || expiresIn <= 0
     ) {
-      console.error("[pinterest] refresh response did not contain a complete rotated token set");
+      logError("pinterest.event");
       throw httpError(409, "Pinterest вернул неполный ответ обновления доступа. Подключите аккаунт заново.");
     }
     const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
@@ -429,7 +430,7 @@ async function refreshAccessToken(account) {
       // idempotent database commit with the SAME response; never call Pinterest
       // again with either refresh token. The lease row serializes this retry
       // against an original RPC that may still be completing.
-      console.warn("[pinterest] refresh commit response was ambiguous; retrying the same database commit once");
+      logWarning("pinterest.event");
       const retryCommit = await supabase.rpc("commit_pinterest_account_token_refresh", {
         p_user_id: String(latest.user_id),
         p_pinterest_account_id: latest.id,
@@ -450,13 +451,10 @@ async function refreshAccessToken(account) {
       // credentials, not updated_at (the uncertainty fence changes timestamp).
       const reconciled = await getAccount(latest.user_id, latest.id).catch(() => null);
       if (isCommittedTokenRefresh(latest, reconciled)) {
-        console.warn("[pinterest] refresh commit recovered after an ambiguous database response");
+        logWarning("pinterest.event");
         return reconciled;
       }
-      console.error(
-        "[pinterest] не удалось атомарно подтвердить сохранение обновлённых токенов:",
-        (retryCommit.error || commitError).message
-      );
+      logError("pinterest.event");
       throw httpError(503, "Pinterest обновил доступ, но PinPosy не смог подтвердить сохранение токенов. Повторите запрос; если ошибка повторится, подключите Pinterest заново.");
     }
     if (!committed) {
@@ -477,11 +475,11 @@ async function refreshAccessToken(account) {
       });
       if (releaseError) {
         // The lease is self-expiring; log without masking the original result.
-        console.error("[pinterest] не удалось освободить refresh lease:", releaseError.message);
+        logError("pinterest.event");
       }
     } catch (releaseError) {
       // Network-level RPC failures are also safe because the lease expires.
-      console.error("[pinterest] ошибка при освобождении refresh lease:", releaseError && releaseError.message);
+      logError("pinterest.event");
     }
   }
 }
@@ -559,7 +557,7 @@ async function persistFailedPublishAttempt({ userId, pinId, accountId, message, 
       p_outcome_unknown: Boolean(outcomeUnknown),
     });
   } catch (error) {
-    console.error("[pinterest] не удалось сохранить исход публикации:", error && error.message);
+    logError("pinterest.event");
     throw error;
   }
 }
@@ -748,7 +746,7 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
       message: "Pinterest HTTP " + result.status + ": " + pinterestMessage(result.data, "unknown error"),
       outcomeUnknown,
     });
-    console.error("[pinterest] публикация не удалась:", result.status, pinterestMessage(result.data, ""));
+    logError("pinterest.event");
     if (outcomeUnknown) {
       throw httpError(502, "Pinterest не подтвердил результат. Повторная публикация заблокирована во избежание дубликата.");
     }
@@ -797,11 +795,11 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
         confirmedLedger = lookup.data;
       }
     } catch (lookupError) {
-      console.error("[pinterest] не удалось проверить журнал после неоднозначного ответа БД:", lookupError && lookupError.message);
+      logError("pinterest.event");
     }
 
     if (confirmedLedger) {
-      console.warn("[pinterest] completion RPC вернул ошибку, но точная публикация уже подтверждена журналом");
+      logWarning("pinterest.event");
       return {
         ok: true,
         already_published: true,
@@ -823,7 +821,7 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
     ).catch(async (journalError) => {
       // Fall back to the existing unknown-outcome fence if the new structured
       // journal write itself is unavailable. Never retry the remote POST.
-      console.error("[pinterest] не удалось сохранить известный Pinterest ID:", journalError && journalError.message);
+      logError("pinterest.event");
       await persistFailedPublishAttempt({
         userId,
         pinId,
@@ -832,10 +830,10 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
         outcomeUnknown: true,
       }).catch((fallbackError) => {
         // The completion may have committed despite its transport error.
-        console.error("[pinterest] дополнительная фиксация неизвестного исхода не удалась:", fallbackError && fallbackError.message);
+        logError("pinterest.event");
       });
     });
-    console.error("[pinterest] пин создан, но не удалось сохранить подтверждение:", completeError.message);
+    logError("pinterest.event");
     throw httpError(503, "Pinterest создал пин, но PinPosy не смог сохранить подтверждение. Повторная публикация заблокирована; требуется сверка.");
   }
 
@@ -934,7 +932,7 @@ function registerRoutes(app, deps) {
       });
       res.redirect(302, `${AUTHORIZE_URL}?${params.toString()}`);
     } catch (e) {
-      console.error("[pinterest] OAuth start failed:", e && e.message);
+      logError("pinterest.event");
       res.status(e.status || 400).send("Pinterest connection could not be started. Return to PinPosy and try again.");
     }
   });
@@ -967,7 +965,7 @@ function registerRoutes(app, deps) {
       }
       const err = req.query.error;
       if (err) {
-        console.warn("[pinterest] пользователь отказал в доступе:", err);
+        logWarning("pinterest.event");
         return res.redirect(back("denied"));
       }
       if (!req.query.code) return res.redirect(back("error"));
@@ -983,7 +981,7 @@ function registerRoutes(app, deps) {
       try {
         expiresAt = getPinterestTokenExpiresAt(tokenResponse && tokenResponse.expires_in);
       } catch (expiryError) {
-        console.error("[pinterest] OAuth token response contained an invalid expiry:", expiryError && expiryError.message);
+        logError("pinterest.event");
         throw httpError(502, "Pinterest вернул некорректный срок действия токена. Подключение не сохранено.");
       }
       if (!profile || !profile.id) {
@@ -1016,10 +1014,10 @@ function registerRoutes(app, deps) {
         }
         throw httpError(409, "Попытка подключения Pinterest устарела или не прошла проверку. Начните подключение заново.");
       }
-      console.log(`[pinterest] аккаунт подключён: user=${userId} login=${profile && profile.username}`);
+      logInfo("pinterest.event");
       res.redirect(back("connected"));
     } catch (e) {
-      console.error("[pinterest] callback не удался:", e && e.message);
+      logError("pinterest.event");
       res.redirect(back("error"));
     }
   });
@@ -1269,7 +1267,7 @@ function registerRoutes(app, deps) {
             scheduleUpdateError = updateError;
           }
           if (scheduleUpdateError) {
-            console.error("[pinterest-worker] не удалось сохранить итоговый статус расписания:", scheduleUpdateError.message);
+            logError("pinterest.event");
           }
           results.push({
             schedule_id: schedule.id,
@@ -1292,12 +1290,12 @@ function registerRoutes(app, deps) {
         results,
       });
     } catch (e) {
-      console.error("[pinterest-worker] run failed:", e && e.message);
+      logError("pinterest.event");
       res.status(500).json({ error: "Pinterest schedule worker failed" });
     }
   });
 
-  console.log(`[pinterest] роуты подключены, интеграция ${isConfigured() ? "настроена" : "НЕ настроена (нет PINTEREST_*)"}`);
+  logInfo("pinterest.event");
 }
 
 module.exports = {
