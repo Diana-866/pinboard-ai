@@ -2946,3 +2946,11 @@ Date: 2026-11-10
 - В `scheduleWorker.js` устранён остаточный raw `error.message`: production default теперь использует safeLogger и пишет только `schedule_worker.batch_failed`; тест обновлён.
 - Ограничение: correlation context пока не переносится в detached jobs/самостоятельные worker ticks/provider logs; CORS expose header не включён.
 - Runtime tests, lint, build и CI не запускались. Production requests/logs, платежи, email, Pinterest API/OAuth, БД и deployment не затрагивались.
+
+## Дополнение к handoff — 2026-11-11 (AUD-356)
+
+- Каждый независимый tick `scheduleWorker.js` получает собственный UUID-контекст; completion/failure safe-log события включают `correlation_id`.
+- Worker completion event нормализован до `schedule_worker.batch_completed`; failure event остаётся `schedule_worker.batch_failed`, исходный текст исключения и HTTP config не логируются.
+- Каждый запуск subscription email outbox (таймер/старт приложения/вызов после callback) получает отдельный UUID-контекст; ошибка dispatch сохраняет этот ID в safe log.
+- Границы: ID worker tick и ID HTTP-запроса к backend пока независимы, поскольку backend намеренно не доверяет клиентскому correlation header. ID не сохраняются в durable generation/Pinterest rows; для этого потребовались бы отдельное решение по схеме и миграция.
+- Добавлен тест safe-log UUID для worker tick. Runtime tests, lint, build и CI не запускались. Production/DB/payment/email/Pinterest/deploy не затрагивались.
