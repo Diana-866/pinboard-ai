@@ -82,7 +82,9 @@ export async function startPayment(
   if (!data?.payment_url) {
     throw new Error('Сервер не вернул ссылку на оплату. Попробуйте ещё раз или напишите в поддержку.');
   }
-  clearPaymentIdempotencyKey(scope);
+  // Keep the key while the checkout is open. If the browser fails to navigate
+  // or the user reloads the page, retrying must reuse the same provider invoice.
+  // The key is cleared only after the backend reports settled/terminal status.
   return data;
 }
 
