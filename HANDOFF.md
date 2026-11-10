@@ -2403,3 +2403,40 @@ No confirmed authentication bypass, password-reset token replay, or password-res
 
 - GitHub source and test review only; tests, lint, and build were not run.
 - No login attempts, password resets, email sends, token issuance, account changes, database writes, SQL migration execution, deployment, or PR merge.
+
+
+# AUD-321 — Pinterest OAuth state, browser binding, token storage, and refresh audit
+
+Date: 2026-11-10
+
+## Scope
+
+Reviewed the Pinterest OAuth start/callback routes, signed state claims, browser-binding cookie, OAuth attempt SQL fencing, account-token encryption/rotation, refresh-token lease/recovery, and relevant unit/integration test sources. Source-only review; no Pinterest credentials or live OAuth flow were used.
+
+## Findings
+
+- **OAuth CSRF/state:** state is a JWT signed with the backend JWT secret and expires after 15 minutes. Claims include the PinPosy user ID, current session token_version, purpose, attempt UUID, monotonic generation, and SHA-256 browser-binding hash. Callback validates the claims and rechecks the current user token_version.
+- **Browser binding:** start creates a 32-byte random secret; only its hash is embedded in state. The raw secret is delivered to the initiating client and then set as a __Host-Http- cookie with Secure, HttpOnly, Path=/, and SameSite=Lax. Callback requires the matching cookie before exchanging the authorization code. The cookie is cleared after a successful proof match. This binds the callback to the browser that initiated the flow, including the cross-registrable-domain SPA/API deployment case documented in code.
+- **Single-use and stale-attempt fencing:** begin_pinterest_oauth_attempt increments a per-user generation and replaces the active attempt. The v2 commit RPC checks user, attempt UUID, generation, token_version, and expiry, then consumes the attempt in the same transaction as saving the Pinterest account. Disconnect also increments generation and clears the attempt. A second callback or an older tab cannot commit the same attempt after it has been consumed/superseded.
+- **Authorization-code replay:** the callback exchanges the provider code before the SQL commit. The provider authorization code is short-lived and single-use by provider contract; a repeated callback cannot persist twice because the attempt is consumed transactionally. If the process fails after code exchange but before commit, the user must reconnect; no attempt is made to replay the code.
+- **Token confidentiality:** account access/refresh tokens are encrypted using AES-256-GCM with random 96-bit IVs and authentication tags. The active key must be exactly 32 bytes (canonical base64 or 64-char hex). Previous-key fallback supports rotation; lazy migration uses optimistic updated_at compare-and-swap and does not rewrite rows fenced as refresh-uncertain. Legacy plaintext rows are lazily encrypted when loaded while an encryption key is configured.
+- **Refresh-token rotation:** a database lease serializes refresh across backend instances. The code marks refresh state uncertain before calling Pinterest, requires both rotated credentials in the response, commits via a fenced RPC, and does not replay the old refresh token after ambiguous network/5xx outcomes. Explicit 429 is handled separately. This is a deliberate fail-closed recovery policy.
+- **Logging/API exposure:** reviewed OAuth logs record status, provider error text, user ID, and Pinterest username, not access/refresh token values or authorization codes. The account-token decode path returns plaintext tokens internally for API calls; no reviewed user-facing serializer was found to return those raw credential fields. Continue auditing all account serializers whenever new routes are added.
+- **Hardening opportunity:** createState relies on jsonwebtoken default signing algorithm and readStateClaims does not explicitly pass an algorithms allowlist, unlike the dedicated session-token helper which pins HS256. This is not a demonstrated exploit because signature verification still requires the server secret, but pinning HS256 explicitly would make the OAuth state contract consistent and fail closed.
+- **Test coverage:** browser-binding helpers have focused unit tests; OAuth expiry normalization has unit tests; SQL integration/concurrency fixtures cover OAuth attempt fencing and reconnect behavior. pinterest-oauth.test.js does not directly test state signing/claim validation, expiry, algorithm pinning, or callback route behavior.
+
+## Result
+
+No confirmed OAuth CSRF, cross-user callback binding, replay-to-double-connect, plaintext token-at-rest, or refresh-token replay defect was found in the reviewed code. No automatic provider or production action was performed. The concrete low-risk code hardening is to pin HS256 for OAuth state signing and verification and add direct tests for tampered, expired, wrong-purpose, malformed, and non-HS256 state tokens.
+
+## Recommended next hardening
+
+1. Pin HS256 explicitly for OAuth state signing and verification, with regression tests.
+2. Add callback-level integration tests for missing/mismatched browser cookie, stale session token_version, duplicate callback, and superseded attempt.
+3. Verify deployment has an independently backed-up PINTEREST_TOKEN_ENCRYPTION_KEY and preserve the previous key until lazy migration is complete; losing both keys makes stored credentials unrecoverable.
+4. Audit every new Pinterest account serializer/route to ensure decrypted credentials never leave the backend.
+
+## Verification and safety
+
+- GitHub source/test/SQL fixture review only; tests, lint, and build were not run.
+- No Pinterest OAuth requests, token refreshes, API publication, database writes, SQL migration execution, deployment, or PR merge.
