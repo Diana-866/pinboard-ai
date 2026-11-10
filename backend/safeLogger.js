@@ -37,4 +37,9 @@ function logWarning(event, error, status) {
   return logEvent("warn", event, error, status);
 }
 
-module.exports = { logError, logWarning };
+function logInfo(event) {
+  const record = { level: "info", event: safeEventName(event) };
+  console.info(JSON.stringify(record));
+}
+
+module.exports = { logError, logWarning, logInfo };
