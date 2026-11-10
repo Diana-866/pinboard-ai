@@ -3143,3 +3143,21 @@ Date: 2026-11-10
 - Подтверждены: HS256 JWT 7d + DB token_version check; reset token hash-only/one-use; atomic password update + token_version increment; explicit email verification; generic login/reset responses.
 - Остались: registration email enumeration (409), JWT in localStorage, отсутствие server-side per-device session revoke/change-password UI, process-local IP rate limits, недостаток browser integration tests.
 - Тесты/build/lint/CI/live DB/SMTP не запускались. Реальные аккаунты, пароли, JWT, токены, secrets и production не затрагивались.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-375: user data access and public image privacy)
+
+- Проверены owner checks проектов/досок/пинов, serializers, core RLS/grants, upload validation, Storage lifecycle and deletion fencing.
+- Публичный bucket `pin-images` является намеренной границей продукта: любой обладатель URL может просмотреть объект без входа. Английская privacy policy обновлена; русская версия осталась без изменения из-за блокировки безопасной операции редактирования и должна быть синхронизирована до релиза.
+- Добавлены `backend/test/pin-image-access-contract.test.js`, `docs/audits/AUD-375-user-data-access-and-public-image-privacy.md`, `docs/runbooks/public-pin-image-handling-aud-375.md`.
+- Live Supabase bucket metadata/effective Storage policies не проверялись; anonymous GET/write/delete не тестировались. Tests/build/CI не запускались; production не менялся.
+
+## Дополнение к handoff — 2026-11-11 (AUD-376: background workers and queue recovery)
+
+- Проверены Pinterest schedule worker, scheduler monitor migrations 122/123, transactional email outbox, pin-image retention queue and manual-review queue.
+- Подтверждены: Pinterest claim/fencing/renewal, one-row request limit, bounded worker shutdown, terminal completion fencing; email outbox uses atomic enqueue, SKIP LOCKED, 2-minute token lease and bounded retries; image retention expired leases become blocked rather than unsafe automatic reclaims.
+- AUD-376-01: SMTP is at-least-once; if SMTP accepted but DB acknowledgement was lost, duplicate delivery is possible. Deterministic Message-ID aids correlation but does not guarantee deduplication.
+- AUD-376-02: email outbox dispatcher runs in API process (startup + 60s timer + payment callback); sleeping host delays dispatch. Queue is durable, but delivery latency is not guaranteed.
+- AUD-376-03: live deployment/migration state and scheduler service are unknown; code in branch does not prove production worker is active. AUD-376-04: blocked image-retention rows need monitoring/manual reconciliation.
+- Added `docs/audits/AUD-376-background-workers-and-queue-recovery.md` and `docs/runbooks/background-queue-operations-aud-376.md`.
+- No code/runtime/SQL changes, tests, build, CI, live provider checks, queue mutations, email sends, Pinterest publication, migration or deployment were performed.
