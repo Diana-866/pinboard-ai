@@ -1,6 +1,12 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
+const supabasePath = require.resolve("../supabase");
+const modulePath = require.resolve("../adminPaymentCreationRequests");
+require.cache[supabasePath] = {
+  id: supabasePath, filename: supabasePath, loaded: true, exports: {},
+};
+delete require.cache[modulePath];
 const { listPaymentCreationRequests, parseLimit, safeErrorCode } = require("../adminPaymentCreationRequests");
 
 const calls = [];
