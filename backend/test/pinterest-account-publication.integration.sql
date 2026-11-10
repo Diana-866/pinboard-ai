@@ -55,8 +55,15 @@ declare
   v_schedule_count integer;
   v_disconnected boolean;
   v_scheduled_publish_definition text;
+  v_disconnect_definition text;
+  v_refresh_commit_definition text;
   v_account_lock_position integer;
   v_schedule_lock_position integer;
+  v_disconnect_lease_lock_position integer;
+  v_disconnect_account_lock_position integer;
+  v_disconnect_schedule_lock_position integer;
+  v_refresh_lease_lock_position integer;
+  v_refresh_account_lock_position integer;
 begin
   -- Guard against a later migration silently reintroducing schedule -> account
   -- lock inversion in the scheduled reservation RPC.
@@ -69,6 +76,33 @@ begin
      or position('a.disconnected_at is null' in v_scheduled_publish_definition) = 0
      or position('a.access_token is not null' in v_scheduled_publish_definition) = 0 then
     raise exception 'scheduled publish RPC must lock and validate the active account before locking its schedule';
+  end if;
+
+  -- Disconnect and token refresh must use the same lease -> account order.
+  -- The scheduled reservation takes account -> schedule and never waits on a
+  -- refresh lease, so this order prevents a lease/account deadlock.
+  select pg_get_functiondef('public.disconnect_pinterest_account_v2(text,uuid)'::regprocedure)
+    into v_disconnect_definition;
+  v_disconnect_lease_lock_position := strpos(v_disconnect_definition, 'delete from public.pinterest_account_refresh_leases');
+  v_disconnect_account_lock_position := strpos(v_disconnect_definition, 'update public.pinterest_accounts');
+  v_disconnect_schedule_lock_position := strpos(v_disconnect_definition, 'update public.pin_schedules');
+  if v_disconnect_lease_lock_position = 0
+     or v_disconnect_account_lock_position = 0
+     or v_disconnect_schedule_lock_position = 0
+     or v_disconnect_lease_lock_position >= v_disconnect_account_lock_position
+     or v_disconnect_account_lock_position >= v_disconnect_schedule_lock_position then
+    raise exception 'Pinterest disconnect must lock refresh lease, then account, then schedules';
+  end if;
+
+  select pg_get_functiondef('public.commit_pinterest_account_token_refresh(text,uuid,uuid,timestamptz,text,text,text,timestamptz)'::regprocedure)
+    into v_refresh_commit_definition;
+  v_refresh_lease_lock_position := strpos(v_refresh_commit_definition, 'from public.pinterest_account_refresh_leases');
+  v_refresh_account_lock_position := strpos(v_refresh_commit_definition, 'update public.pinterest_accounts');
+  if v_refresh_lease_lock_position = 0
+     or v_refresh_account_lock_position = 0
+     or v_refresh_lease_lock_position >= v_refresh_account_lock_position
+     or position('for update' in lower(v_refresh_commit_definition)) = 0 then
+    raise exception 'Pinterest token refresh commit must lock its lease before updating account credentials';
   end if;
   insert into public.users(id, email, token_version)
   values (v_user, 'pinterest-account-publish-' || v_user || '@example.invalid', 0);
