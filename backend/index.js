@@ -19,6 +19,7 @@ const { buildPinPatch } = require("./pinPatch");
 const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
 const { getFinancialOperationsQueue } = require("./adminFinancialOperations");
+const adminPaymentCreationRequests = require("./adminPaymentCreationRequests");
 const adminProviderRefundActions = require("./adminProviderRefundActions");
 const adminPinterestReconciliation = require("./adminPinterestReconciliation");
 const adminPinterestInventory = require("./adminPinterestInventory");
@@ -2553,6 +2554,16 @@ app.get("/admin/billing/email-outbox", requireAuth, requireAdmin, async (req, re
     const limit = Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 20;
     const health = await billing.getEmailOutboxHealth(limit);
     res.json(health);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// Read-only inventory of payment checkout requests whose provider outcome is unresolved.
+app.get("/admin/billing/payment-creation-requests", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await adminPaymentCreationRequests.listPaymentCreationRequests(req.query || {});
+    res.json(result);
   } catch (e) {
     handleError(res, e);
   }
