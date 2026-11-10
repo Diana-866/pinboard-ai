@@ -429,8 +429,12 @@ async function getEmailOutboxHealth(limit = 20, dependencies = {}) {
     return Number(result.count) || 0;
   }
 
-  const [pending, sending, dead, staleSending, oldestPendingResult, deadRowsResult] = await Promise.all([
+  const [pending, duePending, sending, dead, staleSending, oldestPendingResult, oldestDuePendingResult, deadRowsResult] = await Promise.all([
     countStatus("pending"),
+    db.from("email_outbox")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending")
+      .lte("next_attempt_at", now),
     countStatus("sending"),
     countStatus("dead"),
     db.from("email_outbox")
@@ -443,24 +447,36 @@ async function getEmailOutboxHealth(limit = 20, dependencies = {}) {
       .order("created_at", { ascending: true })
       .limit(1),
     db.from("email_outbox")
+      .select("next_attempt_at")
+      .eq("status", "pending")
+      .lte("next_attempt_at", now)
+      .order("next_attempt_at", { ascending: true })
+      .limit(1),
+    db.from("email_outbox")
       .select("id, attempts, max_attempts, last_error_code, created_at, updated_at")
       .eq("status", "dead")
       .order("updated_at", { ascending: false })
       .limit(safeLimit),
   ]);
 
+  if (duePending.error) throw duePending.error;
   if (staleSending.error) throw staleSending.error;
   if (oldestPendingResult.error) throw oldestPendingResult.error;
+  if (oldestDuePendingResult.error) throw oldestDuePendingResult.error;
   if (deadRowsResult.error) throw deadRowsResult.error;
 
   const oldestPendingAt = oldestPendingResult.data && oldestPendingResult.data[0]
     ? oldestPendingResult.data[0].created_at
+    : null;
+  const oldestDuePendingAt = oldestDuePendingResult.data && oldestDuePendingResult.data[0]
+    ? oldestDuePendingResult.data[0].next_attempt_at
     : null;
 
   return {
     generated_at: now,
     counts: {
       pending,
+      due_pending: Number(duePending.count) || 0,
       sending,
       stale_sending: Number(staleSending.count) || 0,
       dead,
@@ -468,6 +484,10 @@ async function getEmailOutboxHealth(limit = 20, dependencies = {}) {
     oldest_pending_at: oldestPendingAt,
     oldest_pending_age_seconds: oldestPendingAt
       ? Math.max(0, Math.floor((Date.now() - new Date(oldestPendingAt).getTime()) / 1000))
+      : null,
+    oldest_due_pending_at: oldestDuePendingAt,
+    oldest_due_pending_age_seconds: oldestDuePendingAt
+      ? Math.max(0, Math.floor((Date.now() - new Date(oldestDuePendingAt).getTime()) / 1000))
       : null,
     dead_items: (deadRowsResult.data || []).map((row) => ({
       id: row.id,
