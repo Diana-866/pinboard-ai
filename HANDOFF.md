@@ -3062,3 +3062,12 @@ Date: 2026-11-10
 - Важно: наличие миграций в GitHub не доказывает, что они применены в live Supabase. Перед запуском сверить migration ledger; live DB не опрашивалась.
 - Добавлен `backend/test/data-access-boundary-contract.test.js` и отчёт `docs/audits/AUD-366-data-access-and-admin-boundaries.md`.
 - Node tests/lint/build/CI не запускались. Данные, баланс, платежи, админ-операции и production не менялись.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-367)
+
+- Проверены Prodamus HMAC-SHA256 + constant-time compare, ограниченный multipart/urlencoded/JSON webhook parser, маршрутизация subscription/credit orders, amount/currency checks, финальные статусы, atomic activation/credit fulfillment, checkout idempotency и settlement, webhook exception audit, provider refund workflow.
+- Подтверждено: подпись проверяется до lookup заказа; неверная сумма/валюта не активирует тариф и не начисляет кредиты; кредитный RPC блокирует purchase row и атомарно фиксирует balance + ledger + balance_credited_at; повторная доставка не начисляет пакет повторно; settlement проверяет exact order/kind/local payment/user/fulfilled marker.
+- Миграции 010/011/029/037/072–073/116–118 должны быть сверены с live Supabase migration ledger перед приёмом реальных платежей. Live DB и Prodamus не опрашивались.
+- Добавлен `backend/test/billing-security-contract.test.js` и отчёт `docs/audits/AUD-367-prodamus-payment-integrity.md`.
+- Node tests/lint/build/CI не запускались. Реальные платежи, возвраты, балансы, тарифы, секреты и deployment не затрагивались.
