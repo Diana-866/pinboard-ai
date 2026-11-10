@@ -75,6 +75,24 @@ async function attachPaymentCreationOrder(userId, idempotencyKey, orderId) {
   return true;
 }
 
+async function denyUnsentPaymentRecord(table, recordId) {
+  if (!["subscriptions", "credit_purchases"].includes(table) || !recordId) {
+    throw new Error("invalid unsent payment record reference");
+  }
+  const { data, error } = await supabase
+    .from(table)
+    .update({ status: "denied" })
+    .eq("id", recordId)
+    .eq("status", "pending")
+    .select("id")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data || data.id !== recordId) {
+    throw new Error("unsent payment record was not confirmed as denied");
+  }
+  return true;
+}
+
 async function completePaymentCreation(userId, idempotencyKey, result) {
   const { data, error } = await supabase.rpc("complete_payment_creation_request", {
     p_user_id: String(userId),
