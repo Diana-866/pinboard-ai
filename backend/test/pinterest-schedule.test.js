@@ -275,8 +275,11 @@ test("retryability blocks missing account, board, pin, publication, and duplicat
 });
 
 
-test("thrown Pinterest 5xx responses are ambiguous and cannot authorize a retry", () => {
-  for (const status of [500, 502, 503, 504, 0, NaN]) {
+test("Pinterest non-success responses outside the explicit client-rejection allowlist are ambiguous", () => {
+  // This same classifier is used for both returned HTTP responses and thrown
+  // transport errors around POST /pins. Unexpected redirects must not become
+  // retry-safe merely because they are not 408/429/5xx.
+  for (const status of [0, 300, 301, 302, 408, 429, 500, 502, 503, 504, NaN]) {
     assert.equal(isPinterestPublishOutcomeUnknown(status), true, `status ${status}`);
   }
 });
