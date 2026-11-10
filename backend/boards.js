@@ -1,6 +1,6 @@
 const { generateText } = require("./gptunnel");
 const { httpError } = require("./validate");
-const { validateBoardIdeas } = require("./textOutputValidation");
+const { parseBoardIdeasResponse } = require("./textOutputValidation");
 
 async function generateBoards(project) {
   const prompt = `Ты помогаешь планировать контент для Pinterest-аккаунта.
@@ -15,14 +15,7 @@ async function generateBoards(project) {
 [{"title": "...", "description": "..."}, ...]`;
 
   const aiResponse = await generateText(prompt);
-  try {
-    const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
-    const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : aiResponse);
-    return validateBoardIdeas(parsed);
-  } catch (error) {
-    if (error && error.httpStatus) throw error;
-    throw httpError(502, "Не удалось разобрать ответ нейросети в список досок");
-  }
+  return parseBoardIdeasResponse(aiResponse);
 }
 
 module.exports = { generateBoards };
