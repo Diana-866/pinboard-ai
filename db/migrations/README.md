@@ -24,14 +24,10 @@
 | `006_subscriptions.sql` | Создаёт таблицу подписок Prodamus, индексы, ограничения, RLS и поле окончания тарифа пользователя. | Да | `001_baseline.sql` |
 | `007_credit_purchases.sql` | Создаёт учёт разовых покупок пакетов кредитов, защиту от повторного зачисления, индексы, ограничения и RLS. | Да | `001_baseline.sql` |
 | `008_pinterest_accounts.sql` | Создаёт таблицы подключённых Pinterest-аккаунтов и журнала публикаций, уникальные индексы и RLS. | Да | `001_baseline.sql` |
-| `009_hardening.sql` | Ужесточает RLS, приводит пользовательские ссылки к UUID, добавляет внешние ключи с каскадным удалением, триггер и ограничения статусов, создаёт индексы; при необходимости очищает некорректные/осиротевшие ссылки и проверяет преобразование суммы транзакций. | Да* | `001_baseline.sql`–`008_pinterest_accounts.sql` |
-| `010_atomic_credit_ledger.sql` | Добавляет связь транзакции с покупкой и атомарные RPC для изменения баланса, записи журнала и зачисления оплаченной покупки. | Да | `007_credit_purchases.sql`, `009_hardening.sql` |
-| `011_atomic_subscription_activation.sql` | Добавляет атомарную RPC-активацию оплаченной подписки с защитой от повторного продления и отката тарифа запоздавшим вебхуком. | Да | `006_subscriptions.sql`, `009_hardening.sql` |
+| `010_atomic_credit_ledger.sql` | Добавляет связь транзакции с покупкой и атомарные RPC для изменения баланса, записи журнала и зачисления оплаченной покупки; сохраняет текущий тип `user_id TEXT`. | Да | `007_credit_purchases.sql`; базовые таблицы из `001_baseline.sql` |
+| `011_atomic_subscription_activation.sql` | Добавляет атомарную RPC-активацию оплаченной подписки с защитой от повторного продления и отката тарифа запоздавшим вебхуком; сохраняет текущий тип `subscriptions.user_id TEXT`. | Да | `006_subscriptions.sql`; базовые таблицы из `001_baseline.sql` |
 
-`* Да, повторный запуск рассчитан на безопасное применение уже созданной схемы. Однако
-первое применение `009_hardening.sql` может удалить некорректные или осиротевшие
-строки перед созданием внешних ключей. Перед запуском на базе с данными обязательно
-сделайте резервную копию и просмотрите NOTICE-сообщения.`
+**Важно:** `009_hardening.sql` не входит в текущую последовательность: файл отсутствует в каталоге миграций, а его прежний проект предусматривал преобразование `user_id TEXT` в UUID и очистку сиротских строк. Не создавайте и не применяйте такую миграцию без отдельного плана совместимости, отчёта о данных и резервной копии. Миграции `010` и `011` специально совместимы с текущей схемой, где пользовательские ссылки остаются `TEXT`.
 
 ## Порядок применения на чистой базе
 
@@ -47,7 +43,6 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/005_email_verified.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/006_subscriptions.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/007_credit_purchases.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/008_pinterest_accounts.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/009_hardening.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/010_atomic_credit_ledger.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/011_atomic_subscription_activation.sql
 ```
