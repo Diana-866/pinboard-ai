@@ -36,7 +36,7 @@ interface AuthContextType {
   isAuthModalOpen: boolean;
   openAuthModal: (mode?: string) => void;
   closeAuthModal: () => void;
-  refreshUser: () => Promise<void>;
+  refreshUser: () => Promise<boolean>;
   logout: () => void;
   updateUserAvatar: (url: string) => void;
   updateUser: (patch: Partial<User>) => void;
@@ -56,7 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const token = localStorage.getItem("token");
     if (!token) {
       setUser(null);
-      return;
+      return false;
     }
     try {
       const data = await apiRequest("/me");
@@ -82,6 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         tariff_plan: data.tariff_plan ?? "none",
         avatar,
       });
+      return true;
     } catch (e) {
       // A transient network/5xx failure must not destroy a still-valid local
       // session. apiRequest already clears and redirects on protected-route 401.
@@ -91,6 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         console.warn("[auth] Could not refresh the current user; keeping the session for retry:", e);
       }
+      return false;
     }
   }
 
