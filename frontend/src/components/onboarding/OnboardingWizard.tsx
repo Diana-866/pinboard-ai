@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowRight, ArrowLeft, Check, Sparkles, Rocket, PartyPopper, CreditCard } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -15,7 +15,7 @@ type PlanId = 'analytics' | 'start' | 'pro' | 'agency';
 interface PlanCard {
   id: PlanId;
   name: string;
-  price: string;
+  price: string | null;
   tagline: string;
   features: string[];
   highlight?: boolean;
@@ -28,12 +28,42 @@ export const OnboardingWizard: React.FC = () => {
   const { refreshUser, user } = useAuth();
   const { language } = useI18n();
   const t = getOnboardingCopy(language);
+  const [planPrices, setPlanPrices] = useState<Record<PlanId, number> | null>(null);
+  const [planPricesError, setPlanPricesError] = useState(false);
   const plans: PlanCard[] = [
-    { id: 'analytics', name: t.planAnalytics, price: '990 ₽', tagline: t.planAnalyticsTag, features: [...t.planAnalyticsFeatures] },
-    { id: 'start', name: t.planStart, price: '1 990 ₽', tagline: t.planStartTag, features: [...t.planStartFeatures] },
-    { id: 'pro', name: t.planPro, price: '4 990 ₽', tagline: t.planProTag, features: [...t.planProFeatures], highlight: true },
-    { id: 'agency', name: t.planAgency, price: '12 990 ₽', tagline: t.planAgencyTag, features: [...t.planAgencyFeatures] },
+    { id: 'analytics', name: t.planAnalytics, price: planPrices ? new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US').format(planPrices.analytics) + ' ₽' : null, tagline: t.planAnalyticsTag, features: [...t.planAnalyticsFeatures] },
+    { id: 'start', name: t.planStart, price: planPrices ? new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US').format(planPrices.start) + ' ₽' : null, tagline: t.planStartTag, features: [...t.planStartFeatures] },
+    { id: 'pro', name: t.planPro, price: planPrices ? new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US').format(planPrices.pro) + ' ₽' : null, tagline: t.planProTag, features: [...t.planProFeatures], highlight: true },
+    { id: 'agency', name: t.planAgency, price: planPrices ? new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US').format(planPrices.agency) + ' ₽' : null, tagline: t.planAgencyTag, features: [...t.planAgencyFeatures] },
   ];
+
+  useEffect(() => {
+    let active = true;
+    apiRequest('/billing/plans')
+      .then((response: any) => {
+        if (!Array.isArray(response?.plans)) throw new Error('Invalid plan catalog');
+        const next: Partial<Record<PlanId, number>> = {};
+        for (const plan of response.plans) {
+          const amount = Number(plan.amount?.rub);
+          if (!['analytics', 'start', 'pro', 'agency'].includes(plan.id) || !Number.isFinite(amount) || amount <= 0) {
+            throw new Error('Invalid plan catalog entry');
+          }
+          next[plan.id as PlanId] = amount;
+        }
+        if (Object.keys(next).length !== 4) throw new Error('Incomplete plan catalog');
+        if (active) {
+          setPlanPrices(next as Record<PlanId, number>);
+          setPlanPricesError(false);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setPlanPrices(null);
+          setPlanPricesError(true);
+        }
+      });
+    return () => { active = false; };
+  }, [language]);
   const [step, setStep] = useState<Step>(1);
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [productComment, setProductComment] = useState('');
@@ -90,7 +120,7 @@ export const OnboardingWizard: React.FC = () => {
     }
     // A successful refresh marks onboarding complete in App and unmounts this
     // wizard. Dispatch navigation afterwards so the requested destination wins.
-    window.dispatchEvent(new CustomEvent('pinposy:navigate-tab', { detail: tab }));
+    window.dispatchEvent(new CustomEvent('pinposy:navigate-tab', { detail: tab === 'pricing' ? { tab, planId: selectedPlan } : tab }));
   };
 
   const closeWizard = () => finishOnboarding('dashboard');
@@ -349,7 +379,7 @@ export const OnboardingWizard: React.FC = () => {
                             className="text-xl font-extrabold"
                             style={{ color: ROSE, fontFamily: "'Outfit', sans-serif" }}
                           >
-                            {plan.price}
+                            {plan.price || (planPricesError ? (language === 'ru' ? 'Цена недоступна' : 'Price unavailable') : (language === 'ru' ? 'Загрузка…' : 'Loading…'))}
                           </div>
                           <div className="text-[11px] text-muted-theme">{t.perMonth}</div>
                         </div>
