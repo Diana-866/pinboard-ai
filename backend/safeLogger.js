@@ -46,7 +46,9 @@ function logEvent(level, event, error, status) {
   const code = safeErrorCode(error);
   if (code) record.error_code = code;
   // Intentionally omit message, stack, cause, request, response, and arbitrary metadata.
-  console.error(JSON.stringify(record));
+  const serialized = JSON.stringify(record);
+  if (record.level === "warn") console.warn(serialized);
+  else console.error(serialized);
 }
 
 function logError(event, error, status) {
