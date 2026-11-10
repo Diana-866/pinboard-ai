@@ -3485,3 +3485,24 @@ Artifacts:
 - docs/proposals/prodamus-receipt-entitlement-sql-contract-aud-400.md
 
 Design only: no source/SQL/migration/tests/provider calls/production changes. Actual Supabase catalog was not inspected; migration 124 is only a candidate, not reserved. Next: read-only schema preflight plan and design a disposable PostgreSQL two-session test harness before the first Prodamus source/migration implementation.
+
+
+## AUD-401 — Supabase read-only preflight + Prodamus/deletion race harness design (2026-11-11)
+
+Verified existing PostgreSQL test infrastructure: PostgreSQL 16 service in .github/workflows/atomic-payment-integration.yml; SQL fixtures for credit fulfillment and checkout settlement; shell concurrency tests credit-concurrency.sh and subscription-concurrency.sh using independent psql sessions, PGAPPNAME, pg_stat_activity lock waits and cleanup traps; db-migration-chain.test.js asserts migration 001 and 010–123. Existing concurrency tests cover duplicate webhook/parallel subscriptions, not deletion-vs-payment race.
+
+Designed read-only Supabase catalog preflight: verify project identity and read-only session, inspect information_schema/pg_catalog only (columns/types, constraints/indexes, function signatures/owners/search_path/grants, RLS/policies/triggers, migration ledger), return aggregate counts only, no PII/secrets. Provided SELECT-only starter template; no actual connection/query was made.
+
+Designed disposable PostgreSQL 16 two-session race tests:
+A deletion holds users row first; payment waits, then stores immutable receipt + withheld decision with no credit/ledger.
+B payment holds users row first; grants exactly once, deletion waits and fences afterward.
+C duplicate callbacks and receipt-commit/fulfillment-response-loss retry.
+D negative isolated reproduction proves old purchase→user vs user→purchase inversion is detected.
+Suggested new files backend/test/prodamus-deletion-race.sh and .integration.sql and workflow step only after lifecycle/receipt RPC migrations finalized.
+
+Artifacts:
+- docs/audits/AUD-401-supabase-preflight-and-payment-deletion-race-harness.md
+- docs/runbooks/prodamus-deletion-race-aud-401.md
+- docs/proposals/prodamus-deletion-race-test-contract-aud-401.md
+
+Design only: no Supabase connection/catalog query, no SQL/source/test/workflow/migration changes, no production operation. Next: inspect actual migration/workflow coverage and draft the smallest implementation slice for credit purchase first, including exact new RPC contract, compatibility strategy and test fixture; still no production execution.
