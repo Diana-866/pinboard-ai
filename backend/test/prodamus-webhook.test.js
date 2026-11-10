@@ -239,7 +239,7 @@ function signedWebhook(body) {
 
 function createPaymentDb({ subscription, purchase, activate, credit, cancel }) {
   const state = { subscription: structuredClone(subscription), purchase: structuredClone(purchase) };
-  const rpcCalls = { activate: 0, credit: 0 };
+  const rpcCalls = { activate: 0, credit: 0, settle: 0 };
   const db = {
     from(table) {
       const key = table === "subscriptions" ? "subscription" : "purchase";
@@ -279,6 +279,23 @@ function createPaymentDb({ subscription, purchase, activate, credit, cancel }) {
         rpcCalls.credit++;
         return credit(state, args, rpcCalls);
       }
+      if (name === "settle_payment_creation_request") {
+        rpcCalls.settle++;
+        const kind = args.p_request_kind;
+        const row = kind === "subscription" ? state.subscription
+          : kind === "credits" ? state.purchase
+            : null;
+        if (!row || row.id !== args.p_local_payment_id ||
+            row.provider_payment_id !== args.p_order_id ||
+            row.status !== "success" ||
+            (kind === "subscription" &&
+              (!row.period_start || !row.period_end ||
+                new Date(row.period_end) <= new Date(row.period_start))) ||
+            (kind === "credits" && !row.balance_credited_at)) {
+          return { data: null, error: { message: "local payment is not exactly fulfilled for checkout request" } };
+        }
+        return { data: true, error: null };
+      }
       throw new Error("unexpected RPC " + name);
     },
     state,
@@ -294,6 +311,8 @@ test("subscription webhook concurrent duplicate callbacks activate exactly once"
       await new Promise(resolve => setTimeout(resolve, 5));
       if (state.subscription.status === "success") return { data: { plan: "start", current_plan: "start", period_end: "2027-01-01", already_activated: true }, error: null };
       state.subscription.status = "success";
+      state.subscription.period_start = "2026-12-02T00:00:00.000Z";
+      state.subscription.period_end = "2027-01-01T00:00:00.000Z";
       return { data: { plan: "start", current_plan: "start", period_end: "2027-01-01", already_activated: false }, error: null };
     },
     credit: async () => ({ data: 0, error: null }),
@@ -320,6 +339,8 @@ test("subscription webhook retries after commit-then-error and observes idempote
       if (!committed) {
         committed = true;
         state.subscription.status = "success";
+        state.subscription.period_start = "2026-12-02T00:00:00.000Z";
+        state.subscription.period_end = "2027-01-01T00:00:00.000Z";
         return { data: null, error: { message: "connection lost after commit" } };
       }
       return { data: { plan: "start", current_plan: "start", period_end: "2027-01-01", already_activated: true }, error: null };
@@ -498,7 +519,7 @@ test("credited purchase still audits a later signed success callback with a mism
 
 test("subscription cancel callback after successful activation cannot downgrade the paid plan", async () => {
   const db = createPaymentDb({
-    subscription: { id: "sub-cancel-race", provider_payment_id: "pp-sub-cancel-race", amount: 1990, currency: "rub", status: "success" },
+    subscription: { id: "sub-cancel-race", provider_payment_id: "pp-sub-cancel-race", amount: 1990, currency: "rub", status: "success", period_start: "2026-12-02T00:00:00.000Z", period_end: "2027-01-01T00:00:00.000Z" },
     activate: async () => ({ data: { plan: "start", current_plan: "start", period_end: "2027-01-01", already_activated: true }, error: null }),
     credit: async () => ({ data: 0, error: null }),
   });
@@ -518,6 +539,8 @@ test("a valid late success callback can activate an order previously marked deni
     activate: async (state) => {
       assert.equal(state.subscription.status, "denied");
       state.subscription.status = "success";
+      state.subscription.period_start = "2026-12-02T00:00:00.000Z";
+      state.subscription.period_end = "2027-01-01T00:00:00.000Z";
       return { data: { plan: "start", current_plan: "start", period_end: "2027-01-01", already_activated: false }, error: null };
     },
     credit: async () => ({ data: 0, error: null }),
