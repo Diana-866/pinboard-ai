@@ -2164,3 +2164,30 @@ No confirmed cross-request double-reservation, stale-claim write, or duplicate-s
 
 - Source and migration review plus GitHub read-back; no SQL migrations or tests were executed.
 - No credits, provider tasks, production data, deployments, or PR merge.
+
+
+# AUD-315 — long-outage recovery and provider-result retention audit
+
+Date: 2026-11-10
+
+## Scope
+
+Reviewed `generatePins`, the persisted provider task plan, GPTunnel task polling, provider outcome journaling, `rehostImage`, and the managed Storage upload lifecycle. No live provider, Storage, or database calls were made.
+
+## Findings
+
+- **Provider result is journaled before Storage:** after GPTunnel returns a terminal result, `record_pin_generation_provider_outcome` stores the provider task ID, terminal status, authoritative price, and original result URL before the Storage rehost begins. A later Storage outage can therefore retry from the saved URL without a second provider task.
+- **Storage upload retry is deterministic:** the object path is derived from a hash of the provider idempotency key. Before downloading/re-uploading, recovery checks the managed upload lifecycle for a completed object. If that lookup fails, it fails closed instead of blindly creating a second object.
+- **Ambiguous Storage writes remain fenced:** transport/timeouts and server errors do not release the upload reservation because the remote write may have committed. The lifecycle uses explicit finalization and quarantine/recovery paths; a quarantined deterministic path is not reused.
+- **Render restart:** the generation plan, provider task ID, result URL, price, and Storage URL are persisted in Supabase, not process memory. Recovery polls the recorded provider task or resumes rehosting the journaled URL.
+- **Provider retention limitation:** the code can retry a provider task lookup and can retry a saved result URL, but it cannot guarantee GPTunnel retains task metadata/result URLs for an arbitrary outage duration. No verified provider retention SLA or expiry field is present in the repository. If GPTunnel has expired the task/result before the first durable provider outcome is written, safe recovery cannot recreate the image; the current flow blocks automatic resubmission for a terminal journal row without a recoverable URL rather than risk a duplicate charge.
+- **No automatic charge duplication:** a recovered request uses its existing reservation and provider outcome; the completion RPC is the settlement boundary. If the provider result is unrecoverable, the request remains unresolved rather than silently submitting another paid task.
+
+## Result and recommendation
+
+No confirmed code defect was found in the reviewed recovery and Storage paths. The remaining uncertainty is external: GPTunnel's task/result retention window and availability guarantees. Before production launch, obtain the provider's retention policy and ensure the operational recovery window is shorter than that policy. For stronger resilience, consider an independent provider callback/webhook or immediate durable result transfer if supported by GPTunnel.
+
+## Verification and safety
+
+- Repository source review and GitHub read-back only; tests, lint, and build were not run.
+- No provider calls, Storage writes, credits, SQL migrations, production data, deployments, or PR merge.
