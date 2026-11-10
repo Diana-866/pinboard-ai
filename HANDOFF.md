@@ -2669,3 +2669,15 @@ Date: 2026-11-10
 - Рекомендованная последовательность: определить product charging policy для analysis/board ideas; внедрить usage-aware durable operation journal; добавить shared/durable per-user и global RUB spend ceilings; расширить cost reporting и тесты ambiguous retries.
 - Только source review; тесты, lint, typecheck, build, SQL и HTTP integration не запускались. Live provider, production config и deployment не проверялись. Никаких исходников, миграций, балансов или production-систем не меняли.
 - Следующий логичный этап: AUD-331 — спроектировать и реализовать безопасный durable usage journal и идемпотентность для legacy analysis/board-generation text routes, начиная с проверки схемы и существующих RPC/migration conventions.
+
+
+## Дополнение к handoff — 2026-11-10 (AUD-331)
+
+- Добавлен проектный дизайн `docs/audits/AUD-331-durable-text-operation-accounting-design.md`.
+- Перед проектированием проверены миграции 069/079 и текущие реализации `generateTextWithUsage`, `analyzeSite`, `generateBoards`, а также оба legacy HTTP маршрута.
+- Важное решение: не создавать дублирующий provider cost ledger. Использовать существующую `pin_generation_text_usage` как normalized usage fact store, расширив её operation scope; добавить отдельный `gptunnel_text_operations` journal для claim/idempotency/state/result. Существующий usage RPC сейчас связан с `pin_generation_requests`, поэтому напрямую переиспользовать его для analysis/board ideas нельзя.
+- Предложены состояния `claimed/submitting/succeeded/unknown/failed`, claim fencing, fingerprint mismatch rejection, safe replay результатов и fail-closed при неоднозначном outbound text provider call. GPTunnel text idempotency/request-history support не подтверждён; поэтому после ambiguous timeout автоматический повтор запрещён.
+- Для board ideas требуется атомарная транзакция завершения операции и вставки досок; для analysis — атомарное обновление проекта и завершение операции. Ownership проверять внутри RPC.
+- Существующая тарификация не меняется: analysis остаётся с текущей доступностью, board ideas сохраняет текущий tariff gate; никаких credit debit/reservation/refund не добавляется.
+- Документ — design only. Исходники и SQL не менялись, миграции не применялись, provider calls не выполнялись, tests/build не запускались.
+- Следующий шаг: AUD-332 — проверить frontend clients и compatibility для обязательного Idempotency-Key; затем реализовать additive DB migration + backend coordinator + route refactor + tests.
