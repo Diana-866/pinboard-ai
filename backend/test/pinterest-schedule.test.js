@@ -515,7 +515,7 @@ test("schedule claim heartbeat renews while active, avoids overlap, and stops cl
   });
 
   await new Promise((resolve) => setTimeout(resolve, 75));
-  stop();
+  await stop();
   const callsAtStop = calls;
   await new Promise((resolve) => setTimeout(resolve, 35));
 
@@ -523,6 +523,22 @@ test("schedule claim heartbeat renews while active, avoids overlap, and stops cl
   assert.equal(calls, callsAtStop, "stopped heartbeat must not schedule more renewals");
   assert.equal(maxActive, 1, "slow database heartbeats must never overlap");
   assert.deepEqual(warnings, []);
+});
+
+test("stopping schedule claim heartbeat waits for an in-flight renewal", async () => {
+  let finishRenewal;
+  let stopped = false;
+  const stop = createScheduleClaimHeartbeat({
+    intervalMs: 10,
+    renew: () => new Promise((resolve) => { finishRenewal = resolve; }),
+  });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const stopping = stop().then(() => { stopped = true; });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(stopped, false, "stop must wait for the active database renewal");
+  finishRenewal(true);
+  await stopping;
+  assert.equal(stopped, true);
 });
 
 test("schedule claim heartbeat warns once when fencing token is no longer current", async () => {
@@ -533,7 +549,7 @@ test("schedule claim heartbeat warns once when fencing token is no longer curren
     logger: { warn: (...args) => warnings.push(args) },
   });
   await new Promise((resolve) => setTimeout(resolve, 45));
-  stop();
+  await stop();
   assert.equal(warnings.length, 1);
   assert.match(warnings[0][0], /claim is no longer current/);
 });
