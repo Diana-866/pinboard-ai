@@ -47,7 +47,63 @@ async function listPaymentCreationRequests(query = {}, now = Date.now(), db = su
     .limit(limit);
   if (error) throw error;
 
-  const items = (data || []).map((row) => serializeRequest(row, now));
+  const requestRows = data || [];
+  const orderIds = [...new Set(requestRows.map((row) => row.provider_order_id).filter(Boolean))];
+  let subscriptionRows = [];
+  let creditPurchaseRows = [];
+
+  if (orderIds.length > 0) {
+    const [subscriptionsResult, creditsResult] = await Promise.all([
+      db.from("subscriptions")
+        .select("id, user_id, provider_payment_id, plan, status, amount, currency")
+        .in("provider_payment_id", orderIds),
+      db.from("credit_purchases")
+        .select("id, user_id, provider_payment_id, package_id, status, amount, currency")
+        .in("provider_payment_id", orderIds),
+    ]);
+    if (subscriptionsResult.error) throw subscriptionsResult.error;
+    if (creditsResult.error) throw creditsResult.error;
+    subscriptionRows = subscriptionsResult.data || [];
+    creditPurchaseRows = creditsResult.data || [];
+  }
+
+  const paymentByOrderId = new Map();
+  for (const row of subscriptionRows) {
+    paymentByOrderId.set(row.provider_payment_id, {
+      local_payment_record_id: row.id,
+      local_payment_status: row.status,
+      product_id: row.plan,
+      expected_amount: row.amount,
+      currency: row.currency,
+      local_user_id: row.user_id,
+      matched_record_kind: "subscription",
+    });
+  }
+  for (const row of creditPurchaseRows) {
+    if (paymentByOrderId.has(row.provider_payment_id)) {
+      throw new Error("provider order ID is linked to multiple local payment records");
+    }
+    paymentByOrderId.set(row.provider_payment_id, {
+      local_payment_record_id: row.id,
+      local_payment_status: row.status,
+      product_id: row.package_id,
+      expected_amount: row.amount,
+      currency: row.currency,
+      local_user_id: row.user_id,
+      matched_record_kind: "credits",
+    });
+  }
+
+  const items = requestRows.map((row) => {
+    const serialized = serializeRequest(row, now);
+    const payment = row.provider_order_id ? paymentByOrderId.get(row.provider_order_id) : null;
+    if (!payment) return { ...serialized, local_payment_match: "missing" };
+    if (payment.local_user_id !== row.user_id || payment.matched_record_kind !== row.request_kind) {
+      return { ...serialized, local_payment_match: "identity_mismatch" };
+    }
+    const { local_user_id, matched_record_kind, ...safePayment } = payment;
+    return { ...serialized, ...safePayment, local_payment_match: "matched" };
+  });
   return {
     read_only: true,
     automatic_reconciliation: false,
