@@ -2367,3 +2367,39 @@ No confirmed plaintext Pinterest token in API responses, unauthenticated admin r
 
 - GitHub source review only; tests, lint, build, secret-history scan and dependency audit were not run.
 - No production credentials, provider calls, database reads/writes, SQL migrations, deployments or PR merge.
+
+
+# AUD-320 — account authentication, password recovery, and session lifecycle audit
+
+Date: 2026-11-10
+
+## Scope
+
+Reviewed backend registration/login handlers, JWT signing and verification, bearer parsing, password-reset issuance/consumption SQL, email-verification token handling, account middleware, password validation, and Express rate-limit configuration. Source-only review; no account credentials or production sessions were accessed.
+
+## Findings
+
+- **Password storage:** registration and reset use bcryptjs cost factor 10; login uses a dummy bcrypt hash when the email is absent to reduce account-enumeration timing differences. Password length is bounded to 8–128 characters. No evidence of plaintext password storage was found in the reviewed flows.
+- **Login and registration throttling:** register, login, forgot-password and reset-password share a 10-request / 15-minute IP limiter. Email verification has a separate 30 / 15-minute limiter; resend has 5 / 15-minute. Password-reset and email-verification issuance also have per-account SQL cooldowns (5 minutes) with row-lock serialization.
+- **Important deployment limitation:** Express rate limiters use the default in-memory store. Limits are therefore per backend process and reset on process restart; multiple Render instances do not share one global counter. This is acceptable as a first-layer throttle, not a durable distributed brute-force defense. trust proxy = 1 is configured for the hosting proxy topology; confirm that the production ingress really has exactly one trusted proxy hop before changing this setting.
+- **JWT properties:** HS256 is pinned during verification; tokens expire after 7 days. Each protected request checks the account's current token_version against the JWT claim and fails closed on database errors. The production Supabase client requires the service-role key.
+- **Password reset:** reset tokens use 32 random bytes, only SHA-256 hashes are stored, TTL is 60 minutes, and token consumption/password update/session-version increment occur atomically. Migration 023 increments token_version, invalidating all existing JWTs after a successful reset. Reuse and parallel consumption of one reset token are blocked by row locks and one-time used_at consumption.
+- **Email verification:** verification tokens use 32 random bytes, hashed storage, 24-hour TTL, one-time atomic consumption, and per-account issuance cooldown. Registration does not issue a session before verification.
+- **Session lifecycle gap:** no server-side logout/revoke-one-session endpoint or per-device session registry was found in the reviewed authentication routes. A client-side logout can discard its local token, but a copied JWT remains valid until expiry unless the account-wide password-reset version bump occurs. This is a product/security limitation for stolen-device response, not a bypass of current authentication checks.
+- **No MFA or step-up authentication** was found in the reviewed login/admin flow. Admin routes rely on authenticated JWT plus the existing admin authorization check; this audit did not change that policy.
+
+## Result
+
+No confirmed authentication bypass, password-reset token replay, or password-reset session-revocation defect was found in the reviewed source. The main hardening gaps are distributed rate-limit storage and individual session revocation/device management. No code change was made because introducing session persistence/revocation requires a deliberate schema, frontend logout/device UX, and deployment-wide rate-limit store choice.
+
+## Recommended next hardening
+
+1. Add a shared rate-limit store (or edge/WAF protection) for login, registration, password reset, and verification before scaling backend instances.
+2. Decide whether to support per-device sessions; if yes, introduce opaque session IDs with hashed server-side storage, rotation, expiry, revoke-current/revoke-all actions, and race/replay tests.
+3. Consider MFA or step-up authentication for administrator accounts and sensitive financial operations.
+4. Verify production proxy hop count and JWT secret rotation/backup procedure without exposing secret values.
+
+## Verification and safety
+
+- GitHub source and test review only; tests, lint, and build were not run.
+- No login attempts, password resets, email sends, token issuance, account changes, database writes, SQL migration execution, deployment, or PR merge.
