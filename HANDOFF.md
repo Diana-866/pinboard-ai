@@ -2904,3 +2904,12 @@ Date: 2026-11-10
 - Pinterest OAuth token crypto: AES-256-GCM, 32-byte key, previous-key lazy rotation; legacy plaintext может оставаться до lazy migration. Нужна проверка production key, legacy inventory и независимое escrow.
 - pin-images bucket intentionally public; anyone with URL may retrieve. Stale PinSprig privacy source files are maintenance hazard; remove only after repo-wide reference check.
 - AUD-350 report сохранён. Нет live data/provider/legal checks; tests/lint/build/CI/deploy/production changes не выполнялись.
+
+## Дополнение к handoff — 2026-11-11 (AUD-351)
+
+- Проверен backend logging: central Express error handler пишет полный error object для 5xx; auth/billing/Pinterest/storage/generation call sites логируют upstream/database error.message без общего redaction allowlist.
+- В routine logs встречаются Prodamus order/subscription IDs и status descriptions, Pinterest internal user ID/username; это повышает linkability. Подтверждённой утечки токенов/секретов в изученных строках не установлено.
+- Рекомендация: structured allowlist logger, safe error codes, correlation IDs, sentinel-secret redaction tests; исключить request/webhook bodies, headers, tokens, raw provider payloads, usernames/email и stack traces из обычных production logs.
+- RU/EN privacy notices всё ещё недостаточно конкретно раскрывают передачу извлечённых фрагментов пользовательских сайтов в GPTunnel. Обновлять после проверки актуальных условий провайдера, не угадывать retention/training/region.
+- Retention внешних host logs, email outbox и operational journals не подтверждён; нужен утверждённый retention matrix и проверка live provider settings.
+- AUD-351 — source review/report only. Код, policy, DB, production не менялись; tests/lint/build/CI и live logs/provider checks не выполнялись.
