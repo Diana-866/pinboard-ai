@@ -2630,3 +2630,16 @@ No non-npm registry source, missing lockfile integrity hash, backend dependency 
 
 - GitHub source and lockfile review plus upstream advisory spot-checks only; no `npm ci`, npm audit, lint, test, build, SBOM, or secret scan was run.
 - No dependency version, lockfile, workflow, repository setting, secret, deployment, or production system was changed.
+
+
+# AUD-326 — Authentication, registration, email verification, password recovery, and browser sessions
+
+Date: 2026-11-10
+
+- Added `docs/audits/AUD-326-authentication-registration-session-review.md`.
+- Rechecked backend registration/login, JWT middleware, token-version revocation, password reset and email verification issuance/consumption, frontend session storage, and auth error handling.
+- Positive controls: explicit HS256 and 7-day JWT; current token-version lookup per protected request; DB failures fail closed; one-time hashed reset/verification tokens with transactional consumption; reset increments token version; email links use URL fragments; verification requires an explicit click; login uses dummy bcrypt comparison; forgot-password and anonymous resend are generic.
+- Carried-forward risks: registration returns 409 for an existing email (account enumeration); localStorage bearer token is exposed to same-origin JavaScript if XSS occurs; logout is local-only and no per-device revoke/change-password flow exists; auth rate limits are process-local and IP-only; no account-aware failed-login throttle.
+- New low-severity robustness finding: malformed non-string `name`/`surname` can cause `.trim()` TypeError and generic 500 during registration instead of 422. No auth bypass demonstrated.
+- No code change was made because signup enumeration response is a product UX decision and the remaining session hardening requires coordinated architectural work. Recommended next steps and test matrix are in the AUD-326 report.
+- Verification: source review only; no browser tests, SQL, production access, or live requests. No secrets, accounts, passwords, database, or deployments changed.
