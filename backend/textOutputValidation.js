@@ -37,4 +37,37 @@ function validateBoardIdeas(value) {
   });
 }
 
-module.exports = { ANALYSIS_LIMITS, BOARD_LIMITS, validateAnalysisResult, validateBoardIdeas };
+function parseAnalysisResponse(raw) {
+  if (typeof raw !== "string" || !raw.trim()) {
+    throw httpError(502, "Нейросеть вернула пустой ответ при анализе сайта");
+  }
+  try {
+    const match = raw.match(/\{[\s\S]*\}/);
+    return validateAnalysisResult(JSON.parse(match ? match[0] : raw));
+  } catch (error) {
+    if (error && error.httpStatus) throw error;
+    throw httpError(502, "Не удалось разобрать ответ нейросети при анализе сайта");
+  }
+}
+
+function parseBoardIdeasResponse(raw) {
+  if (typeof raw !== "string" || !raw.trim()) {
+    throw httpError(502, "Нейросеть вернула пустой ответ при генерации досок");
+  }
+  try {
+    const match = raw.match(/\[[\s\S]*\]/);
+    return validateBoardIdeas(JSON.parse(match ? match[0] : raw));
+  } catch (error) {
+    if (error && error.httpStatus) throw error;
+    throw httpError(502, "Не удалось разобрать ответ нейросети в список досок");
+  }
+}
+
+module.exports = {
+  ANALYSIS_LIMITS,
+  BOARD_LIMITS,
+  validateAnalysisResult,
+  validateBoardIdeas,
+  parseAnalysisResponse,
+  parseBoardIdeasResponse,
+};
