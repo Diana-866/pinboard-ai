@@ -28,13 +28,13 @@ export const OnboardingWizard: React.FC = () => {
   const { refreshUser, user } = useAuth();
   const { language } = useI18n();
   const t = getOnboardingCopy(language);
-  const [planPrices, setPlanPrices] = useState<Record<PlanId, number> | null>(null);
+  const [planPrices, setPlanPrices] = useState<Record<PlanId, { rub: number; usd: number }> | null>(null);
   const [planPricesError, setPlanPricesError] = useState(false);
   const plans: PlanCard[] = [
-    { id: 'analytics', name: t.planAnalytics, price: planPrices ? new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US').format(planPrices.analytics) + ' ₽' : null, tagline: t.planAnalyticsTag, features: [...t.planAnalyticsFeatures] },
-    { id: 'start', name: t.planStart, price: planPrices ? new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US').format(planPrices.start) + ' ₽' : null, tagline: t.planStartTag, features: [...t.planStartFeatures] },
-    { id: 'pro', name: t.planPro, price: planPrices ? new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US').format(planPrices.pro) + ' ₽' : null, tagline: t.planProTag, features: [...t.planProFeatures], highlight: true },
-    { id: 'agency', name: t.planAgency, price: planPrices ? new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US').format(planPrices.agency) + ' ₽' : null, tagline: t.planAgencyTag, features: [...t.planAgencyFeatures] },
+    { id: 'analytics', name: t.planAnalytics, price: planPrices ? new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', { style: 'currency', currency: language === 'ru' ? 'RUB' : 'USD', maximumFractionDigits: 2 }).format(planPrices.analytics[language === 'ru' ? 'rub' : 'usd']) : null, tagline: t.planAnalyticsTag, features: [...t.planAnalyticsFeatures] },
+    { id: 'start', name: t.planStart, price: planPrices ? new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', { style: 'currency', currency: language === 'ru' ? 'RUB' : 'USD', maximumFractionDigits: 2 }).format(planPrices.start[language === 'ru' ? 'rub' : 'usd']) : null, tagline: t.planStartTag, features: [...t.planStartFeatures] },
+    { id: 'pro', name: t.planPro, price: planPrices ? new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', { style: 'currency', currency: language === 'ru' ? 'RUB' : 'USD', maximumFractionDigits: 2 }).format(planPrices.pro[language === 'ru' ? 'rub' : 'usd']) : null, tagline: t.planProTag, features: [...t.planProFeatures], highlight: true },
+    { id: 'agency', name: t.planAgency, price: planPrices ? new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', { style: 'currency', currency: language === 'ru' ? 'RUB' : 'USD', maximumFractionDigits: 2 }).format(planPrices.agency[language === 'ru' ? 'rub' : 'usd']) : null, tagline: t.planAgencyTag, features: [...t.planAgencyFeatures] },
   ];
 
   useEffect(() => {
@@ -42,17 +42,19 @@ export const OnboardingWizard: React.FC = () => {
     apiRequest('/billing/plans')
       .then((response: any) => {
         if (!Array.isArray(response?.plans)) throw new Error('Invalid plan catalog');
-        const next: Partial<Record<PlanId, number>> = {};
+        const next: Partial<Record<PlanId, { rub: number; usd: number }>> = {};
         for (const plan of response.plans) {
-          const amount = Number(plan.amount?.rub);
-          if (!['analytics', 'start', 'pro', 'agency'].includes(plan.id) || !Number.isFinite(amount) || amount <= 0) {
+          const rub = Number(plan.amount?.rub);
+          const usd = Number(plan.amount?.usd);
+          if (!['analytics', 'start', 'pro', 'agency'].includes(plan.id) ||
+              !Number.isFinite(rub) || rub <= 0 || !Number.isFinite(usd) || usd <= 0) {
             throw new Error('Invalid plan catalog entry');
           }
-          next[plan.id as PlanId] = amount;
+          next[plan.id as PlanId] = { rub, usd };
         }
         if (Object.keys(next).length !== 4) throw new Error('Incomplete plan catalog');
         if (active) {
-          setPlanPrices(next as Record<PlanId, number>);
+          setPlanPrices(next as Record<PlanId, { rub: number; usd: number }>);
           setPlanPricesError(false);
         }
       })
