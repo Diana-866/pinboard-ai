@@ -2732,3 +2732,14 @@ Date: 2026-11-10
 - Не было live Supabase queries/writes, GPTunnel calls, миграций, платежей или deploy.
 - Следующий этап AUD-336: проверить test runner/CI и безопасно запустить focused + backend suite; исправить только подтверждённые сбои. Не merge/deploy до тестовых результатов и устранения/объяснения Vercel build quota issue.
 
+
+
+## Дополнение к handoff — 2026-11-10 (AUD-336)
+
+- Проверен backend test runner: `backend/package.json` использует `node --test`; новый `test/text-output-validation.test.js` попадает в общую backend suite.
+- Проверен `.github/workflows/persisted-boards-checks.yml`: backend job уже делает `npm ci`, syntax check, `npm test` и root E2E `../test/e2e-email-verify.js` (файл существует). PR #4 base входит в pull_request target branches.
+- CI workflow расширен: syntax checks для `analyze.js`, `boards.js`, `textOutputValidation.js` и отдельный запуск `node --test test/text-output-validation.test.js` перед полным backend suite.
+- Workflow и source read-back проверены. Доступного workflow-dispatch action нет; новый GitHub Actions run пока не получен, поэтому тесты не считаются пройденными.
+- Не запускались local Node/npm, DB, GPTunnel, миграции, платежи или deploy. Vercel build-rate-limit отдельно от backend GitHub Actions.
+- PR #4 остаётся Draft и unmerged. Следующий шаг — получить GitHub Actions run от PR update/maintainer, изучить focused + full backend + E2E результаты и исправить только реальные ошибки.
+
