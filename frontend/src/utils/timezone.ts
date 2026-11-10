@@ -339,6 +339,26 @@ export const localDateTimeToDate = (date: string, time: string, timeZone: string
   return new Date(candidate);
 };
 
+/** Add calendar days in an IANA timezone without relying on the browser's timezone or fixed 24-hour durations. */
+export const addCalendarDaysInTimezone = (instant: Date, timeZone: string, days: number): string => {
+  if (!Number.isFinite(instant.getTime()) || !Number.isInteger(days)) {
+    throw new Error('Invalid instant or calendar-day offset');
+  }
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(instant);
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value || 0);
+  const calendarDate = new Date(Date.UTC(value('year'), value('month') - 1, value('day') + days));
+  return [
+    calendarDate.getUTCFullYear().toString().padStart(4, '0'),
+    String(calendarDate.getUTCMonth() + 1).padStart(2, '0'),
+    String(calendarDate.getUTCDate()).padStart(2, '0'),
+  ].join('-');
+};
+
 /** Format an instant as a date/time pair in the selected IANA timezone. */
 export const formatInstantInTimezone = (instant: Date, timeZone: string): { date: string; time: string } => {
   const parts = new Intl.DateTimeFormat('en-GB', {
