@@ -1,3 +1,4 @@
+const { logError, logInfo, logWarning } = require("./safeLogger");
 "use strict";
 
 // Independent process for Pinterest scheduled publications.
@@ -107,7 +108,7 @@ if (require.main === module) {
   try {
     config = getWorkerConfig();
   } catch (error) {
-    console.error("[schedule-worker] configuration error:", error.message);
+    logError("scheduleWorker.event_003");
     process.exitCode = 1;
   }
 
@@ -118,10 +119,10 @@ if (require.main === module) {
     const shutdown = async (signal) => {
       if (shuttingDown) return;
       shuttingDown = true;
-      console.info("[schedule-worker] stopping", { signal });
+      logInfo("scheduleWorker.event_002");
       const drained = await worker.stop();
       if (!drained) {
-        console.warn("[schedule-worker] shutdown drain timed out; unfinished work will be recovered from PostgreSQL");
+        logWarning("scheduleWorker.event_001");
       }
       process.exit(0);
     };
