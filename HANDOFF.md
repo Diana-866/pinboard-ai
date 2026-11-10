@@ -2770,3 +2770,16 @@ Date: 2026-11-10
 - Тесты не запускались из GitHub-only workflow; CI execution не подтверждён. Не заявлять pass. Нет GPTunnel, Supabase, migrations, payments, deploy.
 - Следующий этап AUD-339: end-to-end review missing text-cost behavior, подготовить решение с последствиями; отдельно дождаться фактического CI workflow result.
 
+
+
+## Дополнение к handoff — 2026-11-10 (AUD-339)
+
+- Проверен end-to-end missing GPTunnel text cost. Adapter по умолчанию strict, но pin plan передаёт `requireUsage:false`; callback записывает usage через migration 069 до parsing/quote/image submit.
+- Migration 069 сохраняет `usage_status='cost_missing'` и `total_cost_rub=NULL`; migration 079 выводит `accounting_status='cost_missing'`, null не становится нулём.
+- Если запись usage journal не удалась, image flow прерывается. Если journal успешно записал cost_missing, текущая реализация продолжает image quotes/submissions.
+- Важный recovery detail: после provider submission catch ставит request `unknown`, и migration 054 удерживает credit reservation до reconciliation. Если policy fail-closed после известного text response, надо явно сбросить providerGenerationStarted до ошибки, иначе будет ложный unknown и удержание резерва. При корректном known failure reservation trigger освобождает его.
+- AUD-339 сравнивает Option A fail-closed до image quote/submission и Option B текущий availability+reconciliation. Рекомендация: A при приоритете строгого контроля расходов; оставить cost_missing row для сверки, не трактовать null как 0.
+- Behavior не менялся: policy требует решения пользователя. См. `docs/audits/AUD-339-gptunnel-missing-text-cost-policy.md`.
+- Тесты/lint/typecheck/build/live DB checks не запускались. Нет GPTunnel calls, Supabase actions, payments или deploy.
+- После решения — добавить тесты: cost_missing row persisted, quote callback not called, image submit not called, request failed (not unknown), reservation released; затем проверить реальный CI run.
+
