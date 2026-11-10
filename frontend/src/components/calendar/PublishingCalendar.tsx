@@ -420,6 +420,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                         onClick={() => {
                           setUserTimezone(tz.value);
                           saveUserTimezone(tz.value);
+                          window.dispatchEvent(new CustomEvent('pinposy:timezone-changed'));
                           setShowTzPicker(false);
                         }}
                         className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between cursor-pointer ${
