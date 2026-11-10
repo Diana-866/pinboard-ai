@@ -337,6 +337,58 @@ test("subscription webhook retries after commit-then-error and observes idempote
   assert.equal(db.rpcCalls.activate, 2);
 });
 
+test("subscription webhook amount mismatch is audited and never activates the plan", async () => {
+  const db = createPaymentDb({
+    subscription: {
+      id: "sub-amount-mismatch",
+      provider_payment_id: "pp-sub-amount-mismatch",
+      amount: 1990,
+      currency: "rub",
+      status: "pending",
+    },
+    activate: async () => {
+      throw new Error("a mismatched payment must never activate a subscription");
+    },
+    credit: async () => ({ data: 0, error: null }),
+  });
+  const auditRecords = [];
+  const auditedDb = {
+    ...db,
+    from(table) {
+      if (table === "billing_webhook_exceptions") {
+        return {
+          insert: async (record) => {
+            auditRecords.push(record);
+            return { error: null };
+          },
+        };
+      }
+      return db.from(table);
+    },
+  };
+
+  const response = createWebhookResponse();
+  await require("../billing").handleWebhook(
+    signedWebhook({
+      order_id: "pp-sub-amount-mismatch",
+      payment_status: "success",
+      sum: "1989.00",
+      currency: "rub",
+    }),
+    response,
+    { supabase: auditedDb, dispatchPendingSubscriptionEmails: async () => ({}) }
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.ignored, "amount mismatch");
+  assert.equal(response.body.review_required, true);
+  assert.equal(db.state.subscription.status, "denied");
+  assert.equal(db.rpcCalls.activate, 0);
+  assert.equal(auditRecords.length, 1);
+  assert.equal(auditRecords[0].reason, "amount_mismatch");
+  assert.equal(auditRecords[0].expected_amount, 1990);
+});
+
 test("credit webhook concurrent duplicate callbacks credit once; retry after ambiguous commit is idempotent", async () => {
   let committed = false;
   let actualCreditsApplied = 0;
