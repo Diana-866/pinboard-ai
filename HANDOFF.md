@@ -3305,3 +3305,13 @@ Date: 2026-11-10
 - Добавлены AUD-387 и runbook с изолированным restore, финансовой сверкой и выключенными внешними side effects.
 - AUD-370 остаётся актуальным: в репозитории не найден независимый backup pipeline для DB/Storage, backup alerting или evidence restore drill. Provider dashboards не проверялись; RPO/RTO неизвестны.
 - Код не менялся: выбор поставщиков, создание backup, escrow и restore drill требуют инфраструктурных действий. Production не затрагивался.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-388: financial restore reconciliation)
+
+- Проверены атомарное начисление кредитов (`credit_paid_purchase` + unique purchase_id ledger), Prodamus HMAC/amount validation, атомарная активация подписок, checkout idempotency/settlement, refund reconciliation и service_role grants.
+- Критичный пробел восстановления: не найден подтверждённый opening-balance snapshot на дату перехода к ledger. Текущий `users.credits_balance` — mutable snapshot; историческая сумма `credit_transactions` без начального остатка не доказывает корректность баланса.
+- Legacy `adjust_credits_balance(text, integer)` остаётся service_role-only и меняет баланс без ledger row; migration 074 защищает active reservations, но не обеспечивает полноту журнала. В просмотренных публичных потоках вызова не найдено.
+- Не найден автоматический financial reconciliation report/job. Для сверки необходимы provider exports Prodamus и opening balance snapshot; unknown payment requests нельзя автоматически закрывать/повторять.
+- Добавлены AUD-388 и финансовый restore runbook. Код/миграции не менялись, так как без opening snapshot/provider evidence автоматический repair небезопасен.
+- Supabase/Prodamus/production данные не открывались; SQL/тесты/CI/staging не запускались; балансы/платежи/подписки не менялись.
