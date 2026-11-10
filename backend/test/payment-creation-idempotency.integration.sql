@@ -86,6 +86,25 @@ begin
   if v_state->>'status' <> 'unknown' then
     raise exception 'ambiguous provider result must remain fenced, got %', v_state;
   end if;
+
+  select public.begin_payment_creation_request(
+    'payment-idempotency-test-user', 'abandoned-create-key-001',
+    'subscription', repeat('d', 64)
+  ) into v_state;
+  if v_state->>'status' <> 'started' then
+    raise exception 'new abandoned checkout should start';
+  end if;
+  update public.payment_creation_requests
+     set updated_at = now() - interval '3 minutes'
+   where user_id = 'payment-idempotency-test-user'
+     and idempotency_key = 'abandoned-create-key-001';
+  select public.begin_payment_creation_request(
+    'payment-idempotency-test-user', 'abandoned-create-key-001',
+    'subscription', repeat('d', 64)
+  ) into v_state;
+  if v_state->>'status' <> 'unknown' then
+    raise exception 'abandoned creating request must become unknown, got %', v_state;
+  end if;
 end;
 $$;
 
