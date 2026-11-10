@@ -738,7 +738,7 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
   }
 
   if (!result.ok) {
-    const outcomeUnknown = result.status === 408 || result.status === 429 || result.status >= 500;
+    const outcomeUnknown = isPinterestPublishOutcomeUnknown(result.status);
     await persistFailedPublishAttempt({
       userId,
       pinId,
