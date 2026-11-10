@@ -325,6 +325,7 @@ test("subscription webhook concurrent duplicate callbacks activate exactly once"
     require("../billing").handleWebhook(req2, res2, { supabase: db, dispatchPendingSubscriptionEmails: async () => ({}) }),
   ]);
   assert.equal(db.rpcCalls.activate, 2);
+  assert.equal(db.rpcCalls.settle, 2, "both committed duplicate callbacks must reconcile checkout state");
   assert.equal(db.state.subscription.status, "success");
   assert.equal(res1.statusCode, 200);
   assert.equal(res2.statusCode, 200);
@@ -356,6 +357,7 @@ test("subscription webhook retries after commit-then-error and observes idempote
   assert.equal(second.statusCode, 200);
   assert.equal(second.body.idempotent, true);
   assert.equal(db.rpcCalls.activate, 2);
+  assert.equal(db.rpcCalls.settle, 1, "only the successful retry can settle the checkout");
 });
 
 test("subscription webhook amount mismatch is audited and never activates the plan", async () => {
@@ -445,6 +447,7 @@ test("credit webhook concurrent duplicate callbacks credit once; retry after amb
   assert.equal(retry.statusCode, 200);
   assert.equal(retry.body.idempotent, true);
   assert.equal(db.rpcCalls.credit, 2);
+  assert.equal(db.rpcCalls.settle, 2, "successful fulfillment and its duplicate must reconcile checkout state");
 });
 
 test("credit cancel racing after success cannot overwrite credited purchase", async () => {
