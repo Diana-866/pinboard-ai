@@ -114,14 +114,14 @@ test('aligns months that start mid-week and includes leap day', () => {
   assert.equal(february[0].isCurrentMonth, false);
   assert.equal(february[2].dateStr, '2028-02-01');
   assert.equal(february[2].isCurrentMonth, true);
-  assert.equal(february[31].dateStr, '2028-02-29');
-  assert.equal(february[31].isCurrentMonth, true);
-  assert.equal(february[32].dateStr, '2028-03-01');
-  assert.equal(february[32].isCurrentMonth, false);
+  assert.equal(february[30].dateStr, '2028-02-29');
+  assert.equal(february[30].isCurrentMonth, true);
+  assert.equal(february[31].dateStr, '2028-03-01');
+  assert.equal(february[31].isCurrentMonth, false);
 });
 
 test('chooses the displayed month from the selected timezone, not UTC month', () => {
-  const instant = new Date('2026-10-31T23:30:00.000Z');
+  const instant = new Date('2026-11-01T00:30:00.000Z');
   const london = getCalendarMonthGrid(instant, 'Europe/London');
   const losAngeles = getCalendarMonthGrid(instant, 'America/Los_Angeles');
   assert.equal(london.find((day) => day.isCurrentMonth)?.dateStr, '2026-11-01');
