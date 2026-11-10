@@ -30,7 +30,7 @@ const supabase = require("./supabase");
 const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
 const { httpError } = require("./validate");
 const { getPinterestTokenExpiresAt } = require("./pinterestOAuth");
-const { buildScheduleWorkerFailureState, hasCompleteScheduleClaimIdentity, hasMatchingScheduleAttemptIdentity, isScheduleClaimUpdateConfirmed, resolvePublishedReservation, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown, matchesConfirmedPublicationLedger, persistPublishFailureJournal, createScheduleClaimHeartbeat, isScheduleClaimLostError } = require("./pinterestSchedule");
+const { buildScheduleWorkerFailureState, hasCompleteScheduleClaimIdentity, hasMatchingScheduleAttemptIdentity, isScheduleClaimUpdateConfirmed, resolvePublishedReservation, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown, matchesConfirmedPublicationLedger, persistPublishFailureJournal, persistKnownRemotePublishOutcome, createScheduleClaimHeartbeat, isScheduleClaimLostError } = require("./pinterestSchedule");
 const {
   createBrowserBinding,
   readCookie,
@@ -810,16 +810,30 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
       };
     }
 
-    await persistFailedPublishAttempt({
-      userId,
-      pinId,
-      accountId,
-      message: "Pinterest created pin " + remoteId + " but local commit failed: " + completeError.message,
-      outcomeUnknown: true,
-    }).catch((journalError) => {
-      // The completed publication row may already exist; never replace the
-      // primary commit diagnostic with a secondary journal-update failure.
-      console.error("[pinterest] дополнительная фиксация неизвестного исхода не удалась:", journalError && journalError.message);
+    await persistKnownRemotePublishOutcome(
+      (name, params) => supabase.rpc(name, params),
+      {
+        p_user_id: String(userId),
+        p_pin_id: pinId,
+        p_pinterest_account_id: accountId,
+        p_pinterest_board_id: boardId,
+        p_pinterest_pin_id: remoteId,
+        p_error: "Pinterest created pin " + remoteId + " but local commit failed: " + completeError.message,
+      }
+    ).catch(async (journalError) => {
+      // Fall back to the existing unknown-outcome fence if the new structured
+      // journal write itself is unavailable. Never retry the remote POST.
+      console.error("[pinterest] не удалось сохранить известный Pinterest ID:", journalError && journalError.message);
+      await persistFailedPublishAttempt({
+        userId,
+        pinId,
+        accountId,
+        message: "Pinterest created pin " + remoteId + " but local commit failed: " + completeError.message,
+        outcomeUnknown: true,
+      }).catch((fallbackError) => {
+        // The completion may have committed despite its transport error.
+        console.error("[pinterest] дополнительная фиксация неизвестного исхода не удалась:", fallbackError && fallbackError.message);
+      });
     });
     console.error("[pinterest] пин создан, но не удалось сохранить подтверждение:", completeError.message);
     throw httpError(503, "Pinterest создал пин, но PinPosy не смог сохранить подтверждение. Повторная публикация заблокирована; требуется сверка.");
