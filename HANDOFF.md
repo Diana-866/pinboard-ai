@@ -2756,3 +2756,17 @@ Date: 2026-11-10
 - Тесты/lint/typecheck/build/HTTP не запускались. Нет GPTunnel calls, Supabase reads/writes, migrations, payments или deploy.
 - Следующий этап AUD-338: bounded parser/validator для pin-plan JSON с сохранением JSON-with-prose compatibility и partial-task semantics; отдельно зафиксировать policy, должен ли missing text cost блокировать image generation или оставаться явным reconciliation state.
 
+
+
+## Дополнение к handoff — 2026-11-10 (AUD-338)
+
+- В `backend/textOutputValidation.js` добавлены `validatePinIdeas()` и `parsePinIdeasResponse()`: count 1–10, title до 200 символов, description optional до 2000, image_prompt до 12000; проверяются типы, пустые обязательные поля и malformed items; строки trim; лишние поля отбрасываются.
+- Поддерживается JSON-массив с окружающим текстом провайдера. Элементы сверх запрошенного count игнорируются как раньше; валидный ответ с меньшим числом идей остаётся частичным планом. Никакие идеи не дополняются автоматически.
+- `backend/pins.js` теперь валидирует текстовый план до quote validation и image submission; удалены молчаливый filter и String coercion malformed idea fields.
+- В `backend/test/text-output-validation.test.js` добавлены проверки нормализации, optional description, неправильных типов/длин, count, prose-wrapped JSON, malformed entries.
+- В `backend/test/pins-provider-boundary.test.js` добавлены проверки, что malformed plan не доходит до quote/image provider boundary, а валидный partial plan сохраняется.
+- AUD-337 missing-cost policy не менялась: `requireUsage:false`, unknown/non-RUB total cost сохраняется как null, image flow может продолжиться. Выбор fail-closed vs explicit reconciliation вынесен в AUD-339, поскольку это продуктово-операционное решение.
+- Добавлен `docs/audits/AUD-338-bounded-pin-plan-validation.md`.
+- Тесты не запускались из GitHub-only workflow; CI execution не подтверждён. Не заявлять pass. Нет GPTunnel, Supabase, migrations, payments, deploy.
+- Следующий этап AUD-339: end-to-end review missing text-cost behavior, подготовить решение с последствиями; отдельно дождаться фактического CI workflow result.
+
