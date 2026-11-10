@@ -297,8 +297,9 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
 
   // Build calendar dates in the selected publishing timezone, not the browser timezone.
   // Use UTC-noon date objects only for locale formatting so browser offsets cannot shift labels.
+  const calendarNow = new Date();
   const calendarDateAt = (dayOffset: number): { dateStr: string; dateObj: Date } => {
-    const dateStr = addCalendarDaysInTimezone(new Date(), userTimezone, dayOffset);
+    const dateStr = addCalendarDaysInTimezone(calendarNow, userTimezone, dayOffset);
     return {
       dateStr,
       dateObj: new Date(`${dateStr}T12:00:00.000Z`),
