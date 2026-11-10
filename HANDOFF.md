@@ -3425,3 +3425,15 @@ Artifacts:
 - docs/runbooks/account-deletion-workflow-aud-396.md
 
 No code, migrations, tests, SQL, provider calls, Storage operations, account data or production settings changed. Design only; deployed schema/FKs, provider retention and legal retention approvals remain unverified.
+
+
+## AUD-397 — PostgreSQL account-deletion schema proposal (2026-11-11)
+
+Designed an additive schema proposal for account deletion: users.account_status/lifecycle_version/deletion_requested_at plus private account_deletion_requests, account_deletion_events, account_deletion_jobs and account_deletion_manifest. Workflow rows reference users with ON DELETE RESTRICT; request is unique per user; event keys and job steps are idempotent; jobs use claim-token/lease consistency; manifest is versioned and carries explicit disposition/retention. RLS enabled; direct grants including service_role and identity sequence revoked, pending narrowly scoped SECURITY DEFINER RPCs.
+
+Artifacts:
+- docs/proposals/account-deletion-schema-aud-397.sql (proposal only; not a numbered migration)
+- docs/audits/AUD-397-account-deletion-postgres-schema-design.md
+- docs/runbooks/account-deletion-schema-review-aud-397.md
+
+Important: CREATE IF NOT EXISTS is not schema drift validation; production migration ledger/catalog, role ownership and constraints are unverified. No SQL executed, no migration number reserved, no runtime code or production data changed. Next work: preflight/catalog assertions, exact legacy UUID/TEXT ownership resolver, then design acceptance/worker RPCs before any migration implementation.
