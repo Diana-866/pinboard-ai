@@ -2835,3 +2835,13 @@ Date: 2026-11-10
 - Не добавлять предположительный заголовок idempotency и не повторять автоматически платный текстовый запрос. Существующий статус unknown/no-auto-retry остаётся корректной защитой.
 - Отдельная idempotency capability CreativeLab относится к image/media tasks и не переносится на chat completions.
 - AUD-344 — docs/source review only; runtime tests/build/CI не запускались; код и production не менялись.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-345)
+
+- Проверен lifecycle generation credit reservations: уникальность user/idempotency key, lock пользователя, resize по quote, atomic actual-cost settlement; definitive failure release.
+- Unknown без task rows освобождает image reservation (миграция 088); unknown с хотя бы одной durable task row сохраняет reservation без TTL — это безопасно, так как provider мог принять image submission. Автоматически освобождать такие резервы по времени нельзя; нужна сверка.
+- Проверен Pinterest worker: одна schedule на run, heartbeat 60s, stale recovery 20m, positive-only success reconciliation по точной identity publication ledger, безопасный retry только для exact-board retry_safe failure; known remote ID сохраняется при unknown.
+- Код подтверждает наличие worker implementation, но не факт его production deployment/health/secrets. Это проверяется в панели хостинга и логах; отсутствие worker оставляет due schedules в очереди, но не вызывает повторные публикации.
+- Добавлен тест: malformed text plan сохраняет успешный GPTunnel usage, но не проходит к quote/image provider.
+- AUD-345 report + HANDOFF сохранены. Runtime tests/SQL/lint/build/CI и production worker checks не выполнялись; live data не менялись.
