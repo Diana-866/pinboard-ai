@@ -13,6 +13,7 @@ const {
   resolvePublishedReservation,
   matchesConfirmedPublicationLedger,
   persistPublishFailureJournal,
+  persistKnownRemotePublishOutcome,
   isPinterestPublishOutcomeUnknown,
   buildPinScheduleSnapshot,
   resolvePinScheduleSnapshot,
@@ -608,4 +609,43 @@ test("a lost schedule claim is a definitive pre-publication fence", () => {
   })), false);
   assert.equal(isScheduleClaimLostError(new Error("ordinary Pinterest failure")), false);
   assert.equal(isScheduleClaimLostError(null), false);
+});
+
+
+test("known Pinterest remote ID is persisted through the dedicated unknown-outcome RPC", async () => {
+  const calls = [];
+  const result = await persistKnownRemotePublishOutcome(async (name, params) => {
+    calls.push({ name, params });
+    return { data: true, error: null };
+  }, {
+    p_user_id: "user-1",
+    p_pin_id: "pin-1",
+    p_pinterest_account_id: "account-1",
+    p_pinterest_board_id: "board-1",
+    p_pinterest_pin_id: "remote-pin-1",
+    p_error: "local completion failed",
+  });
+
+  assert.equal(result, true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].name, "record_pinterest_publish_unknown_v2");
+  assert.equal(calls[0].params.p_pinterest_pin_id, "remote-pin-1");
+  assert.equal(calls[0].params.p_pinterest_board_id, "board-1");
+});
+
+test("known Pinterest remote ID journal rejects an unconfirmed or malformed RPC result", async () => {
+  for (const response of [
+    { data: false, error: null },
+    { data: null, error: { message: "database unavailable" } },
+    null,
+  ]) {
+    await assert.rejects(
+      persistKnownRemotePublishOutcome(async () => response, {}),
+      (error) => error.httpStatus === 503 && error.code === "PUBLISH_REMOTE_ID_JOURNAL_FAILED"
+    );
+  }
+  await assert.rejects(
+    persistKnownRemotePublishOutcome(async () => { throw new Error("connection reset"); }, {}),
+    (error) => error.httpStatus === 503 && error.code === "PUBLISH_REMOTE_ID_JOURNAL_FAILED"
+  );
 });
