@@ -93,6 +93,20 @@ async function denyUnsentPaymentRecord(table, recordId) {
   return true;
 }
 
+async function settlePaymentCreationRequest(orderId, kind, localPaymentId, db = supabase) {
+  if (typeof orderId !== "string" || !orderId.trim() ||
+      !["subscription", "credits"].includes(kind) || !localPaymentId) {
+    throw new Error("invalid settled payment identity");
+  }
+  const { data, error } = await db.rpc("settle_payment_creation_request", {
+    p_order_id: orderId,
+    p_request_kind: kind,
+    p_local_payment_id: localPaymentId,
+  });
+  if (error) throw error;
+  return data === true;
+}
+
 async function completePaymentCreation(userId, idempotencyKey, result) {
   const { data, error } = await supabase.rpc("complete_payment_creation_request", {
     p_user_id: String(userId),
