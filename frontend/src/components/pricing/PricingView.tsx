@@ -25,6 +25,7 @@ import { useAuth } from '../../context/AuthContext';
 import { payAndRedirect, PayablePlan, SubscriptionRow, buyCreditsAndRedirect, CreditPurchaseRow, releasePaymentIdempotencyKey } from '../../lib/billing';
 import { apiRequest } from '../../lib/api';
 import { isTerminalCreditPurchaseStatus, isTerminalSubscriptionPaymentStatus } from '../../utils/paymentTerminalStatus';
+import { isCurrentBillingOwner } from '../../utils/billingOwner';
 
 export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initialPlanId = null }) => {
   const { t, language } = useI18n();
@@ -156,7 +157,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
     let active = true;
     apiRequest('/billing/credit-purchases')
       .then((res: any) => {
-        if (active && billingOwnerIdRef.current === user.id) {
+        if (active && isCurrentBillingOwner(billingOwnerIdRef.current, user.id)) {
           setPurchases(Array.isArray(res?.purchases) ? res.purchases : []);
         }
       })
