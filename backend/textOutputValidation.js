@@ -73,7 +73,7 @@ function parsePinIdeasResponse(raw, requestedCount) {
     throw httpError(502, "Нейросеть вернула пустой ответ при генерации пинов");
   }
   try {
-    const match = raw.match(/\\[[\\s\\S]*\\]/);
+    const match = raw.match(/\[[\s\S]*\]/);
     return validatePinIdeas(JSON.parse(match ? match[0] : raw), requestedCount);
   } catch (error) {
     if (error && error.httpStatus) throw error;
