@@ -3202,3 +3202,19 @@ Date: 2026-11-10
 - **AUD-379-05:** image replacement is protected, but general pin deletion lifecycle remains incomplete.
 - Added `docs/audits/AUD-379-pin-editing-drafts-and-concurrency.md` and `docs/runbooks/pin-editing-and-image-lifecycle-aud-379.md`.
 - No code/runtime/SQL/test/build/CI/DB/Storage/provider changes or production operations were performed.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-380: calendar schedule lifecycle)
+
+- Audited create/cancel/retry/change-board/list routes, calendar controls, schedule snapshot, retry RPC and worker claim fencing.
+- Confirmed create validates approved pin/image, time horizon, timezone, URL, exact Pinterest account and board; re-reads pin after remote board verification; persists immutable creative snapshot; duplicate schedule returns conflict. Frontend reconciles ambiguous create with exact read-only matching.
+- Cancellation uses owner-scoped conditional UPDATE only from `scheduled`; worker-claimed `publishing` and published rows are not cancelled. Repeated cancellation is idempotent and image cleanup is reference-aware. Frontend reconciles ambiguous cancellation via strict absence from active list.
+- Retry is gated by exact attempt identity, retry_safe, publication ledger absence, no active duplicate and account/pin checks. Migration 096 resets failed retry to now; this is resume-now, not date/time reschedule.
+- Failed-board reassignment verifies exact connected account/board and is guarded by SQL RPC.
+- Schedule creative is immutable snapshot; edits to source pin do not change queued publication.
+- **AUD-380-01:** calendar has cancelled filter but GET /schedule excludes cancelled rows. Do not remove filter on active endpoint; add separate owner-scoped history endpoint to preserve cancellation reconciliation semantics.
+- **AUD-380-02:** no atomic date/time reschedule route/UI. Current workaround cancel + create has a gap; design CAS/RPC restricted to scheduled rows and concurrency-test against worker claim.
+- **AUD-380-03:** disclose immutable scheduled creative or add explicit safe update workflow.
+- **AUD-380-04:** clarify retry copy means enqueue now, not restore original target time.
+- Added `docs/audits/AUD-380-calendar-schedule-lifecycle-and-mutation-contract.md` and `docs/runbooks/pinterest-calendar-recovery-aud-380.md`.
+- No code/SQL/tests/build/CI/DB/Storage/Pinterest/provider/payment changes or production operations performed.
