@@ -15,7 +15,7 @@ const { serializeBoardForClient } = require("./boardSerialization");
 const { serializeProjectForClient } = require("./projectSerialization");
 const { sortProjectsForProvisioning } = require("./projectProvisioningOrder");
 const { buildPinPatch } = require("./pinPatch");
-const { logError, logWarning, logInfo } = require("./safeLogger");
+const { logError, logWarning, logInfo, runWithCorrelationId } = require("./safeLogger");
 
 const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
@@ -45,6 +45,12 @@ const ASPECT_RATIOS = ["2:3", "9:16", "4:5", "3:4", "1:1"];
 
 const app = express();
 app.set("trust proxy", 1); // за прокси (Render/nginx) реальный IP клиента — иначе лимиты бьют по всем сразу (B3)
+// Generate a server-owned request ID; never trust a client-supplied correlation header.
+app.use((req, res, next) => {
+  const correlationId = crypto.randomUUID();
+  res.setHeader("x-request-id", correlationId);
+  runWithCorrelationId(correlationId, next);
+});
 app.use(helmet()); // безопасные HTTP-заголовки (B12)
 app.use(
   cors({
