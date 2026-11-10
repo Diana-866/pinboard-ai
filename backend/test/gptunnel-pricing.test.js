@@ -101,6 +101,44 @@ test("generateTextWithUsage preserves provider usage and request identity", asyn
   assert.equal(result.requestId, "chatcmpl_test_123");
 });
 
+test("generateTextWithUsage never coerces empty or boolean cost metadata to zero", async (t) => {
+  const originalPost = axios.post;
+  t.after(() => { axios.post = originalPost; });
+
+  for (const total_cost of ["", "   ", false, true, {}, "not-a-number"]) {
+    axios.post = async () => ({
+      data: {
+        choices: [{ message: { content: "text with malformed billing metadata" } }],
+        usage: { total_cost },
+      },
+    });
+
+    await assert.rejects(
+      generateTextWithUsage("prompt"),
+      (error) => error.code === "GPTUNNEL_USAGE_COST_MISSING"
+    );
+
+    const result = await generateTextWithUsage("prompt", { requireUsage: false });
+    assert.equal(result.usage.totalCost, null);
+  }
+});
+
+test("generateTextWithUsage accepts valid numeric-string cost and preserves a real zero", async (t) => {
+  const originalPost = axios.post;
+  t.after(() => { axios.post = originalPost; });
+
+  for (const [total_cost, expected] of [["0.125", 0.125], [0, 0]]) {
+    axios.post = async () => ({
+      data: {
+        choices: [{ message: { content: "valid response" } }],
+        usage: { total_cost },
+      },
+    });
+    const result = await generateTextWithUsage("prompt");
+    assert.equal(result.usage.totalCost, expected);
+  }
+});
+
 test("generateTextWithUsage fails closed when provider omits total_cost", async (t) => {
   const originalPost = axios.post;
   axios.post = async () => ({
