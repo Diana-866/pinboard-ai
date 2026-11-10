@@ -3254,3 +3254,13 @@ Date: 2026-11-10
   - `backend/test/pin-image-deletion-claims.integration.sql`: deletion claim is rejected while replay-only result_pin image reference exists.
 - Added `docs/audits/AUD-381-pinterest-account-recovery-and-image-retention.md` and `docs/runbooks/pinterest-reconnect-and-image-retention-aud-381.md`.
 - Tests are source-only additions and were not executed. No migration added/applied; no DB/Storage/Pinterest/provider/payment/production operation performed.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-383: Pinterest disconnect UI reconciliation)
+
+- Исправлена проблема AUD-382-01 в `frontend/src/components/settings/PinterestCard.tsx`: успешный disconnect немедленно обновляет локальный список аккаунтов на основе ответа mutation; при отсутствии массива используется удаление только выбранного account ID.
+- Пересчитывается выбранный аккаунт, очищаются доски/ошибки/loading; увеличивается request generation, чтобы старый boards response не вернул данные отключённого аккаунта.
+- `loadStatus` теперь возвращает boolean; ошибка follow-up GET показывается отдельно, но не отменяет подтверждённое локальное отключение.
+- Логика вынесена в `pinterestAccountState.ts`; добавлены 3 теста `pinterestAccountState.test.ts` для multi-account, последнего аккаунта и server-authoritative list. Скрипт frontend test включает settings tests.
+- Добавлены `docs/audits/AUD-383-pinterest-disconnect-ui-reconciliation.md` и `docs/runbooks/pinterest-disconnect-ui-recovery-aud-383.md`.
+- Тесты/lint/build не запускались. Production/API/Pinterest/DB/Storage/payments не затрагивались.
