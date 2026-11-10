@@ -40,3 +40,8 @@ Do not activate until the route, SQL migration, backend and worker are verified 
 - No SQL migration was applied; no live DB query, Pinterest API call, email, payment, or deployment occurred.
 - Tests, lint, build and CI were not run.
 - PR #4 remains open Draft.
+
+
+## Correction added in AUD-363
+
+The claim in this report that the internal route was missing was incorrect. The route exists in `backend/pinterest.js` and is registered by `backend/index.js`. See `AUD-363-pinterest-scheduler-route-and-heartbeat-fencing.md` for the verified flow and follow-up completion fencing.
