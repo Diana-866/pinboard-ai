@@ -108,7 +108,7 @@ async function createCreditsPayment(userId, body) {
       description: `PinPosy — пакет кредитов: ${pack.credits} кредитов (бессрочно)`,
       plan: packageId,
       urlNotification: base ? `${base}/billing/webhook` : undefined,
-      urlReturn: `${frontendBase()}/app?payment=success`,
+      urlSuccess: `${frontendBase()}/app?payment=success`,
     });
   } catch (e) {
     // Ссылка не создана — помечаем строку, чтобы не копить «вечные pending»
