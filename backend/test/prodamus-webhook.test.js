@@ -237,7 +237,7 @@ function signedWebhook(body) {
   return { body, headers: { sign: signature } };
 }
 
-function createPaymentDb({ subscription, purchase, activate, credit, cancel }) {
+function createPaymentDb({ subscription, purchase, activate, credit, settle, cancel }) {
   const state = { subscription: structuredClone(subscription), purchase: structuredClone(purchase) };
   const rpcCalls = { activate: 0, credit: 0, settle: 0 };
   const db = {
@@ -281,6 +281,7 @@ function createPaymentDb({ subscription, purchase, activate, credit, cancel }) {
       }
       if (name === "settle_payment_creation_request") {
         rpcCalls.settle++;
+        if (settle) return settle(state, args, rpcCalls);
         const kind = args.p_request_kind;
         const row = kind === "subscription" ? state.subscription
           : kind === "credits" ? state.purchase
@@ -358,6 +359,66 @@ test("subscription webhook retries after commit-then-error and observes idempote
   assert.equal(second.body.idempotent, true);
   assert.equal(db.rpcCalls.activate, 2);
   assert.equal(db.rpcCalls.settle, 1, "only the successful retry can settle the checkout");
+});
+
+test("subscription webhook retries checkout settlement after activation already committed", async () => {
+  let settlementCommitted = false;
+  const db = createPaymentDb({
+    subscription: {
+      id: "sub-settlement-retry",
+      provider_payment_id: "pp-sub-settlement-retry",
+      amount: 1990,
+      currency: "rub",
+      status: "pending",
+    },
+    activate: async (state) => {
+      if (state.subscription.status !== "success") {
+        state.subscription.status = "success";
+        state.subscription.period_start = "2026-12-02T00:00:00.000Z";
+        state.subscription.period_end = "2027-01-01T00:00:00.000Z";
+      }
+      return {
+        data: {
+          plan: "start",
+          current_plan: "start",
+          period_end: "2027-01-01",
+          already_activated: settlementCommitted,
+        },
+        error: null,
+      };
+    },
+    credit: async () => ({ data: 0, error: null }),
+    settle: async () => {
+      if (!settlementCommitted) {
+        return { data: null, error: { message: "temporary settlement database failure" } };
+      }
+      return { data: true, error: null };
+    },
+  });
+  const req = signedWebhook({
+    order_id: "pp-sub-settlement-retry",
+    payment_status: "success",
+    sum: "1990.00",
+    currency: "rub",
+  });
+  const first = createWebhookResponse();
+  await require("../billing").handleWebhook(req, first, {
+    supabase: db,
+    dispatchPendingSubscriptionEmails: async () => ({}),
+  });
+  assert.equal(first.statusCode, 500);
+  assert.equal(db.state.subscription.status, "success");
+  assert.equal(db.rpcCalls.activate, 1);
+
+  settlementCommitted = true;
+  const second = createWebhookResponse();
+  await require("../billing").handleWebhook(req, second, {
+    supabase: db,
+    dispatchPendingSubscriptionEmails: async () => ({}),
+  });
+  assert.equal(second.statusCode, 200);
+  assert.equal(db.rpcCalls.activate, 2, "retry must observe the idempotently activated subscription");
+  assert.equal(db.rpcCalls.settle, 2);
 });
 
 test("subscription webhook amount mismatch is audited and never activates the plan", async () => {
@@ -448,6 +509,59 @@ test("credit webhook concurrent duplicate callbacks credit once; retry after amb
   assert.equal(retry.body.idempotent, true);
   assert.equal(db.rpcCalls.credit, 2);
   assert.equal(db.rpcCalls.settle, 2, "successful fulfillment and its duplicate must reconcile checkout state");
+});
+
+test("credit webhook retries checkout settlement without crediting twice", async () => {
+  let settlementCommitted = false;
+  let creditsApplied = 0;
+  const db = createPaymentDb({
+    purchase: {
+      id: "purchase-settlement-retry",
+      provider_payment_id: "ppc-settlement-retry",
+      amount: 490,
+      currency: "rub",
+      credits: 100,
+      package_id: "pack_100",
+      balance_credited_at: null,
+      status: "pending",
+    },
+    activate: async () => ({ data: null, error: null }),
+    credit: async (state) => {
+      if (!state.purchase.balance_credited_at) {
+        creditsApplied += 1;
+        state.purchase.balance_credited_at = "2026-11-07T00:00:00.000Z";
+        state.purchase.status = "success";
+      }
+      return { data: 100, error: null };
+    },
+    settle: async () => {
+      if (!settlementCommitted) {
+        return { data: null, error: { message: "temporary settlement database failure" } };
+      }
+      return { data: true, error: null };
+    },
+  });
+  const req = signedWebhook({
+    order_id: "ppc-settlement-retry",
+    payment_status: "success",
+    sum: "490.00",
+    currency: "rub",
+  });
+  const handler = require("../creditsBilling").handleCreditsWebhook;
+  const first = createWebhookResponse();
+  await handler(req, first, { supabase: db });
+  assert.equal(first.statusCode, 500);
+  assert.equal(db.state.purchase.balance_credited_at !== null, true);
+  assert.equal(creditsApplied, 1);
+
+  settlementCommitted = true;
+  const second = createWebhookResponse();
+  await handler(req, second, { supabase: db });
+  assert.equal(second.statusCode, 200);
+  assert.equal(second.body.idempotent, true);
+  assert.equal(creditsApplied, 1, "retry must not apply the credit package twice");
+  assert.equal(db.rpcCalls.credit, 1);
+  assert.equal(db.rpcCalls.settle, 2);
 });
 
 test("credit cancel racing after success cannot overwrite credited purchase", async () => {
