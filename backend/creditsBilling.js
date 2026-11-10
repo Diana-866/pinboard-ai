@@ -16,6 +16,7 @@ const { persistWebhookException } = require("./billingWebhookAudit");
 const { httpError, validateEnum } = require("./validate");
 const { CREDIT_PACKS, normalizePackId, packAmount } = require("./creditPacks");
 const { createPaymentOrderId } = require("./paymentOrderId");
+const { beginPaymentCreation, completePaymentCreation, markPaymentCreationUnknown, failPaymentCreation } = require("./paymentCreationIdempotency");
 
 // Префикс order_id покупок кредитов: по нему общий вебхук /billing/webhook
 // различает подписки (pp-…) и пакеты кредитов (ppc-…).
@@ -40,7 +41,7 @@ function frontendBase() {
  * POST /billing/credits  { package_id }
  * Создаёт pending-запись покупки и возвращает ссылку на оплату Prodamus.
  */
-async function createCreditsPayment(userId, body) {
+async function createCreditsPayment(userId, body, idempotencyKey) {
   const packageId = normalizePackId(body && body.package_id);
   if (!packageId) {
     throw httpError(422, "package_id: допустимые значения — pack_100, pack_500, pack_1000");
@@ -59,46 +60,53 @@ async function createCreditsPayment(userId, body) {
     );
   }
 
-  const { data: user, error: userError } = await supabase
-    .from("users")
-    .select("id, email")
-    .eq("id", userId)
-    .single();
-  if (userError || !user) throw httpError(404, "Пользователь не найден");
-
   const pack = CREDIT_PACKS[packageId];
-  const amount = packAmount(packageId, currency); // сумма из серверного каталога
+  const amount = packAmount(packageId, currency);
+  const intent = await beginPaymentCreation(userId, idempotencyKey, "credits", packageId, currency);
+  if (!intent.started) return intent.result;
+
+  let user;
+  try {
+    const result = await supabase
+      .from("users")
+      .select("id, email")
+      .eq("id", userId)
+      .single();
+    if (result.error || !result.data) throw httpError(404, "Пользователь не найден");
+    user = result.data;
+  } catch (error) {
+    await failPaymentCreation(userId, idempotencyKey, error);
+    throw error;
+  }
+
   const orderId = createPaymentOrderId(ORDER_PREFIX, packageId);
-
-  // 1. Пишем покупку как pending: источник правды и ключ идемпотентности.
-  const { data: purchase, error: insertError } = await supabase
-    .from("credit_purchases")
-    .insert({
-      user_id: String(userId),
-      package_id: packageId,
-      pack_title: pack.title,
-      credits: pack.credits,
-      status: "pending",
-      provider_payment_id: orderId,
-      amount,
-      currency,
-    })
-    .select()
-    .single();
-
-  if (insertError) {
-    console.error(
-      "[credits-billing] не удалось создать покупку:",
-      insertError.message,
-      insertError.code || ""
-    );
+  let purchase;
+  try {
+    const result = await supabase
+      .from("credit_purchases")
+      .insert({
+        user_id: String(userId),
+        package_id: packageId,
+        pack_title: pack.title,
+        credits: pack.credits,
+        status: "pending",
+        provider_payment_id: orderId,
+        amount,
+        currency,
+      })
+      .select()
+      .single();
+    if (result.error || !result.data) throw result.error || new Error("credit purchase insert returned no row");
+    purchase = result.data;
+  } catch (error) {
+    console.error("[credits-billing] не удалось создать покупку:", error.message, error.code || "");
+    await failPaymentCreation(userId, idempotencyKey, error);
     throw httpError(
       500,
       "Не удалось создать покупку. Проверьте, что миграция 007 (db/migrations/007_credit_purchases.sql) применена."
     );
   }
 
-  // 2. Просим у Prodamus ссылку на оплату
   const base = publicBase();
   let link;
   try {
@@ -112,19 +120,15 @@ async function createCreditsPayment(userId, body) {
       urlNotification: base ? `${base}/billing/webhook` : undefined,
       urlSuccess: `${frontendBase()}/app?payment=success`,
     });
-  } catch (e) {
-    // Не переводим заказ в denied: timeout/обрыв ответа не доказывают,
-    // что Prodamus не создал платёж. Поздний webhook должен иметь возможность
-    // безопасно зачислить кредиты; неопределённые pending заказы сверяются отдельно.
-    console.error("[credits-billing] результат создания ссылки неопределён; покупка оставлена pending:", {
-      purchaseId: purchase.id,
-      orderId,
-      error: e && e.message,
+  } catch (error) {
+    await markPaymentCreationUnknown(userId, idempotencyKey, error);
+    console.error("[credits-billing] результат создания ссылки неопределён; повторный счёт заблокирован:", {
+      purchaseId: purchase.id, orderId, error: error && error.message,
     });
-    throw e;
+    throw error;
   }
 
-  return {
+  const response = {
     ok: true,
     purchase_id: purchase.id,
     order_id: orderId,
@@ -135,16 +139,18 @@ async function createCreditsPayment(userId, body) {
     payment_url: link.url,
     demo: prodamus.isDemo(),
   };
+  try {
+    await completePaymentCreation(userId, idempotencyKey, response);
+  } catch (error) {
+    await markPaymentCreationUnknown(userId, idempotencyKey, error);
+    console.error("[credits-billing] checkout создан, но результат не удалось сохранить; повторный счёт заблокирован:", {
+      purchaseId: purchase.id, orderId, error: error && error.message,
+    });
+    throw httpError(503, "Счёт создан, но не удалось сохранить ссылку. Не создавайте новый платёж; обратитесь в поддержку.");
+  }
+  return response;
 }
 
-/**
- * POST /billing/webhook(-credits) — уведомление Prodamus об оплате пакета.
- * Формат и проверка подписи — те же, что у подписок (billing.handleWebhook).
- *
- * Идемпотентность: зачисление баланса выполняется только при переходе
- * статуса pending → success (условный UPDATE с проверкой старого статуса).
- * Повторный вебхук по уже оплаченному заказу ничего не зачисляет.
- */
 async function handleCreditsWebhook(req, res, dependencies = {}) {
   const db = dependencies.supabase || supabase;
   const body = req.body || {};
