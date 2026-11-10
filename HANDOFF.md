@@ -2807,3 +2807,12 @@ Date: 2026-11-10
 - Добавлен regression test: ошибка записи GPTunnel text usage обязана остановить flow до quote callback и image provider submission.
 - AUD-341 фиксирует существующую безопасную последовательность `onTextProviderUsage` → parse plan → quote → image submit; runtime поведение не менялось.
 - AUD-339 policy для успешного ответа с `cost_missing` всё ещё ожидает выбор A/B. Тесты/CI не запускались.
+
+
+## Дополнение к handoff — 2026-11-10 (AUD-342)
+
+- Проверены idempotency/fingerprint, claim fencing, durable plan, task provider keys, polling saved task ID, provider outcome journal, rehosting recovery, quote persistence/reservation resize и atomic completion.
+- Выявлен recovery gap: если GPTunnel уже вернул успешный текст, usage сохранён, но запись плана в `save_pin_generation_plan` не состоялась, запрос становится unknown без durable plan. Автоповтор GPTunnel блокируется (правильно для защиты от двойного расхода), но пользователь сам восстановить такой запрос не может.
+- Добавлен regression test: сбой записи плана после успешного текстового ответа блокирует quote/image provider boundaries.
+- Рекомендация: отдельный durable journal нормализованного текстового плана или админская сверка. Не повторять платный текстовый запрос автоматически.
+- AUD-342 source/test/report readback; runtime tests/CI не запускались. Production не менялся.
