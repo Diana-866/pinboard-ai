@@ -3132,3 +3132,14 @@ Date: 2026-11-10
 - AUD-373-03: refunds остаются manual-only, нет first-class refund ledger/partial refund totals; автоматизация требует политики частичных возвратов, уже потраченных кредитов, перекрывающихся подписок и chargebacks.
 - Добавлены `docs/audits/AUD-373-financial-ledger-and-balance-reconciliation.md` и `docs/runbooks/financial-balance-reconciliation-aud-373.md`.
 - Tests/SQL/CI/live Supabase/Prodamus не запускались; финансовые данные, grants, secrets и production не менялись.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-374: authentication and session lifecycle)
+
+- Проверены регистрация/вход, email verification, password reset, JWT/token_version, frontend localStorage session, auth rate limits и предыдущие AUD-105–108/AUD-326.
+- Исправлена валидация профиля регистрации в `backend/index.js`: name/surname проходят через `optionalString` с лимитом 80 символов; preferred_language — с лимитом 16. Некорректные JSON-типы теперь должны давать 422 вместо TypeError/500.
+- Добавлен `backend/test/registration-input-validation.test.js`: missing/bounds/trimming/non-string и контракт вызова валидатора на маршруте.
+- Добавлены `docs/audits/AUD-374-authentication-recovery-and-session-lifecycle.md` и `docs/runbooks/authentication-recovery-aud-374.md`.
+- Подтверждены: HS256 JWT 7d + DB token_version check; reset token hash-only/one-use; atomic password update + token_version increment; explicit email verification; generic login/reset responses.
+- Остались: registration email enumeration (409), JWT in localStorage, отсутствие server-side per-device session revoke/change-password UI, process-local IP rate limits, недостаток browser integration tests.
+- Тесты/build/lint/CI/live DB/SMTP не запускались. Реальные аккаунты, пароли, JWT, токены, secrets и production не затрагивались.
