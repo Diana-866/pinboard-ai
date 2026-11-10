@@ -2516,3 +2516,57 @@ No confirmed cross-user image upload bypass, SVG upload/XSS path, SSRF redirect/
 
 - GitHub source, test, and SQL migration review only; tests, lint, and build were not run.
 - No Supabase API calls, Storage reads/writes/deletes, bucket-policy changes, SQL migration execution, deployment, or PR merge.
+
+
+# AUD-324 — Backend HTTP perimeter, CORS, proxy trust, rate limits, and error handling
+
+Date: 2026-11-10
+
+## Scope
+
+Reviewed Express middleware ordering, CORS, Helmet, request parsers, authentication/error handling, rate-limit configuration and tests, production Supabase client initialization, environment-file ignore rules, and the prior HTTP perimeter audit notes. Source-only review; no live ingress, response-header, load, or production test was performed.
+
+## Confirmed controls
+
+- Helmet is installed and applied before routes. It uses package defaults; no custom CSP or explicit app-level HSTS policy is configured in this file.
+- CORS uses exact origin equality, with fixed PinPosy/Vercel/local-development origins plus comma-separated `FRONTEND_URL`. It does not enable credentialed CORS. Requests without an Origin are permitted for non-browser/server-to-server clients; CORS is not authentication.
+- General JSON body size is capped at 100 KB. The Prodamus webhook has a separate 32 KB JSON/urlencoded parser and a bounded multipart parser that rejects file parts. The global error handler maps malformed JSON to 400 and oversized JSON to 413.
+- Authentication is bearer-token based; the API does not enable cookie-based cross-origin credentials. Sensitive routes retain route-level authentication, admin checks, provider signatures, or the dedicated worker secret. No standalone cookie-authenticated state-changing route was identified in the reviewed middleware.
+- Per-route limiters cover authentication, verification, resend mail, AI generation, payment creation, admin operations, image uploads, Pinterest reads/publications/scheduling/OAuth/worker. AI/image/Pinterest authenticated quotas key on verified user identity rather than client-controlled headers.
+- The common error handler returns generic 5xx messages; the final handler returns JSON 404/400/413/403/500 responses. Internal errors are logged server-side and are not serialized into generic 5xx responses.
+- Production Supabase initialization fails closed if `SUPABASE_SERVICE_ROLE_KEY` is absent. Root and backend `.gitignore` files exclude `.env` files.
+
+## Findings / residual risks
+
+### AUD-324-01 — Proxy trust depends on ingress topology
+
+`app.set("trust proxy", 1)` trusts exactly one proxy hop. This is only safe for correct client-IP attribution if the deployed ingress has exactly one trusted hop and sanitizes/overwrites forwarded headers, and the backend origin cannot be reached in a way that bypasses that proxy. Several IP-based rate limits depend on `req.ip`. This repository cannot prove the live Render topology or direct-origin reachability. Do not change the hop count without confirming the actual network path.
+
+### AUD-324-02 — Rate limits are process-local
+
+The configured `express-rate-limit` instances use the default in-memory store. Limits reset on restart and are not shared between backend instances. Per-user keys prevent simple IP rotation from bypassing user quotas on one instance, but horizontally scaled instances multiply the effective budget. This is an availability/cost-control gap, not an authentication bypass. A shared store and a global ingress/concurrency limit are needed before multi-instance scaling.
+
+### AUD-324-03 — Localhost origin is hard-coded in the production allow-list
+
+`http://localhost:3000` is always included, including in production. This is not a direct API access bypass: CORS is enforced by browsers and the sensitive routes still require authentication/signatures. However, it is unnecessary production cross-origin permission if local development can use a separate configuration. Remove it only after confirming the development workflow does not rely on the deployed API from localhost.
+
+### AUD-324-04 — Effective response headers and CSP are unverified
+
+Helmet defaults are present, but there is no explicit app CSP or custom HSTS configuration in this source. The frontend is hosted separately, so its security headers must be audited at the Vercel edge as well. Verify deployed API/frontend headers and OAuth/Pinterest navigation behavior before adding a restrictive CSP; a speculative policy could break legitimate app flows.
+
+### AUD-324-05 — Request-body limits do not bound total concurrent memory use
+
+JSON and multipart sizes are bounded, and image upload is capped at 5 MiB. However, image uploads use in-memory buffering and the default rate-limit store does not provide a global concurrency/memory ceiling. Instance sizing and ingress concurrency limits should be checked as traffic grows.
+
+## Corrections / reconciliation with earlier audit notes
+
+The older AUD-113 note said Multer's `LIMIT_FILE_SIZE` might reach the generic handler as a 500. Current code routes Multer errors through `serializePinImageUploadError`, and `LIMIT_FILE_SIZE` maps to HTTP 413. Dedicated unit tests cover that mapping. The old concern is resolved in the current branch and should not be treated as an outstanding defect.
+
+## Result
+
+No confirmed CORS wildcard/credential misconfiguration, missing route-level authentication boundary, unbounded JSON parser, client-facing stack trace, or production service-role fallback was found in this source review. No code change was justified without live ingress topology and deployment-header evidence. Main operational priorities are to verify one-hop proxy trust, use a shared limiter before scaling, and confirm the effective API/frontend security headers.
+
+## Verification and safety
+
+- Reviewed source and existing unit tests; tests, lint, build, load tests, and live HTTP checks were not run.
+- No production requests, deployment settings, secrets, DNS, SQL migrations, payment operations, or PR merge were performed.
