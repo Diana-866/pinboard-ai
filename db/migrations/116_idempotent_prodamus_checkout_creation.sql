@@ -77,6 +77,20 @@ begin
   if v_request.status = 'ready' then
     return jsonb_build_object('status', 'ready', 'result', v_request.result);
   end if;
+
+  -- A process can terminate after reserving the key but before recording the
+  -- provider outcome. Never reopen that key: after the provider's 20s timeout
+  -- window has elapsed, fence it as unknown instead of creating another invoice.
+  if v_request.status = 'creating'
+     and v_request.updated_at < now() - interval '2 minutes' then
+    update public.payment_creation_requests
+       set status = 'unknown',
+           error_code = 'creation_lease_expired',
+           updated_at = now()
+     where id = v_request.id;
+    return jsonb_build_object('status', 'unknown');
+  end if;
+
   return jsonb_build_object('status', v_request.status);
 end;
 $$;
