@@ -1,4 +1,4 @@
-const { logError, logWarning, logInfo } = require("./safeLogger");
+const { logError, logWarning } = require("./safeLogger");
 // Биллинг: подписки через Prodamus (счёт по ссылке + вебхук об оплате).
 // Таблица: subscriptions (db/migrations/006_subscriptions.sql)
 // Документация Prodamus:
@@ -114,7 +114,7 @@ async function createPayment(userId, body, idempotencyKey) {
     if (result.error || !result.data) throw result.error || new Error("subscription insert returned no row");
     sub = result.data;
   } catch (error) {
-    logError("billing.event");
+    logError("billing.event_001");
     await failPaymentCreation(userId, idempotencyKey, error);
     throw httpError(
       500,
@@ -130,14 +130,14 @@ async function createPayment(userId, body, idempotencyKey) {
       await denyUnsentPaymentRecord("subscriptions", sub.id);
       cleanupConfirmed = true;
     } catch (cleanupError) {
-      logError("billing.event");
+      logError("billing.event_002");
       // Keep this request in the admin reconciliation queue if local cleanup failed.
       await markPaymentCreationUnknown(userId, idempotencyKey, cleanupError);
     }
     if (cleanupConfirmed) {
       await failPaymentCreation(userId, idempotencyKey, error);
     }
-    logError("billing.event");
+    logError("billing.event_003");
     throw httpError(503, "Не удалось безопасно подготовить заказ. Счёт провайдеру не отправлялся; статус заказа требует проверки.");
   }
 
@@ -156,7 +156,7 @@ async function createPayment(userId, body, idempotencyKey) {
     });
   } catch (error) {
     await markPaymentCreationUnknown(userId, idempotencyKey, error);
-    logError("billing.event");
+    logError("billing.event_004");
     throw error;
   }
 
@@ -174,7 +174,7 @@ async function createPayment(userId, body, idempotencyKey) {
     await completePaymentCreation(userId, idempotencyKey, response);
   } catch (error) {
     await markPaymentCreationUnknown(userId, idempotencyKey, error);
-    logError("billing.event");
+    logError("billing.event_005");
     throw httpError(503, "Счёт создан, но не удалось сохранить ссылку. Не создавайте новый платёж; обратитесь в поддержку.");
   }
   return response;
@@ -241,7 +241,7 @@ async function dispatchPendingSubscriptionEmails(limit = 10, dependencies = {}) 
       });
       if (markError) throw markError;
       if (!marked) {
-        logWarning("billing.event");
+        logWarning("billing.event_006");
       } else {
         sent += 1;
       }
@@ -255,9 +255,9 @@ async function dispatchPendingSubscriptionEmails(limit = 10, dependencies = {}) 
         p_error_code: errorCode,
       });
       if (retryError) {
-        logError("billing.event");
+        logError("billing.event_007");
       }
-      logError("billing.event");
+      logError("billing.event_008");
     }
   }
 
@@ -277,7 +277,7 @@ async function handleWebhook(req, res, dependencies = {}) {
   const check = prodamus.verifyWebhook(body, req.headers);
 
   if (!check.ok) {
-    logError("billing.event");
+    logError("billing.event_009");
     return res.status(403).json({ ok: false, error: `Подпись не принята: ${check.reason}` });
   }
 
@@ -290,10 +290,10 @@ async function handleWebhook(req, res, dependencies = {}) {
         paymentKind: "subscription", body, reason: "missing_order_id",
       });
     } catch (auditError) {
-      logError("billing.event");
+      logError("billing.event_010");
       return res.status(500).json({ ok: false, error: "audit storage failed" });
     }
-    logError("billing.event");
+    logError("billing.event_011");
     return res.json({ ok: true, ignored: "no order_id" });
   }
 
@@ -304,7 +304,7 @@ async function handleWebhook(req, res, dependencies = {}) {
     .maybeSingle();
 
   if (error) {
-    logError("billing.event");
+    logError("billing.event_012");
     return res.status(500).json({ ok: false, error: "db error" });
   }
   if (!sub) {
@@ -313,10 +313,10 @@ async function handleWebhook(req, res, dependencies = {}) {
         paymentKind: "subscription", body, reason: "unknown_order_id",
       });
     } catch (auditError) {
-      logError("billing.event");
+      logError("billing.event_013");
       return res.status(500).json({ ok: false, error: "audit storage failed" });
     }
-    logWarning("billing.event");
+    logWarning("billing.event_014");
     return res.json({ ok: true, ignored: "unknown order_id" });
   }
 
@@ -333,17 +333,17 @@ async function handleWebhook(req, res, dependencies = {}) {
           reason: "unsupported_payment_status",
         });
       } catch (auditError) {
-        logError("billing.event");
+        logError("billing.event_015");
         return res.status(500).json({ ok: false, error: "audit storage failed" });
       }
-      logWarning("billing.event");
+      logWarning("billing.event_016");
       return res.json({ ok: true, ignored: "unsupported payment_status", review_required: true });
     }
     const mapped = normalizedStatus;
     const { error: statusError } = await db.from("subscriptions")
       .update({ status: mapped }).eq("id", sub.id).neq("status", "success");
     if (statusError) return res.status(500).json({ ok: false, error: "db error" });
-    logWarning("billing.event");
+    logWarning("billing.event_017");
     return res.json({ ok: true, status: mapped });
   }
 
@@ -356,10 +356,10 @@ async function handleWebhook(req, res, dependencies = {}) {
         reason: paymentAmount.reason,
       });
     } catch (auditError) {
-      logError("billing.event");
+      logError("billing.event_018");
       return res.status(500).json({ ok: false, error: "audit storage failed" });
     }
-    logWarning("billing.event");
+    logWarning("billing.event_019");
     return res.json({ ok: true, ignored: paymentAmount.reason, review_required: true });
   }
 
@@ -371,10 +371,10 @@ async function handleWebhook(req, res, dependencies = {}) {
         paymentKind: "subscription", body, expectedAmount: expected, reason: "amount_mismatch",
       });
     } catch (auditError) {
-      logError("billing.event");
+      logError("billing.event_020");
       return res.status(500).json({ ok: false, error: "audit storage failed" });
     }
-    logError("billing.event");
+    logError("billing.event_021");
     const { error: mismatchError } = await db.from("subscriptions")
       .update({ status: "denied" }).eq("id", sub.id).neq("status", "success");
     if (mismatchError) return res.status(500).json({ ok: false, error: "db error" });
@@ -387,7 +387,7 @@ async function handleWebhook(req, res, dependencies = {}) {
     p_paid_at: new Date().toISOString(),
   });
   if (activationError || !activation) {
-    logError("billing.event");
+    logError("billing.event_022");
     return res.status(500).json({ ok: false, error: "activation failed" });
   }
 
@@ -396,14 +396,14 @@ async function handleWebhook(req, res, dependencies = {}) {
   try {
     await settlePaymentCreationRequest(orderId, "subscription", sub.id, db);
   } catch (settlementError) {
-    logError("billing.event");
+    logError("billing.event_023");
     return res.status(500).json({ ok: false, error: "payment reconciliation failed" });
   }
 
   // Also drain older pending events on duplicate callbacks: a previous process may
   // have committed activation and stopped before SMTP delivery.
   await dispatchEmails(10).catch((e) => {
-    logError("billing.event");
+    logError("billing.event_024");
   });
 
   return res.json({
