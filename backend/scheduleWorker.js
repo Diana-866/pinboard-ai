@@ -1,5 +1,6 @@
-const { logError, logInfo, logWarning } = require("./safeLogger");
 "use strict";
+
+const { logError, logInfo, logWarning } = require("./safeLogger");
 
 // Independent process for Pinterest scheduled publications.
 // Run as a dedicated worker service, separate from the web server process.
