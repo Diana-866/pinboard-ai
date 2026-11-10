@@ -2230,3 +2230,34 @@ No safe code-only change can prove or create independent backups without access 
 - GitHub source/documentation review only; no SQL was executed and no production database or Storage was accessed.
 - Tests, lint, build, backup jobs, and restore drills were not run.
 - No migration, data deletion, deployment, provider call, or PR merge.
+
+
+# AUD-317 — project, board, and pin ownership isolation audit
+
+Date: 2026-11-10
+
+## Scope
+
+Reviewed project CRUD and analysis/generation routes, board create/list/read/update routes, pin read/update/status/image/regeneration paths, ownership helper/tests, core schema foreign keys, and the client-role privilege hardening migration. No live requests or database access were performed.
+
+## Findings
+
+- **Project endpoints scope reads and writes to the authenticated owner:** project list filters by `user_id`; single-project read, analysis, analysis update, and board generation all require both project ID and `req.userId`. Project creation assigns `user_id` from the verified session, never from the request body.
+- **Board endpoints validate the parent project:** board creation first loads the project by ID plus authenticated owner. Board listing is scoped through the user's project IDs; legacy project-board listing checks project ownership before reading boards. Board read/update resolve the board's parent project and return 404 for another user's board.
+- **Pin endpoints validate the full parent chain:** pin operations load the pin with its board and project's owner, then fail closed with 404 when the relationship is missing or belongs to another user. Updates additionally constrain the write by both pin ID and its previously checked board ID. Image replacement uses compare-and-swap to prevent stale uploads from overwriting a newer image.
+- **Generation and recovery use authenticated identity:** generation and regeneration RPC calls pass the authenticated user ID; generation recovery queries are scoped to that user. Pinterest schedule/account queries similarly filter by user ID.
+- **Database relationships protect hierarchy:** projects reference users; boards reference projects with cascade delete; pins reference boards with cascade delete. The service-role-only API boundary is deliberate because PinPosy uses its own JWT rather than Supabase Auth; migration 076 revokes direct client table privileges and grants backend service-role access.
+- **Regression coverage exists but is not end-to-end authorization coverage:** the ownership helper tests same-user UUID normalization, cross-user rejection, and missing/invalid relationship fail-closed behavior. Patch validators are tested. The reviewed tests do not demonstrate a full HTTP-level two-user matrix for every project/board/pin route, so this remains a worthwhile additional regression suite.
+
+## Result
+
+No confirmed cross-user IDOR or ownership bypass was found in the reviewed project/board/pin routes. No code change was justified by the source evidence. The main remaining assurance gap is broader HTTP integration coverage proving that user A cannot read, mutate, upload to, regenerate, or recover resources owned by user B across every route.
+
+## Recommended next hardening
+
+Add an authenticated route-level integration matrix with two users and fixtures for two projects, boards, and pins. For each resource endpoint, assert owner success and foreign-owner 404, including mutation non-effects and image upload cleanup. Keep the service-role key server-only; do not grant client table access as a shortcut.
+
+## Verification and safety
+
+- GitHub source and test review only; tests, lint, and build were not run.
+- No production data, provider calls, Storage writes, SQL migrations, deployment, or PR merge.
