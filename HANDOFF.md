@@ -2440,3 +2440,41 @@ No confirmed OAuth CSRF, cross-user callback binding, replay-to-double-connect, 
 
 - GitHub source/test/SQL fixture review only; tests, lint, and build were not run.
 - No Pinterest OAuth requests, token refreshes, API publication, database writes, SQL migration execution, deployment, or PR merge.
+
+
+# AUD-322 — Pinterest publishing, schedule races, retries, and recovery audit
+
+Date: 2026-11-10
+
+## Scope
+
+Reviewed manual and scheduled publication routes, publication reservation/completion/failure RPCs, schedule creation/retry/cancel routes, worker claim/heartbeat/recovery, relevant SQL migrations and test fixtures. Source-only review; no Pinterest API calls or production database actions.
+
+## Findings
+
+- **Duplicate publication protection:** manual and scheduled paths reserve through database RPCs before POST /pins. Publication attempts are uniquely scoped by pin and Pinterest account; current reservation logic checks exact owner, account, board, and existing remote publication identity. Concurrent `processing` requests are rejected; `unknown` and unsafe `failed` outcomes are blocked rather than resent.
+- **Ambiguous network outcomes:** HTTP 408/429/5xx and transport failures are treated as potentially successful remote side effects. They are journaled as unknown/non-retryable. Explicit provider rejection is retryable only when the database journal marks it safe. A missing/unreadable journal never authorizes a retry.
+- **Remote success/local DB failure:** completion records remote Pinterest ID and board through an atomic completion RPC. If its response is ambiguous, the code checks the exact durable publication ledger; if not confirmed, it writes a dedicated unknown-outcome record preserving the known remote ID, then falls back to the unknown fence. It never blindly repeats POST /pins.
+- **Schedule worker concurrency:** due schedules are claimed atomically using row locks with `SKIP LOCKED`, one row per HTTP worker invocation. Each claim has a UUID fencing token, is renewed by heartbeat, and is asserted immediately before the external POST. Stale workers cannot update a newer claim. Worker claim renewal errors do not falsely prove that a remote publish did not happen.
+- **Cancellation race:** cancellation is a conditional `scheduled -> cancelled` update. If cancellation commits first, the worker cannot claim it; if the worker claims first, cancellation cannot overwrite `publishing`. A dedicated SQL integration fixture covers both orderings. A started remote publication is correctly reported as no longer cancellable.
+- **Retries and recovery:** retries require a failed schedule plus exact attempt identity and an explicit `retry_safe=true` journal, active account, valid board, available pin/snapshot, and no active duplicate/publication. Retry delays are bounded and attempts are capped at five. Stale `publishing` schedules are reconciled as published only with exact matching successful attempt and publication ledger evidence; uncertain or mismatched outcomes remain fenced.
+- **Immutable creative:** new schedules persist a snapshot of title, description, image, and resolved destination URL. Worker publication uses that snapshot even if the source pin is later edited. Cancellation removes the snapshot image only after checking that it is no longer referenced.
+- **Credits and entitlement:** manual publication and schedule worker both enforce active paid-plan access. The publication flow does not debit generation credits; credits are charged by image generation, not by publishing. No mismatch between a publication charge and a credit ledger was identified in this path.
+- **Operational dependency:** scheduled publication requires an external scheduler/cron to invoke the internal worker endpoint with `PINPOSY_SCHEDULER_SECRET` of at least 32 characters. The code validates the secret with a timing-safe comparison and applies a request limiter, but repository review cannot confirm that production cron is configured, frequent enough, monitored, or that the secret is rotated.
+- **Residual limitation:** Pinterest does not provide an idempotency key for the POST /pins flow in the reviewed implementation. The database journal prevents automatic duplicate retries, but when a remote request outcome is genuinely unknowable, the schedule can remain `unknown` and require manual reconciliation. This favors duplicate prevention over automatic availability.
+
+## Result
+
+No confirmed duplicate-publish race, cancellation-overwrites-worker race, unsafe ambiguous retry, or publication-credit double charge was found in the reviewed paths. The repository contains targeted unit and SQL integration fixtures for the critical concurrency and recovery cases. No code change was warranted by this source review.
+
+## Recommended next hardening
+
+1. Verify and monitor the production cron invocation, timeout, cadence, and secret rotation; alert on growing due/unknown/stale schedule counts.
+2. Add an operational reconciliation playbook for `unknown` schedules, including how to verify the remote Pinterest pin before any manual retry.
+3. Ensure SQL integration fixtures are run against a disposable database in CI; this audit did not execute them.
+4. Keep the current fail-closed policy for ambiguous POST outcomes; do not add automatic retries without provider-side idempotency or positive proof that no remote pin was created.
+
+## Verification and safety
+
+- GitHub source, migration, and test-fixture review only; tests, lint, and build were not run.
+- No Pinterest API requests, publication attempts, credit debits, database writes, SQL migration execution, deployment, or PR merge.
