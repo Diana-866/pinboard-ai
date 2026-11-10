@@ -2987,3 +2987,14 @@ Date: 2026-11-10
 - Worker уже ограничивает параллельные polling requests одним, claim batch — 1, polling interval — 30 секунд по умолчанию, drain — 20 секунд. Неопределённые Pinterest публикации не должны повторяться автоматически.
 - Рекомендации для панели хостинга: restart-on-failure с bounded backoff; один scheduler вариант; API health check плюс отдельный worker heartbeat/stale-queue alert; согласовать SIGTERM grace period с 10s API / 20s worker; зафиксировать поддерживаемый Node LTS. Ничего из этого в панели не менялось и не подтверждено.
 - Runtime tests/lint/build/SQL integration/production checks не запускались. Последний известный Vercel status — `build-rate-limit`; workflow runs не обнаружены. PR #4 остаётся open Draft. Production/DB/payment/email/Pinterest/deploy не затрагивались.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-361)
+
+- Проверены /health, GET /admin/pinterest/schedules, GET /admin/billing/email-outbox, adminPinterestInventory.js, billing.getEmailOutboxHealth, scheduler worker, тесты и operational setup docs.
+- /health — только liveness API; он не проверяет БД, SMTP, Pinterest worker или просроченную очередь. Pinterest inventory и email outbox health — read-only admin endpoints, не публичные probes и не автоматические alerts.
+- Pinterest inventory классифицирует overdue_scheduled, stale_publishing (20 минут) и unknown; сам worker polling по умолчанию 30 секунд. В отдельном worker нет HTTP health server или durable heartbeat. Отсутствие worker нельзя определить одним успешным API /health.
+- Усилен billing.getEmailOutboxHealth: добавлены due_pending (pending с next_attempt_at <= now), oldest_due_pending_at и oldest_due_pending_age_seconds. Прежний oldest_pending_at сохранён, но измеряет возраст создания всех pending, включая записи, для которых retry ещё не наступил.
+- Обновлён privacy-safe unit test email outbox health: проверяет due count/age и прежнюю фильтрацию PII/payload. Тесты не запускались.
+- Внешний мониторинг остаётся конфигурацией оператора: API liveness, worker heartbeat/log freshness, очередь Pinterest и due/dead/stale email outbox. Нельзя включать второй scheduler только ради heartbeat. Production thresholds/provider integrations пока не задавались.
+- No DB schema changes, production queries, email delivery, Pinterest calls, deployment, payment or account mutations. Runtime tests/lint/build/CI not run; PR #4 remains open Draft.
