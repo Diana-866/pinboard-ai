@@ -65,10 +65,18 @@ test("an unreadable publish journal is unknown and must not be retried", () => {
 });
 
 test("a confirmed remote publication wins over a later worker error", () => {
-  assert.equal(classifyScheduleFailure({
-    status: "published",
-    pinterest_pin_id: "remote-pin-123",
-  }, null), "published");
+  const attempt = {
+    user_id: "user-1", pin_id: "pin-1", pinterest_account_id: "account-1",
+    pinterest_board_id: "board-1", status: "published", pinterest_pin_id: "remote-pin-123",
+  };
+  const ledger = {
+    user_id: "user-1", pin_id: "pin-1", pinterest_account_id: "account-1",
+    pinterest_board_id: "board-1", pinterest_pin_id: "remote-pin-123",
+  };
+  assert.equal(classifyScheduleFailure(attempt, null), "unknown", "journal alone is not publication proof");
+  assert.equal(classifyScheduleFailure(attempt, null, ledger), "published");
+  assert.equal(classifyScheduleFailure(attempt, null, { ...ledger, pinterest_board_id: "other-board" }), "unknown");
+  assert.equal(classifyScheduleFailure(attempt, null, ledger, new Error("ledger lookup failed")), "unknown");
 });
 
 test("an ambiguous or still-processing publish attempt remains non-retryable", () => {
@@ -448,7 +456,14 @@ test("worker does not retry after reaching the bounded retry limit", () => {
 
 test("a confirmed publication remains published even if later worker work fails", () => {
   const state = buildScheduleWorkerFailureState({
-    attempt: { status: "published", pinterest_pin_id: "remote-1" },
+    attempt: {
+      user_id: "user-1", pin_id: "pin-1", pinterest_account_id: "account-1",
+      pinterest_board_id: "board-1", status: "published", pinterest_pin_id: "remote-1",
+    },
+    publicationLedger: {
+      user_id: "user-1", pin_id: "pin-1", pinterest_account_id: "account-1",
+      pinterest_board_id: "board-1", pinterest_pin_id: "remote-1",
+    },
     error: new Error("post-publication worker failure"),
     attempts: 1,
   });
