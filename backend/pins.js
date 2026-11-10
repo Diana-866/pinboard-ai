@@ -1,3 +1,4 @@
+const { logError } = require("./safeLogger");
 const { generateTextWithUsage, generateImage, waitForImageTask } = require("./gptunnel");
 const { rehostImage, deletePinImageIfUnreferenced } = require("./storage");
 const { parsePinIdeasResponse } = require("./textOutputValidation");
@@ -182,13 +183,13 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
         if (e && e.journalError) {
           if (recoveredStorageUrl) {
             await deletePinImageIfUnreferenced(recoveredStorageUrl).catch((cleanupError) => {
-              console.error("[pins] не удалось очистить изображение после ошибки журнала:", cleanupError && cleanupError.message);
+              logError("pins.event_005");
             });
           }
           throw e;
         }
         unknownTasks.push({ task_index: taskIndex });
-        console.error(`[pins] не удалось восстановить Storage для готовой задачи: ${e && e.message}`);
+        logError("pins.event_004");
         continue;
       }
     }
@@ -198,7 +199,7 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
     // create request for this terminal task.
     if (task.status === "succeeded") {
       unknownTasks.push({ task_index: taskIndex, reason: "successful_result_unrecoverable" });
-      console.error(`[pins] подтверждённый результат задачи ${taskIndex} не имеет восстанавливаемого URL; повторная отправка заблокирована`);
+      logError("pins.event_003");
       continue;
     }
     let uploadedStorageUrl = null;
@@ -286,7 +287,7 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
       if (e && e.journalError) {
         if (uploadedStorageUrl) {
           await deletePinImageIfUnreferenced(uploadedStorageUrl).catch((cleanupError) => {
-            console.error("[pins] не удалось очистить изображение после ошибки журнала:", cleanupError && cleanupError.message);
+            logError("pins.event_002");
           });
         }
         throw e;
@@ -325,7 +326,7 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
           });
         }
       }
-      console.error(`[pins] изображение не сгенерировалось: ${e && e.message}`);
+      logError("pins.event_001");
       continue;
     }
   }
