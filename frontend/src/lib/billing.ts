@@ -1,4 +1,4 @@
-import { apiRequest } from './api';
+import { apiRequest, ApiError } from './api';
 
 export type PayablePlan = 'analytics' | 'start' | 'pro' | 'agency';
 
@@ -22,6 +22,14 @@ function getPaymentIdempotencyKey(scope: string): string {
       : Array.from(crypto.getRandomValues(new Uint8Array(24)), (byte) => byte.toString(16).padStart(2, "0")).join("");
     paymentIdempotencyKeys.set(storageKey, key);
     return key;
+  }
+}
+
+function releaseFailedPaymentIdempotencyKey(scope: string, error: unknown): void {
+  // The server marks requests failed only before calling Prodamus. Unlike an
+  // unknown provider outcome, this state is safe to retry with a fresh key.
+  if (error instanceof ApiError && error.data?.code === 'payment_request_not_reusable') {
+    clearPaymentIdempotencyKey(scope);
   }
 }
 
@@ -57,11 +65,17 @@ export async function startPayment(
 ): Promise<PaymentIntent> {
   const scope = `subscription:${plan}:${currency}`;
   const idempotencyKey = getPaymentIdempotencyKey(scope);
-  const data: PaymentIntent = await apiRequest('/billing/create-payment', {
-    method: 'POST',
-    headers: { 'Idempotency-Key': idempotencyKey },
-    body: JSON.stringify({ plan, currency }),
-  });
+  let data: PaymentIntent;
+  try {
+    data = await apiRequest('/billing/create-payment', {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify({ plan, currency }),
+    });
+  } catch (error) {
+    releaseFailedPaymentIdempotencyKey(scope, error);
+    throw error;
+  }
   if (!data?.payment_url) {
     throw new Error('Сервер не вернул ссылку на оплату. Попробуйте ещё раз или напишите в поддержку.');
   }
@@ -135,11 +149,17 @@ export async function fetchCreditPacks(): Promise<CreditPack[]> {
 export async function startCreditsPurchase(packageId: string): Promise<CreditsPaymentIntent> {
   const scope = `credits:${packageId}:rub`;
   const idempotencyKey = getPaymentIdempotencyKey(scope);
-  const data: CreditsPaymentIntent = await apiRequest('/billing/credits', {
-    method: 'POST',
-    headers: { 'Idempotency-Key': idempotencyKey },
-    body: JSON.stringify({ package_id: packageId }),
-  });
+  let data: CreditsPaymentIntent;
+  try {
+    data = await apiRequest('/billing/credits', {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify({ package_id: packageId }),
+    });
+  } catch (error) {
+    releaseFailedPaymentIdempotencyKey(scope, error);
+    throw error;
+  }
   if (!data?.payment_url) {
     throw new Error('Сервер не вернул ссылку на оплату. Попробуйте ещё раз или напишите в поддержку.');
   }
