@@ -1214,7 +1214,7 @@ function registerRoutes(app, deps) {
             error: finalStatus === "published" && !scheduleUpdateError ? undefined : message,
           });
         } finally {
-          stopClaimHeartbeat();
+          await stopClaimHeartbeat();
         }
       }
 
