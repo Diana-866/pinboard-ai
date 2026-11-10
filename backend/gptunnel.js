@@ -4,7 +4,10 @@ const API_BASE = "https://gptunnel.ru";
 const REQUEST_TIMEOUT_MS = 30000;
 
 function finiteUsageNumber(value) {
-  if (value == null) return null;
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value !== "string" || value.trim() === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }
@@ -90,7 +93,7 @@ async function generateTextWithUsage(prompt, options = {}) {
     throw new Error("Провайдер не вернул текстовый результат");
   }
   const usage = response.data && response.data.usage;
-  const totalCost = usage && usage.total_cost != null ? Number(usage.total_cost) : NaN;
+  const totalCost = finiteUsageNumber(usage && usage.total_cost);
   if ((!Number.isFinite(totalCost) || totalCost < 0) && options.requireUsage !== false) {
     const error = new Error("Провайдер не вернул достоверную стоимость текстового запроса");
     error.code = "GPTUNNEL_USAGE_COST_MISSING";
