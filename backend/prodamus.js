@@ -266,6 +266,7 @@ async function createPaymentLink({
 }) {
   if (!orderId) throw httpError(500, "Не удалось создать платёж: нет order_id");
   const price = formatAmount(amount);
+  const sys = String(process.env.PRODAMUS_SYS || "").trim();
 
   const payload = {
     do: "link",
@@ -283,11 +284,11 @@ async function createPaymentLink({
     ],
     // SYS is a required Prodamus request parameter. For a self-written
     // integration the documentation explicitly allows an empty value.
-    sys: String(process.env.PRODAMUS_SYS || ""),
+    sys,
     // Prodamus may require an issued integration code (SYS) for a per-request
     // notification URL. Without SYS, use the webhook URL configured in the
     // payment-form settings instead of sending an ineffective override.
-    ...(process.env.PRODAMUS_SYS && urlNotification ? { urlNotification } : {}),
+    ...(sys && urlNotification ? { urlNotification } : {}),
     ...(urlSuccess ? { urlSuccess } : {}),
     ...(isDemo() ? { demo_mode: "1" } : {}),
   };
