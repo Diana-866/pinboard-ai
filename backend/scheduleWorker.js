@@ -107,6 +107,9 @@ function createWorker({
 }
 
 if (require.main === module) {
+  const { installFatalProcessHandlers } = require("./fatalProcessHandlers");
+  installFatalProcessHandlers();
+
   let config;
   try {
     config = getWorkerConfig();
