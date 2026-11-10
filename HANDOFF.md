@@ -2800,3 +2800,10 @@ Date: 2026-11-10
 - На проверенном head PR #4 GitHub workflow-run lookup вернул пусто. Workflow настроен, но результат выполнения не подтверждён. Vercel failure build-rate-limit не доказывает провал SQL tests.
 - См. docs/audits/AUD-340-ci-postgres-integration-coverage.md.
 - Никакие workflows не запускались, source behavior не менялся, live DB/payment/provider/deploy действий не было.
+
+
+## Дополнение к handoff — 2026-11-10 (AUD-341)
+
+- Добавлен regression test: ошибка записи GPTunnel text usage обязана остановить flow до quote callback и image provider submission.
+- AUD-341 фиксирует существующую безопасную последовательность `onTextProviderUsage` → parse plan → quote → image submit; runtime поведение не менялось.
+- AUD-339 policy для успешного ответа с `cost_missing` всё ещё ожидает выбор A/B. Тесты/CI не запускались.
