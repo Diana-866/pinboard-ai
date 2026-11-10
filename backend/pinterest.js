@@ -1105,7 +1105,6 @@ function registerRoutes(app, deps) {
     const schedulerRunId = crypto.randomUUID();
     let schedulerMonitorStarted = false;
     try {
-      requireConfigured();
       const { data: monitorStarted, error: monitorStartError } = await supabase.rpc("begin_pinterest_scheduler_run", {
         p_run_id: schedulerRunId,
       });
@@ -1113,6 +1112,7 @@ function registerRoutes(app, deps) {
         throw monitorStartError || new Error("Scheduler monitor did not confirm run start");
       }
       schedulerMonitorStarted = true;
+      requireConfigured();
 
       // Keep each request bounded to one item; its claim is renewed while work is active.
       // Repair only rows backed by an exact successful attempt + publication ledger match.
