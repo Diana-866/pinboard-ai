@@ -3053,3 +3053,12 @@ Date: 2026-11-10
 - Ограничение: express-rate-limit использует process-local MemoryStore. При масштабировании на несколько backend instances лимиты не будут глобальными. Перед горизонтальным масштабированием требуется shared store и проверка trusted proxy/IP configuration. Не добавлял внешнюю инфраструктуру в рамках аудита.
 - Добавлен source contract test `backend/test/pinterest-security-contract.test.js` и отчёт `docs/audits/AUD-365-pinterest-backend-security-boundaries.md`.
 - Node tests/lint/build/CI не запускались. Live DB, Pinterest API, секреты и deployment не затрагивались.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-366)
+
+- Проверены user JWT HS256 allowlist + DB token_version, owner checks project → board → pin, CRUD routes, profile/tariff patch, DB-backed requireAdmin, dev top-up guard, Supabase service-role config и SQL grants/RLS.
+- Подтверждено: миграция 076 включает RLS и отзывает client grants у десяти core tables (public/anon/authenticated), оставляя CRUD только service_role; миграции 039 и 120 отдельно закрепляют Pinterest и review queue. Production backend fail-fast без SUPABASE_SERVICE_ROLE_KEY.
+- Важно: наличие миграций в GitHub не доказывает, что они применены в live Supabase. Перед запуском сверить migration ledger; live DB не опрашивалась.
+- Добавлен `backend/test/data-access-boundary-contract.test.js` и отчёт `docs/audits/AUD-366-data-access-and-admin-boundaries.md`.
+- Node tests/lint/build/CI не запускались. Данные, баланс, платежи, админ-операции и production не менялись.
