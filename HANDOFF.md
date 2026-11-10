@@ -3089,3 +3089,5 @@ Date: 2026-11-10
 - Важно: cleanup/retention маршруты admin-only и раздельные; автоматический планировщик для этих операций в исходниках не обнаружен. Не включать автоматическую очистку без сверки миграций и dry-run inventory.
 - Наличие миграции 109 в репозитории не подтверждает её применение в production Supabase. Нужно проверить migration ledger и фактические RPC grants.
 - Node tests/lint/build/CI и SQL integration scripts не запускались. Storage/DB/provider/production не изменялись.
+
+- Дополнительная правка AUD-369: исправлен относительный импорт в `backend/test/pin-image-lifecycle.test.js` с `./pinImageLifecycle` на `../pinImageLifecycle`, чтобы тест действительно загружал модуль из `backend/`.
