@@ -2137,3 +2137,30 @@ The provider can return an image task already in `done` state directly from the 
 
 - GitHub read-back only; backend tests, lint, and build have not been executed in this pass.
 - No GPTunnel requests, credit operations, database migrations, production data, deployment, or PR merge.
+
+
+# AUD-314 — concurrent generation and reservation isolation audit
+
+Date: 2026-11-10
+
+## Scope
+
+Reviewed the generation HTTP route, provider-task journal, claim-fencing RPCs, credit reservation/resize/settlement migrations, and completion guard. No live provider or database operations were performed.
+
+## Findings
+
+- **Distinct simultaneous requests for one user:** reservation creation locks the user row before summing active reservations and inserting a new reservation. This serializes competing reservations and prevents both requests from reserving the same available balance.
+- **Same idempotency key:** the parent request row is locked by `begin_pin_generation_request`; an active request returns `processing` rather than issuing a second claim. Replays with a different board or request fingerprint are rejected.
+- **Stale worker fencing:** recovery rotates the request's UUID claim token. Plan writes, task transitions, quote/outcome writes, reservation resize, and completion validate the current token, so a prior worker cannot mutate the recovered request after the claim changes.
+- **Settlement:** the completion RPC locks user -> request -> reservation, verifies the active reservation and amount ceiling, then saves pins and debits credits in the same transaction. The request completion trigger moves the reservation to `settled`; the already-completed replay returns saved pins without another debit.
+- **Partial/uncertain provider outcomes:** the completion journal guard rejects completion while any task is non-terminal or a successful task lacks its durable provider outcome, price, or Storage URL; it also checks saved pins against successful task journal rows.
+- **Polling lease:** the provider polling loop is bounded to 30 polls at 3 seconds, and queued/running task callbacks refresh the request timestamp. The 30-minute stale recovery threshold is therefore substantially longer than one normal polling pass.
+
+## Result
+
+No confirmed cross-request double-reservation, stale-claim write, or duplicate-settlement defect was found in the reviewed paths. No code change was justified by this audit; adding a code workaround without a reproducible defect would increase risk.
+
+## Verification and safety
+
+- Source and migration review plus GitHub read-back; no SQL migrations or tests were executed.
+- No credits, provider tasks, production data, deployments, or PR merge.
