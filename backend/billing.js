@@ -1,3 +1,4 @@
+const { logError, logWarning, logInfo } = require("./safeLogger");
 // Биллинг: подписки через Prodamus (счёт по ссылке + вебхук об оплате).
 // Таблица: subscriptions (db/migrations/006_subscriptions.sql)
 // Документация Prodamus:
@@ -113,7 +114,7 @@ async function createPayment(userId, body, idempotencyKey) {
     if (result.error || !result.data) throw result.error || new Error("subscription insert returned no row");
     sub = result.data;
   } catch (error) {
-    console.error("[billing] не удалось создать платёж:", error.message, error.code || "");
+    logError("billing.event");
     await failPaymentCreation(userId, idempotencyKey, error);
     throw httpError(
       500,
@@ -129,17 +130,14 @@ async function createPayment(userId, body, idempotencyKey) {
       await denyUnsentPaymentRecord("subscriptions", sub.id);
       cleanupConfirmed = true;
     } catch (cleanupError) {
-      console.error("[billing] не удалось подтвердить отмену локальной записи без отправленного счёта:", {
-        recordId: sub.id,
-        error: cleanupError && cleanupError.message,
-      });
+      logError("billing.event");
       // Keep this request in the admin reconciliation queue if local cleanup failed.
       await markPaymentCreationUnknown(userId, idempotencyKey, cleanupError);
     }
     if (cleanupConfirmed) {
       await failPaymentCreation(userId, idempotencyKey, error);
     }
-    console.error("[billing] не удалось сохранить идентификатор заказа до обращения к провайдеру:", error.message);
+    logError("billing.event");
     throw httpError(503, "Не удалось безопасно подготовить заказ. Счёт провайдеру не отправлялся; статус заказа требует проверки.");
   }
 
@@ -158,9 +156,7 @@ async function createPayment(userId, body, idempotencyKey) {
     });
   } catch (error) {
     await markPaymentCreationUnknown(userId, idempotencyKey, error);
-    console.error("[billing] результат создания ссылки неопределён; повторный счёт заблокирован:", {
-      subscriptionId: sub.id, orderId, error: error && error.message,
-    });
+    logError("billing.event");
     throw error;
   }
 
@@ -178,9 +174,7 @@ async function createPayment(userId, body, idempotencyKey) {
     await completePaymentCreation(userId, idempotencyKey, response);
   } catch (error) {
     await markPaymentCreationUnknown(userId, idempotencyKey, error);
-    console.error("[billing] checkout создан, но результат не удалось сохранить; повторный счёт заблокирован:", {
-      subscriptionId: sub.id, orderId, error: error && error.message,
-    });
+    logError("billing.event");
     throw httpError(503, "Счёт создан, но не удалось сохранить ссылку. Не создавайте новый платёж; обратитесь в поддержку.");
   }
   return response;
@@ -247,7 +241,7 @@ async function dispatchPendingSubscriptionEmails(limit = 10, dependencies = {}) 
       });
       if (markError) throw markError;
       if (!marked) {
-        console.warn("[billing] email outbox lease expired before sent acknowledgement:", row.id);
+        logWarning("billing.event");
       } else {
         sent += 1;
       }
@@ -261,9 +255,9 @@ async function dispatchPendingSubscriptionEmails(limit = 10, dependencies = {}) 
         p_error_code: errorCode,
       });
       if (retryError) {
-        console.error("[billing] email outbox retry state could not be saved:", retryError.message);
+        logError("billing.event");
       }
-      console.error("[billing] queued subscription email failed:", row.id, errorCode);
+      logError("billing.event");
     }
   }
 
@@ -283,7 +277,7 @@ async function handleWebhook(req, res, dependencies = {}) {
   const check = prodamus.verifyWebhook(body, req.headers);
 
   if (!check.ok) {
-    console.error(`[billing] вебхук отклонён: ${check.reason}`);
+    logError("billing.event");
     return res.status(403).json({ ok: false, error: `Подпись не принята: ${check.reason}` });
   }
 
@@ -296,10 +290,10 @@ async function handleWebhook(req, res, dependencies = {}) {
         paymentKind: "subscription", body, reason: "missing_order_id",
       });
     } catch (auditError) {
-      console.error("[billing] не удалось сохранить вебхук без order_id:", auditError.message);
+      logError("billing.event");
       return res.status(500).json({ ok: false, error: "audit storage failed" });
     }
-    console.error("[billing] вебхук без order_id сохранён для сверки");
+    logError("billing.event");
     return res.json({ ok: true, ignored: "no order_id" });
   }
 
@@ -310,7 +304,7 @@ async function handleWebhook(req, res, dependencies = {}) {
     .maybeSingle();
 
   if (error) {
-    console.error("[billing] ошибка чтения subscriptions:", error.message);
+    logError("billing.event");
     return res.status(500).json({ ok: false, error: "db error" });
   }
   if (!sub) {
@@ -319,10 +313,10 @@ async function handleWebhook(req, res, dependencies = {}) {
         paymentKind: "subscription", body, reason: "unknown_order_id",
       });
     } catch (auditError) {
-      console.error("[billing] не удалось сохранить неизвестный order_id:", auditError.message);
+      logError("billing.event");
       return res.status(500).json({ ok: false, error: "audit storage failed" });
     }
-    console.warn(`[billing] неизвестный order_id сохранён для сверки: ${orderId}`);
+    logWarning("billing.event");
     return res.json({ ok: true, ignored: "unknown order_id" });
   }
 
@@ -339,17 +333,17 @@ async function handleWebhook(req, res, dependencies = {}) {
           reason: "unsupported_payment_status",
         });
       } catch (auditError) {
-        console.error("[billing] не удалось сохранить неизвестный статус:", auditError.message);
+        logError("billing.event");
         return res.status(500).json({ ok: false, error: "audit storage failed" });
       }
-      console.warn("[billing] неизвестный статус Prodamus сохранён для сверки:", status || "(empty)");
+      logWarning("billing.event");
       return res.json({ ok: true, ignored: "unsupported payment_status", review_required: true });
     }
     const mapped = normalizedStatus;
     const { error: statusError } = await db.from("subscriptions")
       .update({ status: mapped }).eq("id", sub.id).neq("status", "success");
     if (statusError) return res.status(500).json({ ok: false, error: "db error" });
-    console.warn(`[billing] платёж ${orderId}: ${status} (${body.payment_status_description || ""})`);
+    logWarning("billing.event");
     return res.json({ ok: true, status: mapped });
   }
 
@@ -362,10 +356,10 @@ async function handleWebhook(req, res, dependencies = {}) {
         reason: paymentAmount.reason,
       });
     } catch (auditError) {
-      console.error("[billing] не удалось сохранить несовпадение валюты/суммы:", auditError.message);
+      logError("billing.event");
       return res.status(500).json({ ok: false, error: "audit storage failed" });
     }
-    console.warn("[billing] платёж отклонён для сверки:", orderId, paymentAmount.reason);
+    logWarning("billing.event");
     return res.json({ ok: true, ignored: paymentAmount.reason, review_required: true });
   }
 
@@ -377,10 +371,10 @@ async function handleWebhook(req, res, dependencies = {}) {
         paymentKind: "subscription", body, expectedAmount: expected, reason: "amount_mismatch",
       });
     } catch (auditError) {
-      console.error("[billing] не удалось сохранить несовпадение суммы:", auditError.message);
+      logError("billing.event");
       return res.status(500).json({ ok: false, error: "audit storage failed" });
     }
-    console.error(`[billing] сумма не совпадает для ${orderId}: webhook=${sum} ${paymentAmount.currency}, ожидали=${expected} ${sub.currency || "rub"}; сохранено для сверки`);
+    logError("billing.event");
     const { error: mismatchError } = await db.from("subscriptions")
       .update({ status: "denied" }).eq("id", sub.id).neq("status", "success");
     if (mismatchError) return res.status(500).json({ ok: false, error: "db error" });
@@ -393,7 +387,7 @@ async function handleWebhook(req, res, dependencies = {}) {
     p_paid_at: new Date().toISOString(),
   });
   if (activationError || !activation) {
-    console.error("[billing] атомарная активация не выполнена:", activationError && activationError.message);
+    logError("billing.event");
     return res.status(500).json({ ok: false, error: "activation failed" });
   }
 
@@ -402,14 +396,14 @@ async function handleWebhook(req, res, dependencies = {}) {
   try {
     await settlePaymentCreationRequest(orderId, "subscription", sub.id, db);
   } catch (settlementError) {
-    console.error("[billing] не удалось закрыть запись создания оплаченного заказа:", settlementError.message);
+    logError("billing.event");
     return res.status(500).json({ ok: false, error: "payment reconciliation failed" });
   }
 
   // Also drain older pending events on duplicate callbacks: a previous process may
   // have committed activation and stopped before SMTP delivery.
   await dispatchEmails(10).catch((e) => {
-    console.error("[billing] email outbox dispatch failed:", e && e.message);
+    logError("billing.event");
   });
 
   return res.json({
