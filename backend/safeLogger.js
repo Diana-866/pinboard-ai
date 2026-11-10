@@ -2,6 +2,11 @@
 
 const { AsyncLocalStorage } = require("node:async_hooks");
 const correlationStorage = new AsyncLocalStorage();
+const SAFE_ERROR_CODES = new Set([
+  "ECONNRESET", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN", "ECONNREFUSED", "EPIPE",
+  "ABORT_ERR", "ERR_NETWORK", "ERR_CANCELED", "ERR_BAD_REQUEST", "ERR_BAD_RESPONSE",
+  "ERR_INVALID_URL", "23505", "23503", "23514", "22P02", "PGRST116",
+]);
 
 function runWithCorrelationId(id, callback) {
   const safeId = typeof id === "string" && /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(id)
@@ -29,7 +34,7 @@ function safeEventName(value) {
 function safeErrorCode(error) {
   try {
     const code = error && typeof error === "object" ? error.code : null;
-    return typeof code === "string" && /^[A-Z0-9_-]{1,40}$/.test(code) ? code : undefined;
+    return typeof code === "string" && SAFE_ERROR_CODES.has(code) ? code : undefined;
   } catch {
     return undefined;
   }
