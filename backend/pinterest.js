@@ -708,12 +708,14 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
 
   let result;
   try {
-    // Fence the external side effect immediately before POST /pins. A worker
-    // whose lease was replaced must not publish after losing schedule ownership.
-    if (scheduleClaim && typeof scheduleClaim.assertClaimCurrent === "function") {
-      await scheduleClaim.assertClaimCurrent();
-    }
-    result = await withAccount(userId, (token) => callPinterest("POST", "/pins", { token, body }), accountId, { retryRateLimit: false });
+    // Fence the external side effect after account/token preparation and
+    // immediately before POST /pins. A stale worker must not publish.
+    result = await withAccount(userId, async (token) => {
+      if (scheduleClaim && typeof scheduleClaim.assertClaimCurrent === "function") {
+        await scheduleClaim.assertClaimCurrent();
+      }
+      return callPinterest("POST", "/pins", { token, body });
+    }, accountId, { retryRateLimit: false });
   } catch (e) {
     // Only explicit client-side rejections are known not to have created a pin.
     // Every 5xx (including 503) is ambiguous: a gateway may fail after Pinterest
