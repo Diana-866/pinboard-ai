@@ -95,5 +95,5 @@ revoke all on function public.finalize_pin_image_retention_queue_item(text,text,
   from public, anon, authenticated, service_role;
 grant execute on function public.claim_pin_image_retention_queue(integer,integer)
   to service_role;
-grant execute on function public.finalize_pin_image_retention_queue(text,text,uuid,boolean,text)
+grant execute on function public.finalize_pin_image_retention_queue_item(text,text,uuid,boolean,text)
   to service_role;
