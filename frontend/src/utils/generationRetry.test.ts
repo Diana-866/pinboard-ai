@@ -8,6 +8,18 @@ test('rotates key after an explicitly definitive generation failure', () => {
   }), true);
 });
 
+test('rotates key after an explicit preflight insufficient-credit rejection', () => {
+  assert.equal(isDefinitiveGenerationFailure({
+    data: { code: 'generation_insufficient_credits' },
+  }), true);
+});
+
+test('does not rotate key for a post-provider insufficient-credit settlement failure', () => {
+  assert.equal(isDefinitiveGenerationFailure({
+    data: { code: 'generation_outcome_unknown' },
+  }), false);
+});
+
 test('does not rotate key for an unknown provider outcome', () => {
   assert.equal(isDefinitiveGenerationFailure({
     data: { code: 'generation_outcome_unknown' },
