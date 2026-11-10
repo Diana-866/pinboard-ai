@@ -3091,3 +3091,13 @@ Date: 2026-11-10
 - Node tests/lint/build/CI и SQL integration scripts не запускались. Storage/DB/provider/production не изменялись.
 
 - Дополнительная правка AUD-369: исправлен относительный импорт в `backend/test/pin-image-lifecycle.test.js` с `./pinImageLifecycle` на `../pinImageLifecycle`, чтобы тест действительно загружал модуль из `backend/`.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-370: independent backup and restore readiness)
+
+- Проверено: в репозитории есть инструкция сборки пустой схемы baseline + migrations до 123, но это не backup пользовательских данных и не восстановление Storage.
+- В inspected tree не найден независимый scheduled PostgreSQL backup/export pipeline, Storage object backup/replication pipeline, backup alerting или evidence restore drill.
+- Для восстановления нужны PostgreSQL + bytes всех нужных Storage objects + object paths/checksums + current/previous `PINTEREST_TOKEN_ENCRYPTION_KEY` + остальные секреты из отдельного vault + точный app commit/migration set.
+- Добавлены `docs/audits/AUD-370-independent-backup-and-restore-readiness.md` и `docs/runbooks/backup-restore-aud-370.md`; ссылка добавлена в infrastructure checklist.
+- Live Supabase plan/PITR/dashboard, bucket ACLs, backup settings, key escrow, storage copy and account recovery не проверялись. RPO/RTO неизвестны; full restore не выполнен.
+- Никаких production изменений, экспорта, восстановления, миграций, deploy/merge или внешних side effects не было.
