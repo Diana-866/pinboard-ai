@@ -41,6 +41,8 @@ declare
   v_inserted integer;
 begin
   if p_user_id is null or length(p_user_id) = 0
+     or p_request_kind is null
+     or p_request_fingerprint is null
      or p_idempotency_key is null
      or length(p_idempotency_key) < 16
      or length(p_idempotency_key) > 128
