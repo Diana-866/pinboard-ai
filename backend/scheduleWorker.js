@@ -35,8 +35,8 @@ function createWorker({ config, client = axios, logger = console, intervalMs = P
   let active = false;
   let stopped = false;
 
-  // Until the database claim has a renewable lease, never claim a queue behind
-  // another potentially slow external publication.
+  // Process one row per request. The backend renews that row's lease while
+  // preflight and Pinterest publication are in progress.
   const safeBatchLimit = BATCH_LIMIT;
   const safeTimeoutMs = Math.min(MAX_REQUEST_TIMEOUT_MS, Math.max(10_000, Number(timeoutMs) || REQUEST_TIMEOUT_MS));
 
