@@ -1,3 +1,4 @@
+const { logWarning, logError } = require("./safeLogger");
 // Почтовый модуль админки: чтение входящих (IMAP) и ответы (SMTP).
 // Включается переменными окружения:
 //   IMAP: MAIL_IMAP_HOST, MAIL_IMAP_PORT, MAIL_IMAP_USER, MAIL_IMAP_PASS
@@ -161,7 +162,7 @@ async function replyToMessage(to, subject, text) {
 async function sendMail({ to, subject, text, html, messageId }, { needThrow = true } = {}) {
   if (!transactionalMailConfigured()) {
     if (!needThrow) {
-      console.warn("[mail] SMTP не настроен — письмо не отправлено:", subject);
+      logWarning("mail.event_002");
       return { ok: false, skipped: true };
     }
     throw httpError(503, "Транзакционная почта не настроена: задайте MAIL_SMTP_HOST, MAIL_SMTP_USER и MAIL_SMTP_PASS на сервере");
@@ -188,7 +189,7 @@ async function sendMail({ to, subject, text, html, messageId }, { needThrow = tr
     return { ok: true };
   } catch (e) {
     if (!needThrow) {
-      console.error("[mail] письмо не отправлено:", e.message);
+      logError("mail.event_001");
       return { ok: false, error: e.message };
     }
     throw e;
