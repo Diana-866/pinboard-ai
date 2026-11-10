@@ -16,9 +16,19 @@ test("scheduler health distinguishes never-seen, fresh and stale runs", () => {
   assert.equal(fresh.status, "healthy");
   assert.equal(fresh.counts.published, 1);
   const stale = summarizePinterestSchedulerHealth({
-    status: "running", last_started_at: "2026-11-11T11:55:00.000Z",
+    status: "running", last_started_at: "2026-11-11T11:39:00.000Z",
   }, now);
   assert.equal(stale.status, "stale");
+  const longRunning = summarizePinterestSchedulerHealth({
+    status: "running", last_started_at: "2026-11-11T11:55:00.000Z",
+  }, now);
+  assert.equal(longRunning.status, "running", "a valid long-running publication must not be marked stale after only three minutes");
+  const staleCompleted = summarizePinterestSchedulerHealth({
+    status: "succeeded",
+    last_started_at: "2026-11-11T11:50:00.000Z",
+    last_completed_at: "2026-11-11T11:55:00.000Z",
+  }, now);
+  assert.equal(staleCompleted.status, "stale");
 });
 
 test("scheduler health reports a recent failed run without exposing arbitrary data", () => {
