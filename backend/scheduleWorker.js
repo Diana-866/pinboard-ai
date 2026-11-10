@@ -13,9 +13,8 @@ const REQUEST_TIMEOUT_MS = Math.min(
   MAX_REQUEST_TIMEOUT_MS,
   Math.max(10_000, Number(process.env.PINPOSY_SCHEDULER_REQUEST_TIMEOUT_MS) || 120_000)
 );
-// A schedule claim has a fixed 20-minute recovery age and no heartbeat yet.
-// Claim one row per HTTP run so later rows cannot age while waiting behind a
-// slow Pinterest upload/publication in the same sequential batch.
+// Claim one row per HTTP run to keep request duration and recovery scope bounded.
+// The backend also renews the active row's claim while Pinterest work is in flight.
 const BATCH_LIMIT = 1;
 
 function getWorkerConfig(env = process.env) {
