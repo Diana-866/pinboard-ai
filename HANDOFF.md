@@ -3360,3 +3360,16 @@ Artifacts:
 - docs/runbooks/authentication-deletion-gates-aud-391.md
 
 Validation: source/migration review only. No tests, migrations, CI or production data executed. Live database migration state remains unverified.
+
+
+## AUD-392 — financial settlement fencing during account deletion (2026-11-11)
+
+Reviewed Prodamus subscription/credit webhooks, atomic fulfillment RPCs, checkout idempotency, settlement RPC, refund reconciliation and SQL concurrency tests. Confirmed HMAC + amount/currency validation, exactly-once credit ledger by unique purchase_id, atomic subscription activation, checkout unknown fencing and settlement validation. Findings: fulfillment locks payment row before user (deadlock risk against user-first deletion); provider settlement and entitlement are coupled; late success after canceled/denied is intentionally accepted for active accounts; checkout begin/completion have no lifecycle gate; current checkout settlement requires local entitlement and cannot represent a paid-but-withheld event; existing concurrency harnesses do not race deletion against payment.
+
+Design: add immutable provider settlement/event receipt distinct from entitlement; paid event for non-active account must be retained and routed to held/refund reconciliation, never credit balance or restore tariff. Refactor payment locks to user → payment → checkout request → ledger/outbox; no network calls under DB locks. Preserve late-success semantics for active users. Add races for both lock winners, provider response after deletion, refunds/chargebacks and missing user.
+
+Artifacts:
+- docs/audits/AUD-392-financial-settlement-deletion-fencing.md
+- docs/runbooks/financial-deletion-fencing-aud-392.md
+
+No code, tests, SQL, migrations, provider accounts, payments, refunds, balances or production state changed. Live schema/migration state not verified.
