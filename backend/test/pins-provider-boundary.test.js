@@ -201,6 +201,53 @@ test("plan journal failure after text provider success stops before quotes and i
   ]);
 });
 
+test("atomic text-plan journal receives usage and normalized tasks before image work", async () => {
+  const events = [];
+  provider.generateText = async () => JSON.stringify([
+    { title: "Atomic plan", description: "Description", image_prompt: "A test image" },
+  ]);
+  provider.generateImage = async () => {
+    events.push("image-provider");
+    return { taskId: "image-task-atomic" };
+  };
+
+  await generatePins(
+    { id: "board-atomic-plan", title: "Atomic plan", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    1,
+    "2:3",
+    null,
+    {
+      onTextProviderSubmission: () => events.push("text-submission-marked"),
+      onTextProviderUsage: async () => events.push("legacy-usage-callback"),
+      persistPlan: async () => {
+        events.push("legacy-plan-callback");
+        return [];
+      },
+      persistTextPlan: async (result, tasks) => {
+        assert.equal(result.requestId, "chatcmpl-test-usage");
+        assert.equal(result.costCurrency, "RUB");
+        assert.equal(tasks.length, 1);
+        assert.equal(tasks[0].prompt, "A test image");
+        events.push("atomic-journal");
+        return tasks;
+      },
+      ensureTaskQuotes: async (tasks) => {
+        events.push("quotes");
+        return tasks;
+      },
+    }
+  );
+
+  assert.deepEqual(events, [
+    "text-submission-marked",
+    "atomic-journal",
+    "quotes",
+    "image-provider",
+  ]);
+});
+
 test("text-plan generation extracts a JSON array surrounded by provider prose", async () => {
   provider.generateText = async () => [
     "Here is the requested JSON:",
