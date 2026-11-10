@@ -2790,3 +2790,13 @@ Date: 2026-11-10
 - Исправлена нормализация чисел usage в `backend/gptunnel.js`: пустые/пробельные строки, boolean, object и нечисловые значения больше не превращаются через `Number(...)` в ложный ноль; валидные числа и непустые числовые строки поддержаны.
 - `usage.total_cost` использует тот же строгий парсер. Добавлены regression cases для malformed metadata, numeric-string и реального числового нуля.
 - AUD-340: source change committed and read-back verified; Node tests/lint/build/CI не запускались. Политика AUD-339 (fail-closed vs continue-and-reconcile) остаётся отдельным product decision. Production не менялся.
+
+## Дополнение к handoff — 2026-11-10 (AUD-340)
+
+- Уточнён CI-аудит: SQL/.sh интеграционные проверки НЕ пропущены. Первый вывод по одному только npm test был неполным.
+- .github/workflows/atomic-payment-integration.yml поднимает PostgreSQL 16, создаёт тестовую fixture-схему, применяет migrations 010–120 и напрямую запускает SQL/.sh проверки. Включая pin-generation-text-usage.integration.sql, credit reservation/provider quote/completion tests и concurrency scripts.
+- Workflow запускается на PR в main или fix/atomic-payment-fulfillment; base PR #4 совпадает с фильтром. persisted-boards-checks.yml дополняет его JS/frontend проверками.
+- Ограничение: Postgres workflow использует подготовленную fixture-схему и не прогоняет migrations 000–009 с пустой БД; это не полный clean-install bootstrap test.
+- На проверенном head PR #4 GitHub workflow-run lookup вернул пусто. Workflow настроен, но результат выполнения не подтверждён. Vercel failure build-rate-limit не доказывает провал SQL tests.
+- См. docs/audits/AUD-340-ci-postgres-integration-coverage.md.
+- Никакие workflows не запускались, source behavior не менялся, live DB/payment/provider/deploy действий не было.
