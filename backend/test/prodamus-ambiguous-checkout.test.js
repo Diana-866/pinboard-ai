@@ -225,3 +225,29 @@ test("concurrent duplicate subscription checkout requests create only one provid
     prodamus.createPaymentLink = original;
   }
 });
+
+test("pre-provider subscription failure is fenced and can be retried only with a fresh key", async () => {
+  const original = prodamus.createPaymentLink;
+  let providerCalls = 0;
+  prodamus.createPaymentLink = async () => {
+    providerCalls += 1;
+    return { url: "https://pinposy.payform.ru/unexpected" };
+  };
+  try {
+    await assert.rejects(
+      billing.createPayment("missing-user", { plan: "start", currency: "rub" }, "subscription-failed-key-001"),
+      /Пользователь не найден/
+    );
+    await assert.rejects(
+      billing.createPayment("missing-user", { plan: "start", currency: "rub" }, "subscription-failed-key-001"),
+      (error) => error.httpStatus === 409 && error.details?.code === "payment_request_not_reusable"
+    );
+    assert.equal(providerCalls, 0, "a pre-provider failure must never call Prodamus");
+    assert.equal(
+      db.paymentRequests.get("missing-user:subscription-failed-key-001").status,
+      "failed"
+    );
+  } finally {
+    prodamus.createPaymentLink = original;
+  }
+});
