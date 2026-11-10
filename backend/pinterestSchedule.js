@@ -1,8 +1,17 @@
 // Pure scheduling policy kept separate from Pinterest client initialization,
 // so unit tests do not need database credentials or external-service configuration.
-function classifyScheduleFailure(attempt, attemptLookupError) {
-  if (attemptLookupError) return "unknown";
-  if (attempt && attempt.status === "published") return "published";
+function classifyScheduleFailure(attempt, attemptLookupError, publicationLedger = null, publicationLedgerLookupError = null) {
+  if (attemptLookupError || publicationLedgerLookupError) return "unknown";
+  if (attempt && attempt.status === "published") {
+    const expected = {
+      user_id: attempt.user_id,
+      pin_id: attempt.pin_id,
+      pinterest_account_id: attempt.pinterest_account_id,
+      pinterest_board_id: attempt.pinterest_board_id,
+      pinterest_pin_id: attempt.pinterest_pin_id,
+    };
+    return matchesConfirmedPublicationLedger(publicationLedger, expected) ? "published" : "unknown";
+  }
   if (attempt && ["unknown", "processing"].includes(attempt.status)) return "unknown";
   return "failed";
 }
@@ -100,12 +109,14 @@ function hasMatchingScheduleAttemptIdentity(attempt, schedule) {
 function buildScheduleWorkerFailureState({
   attempt = null,
   attemptLookupError = null,
+  publicationLedger = null,
+  publicationLedgerLookupError = null,
   error = null,
   attempts = 0,
   now = Date.now(),
   retryLimit = 5,
 }) {
-  const finalStatus = classifyScheduleFailure(attempt, attemptLookupError);
+  const finalStatus = classifyScheduleFailure(attempt, attemptLookupError, publicationLedger, publicationLedgerLookupError);
   const message = String(
     attemptLookupError
       ? "Could not verify publication journal after worker error: " + String(attemptLookupError.message || "lookup failed")
