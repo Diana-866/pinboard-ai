@@ -1,5 +1,6 @@
 "use strict";
 
+const fs = require("node:fs");
 const { AsyncLocalStorage } = require("node:async_hooks");
 const correlationStorage = new AsyncLocalStorage();
 const SAFE_ERROR_CODES = new Set([
@@ -64,6 +65,15 @@ function logWarning(event, error, status) {
   return logEvent("warn", event, error, status);
 }
 
+function logFatalSync(event) {
+  const record = { level: "fatal", event: safeEventName(event) };
+  const correlationId = currentCorrelationId();
+  if (correlationId) record.correlation_id = correlationId;
+  // Fatal diagnostics must be synchronously written before fail-fast process exit.
+  // Never inspect or serialize the exception/rejection reason.
+  fs.writeSync(2, `${JSON.stringify(record)}\\n`);
+}
+
 function logInfo(event) {
   const record = { level: "info", event: safeEventName(event) };
   const correlationId = currentCorrelationId();
@@ -71,4 +81,4 @@ function logInfo(event) {
   console.info(JSON.stringify(record));
 }
 
-module.exports = { logError, logWarning, logInfo, runWithCorrelationId };
+module.exports = { logError, logWarning, logInfo, logFatalSync, runWithCorrelationId };
