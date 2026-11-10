@@ -215,7 +215,6 @@ async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3"
   );
 
   const task = createResponse.data;
-  if (task && task.status === "done") return imageTaskResult(task);
   if (task && task.status === "failed") {
     throw providerTaskError(task);
   }
@@ -223,6 +222,16 @@ async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3"
   const taskId = task && task.id;
   if (typeof taskId !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(taskId)) {
     throw new Error("Провайдер вернул некорректный идентификатор задачи");
+  }
+  if (task && task.status === "done") {
+    // A provider may complete synchronously in the create response. Persist its
+    // immutable task ID and terminal status before returning the result so a
+    // backend restart never has to rediscover it through provider idempotency.
+    const result = imageTaskResult(task);
+    if (typeof callbacks.onTaskUpdate === "function") {
+      await callbacks.onTaskUpdate(taskId, "succeeded");
+    }
+    return result;
   }
   if (typeof callbacks.onTaskUpdate === "function") {
     await callbacks.onTaskUpdate(taskId, task && task.status === "running" ? "running" : "queued");
