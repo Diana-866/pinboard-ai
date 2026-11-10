@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { clearAuthToken, readAuthToken, writeAuthToken } from "./authStorage";
+import { clearAuthToken, readAuthToken, readLocalStorageValue, writeAuthToken } from "./authStorage";
 
 function withWindow(value: unknown, run: () => void) {
   const previous = Object.getOwnPropertyDescriptor(globalThis, "window");
@@ -29,6 +29,7 @@ test("reads, writes and clears an auth token", () => {
 test("fails closed without throwing when localStorage access itself is blocked", () => {
   withWindow({ get localStorage() { throw new Error("SecurityError"); } }, () => {
     assert.equal(readAuthToken(), null);
+    assert.equal(readLocalStorageValue("pinposy_lang"), null);
     assert.equal(writeAuthToken("valid-token"), false);
     assert.doesNotThrow(clearAuthToken);
   });
