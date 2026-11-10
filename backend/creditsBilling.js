@@ -16,7 +16,7 @@ const { persistWebhookException } = require("./billingWebhookAudit");
 const { httpError, validateEnum } = require("./validate");
 const { CREDIT_PACKS, normalizePackId, packAmount } = require("./creditPacks");
 const { createPaymentOrderId } = require("./paymentOrderId");
-const { beginPaymentCreation, attachPaymentCreationOrder, denyUnsentPaymentRecord, completePaymentCreation, markPaymentCreationUnknown, failPaymentCreation } = require("./paymentCreationIdempotency");
+const { beginPaymentCreation, attachPaymentCreationOrder, denyUnsentPaymentRecord, completePaymentCreation, settlePaymentCreationRequest, markPaymentCreationUnknown, failPaymentCreation } = require("./paymentCreationIdempotency");
 
 // Префикс order_id покупок кредитов: по нему общий вебхук /billing/webhook
 // различает подписки (pp-…) и пакеты кредитов (ppc-…).
@@ -287,6 +287,12 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
   // Validate every signed success callback, even after a prior credit, so a later
   // duplicate with an unexpected amount is still durably recorded for reconciliation.
   if (purchase.balance_credited_at) {
+    try {
+      await settlePaymentCreationRequest(orderId, "credits", purchase.id, db);
+    } catch (settlementError) {
+      console.error("[credits-billing] не удалось закрыть запись создания оплаченного заказа:", settlementError.message);
+      return res.status(500).json({ ok: false, error: "payment reconciliation failed" });
+    }
     return res.json({ ok: true, idempotent: true, credits: purchase.credits });
   }
 
@@ -300,6 +306,13 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
   if (creditError) {
     console.error("[credits-billing] атомарное зачисление не выполнено:", creditError.message);
     return res.status(500).json({ ok: false, error: "crediting failed" });
+  }
+
+  try {
+    await settlePaymentCreationRequest(orderId, "credits", purchase.id, db);
+  } catch (settlementError) {
+    console.error("[credits-billing] не удалось закрыть запись создания оплаченного заказа:", settlementError.message);
+    return res.status(500).json({ ok: false, error: "payment reconciliation failed" });
   }
 
   console.log(`[credits-billing] покупка ${orderId} обработана; баланс: ${newBalance}`);
