@@ -281,6 +281,30 @@ begin
     raise exception 'current schedule claim could not atomically reserve its publish journal: %',v_result;
   end if;
 
+  -- The worker may lose the RPC response after PostgreSQL committed. Replaying
+  -- the same claim must observe the existing reservation, never start a second
+  -- publish attempt or authorize a second external POST.
+  v_result := public.begin_scheduled_pinterest_publish(
+    v_user::text,v_crash_schedule,v_new_claim_token,v_crash_pin,v_account_a,'board-a'
+  );
+  if v_result->>'status' <> 'processing'
+     or (select count(*) from public.pinterest_publish_attempts
+          where pin_id=v_crash_pin and pinterest_account_id=v_account_a) <> 1
+     or (select status from public.pinterest_publish_attempts
+          where pin_id=v_crash_pin and pinterest_account_id=v_account_a) <> 'processing' then
+    raise exception 'replayed schedule reservation did not remain fenced behind the original attempt: %',v_result;
+  end if;
+
+  -- A caller cannot reuse a valid claim token while changing the destination.
+  begin
+    perform public.begin_scheduled_pinterest_publish(
+      v_user::text,v_crash_schedule,v_new_claim_token,v_crash_pin,v_account_a,'board-substituted'
+    );
+    raise exception 'schedule claim was accepted for a substituted Pinterest board';
+  exception when sqlstate '40001' then
+    null;
+  end;
+
   -- Recovery must preserve a safely journaled rejection if the worker
   -- crashes before it can move the schedule from publishing to scheduled.
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
