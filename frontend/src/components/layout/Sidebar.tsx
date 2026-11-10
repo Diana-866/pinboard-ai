@@ -59,7 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onAddAccountClick,
   onGoToPricing,
   maxAccounts = 3,
-  pendingCount = 15,
+  pendingCount = 0,
 }) => {
   const { t } = useI18n();
   const { user, isAuthenticated, logout, updateUserAvatar, openAuthModal } = useAuth();
@@ -75,16 +75,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const activeAccount = accounts.find((a) => a.id === activeAccountId) || accounts[0] || {
-    id: 'acc-1',
-    name: 'Botanica Nordic Living',
-    handle: '@botanica_nordic',
-    avatar: '/src/assets/images/pin_home_decor_1790670043705.jpg',
-    status: 'active',
-  };
+  const selectedAccountId = activeAccountId || accounts[0]?.id;
 
-  const isUnlimited = user?.plan === 'Agency' || maxAccounts >= 99;
+  const isUnlimited = user?.tariff_plan === 'agency' || maxAccounts >= 99;
   const isLimitReached = !isUnlimited && accounts.length >= maxAccounts;
+  const planLabel = user?.tariff_plan === 'analytics' ? t.pricing.planAnalyticsTitle
+    : user?.tariff_plan === 'start' ? t.pricing.planStartTitle
+      : user?.tariff_plan === 'pro' ? t.pricing.planProTitle
+        : user?.tariff_plan === 'agency' ? t.pricing.planAgencyTitle : t.settings?.noActivePlan || t.nav.planLabel;
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -143,7 +141,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'generator', label: t.nav.pinGenerator, icon: Sparkles },
     {
       id: 'review',
-      label: 'Проверка пинов',
+      label: t.nav.reviewPins,
       icon: CheckSquare,
       badge: pendingCount && pendingCount > 0 ? String(pendingCount) : undefined,
     },
@@ -182,7 +180,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={onMobileClose}
             className="md:hidden p-1.5 rounded-lg text-secondary-theme hover:bg-subtle cursor-pointer"
-            aria-label="Close menu"
+            aria-label={t.common.close}
           >
             <X className="w-5 h-5" />
           </button>
@@ -238,7 +236,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     type="button"
                     onClick={() => setAvatarModalOpen(true)}
                     className="w-10 h-10 rounded-xl overflow-hidden border border-subtle focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer flex items-center justify-center transition-transform hover:scale-105"
-                    title="Нажмите, чтобы сменить аватарку или поставить букву"
+                    title={t.nav.avatarClickTitle}
                   >
                     {!useLetterAvatar && user?.avatar ? (
                       <img
@@ -258,7 +256,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     type="button"
                     onClick={() => setAvatarModalOpen(true)}
                     className="absolute -bottom-1 -right-1 p-1 rounded-full bg-surface border border-subtle text-primary-theme shadow-xs opacity-80 hover:opacity-100 cursor-pointer"
-                    title="Настроить аватар"
+                    title={t.nav.configureAvatar}
                   >
                     <Camera className="w-2.5 h-2.5 text-accent-ghost" />
                   </button>
@@ -268,11 +266,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <p className="text-xs font-bold text-primary-theme truncate">
-                      {user?.name || 'Елена Смирнова'}
+                      {user?.name || t.nav.userProfile}
                     </p>
                   </div>
                   <p className="text-[10px] text-muted-theme font-mono truncate">
-                    {user?.email || 'sdreimei@gmail.com'}
+                    {user?.email || ''}
                   </p>
                 </div>
               </div>
@@ -283,7 +281,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   type="button"
                   onClick={logout}
                   className="p-1.5 rounded-lg text-muted-theme hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer shrink-0"
-                  title="Выйти из аккаунта"
+                  title={t.nav.logout}
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
@@ -293,13 +291,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* Plan Badge & Switch Plan */}
             <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-subtle text-[11px]">
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-muted-theme uppercase font-semibold">Тариф:</span>
+                <span className="text-[10px] text-muted-theme uppercase font-semibold">{t.nav.planLabel}</span>
                 <span className="px-2 py-0.5 rounded-md font-mono font-bold text-[10px] accent-pill text-accent-ghost">
-                  {user?.plan || 'Pro'}
+                  {planLabel}
                 </span>
                 {isUnlimited && (
                   <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                    (∞ Безлимит)
+                    (∞ {t.nav.unlimited})
                   </span>
                 )}
               </div>
@@ -312,7 +310,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
                 className="text-[10px] text-accent-ghost font-semibold hover:underline flex items-center gap-0.5 cursor-pointer"
               >
-                <span>Тарифы</span>
+                <span>{t.nav.plans}</span>
                 <ArrowUpRight className="w-3 h-3" />
               </button>
             </div>
@@ -323,21 +321,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="flex items-center justify-between px-0.5">
               <span className="text-[11px] font-bold text-primary-theme uppercase tracking-wider font-heading flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-accent-ghost" />
-                <span>Pinterest аккаунты</span>
+                <span>{t.nav.pinterestAccounts}</span>
               </span>
               <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
                 isUnlimited
                   ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
                   : 'bg-subtle text-primary-theme'
               }`}>
-                {isUnlimited ? '∞ Безлимит' : `${accounts.length} из ${maxAccounts}`}
+                {isUnlimited ? `∞ ${t.nav.unlimited}` : t.nav.accountCountTemplate.replace('{count}', String(accounts.length)).replace('{max}', String(maxAccounts))}
               </span>
             </div>
 
             {/* List of Connected Accounts */}
             <div className="space-y-1.5 max-h-36 overflow-y-auto">
               {accounts.map((acc) => {
-                const isSelected = acc.id === activeAccount.id;
+                const isSelected = acc.id === selectedAccountId;
                 return (
                   <button
                     key={acc.id}
@@ -351,21 +349,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         ? 'bg-subtle ring-1 ring-accent border border-accent/40 shadow-2xs'
                         : 'hover:bg-subtle/80 border border-transparent'
                     }`}
-                    title={`Нажмите, чтобы открыть настройки ${acc.name} (удаление, лимиты, авто-расписание)`}
+                    title={`${t.nav.settings}: ${acc.name}`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="relative shrink-0">
-                        <img
-                          src={acc.avatar}
-                          alt={acc.name}
-                          referrerPolicy="no-referrer"
-                          className="w-7 h-7 rounded-full object-cover border border-subtle"
-                        />
+                        {acc.avatar ? (
+                          <img
+                            src={acc.avatar}
+                            alt={acc.name}
+                            referrerPolicy="no-referrer"
+                            className="w-7 h-7 rounded-full object-cover border border-subtle"
+                          />
+                        ) : (
+                          <div
+                            aria-label={acc.name}
+                            className="w-7 h-7 rounded-full border border-subtle bg-subtle flex items-center justify-center text-[10px] font-bold text-primary-theme"
+                          >
+                            {(acc.handle || acc.name || 'P').replace(/^@/, '').charAt(0).toUpperCase()}
+                          </div>
+                        )}
                         <span
                           className={`w-2 h-2 rounded-full absolute -bottom-0.5 -right-0.5 border border-surface ${
-                            isSelected ? 'bg-emerald-500 ring-2 ring-emerald-500/30' : 'bg-zinc-400'
+                            acc.status === 'error' ? 'bg-red-500' : isSelected ? 'bg-emerald-500 ring-2 ring-emerald-500/30' : 'bg-zinc-400'
                           }`}
-                          title="Статус синхронизации"
+                          title={t.nav.syncStatus}
                         />
                       </div>
                       <div className="min-w-0">
@@ -399,14 +406,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     else onTabChange('settings');
                   }}
                   className="w-full py-1.5 px-2 rounded-xl text-xs font-semibold text-primary-theme hover:bg-subtle flex items-center justify-center gap-1.5 cursor-pointer transition-colors border border-dashed border-subtle hover:border-accent"
-                  title="Подключить новый аккаунт Pinterest"
+                  title={t.nav.connectPinterestAccount}
                 >
                   <Plus className="w-3.5 h-3.5 text-accent-ghost" />
-                  <span>Подключить аккаунт</span>
+                  <span>{t.nav.connectAccount}</span>
                 </button>
               ) : (
                 <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-700 dark:text-amber-300 flex items-center justify-between gap-1">
-                  <span>Лимит ({maxAccounts} из {maxAccounts})</span>
+                  <span>{t.nav.accountLimitTemplate.replace('{count}', String(maxAccounts)).replace('{max}', String(maxAccounts))}</span>
                   <button
                     type="button"
                     onClick={() => {
@@ -415,7 +422,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     }}
                     className="font-bold underline cursor-pointer"
                   >
-                    Снять лимит
+                    {t.nav.removeLimit}
                   </button>
                 </div>
               )}
@@ -432,7 +439,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="flex items-center gap-2">
                 <Camera className="w-4 h-4 text-accent-ghost" />
                 <h3 className="text-sm font-bold text-primary-theme font-heading">
-                  Настройка аватара профиля
+                  {t.nav.avatarModalTitle}
                 </h3>
               </div>
               <button
@@ -448,7 +455,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="flex flex-col items-center justify-center gap-2 py-2">
               <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-accent shadow-md flex items-center justify-center">
                 {!useLetterAvatar && user?.avatar ? (
-                  <img src={user.avatar} alt="Current Avatar" className="w-full h-full object-cover" />
+                  <img src={user.avatar} alt={t.nav.currentAvatarAlt} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full accent-btn text-white font-heading font-bold text-2xl flex items-center justify-center">
                     {userInitial}
@@ -456,14 +463,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
               </div>
               <p className="text-xs font-semibold text-primary-theme">
-                {useLetterAvatar ? `Буква «${userInitial}»` : 'Пользовательское фото'}
+                {useLetterAvatar ? t.nav.avatarLetterTemplate.replace('{letter}', userInitial) : t.nav.customPhoto}
               </p>
             </div>
 
             {/* Action 1: Upload custom image */}
             <div className="space-y-2">
               <label className="text-[11px] font-bold text-secondary-theme block uppercase tracking-wider">
-                1. Загрузить свою картинку:
+                {t.nav.uploadCustomImage}
               </label>
               <input
                 ref={fileInputRef}
@@ -478,14 +485,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="w-full py-2 px-3 rounded-xl border border-subtle bg-subtle hover:bg-surface text-xs font-semibold text-primary-theme flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-xs"
               >
                 <Upload className="w-3.5 h-3.5 text-accent-ghost" />
-                <span>Выбрать файл с устройства</span>
+                <span>{t.nav.chooseFile}</span>
               </button>
             </div>
 
             {/* Action 2: Choose Letter Initial Avatar */}
             <div className="space-y-2 pt-2 border-t border-subtle">
               <label className="text-[11px] font-bold text-secondary-theme block uppercase tracking-wider">
-                2. Поставить стильную букву (Инициал):
+                {t.nav.useNameInitial}
               </label>
               <button
                 type="button"
@@ -499,14 +506,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className="w-5 h-5 rounded-md accent-btn text-white text-[11px] font-bold flex items-center justify-center">
                   {userInitial}
                 </div>
-                <span>Использовать букву имени («{userInitial}»)</span>
+                <span>{t.nav.useInitialAvatar.replace('{letter}', userInitial)}</span>
               </button>
             </div>
 
             {/* Action 3: Choose from preset avatars */}
             <div className="space-y-2 pt-2 border-t border-subtle">
               <label className="text-[11px] font-bold text-secondary-theme block uppercase tracking-wider">
-                3. Или выбрать готовую аватарку:
+                {t.nav.choosePresetAvatar}
               </label>
               <div className="grid grid-cols-4 gap-2">
                 {PRESET_AVATARS.map((p) => (

@@ -47,15 +47,15 @@ export const SUPPORTED_TIMEZONES: TimezoneOption[] = [
   },
   {
     value: 'Europe/London',
-    nameEn: 'UK / London (GMT / BST, UTC+0 / UTC+1)',
-    nameRu: 'Великобритания / Лондон (GMT, UTC+0)',
+    nameEn: 'UK / London',
+    nameRu: 'Великобритания / Лондон',
     abbr: 'GMT',
     offsetHoursFromUtc: 0,
   },
   {
     value: 'Europe/Berlin',
-    nameEn: 'Central Europe (Berlin, Paris, CET, UTC+1)',
-    nameRu: 'Центральная Европа (Берлин, Париж, CET, UTC+1)',
+    nameEn: 'Central Europe (Berlin, Paris)',
+    nameRu: 'Центральная Европа (Берлин, Париж)',
     abbr: 'CET',
     offsetHoursFromUtc: 1,
   },
@@ -82,8 +82,8 @@ export const SUPPORTED_TIMEZONES: TimezoneOption[] = [
   },
   {
     value: 'Australia/Sydney',
-    nameEn: 'Australia / Sydney (AEST, UTC+10)',
-    nameRu: 'Австралия / Сидней (AEST, UTC+10)',
+    nameEn: 'Australia / Sydney',
+    nameRu: 'Австралия / Сидней',
     abbr: 'AEST',
     offsetHoursFromUtc: 10,
   },
@@ -91,32 +91,41 @@ export const SUPPORTED_TIMEZONES: TimezoneOption[] = [
 
 const TIMEZONE_STORAGE_KEY = 'pinposy_user_timezone';
 
+/** Accept only real IANA timezone identifiers before they enter scheduling state. */
+export const isValidIanaTimezone = (value: unknown): value is string => {
+  if (typeof value !== 'string' || !value.trim()) return false;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value.trim() }).format(0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export const getDefaultTimezone = (lang?: string): string => {
   try {
     const saved = localStorage.getItem(TIMEZONE_STORAGE_KEY);
-    if (saved) return saved;
-
-    if (lang === 'ru') return 'Europe/Moscow';
-
-    // Auto-detect browser timezone
-    const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (detected) {
-      const match = SUPPORTED_TIMEZONES.find((t) => t.value === detected);
-      if (match) return match.value;
-      if (detected.startsWith('America/')) return 'America/New_York';
-      if (detected.startsWith('Europe/')) return 'Europe/London';
-      if (detected.startsWith('Asia/')) return 'Asia/Singapore';
+    if (saved) {
+      if (isValidIanaTimezone(saved)) return saved.trim();
+      // A stale or manually edited browser preference must not break the calendar.
+      localStorage.removeItem(TIMEZONE_STORAGE_KEY);
     }
+
+    // Preserve the browser's exact IANA timezone. Region-level fallbacks
+    // (for example, mapping every European city to London) shift local times.
+    const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (isValidIanaTimezone(detected)) return detected;
   } catch {
-    // ignore
+    // ignore unavailable storage or Intl runtime errors
   }
 
-  return lang === 'ru' ? 'Europe/Moscow' : 'America/New_York';
+  return lang === 'ru' ? 'Europe/Moscow' : 'Etc/UTC';
 };
 
 export const saveUserTimezone = (tz: string) => {
+  if (!isValidIanaTimezone(tz)) return;
   try {
-    localStorage.setItem(TIMEZONE_STORAGE_KEY, tz);
+    localStorage.setItem(TIMEZONE_STORAGE_KEY, tz.trim());
   } catch {
     // ignore
   }
@@ -125,50 +134,26 @@ export const saveUserTimezone = (tz: string) => {
 /**
  * Calculates current real offset difference in minutes between any timezone and Moscow (UTC+3)
  */
-export const getOffsetDiffMinutesToMoscow = (timeZone: string): number => {
+export const getOffsetDiffMinutesToMoscow = (timeZone: string, instant: Date = new Date()): number => {
   try {
-    const now = new Date();
-    // Get hours & minutes in Moscow
-    const mskFormatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'Europe/Moscow',
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: false,
-    });
-    // Get hours & minutes in target timezone
-    const targetFormatter = new Intl.DateTimeFormat('en-US', {
-      timeZone,
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: false,
-    });
+    const getWallClockMinutes = (zone: string) => {
+      const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: zone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+      }).formatToParts(instant);
+      const value = (type: string) => Number(parts.find((part) => part.type === type)?.value || 0);
+      return Date.UTC(value('year'), value('month') - 1, value('day'), value('hour'), value('minute')) / 60000;
+    };
 
-    const mskParts = mskFormatter.formatToParts(now);
-    const targetParts = targetFormatter.formatToParts(now);
-
-    const getVal = (parts: Intl.DateTimeFormatPart[], type: string) =>
-      Number(parts.find((p) => p.type === type)?.value || '0');
-
-    const mskDay = getVal(mskParts, 'day');
-    const mskHour = getVal(mskParts, 'hour') % 24;
-    const mskMin = getVal(mskParts, 'minute');
-
-    const targetDay = getVal(targetParts, 'day');
-    const targetHour = getVal(targetParts, 'hour') % 24;
-    const targetMin = getVal(targetParts, 'minute');
-
-    const mskTotalMinutes = (mskDay * 24 + mskHour) * 60 + mskMin;
-    const targetTotalMinutes = (targetDay * 24 + targetHour) * 60 + targetMin;
-
-    return mskTotalMinutes - targetTotalMinutes;
+    // Compare complete calendar dates, not only day-of-month. This remains
+    // correct across month/year boundaries and uses each zone's current DST offset.
+    return getWallClockMinutes('Europe/Moscow') - getWallClockMinutes(timeZone);
   } catch {
-    // Fallback: estimate from standard offsets
     const opt = SUPPORTED_TIMEZONES.find((t) => t.value === timeZone);
     const targetOffset = opt ? opt.offsetHoursFromUtc : 3;
     return (3 - targetOffset) * 60;
@@ -216,15 +201,30 @@ export const convertMoscowToLocal = (timeStr: string, timeZone: string): string 
 };
 
 export const getTimezoneInfo = (timeZone: string) => {
-  return (
-    SUPPORTED_TIMEZONES.find((t) => t.value === timeZone) || {
+  const known = SUPPORTED_TIMEZONES.find((t) => t.value === timeZone);
+  try {
+    const abbreviation = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      timeZoneName: 'short',
+    }).formatToParts(new Date()).find((part) => part.type === 'timeZoneName')?.value;
+
+    if (known) return { ...known, abbr: abbreviation || known.abbr };
+    return {
       value: timeZone,
       nameEn: timeZone,
       nameRu: timeZone,
-      abbr: timeZone.includes('Moscow') ? 'МСК' : 'Local',
-      offsetHoursFromUtc: 3,
-    }
-  );
+      abbr: abbreviation || timeZone,
+      offsetHoursFromUtc: 0,
+    };
+  } catch {
+    return known || {
+      value: timeZone,
+      nameEn: timeZone,
+      nameRu: timeZone,
+      abbr: timeZone.includes('Moscow') ? 'MSK' : timeZone,
+      offsetHoursFromUtc: 0,
+    };
+  }
 };
 
 /**
@@ -269,4 +269,146 @@ export const formatTimeDisplay = (
       ? `Генерация запускается в ${cleanTime} по вашему времени (${tzInfo.abbr}), что соответствует ${mskServerTime} МСК на серверах PinPosy.`
       : `Executes at ${cleanTime} in your local timezone (${tzInfo.abbr}). Synced to ${mskServerTime} MSK on Russian PinPosy servers.`,
   };
+};
+
+
+/**
+ * Convert a wall-clock date/time in an IANA timezone to an absolute instant.
+ * The offset is calculated for the requested date (not today's DST offset).
+ * Non-existent local times during the spring-forward gap are rejected.
+ */
+export const localDateTimeToDate = (date: string, time: string, timeZone: string): Date => {
+  const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  const timeMatch = /^(\d{2}):(\d{2})$/.exec(time);
+  if (!dateMatch || !timeMatch) throw new Error('Invalid local date or time');
+
+  const [, yearText, monthText, dayText] = dateMatch;
+  const [, hourText, minuteText] = timeMatch;
+  const parts = [yearText, monthText, dayText, hourText, minuteText].map(Number);
+  const [year, month, day, hour, minute] = parts;
+  const wallClockUtc = Date.UTC(year, month - 1, day, hour, minute);
+  const checkDate = new Date(wallClockUtc);
+  if (
+    checkDate.getUTCFullYear() !== year ||
+    checkDate.getUTCMonth() !== month - 1 ||
+    checkDate.getUTCDate() !== day ||
+    hour > 23 ||
+    minute > 59
+  ) throw new Error('Invalid local date or time');
+
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  });
+
+  const getOffset = (instant: number): number => {
+    const values = formatter.formatToParts(new Date(instant));
+    const value = (type: string) => Number(values.find((part) => part.type === type)?.value || 0);
+    const representedAsUtc = Date.UTC(
+      value('year'),
+      value('month') - 1,
+      value('day'),
+      value('hour'),
+      value('minute')
+    );
+    return representedAsUtc - Math.floor(instant / 60000) * 60000;
+  };
+
+  let candidate = wallClockUtc - getOffset(wallClockUtc);
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const next = wallClockUtc - getOffset(candidate);
+    if (next === candidate) break;
+    candidate = next;
+  }
+
+  const actual = formatter.formatToParts(new Date(candidate));
+  const value = (type: string) => Number(actual.find((part) => part.type === type)?.value || 0);
+  if (
+    value('year') !== year ||
+    value('month') !== month ||
+    value('day') !== day ||
+    value('hour') !== hour ||
+    value('minute') !== minute
+  ) throw new Error('This local time does not exist because of a daylight-saving-time transition');
+
+  return new Date(candidate);
+};
+
+/** Add calendar days in an IANA timezone without relying on the browser's timezone or fixed 24-hour durations. */
+export const addCalendarDaysInTimezone = (instant: Date, timeZone: string, days: number): string => {
+  if (!Number.isFinite(instant.getTime()) || !Number.isInteger(days)) {
+    throw new Error('Invalid instant or calendar-day offset');
+  }
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(instant);
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value || 0);
+  const calendarDate = new Date(Date.UTC(value('year'), value('month') - 1, value('day') + days));
+  return [
+    calendarDate.getUTCFullYear().toString().padStart(4, '0'),
+    String(calendarDate.getUTCMonth() + 1).padStart(2, '0'),
+    String(calendarDate.getUTCDate()).padStart(2, '0'),
+  ].join('-');
+};
+
+/** Format an instant as a date/time pair in the selected IANA timezone. */
+export const formatInstantInTimezone = (instant: Date, timeZone: string): { date: string; time: string } => {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(instant);
+  const value = (type: string) => parts.find((part) => part.type === type)?.value || '00';
+  return {
+    date: `${value('year')}-${value('month')}-${value('day')}`,
+    time: `${value('hour')}:${value('minute')}`,
+  };
+};
+
+/** Build a Sunday-first six-week month grid using the selected timezone's current month. */
+export const getCalendarMonthGrid = (
+  instant: Date,
+  timeZone: string
+): Array<{ dateStr: string; dayNumber: number; isCurrentMonth: boolean }> => {
+  if (!Number.isFinite(instant.getTime())) throw new Error('Invalid instant');
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+  }).formatToParts(instant);
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value || 0);
+  const year = value('year');
+  const month = value('month');
+  if (!year || month < 1 || month > 12) throw new Error('Invalid calendar month');
+
+  const firstOfMonth = new Date(Date.UTC(year, month - 1, 1));
+  const gridStart = new Date(Date.UTC(year, month - 1, 1 - firstOfMonth.getUTCDay()));
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(Date.UTC(
+      gridStart.getUTCFullYear(),
+      gridStart.getUTCMonth(),
+      gridStart.getUTCDate() + index
+    ));
+    return {
+      dateStr: [
+        date.getUTCFullYear().toString().padStart(4, '0'),
+        String(date.getUTCMonth() + 1).padStart(2, '0'),
+        String(date.getUTCDate()).padStart(2, '0'),
+      ].join('-'),
+      dayNumber: date.getUTCDate(),
+      isCurrentMonth: date.getUTCFullYear() === year && date.getUTCMonth() === month - 1,
+    };
+  });
 };

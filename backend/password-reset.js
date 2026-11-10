@@ -5,100 +5,105 @@ const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const supabase = require("./supabase");
 const { httpError } = require("./validate");
+const { getEmailCopy } = require("./email-locales");
+const { transactionalMailConfigured, sendMail } = require("./mail");
 
 const TTL_MINUTES = 60;
+const RESEND_INTERVAL_SECONDS = 300; // не чаще одного письма восстановления за 5 минут на аккаунт
 
 function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
-function mailConfigured() {
-  return !!(process.env.MAIL_SMTP_HOST && process.env.MAIL_USER && process.env.MAIL_PASS);
-}
-
-async function sendResetEmail(to, resetUrl) {
-  const nodemailer = require("nodemailer");
-  const transporter = nodemailer.createTransport({
-    host: process.env.MAIL_SMTP_HOST,
-    port: Number(process.env.MAIL_SMTP_PORT || 465),
-    secure: Number(process.env.MAIL_SMTP_PORT || 465) === 465,
-    auth: { user: process.env.MAIL_USER, pass: process.env.MAIL_PASS },
-  });
-  await transporter.sendMail({
-    from: process.env.MAIL_FROM || process.env.MAIL_USER,
+async function sendResetEmail(to, resetUrl, language = "en") {
+  const copy = getEmailCopy(language);
+  return sendMail({
     to,
-    subject: "PinPosy — восстановление пароля",
-    text: `Здравствуйте!\n\nВы запросили восстановление пароля PinPosy.\nСсылка для смены пароля (действует ${TTL_MINUTES} минут, одноразовая):\n${resetUrl}\n\nЕсли вы не запрашивали сброс — просто проигнорируйте это письмо, пароль не изменится.\n\n— команда PinPosy`,
+    subject: copy.resetSubject,
+    text: [copy.hello, "", copy.resetLead, copy.resetLink, resetUrl, "", copy.resetIgnore, "", copy.team].join("\n"),
   });
 }
 
-// Просьба сброса: ответ всегда одинаковый (не раскрываем, есть ли такой email)
-async function requestReset(rawEmail, frontendUrl) {
+// Просьба сброса: ответ всегда одинаковый (не раскрываем, есть ли такой email).
+// frontendUrl оставлен в сигнатуре для совместимости, но публичному запросу не доверяем.
+async function requestReset(rawEmail, _frontendUrl, requestedLanguage) {
   const { validateEmail } = require("./validate");
   const email = validateEmail(rawEmail);
 
-  const { data: user } = await supabase
+  const { data: user, error: lookupError } = await supabase
     .from("users")
-    .select("id")
+    .select("id, preferred_language")
     .eq("email", email)
     .maybeSingle();
 
-  if (user) {
-    const token = crypto.randomBytes(32).toString("base64url");
-    const { error } = await supabase.from("auth_tokens").insert({
-      user_id: String(user.id),
-      token_hash: sha256(token),
-      purpose: "password_reset",
-      expires_at: new Date(Date.now() + TTL_MINUTES * 60 * 1000).toISOString(),
-    });
-    if (error) throw httpError(500, "Не удалось создать ссылку восстановления");
+  if (lookupError) {
+    console.error("[password-reset] не удалось проверить аккаунт:", lookupError.message);
+    throw httpError(503, "Сервис восстановления пароля временно недоступен — попробуйте позже");
+  }
 
-    if (mailConfigured()) {
-      const base = frontendUrl || process.env.FRONTEND_URL || "https://pinposy.com";
+  if (user && transactionalMailConfigured()) {
+    const token = crypto.randomBytes(32).toString("base64url");
+    const { data: issued, error } = await supabase.rpc("issue_password_reset_token", {
+      p_user_id: String(user.id),
+      p_token_hash: sha256(token),
+      p_expires_at: new Date(Date.now() + TTL_MINUTES * 60 * 1000).toISOString(),
+      p_min_interval_seconds: RESEND_INTERVAL_SECONDS,
+    });
+    if (error || issued !== true) {
+      if (error) {
+        console.error("[password-reset] не удалось создать токен:", error.message);
+      } else {
+        // Cooldown or missing user: intentionally identical public response.
+        console.info("[password-reset] запрос пропущен ограничением частоты или отсутствием аккаунта");
+      }
+      // Не раскрываем существование аккаунта через различия ответов.
+    } else {
+      const base = (process.env.FRONTEND_URL || "https://pinposy.com")
+        .split(",")[0].trim().replace(/\/$/, "");
       try {
-        await sendResetEmail(email, `${base}/reset-password?token=${token}`);
+        await sendResetEmail(
+          email,
+          `${base}/reset-password#token=${encodeURIComponent(token)}`,
+          user.preferred_language || requestedLanguage
+        );
       } catch (e) {
         console.error("[password-reset] письмо не отправлено:", e.message);
-        throw httpError(503, "Почтовый сервис не отвечает — попробуйте позже");
       }
-    } else {
-      console.warn("[password-reset] MAIL_* не заданы — ссылка не отправлена");
-      throw httpError(503, "Восстановление по email пока не настроено — напишите на support@pinposy.com");
     }
+  } else if (user) {
+    console.warn("[password-reset] транзакционная почта не настроена");
   }
-  // Одинаковый ответ для существующих и несуществующих адресов — защита от перебора
+
   return {
     ok: true,
     message: "Если такой email зарегистрирован, письмо со ссылкой уже отправлено. Проверьте почту.",
   };
 }
 
-// Смена пароля по одноразовому токену
+// Смена пароля по одноразовому токену.
+// Проверка токена, смена пароля и его погашение выполняются одной SQL-транзакцией
+// (миграция 020), поэтому параллельные запросы не могут применить ссылку дважды.
 async function applyReset(rawToken, rawPassword) {
   const { validatePassword } = require("./validate");
   const password = validatePassword(rawPassword);
-  if (!rawToken || typeof rawToken !== "string") throw httpError(422, "Ссылка недействительна");
-
-  const { data: row } = await supabase
-    .from("auth_tokens")
-    .select("id, user_id, expires_at, used_at")
-    .eq("token_hash", sha256(rawToken))
-    .eq("purpose", "password_reset")
-    .maybeSingle();
-
-  // Одинаковый ответ и для просроченного, и для использованного, и для выдуманного токена
-  if (!row || row.used_at || new Date(row.expires_at) < new Date()) {
-    throw httpError(422, "Ссылка недействительна или устарела — запросите новую");
+  if (!rawToken || typeof rawToken !== "string" || rawToken.length > 512) {
+    throw httpError(422, "Ссылка недействительна");
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const { error: updErr } = await supabase
-    .from("users")
-    .update({ password_hash: passwordHash })
-    .eq("id", row.user_id);
-  if (updErr) throw httpError(500, "Не удалось обновить пароль — попробуйте позже");
+  const { data, error } = await supabase.rpc("consume_password_reset_token", {
+    p_token_hash: sha256(rawToken),
+    p_password_hash: passwordHash,
+  });
 
-  await supabase.from("auth_tokens").update({ used_at: new Date().toISOString() }).eq("id", row.id);
+  if (error) {
+    console.error("[password-reset] атомарная смена пароля не выполнена:", error.message);
+    throw httpError(500, "Не удалось обновить пароль — попробуйте позже");
+  }
+  if (data !== true) {
+    throw httpError(422, "Ссылка недействительна или устарела — запросите новую");
+  }
+
   return { ok: true, message: "Пароль изменён. Теперь войдите с новым паролем." };
 }
 

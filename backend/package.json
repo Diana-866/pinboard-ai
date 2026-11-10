@@ -4,7 +4,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "node --test"
+    "test": "node --test",
+    "worker": "node scheduleWorker.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

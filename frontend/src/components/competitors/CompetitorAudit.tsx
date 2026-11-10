@@ -146,28 +146,19 @@ export const CompetitorAudit: React.FC<CompetitorAuditProps> = ({
       name: `${clean.charAt(0).toUpperCase() + clean.slice(1)} Studio`,
       handle: `@${clean.toLowerCase()}`,
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face',
-      monthlyViews: 1850000,
-      monthlyImpressions: 4200000,
-      monthlySaves: 124000,
-      saveRate: 5.9,
-      followers: 74200,
-      pinFrequency: 11,
-      topBoard: 'Aesthetic Inspiration & Living',
-      bestTimeToPin: '8:30 PM EST',
-      visualCtrScore: 8.9,
-      dominantFormat: '2:3 Multi-frame Collage',
-      growth30d: 11.4,
+      monthlyViews: 0,
+      monthlyImpressions: 0,
+      monthlySaves: 0,
+      saveRate: 0,
+      followers: 0,
+      pinFrequency: 0,
+      topBoard: '',
+      bestTimeToPin: '',
+      visualCtrScore: 0,
+      dominantFormat: '',
+      growth30d: 0,
       gapKeywords: [`${clean} aesthetic ideas`, 'minimalist decor hacks', 'warm interior pins'],
-      topViralPins: [
-        {
-          id: `cvp-${Date.now()}-1`,
-          title: `Trending ${clean} Aesthetic Room Transformation Ideas`,
-          image: '/src/assets/images/pin_home_decor_1790670043705.jpg',
-          saves: 14200,
-          impressions: 280000,
-          ctr: '4.5%',
-        },
-      ],
+      topViralPins: [],
     };
 
     setCompetitors([newComp, ...competitors]);
@@ -183,28 +174,19 @@ export const CompetitorAudit: React.FC<CompetitorAuditProps> = ({
       name: sug.name,
       handle: sug.handle,
       avatar: sug.avatar,
-      monthlyViews: sug.monthlyViews,
-      monthlyImpressions: Math.round(sug.monthlyViews * 2.2),
-      monthlySaves: Math.round(sug.monthlyViews * 0.05),
-      saveRate: 5.4,
-      followers: sug.followers,
-      pinFrequency: 8,
-      topBoard: sug.niche,
-      bestTimeToPin: '19:30 UTC',
-      visualCtrScore: 9.1,
-      dominantFormat: '9:16 Fullscreen Aesthetic',
-      growth30d: 14.8,
+      monthlyViews: 0,
+      monthlyImpressions: 0,
+      monthlySaves: 0,
+      saveRate: 0,
+      followers: 0,
+      pinFrequency: 0,
+      topBoard: '',
+      bestTimeToPin: '',
+      visualCtrScore: 0,
+      dominantFormat: '',
+      growth30d: 0,
       gapKeywords: sug.sampleKeywords,
-      topViralPins: [
-        {
-          id: `cvp-${Date.now()}-sug`,
-          title: `Aesthetic ${sug.name} Best Design Ideas`,
-          image: '/src/assets/images/pin_home_decor_1790670043705.jpg',
-          saves: 18400,
-          impressions: 310000,
-          ctr: '4.9%',
-        },
-      ],
+      topViralPins: [],
     };
 
     setCompetitors((prev) => [newComp, ...prev]);
@@ -212,13 +194,13 @@ export const CompetitorAudit: React.FC<CompetitorAuditProps> = ({
     setAddedHandles((prev) => new Set(prev).add(sug.handle));
 
     enqueueTask({
-      title: `Конкурент ${sug.handle} добавлен`,
-      message: `Запущен фоновый сбор аналитики и вирусных пинов по аккаунту ${sug.name}.`,
+      title: t.competitors.addedToAudit,
+      message: t.competitors.dataDemoNotice,
       type: 'competitor',
       actionTab: 'competitors',
       durationMs: 4000,
-      completionTitle: `Аудит ${sug.handle} готов!`,
-      completionMessage: `Собрано 12 вирусных пинов и 3 контентных разрыва для аккаунта ${sug.name}.`,
+      completionTitle: t.competitors.addedToAudit,
+      completionMessage: t.competitors.dataDemoNotice,
     });
   };
 
@@ -233,6 +215,7 @@ export const CompetitorAudit: React.FC<CompetitorAuditProps> = ({
           {t.competitors.subtitle}
         </p>
       </div>
+      <p className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-secondary-theme" role="note">{t.competitors.dataDemoNotice}</p>
 
       {/* Add Competitor Bar */}
       <form onSubmit={handleAddCompetitor} className="custom-card p-3 rounded-2xl flex items-center gap-2">
@@ -289,7 +272,7 @@ export const CompetitorAudit: React.FC<CompetitorAuditProps> = ({
                     {t.competitors.monthlyViews}
                   </span>
                   <span className="font-mono font-bold text-primary-theme">
-                    {formatNumber(comp.monthlyViews)}
+                    {comp.monthlyViews > 0 ? formatNumber(comp.monthlyViews) : '—'}
                   </span>
                 </div>
                 <div>
@@ -297,7 +280,7 @@ export const CompetitorAudit: React.FC<CompetitorAuditProps> = ({
                     {t.competitors.saves}
                   </span>
                   <span className="font-mono font-bold text-primary-theme">
-                    {formatNumber(comp.monthlySaves || 120000)}
+                    {comp.monthlySaves > 0 ? formatNumber(comp.monthlySaves) : '—'}
                   </span>
                 </div>
               </div>
@@ -305,10 +288,10 @@ export const CompetitorAudit: React.FC<CompetitorAuditProps> = ({
               <div className="flex items-center justify-between text-[11px] pt-1 text-secondary-theme">
                 <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3 text-muted-theme" />
-                  <span>{comp.bestTimeToPin}</span>
+                  <span>{comp.bestTimeToPin || '—'}</span>
                 </span>
                 <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                  +{comp.growth30d}% 30d
+                  {comp.growth30d > 0 ? `+${comp.growth30d}% 30d` : '—'}
                 </span>
               </div>
             </div>
@@ -464,13 +447,13 @@ export const CompetitorAudit: React.FC<CompetitorAuditProps> = ({
               </a>
             </div>
             <p className="text-xs text-secondary-theme mt-1">
-              {t.competitors.dominantFormatLabel}: <span className="font-semibold text-primary-theme">{selectedCompetitor.dominantFormat}</span> · {selectedCompetitor.pinFrequency} {t.competitors.pinsPerDayLabel}
+              {selectedCompetitor.dominantFormat || '—'} · {selectedCompetitor.pinFrequency > 0 ? selectedCompetitor.pinFrequency : '—'} {t.competitors.pinsPerDayLabel}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              Visual CTR Score: {selectedCompetitor.visualCtrScore} / 10
+              Visual CTR Score: {selectedCompetitor.visualCtrScore > 0 ? `${selectedCompetitor.visualCtrScore} / 10` : '—'}
             </span>
           </div>
         </div>
@@ -482,7 +465,7 @@ export const CompetitorAudit: React.FC<CompetitorAuditProps> = ({
               {t.competitors.impressionsTotal}
             </span>
             <span className="text-base md:text-lg font-mono font-bold text-primary-theme">
-              {formatNumber(selectedCompetitor.monthlyImpressions || 8900000)}
+              {selectedCompetitor.monthlyImpressions > 0 ? formatNumber(selectedCompetitor.monthlyImpressions) : '—'}
             </span>
           </div>
 
@@ -491,7 +474,7 @@ export const CompetitorAudit: React.FC<CompetitorAuditProps> = ({
               {t.competitors.savesTotal}
             </span>
             <span className="text-base md:text-lg font-mono font-bold text-emerald-600 dark:text-emerald-400">
-              {formatNumber(selectedCompetitor.monthlySaves || 245000)}
+              {selectedCompetitor.monthlySaves > 0 ? formatNumber(selectedCompetitor.monthlySaves) : '—'}
             </span>
           </div>
 
@@ -500,7 +483,7 @@ export const CompetitorAudit: React.FC<CompetitorAuditProps> = ({
               {t.competitors.saveRateMetric}
             </span>
             <span className="text-base md:text-lg font-mono font-bold text-primary-theme">
-              {selectedCompetitor.saveRate || 6.4}%
+              {selectedCompetitor.saveRate > 0 ? `${selectedCompetitor.saveRate}%` : '—'}
             </span>
           </div>
 
@@ -509,7 +492,7 @@ export const CompetitorAudit: React.FC<CompetitorAuditProps> = ({
               {t.competitors.followersCount}
             </span>
             <span className="text-base md:text-lg font-mono font-bold text-primary-theme">
-              {formatNumber(selectedCompetitor.followers)}
+              {selectedCompetitor.followers > 0 ? formatNumber(selectedCompetitor.followers) : '—'}
             </span>
           </div>
         </div>

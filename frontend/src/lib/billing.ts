@@ -1,6 +1,50 @@
-import { apiRequest } from './api';
+import { apiRequest, ApiError } from './api';
 
 export type PayablePlan = 'analytics' | 'start' | 'pro' | 'agency';
+
+const paymentIdempotencyKeys = new Map<string, string>();
+
+function getPaymentIdempotencyKey(scope: string): string {
+  const storageKey = `pinposy:payment-idempotency:${scope}`;
+  try {
+    const saved = window.localStorage.getItem(storageKey);
+    if (saved && /^[A-Za-z0-9_-]{16,128}$/.test(saved)) return saved;
+    const key = typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : Array.from(crypto.getRandomValues(new Uint8Array(24)), (byte) => byte.toString(16).padStart(2, "0")).join("");
+    window.localStorage.setItem(storageKey, key);
+    return key;
+  } catch {
+    const saved = paymentIdempotencyKeys.get(storageKey);
+    if (saved) return saved;
+    const key = typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : Array.from(crypto.getRandomValues(new Uint8Array(24)), (byte) => byte.toString(16).padStart(2, "0")).join("");
+    paymentIdempotencyKeys.set(storageKey, key);
+    return key;
+  }
+}
+
+function releaseFailedPaymentIdempotencyKey(scope: string, error: unknown): void {
+  // The server marks requests failed only before calling Prodamus. Unlike an
+  // unknown provider outcome, this state is safe to retry with a fresh key.
+  if (
+    error instanceof ApiError &&
+    ['payment_request_not_reusable', 'payment_already_settled'].includes(String(error.data?.code || ''))
+  ) {
+    clearPaymentIdempotencyKey(scope);
+  }
+}
+
+function clearPaymentIdempotencyKey(scope: string): void {
+  const storageKey = `pinposy:payment-idempotency:${scope}`;
+  paymentIdempotencyKeys.delete(storageKey);
+  try {
+    window.localStorage.removeItem(storageKey);
+  } catch {
+    // The in-memory key is still cleared when browser storage is unavailable.
+  }
+}
 
 export interface PaymentIntent {
   ok: boolean;
@@ -22,13 +66,23 @@ export async function startPayment(
   plan: PayablePlan,
   currency: 'rub' | 'usd' = 'rub'
 ): Promise<PaymentIntent> {
-  const data: PaymentIntent = await apiRequest('/billing/create-payment', {
-    method: 'POST',
-    body: JSON.stringify({ plan, currency }),
-  });
+  const scope = `subscription:${plan}:${currency}`;
+  const idempotencyKey = getPaymentIdempotencyKey(scope);
+  let data: PaymentIntent;
+  try {
+    data = await apiRequest('/billing/create-payment', {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify({ plan, currency }),
+    });
+  } catch (error) {
+    releaseFailedPaymentIdempotencyKey(scope, error);
+    throw error;
+  }
   if (!data?.payment_url) {
     throw new Error('Сервер не вернул ссылку на оплату. Попробуйте ещё раз или напишите в поддержку.');
   }
+  clearPaymentIdempotencyKey(scope);
   return data;
 }
 
@@ -96,13 +150,23 @@ export async function fetchCreditPacks(): Promise<CreditPack[]> {
 
 /** Покупка пакета: POST /billing/credits { package_id } → pending-покупка + ссылка Prodamus */
 export async function startCreditsPurchase(packageId: string): Promise<CreditsPaymentIntent> {
-  const data: CreditsPaymentIntent = await apiRequest('/billing/credits', {
-    method: 'POST',
-    body: JSON.stringify({ package_id: packageId }),
-  });
+  const scope = `credits:${packageId}:rub`;
+  const idempotencyKey = getPaymentIdempotencyKey(scope);
+  let data: CreditsPaymentIntent;
+  try {
+    data = await apiRequest('/billing/credits', {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify({ package_id: packageId }),
+    });
+  } catch (error) {
+    releaseFailedPaymentIdempotencyKey(scope, error);
+    throw error;
+  }
   if (!data?.payment_url) {
     throw new Error('Сервер не вернул ссылку на оплату. Попробуйте ещё раз или напишите в поддержку.');
   }
+  clearPaymentIdempotencyKey(scope);
   return data;
 }
 

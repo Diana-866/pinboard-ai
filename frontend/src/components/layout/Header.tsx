@@ -90,7 +90,7 @@ export const Header: React.FC<HeaderProps> = ({
       case 'analytics': return t.nav.analytics;
       case 'pricing': return t.nav.pricing;
       case 'settings': return t.nav.settings;
-      case 'review': return 'Проверка пинов';
+      case 'review': return t.nav.reviewPins;
       default: return t.nav.dashboard;
     }
   };
@@ -158,8 +158,8 @@ export const Header: React.FC<HeaderProps> = ({
                   </h4>
                   <p className="text-[10px] text-muted-theme">
                     {activeQueueCount > 0
-                      ? `${activeQueueCount} в очереди Smart Queue`
-                      : 'Все задачи синхронизированы'}
+                      ? t.notifications.smartQueueCount.replace('{count}', String(activeQueueCount))
+                      : t.notifications.allTasksSynced}
                   </p>
                 </div>
 
@@ -292,7 +292,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <div className="p-2.5 bg-subtle border-t border-subtle flex items-center justify-between text-xs">
                   <span className="text-secondary-theme text-[11px] flex items-center gap-1.5">
                     <Bot className="w-3.5 h-3.5 text-accent-ghost" />
-                    <span>Нужен разбор аналитики?</span>
+                    <span>{t.notifications.strategistPrompt}</span>
                   </span>
                   <button
                     type="button"
@@ -302,7 +302,7 @@ export const Header: React.FC<HeaderProps> = ({
                     }}
                     className="text-[11px] font-bold accent-ghost hover:underline cursor-pointer"
                   >
-                    Спросить ИИ-стратега →
+                    {t.notifications.askStrategist}
                   </button>
                 </div>
               )}
@@ -374,7 +374,7 @@ export const Header: React.FC<HeaderProps> = ({
               setThemeDropdownOpen(false);
             }}
             className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg text-secondary-theme hover:text-primary-theme hover:bg-subtle border border-subtle transition-colors"
-            title="Switch Language"
+            title={t.settings.languageSection}
             aria-expanded={langDropdownOpen}
           >
             <Globe className="w-3.5 h-3.5" />
@@ -416,7 +416,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onOpenBot}
             className="p-2 rounded-lg text-secondary-theme hover:text-primary-theme hover:bg-subtle border border-subtle transition-colors cursor-pointer hidden xs:flex items-center"
-            title="Открыть ИИ-стратега PinPosy"
+            title={t.notifications.strategistTitle}
           >
             <Bot className="w-4 h-4 text-accent-ghost" />
           </button>

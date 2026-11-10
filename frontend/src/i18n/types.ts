@@ -94,12 +94,30 @@ export interface TranslationSchema {
     connected: string;
     switchTheme: string;
     userProfile: string;
-    pinterestAccounts: string;
     connectAccount: string;
     unlimited: string;
     logout: string;
     login: string;
     changeAvatar: string;
+    planLabel: string;
+    plans: string;
+    pinterestAccounts: string;
+    accountCountTemplate: string;
+    connectPinterestAccount: string;
+    accountLimitTemplate: string;
+    removeLimit: string;
+    syncStatus: string;
+    avatarClickTitle: string;
+    configureAvatar: string;
+    avatarModalTitle: string;
+    currentAvatarAlt: string;
+    avatarLetterTemplate: string;
+    customPhoto: string;
+    uploadCustomImage: string;
+    chooseFile: string;
+    useNameInitial: string;
+    useInitialAvatar: string;
+    choosePresetAvatar: string;
   };
 
   // Dashboard
@@ -128,6 +146,10 @@ export interface TranslationSchema {
     autoScheduleTitle: string;
     configureTimeBtn: string;
     serverExecutionNote: string;
+    dataNoticeTitle: string;
+    dataNoticeDescription: string;
+    boardMetricsUnavailable: string;
+    emptyBoards: string;
   };
 
   // Pin Generator
@@ -150,6 +172,38 @@ export interface TranslationSchema {
     topicLabel: string;
     topicPlaceholder: string;
     targetBoardLabel: string;
+    contentLanguageLabel: string;
+    schedulingSectionTitle: string;
+    autoPostingLabel: string;
+    publishNowLabel: string;
+    publishNowDescription: string;
+    smartQueueLabel: string;
+    smartQueueDescription: string;
+    customDateTimeLabel: string;
+    customDateTimeDescription: string;
+    publishDateLabel: string;
+    publishTimeLabel: string;
+    pinterestBoardForPublishingLabel: string;
+    noBoardOption: string;
+    noBoardWarning: string;
+    recommendedBadge: string;
+    errorNoBoard: string;
+    errorNoPins: string;
+    errorGeneratePins: string;
+    errorSaveTitle: string;
+    errorSaveSchedule: string;
+    errorSaveDescription: string;
+    scheduledToastTitle: string;
+    scheduledToastMessageTemplate: string;
+    scheduledCompletionTitle: string;
+    scheduledCompletionMessageTemplate: string;
+    decreasePinsTitle: string;
+    increasePinsTitle: string;
+    pinCounterTemplate: string;
+    aspectGuideStandard: string;
+    aspectGuideStory: string;
+    aspectGuideEditorial: string;
+    aspectGuideSquare: string;
     pinToneLabel: string;
     tones: {
       inspirational: string;
@@ -163,6 +217,10 @@ export interface TranslationSchema {
     resultsTitle: string;
     titleOptions: string;
     descriptionLabel: string;
+    descriptionSaving: string;
+    descriptionSaved: string;
+    descriptionSaveError: string;
+    retryDescriptionSave: string;
     altTextLabel: string;
     targetUrlLabel: string;
     targetUrlPlaceholder: string;
@@ -185,6 +243,7 @@ export interface TranslationSchema {
   keywords: {
     title: string;
     subtitle: string;
+    dataDemoNotice: string;
     searchPlaceholder: string;
     categoryFilter: string;
     categories: {
@@ -214,6 +273,7 @@ export interface TranslationSchema {
   competitors: {
     title: string;
     subtitle: string;
+    dataDemoNotice: string;
     trackedCompetitors: string;
     addCompetitorBtn: string;
     inputPlaceholder: string;
@@ -261,12 +321,52 @@ export interface TranslationSchema {
     emptyDay: string;
     statusScheduled: string;
     statusPublished: string;
+    statusCancelled: string;
+    openPinterestPin: string;
     statusDraft: string;
     optimalSlotBadge: string;
     pinDetailsModal: string;
     timezoneLabel: string;
     serverTimeNote: string;
     chooseTimezone: string;
+    scheduleDescription: string;
+    reviewQueueLabel: string;
+    cadenceSettingsTitle: string;
+    cadenceSettingsDescription: string;
+    autoGenerationLabel: string;
+    autoGenerationTitle: string;
+    autoGenerationOff: string;
+    timezonePickerTitle: string;
+    settingsForLabel: string;
+    minPerDayLabel: string;
+    maxPerDayLabel: string;
+    queueForAccountLabel: string;
+    reviewButton: string;
+    quickTimePresetsLabel: string;
+    dailyGenerationHint: string;
+    weekInstruction: string;
+    allAccounts: string;
+    statusPublishing: string;
+    statusFailed: string;
+    statusUnknown: string;
+    unknownPublishHelpTitle: string;
+    unknownPublishHelpBody: string;
+    statusQueued: string;
+    generateDateTitle: string;
+    primeSlotLabel: string;
+    pinCountLabel: string;
+    optimalLabel: string;
+    moreLabel: string;
+    emptyQueue: string;
+    topicLabel: string;
+    topicPlaceholder: string;
+    targetBoardLabel: string;
+    dateSavedHint: string;
+    generateDateButton: string;
+    cancelScheduledPin: string;
+    retryFailedPin: string;
+    cancelScheduledPinConfirm: string;
+    autoTimeMoscowTemplate: string;
   };
 
   // Boards
@@ -281,6 +381,20 @@ export interface TranslationSchema {
     optimizeBoardBtn: string;
     targetPinsWeekly: string;
     recommendedKeywords: string;
+    boardTitleLabel: string;
+    boardTitlePlaceholder: string;
+    boardCategoryLabel: string;
+    categoryHomeDecor: string;
+    categoryRecipes: string;
+    categoryWellness: string;
+    categoryTravel: string;
+    categoryDigitalProducts: string;
+    categoryFashion: string;
+    savingLabel: string;
+    saveErrorFallback: string;
+    loadingLabel: string;
+    retryLabel: string;
+    loadErrorFallback: string;
   };
 
   // Analytics
@@ -296,6 +410,8 @@ export interface TranslationSchema {
     topPerformingPins: string;
     seoHealthIndex: string;
     growthOpportunities: string;
+    dataUnavailableTitle: string;
+    dataUnavailableDescription: string;
   };
 
   // Settings
@@ -316,12 +432,56 @@ export interface TranslationSchema {
     languageSectionDesc: string;
     connectedAccountSection: string;
     connectedAccountDesc: string;
+    connectedAccountsCount: string;
+    noAccountsConnected: string;
+    pinterestConnectionUnavailable: string;
+    pinterestConnected: string;
+    pinterestDenied: string;
+    pinterestConnectError: string;
+    pinterestNotConfigured: string;
+    pinterestAccountLimitReached: string;
+    pinterestPlanRequired: string;
+    pinterestConnectButton: string;
+    selectPinterestAccount: string;
+    pinterestBoardsTitle: string;
+    pinterestBoardsEmpty: string;
+    pinterestAccountIdLabel: string;
+    pinterestDisconnected: string;
+    pinterestDisconnectWarning: string;
+    pinterestAccountFallback: string;
+    pinterestReauthRequired: string;
+    pinterestReauthDescription: string;
+    pinterestPinsLabel: string;
     billingSection: string;
     billingSectionDesc: string;
     currentPlan: string;
+    noActivePlan: string;
     upgradePlan: string;
     creditsUsed: string;
     resetCycle: string;
+    timezoneSection: string;
+    timezoneSectionDesc: string;
+    timezoneAutoDetected: string;
+    scheduleTitle: string;
+    scheduleLocal: string;
+    scheduleWithServer: string;
+    schedulePaused: string;
+    autoLabel: string;
+    apiVerified: string;
+    syncData: string;
+    disconnectAccount: string;
+    makeActive: string;
+    activeProfile: string;
+    boardsCount: string;
+    monthlyViews: string;
+    pinsPerDay: string;
+    autoEnabled: string;
+    autoDisabled: string;
+    timeSaved: string;
+    timeSavedMsk: string;
+    accountLimitReached: string;
+    accountLimitDesc: string;
+    changePlan: string;
   };
 
   // Pricing & Credits
@@ -330,6 +490,7 @@ export interface TranslationSchema {
     subtitle: string;
     currencyRub: string;
     currencyUsd: string;
+    creditPacksCurrencyNotice: string;
     tabPlans: string;
     tabCredits: string;
     balanceTitle: string;
@@ -426,9 +587,13 @@ export interface TranslationSchema {
     floatingButton: string;
     title: string;
     subtitle: string;
-    statusOnline: string;
+    statusBadge: string;
     disclaimerPeak: string;
     welcomeMessage: string;
+    demoReply: string;
+    openSection: string;
+    dock: string;
+    undock: string;
     quickQuestion1: string;
     quickAnswer1: string;
     quickQuestion2: string;
@@ -458,6 +623,11 @@ export interface TranslationSchema {
     statusInProgress: string;
     statusReady: string;
     viewResult: string;
+    smartQueueCount: string;
+    allTasksSynced: string;
+    strategistPrompt: string;
+    askStrategist: string;
+    strategistTitle: string;
   };
 
   // Terms & Peak Load Policy
