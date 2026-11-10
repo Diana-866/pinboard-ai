@@ -2783,3 +2783,10 @@ Date: 2026-11-10
 - Тесты/lint/typecheck/build/live DB checks не запускались. Нет GPTunnel calls, Supabase actions, payments или deploy.
 - После решения — добавить тесты: cost_missing row persisted, quote callback not called, image submit not called, request failed (not unknown), reservation released; затем проверить реальный CI run.
 
+
+
+## Дополнение к handoff — 2026-11-10 (AUD-340)
+
+- Исправлена нормализация чисел usage в `backend/gptunnel.js`: пустые/пробельные строки, boolean, object и нечисловые значения больше не превращаются через `Number(...)` в ложный ноль; валидные числа и непустые числовые строки поддержаны.
+- `usage.total_cost` использует тот же строгий парсер. Добавлены regression cases для malformed metadata, numeric-string и реального числового нуля.
+- AUD-340: source change committed and read-back verified; Node tests/lint/build/CI не запускались. Политика AUD-339 (fail-closed vs continue-and-reconcile) остаётся отдельным product decision. Production не менялся.
