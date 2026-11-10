@@ -128,6 +128,39 @@ begin
   if not v_failed then
     raise exception 'settlement must reject a mismatched local payment record';
   end if;
+
+  -- A success-looking row without the atomic credit marker is not fulfilled.
+  insert into public.credit_purchases(
+    user_id, package_id, pack_title, credits, status, provider_payment_id,
+    amount, currency, paid_at, balance_credited_at
+  ) values (
+    v_user_id::text, 'pack_100', '100 credits', 100, 'success',
+    'pp-settlement-credit-uncredited', 190, 'rub', now(), null
+  ) returning id into v_purchase_id;
+
+  select public.begin_payment_creation_request(
+    v_user_id::text, 'settlement-credit-key-002',
+    'credits', repeat('a', 64)
+  ) into v_state;
+  perform public.attach_payment_creation_order(
+    v_user_id::text, 'settlement-credit-key-002', 'pp-settlement-credit-uncredited'
+  );
+
+  v_failed := false;
+  begin
+    perform public.settle_payment_creation_request(
+      'pp-settlement-credit-uncredited', 'credits', v_purchase_id
+    );
+  exception when others then
+    if sqlerrm like '%local payment is not exactly fulfilled%' then
+      v_failed := true;
+    else
+      raise;
+    end if;
+  end;
+  if not v_failed then
+    raise exception 'credit purchase without balance_credited_at must not settle';
+  end if;
 end;
 $$;
 
