@@ -2879,3 +2879,15 @@ Date: 2026-11-10
 - Важнейшие P0: независимые encrypted DB backups, Storage backups/checksum, escrow current+previous PINTEREST_TOKEN_ENCRYPTION_KEY, изолированный restore drill с проверкой расшифровки тестового токена.
 - RPO/RTO остаются unknown; automatic failover не подтверждён. Не обещать восстановление до фактического теста.
 - AUD-348 report сохранён. Live provider checks/restore/failover/tests/lint/build/CI не выполнялись; production не менялся.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-349)
+
+- Проведён source-level аудит capacity/performance/horizontal scaling. Никакие значения одновременных пользователей (100/500/1000) нельзя подтвердить без профиля нагрузки и staging load test.
+- Backend использует Supabase JS/PostgREST/Storage API, а не прямой pg pool в просмотренном manifest; размер DB connection pool приложения здесь не настраивается.
+- express-rate-limit MemoryStore локален каждому процессу: при нескольких backend replicas лимиты AI/auth/payment/upload/Pinterest/admin не становятся глобальными; после рестарта счётчики сбрасываются. Shared store нужен до масштабирования.
+- AI/provider и upload/rehost пути синхронны; image upload использует Multer memoryStorage, max 5 MiB/file. В коде не найден общий process-wide semaphore/admission control для дорогих операций.
+- Pinterest worker ограничивает batch до 1 записи, один активный tick, polling default 30s; реальная производительность и backlog drain rate не измерялись.
+- /health и текущие логи не дают достаточной readiness/metrics картины. Нужны CPU/RAM/event-loop/latency, Supabase API/DB/storage/egress, provider spend, worker heartbeat/backlog metrics.
+- Стадии масштабирования и критерии load test задокументированы в docs/audits/AUD-349-capacity-performance-and-horizontal-scaling.md.
+- Нет production метрик/дашбордов/нагрузочных тестов; tests/lint/build/CI не запускались. Live ресурсы/квоты/цены не проверялись; инфраструктура и production не менялись.
