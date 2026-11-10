@@ -3467,3 +3467,21 @@ Artifacts:
 - docs/proposals/account-deletion-lock-order-aud-399.md
 
 Design only: no source/SQL/migration/tests/provider calls/production changes. Next: design the Prodamus receipt-vs-entitlement transaction contract and a minimal safe first implementation slice with two-session regression tests.
+
+
+## AUD-400 — Prodamus receipt vs entitlement contract (2026-11-11)
+
+Audited current subscription and credit webhooks, migration 001 baseline, 010 credit ledger, 011 subscription activation, 029 webhook exceptions, 116–118 checkout idempotency and payment-order settlement, plus backend tests.
+
+Key result: PinPosy already has signed HMAC verification, amount/currency validation, unique credit ledger by purchase_id, balance_credited_at idempotency, subscription activation idempotency/no-downgrade, durable checkout provider order reference and webhook-before-checkout-response handling. Do not replace these wholesale.
+
+Gap: there is no immutable successful provider receipt independent from entitlement. Existing billing_webhook_exceptions is exception-only; payment_creation_requests is checkout idempotency, not provider receipt evidence. Current credit RPC locks credit_purchases then updates users; subscription RPC locks subscriptions then users; both grant regardless of account lifecycle. The baseline has users UUID and payment user_id columns TEXT—preserve until separate migration.
+
+AUD-400 designs immutable payment_provider_receipts plus mutable payment_entitlement_decisions. Backend verifies HMAC then persists receipt before fulfillment. Fulfillment RPC locks users first, then domain payment row, then decision; active users get existing exactly-once entitlement; non-active users retain paid receipt with withheld decision and receive no new credits/tariff. Preserve late success for canceled/denied purchase when account is active, unique ledger, no-downgrade, legacy orders and webhook-before-checkout-response. No provider HTTP or email inside transactions. No automatic refund.
+
+Artifacts:
+- docs/audits/AUD-400-prodamus-receipt-entitlement-contract.md
+- docs/runbooks/prodamus-receipt-entitlement-aud-400.md
+- docs/proposals/prodamus-receipt-entitlement-sql-contract-aud-400.md
+
+Design only: no source/SQL/migration/tests/provider calls/production changes. Actual Supabase catalog was not inspected; migration 124 is only a candidate, not reserved. Next: read-only schema preflight plan and design a disposable PostgreSQL two-session test harness before the first Prodamus source/migration implementation.
