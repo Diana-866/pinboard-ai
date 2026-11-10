@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, AlertCircle, Link2, Loader2, RefreshCw, Unlink } from 'lucide-react';
 import { apiRequest, ApiError } from '../../lib/api';
 import { useI18n } from '../../i18n/i18nContext';
+import { reconcileDisconnectedPinterestAccount } from './pinterestAccountState';
 
 interface PinterestAccount {
   id: string;
@@ -170,26 +171,21 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
 
       // The disconnect mutation is authoritative. Update the card immediately
       // so a failed follow-up status GET cannot leave a stale connected row.
-      const nextAccounts: PinterestAccount[] = Array.isArray(result?.accounts)
-        ? result.accounts
-        : accounts.filter((account) => account.id !== accountId);
-      const nextStatus: PinterestStatus = {
-        ...(status || { configured: true, connected: nextAccounts.length > 0 }),
-        connected: nextAccounts.length > 0,
-        account_count: nextAccounts.length,
-        accounts: nextAccounts,
-      };
+      const reconciled = reconcileDisconnectedPinterestAccount(
+        accounts,
+        status,
+        accountId,
+        Array.isArray(result?.accounts) ? result.accounts : undefined
+      );
+      const nextAccounts = reconciled.accounts;
+      const nextStatus = reconciled.status as PinterestStatus;
       boardsRequestId.current += 1;
       setBoards([]);
       setBoardsError(null);
       setBoardsLoading(false);
       setAccounts(nextAccounts);
       setStatus(nextStatus);
-      setSelectedAccountId((current) =>
-        current && current !== accountId && nextAccounts.some((account) => account.id === current)
-          ? current
-          : nextAccounts[0]?.id || null
-      );
+      setSelectedAccountId(reconciled.selectedAccountId);
       onAccountsChanged?.(nextStatus);
       setNotice(t.settings.pinterestDisconnected);
 
