@@ -1,3 +1,4 @@
+const { logError, logWarning, logInfo } = require("./safeLogger");
 // Загрузка изображений пинов в Supabase Storage (решение проблемы временных ссылок GPTunnel)
 const supabase = require("./supabase");
 const http = require("node:http");
@@ -34,7 +35,7 @@ async function ensureBucket() {
   try {
     validatePinImageBucketConfiguration({ ...bucket, name: bucket && bucket.name || BUCKET });
   } catch (error) {
-    console.error("[storage] некорректная конфигурация бакета pin-images:", error && error.code);
+    logError("storage.event");
     throw httpError(503, "Настройки бакета pin-images не соответствуют требованиям приложения");
   }
   bucketReady = true;
@@ -119,7 +120,7 @@ async function rehostImage(sourceUrl, options = {}) {
       // Without a successful lookup we cannot know whether this idempotency key
       // already owns a completed object. Do not download/re-upload blindly:
       // preserve the journaled provider result and let the same request retry.
-      console.warn("[storage] не удалось проверить ранее сохранённое изображение:", error && error.message);
+      logWarning("storage.event");
       throw httpError(503, "Не удалось проверить ранее сохранённое изображение. Повторите восстановление позже");
     }
     // A completed object must never fall through to a new upload just because
@@ -159,7 +160,7 @@ async function rehostImage(sourceUrl, options = {}) {
     };
   } catch (e) {
     if (e && e.httpStatus) throw e;
-    console.error("[storage] не удалось получить изображение от провайдера:", e && e.message);
+    logError("storage.event");
     throw httpError(502, "Не удалось безопасно получить изображение от провайдера");
   } finally {
     httpAgent.destroy();
