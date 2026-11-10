@@ -2643,3 +2643,16 @@ Date: 2026-11-10
 - New low-severity robustness finding: malformed non-string `name`/`surname` can cause `.trim()` TypeError and generic 500 during registration instead of 422. No auth bypass demonstrated.
 - No code change was made because signup enumeration response is a product UX decision and the remaining session hardening requires coordinated architectural work. Recommended next steps and test matrix are in the AUD-326 report.
 - Verification: source review only; no browser tests, SQL, production access, or live requests. No secrets, accounts, passwords, database, or deployments changed.
+
+
+## Дополнение к handoff — 2026-11-10 (AUD-329)
+
+- Добавлен `docs/audits/AUD-329-gptunnel-generation-spend-controls-review.md`.
+- Проверены GPTunnel adapter, multi-pin image generation, single-pin regeneration, provider quote/actual settlement, provider task journaling/recovery, related tests, и все прямые GPTunnel text call sites.
+- Положительные контроли: image generation и regeneration используют durable idempotency identity, точные quote, reservation до provider submission, запись provider task ID до polling, same-task recovery без повторного create, actual-price settlement и атомарное завершение.
+- Найдены два legacy text-cost пути: `POST /projects/:id/analyze` → `analyzeSite()` → legacy `generateText()`; `POST /projects/:id/boards/generate` → `generateBoards()` → legacy `generateText()`. Оба не сохраняют provider request ID/usage/RUB cost, не имеют durable operation journal или явного provider-spend budget. Первый маршрут не имеет tariff gate; второй имеет tariff gate, но не usage accounting. Оба используют общий process-local `aiLimiter`, который не является durable financial cap.
+- Перенесённый риск из AUD-132/AUD-119: text-plan cost может быть `cost_missing`, при этом image work может продолжиться; текстовый provider request не имеет подтверждённого provider idempotency/request-history механизма.
+- Не выявлен source-level duplicate image-task submission или image-credit double charge в рассмотренных основных image flows. Это не live/runtime гарантия.
+- Тесты и SQL integration harnesses просмотрены как исходники, но не запускались. Нет live GPTunnel API, PostgreSQL, production config или deployment verification.
+- Никакие исходники, миграции, provider credentials, пользовательские балансы, production services или deployments не менялись.
+- Следующий логичный этап: AUD-330 — проверка всех AI/provider entry points на наличие стоимости, учёта, тарифных ограничений и durable spend budget; затем отдельная реализация usage journal для двух legacy text routes после определения product charging policy.
