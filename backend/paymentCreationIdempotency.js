@@ -146,6 +146,7 @@ async function failPaymentCreation(userId, idempotencyKey, error) {
 module.exports = {
   beginPaymentCreation,
   completePaymentCreation,
+  settlePaymentCreationRequest,
   attachPaymentCreationOrder,
   markPaymentCreationUnknown,
   failPaymentCreation,
