@@ -2331,3 +2331,39 @@ No confirmed vulnerability in the existing success/cancel webhook handling was f
 
 - GitHub source and test review only; tests, lint, and build were not run.
 - No Prodamus API calls, sandbox payments, credit changes, subscription changes, database writes, SQL migration execution, deployment, or PR merge.
+
+
+# AUD-319 — credentials, token exposure, and administrative access audit
+
+Date: 2026-11-10
+
+## Scope
+
+Reviewed Pinterest OAuth/token persistence and API serializers, browser-binding cookie flow, session JWT handling, password reset, login/register responses, schedule serialization, admin middleware and routes, Supabase service-role configuration, error logging, /me payloads, billing health, and repository ignore rules. Source-only review; no live credentials or production systems were accessed.
+
+## Findings
+
+- **Pinterest credentials are encrypted at rest:** access and refresh tokens use AES-256-GCM with a 32-byte deployment key, random 12-byte IV and authentication tag. Key parsing rejects malformed/noncanonical base64; a previous-key option supports rotation. Legacy plaintext rows are lazily migrated using an optimistic `updated_at` compare-and-swap. Production configuration requires the encryption key before Pinterest integration is considered configured.
+- **Pinterest token fields are not part of public account serializers:** status/disconnect responses expose account IDs, Pinterest user ID, username, expiry and reauthorization state only. OAuth callback persists encrypted token values through a server-side RPC. OAuth state is signed, short-lived, purpose-bound, session-version-bound and attempt/generation-bound. Browser binding uses a random proof, stores only its hash in signed state and sets the raw proof in a Secure, HttpOnly, SameSite=Lax cookie for callback verification.
+- **Session credentials are constrained:** application JWTs are signed with HS256, explicitly verified with HS256 allowlisted, expire after seven days, and carry a token version checked against the user row on authenticated requests. Password reset stores only SHA-256 token hashes, consumes tokens atomically, increments token version and invalidates old sessions. Passwords use bcrypt hashes; login uses a dummy hash for nonexistent accounts.
+- **Schedule payloads remove private worker fields:** `sanitizeScheduleForClient` strips `last_error` and `claim_token`; the latter is a worker fencing capability. Generation recovery also uses an explicit allowlist serializer and omits prompts, provider task IDs, raw errors and tokens.
+- **Admin endpoints are protected twice:** route middleware checks the authenticated user's `is_admin` flag from the database; sensitive reconciliation RPCs are documented to recheck/lock the operator identity. The operator ID is derived from the verified JWT, not request body fields.
+- **Service-role handling is server-side:** production startup requires `SUPABASE_SERVICE_ROLE_KEY`; `.env` and `.env.*` are ignored, with only `.env.example` allowed. No credential value was found in the inspected source excerpts.
+- **Public profile payload is explicit:** `/me` uses a broad DB select for schema compatibility but serializes only approved profile, entitlement and account fields; password hash, token version and other private columns are not returned. Billing health exposes configuration booleans and webhook URL, not signing keys.
+
+## Remaining risks / follow-up
+
+- The OAuth browser-binding secret is returned once to the authenticated SPA so it can be submitted in a top-level form POST; this is an intentional handoff, and the raw value is not placed in the Pinterest redirect URL or state. Keep the start endpoint same-origin/HTTPS and avoid analytics/session-replay capture of its response/body.
+- Application error logging still logs full error objects in the common handler for 5xx responses. Reviewed paths generally pass database/provider errors, not plaintext Pinterest tokens; nevertheless, structured redaction and log-retention controls should be verified at the hosting provider. No confirmed credential leak was found in the reviewed source.
+- The repository ignore rules prevent ordinary dotenv files from being added, but do not prove that a secret was never committed historically. A repository-wide secret scan and provider-side rotation review should be done before public launch; this audit did not inspect Git history or provider secret stores.
+- Admin authorization relies on the integrity of the `users.is_admin` database field and service-role/RPC controls. Continue to restrict service-role credentials and admin account creation to trusted operators.
+- This audit did not inspect every frontend telemetry/analytics dependency or external log sink for accidental capture of OAuth handoff payloads.
+
+## Result
+
+No confirmed plaintext Pinterest token in API responses, unauthenticated admin route, password-reset token disclosure, or service-role key exposure was identified in the reviewed source. No code change was justified by current evidence.
+
+## Verification and safety
+
+- GitHub source review only; tests, lint, build, secret-history scan and dependency audit were not run.
+- No production credentials, provider calls, database reads/writes, SQL migrations, deployments or PR merge.
