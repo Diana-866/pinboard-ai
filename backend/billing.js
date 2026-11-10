@@ -9,6 +9,7 @@ const mail = require("./mail");
 const { getEmailCopy, getPlanTitle, getLocale } = require("./email-locales");
 const prodamus = require("./prodamus");
 const { createPaymentOrderId } = require("./paymentOrderId");
+const { beginPaymentCreation, completePaymentCreation, markPaymentCreationUnknown, failPaymentCreation } = require("./paymentCreationIdempotency");
 const { persistWebhookException } = require("./billingWebhookAudit");
 const { httpError, validateEnum } = require("./validate");
 const { normalizePlan } = require("./tariff");
@@ -57,7 +58,7 @@ function frontendBase() {
  * POST /billing/create-payment  { plan, currency }
  * Создаёт запись платежа в статусе pending и возвращает ссылку на оплату Prodamus.
  */
-async function createPayment(userId, body) {
+async function createPayment(userId, body, idempotencyKey) {
   const plan = normalizePlan(body && body.plan);
   if (!PLANS[plan]) {
     throw httpError(422, "plan: допустимые значения — analytics, start, pro, agency");
@@ -76,39 +77,50 @@ async function createPayment(userId, body) {
     );
   }
 
-  const { data: user, error: userError } = await supabase
-    .from("users")
-    .select("id, email")
-    .eq("id", userId)
-    .single();
-  if (userError || !user) throw httpError(404, "Пользователь не найден");
-
   const amount = PLANS[plan][currency];
+  const intent = await beginPaymentCreation(userId, idempotencyKey, "subscription", plan, currency);
+  if (!intent.started) return intent.result;
+
+  let user;
+  try {
+    const result = await supabase
+      .from("users")
+      .select("id, email")
+      .eq("id", userId)
+      .single();
+    if (result.error || !result.data) throw httpError(404, "Пользователь не найден");
+    user = result.data;
+  } catch (error) {
+    await failPaymentCreation(userId, idempotencyKey, error);
+    throw error;
+  }
+
   const orderId = createPaymentOrderId("pp", plan);
-
-  // 1. Пишем платёж как pending: это наш источник правды и ключ идемпотентности.
-  const { data: sub, error: insertError } = await supabase
-    .from("subscriptions")
-    .insert({
-      user_id: String(userId),
-      plan,
-      status: "pending",
-      provider_payment_id: orderId,
-      amount,
-      currency,
-    })
-    .select()
-    .single();
-
-  if (insertError) {
-    console.error("[billing] не удалось создать платёж:", insertError.message, insertError.code || "");
+  let sub;
+  try {
+    const result = await supabase
+      .from("subscriptions")
+      .insert({
+        user_id: String(userId),
+        plan,
+        status: "pending",
+        provider_payment_id: orderId,
+        amount,
+        currency,
+      })
+      .select()
+      .single();
+    if (result.error || !result.data) throw result.error || new Error("subscription insert returned no row");
+    sub = result.data;
+  } catch (error) {
+    console.error("[billing] не удалось создать платёж:", error.message, error.code || "");
+    await failPaymentCreation(userId, idempotencyKey, error);
     throw httpError(
       500,
       "Не удалось создать платёж. Проверьте, что миграция 006 (db/migrations/006_subscriptions.sql) применена."
     );
   }
 
-  // 2. Просим у Prodamus ссылку на оплату
   const base = publicBase();
   let link;
   try {
@@ -122,20 +134,15 @@ async function createPayment(userId, body) {
       urlNotification: base ? `${base}/billing/webhook` : undefined,
       urlSuccess: `${frontendBase()}/app?payment=success`,
     });
-  } catch (e) {
-    // Ошибка создания ссылки не доказывает, что Prodamus не создал платёж:
-    // timeout/обрыв ответа могут произойти уже после регистрации заказа у провайдера.
-    // Оставляем pending, чтобы поздний webhook мог безопасно активировать подписку.
-    // Такие записи требуют reconciliation, а не автоматического denied.
-    console.error("[billing] результат создания ссылки неопределён; заказ оставлен pending:", {
-      subscriptionId: sub.id,
-      orderId,
-      error: e && e.message,
+  } catch (error) {
+    await markPaymentCreationUnknown(userId, idempotencyKey, error);
+    console.error("[billing] результат создания ссылки неопределён; повторный счёт заблокирован:", {
+      subscriptionId: sub.id, orderId, error: error && error.message,
     });
-    throw e;
+    throw error;
   }
 
-  return {
+  const response = {
     ok: true,
     subscription_id: sub.id,
     order_id: orderId,
@@ -145,6 +152,16 @@ async function createPayment(userId, body) {
     payment_url: link.url,
     demo: prodamus.isDemo(),
   };
+  try {
+    await completePaymentCreation(userId, idempotencyKey, response);
+  } catch (error) {
+    await markPaymentCreationUnknown(userId, idempotencyKey, error);
+    console.error("[billing] checkout создан, но результат не удалось сохранить; повторный счёт заблокирован:", {
+      subscriptionId: sub.id, orderId, error: error && error.message,
+    });
+    throw httpError(503, "Счёт создан, но не удалось сохранить ссылку. Не создавайте новый платёж; обратитесь в поддержку.");
+  }
+  return response;
 }
 
 async function dispatchPendingSubscriptionEmails(limit = 10, dependencies = {}) {
