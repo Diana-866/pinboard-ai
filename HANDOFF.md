@@ -2643,4 +2643,3 @@ Date: 2026-11-10
 - New low-severity robustness finding: malformed non-string `name`/`surname` can cause `.trim()` TypeError and generic 500 during registration instead of 422. No auth bypass demonstrated.
 - No code change was made because signup enumeration response is a product UX decision and the remaining session hardening requires coordinated architectural work. Recommended next steps and test matrix are in the AUD-326 report.
 - Verification: source review only; no browser tests, SQL, production access, or live requests. No secrets, accounts, passwords, database, or deployments changed.
-NaN
