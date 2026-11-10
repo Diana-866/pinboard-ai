@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { apiRequest, ApiError } from "../lib/api";
+import { clearAuthToken, readAuthToken } from "../lib/authStorage";
 
 export interface User {
   id: string;
@@ -53,7 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   async function refreshUser() {
-    const token = localStorage.getItem("token");
+    const token = readAuthToken();
     if (!token) {
       setUser(null);
       return false;
@@ -87,7 +88,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // A transient network/5xx failure must not destroy a still-valid local
       // session. apiRequest already clears and redirects on protected-route 401.
       if (e instanceof ApiError && e.status === 401) {
-        localStorage.removeItem("token");
+        clearAuthToken();
         setUser(null);
       } else {
         console.warn("[auth] Could not refresh the current user; keeping the session for retry:", e);
@@ -101,7 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   function logout() {
-    localStorage.removeItem("token");
+    clearAuthToken();
     setUser(null);
     window.location.href = "/login";
   }
