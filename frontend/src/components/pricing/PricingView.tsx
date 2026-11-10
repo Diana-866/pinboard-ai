@@ -174,7 +174,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
     let active = true;
     apiRequest('/billing/subscriptions')
       .then((res: any) => {
-        if (active && billingOwnerIdRef.current === user.id) {
+        if (active && isCurrentBillingOwner(billingOwnerIdRef.current, user.id)) {
           setHistory(Array.isArray(res?.subscriptions) ? res.subscriptions : []);
           setTariffEnd(res?.tariff?.periodEnd || null);
         }
@@ -202,7 +202,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
           apiRequest('/billing/subscriptions'),
           apiRequest('/billing/credit-purchases'),
         ]);
-        if (!active) return;
+        if (!active || !isCurrentBillingOwner(billingOwnerIdRef.current, user.id)) return;
 
         const nextHistory = Array.isArray((subscriptionResult as any)?.subscriptions)
           ? (subscriptionResult as any).subscriptions
