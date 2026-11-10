@@ -3023,3 +3023,14 @@ Date: 2026-11-10
 - На текущей ветке endpoint также вызывает `begin_pinterest_scheduler_run` / `complete_pinterest_scheduler_run`; scheduler setup и AUD-361 report исправлены с учётом этого.
 - Heartbeat migration — `122_pinterest_scheduler_health_monitor.sql`, поскольку `121_atomic_pin_generation_text_plan.sql` уже занимает номер 121. Дубликат AUD-361 report удалён; итоговый отчёт консолидирован в `docs/audits/AUD-361-background-worker-and-queue-observability.md`.
 - Это source-level verification; runtime/SQL tests не запускались, migration 122 не применялась.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-363)
+
+- Исправлена ошибочная формулировка AUD-362: внутренний маршрут существует в `backend/pinterest.js` и регистрируется через `require("./pinterest").registerRoutes(app, ...)` в `backend/index.js`. Маршрут проверяет scheduler secret timing-safe, начинает heartbeat, вызывает reconciliation, claim RPC, renew claim, существующий `publishPin()`, и завершает heartbeat. Worker endpoint URL совпадает с маршрутом. Предыдущий вывод об отсутствии route был неверен.
+- Подтверждено, что сервер ограничивает claim до одной записи за вызов, несмотря на историческую документацию «до 10».
+- Выявлен race: completion RPC из migration 122 мог повторно изменить уже терминальный статус того же run UUID. Добавлена migration 123 с условием `status='running'` при completion — терминальный результат становится неизменяемым, старый run не может завершить новый.
+- Route теперь сохраняет накопленные агрегированные counters и использует их при фиксации failed completion, вместо сброса всех счётчиков в ноль.
+- Добавлен source contract test на совпадение worker URL, регистрации маршрута, secret check, claim/renew/publish/monitor RPC и миграционного fencing.
+- Обновлены scheduler setup, database migration guide, AUD-362 correction, AUD-363 report.
+- No SQL migration applied, no live DB query, no Pinterest API, payment, email, deployment, or production worker/cron activation. Tests/lint/build/CI not run. PR #4 remains open Draft.
