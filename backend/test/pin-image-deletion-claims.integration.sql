@@ -863,3 +863,53 @@ begin
   end if;
 end;
 $body$;
+
+
+-- A completed regeneration replay payload is a durable image reference even
+-- when storage_url is NULL; deletion claims must consult result_pin.image_url.
+do $body$
+declare
+  v_user_id uuid := gen_random_uuid();
+  v_project_id uuid := gen_random_uuid();
+  v_board_id uuid := gen_random_uuid();
+  v_pin_id uuid := gen_random_uuid();
+  v_path text := 'pins/generation-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.webp';
+  v_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.webp';
+  v_claim jsonb;
+begin
+  insert into public.users(id, email)
+  values (v_user_id, v_user_id::text || '@pin-image-replay-claim-test.invalid');
+  insert into public.projects(id, user_id) values (v_project_id, v_user_id);
+  insert into public.boards(id, project_id) values (v_board_id, v_project_id);
+  insert into public.pins(id, board_id) values (v_pin_id, v_board_id);
+
+  insert into public.pin_image_object_lifecycle(bucket_id, object_path, state)
+  values ('pin-images', v_path, 'active')
+  on conflict (bucket_id, object_path) do nothing;
+
+  insert into public.pin_regeneration_requests(
+    user_id, pin_id, idempotency_key, request_fingerprint, model, prompt, amount,
+    status, storage_url, result_pin
+  ) values (
+    v_user_id::text, v_pin_id, 'pin-image-replay-claim-001',
+    repeat('f', 64), 'test-model', 'Replay image retention guard', 1,
+    'completed', null, jsonb_build_object('image_url', v_url)
+  );
+
+  v_claim := public.claim_pin_image_deletion('pin-images', v_path, 60);
+  if coalesce((v_claim ->> 'claimed')::boolean, false) is not false
+     or v_claim ->> 'reason' <> 'referenced' then
+    raise exception 'deletion claim ignored a regeneration replay image reference: %', v_claim;
+  end if;
+
+  delete from public.pin_regeneration_requests
+   where user_id = v_user_id::text
+     and idempotency_key = 'pin-image-replay-claim-001';
+  delete from public.pin_image_object_lifecycle
+   where bucket_id = 'pin-images' and object_path = v_path;
+  delete from public.pins where id = v_pin_id;
+  delete from public.boards where id = v_board_id;
+  delete from public.projects where id = v_project_id;
+  delete from public.users where id = v_user_id;
+end;
+$body$;
