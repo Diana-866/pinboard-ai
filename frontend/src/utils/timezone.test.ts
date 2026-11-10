@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   addCalendarDaysInTimezone,
   formatInstantInTimezone,
+  getCalendarMonthGrid,
   getDefaultTimezone,
   isValidIanaTimezone,
   localDateTimeToDate,
@@ -95,4 +96,34 @@ test('adds calendar days in the selected timezone across date and DST boundaries
   assert.equal(addCalendarDaysInTimezone(new Date('2026-01-01T12:00:00.000Z'), 'Europe/Moscow', -1), '2025-12-31');
   assert.throws(() => addCalendarDaysInTimezone(new Date('invalid'), 'Europe/London', 1), /Invalid instant/);
   assert.throws(() => addCalendarDaysInTimezone(new Date(), 'Europe/London', 1.5), /Invalid instant/);
+});
+
+test('builds a Sunday-first six-week grid for the selected timezone month', () => {
+  const grid = getCalendarMonthGrid(new Date('2026-11-01T12:00:00.000Z'), 'Europe/London');
+  assert.equal(grid.length, 42);
+  assert.equal(grid[0].dateStr, '2026-11-01');
+  assert.equal(grid[0].dayNumber, 1);
+  assert.equal(grid[0].isCurrentMonth, true);
+  assert.equal(grid[41].dateStr, '2026-12-12');
+  assert.equal(grid[41].isCurrentMonth, false);
+});
+
+test('aligns months that start mid-week and includes leap day', () => {
+  const february = getCalendarMonthGrid(new Date('2028-02-15T12:00:00.000Z'), 'Europe/Moscow');
+  assert.equal(february[0].dateStr, '2028-01-30');
+  assert.equal(february[0].isCurrentMonth, false);
+  assert.equal(february[2].dateStr, '2028-02-01');
+  assert.equal(february[2].isCurrentMonth, true);
+  assert.equal(february[31].dateStr, '2028-02-29');
+  assert.equal(february[31].isCurrentMonth, true);
+  assert.equal(february[32].dateStr, '2028-03-01');
+  assert.equal(february[32].isCurrentMonth, false);
+});
+
+test('chooses the displayed month from the selected timezone, not UTC month', () => {
+  const instant = new Date('2026-10-31T23:30:00.000Z');
+  const london = getCalendarMonthGrid(instant, 'Europe/London');
+  const losAngeles = getCalendarMonthGrid(instant, 'America/Los_Angeles');
+  assert.equal(london.find((day) => day.isCurrentMonth)?.dateStr, '2026-11-01');
+  assert.equal(losAngeles.find((day) => day.isCurrentMonth)?.dateStr, '2026-10-01');
 });
