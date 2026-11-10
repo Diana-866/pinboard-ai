@@ -2856,3 +2856,15 @@ Date: 2026-11-10
 - Выявлен подтверждённый operational gap: Prodamus refunds остаются manual-only. Нет refund webhook consumer, refunded status или refund ledger, partial refund totals не представлены. Refund не приводит к автоматическому изменению кредитов/тарифа. Не автоматизировать без политики partial refund, уже потраченных credits и overlapping subscriptions.
 - Legacy generic balance adjustment RPC требует, чтобы в production были применены поздние hardening migrations, включая 074; live grants/schema не проверялись.
 - AUD-346 report сохранён. Tests/SQL/lint/build/CI и live Prodamus/Supabase checks не выполнялись; платежи/возвраты/балансы не менялись.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-347)
+
+- Проверена модель Supabase: migration 076 закрывает все 10 core tables прямым клиентским доступом (PUBLIC/anon/authenticated), включает RLS, оставляет backend service_role CRUD.
+- Перепроверены более поздние таблицы/очереди: generation task/text usage, payment_creation_requests (116), append-only operator journals (078/082), pin_review_queue (113/120), reporting view (079). В просмотренных миграциях клиентские grants отозваны, серверные права/RPC заданы явно.
+- Проверены SECURITY DEFINER: новые просмотренные функции используют search_path pg_catalog,public; доступ ограничен через revoke/grant. Backend production startup fails closed без SUPABASE_SERVICE_ROLE_KEY.
+- RLS не заменяет API ownership: service_role обходит RLS. AUD-104 ранее не нашёл подтверждённого IDOR в изученных маршрутах, но live two-account test не проводился.
+- Storage pin-images намеренно public для Pinterest. Исходники валидируют bucket config и lifecycle, но live Storage grants/policies и anon write attempts не проверялись.
+- Backup/restore — P0 operational gap: в репозитории нет доказательств независимых DB/Storage backups, отдельного escrow PINTEREST_TOKEN_ENCRYPTION_KEY и previous key, измеренных RPO/RTO или успешного restore drill. DB backup без ключа шифрования Pinterest tokens может быть неполноценным.
+- AUD-114 account deletion/privacy promise blockers остаются открыты.
+- AUD-347 report сохранён. Live Supabase checks, tests, SQL integration, lint/build/CI, production migrations, backup changes, merge/deploy не выполнялись.
