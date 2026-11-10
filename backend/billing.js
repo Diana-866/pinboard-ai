@@ -117,7 +117,7 @@ async function createPayment(userId, body) {
       description: `PinPosy — тариф «${PLANS[plan].title}», 30 дней`,
       plan,
       urlNotification: base ? `${base}/billing/webhook` : undefined,
-      urlReturn: `${frontendBase()}/app?payment=success`,
+      urlSuccess: `${frontendBase()}/app?payment=success`,
     });
   } catch (e) {
     // Платёж не выставлен — помечаем строку, чтобы не мусорить в админке «вечными pending»
