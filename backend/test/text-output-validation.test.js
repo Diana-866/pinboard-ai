@@ -110,7 +110,7 @@ test("rejects invalid pin-plan counts and empty idea arrays", () => {
 
 test("parses pin JSON with surrounding provider prose and caps ideas at requested count", () => {
   const { parsePinIdeasResponse } = require("../textOutputValidation");
-  assert.deepEqual(parsePinIdeasResponse('Ideas:\\n[{"title":"One","image_prompt":"Prompt one"},{"title":"Two","image_prompt":"Prompt two"}]\\nDone', 1), [
+  assert.deepEqual(parsePinIdeasResponse('Ideas:\n[{"title":"One","image_prompt":"Prompt one"},{"title":"Two","image_prompt":"Prompt two"}]\nDone', 1), [
     { title: "One", description: "", image_prompt: "Prompt one" },
   ]);
 });
