@@ -51,6 +51,23 @@ async function persistPublishFailureJournal(rpc, params) {
   throw persistenceError;
 }
 
+async function persistKnownRemotePublishOutcome(rpc, params) {
+  let result;
+  try {
+    result = await rpc("record_pinterest_publish_unknown_v2", params);
+  } catch (error) {
+    // The database may have committed even when PostgREST lost its response.
+  }
+  if (result && !result.error && result.data === true) return true;
+
+  const persistenceError = new Error(
+    "Pinterest вернул ID созданного пина, но не удалось сохранить его для сверки. Повторная публикация заблокирована."
+  );
+  persistenceError.httpStatus = 503;
+  persistenceError.code = "PUBLISH_REMOTE_ID_JOURNAL_FAILED";
+  throw persistenceError;
+}
+
 
 function isScheduleClaimLostError(error) {
   return Boolean(error && error.code === "SCHEDULE_CLAIM_LOST");
@@ -159,6 +176,7 @@ module.exports = {
   resolvePublishedReservation,
   matchesConfirmedPublicationLedger,
   persistPublishFailureJournal,
+  persistKnownRemotePublishOutcome,
   isPinterestPublishOutcomeUnknown,
   buildPinScheduleSnapshot,
   resolvePinScheduleSnapshot,
