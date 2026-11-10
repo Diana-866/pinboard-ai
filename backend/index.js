@@ -15,6 +15,7 @@ const { serializeBoardForClient } = require("./boardSerialization");
 const { serializeProjectForClient } = require("./projectSerialization");
 const { sortProjectsForProvisioning } = require("./projectProvisioningOrder");
 const { buildPinPatch } = require("./pinPatch");
+const { logError, logWarning } = require("./safeLogger");
 
 const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
@@ -257,8 +258,8 @@ async function requireAuth(req, res, next) {
 // Единый обработчик: коды 4xx отдают понятное сообщение, 5xx — не раскрывают внутренности (B10)
 function handleError(res, e, publicMessage, status) {
   const code = status || (e && e.httpStatus) || (publicMessage ? 400 : 500);
-  if (code >= 500) console.error(e);
-  else console.error(`[warn] ${code}: ${e && e.message}`);
+  if (code >= 500) logError("http.request_failed", e, code);
+  else logWarning("http.request_rejected", e, code);
 
   // Дополнительные поля (например, 403 email_not_verified: retryAfterSeconds/emailSent)
   // отдаём рядом с error — фронт показывает точное сообщение без повторных запросов.
