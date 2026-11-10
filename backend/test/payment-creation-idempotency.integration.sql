@@ -10,6 +10,7 @@ declare
     'payment_url', 'https://pinposy.payform.ru/test-checkout'
   );
   v_failed boolean := false;
+  v_order_id text;
 begin
   if not has_function_privilege('service_role',
       'public.begin_payment_creation_request(text,text,text,text)', 'EXECUTE') then
@@ -18,6 +19,14 @@ begin
   if has_function_privilege('authenticated',
       'public.begin_payment_creation_request(text,text,text,text)', 'EXECUTE') then
     raise exception 'authenticated must not execute begin_payment_creation_request';
+  end if;
+  if not has_function_privilege('service_role',
+      'public.attach_payment_creation_order(text,text,text)', 'EXECUTE') then
+    raise exception 'service_role must execute attach_payment_creation_order';
+  end if;
+  if has_function_privilege('authenticated',
+      'public.attach_payment_creation_order(text,text,text)', 'EXECUTE') then
+    raise exception 'authenticated must not execute attach_payment_creation_order';
   end if;
 
   select public.begin_payment_creation_request(
@@ -36,11 +45,32 @@ begin
     raise exception 'concurrent duplicate must be fenced as creating, got %', v_state;
   end if;
 
+  if not public.attach_payment_creation_order(
+    'payment-idempotency-test-user', 'subscription-test-key-001', 'pp-test-idempotent'
+  ) then
+    raise exception 'provider order reference was not attached';
+  end if;
+  select provider_order_id into v_order_id
+    from public.payment_creation_requests
+   where user_id = 'payment-idempotency-test-user'
+     and idempotency_key = 'subscription-test-key-001';
+  if v_order_id <> 'pp-test-idempotent' then
+    raise exception 'provider order reference was not persisted';
+  end if;
+
   select public.complete_payment_creation_request(
     'payment-idempotency-test-user', 'subscription-test-key-001', v_result
   ) into v_state;
   if v_state->>'order_id' <> 'pp-test-idempotent' then
     raise exception 'checkout completion did not return the saved result';
+  end if;
+
+  select provider_order_id into v_order_id
+    from public.payment_creation_requests
+   where user_id = 'payment-idempotency-test-user'
+     and idempotency_key = 'subscription-test-key-001';
+  if v_order_id <> 'pp-test-idempotent' then
+    raise exception 'provider order reference must survive completion';
   end if;
 
   select public.begin_payment_creation_request(
