@@ -16,7 +16,7 @@ require.cache[supabasePath] = {
   },
 };
 
-const { settlePaymentCreationRequest } = require("../paymentCreationIdempotency");
+const { settlePaymentCreationRequest, beginPaymentCreation } = require("../paymentCreationIdempotency");
 
 test("settles only the exact provider order, kind and local payment record", async () => {
   calls.length = 0;
@@ -57,4 +57,12 @@ test("rejects incomplete or unsupported settlement identities before database ac
   await assert.rejects(settlePaymentCreationRequest("pp-order-00000003", "other", "purchase-uuid"), /invalid settled payment/);
   await assert.rejects(settlePaymentCreationRequest("pp-order-00000004", "credits", null), /invalid settled payment/);
   assert.equal(calls.length, count);
+});
+
+test("does not replay an already settled checkout as a new invoice", async () => {
+  nextResult = { data: { status: "settled" }, error: null };
+  await assert.rejects(
+    beginPaymentCreation("user-1", "settled-checkout-key-001", "credits", "pack_100", "rub"),
+    (error) => error.httpStatus === 409 && error.details?.code === "payment_already_settled"
+  );
 });
