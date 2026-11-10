@@ -9,7 +9,7 @@ const mail = require("./mail");
 const { getEmailCopy, getPlanTitle, getLocale } = require("./email-locales");
 const prodamus = require("./prodamus");
 const { createPaymentOrderId } = require("./paymentOrderId");
-const { beginPaymentCreation, completePaymentCreation, markPaymentCreationUnknown, failPaymentCreation } = require("./paymentCreationIdempotency");
+const { beginPaymentCreation, attachPaymentCreationOrder, completePaymentCreation, markPaymentCreationUnknown, failPaymentCreation } = require("./paymentCreationIdempotency");
 const { persistWebhookException } = require("./billingWebhookAudit");
 const { httpError, validateEnum } = require("./validate");
 const { normalizePlan } = require("./tariff");
@@ -119,6 +119,15 @@ async function createPayment(userId, body, idempotencyKey) {
       500,
       "Не удалось создать платёж. Проверьте, что миграция 006 (db/migrations/006_subscriptions.sql) применена."
     );
+  }
+
+  try {
+    await attachPaymentCreationOrder(userId, idempotencyKey, orderId);
+  } catch (error) {
+    await supabase.from("subscriptions").update({ status: "denied" }).eq("id", sub.id).eq("status", "pending");
+    await failPaymentCreation(userId, idempotencyKey, error);
+    console.error("[billing] не удалось сохранить идентификатор заказа до обращения к провайдеру:", error.message);
+    throw httpError(503, "Не удалось безопасно подготовить заказ. Счёт провайдеру не отправлялся; попробуйте создать новую попытку оплаты.");
   }
 
   const base = publicBase();
