@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
 import { useAuth } from '../../context/AuthContext';
-import { payAndRedirect, PayablePlan, SubscriptionRow, buyCreditsAndRedirect, CreditPurchaseRow } from '../../lib/billing';
+import { payAndRedirect, PayablePlan, SubscriptionRow, buyCreditsAndRedirect, CreditPurchaseRow, releasePaymentIdempotencyKey } from '../../lib/billing';
 import { apiRequest } from '../../lib/api';
 
 export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initialPlanId = null }) => {
@@ -192,14 +192,25 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
           ...history.filter((row) => row.status === 'pending').map((row) => row.id),
           ...purchases.filter((row) => row.status === 'pending').map((row) => row.id),
         ]);
+        const settledSubscriptions = nextHistory.filter((row: SubscriptionRow) =>
+          previouslyPendingIds.has(row.id) && row.status !== 'pending'
+        );
+        const settledPurchases = nextPurchases.filter((row: CreditPurchaseRow) =>
+          previouslyPendingIds.has(row.id) && row.status !== 'pending'
+        );
         const newlyPaid = [
-          ...nextHistory.filter((row: SubscriptionRow) =>
-            previouslyPendingIds.has(row.id) && row.status === 'success'
-          ),
-          ...nextPurchases.filter((row: CreditPurchaseRow) =>
-            previouslyPendingIds.has(row.id) && row.status === 'success'
-          ),
+          ...settledSubscriptions.filter((row) => row.status === 'success'),
+          ...settledPurchases.filter((row) => row.status === 'success'),
         ].length > 0;
+
+        // Release only keys whose own pending order has reached a terminal
+        // provider-confirmed state. Do not clear keys for unrelated old history.
+        for (const row of settledSubscriptions) {
+          releasePaymentIdempotencyKey(`subscription:${row.plan}:${row.currency || 'rub'}`);
+        }
+        for (const row of settledPurchases) {
+          releasePaymentIdempotencyKey(`credits:${row.package_id}:rub`);
+        }
 
         setHistory(nextHistory);
         setTariffEnd((subscriptionResult as any)?.tariff?.periodEnd || null);
