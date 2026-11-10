@@ -1,58 +1,45 @@
-# AUD-125 — Immutable operator journal for provider-refund actions
+# AUD-125 — Superseded refund operator journal draft
 
-**Status:** implementation draft committed; database execution and integration verification pending.  
+**Status:** withdrawn; do not apply or merge the original AUD-125 implementation.  
 **Branch:** `feat/persisted-boards-api`  
-**Migration:** `db/migrations/078_provider_refund_operator_action_journal.sql`  
-**Predecessor:** AUD-124 and migrations 073/077.
+**Replacement implementation:** `db/migrations/078_operator_action_journal.sql` (AUD-128)  
+**Removal commit:** `4bed0af122b65853f01e2c32163b1dfce7d3c3d3`
 
-## Objective
+## Why this draft was withdrawn
 
-Close the accountability gap identified in AUD-124: a privileged refund reconciliation or failure finalization must not commit unless the authenticated administrator's action is recorded in the same database transaction.
+A repository-tree inspection found that the branch already contained `078_operator_action_journal.sql`. The separate AUD-125 file `078_provider_refund_operator_action_journal.sql` introduced a second migration with the same numeric prefix and attempted to create the same audit table with an incompatible schema.
 
-## Changes in migration 078
+The two versions did not agree on important contracts:
 
-- Adds `provider_refund_operator_actions`, with a unique client action UUID, target request, operator UUID, action kind, bounded evidence reference, safe before/after status fields, and timestamp.
-- Enables RLS and revokes direct table privileges from public, anon, authenticated, and service_role.
-- Adds a trigger that rejects UPDATE and DELETE, enforcing append-only behavior independently of normal application conventions.
-- Adds four narrowly scoped SECURITY DEFINER wrappers:
-  - generation refund reconciliation;
-  - regeneration refund reconciliation;
-  - generation failure finalization;
-  - regeneration failure finalization.
-- Each wrapper rechecks `users.is_admin` inside the database, serializes action UUID retries with a transaction advisory lock, and rejects reuse of an action UUID with different immutable parameters.
-- Reconciliation wrappers derive provider task identifiers and idempotency keys from locked request/task rows. The browser does not supply those values.
-- Finalization wrappers call the existing migration 077 finalizers; reservation release remains controlled by the existing request-status triggers.
-- The action insert and financial state transition share one transaction. An insert failure therefore rolls back the state transition.
+- The existing workflow in migrations 073 and 077 uses request IDs passed as `bigint`; the withdrawn draft declared request IDs as `uuid`.
+- The established reconciliation procedures accept `user_id text`, `idempotency_key text`, and provider task identifiers as text. The withdrawn wrappers used UUID request identifiers and assumed additional row contracts.
+- The pre-existing AUD-128 migration already implements a single append-only operator journal and narrow administrative RPCs around the established 073/077 workflow. Keeping both 078 files would make migration ordering and table/function definitions ambiguous.
 
-## Important implementation boundary
+The withdrawn file was deleted from this feature branch before it could be applied. No database was changed.
 
-The operator UUID is a server-supplied argument and must be populated only from the authenticated request context (for this codebase, `req.userId`). Never accept an operator ID from the browser body. The RPC independently verifies that the supplied user is currently an administrator.
+## Current verification status
 
-The migration assumes request primary keys are UUIDs and that the generation/regeneration request and task columns match the row types used by migrations 073/077. Confirm these assumptions against the exact deployed schema before applying it.
+The following source files were inspected from the feature branch:
 
-## Required verification before merge or deployment
+- `db/migrations/073_provider_refund_reconciliation_workflow.sql`
+- `db/migrations/077_finalize_reconciled_provider_failures.sql`
+- `db/migrations/078_operator_action_journal.sql`
 
-1. Run the migration against a disposable PostgreSQL database initialized from the complete migration chain through 077.
-2. Confirm the actual request primary-key types and all referenced columns against the deployed schema.
-3. Verify migration 078 compiles and all four functions can be created with the target PostgreSQL/Supabase version.
-4. Add integration tests for:
-   - non-admin and missing operator rejection, including service_role RPC invocation;
-   - action insert failure rolling back reconciliation/finalization;
-   - duplicate action UUID with identical parameters returning the original result;
-   - duplicate action UUID with changed target/operator/evidence/refund fact being rejected;
-   - concurrent admins acting on the same request;
-   - reconciliation racing finalization;
-   - operator demotion before RPC invocation;
-   - generation task/provider identifiers being derived from the locked database row;
-   - direct table reads/writes denied to service_role and client roles;
-   - UPDATE/DELETE rejected by the immutability trigger.
-5. Run `backend/npm test` (from the backend directory) and the repository's full CI with actual executed job steps and logs.
-6. Only after staging verification, add the minimal Express routes. They must derive the operator ID from `req.userId`, validate/reject unknown input fields, generate or validate action UUIDs, and return only safe action metadata.
+The 073/077 source confirms the reconciliation and finalization contracts, including the existing request-status and reservation workflow. The AUD-128 migration uses `bigint` request identifiers and invokes those established procedures.
 
-## Safety status
+This was source-level contract inspection only. It does **not** establish that the migration chain executes successfully.
 
-- No migration was applied to Supabase or production.
+## Required next verification gates
+
+1. Check the full ordered migration chain for duplicate numeric prefixes and ensure only one 078 migration remains.
+2. Run the full chain through 078 against a disposable PostgreSQL/Supabase-compatible database.
+3. Add integration coverage for authorization, idempotent replay, mismatched replay payloads, append-only enforcement (including TRUNCATE), rollback atomicity, and concurrent actions.
+4. Verify the backend passes only the authenticated operator ID from `req.userId`; never accept it from the request body.
+5. Run backend tests, lint/build, and CI; inspect actual logs before claiming success.
+
+## Safety boundary
+
+- No SQL was applied to Supabase or production.
 - No provider refund, credit balance, or reservation was changed.
-- No staging or production database was accessed.
-- No SQL execution, PostgreSQL integration test, backend test, build, lint, or deployment was performed.
-- Do not merge or deploy migration 078 until the verification gates above pass.
+- No deployment or merge to `main` was performed.
+- The replacement migration remains unverified at runtime until the gates above pass.
