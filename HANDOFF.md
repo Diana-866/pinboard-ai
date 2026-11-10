@@ -3044,3 +3044,12 @@ Date: 2026-11-10
 - Stale recovery автоматически возвращает в очередь только отсутствие durable attempt либо точный retry-safe отказ; неоднозначные попытки остаются unknown.
 - Добавлен disposable PostgreSQL integration script для дублированного completion и fencing устаревшего run UUID.
 - SQL script не запускался; нет доступа/запросов к staging или production DB, миграции не применялись, Pinterest API не вызывался, worker не активирован. Node tests/lint/build/CI не запускались.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-365)
+
+- Проверены Pinterest OAuth state + browser binding, attempt generation/token_version, AES-256-GCM token storage и key rotation, публичные account projections, auth middleware и user ownership на routes расписания, scheduler secret, SSRF URL fetch, non-idempotent 429 policy, refresh lease.
+- Подтверждены: OAuth callback привязан к исходному браузеру через Secure/HttpOnly/SameSite=Lax cookie; public account response не содержит access/refresh token; пользовательские маршруты требуют requireAuth; scheduler secret сравнивается timing-safe; SSRF guard закрепляет DNS lookup, запрещает private/reserved IP и redirect following.
+- Ограничение: express-rate-limit использует process-local MemoryStore. При масштабировании на несколько backend instances лимиты не будут глобальными. Перед горизонтальным масштабированием требуется shared store и проверка trusted proxy/IP configuration. Не добавлял внешнюю инфраструктуру в рамках аудита.
+- Добавлен source contract test `backend/test/pinterest-security-contract.test.js` и отчёт `docs/audits/AUD-365-pinterest-backend-security-boundaries.md`.
+- Node tests/lint/build/CI не запускались. Live DB, Pinterest API, секреты и deployment не затрагивались.
