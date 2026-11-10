@@ -3071,3 +3071,12 @@ Date: 2026-11-10
 - Миграции 010/011/029/037/072–073/116–118 должны быть сверены с live Supabase migration ledger перед приёмом реальных платежей. Live DB и Prodamus не опрашивались.
 - Добавлен `backend/test/billing-security-contract.test.js` и отчёт `docs/audits/AUD-367-prodamus-payment-integrity.md`.
 - Node tests/lint/build/CI не запускались. Реальные платежи, возвраты, балансы, тарифы, секреты и deployment не затрагивались.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-368)
+
+- Проверены генерационные резервы, exact GPTunnel quotes, claim fencing, provider task idempotency, recovery/polling, atomic completion и cost ledger.
+- Исправлено: `backend/gptunnel.js` теперь отклоняет successful image task с нулевой/отрицательной фактической ценой, поскольку downstream pricing и SQL settlement требуют положительную цену. Добавлен тест в `backend/test/gptunnel-pricing.test.js`.
+- GPTunnel text usage без `total_cost` намеренно сохраняется как `cost_missing` / NULL, а не как нулевая стоимость. Это не блокирует результат генерации, но требует последующей сверки фактических расходов.
+- Перед production нужно подтвердить применение миграций 054/065/067/069/071/074/079/088. Интеграционные SQL/shell тесты не запускались.
+- Node tests/lint/build/CI и живые GPTunnel/Supabase операции не выполнялись. Production balances/credits/secrets/deployment не менялись.
