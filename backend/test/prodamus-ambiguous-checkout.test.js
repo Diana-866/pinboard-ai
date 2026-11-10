@@ -180,3 +180,48 @@ test("successful subscription checkout is replayed from the durable idempotency 
     prodamus.createPaymentLink = original;
   }
 });
+
+
+test("successful credit checkout is replayed from the durable idempotency result", async () => {
+  const original = prodamus.createPaymentLink;
+  let providerCalls = 0;
+  prodamus.createPaymentLink = async ({ orderId }) => {
+    providerCalls += 1;
+    return { url: `https://pinposy.payform.ru/pay/${orderId}` };
+  };
+  try {
+    const first = await creditsBilling.createCreditsPayment(
+      "ambiguous-user", { package_id: "pack_500" }, "credits-success-key-001"
+    );
+    const replay = await creditsBilling.createCreditsPayment(
+      "ambiguous-user", { package_id: "pack_500" }, "credits-success-key-001"
+    );
+    assert.equal(replay.order_id, first.order_id);
+    assert.equal(replay.payment_url, first.payment_url);
+    assert.equal(providerCalls, 1);
+    assert.equal(db.credit_purchases.length, 1);
+  } finally {
+    prodamus.createPaymentLink = original;
+  }
+});
+
+test("concurrent duplicate subscription checkout requests create only one provider invoice", async () => {
+  const original = prodamus.createPaymentLink;
+  let providerCalls = 0;
+  prodamus.createPaymentLink = async ({ orderId }) => {
+    providerCalls += 1;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    return { url: `https://pinposy.payform.ru/pay/${orderId}` };
+  };
+  try {
+    const results = await Promise.allSettled([
+      billing.createPayment("ambiguous-user", { plan: "analytics", currency: "rub" }, "subscription-race-key-001"),
+      billing.createPayment("ambiguous-user", { plan: "analytics", currency: "rub" }, "subscription-race-key-001"),
+    ]);
+    assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
+    assert.equal(results.filter((result) => result.status === "rejected").length, 1);
+    assert.equal(providerCalls, 1);
+  } finally {
+    prodamus.createPaymentLink = original;
+  }
+});
