@@ -27,6 +27,7 @@ test("worker claims only one row per run to protect the fixed stale-claim lease"
   assert.equal(calls[0][0], "https://api.example.com/internal/pinterest/schedule/run");
   assert.deepEqual(calls[0][1], { limit: 1 });
   assert.equal(calls[0][2].headers["x-pinposy-scheduler-secret"], "secret-value");
+  assert.equal(logs[0][1].scheduled, 0, "worker logs the rescheduled counter even when zero");
   assert.equal(JSON.stringify(logs).includes("secret-value"), false);
 });
 
