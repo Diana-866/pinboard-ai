@@ -2694,3 +2694,17 @@ Date: 2026-11-10
 - Source code/SQL не менялись; migrations не запускались; provider calls, production writes, deployment и tests/build не выполнялись.
 - Следующий этап AUD-333: проверить весь backend на регистрацию/вызов legacy routes, их потребителей и контракт; затем принять безопасное решение по endpoints и implementation scope.
 
+
+
+## Дополнение к handoff — 2026-11-10 (AUD-333)
+
+- Добавлен `docs/audits/AUD-333-backend-legacy-text-endpoint-consumer-review.md`.
+- Подтверждены два Express endpoint в `backend/index.js`: `POST /projects/:id/analyze` и `POST /projects/:id/boards/generate`. Они вызывают `analyzeSite()` / `generateBoards()`, оба helper используют legacy `generateText()`, который отбрасывает usage/cost/request ID.
+- По проверенному backend-коду не обнаружен отдельный worker/queue entry point для этих helper. Это не доказывает отсутствие внешних API consumers: production access logs и список внешних интеграций недоступны.
+- Analysis: auth + aiLimiter + owner-scoped project read/write + SSRF-hardened website fetch; без tariff gate. Выход модели не валидируется по типам/длине; JSON parse fallback сохраняет raw provider text в summary.
+- Board ideas: auth + aiLimiter + tariff gate + owner-scoped project read; выход только JSON.parse, без проверки array length/item schema/string bounds перед insert. Нет durable idempotency.
+- Website text является недоверенным prompt input; SSRF protections не являются защитой от prompt injection. Это hardening observation, не доказанный exploit.
+- Решение: не удалять endpoints и не вводить breaking Idempotency-Key до проверки external consumers и продуктового решения. Низкорисковый следующий шаг — strict bounded output validation при сохранении текущих response contracts; затем решить, сохранять ли endpoints и нужен ли durable provider journal.
+- Source/SQL не менялись; миграции и production writes не выполнялись; provider calls/deploy/tests/build не запускались.
+- Следующий этап AUD-334: реализовать изолированные unit-тестируемые validators для analysis и board ideas, затем безопасно подключить их в helpers/routes, сохраняя совместимость ответов.
+
