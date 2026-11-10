@@ -58,6 +58,23 @@ begin
     raise exception 'provider order reference was not persisted';
   end if;
 
+  v_failed := false;
+  begin
+    perform public.complete_payment_creation_request(
+      'payment-idempotency-test-user', 'subscription-test-key-001',
+      jsonb_set(v_result, '{order_id}', '"pp-different-order"')
+    );
+  exception when others then
+    if sqlerrm like '%does not match attached provider order id%' then
+      v_failed := true;
+    else
+      raise;
+    end if;
+  end;
+  if not v_failed then
+    raise exception 'checkout must reject a result with a different provider order id';
+  end if;
+
   select public.complete_payment_creation_request(
     'payment-idempotency-test-user', 'subscription-test-key-001', v_result
   ) into v_state;
