@@ -9,6 +9,7 @@ const db = {
   users: [{ id: "ambiguous-user", email: "ambiguous@example.invalid" }],
   subscriptions: [],
   credit_purchases: [],
+  paymentRequests: new Map(),
 };
 
 function query(tableName) {
@@ -46,12 +47,52 @@ function query(tableName) {
   return builder;
 }
 
+function rpc(name, args) {
+  const key = `${args.p_user_id}:${args.p_idempotency_key}`;
+  if (name === "begin_payment_creation_request") {
+    const existing = db.paymentRequests.get(key);
+    if (!existing) {
+      db.paymentRequests.set(key, {
+        status: "creating",
+        kind: args.p_request_kind,
+        fingerprint: args.p_request_fingerprint,
+      });
+      return Promise.resolve({ data: { status: "started" }, error: null });
+    }
+    if (existing.kind !== args.p_request_kind || existing.fingerprint !== args.p_request_fingerprint) {
+      return Promise.resolve({ data: null, error: { message: "idempotency key reused with different payment request" } });
+    }
+    return Promise.resolve({
+      data: existing.status === "ready"
+        ? { status: "ready", result: existing.result }
+        : { status: existing.status },
+      error: null,
+    });
+  }
+  const existing = db.paymentRequests.get(key);
+  if (!existing) return Promise.resolve({ data: null, error: { message: "request not found" } });
+  if (name === "mark_payment_creation_unknown") {
+    existing.status = "unknown";
+    return Promise.resolve({ data: true, error: null });
+  }
+  if (name === "fail_payment_creation_request") {
+    existing.status = "failed";
+    return Promise.resolve({ data: true, error: null });
+  }
+  if (name === "complete_payment_creation_request") {
+    existing.status = "ready";
+    existing.result = args.p_result;
+    return Promise.resolve({ data: args.p_result, error: null });
+  }
+  return Promise.resolve({ data: null, error: { message: `unexpected rpc: ${name}` } });
+}
+
 const supabasePath = require.resolve("../supabase");
 require.cache[supabasePath] = {
   id: supabasePath,
   filename: supabasePath,
   loaded: true,
-  exports: { from: query },
+  exports: { from: query, rpc },
 };
 
 const prodamus = require("../prodamus");
@@ -60,7 +101,9 @@ const creditsBilling = require("../creditsBilling");
 
 test("subscription remains pending when Prodamus link request has an ambiguous outcome", async () => {
   const original = prodamus.createPaymentLink;
+  let providerCalls = 0;
   prodamus.createPaymentLink = async () => {
+    providerCalls += 1;
     const error = new Error("simulated socket timeout after provider accepted request");
     error.code = "ECONNRESET";
     throw error;
@@ -68,12 +111,18 @@ test("subscription remains pending when Prodamus link request has an ambiguous o
 
   try {
     await assert.rejects(
-      billing.createPayment("ambiguous-user", { plan: "start", currency: "rub" }),
+      billing.createPayment("ambiguous-user", { plan: "start", currency: "rub" }, "subscription-retry-key-001"),
       /simulated socket timeout/
     );
     assert.equal(db.subscriptions.length, 1);
     assert.equal(db.subscriptions[0].status, "pending");
     assert.ok(db.subscriptions[0].provider_payment_id);
+    await assert.rejects(
+      billing.createPayment("ambiguous-user", { plan: "start", currency: "rub" }, "subscription-retry-key-001"),
+      /неопределён/
+    );
+    assert.equal(providerCalls, 1, "a retry must not create a second Prodamus invoice");
+    assert.equal(db.subscriptions.length, 1);
   } finally {
     prodamus.createPaymentLink = original;
   }
@@ -81,7 +130,9 @@ test("subscription remains pending when Prodamus link request has an ambiguous o
 
 test("credit purchase remains pending when Prodamus link request has an ambiguous outcome", async () => {
   const original = prodamus.createPaymentLink;
+  let providerCalls = 0;
   prodamus.createPaymentLink = async () => {
+    providerCalls += 1;
     const error = new Error("simulated gateway timeout after provider accepted request");
     error.code = "ETIMEDOUT";
     throw error;
@@ -89,13 +140,42 @@ test("credit purchase remains pending when Prodamus link request has an ambiguou
 
   try {
     await assert.rejects(
-      creditsBilling.createCreditsPayment("ambiguous-user", { package_id: "pack_100" }),
+      creditsBilling.createCreditsPayment("ambiguous-user", { package_id: "pack_100" }, "credits-retry-key-001"),
       /simulated gateway timeout/
     );
     assert.equal(db.credit_purchases.length, 1);
     assert.equal(db.credit_purchases[0].status, "pending");
     assert.ok(db.credit_purchases[0].provider_payment_id);
     assert.equal(db.credit_purchases[0].balance_credited_at, undefined);
+    await assert.rejects(
+      creditsBilling.createCreditsPayment("ambiguous-user", { package_id: "pack_100" }, "credits-retry-key-001"),
+      /неопределён/
+    );
+    assert.equal(providerCalls, 1, "a retry must not create a second Prodamus invoice");
+    assert.equal(db.credit_purchases.length, 1);
+  } finally {
+    prodamus.createPaymentLink = original;
+  }
+});
+
+
+test("successful subscription checkout is replayed from the durable idempotency result", async () => {
+  const original = prodamus.createPaymentLink;
+  let providerCalls = 0;
+  prodamus.createPaymentLink = async ({ orderId }) => {
+    providerCalls += 1;
+    return { url: `https://pinposy.payform.ru/pay/${orderId}` };
+  };
+  try {
+    const first = await billing.createPayment(
+      "ambiguous-user", { plan: "pro", currency: "usd" }, "subscription-success-key-001"
+    );
+    const replay = await billing.createPayment(
+      "ambiguous-user", { plan: "pro", currency: "usd" }, "subscription-success-key-001"
+    );
+    assert.equal(replay.order_id, first.order_id);
+    assert.equal(replay.payment_url, first.payment_url);
+    assert.equal(providerCalls, 1);
   } finally {
     prodamus.createPaymentLink = original;
   }
