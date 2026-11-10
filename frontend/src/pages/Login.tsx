@@ -33,7 +33,9 @@ export const Login: React.FC = () => {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
-      localStorage.setItem('token', data.token);
+      if (!writeAuthToken(data.token)) {
+        throw new Error("Браузер не разрешил сохранить сессию. Разрешите хранилище сайта и войдите снова.");
+      }
       await refreshUser();
       navigate('/app');
     } catch (err: any) {
