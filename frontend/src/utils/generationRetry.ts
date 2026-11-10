@@ -23,5 +23,6 @@ export function isDefinitiveGenerationFailure(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
   const data = (error as { data?: unknown }).data;
   if (!data || typeof data !== 'object') return false;
-  return (data as { code?: unknown }).code === 'generation_request_failed';
+  const code = (data as { code?: unknown }).code;
+  return code === 'generation_request_failed' || code === 'generation_insufficient_credits';
 }
