@@ -1104,6 +1104,9 @@ function registerRoutes(app, deps) {
 
     const schedulerRunId = crypto.randomUUID();
     let schedulerMonitorStarted = false;
+    let claimedCount = 0;
+    let runResults = [];
+    let runSummary = { claimed: 0, published: 0, failed: 0, scheduled: 0, unknown: 0 };
     try {
       const { data: monitorStarted, error: monitorStartError } = await supabase.rpc("begin_pinterest_scheduler_run", {
         p_run_id: schedulerRunId,
@@ -1128,7 +1131,8 @@ function registerRoutes(app, deps) {
       });
       if (claimError) throw claimError;
 
-      const results = [];
+      claimedCount = (dueRows || []).length;
+      const results = runResults;
       for (const schedule of dueRows || []) {
         const stopClaimHeartbeat = createScheduleClaimHeartbeat({
           intervalMs: 60_000,
@@ -1290,12 +1294,12 @@ function registerRoutes(app, deps) {
         }
       }
 
-      const runSummary = {
-        claimed: (dueRows || []).length,
-        published: results.filter((r) => r.status === "published").length,
-        failed: results.filter((r) => r.status === "failed").length,
-        scheduled: results.filter((r) => r.status === "scheduled").length,
-        unknown: results.filter((r) => r.status === "unknown").length,
+      runSummary = {
+        claimed: claimedCount,
+        published: runResults.filter((r) => r.status === "published").length,
+        failed: runResults.filter((r) => r.status === "failed").length,
+        scheduled: runResults.filter((r) => r.status === "scheduled").length,
+        unknown: runResults.filter((r) => r.status === "unknown").length,
       };
       const { data: monitorCompleted, error: monitorCompleteError } = await supabase.rpc("complete_pinterest_scheduler_run", {
         p_run_id: schedulerRunId,
@@ -1316,11 +1320,11 @@ function registerRoutes(app, deps) {
           const { error: monitorFailureError } = await supabase.rpc("complete_pinterest_scheduler_run", {
             p_run_id: schedulerRunId,
             p_status: "failed",
-            p_claimed: 0,
-            p_published: 0,
-            p_failed: 0,
-            p_scheduled: 0,
-            p_unknown: 0,
+            p_claimed: runSummary.claimed,
+            p_published: runSummary.published,
+            p_failed: runSummary.failed,
+            p_scheduled: runSummary.scheduled,
+            p_unknown: runSummary.unknown,
           });
           if (monitorFailureError) logError("pinterest.event_030");
         } catch {
