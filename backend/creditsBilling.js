@@ -1,3 +1,4 @@
+const { logError, logWarning, logInfo } = require("./safeLogger");
 // Разовые покупки пакетов кредитов через Prodamus.
 // Таблица: credit_purchases (db/migrations/007_credit_purchases.sql)
 // Каталог пакетов: backend/creditPacks.js (цены задаются ТОЛЬКО там; сумма от клиента не используется).
@@ -99,7 +100,7 @@ async function createCreditsPayment(userId, body, idempotencyKey) {
     if (result.error || !result.data) throw result.error || new Error("credit purchase insert returned no row");
     purchase = result.data;
   } catch (error) {
-    console.error("[credits-billing] не удалось создать покупку:", error.message, error.code || "");
+    logError("creditsBilling.event");
     await failPaymentCreation(userId, idempotencyKey, error);
     throw httpError(
       500,
@@ -115,17 +116,14 @@ async function createCreditsPayment(userId, body, idempotencyKey) {
       await denyUnsentPaymentRecord("credit_purchases", purchase.id);
       cleanupConfirmed = true;
     } catch (cleanupError) {
-      console.error("[credits-billing] не удалось подтвердить отмену локальной записи без отправленного счёта:", {
-        recordId: purchase.id,
-        error: cleanupError && cleanupError.message,
-      });
+      logError("creditsBilling.event");
       // Keep this request in the admin reconciliation queue if local cleanup failed.
       await markPaymentCreationUnknown(userId, idempotencyKey, cleanupError);
     }
     if (cleanupConfirmed) {
       await failPaymentCreation(userId, idempotencyKey, error);
     }
-    console.error("[credits-billing] не удалось сохранить идентификатор заказа до обращения к провайдеру:", error.message);
+    logError("creditsBilling.event");
     throw httpError(503, "Не удалось безопасно подготовить заказ. Счёт провайдеру не отправлялся; статус заказа требует проверки.");
   }
 
@@ -144,9 +142,7 @@ async function createCreditsPayment(userId, body, idempotencyKey) {
     });
   } catch (error) {
     await markPaymentCreationUnknown(userId, idempotencyKey, error);
-    console.error("[credits-billing] результат создания ссылки неопределён; повторный счёт заблокирован:", {
-      purchaseId: purchase.id, orderId, error: error && error.message,
-    });
+    logError("creditsBilling.event");
     throw error;
   }
 
@@ -165,9 +161,7 @@ async function createCreditsPayment(userId, body, idempotencyKey) {
     await completePaymentCreation(userId, idempotencyKey, response);
   } catch (error) {
     await markPaymentCreationUnknown(userId, idempotencyKey, error);
-    console.error("[credits-billing] checkout создан, но результат не удалось сохранить; повторный счёт заблокирован:", {
-      purchaseId: purchase.id, orderId, error: error && error.message,
-    });
+    logError("creditsBilling.event");
     throw httpError(503, "Счёт создан, но не удалось сохранить ссылку. Не создавайте новый платёж; обратитесь в поддержку.");
   }
   return response;
@@ -179,7 +173,7 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
   const check = prodamus.verifyWebhook(body, req.headers);
 
   if (!check.ok) {
-    console.error(`[credits-billing] вебхук отклонён: ${check.reason}`);
+    logError("creditsBilling.event");
     return res.status(403).json({ ok: false, error: `Подпись не принята: ${check.reason}` });
   }
 
@@ -192,10 +186,10 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
         paymentKind: "credits", body, reason: "missing_order_id",
       });
     } catch (auditError) {
-      console.error("[credits-billing] не удалось сохранить вебхук без order_id:", auditError.message);
+      logError("creditsBilling.event");
       return res.status(500).json({ ok: false, error: "audit storage failed" });
     }
-    console.error("[credits-billing] вебхук без order_id сохранён для сверки");
+    logError("creditsBilling.event");
     return res.json({ ok: true, ignored: "no order_id" });
   }
 
@@ -206,7 +200,7 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
     .maybeSingle();
 
   if (error) {
-    console.error("[credits-billing] ошибка чтения credit_purchases:", error.message);
+    logError("creditsBilling.event");
     return res.status(500).json({ ok: false, error: "db error" });
   }
   if (!purchase) {
@@ -215,10 +209,10 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
         paymentKind: "credits", body, reason: "unknown_order_id",
       });
     } catch (auditError) {
-      console.error("[credits-billing] не удалось сохранить неизвестный order_id:", auditError.message);
+      logError("creditsBilling.event");
       return res.status(500).json({ ok: false, error: "audit storage failed" });
     }
-    console.warn(`[credits-billing] неизвестный order_id сохранён для сверки: ${orderId}`);
+    logWarning("creditsBilling.event");
     return res.json({ ok: true, ignored: "unknown order_id" });
   }
 
@@ -235,10 +229,10 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
           reason: "unsupported_payment_status",
         });
       } catch (auditError) {
-        console.error("[credits-billing] не удалось сохранить неизвестный статус:", auditError.message);
+        logError("creditsBilling.event");
         return res.status(500).json({ ok: false, error: "audit storage failed" });
       }
-      console.warn("[credits-billing] неизвестный статус Prodamus сохранён для сверки:", status || "(empty)");
+      logWarning("creditsBilling.event");
       return res.json({ ok: true, ignored: "unsupported payment_status", review_required: true });
     }
     const mapped = normalizedStatus;
@@ -258,10 +252,10 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
         reason: paymentAmount.reason,
       });
     } catch (auditError) {
-      console.error("[credits-billing] не удалось сохранить несовпадение валюты/суммы:", auditError.message);
+      logError("creditsBilling.event");
       return res.status(500).json({ ok: false, error: "audit storage failed" });
     }
-    console.warn("[credits-billing] покупка отклонена для сверки:", orderId, paymentAmount.reason);
+    logWarning("creditsBilling.event");
     return res.json({ ok: true, ignored: paymentAmount.reason, review_required: true });
   }
 
@@ -273,10 +267,10 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
         paymentKind: "credits", body, expectedAmount: expected, reason: "amount_mismatch",
       });
     } catch (auditError) {
-      console.error("[credits-billing] не удалось сохранить несовпадение суммы:", auditError.message);
+      logError("creditsBilling.event");
       return res.status(500).json({ ok: false, error: "audit storage failed" });
     }
-    console.error(`[credits-billing] сумма не совпадает для ${orderId}: webhook=${sum} ${paymentAmount.currency}, ожидали=${expected} ${purchase.currency || "rub"}; сохранено для сверки`);
+    logError("creditsBilling.event");
     const { error: mismatchError } = await db.from("credit_purchases")
       .update({ status: "denied" }).eq("id", purchase.id)
       .is("balance_credited_at", null).neq("status", "success");
@@ -290,7 +284,7 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
     try {
       await settlePaymentCreationRequest(orderId, "credits", purchase.id, db);
     } catch (settlementError) {
-      console.error("[credits-billing] не удалось закрыть запись создания оплаченного заказа:", settlementError.message);
+      logError("creditsBilling.event");
       return res.status(500).json({ ok: false, error: "payment reconciliation failed" });
     }
     return res.json({ ok: true, idempotent: true, credits: purchase.credits });
@@ -304,18 +298,18 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
     p_description: `Пакет кредитов «${purchase.pack_title || purchase.package_id}» (+${purchase.credits}, не сгорают), заказ ${orderId}`,
   });
   if (creditError) {
-    console.error("[credits-billing] атомарное зачисление не выполнено:", creditError.message);
+    logError("creditsBilling.event");
     return res.status(500).json({ ok: false, error: "crediting failed" });
   }
 
   try {
     await settlePaymentCreationRequest(orderId, "credits", purchase.id, db);
   } catch (settlementError) {
-    console.error("[credits-billing] не удалось закрыть запись создания оплаченного заказа:", settlementError.message);
+    logError("creditsBilling.event");
     return res.status(500).json({ ok: false, error: "payment reconciliation failed" });
   }
 
-  console.log(`[credits-billing] покупка ${orderId} обработана; баланс: ${newBalance}`);
+  logInfo("creditsBilling.event");
   return res.json({ ok: true, status: "success", credits: purchase.credits, order_id: orderId });
 }
 
