@@ -4,7 +4,9 @@ const { AsyncLocalStorage } = require("node:async_hooks");
 const correlationStorage = new AsyncLocalStorage();
 
 function runWithCorrelationId(id, callback) {
-  const safeId = typeof id === "string" && /^[a-f0-9-]{36}$/i.test(id) ? id.toLowerCase() : undefined;
+  const safeId = typeof id === "string" && /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(id)
+    ? id.toLowerCase()
+    : undefined;
   return correlationStorage.run(safeId, callback);
 }
 
@@ -16,8 +18,12 @@ function currentCorrelationId() {
 // Never pass request objects, provider payloads, headers, tokens, or raw errors through.
 function safeEventName(value) {
   if (typeof value !== "string") return "unclassified_error";
-  const normalized = value.toLowerCase().replace(/[^a-z0-9_.-]/g, "_").slice(0, 80);
-  return normalized || "unclassified_error";
+  const normalized = value.toLowerCase();
+  // Require a static, namespaced event key. Do not sanitize arbitrary text into
+  // a plausible event name: that can preserve fragments of emails or other PII.
+  return normalized.length <= 80 && /^[a-z][a-z0-9_-]*(?:\.[a-z0-9_-]+)+$/.test(normalized)
+    ? normalized
+    : "unclassified_error";
 }
 
 function safeErrorCode(error) {
