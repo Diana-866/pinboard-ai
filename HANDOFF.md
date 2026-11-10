@@ -3437,3 +3437,19 @@ Artifacts:
 - docs/runbooks/account-deletion-schema-review-aud-397.md
 
 Important: CREATE IF NOT EXISTS is not schema drift validation; production migration ledger/catalog, role ownership and constraints are unverified. No SQL executed, no migration number reserved, no runtime code or production data changed. Next work: preflight/catalog assertions, exact legacy UUID/TEXT ownership resolver, then design acceptance/worker RPCs before any migration implementation.
+
+
+## AUD-398 — Account-deletion RPC and concurrency contracts (2026-11-11)
+
+Reviewed actual auth implementation and migrations 020–025/055. Current requireAuth checks token_version only; login and registration have no account lifecycle predicate. Existing password-reset/email-verification RPCs use SECURITY DEFINER and user-before-token locking, with auth_tokens.user_id TEXT vs users.id UUID.
+
+Designed (not implemented) RPC contracts for atomic deletion acceptance, worker claim, worker finish and provider receipt reconciliation. Acceptance requires backend password re-auth, JWT-derived user ID and expected token_version; transaction locks user first, increments token_version + lifecycle_version, fences account, invalidates unused recovery/verification tokens and creates request/event/fixed jobs atomically. Worker paths lock user → request → job, use bounded leases/fresh claim tokens and fail closed on dependency uncertainty. Late external provider facts must be preserved even when stale worker completion is rejected.
+
+Identified AUD-397 schema corrections before implementation: manifest claim lease expiry, DB-enforced append-only events, validated fixed dependency registry/normalized graph, exact schema-drift preflight. Existing Prodamus/Pinterest/GPTunnel lock-order inversions from AUD-392/393/394 remain rollout blockers.
+
+Artifacts:
+- docs/audits/AUD-398-account-deletion-rpc-and-concurrency-contract.md
+- docs/runbooks/account-deletion-rpc-concurrency-aud-398.md
+- docs/proposals/account-deletion-rpc-contracts-aud-398.md
+
+No migration/RPC/route/worker/tests/deployment/production change. Next: design a single consistent lock-order remediation plan and complete schema corrections before implementation.
