@@ -4,6 +4,7 @@ import { apiRequest } from '../../lib/api';
 
 type PaymentCreationRequest = {
   id: string;
+  provider_order_id: string | null;
   user_id: string;
   request_kind: 'subscription' | 'credits';
   status: 'unknown' | 'creating';
@@ -62,7 +63,7 @@ export const AdminPaymentCreationRequests: React.FC = () => {
           <h2 className="text-lg font-bold text-primary-theme">Неопределённые запросы оплаты</h2>
           <p className="text-sm text-muted-theme mt-1 max-w-3xl">
             Здесь отображаются запросы, для которых создание счёта могло завершиться без подтверждения от Prodamus.
-            Очередь доступна только для чтения: автоматический повтор платежа запрещён.
+            Очередь доступна только для чтения: автоматический повтор платежа запрещён. Идентификатор заказа можно использовать для поиска операции в кабинете Prodamus.
           </p>
         </div>
         <button type="button" onClick={() => void load()} disabled={loading}
@@ -125,7 +126,8 @@ export const AdminPaymentCreationRequests: React.FC = () => {
                     {item.stale_creation && <span className="text-xs text-rose-600 inline-flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" /> Зависший запрос</span>}
                     <span className="text-xs text-muted-theme">{item.request_kind === 'subscription' ? 'Подписка' : 'Пакет кредитов'}</span>
                   </div>
-                  <p className="font-mono text-xs text-secondary-theme mt-2 break-all">ID: {item.id}</p>
+                  <p className="font-mono text-xs text-secondary-theme mt-2 break-all">Запрос: {item.id}</p>
+                  <p className="font-mono text-xs text-secondary-theme mt-1 break-all">Заказ Prodamus: {item.provider_order_id || "ещё не назначен"}</p>
                   <p className="text-xs text-muted-theme mt-1">Пользователь: {item.user_id}</p>
                   {item.error_code && <p className="text-xs text-muted-theme mt-1">Код ошибки: <span className="font-mono">{item.error_code}</span></p>}
                 </div>
