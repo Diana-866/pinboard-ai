@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { logError } = require("../safeLogger");
+const { logError, logWarning, logInfo } = require("../safeLogger");
 
 test("logs only the allowlisted event, status, and normalized error code", () => {
   const original = console.error;
@@ -67,4 +67,30 @@ test("handles null, primitive, and hostile error objects without leaking details
   }
   assert.equal(output.length, 3);
   assert.ok(output.every((line) => !line.includes("private") && !line.includes("do-not-log")));
+});
+
+test("warning and info events use the same safe event-name contract", () => {
+  const originalWarn = console.warn;
+  const originalInfo = console.info;
+  const warnings = [];
+  const infos = [];
+  console.warn = (value) => warnings.push(value);
+  console.info = (value) => infos.push(value);
+  try {
+    logWarning("auth.login_rejected", { message: "email=private@example.com" }, 401);
+    logInfo("pinterest.oauth_connected");
+  } finally {
+    console.warn = originalWarn;
+    console.info = originalInfo;
+  }
+  assert.deepEqual(JSON.parse(warnings[0]), {
+    level: "warn",
+    event: "auth.login_rejected",
+    status: 401,
+  });
+  assert.deepEqual(JSON.parse(infos[0]), {
+    level: "info",
+    event: "pinterest.oauth_connected",
+  });
+  assert.equal(warnings[0].includes("private@example.com"), false);
 });
