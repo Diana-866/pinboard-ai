@@ -2826,3 +2826,12 @@ Date: 2026-11-10
 - Добавлены provider-boundary тест и SQL integration assertions для успешной атомарной записи и rollback usage при невалидном плане.
 - Ограничение: crash/timeout после принятия текстового запроса провайдером, но до получения ответа backend, не может быть восстановлен без provider-side response retrieval; unknown/no-auto-retry защита сохраняется.
 - Перед deploy обязательно применить migration 121. Runtime tests/SQL integration/lint/build/CI не запускались; production не менялся.
+
+
+## Дополнение к handoff — 2026-11-10 (AUD-344)
+
+- Проверен контракт GPTunneL для `POST /v1/chat/completions`: синхронный ответ содержит completion ID и usage, но документация не описывает idempotency key или lookup/retrieve completion по ID.
+- В `backend/gptunnel.js` timeout 30 секунд; completion ID сохраняется только после получения полного ответа. При timeout/crash до ответа ID отсутствует, безопасно восстановить текстовый результат нечем.
+- Не добавлять предположительный заголовок idempotency и не повторять автоматически платный текстовый запрос. Существующий статус unknown/no-auto-retry остаётся корректной защитой.
+- Отдельная idempotency capability CreativeLab относится к image/media tasks и не переносится на chat completions.
+- AUD-344 — docs/source review only; runtime tests/build/CI не запускались; код и production не менялись.
