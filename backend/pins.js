@@ -1,5 +1,6 @@
 const { generateTextWithUsage, generateImage, waitForImageTask } = require("./gptunnel");
 const { rehostImage, deletePinImageIfUnreferenced } = require("./storage");
+const { parsePinIdeasResponse } = require("./textOutputValidation");
 
 const DEFAULT_ASPECT_RATIOS = ["2:3", "9:16", "4:5", "3:4"];
 
@@ -48,33 +49,17 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
     }
     const aiResponse = textResult.content;
 
-    let ideas;
-    try {
-      const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
-      ideas = JSON.parse(jsonMatch ? jsonMatch[0] : aiResponse);
-    } catch (e) {
-      const err = new Error("Не удалось разобрать идеи пинов от нейросети");
-      err.httpStatus = 502;
-      throw err;
-    }
-
-    if (!Array.isArray(ideas) || ideas.length === 0) {
-      const err = new Error("Нейросеть не вернула ни одной идеи — попробуйте ещё раз");
-      err.httpStatus = 502;
-      throw err;
-    }
+    const ideas = parsePinIdeasResponse(textResult.content, count);
 
     const pool = Array.isArray(ratioPool) && ratioPool.length > 0 ? ratioPool : DEFAULT_ASPECT_RATIOS;
-    const plannedTasks = ideas.slice(0, count)
-      .filter((idea) => idea && idea.title && idea.image_prompt)
-      .map((idea, index) => ({
-        task_index: index + 1,
-        title: String(idea.title).slice(0, 200),
-        description: String(idea.description || "").slice(0, 2000),
-        prompt: String(idea.image_prompt).slice(0, 12000),
-        model,
-        aspect_ratio: aspectRatio === "mixed" ? pool[Math.floor(Math.random() * pool.length)] : aspectRatio,
-      }));
+    const plannedTasks = ideas.map((idea, index) => ({
+      task_index: index + 1,
+      title: idea.title,
+      description: idea.description,
+      prompt: idea.image_prompt,
+      model,
+      aspect_ratio: aspectRatio === "mixed" ? pool[Math.floor(Math.random() * pool.length)] : aspectRatio,
+    }));
 
     tasks = typeof options.persistPlan === "function"
       ? await options.persistPlan(plannedTasks)
