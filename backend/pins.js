@@ -44,7 +44,19 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
       options.onTextProviderSubmission();
     }
     const textResult = await generateTextWithUsage(prompt, { requireUsage: false });
-    const ideas = parsePinIdeasResponse(textResult.content, count);
+    let ideas;
+    try {
+      ideas = parsePinIdeasResponse(textResult.content, count);
+    } catch (parseError) {
+      // Invalid model output cannot become an image plan, but the provider
+      // spend still needs its independent accounting fact before we fail.
+      if (typeof options.recordTextUsage === "function") {
+        await options.recordTextUsage(textResult);
+      } else if (typeof options.onTextProviderUsage === "function") {
+        await options.onTextProviderUsage(textResult);
+      }
+      throw parseError;
+    }
 
     const pool = Array.isArray(ratioPool) && ratioPool.length > 0 ? ratioPool : DEFAULT_ASPECT_RATIOS;
     const plannedTasks = ideas.map((idea, index) => ({
