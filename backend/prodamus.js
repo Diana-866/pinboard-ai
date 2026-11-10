@@ -284,7 +284,10 @@ async function createPaymentLink({
     // SYS is a required Prodamus request parameter. For a self-written
     // integration the documentation explicitly allows an empty value.
     sys: String(process.env.PRODAMUS_SYS || ""),
-    ...(urlNotification ? { urlNotification } : {}),
+    // Prodamus may require an issued integration code (SYS) for a per-request
+    // notification URL. Without SYS, use the webhook URL configured in the
+    // payment-form settings instead of sending an ineffective override.
+    ...(process.env.PRODAMUS_SYS && urlNotification ? { urlNotification } : {}),
     ...(urlSuccess ? { urlSuccess } : {}),
     ...(isDemo() ? { demo_mode: "1" } : {}),
   };
