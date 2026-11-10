@@ -3240,3 +3240,17 @@ Date: 2026-11-10
 - **AUD-382-03:** локальный disconnect не отзывает grant в Pinterest; оставить это явно в UI и дать инструкции/ссылку на remote connected-app settings, не заявлять полное удаление разрешения.
 - Добавлены `docs/audits/AUD-382-pinterest-account-lifecycle-and-reconnect-ux.md` и `docs/runbooks/pinterest-disconnect-and-reconnect-aud-382.md`.
 - Только статический аудит. Тесты/build/lint/CI/browser, Pinterest API, SQL и production не запускались/не затрагивались.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-381: Pinterest recovery and image retention)
+
+- Audited account disconnect/reconnect, exact Pinterest account/board identity, immutable schedule snapshots, late remote success, image retention and fenced deletion queue.
+- Confirmed disconnect lock order refresh lease → account → schedules; scheduled publish reservation locks account → schedule and checks connected credentials. Future queued rows fail on disconnect; in-flight `publishing` is retained for late-result reconciliation. A confirmed remote success after disconnect is persisted while credentials remain disconnected.
+- Reconnect does not auto-resume failed schedules. Explicit retry requires exact safe attempt evidence.
+- Create/worker/retry/board-change validate exact remote account and board; board reassignment is limited to eligible failed rows and guarded by SQL RPC.
+- Migration 087 freezes schedule snapshots and uses FK RESTRICT for source pins. Migration 109 blocks expired external Storage deletion leases; migration 110 provides operator diagnostics.
+- Migration 104 already fixed replay-only image references in both deletion claims and retention inventory (`result_pin.image_url`, even when `storage_url` is null). Added missing regression coverage:
+  - `backend/test/pin-image-retention-inventory.integration.sql`: old completed replay-only image is inventoried; recent/in-progress replay-only reference suppresses candidacy.
+  - `backend/test/pin-image-deletion-claims.integration.sql`: deletion claim is rejected while replay-only result_pin image reference exists.
+- Added `docs/audits/AUD-381-pinterest-account-recovery-and-image-retention.md` and `docs/runbooks/pinterest-reconnect-and-image-retention-aud-381.md`.
+- Tests are source-only additions and were not executed. No migration added/applied; no DB/Storage/Pinterest/provider/payment/production operation performed.
