@@ -3034,3 +3034,13 @@ Date: 2026-11-10
 - Добавлен source contract test на совпадение worker URL, регистрации маршрута, secret check, claim/renew/publish/monitor RPC и миграционного fencing.
 - Обновлены scheduler setup, database migration guide, AUD-362 correction, AUD-363 report.
 - No SQL migration applied, no live DB query, no Pinterest API, payment, email, deployment, or production worker/cron activation. Tests/lint/build/CI not run. PR #4 remains open Draft.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-364)
+
+- Проверены актуальные SQL определения claim, renew, reservation, completion, stale recovery, retry и late-success reconciliation по миграциям 033, 034, 049, 050, 056–060, 091–096, 112, 114–115, 119, 122–123.
+- Подтверждён порядок блокировок account → schedules → attempt для операций завершения/late-success; reservation/disconnect сериализуются через account-first lock.
+- Подтверждено, что remote ID при неуверенном локальном результате сохраняется в non-retryable unknown attempt; автоматическая reconciliation требует точного совпадения owner/pin/account/board/remote ID в attempt и publication ledger.
+- Stale recovery автоматически возвращает в очередь только отсутствие durable attempt либо точный retry-safe отказ; неоднозначные попытки остаются unknown.
+- Добавлен disposable PostgreSQL integration script для дублированного completion и fencing устаревшего run UUID.
+- SQL script не запускался; нет доступа/запросов к staging или production DB, миграции не применялись, Pinterest API не вызывался, worker не активирован. Node tests/lint/build/CI не запускались.
