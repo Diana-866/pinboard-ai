@@ -59,6 +59,7 @@ import { EmailVerifyBanner } from './components/auth/EmailVerifyBanner';
 
 const MainApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [initialPricingPlan, setInitialPricingPlan] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [boards, setBoards] = useState<BoardItem[]>([]);
   const [boardsLoadError, setBoardsLoadError] = useState('');
@@ -224,8 +225,10 @@ const MainApp: React.FC = () => {
   // Событие от визарда/оверлея: перейти в раздел (например, «Тарифы»)
   React.useEffect(() => {
     const handler = (e: Event) => {
-      const tab = (e as CustomEvent<string>).detail;
+      const detail = (e as CustomEvent<string | { tab: string; planId?: string }>).detail;
+      const tab = typeof detail === 'string' ? detail : detail?.tab;
       if (tab) {
+        if (tab === 'pricing' && typeof detail !== 'string') setInitialPricingPlan(detail.planId || null);
         setActiveTab(tab);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -847,7 +850,7 @@ const MainApp: React.FC = () => {
 
           {activeTab === 'analytics' && <AnalyticsView />}
 
-          {activeTab === 'pricing' && <PricingView />}
+          {activeTab === 'pricing' && <PricingView initialPlanId={initialPricingPlan} />}
 
           {activeTab === 'settings' && (
             <SettingsView
