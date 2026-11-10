@@ -5,6 +5,7 @@ import { AdminSubscriptions } from './AdminSubscriptions';
 import { AdminBillingExceptions } from './AdminBillingExceptions';
 import { AdminFinancialOperations } from './AdminFinancialOperations';
 import { AdminPinterestSchedules } from './AdminPinterestSchedules';
+import { AdminPaymentCreationRequests } from './AdminPaymentCreationRequests';
 import {
   Users,
   DollarSign,
@@ -54,7 +55,7 @@ interface AdminPanelProps {
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
   const { logout } = useAuth();
   // Navigation tabs within Admin Panel
-  const [adminTab, setAdminTab] = useState<'users' | 'accounting' | 'night_and_bot' | 'mail' | 'subscriptions' | 'billing_exceptions' | 'email_outbox' | 'pinterest'>('users');
+  const [adminTab, setAdminTab] = useState<'users' | 'accounting' | 'night_and_bot' | 'mail' | 'subscriptions' | 'billing_exceptions' | 'email_outbox' | 'pinterest' | 'financial_operations' | 'payment_creation_requests'>('users');
 
   // Search & Filter for Users tab
   const [userSearch, setUserSearch] = useState('');
@@ -316,6 +317,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
           </button>
 
           <button
+            onClick={() => setAdminTab('payment_creation_requests')}
+            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              adminTab === 'payment_creation_requests'
+                ? 'accent-btn shadow-xs'
+                : 'text-secondary-theme hover:text-primary-theme hover:bg-subtle'
+            }`}
+          >
+            <AlertCircle className="w-4 h-4" />
+            <span>10. Создание платежей</span>
+          </button>
+
+          <button
             onClick={() => setAdminTab('pinterest')}
             className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               adminTab === 'pinterest'
@@ -348,6 +361,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
         {adminTab === 'subscriptions' && <AdminSubscriptions />}
         {adminTab === 'billing_exceptions' && <AdminBillingExceptions />}
         {adminTab === 'financial_operations' && <AdminFinancialOperations />}
+        {adminTab === 'payment_creation_requests' && <AdminPaymentCreationRequests />}
         {adminTab === 'pinterest' && <AdminPinterestSchedules />}
         {/* ============================================================ */}
         {/* TAB 1: USERS & DETAILED GENERATION STATS                     */}
