@@ -3345,3 +3345,18 @@ Date: 2026-11-10
 - Зафиксирован отдельный product/security decision: можно ли повторно зарегистрировать email после удаления. При разрешении reuse новая учётная запись обязана иметь новый UUID и не наследовать данные; keyed HMAC tombstone предпочтительнее обычного email hash.
 - SQL функции reset/verification уже используют user-first → auth_token lock order; lifecycle RPC должен соблюдать его. Добавлена матрица конкурентных тестов.
 - Создан `docs/audits/AUD-391-auth-lifecycle-deletion-gates.md`. Код/SQL не менялись; тесты и production не запускались.
+
+
+## AUD-391 — authentication and recovery gates for account deletion (2026-11-11)
+
+Design-only source/migration review of registration, login, requireAuth, password reset and email verification. Confirmed existing protections: bcrypt/dummy hash, seven-day HS256 JWT, token_version check on protected routes, one-use SHA-256 reset token, atomic password reset + global session revocation, serialized reset issuance/cooldown, generic recovery responses, SECURITY DEFINER RPCs restricted to service_role.
+
+Findings: login/register and requireAuth have no lifecycle-state predicate; password-reset issue/consume RPCs do not gate on deletion state; email-verification issue/consume RPCs also need lifecycle gates; email reuse after anonymization is undefined; token_version supports global revocation but not per-device sessions; registration still reveals existing email via 409 (carried from AUD-374).
+
+Required next steps: additive lifecycle schema; status+token_version check in login and requireAuth; lifecycle-aware service-role RPCs for reset and verification using user-row-first locking; atomic deletion transition + token_version increment + auth-token revocation; explicit email reservation/reuse policy; disposable-Postgres concurrency tests. No implementation or production changes in AUD-391.
+
+Artifacts:
+- docs/audits/AUD-391-authentication-and-deletion-gates.md
+- docs/runbooks/authentication-deletion-gates-aud-391.md
+
+Validation: source/migration review only. No tests, migrations, CI or production data executed. Live database migration state remains unverified.
