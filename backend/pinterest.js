@@ -1161,9 +1161,32 @@ function registerRoutes(app, deps) {
             attemptLookupError = lookupError;
           }
 
+          // A "published" attempt is not enough: only the durable publication
+          // ledger proves that Pinterest's remote ID and exact destination were
+          // committed. If this lookup fails or disagrees, keep the schedule unknown.
+          let publicationLedger = null;
+          let publicationLedgerLookupError = null;
+          if (!attemptLookupError && attempt && attempt.status === "published") {
+            try {
+              const ledgerLookup = await supabase
+                .from("pinterest_publications")
+                .select("user_id, pin_id, pinterest_account_id, pinterest_board_id, pinterest_pin_id")
+                .eq("user_id", String(schedule.user_id))
+                .eq("pin_id", String(schedule.pin_id))
+                .eq("pinterest_account_id", String(schedule.pinterest_account_id))
+                .maybeSingle();
+              publicationLedger = ledgerLookup.data;
+              publicationLedgerLookupError = ledgerLookup.error;
+            } catch (ledgerError) {
+              publicationLedgerLookupError = ledgerError;
+            }
+          }
+
           const failure = buildScheduleWorkerFailureState({
             attempt,
             attemptLookupError,
+            publicationLedger,
+            publicationLedgerLookupError,
             error: e,
             attempts: schedule.attempts,
           });
