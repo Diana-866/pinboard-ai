@@ -2845,3 +2845,14 @@ Date: 2026-11-10
 - Код подтверждает наличие worker implementation, но не факт его production deployment/health/secrets. Это проверяется в панели хостинга и логах; отсутствие worker оставляет due schedules в очереди, но не вызывает повторные публикации.
 - Добавлен тест: malformed text plan сохраняет успешный GPTunnel usage, но не проходит к quote/image provider.
 - AUD-345 report + HANDOFF сохранены. Runtime tests/SQL/lint/build/CI и production worker checks не выполнялись; live data не менялись.
+
+
+## Дополнение к handoff — 2026-11-11 (AUD-346)
+
+- Проверен Prodamus checkout: idempotency key + fingerprint, CSPRNG order ID, локальная запись и provider order reference до внешнего запроса, unknown fence при неоднозначном результате, unique provider_payment_id для подписок и кредитных покупок.
+- Вебхук: подпись до обработки, только известные финальные статусы, обязательное совпадение валюты/суммы (USD использует currency_sum), append-only audit для неизвестного заказа/несовпадений без customer PII.
+- Кредиты: credit_paid_purchase row-lock + atomic balance/ledger/purchase marker; unique purchase_id ledger index; duplicate и commit-then-error recovery безопасны.
+- Подписки: atomic activation row-lock; повторная доставка не продлевает один order второй раз; checkout request settled только после полного fulfillment.
+- Выявлен подтверждённый operational gap: Prodamus refunds остаются manual-only. Нет refund webhook consumer, refunded status или refund ledger, partial refund totals не представлены. Refund не приводит к автоматическому изменению кредитов/тарифа. Не автоматизировать без политики partial refund, уже потраченных credits и overlapping subscriptions.
+- Legacy generic balance adjustment RPC требует, чтобы в production были применены поздние hardening migrations, включая 074; live grants/schema не проверялись.
+- AUD-346 report сохранён. Tests/SQL/lint/build/CI и live Prodamus/Supabase checks не выполнялись; платежи/возвраты/балансы не менялись.
