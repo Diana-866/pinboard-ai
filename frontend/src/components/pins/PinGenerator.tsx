@@ -347,6 +347,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             boardId: typeof result?.board_id === 'string' ? result.board_id : '',
             pinCount: status === 'completed' && Array.isArray(result?.pins) ? result.pins.length : 0,
           });
+          // The server has confirmed the pins are durably saved. The recovery
+          // identity is no longer needed; keep the in-memory card for this view,
+          // while preventing completed requests from resurfacing after reload.
+          if (status === 'completed') {
+            clearPendingGenerationRequest(identity.fingerprint);
+          }
         } catch (error: any) {
           // A 404 can mean an old local key whose server record has expired.
           // Preserve it: a transient/auth/network error must never erase recovery data.
