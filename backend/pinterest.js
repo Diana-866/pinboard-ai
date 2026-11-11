@@ -194,12 +194,24 @@ async function getAccounts(userId, { includeDisconnected = false } = {}) {
 async function resolveAccount(userId, accountId = null) {
   if (accountId) {
     const account = await getAccount(userId, accountId);
-    if (!account) throw httpError(404, "Pinterest-аккаунт не найден или отключён.");
+    if (!account) {
+      const error = httpError(404, "Pinterest-аккаунт не найден или отключён.");
+      error.retryable = false;
+      throw error;
+    }
     return account;
   }
   const accounts = await getAccounts(userId);
-  if (accounts.length > 1) throw httpError(422, "Выберите Pinterest-аккаунт для этой операции.");
-  if (!accounts.length) throw httpError(409, "Pinterest не подключён. Нажмите «Подключить Pinterest» в настройках.");
+  if (accounts.length > 1) {
+    const error = httpError(422, "Выберите Pinterest-аккаунт для этой операции.");
+    error.retryable = false;
+    throw error;
+  }
+  if (!accounts.length) {
+    const error = httpError(409, "Pinterest не подключён. Нажмите «Подключить Pinterest» в настройках.");
+    error.retryable = false;
+    throw error;
+  }
   return accounts[0];
 }
 
@@ -563,12 +575,18 @@ async function persistFailedPublishAttempt({ userId, pinId, accountId, message, 
 }
 async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationUrl, accountId = null, scheduleClaim = null, scheduleSnapshot = null) {
   const boardId = String(pinterestBoardId || "").trim();
-  if (!boardId) throw httpError(422, "board_id обязателен: выберите доску Pinterest");
+  if (!boardId) {
+    const error = httpError(422, "board_id обязателен: выберите доску Pinterest");
+    error.retryable = false;
+    throw error;
+  }
 
   // Проверяем владельца локального пина и доступность доски до резервации.
   const pin = await getPinWithOwner(pinId, userId);
   if (pin.status !== "approved") {
-    throw httpError(409, "Публиковать можно только одобренные пины");
+    const error = httpError(409, "Публиковать можно только одобренные пины");
+    error.retryable = false;
+    throw error;
   }
   // New schedules use the immutable creative snapshot; legacy rows keep live-pin behavior.
   const resolvedSnapshot = resolvePinScheduleSnapshot(scheduleSnapshot, pin);
@@ -578,7 +596,11 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
     description: resolvedSnapshot.description,
     image_url: resolvedSnapshot.image_url,
   };
-  if (!publishPinData.image_url) throw httpError(422, "У пина нет изображения — сначала сгенерируйте картинку");
+  if (!publishPinData.image_url) {
+    const error = httpError(422, "У пина нет изображения — сначала сгенерируйте картинку");
+    error.retryable = false;
+    throw error;
+  }
   const selectedAccount = await resolveAccount(userId, accountId);
   accountId = selectedAccount.id;
   await verifyPinterestBoard(userId, boardId, accountId);
@@ -590,7 +612,9 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
       if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("invalid protocol");
       destinationUrl = parsed.toString();
     } catch {
-      throw httpError(422, "Ссылка для публикации должна быть корректным HTTP- или HTTPS-адресом");
+      const error = httpError(422, "Ссылка для публикации должна быть корректным HTTP- или HTTPS-адресом");
+      error.retryable = false;
+      throw error;
     }
   }
 
