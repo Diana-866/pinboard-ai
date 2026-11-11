@@ -49,6 +49,10 @@ function logEvent(level, event, error, status) {
   if (Number.isInteger(status) && status >= 400 && status <= 599) record.status = status;
   const correlationId = currentCorrelationId();
   if (correlationId) record.correlation_id = correlationId;
+  const errorName = error && typeof error.name === "string" && /^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(error.name)
+    ? error.name
+    : undefined;
+  if (errorName) record.error_name = errorName;
   const code = safeErrorCode(error);
   if (code) record.error_code = code;
   // Intentionally omit message, stack, cause, request, response, and arbitrary metadata.
