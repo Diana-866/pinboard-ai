@@ -308,7 +308,17 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
     e.preventDefault();
     if (!slotModalData) return;
 
-    onGoToGenerator(slotTopic, slotModalData.date, slotModalData.time, slotModalData.boardId);
+    const selectedBoard = boards.find((board) => board.id === slotModalData.boardId);
+    if (!selectedBoard) {
+      window.alert(
+        language === 'ru'
+          ? 'Сначала создайте доску PinPosy или выберите доступную доску.'
+          : 'Create a PinPosy board first or select an available board.'
+      );
+      return;
+    }
+
+    onGoToGenerator(slotTopic, slotModalData.date, slotModalData.time, selectedBoard.id);
     setSlotModalData(null);
   };
 
