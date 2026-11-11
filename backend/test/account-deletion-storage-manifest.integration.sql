@@ -1,5 +1,5 @@
 -- Durable account-deletion Storage manifest integration test.
--- Run after migrations 127-142 in the disposable PostgreSQL database.
+-- Run after migrations 127-143 in the disposable PostgreSQL database.
 begin;
 do $$
 declare
@@ -163,15 +163,15 @@ begin
   ) values(v_pinterest_account,v_user::text,gen_random_uuid(),clock_timestamp()+interval '5 minutes');
 
   insert into public.subscriptions(user_id,plan,status,amount)
-  values(v_user::text,'start','pending',190) returning id into v_subscription;
+  values(v_user::text,'start','success',190) returning id into v_subscription;
   insert into public.email_outbox(
     event_key,subscription_id,recipient_email,template_key,payload
   ) values(
     'deletion-email-'||v_user,v_subscription,'user@example.invalid','subscription_created','{"email":"user@example.invalid"}'::jsonb
   );
 
-  insert into public.pin_generation_credit_reservations(user_id,idempotency_key,amount)
-  values(v_user::text,'retained-credit-reservation',5);
+  insert into public.pin_generation_credit_reservations(user_id,idempotency_key,amount,status)
+  values(v_user::text,'retained-credit-reservation',5,'settled');
   insert into public.pin_generation_text_usage(
     user_id,idempotency_key,provider_model,usage_status,total_cost_rub
   ) values(v_user::text,'retained-text-usage','gptunnel-model','recorded',0.10);
@@ -190,6 +190,24 @@ begin
     v_active_generation_request,v_user::text,v_board,1,'In flight','test prompt',
     'flux-schnell','2:3','running'
   );
+
+  insert into public.credit_purchases(user_id,package_id,credits,amount,status)
+  values(v_user::text,'pack_100',100,190,'pending');
+  v_result := public.erase_account_deletion_content(v_job,v_claim);
+  if v_result->>'erased' <> 'false' or v_result->>'reason' <> 'payment_outcome_unresolved' then
+    raise exception 'pending payment did not block account erasure: %',v_result;
+  end if;
+  update public.credit_purchases set status='canceled'
+   where user_id=v_user::text and package_id='pack_100';
+
+  insert into public.pin_generation_credit_reservations(user_id,idempotency_key,amount,status)
+  values(v_user::text,'pending-credit-reservation',5,'reserved');
+  v_result := public.erase_account_deletion_content(v_job,v_claim);
+  if v_result->>'erased' <> 'false' or v_result->>'reason' <> 'credit_reservation_unresolved' then
+    raise exception 'pending credit reservation did not block account erasure: %',v_result;
+  end if;
+  update public.pin_generation_credit_reservations set status='released'
+   where user_id=v_user::text and idempotency_key='pending-credit-reservation';
 
   update public.account_deletion_jobs
      set status='succeeded',claim_token=null,lease_expires_at=null,finished_at=clock_timestamp()
