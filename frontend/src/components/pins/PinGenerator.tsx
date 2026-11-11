@@ -349,13 +349,20 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
           try {
             const result = await apiRequest(`/generation/requests/${encodeURIComponent(identity.idempotencyKey)}`);
             if (!active) return null;
-            const status = ['processing', 'completed', 'failed', 'unknown'].includes(result?.status)
+            const reportedStatus = ['processing', 'completed', 'failed', 'unknown'].includes(result?.status)
               ? result.status as 'processing' | 'completed' | 'failed' | 'unknown'
               : 'unknown';
+            // A completed request must contain at least one durable pin. Treat
+            // an empty/malformed completion payload as uncertain and keep its
+            // recovery identity instead of displaying a false "Completed: 0".
+            const hasSavedPins = Array.isArray(result?.pins) && result.pins.length > 0;
+            const status = reportedStatus === 'completed' && !hasSavedPins
+              ? 'unknown'
+              : reportedStatus;
             // The server has confirmed the pins are durably saved. The recovery
             // identity is no longer needed; keep the in-memory card for this view,
             // while preventing completed requests from resurfacing after reload.
-            if (status === 'completed' && Array.isArray(result?.pins) && result.pins.length > 0) {
+            if (status === 'completed' && hasSavedPins) {
               clearPendingGenerationRequest(identity.fingerprint);
             }
             return {
