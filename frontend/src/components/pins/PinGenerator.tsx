@@ -638,6 +638,14 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       results.forEach((pin) => pinAspectRatioConfirmedRef.current.set(pin.id, pin.aspectRatio));
       setGeneratedPins(results);
       setActivePinIndex(0);
+      // A partial 201 is still a successful durable save. Tell the user that
+      // fewer pins were saved, without discarding the completed results or
+      // suggesting that the failed tasks should be submitted as a new request.
+      if (validatedRows.length < pinCount) {
+        window.alert(language === 'ru'
+          ? `Сохранено ${validatedRows.length} из ${pinCount} запрошенных пинов. Остальные изображения не удалось завершить. Кредиты списаны только за сохранённые пины.`
+          : `Saved ${validatedRows.length} of ${pinCount} requested pins. The remaining images could not be completed. Credits were charged only for saved pins.`);
+      }
       // Refresh board-card counts only after the server has confirmed all generated pins.
       onPinsChanged?.();
       generationKeyRef.current = null;
