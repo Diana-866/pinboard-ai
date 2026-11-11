@@ -564,6 +564,34 @@ test("lease heartbeat renews only the current fenced claim and stops cleanly", a
   assert.equal(calls.length, 1);
 });
 
+
+test("lease heartbeat fails closed when a previous renewal is still pending at the next interval", async () => {
+  let callback;
+  let resolveRenewal;
+  const renewal = new Promise((resolve) => { resolveRenewal = resolve; });
+  let calls = 0;
+  const heartbeat = startLeaseHeartbeat({
+    client: { rpc() { calls += 1; return renewal; } },
+    job: { job_id: "job-stalled", claim_token: "claim-stalled" },
+    schedule(fn) { callback = fn; return null; },
+    cancelSchedule() {},
+  });
+
+  const firstTick = callback();
+  assert.equal(calls, 1);
+  assert.equal(heartbeat.lost, false);
+
+  // The next interval arrives before the database confirms the prior lease.
+  await callback();
+  assert.equal(heartbeat.lost, true);
+  assert.equal(calls, 1, "must not overlap lease-renewal RPCs");
+
+  resolveRenewal({ data: true, error: null });
+  await firstTick;
+  assert.equal(heartbeat.lost, true, "late renewal cannot restore trust in the claim");
+  heartbeat.stop();
+});
+
 test("lease heartbeat fails closed when renewal is rejected or errors", async () => {
   for (const response of [{ data: false, error: null }, { data: null, error: { code: "XX000" } }]) {
     let callback;
