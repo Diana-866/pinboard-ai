@@ -237,7 +237,7 @@ declare
   v_next_status text;
   v_delay integer;
 begin
-  if p_job_id is null or p_claim_token is null
+  if p_job_id is null or p_claim_token is null or p_outcome is null
      or p_outcome not in ('succeeded','retry','blocked') then
     raise exception 'invalid account deletion job result';
   end if;

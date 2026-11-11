@@ -37,6 +37,14 @@ begin
   end if;
   v_claim := v_claimed.claim_token;
 
+  -- Null outcomes are invalid and must not silently become retries.
+  begin
+    perform public.finish_account_deletion_job(v_job_id,v_claim,null,null);
+    raise exception 'null job outcome unexpectedly accepted';
+  exception when raise_exception then
+    if sqlerrm <> 'invalid account deletion job result' then raise; end if;
+  end;
+
   -- A stale claim token must never finalize another worker's job.
   v_finished := public.finish_account_deletion_job(v_job_id,gen_random_uuid(),'succeeded',null);
   if v_finished then raise exception 'stale worker token unexpectedly finalized job'; end if;
