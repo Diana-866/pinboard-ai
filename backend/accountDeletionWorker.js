@@ -23,6 +23,37 @@ async function countOwnedRows(client, table, userId) {
   return Number(count || 0);
 }
 
+// PostgREST applies a default row cap. Explicitly page every identifier query;
+// otherwise a large account could receive a false "complete" inventory.
+async function fetchAllRows(query, pageSize = 1000) {
+  const rows = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await query.range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    const page = Array.isArray(data) ? data : [];
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+}
+
+function chunkValues(values, size = 200) {
+  const chunks = [];
+  for (let i = 0; i < values.length; i += size) chunks.push(values.slice(i, i + size));
+  return chunks;
+}
+
+async function countPinsForBoards(client, boardIds) {
+  let total = 0;
+  for (const ids of chunkValues(boardIds)) {
+    const { count, error } = await client.from("pins")
+      .select("id", { count: "exact", head: true })
+      .in("board_id", ids);
+    if (error) throw error;
+    total += Number(count || 0);
+  }
+  return total;
+}
+
 async function inspectAccountForDeletion(client, userId) {
   if (typeof userId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)) {
     const error = new Error("invalid account owner id");
@@ -57,23 +88,19 @@ async function inspectAccountForDeletion(client, userId) {
     counts[table] = await countOwnedRows(client, table, userId);
   }
 
-  const projectIdsResult = await client.from("projects").select("id").eq("user_id", userId);
-  if (projectIdsResult.error) throw projectIdsResult.error;
-  const projectIds = (projectIdsResult.data || []).map((row) => row.id).filter(Boolean);
-  let boardIds = [];
-  if (projectIds.length) {
-    const boardsResult = await client.from("boards").select("id").in("project_id", projectIds);
-    if (boardsResult.error) throw boardsResult.error;
-    boardIds = (boardsResult.data || []).map((row) => row.id).filter(Boolean);
+  const projectRows = await fetchAllRows(
+    client.from("projects").select("id").eq("user_id", userId)
+  );
+  const projectIds = projectRows.map((row) => row.id).filter(Boolean);
+  const boardIds = [];
+  for (const ids of chunkValues(projectIds)) {
+    const boards = await fetchAllRows(
+      client.from("boards").select("id").in("project_id", ids)
+    );
+    boardIds.push(...boards.map((row) => row.id).filter(Boolean));
   }
   counts.boards = boardIds.length;
-  if (boardIds.length) {
-    const pinsResult = await client.from("pins").select("id", { count: "exact", head: true }).in("board_id", boardIds);
-    if (pinsResult.error) throw pinsResult.error;
-    counts.pins = Number(pinsResult.count || 0);
-  } else {
-    counts.pins = 0;
-  }
+  counts.pins = await countPinsForBoards(client, boardIds);
 
   return { ok: true, sectionsChecked: Object.keys(counts).length, counts };
 }
@@ -207,4 +234,4 @@ if (require.main === module) {
   process.once("SIGINT", () => { void shutdown(); });
 }
 
-module.exports = { safeErrorCode, countOwnedRows, inspectAccountForDeletion, createAccountDeletionWorker };
+module.exports = { safeErrorCode, countOwnedRows, fetchAllRows, chunkValues, countPinsForBoards, inspectAccountForDeletion, createAccountDeletionWorker };
