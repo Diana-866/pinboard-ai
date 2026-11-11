@@ -4,6 +4,7 @@
 // The current first stage inventories owned data and revokes locally stored
 // Pinterest credentials. Physical content erasure is a separate later stage.
 const { logError, logInfo } = require("./safeLogger");
+const { deleteManagedPinImageObject } = require("./pinImageLifecycle");
 
 const POLL_INTERVAL_MS = Math.max(5000, Number(process.env.ACCOUNT_DELETION_WORKER_INTERVAL_MS) || 30000);
 const LEASE_SECONDS = 300;
@@ -143,6 +144,7 @@ function createAccountDeletionWorker({
   schedule = setTimeout,
   cancelSchedule = clearTimeout,
   intervalMs = POLL_INTERVAL_MS,
+  deleteImageObject = deleteManagedPinImageObject,
 }) {
   if (!client || typeof client.rpc !== "function") throw new Error("Supabase service client is required");
   let timer = null;
@@ -162,6 +164,56 @@ function createAccountDeletionWorker({
           error.code = "content_erasure_unconfirmed";
           throw error;
         }
+
+        // Source rows have now been removed transactionally. Delete only the
+        // exact, pre-recorded managed paths through the shared lifecycle guard.
+        const { data: storageObjects, error: storageListError } = await client.rpc(
+          "list_account_deletion_storage_manifest",
+          { p_job_id: job.job_id, p_claim_token: job.claim_token, p_limit: 100 }
+        );
+        if (storageListError) throw storageListError;
+        for (const object of storageObjects || []) {
+          if (object.bucket_id !== "pin-images" ||
+              typeof object.object_path !== "string" ||
+              !/^pins\\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\\.(?:png|jpe?g|webp|gif)$/i.test(object.object_path)) {
+            const error = new Error("invalid account deletion Storage manifest entry");
+            error.code = "invalid_storage_manifest_entry";
+            throw error;
+          }
+          const removed = await deleteImageObject({
+            supabase: client,
+            bucket: object.bucket_id,
+            objectPath: object.object_path,
+          });
+          const { data: marked, error: markError } = await client.rpc(
+            "mark_account_deletion_storage_object_deleted",
+            {
+              p_job_id: job.job_id,
+              p_claim_token: job.claim_token,
+              p_bucket_id: object.bucket_id,
+              p_object_path: object.object_path,
+            }
+          );
+          if (markError) throw markError;
+          // A false remove result is acceptable only when a previous attempt
+          // already completed Storage removal and the lifecycle row confirms it.
+          if (marked !== true || (removed !== true && removed !== false)) {
+            const error = new Error("account deletion Storage object removal is unconfirmed");
+            error.code = "storage_object_not_deleted";
+            throw error;
+          }
+        }
+        const { data: remainingObjects, error: remainingError } = await client.rpc(
+          "list_account_deletion_storage_manifest",
+          { p_job_id: job.job_id, p_claim_token: job.claim_token, p_limit: 1 }
+        );
+        if (remainingError) throw remainingError;
+        if (Array.isArray(remainingObjects) && remainingObjects.length > 0) {
+          const error = new Error("account deletion Storage manifest has more pending objects");
+          error.code = "storage_manifest_batch_remaining";
+          throw error;
+        }
+
         const { data: finished, error: finishError } = await client.rpc("finish_account_deletion_job", {
           p_job_id: job.job_id,
           p_claim_token: job.claim_token,
