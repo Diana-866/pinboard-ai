@@ -586,7 +586,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         throw new Error('Сервер не подтвердил сохранение нового изображения. Повторите проверку с тем же запросом.');
       }
 
-      const updatedPin = { ...currentPin, imageUrl: savedPin.image_url };
+      const updatedPin = { ...currentPin, imageUrl: savedPin.image_url, aspectRatio: '2:3' };
       await updateQueue((prev) => prev.map((pin) => pin.id === currentPin.id ? updatedPin : pin));
       regenerationAttemptRef.current = null;
       setRegenStatusMessage('Новое изображение сохранено и привязано к исходной карточке.');
@@ -995,6 +995,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                   <input
                     type="text"
                     required
+                    maxLength={300}
                     placeholder="Например: затемни фон, сохрани композицию, добавь акцент на заголовок..."
                     value={regenComment}
                     onChange={(e) => {
