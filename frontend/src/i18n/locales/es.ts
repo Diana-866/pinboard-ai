@@ -480,7 +480,7 @@ export const es: TranslationSchema = {
     deleteAccountWarning: "Esto programa la eliminación de tu cuenta y cierra la sesión en todos los dispositivos de inmediato. No se puede deshacer.",
     deleteAccountPasswordLabel: "Confirma con tu contraseña",
     deleteAccountConfirm: "Solicitar eliminación",
-    deleteAccountDone: "Solicitud de eliminación aceptada. El acceso se ha cerrado: eliminaremos tus datos en un plazo de 30 días.",
+    deleteAccountDone: "Hemos recibido tu solicitud de eliminación y el acceso está desactivado. Tus datos aún no se han eliminado.",
     requestFailed: "No se pudo completar la solicitud. Inténtalo de nuevo.",
   },
 
