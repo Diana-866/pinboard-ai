@@ -83,6 +83,19 @@ test('accepts completed recovery only when at least one saved pin is present', (
   assert.equal(normalizeGenerationRecoveryStatus('unexpected', [savedPin]), 'unknown');
 });
 
+test('does not treat malformed or credential-bearing image URLs as durable pins', () => {
+  assert.equal(countDurableGenerationPins([
+    { id: 'empty-host', image_url: 'https://' },
+    { id: 'bad-host', image_url: 'https://not a url' },
+    { id: 'credentials', image_url: 'https://user:pass@storage.example/pin.png' },
+    { id: 'wrong-scheme', image_url: 'ftp://storage.example/pin.png' },
+    { id: 'valid-http', image_url: 'http://storage.example/pin.png' },
+  ]), 1);
+  assert.equal(normalizeGenerationRecoveryStatus('completed', [
+    { id: 'pin-invalid', image_url: 'https://' },
+  ]), 'unknown');
+});
+
 test('preserves non-completed recovery states', () => {
   assert.equal(normalizeGenerationRecoveryStatus('processing', []), 'processing');
   assert.equal(normalizeGenerationRecoveryStatus('failed', []), 'failed');
