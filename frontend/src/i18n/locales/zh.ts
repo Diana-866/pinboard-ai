@@ -480,7 +480,7 @@ export const zh: TranslationSchema = {
     deleteAccountWarning: "此操作将安排删除您的账户，并立即在所有设备上退出登录。此操作不可撤销。",
     deleteAccountPasswordLabel: "使用密码确认",
     deleteAccountConfirm: "申请删除",
-    deleteAccountDone: "删除申请已受理。访问已关闭——我们将在 30 天内删除您的数据。",
+    deleteAccountDone: "已收到您的删除申请，账户访问已停用。您的数据尚未删除。",
     requestFailed: "无法完成请求，请重试。",
   },
 
