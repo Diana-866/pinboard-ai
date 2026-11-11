@@ -1538,9 +1538,15 @@ app.get("/generation/requests/:key", requireAuth, async (req, res) => {
     if (error) throw error;
     if (!request) throw httpError(404, "Запрос генерации не найден");
     if (request.replay_expired_at) {
+      // The idempotency replay window expired, but the generated pins remain
+      // persisted on the board. Return safe navigation metadata so the client
+      // can still reopen those pins without starting or charging a new task.
       return res.status(410).json({
-        error: "Срок хранения результата генерации истёк. Используйте новый ключ идемпотентности для новой операции.",
+        error: "Срок восстановления исходного запроса истёк. Сохранённые пины можно открыть на исходной доске.",
         code: "idempotency_result_expired",
+        status: "expired",
+        board_id: request.board_id,
+        pin_count: Array.isArray(request.pins) ? request.pins.length : 0,
       });
     }
 
