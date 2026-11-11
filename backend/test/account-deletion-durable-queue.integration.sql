@@ -78,6 +78,10 @@ begin
      and inventory->'counts'->>'projects' = '0';
   if v_count <> 1 then raise exception 'preflight inventory was not durably persisted'; end if;
 
+  select count(*) into v_count from public.account_deletion_jobs
+   where request_id=v_request_id and step_key='erase_content' and status='pending';
+  if v_count <> 1 then raise exception 'successful preflight did not enqueue content erasure'; end if;
+
   -- Event log must be immutable.
   begin
     update public.account_deletion_events set reason_code='tampered'
