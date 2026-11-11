@@ -62,37 +62,8 @@ function requireUserId(userId) {
 // PostgREST applies a default row cap. Page every export section so a
 // successful export never silently omits records after the first 1,000 rows.
 async function selectRows(query, pageSize = 1000) {
-  if (!query || typeof query.range !== "function") {
-    const { data, error } = await query;
-    if (error) throw error;
-    return Array.isArray(data) ? data : [];
-  }
-  // Keyset pagination avoids offset drift when rows are inserted/deleted
-  // while an export is running. Every exported table has a stable primary id.
-  if (typeof query.gt === "function" && typeof query.limit === "function"
-      && typeof query.order === "function") {
-    const rows = [];
-    // PostgREST builders mutate their URL parameters; apply order once, then
-    // advance only the keyset cursor on each iteration.
-    const orderedQuery = query.order("id", { ascending: true });
-    let lastId = null;
-    for (;;) {
-      let pageQuery = orderedQuery;
-      if (lastId !== null) pageQuery = pageQuery.gt("id", lastId);
-      const { data, error } = await pageQuery.limit(pageSize);
-      if (error) throw error;
-      const page = Array.isArray(data) ? data : [];
-      rows.push(...page);
-      if (page.length < pageSize) return rows;
-      const nextId = page[page.length - 1] && page[page.length - 1].id;
-      if (nextId === null || nextId === undefined || nextId === lastId) {
-        throw new Error("account export pagination cursor did not advance");
-      }
-      lastId = nextId;
-    }
-  }
-
-  // Compatibility fallback for lightweight query clients without keyset APIs.
+  // Stable ordering keeps page boundaries deterministic for the duration
+  // of this export. The account data remains read-only during export.
   const orderedQuery = typeof query.order === "function"
     ? query.order("id", { ascending: true })
     : query;
