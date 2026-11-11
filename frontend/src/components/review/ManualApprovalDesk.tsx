@@ -24,6 +24,7 @@ import { useI18n } from '../../i18n/i18nContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { applyCurrentReviewEdits } from '../../utils/reviewApproval';
+import { createGenerationIdempotencyKey } from '../../utils/generationRetry';
 
 export interface PendingReviewPin {
   id: string;
@@ -47,7 +48,7 @@ export interface PendingReviewPin {
 export interface ManualApprovalDeskProps {
   boards: BoardItem[];
   pendingPins?: PendingReviewPin[];
-  onUpdatePendingPins?: (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => void;
+  onUpdatePendingPins?: (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => void | Promise<void>;
   onApprovePin: (pin: ScheduledPinItem) => void;
   onGoToCalendar?: () => void;
   onGoToGenerator?: (topic?: string, date?: string, time?: string, boardId?: string) => void;
@@ -297,11 +298,9 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   const queue = pendingPins ?? internalQueue;
 
   const updateQueue = (fn: (prev: PendingReviewPin[]) => PendingReviewPin[]) => {
-    if (onUpdatePendingPins) {
-      onUpdatePendingPins(fn);
-    } else {
-      setInternalQueue(fn);
-    }
+    if (onUpdatePendingPins) return Promise.resolve(onUpdatePendingPins(fn));
+    setInternalQueue(fn);
+    return Promise.resolve();
   };
 
   const [approvedCount, setApprovedCount] = useState(0);
@@ -327,6 +326,9 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   // AI re-generate state
   const [showRegenBox, setShowRegenBox] = useState(false);
   const [regenComment, setRegenComment] = useState('');
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [regenStatusMessage, setRegenStatusMessage] = useState('');
+  const regenerationAttemptRef = useRef<{ pinId: string; instruction: string; key: string } | null>(null);
 
   // Swipe animation states
   const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
@@ -553,23 +555,53 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     }
   };
 
-  const handleRegenerate = (e: React.FormEvent) => {
+  const handleRegenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const feedback = regenComment.trim();
-    if (!feedback || !currentPin || !onGoToGenerator) return;
+    const instruction = regenComment.trim();
+    if (!instruction || !currentPin || isRegenerating) return;
+    if (!currentPin.pinId) {
+      window.alert('Нельзя заменить изображение: исходный пин ещё не сохранён на сервере.');
+      return;
+    }
 
-    // The review desk has no image-regeneration API. Send the original subject
-    // and requested changes to the real generator instead of faking success.
-    const revisionPrompt = [
-      currentPin.title,
-      currentPin.description,
-      `Visual revision requested by the user: ${feedback}`,
-      "Create a new pin image variant. Preserve the original subject and apply the requested visual changes.",
-    ].filter(Boolean).join("\n\n");
+    const existingAttempt = regenerationAttemptRef.current;
+    const attempt = existingAttempt && existingAttempt.pinId === currentPin.pinId && existingAttempt.instruction === instruction
+      ? existingAttempt
+      : { pinId: currentPin.pinId, instruction, key: createGenerationIdempotencyKey() };
+    regenerationAttemptRef.current = attempt;
+    setIsRegenerating(true);
+    setRegenStatusMessage('Отправляем запрос на перегенерацию…');
 
-    setShowRegenBox(false);
-    setRegenComment("");
-    onGoToGenerator(revisionPrompt, currentPin.scheduledDate, currentPin.scheduledTime, currentPin.boardId);
+    try {
+      const savedPin = await apiRequest(`/pins/${encodeURIComponent(currentPin.pinId)}/regenerate`, {
+        method: 'POST',
+        headers: { 'Idempotency-Key': attempt.key },
+        body: JSON.stringify({ instruction }),
+      });
+      if (savedPin?.status === 'processing' || savedPin?.code === 'regeneration_pending') {
+        setRegenStatusMessage('Генерация ещё выполняется. Нажмите кнопку ещё раз через несколько секунд — запрос продолжится с тем же ключом без повторного списания.');
+        return;
+      }
+      if (typeof savedPin?.image_url !== 'string' || !savedPin.image_url.trim()) {
+        throw new Error('Сервер не подтвердил сохранение нового изображения. Повторите проверку с тем же запросом.');
+      }
+
+      const updatedPin = { ...currentPin, imageUrl: savedPin.image_url };
+      await updateQueue((prev) => prev.map((pin) => pin.id === currentPin.id ? updatedPin : pin));
+      regenerationAttemptRef.current = null;
+      setRegenStatusMessage('Новое изображение сохранено и привязано к исходной карточке.');
+      setShowRegenBox(false);
+      setRegenComment('');
+    } catch (error: any) {
+      const code = error?.data?.code;
+      if (code === 'regeneration_in_progress' || code === 'regeneration_pending') {
+        setRegenStatusMessage('Генерация ещё выполняется. Нажмите кнопку повторно через несколько секунд; используется тот же запрос.');
+      } else {
+        setRegenStatusMessage(error instanceof Error ? error.message : 'Не удалось перегенерировать изображение. Повторите попытку.');
+      }
+    } finally {
+      setIsRegenerating(false);
+    }
   };
 
   // Completed State Screen
@@ -754,7 +786,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                       throw new Error('Сервер не вернул постоянную ссылку на изображение.');
                     }
 
-                    updateQueue((prev) =>
+                    await updateQueue((prev) =>
                       prev.map((p) => (p.id === currentPin.id ? { ...p, imageUrl: savedPin.image_url } : p))
                     );
                   } catch (error) {
