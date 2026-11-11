@@ -61,4 +61,30 @@ function calculateQuotedGenerationPricing(quotes, markup) {
   };
 }
 
-module.exports = { calculateGenerationReservation, calculateQuotedGenerationPricing, ceilCredits };
+/**
+ * Verify the persisted retail-credit reservation against the immutable provider
+ * quote before resuming a regeneration. Database numeric columns may arrive as
+ * strings, so normalize both values but never trust the stored amount alone.
+ */
+function validateSavedRegenerationQuote(providerPrice, savedCredits, markup) {
+  const price = Number(providerPrice);
+  const credits = Number(savedCredits);
+  if (!Number.isFinite(price) || price <= 0) {
+    throw new TypeError("saved regeneration quote price must be positive");
+  }
+  if (!Number.isSafeInteger(credits) || credits <= 0) {
+    throw new TypeError("saved regeneration credits must be a positive safe integer");
+  }
+  const expectedCredits = ceilCredits(price * Number(markup));
+  if (!Number.isSafeInteger(expectedCredits) || credits !== expectedCredits) {
+    throw new TypeError("saved regeneration credits do not match provider quote");
+  }
+  return credits;
+}
+
+module.exports = {
+  calculateGenerationReservation,
+  calculateQuotedGenerationPricing,
+  ceilCredits,
+  validateSavedRegenerationQuote,
+};
