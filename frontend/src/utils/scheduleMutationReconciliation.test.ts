@@ -102,5 +102,6 @@ test('does not reconcile schedule creation against a different time, destination
     assert.equal(findPersistedScheduleRequest([row], expectedRequest), null);
   }
   assert.equal(findPersistedScheduleRequest([persisted, persisted], expectedRequest), null);
+  assert.equal(findPersistedScheduleRequest([null, persisted], expectedRequest), null);
   assert.equal(findPersistedScheduleRequest({ data: [persisted] }, expectedRequest), null);
 });
