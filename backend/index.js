@@ -186,6 +186,8 @@ const supabase = require("./supabase");
 const { buildPinScheduleSnapshot, classifyLegacyScheduleAccount, getScheduleRetryability, getScheduleFailureReason, sanitizeScheduleForClient } = require("./pinterestSchedule");
 const { pinterestScheduleLimiter } = require("./pinterestRateLimit");
 const { analyzeSite } = require("./analyze");
+const { suggestKeywords } = require("./keywordIdeas");
+const { asError } = require("./dbErrors");
 const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
 const { calculateGenerationReservation, calculateQuotedGenerationPricing, ceilCredits } = require("./generationPricing");
@@ -662,6 +664,58 @@ app.post("/projects/:id/analyze", requireAuth, aiLimiter, async (req, res) => {
 
     // Keep the owner identifier private in the analyzed-project response too.
     res.json(serializeProjectForClient(updated));
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// --- Ключевые слова ---
+
+// Keyword ideas for the user's niche. These are model suggestions, not measured
+// search volumes: the endpoint returns nothing that looks like a metric, because
+// Pinterest does not expose search volume to apps.
+app.post("/keywords", requireAuth, aiLimiter, async (req, res) => {
+  try {
+    const requestedCount = req.body && req.body.count != null ? Number(req.body.count) : 12;
+    if (!Number.isInteger(requestedCount) || requestedCount < 1 || requestedCount > 20) {
+      throw httpError(422, "count: допустимо целое число от 1 до 20");
+    }
+
+    let topic = optionalString(req.body && req.body.topic, { max: 200 });
+    let niche = null;
+
+    if (!topic || !(req.body && req.body.language)) {
+      const { data: projects, error: projectError } = await supabase
+        .from("projects")
+        .select("niche, site_summary, preferred_language")
+        .eq("user_id", req.userId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (projectError) throw asError(projectError);
+      const project = Array.isArray(projects) ? projects[0] : null;
+      niche = project ? optionalString(project.niche, { max: 200 }) : null;
+      topic = topic || niche;
+      if (!topic) {
+        throw httpError(
+          422,
+          "Укажите тему: у вашего профиля ещё нет ниши сайта. Проанализируйте сайт или введите тему вручную."
+        );
+      }
+      if (!(req.body && req.body.language) && project && project.preferred_language) {
+        req.body = { ...(req.body || {}), language: project.preferred_language };
+      }
+    }
+
+    const language = validateEnum(
+      req.body && req.body.language,
+      ["en", "ru", "es", "pt", "de", "fr", "zh"],
+      "ru",
+      "Язык"
+    );
+
+    const ideas = await suggestKeywords({ topic, niche, language, count: requestedCount });
+
+    res.json({ topic, language, count: ideas.length, items: ideas });
   } catch (e) {
     handleError(res, e);
   }

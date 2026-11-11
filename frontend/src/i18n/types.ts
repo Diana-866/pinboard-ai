@@ -264,6 +264,22 @@ export interface TranslationSchema {
     tableIntent: string;
     tableAction: string;
     generateFromKeyword: string;
+    aiTitle: string;
+    aiSubtitle: string;
+    aiPlaceholder: string;
+    aiSubmit: string;
+    aiLoading: string;
+    aiEmpty: string;
+    aiError: string;
+    aiNote: string;
+    aiWhyLabel: string;
+    intents: {
+      inspiration: string;
+      how_to: string;
+      product: string;
+      style: string;
+      seasonal: string;
+    };
     highIntentTags: string;
     relatedQueries: string;
     exportCsv: string;

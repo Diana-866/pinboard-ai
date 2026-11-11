@@ -39,17 +39,6 @@ export interface CompetitorItem {
   topViralPins: CompetitorViralPin[];
 }
 
-export interface KeywordItem {
-  id: string;
-  query: string;
-  category: string;
-  monthlyVolume: number;
-  trendPct: number;
-  competition: 'Low' | 'Medium' | 'High';
-  intent: 'Inspirational' | 'Transactional' | 'Commercial' | 'Educational';
-  cpcValue: number;
-  relatedTags: string[];
-}
 
 export interface ScheduledPinItem {
   id: string;
@@ -303,97 +292,6 @@ export const INITIAL_COMPETITORS: CompetitorItem[] = [
         ctr: '4.1%',
       },
     ],
-  },
-];
-
-export const INITIAL_KEYWORDS: KeywordItem[] = [
-  {
-    id: 'kw-1',
-    query: 'minimalist living room styling ideas',
-    category: 'Home Decor',
-    monthlyVolume: 245000,
-    trendPct: 42,
-    competition: 'Low',
-    intent: 'Inspirational',
-    cpcValue: 1.45,
-    relatedTags: ['scandi living room', 'warm minimalism', 'neutral sofa decor', 'cozy aesthetic apartment'],
-  },
-  {
-    id: 'kw-2',
-    query: 'aesthetic iced matcha latte recipe foam',
-    category: 'Recipes',
-    monthlyVolume: 182000,
-    trendPct: 28,
-    competition: 'Medium',
-    intent: 'Educational',
-    cpcValue: 0.95,
-    relatedTags: ['ceremonial matcha drink', 'cold foam recipe', 'oat milk latte aesthetic', 'morning cafe at home'],
-  },
-  {
-    id: 'kw-3',
-    query: 'clean skincare shelfie routine order',
-    category: 'Wellness',
-    monthlyVolume: 138000,
-    trendPct: 35,
-    competition: 'Low',
-    intent: 'Commercial',
-    cpcValue: 2.1,
-    relatedTags: ['glass skin serum order', 'barrier restore moisturizer', 'minimalist aesthetic bathroom', 'travertine tray decor'],
-  },
-  {
-    id: 'kw-4',
-    query: 'amalfi coast 5 day travel itinerary',
-    category: 'Travel',
-    monthlyVolume: 312000,
-    trendPct: 64,
-    competition: 'High',
-    intent: 'Commercial',
-    cpcValue: 3.25,
-    relatedTags: ['positano ferry guide', 'ravello sunset views', 'budget amalfi trip', 'best photo spots italy'],
-  },
-  {
-    id: 'kw-5',
-    query: 'neutral bedroom aesthetic warm cozy',
-    category: 'Home Decor',
-    monthlyVolume: 285000,
-    trendPct: 15,
-    competition: 'Medium',
-    intent: 'Inspirational',
-    cpcValue: 1.8,
-    relatedTags: ['linen duvet cover', 'wooden nightstand styling', 'dimmable warm lamp', 'japandi bedroom decor'],
-  },
-  {
-    id: 'kw-6',
-    query: 'digital planner notion template aesthetic',
-    category: 'Digital Products',
-    monthlyVolume: 164000,
-    trendPct: 53,
-    competition: 'Medium',
-    intent: 'Transactional',
-    cpcValue: 2.85,
-    relatedTags: ['life dashboard notion', 'aesthetic habit tracker', 'ipad goodnotes planner', 'student productivity system'],
-  },
-  {
-    id: 'kw-7',
-    query: 'clay ceramic vase styling dried florals',
-    category: 'Home Decor',
-    monthlyVolume: 92000,
-    trendPct: 19,
-    competition: 'Low',
-    intent: 'Inspirational',
-    cpcValue: 1.15,
-    relatedTags: ['pampas grass arrangement', 'matte pottery vase', 'shelf decor aesthetic', 'coffee table centerpiece'],
-  },
-  {
-    id: 'kw-8',
-    query: 'morning routine habit stack slow living',
-    category: 'Wellness',
-    monthlyVolume: 215000,
-    trendPct: 31,
-    competition: 'Low',
-    intent: 'Inspirational',
-    cpcValue: 1.6,
-    relatedTags: ['5am club routine', 'journaling prompts morning', 'screen free mornings', 'healthy breakfast aesthetic'],
   },
 ];
 
