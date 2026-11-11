@@ -45,6 +45,23 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
       options.onTextProviderSubmission();
     }
     const textResult = await generateTextWithUsage(prompt, { requireUsage: false });
+    // A received text response has a known provider outcome. If its billing
+    // metadata is missing, retain that fact and stop before any image spend.
+    if (typeof options.onTextProviderCompleted === "function") {
+      options.onTextProviderCompleted(textResult);
+    }
+    if (textResult.costCurrency !== "RUB" || !Number.isFinite(textResult.usage && textResult.usage.totalCost)) {
+      if (typeof options.recordTextUsage === "function") {
+        await options.recordTextUsage(textResult);
+      } else if (typeof options.onTextProviderUsage === "function") {
+        await options.onTextProviderUsage(textResult);
+      }
+      const error = new Error("Стоимость текстовой генерации не подтверждена провайдером. Повторите попытку позже.");
+      error.code = "GPTUNNEL_TEXT_COST_MISSING";
+      error.httpStatus = 502;
+      error.details = { code: "gptunnel_text_cost_missing" };
+      throw error;
+    }
     let ideas;
     try {
       ideas = parsePinIdeasResponse(textResult.content, count);
