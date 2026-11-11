@@ -45,16 +45,15 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
       options.onTextProviderSubmission();
     }
     const textResult = await generateTextWithUsage(prompt, { requireUsage: false });
-    // A received text response has a known provider outcome. If its billing
-    // metadata is missing, retain that fact and stop before any image spend.
-    if (typeof options.onTextProviderCompleted === "function") {
-      options.onTextProviderCompleted(textResult);
-    }
     if (textResult.costCurrency !== "RUB" || !Number.isFinite(textResult.usage && textResult.usage.totalCost)) {
       if (typeof options.recordTextUsage === "function") {
         await options.recordTextUsage(textResult);
       } else if (typeof options.onTextProviderUsage === "function") {
         await options.onTextProviderUsage(textResult);
+      }
+      // Mark the provider outcome definitive only after its usage fact is durable.
+      if (typeof options.onTextProviderCompleted === "function") {
+        options.onTextProviderCompleted(textResult);
       }
       const error = new Error("Стоимость текстовой генерации не подтверждена провайдером. Повторите попытку позже.");
       error.code = "GPTUNNEL_TEXT_COST_MISSING";
@@ -72,6 +71,9 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
         await options.recordTextUsage(textResult);
       } else if (typeof options.onTextProviderUsage === "function") {
         await options.onTextProviderUsage(textResult);
+      }
+      if (typeof options.onTextProviderCompleted === "function") {
+        options.onTextProviderCompleted(textResult);
       }
       throw parseError;
     }
@@ -97,6 +99,9 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
       tasks = typeof options.persistPlan === "function"
         ? await options.persistPlan(plannedTasks)
         : plannedTasks;
+    }
+    if (typeof options.onTextProviderCompleted === "function") {
+      options.onTextProviderCompleted(textResult);
     }
   }
 
