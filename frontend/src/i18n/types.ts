@@ -374,6 +374,10 @@ export interface TranslationSchema {
     title: string;
     subtitle: string;
     createBoardBtn: string;
+    editBoardBtn: string;
+    editBoardTitle: string;
+    updateBoardBtn: string;
+    updateErrorFallback: string;
     totalBoards: string;
     totalPins: string;
     averageSeoScore: string;
