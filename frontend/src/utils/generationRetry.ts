@@ -58,6 +58,6 @@ export function countDurableGenerationPins(pins: unknown): number {
     typeof (pin as { id?: unknown }).id === 'string' &&
     (pin as { id: string }).id.trim().length > 0 &&
     typeof (pin as { image_url?: unknown }).image_url === 'string' &&
-    /^https?:\\/\\//i.test((pin as { image_url: string }).image_url),
+    /^https?:\/\//i.test((pin as { image_url: string }).image_url),
   ).length;
 }
