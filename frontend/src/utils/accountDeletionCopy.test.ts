@@ -7,8 +7,8 @@ import { dirname, join } from 'node:path';
 const root = dirname(fileURLToPath(import.meta.url));
 const localeDir = join(root, '..', 'i18n', 'locales');
 
-// Account deletion is currently a request/fencing flow. Physical erasure is
-// not automated yet, so translations must never promise a completion deadline.
+// Account deletion has an automated worker pipeline, but rollout is explicitly
+// gated and no completion SLA is promised to users.
 const locales = ['en', 'ru', 'es', 'pt', 'de', 'fr', 'zh'];
 const forbiddenPromises = [
   /within\s+30\s+days/i,
@@ -19,7 +19,7 @@ const forbiddenPromises = [
   /30\s*天/,
 ];
 
-test('account deletion confirmation does not promise an unimplemented erasure deadline', () => {
+test('account deletion confirmation does not promise an unsupported erasure deadline', () => {
   for (const locale of locales) {
     const source = readFileSync(join(localeDir, `${locale}.ts`), 'utf8');
     const lines = source.split(/\r?\n/);
