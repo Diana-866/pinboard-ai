@@ -1,5 +1,5 @@
 -- Durable account-deletion Storage manifest integration test.
--- Run after migrations 127-145 in the disposable PostgreSQL database.
+-- Run after migrations 127-147 in the disposable PostgreSQL database.
 begin;
 do $$
 declare
@@ -325,6 +325,31 @@ begin
   update public.account_deletion_storage_objects
      set state='deleted',updated_at=clock_timestamp()
    where request_id=v_request;
+
+  -- Finalization must independently re-check financial and content state,
+  -- even if a later process recreated a row after the erasure stage.
+  insert into public.pin_generation_credit_reservations(user_id,idempotency_key,amount,status)
+  values(v_user::text,'finalize-active-reservation',3,'reserved');
+  if public.finalize_account_deletion(v_job,v_claim) is distinct from false then
+    raise exception 'account finalized with an active credit reservation';
+  end if;
+  update public.pin_generation_credit_reservations set status='released'
+   where user_id=v_user::text and idempotency_key='finalize-active-reservation';
+
+  insert into public.credit_purchases(user_id,package_id,credits,amount,status)
+  values(v_user::text,'finalize-pending-pack',100,190,'pending');
+  if public.finalize_account_deletion(v_job,v_claim) is distinct from false then
+    raise exception 'account finalized with a pending purchase';
+  end if;
+  update public.credit_purchases set status='canceled'
+   where user_id=v_user::text and package_id='finalize-pending-pack';
+
+  insert into public.projects(user_id,niche) values(v_user,'finalize-leftover-project')
+  returning id into v_project;
+  if public.finalize_account_deletion(v_job,v_claim) is distinct from false then
+    raise exception 'account finalized while an owned project remained';
+  end if;
+  delete from public.projects where id=v_project;
 
   if public.finalize_account_deletion(v_job,v_claim) is distinct from true then
     raise exception 'account finalization was not confirmed after Storage deletion';
