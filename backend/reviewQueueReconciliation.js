@@ -17,7 +17,7 @@ function reconcileReviewQueueRows(queueRows, pinsById, userId) {
       continue;
     }
 
-    active.push({ ...row.payload, id: row.id, pinId: String(pin.id) });
+    active.push({ ...row.payload, id: row.id, pinId: String(pin.id), pinStatus: pin.status || "pending" });
   }
 
   return { active, staleIds };
