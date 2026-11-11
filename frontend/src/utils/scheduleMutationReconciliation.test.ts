@@ -5,6 +5,7 @@ import {
   isPersistedScheduleMutationResponse,
   findPersistedScheduleRequest,
   isScheduleAbsentFromActiveList,
+  isPersistedScheduleCancellationResponse,
 } from './scheduleMutationReconciliation';
 
 const expected = {
@@ -78,6 +79,14 @@ test('does not confirm malformed, missing, or ambiguous schedule lists', () => {
   assert.equal(findPersistedScheduleMutation([persisted, persisted], expected), null);
   assert.equal(findPersistedScheduleMutation([null, persisted], expected), null);
   assert.equal(findPersistedScheduleMutation([{ ...persisted, scheduled_at: 'invalid' }, persisted], expected), null);
+});
+
+test('accepts a cancellation response only for the exact schedule in cancelled state', () => {
+  const cancelled = { ...persisted, status: 'cancelled' };
+  assert.equal(isPersistedScheduleCancellationResponse(cancelled, 'schedule-1'), true);
+  assert.equal(isPersistedScheduleCancellationResponse({ ...cancelled, id: 'schedule-other' }, 'schedule-1'), false);
+  assert.equal(isPersistedScheduleCancellationResponse(persisted, 'schedule-1'), false);
+  assert.equal(isPersistedScheduleCancellationResponse({ ...cancelled, scheduled_at: 'invalid' }, 'schedule-1'), false);
 });
 
 test('confirms cancellation only when a valid active schedule list omits the schedule', () => {
