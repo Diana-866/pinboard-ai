@@ -33,13 +33,14 @@ async function fetchAllRows(query, pageSize = 1000) {
   if (typeof query.gt === "function" && typeof query.limit === "function"
       && typeof query.order === "function") {
     const rows = [];
+    // PostgREST builders mutate their URL parameters; apply order once, then
+    // advance only the keyset cursor on each iteration.
+    const orderedQuery = query.order("id", { ascending: true });
     let lastId = null;
     for (;;) {
-      let pageQuery = query;
+      let pageQuery = orderedQuery;
       if (lastId !== null) pageQuery = pageQuery.gt("id", lastId);
-      const { data, error } = await pageQuery
-        .order("id", { ascending: true })
-        .limit(pageSize);
+      const { data, error } = await pageQuery.limit(pageSize);
       if (error) throw error;
       const page = Array.isArray(data) ? data : [];
       rows.push(...page);
