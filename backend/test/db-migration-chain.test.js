@@ -31,3 +31,30 @@ test("canonical migration files 001 and 010-147 exist; 009 stays archived", () =
     assert.equal(matches.length, 1, `expected exactly one canonical migration for ${prefix}`);
   }
 });
+
+
+test("account deletion Storage manifest migrations contain complete SQL guards", () => {
+  for (const file of [
+    "139_account_deletion_storage_origin_fence.sql",
+    "140_account_deletion_review_queue_image_manifest.sql",
+    "141_account_deletion_board_cover_manifest.sql",
+  ]) {
+    const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
+    assert.match(sql, /p_supabase_url !~ '[^']*' then/, `${file} must close the Supabase URL regex before THEN`);
+    assert.match(sql, /raise exception 'invalid configured Supabase project URL';\s+end if;/);
+    assert.match(sql, /select r\.user_id, r\.id into v_user_id, v_request_id\s+from public\.account_deletion_jobs j\s+join public\.account_deletion_requests r/);
+  }
+});
+
+test("atomic payment integration workflow applies existing migrations in ascending order", () => {
+  const workflowPath = path.join(__dirname, "..", "..", ".github", "workflows", "atomic-payment-integration.yml");
+  const workflow = fs.readFileSync(workflowPath, "utf8");
+  const applied = [...workflow.matchAll(/db\/migrations\/(\d{3}_[^\s]+\.sql)/g)].map((match) => match[1]);
+  assert.ok(applied.length > 0, "workflow must apply database migrations");
+  const numbers = applied.map((file) => Number(file.slice(0, 3)));
+  assert.deepEqual(numbers, [...numbers].sort((a, b) => a - b), "workflow migration order must be ascending");
+  assert.equal(new Set(applied).size, applied.length, "workflow must not apply a migration twice");
+  for (const file of applied) {
+    assert.ok(fs.existsSync(path.join(migrationsDir, file)), `workflow references missing migration ${file}`);
+  }
+});
