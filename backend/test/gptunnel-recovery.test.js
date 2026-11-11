@@ -171,3 +171,28 @@ test("synchronous provider completion is journaled before generateImage returns"
   assert.equal(payloads[0].payload.idempotency_key, "generation-key-123456");
   assert.equal(pollCalls, 0);
 });
+
+
+test("malformed synchronous completion persists task identity before result parsing", async (t) => {
+  const originalPost = axios.post;
+  axios.post = async () => ({
+    data: {
+      id: "provider-task-malformed-result",
+      status: "done",
+      price: 2.5,
+      result: [],
+    },
+  });
+  t.after(() => { axios.post = originalPost; });
+
+  const updates = [];
+  await assert.rejects(
+    generateImage("test prompt", "flux-schnell", "2:3", "generation-key-malformed", {
+      onTaskUpdate: async (id, status) => updates.push({ id, status }),
+    }),
+    /некорректный результат генерации/
+  );
+  assert.deepEqual(updates, [
+    { id: "provider-task-malformed-result", status: "running" },
+  ]);
+});
