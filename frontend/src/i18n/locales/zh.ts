@@ -482,6 +482,7 @@ export const zh: TranslationSchema = {
     deleteAccountConfirm: "申请删除",
     deleteAccountDone: "已收到您的删除申请，账户访问已停用。您的数据尚未删除。",
     deleteAccountUnavailable: "账户删除功能暂时不可用，请稍后重试。",
+    exportIncomplete: "无法生成完整的数据档案。未下载任何内容，请稍后重试。",
     requestFailed: "无法完成请求，请重试。",
   },
 
