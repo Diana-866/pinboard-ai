@@ -17,11 +17,11 @@ test('a well-formed deletion receipt is accepted', () => {
       ok: true,
       request: { requestId: '3f2504e0-4f89-41d3-9a0c-0305e82c3301', state: 'pending', requestedAt: '2026-11-12T00:00:00Z', alreadyRequested: false },
     }),
-    { requestId: 'req-1', state: 'pending', alreadyRequested: false }
+    { requestId: '3f2504e0-4f89-41d3-9a0c-0305e82c3301', state: 'pending', alreadyRequested: false }
   );
   assert.deepEqual(
     parseDeletionReceipt({ ok: true, request: { requestId: '3f2504e0-4f89-41d3-9a0c-0305e82c3302', state: 'pending', alreadyRequested: true } }),
-    { requestId: 'req-2', state: 'pending', alreadyRequested: true }
+    { requestId: '3f2504e0-4f89-41d3-9a0c-0305e82c3302', state: 'pending', alreadyRequested: true }
   );
 });
 
