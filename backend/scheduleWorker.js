@@ -57,7 +57,13 @@ function getWorkerConfig(env = process.env) {
 function createWorker({
   config,
   client = axios,
-  logger = { info: logInfo, error: logError },
+  logger = {
+    info: logInfo,
+    error: (event, details = {}) => logError(event, {
+      name: details.error_name,
+      code: details.error_code,
+    }, details.http_status),
+  },
   intervalMs = POLL_INTERVAL_MS,
   timeoutMs = REQUEST_TIMEOUT_MS,
   drainTimeoutMs = DEFAULT_DRAIN_TIMEOUT_MS,
