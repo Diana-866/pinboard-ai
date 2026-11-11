@@ -50,7 +50,7 @@ export interface ManualApprovalDeskProps {
   onUpdatePendingPins?: (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => void;
   onApprovePin: (pin: ScheduledPinItem) => void;
   onGoToCalendar?: () => void;
-  onGoToGenerator?: (topic?: string) => void;
+  onGoToGenerator?: (topic?: string, date?: string, time?: string, boardId?: string) => void;
   onGoToDashboard?: () => void;
 }
 
@@ -569,7 +569,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
     setShowRegenBox(false);
     setRegenComment("");
-    onGoToGenerator(revisionPrompt);
+    onGoToGenerator(revisionPrompt, currentPin.scheduledDate, currentPin.scheduledTime, currentPin.boardId);
   };
 
   // Completed State Screen
