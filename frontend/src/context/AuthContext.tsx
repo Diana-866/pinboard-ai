@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { apiRequest, ApiError } from "../lib/api";
 import { clearAuthToken, readAuthToken, readLocalStorageValue } from "../lib/authStorage";
+import { clearUserScopedStorage } from "../lib/userScopedStorage";
 
 export interface User {
   id: string;
@@ -46,6 +47,28 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AVATAR_KEY = "pinposy_avatar";
+/** Remembers which account last used this browser, so a sign-in as somebody else
+ *  on a shared device cannot inherit the previous user's cached work. */
+const LAST_USER_KEY = "pinposy_last_user_id";
+
+function rememberUser(userId: string) {
+  try {
+    localStorage.setItem(LAST_USER_KEY, String(userId));
+  } catch {
+    // Storage may be unavailable; the key is an isolation aid, not a requirement.
+  }
+}
+
+function clearPreviousUserIfDifferent(userId: string) {
+  let previous: string | null = null;
+  try {
+    previous = localStorage.getItem(LAST_USER_KEY);
+  } catch {
+    previous = null;
+  }
+  if (previous && previous !== String(userId)) clearUserScopedStorage();
+  rememberUser(userId);
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -61,6 +84,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     try {
       const data = await apiRequest("/me");
+      // Different account on this browser: drop the previous user's queue, drafts
+      // and preferences before the new profile is applied. Device-level language
+      // and theme are preserved by the sweep.
+      clearPreviousUserIfDifferent(String(data.id));
       const localLanguage = readLocalStorageValue("pinposy_lang");
       if (localLanguage && ["en", "ru", "es", "pt", "de", "fr", "zh"].includes(localLanguage) && localLanguage !== data.preferred_language) {
         try {
@@ -103,6 +130,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   function logout() {
     clearAuthToken();
+    // Sign-out on a shared browser must not leave the queue, drafted descriptions,
+    // uploaded photos or notification history behind for the next person.
+    clearUserScopedStorage();
     setUser(null);
     window.location.href = "/login";
   }
