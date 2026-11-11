@@ -289,7 +289,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [reviewQueueSuccess, setReviewQueueSuccess] = useState(false);
   const [recoverableGenerations, setRecoverableGenerations] = useState<Array<{
     key: string;
-    status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found';
+    status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found' | 'expired';
     boardId: string;
     pinCount: number;
   }>>([]);
@@ -328,7 +328,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     const check = async () => {
       const found: Array<{
         key: string;
-        status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found';
+        status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found' | 'expired';
         boardId: string;
         pinCount: number;
       }> = [];
@@ -349,6 +349,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         } catch (error: any) {
           // A 404 can mean an old local key whose server record has expired.
           // Preserve it: a transient/auth/network error must never erase recovery data.
+          if (error?.status === 410 && error?.data?.code === 'idempotency_result_expired') {
+            found.push({ key: identity.fingerprint, status: 'expired', boardId: '', pinCount: 0 });
+            continue;
+          }
           if (error?.status === 404) {
             found.push({ key: identity.fingerprint, status: 'not_found', boardId: '', pinCount: 0 });
             continue;
@@ -971,7 +975,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     ? (language === 'ru' ? 'Предыдущая генерация завершилась ошибкой' : 'Previous generation failed')
                     : item.status === 'not_found'
                     ? (language === 'ru' ? 'Запрос не найден на сервере — ключ сохранён' : 'Request not found on server — recovery key kept')
-                    : (language === 'ru' ? 'Результат пока не подтверждён' : 'Result is not confirmed yet');
+                    : item.status === 'expired'
+                      ? (language === 'ru' ? 'Срок восстановления истёк — следующая попытка начнётся с нового ключа' : 'Recovery expired — the next attempt will use a fresh key')
+                      : (language === 'ru' ? 'Результат пока не подтверждён' : 'Result is not confirmed yet');
               return (
                 <div key={item.key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg bg-subtle border border-subtle">
                   <div className="min-w-0">
