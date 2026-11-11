@@ -57,4 +57,10 @@ test("database reconciliation recovers known remote IDs and rejects identity con
   assert.match(migration, /v_attempt\.pinterest_pin_id is not null[\s\S]*?is distinct from trim\(p_pinterest_pin_id\)/);
   assert.match(migration, /pinterest_pin_id is not null[\s\S]*?is distinct from trim\(p_pinterest_pin_id\)/);
   assert.match(migration, /complete_pinterest_publish_v2\(/);
+
+  const boundedRecovery = read(path.join("..", "db", "migrations", "126_pinterest_reconcile_only_schedulable_known_remote_ids.sql"));
+  assert.match(boundedRecovery, /exists \([\s\S]*?public\.pinterest_accounts[\s\S]*?public\.pin_schedules/);
+  assert.match(boundedRecovery, /s\.pinterest_board_id = a\.pinterest_board_id/);
+  assert.match(boundedRecovery, /s\.status in \('publishing','unknown'\)/);
+  assert.match(boundedRecovery, /limit 50/);
 });
