@@ -480,7 +480,7 @@ export const en: TranslationSchema = {
     deleteAccountWarning: "This schedules deletion of your account and immediately signs you out of every device. This cannot be undone.",
     deleteAccountPasswordLabel: "Confirm with your password",
     deleteAccountConfirm: "Request deletion",
-    deleteAccountDone: "Deletion request accepted. Access has been closed — we will remove your data within 30 days.",
+    deleteAccountDone: "Your deletion request has been received and access is disabled. Your data has not yet been deleted.",
     requestFailed: "Could not complete the request. Please try again.",
   },
 
