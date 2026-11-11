@@ -1,3 +1,7 @@
+-- LEGACY / NOT PART OF THE CANONICAL INSTALL: do not run after 001_baseline.sql.
+-- The complete current baseline already creates this object's current form.
+-- This historical file is retained for reference only; later migrations may
+-- have changed its constraints or semantics (notably Pinterest multi-account).
 -- Миграция 007: разовые покупки пакетов кредитов (Prodamus)
 -- Запустить в: Supabase Dashboard → SQL Editor → New query → вставить → Run
 -- Идемпотентна: можно запускать повторно.

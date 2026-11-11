@@ -1,3 +1,5 @@
+import { clearAuthToken, readAuthToken } from "./authStorage";
+
 const API_URL = (import.meta as any).env?.VITE_API_URL || "https://pinboard-ai-backend.onrender.com";
 
 export class ApiError extends Error {
@@ -13,7 +15,7 @@ export class ApiError extends Error {
 }
 
 export async function apiRequest(path: string, options: RequestInit = {}) {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const token = readAuthToken();
 
   let res: Response;
   try {
@@ -45,7 +47,7 @@ export async function apiRequest(path: string, options: RequestInit = {}) {
     // пользователь не видел сообщение «Неверный email или пароль».
     const isAuthAttempt = path === "/login" || path === "/register";
     if (res.status === 401 && !isAuthAttempt && typeof window !== "undefined") {
-      localStorage.removeItem("token");
+      clearAuthToken();
       if (!window.location.pathname.startsWith("/login")) {
         window.location.href = "/login";
       }

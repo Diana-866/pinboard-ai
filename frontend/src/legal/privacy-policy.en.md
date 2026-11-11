@@ -1,15 +1,15 @@
 # PinPosy Privacy Policy
 
-Last updated: October 17, 2026
+Last updated: November 5, 2026
 Effective date: October 17, 2026
 
 PinPosy ("the Service", "we") is a web application for AI-assisted planning and creation of Pinterest content: website analysis, board and pin idea generation, image generation, manual review, and publishing to a connected Pinterest account through the official Pinterest API.
 
-This policy explains what data we collect, why, how we protect it, and what rights you have. Service URL: https://pinboard-ai-web.vercel.app (will be updated on this page once a custom domain is registered).
+This policy explains what data we collect, why, how we protect it, and what rights you have. Service URL: https://pinposy.com.
 
 ## 1. Data Controller
 
-- Operator: self-employed individual [FULL LEGAL NAME — to be added], Russian Federation.
+- Operator: Diana Aleksandrovna Bannova, a self-employed individual registered under the Russian professional income tax (NPD) regime in the Russian Federation. Tax ID (INN): **231294708907**.
 - Privacy contact: **support@pinposy.com**
 
 ## 2. Data We Collect
@@ -25,6 +25,8 @@ This policy explains what data we collect, why, how we protect it, and what righ
 - your website URL, niche, content language, goals, and tone of voice — as you entered them in a project;
 - boards and pins created for you: titles, descriptions, generated images;
 - generation and credit history.
+
+**Image visibility:** Images attached to pins (including images you upload) are stored in a public object-storage bucket so that Pinterest and other external services can retrieve them. Anyone who obtains an image's public URL may view that image without signing in to PinPosy. Do not upload confidential documents, private photographs, personal data, or other content that you do not want to be publicly accessible. Removing an image from PinPosy does not recall copies already downloaded, cached by browsers/CDNs, or saved by Pinterest or other third parties.
 
 ### 2.3 Pinterest data (only after you connect an account)
 
@@ -57,9 +59,9 @@ We do not sell your data and do not share it for advertising.
 Only the following providers, in the scope necessary to operate the Service:
 
 - **GPTunnel (gptunnel.ru)** — AI provider: text prompts (niche, topics, titles) and image descriptions are sent for text and image generation. Country: Russia.
-- **Hosting and database** — storage of accounts, projects, and content. Currently Render (US) and Supabase (EU); we are migrating to servers in the Russian Federation and will update this section afterwards.
+- **Hosting and database** — storage of accounts, projects, and content. Currently Render (US) and Supabase (EU). We will update this section if the hosting or database providers or their processing locations change.
 - **Pinterest** — publishing and reading data of your connected account only, within the permissions you granted during OAuth.
-- **Payment provider (planned: Prodamus)** — payment processing; card data is handled by the provider and never reaches us.
+- **Prodamus** — payment provider: payment processing; card data is handled by the provider and never reaches us.
 - **Email provider** — sending emails (registration confirmation, password reset, notifications).
 
 Each provider processes data under its own privacy policy.

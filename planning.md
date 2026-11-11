@@ -1,4 +1,6 @@
-# PinPosy (pinboard-ai) — план разработки
+# PinPosy (pinboard-ai) — исторический план разработки
+
+> **Внимание:** этот файл содержит исходный backlog от 2026-10-16 и сохранён для истории. Он больше не является главным источником актуальных требований или процентов. Использовать [docs/MASTER_REQUIREMENTS.md](docs/MASTER_REQUIREMENTS.md) как канонический продуктовый реестр, [docs/INFRASTRUCTURE_REQUIREMENTS.md](docs/INFRASTRUCTURE_REQUIREMENTS.md) для инфраструктуры и [docs/LAUNCH_CONTROL.md](docs/LAUNCH_CONTROL.md) для операционного журнала.
 
 > Обновлено: 2026-10-16
 > Сайт: https://pinboard-ai-web.vercel.app · Бэкенд: Render · БД: Supabase · AI: GPTunnel · Фронт: Vercel
@@ -371,3 +373,5 @@ Pinterest рассматривает заявку на доступ к API **д�
 | 2026-10-17 | Изучен актуальный архив проекта (app.zip). Подтверждены решения: переезд на РФ-хостинг, отказ от Google API. Готов пакет заявки `docs/pinterest/`; Политика и Условия переписаны (RU/EN, без заглушек, без скрейпинга); фейковый OAuth в Настройках заменён честной заглушкой; безопасность бэкенда Этапа 3: trust proxy, helmet, SSRF-защита, валидация, удаление тест-эндпоинтов, коды ошибок, возврат кредитов при сбое (B6 частично), B8 | `node --check` всех файлов бэкенда; `tsc --noEmit` (0 ошибок, было 17); `vite build` — ок |
 | 2026-10-18 | Название зафиксировано: **PinPosy**. Принято правило «ДОМЕН → ЗАЯВКА»: заявку в Pinterest не отправлять с `vercel.app` (офиц. правила: политика на домене, связанном с приложением). Сверены официальные страницы Access tiers и FAQ developers.pinterest.com. Добавлена `docs/domain-setup.md` — пошаговое подключение домена к Vercel/Render | сверка с developers.pinterest.com/docs/key-concepts/access-tiers/ и /docs/faqs/faqs/ |
 | 2026-10-18 | Куплен домен **pinposy.com** (Beget). Бренд переименован PinPosy → **PinPosy** во всём коде (логотип, i18n, localStorage-ключи, документы, мета-теги). Создана `docs/launch-steps.md` — полная инструкция запуска (GitHub → DNS → Vercel/Render → заявка) | `tsc --noEmit` — 0 ошибок, `vite build` — ок |
+
+| 2026-11-08 | Продолжен AUD-165: проверены concurrency/fencing публикаций Pinterest, очередь, retry/rate-limit и OAuth refresh lease. Новых подтверждённых OAuth refresh defects не найдено; отдельный two-session PostgreSQL concurrency test остаётся пробелом. Обновлены AUD-165 и HANDOFF. Только документация, без application code/SQL/production/deploy. PR #4 Draft/open; CI на HEAD не подтверждён. | статический review GitHub source/migrations/tests; runtime и CI не запускались |

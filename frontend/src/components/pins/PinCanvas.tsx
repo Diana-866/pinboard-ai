@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { Download, Sparkles, Copy, Check, ExternalLink } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
-import { SupportedAspectRatio } from '../../services/gemini';
+import { SupportedAspectRatio } from '../../types/pinGeneration';
 
 export interface PinCanvasData {
   imageUrl: string;

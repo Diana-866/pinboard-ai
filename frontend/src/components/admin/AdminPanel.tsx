@@ -1,6 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { AdminMail } from './AdminMail';
+import { AdminEmailOutbox } from './AdminEmailOutbox';
 import { AdminSubscriptions } from './AdminSubscriptions';
+import { AdminBillingExceptions } from './AdminBillingExceptions';
+import { AdminFinancialOperations } from './AdminFinancialOperations';
+import { AdminPinterestSchedules } from './AdminPinterestSchedules';
+import { AdminPaymentCreationRequests } from './AdminPaymentCreationRequests';
 import {
   Users,
   DollarSign,
@@ -9,7 +14,6 @@ import {
   BarChart3,
   Moon,
   Mail,
-  ShieldCheck,
   Search,
   Filter,
   Download,
@@ -30,11 +34,8 @@ import {
   Layers,
   ArrowUpRight,
   ExternalLink,
-  Lock,
-  Eye,
-  EyeOff,
-  Key,
   LogOut,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   ADMIN_USERS,
@@ -46,14 +47,16 @@ import {
   exportTransactionsToCsv,
 } from '../../data/adminMockData';
 import { PinPosyLogo } from '../common/PinPosyLogo';
+import { useAuth } from '../../context/AuthContext';
 
 interface AdminPanelProps {
   onBackToApp: () => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
+  const { logout } = useAuth();
   // Navigation tabs within Admin Panel
-  const [adminTab, setAdminTab] = useState<'users' | 'accounting' | 'night_and_bot' | 'mail' | 'subscriptions'>('users');
+  const [adminTab, setAdminTab] = useState<'users' | 'accounting' | 'night_and_bot' | 'mail' | 'subscriptions' | 'billing_exceptions' | 'email_outbox' | 'pinterest' | 'financial_operations' | 'payment_creation_requests'>('users');
 
   // Search & Filter for Users tab
   const [userSearch, setUserSearch] = useState('');
@@ -67,68 +70,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
   const [transactionSearch, setTransactionSearch] = useState('');
   const [selectedReceipt, setSelectedReceipt] = useState<TransactionRecord | null>(null);
 
-  // Admin Session Authentication State
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
-    try {
-      return sessionStorage.getItem('pinposy_admin_session_auth') === 'true';
-    } catch {
-      return false;
-    }
-  });
-
-  // Admin Login Gate State
-  const [adminLoginInput, setAdminLoginInput] = useState('');
-  const [adminPasswordInput, setAdminPasswordInput] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [authError, setAuthError] = useState('');
-  const [authSuccess, setAuthSuccess] = useState(false);
-
-  const handleAdminLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError('');
-
-    const trimmedLogin = adminLoginInput.trim().toLowerCase();
-    const password = adminPasswordInput.trim();
-
-    // Accepted complex credentials:
-    // Login: admin@pinposy.internal OR sdreimei@gmail.com OR admin
-    // Complex password: PinPosy#Admin2026!Secured
-    const isValidLogin =
-      trimmedLogin === 'admin@pinposy.internal' ||
-      trimmedLogin === 'sdreimei@gmail.com' ||
-      trimmedLogin === 'admin';
-    const isValidPassword =
-      password === 'PinPosy#Admin2026!Secured' ||
-      password === 'PinPosy#Admin2026!' ||
-      password === 'Admin#9842$SecurePin';
-
-    if (!isValidLogin || !isValidPassword) {
-      setAuthError('Неверный логин или мастер-пароль. Доступ заблокирован.');
-      return;
-    }
-
-    setAuthSuccess(true);
-    setTimeout(() => {
-      try {
-        sessionStorage.setItem('pinposy_admin_session_auth', 'true');
-      } catch {
-        // ignore
-      }
-      setIsAdminAuthenticated(true);
-      setAuthSuccess(false);
-    }, 350);
-  };
-
-  const handleAdminLogout = () => {
-    try {
-      sessionStorage.removeItem('pinposy_admin_session_auth');
-    } catch {
-      // ignore
-    }
-    setIsAdminAuthenticated(false);
-    setAdminPasswordInput('');
-    setAuthError('');
-  };
+  const handleAdminLogout = () => logout();
 
   // Filter transactions by period
   const filteredTransactions = useMemo(() => {
@@ -235,135 +177,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
     }
   };
 
-  if (!isAdminAuthenticated) {
-    return (
-      <div className="min-h-screen bg-zinc-950 text-white flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans select-none">
-        {/* Ambient glow effects */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-1/4 left-1/3 w-80 h-80 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative w-full max-w-md bg-zinc-900/95 border border-zinc-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-md space-y-6">
-          {/* Header */}
-          <div className="text-center space-y-2">
-            <div className="inline-flex p-3 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-amber-400 mb-2 shadow-xs">
-              <ShieldCheck className="w-8 h-8" />
-            </div>
-            <h1 className="text-xl font-bold font-heading tracking-tight text-white">
-              PinPosy Admin Gateway
-            </h1>
-            <p className="text-xs text-zinc-400">
-              Закрытый доступ к статистике пользователей, очередям и налогам
-            </p>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-800/80 border border-zinc-700/80 text-[10px] font-mono text-zinc-300">
-              <Lock className="w-3 h-3 text-amber-400" />
-              <span>URL: /admin · 256-bit Secure Gateway</span>
-            </div>
-          </div>
-
-          {authError && (
-            <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2 animate-in fade-in duration-100">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-              <span>{authError}</span>
-            </div>
-          )}
-
-          {authSuccess && (
-            <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2 animate-in fade-in duration-100">
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-              <span>Авторизация успешна! Вход в систему...</span>
-            </div>
-          )}
-
-          <form onSubmit={handleAdminLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                Логин администратора
-              </label>
-              <div className="relative">
-                <Users className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={adminLoginInput}
-                  onChange={(e) => setAdminLoginInput(e.target.value)}
-                  placeholder="admin@pinposy.internal или sdreimei@gmail.com"
-                  className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-500"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                Сложный мастер-пароль безопасности
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={adminPasswordInput}
-                  onChange={(e) => setAdminPasswordInput(e.target.value)}
-                  placeholder="••••••••••••••••"
-                  className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-500"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 cursor-pointer p-1"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-amber-500/10 active:scale-98"
-            >
-              <ShieldCheck className="w-4 h-4" />
-              <span>Войти в панель администратора</span>
-            </button>
-          </form>
-
-          {/* Quick-fill credentials for Owner */}
-          <div className="p-3.5 rounded-xl bg-zinc-950/80 border border-zinc-800 text-xs space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-zinc-400 flex items-center gap-1">
-                <Key className="w-3.5 h-3.5 text-amber-400" />
-                <span>Данные доступа владельца:</span>
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setAdminLoginInput('admin@pinposy.internal');
-                  setAdminPasswordInput('PinPosy#Admin2026!Secured');
-                }}
-                className="text-[10px] font-bold text-amber-400 hover:underline cursor-pointer"
-              >
-                Заполнить автоматически
-              </button>
-            </div>
-            <div className="font-mono text-[11px] text-zinc-400 space-y-0.5">
-              <p>Логин: <span className="text-zinc-200">admin@pinposy.internal</span> (или <span className="text-zinc-200">sdreimei@gmail.com</span>)</p>
-              <p>Пароль: <span className="text-amber-300">PinPosy#Admin2026!Secured</span></p>
-            </div>
-          </div>
-
-          {/* Return to main site */}
-          <div className="text-center pt-1">
-            <button
-              type="button"
-              onClick={onBackToApp}
-              className="text-xs text-zinc-400 hover:text-zinc-200 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <span>← Вернуться на главный сайт PinPosy</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-page text-primary-theme flex flex-col font-sans transition-colors">
       {/* Top Admin Navigation Header */}
@@ -376,7 +189,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                 PinPosy Admin
               </span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 uppercase tracking-wider">
-                Единственный администратор
+                Администратор
               </span>
             </div>
             <p className="text-[11px] text-muted-theme truncate hidden sm:block">
@@ -387,11 +200,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
 
         {/* Back to Client App & User profile */}
         <div className="flex items-center gap-2.5">
-          <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-muted-theme font-mono mr-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span>sdreimei@gmail.com</span>
-          </span>
-
           <button
             onClick={onBackToApp}
             className="px-3.5 py-1.5 rounded-xl border border-subtle bg-subtle hover:bg-surface text-secondary-theme hover:text-primary-theme text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -462,6 +270,42 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
           </button>
 
           <button
+            onClick={() => setAdminTab('email_outbox')}
+            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              adminTab === 'email_outbox'
+                ? 'accent-btn shadow-xs'
+                : 'text-secondary-theme hover:text-primary-theme hover:bg-subtle'
+            }`}
+          >
+            <Mail className="w-4 h-4" />
+            <span>5. Очередь писем</span>
+          </button>
+
+          <button
+            onClick={() => setAdminTab('billing_exceptions')}
+            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              adminTab === 'billing_exceptions'
+                ? 'accent-btn shadow-xs'
+                : 'text-secondary-theme hover:text-primary-theme hover:bg-subtle'
+            }`}
+          >
+            <AlertCircle className="w-4 h-4" />
+            <span>6. Исключения платежей</span>
+          </button>
+
+          <button
+            onClick={() => setAdminTab('financial_operations')}
+            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              adminTab === 'financial_operations'
+                ? 'accent-btn shadow-xs'
+                : 'text-secondary-theme hover:text-primary-theme hover:bg-subtle'
+            }`}
+          >
+            <AlertCircle className="w-4 h-4" />
+            <span>7. Незавершённые операции</span>
+          </button>
+
+          <button
             onClick={() => setAdminTab('subscriptions')}
             className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               adminTab === 'subscriptions'
@@ -470,15 +314,56 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
             }`}
           >
             <Receipt className="w-4 h-4" />
-            <span>5. Подписки и платежи</span>
+            <span>8. Подписки и платежи</span>
+          </button>
+
+          <button
+            onClick={() => setAdminTab('payment_creation_requests')}
+            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              adminTab === 'payment_creation_requests'
+                ? 'accent-btn shadow-xs'
+                : 'text-secondary-theme hover:text-primary-theme hover:bg-subtle'
+            }`}
+          >
+            <AlertCircle className="w-4 h-4" />
+            <span>10. Создание платежей</span>
+          </button>
+
+          <button
+            onClick={() => setAdminTab('pinterest')}
+            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              adminTab === 'pinterest'
+                ? 'accent-btn shadow-xs'
+                : 'text-secondary-theme hover:text-primary-theme hover:bg-subtle'
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            <span>9. Pinterest — очередь</span>
           </button>
         </div>
       </div>
 
       {/* Main Admin Content Container */}
       <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto space-y-6 pb-24">
+        <section
+          role="alert"
+          aria-live="polite"
+          className="rounded-2xl border-2 border-amber-500/50 bg-amber-500/10 p-4 text-sm text-amber-900 dark:text-amber-200"
+        >
+          <p className="font-bold uppercase tracking-wide">Демонстрационные данные — не реальные данные PinPosy</p>
+          <p className="mt-1">
+            Разделы «Пользователи», «Бухгалтерия» и «Ночная генерация и ИИ-бот» используют встроенные примеры.
+            Имена, email, суммы, чеки, налоговые расчёты и показатели вымышлены. Не используйте их для
+            учёта, отчётности, связи с клиентами или принятия финансовых решений.
+          </p>
+        </section>
         {adminTab === 'mail' && <AdminMail />}
+        {adminTab === 'email_outbox' && <AdminEmailOutbox />}
         {adminTab === 'subscriptions' && <AdminSubscriptions />}
+        {adminTab === 'billing_exceptions' && <AdminBillingExceptions />}
+        {adminTab === 'financial_operations' && <AdminFinancialOperations />}
+        {adminTab === 'payment_creation_requests' && <AdminPaymentCreationRequests />}
+        {adminTab === 'pinterest' && <AdminPinterestSchedules />}
         {/* ============================================================ */}
         {/* TAB 1: USERS & DETAILED GENERATION STATS                     */}
         {/* ============================================================ */}
@@ -842,12 +727,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                   </div>
 
                   <button
-                    onClick={handleExportCsv}
-                    className="px-3.5 py-1.5 rounded-xl accent-btn text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
-                    title="Выгрузить данные в формате CSV для 1C, Мой Налог или налоговой декларации"
+                    type="button"
+                    disabled
+                    aria-disabled="true"
+                    className="px-3.5 py-1.5 rounded-xl border border-subtle bg-subtle text-muted-theme text-xs font-semibold flex items-center gap-1.5 cursor-not-allowed opacity-60"
+                    title="Экспорт недоступен: в этом разделе пока только демонстрационные данные"
                   >
                     <Download className="w-4 h-4" />
-                    <span>Экспорт в CSV для налоговой</span>
+                    <span>Экспорт отключён (демо)</span>
                   </button>
                 </div>
               </div>

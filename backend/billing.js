@@ -1,3 +1,4 @@
+const { logError, logWarning } = require("./safeLogger");
 // Биллинг: подписки через Prodamus (счёт по ссылке + вебхук об оплате).
 // Таблица: subscriptions (db/migrations/006_subscriptions.sql)
 // Документация Prodamus:
@@ -6,7 +7,11 @@
 
 const supabase = require("./supabase");
 const mail = require("./mail");
+const { getEmailCopy, getPlanTitle, getLocale } = require("./email-locales");
 const prodamus = require("./prodamus");
+const { createPaymentOrderId } = require("./paymentOrderId");
+const { beginPaymentCreation, attachPaymentCreationOrder, denyUnsentPaymentRecord, completePaymentCreation, settlePaymentCreationRequest, markPaymentCreationUnknown, failPaymentCreation } = require("./paymentCreationIdempotency");
+const { persistWebhookException } = require("./billingWebhookAudit");
 const { httpError, validateEnum } = require("./validate");
 const { normalizePlan } = require("./tariff");
 
@@ -54,7 +59,7 @@ function frontendBase() {
  * POST /billing/create-payment  { plan, currency }
  * Создаёт запись платежа в статусе pending и возвращает ссылку на оплату Prodamus.
  */
-async function createPayment(userId, body) {
+async function createPayment(userId, body, idempotencyKey) {
   const plan = normalizePlan(body && body.plan);
   if (!PLANS[plan]) {
     throw httpError(422, "plan: допустимые значения — analytics, start, pro, agency");
@@ -73,39 +78,69 @@ async function createPayment(userId, body) {
     );
   }
 
-  const { data: user, error: userError } = await supabase
-    .from("users")
-    .select("id, email")
-    .eq("id", userId)
-    .single();
-  if (userError || !user) throw httpError(404, "Пользователь не найден");
-
   const amount = PLANS[plan][currency];
-  const orderId = `pp-${plan}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const intent = await beginPaymentCreation(userId, idempotencyKey, "subscription", plan, currency);
+  if (!intent.started) return intent.result;
 
-  // 1. Пишем платёж как pending: это наш источник правды и ключ идемпотентности.
-  const { data: sub, error: insertError } = await supabase
-    .from("subscriptions")
-    .insert({
-      user_id: String(userId),
-      plan,
-      status: "pending",
-      provider_payment_id: orderId,
-      amount,
-      currency,
-    })
-    .select()
-    .single();
+  let user;
+  try {
+    const result = await supabase
+      .from("users")
+      .select("id, email")
+      .eq("id", userId)
+      .single();
+    if (result.error || !result.data) throw httpError(404, "Пользователь не найден");
+    user = result.data;
+  } catch (error) {
+    await failPaymentCreation(userId, idempotencyKey, error);
+    throw error;
+  }
 
-  if (insertError) {
-    console.error("[billing] не удалось создать платёж:", insertError.message, insertError.code || "");
+  const orderId = createPaymentOrderId("pp", plan);
+  let sub;
+  try {
+    const result = await supabase
+      .from("subscriptions")
+      .insert({
+        user_id: String(userId),
+        plan,
+        status: "pending",
+        provider_payment_id: orderId,
+        amount,
+        currency,
+      })
+      .select()
+      .single();
+    if (result.error || !result.data) throw result.error || new Error("subscription insert returned no row");
+    sub = result.data;
+  } catch (error) {
+    logError("billing.event_001");
+    await failPaymentCreation(userId, idempotencyKey, error);
     throw httpError(
       500,
       "Не удалось создать платёж. Проверьте, что миграция 006 (db/migrations/006_subscriptions.sql) применена."
     );
   }
 
-  // 2. Просим у Prodamus ссылку на оплату
+  try {
+    await attachPaymentCreationOrder(userId, idempotencyKey, orderId);
+  } catch (error) {
+    let cleanupConfirmed = false;
+    try {
+      await denyUnsentPaymentRecord("subscriptions", sub.id);
+      cleanupConfirmed = true;
+    } catch (cleanupError) {
+      logError("billing.event_002");
+      // Keep this request in the admin reconciliation queue if local cleanup failed.
+      await markPaymentCreationUnknown(userId, idempotencyKey, cleanupError);
+    }
+    if (cleanupConfirmed) {
+      await failPaymentCreation(userId, idempotencyKey, error);
+    }
+    logError("billing.event_003");
+    throw httpError(503, "Не удалось безопасно подготовить заказ. Счёт провайдеру не отправлялся; статус заказа требует проверки.");
+  }
+
   const base = publicBase();
   let link;
   try {
@@ -117,19 +152,15 @@ async function createPayment(userId, body) {
       description: `PinPosy — тариф «${PLANS[plan].title}», 30 дней`,
       plan,
       urlNotification: base ? `${base}/billing/webhook` : undefined,
-      urlReturn: `${frontendBase()}/app?payment=success`,
+      urlSuccess: `${frontendBase()}/app?payment=success`,
     });
-  } catch (e) {
-    // Платёж не выставлен — помечаем строку, чтобы не мусорить в админке «вечными pending»
-    await supabase
-      .from("subscriptions")
-      .update({ status: "denied" })
-      .eq("id", sub.id)
-      .then(() => {}, () => {});
-    throw e;
+  } catch (error) {
+    await markPaymentCreationUnknown(userId, idempotencyKey, error);
+    logError("billing.event_004");
+    throw error;
   }
 
-  return {
+  const response = {
     ok: true,
     subscription_id: sub.id,
     order_id: orderId,
@@ -139,35 +170,98 @@ async function createPayment(userId, body) {
     payment_url: link.url,
     demo: prodamus.isDemo(),
   };
+  try {
+    await completePaymentCreation(userId, idempotencyKey, response);
+  } catch (error) {
+    await markPaymentCreationUnknown(userId, idempotencyKey, error);
+    logError("billing.event_005");
+    throw httpError(503, "Счёт создан, но не удалось сохранить ссылку. Не создавайте новый платёж; обратитесь в поддержку.");
+  }
+  return response;
 }
 
-async function sendTariffActivatedEmail(user, sub, periodEnd) {
-  const planTitle = PLANS[sub.plan] ? PLANS[sub.plan].title : sub.plan;
-  const until = new Date(periodEnd).toLocaleDateString("ru-RU", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
-  const amount = `${Number(sub.amount).toFixed(2)} ${String(sub.currency || "rub").toUpperCase()}`;
+async function dispatchPendingSubscriptionEmails(limit = 10, dependencies = {}) {
+  const db = dependencies.supabase || supabase;
+  const mailer = dependencies.mail || mail;
+  if (!mailer.transactionalMailConfigured()) {
+    return { skipped: true, reason: "smtp_not_configured", processed: 0 };
+  }
 
-  await mail.sendMail(
-    {
-      to: user.email,
-      subject: `PinPosy — тариф «${planTitle}» активирован`,
-      text:
-        `Здравствуйте!\n\n` +
-        `Оплата получена, тариф «${planTitle}» активирован.\n\n` +
-        `Сумма: ${amount}\n` +
-        `Номер платежа: ${sub.provider_payment_id}\n` +
-        `Тариф действует до: ${until} (30 дней)\n\n` +
-        `Что дальше: войдите в кабинет https://pinposy.com/app — замочки на генерации, досках ` +
-        `и планировщике сняты, кредиты тарифа уже на балансе.\n\n` +
-        `Продлить или сменить тариф можно в разделе «Тарифы». Если оплата не отобразилась в течение ` +
-        `10 минут — ответьте на это письмо, мы проверим платёж вручную.\n\n` +
-        `— команда PinPosy`,
-    },
-    { needThrow: false }
-  );
+  const { data: rows, error } = await db.rpc("claim_email_outbox", {
+    p_limit: Math.max(1, Math.min(Number(limit) || 10, 50)),
+  });
+  if (error) throw error;
+
+  let sent = 0;
+  let failed = 0;
+  for (const row of rows || []) {
+    try {
+      if (row.template_key !== "subscription_activated") {
+        const templateError = new Error("Unsupported outbox template");
+        templateError.code = "unsupported_template";
+        throw templateError;
+      }
+
+      const payload = row.payload || {};
+      const language = row.locale || "en";
+      const copy = getEmailCopy(language);
+      const paidPlanTitle = getPlanTitle(payload.paid_plan, language);
+      const currentPlanTitle = getPlanTitle(payload.current_plan, language);
+      const periodEnd = new Date(payload.period_end);
+      if (!Number.isFinite(periodEnd.getTime())) {
+        const payloadError = new Error("Invalid outbox period_end");
+        payloadError.code = "invalid_payload";
+        throw payloadError;
+      }
+      const until = new Intl.DateTimeFormat(getLocale(language), {
+        day: "2-digit", month: "long", year: "numeric", timeZone: "UTC",
+      }).format(periodEnd);
+      const amount = `${Number(payload.amount).toFixed(2)} ${String(payload.currency || "rub").toUpperCase()}`;
+      const subject = copy.activatedSubject.replace("{plan}", paidPlanTitle);
+      const body = copy.activatedBody
+        .replace("{plan}", paidPlanTitle)
+        .replace("{currentPlan}", currentPlanTitle);
+
+      await mailer.sendMail({
+        to: row.recipient_email,
+        subject,
+        messageId: `<pinposy-subscription-${row.subscription_id}@pinposy.com>`,
+        text: [
+          copy.hello, "", body, "",
+          `${copy.amount}: ${amount}`,
+          `${copy.payment}: ${payload.payment_reference || row.subscription_id}`,
+          `${copy.validUntil}: ${until} (30 days)`,
+          "", copy.next, "", copy.manage, copy.help, "", copy.team,
+        ].join("\n"),
+      });
+
+      const { data: marked, error: markError } = await db.rpc("mark_email_outbox_sent", {
+        p_id: row.id,
+        p_claim_token: row.claim_token,
+      });
+      if (markError) throw markError;
+      if (!marked) {
+        logWarning("billing.event_006");
+      } else {
+        sent += 1;
+      }
+    } catch (sendError) {
+      failed += 1;
+      const rawCode = String(sendError && (sendError.code || sendError.name) || "smtp_error");
+      const errorCode = /^[A-Za-z0-9_-]{1,80}$/.test(rawCode) ? rawCode : "smtp_error";
+      const { error: retryError } = await db.rpc("retry_email_outbox", {
+        p_id: row.id,
+        p_claim_token: row.claim_token,
+        p_error_code: errorCode,
+      });
+      if (retryError) {
+        logError("billing.event_007");
+      }
+      logError("billing.event_008");
+    }
+  }
+
+  return { skipped: false, processed: (rows || []).length, sent, failed };
 }
 
 /**
@@ -176,107 +270,240 @@ async function sendTariffActivatedEmail(user, sub, periodEnd) {
  * Отвечаем 200 на всё, что успешно обработали или осознанно проигнорировали:
  * иначе Prodamus будет ретраить запрос.
  */
-async function handleWebhook(req, res) {
+async function handleWebhook(req, res, dependencies = {}) {
+  const db = dependencies.supabase || supabase;
+  const dispatchEmails = dependencies.dispatchPendingSubscriptionEmails || dispatchPendingSubscriptionEmails;
   const body = req.body || {};
   const check = prodamus.verifyWebhook(body, req.headers);
 
   if (!check.ok) {
-    console.error(`[billing] вебхук отклонён: ${check.reason}`);
+    logError("billing.event_009");
     return res.status(403).json({ ok: false, error: `Подпись не принята: ${check.reason}` });
+  }
+
+  if (prodamus.isDemoWebhookBlocked()) {
+    // A demo payment form on a production deployment must never activate a plan.
+    logError("billing.event_010");
+    return res.status(503).json({ ok: false, error: "demo payments are disabled in production" });
   }
 
   const orderId = String(body.order_id || "").trim();
   const status = String(body.payment_status || "").trim().toLowerCase();
-  const sum = body.sum != null ? Number(body.sum) : null;
 
   if (!orderId) {
-    console.error("[billing] вебхук без order_id");
+    try {
+      await persistWebhookException(db, {
+        paymentKind: "subscription", body, reason: "missing_order_id",
+      });
+    } catch (auditError) {
+      logError("billing.event_010");
+      return res.status(500).json({ ok: false, error: "audit storage failed" });
+    }
+    logError("billing.event_011");
     return res.json({ ok: true, ignored: "no order_id" });
   }
 
-  const { data: sub, error } = await supabase
+  const { data: sub, error } = await db
     .from("subscriptions")
     .select("*")
     .eq("provider_payment_id", orderId)
     .maybeSingle();
 
   if (error) {
-    console.error("[billing] ошибка чтения subscriptions:", error.message);
+    logError("billing.event_012");
     return res.status(500).json({ ok: false, error: "db error" });
   }
   if (!sub) {
-    // Чужой/неизвестный заказ: повтор запроса не поможет, поэтому 200 + лог.
-    console.warn(`[billing] неизвестный order_id: ${orderId}`);
+    try {
+      await persistWebhookException(db, {
+        paymentKind: "subscription", body, reason: "unknown_order_id",
+      });
+    } catch (auditError) {
+      logError("billing.event_013");
+      return res.status(500).json({ ok: false, error: "audit storage failed" });
+    }
+    logWarning("billing.event_014");
     return res.json({ ok: true, ignored: "unknown order_id" });
   }
 
-  // Идемпотентность: повторный success по уже активированной подписке ничего не меняет
-  if (sub.status === "success" && status === "success") {
-    return res.json({ ok: true, idempotent: true, period_end: sub.period_end });
-  }
-
-  if (status !== "success") {
-    const mapped = status === "order_canceled" ? "canceled" : "denied";
-    await supabase.from("subscriptions").update({ status: mapped }).eq("id", sub.id);
-    console.warn(`[billing] платёж ${orderId}: ${status} (${body.payment_status_description || ""})`);
+  const normalizedStatus = prodamus.normalizePaymentStatus(status);
+  if (normalizedStatus !== "success") {
+    if (!normalizedStatus) {
+      try {
+        await persistWebhookException(db, {
+          paymentKind: "subscription",
+          body,
+          expectedAmount: Number.isFinite(Number(sub.amount))
+            ? Number(sub.amount)
+            : null,
+          reason: "unsupported_payment_status",
+        });
+      } catch (auditError) {
+        logError("billing.event_015");
+        return res.status(500).json({ ok: false, error: "audit storage failed" });
+      }
+      logWarning("billing.event_016");
+      return res.json({ ok: true, ignored: "unsupported payment_status", review_required: true });
+    }
+    const mapped = normalizedStatus;
+    const { error: statusError } = await db.from("subscriptions")
+      .update({ status: mapped }).eq("id", sub.id).neq("status", "success");
+    if (statusError) return res.status(500).json({ ok: false, error: "db error" });
+    logWarning("billing.event_017");
     return res.json({ ok: true, status: mapped });
   }
 
-  // Проверка суммы: если провайдер прислал другую сумму — фиксируем, но не активируем молча
+  const paymentAmount = prodamus.getWebhookPaymentAmount(body, sub.currency || "rub");
+  if (!paymentAmount.ok) {
+    try {
+      await persistWebhookException(db, {
+        paymentKind: "subscription", body,
+        expectedAmount: Number.isFinite(Number(sub.amount)) ? Number(sub.amount) : null,
+        reason: paymentAmount.reason,
+      });
+    } catch (auditError) {
+      logError("billing.event_018");
+      return res.status(500).json({ ok: false, error: "audit storage failed" });
+    }
+    logWarning("billing.event_019");
+    return res.json({ ok: true, ignored: paymentAmount.reason, review_required: true });
+  }
+
   const expected = Number(sub.amount);
-  if (sum != null && Number.isFinite(sum) && Math.abs(sum - expected) > 0.01) {
-    console.error(`[billing] сумма не совпадает для ${orderId}: webhook=${sum}, ожидали=${expected}`);
-    await supabase
-      .from("subscriptions")
-      .update({ status: "denied" })
-      .eq("id", sub.id);
-    return res.json({ ok: true, ignored: "amount mismatch" });
+  const sum = paymentAmount.amount;
+  if (!Number.isFinite(expected) || expected <= 0 || Math.abs(sum - expected) > 0.01) {
+    try {
+      await persistWebhookException(db, {
+        paymentKind: "subscription", body, expectedAmount: expected, reason: "amount_mismatch",
+      });
+    } catch (auditError) {
+      logError("billing.event_020");
+      return res.status(500).json({ ok: false, error: "audit storage failed" });
+    }
+    logError("billing.event_021");
+    const { error: mismatchError } = await db.from("subscriptions")
+      .update({ status: "denied" }).eq("id", sub.id).neq("status", "success");
+    if (mismatchError) return res.status(500).json({ ok: false, error: "db error" });
+    return res.json({ ok: true, ignored: "amount mismatch", review_required: true });
   }
 
-  // Активация: 30 дней с текущего момента
-  const periodStart = new Date();
-  const periodEnd = addDays(periodStart, PERIOD_DAYS);
-
-  const { error: subError } = await supabase
-    .from("subscriptions")
-    .update({
-      status: "success",
-      period_start: periodStart.toISOString(),
-      period_end: periodEnd.toISOString(),
-      ...(sum != null && Number.isFinite(sum) ? { amount: sum } : {}),
-    })
-    .eq("id", sub.id);
-  if (subError) {
-    console.error("[billing] не удалось обновить подписку:", subError.message);
-    return res.status(500).json({ ok: false, error: "db error" });
+  // Подписка, период и тариф пользователя активируются одной транзакцией PostgreSQL.
+  const { data: activation, error: activationError } = await db.rpc("activate_paid_subscription", {
+    p_subscription_id: sub.id,
+    p_paid_at: new Date().toISOString(),
+  });
+  if (activationError || !activation) {
+    logError("billing.event_022");
+    return res.status(500).json({ ok: false, error: "activation failed" });
   }
 
-  const { data: user, error: userError } = await supabase
-    .from("users")
-    .update({ tariff_plan: sub.plan, tariff_period_end: periodEnd.toISOString() })
-    .eq("id", sub.user_id)
-    .select("id, email")
-    .single();
-
-  if (userError) {
-    console.error("[billing] не удалось обновить users.tariff_plan:", userError.message);
-    // Подписка уже success — вернём 500, чтобы Prodamus повторил и мы догнали users
-    return res.status(500).json({ ok: false, error: "user update failed" });
+  // Close the matching checkout idempotency record only after the atomic
+  // subscription activation has committed. A missing record is a legacy order.
+  try {
+    await settlePaymentCreationRequest(orderId, "subscription", sub.id, db);
+  } catch (settlementError) {
+    logError("billing.event_023");
+    return res.status(500).json({ ok: false, error: "payment reconciliation failed" });
   }
 
-  console.log(`[billing] тариф «${sub.plan}» активирован для ${user.email} до ${periodEnd.toISOString()}`);
-
-  // Письмо не должно ломать вебхук: тариф уже активирован
-  sendTariffActivatedEmail(user, { ...sub, amount: sum ?? sub.amount }, periodEnd).catch((e) =>
-    console.error("[billing] письмо о тарифе не отправлено:", e && e.message)
-  );
+  // Also drain older pending events on duplicate callbacks: a previous process may
+  // have committed activation and stopped before SMTP delivery.
+  await dispatchEmails(10).catch((e) => {
+    logError("billing.event_024");
+  });
 
   return res.json({
     ok: true,
     status: "success",
-    plan: sub.plan,
-    period_end: periodEnd.toISOString(),
+    plan: activation.current_plan || activation.plan,
+    paid_plan: activation.plan,
+    period_end: activation.period_end,
+    idempotent: activation.already_activated,
   });
+}
+
+
+async function getEmailOutboxHealth(limit = 20, dependencies = {}) {
+  const db = dependencies.supabase || supabase;
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 100));
+  const now = new Date().toISOString();
+
+  async function countStatus(status) {
+    let query = db.from("email_outbox").select("id", { count: "exact", head: true }).eq("status", status);
+    const result = await query;
+    if (result.error) throw result.error;
+    return Number(result.count) || 0;
+  }
+
+  const [pending, duePending, sending, dead, staleSending, oldestPendingResult, oldestDuePendingResult, deadRowsResult] = await Promise.all([
+    countStatus("pending"),
+    db.from("email_outbox")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending")
+      .lte("next_attempt_at", now),
+    countStatus("sending"),
+    countStatus("dead"),
+    db.from("email_outbox")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "sending")
+      .lt("locked_until", now),
+    db.from("email_outbox")
+      .select("created_at")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true })
+      .limit(1),
+    db.from("email_outbox")
+      .select("next_attempt_at")
+      .eq("status", "pending")
+      .lte("next_attempt_at", now)
+      .order("next_attempt_at", { ascending: true })
+      .limit(1),
+    db.from("email_outbox")
+      .select("id, attempts, max_attempts, last_error_code, created_at, updated_at")
+      .eq("status", "dead")
+      .order("updated_at", { ascending: false })
+      .limit(safeLimit),
+  ]);
+
+  if (duePending.error) throw duePending.error;
+  if (staleSending.error) throw staleSending.error;
+  if (oldestPendingResult.error) throw oldestPendingResult.error;
+  if (oldestDuePendingResult.error) throw oldestDuePendingResult.error;
+  if (deadRowsResult.error) throw deadRowsResult.error;
+
+  const oldestPendingAt = oldestPendingResult.data && oldestPendingResult.data[0]
+    ? oldestPendingResult.data[0].created_at
+    : null;
+  const oldestDuePendingAt = oldestDuePendingResult.data && oldestDuePendingResult.data[0]
+    ? oldestDuePendingResult.data[0].next_attempt_at
+    : null;
+
+  return {
+    generated_at: now,
+    counts: {
+      pending,
+      due_pending: Number(duePending.count) || 0,
+      sending,
+      stale_sending: Number(staleSending.count) || 0,
+      dead,
+    },
+    oldest_pending_at: oldestPendingAt,
+    oldest_pending_age_seconds: oldestPendingAt
+      ? Math.max(0, Math.floor((Date.now() - new Date(oldestPendingAt).getTime()) / 1000))
+      : null,
+    oldest_due_pending_at: oldestDuePendingAt,
+    oldest_due_pending_age_seconds: oldestDuePendingAt
+      ? Math.max(0, Math.floor((Date.now() - new Date(oldestDuePendingAt).getTime()) / 1000))
+      : null,
+    dead_items: (deadRowsResult.data || []).map((row) => ({
+      id: row.id,
+      attempts: row.attempts,
+      max_attempts: row.max_attempts,
+      last_error_code: row.last_error_code,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    })),
+  };
 }
 
 // Список подписок пользователя (для кабинета)
@@ -335,4 +562,6 @@ module.exports = {
   handleWebhook,
   listUserSubscriptions,
   listAllSubscriptions,
+  dispatchPendingSubscriptionEmails,
+  getEmailOutboxHealth,
 };

@@ -74,20 +74,84 @@ require.cache[supabasePath] = {
   id: supabasePath,
   filename: supabasePath,
   loaded: true,
-  exports: { from: (t) => makeQuery(t) },
+  exports: {
+    from: (t) => makeQuery(t),
+    rpc: async (name, args) => {
+      if (name === "issue_password_reset_token") {
+        const user = db.users.find((row) => String(row.id) === String(args.p_user_id));
+        if (!user || new Date(args.p_expires_at).getTime() <= Date.now()) return { data: false, error: null };
+        db.auth_tokens
+          .filter((row) => String(row.user_id) === String(args.p_user_id) && row.purpose === "password_reset" && !row.used_at)
+          .forEach((row) => { row.used_at = new Date().toISOString(); });
+        db.auth_tokens.push({
+          id: rid(), user_id: String(args.p_user_id), token_hash: args.p_token_hash,
+          purpose: "password_reset", expires_at: args.p_expires_at,
+          used_at: null, created_at: new Date().toISOString(),
+        });
+        return { data: true, error: null };
+      }
+      if (name === "consume_password_reset_token") {
+        const token = db.auth_tokens.find((row) =>
+          row.token_hash === args.p_token_hash && row.purpose === "password_reset" &&
+          !row.used_at && new Date(row.expires_at).getTime() > Date.now()
+        );
+        if (!token) return { data: false, error: null };
+        const user = db.users.find((row) => String(row.id) === String(token.user_id));
+        if (!user) return { data: false, error: null };
+        user.password_hash = args.p_password_hash;
+        user.token_version = Number(user.token_version || 0) + 1;
+        token.used_at = new Date().toISOString();
+        return { data: true, error: null };
+      }
+      if (name === "issue_email_verification_token") {
+        const user = db.users.find((row) => String(row.id) === String(args.p_user_id));
+        if (!user || new Date(args.p_expires_at).getTime() <= Date.now()) return { data: false, error: null };
+        const latest = db.auth_tokens
+          .filter((row) => String(row.user_id) === String(args.p_user_id) && row.purpose === "email_verify")
+          .reduce((max, row) => Math.max(max, new Date(row.created_at).getTime()), 0);
+        if (latest && latest > Date.now() - Number(args.p_min_interval_seconds) * 1000) {
+          return { data: false, error: null };
+        }
+        db.auth_tokens
+          .filter((row) => String(row.user_id) === String(args.p_user_id) && row.purpose === "email_verify" && !row.used_at)
+          .forEach((row) => { row.used_at = new Date().toISOString(); });
+        db.auth_tokens.push({
+          id: rid(), user_id: String(args.p_user_id), token_hash: args.p_token_hash,
+          purpose: "email_verify", expires_at: args.p_expires_at,
+          used_at: null, created_at: new Date().toISOString(),
+        });
+        return { data: true, error: null };
+      }
+      if (name === "consume_email_verification_token") {
+        const token = db.auth_tokens.find((row) =>
+          row.token_hash === args.p_token_hash && row.purpose === "email_verify"
+        );
+        if (!token) return { data: false, error: null };
+        const user = db.users.find((row) => String(row.id) === String(token.user_id));
+        if (!user) return { data: false, error: null };
+        if (token.used_at) return { data: user.email_verified === true, error: null };
+        if (new Date(token.expires_at).getTime() <= Date.now()) return { data: false, error: null };
+        user.email_verified = true;
+        token.used_at = new Date().toISOString();
+        return { data: true, error: null };
+      }
+      return { data: null, error: { message: "unknown RPC" } };
+    },
+  },
 };
 
 // ---------------------------------------------------------------- env
 process.env.JWT_SECRET = "test-secret";
-process.env.MAIL_SMTP_HOST = "smtp.beget.com";
+process.env.MAIL_SMTP_HOST = "smtp.go1.unisender.ru";
 process.env.MAIL_SMTP_PORT = "465";
-process.env.MAIL_USER = "support@pinposy.com";
-process.env.MAIL_PASS = "test-pass";
+process.env.MAIL_SMTP_USER = "unisender-test-user";
+process.env.MAIL_SMTP_PASS = "unisender-test-api-key";
 process.env.MAIL_FROM = "PinPosy <support@pinposy.com>";
 process.env.FRONTEND_URL = "https://pinposy.com";
 
 const auth = require(path.join(BACKEND, "auth.js"));
 const emailVerify = require(path.join(BACKEND, "email-verify.js"));
+const passwordReset = require(path.join(BACKEND, "password-reset.js"));
 
 let pass = 0;
 let fail = 0;
@@ -213,6 +277,40 @@ function tokenFromMail(mail) {
   delete db.users[0].email_verified;
   const legacy = await auth.login("user@example.com", "superpass123");
   ok("legacy-аккаунт входит", !!legacy.token);
+
+  console.log("\n13) Сброс пароля использует отдельный транзакционный SMTP");
+  const beforeReset = sentMails.length;
+  const resetKnown = await passwordReset.requestReset("user@example.com", "https://attacker.example", "ru");
+  ok("запрос известного адреса отвечает общим сообщением", resetKnown.ok === true);
+  ok("письмо восстановления отправлено", sentMails.length === beforeReset + 1);
+  const resetMail = sentMails[sentMails.length - 1];
+  ok("ссылка строится из FRONTEND_URL, а не из тела запроса",
+    resetMail.text.includes("https://pinposy.com/reset-password?token=") && !resetMail.text.includes("attacker.example"));
+  ok("письмо использует транзакционный SMTP sender", resetMail.from === "PinPosy <support@pinposy.com>");
+  const resetToken = tokenFromMail(resetMail);
+  const resetRow = db.auth_tokens.find((row) => row.token_hash === require("crypto").createHash("sha256").update(resetToken).digest("hex"));
+  ok("в БД хранится только хэш reset-токена", !!resetRow && !JSON.stringify(db.auth_tokens).includes(resetToken));
+  const unknownBefore = sentMails.length;
+  const resetUnknown = await passwordReset.requestReset("nobody@example.com", null, "en");
+  ok("ответы известного и неизвестного адресов одинаковы",
+    resetKnown.message === resetUnknown.message && resetUnknown.ok === true);
+  ok("для неизвестного адреса письмо не отправлено", sentMails.length === unknownBefore);
+  console.log("\n14) Одноразовое применение reset-токена");
+  const oldHash = db.users[0].password_hash;
+  const concurrent = await Promise.allSettled([
+    passwordReset.applyReset(resetToken, "ExamplePass123!"),
+    passwordReset.applyReset(resetToken, "AnotherPass456!"),
+  ]);
+  const succeeded = concurrent.filter((item) => item.status === "fulfilled").length;
+  const rejected = concurrent.filter((item) => item.status === "rejected").length;
+  ok("только один параллельный запрос успешен", succeeded === 1 && rejected === 1);
+  ok("хэш учётных данных обновлён", db.users[0].password_hash !== oldHash);
+  ok("токен отмечен использованным", !!resetRow.used_at);
+  let reuseError;
+  try { await passwordReset.applyReset(resetToken, "ThirdPass789!"); } catch (e) { reuseError = e; }
+  ok("повторное применение отклоняется с 422", reuseError && reuseError.httpStatus === 422);
+  ok("сброс пароля увеличивает версию сессии", db.users[0].token_version === 1);
+  ok("JWT, выданный до сброса, содержит предыдущую версию", auth.verifyToken(legacy.token).tokenVersion === 0);
 
   console.log(`\nИТОГО: ${pass} прошло, ${fail} провалено\n`);
   process.exit(fail === 0 ? 0 : 1);

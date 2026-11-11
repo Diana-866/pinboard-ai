@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   CreditCard,
   Sparkles,
@@ -8,7 +8,6 @@ import {
   Layers,
   Users,
   MessageSquare,
-  ArrowRight,
   TrendingUp,
   X,
   HelpCircle,
@@ -23,36 +22,126 @@ import {
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
 import { useAuth } from '../../context/AuthContext';
-import { payAndRedirect, PayablePlan, SubscriptionRow, buyCreditsAndRedirect, CreditPurchaseRow } from '../../lib/billing';
+import { payAndRedirect, PayablePlan, SubscriptionRow, buyCreditsAndRedirect, CreditPurchaseRow, releasePaymentIdempotencyKey } from '../../lib/billing';
 import { apiRequest } from '../../lib/api';
+import { isTerminalCreditPurchaseStatus, isTerminalSubscriptionPaymentStatus } from '../../utils/paymentTerminalStatus';
+import { isCurrentBillingOwner } from '../../utils/billingOwner';
 
-export const PricingView: React.FC = () => {
-  const { t } = useI18n();
+export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initialPlanId = null }) => {
+  const { t, language } = useI18n();
   const { user, refreshUser } = useAuth();
   // Реальная оплата: создаём платёж на бэкенде и уводим на страницу Prodamus
   const [payingId, setPayingId] = useState<string | null>(null);
+  // One checkout at a time across plans and credit packs: prevents rapid cross-clicks
+  // from creating multiple independent provider invoices for one user action.
+  const checkoutInProgressRef = useRef(false);
   const [payError, setPayError] = useState<string | null>(null);
   const [history, setHistory] = useState<SubscriptionRow[]>([]);
   const [tariffEnd, setTariffEnd] = useState<string | null>(null);
+  const [creditPacks, setCreditPacks] = useState<Array<{
+    id: string;
+    name: string;
+    credits: number;
+    pricePerCredit: string;
+    priceRub: string;
+    badge: string | null;
+    popular: boolean;
+  }>>([]);
+  const [creditPacksError, setCreditPacksError] = useState<string | null>(null);
+  const [planPrices, setPlanPrices] = useState<Record<string, { rub: number; usd: number }>>({});
+  const [planPricesError, setPlanPricesError] = useState<string | null>(null);
+  const [highlightedPlanId, setHighlightedPlanId] = useState<string | null>(null);
 
-  // История платежей пользователя — доказательство, что вебхук сработал
-  const loadHistory = () => {
-    if (!user) return;
-    apiRequest('/billing/subscriptions')
+  useEffect(() => {
+    if (!initialPlanId || !['analytics', 'start', 'pro', 'agency'].includes(initialPlanId)) return;
+    setActiveTab('plans');
+    setHighlightedPlanId(initialPlanId);
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById('pricing-plan-' + initialPlanId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [initialPlanId]);
+
+  // Subscription prices are read from the same backend catalog used to create Prodamus invoices.
+  useEffect(() => {
+    apiRequest('/billing/plans')
       .then((res: any) => {
-        setHistory(res?.subscriptions || []);
-        setTariffEnd(res?.tariff?.periodEnd || null);
+        if (!Array.isArray(res?.plans)) throw new Error('Invalid plan catalog');
+        const next: Record<string, { rub: number; usd: number }> = {};
+        for (const plan of res.plans) {
+          const rub = Number(plan.amount?.rub);
+          const usd = Number(plan.amount?.usd);
+          if (!['analytics', 'start', 'pro', 'agency'].includes(plan.id) ||
+              !Number.isFinite(rub) || rub <= 0 || !Number.isFinite(usd) || usd <= 0) {
+            throw new Error('Invalid plan catalog entry');
+          }
+          next[plan.id] = { rub, usd };
+        }
+        if (Object.keys(next).length !== 4) throw new Error('Incomplete plan catalog');
+        setPlanPrices(next);
+        setPlanPricesError(null);
       })
-      .catch(() => {});
-  };
-  // История покупок пакетов (credit_purchases, миграция 007): видно, что вебхук зачислил баланс
+      .catch(() => {
+        setPlanPrices({});
+        setPlanPricesError(language === 'ru'
+          ? 'Не удалось загрузить актуальные цены тарифов. Покупка временно недоступна.'
+          : 'Could not load current plan prices. Purchasing is temporarily unavailable.');
+      });
+  }, [language]);
+
+
+  // Prices and pack sizes come from the backend catalog, the same source used at checkout.
+  useEffect(() => {
+    apiRequest('/billing/credit-packs')
+      .then((res: any) => {
+        if (!Array.isArray(res?.packs)) throw new Error('Invalid credit pack catalog');
+        const formatter = new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', {
+          maximumFractionDigits: 0,
+        });
+        const perCreditFormatter = new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+        const localizedPacks = res.packs.map((pack: any) => {
+          const credits = Number(pack.credits);
+          const amount = Number(pack.amount?.rub);
+          if (!pack.id || !Number.isFinite(credits) || credits <= 0 || !Number.isFinite(amount) || amount <= 0) {
+            throw new Error('Invalid credit pack entry');
+          }
+          return {
+            id: String(pack.id),
+            name: pack.id === 'pack_100' ? 'Пакет S' : pack.id === 'pack_500' ? 'Пакет M' : 'Пакет L',
+            credits,
+            pricePerCredit: `${perCreditFormatter.format(amount / credits)} ₽`,
+            priceRub: `${formatter.format(amount)} ₽`,
+            badge: pack.id === 'pack_500' ? t.pricing.popularBadge : pack.id === 'pack_1000' ? (language === 'ru' ? 'Выгодно' : 'Best value') : null,
+            popular: pack.id === 'pack_500',
+          };
+        });
+        setCreditPacks(localizedPacks);
+        setCreditPacksError(null);
+      })
+      .catch(() => {
+        setCreditPacks([]);
+        setCreditPacksError(language === 'ru'
+          ? 'Не удалось загрузить актуальные цены пакетов. Обновите страницу позже.'
+          : 'Could not load current credit pack prices. Please try again later.');
+      });
+  }, [language, t.pricing.popularBadge]);
+
+  // Billing history is private to the authenticated account. Clear it before
+  // painting a newly selected account, and fence responses from the old owner.
   const [purchases, setPurchases] = useState<CreditPurchaseRow[]>([]);
-  const loadPurchases = () => {
-    if (!user) return;
-    apiRequest('/billing/credit-purchases')
-      .then((res: any) => setPurchases(res?.purchases || []))
-      .catch(() => {});
-  };
+  const billingOwnerIdRef = useRef<string | undefined>(user?.id);
+
+  useLayoutEffect(() => {
+    if (billingOwnerIdRef.current === user?.id) return;
+    billingOwnerIdRef.current = user?.id;
+    setHistory([]);
+    setPurchases([]);
+    setTariffEnd(null);
+  }, [user?.id]);
+
   const purchaseStatusLabels: Record<string, string> = {
     success: t.purchases?.statusSuccess || 'Оплачено',
     pending: t.purchases?.statusPending || 'Ожидает оплаты',
@@ -61,27 +150,143 @@ export const PricingView: React.FC = () => {
   };
 
   useEffect(() => {
-    loadPurchases();
+    if (!user?.id) {
+      setPurchases([]);
+      return;
+    }
+    let active = true;
+    apiRequest('/billing/credit-purchases')
+      .then((res: any) => {
+        if (active && isCurrentBillingOwner(billingOwnerIdRef.current, user.id)) {
+          setPurchases(Array.isArray(res?.purchases) ? res.purchases : []);
+        }
+      })
+      .catch(() => {});
+    return () => { active = false; };
   }, [user?.id, user?.credits_balance]);
 
   useEffect(() => {
-    loadHistory();
+    if (!user?.id) {
+      setHistory([]);
+      setTariffEnd(null);
+      return;
+    }
+    let active = true;
+    apiRequest('/billing/subscriptions')
+      .then((res: any) => {
+        if (active && isCurrentBillingOwner(billingOwnerIdRef.current, user.id)) {
+          setHistory(Array.isArray(res?.subscriptions) ? res.subscriptions : []);
+          setTariffEnd(res?.tariff?.periodEnd || null);
+        }
+      })
+      .catch(() => {});
+    return () => { active = false; };
   }, [user?.id, user?.tariff_plan]);
 
+  // A provider webhook may arrive after the customer returns from checkout.
+  // Refresh only while this account has pending orders; never create a new payment.
+  const pendingPaymentKey = [
+    ...history.filter((row) => row.status === 'pending').map((row) => `subscription:${row.id}`),
+    ...purchases.filter((row) => row.status === 'pending').map((row) => `purchase:${row.id}`),
+  ].sort().join('|');
+
+  useEffect(() => {
+    if (!user?.id || !pendingPaymentKey) return;
+
+    let active = true;
+    const refreshPendingPayments = async () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+
+      try {
+        const [subscriptionResult, purchaseResult] = await Promise.all([
+          apiRequest('/billing/subscriptions'),
+          apiRequest('/billing/credit-purchases'),
+        ]);
+        if (!active || !isCurrentBillingOwner(billingOwnerIdRef.current, user.id)) return;
+
+        const nextHistory = Array.isArray((subscriptionResult as any)?.subscriptions)
+          ? (subscriptionResult as any).subscriptions
+          : [];
+        const nextPurchases = Array.isArray((purchaseResult as any)?.purchases)
+          ? (purchaseResult as any).purchases
+          : [];
+
+        // Keep the two ledgers separate and fail closed: an unfamiliar status
+        // (for example, "unknown" or "processing") must never release a checkout
+        // idempotency key while the provider outcome may still be unresolved.
+        const previouslyPendingSubscriptionIds = new Set(
+          history.filter((row) => row.status === 'pending').map((row) => row.id)
+        );
+        const previouslyPendingPurchaseIds = new Set(
+          purchases.filter((row) => row.status === 'pending').map((row) => row.id)
+        );
+        const settledSubscriptions = nextHistory.filter((row: SubscriptionRow) =>
+          previouslyPendingSubscriptionIds.has(row.id) &&
+          isTerminalSubscriptionPaymentStatus(row.status)
+        );
+        const settledPurchases = nextPurchases.filter((row: CreditPurchaseRow) =>
+          previouslyPendingPurchaseIds.has(row.id) &&
+          isTerminalCreditPurchaseStatus(row.status)
+        );
+        const newlyPaid = [
+          ...settledSubscriptions.filter((row: SubscriptionRow) => row.status === 'success'),
+          ...settledPurchases.filter((row: CreditPurchaseRow) => row.status === 'success'),
+        ].length > 0;
+
+        // Release only keys whose own pending order has reached a terminal
+        // provider-confirmed state. Do not clear keys for unrelated old history.
+        for (const row of settledSubscriptions) {
+          releasePaymentIdempotencyKey(`subscription:${row.plan}:${row.currency || 'rub'}`);
+        }
+        for (const row of settledPurchases) {
+          releasePaymentIdempotencyKey(`credits:${row.package_id}:rub`);
+        }
+
+        setHistory(nextHistory);
+        setTariffEnd((subscriptionResult as any)?.tariff?.periodEnd || null);
+        setPurchases(nextPurchases);
+
+        if (newlyPaid) {
+          await refreshUser();
+        }
+      } catch {
+        // Keep the last known status; the next poll or a manual page refresh can retry.
+      }
+    };
+
+    const intervalId = window.setInterval(refreshPendingPayments, 20000);
+    const onFocus = () => { void refreshPendingPayments(); };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refreshPendingPayments();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [user?.id, pendingPaymentKey]);
+
   const handlePay = async (planId: string) => {
+    if (checkoutInProgressRef.current) return;
+    checkoutInProgressRef.current = true;
     setPayError(null);
     setPayingId(planId);
     try {
       await payAndRedirect(planId as PayablePlan, currency);
     } catch (e: any) {
+      checkoutInProgressRef.current = false;
       setPayError(e?.message || t.pricing.paymentError || 'Не удалось создать платёж');
       setPayingId(null);
     }
   };
 
   const [activeTab, setActiveTab] = useState<'plans' | 'credits'>('plans');
-  const [currency, setCurrency] = useState<'rub' | 'usd'>('rub');
-  const [currentPlanId, setCurrentPlanId] = useState<string>(user?.tariff_plan && user.tariff_plan !== 'none' ? user.tariff_plan : 'none');
+  const [currency, setCurrency] = useState<'rub' | 'usd'>(language === 'ru' ? 'rub' : 'usd');
+  const currentPlanId = user?.tariff_plan || 'none';
 
   // Реальный баланс кредитов (users.credits_balance из /me).
   // Докупленные пакеты зачисляются вебхуком Prodamus и НЕ сгорают.
@@ -89,15 +294,7 @@ export const PricingView: React.FC = () => {
 
   // Покупка пакета: создаём платёж на бэкенде и уводим на страницу Prodamus
   const [payingPackId, setPayingPackId] = useState<string | null>(null);
-
-  // AI Strategist Bot Chat Demo state
-  const [chatMessages, setChatMessages] = useState<Array<{ sender: 'ai' | 'user'; text: string }>>([
-    {
-      sender: 'ai',
-      text: t.pricing.aiBotSubtitle,
-    },
-  ]);
-  const [chatInput, setChatInput] = useState('');
+  const checkoutBusy = payingId !== null || payingPackId !== null;
 
   // 4 Subscription Plans based on exact user specification
   const plans = [
@@ -206,75 +403,46 @@ export const PricingView: React.FC = () => {
     },
   ];
 
-  // Пакеты кредитов (НЕ сгорают). Цены задаёт серверный каталог backend/creditPacks.js —
-  // клиент присылает только package_id, суммы приходят с бэкенда.
-  const creditPacks = [
-    {
-      id: 'pack_100',
-      name: 'Пакет S',
-      credits: 100,
-      pricePerCredit: '1,90 ₽',
-      priceRub: '190 ₽',
-      badge: null,
-      popular: false,
-    },
-    {
-      id: 'pack_500',
-      name: 'Пакет M',
-      credits: 500,
-      pricePerCredit: '1,58 ₽',
-      priceRub: '790 ₽',
-      badge: t.pricing.popularBadge,
-      popular: true,
-    },
-    {
-      id: 'pack_1000',
-      name: 'Пакет L',
-      credits: 1000,
-      pricePerCredit: '1,29 ₽',
-      priceRub: '1 290 ₽',
-      badge: 'Выгодно',
-      popular: false,
-    },
-  ];
+
+  const formatPlanPrice = (amount: number, currencyCode: 'rub' | 'usd') => {
+    const formatted = new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', {
+      minimumFractionDigits: currencyCode === 'usd' ? 2 : 0,
+      maximumFractionDigits: currencyCode === 'usd' ? 2 : 0,
+    }).format(amount);
+    return currencyCode === 'rub' ? `${formatted} ₽` : `${formatted}`;
+  };
+
+  const plansWithCatalogPrices = plans.map((plan) => ({
+    ...plan,
+    priceRub: planPrices[plan.id] ? formatPlanPrice(planPrices[plan.id].rub, 'rub') : '—',
+    priceUsd: planPrices[plan.id] ? formatPlanPrice(planPrices[plan.id].usd, 'usd') : '—',
+  }));
 
   // Реальная покупка пакета кредитов: POST /billing/credits → оплата Prodamus.
   // После оплаты вебхук зачисляет кредиты на баланс (пакеты не сгорают).
   const handleBuyCredits = async (packId: string) => {
+    if (checkoutInProgressRef.current) return;
+    checkoutInProgressRef.current = true;
     setPayError(null);
     setPayingPackId(packId);
     try {
       await buyCreditsAndRedirect(packId);
     } catch (e: any) {
+      checkoutInProgressRef.current = false;
       setPayError(e?.message || t.pricing.paymentError || 'Не удалось создать платёж');
       setPayingPackId(null);
     }
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
-
-    const userText = chatInput.trim();
-    setChatMessages((prev) => [...prev, { sender: 'user', text: userText }]);
-    setChatInput('');
-
-    setTimeout(() => {
-      let reply = `PinPosy AI: «${userText}». `;
-      if (userText.toLowerCase().includes('аккаунт') || userText.toLowerCase().includes('account')) {
-        reply += 'Для ведения нескольких клиентов или досок рекомендуем тариф «Про» (до 10 аккаунтов) или «Agency» (без ограничений).';
-      } else if (userText.toLowerCase().includes('сгора') || userText.toLowerCase().includes('burn') || userText.toLowerCase().includes('expire')) {
-        reply += t.pricing.deductionRule;
-      } else {
-        reply += 'Для большинства активных авторов оптимален тариф «Про» — 1 500 кредитов/мес и ночная автогенерация с утверждением в 1 клик.';
-      }
-      setChatMessages((prev) => [...prev, { sender: 'ai', text: reply }]);
-    }, 600);
-  };
-
   return (
     <div className="space-y-7 pb-10">
       {/* Header & Currency Switcher */}
+      {planPricesError && (
+        <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {planPricesError}
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-primary-theme font-heading">
@@ -287,6 +455,8 @@ export const PricingView: React.FC = () => {
 
         {/* Currency & Tabs Switchers */}
         <div className="flex items-center gap-3 flex-wrap">
+          {activeTab === 'plans' && (
+            <>
           {/* Currency Toggle */}
           <div className="bg-subtle p-1 rounded-xl border border-subtle flex items-center gap-1 text-xs font-semibold">
             <button
@@ -310,6 +480,9 @@ export const PricingView: React.FC = () => {
               {t.pricing.currencyUsd}
             </button>
           </div>
+
+            </>
+          )}
 
           {/* Section Tabs */}
           <div className="bg-subtle p-1 rounded-xl border border-subtle flex items-center gap-1 text-xs md:text-sm font-semibold">
@@ -377,7 +550,7 @@ export const PricingView: React.FC = () => {
       {activeTab === 'plans' && (
         <div className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {plans.map((plan) => {
+            {plansWithCatalogPrices.map((plan) => {
               const isCurrent = currentPlanId === plan.id;
               const displayPrice = currency === 'rub' ? plan.priceRub : plan.priceUsd;
               const secondaryPrice = currency === 'rub' ? plan.priceUsd : plan.priceRub;
@@ -385,7 +558,8 @@ export const PricingView: React.FC = () => {
               return (
                 <div
                   key={plan.id}
-                  className={`custom-card p-5 md:p-6 rounded-3xl flex flex-col justify-between space-y-6 relative transition-all duration-200 ${
+                  id={`pricing-plan-${plan.id}`}
+                  className={`custom-card ${highlightedPlanId === plan.id ? 'ring-2 ring-accent shadow-xl' : ''}  p-5 md:p-6 rounded-3xl flex flex-col justify-between space-y-6 relative transition-all duration-200 ${
                     plan.popular
                       ? 'ring-2 ring-accent shadow-xl border-accent/40 bg-gradient-to-b from-subtle/50 to-surface'
                       : 'hover:border-strong'
@@ -474,7 +648,7 @@ export const PricingView: React.FC = () => {
                   {/* Select Plan Button */}
                   <button
                     onClick={() => handlePay(plan.id)}
-                    disabled={payingId === plan.id}
+                    disabled={checkoutBusy || !planPrices[plan.id] || Boolean(planPricesError)}
                     className={`w-full py-2.5 px-4 rounded-xl text-xs md:text-sm font-semibold transition-all cursor-pointer shadow-xs disabled:opacity-60 disabled:cursor-wait ${
                       isCurrent
                         ? 'bg-surface text-primary-theme border border-accent font-bold hover:bg-subtle'
@@ -562,6 +736,9 @@ export const PricingView: React.FC = () => {
               <p className="text-xs text-secondary-theme mt-1 max-w-3xl leading-relaxed">
                 {t.pricing.creditsPackDesc}
               </p>
+              <p className="text-[11px] text-muted-theme mt-2">
+                {t.pricing.creditPacksCurrencyNotice}
+              </p>
             </div>
             <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
               {t.pricing.neverBurnBadge}
@@ -569,6 +746,9 @@ export const PricingView: React.FC = () => {
           </div>
 
           {/* Cards Grid */}
+          {creditPacksError && (
+            <p role="alert" className="text-sm text-red-500">{creditPacksError}</p>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {creditPacks.map((pack) => {
               // Пакеты продаются только за рубли (цены — серверный каталог)
@@ -626,7 +806,7 @@ export const PricingView: React.FC = () => {
 
                   <button
                     onClick={() => handleBuyCredits(pack.id)}
-                    disabled={payingPackId === pack.id}
+                    disabled={checkoutBusy}
                     className="w-full accent-btn py-2.5 px-3 rounded-xl text-xs font-semibold cursor-pointer shadow-xs flex items-center justify-center gap-1.5 disabled:opacity-60 disabled:cursor-wait"
                   >
                     <Coins className="w-3.5 h-3.5" />
@@ -671,7 +851,7 @@ export const PricingView: React.FC = () => {
                       <td className="py-3 px-3 text-right">
                         <button
                           onClick={() => handleBuyCredits(row.id)}
-                          disabled={payingPackId === row.id}
+                          disabled={checkoutBusy}
                           className="accent-btn px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer shadow-xs disabled:opacity-60 disabled:cursor-wait"
                         >
                           {t.pricing.buyCreditsBtn}
@@ -706,7 +886,15 @@ export const PricingView: React.FC = () => {
                     {purchases.map((p) => (
                       <tr key={p.id} className="hover:bg-subtle/50 transition-colors">
                         <td className="py-3 px-3 font-bold text-primary-theme">
-                          {p.pack_title || p.package_id}
+                          <div>{p.pack_title || p.package_id}</div>
+                          {p.status === 'pending' && p.provider_payment_id && (
+                            <div
+                              className="mt-1 text-[10px] font-mono font-normal text-secondary-theme select-all"
+                              title={p.provider_payment_id}
+                            >
+                              {language === 'ru' ? 'Заказ' : 'Order'}: {p.provider_payment_id}
+                            </div>
+                          )}
                         </td>
                         <td className="py-3 px-3 font-mono font-bold text-primary-theme">
                           +{p.credits.toLocaleString()}
@@ -728,7 +916,7 @@ export const PricingView: React.FC = () => {
                           </span>
                         </td>
                         <td className="py-3 px-3 font-mono text-secondary-theme">
-                          {p.paid_at ? new Date(p.paid_at).toLocaleDateString() : '—'}
+                          {(p.paid_at || p.created_at) ? new Intl.DateTimeFormat(language, { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(p.paid_at || p.created_at)) : '—'}
                         </td>
                       </tr>
                     ))}
@@ -739,67 +927,60 @@ export const PricingView: React.FC = () => {
                 <History className="w-3.5 h-3.5" />
                 {t.purchases?.neverBurn || 'Кредиты из оплаченных пакетов зачислены на баланс и не сгорают.'}
               </p>
+              {purchases.some((purchase) => purchase.status === 'pending') && (
+                <p className="text-[11px] text-amber-700 dark:text-amber-300" role="status">
+                  {language === 'ru'
+                    ? 'Если вы закрыли страницу оплаты или платёж долго ожидает подтверждения, обратитесь в поддержку и укажите номер заказа. Не создавайте повторную покупку, пока статус не проверен.'
+                    : 'If you closed the checkout page or the payment remains pending, contact support with the order reference. Do not create another purchase until the status has been checked.'}
+                </p>
+              )}
             </div>
           )}
         </div>
       )}
 
-      {/* AI Strategist Chat Assistant Section */}
-      <div className="custom-card p-6 rounded-3xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-subtle pb-3">
+      {/* Transparent static preview; no fake live AI interaction. */}
+      <section className="custom-card p-6 rounded-3xl space-y-4" aria-labelledby="ai-strategist-preview-title">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-subtle pb-3">
           <div>
-            <h3 className="text-base font-bold text-primary-theme font-heading flex items-center gap-2">
+            <h3 id="ai-strategist-preview-title" className="text-base font-bold text-primary-theme font-heading flex items-center gap-2">
               <MessageSquare className="w-4 h-4 text-accent-ghost" />
               <span>{t.pricing.aiBotTitle}</span>
             </h3>
-            <p className="text-xs text-muted-theme mt-0.5">
-              {t.pricing.aiBotSubtitle}
+            <p className="text-xs text-muted-theme mt-1">
+              {language === 'ru'
+                ? 'Предварительный просмотр примера диалога'
+                : 'A preview of an example conversation'}
             </p>
           </div>
-          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 self-start sm:self-auto">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>{t.pricing.aiBotOnline}</span>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 self-start">
+            {language === 'ru' ? 'Демонстрация' : 'Demo'}
           </span>
         </div>
 
-        {/* Chat History */}
-        <div className="space-y-3 max-h-64 overflow-y-auto p-4 rounded-2xl bg-subtle">
-          {chatMessages.map((msg, idx) => (
-            <div
-              key={idx}
-              className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-lg p-3 rounded-2xl text-xs md:text-sm leading-relaxed ${
-                  msg.sender === 'user'
-                    ? 'accent-btn rounded-br-xs'
-                    : 'bg-surface border border-subtle text-primary-theme rounded-bl-xs shadow-xs'
-                }`}
-              >
-                {msg.text}
-              </div>
-            </div>
-          ))}
-        </div>
+        <p className="text-xs leading-relaxed text-secondary-theme" role="note">
+          {language === 'ru'
+            ? 'Это статический пример интерфейса. Сообщения ниже не отправляются на сервер, а ответы не генерируются ИИ.'
+            : 'This is a static interface example. Messages below are not sent to a server and the replies are not AI-generated.'}
+        </p>
 
-        {/* Chat Input */}
-        <form onSubmit={handleSendMessage} className="flex gap-2">
-          <input
-            type="text"
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            placeholder={t.pricing.aiBotPlaceholder}
-            className="flex-1 px-3.5 py-2.5 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
-          />
-          <button
-            type="submit"
-            className="accent-btn px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
-          >
-            <span>{t.pricing.aiBotAsk}</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </form>
-      </div>
+        <div className="space-y-3 p-4 rounded-2xl bg-subtle">
+          <div className="flex justify-end">
+            <div className="max-w-lg p-3 rounded-2xl rounded-br-xs accent-btn text-xs md:text-sm leading-relaxed">
+              {language === 'ru'
+                ? 'Как выбрать тариф для нескольких клиентских аккаунтов?'
+                : 'How should I choose a plan for several client accounts?'}
+            </div>
+          </div>
+          <div className="flex justify-start">
+            <div className="max-w-lg p-3 rounded-2xl rounded-bl-xs bg-surface border border-subtle text-primary-theme shadow-xs text-xs md:text-sm leading-relaxed">
+              {language === 'ru'
+                ? 'Сравните лимит подключённых аккаунтов, месячный объём кредитов и нужные функции. Параметры тарифов указаны в карточках выше.'
+                : 'Compare connected-account limits, monthly credits, and the features you need. The plan cards above list these details.'}
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };

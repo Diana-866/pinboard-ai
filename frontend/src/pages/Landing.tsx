@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, useMotionValue, useSpring, useTransform, MotionValue } from 'motion/react';
 import {
@@ -19,6 +19,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { payAndRedirect, PayablePlan } from '../lib/billing';
 import { useI18n } from '../i18n/i18nContext';
+import { apiRequest } from '../lib/api';
 import { SupportedLanguage } from '../i18n/types';
 
 import pin1 from '../assets/images/1.png';
@@ -588,6 +589,37 @@ export const Landing: React.FC = () => {
   const [tariffCurrency, setTariffCurrency] = useState<'rub' | 'usd'>('rub');
   const [payingPlan, setPayingPlan] = useState<string | null>(null);
   const [payError, setPayError] = useState<string | null>(null);
+  const [planPrices, setPlanPrices] = useState<Record<string, { rub: number; usd: number }> | null>(null);
+  const [planPricesError, setPlanPricesError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest('/billing/plans')
+      .then((res: any) => {
+        if (!Array.isArray(res?.plans)) throw new Error('Invalid plan catalog');
+        const next: Record<string, { rub: number; usd: number }> = {};
+        for (const plan of res.plans) {
+          const rub = Number(plan.amount?.rub);
+          const usd = Number(plan.amount?.usd);
+          if (!['analytics', 'start', 'pro', 'agency'].includes(plan.id) ||
+              !Number.isFinite(rub) || rub <= 0 || !Number.isFinite(usd) || usd <= 0 ||
+              next[plan.id]) throw new Error('Invalid plan catalog entry');
+          next[plan.id] = { rub, usd };
+        }
+        if (Object.keys(next).length !== 4) throw new Error('Incomplete plan catalog');
+        if (!cancelled) {
+          setPlanPrices(next);
+          setPlanPricesError(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPlanPrices(null);
+          setPlanPricesError(true);
+        }
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   // Кнопка тарифа: гость → регистрация, авторизованный → ссылка на оплату Prodamus
   const handleSelectPlan = async (planId: string) => {
@@ -793,6 +825,18 @@ export const Landing: React.FC = () => {
           excluded: [],
         },
       ];
+
+  const formatLandingPrice = (amount: number, currency: 'rub' | 'usd') =>
+    new Intl.NumberFormat(ru ? 'ru-RU' : 'en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: currency === 'usd' ? 2 : 0,
+    }).format(amount) + (currency === 'rub' ? ' ₽' : ' $');
+
+  const displayPlans = tariffPlans.map((plan) => ({
+    ...plan,
+    priceRub: planPrices?.[plan.id] ? formatLandingPrice(planPrices[plan.id].rub, 'rub') : '—',
+    priceUsd: planPrices?.[plan.id] ? formatLandingPrice(planPrices[plan.id].usd, 'usd') : '—',
+  }));
 
   // Параллакс за курсором
   const mx = useMotionValue(0);
@@ -1264,7 +1308,7 @@ export const Landing: React.FC = () => {
           </div>
 
           <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
-            {tariffPlans.map((plan, i) => (
+            {displayPlans.map((plan, i) => (
               <motion.div
                 key={plan.id}
                 initial={{ opacity: 0, y: 24 }}
@@ -1347,7 +1391,7 @@ export const Landing: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleSelectPlan(plan.id)}
-                  disabled={payingPlan === plan.id}
+                  disabled={payingPlan === plan.id || !planPrices?.[plan.id] || planPricesError}
                   className={`mt-5 block w-full text-center rounded-xl py-2.5 text-[12px] font-extrabold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-wait ${
                     plan.popular
                       ? 'text-white shadow-md hover:shadow-lg'
@@ -1363,6 +1407,12 @@ export const Landing: React.FC = () => {
             ))}
           </div>
 
+          {planPricesError && (
+            <p role="alert" className="mt-4 rounded-xl border border-[#F0C7CE] bg-[#FDF2F4] px-4 py-2.5 text-center text-[11.5px] font-semibold text-[#A94D5F]">
+              {ru ? 'Не удалось загрузить актуальные цены. Покупка временно недоступна.' : 'Could not load current prices. Purchasing is temporarily unavailable.'}
+            </p>
+          )}
+
           {payError && (
             <p className="mt-4 rounded-xl border border-[#F0C7CE] bg-[#FDF2F4] px-4 py-2.5 text-center text-[11.5px] font-semibold text-[#A94D5F]">
               {payError}
@@ -1371,8 +1421,8 @@ export const Landing: React.FC = () => {
 
           <p className="mt-6 text-center text-[11px] text-[#B29AA1]">
             {ru
-              ? 'Оплата картами РФ и зарубежными. Отмена в один клик. Кредиты тарифа сгорают при продлении, докупленные пакеты — никогда.'
-              : 'Pay with Russian or international cards. Cancel anytime. Plan credits burn on renewal, purchased packs never do.'}
+              ? 'Доступные способы оплаты зависят от страны и отображаются на защищённой странице Prodamus. Подписки доступны в RUB и USD; пакеты кредитов — только в RUB. Кредиты тарифа сгорают при продлении, докупленные пакеты — никогда.'
+              : 'Available payment methods depend on your country and are shown on Prodamus’s secure checkout page. Subscriptions are available in RUB and USD; credit packs are charged in RUB only. Plan credits burn on renewal, purchased packs never do.'}
           </p>
         </div>
       </section>
@@ -1475,14 +1525,14 @@ export const Landing: React.FC = () => {
               {ru ? 'Тарифы и стоимость' : 'Plans and pricing'}
             </p>
             <p className="mt-1">
-              {ru
-                ? 'Аналитика — 990 ₽/мес · Старт — 1 990 ₽/мес · Про — 4 990 ₽/мес · Agency — 12 990 ₽/мес'
-                : 'Analytics — 990 ₽/mo · Start — 1 990 ₽/mo · Pro — 4 990 ₽/mo · Agency — 12 990 ₽/mo'}
+              {planPrices
+                ? displayPlans.map((plan) => `${plan.name} — ${plan.priceRub}/${ru ? 'мес' : 'mo'}`).join(' · ')
+                : (ru ? 'Загрузка актуальных цен…' : 'Loading current prices…')}
             </p>
             <p className="mt-0.5">
-              {ru
-                ? 'Цены в долларах: $11,9 / $24,0 / $60,1 / $156,5 в месяц. Оплата за 30 дней доступа, без автосписаний.'
-                : 'USD prices: $11.9 / $24.0 / $60.1 / $156.5 per month. One payment covers 30 days, no auto-charges.'}
+              {planPrices
+                ? `${ru ? 'Цены в долларах' : 'USD prices'}: ${displayPlans.map((plan) => plan.priceUsd).join(' / ')} ${ru ? 'в месяц. Оплата за 30 дней доступа, без автосписаний.' : 'per month. One payment covers 30 days, no auto-charges.'}`
+                : (ru ? 'Цены в долларах загружаются с сервера.' : 'USD prices are loading from the server.')}
             </p>
             <p className="mt-1.5">
               <a href="mailto:support@pinposy.com" className="font-semibold text-[#A94D5F] hover:underline">

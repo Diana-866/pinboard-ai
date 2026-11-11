@@ -6,6 +6,24 @@ import {defineConfig} from 'vite';
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
+    build: {
+      // One 1.2 MB chunk means a returning visitor re-downloads the whole app
+      // whenever any screen changes. Splitting the stable vendor code from the
+      // app code lets the browser cache React, icons and router across deploys.
+      rollupOptions: {
+        output: {
+          // rolldown (Vite 8) expects a function here, not the rollup object form.
+          manualChunks(id: string) {
+            if (!id.includes('node_modules')) return undefined;
+            if (id.includes('react-router')) return 'router';
+            if (id.includes('lucide-react')) return 'icons';
+            if (id.includes('/motion/') || id.includes('framer-motion')) return 'motion';
+            if (id.includes('/react-dom/') || id.includes('/react/') || id.includes('/scheduler/')) return 'react';
+            return 'vendor';
+          },
+        },
+      },
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

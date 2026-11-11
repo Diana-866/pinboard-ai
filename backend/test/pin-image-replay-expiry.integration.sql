@@ -1,0 +1,324 @@
+-- Replay expiry, transactional reference retirement, and durable queue safety (migrations 105/108).
+-- The retirement phase clears tombstoned replay payloads but never deletes Storage objects.
+do $body$
+declare
+  v_user_id uuid := gen_random_uuid();
+  v_project_id uuid := gen_random_uuid();
+  v_board_id uuid := gen_random_uuid();
+  v_pin_id uuid := gen_random_uuid();
+  v_generation_id bigint;
+  v_generation_key text := 'pin-expiry-generation-000001';
+  v_regeneration_key text := 'pin-expiry-regeneration-0001';
+  v_shared_path text := 'pins/generation-abcdefabcdefabcdefabcdefabcdefab.webp';
+  v_shared_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-abcdefabcdefabcdefabcdefabcdefab.webp';
+  v_state jsonb;
+  v_queue_count integer;
+  v_source_types text[];
+  v_queue_token uuid := gen_random_uuid();
+  v_queue_state text;
+  v_saved_queue_token uuid;
+  v_fresh_state jsonb;
+  v_bounded_generation_id bigint;
+  v_bounded_count integer;
+  v_retirement_id bigint;
+  v_retirement_path text := 'pins/generation-bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc.webp';
+  v_retirement_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc.webp';
+  v_retirement_state jsonb;
+  v_active_path text := 'pins/generation-cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd.webp';
+  v_active_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd.webp';
+begin
+  insert into public.users(id, email)
+  values (v_user_id, v_user_id::text || '@pin-image-expiry-test.invalid');
+  insert into public.projects(id, user_id) values (v_project_id, v_user_id);
+  insert into public.boards(id, project_id) values (v_board_id, v_project_id);
+  insert into public.pins(id, board_id) values (v_pin_id, v_board_id);
+
+  insert into public.pin_generation_requests(
+    user_id, board_id, idempotency_key, status, request_fingerprint, pins,
+    created_at, updated_at
+  ) values (
+    v_user_id::text, v_board_id, v_generation_key, 'completed', repeat('a',64),
+    jsonb_build_array(jsonb_build_object('image_url',v_shared_url)),
+    now()-interval '120 days', now()-interval '120 days'
+  ) returning id into v_generation_id;
+
+  insert into public.pin_generation_tasks(
+    generation_request_id, user_id, board_id, task_index, title, prompt, model,
+    aspect_ratio, status, storage_url, created_at, updated_at
+  ) values (
+    v_generation_id, v_user_id::text, v_board_id, 1, 'Expired image',
+    'Expired image prompt', 'test-model', '2:3', 'succeeded', v_shared_url,
+    now()-interval '120 days', now()-interval '120 days'
+  );
+
+  insert into public.pin_regeneration_requests(
+    user_id, pin_id, idempotency_key, request_fingerprint, model, prompt, amount,
+    status, storage_url, result_pin, created_at, updated_at
+  ) values (
+    v_user_id::text, v_pin_id, v_regeneration_key, repeat('b',64),
+    'test-model', 'Expired regeneration', 1, 'completed', v_shared_url,
+    jsonb_build_object('id',v_pin_id,'image_url',v_shared_url),
+    now()-interval '120 days', now()-interval '120 days'
+  );
+
+  -- Old but uncertain requests must never be expired.
+  insert into public.pin_generation_requests(
+    user_id, board_id, idempotency_key, status, request_fingerprint, pins,
+    created_at, updated_at
+  ) values (
+    v_user_id::text, v_board_id, 'pin-expiry-generation-unknown', 'unknown',
+    repeat('c',64), '[]'::jsonb, now()-interval '120 days', now()-interval '120 days'
+  );
+  insert into public.pin_regeneration_requests(
+    user_id, pin_id, idempotency_key, request_fingerprint, model, prompt, amount,
+    status, created_at, updated_at
+  ) values (
+    v_user_id::text, v_pin_id, 'pin-expiry-regeneration-active', repeat('d',64),
+    'test-model', 'Uncertain provider outcome', 1, 'processing',
+    now()-interval '120 days', now()-interval '120 days'
+  );
+
+  -- A pre-existing in-flight queue claim must not be reset by an upsert
+  -- when another expired journal references the same object.
+  insert into public.pin_image_retention_queue(
+    bucket_id, object_path, state, source_types, claim_token, claim_expires_at
+  ) values (
+    'pin-images', v_shared_path, 'processing', array['existing_worker'],
+    v_queue_token, now() + interval '5 minutes'
+  );
+
+  v_state := public.expire_pin_image_replay_results(90, 100);
+  if (v_state ->> 'expired_generation_requests')::integer < 1
+     or (v_state ->> 'expired_regeneration_requests')::integer < 1
+     or coalesce((v_state ->> 'deletion_started')::boolean, true)
+     or coalesce((v_state ->> 'replay_payloads_cleared')::boolean, true) then
+    raise exception 'expiry operation returned an unsafe or incomplete result: %', v_state;
+  end if;
+
+  if not exists (
+    select 1 from public.pin_generation_requests
+     where id = v_generation_id and replay_expired_at is not null
+  ) or not exists (
+    select 1 from public.pin_regeneration_requests
+     where user_id = v_user_id::text and idempotency_key = v_regeneration_key
+       and replay_expired_at is not null
+  ) then
+    raise exception 'completed replay rows were not tombstoned';
+  end if;
+
+  if not exists (
+    select 1 from public.pin_generation_requests
+     where user_id = v_user_id::text and idempotency_key = 'pin-expiry-generation-unknown'
+       and replay_expired_at is null
+  ) or not exists (
+    select 1 from public.pin_regeneration_requests
+     where user_id = v_user_id::text and idempotency_key = 'pin-expiry-regeneration-active'
+       and replay_expired_at is null
+  ) then
+    raise exception 'uncertain provider requests were incorrectly expired';
+  end if;
+
+  select count(*) into v_queue_count
+    from public.pin_image_retention_queue
+   where bucket_id = 'pin-images' and object_path = v_shared_path;
+  select source_types into v_source_types
+    from public.pin_image_retention_queue
+   where bucket_id = 'pin-images' and object_path = v_shared_path;
+  if v_queue_count <> 1
+     or not ('generation_replay' = any(v_source_types))
+     or not ('regeneration_replay' = any(v_source_types)) then
+    raise exception 'shared image path was not deduplicated in durable queue: %', v_source_types;
+  end if;
+  select state, claim_token into v_queue_state, v_saved_queue_token
+    from public.pin_image_retention_queue
+   where bucket_id = 'pin-images' and object_path = v_shared_path;
+  if v_queue_state <> 'processing' or v_saved_queue_token is distinct from v_queue_token then
+    raise exception 'expiry upsert overwrote a live queue claim: state %, token %',
+      v_queue_state, v_saved_queue_token;
+  end if;
+
+  -- The idempotency keys survive, but their old result can no longer be replayed
+  -- or silently start a new provider task.
+  v_fresh_state := public.begin_pin_generation_request(
+    v_user_id::text, v_board_id, 'pin-expiry-fresh-generation-0001', repeat('e',64)
+  );
+  if v_fresh_state ->> 'status' <> 'started'
+     or nullif(v_fresh_state ->> 'claim_token','') is null then
+    raise exception 'fresh generation did not preserve claim-fencing token: %', v_fresh_state;
+  end if;
+
+  v_state := public.begin_pin_generation_request(
+    v_user_id::text, v_board_id, v_generation_key, repeat('a',64)
+  );
+  if v_state ->> 'status' <> 'expired' then
+    raise exception 'expired generation key did not return tombstone status: %', v_state;
+  end if;
+
+  v_state := public.begin_pin_regeneration_request(
+    v_user_id::text, v_pin_id, v_regeneration_key, repeat('b',64),
+    'test-model', 'Expired regeneration', 1
+  );
+  if v_state ->> 'status' <> 'expired' then
+    raise exception 'expired regeneration key did not return tombstone status: %', v_state;
+  end if;
+
+  -- The configured limit is shared by both journal types, not applied twice.
+  insert into public.pin_generation_requests(
+    user_id, board_id, idempotency_key, status, request_fingerprint, pins,
+    created_at, updated_at
+  ) values (
+    v_user_id::text, v_board_id, 'pin-expiry-generation-bounded-0001',
+    'completed', repeat('f',64), '[]'::jsonb,
+    now()-interval '120 days', now()-interval '120 days'
+  ) returning id into v_bounded_generation_id;
+  insert into public.pin_regeneration_requests(
+    user_id, pin_id, idempotency_key, request_fingerprint, model, prompt, amount,
+    status, created_at, updated_at
+  ) values (
+    v_user_id::text, v_pin_id, 'pin-expiry-regeneration-bounded-01', repeat('1',64),
+    'test-model', 'Bounded batch', 1, 'completed',
+    now()-interval '120 days', now()-interval '120 days'
+  );
+  perform public.expire_pin_image_replay_results(90, 1);
+  select count(*) into v_bounded_count
+    from public.pin_generation_requests
+   where id = v_bounded_generation_id and replay_expired_at is not null;
+  v_bounded_count := v_bounded_count + (
+    select count(*)::integer from public.pin_regeneration_requests
+     where user_id = v_user_id::text
+       and idempotency_key = 'pin-expiry-regeneration-bounded-01'
+       and replay_expired_at is not null
+  );
+  if v_bounded_count <> 1 then
+    raise exception 'expiry RPC did not enforce a shared total batch limit: %', v_bounded_count;
+  end if;
+
+  -- A tombstoned generation replay can now be retired transactionally.
+  -- The durable key remains, while the saved image URLs are erased and the
+  -- queue becomes pending only after all DB references have disappeared.
+  insert into public.pin_generation_requests(
+    user_id, board_id, idempotency_key, status, request_fingerprint, pins,
+    created_at, updated_at
+  ) values (
+    v_user_id::text, v_board_id, 'pin-expiry-retirement-generation-01',
+    'completed', repeat('2',64),
+    jsonb_build_array(jsonb_build_object('image_url',v_retirement_url)),
+    now()-interval '120 days', now()-interval '120 days'
+  ) returning id into v_retirement_id;
+  insert into public.pin_generation_tasks(
+    generation_request_id, user_id, board_id, task_index, title, prompt, model,
+    aspect_ratio, status, storage_url, created_at, updated_at
+  ) values (
+    v_retirement_id, v_user_id::text, v_board_id, 1, 'Retirement image',
+    'Retirement test', 'test-model', '2:3', 'succeeded', v_retirement_url,
+    now()-interval '120 days', now()-interval '120 days'
+  );
+  update public.pins set image_url = v_retirement_url where id = v_pin_id;
+  perform public.expire_pin_image_replay_results(90, 100);
+  v_retirement_state := public.retire_expired_pin_image_replay_references(100);
+  if coalesce((v_retirement_state ->> 'retired_generation_requests')::integer,0) < 1 then
+    raise exception 'expired generation replay payload was not retired: %', v_retirement_state;
+  end if;
+  if not exists (
+    select 1 from public.pin_generation_requests
+     where id = v_retirement_id and replay_expired_at is not null and pins = '[]'::jsonb
+  ) or exists (
+    select 1 from public.pin_generation_tasks
+     where generation_request_id = v_retirement_id and storage_url is not null
+  ) then
+    raise exception 'generation replay image URLs were not cleared';
+  end if;
+
+  if not exists (
+    select 1 from public.pin_regeneration_requests
+     where user_id = v_user_id::text and idempotency_key = v_regeneration_key
+       and replay_expired_at is not null and storage_url is null and result_pin is null
+  ) then
+    raise exception 'regeneration replay image URLs were not cleared';
+  end if;
+  if not exists (
+    select 1 from public.pin_image_retention_queue
+     where bucket_id = 'pin-images' and object_path = v_retirement_path
+       and state = 'awaiting_reference_retirement'
+  ) then
+    raise exception 'live pin reference did not keep the queue path blocked';
+  end if;
+  update public.pins set image_url = 'https://example.invalid/retired-image.webp' where id = v_pin_id;
+  perform public.retire_expired_pin_image_replay_references(100);
+  if not exists (
+    select 1 from public.pin_image_retention_queue
+     where bucket_id = 'pin-images' and object_path = v_retirement_path and state = 'pending'
+  ) then
+    raise exception 'unreferenced retired path was not released to pending queue';
+  end if;
+
+  -- A non-terminal journal must continue blocking the path even when the
+  -- expired replay that originally queued it has been cleared.
+  insert into public.pin_generation_requests(
+    user_id, board_id, idempotency_key, status, request_fingerprint, pins
+  ) values (
+    v_user_id::text, v_board_id, 'pin-expiry-retirement-active-01',
+    'processing', repeat('3',64),
+    jsonb_build_array(jsonb_build_object('image_url',v_active_url))
+  );
+  insert into public.pin_image_retention_queue(
+    bucket_id, object_path, state, source_types
+  ) values ('pin-images', v_active_path, 'awaiting_reference_retirement', array['generation_replay']);
+  perform public.retire_expired_pin_image_replay_references(100);
+  if not exists (
+    select 1 from public.pin_image_retention_queue
+     where bucket_id = 'pin-images' and object_path = v_active_path
+       and state = 'awaiting_reference_retirement'
+  ) then
+    raise exception 'non-terminal generation journal did not block queue release';
+  end if;
+  v_state := public.begin_pin_generation_request(
+    v_user_id::text, v_board_id, 'pin-expiry-retirement-generation-01', repeat('2',64)
+  );
+  if v_state ->> 'status' <> 'expired' then
+    raise exception 'retired generation key no longer returns its tombstone: %', v_state;
+  end if;
+
+  if not has_function_privilege('service_role',
+       'public.expire_pin_image_replay_results(integer,integer)', 'EXECUTE')
+     or has_function_privilege('anon',
+       'public.expire_pin_image_replay_results(integer,integer)', 'EXECUTE')
+     or has_function_privilege('authenticated',
+       'public.expire_pin_image_replay_results(integer,integer)', 'EXECUTE') then
+    raise exception 'replay expiry RPC privileges are incorrect';
+  end if;
+
+  if has_table_privilege('service_role', 'public.pin_image_retention_queue', 'SELECT')
+     or has_table_privilege('service_role', 'public.pin_image_retention_queue', 'UPDATE') then
+    raise exception 'service_role has direct retention queue table access';
+  end if;
+
+  if not has_function_privilege('service_role',
+       'public.retire_expired_pin_image_replay_references(integer)', 'EXECUTE')
+     or has_function_privilege('anon',
+       'public.retire_expired_pin_image_replay_references(integer)', 'EXECUTE')
+     or has_function_privilege('authenticated',
+       'public.retire_expired_pin_image_replay_references(integer)', 'EXECUTE') then
+    raise exception 'replay retirement RPC privileges are incorrect';
+  end if;
+  begin
+    perform public.retire_expired_pin_image_replay_references(101);
+    raise exception 'retirement RPC accepted limit above 100';
+  exception when raise_exception then
+    if sqlerrm = 'retirement RPC accepted limit above 100' then raise; end if;
+  end;
+
+  begin
+    perform public.expire_pin_image_replay_results(1,100);
+    raise exception 'expiry RPC accepted retention below 30 days';
+  exception when raise_exception then
+    if sqlerrm = 'expiry RPC accepted retention below 30 days' then raise; end if;
+  end;
+  begin
+    perform public.expire_pin_image_replay_results(90,101);
+    raise exception 'expiry RPC accepted limit above 100';
+  exception when raise_exception then
+    if sqlerrm = 'expiry RPC accepted limit above 100' then raise; end if;
+  end;
+end;
+$body$;

@@ -7,21 +7,14 @@ async function getBalance(userId) {
 }
 
 async function adjustBalance(userId, amount, type, description) {
-  const { data: newBalance, error: rpcError } = await supabase.rpc("adjust_credits_balance", {
-    p_user_id: userId,
+  const { data, error } = await supabase.rpc("adjust_credits_balance_and_log", {
+    p_user_id: String(userId),
     p_amount: amount,
+    p_type: type,
+    p_description: description || null,
   });
-  if (rpcError) throw new Error(rpcError.message || "Не удалось изменить баланс");
-
-  const { error: txError } = await supabase.from("credit_transactions").insert({
-    user_id: userId,
-    amount,
-    type,
-    description,
-  });
-  if (txError) throw txError;
-
-  return newBalance;
+  if (error) throw new Error(error.message || "Не удалось изменить баланс");
+  return data;
 }
 
 module.exports = { getBalance, adjustBalance };

@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { apiRequest } from "../lib/api";
+import { apiRequest, ApiError } from "../lib/api";
+import { clearAuthToken, readAuthToken, readLocalStorageValue } from "../lib/authStorage";
+import { clearUserScopedStorage } from "../lib/userScopedStorage";
 
 export interface User {
   id: string;
@@ -13,6 +15,7 @@ export interface User {
   tariff_plan?: 'none' | 'analytics' | 'start' | 'pro' | 'agency';
   /** Подтверждён ли email (колонка users.email_verified, миграция 005). undefined — миграция не применена */
   email_verified?: boolean;
+  preferred_language?: 'en' | 'ru' | 'es' | 'pt' | 'de' | 'fr' | 'zh';
   /** Дата окончания оплаченного периода тарифа (users.tariff_period_end, миграция 006) */
   tariff_period_end?: string | null;
   /** Активна ли оплаченная подписка прямо сейчас — по этому полю кабинет снимает замочки */
@@ -35,7 +38,7 @@ interface AuthContextType {
   isAuthModalOpen: boolean;
   openAuthModal: (mode?: string) => void;
   closeAuthModal: () => void;
-  refreshUser: () => Promise<void>;
+  refreshUser: () => Promise<boolean>;
   logout: () => void;
   updateUserAvatar: (url: string) => void;
   updateUser: (patch: Partial<User>) => void;
@@ -44,6 +47,28 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AVATAR_KEY = "pinposy_avatar";
+/** Remembers which account last used this browser, so a sign-in as somebody else
+ *  on a shared device cannot inherit the previous user's cached work. */
+const LAST_USER_KEY = "pinposy_last_user_id";
+
+function rememberUser(userId: string) {
+  try {
+    localStorage.setItem(LAST_USER_KEY, String(userId));
+  } catch {
+    // Storage may be unavailable; the key is an isolation aid, not a requirement.
+  }
+}
+
+function clearPreviousUserIfDifferent(userId: string) {
+  let previous: string | null = null;
+  try {
+    previous = localStorage.getItem(LAST_USER_KEY);
+  } catch {
+    previous = null;
+  }
+  if (previous && previous !== String(userId)) clearUserScopedStorage();
+  rememberUser(userId);
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -52,13 +77,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   async function refreshUser() {
-    const token = localStorage.getItem("token");
+    const token = readAuthToken();
     if (!token) {
       setUser(null);
-      return;
+      return false;
     }
     try {
       const data = await apiRequest("/me");
+      // Different account on this browser: drop the previous user's queue, drafts
+      // and preferences before the new profile is applied. Device-level language
+      // and theme are preserved by the sweep.
+      clearPreviousUserIfDifferent(String(data.id));
+      const localLanguage = readLocalStorageValue("pinposy_lang");
+      if (localLanguage && ["en", "ru", "es", "pt", "de", "fr", "zh"].includes(localLanguage) && localLanguage !== data.preferred_language) {
+        try {
+          await apiRequest("/me", { method: "PATCH", body: JSON.stringify({ preferred_language: localLanguage }) });
+          data.preferred_language = localLanguage;
+        } catch (error) {
+          console.warn("[auth] Could not sync saved interface language:", error);
+        }
+      }
       let avatar: string | undefined;
       try {
         avatar = localStorage.getItem(AVATAR_KEY) || undefined;
@@ -72,9 +110,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         tariff_plan: data.tariff_plan ?? "none",
         avatar,
       });
+      return true;
     } catch (e) {
-      localStorage.removeItem("token");
-      setUser(null);
+      // A transient network/5xx failure must not destroy a still-valid local
+      // session. apiRequest already clears and redirects on protected-route 401.
+      if (e instanceof ApiError && e.status === 401) {
+        clearAuthToken();
+        setUser(null);
+      } else {
+        console.warn("[auth] Could not refresh the current user; keeping the session for retry:", e);
+      }
+      return false;
     }
   }
 
@@ -83,7 +129,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   function logout() {
-    localStorage.removeItem("token");
+    clearAuthToken();
+    // Sign-out on a shared browser must not leave the queue, drafted descriptions,
+    // uploaded photos or notification history behind for the next person.
+    clearUserScopedStorage();
     setUser(null);
     window.location.href = "/login";
   }

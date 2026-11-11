@@ -1,3 +1,4 @@
+const { logError, logWarning, logInfo } = require("./safeLogger");
 // Разовые покупки пакетов кредитов через Prodamus.
 // Таблица: credit_purchases (db/migrations/007_credit_purchases.sql)
 // Каталог пакетов: backend/creditPacks.js (цены задаются ТОЛЬКО там; сумма от клиента не используется).
@@ -12,9 +13,11 @@
 
 const supabase = require("./supabase");
 const prodamus = require("./prodamus");
+const { persistWebhookException } = require("./billingWebhookAudit");
 const { httpError, validateEnum } = require("./validate");
 const { CREDIT_PACKS, normalizePackId, packAmount } = require("./creditPacks");
-const { adjustBalance } = require("./credits");
+const { createPaymentOrderId } = require("./paymentOrderId");
+const { beginPaymentCreation, attachPaymentCreationOrder, denyUnsentPaymentRecord, completePaymentCreation, settlePaymentCreationRequest, markPaymentCreationUnknown, failPaymentCreation } = require("./paymentCreationIdempotency");
 
 // Префикс order_id покупок кредитов: по нему общий вебхук /billing/webhook
 // различает подписки (pp-…) и пакеты кредитов (ppc-…).
@@ -39,7 +42,7 @@ function frontendBase() {
  * POST /billing/credits  { package_id }
  * Создаёт pending-запись покупки и возвращает ссылку на оплату Prodamus.
  */
-async function createCreditsPayment(userId, body) {
+async function createCreditsPayment(userId, body, idempotencyKey) {
   const packageId = normalizePackId(body && body.package_id);
   if (!packageId) {
     throw httpError(422, "package_id: допустимые значения — pack_100, pack_500, pack_1000");
@@ -58,46 +61,72 @@ async function createCreditsPayment(userId, body) {
     );
   }
 
-  const { data: user, error: userError } = await supabase
-    .from("users")
-    .select("id, email")
-    .eq("id", userId)
-    .single();
-  if (userError || !user) throw httpError(404, "Пользователь не найден");
-
   const pack = CREDIT_PACKS[packageId];
-  const amount = packAmount(packageId, currency); // сумма из серверного каталога
-  const orderId = `${ORDER_PREFIX}-${packageId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const amount = packAmount(packageId, currency);
+  const intent = await beginPaymentCreation(userId, idempotencyKey, "credits", packageId, currency);
+  if (!intent.started) return intent.result;
 
-  // 1. Пишем покупку как pending: источник правды и ключ идемпотентности.
-  const { data: purchase, error: insertError } = await supabase
-    .from("credit_purchases")
-    .insert({
-      user_id: String(userId),
-      package_id: packageId,
-      pack_title: pack.title,
-      credits: pack.credits,
-      status: "pending",
-      provider_payment_id: orderId,
-      amount,
-      currency,
-    })
-    .select()
-    .single();
+  let user;
+  try {
+    const result = await supabase
+      .from("users")
+      .select("id, email")
+      .eq("id", userId)
+      .single();
+    if (result.error || !result.data) throw httpError(404, "Пользователь не найден");
+    user = result.data;
+  } catch (error) {
+    await failPaymentCreation(userId, idempotencyKey, error);
+    throw error;
+  }
 
-  if (insertError) {
-    console.error(
-      "[credits-billing] не удалось создать покупку:",
-      insertError.message,
-      insertError.code || ""
-    );
+  const orderId = createPaymentOrderId(ORDER_PREFIX, packageId);
+  let purchase;
+  try {
+    const result = await supabase
+      .from("credit_purchases")
+      .insert({
+        user_id: String(userId),
+        package_id: packageId,
+        pack_title: pack.title,
+        credits: pack.credits,
+        status: "pending",
+        provider_payment_id: orderId,
+        amount,
+        currency,
+      })
+      .select()
+      .single();
+    if (result.error || !result.data) throw result.error || new Error("credit purchase insert returned no row");
+    purchase = result.data;
+  } catch (error) {
+    logError("creditsBilling.event_001");
+    await failPaymentCreation(userId, idempotencyKey, error);
     throw httpError(
       500,
       "Не удалось создать покупку. Проверьте, что миграция 007 (db/migrations/007_credit_purchases.sql) применена."
     );
   }
 
-  // 2. Просим у Prodamus ссылку на оплату
+  try {
+    await attachPaymentCreationOrder(userId, idempotencyKey, orderId);
+  } catch (error) {
+    let cleanupConfirmed = false;
+    try {
+      await denyUnsentPaymentRecord("credit_purchases", purchase.id);
+      cleanupConfirmed = true;
+    } catch (cleanupError) {
+      logError("creditsBilling.event_002");
+      // Keep this request in the admin reconciliation queue if local cleanup failed.
+      await markPaymentCreationUnknown(userId, idempotencyKey, cleanupError);
+    }
+    if (cleanupConfirmed) {
+      await failPaymentCreation(userId, idempotencyKey, error);
+    }
+    logError("creditsBilling.event_003");
+    throw httpError(503, "Не удалось безопасно подготовить заказ. Счёт провайдеру не отправлялся; статус заказа требует проверки.");
+  }
+
   const base = publicBase();
   let link;
   try {
@@ -109,19 +138,15 @@ async function createCreditsPayment(userId, body) {
       description: `PinPosy — пакет кредитов: ${pack.credits} кредитов (бессрочно)`,
       plan: packageId,
       urlNotification: base ? `${base}/billing/webhook` : undefined,
-      urlReturn: `${frontendBase()}/app?payment=success`,
+      urlSuccess: `${frontendBase()}/app?payment=success`,
     });
-  } catch (e) {
-    // Ссылка не создана — помечаем строку, чтобы не копить «вечные pending»
-    await supabase
-      .from("credit_purchases")
-      .update({ status: "denied" })
-      .eq("id", purchase.id)
-      .then(() => {}, () => {});
-    throw e;
+  } catch (error) {
+    await markPaymentCreationUnknown(userId, idempotencyKey, error);
+    logError("creditsBilling.event_004");
+    throw error;
   }
 
-  return {
+  const response = {
     ok: true,
     purchase_id: purchase.id,
     order_id: orderId,
@@ -132,134 +157,166 @@ async function createCreditsPayment(userId, body) {
     payment_url: link.url,
     demo: prodamus.isDemo(),
   };
+  try {
+    await completePaymentCreation(userId, idempotencyKey, response);
+  } catch (error) {
+    await markPaymentCreationUnknown(userId, idempotencyKey, error);
+    logError("creditsBilling.event_005");
+    throw httpError(503, "Счёт создан, но не удалось сохранить ссылку. Не создавайте новый платёж; обратитесь в поддержку.");
+  }
+  return response;
 }
 
-/**
- * POST /billing/webhook(-credits) — уведомление Prodamus об оплате пакета.
- * Формат и проверка подписи — те же, что у подписок (billing.handleWebhook).
- *
- * Идемпотентность: зачисление баланса выполняется только при переходе
- * статуса pending → success (условный UPDATE с проверкой старого статуса).
- * Повторный вебхук по уже оплаченному заказу ничего не зачисляет.
- */
-async function handleCreditsWebhook(req, res) {
+async function handleCreditsWebhook(req, res, dependencies = {}) {
+  const db = dependencies.supabase || supabase;
   const body = req.body || {};
   const check = prodamus.verifyWebhook(body, req.headers);
 
   if (!check.ok) {
-    console.error(`[credits-billing] вебхук отклонён: ${check.reason}`);
+    logError("creditsBilling.event_006");
     return res.status(403).json({ ok: false, error: `Подпись не принята: ${check.reason}` });
+  }
+
+  if (prodamus.isDemoWebhookBlocked()) {
+    // A demo payment form on a production deployment must never credit real credits.
+    logError("creditsBilling.event_007");
+    return res.status(503).json({ ok: false, error: "demo payments are disabled in production" });
   }
 
   const orderId = String(body.order_id || "").trim();
   const status = String(body.payment_status || "").trim().toLowerCase();
-  const sum = body.sum != null ? Number(body.sum) : null;
 
   if (!orderId) {
-    console.error("[credits-billing] вебхук без order_id");
+    try {
+      await persistWebhookException(db, {
+        paymentKind: "credits", body, reason: "missing_order_id",
+      });
+    } catch (auditError) {
+      logError("creditsBilling.event_007");
+      return res.status(500).json({ ok: false, error: "audit storage failed" });
+    }
+    logError("creditsBilling.event_008");
     return res.json({ ok: true, ignored: "no order_id" });
   }
 
-  const { data: purchase, error } = await supabase
+  const { data: purchase, error } = await db
     .from("credit_purchases")
     .select("*")
     .eq("provider_payment_id", orderId)
     .maybeSingle();
 
   if (error) {
-    console.error("[credits-billing] ошибка чтения credit_purchases:", error.message);
+    logError("creditsBilling.event_009");
     return res.status(500).json({ ok: false, error: "db error" });
   }
   if (!purchase) {
-    console.warn(`[credits-billing] неизвестный order_id: ${orderId}`);
+    try {
+      await persistWebhookException(db, {
+        paymentKind: "credits", body, reason: "unknown_order_id",
+      });
+    } catch (auditError) {
+      logError("creditsBilling.event_010");
+      return res.status(500).json({ ok: false, error: "audit storage failed" });
+    }
+    logWarning("creditsBilling.event_011");
     return res.json({ ok: true, ignored: "unknown order_id" });
   }
 
-  // Идемпотентность: повторный success по уже зачисленной покупке ничего не меняет
-  if (purchase.status === "success" && status === "success") {
-    return res.json({ ok: true, idempotent: true, credits: purchase.credits });
-  }
-
-  if (status !== "success") {
-    const mapped = status === "order_canceled" ? "canceled" : "denied";
-    await supabase.from("credit_purchases").update({ status: mapped }).eq("id", purchase.id);
-    console.warn(
-      `[credits-billing] платёж ${orderId}: ${status} (${body.payment_status_description || ""})`
-    );
+  const normalizedStatus = prodamus.normalizePaymentStatus(status);
+  if (normalizedStatus !== "success") {
+    if (!normalizedStatus) {
+      try {
+        await persistWebhookException(db, {
+          paymentKind: "credits",
+          body,
+          expectedAmount: Number.isFinite(Number(purchase.amount))
+            ? Number(purchase.amount)
+            : null,
+          reason: "unsupported_payment_status",
+        });
+      } catch (auditError) {
+        logError("creditsBilling.event_012");
+        return res.status(500).json({ ok: false, error: "audit storage failed" });
+      }
+      logWarning("creditsBilling.event_013");
+      return res.json({ ok: true, ignored: "unsupported payment_status", review_required: true });
+    }
+    const mapped = normalizedStatus;
+    const { error: statusError } = await db.from("credit_purchases")
+      .update({ status: mapped }).eq("id", purchase.id)
+      .is("balance_credited_at", null).neq("status", "success");
+    if (statusError) return res.status(500).json({ ok: false, error: "db error" });
     return res.json({ ok: true, status: mapped });
   }
 
-  // Проверка суммы: вебхук с другой суммой фиксируем, но не зачисляем молча
+  const paymentAmount = prodamus.getWebhookPaymentAmount(body, purchase.currency || "rub");
+  if (!paymentAmount.ok) {
+    try {
+      await persistWebhookException(db, {
+        paymentKind: "credits", body,
+        expectedAmount: Number.isFinite(Number(purchase.amount)) ? Number(purchase.amount) : null,
+        reason: paymentAmount.reason,
+      });
+    } catch (auditError) {
+      logError("creditsBilling.event_014");
+      return res.status(500).json({ ok: false, error: "audit storage failed" });
+    }
+    logWarning("creditsBilling.event_015");
+    return res.json({ ok: true, ignored: paymentAmount.reason, review_required: true });
+  }
+
   const expected = Number(purchase.amount);
-  if (sum != null && Number.isFinite(sum) && Math.abs(sum - expected) > 0.01) {
-    console.error(
-      `[credits-billing] сумма не совпадает для ${orderId}: webhook=${sum}, ожидали=${expected}`
-    );
-    await supabase.from("credit_purchases").update({ status: "denied" }).eq("id", purchase.id);
-    return res.json({ ok: true, ignored: "amount mismatch" });
+  const sum = paymentAmount.amount;
+  if (!Number.isFinite(expected) || expected <= 0 || Math.abs(sum - expected) > 0.01) {
+    try {
+      await persistWebhookException(db, {
+        paymentKind: "credits", body, expectedAmount: expected, reason: "amount_mismatch",
+      });
+    } catch (auditError) {
+      logError("creditsBilling.event_016");
+      return res.status(500).json({ ok: false, error: "audit storage failed" });
+    }
+    logError("creditsBilling.event_017");
+    const { error: mismatchError } = await db.from("credit_purchases")
+      .update({ status: "denied" }).eq("id", purchase.id)
+      .is("balance_credited_at", null).neq("status", "success");
+    if (mismatchError) return res.status(500).json({ ok: false, error: "db error" });
+    return res.json({ ok: true, ignored: "amount mismatch", review_required: true });
   }
 
-  // Критическая секция: помечаем оплаченной ТОЛЬКО из pending.
-  // Условный UPDATE возвращает изменённые строки: 0 — значит, зачисление уже
-  // выполнено (или статус изменён) — второй раз баланс не трогаем.
-  const paidAt = new Date().toISOString();
-  const { data: activated, error: activateError } = await supabase
-    .from("credit_purchases")
-    .update({ status: "success", paid_at: paidAt })
-    .eq("id", purchase.id)
-    // Разрешённые исходные статусы: pending (обычный случай) и denied
-    // (например, повтор вебхука с правильной суммой после расхождения сумм).
-    // 'success' источником быть не может — поэтому двойного зачисления не бывает.
-    .in("status", ["pending", "denied"])
-    .select();
-
-  if (activateError) {
-    console.error("[credits-billing] не удалось пометить покупку оплаченной:", activateError.message);
-    return res.status(500).json({ ok: false, error: "db error" });
-  }
-  if (!activated || activated.length === 0) {
-    // Кто-то уже провёл этот заказ (параллельный/повторный вебхук) — ничего не начисляем
-    console.log(`[credits-billing] ${orderId}: статус уже изменён, зачисление пропущено`);
+  // Validate every signed success callback, even after a prior credit, so a later
+  // duplicate with an unexpected amount is still durably recorded for reconciliation.
+  if (purchase.balance_credited_at) {
+    try {
+      await settlePaymentCreationRequest(orderId, "credits", purchase.id, db);
+    } catch (settlementError) {
+      logError("creditsBilling.event_018");
+      return res.status(500).json({ ok: false, error: "payment reconciliation failed" });
+    }
     return res.json({ ok: true, idempotent: true, credits: purchase.credits });
   }
 
-  // Зачисляем «вечные» кредиты на баланс (transaction: credit_transactions type=topup)
-  try {
-    const newBalance = await adjustBalance(
-      purchase.user_id,
-      purchase.credits,
-      "topup",
-      `Пакет кредитов «${purchase.pack_title || purchase.package_id}» (+${purchase.credits}, не сгорают), заказ ${orderId}`
-    );
-    console.log(
-      `[credits-billing] +${purchase.credits} кредитов зачислено пользователю ${purchase.user_id}, баланс: ${newBalance}`
-    );
-  } catch (e) {
-    // Кредиты не зачислены — откатываем статус, чтобы Prodamus повторил вебхук
-    console.error("[credits-billing] не удалось зачислить кредиты:", e && e.message);
-    await supabase
-      .from("credit_purchases")
-      .update({ status: "pending", paid_at: null })
-      .eq("id", purchase.id)
-      .then(() => {}, () => {});
-    return res.status(500).json({ ok: false, error: "balance update failed" });
-  }
-
-  const { error: creditedError } = await supabase
-    .from("credit_purchases")
-    .update({ balance_credited_at: paidAt })
-    .eq("id", purchase.id);
-  if (creditedError) {
-    // Кредиты уже зачислены, отметка вторична — не ломаем вебхук
-    console.error("[credits-billing] не удалось записать balance_credited_at:", creditedError.message);
-  }
-
-  return res.json({
-    ok: true,
-    status: "success",
-    credits: purchase.credits,
-    order_id: orderId,
+  // Баланс, журнал и отметка покупки фиксируются в одной транзакции PostgreSQL.
+  const paidAt = new Date().toISOString();
+  const { data: newBalance, error: creditError } = await db.rpc("credit_paid_purchase", {
+    p_purchase_id: purchase.id,
+    p_paid_at: paidAt,
+    p_description: `Пакет кредитов «${purchase.pack_title || purchase.package_id}» (+${purchase.credits}, не сгорают), заказ ${orderId}`,
   });
+  if (creditError) {
+    logError("creditsBilling.event_019");
+    return res.status(500).json({ ok: false, error: "crediting failed" });
+  }
+
+  try {
+    await settlePaymentCreationRequest(orderId, "credits", purchase.id, db);
+  } catch (settlementError) {
+    logError("creditsBilling.event_020");
+    return res.status(500).json({ ok: false, error: "payment reconciliation failed" });
+  }
+
+  logInfo("creditsBilling.event_021");
+  return res.json({ ok: true, status: "success", credits: purchase.credits, order_id: orderId });
 }
 
 /** История покупок кредитов пользователя (кабинет → «Тарифы» → «Кредиты») */

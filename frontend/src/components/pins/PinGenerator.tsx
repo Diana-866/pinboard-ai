@@ -18,21 +18,43 @@ import {
   Clock,
   Zap,
 } from 'lucide-react';
-import { useI18n } from '../../i18n/i18nContext';
+import { AI_CONTENT_LANGUAGES, useI18n } from '../../i18n/i18nContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
+import { apiRequest } from '../../lib/api';
+import { addCalendarDaysInTimezone, formatInstantInTimezone, getDefaultTimezone, resolveScheduleSlotTime } from '../../utils/timezone';
+import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure } from '../../utils/generationRetry';
+import { clearPendingPinDescriptionIfMatches, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
+import { enqueuePinSave } from '../../utils/pendingPinSaveQueue';
+import { isCurrentPinDescriptionSave } from '../../utils/pinDescriptionSaveGuard';
+import { shouldFlushPendingPinDescription } from '../../utils/pendingPinDescriptionSwitch';
+import { clearPendingGenerationRequest, createGenerationFingerprint, listPendingGenerationRequests, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
+import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
+import { requireGeneratedPinsArray } from '../../utils/generatedPinsResponse';
+import { isCurrentBillingOwner } from '../../utils/billingOwner';
+import { rollbackPinAspectRatioIfUnchanged } from '../../utils/pinAspectRatio';
+import { resolvePinterestDestination } from '../../utils/pinterestDestination';
+import {
+  rememberPinTitleSelection,
+  resolvePinTitleSelection,
+  restorePinTitleSelectionIfCurrent,
+} from '../../utils/pinTitleSelection';
 import {
   GeneratedPinVariation,
   SupportedAspectRatio,
-  generatePinterestPinBatch,
-} from '../../services/gemini';
+} from '../../types/pinGeneration';
 import { PinCanvas, PinCanvasData, ASPECT_RATIO_SPECS } from './PinCanvas';
+import { useAuth } from '../../context/AuthContext';
 
 interface PinGeneratorProps {
   boards: BoardItem[];
   initialTopic?: string;
   initialDate?: string;
+  initialTime?: string;
+  initialBoardId?: string;
   onSchedulePin: (pin: ScheduledPinItem) => void;
+  onPinsChanged?: () => void;
+  onAddToReview?: (pin: { id: string; pinId: string; title: string; description: string; boardName: string; boardId: string; imageUrl: string; aspectRatio: string; reason: string; trendMetric: string; scheduledTime: string; scheduledDate: string; destinationUrl: string; accountHandle?: string; accountId?: string }) => Promise<void>;
   onGoToCalendar: () => void;
 }
 
@@ -54,10 +76,16 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   boards,
   initialTopic,
   initialDate,
+  initialTime,
+  initialBoardId,
   onSchedulePin,
+  onPinsChanged,
+  onAddToReview,
   onGoToCalendar,
 }) => {
-  const { t, aiContentLanguage, language } = useI18n();
+  const { t, aiContentLanguage, setAiContentLanguage, language } = useI18n();
+  const { user } = useAuth();
+  const userId = user?.id || '';
   const { enqueueTask } = useNotifications();
 
   const [pinCount, setPinCount] = useState<number>(5);
@@ -71,18 +99,88 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   );
   const [customScheduleDate, setCustomScheduleDate] = useState<string>(() => {
     if (initialDate) return initialDate;
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
+    return addCalendarDaysInTimezone(new Date(), getDefaultTimezone(), 1);
   });
-  const [customScheduleTime, setCustomScheduleTime] = useState('20:15');
+  const [customScheduleTime, setCustomScheduleTime] = useState(initialTime || '20:15');
+
+  const [pinterestAccounts, setPinterestAccounts] = useState<Array<{ id: string; username?: string | null }>>([]);
+  const [selectedPinterestAccountId, setSelectedPinterestAccountId] = useState('');
+  const [pinterestBoards, setPinterestBoards] = useState<Array<{ id: string; name: string }>>([]);
+  // Account the loaded board list belongs to: guards against scheduling to a
+  // board fetched for the previously selected account.
+  const [pinterestBoardsAccountId, setPinterestBoardsAccountId] = useState<string>('');
+  const [selectedPinterestBoardId, setSelectedPinterestBoardId] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    // A mounted generator can survive an auth-context user switch. Clear every
+    // account-scoped value before loading the new owner's Pinterest connections.
+    setPinterestAccounts([]);
+    setSelectedPinterestAccountId('');
+    setPinterestBoards([]);
+    setPinterestBoardsAccountId('');
+    setSelectedPinterestBoardId('');
+    if (!userId) return () => { active = false; };
+
+    apiRequest('/integrations/pinterest/status')
+      .then((data) => {
+        if (!active) return;
+        const rows = Array.isArray(data?.accounts)
+          ? data.accounts.filter((account: any) => account && typeof account.id === 'string' && account.id.trim())
+          : [];
+        setPinterestAccounts(rows);
+        if (rows.length === 1) setSelectedPinterestAccountId(rows[0].id);
+      })
+      .catch(() => {
+        if (active) {
+          setPinterestAccounts([]);
+          setSelectedPinterestAccountId('');
+        }
+      });
+    return () => { active = false; };
+  }, [userId]);
+
+  useEffect(() => {
+    let active = true;
+    setPinterestBoards([]);
+    setPinterestBoardsAccountId('');
+    setSelectedPinterestBoardId('');
+    if (!userId || !selectedPinterestAccountId) {
+      return () => { active = false; };
+    }
+    apiRequest(`/integrations/pinterest/boards?account_id=${encodeURIComponent(selectedPinterestAccountId)}`)
+      .then((data) => {
+        if (!active) return;
+        const rows = Array.isArray(data?.boards)
+          ? data.boards.filter((board: any) =>
+              board && typeof board.id === 'string' && board.id.trim() &&
+              typeof board.name === 'string' && board.name.trim())
+          : [];
+        setPinterestBoards(rows);
+        setPinterestBoardsAccountId(selectedPinterestAccountId);
+        setSelectedPinterestBoardId(rows[0]?.id || '');
+      })
+      .catch(() => {
+        if (active) {
+          setPinterestBoards([]);
+          setPinterestBoardsAccountId('');
+          setSelectedPinterestBoardId('');
+        }
+      });
+    return () => { active = false; };
+  }, [userId, selectedPinterestAccountId]);
+
 
   useEffect(() => {
     if (initialDate) {
       setCustomScheduleDate(initialDate);
       setSchedulingMode('custom_datetime');
     }
-  }, [initialDate]);
+    if (initialTime) {
+      setCustomScheduleTime(initialTime);
+      setSchedulingMode('custom_datetime');
+    }
+  }, [initialDate, initialTime]);
 
   useEffect(() => {
     if (initialTopic) {
@@ -139,22 +237,248 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     return boards[0];
   }, [topic, boards]);
 
-  const [selectedBoardId, setSelectedBoardId] = useState<string>(recommendedBoard?.id || boards[0]?.id || 'b-1');
+  const [selectedBoardId, setSelectedBoardId] = useState<string>(initialBoardId || recommendedBoard?.id || boards[0]?.id || '');
 
   useEffect(() => {
-    if (recommendedBoard) {
+    // An explicit board selected in the calendar takes precedence over topic-based recommendations.
+    if (!initialBoardId && recommendedBoard) {
       setSelectedBoardId(recommendedBoard.id);
     }
-  }, [recommendedBoard]);
+  }, [recommendedBoard, initialBoardId]);
+
+  useEffect(() => {
+    if (initialBoardId && boards.some((board) => board.id === initialBoardId)) {
+      setSelectedBoardId(initialBoardId);
+    }
+  }, [initialBoardId, boards]);
 
   const [tone, setTone] = useState<string>('inspirational');
-  const [destinationUrl, setDestinationUrl] = useState('https://pinposy.com/blog/scandinavian-interior-styling');
+  const [destinationUrl, setDestinationUrl] = useState('');
   const [canvasStyle, setCanvasStyle] = useState<'minimal' | 'glass' | 'split'>('glass');
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoadingSavedPins, setIsLoadingSavedPins] = useState(false);
+  const [savedPinsLoadError, setSavedPinsLoadError] = useState('');
+  const [savedPinsReloadAttempt, setSavedPinsReloadAttempt] = useState(0);
+  const [savingAspectRatioPinId, setSavingAspectRatioPinId] = useState<string | null>(null);
+  // Keep rollback targets separate from optimistic canvas selections.
+  const pinAspectRatioConfirmedRef = React.useRef<Map<string, SupportedAspectRatio>>(new Map());
+  const [isSchedulingPin, setIsSchedulingPin] = useState(false);
+  const schedulingPinLockRef = React.useRef(false);
+  const [descriptionSaveState, setDescriptionSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [descriptionSavePinId, setDescriptionSavePinId] = useState<string | null>(null);
+  const descriptionSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingDescriptionSaveRef = React.useRef<{ boardId: string; pinId: string; description: string; revision: number } | null>(null);
+  const descriptionSaveRevisionRef = React.useRef(0);
+  // Async saves may finish after the user switches boards. Keep the latest
+  // board identity synchronously available to completion handlers.
+  const descriptionSaveBoardIdRef = React.useRef(selectedBoardId);
+  descriptionSaveBoardIdRef.current = selectedBoardId;
+  const generationKeyRef = React.useRef<string | null>(null);
+  // Serialize edits per pin and let scheduling wait for the final persisted version.
+  const pendingPinSavesRef = React.useRef<Map<string, Promise<unknown>>>(new Map());
+  // Keep the user's latest title choice available to scheduling even before React
+  // has rendered the PATCH response and replaced the currentPin closure.
+  const pinTitleSelectionRef = React.useRef<Map<string, string>>(new Map());
+  // Track only server-confirmed titles separately from optimistic user selections.
+  const pinTitleConfirmedRef = React.useRef<Map<string, string>>(new Map());
   const [generatedPins, setGeneratedPins] = useState<GeneratedPinVariation[]>([]);
   const [activePinIndex, setActivePinIndex] = useState(0);
   const [scheduledSuccess, setScheduledSuccess] = useState(false);
+  const [isAddingToReview, setIsAddingToReview] = useState(false);
+  const [reviewQueueSuccess, setReviewQueueSuccess] = useState(false);
+  const [recoverableGenerations, setRecoverableGenerations] = useState<Array<{
+    key: string;
+    status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found';
+    boardId: string;
+    pinCount: number;
+  }>>([]);
+  const [isCheckingRecoveries, setIsCheckingRecoveries] = useState(false);
+  const [recoveryCheckAttempt, setRecoveryCheckAttempt] = useState(0);
+  const generationRecoveryOwnerIdRef = React.useRef(userId);
+
+  // Recovery metadata is account-scoped. Clear the previous account's rows
+  // before paint and invalidate any outstanding lookup when identity changes.
+  React.useLayoutEffect(() => {
+    generationRecoveryOwnerIdRef.current = userId;
+    setRecoverableGenerations([]);
+    setIsCheckingRecoveries(false);
+  }, [userId]);
+
+  // Look up saved generation identities after login/reload. This is read-only:
+  // it never starts generation, clears a key, or changes the user's credit balance.
+  useEffect(() => {
+    let active = true;
+    const ownerId = userId;
+    let token = '';
+    try { token = localStorage.getItem('token') || ''; } catch { /* storage may be blocked */ }
+    if (!ownerId || !token) {
+      setRecoverableGenerations([]);
+      setIsCheckingRecoveries(false);
+      return () => { active = false; };
+    }
+
+    const identities = listPendingGenerationRequests().slice(-10).reverse();
+    if (!identities.length) {
+      setRecoverableGenerations([]);
+      return () => { active = false; };
+    }
+
+    setIsCheckingRecoveries(true);
+    const check = async () => {
+      const found: Array<{
+        key: string;
+        status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found';
+        boardId: string;
+        pinCount: number;
+      }> = [];
+      // Keep requests sequential to avoid a burst against a sleeping/free backend.
+      for (const identity of identities) {
+        if (!active) return;
+        try {
+          const result = await apiRequest(`/generation/requests/${encodeURIComponent(identity.idempotencyKey)}`);
+          const status = ['processing', 'completed', 'failed', 'unknown'].includes(result?.status)
+            ? result.status as 'processing' | 'completed' | 'failed' | 'unknown'
+            : 'unknown';
+          found.push({
+            key: identity.fingerprint,
+            status,
+            boardId: typeof result?.board_id === 'string' ? result.board_id : '',
+            pinCount: status === 'completed' && Array.isArray(result?.pins) ? result.pins.length : 0,
+          });
+        } catch (error: any) {
+          // A 404 can mean an old local key whose server record has expired.
+          // Preserve it: a transient/auth/network error must never erase recovery data.
+          if (error?.status === 404) {
+            found.push({ key: identity.fingerprint, status: 'not_found', boardId: '', pinCount: 0 });
+            continue;
+          }
+          if (error?.status === 401) return;
+          // A temporary network/5xx failure is not evidence that the request
+          // disappeared. Keep it visible as uncertain so users can retry the
+          // read-only status check instead of seeing the recovery entry vanish.
+          found.push({ key: identity.fingerprint, status: 'unknown', boardId: '', pinCount: 0 });
+          // Keep checking other independent requests after a single failure.
+        }
+      }
+      if (active && isCurrentBillingOwner(generationRecoveryOwnerIdRef.current, ownerId)) {
+        setRecoverableGenerations(found);
+      }
+    };
+
+    void check().finally(() => {
+      if (active && isCurrentBillingOwner(generationRecoveryOwnerIdRef.current, ownerId)) {
+        setIsCheckingRecoveries(false);
+      }
+    });
+    return () => { active = false; };
+  }, [recoveryCheckAttempt, userId]);
+
+  // A count refresh replaces the boards array but must not reset the active pin editor.
+  const selectedBoardName = boards.find((board) => board.id === selectedBoardId)?.name || '';
+
+  // Restore persisted pins when the selected board changes or the generator remounts.
+  useEffect(() => {
+    let active = true;
+    if (!selectedBoardName) {
+      setGeneratedPins([]);
+      setActivePinIndex(0);
+      setIsLoadingSavedPins(false);
+      setSavedPinsLoadError('');
+      return () => { active = false; };
+    }
+
+    setGeneratedPins([]);
+    setActivePinIndex(0);
+    setDescriptionSavePinId(null);
+    setDescriptionSaveState('idle');
+    setIsLoadingSavedPins(true);
+    setSavedPinsLoadError('');
+
+    apiRequest(`/boards/${encodeURIComponent(selectedBoardId)}/pins`)
+      .then((rows) => {
+        if (!active) return;
+        // A malformed/empty HTTP payload is not the same as a board with zero
+        // pins. Never turn an unexpected API response into a silent empty state.
+        const restored = requireSavedPinsArray(rows).map((row: any) => {
+          const title = String(row.title || 'Без названия');
+          const ratio = ALL_ASPECT_RATIOS.some((item) => item.id === row.aspect_ratio)
+            ? row.aspect_ratio as SupportedAspectRatio
+            : '2:3';
+          return {
+            id: String(row.id),
+            titles: [title],
+            selectedTitle: title,
+            description: readPendingPinDescription(selectedBoardId, String(row.id))?.description ?? String(row.description || ''),
+            altText: '',
+            suggestedBoard: selectedBoardName,
+            keywords: [],
+            headlineOverlay: title,
+            subheadlineOverlay: '',
+            ctaText: '',
+            imageUrl: String(row.image_url || ''),
+            tone,
+            aspectRatio: ratio,
+          };
+        });
+        restored.forEach((pin) => pinAspectRatioConfirmedRef.current.set(pin.id, pin.aspectRatio));
+        setGeneratedPins(restored);
+        setActivePinIndex(0);
+        const firstPinWithDraft = restored.find((pin) => readPendingPinDescription(selectedBoardId, pin.id));
+        if (firstPinWithDraft) {
+          // A local draft is newer than the last confirmed server save.
+          // Its status is scoped to that pin, not to whichever card is viewed later.
+          setDescriptionSavePinId(firstPinWithDraft.id);
+          setDescriptionSaveState('error');
+        } else {
+          setDescriptionSavePinId(null);
+          setDescriptionSaveState('idle');
+        }
+      })
+      .catch((error) => {
+        console.error('[pins] Не удалось восстановить сохранённые пины:', error);
+        if (active) {
+          setGeneratedPins([]);
+          setSavedPinsLoadError('Не удалось загрузить сохранённые пины. Проверьте соединение и попробуйте ещё раз.');
+        }
+      })
+      .finally(() => {
+        if (active) setIsLoadingSavedPins(false);
+      });
+
+    return () => {
+      active = false;
+      // A debounced description belongs to the previous board selection. Flush it
+      // before switching boards or leaving the generator so the last keystrokes
+      // are not silently discarded by clearing the timer.
+      if (descriptionSaveTimerRef.current) {
+        clearTimeout(descriptionSaveTimerRef.current);
+        descriptionSaveTimerRef.current = null;
+      }
+      const pendingDescription = pendingDescriptionSaveRef.current;
+      pendingDescriptionSaveRef.current = null;
+      if (pendingDescription) {
+        const request = enqueuePinSave(
+          pendingPinSavesRef.current,
+          pendingDescription.pinId,
+          () => apiRequest(`/pins/${encodeURIComponent(pendingDescription.pinId)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ description: pendingDescription.description }),
+          }).then((result) => {
+            clearPendingPinDescriptionIfMatches(
+              pendingDescription.boardId,
+              pendingDescription.pinId,
+              pendingDescription.description,
+            );
+            return result;
+          }),
+        );
+        void request.catch((error) => {
+          console.error('[pins] Не удалось завершить отложенное сохранение описания:', error);
+        });
+      }
+    };
+  }, [selectedBoardId, selectedBoardName, savedPinsReloadAttempt]);
 
   // Quick preset topic suggestions
   const topicPresets = [
@@ -180,16 +504,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     setScheduledSuccess(false);
 
     const currentTopic = topic.trim() || 'Aesthetic Minimalist Inspiration';
-    enqueueTask({
-      title: `Пакет (${pinCount} пинов): ${currentTopic.slice(0, 24)}...`,
-      message: `Запрос на генерацию ${pinCount} пинов поставлен в Smart Queue.`,
-      type: 'generation',
-      actionTab: 'generator',
-      durationMs: 4000,
-      completionTitle: `Пакет (${pinCount} пинов) готов!`,
-      completionMessage: `Сгенерировано ${pinCount} пинов по теме «${currentTopic}». Все заголовки и SEO-описания готовы.`,
-    });
-
+    let requestFingerprint = '';
     try {
       const selectedBoard = boards.find((b) => b.id === selectedBoardId);
 
@@ -204,106 +519,376 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         if (targetRatios.length === 0) targetRatios = ['2:3'];
       }
 
-      const results = await generatePinterestPinBatch({
-        topic: topic.trim() || 'Aesthetic Minimalist Inspiration',
+      if (!selectedBoard) {
+        throw new Error(t.generator.errorNoBoard);
+      }
+
+      const aspectRatio = aspectMode === 'single' ? selectedSingleRatio : 'mixed';
+      const requestBody = {
+        topic: currentTopic,
         tone,
-        targetBoard: selectedBoard?.name || 'Aesthetic Boards',
-        contentLanguage: aiContentLanguage || 'en',
+        content_language: aiContentLanguage || 'en',
         count: pinCount,
-        customUrl: destinationUrl,
-        aspectRatios: targetRatios,
+        aspect_ratio: aspectRatio,
+        mixed_ratios: targetRatios,
+      };
+      requestFingerprint = createGenerationFingerprint(JSON.stringify({ boardId: selectedBoard.id, ...requestBody }));
+      const storedRequest = readPendingGenerationRequest(requestFingerprint);
+      if (storedRequest?.fingerprint !== requestFingerprint || !storedRequest.idempotencyKey) {
+        generationKeyRef.current = createGenerationIdempotencyKey();
+        writePendingGenerationRequest(requestFingerprint, generationKeyRef.current);
+      } else {
+        // Restore the durable request identity after a remount or page reload.
+        generationKeyRef.current = storedRequest.idempotencyKey;
+      }
+      const rows = await apiRequest(`/boards/${encodeURIComponent(selectedBoard.id)}/pins/generate`, {
+        method: 'POST',
+        headers: { 'Idempotency-Key': generationKeyRef.current || '' },
+        body: JSON.stringify(requestBody),
       });
 
+      // Do not discard the recovery identity until every returned pin has the
+      // durable fields required by the canvas. A malformed success payload is
+      // recoverable from the server with the same key; it is not a completed UI result.
+      const validatedRows = requireGeneratedPinsArray(rows);
+
+      const results: GeneratedPinVariation[] = validatedRows.map((row: any) => ({
+        id: String(row.id),
+        titles: [row.title || currentTopic],
+        selectedTitle: row.title || currentTopic,
+        description: row.description || '',
+        altText: '',
+        suggestedBoard: selectedBoard.name,
+        keywords: [],
+        headlineOverlay: row.title || currentTopic,
+        subheadlineOverlay: '',
+        ctaText: '',
+        imageUrl: row.image_url,
+        tone,
+        aspectRatio: row.aspect_ratio || selectedSingleRatio,
+      }));
+
+      results.forEach((pin) => pinAspectRatioConfirmedRef.current.set(pin.id, pin.aspectRatio));
       setGeneratedPins(results);
       setActivePinIndex(0);
+      // Refresh board-card counts only after the server has confirmed all generated pins.
+      onPinsChanged?.();
+      generationKeyRef.current = null;
+      clearPendingGenerationRequest(requestFingerprint);
     } catch (err) {
+      // The server only emits generation_request_failed after a definitive failure.
+      // Rotate the key then; unknown/in-progress outcomes must keep their original key.
+      if (isDefinitiveGenerationFailure(err)) {
+        generationKeyRef.current = createGenerationIdempotencyKey();
+        if (requestFingerprint) writePendingGenerationRequest(requestFingerprint, generationKeyRef.current);
+      }
       console.error('Error generating pins:', err);
+      window.alert(err instanceof Error ? err.message : t.generator.errorGeneratePins);
     } finally {
       setIsGenerating(false);
     }
   };
 
   const currentPin = generatedPins[activePinIndex];
+  const currentDescriptionSaveState = currentPin
+    ? descriptionSavePinId === currentPin.id
+      ? descriptionSaveState
+      : readPendingPinDescription(selectedBoardId, currentPin.id) ? 'error' : 'idle'
+    : 'idle';
 
-  // Change aspect ratio of currently selected pin
-  const handleActivePinRatioChange = (newRatio: SupportedAspectRatio) => {
-    if (!currentPin) return;
-    const updated = [...generatedPins];
-    updated[activePinIndex] = {
-      ...currentPin,
-      aspectRatio: newRatio,
-    };
-    setGeneratedPins(updated);
+  const persistPinPatch = (pinId: string, patch: Record<string, string>) => {
+    return enqueuePinSave(
+      pendingPinSavesRef.current,
+      pinId,
+      () => apiRequest(`/pins/${encodeURIComponent(pinId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      }),
+    );
   };
 
-  const handleTitleSelect = (title: string) => {
-    if (!currentPin) return;
-    const updated = [...generatedPins];
-    updated[activePinIndex] = {
-      ...currentPin,
+  // Persist the selected pin's format so it survives a reload and is used by later API operations.
+  const handleActivePinRatioChange = async (newRatio: SupportedAspectRatio) => {
+    if (schedulingPinLockRef.current || !currentPin || currentPin.aspectRatio === newRatio) return;
+    const pinId = currentPin.id;
+    const confirmedRatio = pinAspectRatioConfirmedRef.current.get(pinId) ?? currentPin.aspectRatio;
+    // Queue rapid choices instead of disabling the control while a PATCH is in flight.
+    // The queue preserves request order; rollback always targets the last server-confirmed value.
+    setGeneratedPins((previous) => previous.map((pin) =>
+      pin.id === pinId ? { ...pin, aspectRatio: newRatio } : pin
+    ));
+    setSavingAspectRatioPinId(pinId);
+    try {
+      await persistPinPatch(pinId, { aspect_ratio: newRatio });
+      pinAspectRatioConfirmedRef.current.set(pinId, newRatio);
+    } catch (error) {
+      setGeneratedPins((previous) =>
+        rollbackPinAspectRatioIfUnchanged(previous, pinId, newRatio, confirmedRatio)
+      );
+      console.error('[pins] Не удалось сохранить формат:', error);
+      window.alert(error instanceof Error ? error.message : 'Не удалось сохранить формат изображения. Попробуйте ещё раз.');
+    } finally {
+      // An earlier request must not clear the saving state while a newer queued
+      // ratio PATCH for the same pin is still pending.
+      if (!pendingPinSavesRef.current.has(pinId)) {
+        setSavingAspectRatioPinId((activeId) => activeId === pinId ? null : activeId);
+      }
+    }
+  };
+
+  const handleTitleSelect = async (title: string) => {
+    if (schedulingPinLockRef.current || !currentPin) return;
+    const pinId = currentPin.id;
+    // Keep the optimistic choice for scheduling, but never use it as the rollback
+    // target: only a successful PATCH may advance the confirmed server value.
+    rememberPinTitleSelection(pinTitleSelectionRef.current, pinId, title);
+    setGeneratedPins((previous) => previous.map((pin) => pin.id === pinId ? {
+      ...pin,
       selectedTitle: title,
       headlineOverlay: title.length > 36 ? title.slice(0, 36) + '...' : title,
-    };
-    setGeneratedPins(updated);
+    } : pin));
+    try {
+      await persistPinPatch(pinId, { title });
+      pinTitleConfirmedRef.current.set(pinId, title);
+    } catch (error) {
+      // A prior queued choice may have succeeded while this request was waiting.
+      // Roll back to that confirmed value (or the original server value), never
+      // to another unconfirmed optimistic choice.
+      const confirmedTitle = pinTitleConfirmedRef.current.get(pinId) ?? currentPin.selectedTitle;
+      const restored = restorePinTitleSelectionIfCurrent(pinTitleSelectionRef.current, pinId, title, confirmedTitle);
+      if (restored) {
+        setGeneratedPins((previous) => previous.map((pin) => pin.id === pinId && pin.selectedTitle === title ? {
+          ...pin,
+          selectedTitle: confirmedTitle,
+          headlineOverlay: confirmedTitle.length > 36 ? confirmedTitle.slice(0, 36) + '...' : confirmedTitle,
+        } : pin));
+      }
+      console.error('[pins] Не удалось сохранить название:', error);
+      window.alert(error instanceof Error ? error.message : t.generator.errorSaveTitle);
+    }
+  };
+
+  const savePinDescription = async (boardId: string, pinId: string, description: string, revision: number) => {
+    const isCurrentSave = () => isCurrentPinDescriptionSave({
+      revision,
+      currentRevision: descriptionSaveRevisionRef.current,
+      boardId,
+      currentBoardId: descriptionSaveBoardIdRef.current,
+    });
+    if (isCurrentSave()) {
+      setDescriptionSavePinId(pinId);
+      setDescriptionSaveState('saving');
+    }
+    try {
+      await persistPinPatch(pinId, { description });
+      // A slower, older PATCH may finish after the user has typed a newer draft.
+      // Remove only the exact value this request saved; preserve any newer text.
+      clearPendingPinDescriptionIfMatches(boardId, pinId, description);
+      if (isCurrentSave()) setDescriptionSaveState('saved');
+      return true;
+    } catch (error) {
+      console.error('[pins] Не удалось сохранить описание:', error);
+      if (isCurrentSave()) setDescriptionSaveState('error');
+      return false;
+    }
   };
 
   const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    if (!currentPin) return;
+    if (schedulingPinLockRef.current || !currentPin) return;
+    const description = e.target.value;
+    const pinId = currentPin.id;
+    const previousPending = pendingDescriptionSaveRef.current;
+    if (descriptionSaveTimerRef.current) {
+      clearTimeout(descriptionSaveTimerRef.current);
+      descriptionSaveTimerRef.current = null;
+    }
+    // The debounce timer is shared by the editor. Switching to another pin
+    // must enqueue the previous pin's last keystrokes before replacing its slot.
+    if (previousPending && shouldFlushPendingPinDescription(previousPending, selectedBoardId, pinId)) {
+      pendingDescriptionSaveRef.current = null;
+      void savePinDescription(
+        previousPending.boardId,
+        previousPending.pinId,
+        previousPending.description,
+        previousPending.revision,
+      );
+    }
     const updated = [...generatedPins];
-    updated[activePinIndex] = {
-      ...currentPin,
-      description: e.target.value,
-    };
+    updated[activePinIndex] = { ...currentPin, description };
     setGeneratedPins(updated);
+    setDescriptionSavePinId(pinId);
+    setDescriptionSaveState('idle');
+    const revision = ++descriptionSaveRevisionRef.current;
+    descriptionSaveTimerRef.current = setTimeout(() => {
+      descriptionSaveTimerRef.current = null;
+      if (pendingDescriptionSaveRef.current?.revision === revision) {
+        pendingDescriptionSaveRef.current = null;
+      }
+      void savePinDescription(selectedBoardId, pinId, description, revision);
+    }, 800);
+    writePendingPinDescription(selectedBoardId, pinId, description);
+    pendingDescriptionSaveRef.current = { boardId: selectedBoardId, pinId, description, revision };
   };
 
-  const handlePushToCalendar = () => {
-    if (!currentPin) return;
+  const handlePushToCalendar = async () => {
+    if (!currentPin || schedulingPinLockRef.current) return;
+    schedulingPinLockRef.current = true;
+    setIsSchedulingPin(true);
+    try {
+      // A debounced description may not have entered the per-pin request queue yet.
+      // Flush it before scheduling so the calendar action cannot overtake the latest edit.
+      const pendingDescription = pendingDescriptionSaveRef.current?.pinId === currentPin.id
+        ? pendingDescriptionSaveRef.current
+        : null;
+      const recoveredDescription = readPendingPinDescription(selectedBoardId, currentPin.id);
+      const descriptionToFlush = pendingDescription || (recoveredDescription ? {
+        boardId: selectedBoardId,
+        pinId: currentPin.id,
+        description: recoveredDescription.description,
+        revision: descriptionSaveRevisionRef.current,
+      } : null);
+      if (descriptionToFlush) {
+        if (descriptionSaveTimerRef.current) {
+          clearTimeout(descriptionSaveTimerRef.current);
+          descriptionSaveTimerRef.current = null;
+        }
+        if (pendingDescriptionSaveRef.current?.pinId === currentPin.id) {
+          pendingDescriptionSaveRef.current = null;
+        }
+        const revision = ++descriptionSaveRevisionRef.current;
+        const saved = await savePinDescription(
+          descriptionToFlush.boardId,
+          descriptionToFlush.pinId,
+          descriptionToFlush.description,
+          revision,
+        );
+        if (!saved) {
+          window.alert('Не удалось сохранить последнее описание. Исправьте соединение и повторите сохранение перед планированием.');
+          return;
+        }
+      }
+  
+      // Read the queue after flushing the debounce: the flush itself may have enqueued
+      // the final PATCH, and title/format updates may also still be in flight.
+      const pendingSave = pendingPinSavesRef.current.get(currentPin.id);
+      if (pendingSave) {
+        try {
+          await pendingSave;
+        } catch (error) {
+          console.error('[pins] Не удалось завершить сохранение перед планированием:', error);
+          window.alert(error instanceof Error ? error.message : t.generator.errorSaveSchedule);
+          return;
+        }
+      }
+      const pinterestDestination = resolvePinterestDestination(
+        pinterestAccounts,
+        pinterestBoards,
+        selectedPinterestAccountId,
+        selectedPinterestBoardId,
+        pinterestBoardsAccountId,
+      );
+      if (!pinterestDestination) {
+        window.alert('Доска назначения больше не связана с выбранным Pinterest-аккаунтом. Дождитесь загрузки досок и выберите доску заново.');
+        return;
+      }
+  
+      const board = boards.find((b) => b.id === selectedBoardId) || boards[0];
+      if (!board) {
+        window.alert('Сначала создайте внутреннюю доску PinPosy для этого пина.');
+        return;
+      }
+  
+      // Derive both date and time from the same instant in the user's selected
+      // timezone. Using the UI locale here can emit 12-hour strings (e.g. 5:30 PM),
+      // which the scheduling API correctly rejects because it expects HH:mm.
+      const nowInUserTimezone = formatInstantInTimezone(new Date(), getDefaultTimezone(language));
+      const scheduledDate =
+        schedulingMode === 'publish_now'
+          ? nowInUserTimezone.date
+          : schedulingMode === 'custom_datetime'
+          ? customScheduleDate
+          : addCalendarDaysInTimezone(new Date(), getDefaultTimezone(language), 1);
+  
+      const scheduledTime =
+        schedulingMode === 'publish_now'
+          ? nowInUserTimezone.time
+          : schedulingMode === 'custom_datetime'
+          ? customScheduleTime
+          : '20:15';
 
-    const board = boards.find((b) => b.id === selectedBoardId) || boards[0];
-
-    const scheduledDate =
-      schedulingMode === 'publish_now'
-        ? new Date().toISOString().split('T')[0]
-        : schedulingMode === 'custom_datetime'
-        ? customScheduleDate
-        : new Date(Date.now() + 86400000).toISOString().split('T')[0];
-
-    const scheduledTime =
-      schedulingMode === 'publish_now'
-        ? new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-        : schedulingMode === 'custom_datetime'
-        ? customScheduleTime
-        : '20:15';
-
-    const status = schedulingMode === 'publish_now' ? 'published' : 'scheduled';
-
-    const newScheduledPin: ScheduledPinItem = {
-      id: `sched-${Date.now()}`,
-      title: currentPin.selectedTitle,
-      boardId: board.id,
-      boardName: board.name,
-      imageUrl: currentPin.imageUrl,
-      scheduledDate,
-      scheduledTime,
-      status,
-      isOptimalSlot: true,
-      destinationUrl,
-    };
-
-    onSchedulePin(newScheduledPin);
-    setScheduledSuccess(true);
-    setTimeout(() => setScheduledSuccess(false), 4000);
-
-    enqueueTask({
-      title: `Пин добавлен в расписание`,
-      message: `«${currentPin.selectedTitle.slice(0, 32)}...» запланирован на ${scheduledDate} в ${scheduledTime}.`,
-      type: 'generation',
-      actionTab: 'calendar',
-      durationMs: 2500,
-      completionTitle: `Пин успешно запланирован!`,
-      completionMessage: `Пин привязан к доске «${board.name}» и выйдет в прайм-тайм вовлеченности.`,
-    });
+      // Image generation and editing can take long enough for a previously valid
+      // calendar slot to expire. Re-check immediately before persisting the schedule.
+      if (schedulingMode === 'custom_datetime') {
+        try {
+          const safeTime = resolveScheduleSlotTime(
+            scheduledDate,
+            getDefaultTimezone(language),
+            scheduledTime,
+          );
+          if (safeTime !== scheduledTime) {
+            setCustomScheduleTime(safeTime);
+            window.alert(
+              language === 'ru'
+                ? `Выбранное время уже прошло или недоступно. Обновили время на ${safeTime}. Проверьте его и нажмите «Запланировать» ещё раз.`
+                : `The selected time has passed or is unavailable. Updated it to ${safeTime}. Review the time and schedule again.`
+            );
+            return;
+          }
+        } catch {
+          window.alert(
+            language === 'ru'
+              ? 'Выбранная дата или время уже недоступны. Выберите будущую дату и повторите планирование.'
+              : 'The selected date or time is no longer available. Choose a future date and try scheduling again.'
+          );
+          return;
+        }
+      }
+  
+      // До подтверждения Pinterest любой элемент остаётся запланированным, не published.
+      const status = 'scheduled' as const;
+  
+      const scheduledTitle = resolvePinTitleSelection(pinTitleSelectionRef.current, currentPin.id, currentPin.selectedTitle);
+      const newScheduledPin: ScheduledPinItem = {
+        id: `pending-${Date.now()}`,
+        pinId: currentPin.id,
+        title: scheduledTitle,
+        boardId: board.id,
+        boardName: board.name,
+        pinterestBoardId: pinterestDestination.boardId,
+        pinterestAccountId: pinterestDestination.accountId,
+        imageUrl: currentPin.imageUrl,
+        scheduledDate,
+        scheduledTime,
+        status,
+        isOptimalSlot: true,
+        destinationUrl,
+      };
+  
+      try {
+        await onSchedulePin(newScheduledPin);
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : t.generator.errorSaveSchedule);
+        return;
+      }
+      setScheduledSuccess(true);
+      setTimeout(() => setScheduledSuccess(false), 4000);
+  
+      enqueueTask({
+        title: t.generator.scheduledToastTitle,
+        message: t.generator.scheduledToastMessageTemplate
+          .replace('{title}', scheduledTitle.slice(0, 32))
+          .replace('{date}', scheduledDate)
+          .replace('{time}', scheduledTime),
+        type: 'generation',
+        actionTab: 'calendar',
+        durationMs: 2500,
+        completionTitle: t.generator.scheduledCompletionTitle,
+        completionMessage: t.generator.scheduledCompletionMessageTemplate.replace('{board}', board.name),
+      });
+    } finally {
+      schedulingPinLockRef.current = false;
+      setIsSchedulingPin(false);
+    }
   };
 
   // Canvas data binding
@@ -329,6 +914,95 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
           {t.generator.subtitle}
         </p>
       </div>
+
+      {isCheckingRecoveries && (
+        <div className="custom-card p-3 rounded-xl text-xs text-secondary-theme flex items-center gap-2" role="status">
+          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+          {language === 'ru' ? 'Проверяем, можно ли восстановить прошлые генерации…' :
+            language === 'es' ? 'Comprobando generaciones anteriores…' :
+            language === 'de' ? 'Frühere Generierungen werden geprüft…' :
+            language === 'fr' ? 'Vérification des générations précédentes…' :
+            language === 'pt' ? 'Verificando gerações anteriores…' :
+            language === 'zh' ? '正在检查之前的生成记录…' : 'Checking previous generations…'}
+        </div>
+      )}
+      {recoverableGenerations.length > 0 && (
+        <section className="custom-card p-4 rounded-xl space-y-3" aria-label="Generation recovery">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <RefreshCw className="w-4 h-4 text-accent-ghost shrink-0" />
+              <h2 className="text-sm font-bold text-primary-theme">
+                {language === 'ru' ? 'Восстановление генераций' :
+                  language === 'es' ? 'Recuperar generaciones' :
+                  language === 'de' ? 'Generierungen wiederherstellen' :
+                  language === 'fr' ? 'Récupérer les générations' :
+                  language === 'pt' ? 'Recuperar gerações' :
+                  language === 'zh' ? '恢复之前的生成' : 'Recover previous generations'}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setRecoveryCheckAttempt((attempt) => attempt + 1)}
+              disabled={isCheckingRecoveries}
+              className="shrink-0 px-3 py-2 rounded-lg border border-subtle text-xs font-semibold text-secondary-theme hover:text-primary-theme disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isCheckingRecoveries
+                ? (language === 'ru' ? 'Проверяем…' : 'Checking…')
+                : (language === 'ru' ? 'Проверить снова' : 'Check again')}
+            </button>
+          </div>
+          <p className="text-xs text-secondary-theme">
+            {language === 'ru' ? 'Проверка не запускает генерацию и не списывает кредиты.' :
+              language === 'es' ? 'La comprobación no genera contenido ni consume créditos.' :
+              language === 'de' ? 'Die Prüfung startet keine Generierung und verbraucht keine Credits.' :
+              language === 'fr' ? 'La vérification ne lance aucune génération et ne dépense aucun crédit.' :
+              language === 'pt' ? 'A verificação não inicia uma geração nem gasta créditos.' :
+              language === 'zh' ? '检查不会重新生成内容，也不会扣除积分。' :
+              'Checking does not start a new generation or spend credits.'}
+          </p>
+          <div className="space-y-2">
+            {recoverableGenerations.map((item) => {
+              const board = boards.find((candidate) => candidate.id === item.boardId);
+              const label = item.status === 'completed'
+                ? (language === 'ru' ? `Готово: ${item.pinCount} пин(ов)` : `Completed: ${item.pinCount} pin(s)`)
+                : item.status === 'processing'
+                  ? (language === 'ru' ? 'Генерация ещё выполняется' : 'Generation is still processing')
+                  : item.status === 'failed'
+                    ? (language === 'ru' ? 'Предыдущая генерация завершилась ошибкой' : 'Previous generation failed')
+                    : item.status === 'not_found'
+                    ? (language === 'ru' ? 'Запрос не найден на сервере — ключ сохранён' : 'Request not found on server — recovery key kept')
+                    : (language === 'ru' ? 'Результат пока не подтверждён' : 'Result is not confirmed yet');
+              return (
+                <div key={item.key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg bg-subtle border border-subtle">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-primary-theme">{label}</p>
+                    {board && <p className="text-[11px] text-muted-theme">{board.name}</p>}
+                  </div>
+                  {item.status === 'completed' && item.pinCount > 0 && board && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // The completed pins are already persisted. Switch to their board;
+                        // the existing board loader restores them without another AI call.
+                        setSelectedBoardId(item.boardId);
+                        setSavedPinsReloadAttempt((attempt) => attempt + 1);
+                      }}
+                      className="px-3 py-2 rounded-lg accent-btn text-xs font-semibold"
+                    >
+                      {language === 'ru' ? 'Открыть готовые пины' : 'Open saved pins'}
+                    </button>
+                  )}
+                  {item.status === 'completed' && !board && (
+                    <span className="text-[11px] text-muted-theme">
+                      {language === 'ru' ? 'Доска недоступна в текущем списке' : 'Board is unavailable'}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Form & Configuration (7 cols) */}
@@ -382,7 +1056,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     onClick={() => setPinCount((prev) => Math.max(1, prev - 1))}
                     disabled={pinCount <= 1}
                     className="p-1 rounded hover:bg-subtle text-secondary-theme disabled:opacity-30 cursor-pointer"
-                    title="Уменьшить"
+                    title={t.generator.decreasePinsTitle}
                   >
                     <Minus className="w-3.5 h-3.5" />
                   </button>
@@ -390,12 +1064,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   <input
                     type="number"
                     min={1}
-                    max={25}
+                    max={10}
                     value={pinCount}
                     onChange={(e) => {
                       const val = parseInt(e.target.value, 10);
                       if (!isNaN(val)) {
-                        setPinCount(Math.min(25, Math.max(1, val)));
+                        setPinCount(Math.min(10, Math.max(1, val)));
                       }
                     }}
                     className="w-12 text-center text-xs font-mono font-bold text-primary-theme bg-transparent border-0 focus:outline-none"
@@ -403,10 +1077,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
                   <button
                     type="button"
-                    onClick={() => setPinCount((prev) => Math.min(25, prev + 1))}
-                    disabled={pinCount >= 25}
+                    onClick={() => setPinCount((prev) => Math.min(10, prev + 1))}
+                    disabled={pinCount >= 10}
                     className="p-1 rounded hover:bg-subtle text-secondary-theme disabled:opacity-30 cursor-pointer"
-                    title="Увеличить"
+                    title={t.generator.increasePinsTitle}
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
@@ -415,7 +1089,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
               {/* Quick Presets Row */}
               <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                {[1, 2, 3, 4, 5, 8, 10, 15, 20].map((cnt) => (
+                {[1, 2, 3, 4, 5, 8, 10].map((cnt) => (
                   <button
                     key={cnt}
                     type="button"
@@ -426,7 +1100,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                         : 'bg-surface border-subtle text-secondary-theme hover:text-primary-theme hover:bg-surface/80'
                     }`}
                   >
-                    {cnt} {cnt === 1 ? 'пин' : cnt < 5 ? 'пина' : 'пинов'}
+                    {cnt}
                   </button>
                 ))}
               </div>
@@ -434,7 +1108,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               <input
                 type="range"
                 min={1}
-                max={25}
+                max={10}
                 value={pinCount}
                 onChange={(e) => setPinCount(Number(e.target.value))}
                 className="w-full cursor-pointer pt-1"
@@ -567,14 +1241,14 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               >
                 {boards.map((b) => (
                   <option key={b.id} value={b.id}>
-                    {b.name} ({b.pinCount} pins) {b.id === recommendedBoard?.id ? '★ Рекомендуется' : ''}
+                    {b.name} ({b.pinCount} pins) {b.id === recommendedBoard?.id ? `★ ${t.generator.recommendedBadge}` : ''}
                   </option>
                 ))}
               </select>
             </div>
 
             {/* Editorial Tone & Outbound URL */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-secondary-theme uppercase tracking-wider mb-1.5">
                   {t.generator.pinToneLabel}
@@ -604,6 +1278,23 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   className="w-full px-3 py-2 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
                 />
               </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-secondary-theme uppercase tracking-wider mb-1.5">
+                  {t.generator.contentLanguageLabel}
+                </label>
+                <select
+                  value={aiContentLanguage}
+                  onChange={(e) => setAiContentLanguage(e.target.value)}
+                  className="w-full px-3 py-2 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
+                >
+                  {AI_CONTENT_LANGUAGES.map((item) => (
+                    <option key={item.code} value={item.code}>
+                      {item.native}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* SCREEN 2: ПЛАНИРОВАНИЕ (SCHEDULING) — EXACT USER SPECIFICATION */}
@@ -611,9 +1302,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-primary-theme uppercase tracking-wider flex items-center gap-1.5">
                   <CalendarDays className="w-4 h-4 text-accent-ghost" />
-                  <span>Планирование (Scheduling)</span>
+                  <span>{t.generator.schedulingSectionTitle}</span>
                 </label>
-                <span className="text-[11px] font-mono text-muted-theme">Авто-постинг</span>
+                <span className="text-[11px] font-mono text-muted-theme">{t.generator.autoPostingLabel}</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -631,8 +1322,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     <Zap className="w-4 h-4 text-accent-ghost" />
                     <span className={`w-2 h-2 rounded-full ${schedulingMode === 'publish_now' ? 'bg-accent' : 'bg-transparent border border-subtle'}`} />
                   </div>
-                  <span className="text-xs font-bold text-primary-theme block">Опубликовать сразу</span>
-                  <span className="text-[10px] text-muted-theme leading-tight mt-0.5">Мгновенная отправка в Pinterest API</span>
+                  <span className="text-xs font-bold text-primary-theme block">{t.generator.publishNowLabel}</span>
+                  <span className="text-[10px] text-muted-theme leading-tight mt-0.5">{t.generator.publishNowDescription}</span>
                 </button>
 
                 {/* 2. Добавить в умную очередь */}
@@ -649,8 +1340,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     <Clock className="w-4 h-4 text-accent-ghost" />
                     <span className={`w-2 h-2 rounded-full ${schedulingMode === 'smart_queue' ? 'bg-accent' : 'bg-transparent border border-subtle'}`} />
                   </div>
-                  <span className="text-xs font-bold text-primary-theme block">В умную очередь</span>
-                  <span className="text-[10px] text-muted-theme leading-tight mt-0.5">Ближайший слот прайм-тайма (20:15)</span>
+                  <span className="text-xs font-bold text-primary-theme block">{t.generator.smartQueueLabel}</span>
+                  <span className="text-[10px] text-muted-theme leading-tight mt-0.5">{t.generator.smartQueueDescription}</span>
                 </button>
 
                 {/* 3. Выбрать конкретную дату и время */}
@@ -667,8 +1358,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     <Calendar className="w-4 h-4 text-accent-ghost" />
                     <span className={`w-2 h-2 rounded-full ${schedulingMode === 'custom_datetime' ? 'bg-accent' : 'bg-transparent border border-subtle'}`} />
                   </div>
-                  <span className="text-xs font-bold text-primary-theme block">Выбрать дату и время</span>
-                  <span className="text-[10px] text-muted-theme leading-tight mt-0.5">Точный слот выхода пинов</span>
+                  <span className="text-xs font-bold text-primary-theme block">{t.generator.customDateTimeLabel}</span>
+                  <span className="text-[10px] text-muted-theme leading-tight mt-0.5">{t.generator.customDateTimeDescription}</span>
                 </button>
               </div>
 
@@ -677,7 +1368,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                 <div className="grid grid-cols-2 gap-3 pt-2 border-t border-subtle animate-in fade-in">
                   <div>
                     <label className="text-[11px] font-bold text-primary-theme block mb-1">
-                      Дата публикации:
+                      {t.generator.publishDateLabel}
                     </label>
                     <input
                       type="date"
@@ -688,7 +1379,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   </div>
                   <div>
                     <label className="text-[11px] font-bold text-primary-theme block mb-1">
-                      Время выхода (слот):
+                      {t.generator.publishTimeLabel}
                     </label>
                     <input
                       type="time"
@@ -705,7 +1396,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             <div className="pt-2">
               <button
                 onClick={handleGenerate}
-                disabled={isGenerating}
+                disabled={isGenerating || isLoadingSavedPins}
                 className="w-full accent-btn py-3 px-4 rounded-xl text-xs md:text-sm font-semibold flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
               >
                 {isGenerating ? (
@@ -717,13 +1408,33 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   <>
                     <Sparkles className="w-4 h-4" />
                     <span>
-                      {t.generator.generateBtn} ({pinCount} {pinCount === 1 ? 'пин' : pinCount < 5 ? 'пина' : 'пинов'})
+                      {t.generator.generateBtn} ({pinCount})
                     </span>
                   </>
                 )}
               </button>
             </div>
           </div>
+
+          {isLoadingSavedPins && (
+            <div className="custom-card p-4 rounded-xl text-sm text-secondary-theme flex items-center gap-2" role="status">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              <span>Загружаем сохранённые пины этой доски…</span>
+            </div>
+          )}
+          {savedPinsLoadError && (
+            <div className="custom-card p-4 rounded-xl text-sm text-red-600 space-y-3" role="alert">
+              <p>{savedPinsLoadError}</p>
+              <button
+                type="button"
+                onClick={() => setSavedPinsReloadAttempt((attempt) => attempt + 1)}
+                disabled={isLoadingSavedPins}
+                className="px-4 py-2 rounded-lg border border-current font-semibold disabled:opacity-50"
+              >
+                Повторить загрузку
+              </button>
+            </div>
+          )}
 
           {/* Generated Pins Editor Workspace */}
           {generatedPins.length > 0 && (
@@ -733,7 +1444,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   {t.generator.resultsTitle}
                 </h3>
                 <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-subtle text-secondary-theme">
-                  Пин {activePinIndex + 1} из {generatedPins.length} · {currentPin?.aspectRatio || selectedSingleRatio} ({ASPECT_RATIO_SPECS[currentPin?.aspectRatio || selectedSingleRatio]?.desc})
+                  {t.generator.pinCounterTemplate.replace('{current}', String(activePinIndex + 1)).replace('{total}', String(generatedPins.length))} · {currentPin?.aspectRatio || selectedSingleRatio} ({ASPECT_RATIO_SPECS[currentPin?.aspectRatio || selectedSingleRatio]?.desc})
                 </span>
               </div>
 
@@ -744,6 +1455,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     <button
                       key={idx}
                       onClick={() => setActivePinIndex(idx)}
+                      disabled={isSchedulingPin}
                       className={`px-3 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
                         activePinIndex === idx
                           ? 'accent-btn shadow-xs'
@@ -774,8 +1486,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                       <button
                         key={item.id}
                         type="button"
-                        onClick={() => handleActivePinRatioChange(item.id)}
-                        className={`px-2 py-1 text-xs font-mono rounded-lg border transition-all cursor-pointer ${
+                        onClick={() => { void handleActivePinRatioChange(item.id); }}
+                        disabled={isSchedulingPin}
+                        className={`px-2 py-1 text-xs font-mono rounded-lg border transition-all cursor-pointer disabled:opacity-50 disabled:cursor-wait ${
                           currentPin.aspectRatio === item.id
                             ? 'accent-btn font-bold shadow-xs'
                             : 'bg-surface border-subtle text-secondary-theme hover:text-primary-theme'
@@ -797,10 +1510,13 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   </label>
                   <div className="space-y-1.5">
                     {currentPin.titles.map((titleOption, idx) => (
-                      <div
+                      <button
                         key={idx}
-                        onClick={() => handleTitleSelect(titleOption)}
-                        className={`p-2.5 rounded-xl border text-xs md:text-sm cursor-pointer transition-all flex items-start gap-2.5 ${
+                        type="button"
+                        aria-pressed={currentPin.selectedTitle === titleOption}
+                        onClick={() => { void handleTitleSelect(titleOption); }}
+                        disabled={isSchedulingPin}
+                        className={`w-full text-left p-2.5 rounded-xl border text-xs md:text-sm cursor-pointer transition-all flex items-start gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                           currentPin.selectedTitle === titleOption
                             ? 'border-accent bg-subtle text-primary-theme font-medium shadow-xs'
                             : 'border-subtle bg-app-input text-secondary-theme hover:bg-subtle'
@@ -818,7 +1534,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                           )}
                         </div>
                         <span className="flex-1">{titleOption}</span>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -828,16 +1544,45 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               {currentPin && (
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold text-secondary-theme uppercase tracking-wider">
+                    <label htmlFor="pin-description" className="text-xs font-semibold text-secondary-theme uppercase tracking-wider">
                       {t.generator.descriptionLabel}
                     </label>
-                    <span className="text-[11px] font-mono text-muted-theme">
-                      {currentPin.description.length} / 500
+                    <span className="text-[11px] text-muted-theme" aria-live="polite">
+                      {currentDescriptionSaveState === 'saving' ? t.generator.descriptionSaving :
+                        currentDescriptionSaveState === 'saved' ? t.generator.descriptionSaved :
+                        currentDescriptionSaveState === 'error' ? t.generator.descriptionSaveError : ''}
+                      {' '}{currentPin.description.length} / 500
                     </span>
+                    {currentDescriptionSaveState === 'error' && (
+                      <button
+                        type="button"
+                        className="text-[11px] text-accent underline underline-offset-2"
+                        onClick={() => {
+                          const revision = ++descriptionSaveRevisionRef.current;
+                          writePendingPinDescription(selectedBoardId, currentPin.id, currentPin.description);
+                          void savePinDescription(selectedBoardId, currentPin.id, currentPin.description, revision);
+                        }}
+                      >
+                        {t.generator.retryDescriptionSave}
+                      </button>
+                    )}
                   </div>
                   <textarea
+                    id="pin-description"
                     value={currentPin.description}
                     onChange={handleDescriptionChange}
+                    disabled={isSchedulingPin}
+                    maxLength={500}
+                    onBlur={(event) => {
+                      if (descriptionSaveTimerRef.current) {
+                        clearTimeout(descriptionSaveTimerRef.current);
+                        descriptionSaveTimerRef.current = null;
+                      }
+                      pendingDescriptionSaveRef.current = null;
+                      const revision = ++descriptionSaveRevisionRef.current;
+                      writePendingPinDescription(selectedBoardId, currentPin.id, event.currentTarget.value);
+                       void savePinDescription(selectedBoardId, currentPin.id, event.currentTarget.value, revision);
+                    }}
                     rows={4}
                     className="w-full p-3 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent leading-relaxed"
                   />
@@ -863,14 +1608,105 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                 </div>
               )}
 
+              <div className="pt-3 border-t border-subtle space-y-2">
+                <label className="block text-[11px] font-bold text-primary-theme">
+                  {t.generator.pinterestBoardForPublishingLabel}
+                </label>
+                {pinterestAccounts.length > 1 && (
+                  <select
+                    value={selectedPinterestAccountId}
+                    onChange={(e) => {
+                      setSelectedPinterestAccountId(e.target.value);
+                      setSelectedPinterestBoardId('');
+                    }}
+                    className="w-full mb-2 px-3 py-2 text-xs bg-app-input border border-subtle rounded-xl text-primary-theme"
+                  >
+                    <option value="">{t.settings.selectPinterestAccount}</option>
+                    {pinterestAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.username ? `@${account.username}` : account.id}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <select
+                  value={selectedPinterestBoardId}
+                  onChange={(e) => setSelectedPinterestBoardId(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-app-input border border-subtle rounded-xl text-primary-theme"
+                >
+                  <option value="">{t.generator.noBoardOption}</option>
+                  {pinterestBoards.map((item) => (
+                    <option key={item.id} value={item.id}>{item.name}</option>
+                  ))}
+                </select>
+                {!selectedPinterestBoardId && (
+                  <p className="text-[10px] text-muted-theme">
+                    {t.generator.noBoardWarning}
+                  </p>
+                )}
+              </div>
+
+              {/* Add the persisted generated pin to the durable manual-review queue. */}
+              {onAddToReview && currentPin && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const board = boards.find((item) => item.id === selectedBoardId);
+                    if (!board || !currentPin || !onAddToReview || isAddingToReview) return;
+                    setIsAddingToReview(true);
+                    setReviewQueueSuccess(false);
+                    try {
+                      if (descriptionSaveTimerRef.current) {
+                        clearTimeout(descriptionSaveTimerRef.current);
+                        descriptionSaveTimerRef.current = null;
+                      }
+                      const pendingDescription = pendingDescriptionSaveRef.current;
+                      if (pendingDescription?.pinId === currentPin.id && pendingDescription.boardId === board.id) {
+                        pendingDescriptionSaveRef.current = null;
+                        await savePinDescription(board.id, currentPin.id, pendingDescription.description, pendingDescription.revision);
+                      }
+                      await pendingPinSavesRef.current.get(currentPin.id);
+                      const title = resolvePinTitleSelection(pinTitleSelectionRef.current, currentPin.id, currentPin.selectedTitle);
+                      await onAddToReview({
+                        id: `review-${currentPin.id}`,
+                        pinId: currentPin.id,
+                        title,
+                        description: currentPin.description,
+                        boardName: board.name,
+                        boardId: board.id,
+                        imageUrl: currentPin.imageUrl,
+                        aspectRatio: currentPin.aspectRatio,
+                        reason: 'Создано в генераторе и ожидает ручной проверки',
+                        trendMetric: '',
+                        scheduledDate: customScheduleDate,
+                        scheduledTime: customScheduleTime,
+                        destinationUrl,
+                        accountHandle: pinterestAccounts.find((account) => account.id === selectedPinterestAccountId)?.username ?? undefined,
+                        accountId: selectedPinterestAccountId || undefined,
+                      });
+                      setReviewQueueSuccess(true);
+                    } catch (error) {
+                      window.alert(error instanceof Error ? error.message : 'Не удалось сохранить пин в очереди проверки.');
+                    } finally {
+                      setIsAddingToReview(false);
+                    }
+                  }}
+                  disabled={!currentPin.id || !currentPin.imageUrl || !boards.some((item) => item.id === selectedBoardId) || isAddingToReview}
+                  className="w-full py-2.5 px-4 rounded-xl text-xs md:text-sm font-semibold border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
+                >
+                  {isAddingToReview ? 'Сохраняем в очереди…' : reviewQueueSuccess ? 'Пин отправлен на проверку' : 'Отправить пин на ручную проверку'}
+                </button>
+              )}
+
               {/* Action Buttons: Schedule to Calendar */}
               <div className="pt-3 border-t border-subtle flex flex-col sm:flex-row items-center gap-3">
                 <button
                   onClick={handlePushToCalendar}
-                  className="w-full sm:flex-1 accent-btn py-2.5 px-4 rounded-xl text-xs md:text-sm font-semibold flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                  disabled={!selectedPinterestAccountId || !selectedPinterestBoardId || !currentPin || isSchedulingPin}
+                  className="w-full sm:flex-1 accent-btn py-2.5 px-4 rounded-xl text-xs md:text-sm font-semibold flex items-center justify-center gap-2 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Calendar className="w-4 h-4" />
-                  <span>{t.generator.pushToCalendarBtn}</span>
+                  <span>{isSchedulingPin ? 'Сохраняем в календарь…' : t.generator.pushToCalendarBtn}</span>
                 </button>
 
                 <button
@@ -953,19 +1789,19 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-secondary-theme leading-relaxed">
               <div className="p-2 rounded-lg bg-surface border border-subtle">
                 <span className="font-bold text-primary-theme block font-mono">2:3 (1000 × 1500)</span>
-                <span>Стандартный пин. Максимальная площадь в поисковой выдаче Pinterest.</span>
+                <span>{t.generator.aspectGuideStandard}</span>
               </div>
               <div className="p-2 rounded-lg bg-surface border border-subtle">
                 <span className="font-bold text-primary-theme block font-mono">9:16 (1080 × 1920)</span>
-                <span>Idea Pin & Stories. 3.2x больше комментариев и вовлеченности на смартфонах.</span>
+                <span>{t.generator.aspectGuideStory}</span>
               </div>
               <div className="p-2 rounded-lg bg-surface border border-subtle">
                 <span className="font-bold text-primary-theme block font-mono">3:4 (1080 × 1440)</span>
-                <span>Editorial. Идеально для рецептов, чек-листов и интерьерных подборок.</span>
+                <span>{t.generator.aspectGuideEditorial}</span>
               </div>
               <div className="p-2 rounded-lg bg-surface border border-subtle">
                 <span className="font-bold text-primary-theme block font-mono">1:1 & 4:5</span>
-                <span>Квадрат и соц. портрет. Универсально для каталогов и кросс-постинга.</span>
+                <span>{t.generator.aspectGuideSquare}</span>
               </div>
             </div>
           </div>

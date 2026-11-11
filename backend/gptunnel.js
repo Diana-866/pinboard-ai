@@ -1,72 +1,245 @@
 const axios = require("axios");
 
-async function generateText(prompt) {
+const API_BASE = "https://gptunnel.ru";
+const REQUEST_TIMEOUT_MS = 30000;
+
+function finiteUsageNumber(value) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value !== "string" || value.trim() === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function providerRequestConfig() {
+  return {
+    timeout: REQUEST_TIMEOUT_MS,
+    headers: { Authorization: process.env.GPTUNNEL_API_KEY },
+  };
+}
+
+function buildImageTaskPayload(prompt, model = "flux-schnell", aspectRatio = "2:3", idempotencyKey) {
+  const payload = {
+    model,
+    prompt,
+    params: { aspect_ratio: aspectRatio },
+    wait: true,
+  };
+  if (typeof idempotencyKey === "string" && idempotencyKey.trim()) {
+    payload.idempotency_key = idempotencyKey.trim();
+  }
+  return payload;
+}
+
+function providerTaskError(task) {
+  const providerError = task && task.error && typeof task.error === "object" ? task.error : {};
+  const price = task && typeof task.price === "number" && Number.isFinite(task.price) && task.price >= 0
+    ? task.price
+    : null;
+  const error = new Error("Генерация не удалась: " + (providerError.message || "неизвестная ошибка"));
+  error.providerStatus = "failed";
+  error.providerTaskId = typeof task?.id === "string" ? task.id : null;
+  error.providerPrice = price;
+  error.providerRefunded = typeof task?.refunded === "boolean" ? task.refunded : null;
+  error.providerErrorCode = Number.isInteger(providerError.code) ? providerError.code : null;
+  error.providerErrorTitle = typeof providerError.title === "string" ? providerError.title.slice(0, 120) : null;
+  return error;
+}
+
+function imageTaskResult(task) {
+  const url = task && task.result && task.result[0] && task.result[0].url;
+  const price = task && task.price;
+  const taskId = task && task.id;
+  let parsedUrl = null;
+  if (typeof url === "string") {
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      parsedUrl = null;
+    }
+  }
+  if (
+    !parsedUrl ||
+    parsedUrl.protocol !== "https:" ||
+    !parsedUrl.hostname ||
+    parsedUrl.username ||
+    parsedUrl.password ||
+    !Number.isFinite(Number(price)) || Number(price) <= 0 ||
+    typeof taskId !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(taskId)
+  ) {
+    throw new Error("Провайдер вернул некорректный результат генерации");
+  }
+  return { url: parsedUrl.toString(), price: Number(price), taskId };
+}
+
+async function generateTextWithUsage(prompt, options = {}) {
+  const payload = {
+    model: options.model || "gpt-4o",
+    messages: [{ role: "user", content: prompt }],
+    ...(Number.isInteger(options.maxTokens) && options.maxTokens > 0
+      ? { max_tokens: options.maxTokens }
+      : {}),
+  };
   const response = await axios.post(
-    "https://gptunnel.ru/v1/chat/completions",
-    {
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
-    },
-    { headers: { Authorization: process.env.GPTUNNEL_API_KEY } }
+    `${API_BASE}/v1/chat/completions`,
+    payload,
+    providerRequestConfig()
   );
-  return response.data.choices[0].message.content;
+  const content = response.data && response.data.choices &&
+    response.data.choices[0] && response.data.choices[0].message &&
+    response.data.choices[0].message.content;
+  if (typeof content !== "string" || !content.trim()) {
+    throw new Error("Провайдер не вернул текстовый результат");
+  }
+  const usage = response.data && response.data.usage;
+  const totalCost = finiteUsageNumber(usage && usage.total_cost);
+  if ((!Number.isFinite(totalCost) || totalCost < 0) && options.requireUsage !== false) {
+    const error = new Error("Провайдер не вернул достоверную стоимость текстового запроса");
+    error.code = "GPTUNNEL_USAGE_COST_MISSING";
+    throw error;
+  }
+  return {
+    content,
+    usage: {
+      promptTokens: finiteUsageNumber(usage && usage.prompt_tokens),
+      completionTokens: finiteUsageNumber(usage && usage.completion_tokens),
+      totalTokens: finiteUsageNumber(usage && usage.total_tokens),
+      promptCost: finiteUsageNumber(usage && usage.prompt_cost),
+      completionCost: finiteUsageNumber(usage && usage.completion_cost),
+      totalCost: Number.isFinite(totalCost) && totalCost >= 0 ? totalCost : null,
+      cachedPromptTokens: finiteUsageNumber(usage && usage.prompt_tokens_details && usage.prompt_tokens_details.cached_tokens),
+      cacheWriteTokens: finiteUsageNumber(usage && usage.prompt_tokens_details && usage.prompt_tokens_details.cache_write_tokens),
+    },
+    costCurrency: "RUB",
+    model: typeof response.data.model === "string" ? response.data.model : payload.model,
+    requestId: typeof response.data.id === "string" ? response.data.id : null,
+  };
+}
+
+async function generateText(prompt, options = {}) {
+  const result = await generateTextWithUsage(prompt, { ...options, requireUsage: false });
+  return result.content;
+}
+
+function normalizeIgnoredParams(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    if (typeof item === "string") return item;
+    if (item && typeof item === "object") {
+      return [item.key, item.param, item.name].find((key) => typeof key === "string") || "__unknown_ignored_param__";
+    }
+    return "__unknown_ignored_param__";
+  });
+}
+
+function normalizeMediaQuote(data) {
+  const price = data && typeof data.price === "number" ? data.price : NaN;
+  if (!data || data.code !== 0 || data.price == null || data.currency !== "RUB" ||
+      !Number.isFinite(price) || price < 0) {
+    throw new Error("Провайдер вернул некорректную котировку генерации");
+  }
+  return {
+    model: typeof data.model === "string" ? data.model : null,
+    price,
+    currency: data.currency,
+    params: data.params && typeof data.params === "object" ? data.params : {},
+    ignoredParams: normalizeIgnoredParams(data.ignored_params),
+  };
+}
+
+async function quoteImageTask(prompt, model = "flux-schnell", aspectRatio = "2:3") {
+  const response = await axios.post(
+    `${API_BASE}/api/v2/media/price`,
+    { model, prompt, params: { aspect_ratio: aspectRatio } },
+    providerRequestConfig()
+  );
+  const quote = normalizeMediaQuote(response.data);
+  if (quote.model !== model || quote.ignoredParams.length > 0 ||
+      quote.params.aspect_ratio !== aspectRatio) {
+    throw new Error("Котировка не соответствует запрошенной модели или формату изображения");
+  }
+  return quote;
 }
 
 async function listModels() {
-  const response = await axios.get("https://gptunnel.ru/api/v2/media/models?type=IMAGE", {
-    headers: { Authorization: process.env.GPTUNNEL_API_KEY },
-  });
-  return response.data.models.map((m) => ({ id: m.id, price: m.price, price_unit: m.price_unit }));
+  const response = await axios.get(`${API_BASE}/api/v2/media/models?type=IMAGE`, providerRequestConfig());
+  const models = response.data && response.data.models;
+  if (!Array.isArray(models)) throw new Error("Провайдер вернул некорректный список моделей");
+  return models.map((m) => ({ id: m.id, price: m.price, price_unit: m.price_unit }));
 }
 
 async function checkImage(taskId) {
-  const response = await axios.get(`https://gptunnel.ru/api/v2/media/tasks/${taskId}`, {
-    headers: { Authorization: process.env.GPTUNNEL_API_KEY },
-  });
+  if (typeof taskId !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(taskId)) {
+    throw new Error("Некорректный идентификатор задачи генерации");
+  }
+  const response = await axios.get(
+    `${API_BASE}/api/v2/media/tasks/${encodeURIComponent(taskId)}`,
+    providerRequestConfig()
+  );
   return response.data;
 }
 
-async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3") {
-  const createResponse = await axios.post(
-    "https://gptunnel.ru/api/v2/media/tasks",
-    {
-      model: model,
-      prompt: prompt,
-      aspect_ratio: aspectRatio,
-      wait: true,
-    },
-    { headers: { Authorization: process.env.GPTUNNEL_API_KEY } }
-  );
-
-  let task = createResponse.data;
-  console.log("GPTunnel task result:", JSON.stringify(task));
-
-  if (task.status === "done") {
-    return { url: task.result[0].url, price: task.price };
+async function waitForImageTask(taskId, callbacks = {}) {
+  if (typeof taskId !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(taskId)) {
+    throw new Error("Некорректный идентификатор задачи генерации");
   }
 
-  if (task.status === "failed") {
-    throw new Error("Генерация не удалась: " + (task.error?.message || "неизвестная ошибка"));
-  }
+  const maxPolls = Number.isInteger(callbacks.maxPolls) ? Math.max(1, Math.min(callbacks.maxPolls, 30)) : 30;
+  const pollIntervalMs = Number.isInteger(callbacks.pollIntervalMs) ? Math.max(0, callbacks.pollIntervalMs) : 3000;
+  for (let i = 0; i < maxPolls; i++) {
+    if (pollIntervalMs > 0) await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+    const task = await checkImage(taskId);
 
-  const taskId = task.id;
+    if (task && task.status === "done") return imageTaskResult(task);
 
-  for (let i = 0; i < 30; i++) {
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-
-    const check = await checkImage(taskId);
-    task = check;
-
-    if (task.status === "done") {
-      return { url: task.result[0].url, price: task.price };
+    if (task && (task.status === "queued" || task.status === "running") &&
+        typeof callbacks.onTaskUpdate === "function") {
+      await callbacks.onTaskUpdate(taskId, task.status);
     }
 
-    if (task.status === "failed") {
-      throw new Error("Генерация не удалась: " + (task.error?.message || "неизвестная ошибка"));
+    if (task && task.status === "failed") {
+      throw providerTaskError({ ...task, id: taskId });
+    }
+
+    if (!task || !["queued", "running", "done", "failed"].includes(task.status)) {
+      throw new Error("Провайдер вернул неизвестное состояние задачи");
     }
   }
 
   return { pending: true, taskId, message: "Ещё генерируется, проверь позже через /check-image/" + taskId };
 }
 
-module.exports = { generateText, generateImage, listModels, checkImage };
+async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3", idempotencyKey, callbacks = {}) {
+  const createResponse = await axios.post(
+    `${API_BASE}/api/v2/media/tasks`,
+    buildImageTaskPayload(prompt, model, aspectRatio, idempotencyKey),
+    providerRequestConfig()
+  );
+
+  const task = createResponse.data;
+  if (task && task.status === "failed") {
+    throw providerTaskError(task);
+  }
+
+  const taskId = task && task.id;
+  if (typeof taskId !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(taskId)) {
+    throw new Error("Провайдер вернул некорректный идентификатор задачи");
+  }
+  if (task && task.status === "done") {
+    // A provider may complete synchronously in the create response. Persist its
+    // immutable task ID and terminal status before returning the result so a
+    // backend restart never has to rediscover it through provider idempotency.
+    const result = imageTaskResult(task);
+    if (typeof callbacks.onTaskUpdate === "function") {
+      await callbacks.onTaskUpdate(taskId, "succeeded");
+    }
+    return result;
+  }
+  if (typeof callbacks.onTaskUpdate === "function") {
+    await callbacks.onTaskUpdate(taskId, task && task.status === "running" ? "running" : "queued");
+  }
+  return waitForImageTask(taskId, callbacks);
+}
+
+module.exports = { providerTaskError, generateText, generateTextWithUsage, quoteImageTask, normalizeMediaQuote, generateImage, waitForImageTask, listModels, checkImage, buildImageTaskPayload, imageTaskResult };

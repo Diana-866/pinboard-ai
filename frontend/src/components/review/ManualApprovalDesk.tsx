@@ -22,9 +22,16 @@ import {
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
+import { apiRequest } from '../../lib/api';
+import { applyCurrentReviewEdits } from '../../utils/reviewApproval';
+import { createGenerationIdempotencyKey } from '../../utils/generationRetry';
 
 export interface PendingReviewPin {
   id: string;
+  /** ID of a real pin already persisted by the backend. Demo queue entries do not have one. */
+  pinId?: string;
+  /** Current persisted pin state, refreshed by GET /review-queue. */
+  pinStatus?: string;
   title: string;
   description: string;
   boardName: string;
@@ -43,10 +50,9 @@ export interface PendingReviewPin {
 export interface ManualApprovalDeskProps {
   boards: BoardItem[];
   pendingPins?: PendingReviewPin[];
-  onUpdatePendingPins?: (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => void;
+  onUpdatePendingPins?: (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => void | Promise<void>;
   onApprovePin: (pin: ScheduledPinItem) => void;
   onGoToCalendar?: () => void;
-  onGoToGenerator?: (topic?: string) => void;
   onGoToDashboard?: () => void;
 }
 
@@ -284,25 +290,22 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   onUpdatePendingPins,
   onApprovePin,
   onGoToCalendar,
-  onGoToGenerator,
   onGoToDashboard,
 }) => {
   const { t, formatDate } = useI18n();
 
-  const [internalQueue, setInternalQueue] = useState<PendingReviewPin[]>(INITIAL_QUEUE_PINS);
+  const [internalQueue, setInternalQueue] = useState<PendingReviewPin[]>([]);
   const queue = pendingPins ?? internalQueue;
 
   const updateQueue = (fn: (prev: PendingReviewPin[]) => PendingReviewPin[]) => {
-    if (onUpdatePendingPins) {
-      onUpdatePendingPins(fn);
-    } else {
-      setInternalQueue(fn);
-    }
+    if (onUpdatePendingPins) return Promise.resolve(onUpdatePendingPins(fn));
+    setInternalQueue(fn);
+    return Promise.resolve();
   };
 
   const [approvedCount, setApprovedCount] = useState(0);
   const [rejectedCount, setRejectedCount] = useState(0);
-  const totalInitial = Math.max(15, queue.length + approvedCount + rejectedCount);
+  const totalInitial = Math.max(1, queue.length + approvedCount + rejectedCount);
 
   // Active pin in focus
   const currentPin = queue[0];
@@ -311,6 +314,12 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [editBoardId, setEditBoardId] = useState('');
+  const [pinterestAccounts, setPinterestAccounts] = useState<Array<{ id: string; username?: string | null }>>([]);
+  const [selectedPinterestAccountId, setSelectedPinterestAccountId] = useState('');
+  const [pinterestBoards, setPinterestBoards] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedPinterestBoardId, setSelectedPinterestBoardId] = useState('');
+  const [pinterestBoardsLoaded, setPinterestBoardsLoaded] = useState(false);
+  const [pinterestBoardsError, setPinterestBoardsError] = useState(false);
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
 
@@ -318,12 +327,59 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   const [showRegenBox, setShowRegenBox] = useState(false);
   const [regenComment, setRegenComment] = useState('');
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [regenStatusMessage, setRegenStatusMessage] = useState('');
+  const regenerationAttemptRef = useRef<{ pinId: string; instruction: string; key: string } | null>(null);
 
   // Swipe animation states
   const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [isDecisionInFlight, setIsDecisionInFlight] = useState(false);
+  const decisionInFlightRef = useRef(false);
   const dragStartX = useRef(0);
+
+  useEffect(() => {
+    let active = true;
+    apiRequest('/integrations/pinterest/status')
+      .then((data) => {
+        if (!active) return;
+        const rows = Array.isArray(data?.accounts) ? data.accounts : [];
+        setPinterestAccounts(rows);
+        if (rows.length === 1) setSelectedPinterestAccountId(rows[0].id);
+      })
+      .catch(() => {
+        if (active) setPinterestBoardsError(true);
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    setPinterestBoardsError(false);
+    if (!selectedPinterestAccountId) {
+      setPinterestBoards([]);
+      setSelectedPinterestBoardId('');
+      setPinterestBoardsLoaded(true);
+      return () => { active = false; };
+    }
+    setPinterestBoardsLoaded(false);
+    apiRequest(`/integrations/pinterest/boards?account_id=${encodeURIComponent(selectedPinterestAccountId)}`)
+      .then((data) => {
+        if (!active) return;
+        const rows = Array.isArray(data?.boards) ? data.boards : [];
+        setPinterestBoards(rows);
+        if (!rows.some((board: { id: string }) => board.id === selectedPinterestBoardId)) {
+          setSelectedPinterestBoardId(rows[0]?.id || '');
+        }
+        setPinterestBoardsLoaded(true);
+      })
+      .catch(() => {
+        if (!active) return;
+        setPinterestBoardsError(true);
+        setPinterestBoardsLoaded(true);
+      });
+    return () => { active = false; };
+  }, [selectedPinterestAccountId]);
 
   // Sync state whenever the active top card changes
   useEffect(() => {
@@ -335,6 +391,8 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       setEditTime(currentPin.scheduledTime);
       setShowRegenBox(false);
       setRegenComment('');
+      setRegenStatusMessage('');
+      regenerationAttemptRef.current = null;
       setSwipeDirection(null);
       setDragOffset(0);
     }
@@ -358,74 +416,162 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentPin, editTitle, editDesc, editBoardId, editDate, editTime]);
+  }, [currentPin, editTitle, editDesc, editBoardId, editDate, editTime, selectedPinterestBoardId, selectedPinterestAccountId]);
 
   const handleApprove = () => {
-    if (!currentPin) return;
+    if (!currentPin || decisionInFlightRef.current) return;
+    if (!currentPin.pinId) {
+      window.alert('Эта карточка — демонстрационный пример, а не сохранённый пин. Сначала создайте и сохраните пин в генераторе — только после этого его можно добавить в расписание.');
+      return;
+    }
+    if (!selectedPinterestAccountId || !selectedPinterestBoardId) {
+      window.alert('Сначала подключите Pinterest и выберите настоящую доску Pinterest для публикации.');
+      return;
+    }
 
+    decisionInFlightRef.current = true;
+    setIsDecisionInFlight(true);
     setSwipeDirection('right');
-    setTimeout(() => {
-      const selectedBoard = boards.find((b) => b.id === editBoardId) || boards[0];
-      const scheduledItem: ScheduledPinItem = {
-        id: `pin-${Date.now()}`,
-        title: editTitle,
-        boardId: editBoardId,
-        boardName: selectedBoard?.name || currentPin.boardName,
-        imageUrl: currentPin.imageUrl,
-        scheduledDate: editDate,
-        scheduledTime: editTime,
-        status: 'scheduled',
-        isOptimalSlot: true,
-        destinationUrl: currentPin.destinationUrl,
-        accountHandle: currentPin.accountHandle,
-      };
+    setTimeout(async () => {
+      let scheduleWasPersisted = false;
+      try {
+        const selectedBoard = boards.find((b) => b.id === editBoardId) || boards[0];
+        const scheduledItem: ScheduledPinItem = {
+          id: `pin-${Date.now()}`,
+          pinId: currentPin.pinId!,
+          title: editTitle,
+          description: editDesc,
+          boardId: editBoardId,
+          boardName: selectedBoard?.name || currentPin.boardName,
+          imageUrl: currentPin.imageUrl,
+          scheduledDate: editDate,
+          scheduledTime: editTime,
+          status: 'scheduled',
+          isOptimalSlot: true,
+          destinationUrl: currentPin.destinationUrl,
+          accountHandle: currentPin.accountHandle,
+          pinterestBoardId: selectedPinterestBoardId,
+          pinterestAccountId: selectedPinterestAccountId,
+        };
 
-      onApprovePin(scheduledItem);
-      setApprovedCount((c) => c + 1);
-      updateQueue((prev) => prev.slice(1));
-      setSwipeDirection(null);
-      setDragOffset(0);
+        await onApprovePin(scheduledItem);
+        scheduleWasPersisted = true;
+        await updateQueue((prev) => prev.filter((pin) => pin.id !== currentPin.id));
+        setApprovedCount((c) => c + 1);
+      } catch (error) {
+        if (scheduleWasPersisted) {
+          window.alert('Пин уже сохранён в календаре, но не удалось убрать его из очереди проверки. Не одобряйте его повторно: обновите страницу и проверьте календарь.');
+        } else {
+          window.alert(error instanceof Error ? error.message : 'Не удалось добавить пин в расписание. Карточка осталась в очереди.');
+        }
+      } finally {
+        setSwipeDirection(null);
+        setDragOffset(0);
+        decisionInFlightRef.current = false;
+        setIsDecisionInFlight(false);
+      }
     }, 220);
   };
 
   const handleReject = () => {
-    if (!currentPin) return;
+    if (!currentPin || decisionInFlightRef.current) return;
 
+    decisionInFlightRef.current = true;
+    setIsDecisionInFlight(true);
     setSwipeDirection('left');
-    setTimeout(() => {
-      setRejectedCount((c) => c + 1);
-      updateQueue((prev) => prev.slice(1));
-      setSwipeDirection(null);
-      setDragOffset(0);
+    setTimeout(async () => {
+      let pinWasRejected = false;
+      try {
+        // Persist the decision on the saved pin before removing its review item.
+        // Demo cards have no server pin ID and remain local-only.
+        if (currentPin.pinId) {
+          await apiRequest(`/pins/${encodeURIComponent(currentPin.pinId)}/status`, {
+            method: 'POST',
+            body: JSON.stringify({ status: 'rejected' }),
+          });
+          pinWasRejected = true;
+        }
+        await updateQueue((prev) => prev.filter((pin) => pin.id !== currentPin.id));
+        setRejectedCount((c) => c + 1);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Не удалось сохранить отклонение.';
+        window.alert(pinWasRejected
+          ? `Пин отклонён, но не удалось убрать карточку из очереди проверки. Обновите страницу и повторите удаление карточки. ${message}`
+          : `${message} Карточка осталась в очереди.`);
+      } finally {
+        setSwipeDirection(null);
+        setDragOffset(0);
+        decisionInFlightRef.current = false;
+        setIsDecisionInFlight(false);
+      }
     }, 220);
   };
 
   const handleApproveAll = () => {
-    queue.forEach((p, idx) => {
-      const selectedBoard = boards.find((b) => b.id === p.boardId) || boards[0];
-      const scheduledItem: ScheduledPinItem = {
+    if (queue.some((pin) => !pin.pinId)) {
+      window.alert('В очереди есть демонстрационные карточки без сохранённых пинов. Создайте и сохраните реальные пины в генераторе, прежде чем добавлять их в расписание.');
+      return;
+    }
+    if (!selectedPinterestAccountId || !selectedPinterestBoardId) {
+      window.alert('Сначала подключите Pinterest и выберите настоящую доску Pinterest для публикации.');
+      return;
+    }
+    const scheduledItems = queue.map((p, idx) => {
+      // Bulk approval must not discard edits in the currently open review card.
+      const approved = applyCurrentReviewEdits(p, idx, {
+        title: editTitle,
+        description: editDesc,
+        boardId: editBoardId,
+        scheduledDate: editDate,
+        scheduledTime: editTime,
+      });
+      const selectedBoard = boards.find((b) => b.id === approved.boardId) || boards[0];
+      return {
         id: `pin-${Date.now()}-${idx}`,
-        title: p.title,
-        boardId: p.boardId,
-        boardName: selectedBoard?.name || p.boardName,
-        imageUrl: p.imageUrl,
-        scheduledDate: p.scheduledDate,
-        scheduledTime: p.scheduledTime,
-        status: 'scheduled',
+        pinId: approved.pinId,
+        title: approved.title,
+        description: approved.description,
+        boardId: approved.boardId,
+        boardName: selectedBoard?.name || approved.boardName,
+        imageUrl: approved.imageUrl,
+        scheduledDate: approved.scheduledDate,
+        scheduledTime: approved.scheduledTime,
+        status: 'scheduled' as const,
         isOptimalSlot: true,
-        destinationUrl: p.destinationUrl,
-        accountHandle: p.accountHandle,
+        destinationUrl: approved.destinationUrl,
+        accountHandle: approved.accountHandle,
+        pinterestBoardId: selectedPinterestBoardId,
+        pinterestAccountId: selectedPinterestAccountId,
       };
-      onApprovePin(scheduledItem);
     });
-    setApprovedCount((c) => c + queue.length);
-    updateQueue(() => []);
+    Promise.allSettled(scheduledItems.map((item) => onApprovePin(item))).then(async (results) => {
+      const successfulIds = new Set<string>();
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') successfulIds.add(queue[index].id);
+      });
+      if (successfulIds.size > 0) {
+        try {
+          await updateQueue((prev) => prev.filter((pin) => !successfulIds.has(pin.id)));
+          setApprovedCount((count) => count + successfulIds.size);
+        } catch {
+          window.alert(`В календаре уже сохранено ${successfulIds.size} пинов, но очередь проверки не обновилась. Не одобряйте эти карточки повторно: обновите страницу и проверьте календарь.`);
+          return;
+        }
+      }
+      if (successfulIds.size !== scheduledItems.length) {
+        window.alert(`В расписание добавлено: ${successfulIds.size} из ${scheduledItems.length}. Неудачные карточки остались в очереди.`);
+      }
+    });
   };
 
-  const handleResetQueue = () => {
-    updateQueue(() => INITIAL_QUEUE_PINS);
-    setApprovedCount(0);
-    setRejectedCount(0);
+  const handleResetQueue = async () => {
+    try {
+      await updateQueue(() => []);
+      setApprovedCount(0);
+      setRejectedCount(0);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Не удалось очистить очередь. Попробуйте ещё раз.');
+    }
   };
 
   // Touch / Mouse Drag Swiping
@@ -454,17 +600,59 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     }
   };
 
-  const handleRegenerate = (e: React.FormEvent) => {
+  const handleRegenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regenComment.trim()) return;
+    const instruction = regenComment.trim();
+    if (!instruction || !currentPin || isRegenerating) return;
+    if (!currentPin.pinId) {
+      window.alert('Нельзя заменить изображение: исходный пин ещё не сохранён на сервере.');
+      return;
+    }
 
+    const existingAttempt = regenerationAttemptRef.current;
+    let attempt: { pinId: string; instruction: string; key: string };
+    try {
+      attempt = existingAttempt && existingAttempt.pinId === currentPin.pinId && existingAttempt.instruction === instruction
+        ? existingAttempt
+        : { pinId: currentPin.pinId, instruction, key: createGenerationIdempotencyKey() };
+    } catch (error) {
+      setRegenStatusMessage(error instanceof Error ? error.message : 'Не удалось создать безопасный ключ запроса.');
+      return;
+    }
+    regenerationAttemptRef.current = attempt;
     setIsRegenerating(true);
-    setTimeout(() => {
-      setIsRegenerating(false);
+    setRegenStatusMessage('Отправляем запрос на перегенерацию…');
+
+    try {
+      const savedPin = await apiRequest(`/pins/${encodeURIComponent(currentPin.pinId)}/regenerate`, {
+        method: 'POST',
+        headers: { 'Idempotency-Key': attempt.key },
+        body: JSON.stringify({ instruction }),
+      });
+      if (savedPin?.status === 'processing' || savedPin?.code === 'regeneration_pending') {
+        setRegenStatusMessage('Генерация ещё выполняется. Нажмите кнопку ещё раз через несколько секунд — запрос продолжится с тем же ключом без повторного списания.');
+        return;
+      }
+      if (typeof savedPin?.image_url !== 'string' || !savedPin.image_url.trim()) {
+        throw new Error('Сервер не подтвердил сохранение нового изображения. Повторите проверку с тем же запросом.');
+      }
+
+      const updatedPin = { ...currentPin, imageUrl: savedPin.image_url, aspectRatio: '2:3' };
+      await updateQueue((prev) => prev.map((pin) => pin.id === currentPin.id ? updatedPin : pin));
+      regenerationAttemptRef.current = null;
+      setRegenStatusMessage('Новое изображение сохранено и привязано к исходной карточке.');
       setShowRegenBox(false);
-      // Alter title subtly with AI revision
-      setEditTitle((prev) => `[AI Ревизия: ${regenComment.slice(0, 18)}] ${prev.replace(/\[.*?\]\s*/g, '')}`);
-    }, 1200);
+      setRegenComment('');
+    } catch (error: any) {
+      const code = error?.data?.code;
+      if (code === 'regeneration_in_progress' || code === 'regeneration_pending') {
+        setRegenStatusMessage('Генерация ещё выполняется. Нажмите кнопку повторно через несколько секунд; используется тот же запрос.');
+      } else {
+        setRegenStatusMessage(error instanceof Error ? error.message : 'Не удалось перегенерировать изображение. Повторите попытку.');
+      }
+    } finally {
+      setIsRegenerating(false);
+    }
   };
 
   // Completed State Screen
@@ -629,27 +817,34 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
-                  const dataUrl = await new Promise<string>((resolve) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result as string);
-                    reader.readAsDataURL(file);
-                  });
-                  onUpdatePendingPins?.((prev) =>
-                    prev.map((p) => (p.id === currentPin.id ? { ...p, imageUrl: dataUrl } : p))
-                  );
                   try {
+                    if (!currentPin.pinId) {
+                      throw new Error('Сначала сохраните пин в генераторе — только сохранённому пину можно заменить изображение.');
+                    }
                     const fd = new FormData();
                     fd.append('image', file);
                     const API = (import.meta as any).env?.VITE_API_URL || 'https://pinboard-ai-backend.onrender.com';
-                    await fetch(`${API}/pins/${currentPin.id}/image`, {
+                    const response = await fetch(API + '/pins/' + encodeURIComponent(currentPin.pinId) + '/image', {
                       method: 'POST',
-                      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+                      headers: { Authorization: 'Bearer ' + localStorage.getItem('token') },
                       body: fd,
                     });
-                  } catch {
-                    // у мок-пинов нет id в БД — остаётся визуальная замена
+                    if (!response.ok) {
+                      throw new Error('Не удалось сохранить изображение на сервере. Попробуйте ещё раз.');
+                    }
+                    const savedPin = await response.json();
+                    if (typeof savedPin.image_url !== 'string' || !savedPin.image_url) {
+                      throw new Error('Сервер не вернул постоянную ссылку на изображение.');
+                    }
+
+                    await updateQueue((prev) =>
+                      prev.map((p) => (p.id === currentPin.id ? { ...p, imageUrl: savedPin.image_url } : p))
+                    );
+                  } catch (error) {
+                    window.alert(error instanceof Error ? error.message : 'Не удалось обновить изображение.');
+                  } finally {
+                    e.target.value = '';
                   }
-                  e.target.value = '';
                 }}
               />
             </label>
@@ -743,7 +938,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
               <div>
                 <label className="font-bold text-primary-theme block mb-1">
-                  Целевая доска Pinterest:
+                  Внутренняя доска PinPosy:
                 </label>
                 <select
                   value={editBoardId}
@@ -777,6 +972,50 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                   />
                 </div>
               </div>
+              <div className="sm:col-span-2 space-y-2">
+                {pinterestAccounts.length > 1 && (
+                  <>
+                    <label className="font-bold text-primary-theme block mb-1">
+                      {t.settings.selectPinterestAccount}:
+                    </label>
+                    <select
+                      value={selectedPinterestAccountId}
+                      onChange={(e) => {
+                        setSelectedPinterestAccountId(e.target.value);
+                        setSelectedPinterestBoardId('');
+                      }}
+                      className="w-full px-3 py-2 bg-app-input border border-subtle rounded-xl text-primary-theme font-medium"
+                    >
+                      <option value="">{t.settings.selectPinterestAccount}</option>
+                      {pinterestAccounts.map((account) => (
+                        <option key={account.id} value={account.id}>
+                          {account.username ? `@${account.username}` : account.id}
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                )}
+                <label className="font-bold text-primary-theme block mb-1">
+                  Доска назначения в Pinterest:
+                </label>
+                <select
+                  value={selectedPinterestBoardId}
+                  onChange={(e) => setSelectedPinterestBoardId(e.target.value)}
+                  disabled={!pinterestBoardsLoaded || pinterestBoards.length === 0}
+                  className="w-full px-3 py-2 bg-app-input border border-subtle rounded-xl text-primary-theme font-medium focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-60"
+                >
+                  <option value="">{!pinterestBoardsLoaded ? 'Загружаем доски Pinterest…' : pinterestBoards.length ? 'Выберите доску Pinterest' : 'Нет доступных досок Pinterest'}</option>
+                  {pinterestBoards.map((board) => (
+                    <option key={board.id} value={board.id}>{board.name}</option>
+                  ))}
+                </select>
+                {pinterestBoardsError && (
+                  <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">Не удалось загрузить доски. Проверьте подключение Pinterest и обновите страницу.</p>
+                )}
+                {pinterestBoardsLoaded && !pinterestBoardsError && pinterestBoards.length === 0 && (
+                  <p className="mt-1 text-[11px] text-secondary-theme">Подключите Pinterest в настройках, чтобы добавлять публикации в расписание.</p>
+                )}
+              </div>
             </div>
 
             {/* Action: AI Image Re-Generation */}
@@ -788,13 +1027,13 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                   className="secondary-btn px-3.5 py-2 text-xs flex items-center gap-1.5 cursor-pointer text-primary-theme"
                 >
                   <RefreshCw className="w-3.5 h-3.5 text-accent-ghost" />
-                  <span>Перегенерировать картинку с промптом</span>
+                  <span>Заменить изображение через AI</span>
                 </button>
               ) : (
                 <form onSubmit={handleRegenerate} className="p-3 rounded-xl bg-subtle border border-subtle space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-bold text-primary-theme">
-                      Комментарий для ИИ (что исправить):
+                      Что изменить в новом варианте:
                     </span>
                     <button
                       type="button"
@@ -807,18 +1046,28 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                   <input
                     type="text"
                     required
-                    placeholder="Например: сделай темнее фон, добавь акцент на заголовок..."
+                    maxLength={300}
+                    placeholder="Например: затемни фон, сохрани композицию, добавь акцент на заголовок..."
                     value={regenComment}
-                    onChange={(e) => setRegenComment(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-app-input border border-subtle rounded-lg text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
+                    onChange={(e) => {
+                      setRegenComment(e.target.value);
+                      setRegenStatusMessage('');
+                    }}
+                    disabled={isRegenerating}
+                    className="w-full px-3 py-1.5 text-xs bg-app-input border border-subtle rounded-lg text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-60"
                   />
+                  {regenStatusMessage && (
+                    <p role="status" aria-live="polite" className="text-[11px] text-secondary-theme">
+                      {regenStatusMessage}
+                    </p>
+                  )}
                   <button
                     type="submit"
-                    disabled={isRegenerating}
+                    disabled={isRegenerating || !regenComment.trim() || !currentPin.pinId}
                     className="accent-btn px-4 py-1.5 text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-60 shadow-xs"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} />
-                    <span>{isRegenerating ? 'Генерация нового варианта...' : 'Обновить визуал'}</span>
+                    <span>{isRegenerating ? 'Перегенерируем…' : 'Сгенерировать и заменить изображение'}</span>
                   </button>
                 </form>
               )}
@@ -830,12 +1079,13 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
             {/* Left Big Button: Reject / Skip */}
             <button
               onClick={handleReject}
+              disabled={isDecisionInFlight}
               className="py-4 px-6 rounded-full border border-subtle hover:border-rose-400 bg-surface hover:bg-rose-50 dark:hover:bg-rose-950/20 text-primary-theme font-bold text-sm md:text-base flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 group shadow-xs"
             >
               <div className="w-7 h-7 rounded-full bg-subtle group-hover:bg-rose-500 group-hover:text-white flex items-center justify-center transition-colors">
                 <X className="w-4 h-4 stroke-[2.5]" />
               </div>
-              <span>Отклонить (Удалить)</span>
+              <span>Отклонить</span>
               <span className="hidden md:inline text-[11px] font-mono text-muted-theme group-hover:text-rose-600 font-normal">
                 [ ⬅️ ]
               </span>
@@ -844,12 +1094,13 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
             {/* Right Big Button: Approve & Schedule */}
             <button
               onClick={handleApprove}
+              disabled={isDecisionInFlight}
               className="accent-btn py-4 px-6 rounded-full text-white font-bold text-sm md:text-base flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 group shadow-xs"
             >
               <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
                 <Check className="w-4 h-4 stroke-[3]" />
               </div>
-              <span>Одобрить и запланировать</span>
+              <span>{isDecisionInFlight ? 'Сохраняем решение…' : currentPin?.pinStatus === 'approved' ? 'Повторить планирование' : 'Одобрить и запланировать'}</span>
               <span className="hidden md:inline text-[11px] font-mono text-white/80 font-normal">
                 [ ➡️ ]
               </span>

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Mail, Receipt, ShieldCheck, FileText, Globe2, Coins } from 'lucide-react';
 import { useI18n } from '../i18n/i18nContext';
+import { apiRequest } from '../lib/api';
 
 const ROSE_CTA = '#B96B7C';
 
@@ -16,20 +17,72 @@ export const SELLER = {
   site: 'https://pinposy.com',
 };
 
-/* Актуальные цены. Должны совпадать с:
- *   - лендингом (frontend/src/pages/Landing.tsx, tariffPlans),
- *   - кабинетом (frontend/src/components/pricing/PricingView.tsx, plans),
- *   - бэкендом (backend/billing.js, PLANS) — именно эти суммы уходят в Prodamus. */
 const PLANS = [
-  { id: 'analytics', ru: 'Аналитика', en: 'Analytics', rub: '990 ₽', usd: '$11.9' },
-  { id: 'start', ru: 'Старт', en: 'Start', rub: '1 990 ₽', usd: '$24.0' },
-  { id: 'pro', ru: 'Про', en: 'Pro', rub: '4 990 ₽', usd: '$60.1' },
-  { id: 'agency', ru: 'Agency', en: 'Agency', rub: '12 990 ₽', usd: '$156.5' },
+  { id: 'analytics', ru: 'Аналитика', en: 'Analytics' },
+  { id: 'start', ru: 'Старт', en: 'Start' },
+  { id: 'pro', ru: 'Про', en: 'Pro' },
+  { id: 'agency', ru: 'Agency', en: 'Agency' },
 ];
 
 export const Contacts: React.FC = () => {
   const { language } = useI18n();
   const ru = language === 'ru';
+  const [planPrices, setPlanPrices] = useState<Record<string, { rub: number; usd: number }> | null>(null);
+  const [creditPackMin, setCreditPackMin] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest('/billing/plans')
+      .then((res: any) => {
+        if (!Array.isArray(res?.plans)) throw new Error('Invalid plan catalog');
+        const next: Record<string, { rub: number; usd: number }> = {};
+        for (const plan of res.plans) {
+          const rub = Number(plan.amount?.rub);
+          const usd = Number(plan.amount?.usd);
+          if (!['analytics', 'start', 'pro', 'agency'].includes(plan.id) ||
+              !Number.isFinite(rub) || rub <= 0 || !Number.isFinite(usd) || usd <= 0) {
+            throw new Error('Invalid plan catalog entry');
+          }
+          next[plan.id] = { rub, usd };
+        }
+        if (Object.keys(next).length !== 4) throw new Error('Incomplete plan catalog');
+        if (!cancelled) setPlanPrices(next);
+      })
+      .catch(() => {
+        if (!cancelled) setPlanPrices({});
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest('/billing/credit-packs')
+      .then((res: any) => {
+        if (!Array.isArray(res?.packs)) throw new Error('Invalid credit pack catalog');
+        const expected = ['pack_100', 'pack_500', 'pack_1000'];
+        const prices = res.packs.map((pack: any) => {
+          const amount = Number(pack.amount?.rub);
+          if (!expected.includes(pack.id) || !Number.isFinite(amount) || amount <= 0) {
+            throw new Error('Invalid credit pack catalog entry');
+          }
+          return amount;
+        });
+        if (prices.length !== expected.length || new Set(res.packs.map((pack: any) => pack.id)).size !== expected.length) {
+          throw new Error('Incomplete credit pack catalog');
+        }
+        if (!cancelled) setCreditPackMin(Math.min(...prices));
+      })
+      .catch(() => {
+        if (!cancelled) setCreditPackMin(null);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const formatPrice = (amount: number, currency: 'rub' | 'usd') =>
+    new Intl.NumberFormat(ru ? 'ru-RU' : 'en-US', {
+      minimumFractionDigits: currency === 'usd' ? 2 : 0,
+      maximumFractionDigits: currency === 'usd' ? 2 : 0,
+    }).format(amount) + (currency === 'rub' ? ' ₽' : ' $');
 
   const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
     <div className="flex flex-col gap-0.5 border-b border-[#F2DFE4] py-3 last:border-0 sm:flex-row sm:gap-4">
@@ -117,32 +170,37 @@ export const Contacts: React.FC = () => {
           </p>
 
           <div className="mt-3 rounded-2xl border border-[#F2DFE4] bg-white px-4 py-2">
-            {PLANS.map((p) => (
+            {PLANS.map((p) => {
+              const amounts = planPrices?.[p.id];
+              return (
               <div
                 key={p.id}
                 className="flex items-baseline justify-between gap-3 border-b border-[#F2DFE4] py-2.5 last:border-0"
               >
                 <span className="text-[13.5px] font-semibold text-[#2A1F24]">{ru ? p.ru : p.en}</span>
                 <span className="whitespace-nowrap text-[13.5px] font-semibold text-[#A94D5F]">
-                  {p.rub} <span className="font-normal text-[#8A6E76]">{ru ? '/ мес' : '/ mo'}</span>
-                  <span className="ml-2 font-normal text-[#B29AA1]">{p.usd}</span>
+                  {amounts ? formatPrice(amounts.rub, 'rub') : '—'} <span className="font-normal text-[#8A6E76]">{ru ? '/ мес' : '/ mo'}</span>
+                  <span className="ml-2 font-normal text-[#B29AA1]">{amounts ? formatPrice(amounts.usd, 'usd') : ''}</span>
                 </span>
               </div>
-            ))}
+              );
+            })}
             <div className="flex items-baseline justify-between gap-3 py-2.5">
               <span className="text-[13.5px] font-semibold text-[#2A1F24]">
                 {ru ? 'Пакеты кредитов (бессрочные)' : 'Credit packs (non-expiring)'}
               </span>
               <span className="whitespace-nowrap text-[13.5px] font-semibold text-[#A94D5F]">
-                {ru ? 'от 550 ₽' : 'from 550 ₽'}
+                {creditPackMin !== null
+                  ? `${ru ? 'от' : 'from'} ${new Intl.NumberFormat(ru ? 'ru-RU' : 'en-US').format(creditPackMin)} ₽`
+                  : '—'}
               </span>
             </div>
           </div>
 
           <p className="mt-2 text-[11.5px] leading-relaxed text-[#B29AA1]">
             {ru
-              ? 'В рублях для карт РФ, в долларах США для зарубежных карт (комиссия платёжного сервиса за зарубежные платежи — 10%). Цены одинаковы на лендинге, в кабинете и на этой странице.'
-              : 'Charged in RUB for Russian cards and in USD for international cards (the payment provider charges a 10% fee on cross-border payments). Prices are identical on the landing page, in the app and on this page.'}
+              ? 'Для подписки доступны цены в RUB и USD — выбранная валюта и доступные способы оплаты будут показаны на защищённой странице Prodamus перед подтверждением. Пакеты кредитов оплачиваются только в RUB. Итоговую сумму и возможные комиссии платёжного провайдера проверяйте до оплаты.'
+              : 'Subscriptions are listed in RUB and USD. The selected currency and available payment methods are shown on Prodamus’s secure checkout page before confirmation. Credit packs are charged in RUB only. Review the final amount and any payment-provider fees before paying.'}
           </p>
         </section>
 
@@ -156,8 +214,8 @@ export const Contacts: React.FC = () => {
             <li>
               <b>{ru ? 'Способ оплаты.' : 'Payment method.'}</b>{' '}
               {ru
-                ? 'Банковские карты Visa, Mastercard, МИР, а также зарубежные карты Visa и Mastercard — через платёжный сервис Prodamus. Данные карты вводятся на защищённой странице Prodamus и не попадают в PinPosy.'
-                : 'Visa, Mastercard and MIR cards, plus international Visa and Mastercard — via the Prodamus payment service. Card details are entered on the secure Prodamus page and never reach PinPosy.'}
+                ? 'Доступные способы оплаты зависят от страны и отображаются на защищённой странице Prodamus. Данные карты вводятся на стороне платёжного сервиса и не сохраняются в PinPosy.'
+                : 'Available payment methods depend on your country and are displayed on the secure Prodamus checkout page. Card details are entered with the payment provider and are not stored by PinPosy.'}
             </li>
             <li>
               <b>{ru ? 'Срок доступа.' : 'Access period.'}</b>{' '}
@@ -174,8 +232,8 @@ export const Contacts: React.FC = () => {
             <li>
               <b>{ru ? 'Возврат.' : 'Refunds.'}</b>{' '}
               {ru
-                ? 'Если сервис не работает или доступ не был предоставлен — напишите на support@pinposy.com с номером платежа, и мы вернём деньги на ту же карту в срок до 10 рабочих дней. Условия возврата также описаны в '
-                : 'If the service does not work or access was not granted, e-mail support@pinposy.com with your payment ID and we will refund the same card within 10 business days. Refund terms are also described in the '}
+                ? 'Если сервис не работает, доступ не был предоставлен или платёж прошёл ошибочно — напишите на support@pinposy.com с номером платежа. Мы рассмотрим обращение; если основания для возврата подтвердятся, после одобрения оформим заявку на возврат в Prodamus. Фактический срок поступления денег зависит от платёжного провайдера и банка и может составлять до 30 рабочих дней. Условия возврата также описаны в '
+                : 'If the Service is unavailable, paid access was not provided, or you were charged in error, e-mail support@pinposy.com with your payment ID. We will review your request; if a refund is approved, after approval, we will submit a refund request to Prodamus. The time it takes for the funds to reach you depends on the payment provider and your bank and may take up to 30 business days. Refund terms are also described in the '}
               <Link to="/terms" className="font-semibold text-[#A94D5F] hover:underline">
                 {ru ? 'Условиях использования' : 'Terms of Service'}
               </Link>

@@ -1,3 +1,4 @@
+const { logWarning, logError, logInfo } = require("./safeLogger");
 // Подтверждение email при регистрации (миграция 005: users.email_verified).
 //
 // Паттерн токенов — ровно как в password-reset.js:
@@ -10,6 +11,8 @@
 const crypto = require("crypto");
 const supabase = require("./supabase");
 const { httpError } = require("./validate");
+const { getEmailCopy, normalizeLanguage } = require("./email-locales");
+const { transactionalMailConfigured, sendMail } = require("./mail");
 
 const TTL_HOURS = 24;
 const RESEND_INTERVAL_MINUTES = 5; // повторная отправка не чаще раза в 5 минут
@@ -19,67 +22,19 @@ function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
-function mailConfigured() {
-  return !!(process.env.MAIL_SMTP_HOST && process.env.MAIL_USER && process.env.MAIL_PASS);
-}
 
-function buildTransporter() {
-  const nodemailer = require("nodemailer");
-  const port = Number(process.env.MAIL_SMTP_PORT || 465);
-  return nodemailer.createTransport({
-    host: process.env.MAIL_SMTP_HOST,
-    port,
-    secure: port === 465, // 465 — implicit TLS (beget), 587 — STARTTLS
-    auth: { user: process.env.MAIL_USER, pass: process.env.MAIL_PASS },
-  });
-}
 
 // Письмо: текстовая часть (для всех клиентов) + HTML с кнопкой.
 // Ссылка — единственное место, где живёт «сырой» токен.
-async function sendVerifyEmail(to, verifyUrl) {
-  const transporter = buildTransporter();
-  const text = [
-    "Здравствуйте!",
-    "",
-    "Подтвердите ваш email, чтобы войти в PinPosy.",
-    `Ссылка для подтверждения (действует ${TTL_HOURS} часа, одноразовая):`,
-    verifyUrl,
-    "",
-    "Если вы не регистрировались в PinPosy — просто проигнорируйте это письмо.",
-    "",
-    "— команда PinPosy",
-  ].join("\n");
-
-  const html = `
-  <div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1f2937">
-    <h2 style="font-size:20px;margin:0 0 12px">Подтвердите email</h2>
-    <p style="font-size:14px;line-height:1.5;margin:0 0 20px">
-      Здравствуйте! Остался один шаг — подтвердите адрес, чтобы войти в PinPosy.
-    </p>
-    <p style="margin:0 0 20px">
-      <a href="${verifyUrl}"
-         style="display:inline-block;background:#C25E6F;color:#fff;text-decoration:none;
-                padding:12px 22px;border-radius:12px;font-size:14px;font-weight:700">
-        Подтвердить email
-      </a>
-    </p>
-    <p style="font-size:12px;line-height:1.5;color:#6b7280;margin:0 0 8px">
-      Ссылка действует ${TTL_HOURS} часа и срабатывает один раз.<br>
-      Если кнопка не работает, скопируйте адрес в браузер:<br>
-      <span style="word-break:break-all;color:#C25E6F">${verifyUrl}</span>
-    </p>
-    <p style="font-size:12px;line-height:1.5;color:#6b7280;margin:16px 0 0">
-      Если вы не регистрировались в PinPosy — просто проигнорируйте это письмо.
-    </p>
-  </div>`;
-
-  await transporter.sendMail({
-    from: process.env.MAIL_FROM || process.env.MAIL_USER,
-    to,
-    subject: "PinPosy — подтвердите email",
-    text,
-    html,
-  });
+async function sendVerifyEmail(to, verifyUrl, language = "en") {
+  const copy = getEmailCopy(language);
+  const text = [copy.hello, "", copy.verifyLead, copy.verifyExpiry, verifyUrl, "", copy.verifyIgnore, "", copy.team].join("\n");
+  const html = `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1f2937">
+    <h2>${copy.verifyTitle}</h2><p>${copy.hello} ${copy.verifyLead}</p>
+    <p><a href="${verifyUrl}" style="display:inline-block;background:#C25E6F;color:#fff;text-decoration:none;padding:12px 22px;border-radius:12px;font-weight:700">${copy.verifyButton}</a></p>
+    <p style="font-size:12px;color:#6b7280">${copy.verifyExpiry}<br><span style="word-break:break-all">${verifyUrl}</span></p>
+    <p style="font-size:12px;color:#6b7280">${copy.verifyIgnore}</p></div>`;
+  return sendMail({ to, subject: copy.verifySubject, text, html });
 }
 
 // Время создания последнего email_verify-токена пользователя (мс) или null.
@@ -122,7 +77,7 @@ async function revokeUnused(userId) {
     .is("used_at", null);
   if (error) {
     // не критично: старая ссылка просто останется действительной до TTL
-    console.warn("[email-verify] не удалось погасить прежние токены:", error.message);
+    logWarning("email-verify.event_008");
   }
 }
 
@@ -130,32 +85,34 @@ async function revokeUnused(userId) {
 // Возвращает true, если письмо реально ушло. Исключений не бросает:
 // регистрация и вход не должны падать из-за почты — письмо можно запросить повторно.
 async function issueVerificationToken(user) {
-  await revokeUnused(user.id);
+  user.preferred_language = normalizeLanguage(user.preferred_language);
 
   const token = crypto.randomBytes(32).toString("base64url");
-  const { error } = await supabase.from("auth_tokens").insert({
-    user_id: String(user.id),
-    token_hash: sha256(token),
-    purpose: PURPOSE,
-    expires_at: new Date(Date.now() + TTL_HOURS * 60 * 60 * 1000).toISOString(),
+  const { data: issued, error } = await supabase.rpc("issue_email_verification_token", {
+    p_user_id: String(user.id),
+    p_token_hash: sha256(token),
+    p_expires_at: new Date(Date.now() + TTL_HOURS * 60 * 60 * 1000).toISOString(),
+    p_min_interval_seconds: RESEND_INTERVAL_MINUTES * 60,
   });
+
   if (error) {
-    console.error("[email-verify] не удалось создать токен:", error.message);
+    logError("email-verify.event_007");
     return false;
   }
+  if (issued !== true) return false;
 
-  if (!mailConfigured()) {
-    console.warn("[email-verify] MAIL_* не заданы — письмо не отправлено");
+  if (!transactionalMailConfigured()) {
+    logWarning("email-verify.event_006");
     return false;
   }
 
   const base = (process.env.FRONTEND_URL || "https://pinposy.com").split(",")[0].trim();
   try {
-    await sendVerifyEmail(user.email, `${base}/verify-email?token=${encodeURIComponent(token)}`);
-    console.log(`[email-verify] письмо отправлено на ${user.email}`);
+    await sendVerifyEmail(user.email, `${base}/verify-email#token=${encodeURIComponent(token)}`, user.preferred_language);
+    logInfo("email-verify.event_005");
     return true;
   } catch (e) {
-    console.error("[email-verify] письмо не отправлено:", e.message);
+    logError("email-verify.event_004");
     return false;
   }
 }
@@ -172,11 +129,16 @@ function pluralMinutes(sec) {
 //    нельзя было использовать для проверки существования email.
 async function resendVerification(rawEmail, userIdFromToken) {
   if (userIdFromToken) {
-    const { data: user } = await supabase
+    const { data: user, error: lookupError } = await supabase
       .from("users")
-      .select("id, email, email_verified")
+      .select("id, email, email_verified, preferred_language")
       .eq("id", userIdFromToken)
       .maybeSingle();
+
+    if (lookupError) {
+      logError("email-verify.event_003");
+      throw httpError(503, "Сервис подтверждения email временно недоступен — попробуйте позже");
+    }
 
     if (user && user.email_verified === true) {
       return { ok: true, alreadyVerified: true, message: "Email уже подтверждён." };
@@ -206,11 +168,16 @@ async function resendVerification(rawEmail, userIdFromToken) {
   if (rawEmail) {
     const { validateEmail } = require("./validate");
     const email = validateEmail(rawEmail);
-    const { data: user } = await supabase
+    const { data: user, error: lookupError } = await supabase
       .from("users")
-      .select("id, email, email_verified")
+      .select("id, email, email_verified, preferred_language")
       .eq("email", email)
       .maybeSingle();
+
+    if (lookupError) {
+      logError("email-verify.event_002");
+      throw httpError(503, "Сервис подтверждения email временно недоступен — попробуйте позже");
+    }
 
     // Троттлинг работает и для анонимного режима: чаще раза в 5 минут письмо не уходит
     if (user && user.email_verified !== true && (await canResend(user.id))) {
@@ -229,44 +196,21 @@ async function resendVerification(rawEmail, userIdFromToken) {
 // Ошибки одинаково неинформативны — просроченный, использованный и выдуманный
 // токены для клиента неразличимы.
 async function applyVerification(rawToken) {
-  if (!rawToken || typeof rawToken !== "string") {
+  if (!rawToken || typeof rawToken !== "string" || rawToken.length > 512) {
     throw httpError(422, "Ссылка недействительна");
   }
 
-  const { data: row } = await supabase
-    .from("auth_tokens")
-    .select("id, user_id, expires_at, used_at")
-    .eq("token_hash", sha256(rawToken))
-    .eq("purpose", PURPOSE)
-    .maybeSingle();
-
-  if (!row || new Date(row.expires_at) < new Date()) {
+  // Atomic DB function locks the user and token, then updates both in one transaction.
+  const { data, error } = await supabase.rpc("consume_email_verification_token", {
+    p_token_hash: sha256(rawToken),
+  });
+  if (error) {
+    logError("email-verify.event_001");
+    throw httpError(500, "Не удалось подтвердить email — попробуйте позже");
+  }
+  if (data !== true) {
     throw httpError(422, "Ссылка недействительна или устарела — запросите новое письмо");
   }
-
-  if (row.used_at) {
-    // Ссылку уже открывали (например, сканер почты префетчит ссылки раньше человека).
-    // Если email уже подтверждён — считаем успехом, чтобы человек не видел ошибку.
-    const { data: u } = await supabase
-      .from("users")
-      .select("email_verified")
-      .eq("id", row.user_id)
-      .maybeSingle();
-    if (u && u.email_verified === true) return { ok: true, already: true };
-    throw httpError(422, "Ссылка недействительна или устарела — запросите новое письмо");
-  }
-
-  const { error: updErr } = await supabase
-    .from("users")
-    .update({ email_verified: true })
-    .eq("id", row.user_id);
-  if (updErr) {
-    console.error("[email-verify] не удалось обновить users:", updErr.message);
-    throw httpError(500, "Не удалось подтвердить email — попробуйте позже (проверьте, что миграция 005 применена)");
-  }
-
-  await supabase.from("auth_tokens").update({ used_at: new Date().toISOString() }).eq("id", row.id);
-  console.log(`[email-verify] email подтверждён (user ${row.user_id})`);
   return { ok: true };
 }
 

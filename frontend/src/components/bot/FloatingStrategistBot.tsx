@@ -1,21 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  MessageSquare,
   X,
-  Minimize2,
-  Sparkles,
   Bot,
   Send,
   RotateCcw,
-  Clock,
   ArrowRight,
-  TrendingUp,
   AlertCircle,
   HelpCircle,
-  BarChart2,
-  CheckCircle2,
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
+import { getDemoNavigationTarget } from '../../utils/demoNavigation';
 
 interface Message {
   id: string;
@@ -32,14 +26,23 @@ interface FloatingStrategistBotProps {
   onNavigateTab: (tab: string) => void;
   isOpen?: boolean;
   onToggleOpen?: () => void;
+  /** Live account numbers; the assistant reports these instead of canned copy. */
+  account?: {
+    credits?: number;
+    planLabel?: string;
+    boardsCount?: number;
+    scheduledCount?: number;
+    pendingCount?: number;
+  };
 }
 
 export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
   onNavigateTab,
   isOpen: controlledIsOpen,
   onToggleOpen,
+  account,
 }) => {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [internalIsOpen, setInternalIsOpen] = useState<boolean>(false);
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
   const setIsOpen = (open: boolean) => {
@@ -51,7 +54,6 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
   };
 
   const [inputMessage, setInputMessage] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
   const [hasUnread, setHasUnread] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -60,7 +62,7 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
       id: 'msg-welcome',
       sender: 'bot',
       text: t.bot.welcomeMessage,
-      timestamp: 'Только что',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ];
 
@@ -72,52 +74,50 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       setHasUnread(false);
     }
-  }, [isOpen, messages, isTyping]);
+  }, [isOpen, messages]);
 
   const quickQuestions = [
-    { q: t.bot.quickQuestion1, a: t.bot.quickAnswer1, actionTab: 'analytics' },
-    { q: t.bot.quickQuestion2, a: t.bot.quickAnswer2, actionTab: 'calendar' },
-    { q: t.bot.quickQuestion3, a: t.bot.quickAnswer3, actionTab: 'generator' },
-    { q: t.bot.quickQuestion4, a: t.bot.quickAnswer4, actionTab: 'boards' },
-    { q: t.bot.quickQuestion5, a: t.bot.quickAnswer5, actionTab: 'keywords' },
+    { q: t.bot.quickQuestion1, actionTab: 'analytics' },
+    { q: t.bot.quickQuestion2, actionTab: 'calendar' },
+    { q: t.bot.quickQuestion3, actionTab: 'generator' },
+    { q: t.bot.quickQuestion4, actionTab: 'boards' },
+    { q: t.bot.quickQuestion5, actionTab: 'keywords' },
   ];
 
-  const handleSelectQuickQuestion = (question: string, answer: string, actionTab?: string) => {
-    const userMsg: Message = {
-      id: `usr-${Date.now()}`,
-      sender: 'user',
-      text: question,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
+  // Everything the assistant says is derived from state the app already holds.
+  // It never claims to see Pinterest analytics, because the app cannot.
+  const buildAccountSummary = (): string => {
+    if (!account) return t.bot.demoReply;
+    const parts: string[] = [];
+    if (typeof account.credits === 'number') parts.push(`${t.bot.ctxCredits}: ${account.credits}`);
+    if (account.planLabel) parts.push(`${t.bot.ctxPlan}: ${account.planLabel}`);
+    if (typeof account.boardsCount === 'number') parts.push(`${t.bot.ctxBoards}: ${account.boardsCount}`);
+    if (typeof account.scheduledCount === 'number') parts.push(`${t.bot.ctxQueue}: ${account.scheduledCount}`);
+    if (typeof account.pendingCount === 'number' && account.pendingCount > 0) {
+      parts.push(`${t.bot.ctxPending}: ${account.pendingCount}`);
+    }
+    if (parts.length === 0) return t.bot.demoReply;
+    return `${parts.join(' · ')}`;
+  };
 
-    setMessages((prev) => [...prev, userMsg]);
-    setIsTyping(true);
-
-    setTimeout(() => {
-      setIsTyping(false);
-      const botMsg: Message = {
-        id: `bot-${Date.now()}`,
+  const handleSelectQuickQuestion = (question: string, actionTab?: string) => {
+    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setMessages((prev) => [
+      ...prev,
+      { id: `usr-${Date.now()}`, sender: 'user', text: question, timestamp },
+      {
+        id: `bot-${Date.now()}-notice`,
         sender: 'bot',
-        text: answer,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        text: buildAccountSummary(),
+        timestamp,
         action: actionTab
           ? {
-              label:
-                actionTab === 'analytics'
-                  ? 'Перейти в раздел «Аналитика»'
-                  : actionTab === 'calendar'
-                  ? 'Открыть Smart Schedule'
-                  : actionTab === 'generator'
-                  ? 'Сгенерировать новые пины'
-                  : actionTab === 'boards'
-                  ? 'Управление досками'
-                  : 'Исследовать ключевые слова',
+              label: t.bot.openSection,
               tab: actionTab,
             }
           : undefined,
-      };
-      setMessages((prev) => [...prev, botMsg]);
-    }, 700);
+      },
+    ]);
   };
 
   const handleSendMessage = (e?: React.FormEvent) => {
@@ -125,69 +125,22 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
     const query = inputMessage.trim();
     if (!query) return;
 
-    const userMsg: Message = {
-      id: `usr-${Date.now()}`,
-      sender: 'user',
-      text: query,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
+    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const targetTab = getDemoNavigationTarget(query, language);
 
-    setMessages((prev) => [...prev, userMsg]);
-    setInputMessage('');
-    setIsTyping(true);
-
-    // Context-grounded intelligent answer generation
-    setTimeout(() => {
-      setIsTyping(false);
-      let reply = '';
-      let targetTab: string | undefined = undefined;
-      const lower = query.toLowerCase();
-
-      if (lower.includes('доск') || lower.includes('board') || lower.includes('seo')) {
-        reply =
-          'На основе аудита вашего аккаунта @botanika_nordic: доска «Скандинавский интерьер» имеет наивысший SEO-потенциал (94%), а на доске «Идеи подарков» не хватает свежих пинов (пауза 6 дней). Рекомендую добавить 4 пина в очередь для восстановления темпа показов!';
-        targetTab = 'boards';
-      } else if (lower.includes('время') || lower.includes('час') || lower.includes('когда') || lower.includes('time') || lower.includes('schedule')) {
-        reply =
-          'Ваша аудитория наиболее активна с 18:00 до 21:30 UTC по будням и с 14:00 по воскресеньям. Все эти интервалы отмечены в календаре как «Оптимальные слоты». Публикуйте по 5-8 пинов ежедневно с интервалом не менее 2 часов.';
-        targetTab = 'calendar';
-      } else if (lower.includes('генерац') || lower.includes('пин') || lower.includes('созда') || lower.includes('generate')) {
-        reply =
-          'Генератор готов к работе! Сейчас в тренде вирусный формат 9:16 со стилем «Glassmorphism» и акцентной типографикой. Вы можете запустить пакетную генерацию сразу от 1 до 25 пинов.';
-        targetTab = 'generator';
-      } else if (lower.includes('конкурент') || lower.includes('competitor')) {
-        reply =
-          'Мы отслеживаем конкурентов в вашей нише и только что добавили блок «Рекомендованные похожие конкуренты». Алгоритм нашел 4 растущих профиля со схожей аудиторией, вы можете изучить их профили и добавить в 1 клик!';
-        targetTab = 'competitors';
-      } else if (lower.includes('нагрузк') || lower.includes('очеред') || lower.includes('задержк') || lower.includes('долго') || lower.includes('sla')) {
-        reply =
-          'Согласно регламенту сервиса: в периоды пиковых нагрузок генерация пакетов пинов может занимать до 24–48 часов в Smart Queue. При этом аналитика, чат-стратег и планировщик работают без задержек. Как только ваш пакет будет готов, колокольчик в шапке покажет уведомление!';
-      } else {
-        reply =
-          'Отличный стратегический вопрос! По текущей динамике аккаунта @botanika_nordic ваш охват вырос на +24.8% за месяц, а Save Rate составляет 4.8% (выше среднерыночного 2.8%). Для максимального масштабирования рекомендую протестировать соотношение 9:16 и усилить ключевые фразы в заголовках.';
-      }
-
-      const botMsg: Message = {
-        id: `bot-${Date.now()}`,
+    const messageId = Date.now();
+    setMessages((prev) => [
+      ...prev,
+      { id: `usr-${messageId}`, sender: 'user', text: query, timestamp },
+      {
+        id: `bot-${messageId}`,
         sender: 'bot',
-        text: reply,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        action: targetTab
-          ? {
-              label:
-                targetTab === 'generator'
-                  ? 'Перейти в генератор'
-                  : targetTab === 'calendar'
-                  ? 'Открыть календарь'
-                  : targetTab === 'boards'
-                  ? 'Открыть доски'
-                  : 'Открыть анализ конкурентов',
-              tab: targetTab,
-            }
-          : undefined,
-      };
-      setMessages((prev) => [...prev, botMsg]);
-    }, 900);
+        text: targetTab ? `${buildAccountSummary()}` : t.bot.demoReply,
+        timestamp,
+        action: targetTab ? { label: t.bot.openSection, tab: targetTab } : undefined,
+      },
+    ]);
+    setInputMessage('');
   };
 
   const handleResetChat = () => {
@@ -210,7 +163,7 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
                 setIsDocked(true);
               }}
               className="hidden group-hover:flex sm:flex mr-1 p-1 rounded-full bg-surface border border-subtle text-muted-theme hover:text-primary-theme transition-all shadow-xs cursor-pointer opacity-70 hover:opacity-100"
-              title="Припарковать бота к краю экрана"
+              title={t.bot.dock}
             >
               <ArrowRight className="w-3 h-3" />
             </button>
@@ -224,9 +177,8 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
             >
               <Bot className="w-5 h-5 sm:w-6 sm:h-6 text-inherit drop-shadow-xs" />
 
-              {/* Online Green Pulsing Indicator */}
-              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-surface animate-ping" />
-              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-surface shadow-xs" />
+              {/* Amber indicator: this is a demo, not a live AI connection. */}
+              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-amber-500 rounded-full border-2 border-surface shadow-xs" />
 
               {/* Unread Indicator Badge */}
               {hasUnread && (
@@ -241,7 +193,7 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
               <span className="text-xs font-bold text-primary-theme font-heading">
                 {t.bot.title}
               </span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
             </div>
           </div>
         )}
@@ -252,7 +204,7 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
             type="button"
             onClick={() => setIsDocked(false)}
             className="flex items-center gap-1.5 py-2 px-3 rounded-l-2xl accent-btn text-xs font-semibold shadow-lg hover:scale-105 active:scale-95 transition-all cursor-pointer border-l-2 border-t border-b border-subtle"
-            title="Развернуть ИИ-стратега"
+            title={t.bot.undock}
           >
             <Bot className="w-3.5 h-3.5 text-inherit" />
             <span className="hidden sm:inline">ИИ-Стратег</span>
@@ -268,7 +220,7 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
             <div className="flex items-center gap-3 min-w-0">
               <div className="relative w-9 h-9 rounded-xl accent-btn flex items-center justify-center shrink-0 shadow-xs">
                 <Bot className="w-4 h-4 text-inherit" />
-                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-surface" />
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-amber-500 rounded-full border-2 border-surface" />
               </div>
               <div className="min-w-0">
                 <h3 className="text-sm font-bold text-primary-theme font-heading truncate leading-tight">
@@ -277,6 +229,9 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
                 <p className="text-[11px] text-muted-theme truncate leading-tight">
                   {t.bot.subtitle}
                 </p>
+                <span className="inline-flex mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                  {t.bot.statusBadge}
+                </span>
               </div>
             </div>
 
@@ -347,15 +302,6 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
               </div>
             ))}
 
-            {/* Typing Indicator */}
-            {isTyping && (
-              <div className="flex items-center gap-1.5 p-3 rounded-2xl bg-surface border border-subtle w-24 text-secondary-theme">
-                <span className="w-2 h-2 rounded-full bg-accent animate-bounce" />
-                <span className="w-2 h-2 rounded-full bg-accent animate-bounce [animation-delay:0.2s]" />
-                <span className="w-2 h-2 rounded-full bg-accent animate-bounce [animation-delay:0.4s]" />
-              </div>
-            )}
-
             <div ref={messagesEndRef} />
           </div>
 
@@ -371,7 +317,7 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
                 <button
                   key={idx}
                   type="button"
-                  onClick={() => handleSelectQuickQuestion(item.q, item.a, item.actionTab)}
+                  onClick={() => handleSelectQuickQuestion(item.q, item.actionTab)}
                   className="shrink-0 text-[11px] px-2.5 py-1 rounded-lg border border-subtle bg-subtle hover:border-strong text-primary-theme transition-all cursor-pointer whitespace-nowrap active:scale-95"
                 >
                   {item.q}
