@@ -26,3 +26,10 @@ export function isDefinitiveGenerationFailure(error: unknown): boolean {
   const code = (data as { code?: unknown }).code;
   return code === 'generation_request_failed' || code === 'generation_insufficient_credits';
 }
+/** The generation endpoint uses HTTP 409 when the same durable request is still running. */
+export function isGenerationInProgress(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const data = (error as { data?: unknown }).data;
+  if (!data || typeof data !== 'object') return false;
+  return (data as { code?: unknown }).code === 'generation_in_progress';
+}
