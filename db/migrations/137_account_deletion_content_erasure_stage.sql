@@ -4,6 +4,60 @@
 begin;
 
 alter table public.account_deletion_jobs
+  add column if not exists storage_manifest_recorded_at timestamptz;
+
+create or replace function public.mark_account_deletion_storage_manifest(
+  p_job_id uuid,
+  p_claim_token uuid
+) returns boolean
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $function$
+declare
+  v_user_id uuid;
+  v_request_id uuid;
+  v_account_status text;
+  v_request_state text;
+  v_job public.account_deletion_jobs%rowtype;
+begin
+  select r.user_id,r.id into v_user_id,v_request_id
+    from public.account_deletion_jobs j
+    join public.account_deletion_requests r on r.id=j.request_id
+   where j.id=p_job_id;
+  if not found then return false; end if;
+
+  select account_status into v_account_status
+    from public.users where id=v_user_id for update;
+  if not found or v_account_status <> 'deletion_pending' then return false; end if;
+
+  select state into v_request_state
+    from public.account_deletion_requests where id=v_request_id for update;
+  if not found or v_request_state <> 'pending' then return false; end if;
+
+  select * into v_job from public.account_deletion_jobs
+   where id=p_job_id for update;
+  if not found or v_job.step_key <> 'preflight' or v_job.status <> 'running'
+     or v_job.claim_token is distinct from p_claim_token
+     or v_job.lease_expires_at <= clock_timestamp()
+     or v_job.inventory_recorded_at is null then
+    return false;
+  end if;
+
+  update public.account_deletion_jobs
+     set storage_manifest_recorded_at=clock_timestamp(),
+         updated_at=clock_timestamp()
+   where id=p_job_id;
+  return true;
+end;
+$function$;
+
+revoke all on function public.mark_account_deletion_storage_manifest(uuid,uuid)
+  from public,anon,authenticated,service_role;
+grant execute on function public.mark_account_deletion_storage_manifest(uuid,uuid)
+  to service_role;
+
+alter table public.account_deletion_jobs
   drop constraint if exists account_deletion_jobs_step_key_check;
 alter table public.account_deletion_jobs
   add constraint account_deletion_jobs_step_key_check
@@ -242,8 +296,10 @@ begin
    where id=p_job_id for update;
   if not found or v_job.step_key <> 'erase_content' or v_job.status <> 'running'
      or v_job.claim_token is distinct from p_claim_token
-     or v_job.lease_expires_at <= clock_timestamp() then
-    return jsonb_build_object('erased',false,'reason','claim_lost');
+     or v_job.lease_expires_at <= clock_timestamp()
+     or v_job.inventory_recorded_at is null
+     or v_job.storage_manifest_recorded_at is null then
+    return jsonb_build_object('erased',false,'reason','claim_or_manifest_lost');
   end if;
 
   select status into v_preflight_status
