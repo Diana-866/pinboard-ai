@@ -1785,14 +1785,24 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
 // только после успешного ответа Pinterest от отдельного worker.
 app.get("/schedule", requireAuth, async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from("pin_schedules")
-      .select("*, pins(id, board_id, title, description, image_url, status, boards(id, title))")
-      .eq("user_id", String(req.userId))
-      .order("scheduled_at", { ascending: true });
-    if (error) throw error;
+    // PostgREST applies a per-request row cap. Page through the complete
+    // user's schedule so older/future publications are never silently omitted.
+    const pageSize = 500;
+    const rows = [];
+    for (let offset = 0; ; offset += pageSize) {
+      const { data: page, error } = await supabase
+        .from("pin_schedules")
+        .select("*, pins(id, board_id, title, description, image_url, status, boards(id, title))")
+        .eq("user_id", String(req.userId))
+        .order("scheduled_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(offset, offset + pageSize - 1);
+      if (error) throw error;
+      const batch = page || [];
+      rows.push(...batch);
+      if (batch.length < pageSize) break;
+    }
 
-    const rows = data || [];
     const failedRows = rows.filter((row) => row.status === "failed");
     if (!failedRows.length) {
       return res.json(rows.map((row) => sanitizeScheduleForClient({ ...row, retryable: false, retry_reason: null, failure_reason: null })));
@@ -1800,26 +1810,36 @@ app.get("/schedule", requireAuth, async (req, res) => {
 
     const pinIds = [...new Set(failedRows.map((row) => String(row.pin_id)))];
     const accountIds = [...new Set(failedRows.map((row) => row.pinterest_account_id).filter(Boolean).map(String))];
-    const [attemptsResult, publicationsResult, accountsResult] = await Promise.all([
-      supabase.from("pinterest_publish_attempts")
-        .select("user_id, pin_id, pinterest_account_id, pinterest_board_id, status, retry_safe")
-        .eq("user_id", String(req.userId))
-        .in("pin_id", pinIds),
-      supabase.from("pinterest_publications")
-        .select("user_id, pin_id, pinterest_account_id")
-        .eq("user_id", String(req.userId))
-        .in("pin_id", pinIds),
-      accountIds.length
-        ? supabase.from("pinterest_accounts")
-            .select("id")
-            .eq("user_id", String(req.userId))
-            .is("disconnected_at", null)
-            .not("access_token", "is", null)
-            .in("id", accountIds)
-        : Promise.resolve({ data: [], error: null }),
+    // Keep .in() filters bounded as a user's schedule grows; large PostgREST
+    // query strings can otherwise fail even though the schedule itself loaded.
+    const chunksOf = (values, size = 200) =>
+      Array.from({ length: Math.ceil(values.length / size) }, (_, index) =>
+        values.slice(index * size, (index + 1) * size)
+      );
+    const [attemptsResults, publicationsResults, accountsResults] = await Promise.all([
+      Promise.all(chunksOf(pinIds).map((ids) =>
+        supabase.from("pinterest_publish_attempts")
+          .select("user_id, pin_id, pinterest_account_id, pinterest_board_id, status, retry_safe")
+          .eq("user_id", String(req.userId))
+          .in("pin_id", ids)
+      )),
+      Promise.all(chunksOf(pinIds).map((ids) =>
+        supabase.from("pinterest_publications")
+          .select("user_id, pin_id, pinterest_account_id")
+          .eq("user_id", String(req.userId))
+          .in("pin_id", ids)
+      )),
+      Promise.all(chunksOf(accountIds).map((ids) =>
+        supabase.from("pinterest_accounts")
+          .select("id")
+          .eq("user_id", String(req.userId))
+          .is("disconnected_at", null)
+          .not("access_token", "is", null)
+          .in("id", ids)
+      )),
     ]);
-
-    const metadataError = attemptsResult.error || publicationsResult.error || accountsResult.error;
+    const metadataResults = [...attemptsResults, ...publicationsResults, ...accountsResults];
+    const metadataError = metadataResults.find((result) => result.error)?.error;
     if (metadataError) {
       logError("index.event_006");
       return res.json(rows.map((row) => row.status === "failed"
@@ -1827,9 +1847,9 @@ app.get("/schedule", requireAuth, async (req, res) => {
         : sanitizeScheduleForClient({ ...row, retryable: false, retry_reason: null, failure_reason: null })));
     }
 
-    const attempts = attemptsResult.data || [];
-    const publications = publicationsResult.data || [];
-    const activeAccountIds = new Set((accountsResult.data || []).map((account) => String(account.id)));
+    const attempts = attemptsResults.flatMap((result) => result.data || []);
+    const publications = publicationsResults.flatMap((result) => result.data || []);
+    const activeAccountIds = new Set(accountsResults.flatMap((result) => result.data || []).map((account) => String(account.id)));
     const activeScheduleStatuses = new Set(["scheduled", "publishing", "published", "unknown"]);
     const enriched = rows.map((row) => {
       if (row.status !== "failed") return sanitizeScheduleForClient({ ...row, retryable: false, retry_reason: null, failure_reason: null });
