@@ -32,12 +32,32 @@ function getNextPollDelayMs(consecutiveFailures, baseIntervalMs = POLL_INTERVAL_
 
 function getSafeWorkerErrorDetails(error) {
   const details = {};
-  if (error && typeof error.name === "string") details.error_name = error.name.slice(0, 40);
-  if (error && typeof error.code === "string" && /^[A-Z0-9_]{1,40}$/.test(error.code)) {
-    details.error_code = error.code;
+  // Error objects can be supplied by HTTP clients and adapters. Read each
+  // diagnostic defensively: a hostile getter must not break the retry loop.
+  try {
+    const name = error && error.name;
+    if (typeof name === "string" && /^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(name)) {
+      details.error_name = name;
+    }
+  } catch {
+    // Omit unreadable diagnostic fields.
   }
-  const status = Number(error && error.response && error.response.status);
-  if (Number.isInteger(status) && status >= 100 && status <= 599) details.http_status = status;
+  try {
+    const code = error && error.code;
+    if (typeof code === "string" && /^[A-Z0-9_]{1,40}$/.test(code)) {
+      details.error_code = code;
+    }
+  } catch {
+    // Omit unreadable diagnostic fields.
+  }
+  try {
+    const status = error && error.response && error.response.status;
+    if (Number.isInteger(status) && status >= 100 && status <= 599) {
+      details.http_status = status;
+    }
+  } catch {
+    // Omit unreadable diagnostic fields.
+  }
   return details;
 }
 
