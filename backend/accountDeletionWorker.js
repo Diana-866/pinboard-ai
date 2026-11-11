@@ -260,6 +260,7 @@ function createAccountDeletionWorker({
               bucket: object.bucket_id,
               objectPath: object.object_path,
             });
+            ensureLease();
             // A false result can mean either a live reference blocked deletion
             // or that a previous attempt already completed the lifecycle delete.
             // Ask the fenced DB RPC in both cases: it marks the manifest only when
