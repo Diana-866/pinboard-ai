@@ -1526,7 +1526,7 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
           p_provider_request_id: result.requestId || null,
           p_provider_model: result.model || "unknown",
           p_usage: result.usage || {},
-          p_total_cost_rub: result.costCurrency === "RUB" ? result.usage?.totalCost : null,
+          p_total_cost_rub: result.costCurrency === "RUB" && Number.isFinite(result.usage?.totalCost) && result.usage.totalCost >= 0 ? result.usage.totalCost : null,
         });
         if (error) {
           const journalError = new Error("Не удалось сохранить стоимость текстовой генерации с некорректным планом");
@@ -1543,7 +1543,7 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
           p_provider_request_id: result.requestId || null,
           p_provider_model: result.model || "unknown",
           p_usage: result.usage || {},
-          p_total_cost_rub: result.costCurrency === "RUB" ? result.usage?.totalCost : null,
+          p_total_cost_rub: result.costCurrency === "RUB" && Number.isFinite(result.usage?.totalCost) && result.usage.totalCost >= 0 ? result.usage.totalCost : null,
           p_tasks: tasks,
         });
         if (error) {
