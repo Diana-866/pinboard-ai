@@ -33,6 +33,7 @@ import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
 import { requireGeneratedPinsArray } from '../../utils/generatedPinsResponse';
 import { isCurrentBillingOwner } from '../../utils/billingOwner';
 import { rollbackPinAspectRatioIfUnchanged } from '../../utils/pinAspectRatio';
+import { resolvePinterestDestination } from '../../utils/pinterestDestination';
 import {
   rememberPinTitleSelection,
   resolvePinTitleSelection,
@@ -762,8 +763,14 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
           return;
         }
       }
-      if (!selectedPinterestBoardId) {
-        window.alert('Сначала подключите Pinterest и выберите доску назначения. Без неё публикацию нельзя добавить в расписание.');
+      const pinterestDestination = resolvePinterestDestination(
+        pinterestAccounts,
+        pinterestBoards,
+        selectedPinterestAccountId,
+        selectedPinterestBoardId,
+      );
+      if (!pinterestDestination) {
+        window.alert('Доска назначения больше не связана с выбранным Pinterest-аккаунтом. Дождитесь загрузки досок и выберите доску заново.');
         return;
       }
   
@@ -829,8 +836,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         title: scheduledTitle,
         boardId: board.id,
         boardName: board.name,
-        pinterestBoardId: selectedPinterestBoardId || undefined,
-        pinterestAccountId: selectedPinterestAccountId || undefined,
+        pinterestBoardId: pinterestDestination.boardId,
+        pinterestAccountId: pinterestDestination.accountId,
         imageUrl: currentPin.imageUrl,
         scheduledDate,
         scheduledTime,
