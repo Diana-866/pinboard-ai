@@ -18,6 +18,7 @@ const legacyMarker = "LEGACY / NOT PART OF THE CANONICAL INSTALL";
 test("historical 002-008 SQL files are visibly excluded from clean installs", () => {
   for (const file of legacyFiles) {
     const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
+    assert.match(sql, /;\\s*commit;\\s*$/i, `${file} must end at COMMIT with no trailing SQL`);
     assert.ok(sql.includes(legacyMarker), `${file} must be marked legacy`);
   }
 });
