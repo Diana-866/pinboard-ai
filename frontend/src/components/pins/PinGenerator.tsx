@@ -23,7 +23,7 @@ import { useNotifications } from '../../context/NotificationContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { addCalendarDaysInTimezone, formatInstantInTimezone, getDefaultTimezone, resolveScheduleSlotTime } from '../../utils/timezone';
-import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure } from '../../utils/generationRetry';
+import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure, isGenerationInProgress } from '../../utils/generationRetry';
 import { clearPendingPinDescriptionIfMatches, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
 import { enqueuePinSave } from '../../utils/pendingPinSaveQueue';
 import { isCurrentPinDescriptionSave } from '../../utils/pinDescriptionSaveGuard';
@@ -592,6 +592,15 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       if (isDefinitiveGenerationFailure(err)) {
         generationKeyRef.current = createGenerationIdempotencyKey();
         if (requestFingerprint) writePendingGenerationRequest(requestFingerprint, generationKeyRef.current);
+      }
+      if (isGenerationInProgress(err)) {
+        // The backend uses 409 for an already-running idempotent request.
+        // Keep the exact same key and surface the recovery panel, never retry as new work.
+        setRecoveryCheckAttempt((attempt) => attempt + 1);
+        window.alert(language === 'ru'
+          ? 'Эта генерация ещё выполняется. Запрос сохранён — не запускайте её повторно. Статус появится в блоке восстановления.'
+          : 'This generation is still running. Your request is saved — do not start it again. Its status will appear in the recovery panel.');
+        return;
       }
       console.error('Error generating pins:', err);
       window.alert(err instanceof Error ? err.message : t.generator.errorGeneratePins);
