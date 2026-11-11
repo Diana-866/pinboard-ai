@@ -120,7 +120,7 @@ Worker обращается к закрытому endpoint `POST /internal/pinte
 - `ACCOUNT_DELETION_WORKER_ENABLED`: только точная строка `true` включает worker и открывает endpoint запроса удаления. При выключенном worker endpoint отвечает `503 account_deletion_unavailable`, не создавая заявку, которую некому обработать.
 - `ACCOUNT_DELETION_WORKER_INTERVAL_MS`: интервал опроса очереди в миллисекундах; по умолчанию 30000, минимум 5000.
 
-Worker использует durable queue, lease/fencing и повторную обработку после перезапуска. Не запускайте одновременно отдельный процесс `npm run worker:account-deletion` и web backend с включённым флагом без осознанной настройки: встроенный worker уже активен в web-процессе. Перед production включением обязательно проверить полный сценарий на отдельной staging-БД и Storage.
+Worker использует durable queue, lease/fencing и повторную обработку после перезапуска. Отдельный запуск `npm run worker:account-deletion` также требует `ACCOUNT_DELETION_WORKER_ENABLED=true` и защищён тем же gate. Не запускайте отдельный процесс одновременно с web backend с включённым флагом без осознанной настройки: встроенный worker уже активен в web-процессе. Перед production включением обязательно проверить полный сценарий на отдельной staging-БД и Storage.
 
 ## Документы
 
