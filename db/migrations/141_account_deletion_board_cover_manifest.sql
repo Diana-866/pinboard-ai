@@ -26,8 +26,8 @@ begin
   if p_supabase_url is null
      or p_supabase_url !~ '^(https://[^/]+/?|http://(localhost|127\.0\.0\.1)(:[0-9]+)?/?)$' then
     raise exception 'invalid configured Supabase project URL';
+  end if;
   select r.user_id, r.id into v_user_id, v_request_id
-    from public.account_deletion_jobs j
     from public.account_deletion_jobs j
     join public.account_deletion_requests r on r.id = j.request_id
    where j.id = p_job_id;
