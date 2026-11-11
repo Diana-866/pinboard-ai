@@ -347,3 +347,29 @@ test("worker removes only manifested Storage objects and confirms lifecycle comp
   assert.equal(calls.some((call) => call.name === "mark_account_deletion_storage_object_deleted"), true);
 });
 
+
+test("worker finalizes only through the fenced tombstone RPC", async () => {
+  const calls = [];
+  const client = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_account_deletion_jobs") {
+        return { data: [{
+          job_id: "job-finalize",
+          user_id: USER_ID,
+          step_key: "finalize",
+          claim_token: "claim-finalize",
+        }], error: null };
+      }
+      if (name === "finalize_account_deletion") return { data: true, error: null };
+      throw new Error("unexpected RPC: " + name);
+    },
+  };
+  const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} } });
+  const result = await worker.tick();
+  assert.deepEqual(result, { claimed: 1, completed: 1, retried: 0 });
+  assert.equal(calls[1].name, "finalize_account_deletion");
+  assert.equal(calls[1].args.p_claim_token, "claim-finalize");
+  assert.equal(calls.some((call) => call.name === "finish_account_deletion_job"), false);
+});
+
