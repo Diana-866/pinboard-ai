@@ -880,6 +880,12 @@ const MainApp: React.FC = () => {
               initialTime={prefilledTime}
               initialBoardId={prefilledBoardId}
               onSchedulePin={handleSchedulePin}
+              onAddToReview={(pin) => {
+                handleUpdatePendingPins((previous) => previous.some((item) => item.pinId === pin.pinId)
+                  ? previous
+                  : [...previous, pin]);
+                setActiveTab('review');
+              }}
               onGoToCalendar={() => setActiveTab('calendar')}
             />
           )}
