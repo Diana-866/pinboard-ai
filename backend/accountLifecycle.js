@@ -91,6 +91,17 @@ function pickColumns(row, columns) {
   return out;
 }
 
+const REVIEW_QUEUE_PAYLOAD_COLUMNS = [
+  "id", "title", "description", "boardName", "boardId", "imageUrl", "image_url",
+  "aspectRatio", "reason", "trendMetric", "scheduledTime", "scheduledDate",
+  "destinationUrl", "accountHandle", "accountId", "pinId",
+];
+
+function sanitizeReviewQueuePayload(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return {};
+  return pickColumns(payload, REVIEW_QUEUE_PAYLOAD_COLUMNS);
+}
+
 function requireUserId(userId) {
   if (typeof userId !== "string" || !UUID_RE.test(userId)) {
     throw httpError(422, "Некорректный идентификатор аккаунта");
@@ -212,8 +223,15 @@ async function buildAccountExport(userId, client = defaultSupabase) {
   const pinSchedules = await loadSection("pinSchedules", () =>
     selectRows(client.from("pin_schedules").select(PIN_SCHEDULE_EXPORT_COLUMNS.join(", ")).eq("user_id", id)), degraded);
 
-  const reviewQueue = await loadSection("reviewQueue", () =>
-    selectRows(client.from("pin_review_queue").select(REVIEW_QUEUE_EXPORT_COLUMNS.join(", ")).eq("user_id", id)), degraded);
+  const reviewQueue = await loadSection("reviewQueue", async () => {
+    const rows = await selectRows(
+      client.from("pin_review_queue").select(REVIEW_QUEUE_EXPORT_COLUMNS.join(", ")).eq("user_id", id)
+    );
+    return rows.map((row) => ({
+      ...row,
+      payload: sanitizeReviewQueuePayload(row.payload),
+    }));
+  }, degraded);
 
   return {
     formatVersion: EXPORT_FORMAT_VERSION,
@@ -315,6 +333,7 @@ module.exports = {
   EXPORT_FORMAT_VERSION,
   loadSection,
   pickColumns,
+  sanitizeReviewQueuePayload,
   buildAccountExport,
   requestAccountDeletion,
   mapDeletionRpcError,
