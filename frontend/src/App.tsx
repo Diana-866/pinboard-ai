@@ -576,22 +576,27 @@ const MainApp: React.FC = () => {
   ) => {
     try {
       let saved: any;
+      const expected = {
+        scheduleId: pin.id,
+        statuses: ['scheduled', 'publishing'],
+        pinterestBoardId,
+        pinterestAccountId: String(pin.pinterestAccountId || ''),
+      };
       try {
-        saved = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/change-board`, {
+        const response = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/change-board`, {
           method: 'POST',
           body: JSON.stringify({ pinterest_board_id: pinterestBoardId }),
         });
+        if (!isPersistedScheduleMutationResponse(response, expected)) {
+          throw new Error('Сервер не подтвердил новое состояние публикации.');
+        }
+        saved = response;
       } catch (originalError) {
-        // The RPC may have committed the board change before the HTTP response was lost.
-        // Reconcile only against this exact schedule ID, target board, account and queued state.
+        // A lost or malformed 2xx response is ambiguous. Reconcile only against
+        // this exact schedule, target board, account and queued state.
         try {
           const rows = await apiRequest('/schedule');
-          saved = findPersistedScheduleMutation(rows, {
-            scheduleId: pin.id,
-            statuses: ['scheduled', 'publishing'],
-            pinterestBoardId,
-            pinterestAccountId: String(pin.pinterestAccountId || ''),
-          });
+          saved = findPersistedScheduleMutation(rows, expected);
           if (!saved) throw originalError;
         } catch {
           throw originalError;
