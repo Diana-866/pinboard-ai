@@ -446,7 +446,7 @@ test("worker does not complete account erasure when a Storage object deletion is
         return { data: [{ bucket_id: "pin-images", object_path: "pins/123-0123456789abcdef0123456789abcdef.png" }], error: null };
       }
       if (name === "mark_account_deletion_storage_object_deleted") return { data: true, error: null };
-      if (name === "schedule_account_deletion_job_retry") return { data: true, error: null };
+      if (name === "finish_account_deletion_job") return { data: true, error: null };
       throw new Error("unexpected RPC: " + name);
     },
   };
@@ -458,5 +458,5 @@ test("worker does not complete account erasure when a Storage object deletion is
   const result = await worker.tick();
   assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1 });
   assert.equal(calls.some((call) => call.name === "finish_account_deletion_job"), false);
-  assert.equal(calls.some((call) => call.name === "schedule_account_deletion_job_retry"), true);
+  assert.equal(calls.some((call) => call.name === "finish_account_deletion_job" && call.args.p_outcome === "retry"), true);
 });
