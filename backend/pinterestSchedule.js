@@ -23,9 +23,18 @@ function canRetryScheduleFailure(attempt, attemptLookupError, error) {
   // A fresh preflight/validation rejection takes precedence over an older
   // journal row that was safe to retry. In particular, a deleted Pinterest
   // board must not be retried just because a previous attempt was retry-safe.
-  if (error && error.retryable === false) return false;
+  let retryable;
+  let statusValue;
+  try {
+    retryable = error && error.retryable;
+    statusValue = error && error.httpStatus;
+  } catch {
+    // An unreadable error object cannot establish that a remote publish is safe to repeat.
+    return false;
+  }
+  if (retryable === false) return false;
   if (attempt) return attempt.status === "failed" && attempt.retry_safe === true;
-  const status = Number(error && error.httpStatus);
+  const status = Number(statusValue);
   return !Number.isFinite(status) || status === 0 || status === 502 || status === 503;
 }
 
