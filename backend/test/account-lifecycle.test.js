@@ -145,6 +145,37 @@ test("account export paginates sections beyond the PostgREST default row cap", a
   assert.deepEqual(exported.degradedSections, []);
 });
 
+test("account export chunks large project and board ownership filters", async () => {
+  const projects = Array.from({ length: 205 }, (_, index) => ({
+    id: `project-${String(index + 1).padStart(3, "0")}`, user_id: USER_ID,
+  }));
+  const boards = projects.map((project, index) => ({
+    id: `board-${String(index + 1).padStart(3, "0")}`, project_id: project.id,
+  }));
+  const pins = boards.map((board, index) => ({
+    id: `pin-${String(index + 1).padStart(3, "0")}`, board_id: board.id,
+  }));
+  const db = fakeDb({
+    users: [{ id: USER_ID, email: "user@example.com" }],
+    projects,
+    boards,
+    pins,
+    credit_transactions: [],
+    subscriptions: [],
+    credit_purchases: [],
+    pinterest_accounts: [],
+    pinterest_publications: [],
+    pin_schedules: [],
+    pin_review_queue: [],
+  });
+
+  const exported = await buildAccountExport(USER_ID, db);
+  assert.equal(exported.projects.length, 205);
+  assert.equal(exported.boards.length, 205);
+  assert.equal(exported.pins.length, 205);
+  assert.deepEqual(exported.degradedSections, []);
+});
+
 test("account export reports unreadable sections instead of failing outright", async () => {
   const db = fakeDb({ users: [{ id: USER_ID, email: "user@example.com" }] });
 
