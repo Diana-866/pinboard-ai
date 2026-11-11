@@ -125,6 +125,38 @@ function createAccountDeletionWorker({
 
   async function processJob(job) {
     try {
+      if (job.step_key === "erase_content") {
+        const { data: erasure, error: erasureError } = await client.rpc(
+          "erase_account_deletion_content",
+          { p_job_id: job.job_id, p_claim_token: job.claim_token }
+        );
+        if (erasureError) throw erasureError;
+        if (!erasure || erasure.erased !== true || erasure.financial_records_retained !== true) {
+          const error = new Error("account content erasure was not confirmed");
+          error.code = "content_erasure_unconfirmed";
+          throw error;
+        }
+        const { data: finished, error: finishError } = await client.rpc("finish_account_deletion_job", {
+          p_job_id: job.job_id,
+          p_claim_token: job.claim_token,
+          p_outcome: "succeeded",
+          p_error_code: null,
+        });
+        if (finishError) throw finishError;
+        if (finished !== true) return { status: "claim_lost" };
+        logger.info("account_deletion_worker.content_erasure_completed", {
+          job_id: job.job_id,
+          projects: erasure.projects,
+          schedules: erasure.schedules,
+          publications: erasure.publications,
+        });
+        return { status: "succeeded" };
+      }
+      if (job.step_key !== "preflight") {
+        const error = new Error("unsupported account deletion job step");
+        error.code = "unsupported_deletion_step";
+        throw error;
+      }
       const inventory = await inspectAccountForDeletion(client, job.user_id);
       const { data: inventoryRecorded, error: inventoryError } = await client.rpc("record_account_deletion_preflight", {
         p_job_id: job.job_id,
