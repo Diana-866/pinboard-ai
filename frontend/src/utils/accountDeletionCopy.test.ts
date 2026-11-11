@@ -22,8 +22,10 @@ const forbiddenPromises = [
 test('account deletion confirmation does not promise an unimplemented erasure deadline', () => {
   for (const locale of locales) {
     const source = readFileSync(join(localeDir, `${locale}.ts`), 'utf8');
-    const line = source.split(/\r?\n/).find((entry) => /deleteAccountDone:/.test(entry));
+    const lines = source.split(/\r?\n/);
+    const line = lines.find((entry) => /deleteAccountDone:/.test(entry));
     assert.ok(line, `missing deleteAccountDone translation for ${locale}`);
+    assert.ok(lines.some((entry) => /deleteAccountUnavailable:/.test(entry)), `missing deleteAccountUnavailable translation for ${locale}`);
     for (const pattern of forbiddenPromises) {
       assert.doesNotMatch(line, pattern, `${locale} contains an unsupported deletion deadline`);
     }
