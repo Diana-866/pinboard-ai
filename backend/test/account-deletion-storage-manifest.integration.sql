@@ -124,7 +124,7 @@ begin
   end if;
 
   -- Re-running the same leased operation is idempotent.
-  v_result := public.materialize_account_deletion_storage_manifest(v_job,v_claim);
+  v_result := public.materialize_account_deletion_storage_manifest(v_job,v_claim,'https://project.supabase.co');
   if v_result->>'recorded' <> 'true' or (v_result->>'inserted')::integer <> 0
      or (v_result->>'total')::integer <> 4 then
     raise exception 'Storage manifest retry was not idempotent: %',v_result;
