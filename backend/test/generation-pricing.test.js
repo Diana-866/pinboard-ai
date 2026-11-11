@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { calculateGenerationReservation, calculateQuotedGenerationPricing } = require("../generationPricing");
+const { calculateGenerationReservation, calculateQuotedGenerationPricing, ceilCredits } = require("../generationPricing");
 
 test("reservation rounds each image independently like settlement", () => {
   assert.equal(calculateGenerationReservation(0.6, 6, 1.5), 6);
@@ -64,4 +64,23 @@ test("quoted pricing rejects invalid quote currency, price, count and markup", (
   assert.throws(() => calculateQuotedGenerationPricing([], 1.5), /quotes/);
   assert.throws(() => calculateQuotedGenerationPricing(Array(11).fill({ price: 1, currency: "RUB" }), 1.5), /quotes/);
   assert.throws(() => calculateQuotedGenerationPricing([{ price: 1, currency: "RUB" }], 0.9), /markup/);
+});
+
+test("float noise in a marked-up product never charges an extra credit", () => {
+  // 50 * 1.1 === 55.00000000000001 in IEEE 754; the customer owes 55, not 56.
+  assert.equal(ceilCredits(50 * 1.1), 55);
+  assert.equal(ceilCredits(0.1 * 3), 1);
+  assert.equal(ceilCredits(1.15 * 100), 115);
+  assert.equal(ceilCredits(2.25 * 2), 5);
+  // A genuine fraction still rounds up.
+  assert.equal(ceilCredits(55.4), 56);
+  assert.equal(ceilCredits(55.0000004), 56);
+  assert.equal(ceilCredits(0.000001), 1);
+
+  const pricing = calculateQuotedGenerationPricing([
+    { price: 50, currency: "RUB" },
+    { price: 50, currency: "RUB" },
+  ], 1.1);
+  assert.equal(pricing.totalUserCredits, 110);
+  assert.equal(calculateGenerationReservation(50, 2, 1.1), 110);
 });

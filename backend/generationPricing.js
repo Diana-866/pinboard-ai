@@ -1,6 +1,22 @@
 "use strict";
 
 /**
+ * Round a marked-up price up to whole user credits.
+ *
+ * `Math.ceil` on a float product overcharges by one credit whenever the true
+ * result is an integer: 50 * 1.1 === 55.00000000000001 → 56. Credit amounts are
+ * money, so the product is normalized to nine-decimal precision first (well below
+ * any real charge), which
+ * still rounds any genuine fraction (55.4 → 56) up but keeps exact integers
+ * exact.
+ */
+function ceilCredits(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return amount;
+  return Math.ceil(Number(amount.toFixed(9)));
+}
+
+/**
  * Reserve at least the configured per-image retail ceiling for every image.
  * Settlement rounds each image independently, so rounding only the aggregate
  * request estimate can under-reserve when count > 1.
@@ -12,7 +28,7 @@ function calculateGenerationReservation(modelUnitPrice, count, markup) {
   if (!Number.isFinite(price) || price <= 0) throw new TypeError("model unit price must be positive");
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10) throw new TypeError("count must be an integer from 1 to 10");
   if (!Number.isFinite(multiplier) || multiplier < 1) throw new TypeError("markup must be at least 1");
-  return Math.ceil(price * multiplier) * quantity;
+  return ceilCredits(price * multiplier) * quantity;
 }
 
 /**
@@ -35,7 +51,7 @@ function calculateQuotedGenerationPricing(quotes, markup) {
     }
     return {
       providerPriceRub: quote.price,
-      userCredits: Math.ceil(quote.price * multiplier),
+      userCredits: ceilCredits(quote.price * multiplier),
     };
   });
   return {
@@ -45,4 +61,4 @@ function calculateQuotedGenerationPricing(quotes, markup) {
   };
 }
 
-module.exports = { calculateGenerationReservation, calculateQuotedGenerationPricing };
+module.exports = { calculateGenerationReservation, calculateQuotedGenerationPricing, ceilCredits };

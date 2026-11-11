@@ -114,6 +114,18 @@ function safeEqual(a, b) {
  * Подпись приходит в заголовке `Sign` (base64 или hex от HMAC-SHA256).
  * Возвращает { ok, reason }.
  */
+/**
+ * Demo payments must not grant real plans or credits.
+ *
+ * `demo_mode` is attached when a payment link is created, so while the backend
+ * itself runs in demo mode every callback it receives belongs to a demo payment
+ * form. Testing that flow locally is legitimate; activating a paid plan from it
+ * on a production deployment is not.
+ */
+function isDemoWebhookBlocked() {
+  return isDemo() && String(process.env.NODE_ENV || "").trim().toLowerCase() === "production";
+}
+
 function verifyWebhook(body, headers) {
   // Используем отдельный ключ уведомлений, если он настроен.
   const secret =
@@ -341,6 +353,7 @@ async function createPaymentLink({
 }
 
 module.exports = {
+  isDemoWebhookBlocked,
   isConfigured,
   isDemo,
   isOffline,
