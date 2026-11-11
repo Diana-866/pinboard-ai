@@ -97,6 +97,52 @@ test("missing text cost is journaled and blocks all image spend with a known pro
   assert.deepEqual(events, ["submitted", "cost-missing-journaled", "completed"]);
 });
 
+test("a text response stays outcome-unknown when its usage journal write fails", async (t) => {
+  const original = provider.generateTextWithUsageImpl;
+  t.after(() => { provider.generateTextWithUsageImpl = original; });
+  provider.generateTextWithUsageImpl = async () => ({
+    content: JSON.stringify([
+      { title: "Unjournaled text", description: "Test", image_prompt: "An image" },
+    ]),
+    usage: {
+      promptTokens: 10,
+      completionTokens: 5,
+      totalTokens: 15,
+      promptCost: null,
+      completionCost: null,
+      totalCost: null,
+      cachedPromptTokens: null,
+      cacheWriteTokens: null,
+    },
+    costCurrency: "RUB",
+    model: "gpt-4o",
+    requestId: "chatcmpl-journal-failure",
+  });
+
+  const events = [];
+  await assert.rejects(
+    generatePins(
+      { id: "board-journal-failure", title: "Test board", description: "" },
+      { niche: "test", tone: "neutral", language: "en" },
+      "flux-schnell",
+      1,
+      "2:3",
+      null,
+      {
+        onTextProviderSubmission: () => events.push("submitted"),
+        onTextProviderCompleted: () => events.push("completed"),
+        recordTextUsage: async () => {
+          events.push("journal-failed");
+          throw new Error("simulated durable journal failure");
+        },
+      }
+    ),
+    /simulated durable journal failure/
+  );
+
+  assert.deepEqual(events, ["submitted", "journal-failed"]);
+});
+
 test("text-generation failure does not cross the billable image submission boundary", async () => {
   let submitted = false;
   provider.generateText = async () => "not-json";
