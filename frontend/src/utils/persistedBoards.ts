@@ -40,7 +40,7 @@ export function mapPersistedBoards(rows: unknown, invalidResponseMessage: string
       id: String(row.id),
       name: row.title.trim(),
       category,
-      pinCount: 0,
+      pinCount: Number.isInteger(row.pin_count) && row.pin_count >= 0 ? row.pin_count : 0,
       monthlyViews: 0,
       seoScore: 0,
       missingKeywords: [],
