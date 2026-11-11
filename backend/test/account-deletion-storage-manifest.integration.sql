@@ -1,5 +1,5 @@
 -- Durable account-deletion Storage manifest integration test.
--- Run after migrations 127-138 in the disposable PostgreSQL database.
+-- Run after migrations 127-139 in the disposable PostgreSQL database.
 begin;
 do $$
 declare
@@ -40,6 +40,14 @@ begin
     'https://project.supabase.co/storage/v1/object/public/pin-images/pins/123-0123456789abcdef0123456789abcdef.png',
     'owned image','','approved','flux-schnell',0
   ) returning id into v_pin;
+  -- A matching object path on another host must never be treated as this
+  -- deployment's managed Storage object.
+  insert into public.pins(board_id,image_url,title,description,status,model_used,credits_cost)
+  values(
+    v_board,
+    'https://attacker.example/storage/v1/object/public/pin-images/pins/789-0123456789abcdef0123456789abcdef.png',
+    'foreign URL','','approved','flux-schnell',0
+  );
 
   insert into public.projects(user_id,niche) values(v_other,'storage-manifest-other') returning id into v_other_project;
   insert into public.boards(project_id,title) values(v_other_project,'not-owned') returning id into v_other_board;
@@ -69,7 +77,7 @@ begin
     raise exception 'generation response reference did not block Storage deletion: %',v_result;
   end if;
 
-  v_result := public.materialize_account_deletion_storage_manifest(v_job,v_claim);
+  v_result := public.materialize_account_deletion_storage_manifest(v_job,v_claim,'https://project.supabase.co');
   if v_result->>'recorded' <> 'true' or (v_result->>'inserted')::integer <> 2
      or (v_result->>'total')::integer <> 2 then
     raise exception 'unexpected Storage manifest result: %',v_result;
@@ -104,6 +112,12 @@ begin
      where request_id=v_request and object_path='pins/456-other.png'
   ) then
     raise exception 'foreign account image path entered deletion manifest';
+  end if;
+  if exists (
+    select 1 from public.account_deletion_storage_objects
+     where request_id=v_request and object_path='pins/789-0123456789abcdef0123456789abcdef.png'
+  ) then
+    raise exception 'foreign-origin image URL entered deletion manifest';
   end if;
 
   -- Verify the next durable stage removes operational content but retains
