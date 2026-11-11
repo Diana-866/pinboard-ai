@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildAccountExportFilename, parseDeletionReceipt } from './accountDataExport';
+import { buildAccountExportFilename, isCompleteAccountExport, parseDeletionReceipt } from './accountDataExport';
 
 test('export filename is deterministic, UTC-based and sanitized', () => {
   const now = new Date('2026-11-12T08:05:09Z');
@@ -36,4 +36,14 @@ test('a malformed deletion receipt never counts as success', () => {
   assert.equal(parseDeletionReceipt({ request: {} }), null);
   assert.equal(parseDeletionReceipt({ request: { requestId: '', state: 'pending' } }), null);
   assert.equal(parseDeletionReceipt({ request: { requestId: 'req-1' } }), null);
+});
+
+test('only complete versioned account exports are accepted for download', () => {
+  assert.equal(isCompleteAccountExport({ formatVersion: 1, degradedSections: [] }), true);
+  assert.equal(isCompleteAccountExport({ formatVersion: 1, degradedSections: ['projects'] }), false);
+  assert.equal(isCompleteAccountExport({ formatVersion: 2, degradedSections: [] }), false);
+  assert.equal(isCompleteAccountExport({ degradedSections: [] }), false);
+  assert.equal(isCompleteAccountExport({ formatVersion: 1 }), false);
+  assert.equal(isCompleteAccountExport(null), false);
+  assert.equal(isCompleteAccountExport([]), false);
 });
