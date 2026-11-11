@@ -552,10 +552,18 @@ async function getPinWithOwner(pinId, userId) {
     .eq("id", pinId)
     .maybeSingle();
   if (error) throw error;
-  if (!data) throw httpError(404, "Пин не найден");
+  if (!data) {
+    const missingPinError = httpError(404, "Пин не найден");
+    missingPinError.retryable = false;
+    throw missingPinError;
+  }
 
   const owner = data.boards && data.boards.projects ? data.boards.projects.user_id : null;
-  if (String(owner || "") !== String(userId)) throw httpError(404, "Пин не найден");
+  if (String(owner || "") !== String(userId)) {
+    const ownershipError = httpError(404, "Пин не найден");
+    ownershipError.retryable = false;
+    throw ownershipError;
+  }
   return data;
 }
 
