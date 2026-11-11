@@ -682,7 +682,8 @@ const MainApp: React.FC = () => {
         body: JSON.stringify({
           project_id: project.id,
           title: board.name,
-          description: board.category,
+          description: '',
+          category: board.category,
           create_request_id: createRequestId,
         }),
       });
