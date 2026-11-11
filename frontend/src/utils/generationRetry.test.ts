@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure, isGenerationInProgress } from './generationRetry';
+import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure, isGenerationInProgress, normalizeGenerationRecoveryStatus } from './generationRetry';
 
 test('rotates key after an explicitly definitive generation failure', () => {
   assert.equal(isDefinitiveGenerationFailure({
@@ -72,4 +72,18 @@ test('recognizes the backend 409 in-progress generation response without treatin
 test('does not classify unknown or unrelated errors as in-progress', () => {
   assert.equal(isGenerationInProgress({ status: 409, data: { code: 'generation_outcome_unknown' } }), false);
   assert.equal(isGenerationInProgress(new Error('network failure')), false);
+});
+
+
+test('accepts completed recovery only when at least one saved pin is present', () => {
+  assert.equal(normalizeGenerationRecoveryStatus('completed', [{ id: 'pin-1' }]), 'completed');
+  assert.equal(normalizeGenerationRecoveryStatus('completed', []), 'unknown');
+  assert.equal(normalizeGenerationRecoveryStatus('completed', null), 'unknown');
+  assert.equal(normalizeGenerationRecoveryStatus('unexpected', [{ id: 'pin-1' }]), 'unknown');
+});
+
+test('preserves non-completed recovery states', () => {
+  assert.equal(normalizeGenerationRecoveryStatus('processing', []), 'processing');
+  assert.equal(normalizeGenerationRecoveryStatus('failed', []), 'failed');
+  assert.equal(normalizeGenerationRecoveryStatus('unknown', []), 'unknown');
 });
