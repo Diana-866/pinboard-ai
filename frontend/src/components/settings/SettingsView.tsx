@@ -12,7 +12,7 @@ import {
 import { useTheme } from '../../theme/themeContext';
 import { useI18n } from '../../i18n/i18nContext';
 import { useAuth } from '../../context/AuthContext';
-import { apiRequest } from '../../lib/api';
+import { apiRequest, ApiError } from '../../lib/api';
 import {
   getDefaultTimezone,
   saveUserTimezone,
@@ -83,7 +83,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing, onPin
       // Доступ уже закрыт на сервере — завершаем локальную сессию.
       setTimeout(() => logout(), 4000);
     } catch (error) {
-      setDeleteError(error instanceof Error ? error.message : t.settings.requestFailed);
+      // The API currently returns this gate message in Russian. Keep the
+      // account-deletion UI consistent with the selected application language.
+      if (error instanceof ApiError && error.data?.code === 'account_deletion_unavailable') {
+        setDeleteError(t.settings.requestFailed);
+      } else {
+        setDeleteError(error instanceof Error ? error.message : t.settings.requestFailed);
+      }
     } finally {
       setDeleting(false);
     }
