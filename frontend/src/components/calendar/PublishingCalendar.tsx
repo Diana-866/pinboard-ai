@@ -145,7 +145,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
           : [];
         if (!active) return;
         setReplacementBoards(items);
-        setReplacementBoardId(items.find((board) => board.id !== selectedPin.pinterestBoardId)?.id || '');
+        setReplacementBoardId(items.find((board: { id: string; name: string }) => board.id !== selectedPin.pinterestBoardId)?.id || '');
         if (!items.length) {
           setReplacementBoardsError(
             language === 'ru' ? 'Pinterest не вернул доступные доски для этого аккаунта.' :

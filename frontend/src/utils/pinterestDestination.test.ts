@@ -14,8 +14,9 @@ test('resolves a board only from the selected account context', () => {
 });
 
 test('rejects stale or incomplete Pinterest destination selections', () => {
-  assert.equal(resolvePinterestDestination(accounts, boardsA, 'account-b', 'board-a'), null);
-  assert.equal(resolvePinterestDestination(accounts, boardsB, 'account-a', 'board-b'), null);
+  // A board list loaded for another account must not authorize the destination.
+  assert.equal(resolvePinterestDestination(accounts, boardsA, 'account-b', 'board-a', 'account-a'), null);
+  assert.equal(resolvePinterestDestination(accounts, boardsB, 'account-a', 'board-b', 'account-b'), null);
   assert.equal(resolvePinterestDestination(accounts, [], 'account-a', 'board-a'), null);
   assert.equal(resolvePinterestDestination(accounts, boardsA, '', 'board-a'), null);
   assert.equal(resolvePinterestDestination(accounts, boardsA, 'account-a', ''), null);

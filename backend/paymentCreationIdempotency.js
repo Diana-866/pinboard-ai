@@ -2,6 +2,7 @@ const { logError } = require("./safeLogger");
 const crypto = require("node:crypto");
 const supabase = require("./supabase");
 const { httpError } = require("./validate");
+const { asError } = require("./dbErrors");
 
 const KEY_RE = /^[A-Za-z0-9_-]{16,128}$/;
 
@@ -37,7 +38,7 @@ async function beginPaymentCreation(userId, idempotencyKey, kind, productId, cur
         "Ключ идемпотентности уже использован для другого тарифа или пакета. Начните новую попытку оплаты."
       );
     }
-    throw error;
+    throw asError(error);
   }
 
   if (data && data.status === "started") return { started: true };
@@ -78,7 +79,7 @@ async function attachPaymentCreationOrder(userId, idempotencyKey, orderId) {
     p_idempotency_key: idempotencyKey,
     p_order_id: String(orderId),
   });
-  if (error) throw error;
+  if (error) throw asError(error);
   if (data !== true) throw new Error("payment provider order reference was not attached");
   return true;
 }
@@ -94,7 +95,7 @@ async function denyUnsentPaymentRecord(table, recordId) {
     .eq("status", "pending")
     .select("id")
     .maybeSingle();
-  if (error) throw error;
+  if (error) throw asError(error);
   if (!data || data.id !== recordId) {
     throw new Error("unsent payment record was not confirmed as denied");
   }
@@ -111,7 +112,7 @@ async function settlePaymentCreationRequest(orderId, kind, localPaymentId, db = 
     p_request_kind: kind,
     p_local_payment_id: localPaymentId,
   });
-  if (error) throw error;
+  if (error) throw asError(error);
   return data === true;
 }
 
@@ -121,7 +122,7 @@ async function completePaymentCreation(userId, idempotencyKey, result) {
     p_idempotency_key: idempotencyKey,
     p_result: result,
   });
-  if (error) throw error;
+  if (error) throw asError(error);
   return data;
 }
 

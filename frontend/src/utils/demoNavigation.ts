@@ -33,7 +33,7 @@ export function getDemoNavigationTarget(
   if (matches('конкурент', 'competitor', 'wettbewerb', 'competidor', 'concurrent', 'concorr')) {
     return 'competitors';
   }
-  if (matches('ключ', 'keyword', 'schlüssel', 'palabra', 'mot-clé', 'palavra-chave', '关键词')) {
+  if (matches('ключ', 'keyword', 'schlüssel', 'palabra', 'mot-cl', 'mots-cl', 'palavra-chave', '关键词')) {
     return 'keywords';
   }
   if (matches('аналит', 'статист', 'показател', 'analytics', 'metric', 'statistic', 'kennzahl', 'statistik', 'métrica', 'estadíst', 'statistique', 'indicateur', 'dados', '数据', '指标')) {

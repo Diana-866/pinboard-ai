@@ -584,7 +584,8 @@ test("quarantined object inventory reports present and absent objects without de
   assert.equal(result.items[1].status, "object_absent");
   assert.equal(result.items[1].has_reference, true);
   assert.equal(result.items[1].safe_action, "investigate_reference_guard_before_any_action");
-  assert.equal(supabase.calls[0].args.p_limit, 50);
+  // The inventory RPC accepts at most 100 rows; oversized requests are clamped, not rejected.
+  assert.equal(supabase.calls[0].args.p_limit, 100);
   assert.deepEqual(supabase.calls.map((call) => call.name || call.type), [
     "list_quarantined_pin_image_objects", "list", "list",
   ]);
@@ -786,7 +787,7 @@ test("blocked retention queue inspection is read-only and reports Storage visibi
     },
   };
 
-  const { inspectBlockedPinImageRetentionQueue } = require("./pinImageLifecycle");
+  const { inspectBlockedPinImageRetentionQueue } = require("../pinImageLifecycle");
   const result = await inspectBlockedPinImageRetentionQueue({ supabase, limit: 10 });
   assert.equal(result.inspected, 1);
   assert.equal(result.objectVisible, 1);
@@ -811,7 +812,7 @@ test("blocked retention queue inspection fails closed on invalid paths without S
       }),
     },
   };
-  const { inspectBlockedPinImageRetentionQueue } = require("./pinImageLifecycle");
+  const { inspectBlockedPinImageRetentionQueue } = require("../pinImageLifecycle");
   const result = await inspectBlockedPinImageRetentionQueue({ supabase });
   assert.equal(result.inventoryFailed, 1);
   assert.equal(result.items[0].status, "invalid_inventory_row");
@@ -837,7 +838,7 @@ test("blocked retention queue diagnostics distinguish referenced, quarantined, a
       }),
     },
   };
-  const { inspectBlockedPinImageRetentionQueue } = require("./pinImageLifecycle");
+  const { inspectBlockedPinImageRetentionQueue } = require("../pinImageLifecycle");
   const result = await inspectBlockedPinImageRetentionQueue({ supabase });
   assert.equal(result.diagnoses.database_reference_object_present, 1);
   assert.equal(result.diagnoses.quarantined_object_absent, 1);

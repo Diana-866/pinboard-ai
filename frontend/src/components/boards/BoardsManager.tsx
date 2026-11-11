@@ -179,7 +179,7 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
           </div>
           ))}
         </div>
-      )}
+      ) : null}
 
       {/* Edit Board Modal */}
       {editingBoard && (

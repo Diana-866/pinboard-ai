@@ -1,4 +1,5 @@
 const test = require("node:test");
+require("./helpers/env");
 const assert = require("node:assert/strict");
 
 const { getStats, monthKey, fetchAllRows } = require("../admin");

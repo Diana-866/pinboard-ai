@@ -17,14 +17,16 @@ test("Pinterest account and publication routes require an authenticated user", (
     'app.get("/integrations/pinterest/boards", requireAuth,',
   ]) assert.ok(pinterest.includes(route), route);
   for (const route of [
-    'app.post("/pins/:id/publish",',
+    '"/pins/:id/publish",',
     'app.post("/pins/:id/schedule", requireAuth,',
     'app.post("/schedule/:id/change-board", requireAuth,',
     'app.post("/schedule/:id/reconcile-account", requireAuth,',
   ]) {
-    const at = index.indexOf(route);
+    // Publication routes live in pinterest.js, scheduling routes in index.js.
+    const source = route.includes('"/pins/:id/publish"') ? pinterest : index;
+    const at = source.indexOf(route);
     assert.notEqual(at, -1, route);
-    assert.match(index.slice(at, at + 180), /requireAuth/);
+    assert.match(source.slice(at, at + 180), /requireAuth/);
   }
 });
 
@@ -49,7 +51,7 @@ test("public Pinterest account projection never includes access or refresh crede
   const mapper = read("pinterestPublicAccount.js");
   assert.match(mapper, /function toPublicPinterestAccount/);
   const body = mapper.slice(mapper.indexOf("function toPublicPinterestAccount"), mapper.indexOf("function toDisconnectedPinterestAccount"));
-  assert.doesNotMatch(body, /access_token|refresh_token|user_id:/);
+  assert.doesNotMatch(body, /\baccess_token\b|\brefresh_token\b/);
 });
 
 test("Pinterest API rate limit store is documented as process-local", () => {

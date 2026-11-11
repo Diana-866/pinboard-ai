@@ -4,6 +4,7 @@ import { apiRequest } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/i18nContext';
 import { getAuthCopy } from '../i18n/authCopy';
+import { writeAuthToken } from '../lib/authStorage';
 
 export const Login: React.FC = () => {
   const [params] = useSearchParams();

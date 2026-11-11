@@ -229,8 +229,8 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
           isTerminalCreditPurchaseStatus(row.status)
         );
         const newlyPaid = [
-          ...settledSubscriptions.filter((row) => row.status === 'success'),
-          ...settledPurchases.filter((row) => row.status === 'success'),
+          ...settledSubscriptions.filter((row: SubscriptionRow) => row.status === 'success'),
+          ...settledPurchases.filter((row: CreditPurchaseRow) => row.status === 'success'),
         ].length > 0;
 
         // Release only keys whose own pending order has reached a terminal

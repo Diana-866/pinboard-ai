@@ -91,7 +91,9 @@ test("an ambiguous or still-processing publish attempt remains non-retryable", (
 test("a failed journal retries only when the database marks it safe", () => {
   assert.equal(classifyScheduleFailure({ status: "failed", retry_safe: false }, null), "failed");
   assert.equal(canRetryScheduleFailure({ status: "failed", retry_safe: false }, null, Object.assign(new Error("503"), { httpStatus: 503 })), false);
-  assert.equal(canRetryScheduleFailure({ status: "failed", retry_safe: true }, null, Object.assign(new Error("403"), { httpStatus: 403 })), true);
+  // A 403 means credentials/account state must be corrected first: the older
+  // retry-safe journal row must not authorize an automatic retry.
+  assert.equal(canRetryScheduleFailure({ status: "failed", retry_safe: true }, null, Object.assign(new Error("403"), { httpStatus: 403 })), false);
   assert.equal(canRetryScheduleFailure({ status: "unknown", retry_safe: true }, null, Object.assign(new Error("503"), { httpStatus: 503 })), false);
   assert.equal(canRetryScheduleFailure({ status: "processing", retry_safe: true }, null, Object.assign(new Error("503"), { httpStatus: 503 })), false);
 });
@@ -284,12 +286,17 @@ test("retryability allows only explicitly safe failed journal entries", () => {
     status: "failed", pinterest_account_id: "account-a", pinterest_board_id: "board-a",
     pins: { image_url: "https://cdn.example/pin.jpg" },
   };
-  assert.deepEqual(getScheduleRetryability(schedule, { status: "failed", retry_safe: true }, false, true, false), {
+  // A journal row only authorizes a retry when it still identifies this exact
+  // account and board, so the fixture carries the identity fields.
+  const attempt = (overrides) => ({
+    pinterest_account_id: "account-a", pinterest_board_id: "board-a", ...overrides,
+  });
+  assert.deepEqual(getScheduleRetryability(schedule, attempt({ status: "failed", retry_safe: true }), false, true, false), {
     retryable: true, reason: null,
   });
-  assert.equal(getScheduleRetryability(schedule, { status: "failed", retry_safe: false }, false, true, false).retryable, false);
-  assert.equal(getScheduleRetryability(schedule, { status: "unknown", retry_safe: true }, false, true, false).retryable, false);
-  assert.equal(getScheduleRetryability(schedule, { status: "processing", retry_safe: true }, false, true, false).retryable, false);
+  assert.equal(getScheduleRetryability(schedule, attempt({ status: "failed", retry_safe: false }), false, true, false).retryable, false);
+  assert.equal(getScheduleRetryability(schedule, attempt({ status: "unknown", retry_safe: true }), false, true, false).retryable, false);
+  assert.equal(getScheduleRetryability(schedule, attempt({ status: "processing", retry_safe: true }), false, true, false).retryable, false);
 });
 
 test("retryability blocks missing account, board, pin, publication, and duplicate active schedule", () => {
@@ -460,20 +467,33 @@ test("worker journal lookup failure remains unknown and never authorizes a retry
   assert.equal(state.shouldRetry, false);
   assert.equal(state.nextStatus, "unknown");
   assert.equal(state.retryAt, null);
-  assert.match(state.message, /Could not verify publication journal/);
+  assert.match(state.message, /Could not verify (the )?publication journal/);
 });
 
 test("worker safely retries only a journal-confirmed retry-safe rejection", () => {
-  const state = buildScheduleWorkerFailureState({
+  // A retry-safe journal row authorizes an automatic retry for an ambiguous
+  // failure (throttle/timeout/5xx), but never for a deterministic 4xx rejection.
+  const ambiguous = buildScheduleWorkerFailureState({
+    attempt: { status: "failed", retry_safe: true },
+    error: Object.assign(new Error("provider throttled"), { httpStatus: 429 }),
+    attempts: 2,
+    now: Date.parse("2026-11-09T12:00:00.000Z"),
+  });
+  assert.equal(ambiguous.finalStatus, "failed");
+  assert.equal(ambiguous.shouldRetry, true);
+  assert.equal(ambiguous.nextStatus, "scheduled");
+  assert.equal(ambiguous.retryAt, "2026-11-09T12:02:00.000Z");
+
+  const deterministic = buildScheduleWorkerFailureState({
     attempt: { status: "failed", retry_safe: true },
     error: Object.assign(new Error("Pinterest rejected before creation"), { httpStatus: 403 }),
     attempts: 2,
     now: Date.parse("2026-11-09T12:00:00.000Z"),
   });
-  assert.equal(state.finalStatus, "failed");
-  assert.equal(state.shouldRetry, true);
-  assert.equal(state.nextStatus, "scheduled");
-  assert.equal(state.retryAt, "2026-11-09T12:02:00.000Z");
+  assert.equal(deterministic.finalStatus, "failed");
+  assert.equal(deterministic.shouldRetry, false);
+  assert.equal(deterministic.nextStatus, "failed");
+  assert.equal(deterministic.retryAt, null);
 });
 
 test("worker does not retry after reaching the bounded retry limit", () => {

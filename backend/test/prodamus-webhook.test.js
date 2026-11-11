@@ -1,4 +1,5 @@
 const test = require("node:test");
+require("./helpers/env");
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
 
@@ -247,7 +248,10 @@ function createPaymentDb({ subscription, purchase, activate, credit, settle, can
       const query = {
         select() { return this; },
         eq(column, value) { this.filter = [column, value]; return this; },
-        maybeSingle: async () => ({ data: row && row[this.filter[0]] === this.filter[1] ? structuredClone(row) : null, error: null }),
+        // Regular function, not an arrow: `this` must be the query object, not the db.
+        async maybeSingle() {
+          return { data: row && row[this.filter[0]] === this.filter[1] ? structuredClone(row) : null, error: null };
+        },
         update(values) {
           this.values = values;
           return this;

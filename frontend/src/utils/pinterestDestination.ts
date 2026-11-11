@@ -19,8 +19,12 @@ export function resolvePinterestDestination(
   boards: readonly PinterestDestinationBoard[],
   selectedAccountId: string,
   selectedBoardId: string,
+  /** Account the loaded board list belongs to. A board list loaded for a
+   *  previously selected account must never authorize a new destination. */
+  boardsAccountId?: string | null,
 ): PinterestDestination | null {
   if (!selectedAccountId || !selectedBoardId) return null;
+  if (boardsAccountId != null && boardsAccountId !== selectedAccountId) return null;
   const account = accounts.find((item) => item.id === selectedAccountId);
   const board = boards.find((item) => item.id === selectedBoardId && item.name.trim().length > 0);
   if (!account || !board) return null;

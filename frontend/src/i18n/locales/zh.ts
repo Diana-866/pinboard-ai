@@ -324,7 +324,7 @@ export const zh: TranslationSchema = {
     statusFailed: "发布失败",
     statusUnknown: "需要检查",
     unknownPublishHelpTitle: 'Pinterest 可能已收到此 Pin',
-    unknownPublishHelpBody: '目前无法确认发布结果。请勿重试，也不要再次安排相同的 Pin，否则可能产生重复内容。请检查所选 Pinterest 账号和画板。如果无法明确找到该 Pin，请保留此记录并联系支持人员核查。
+    unknownPublishHelpBody: '目前无法确认发布结果。请勿重试，也不要再次安排相同的 Pin，否则可能产生重复内容。请检查所选 Pinterest 账号和画板。如果无法明确找到该 Pin，请保留此记录并联系支持人员核查。',
     statusQueued: "排队中",
     generateDateTitle: "为此日期生成 Pin",
     primeSlotLabel: "20:15 黄金时段",
@@ -425,7 +425,7 @@ export const zh: TranslationSchema = {
     pinterestDisconnectWarning: "此操作会从 PinPosy 删除该账户的令牌，但不会撤销 Pinterest 上的 OAuth 授权。该账户尚未发布的排队任务将标记为失败；已经发出的请求仍可能完成。是否继续？",
     pinterestAccountFallback: "Pinterest 账户",
     pinterestReauthRequired: "需要重新授权",
-    pinterestReauthDescription: "重新连接此 Pinterest 账户，即可再次加载画板并发布 Pin。"
+    pinterestReauthDescription: "重新连接此 Pinterest 账户，即可再次加载画板并发布 Pin。",
     pinterestPinsLabel: "Pin",
     billingSection: '套餐与 AI 额度管理',
     billingSectionDesc: '查看本月智能分析与 Pin 自动生成额度的使用进度。',
