@@ -310,6 +310,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   useEffect(() => {
     let active = true;
     const ownerId = userId;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let token = '';
     try { token = localStorage.getItem('token') || ''; } catch { /* storage may be blocked */ }
     if (!ownerId || !token) {
@@ -376,6 +377,13 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       }
       if (active && isCurrentBillingOwner(generationRecoveryOwnerIdRef.current, ownerId)) {
         setRecoverableGenerations(found);
+        // Keep checking only while the server confirms work is still running.
+        // This is read-only and does not resubmit generation or spend credits.
+        if (found.some((item) => item.status === 'processing')) {
+          retryTimer = window.setTimeout(() => {
+            if (active) setRecoveryCheckAttempt((attempt) => attempt + 1);
+          }, 15000);
+        }
       }
     };
 
@@ -384,7 +392,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         setIsCheckingRecoveries(false);
       }
     });
-    return () => { active = false; };
+    return () => {
+      active = false;
+      if (retryTimer !== null) window.clearTimeout(retryTimer);
+    };
   }, [recoveryCheckAttempt, userId]);
 
   // A count refresh replaces the boards array but must not reset the active pin editor.
