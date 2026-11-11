@@ -703,7 +703,16 @@ const MainApp: React.FC = () => {
         scheduledDate: date.date,
         scheduledTime: date.time,
         status: parsePersistedScheduleStatus(saved.status),
+        // A successful retry is a new queued state, not a failed row with
+        // stale retry controls/diagnostics. Preserve the exact destination
+        // returned by the server and let the normal loader hydrate the rest.
+        retryable: false,
+        retryReason: undefined,
+        failureReason: null,
+        pinterestBoardId: saved.pinterest_board_id || item.pinterestBoardId,
+        pinterestAccountId: saved.pinterest_account_id || item.pinterestAccountId,
       } : item));
+      setScheduleReloadToken((value) => value + 1);
     } catch (error) {
       console.error('[schedule] Не удалось повторить публикацию:', error);
       window.alert(error instanceof Error ? error.message : 'Не удалось повторить публикацию');
