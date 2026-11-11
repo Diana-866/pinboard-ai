@@ -53,6 +53,8 @@ test("atomic payment integration workflow applies existing migrations in ascendi
   const workflow = fs.readFileSync(workflowPath, "utf8");
   const applied = [...workflow.matchAll(/db\/migrations\/(\d{3}_[^\s]+\.sql)/g)].map((match) => match[1]);
   assert.ok(applied.length > 0, "workflow must apply database migrations");
+  assert.ok(applied.includes("148_pin_generation_task_result_immutability.sql"), "workflow must apply provider result immutability");
+  assert.ok(applied.includes("149_pin_generation_task_facts_guard.sql"), "workflow must apply generation task fact guards");
   const numbers = applied.map((file) => Number(file.slice(0, 3)));
   assert.deepEqual(numbers, [...numbers].sort((a, b) => a - b), "workflow migration order must be ascending");
   assert.equal(new Set(applied).size, applied.length, "workflow must not apply a migration twice");
