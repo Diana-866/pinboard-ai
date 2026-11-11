@@ -2,10 +2,9 @@
 #
 # One command that answers "does this repository still work?".
 #
-# GitHub Actions cannot run on this account right now (the runners are blocked by
-# a billing/spending limit), so this script is the gate that replaces CI: it runs
-# exactly what the workflow would run, plus the migration replay, and stops at the
-# first failure with a readable summary.
+# GitHub Actions jobs currently fail before runner allocation (runner_id=0, no steps);
+# the cause is not confirmed. This script provides a reproducible local verification
+# path while the hosted runner issue is being resolved.
 #
 #   ./scripts/verify.sh              # backend + frontend
 #   ./scripts/verify.sh --migrations # also replay db/migrations on a local PG
