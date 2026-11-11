@@ -2998,6 +2998,17 @@ function dispatchSubscriptionEmailOutbox() {
 const emailOutboxTimer = setInterval(dispatchSubscriptionEmailOutbox, 60 * 1000);
 if (typeof emailOutboxTimer.unref === "function") emailOutboxTimer.unref();
 
+// Account deletion preflight runs in the existing backend process only when
+// explicitly enabled after migrations 127-131 are applied. This avoids a
+// second service while keeping rollout opt-in and independently reversible.
+let accountDeletionWorker = null;
+if (process.env.ACCOUNT_DELETION_WORKER_ENABLED === "true") {
+  const { createAccountDeletionWorker } = require("./accountDeletionWorker");
+  accountDeletionWorker = createAccountDeletionWorker({ client: supabase });
+  accountDeletionWorker.start();
+  logInfo("account_deletion_worker.enabled");
+}
+
 const server = app.listen(PORT, () => {
   logInfo("index.event_001");
   dispatchSubscriptionEmailOutbox();
@@ -3011,6 +3022,11 @@ function shutdown() {
   shuttingDown = true;
   logInfo("index.shutdown_started");
   clearInterval(emailOutboxTimer);
+  if (accountDeletionWorker) {
+    void accountDeletionWorker.stop().catch(() => {
+      logError("account_deletion_worker.shutdown_failed");
+    });
+  }
 
   const forceExit = setTimeout(() => {
     logError("index.shutdown_timeout");
