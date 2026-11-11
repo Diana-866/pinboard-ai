@@ -458,6 +458,11 @@ app.get("/me", requireAuth, async (req, res) => {
 // Экспорт всех данных аккаунта. Секреты (OAuth-токены, хеш пароля, счётчики
 // сессий) в выгрузку не попадают — только колонки из allowlist.
 app.get("/account/export", requireAuth, async (req, res) => {
+  // Account archives contain personal and financial data. Prevent browsers,
+  // shared proxies, and intermediary caches from retaining the response.
+  res.setHeader("Cache-Control", "private, no-store, max-age=0");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("X-Content-Type-Options", "nosniff");
   try {
     const payload = await buildAccountExport(req.userId);
     if (payload.degradedSections.length > 0) {
