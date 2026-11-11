@@ -176,7 +176,7 @@ test("worker persists only a successful bounded inventory before finalizing", as
   const inventoryCall = calls.find((call) => call.name === "record_account_deletion_preflight");
   assert.equal(inventoryCall.args.p_inventory.ok, true);
   assert.equal(inventoryCall.args.p_inventory.sectionsChecked, 22);
-  assert.equal(Object.keys(inventoryCall.args.p_inventory.counts).length, 14);
+  assert.equal(Object.keys(inventoryCall.args.p_inventory.counts).length, 22);
   assert.equal(calls.some((call) => call.name === "disconnect_pinterest_for_account_deletion"), true);
   assert.equal(calls[calls.length - 1].name, "finish_account_deletion_job");
 });
