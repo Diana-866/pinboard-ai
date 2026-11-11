@@ -191,6 +191,21 @@ begin
     'flux-schnell','2:3','running'
   );
 
+  update public.account_deletion_jobs
+     set status='succeeded',claim_token=null,lease_expires_at=null,finished_at=clock_timestamp()
+   where id=v_job;
+  insert into public.account_deletion_jobs(
+    id,request_id,step_key,status,claim_token,lease_expires_at,attempts
+  ) values (
+    gen_random_uuid(),v_request,'erase_content','running',gen_random_uuid(),
+    clock_timestamp()+interval '5 minutes',1
+  );
+  -- Retrieve the claim token from the active erasure job.
+  select claim_token into v_claim from public.account_deletion_jobs
+   where request_id=v_request and step_key='erase_content';
+  select id into v_job from public.account_deletion_jobs
+   where request_id=v_request and step_key='erase_content';
+
   insert into public.credit_purchases(user_id,package_id,credits,amount,status)
   values(v_user::text,'pack_100',100,190,'pending');
   v_result := public.erase_account_deletion_content(v_job,v_claim);
@@ -208,21 +223,6 @@ begin
   end if;
   update public.pin_generation_credit_reservations set status='released'
    where user_id=v_user::text and idempotency_key='pending-credit-reservation';
-
-  update public.account_deletion_jobs
-     set status='succeeded',claim_token=null,lease_expires_at=null,finished_at=clock_timestamp()
-   where id=v_job;
-  insert into public.account_deletion_jobs(
-    id,request_id,step_key,status,claim_token,lease_expires_at,attempts
-  ) values (
-    gen_random_uuid(),v_request,'erase_content','running',gen_random_uuid(),
-    clock_timestamp()+interval '5 minutes',1
-  );
-  -- Retrieve the claim token from the active erasure job.
-  select claim_token into v_claim from public.account_deletion_jobs
-   where request_id=v_request and step_key='erase_content';
-  select id into v_job from public.account_deletion_jobs
-   where request_id=v_request and step_key='erase_content';
 
   v_result := public.erase_account_deletion_content(v_job,v_claim);
   if v_result->>'erased' <> 'false'
