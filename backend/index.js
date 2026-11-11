@@ -1151,13 +1151,40 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
  */
 app.get("/review-queue", requireAuth, async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const userId = String(req.userId);
+    const { data: queueRows, error: queueError } = await supabase
       .from("pin_review_queue")
       .select("id,pin_id,payload,created_at,updated_at")
-      .eq("user_id", String(req.userId))
+      .eq("user_id", userId)
       .order("created_at", { ascending: true });
-    if (error) throw error;
-    res.json((data || []).map((row) => ({ ...row.payload, id: row.id, pinId: row.pin_id || row.payload.pinId || undefined })));
+    if (queueError) throw queueError;
+
+    const rows = queueRows || [];
+    const pinIds = [...new Set(rows
+      .map((row) => row.pin_id || (row.payload && row.payload.pinId))
+      .filter(Boolean)
+      .map(String))];
+    const pinsById = new Map();
+    if (pinIds.length) {
+      const { data: pins, error: pinsError } = await supabase
+        .from("pins")
+        .select("id,status,boards(id,projects(user_id))")
+        .in("id", pinIds);
+      if (pinsError) throw pinsError;
+      for (const pin of pins || []) pinsById.set(String(pin.id), pin);
+    }
+
+    const { reconcileReviewQueueRows } = require("./reviewQueueReconciliation");
+    const reconciled = reconcileReviewQueueRows(rows, pinsById, userId);
+    if (reconciled.staleIds.length) {
+      const { error: cleanupError } = await supabase
+        .from("pin_review_queue")
+        .delete()
+        .eq("user_id", userId)
+        .in("id", reconciled.staleIds);
+      if (cleanupError) throw cleanupError;
+    }
+    res.json(reconciled.active);
   } catch (e) {
     handleError(res, e);
   }
