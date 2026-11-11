@@ -200,7 +200,8 @@ async function waitForImageTask(taskId, callbacks = {}) {
       task = await checkImage(taskId);
     } catch (error) {
       const status = Number(error && error.response && error.response.status);
-      const networkFailure = !error?.response && (
+      const isCancellation = error?.code === "ERR_CANCELED" || error?.__CANCEL__ === true;
+      const networkFailure = !error?.response && !isCancellation && (
         error?.isAxiosError === true ||
         ["ECONNABORTED", "ETIMEDOUT", "ECONNRESET", "EAI_AGAIN", "ENOTFOUND", "ERR_NETWORK"]
           .includes(error?.code)
