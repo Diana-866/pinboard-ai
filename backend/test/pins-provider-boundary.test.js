@@ -97,6 +97,52 @@ test("missing text cost is journaled and blocks all image spend with a known pro
   assert.deepEqual(events, ["submitted", "cost-missing-journaled", "completed"]);
 });
 
+test("negative text cost is journaled as missing and blocks image spend", async (t) => {
+  const original = provider.generateTextWithUsageImpl;
+  t.after(() => { provider.generateTextWithUsageImpl = original; });
+  provider.generateTextWithUsageImpl = async () => ({
+    content: JSON.stringify([
+      { title: "Negative cost", description: "Test", image_prompt: "An image" },
+    ]),
+    usage: {
+      promptTokens: 10,
+      completionTokens: 5,
+      totalTokens: 15,
+      promptCost: null,
+      completionCost: null,
+      totalCost: -0.01,
+      cachedPromptTokens: null,
+      cacheWriteTokens: null,
+    },
+    costCurrency: "RUB",
+    model: "gpt-4o",
+    requestId: "chatcmpl-negative-cost",
+  });
+
+  let journaled = false;
+  await assert.rejects(
+    generatePins(
+      { id: "board-negative-cost", title: "Test board", description: "" },
+      { niche: "test", tone: "neutral", language: "en" },
+      "flux-schnell",
+      1,
+      "2:3",
+      null,
+      {
+        recordTextUsage: async (result) => {
+          journaled = true;
+          assert.equal(result.usage.totalCost, -0.01);
+        },
+        onProviderSubmission: () => {
+          throw new Error("image submission must be blocked");
+        },
+      }
+    ),
+    (error) => error.code === "GPTUNNEL_TEXT_COST_MISSING"
+  );
+  assert.equal(journaled, true);
+});
+
 test("a text response stays outcome-unknown when its usage journal write fails", async (t) => {
   const original = provider.generateTextWithUsageImpl;
   t.after(() => { provider.generateTextWithUsageImpl = original; });
