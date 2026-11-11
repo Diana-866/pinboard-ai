@@ -208,6 +208,16 @@ function createAccountDeletionWorker({
         error.code = "storage_manifest_not_recorded";
         throw error;
       }
+      const { data: manifestMarked, error: manifestMarkError } = await client.rpc(
+        "mark_account_deletion_storage_manifest",
+        { p_job_id: job.job_id, p_claim_token: job.claim_token }
+      );
+      if (manifestMarkError) throw manifestMarkError;
+      if (manifestMarked !== true) {
+        const error = new Error("account deletion Storage manifest completion was not fenced");
+        error.code = "storage_manifest_mark_failed";
+        throw error;
+      }
       // Revoke locally stored Pinterest credentials only after a complete,
       // durable preflight. The RPC is idempotent and uses the established
       // OAuth-generation/refresh-lease fencing for every connected account.
