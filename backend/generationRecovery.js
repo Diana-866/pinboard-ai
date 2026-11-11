@@ -44,4 +44,8 @@ function serializeGenerationRecovery(request) {
   };
 }
 
-module.exports = { serializeGenerationRecovery, isDurableRecoveryPin };
+function countDurableRecoveryPins(pins) {
+  return Array.isArray(pins) ? pins.filter(isDurableRecoveryPin).length : 0;
+}
+
+module.exports = { serializeGenerationRecovery, isDurableRecoveryPin, countDurableRecoveryPins };
