@@ -373,3 +373,48 @@ test("worker finalizes only through the fenced tombstone RPC", async () => {
   assert.equal(calls.some((call) => call.name === "finish_account_deletion_job"), false);
 });
 
+
+
+test("worker drains more than one Storage manifest page before marking deletion complete", async () => {
+  const calls = [];
+  const firstPage = Array.from({ length: 100 }, (_, index) => ({
+    bucket_id: "pin-images",
+    object_path: `pins/${1000 + index}-0123456789abcdef0123456789abcdef.png`,
+  }));
+  const secondPage = [{
+    bucket_id: "pin-images",
+    object_path: "pins/generation-abcdef0123456789abcdef0123456789.webp",
+  }];
+  let listCalls = 0;
+  let deleted = 0;
+  const client = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_account_deletion_jobs") {
+        return { data: [{ job_id: "job-storage-many", user_id: USER_ID, step_key: "erase_content", claim_token: "claim-many" }], error: null };
+      }
+      if (name === "erase_account_deletion_content") {
+        return { data: { erased: true, financial_records_retained: true }, error: null };
+      }
+      if (name === "list_account_deletion_storage_manifest") {
+        listCalls += 1;
+        return { data: listCalls === 1 ? firstPage : listCalls === 2 ? secondPage : [], error: null };
+      }
+      if (name === "mark_account_deletion_storage_object_deleted") return { data: true, error: null };
+      if (name === "finish_account_deletion_job") return { data: true, error: null };
+      throw new Error("unexpected RPC: " + name);
+    },
+  };
+  const worker = createAccountDeletionWorker({
+    client,
+    deleteImageObject: async () => { deleted += 1; return true; },
+    logger: { info() {}, error() {} },
+  });
+  const result = await worker.tick();
+  assert.deepEqual(result, { claimed: 1, completed: 1, retried: 0 });
+  assert.equal(deleted, 101);
+  assert.equal(listCalls, 3);
+  assert.equal(calls.filter((call) => call.name === "mark_account_deletion_storage_object_deleted").length, 101);
+  assert.ok(calls.findIndex((call) => call.name === "finish_account_deletion_job") >
+    calls.map((call) => call.name).lastIndexOf("list_account_deletion_storage_manifest"));
+});
