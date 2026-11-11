@@ -195,7 +195,19 @@ async function waitForImageTask(taskId, callbacks = {}) {
     if (i > 0 && pollIntervalMs > 0) {
       await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
     }
-    const task = await checkImage(taskId);
+    let task;
+    try {
+      task = await checkImage(taskId);
+    } catch (error) {
+      const status = Number(error && error.response && error.response.status);
+      const retryable = !error?.response ||
+        status === 408 || status === 425 || status === 429 || status >= 500;
+      // Provider polling is read-only: retry transient transport/rate-limit/
+      // server failures within the existing bounded poll budget. Never retry
+      // permanent client errors or create a replacement task here.
+      if (!retryable || i === maxPolls - 1) throw error;
+      continue;
+    }
 
     // Never accept a provider response for a different task than the one
     // recorded in our generation journal. This prevents cross-task settlement
