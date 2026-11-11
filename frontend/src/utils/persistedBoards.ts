@@ -19,10 +19,12 @@ export function mapPersistedBoards(rows: unknown, invalidResponseMessage: string
     }
 
     const project = Array.isArray(row.projects) ? row.projects[0] : row.projects;
-    const category = typeof project?.niche === 'string' && project.niche.trim()
-      ? project.niche.trim()
-      : typeof row.description === 'string' && row.description.trim()
-        ? row.description.trim()
+    // Board description stores the category selected in BoardsManager.
+    // Project niche is shared by every board and is only a legacy fallback.
+    const category = typeof row.description === 'string' && row.description.trim()
+      ? row.description.trim()
+      : typeof project?.niche === 'string' && project.niche.trim()
+        ? project.niche.trim()
         : '—';
 
     return {
