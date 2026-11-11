@@ -59,10 +59,22 @@ function requireUserId(userId) {
   return userId;
 }
 
-async function selectRows(query) {
-  const { data, error } = await query;
-  if (error) throw error;
-  return Array.isArray(data) ? data : [];
+// PostgREST applies a default row cap. Page every export section so a
+// successful export never silently omits records after the first 1,000 rows.
+async function selectRows(query, pageSize = 1000) {
+  if (!query || typeof query.range !== "function") {
+    const { data, error } = await query;
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  }
+  const rows = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await query.range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    const page = Array.isArray(data) ? data : [];
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
 }
 
 /** Load one export section without failing the whole export when a single
@@ -89,8 +101,9 @@ async function buildAccountExport(userId, client = defaultSupabase) {
   const degraded = [];
 
   const profileRows = await loadSection("account", async () => {
-    const rows = await selectRows(client.from("users").select("*").eq("id", id).limit(1));
-    return rows.map((row) => pickColumns(row, PROFILE_COLUMNS));
+    const { data, error } = await client.from("users").select("*").eq("id", id).maybeSingle();
+    if (error) throw error;
+    return data ? [pickColumns(data, PROFILE_COLUMNS)] : [];
   }, degraded);
 
   if (!profileRows.length) {
