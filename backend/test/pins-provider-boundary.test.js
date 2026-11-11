@@ -1050,15 +1050,10 @@ test("malformed immediate completion recovers by polling the journaled provider 
   provider.generateText = async () => {
     throw new Error("recovery must reuse the saved plan");
   };
-  let firstSubmission = true;
   let pollTaskId = null;
-  const updates = [];
-  provider.generateImageImpl = async () => {
-    if (!firstSubmission) throw new Error("recovery must not create another provider task");
-    firstSubmission = false;
-    // Mirrors generateImage: the provider returned a task ID, but its done
-    // payload failed validation after the ID was durably attached to the task.
-    await updates.push({ status: "running", providerTaskId: "provider-task-malformed-001" });
+  let persistedProviderTaskId = null;
+  provider.generateImageImpl = async (prompt, model, ratio, key, callbacks) => {
+    await callbacks.onTaskUpdate("provider-task-malformed-001", "running");
     throw new Error("malformed completed image payload");
   };
   provider.waitForImageTaskImpl = async (taskId) => {
@@ -1082,13 +1077,15 @@ test("malformed immediate completion recovers by polling the journaled provider 
     "flux-schnell", 1, "2:3", null,
     {
       loadPlan: async () => [{ ...plan }],
-      updateTask: async (index, status, details) => updates.push({
-        status,
-        providerTaskId: details.providerTaskId || null,
-      }),
+      updateTask: async (index, status, details = {}) => {
+        // Match the database RPC's COALESCE semantics: null details do not
+        // erase an already journaled provider task ID.
+        if (details.providerTaskId) persistedProviderTaskId = details.providerTaskId;
+      },
     }
   );
   assert.equal(firstAttempt.unknownTasks.length, 1);
+  assert.equal(persistedProviderTaskId, "provider-task-malformed-001");
 
   const recoveredAttempt = await generatePins(
     { id: "board-malformed", title: "Test board", description: "" },
@@ -1098,7 +1095,7 @@ test("malformed immediate completion recovers by polling the journaled provider 
       loadPlan: async () => [{
         ...plan,
         status: "unknown",
-        provider_task_id: "provider-task-malformed-001",
+        provider_task_id: persistedProviderTaskId,
       }],
       updateTask: async () => {},
     }
