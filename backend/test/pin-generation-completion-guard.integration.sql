@@ -18,6 +18,13 @@ declare
   v_result_url text;
   v_storage_url text;
   v_price numeric;
+  v_retry_user uuid := gen_random_uuid();
+  v_retry_project uuid;
+  v_retry_board uuid;
+  v_retry_request jsonb;
+  v_retry_claim uuid;
+  v_retry_key text;
+  v_blocker_key text;
 begin
   insert into public.users(id,email,credits_balance,token_version)
   values(v_user,'generation-completion-guard-'||v_user||'@example.invalid',20,0);
@@ -223,6 +230,82 @@ begin
     v_user::text,v_key,v_claim,1,'provider-task-writer','succeeded',1.75,null,null,null,
     'https://provider.example.invalid/writer-original.png'
   );
+
+  -- A price increase may exceed the user's available balance after provider
+  -- success. The same idempotency key must resume from the immutable task
+  -- journal after a top-up; it must not submit a second provider task.
+  insert into public.users(id,email,credits_balance,token_version)
+  values(v_retry_user,'generation-credit-retry-'||v_retry_user||'@example.invalid',20,0);
+  insert into public.projects(user_id,niche)
+  values(v_retry_user,'generation-credit-retry') returning id into v_retry_project;
+  insert into public.boards(project_id,title)
+  values(v_retry_project,'generation-credit-retry') returning id into v_retry_board;
+
+  v_retry_key := 'credit-retry-'||v_retry_user;
+  v_retry_request := public.begin_pin_generation_request(
+    v_retry_user::text,v_retry_board,v_retry_key,repeat('f',64)
+  );
+  v_retry_claim := (v_retry_request->>'claim_token')::uuid;
+  perform public.reserve_pin_generation_credits(v_retry_user::text,v_retry_key,2);
+  perform public.save_pin_generation_plan(v_retry_user::text,v_retry_key,v_retry_claim,jsonb_build_array(
+    jsonb_build_object('title','Recoverable task','description','saved','prompt','recoverable prompt','model','flux-schnell','aspect_ratio','2:3')
+  ));
+  perform public.record_pin_generation_provider_outcome(
+    v_retry_user::text,v_retry_key,v_retry_claim,1,'provider-credit-retry','succeeded',1.25,null,null,null,
+    'https://provider.example.invalid/recoverable.png'
+  );
+  perform public.update_pin_generation_task(
+    v_retry_user::text,v_retry_key,v_retry_claim,1,'succeeded','provider-credit-retry',
+    'https://provider.example.invalid/recoverable.png',
+    'https://storage.example.invalid/recoverable.png',1.25,null
+  );
+
+  -- A competing reservation consumes the remaining balance, so the exact
+  -- settlement resize fails even though the provider result is safely stored.
+  v_blocker_key := 'credit-blocker-'||v_retry_user;
+  v_request := public.begin_pin_generation_request(
+    v_retry_user::text,v_retry_board,v_blocker_key,repeat('1',64)
+  );
+  perform public.reserve_pin_generation_credits(v_retry_user::text,v_blocker_key,18);
+  begin
+    perform public.resize_pin_generation_credit_reservation(v_retry_user::text,v_retry_key,v_retry_claim,5);
+    raise exception 'settlement resize unexpectedly ignored competing credit reservation';
+  exception when others then
+    if sqlerrm not like '%insufficient available credits for resized generation reservation%' then
+      raise;
+    end if;
+  end;
+
+  -- This is the backend catch path for a confirmed provider result whose
+  -- final charge cannot yet be reserved. The task plan keeps the request resumable.
+  perform public.fail_pin_generation_request(
+    v_retry_user::text,v_retry_key,v_retry_claim,'insufficient_credits',true
+  );
+  perform public.fail_pin_generation_request(
+    v_retry_user::text,v_blocker_key,
+    (v_request->>'claim_token')::uuid,'test_release',false
+  );
+
+  v_retry_request := public.begin_pin_generation_request(
+    v_retry_user::text,v_retry_board,v_retry_key,repeat('f',64)
+  );
+  if v_retry_request->>'status' <> 'resume' then
+    raise exception 'same-key retry did not resume journaled provider success: %',v_retry_request;
+  end if;
+  v_retry_claim := (v_retry_request->>'claim_token')::uuid;
+  perform public.resize_pin_generation_credit_reservation(v_retry_user::text,v_retry_key,v_retry_claim,5);
+  v_saved := public.complete_pin_generation_request(
+    v_retry_user::text,v_retry_board,v_retry_key,v_retry_claim,
+    '[{"image_url":"https://storage.example.invalid/recoverable.png","title":"Recoverable task","description":"saved","model_used":"flux-schnell","aspect_ratio":"2:3","credits_cost":5}]'::jsonb,
+    5
+  );
+  if jsonb_array_length(v_saved->'pins') <> 1 then
+    raise exception 'same-key credit recovery did not persist the original generated pin: %',v_saved;
+  end if;
+  select credits_balance into v_balance from public.users where id=v_retry_user;
+  if v_balance <> 15 then
+    raise exception 'same-key credit recovery charged an incorrect balance: %',v_balance;
+  end if;
 
   raise notice 'Generation completion journal guard checks passed';
 end;
