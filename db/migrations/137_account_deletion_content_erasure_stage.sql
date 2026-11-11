@@ -208,6 +208,11 @@ declare
   v_generation_requests integer := 0;
   v_auth_tokens integer := 0;
   v_pinterest_accounts integer := 0;
+  v_publish_attempts integer := 0;
+  v_refresh_leases integer := 0;
+  v_oauth_state integer := 0;
+  v_account_refresh_leases integer := 0;
+  v_email_outbox integer := 0;
   v_projects integer := 0;
 begin
   if p_job_id is null or p_claim_token is null then
@@ -267,8 +272,27 @@ begin
   delete from public.pin_review_queue where user_id=v_user_id::text;
   get diagnostics v_review = row_count;
 
+  delete from public.pinterest_publish_attempts where user_id=v_user_id::text;
+  get diagnostics v_publish_attempts = row_count;
+
   delete from public.pinterest_publications where user_id=v_user_id::text;
   get diagnostics v_publications = row_count;
+
+  delete from public.pinterest_token_refresh_leases where user_id=v_user_id::text;
+  get diagnostics v_refresh_leases = row_count;
+
+  delete from public.pinterest_oauth_connection_state where user_id=v_user_id::text;
+  get diagnostics v_oauth_state = row_count;
+
+  delete from public.pinterest_account_refresh_leases where user_id=v_user_id::text;
+  get diagnostics v_account_refresh_leases = row_count;
+
+  -- Email outbox rows contain the recipient address and event payload. Keep
+  -- subscription/payment evidence, but remove queued/sent message content.
+  delete from public.email_outbox e
+   using public.subscriptions s
+   where e.subscription_id=s.id and s.user_id=v_user_id::text;
+  get diagnostics v_email_outbox = row_count;
 
   delete from public.pin_generation_tasks where user_id=v_user_id::text;
   get diagnostics v_generation_tasks = row_count;
@@ -302,6 +326,11 @@ begin
     'generation_requests',v_generation_requests,
     'auth_tokens',v_auth_tokens,
     'pinterest_accounts',v_pinterest_accounts,
+    'pinterest_publish_attempts',v_publish_attempts,
+    'token_refresh_leases',v_refresh_leases,
+    'oauth_connection_state',v_oauth_state,
+    'account_refresh_leases',v_account_refresh_leases,
+    'email_outbox',v_email_outbox,
     'projects',v_projects,
     'financial_records_retained',true
   );
