@@ -681,6 +681,9 @@ const MainApp: React.FC = () => {
         retryReason: undefined,
         failureReason: null,
       } : item));
+      // Refresh the canonical row so the calendar reflects any server-side
+      // retry metadata and worker state after the atomic board-change RPC.
+      setScheduleReloadToken((value) => value + 1);
     } catch (error) {
       console.error('[schedule] Не удалось сменить Pinterest-доску:', error);
       window.alert(error instanceof Error ? error.message : 'Не удалось сменить доску Pinterest');
