@@ -306,6 +306,7 @@ const MainApp: React.FC = () => {
   // Synchronized Pending Review Pins queue (Shared between Dashboard, Calendar, Sidebar & ManualApprovalDesk).
   // Queue entries are session-local and must never survive an authenticated-user switch.
   const [pendingReviewPins, setPendingReviewPins] = useState<PendingReviewPin[]>([]);
+  const [pendingReviewQueueLoading, setPendingReviewQueueLoading] = useState(Boolean(user?.id));
   const pendingReviewPinsRef = React.useRef<PendingReviewPin[]>([]);
   const reviewQueueWriteChainsRef = React.useRef<Map<string, Promise<unknown>>>(new Map());
   const pendingReviewUserIdRef = React.useRef(user?.id || '');
@@ -321,6 +322,7 @@ const MainApp: React.FC = () => {
     pendingReviewOwnerGenerationRef.current += 1;
     pendingReviewUserIdRef.current = user?.id || '';
     reviewQueueHydratingRef.current = Boolean(user?.id);
+    setPendingReviewQueueLoading(Boolean(user?.id));
     reviewQueueTouchedIdsRef.current = new Set();
     pendingReviewPinsRef.current = [];
     setPendingReviewPins([]);
@@ -346,6 +348,7 @@ const MainApp: React.FC = () => {
           reviewQueueTouchedIdsRef.current,
         );
         reviewQueueHydratingRef.current = false;
+        setPendingReviewQueueLoading(false);
         reviewQueueTouchedIdsRef.current.clear();
         pendingReviewPinsRef.current = hydratedRows;
         setPendingReviewPins(hydratedRows);
@@ -353,6 +356,7 @@ const MainApp: React.FC = () => {
       .catch((error) => {
         if (!active || !isCurrentOwner()) return;
         reviewQueueHydratingRef.current = false;
+        setPendingReviewQueueLoading(false);
         reviewQueueTouchedIdsRef.current.clear();
         console.error('[review-queue] Не удалось восстановить очередь:', error);
         window.dispatchEvent(new CustomEvent('pinposy:review-queue-error'));
@@ -928,6 +932,7 @@ const MainApp: React.FC = () => {
             <ManualApprovalDesk
               boards={boards}
               pendingPins={pendingReviewPins}
+              queueLoading={pendingReviewQueueLoading}
               onUpdatePendingPins={handleUpdatePendingPins}
               onApprovePin={handleSchedulePin}
               onGoToCalendar={() => setActiveTab('calendar')}
