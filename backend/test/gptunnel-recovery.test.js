@@ -3,8 +3,31 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const axios = require("axios");
-const { generateImage, waitForImageTask } = require("../gptunnel");
+const { generateImage, waitForImageTask, normalizeMediaQuote } = require("../gptunnel");
 const { providerTaskError } = require("../gptunnel");
+
+test("media quote accepts a valid decimal price returned as a string", () => {
+  const quote = normalizeMediaQuote({
+    code: 0,
+    model: "flux-schnell",
+    price: "2.75",
+    currency: "RUB",
+    params: { aspect_ratio: "2:3" },
+    ignored_params: [],
+  });
+  assert.equal(quote.price, 2.75);
+});
+
+test("media quote rejects malformed numeric strings", () => {
+  assert.throws(() => normalizeMediaQuote({
+    code: 0,
+    model: "flux-schnell",
+    price: "2,75",
+    currency: "RUB",
+    params: { aspect_ratio: "2:3" },
+    ignored_params: [],
+  }), /некорректную котировку/);
+});
 
 test("provider failure preserves a decimal price returned as a string", () => {
   const error = providerTaskError({
