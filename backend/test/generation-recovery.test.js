@@ -93,6 +93,18 @@ test("unexpected database status is normalized to unknown", () => {
 });
 
 
+test("durable recovery pin count ignores malformed or unsafe image records", () => {
+  const { countDurableRecoveryPins } = require("../generationRecovery");
+  assert.equal(countDurableRecoveryPins([
+    { id: "valid", image_url: "https://cdn.example/pin.png" },
+    { id: "", image_url: "https://cdn.example/no-id.png" },
+    { id: "empty-host", image_url: "https://" },
+    { id: "credentials", image_url: "https://user:pass@cdn.example/pin.png" },
+    { id: "wrong-scheme", image_url: "ftp://cdn.example/pin.png" },
+  ]), 1);
+  assert.equal(countDurableRecoveryPins(null), 0);
+});
+
 test("generation recovery returns a machine-readable 410 after replay expiry", () => {
   const source = fs.readFileSync(path.join(__dirname, "..", "index.js"), "utf8");
   assert.ok(source.includes('.select("id, board_id, status, pins, replay_expired_at, created_at, updated_at")'));
