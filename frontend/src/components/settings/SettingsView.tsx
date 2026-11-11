@@ -67,7 +67,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing, onPin
       }
       downloadJsonFile(buildAccountExportFilename(String(user?.id || ''), new Date()), data);
     } catch (error) {
-      setExportError(error instanceof Error ? error.message : t.settings.requestFailed);
+      if (error instanceof ApiError && error.data?.code === 'account_export_incomplete') {
+        setExportError(t.settings.exportIncomplete);
+      } else {
+        setExportError(error instanceof Error ? error.message : t.settings.requestFailed);
+      }
     } finally {
       setExporting(false);
     }
