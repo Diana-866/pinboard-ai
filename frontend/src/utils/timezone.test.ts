@@ -8,6 +8,7 @@ import {
   isValidIanaTimezone,
   localDateTimeToDate,
   saveUserTimezone,
+  resolveScheduleSlotTime,
 } from './timezone';
 
 function withMockStorage(run: (values: Map<string, string>) => void) {
@@ -126,4 +127,22 @@ test('chooses the displayed month from the selected timezone, not UTC month', ()
   const losAngeles = getCalendarMonthGrid(instant, 'America/Los_Angeles');
   assert.equal(london.find((day) => day.isCurrentMonth)?.dateStr, '2026-11-01');
   assert.equal(losAngeles.find((day) => day.isCurrentMonth)?.dateStr, '2026-10-01');
+});
+
+
+test('calendar quick-add advances the default time when today\'s slot has passed', () => {
+  const now = new Date('2026-11-11T21:00:00.000Z');
+  assert.equal(resolveScheduleSlotTime('2026-11-11', 'Etc/UTC', '20:15', now), '21:15');
+  assert.equal(resolveScheduleSlotTime('2026-11-12', 'Etc/UTC', '20:15', now), '20:15');
+});
+
+test('calendar quick-add rejects past dates and dates with no remaining future slot', () => {
+  const now = new Date('2026-11-11T23:50:00.000Z');
+  assert.throws(() => resolveScheduleSlotTime('2026-11-10', 'Etc/UTC', '20:15', now), /past/);
+  assert.throws(() => resolveScheduleSlotTime('2026-11-11', 'Etc/UTC', '20:15', now), /No future schedule slot/);
+});
+
+test('calendar quick-add skips nonexistent daylight-saving wall-clock times', () => {
+  const now = new Date('2026-03-28T12:00:00.000Z');
+  assert.equal(resolveScheduleSlotTime('2026-03-29', 'Europe/London', '01:30', now), '02:00');
 });
