@@ -2,6 +2,9 @@ name: Persisted boards integration checks
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feat/persisted-boards-api
   pull_request:
     branches:
       - fix/atomic-payment-fulfillment
