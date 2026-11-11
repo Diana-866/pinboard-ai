@@ -44,6 +44,32 @@ test("completed recovery returns only safe fields for the user's saved pins", ()
   assert.equal(JSON.stringify(result).includes("must-not-leak"), false);
 });
 
+test("completed recovery filters malformed pins and downgrades empty durable results", () => {
+  const result = serializeGenerationRecovery({
+    status: "completed",
+    board_id: "board-1",
+    pins: [
+      { id: "pin-valid", image_url: "https://cdn.example/pin.png", title: "Saved" },
+      { id: "", image_url: "https://cdn.example/no-id.png" },
+      { id: "pin-no-image", image_url: "" },
+      { id: "pin-bad-scheme", image_url: "javascript:alert(1)" },
+      { id: "pin-credentials", image_url: "https://user:pass@cdn.example/pin.png" },
+      null,
+    ],
+  });
+  assert.equal(result.status, "completed");
+  assert.equal(result.pins.length, 1);
+  assert.equal(result.pins[0].id, "pin-valid");
+
+  const empty = serializeGenerationRecovery({
+    status: "completed",
+    board_id: "board-1",
+    pins: [{ id: "pin-no-image", image_url: "" }],
+  });
+  assert.equal(empty.status, "unknown");
+  assert.deepEqual(empty.pins, []);
+});
+
 test("in-progress and uncertain requests never expose partial pin payloads", () => {
   for (const status of ["processing", "unknown", "failed"]) {
     const result = serializeGenerationRecovery({
