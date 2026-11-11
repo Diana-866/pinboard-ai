@@ -25,6 +25,7 @@ function fakeDb(tables, { rpcResult } = {}) {
       let rangeLimit = null;
       let orderBy = null;
       let orderAscending = true;
+      let selectedColumns = null;
       const resolve = () => {
         if (!(table in tables)) {
           return Promise.resolve({
@@ -43,10 +44,17 @@ function fakeDb(tables, { rpcResult } = {}) {
         if (orderBy) rows.sort((a, b) => String(a[orderBy]).localeCompare(String(b[orderBy])) * (orderAscending ? 1 : -1));
         if (rangeLimit !== null) rows = rows.slice(offset, offset + rangeLimit);
         else if (limit !== null) rows = rows.slice(0, limit);
+        if (selectedColumns && selectedColumns !== "*") {
+          const columns = selectedColumns.split(",").map((column) => column.trim());
+          rows = rows.map((row) => Object.fromEntries(
+            columns.filter((column) => Object.prototype.hasOwnProperty.call(row, column))
+              .map((column) => [column, row[column]])
+          ));
+        }
         return Promise.resolve({ data: rows, error: null });
       };
       const builder = {
-        select() { return builder; },
+        select(columns = "*") { selectedColumns = columns; return builder; },
         eq(column, value) { filters.push([column, value, "eq"]); return builder; },
         in(column, value) { filters.push([column, value, "in"]); return builder; },
         gt(column, value) { filters.push([column, value, "gt"]); return builder; },
@@ -82,12 +90,12 @@ test("account export never leaks credentials and follows the ownership graph", a
       is_admin: false,
       account_status: "active",
     }],
-    projects: [{ id: "p1", user_id: USER_ID, website_url: "https://example.com" }],
-    boards: [{ id: "b1", project_id: "p1", title: "Board" }, { id: "b2", project_id: "other", title: "Nope" }],
-    pins: [{ id: "pin1", board_id: "b1", title: "Pin" }, { id: "pin2", board_id: "b2", title: "Nope" }],
-    credit_transactions: [{ id: "t1", user_id: USER_ID, amount: 100 }],
-    subscriptions: [{ id: "s1", user_id: USER_ID, plan: "pro" }],
-    credit_purchases: [{ id: "c1", user_id: USER_ID, credits: 100 }],
+    projects: [{ id: "p1", user_id: USER_ID, website_url: "https://example.com", internal_notes: "DO-NOT-EXPORT" }],
+    boards: [{ id: "b1", project_id: "p1", title: "Board", moderation_secret: "DO-NOT-EXPORT" }, { id: "b2", project_id: "other", title: "Nope" }],
+    pins: [{ id: "pin1", board_id: "b1", title: "Pin", provider_payload: "DO-NOT-EXPORT" }, { id: "pin2", board_id: "b2", title: "Nope" }],
+    credit_transactions: [{ id: "t1", user_id: USER_ID, amount: 100, provider_payload: "DO-NOT-EXPORT" }],
+    subscriptions: [{ id: "s1", user_id: USER_ID, plan: "pro", provider_payment_id: "DO-NOT-EXPORT" }],
+    credit_purchases: [{ id: "c1", user_id: USER_ID, credits: 100, balance_credited_at: "DO-NOT-EXPORT" }],
     pinterest_accounts: [{
       id: "pa1",
       user_id: USER_ID,
@@ -95,9 +103,9 @@ test("account export never leaks credentials and follows the ownership graph", a
       access_token: "ACCESS-SECRET",
       refresh_token: "REFRESH-SECRET",
     }],
-    pinterest_publications: [{ id: "pub1", user_id: USER_ID, pinterest_pin_id: "remote" }],
-    pin_schedules: [{ id: "sc1", user_id: USER_ID, status: "scheduled" }],
-    pin_review_queue: [{ id: "rq1", user_id: USER_ID, payload: { title: "Draft" } }],
+    pinterest_publications: [{ id: "pub1", user_id: USER_ID, pinterest_pin_id: "remote", provider_response: "DO-NOT-EXPORT" }],
+    pin_schedules: [{ id: "sc1", user_id: USER_ID, status: "scheduled", attempts: 99, last_error: "DO-NOT-EXPORT" }],
+    pin_review_queue: [{ id: "rq1", user_id: USER_ID, payload: { title: "Draft" }, private_internal: "DO-NOT-EXPORT" }],
   });
 
   const exported = await buildAccountExport(USER_ID, db);
@@ -119,6 +127,11 @@ test("account export never leaks credentials and follows the ownership graph", a
   assert.equal("refresh_token" in exported.pinterestAccounts[0], false);
   assert.equal(JSON.stringify(exported).includes("ACCESS-SECRET"), false);
   assert.equal(JSON.stringify(exported).includes("REFRESH-SECRET"), false);
+  assert.equal(JSON.stringify(exported).includes("DO-NOT-EXPORT"), false);
+  assert.equal("provider_payment_id" in exported.subscriptions[0], false);
+  assert.equal("balance_credited_at" in exported.creditPurchases[0], false);
+  assert.equal("attempts" in exported.pinSchedules[0], false);
+  assert.equal("last_error" in exported.pinSchedules[0], false);
 
   assert.deepEqual(exported.degradedSections, []);
   assert.equal(exported.formatVersion, 1);
