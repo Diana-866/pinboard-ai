@@ -49,6 +49,21 @@ begin
   v_finished := public.finish_account_deletion_job(v_job_id,gen_random_uuid(),'succeeded',null);
   if v_finished then raise exception 'stale worker token unexpectedly finalized job'; end if;
 
+  -- Successful preflight requires a persisted inventory under this claim.
+  begin
+    perform public.finish_account_deletion_job(v_job_id,v_claim,'succeeded',null);
+    raise exception 'preflight completed without an inventory';
+  exception when raise_exception then
+    if sqlerrm <> 'account deletion preflight inventory is required' then raise; end if;
+  end;
+
+  if not public.record_account_deletion_preflight(
+    v_job_id, v_claim,
+    '{"ok":true,"sectionsChecked":10,"counts":{"projects":0,"boards":0,"pins":0}}'::jsonb
+  ) then
+    raise exception 'active worker could not persist preflight inventory';
+  end if;
+
   v_finished := public.finish_account_deletion_job(v_job_id,v_claim,'succeeded',null);
   if not v_finished then raise exception 'current worker claim failed to finalize job'; end if;
 

@@ -42,6 +42,8 @@ jobs:
         run: node --test backend/test/pinterest-boards-pagination.test.js
       - name: Test pin image upload validation, errors, and rate-limit keys
         run: node --test backend/test/image-upload-validation.test.js backend/test/image-upload-errors.test.js backend/test/pin-image-rate-limit-key.test.js
+      - name: Test account deletion preflight worker
+        run: node --test backend/test/account-deletion-worker.test.js
       - name: Test managed pin image lifecycle
         run: node --test backend/test/pin-image-lifecycle.test.js
       - name: Test concurrent pin image replacement guard

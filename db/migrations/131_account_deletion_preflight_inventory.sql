@@ -58,14 +58,14 @@ begin
    where id = p_job_id;
   return true;
 end;
-$$;
+$record_inventory$;
 
 
 create or replace function public.require_account_deletion_preflight_inventory()
 returns trigger
 language plpgsql
 set search_path = pg_catalog, public
-as $
+as $require_inventory$
 begin
   if new.step_key = 'preflight' and new.status = 'succeeded'
      and old.status is distinct from 'succeeded'
@@ -74,7 +74,7 @@ begin
   end if;
   return new;
 end;
-$;
+$require_inventory$;
 
 drop trigger if exists account_deletion_preflight_inventory_required
   on public.account_deletion_jobs;
