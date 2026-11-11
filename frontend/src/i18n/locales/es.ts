@@ -482,6 +482,7 @@ export const es: TranslationSchema = {
     deleteAccountConfirm: "Solicitar eliminación",
     deleteAccountDone: "Hemos recibido tu solicitud de eliminación y el acceso está desactivado. Tus datos aún no se han eliminado.",
     deleteAccountUnavailable: "La eliminación de la cuenta no está disponible temporalmente. Inténtalo de nuevo más tarde.",
+    exportIncomplete: "No se pudo preparar un archivo completo. No se descargó nada; inténtalo más tarde.",
     requestFailed: "No se pudo completar la solicitud. Inténtalo de nuevo.",
   },
 
