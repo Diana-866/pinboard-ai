@@ -22,7 +22,7 @@ import { AI_CONTENT_LANGUAGES, useI18n } from '../../i18n/i18nContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
-import { addCalendarDaysInTimezone, formatInstantInTimezone, getDefaultTimezone } from '../../utils/timezone';
+import { addCalendarDaysInTimezone, formatInstantInTimezone, getDefaultTimezone, resolveScheduleSlotTime } from '../../utils/timezone';
 import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure } from '../../utils/generationRetry';
 import { clearPendingPinDescriptionIfMatches, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
 import { enqueuePinSave } from '../../utils/pendingPinSaveQueue';
@@ -790,6 +790,34 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
           : schedulingMode === 'custom_datetime'
           ? customScheduleTime
           : '20:15';
+
+      // Image generation and editing can take long enough for a previously valid
+      // calendar slot to expire. Re-check immediately before persisting the schedule.
+      if (schedulingMode === 'custom_datetime') {
+        try {
+          const safeTime = resolveScheduleSlotTime(
+            scheduledDate,
+            getDefaultTimezone(language),
+            scheduledTime,
+          );
+          if (safeTime !== scheduledTime) {
+            setCustomScheduleTime(safeTime);
+            window.alert(
+              language === 'ru'
+                ? `Выбранное время уже прошло или недоступно. Обновили время на ${safeTime}. Проверьте его и нажмите «Запланировать» ещё раз.`
+                : `The selected time has passed or is unavailable. Updated it to ${safeTime}. Review the time and schedule again.`
+            );
+            return;
+          }
+        } catch {
+          window.alert(
+            language === 'ru'
+              ? 'Выбранная дата или время уже недоступны. Выберите будущую дату и повторите планирование.'
+              : 'The selected date or time is no longer available. Choose a future date and try scheduling again.'
+          );
+          return;
+        }
+      }
   
       // До подтверждения Pinterest любой элемент остаётся запланированным, не published.
       const status = 'scheduled' as const;
