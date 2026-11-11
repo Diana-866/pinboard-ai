@@ -259,6 +259,7 @@ test("worker executes the separately claimed content-erasure stage", async () =>
           financial_records_retained: true,
         }, error: null };
       }
+      if (name === "list_account_deletion_storage_manifest") return { data: [], error: null };
       if (name === "finish_account_deletion_job") return { data: true, error: null };
       throw new Error("unexpected RPC: " + name);
     },
@@ -300,3 +301,49 @@ test("worker retries content erasure unless the RPC explicitly confirms retained
   assert.equal(finish.args.p_outcome, "retry");
   assert.equal(finish.args.p_error_code, "content_erasure_unconfirmed");
 });
+
+test("worker removes only manifested Storage objects and confirms lifecycle completion", async () => {
+  const calls = [];
+  const removedObjects = [];
+  let listCalls = 0;
+  const client = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_account_deletion_jobs") {
+        return { data: [{
+          job_id: "job-storage",
+          user_id: USER_ID,
+          step_key: "erase_content",
+          claim_token: "claim-storage",
+        }], error: null };
+      }
+      if (name === "erase_account_deletion_content") {
+        return { data: { erased: true, financial_records_retained: true }, error: null };
+      }
+      if (name === "list_account_deletion_storage_manifest") {
+        listCalls += 1;
+        return {
+          data: listCalls === 1
+            ? [{ bucket_id: "pin-images", object_path: "pins/123-0123456789abcdef0123456789abcdef.webp" }]
+            : [],
+          error: null,
+        };
+      }
+      if (name === "mark_account_deletion_storage_object_deleted") return { data: true, error: null };
+      if (name === "finish_account_deletion_job") return { data: true, error: null };
+      throw new Error("unexpected RPC: " + name);
+    },
+  };
+  const worker = createAccountDeletionWorker({
+    client,
+    deleteImageObject: async (args) => { removedObjects.push(args); return true; },
+    logger: { info() {}, error() {} },
+  });
+  const result = await worker.tick();
+  assert.deepEqual(result, { claimed: 1, completed: 1, retried: 0 });
+  assert.equal(removedObjects.length, 1);
+  assert.equal(removedObjects[0].bucket, "pin-images");
+  assert.equal(removedObjects[0].objectPath, "pins/123-0123456789abcdef0123456789abcdef.webp");
+  assert.equal(calls.some((call) => call.name === "mark_account_deletion_storage_object_deleted"), true);
+});
+
