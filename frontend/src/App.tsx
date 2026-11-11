@@ -880,10 +880,34 @@ const MainApp: React.FC = () => {
               initialTime={prefilledTime}
               initialBoardId={prefilledBoardId}
               onSchedulePin={handleSchedulePin}
-              onAddToReview={(pin) => {
-                handleUpdatePendingPins((previous) => previous.some((item) => item.pinId === pin.pinId)
-                  ? previous
-                  : [...previous, pin]);
+              onAddToReview={async (pin) => {
+                const ownerSnapshot = {
+                  userId: user?.id || '',
+                  generation: pendingReviewOwnerGenerationRef.current,
+                };
+                const isCurrentOwner = () => isReviewQueueOwnerCurrent(ownerSnapshot, {
+                  userId: pendingReviewUserIdRef.current,
+                  generation: pendingReviewOwnerGenerationRef.current,
+                });
+                if (!ownerSnapshot.userId || !isCurrentOwner()) {
+                  throw new Error('Сессия пользователя изменилась. Обновите страницу и повторите попытку.');
+                }
+                const existing = pendingReviewPinsRef.current.find((item) => item.pinId === pin.pinId);
+                if (existing) {
+                  setActiveTab('review');
+                  return;
+                }
+                await apiRequest(`/review-queue/${encodeURIComponent(pin.id)}`, {
+                  method: 'PUT',
+                  body: JSON.stringify({ pin }),
+                });
+                if (!isCurrentOwner()) {
+                  throw new Error('Сессия пользователя изменилась во время сохранения.');
+                }
+                if (reviewQueueHydratingRef.current) reviewQueueTouchedIdsRef.current.add(pin.id);
+                const next = [...pendingReviewPinsRef.current, pin];
+                pendingReviewPinsRef.current = next;
+                setPendingReviewPins(next);
                 setActiveTab('review');
               }}
               onGoToCalendar={() => setActiveTab('calendar')}
