@@ -494,7 +494,7 @@ const MainApp: React.FC = () => {
     // the immutable schedule snapshot.
     const creativePatch: Record<string, string> = { title: pin.title };
     if (typeof pin.description === 'string') creativePatch.description = pin.description;
-    const updatedPin = await apiRequest(`/pins/${encodeURIComponent(pin.pinId)}/`, {
+    const updatedPin = await apiRequest(`/pins/${encodeURIComponent(pin.pinId)}`, {
       method: 'PATCH',
       body: JSON.stringify(creativePatch),
     });
