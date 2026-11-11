@@ -17,7 +17,7 @@ declare
   v_path text;
 begin
   if p_url is null or p_supabase_url is null
-     or p_supabase_url !~ '^(https://[^/]+/?|http://(localhost|127\\.0\\.0\\.1)(:[0-9]+)?/?) then
+     or p_supabase_url !~ '^(https://[^/]+/?|http://(localhost|127\.0\.0\.1)(:[0-9]+)?/?) then
     return null;
   end if;
   v_url := split_part(split_part(p_url,'?',1),'#',1);
