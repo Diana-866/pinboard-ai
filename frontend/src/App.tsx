@@ -42,7 +42,7 @@ import { getOrCreateProject } from './utils/projectProvisioning';
 import { validatePersistedScheduleRows } from './utils/persistedSchedule';
 import { mergeRestoredReviewQueue } from './utils/reviewQueueHydration';
 import { isReviewQueueOwnerCurrent } from './utils/reviewQueueOwnerFence';
-import { findPersistedScheduleMutation, isScheduleAbsentFromActiveList } from './utils/scheduleMutationReconciliation';
+import { findPersistedScheduleMutation, findPersistedScheduleRequest, isScheduleAbsentFromActiveList } from './utils/scheduleMutationReconciliation';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Landing } from './pages/Landing';
@@ -510,16 +510,14 @@ const MainApp: React.FC = () => {
       // the original error; never infer success from a loose pin-ID match alone.
       try {
         const rows = await apiRequest('/schedule');
-        if (!Array.isArray(rows)) throw new Error('Некорректный ответ расписания');
-        const expectedTime = localDateTime.getTime();
-        const matches = rows.filter((row: any) =>
-          String(row?.pin_id || '') === pin.pinId &&
-          new Date(row?.scheduled_at).getTime() === expectedTime &&
-          String(row?.pinterest_board_id || '') === String(pin.pinterestBoardId || '') &&
-          (!pin.pinterestAccountId || String(row?.pinterest_account_id || '') === String(pin.pinterestAccountId))
-        );
-        if (matches.length !== 1) throw originalError;
-        saved = matches[0];
+        saved = findPersistedScheduleRequest(rows, {
+          pinId: pin.pinId,
+          scheduledAt: localDateTime.toISOString(),
+          pinterestBoardId: String(pin.pinterestBoardId || ''),
+          pinterestAccountId: pin.pinterestAccountId || undefined,
+          statuses: ['scheduled', 'publishing', 'failed', 'unknown'],
+        });
+        if (!saved) throw originalError;
       } catch {
         throw originalError;
       }
@@ -531,7 +529,11 @@ const MainApp: React.FC = () => {
       pinId: String(saved.pin_id),
       scheduledDate: date.date,
       scheduledTime: date.time,
-      status: 'scheduled',
+      status: parsePersistedScheduleStatus(saved.status),
+      retryable: saved.retryable === true,
+      retryReason: saved.retry_reason || undefined,
+      failureReason: saved.failure_reason === 'board_unavailable' ? 'board_unavailable' : null,
+      pinterestBoardId: saved.pinterest_board_id || pin.pinterestBoardId,
       pinterestAccountId: saved.pinterest_account_id || pin.pinterestAccountId,
       accountHandle: accounts.find((account) => account.id === (saved.pinterest_account_id || pin.pinterestAccountId))?.handle || pin.accountHandle,
     };
