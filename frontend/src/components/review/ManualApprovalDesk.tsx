@@ -327,7 +327,6 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   // AI re-generate state
   const [showRegenBox, setShowRegenBox] = useState(false);
   const [regenComment, setRegenComment] = useState('');
-  const [isRegenerating, setIsRegenerating] = useState(false);
 
   // Swipe animation states
   const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
@@ -556,15 +555,21 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
   const handleRegenerate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regenComment.trim()) return;
+    const feedback = regenComment.trim();
+    if (!feedback || !currentPin || !onGoToGenerator) return;
 
-    setIsRegenerating(true);
-    setTimeout(() => {
-      setIsRegenerating(false);
-      setShowRegenBox(false);
-      // Alter title subtly with AI revision
-      setEditTitle((prev) => `[AI Ревизия: ${regenComment.slice(0, 18)}] ${prev.replace(/\[.*?\]\s*/g, '')}`);
-    }, 1200);
+    // The review desk has no image-regeneration API. Send the original subject
+    // and requested changes to the real generator instead of faking success.
+    const revisionPrompt = [
+      currentPin.title,
+      currentPin.description,
+      `Visual revision requested by the user: ${feedback}`,
+      "Create a new pin image variant. Preserve the original subject and apply the requested visual changes.",
+    ].filter(Boolean).join("\n\n");
+
+    setShowRegenBox(false);
+    setRegenComment("");
+    onGoToGenerator(revisionPrompt);
   };
 
   // Completed State Screen
@@ -939,13 +944,13 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                   className="secondary-btn px-3.5 py-2 text-xs flex items-center gap-1.5 cursor-pointer text-primary-theme"
                 >
                   <RefreshCw className="w-3.5 h-3.5 text-accent-ghost" />
-                  <span>Перегенерировать картинку с промптом</span>
+                  <span>Создать новый вариант в генераторе</span>
                 </button>
               ) : (
                 <form onSubmit={handleRegenerate} className="p-3 rounded-xl bg-subtle border border-subtle space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-bold text-primary-theme">
-                      Комментарий для ИИ (что исправить):
+                      Что изменить в новом варианте:
                     </span>
                     <button
                       type="button"
@@ -958,18 +963,17 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                   <input
                     type="text"
                     required
-                    placeholder="Например: сделай темнее фон, добавь акцент на заголовок..."
+                    placeholder="Например: затемни фон, сохрани композицию, добавь акцент на заголовок..."
                     value={regenComment}
                     onChange={(e) => setRegenComment(e.target.value)}
                     className="w-full px-3 py-1.5 text-xs bg-app-input border border-subtle rounded-lg text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
                   />
                   <button
                     type="submit"
-                    disabled={isRegenerating}
                     className="accent-btn px-4 py-1.5 text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-60 shadow-xs"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} />
-                    <span>{isRegenerating ? 'Генерация нового варианта...' : 'Обновить визуал'}</span>
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Открыть генератор с правками</span>
                   </button>
                 </form>
               )}
