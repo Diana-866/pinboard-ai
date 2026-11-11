@@ -375,3 +375,79 @@ test("worker finalizes only through the fenced tombstone RPC", async () => {
   assert.equal(calls.some((call) => call.name === "finish_account_deletion_job"), false);
 });
 
+
+
+test("worker drains multiple Storage manifest pages before marking erasure complete", async () => {
+  const calls = [];
+  const firstPage = Array.from({ length: 100 }, (_, index) => ({
+    bucket_id: "pin-images",
+    object_path: `pins/${1000 + index}-0123456789abcdef0123456789abcdef.webp`,
+  }));
+  const secondPage = [{
+    bucket_id: "pin-images",
+    object_path: "pins/generation-abcdef0123456789abcdef0123456789.webp",
+  }];
+  let listCalls = 0;
+  let deleted = 0;
+  const client = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_account_deletion_jobs") return { data: [{
+        job_id: "job-storage-pages", user_id: USER_ID, step_key: "erase_content", claim_token: "claim-pages",
+      }], error: null };
+      if (name === "erase_account_deletion_content") {
+        return { data: { erased: true, financial_records_retained: true }, error: null };
+      }
+      if (name === "list_account_deletion_storage_manifest") {
+        listCalls += 1;
+        return { data: listCalls === 1 ? firstPage : listCalls === 2 ? secondPage : [], error: null };
+      }
+      if (name === "mark_account_deletion_storage_object_deleted") return { data: true, error: null };
+      if (name === "finish_account_deletion_job") return { data: true, error: null };
+      throw new Error("unexpected RPC: " + name);
+    },
+  };
+  const worker = createAccountDeletionWorker({
+    client,
+    deleteImageObject: async () => { deleted += 1; return true; },
+    logger: { info() {}, error() {} },
+  });
+  const result = await worker.tick();
+  assert.deepEqual(result, { claimed: 1, completed: 1, retried: 0 });
+  assert.equal(deleted, 101);
+  assert.equal(listCalls, 3);
+  assert.equal(calls.filter((call) => call.name === "mark_account_deletion_storage_object_deleted").length, 101);
+  const finishIndex = calls.findIndex((call) => call.name === "finish_account_deletion_job");
+  const lastListIndex = calls.map((call) => call.name).lastIndexOf("list_account_deletion_storage_manifest");
+  assert.ok(finishIndex > lastListIndex);
+});
+
+test("worker retries rather than completing when Storage deletion is not confirmed", async () => {
+  const calls = [];
+  const client = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_account_deletion_jobs") return { data: [{
+        job_id: "job-storage-unconfirmed", user_id: USER_ID, step_key: "erase_content", claim_token: "claim-unconfirmed",
+      }], error: null };
+      if (name === "erase_account_deletion_content") {
+        return { data: { erased: true, financial_records_retained: true }, error: null };
+      }
+      if (name === "list_account_deletion_storage_manifest") {
+        return { data: [{ bucket_id: "pin-images", object_path: "pins/123-0123456789abcdef0123456789abcdef.webp" }], error: null };
+      }
+      if (name === "mark_account_deletion_storage_object_deleted") return { data: false, error: null };
+      if (name === "finish_account_deletion_job") return { data: true, error: null };
+      throw new Error("unexpected RPC: " + name);
+    },
+  };
+  const worker = createAccountDeletionWorker({
+    client,
+    deleteImageObject: async () => false,
+    logger: { info() {}, error() {} },
+  });
+  const result = await worker.tick();
+  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1 });
+  assert.equal(calls.some((call) => call.name === "finish_account_deletion_job" && call.args.p_outcome === "succeeded"), false);
+  assert.equal(calls.some((call) => call.name === "finish_account_deletion_job" && call.args.p_outcome === "retry"), true);
+});
