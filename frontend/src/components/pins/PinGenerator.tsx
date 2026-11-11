@@ -289,7 +289,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [reviewQueueSuccess, setReviewQueueSuccess] = useState(false);
   const [recoverableGenerations, setRecoverableGenerations] = useState<Array<{
     key: string;
-    status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found';
+    status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found' | 'expired';
     boardId: string;
     pinCount: number;
   }>>([]);
@@ -328,7 +328,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     const check = async () => {
       const found: Array<{
         key: string;
-        status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found';
+        status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found' | 'expired';
         boardId: string;
         pinCount: number;
       }> = [];
@@ -349,6 +349,19 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         } catch (error: any) {
           // A 404 can mean an old local key whose server record has expired.
           // Preserve it: a transient/auth/network error must never erase recovery data.
+          if (error?.status === 410 && error?.data?.code === 'idempotency_result_expired') {
+            // The replay window expired, not the saved pins themselves. Keep
+            // enough safe metadata to let the user reopen the original board.
+            found.push({
+              key: identity.fingerprint,
+              status: 'expired',
+              boardId: typeof error.data.board_id === 'string' ? error.data.board_id : '',
+              pinCount: Number.isInteger(error.data.pin_count) && error.data.pin_count > 0
+                ? error.data.pin_count
+                : 0,
+            });
+            continue;
+          }
           if (error?.status === 404) {
             found.push({ key: identity.fingerprint, status: 'not_found', boardId: '', pinCount: 0 });
             continue;
@@ -989,16 +1002,18 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   ? (language === 'ru' ? 'Генерация ещё выполняется' : 'Generation is still processing')
                   : item.status === 'failed'
                     ? (language === 'ru' ? 'Предыдущая генерация завершилась ошибкой' : 'Previous generation failed')
+                    : item.status === 'expired'
+                    ? (language === 'ru' ? 'Срок восстановления запроса истёк; сохранённые пины доступны на доске' : 'Request recovery expired; saved pins remain on the board')
                     : item.status === 'not_found'
-                    ? (language === 'ru' ? 'Запрос не найден на сервере — ключ сохранён' : 'Request not found on server — recovery key kept')
-                    : (language === 'ru' ? 'Результат пока не подтверждён' : 'Result is not confirmed yet');
+                      ? (language === 'ru' ? 'Запрос не найден на сервере — ключ сохранён' : 'Request not found on server — recovery key kept')
+                      : (language === 'ru' ? 'Результат пока не подтверждён' : 'Result is not confirmed yet');
               return (
                 <div key={item.key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg bg-subtle border border-subtle">
                   <div className="min-w-0">
                     <p className="text-xs font-semibold text-primary-theme">{label}</p>
                     {board && <p className="text-[11px] text-muted-theme">{board.name}</p>}
                   </div>
-                  {item.status === 'completed' && item.pinCount > 0 && board && (
+                  {(item.status === 'completed' || item.status === 'expired') && item.pinCount > 0 && board && (
                     <button
                       type="button"
                       onClick={() => {
@@ -1012,7 +1027,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                       {language === 'ru' ? 'Открыть готовые пины' : 'Open saved pins'}
                     </button>
                   )}
-                  {item.status === 'completed' && !board && (
+                  {(item.status === 'completed' || item.status === 'expired') && !board && (
                     <span className="text-[11px] text-muted-theme">
                       {language === 'ru' ? 'Доска недоступна в текущем списке' : 'Board is unavailable'}
                     </span>
