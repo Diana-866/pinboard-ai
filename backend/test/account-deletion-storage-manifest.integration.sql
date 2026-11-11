@@ -34,7 +34,7 @@ begin
   insert into public.pins(board_id,image_url,title,description,status,model_used,credits_cost)
   values(
     v_board,
-    'https://project.supabase.co/storage/v1/object/public/pin-images/pins/123-test.png',
+    'https://project.supabase.co/storage/v1/object/public/pin-images/pins/123-0123456789abcdef0123456789abcdef.png',
     'owned image','','approved','flux-schnell',0
   );
 
@@ -63,7 +63,7 @@ begin
   if not exists (
     select 1 from public.account_deletion_storage_objects
      where request_id=v_request and bucket_id='pin-images'
-       and object_path='pins/123-test.png' and state='pending'
+       and object_path='pins/123-0123456789abcdef0123456789abcdef.png' and state='pending'
   ) then
     raise exception 'owned managed image path was not persisted';
   end if;
