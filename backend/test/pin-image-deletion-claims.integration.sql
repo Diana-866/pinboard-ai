@@ -1,4 +1,36 @@
 -- Pin image deletion-claim schema contract. Run after migrations 070, 083, 090, 098-107.
+
+-- Migration 150: enforce a literal extension separator, not a wildcard dot.
+do $body$
+declare
+  v_result jsonb;
+begin
+  v_result := public.claim_pin_image_deletion(
+    'pin-images', 'pins/1730000000997-literaldot01.webp', 60
+  );
+  if coalesce((v_result ->> 'claimed')::boolean, false) is not true then
+    raise exception 'valid image path with literal dot was rejected: %', v_result;
+  end if;
+  if not public.finalize_pin_image_deletion(
+    'pin-images', 'pins/1730000000997-literaldot01.webp',
+    (v_result ->> 'claim_token')::uuid, true, null
+  ) then
+    raise exception 'literal-dot image path deletion did not finalize';
+  end if;
+
+  begin
+    perform public.claim_pin_image_deletion(
+      'pin-images', 'pins/1730000000996-literaldot01Xwebp', 60
+    );
+    raise exception 'image path without literal extension dot was accepted';
+  exception when raise_exception then
+    if sqlerrm = 'image path without literal extension dot was accepted' then
+      raise;
+    end if;
+  end;
+end;
+$body$;
+
 do $body$
 declare
   v_path text;
