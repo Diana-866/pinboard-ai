@@ -1066,7 +1066,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   : item.status === 'failed'
                     ? (language === 'ru' ? 'Предыдущая генерация завершилась ошибкой' : 'Previous generation failed')
                     : item.status === 'expired'
-                    ? (language === 'ru' ? 'Срок восстановления запроса истёк; сохранённые пины доступны на доске' : 'Request recovery expired; saved pins remain on the board')
+                    ? item.pinCount > 0
+                      ? (language === 'ru' ? 'Срок восстановления истёк; сохранённые пины доступны на доске' : 'Recovery expired; saved pins are available on the board')
+                      : (language === 'ru' ? 'Срок восстановления истёк; наличие сохранённых пинов не подтверждено' : 'Recovery expired; saved pins could not be confirmed')
                     : item.status === 'not_found'
                       ? (language === 'ru' ? 'Запрос не найден на сервере — ключ сохранён' : 'Request not found on server — recovery key kept')
                       : (language === 'ru' ? 'Результат пока не подтверждён' : 'Result is not confirmed yet');
@@ -1076,12 +1078,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     <p className="text-xs font-semibold text-primary-theme">{label}</p>
                     {board && <p className="text-[11px] text-muted-theme">{board.name}</p>}
                   </div>
-                  {(item.status === 'completed' && item.pinCount > 0 || item.status === 'expired') && board && (
+                  {(item.status === 'completed' && item.pinCount > 0 || item.status === 'expired' && item.pinCount > 0) && board && (
                     <button
                       type="button"
                       onClick={() => {
                         // The completed pins are already persisted. An expired replay may
-                        // not retain a count, so let the board loader confirm what remains.
+                        // has a positive durable pin count, so opening the board is safe.
                         setSelectedBoardId(item.boardId);
                         setSavedPinsReloadAttempt((attempt) => attempt + 1);
                       }}
@@ -1090,7 +1092,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                       {language === 'ru' ? 'Открыть готовые пины' : 'Open saved pins'}
                     </button>
                   )}
-                  {(item.status === 'completed' || item.status === 'expired') && !board && (
+                  {(item.status === 'completed' && item.pinCount > 0 || item.status === 'expired' && item.pinCount > 0) && !board && (
                     <span className="text-[11px] text-muted-theme">
                       {language === 'ru' ? 'Доска недоступна в текущем списке' : 'Board is unavailable'}
                     </span>
