@@ -50,6 +50,8 @@ export interface PendingReviewPin {
 export interface ManualApprovalDeskProps {
   boards: BoardItem[];
   pendingPins?: PendingReviewPin[];
+  /** Prevent an empty queue from appearing reviewed before the server restores it. */
+  queueLoading?: boolean;
   onUpdatePendingPins?: (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => void | Promise<void>;
   onApprovePin: (pin: ScheduledPinItem) => void;
   onGoToCalendar?: () => void;
@@ -287,6 +289,7 @@ export const INITIAL_QUEUE_PINS: PendingReviewPin[] = [
 export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   boards,
   pendingPins,
+  queueLoading = false,
   onUpdatePendingPins,
   onApprovePin,
   onGoToCalendar,
@@ -654,6 +657,16 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       setIsRegenerating(false);
     }
   };
+
+  // Do not present the empty/completed state until the authenticated server queue is restored.
+  if (queueLoading) {
+    return (
+      <div className="custom-card p-8 md:p-12 text-center space-y-4 max-w-xl mx-auto my-8 border border-subtle" role="status" aria-live="polite">
+        <RefreshCw className="w-8 h-8 mx-auto text-accent animate-spin" />
+        <p className="text-sm text-secondary-theme">Загружаем очередь проверки…</p>
+      </div>
+    );
+  }
 
   // Completed State Screen
   if (!currentPin) {
