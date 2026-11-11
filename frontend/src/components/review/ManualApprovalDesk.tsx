@@ -341,6 +341,8 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [isDecisionInFlight, setIsDecisionInFlight] = useState(false);
   const decisionInFlightRef = useRef(false);
+  const bulkApprovalInFlightRef = useRef(false);
+  const [isBulkApprovalInFlight, setIsBulkApprovalInFlight] = useState(false);
   const dragStartX = useRef(0);
 
   useEffect(() => {
@@ -513,6 +515,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   };
 
   const handleApproveAll = () => {
+    if (bulkApprovalInFlightRef.current || decisionInFlightRef.current) return;
     if (queue.some((pin) => !pin.pinId)) {
       window.alert('В очереди есть демонстрационные карточки без сохранённых пинов. Создайте и сохраните реальные пины в генераторе, прежде чем добавлять их в расписание.');
       return;
@@ -521,6 +524,8 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       window.alert('Сначала подключите Pinterest и выберите настоящую доску Pinterest для публикации.');
       return;
     }
+    bulkApprovalInFlightRef.current = true;
+    setIsBulkApprovalInFlight(true);
     const scheduledItems = queue.map((p, idx) => {
       // Bulk approval must not discard edits in the currently open review card.
       const approved = applyCurrentReviewEdits(p, idx, {
@@ -566,6 +571,9 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       if (successfulIds.size !== scheduledItems.length) {
         window.alert(`В расписание добавлено: ${successfulIds.size} из ${scheduledItems.length}. Неудачные карточки остались в очереди.`);
       }
+    }).finally(() => {
+      bulkApprovalInFlightRef.current = false;
+      setIsBulkApprovalInFlight(false);
     });
   };
 
@@ -771,11 +779,12 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
           {queue.length > 0 && (
             <button
               onClick={handleApproveAll}
+              disabled={isBulkApprovalInFlight || isDecisionInFlight}
               className="px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold hover:bg-emerald-500/20 cursor-pointer flex items-center gap-1.5 transition-colors"
               title="Утвердить все пины из очереди в расписание публикаций"
             >
               <Check className="w-3.5 h-3.5" />
-              <span>Одобрить все ({queue.length})</span>
+              <span>{isBulkApprovalInFlight ? 'Добавляем в расписание…' : `Одобрить все (${queue.length})`}</span>
             </button>
           )}
 
