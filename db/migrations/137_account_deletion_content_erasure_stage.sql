@@ -50,8 +50,8 @@ begin
   loop
     exit when v_count >= p_limit;
 
-    -- Global lock order: owner -> request -> job. The preflight operation has
-    -- no external side effects, so an expired lease is safe to reclaim.
+    -- Global lock order: owner -> request -> job. Each step's database work
+    -- is transactional; an expired lease can safely retry the idempotent step.
     select u.account_status into v_status
       from public.users u
      where u.id = v_candidate.user_id
@@ -160,7 +160,7 @@ begin
            then clock_timestamp() + make_interval(secs => v_delay)
            else next_attempt_at end,
          safe_error_code = case when v_next_status = 'succeeded' then null
-           else coalesce(p_error_code, 'preflight_unresolved') end,
+           else coalesce(p_error_code, 'deletion_step_unresolved') end,
          finished_at = case when v_next_status in ('succeeded','blocked')
            then clock_timestamp() else null end,
          updated_at = clock_timestamp()
@@ -177,8 +177,8 @@ begin
     v_request_id,
     v_job.step_key || '_' || v_job.attempts::text || '_' || v_next_status,
     'worker',
-    case when v_next_status = 'succeeded' then 'preflight_completed'
-         else coalesce(p_error_code, 'preflight_unresolved') end
+    case when v_next_status = 'succeeded' then v_job.step_key || '_completed'
+         else coalesce(p_error_code, 'deletion_step_unresolved') end
   ) on conflict (request_id,event_key) do nothing;
 
   return true;
