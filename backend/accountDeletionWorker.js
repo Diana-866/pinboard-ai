@@ -136,6 +136,20 @@ function createAccountDeletionWorker({
         logger.info("account_deletion_worker.inventory_claim_lost", { job_id: job.job_id });
         return { status: "claim_lost" };
       }
+      // Persist exact managed Storage paths while the account's source rows
+      // still exist. This is inventory only: no object or user data is deleted
+      // until a later, separately fenced erasure stage.
+      const { data: storageManifest, error: manifestError } = await client.rpc(
+        "materialize_account_deletion_storage_manifest",
+        { p_job_id: job.job_id, p_claim_token: job.claim_token }
+      );
+      if (manifestError) throw manifestError;
+      if (!storageManifest || storageManifest.recorded !== true ||
+          !Number.isInteger(storageManifest.total) || storageManifest.total < 0) {
+        const error = new Error("account deletion storage manifest was not persisted");
+        error.code = "storage_manifest_not_recorded";
+        throw error;
+      }
       // Revoke locally stored Pinterest credentials only after a complete,
       // durable preflight. The RPC is idempotent and uses the established
       // OAuth-generation/refresh-lease fencing for every connected account.
