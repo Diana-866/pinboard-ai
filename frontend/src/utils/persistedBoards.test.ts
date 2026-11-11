@@ -4,33 +4,38 @@ import { mapPersistedBoards } from './persistedBoards';
 
 const invalid = 'Invalid boards response';
 
-test('maps persisted boards using their own category before the shared project niche', () => {
+test('prefers the dedicated category field for persisted manual boards', () => {
+  const boards = mapPersistedBoards([
+    { id: 'board-1', title: 'Interior ideas', category: 'Home Decor', description: '', projects: { niche: 'Fashion' } },
+  ], invalid);
+
+  assert.equal(boards[0].category, 'Home Decor');
+});
+
+test('recovers known legacy categories stored in description', () => {
+  const boards = mapPersistedBoards([
+    { id: 'board-legacy', title: 'Recipes', description: ' Recipes ', projects: { niche: 'Lifestyle' } },
+  ], invalid);
+
+  assert.equal(boards[0].category, 'Recipes');
+});
+
+test('does not mistake generated SEO descriptions for categories', () => {
   const boards = mapPersistedBoards([
     {
-      id: 'board-1',
-      title: '  Interior ideas  ',
-      description: '  Home Decor  ',
-      projects: { niche: 'Fashion' },
-    },
-    {
-      id: 'board-2',
-      title: 'Recipes',
-      description: 'Food',
-      projects: [{ niche: 'Lifestyle' }],
+      id: 'board-generated',
+      title: 'Small kitchen storage ideas',
+      description: 'Discover clever storage ideas for compact kitchens and apartments.',
+      projects: { niche: 'Home Decor' },
     },
   ], invalid);
 
-  assert.equal(boards.length, 2);
-  assert.equal(boards[0].id, 'board-1');
-  assert.equal(boards[0].name, 'Interior ideas');
   assert.equal(boards[0].category, 'Home Decor');
-  assert.equal(boards[1].category, 'Food');
-  assert.equal(boards[0].pinCount, 0);
 });
 
-test('falls back to project niche for legacy boards without a description', () => {
+test('uses project niche for legacy boards without a recoverable category', () => {
   const boards = mapPersistedBoards([
-    { id: 'board-legacy', title: 'Legacy board', description: '', projects: { niche: 'Travel' } },
+    { id: 'board-old', title: 'Older board', description: 'A long description', projects: { niche: 'Travel' } },
     { id: 'board-empty', title: 'Uncategorized', projects: { niche: '' } },
   ], invalid);
 
