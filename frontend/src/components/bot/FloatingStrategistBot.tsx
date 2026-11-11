@@ -26,12 +26,21 @@ interface FloatingStrategistBotProps {
   onNavigateTab: (tab: string) => void;
   isOpen?: boolean;
   onToggleOpen?: () => void;
+  /** Live account numbers; the assistant reports these instead of canned copy. */
+  account?: {
+    credits?: number;
+    planLabel?: string;
+    boardsCount?: number;
+    scheduledCount?: number;
+    pendingCount?: number;
+  };
 }
 
 export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
   onNavigateTab,
   isOpen: controlledIsOpen,
   onToggleOpen,
+  account,
 }) => {
   const { t, language } = useI18n();
   const [internalIsOpen, setInternalIsOpen] = useState<boolean>(false);
@@ -75,6 +84,22 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
     { q: t.bot.quickQuestion5, actionTab: 'keywords' },
   ];
 
+  // Everything the assistant says is derived from state the app already holds.
+  // It never claims to see Pinterest analytics, because the app cannot.
+  const buildAccountSummary = (): string => {
+    if (!account) return t.bot.demoReply;
+    const parts: string[] = [];
+    if (typeof account.credits === 'number') parts.push(`${t.bot.ctxCredits}: ${account.credits}`);
+    if (account.planLabel) parts.push(`${t.bot.ctxPlan}: ${account.planLabel}`);
+    if (typeof account.boardsCount === 'number') parts.push(`${t.bot.ctxBoards}: ${account.boardsCount}`);
+    if (typeof account.scheduledCount === 'number') parts.push(`${t.bot.ctxQueue}: ${account.scheduledCount}`);
+    if (typeof account.pendingCount === 'number' && account.pendingCount > 0) {
+      parts.push(`${t.bot.ctxPending}: ${account.pendingCount}`);
+    }
+    if (parts.length === 0) return t.bot.demoReply;
+    return `${parts.join(' · ')}`;
+  };
+
   const handleSelectQuickQuestion = (question: string, actionTab?: string) => {
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     setMessages((prev) => [
@@ -83,7 +108,7 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
       {
         id: `bot-${Date.now()}-notice`,
         sender: 'bot',
-        text: t.bot.demoReply,
+        text: buildAccountSummary(),
         timestamp,
         action: actionTab
           ? {
@@ -110,7 +135,7 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
       {
         id: `bot-${messageId}`,
         sender: 'bot',
-        text: t.bot.demoReply,
+        text: targetTab ? `${buildAccountSummary()}` : t.bot.demoReply,
         timestamp,
         action: targetTab ? { label: t.bot.openSection, tab: targetTab } : undefined,
       },

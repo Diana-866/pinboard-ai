@@ -1036,6 +1036,13 @@ const MainApp: React.FC = () => {
         }}
         isOpen={isBotOpen}
         onToggleOpen={() => setIsBotOpen(!isBotOpen)}
+        account={{
+          credits: user?.credits_balance,
+          planLabel: user?.tariff_plan && user.tariff_plan !== 'none' ? user.tariff_plan : undefined,
+          boardsCount: boards.length,
+          scheduledCount: scheduledPins.filter((pin) => pin.status === 'scheduled').length,
+          pendingCount,
+        }}
       />
 
       {/* Real-time Toast Queue Notification */}

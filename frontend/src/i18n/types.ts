@@ -629,6 +629,12 @@ export interface TranslationSchema {
     thinking: string;
     clearChat: string;
     suggestedTitle: string;
+    ctxCredits: string;
+    ctxPlan: string;
+    ctxBoards: string;
+    ctxQueue: string;
+    ctxPending: string;
+    ctxHeader: string;
   };
 
   // Notifications Bell & Queue System
