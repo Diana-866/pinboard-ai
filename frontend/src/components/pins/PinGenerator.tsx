@@ -322,7 +322,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       return () => { active = false; };
     }
 
-    const identities = listPendingGenerationRequests().slice(-10).reverse();
+    const identities = listPendingGenerationRequests().reverse();
     if (!identities.length) {
       setRecoverableGenerations([]);
       // A previous recovery check may have been in flight before its identity
