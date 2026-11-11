@@ -1789,7 +1789,6 @@ app.get("/schedule", requireAuth, async (req, res) => {
       .from("pin_schedules")
       .select("*, pins(id, board_id, title, description, image_url, status, boards(id, title))")
       .eq("user_id", String(req.userId))
-      .neq("status", "cancelled")
       .order("scheduled_at", { ascending: true });
     if (error) throw error;
 
