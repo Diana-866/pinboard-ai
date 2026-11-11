@@ -26,7 +26,7 @@ begin
     id,request_id,step_key,status,claim_token,lease_expires_at,inventory,inventory_recorded_at
   ) values (
     v_job,v_request,'preflight','running',v_claim,clock_timestamp()+interval '5 minutes',
-    '{"ok":true,"sectionsChecked":14,"counts":{}}'::jsonb,clock_timestamp()
+    '{"ok":true,"sectionsChecked":22,"counts":{}}'::jsonb,clock_timestamp()
   );
 
   insert into public.projects(user_id,niche) values(v_user,'storage-manifest') returning id into v_project;
