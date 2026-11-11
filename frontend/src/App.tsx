@@ -149,6 +149,19 @@ const MainApp: React.FC = () => {
     };
   }, []);
 
+  // Keep the visible publishing calendar in sync with background worker results.
+  // Poll only while the user is viewing the calendar and the tab is foregrounded;
+  // visibilitychange above performs an immediate refresh when they return.
+  React.useEffect(() => {
+    if (!user?.id || activeTab !== 'calendar') return;
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        setScheduleReloadToken((value) => value + 1);
+      }
+    }, 30_000);
+    return () => window.clearInterval(intervalId);
+  }, [user?.id, activeTab]);
+
   // Расписание загружается из БД; демонстрационные публикации не показываем.
   React.useEffect(() => {
     let cancelled = false;
