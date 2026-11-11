@@ -53,6 +53,7 @@ interface PinGeneratorProps {
   initialTime?: string;
   initialBoardId?: string;
   onSchedulePin: (pin: ScheduledPinItem) => void;
+  onAddToReview?: (pin: { id: string; pinId: string; title: string; description: string; boardName: string; boardId: string; imageUrl: string; aspectRatio: string; reason: string; trendMetric: string; scheduledTime: string; scheduledDate: string; destinationUrl: string; accountHandle?: string; accountId?: string }) => void;
   onGoToCalendar: () => void;
 }
 
@@ -77,6 +78,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   initialTime,
   initialBoardId,
   onSchedulePin,
+  onAddToReview,
   onGoToCalendar,
 }) => {
   const { t, aiContentLanguage, setAiContentLanguage, language } = useI18n();
@@ -1627,6 +1629,39 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   </p>
                 )}
               </div>
+
+              {/* Add the persisted generated pin to the durable manual-review queue. */}
+              {onAddToReview && currentPin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const board = boards.find((item) => item.id === selectedBoardId);
+                    if (!board) return;
+                    const title = resolvePinTitleSelection(pinTitleSelectionRef.current, currentPin.id, currentPin.selectedTitle);
+                    onAddToReview({
+                      id: `review-${currentPin.id}`,
+                      pinId: currentPin.id,
+                      title,
+                      description: currentPin.description,
+                      boardName: board.name,
+                      boardId: board.id,
+                      imageUrl: currentPin.imageUrl,
+                      aspectRatio: currentPin.aspectRatio,
+                      reason: 'Создано в генераторе и ожидает ручной проверки',
+                      trendMetric: '',
+                      scheduledDate: customScheduleDate,
+                      scheduledTime: customScheduleTime,
+                      destinationUrl,
+                      accountHandle: pinterestAccounts.find((account) => account.id === selectedPinterestAccountId)?.username,
+                      accountId: selectedPinterestAccountId || undefined,
+                    });
+                  }}
+                  disabled={!currentPin.id || !currentPin.imageUrl || !boards.some((item) => item.id === selectedBoardId)}
+                  className="w-full py-2.5 px-4 rounded-xl text-xs md:text-sm font-semibold border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
+                >
+                  Отправить пин на ручную проверку
+                </button>
+              )}
 
               {/* Action Buttons: Schedule to Calendar */}
               <div className="pt-3 border-t border-subtle flex flex-col sm:flex-row items-center gap-3">
