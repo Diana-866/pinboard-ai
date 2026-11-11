@@ -56,14 +56,16 @@ const completeExport = {
 };
 
 test('only structurally complete versioned account exports are accepted for download', () => {
-  assert.equal(isCompleteAccountExport(completeExport), true);
-  assert.equal(isCompleteAccountExport({ ...completeExport, degradedSections: ['projects'] }), false);
-  assert.equal(isCompleteAccountExport({ ...completeExport, formatVersion: 2 }), false);
-  assert.equal(isCompleteAccountExport({ ...completeExport, account: null }), false);
-  assert.equal(isCompleteAccountExport({ ...completeExport, pins: undefined }), false);
-  assert.equal(isCompleteAccountExport({ formatVersion: 1, degradedSections: [] }), false);
-  assert.equal(isCompleteAccountExport({ degradedSections: [] }), false);
-  assert.equal(isCompleteAccountExport({ formatVersion: 1 }), false);
-  assert.equal(isCompleteAccountExport(null), false);
-  assert.equal(isCompleteAccountExport([]), false);
+  assert.equal(isCompleteAccountExport(completeExport, USER_ID), true);
+  assert.equal(isCompleteAccountExport({ ...completeExport, degradedSections: ['projects'] }, USER_ID), false);
+  assert.equal(isCompleteAccountExport({ ...completeExport, formatVersion: 2 }, USER_ID), false);
+  assert.equal(isCompleteAccountExport({ ...completeExport, account: null }, USER_ID), false);
+  assert.equal(isCompleteAccountExport({ ...completeExport, pins: undefined }, USER_ID), false);
+  assert.equal(isCompleteAccountExport({ ...completeExport, account: { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' } }, USER_ID), false);
+  assert.equal(isCompleteAccountExport(completeExport, 'not-a-user-id'), false);
+  assert.equal(isCompleteAccountExport({ formatVersion: 1, degradedSections: [] }, USER_ID), false);
+  assert.equal(isCompleteAccountExport({ degradedSections: [] }, USER_ID), false);
+  assert.equal(isCompleteAccountExport({ formatVersion: 1 }, USER_ID), false);
+  assert.equal(isCompleteAccountExport(null, USER_ID), false);
+  assert.equal(isCompleteAccountExport([], USER_ID), false);
 });
