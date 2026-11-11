@@ -28,6 +28,22 @@ export interface PersistedScheduleMutationExpectation {
 }
 
 /**
+ * Validates a single mutation response before the UI treats it as persisted.
+ * Requiring the full schedule shape prevents malformed 2xx responses from
+ * corrupting the calendar's local state.
+ */
+export function isPersistedScheduleMutationResponse(
+  row: unknown,
+  expected: PersistedScheduleMutationExpectation,
+): row is Record<string, any> {
+  return isValidPersistedScheduleRow(row) &&
+    row.id === expected.scheduleId &&
+    expected.statuses.includes(row.status) &&
+    String(row.pinterest_board_id || '') === expected.pinterestBoardId &&
+    String(row.pinterest_account_id || '') === expected.pinterestAccountId;
+}
+
+/**
  * Confirms a schedule mutation only when the authenticated schedule listing
  * contains exactly one row with the complete expected persisted identity/state.
  * A malformed, missing, or ambiguous response is deliberately not success.
@@ -38,13 +54,7 @@ export function findPersistedScheduleMutation(
 ): Record<string, any> | null {
   if (!isValidPersistedScheduleList(rows)) return null;
   const matches = rows.filter((row): row is Record<string, any> =>
-    !!row &&
-    typeof row === 'object' &&
-    !Array.isArray(row) &&
-    String(row.id || '') === expected.scheduleId &&
-    expected.statuses.includes(String(row.status || '')) &&
-    String(row.pinterest_board_id || '') === expected.pinterestBoardId &&
-    String(row.pinterest_account_id || '') === expected.pinterestAccountId
+    isPersistedScheduleMutationResponse(row, expected)
   );
   return matches.length === 1 ? matches[0] : null;
 }
