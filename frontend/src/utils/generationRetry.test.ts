@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure, isGenerationInProgress, normalizeGenerationRecoveryStatus } from './generationRetry';
+import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure, isGenerationInProgress, normalizeGenerationRecoveryStatus, countDurableGenerationPins } from './generationRetry';
 
 test('rotates key after an explicitly definitive generation failure', () => {
   assert.equal(isDefinitiveGenerationFailure({
@@ -86,4 +86,16 @@ test('preserves non-completed recovery states', () => {
   assert.equal(normalizeGenerationRecoveryStatus('processing', []), 'processing');
   assert.equal(normalizeGenerationRecoveryStatus('failed', []), 'failed');
   assert.equal(normalizeGenerationRecoveryStatus('unknown', []), 'unknown');
+});
+
+
+test('counts only persisted pins with an identity and an HTTP image URL', () => {
+  assert.equal(countDurableGenerationPins([
+    { id: 'pin-1', image_url: 'https://storage.example/pin-1.png' },
+    { id: '', image_url: 'https://storage.example/pin-2.png' },
+    { id: 'pin-3', image_url: '' },
+    { id: 'pin-4', image_url: 'javascript:alert(1)' },
+    null,
+  ]), 1);
+  assert.equal(countDurableGenerationPins(null), 0);
 });
