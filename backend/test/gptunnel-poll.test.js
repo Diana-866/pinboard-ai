@@ -77,3 +77,46 @@ test("waitForImageTask retries transient provider polling failures", async () =>
     global.setTimeout = originalSetTimeout;
   }
 });
+
+
+test("waitForImageTask does not retry permanent provider client errors", async () => {
+  const originalGet = axios.get;
+  let calls = 0;
+  axios.get = async () => {
+    calls += 1;
+    const error = new Error("invalid task request");
+    error.response = { status: 400 };
+    throw error;
+  };
+
+  try {
+    await assert.rejects(
+      waitForImageTask("task-789", { maxPolls: 4, pollIntervalMs: 0 }),
+      /invalid task request/
+    );
+    assert.equal(calls, 1);
+  } finally {
+    axios.get = originalGet;
+  }
+});
+
+test("waitForImageTask stops after the bounded transient retry budget", async () => {
+  const originalGet = axios.get;
+  let calls = 0;
+  axios.get = async () => {
+    calls += 1;
+    const error = new Error("provider unavailable");
+    error.response = { status: 503 };
+    throw error;
+  };
+
+  try {
+    await assert.rejects(
+      waitForImageTask("task-999", { maxPolls: 3, pollIntervalMs: 0 }),
+      /provider unavailable/
+    );
+    assert.equal(calls, 3);
+  } finally {
+    axios.get = originalGet;
+  }
+});
