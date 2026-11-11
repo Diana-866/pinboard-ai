@@ -1489,6 +1489,11 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
       onTextProviderSubmission: () => {
         providerGenerationStarted = true;
       },
+      onTextProviderCompleted: () => {
+        // The text request has a definitive response. Only later image-task
+        // submissions can make the overall generation outcome uncertain.
+        providerGenerationStarted = false;
+      },
       onProviderSubmission: () => {
         providerGenerationStarted = true;
       },
