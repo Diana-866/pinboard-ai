@@ -59,7 +59,7 @@ begin
 
   if not public.record_account_deletion_preflight(
     v_job_id, v_claim,
-    '{"ok":true,"sectionsChecked":10,"counts":{"projects":0,"boards":0,"pins":0}}'::jsonb
+    '{"ok":true,"sectionsChecked":14,"counts":{"projects":0,"boards":0,"pins":0}}'::jsonb
   ) then
     raise exception 'active worker could not persist preflight inventory';
   end if;
