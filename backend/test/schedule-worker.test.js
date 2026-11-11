@@ -190,3 +190,44 @@ test("worker tick emits a server-generated correlation ID in safe logs", async (
   assert.match(record.correlation_id, /^[a-f0-9-]{36}$/i);
   assert.equal(output[0].includes("secret-value"), false);
 });
+
+ 
+test("worker backs off after consecutive failures and resets polling cadence after recovery", async () => {
+  const scheduled = [];
+  const cancelled = [];
+  let calls = 0;
+  const worker = createWorker({
+    config: { endpoint: "https://api.example.com/internal/pinterest/schedule/run", secret: "secret-value" },
+    client: { post: async () => {
+      calls += 1;
+      if (calls === 1) throw new Error("temporary outage");
+      return { data: { ok: true, claimed: 0, published: 0, failed: 0, unknown: 0 } };
+    } },
+    logger: { info() {}, error() {} },
+    intervalMs: 10_000,
+    schedule: (callback, delay) => {
+      const timer = { callback, delay };
+      scheduled.push(timer);
+      return timer;
+    },
+    cancelSchedule: (timer) => cancelled.push(timer),
+  });
+
+  worker.start();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(scheduled.length, 1);
+  assert.equal(scheduled[0].delay, 20_000, "first failure doubles the normal poll interval");
+
+  scheduled[0].callback();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(calls, 2);
+  assert.equal(scheduled.length, 2);
+  assert.equal(scheduled[1].delay, 10_000, "successful recovery restores the normal cadence");
+
+  await worker.stop();
+  assert.deepEqual(cancelled, [scheduled[1]]);
+  assert.equal(getNextPollDelayMs(0, 10_000), 10_000);
+  assert.equal(getNextPollDelayMs(1, 10_000), 20_000);
+  assert.equal(getNextPollDelayMs(3, 10_000), 80_000);
+  assert.equal(getNextPollDelayMs(99, 10_000), MAX_RETRY_INTERVAL_MS);
+});
