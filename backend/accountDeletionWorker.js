@@ -213,6 +213,13 @@ function createAccountDeletionWorker({
               bucket: object.bucket_id,
               objectPath: object.object_path,
             });
+            // false means the lifecycle claim was refused (for example, a live
+            // reference still exists). Never mark the manifest row deleted then.
+            if (removed !== true) {
+              const error = new Error("account deletion Storage object removal is unconfirmed");
+              error.code = "storage_object_not_deleted";
+              throw error;
+            }
             const { data: marked, error: markError } = await client.rpc(
               "mark_account_deletion_storage_object_deleted",
               {
@@ -223,9 +230,9 @@ function createAccountDeletionWorker({
               }
             );
             if (markError) throw markError;
-            if (marked !== true || (removed !== true && removed !== false)) {
-              const error = new Error("account deletion Storage object removal is unconfirmed");
-              error.code = "storage_object_not_deleted";
+            if (marked !== true) {
+              const error = new Error("account deletion Storage manifest update is unconfirmed");
+              error.code = "storage_manifest_update_unconfirmed";
               throw error;
             }
             storageObjectsDeleted += 1;
