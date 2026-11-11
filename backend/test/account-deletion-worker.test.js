@@ -461,6 +461,50 @@ test("worker retries when the fenced Storage manifest mark is not confirmed", as
   ), true);
 });
 
+test("worker recovers when Storage lifecycle deletion completed before manifest marking", async () => {
+  const calls = [];
+  let listCalls = 0;
+  const client = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_account_deletion_jobs") return { data: [{
+        job_id: "job-storage-recovery", user_id: USER_ID,
+        step_key: "erase_content", claim_token: "claim-storage-recovery",
+      }], error: null };
+      if (name === "erase_account_deletion_content") {
+        return { data: { erased: true, financial_records_retained: true }, error: null };
+      }
+      if (name === "list_account_deletion_storage_manifest") {
+        listCalls += 1;
+        return { data: listCalls === 1
+          ? [{ bucket_id: "pin-images", object_path: "pins/789-0123456789abcdef0123456789abcdef.webp" }]
+          : [], error: null };
+      }
+      // Simulate a previous worker completing the Storage lifecycle delete,
+      // then losing its job lease before it could mark the manifest row.
+      if (name === "mark_account_deletion_storage_object_deleted") return { data: true, error: null };
+      if (name === "finish_account_deletion_job") return { data: true, error: null };
+      throw new Error("unexpected RPC: " + name);
+    },
+  };
+  const worker = createAccountDeletionWorker({
+    client,
+    deleteImageObject: async () => false,
+    logger: { info() {}, error() {} },
+  });
+
+  const result = await worker.tick();
+
+  assert.deepEqual(result, { claimed: 1, completed: 1, retried: 0 });
+  assert.equal(listCalls, 2);
+  assert.equal(calls.some((call) =>
+    call.name === "mark_account_deletion_storage_object_deleted"
+  ), true);
+  assert.equal(calls.some((call) =>
+    call.name === "finish_account_deletion_job" && call.args.p_outcome === "succeeded"
+  ), true);
+});
+
 test("worker retries rather than completing when Storage deletion is not confirmed", async () => {
   const calls = [];
   const client = {
@@ -475,9 +519,9 @@ test("worker retries rather than completing when Storage deletion is not confirm
       if (name === "list_account_deletion_storage_manifest") {
         return { data: [{ bucket_id: "pin-images", object_path: "pins/123-0123456789abcdef0123456789abcdef.webp" }], error: null };
       }
-      // Even a successful manifest RPC must not compensate for a refused
-      // lifecycle deletion: the worker must never reach this RPC in that case.
-      if (name === "mark_account_deletion_storage_object_deleted") return { data: true, error: null };
+      // The database must independently reject the manifest mark unless
+      // the lifecycle row is already terminally deleted.
+      if (name === "mark_account_deletion_storage_object_deleted") return { data: false, error: null };
       if (name === "finish_account_deletion_job") return { data: true, error: null };
       throw new Error("unexpected RPC: " + name);
     },
@@ -491,5 +535,5 @@ test("worker retries rather than completing when Storage deletion is not confirm
   assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1 });
   assert.equal(calls.some((call) => call.name === "finish_account_deletion_job" && call.args.p_outcome === "succeeded"), false);
   assert.equal(calls.some((call) => call.name === "finish_account_deletion_job" && call.args.p_outcome === "retry"), true);
-  assert.equal(calls.some((call) => call.name === "mark_account_deletion_storage_object_deleted"), false);
+  assert.equal(calls.some((call) => call.name === "mark_account_deletion_storage_object_deleted"), true);
 });
