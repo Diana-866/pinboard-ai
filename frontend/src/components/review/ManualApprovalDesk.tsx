@@ -446,12 +446,18 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         pinterestAccountId: selectedPinterestAccountId,
       };
 
+      let scheduleWasPersisted = false;
       try {
         await onApprovePin(scheduledItem);
+        scheduleWasPersisted = true;
+        await updateQueue((prev) => prev.filter((pin) => pin.id !== currentPin.id));
         setApprovedCount((c) => c + 1);
-        updateQueue((prev) => prev.filter((pin) => pin.id !== currentPin.id));
       } catch (error) {
-        window.alert(error instanceof Error ? error.message : 'Не удалось добавить пин в расписание. Карточка осталась в очереди.');
+        if (scheduleWasPersisted) {
+          window.alert('Пин уже сохранён в календаре, но не удалось убрать его из очереди проверки. Не одобряйте его повторно: обновите страницу и проверьте календарь.');
+        } else {
+          window.alert(error instanceof Error ? error.message : 'Не удалось добавить пин в расписание. Карточка осталась в очереди.');
+        }
       } finally {
         setSwipeDirection(null);
         setDragOffset(0);
@@ -463,11 +469,16 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     if (!currentPin) return;
 
     setSwipeDirection('left');
-    setTimeout(() => {
-      setRejectedCount((c) => c + 1);
-      updateQueue((prev) => prev.slice(1));
-      setSwipeDirection(null);
-      setDragOffset(0);
+    setTimeout(async () => {
+      try {
+        await updateQueue((prev) => prev.filter((pin) => pin.id !== currentPin.id));
+        setRejectedCount((c) => c + 1);
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : 'Не удалось сохранить отклонение. Карточка осталась в очереди.');
+      } finally {
+        setSwipeDirection(null);
+        setDragOffset(0);
+      }
     }, 220);
   };
 
