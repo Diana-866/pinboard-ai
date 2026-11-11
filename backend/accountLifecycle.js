@@ -67,9 +67,31 @@ async function selectRows(query, pageSize = 1000) {
     if (error) throw error;
     return Array.isArray(data) ? data : [];
   }
-  // Stable ordering is required for offset pagination: without it,
-  // PostgREST may return tied/unspecified row order between requests and an
-  // export can duplicate or skip records at page boundaries.
+  // Keyset pagination avoids offset drift when rows are inserted/deleted
+  // while an export is running. Every exported table has a stable primary id.
+  if (typeof query.gt === "function" && typeof query.limit === "function"
+      && typeof query.order === "function") {
+    const rows = [];
+    let lastId = null;
+    for (;;) {
+      let pageQuery = query;
+      if (lastId !== null) pageQuery = pageQuery.gt("id", lastId);
+      const { data, error } = await pageQuery
+        .order("id", { ascending: true })
+        .limit(pageSize);
+      if (error) throw error;
+      const page = Array.isArray(data) ? data : [];
+      rows.push(...page);
+      if (page.length < pageSize) return rows;
+      const nextId = page[page.length - 1] && page[page.length - 1].id;
+      if (nextId === null || nextId === undefined || nextId === lastId) {
+        throw new Error("account export pagination cursor did not advance");
+      }
+      lastId = nextId;
+    }
+  }
+
+  // Compatibility fallback for lightweight query clients without keyset APIs.
   const orderedQuery = typeof query.order === "function"
     ? query.order("id", { ascending: true })
     : query;
