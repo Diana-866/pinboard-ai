@@ -1768,7 +1768,10 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
         logError("index.event_007");
       }
     }
-    handleError(res, e);
+    const publicMessage = e && e.code === "GPTUNNEL_TEXT_COST_MISSING"
+      ? "GPTunnel временно не подтвердил стоимость текстовой генерации. Создание изображений остановлено; попробуйте позже."
+      : undefined;
+    handleError(res, e, publicMessage);
   }
 });
 
