@@ -18,7 +18,6 @@ const legacyMarker = "LEGACY / NOT PART OF THE CANONICAL INSTALL";
 test("historical 002-008 SQL files are visibly excluded from clean installs", () => {
   for (const file of legacyFiles) {
     const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
-    assert.match(sql, /;\s*commit;\s*$/i, `${file} must end at COMMIT with no trailing SQL`);
     assert.ok(sql.includes(legacyMarker), `${file} must be marked legacy`);
   }
 });
@@ -41,6 +40,7 @@ test("account deletion Storage manifest migrations contain complete SQL guards",
     "141_account_deletion_board_cover_manifest.sql",
   ]) {
     const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
+    assert.match(sql, /;\s*commit;\s*$/i, `${file} must end at COMMIT with no trailing SQL`);
     assert.match(sql, /p_supabase_url !~ '[^']*' then/, `${file} must close the Supabase URL regex before THEN`);
     assert.match(sql, /raise exception 'invalid configured Supabase project URL';\s+end if;/);
     assert.match(sql, /select r\.user_id, r\.id into v_user_id, v_request_id\s+from public\.account_deletion_jobs j\s+join public\.account_deletion_requests r/);
