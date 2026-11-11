@@ -50,36 +50,6 @@ begin
     'foreign image','','approved','flux-schnell',0
   );
 
-  v_result := public.materialize_account_deletion_storage_manifest(v_job,v_claim);
-  if v_result->>'recorded' <> 'true' or (v_result->>'inserted')::integer <> 1
-     or (v_result->>'total')::integer <> 1 then
-    raise exception 'unexpected Storage manifest result: %',v_result;
-  end if;
-
-  -- Re-running the same leased operation is idempotent.
-  v_result := public.materialize_account_deletion_storage_manifest(v_job,v_claim);
-  if v_result->>'recorded' <> 'true' or (v_result->>'inserted')::integer <> 0
-     or (v_result->>'total')::integer <> 1 then
-    raise exception 'Storage manifest retry was not idempotent: %',v_result;
-  end if;
-  if public.mark_account_deletion_storage_manifest(v_job,v_claim) is distinct from true then
-    raise exception 'Storage manifest completion marker was not fenced';
-  end if;
-
-  if not exists (
-    select 1 from public.account_deletion_storage_objects
-     where request_id=v_request and bucket_id='pin-images'
-       and object_path='pins/123-0123456789abcdef0123456789abcdef.png' and state='pending'
-  ) then
-    raise exception 'owned managed image path was not persisted';
-  end if;
-  if exists (
-    select 1 from public.account_deletion_storage_objects
-     where request_id=v_request and object_path='pins/456-other.png'
-  ) then
-    raise exception 'foreign account image path entered deletion manifest';
-  end if;
-
   -- A completed generation response is a durable replay reference even
   -- when its pin/task rows are absent. The lifecycle claim must still refuse.
   insert into public.pin_generation_requests(
@@ -97,6 +67,43 @@ begin
   );
   if v_result->>'claimed' <> 'false' or v_result->>'reason' <> 'referenced' then
     raise exception 'generation response reference did not block Storage deletion: %',v_result;
+  end if;
+
+  v_result := public.materialize_account_deletion_storage_manifest(v_job,v_claim);
+  if v_result->>'recorded' <> 'true' or (v_result->>'inserted')::integer <> 2
+     or (v_result->>'total')::integer <> 2 then
+    raise exception 'unexpected Storage manifest result: %',v_result;
+  end if;
+
+  -- Re-running the same leased operation is idempotent.
+  v_result := public.materialize_account_deletion_storage_manifest(v_job,v_claim);
+  if v_result->>'recorded' <> 'true' or (v_result->>'inserted')::integer <> 0
+     or (v_result->>'total')::integer <> 2 then
+    raise exception 'Storage manifest retry was not idempotent: %',v_result;
+  end if;
+  if public.mark_account_deletion_storage_manifest(v_job,v_claim) is distinct from true then
+    raise exception 'Storage manifest completion marker was not fenced';
+  end if;
+
+  if not exists (
+    select 1 from public.account_deletion_storage_objects
+     where request_id=v_request and bucket_id='pin-images'
+       and object_path='pins/123-0123456789abcdef0123456789abcdef.png' and state='pending'
+  ) then
+    raise exception 'owned managed image path was not persisted';
+  end if;
+  if not exists (
+    select 1 from public.account_deletion_storage_objects
+     where request_id=v_request and bucket_id='pin-images'
+       and object_path='pins/generation-0123456789abcdef0123456789abcdef.webp' and state='pending'
+  ) then
+    raise exception 'generation replay image path was not persisted';
+  end if;
+  if exists (
+    select 1 from public.account_deletion_storage_objects
+     where request_id=v_request and object_path='pins/456-other.png'
+  ) then
+    raise exception 'foreign account image path entered deletion manifest';
   end if;
 
   -- Verify the next durable stage removes operational content but retains
