@@ -554,7 +554,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         setRecoveryCheckAttempt((attempt) => attempt + 1);
         window.alert(language === 'ru'
           ? 'Генерация ещё выполняется. Мы сохранили запрос — повторно запускать генерацию не нужно. Статус можно проверить в блоке восстановления.'
-          : 'Generation is still processing. Your request is محفوظ; do not start it again. Check its status in the recovery panel.');
+          : 'Generation is still processing. Your request has been saved; do not start it again. Check its status in the recovery panel.');
         return;
       }
 
