@@ -480,7 +480,7 @@ export const pt: TranslationSchema = {
     deleteAccountWarning: "Isto agenda a exclusão da sua conta e encerra a sessão em todos os dispositivos imediatamente. Não pode ser desfeito.",
     deleteAccountPasswordLabel: "Confirme com sua senha",
     deleteAccountConfirm: "Solicitar exclusão",
-    deleteAccountDone: "Pedido de exclusão aceito. O acesso foi encerrado — removeremos seus dados em até 30 dias.",
+    deleteAccountDone: "Recebemos seu pedido de exclusão e o acesso foi desativado. Seus dados ainda não foram excluídos.",
     requestFailed: "Não foi possível concluir o pedido. Tente novamente.",
   },
 
