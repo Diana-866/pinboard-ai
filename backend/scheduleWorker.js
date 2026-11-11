@@ -27,7 +27,7 @@ const MAX_RETRY_INTERVAL_MS = 5 * 60_000;
 function getNextPollDelayMs(consecutiveFailures, baseIntervalMs = POLL_INTERVAL_MS) {
   const failures = Math.max(0, Math.floor(Number(consecutiveFailures) || 0));
   const base = Math.max(1_000, Number(baseIntervalMs) || POLL_INTERVAL_MS);
-  return Math.min(MAX_RETRY_INTERVAL_MS, base * (2 ** Math.min(failures, 4)));
+  return Math.min(MAX_RETRY_INTERVAL_MS, base * (2 ** Math.min(failures, 30)));
 }
 
 function getSafeWorkerErrorDetails(error) {
