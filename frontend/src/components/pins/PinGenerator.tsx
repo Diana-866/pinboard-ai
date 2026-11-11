@@ -651,11 +651,13 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       // callback cannot turn a saved generation into a misleading failure.
       generationKeyRef.current = null;
       clearPendingGenerationRequest(requestFingerprint);
-      try {
-        onPinsChanged?.();
-      } catch (refreshError) {
-        console.error('Failed to refresh pin counts after durable generation', refreshError);
-      }
+      // Also absorb rejected promises from async parent refresh callbacks.
+      // A refresh failure is non-fatal because the generated pins are already durable.
+      void Promise.resolve()
+        .then(() => onPinsChanged?.())
+        .catch(() => {
+          console.error('Failed to refresh pin counts after durable generation');
+        });
     } catch (err) {
       // The server only emits generation_request_failed after a definitive failure.
       // Rotate the key then; unknown/in-progress outcomes must keep their original key.
