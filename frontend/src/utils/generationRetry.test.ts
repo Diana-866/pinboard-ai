@@ -27,6 +27,13 @@ test('rotates key when the server confirms the previous idempotency result expir
   }), true);
 });
 
+test('does not rotate key when expiry code is returned with a non-expiry status', () => {
+  assert.equal(isDefinitiveGenerationFailure({
+    status: 409,
+    data: { code: 'idempotency_result_expired' },
+  }), false);
+});
+
 test('does not rotate key for an unknown provider outcome', () => {
   assert.equal(isDefinitiveGenerationFailure({
     data: { code: 'generation_outcome_unknown' },
