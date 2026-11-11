@@ -231,3 +231,30 @@ test("worker backs off after consecutive failures and resets polling cadence aft
   assert.equal(getNextPollDelayMs(3, 10_000), 80_000);
   assert.equal(getNextPollDelayMs(99, 10_000), MAX_RETRY_INTERVAL_MS);
 });
+
+
+test("worker logs safe failure diagnostics without leaking provider or request secrets", async () => {
+  const errors = [];
+  const worker = createWorker({
+    config: { endpoint: "https://api.example.com/internal/pinterest/schedule/run", secret: "scheduler-secret-value" },
+    client: { post: async () => {
+      const error = new Error("request failed with scheduler-secret-value");
+      error.code = "ECONNRESET";
+      error.response = { status: 503, config: { headers: { authorization: "Bearer private-token" } } };
+      throw error;
+    } },
+    logger: { info() {}, error: (...args) => errors.push(args) },
+  });
+
+  await worker.tick();
+
+  assert.equal(errors.length, 1);
+  assert.equal(errors[0][0], "schedule_worker.batch_failed");
+  assert.deepEqual(errors[0][1], {
+    error_name: "Error",
+    error_code: "ECONNRESET",
+    http_status: 503,
+  });
+  assert.equal(JSON.stringify(errors).includes("scheduler-secret-value"), false);
+  assert.equal(JSON.stringify(errors).includes("private-token"), false);
+});
