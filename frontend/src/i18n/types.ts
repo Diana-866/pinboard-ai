@@ -511,6 +511,7 @@ export interface TranslationSchema {
     deleteAccountConfirm: string;
     deleteAccountDone: string;
     deleteAccountUnavailable: string;
+    exportIncomplete: string;
     requestFailed: string;
   };
 
