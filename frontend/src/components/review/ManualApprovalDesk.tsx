@@ -50,6 +50,9 @@ export interface PendingReviewPin {
 export interface ManualApprovalDeskProps {
   boards: BoardItem[];
   pendingPins?: PendingReviewPin[];
+  /** Prevent an empty queue from appearing reviewed before the server restores it. */
+  queueLoading?: boolean;
+  queueError?: boolean;
   onUpdatePendingPins?: (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => void | Promise<void>;
   onApprovePin: (pin: ScheduledPinItem) => void;
   onGoToCalendar?: () => void;
@@ -287,6 +290,8 @@ export const INITIAL_QUEUE_PINS: PendingReviewPin[] = [
 export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   boards,
   pendingPins,
+  queueLoading = false,
+  queueError = false,
   onUpdatePendingPins,
   onApprovePin,
   onGoToCalendar,
@@ -336,6 +341,8 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [isDecisionInFlight, setIsDecisionInFlight] = useState(false);
   const decisionInFlightRef = useRef(false);
+  const bulkApprovalInFlightRef = useRef(false);
+  const [isBulkApprovalInFlight, setIsBulkApprovalInFlight] = useState(false);
   const dragStartX = useRef(0);
 
   useEffect(() => {
@@ -419,7 +426,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   }, [currentPin, editTitle, editDesc, editBoardId, editDate, editTime, selectedPinterestBoardId, selectedPinterestAccountId]);
 
   const handleApprove = () => {
-    if (!currentPin || decisionInFlightRef.current) return;
+    if (!currentPin || decisionInFlightRef.current || bulkApprovalInFlightRef.current) return;
     if (!currentPin.pinId) {
       window.alert('Эта карточка — демонстрационный пример, а не сохранённый пин. Сначала создайте и сохраните пин в генераторе — только после этого его можно добавить в расписание.');
       return;
@@ -474,7 +481,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   };
 
   const handleReject = () => {
-    if (!currentPin || decisionInFlightRef.current) return;
+    if (!currentPin || decisionInFlightRef.current || bulkApprovalInFlightRef.current) return;
 
     decisionInFlightRef.current = true;
     setIsDecisionInFlight(true);
@@ -508,6 +515,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   };
 
   const handleApproveAll = () => {
+    if (bulkApprovalInFlightRef.current || decisionInFlightRef.current) return;
     if (queue.some((pin) => !pin.pinId)) {
       window.alert('В очереди есть демонстрационные карточки без сохранённых пинов. Создайте и сохраните реальные пины в генераторе, прежде чем добавлять их в расписание.');
       return;
@@ -516,6 +524,8 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       window.alert('Сначала подключите Pinterest и выберите настоящую доску Pinterest для публикации.');
       return;
     }
+    bulkApprovalInFlightRef.current = true;
+    setIsBulkApprovalInFlight(true);
     const scheduledItems = queue.map((p, idx) => {
       // Bulk approval must not discard edits in the currently open review card.
       const approved = applyCurrentReviewEdits(p, idx, {
@@ -561,6 +571,9 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       if (successfulIds.size !== scheduledItems.length) {
         window.alert(`В расписание добавлено: ${successfulIds.size} из ${scheduledItems.length}. Неудачные карточки остались в очереди.`);
       }
+    }).finally(() => {
+      bulkApprovalInFlightRef.current = false;
+      setIsBulkApprovalInFlight(false);
     });
   };
 
@@ -655,6 +668,30 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     }
   };
 
+  // A failed restore is not an empty queue: preserve the distinction and let the user retry.
+  if (queueError && !queueLoading) {
+    return (
+      <div className="custom-card p-8 md:p-12 text-center space-y-4 max-w-xl mx-auto my-8 border border-subtle" role="alert">
+        <AlertCircle className="w-8 h-8 mx-auto text-rose-500" />
+        <h2 className="text-lg font-bold text-primary-theme">Не удалось загрузить очередь проверки</h2>
+        <p className="text-sm text-secondary-theme">Пины не удалены. Проверьте соединение и повторите загрузку — пустая очередь не означает, что все пины проверены.</p>
+        <button type="button" onClick={() => window.location.reload()} className="accent-btn px-5 py-2.5 rounded-xl inline-flex items-center justify-center gap-2">
+          <RefreshCw className="w-4 h-4" /> Повторить загрузку
+        </button>
+      </div>
+    );
+  }
+
+  // Do not present the empty/completed state until the authenticated server queue is restored.
+  if (queueLoading) {
+    return (
+      <div className="custom-card p-8 md:p-12 text-center space-y-4 max-w-xl mx-auto my-8 border border-subtle" role="status" aria-live="polite">
+        <RefreshCw className="w-8 h-8 mx-auto text-accent animate-spin" />
+        <p className="text-sm text-secondary-theme">Загружаем очередь проверки…</p>
+      </div>
+    );
+  }
+
   // Completed State Screen
   if (!currentPin) {
     return (
@@ -742,11 +779,12 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
           {queue.length > 0 && (
             <button
               onClick={handleApproveAll}
+              disabled={isBulkApprovalInFlight || isDecisionInFlight}
               className="px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold hover:bg-emerald-500/20 cursor-pointer flex items-center gap-1.5 transition-colors"
               title="Утвердить все пины из очереди в расписание публикаций"
             >
               <Check className="w-3.5 h-3.5" />
-              <span>Одобрить все ({queue.length})</span>
+              <span>{isBulkApprovalInFlight ? 'Добавляем в расписание…' : `Одобрить все (${queue.length})`}</span>
             </button>
           )}
 
