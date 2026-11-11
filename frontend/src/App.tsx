@@ -698,6 +698,10 @@ const MainApp: React.FC = () => {
         category: board.category,
       };
       setBoards((prev) => [persisted, ...prev.filter((item) => item.id !== persisted.id)]);
+      // Reconcile against the server after creation. This also invalidates an
+      // older in-flight GET /boards response that could otherwise overwrite
+      // this newly-created board with a stale snapshot.
+      setBoardsReloadToken((value) => value + 1);
       setBoardsLoadError('');
     } catch (error) {
       console.error('[boards] Не удалось создать доску:', error);
