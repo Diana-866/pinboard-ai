@@ -643,8 +643,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       // suggesting that the failed tasks should be submitted as a new request.
       if (validatedRows.length < pinCount) {
         window.alert(language === 'ru'
-          ? `Сохранено ${validatedRows.length} из ${pinCount} запрошенных пинов. Остальные изображения не удалось завершить. Кредиты списаны только за сохранённые пины.`
-          : `Saved ${validatedRows.length} of ${pinCount} requested pins. The remaining images could not be completed. Credits were charged only for saved pins.`);
+          ? `Сохранено ${validatedRows.length} из ${pinCount} запрошенных пинов. Не все пины удалось подготовить. Кредиты списаны только за сохранённые пины.`
+          : `Saved ${validatedRows.length} of ${pinCount} requested pins. Not all requested pins could be prepared. Credits were charged only for saved pins.`);
       }
       // Refresh board-card counts only after the server has confirmed all generated pins.
       onPinsChanged?.();
