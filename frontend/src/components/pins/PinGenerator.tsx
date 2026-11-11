@@ -303,6 +303,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     generationRecoveryOwnerIdRef.current = userId;
     setRecoverableGenerations([]);
     setIsCheckingRecoveries(false);
+    // Retry budget belongs to the current account/session, not to the
+    // component's lifetime. A previous user's stale 404s must not consume it.
+    setRecoveryCheckAttempt(0);
   }, [userId]);
 
   // Look up saved generation identities after login/reload. This is read-only:
@@ -574,6 +577,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       const storedRequest = readPendingGenerationRequest(requestFingerprint);
       if (storedRequest?.fingerprint !== requestFingerprint || !storedRequest.idempotencyKey) {
         generationKeyRef.current = createGenerationIdempotencyKey();
+        // A new identity gets its own initial 404 grace window while the
+        // server-side idempotency row is being created.
+        setRecoveryCheckAttempt(0);
         writePendingGenerationRequest(requestFingerprint, generationKeyRef.current);
       } else {
         // Restore the durable request identity after a remount or page reload.
@@ -629,6 +635,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       // Rotate the key then; unknown/in-progress outcomes must keep their original key.
       if (isDefinitiveGenerationFailure(err)) {
         generationKeyRef.current = createGenerationIdempotencyKey();
+        // The replacement key is a new request identity; don't inherit the
+        // previous key's exhausted not_found retry budget.
+        setRecoveryCheckAttempt(0);
         if (requestFingerprint) writePendingGenerationRequest(requestFingerprint, generationKeyRef.current);
       }
       if (isGenerationInProgress(err)) {
