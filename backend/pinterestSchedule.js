@@ -140,10 +140,20 @@ function getSafeScheduleFailureMessage(error, lookupError) {
   if (/Выбранная доска не найдена или недоступна|не подтвердил принадлежность выбранной доски аккаунту/i.test(message)) {
     return "Выбранная доска не найдена или недоступна подключённому Pinterest-аккаунту";
   }
-  if (error && error.code === "SCHEDULE_CLAIM_LOST") {
+  let code;
+  let retryable;
+  let httpStatus;
+  try {
+    code = error && error.code;
+    retryable = error && error.retryable;
+    httpStatus = error && error.httpStatus;
+  } catch {
+    // Ignore unreadable metadata; the generic safe message is sufficient.
+  }
+  if (code === "SCHEDULE_CLAIM_LOST") {
     return "Расписание больше не принадлежит этому обработчику";
   }
-  if (error && error.retryable === false && Number(error.httpStatus) === 403) {
+  if (retryable === false && Number(httpStatus) === 403) {
     return "Для автоматической публикации требуется активная подписка";
   }
   return "Pinterest publication failed; check the account and schedule status before retrying.";
