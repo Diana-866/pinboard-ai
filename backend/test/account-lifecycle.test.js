@@ -133,7 +133,7 @@ test("account export rejects a non-uuid user id", async () => {
 
 test("deletion request rejects a wrong password with 403 and never calls the RPC", async () => {
   const db = fakeDb({
-    users: [{ id: USER_ID, password_hash: bcrypt.hashSync("correct-horse-battery", 10) }],
+    users: [{ id: USER_ID, password_hash: bcrypt.hashSync("correct-horse-battery", 10), token_version: 12 }],
   });
 
   await assert.rejects(
@@ -166,7 +166,7 @@ test("deletion request accepts a correct password and returns the receipt", asyn
 
   assert.deepEqual(db.rpcCalls, [{
     name: "request_account_deletion",
-    params: { p_user_id: USER_ID, p_confirmation_method: "password_reauth" },
+    params: { p_user_id: USER_ID, p_confirmation_method: "password_reauth", p_expected_token_version: 12 },
   }]);
   assert.equal(result.ok, true);
   assert.equal(result.request.requestId, "req-1");
