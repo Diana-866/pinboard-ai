@@ -232,3 +232,67 @@ test("worker retries and does not revoke credentials when Storage manifest persi
   assert.equal(finish.args.p_outcome, "retry");
   assert.equal(finish.args.p_error_code, "xx000");
 });
+
+test("worker executes the separately claimed content-erasure stage", async () => {
+  const calls = [];
+  const client = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_account_deletion_jobs") {
+        return { data: [{
+          job_id: "job-erase",
+          user_id: USER_ID,
+          step_key: "erase_content",
+          claim_token: "claim-erase",
+        }], error: null };
+      }
+      if (name === "erase_account_deletion_content") {
+        return { data: {
+          erased: true,
+          projects: 2,
+          schedules: 3,
+          publications: 1,
+          financial_records_retained: true,
+        }, error: null };
+      }
+      if (name === "finish_account_deletion_job") return { data: true, error: null };
+      throw new Error("unexpected RPC: " + name);
+    },
+  };
+  const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} } });
+  const result = await worker.tick();
+  assert.deepEqual(result, { claimed: 1, completed: 1, retried: 0 });
+  assert.equal(calls[1].name, "erase_account_deletion_content");
+  assert.equal(calls[1].args.p_job_id, "job-erase");
+  assert.equal(calls[1].args.p_claim_token, "claim-erase");
+  assert.equal(calls[2].name, "finish_account_deletion_job");
+  assert.equal(calls[2].args.p_outcome, "succeeded");
+});
+
+test("worker retries content erasure unless the RPC explicitly confirms retained financial records", async () => {
+  const calls = [];
+  const client = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_account_deletion_jobs") {
+        return { data: [{
+          job_id: "job-erase-unsafe",
+          user_id: USER_ID,
+          step_key: "erase_content",
+          claim_token: "claim-erase-unsafe",
+        }], error: null };
+      }
+      if (name === "erase_account_deletion_content") {
+        return { data: { erased: true, financial_records_retained: false }, error: null };
+      }
+      if (name === "finish_account_deletion_job") return { data: true, error: null };
+      throw new Error("unexpected RPC: " + name);
+    },
+  };
+  const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} } });
+  const result = await worker.tick();
+  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1 });
+  const finish = calls.find((call) => call.name === "finish_account_deletion_job");
+  assert.equal(finish.args.p_outcome, "retry");
+  assert.equal(finish.args.p_error_code, "content_erasure_unconfirmed");
+});
