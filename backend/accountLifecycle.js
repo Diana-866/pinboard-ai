@@ -159,6 +159,9 @@ function mapDeletionRpcError(error) {
   if (/account already deleted/i.test(message)) {
     return httpError(409, "Аккаунт уже удалён");
   }
+  if (/reauthentication expired/i.test(message)) {
+    return httpError(409, "Пароль или сессия изменились — повторите подтверждение");
+  }
   if (/unsupported confirmation method/i.test(message)) {
     return httpError(422, "Некорректный способ подтверждения");
   }
@@ -190,7 +193,7 @@ async function requestAccountDeletion(
 
   const { data: user, error } = await client
     .from("users")
-    .select("*")
+    .select("id, password_hash, token_version")
     .eq("id", id)
     .maybeSingle();
 
@@ -207,6 +210,7 @@ async function requestAccountDeletion(
   const { data, error: rpcError } = await client.rpc("request_account_deletion", {
     p_user_id: id,
     p_confirmation_method: confirmationMethod,
+    p_expected_token_version: Number(user.token_version ?? 0),
   });
   if (rpcError) {
     const mapped = mapDeletionRpcError(rpcError);
