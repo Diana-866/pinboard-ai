@@ -192,7 +192,7 @@ const { suggestKeywords } = require("./keywordIdeas");
 const { asError } = require("./dbErrors");
 const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
-const { calculateGenerationReservation, calculateQuotedGenerationPricing, ceilCredits } = require("./generationPricing");
+const { calculateGenerationReservation, calculateQuotedGenerationPricing, ceilCredits, validateSavedRegenerationQuote } = require("./generationPricing");
 const { uploadPinImage, rehostImage, deletePinImageIfUnreferenced } = require("./storage");
 const { reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects, inspectBlockedPinImageRetentionQueue, retryFailedPinImageDeletions, processPendingPinImageRetentionQueue } = require("./pinImageLifecycle");
 const { validateDevTopupRequest } = require("./devTopup");
@@ -1009,14 +1009,15 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
             Number(savedQuote.provider_quote_price) <= 0) {
           throw httpError(502, "Сохранённая котировка перегенерации повреждена или не соответствует запросу.");
         }
-        const savedQuotePrice = Number(savedQuote.provider_quote_price);
-        const savedQuoteCredits = Number(savedQuote.amount);
-        const expectedQuoteCredits = ceilCredits(savedQuotePrice * MARKUP);
-        if (!Number.isSafeInteger(savedQuoteCredits) || savedQuoteCredits <= 0 ||
-            savedQuoteCredits !== expectedQuoteCredits) {
+        try {
+          quotedCreditCost = validateSavedRegenerationQuote(
+            savedQuote.provider_quote_price,
+            savedQuote.amount,
+            MARKUP
+          );
+        } catch (quoteValidationError) {
           throw httpError(502, "Сохранённая стоимость перегенерации не соответствует котировке.");
         }
-        quotedCreditCost = savedQuoteCredits;
       } else {
         const quote = await quoteImageTask(prompt, model, "2:3");
         quotedCreditCost = ceilCredits(quote.price * MARKUP);
