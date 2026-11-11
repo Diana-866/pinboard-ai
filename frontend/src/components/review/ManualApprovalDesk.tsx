@@ -976,7 +976,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                   className="secondary-btn px-3.5 py-2 text-xs flex items-center gap-1.5 cursor-pointer text-primary-theme"
                 >
                   <RefreshCw className="w-3.5 h-3.5 text-accent-ghost" />
-                  <span>Создать новый вариант в генераторе</span>
+                  <span>Заменить изображение через AI</span>
                 </button>
               ) : (
                 <form onSubmit={handleRegenerate} className="p-3 rounded-xl bg-subtle border border-subtle space-y-2">
@@ -997,15 +997,25 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                     required
                     placeholder="Например: затемни фон, сохрани композицию, добавь акцент на заголовок..."
                     value={regenComment}
-                    onChange={(e) => setRegenComment(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-app-input border border-subtle rounded-lg text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
+                    onChange={(e) => {
+                      setRegenComment(e.target.value);
+                      setRegenStatusMessage('');
+                    }}
+                    disabled={isRegenerating}
+                    className="w-full px-3 py-1.5 text-xs bg-app-input border border-subtle rounded-lg text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-60"
                   />
+                  {regenStatusMessage && (
+                    <p role="status" aria-live="polite" className="text-[11px] text-secondary-theme">
+                      {regenStatusMessage}
+                    </p>
+                  )}
                   <button
                     type="submit"
+                    disabled={isRegenerating || !regenComment.trim() || !currentPin.pinId}
                     className="accent-btn px-4 py-1.5 text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-60 shadow-xs"
                   >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Открыть генератор с правками</span>
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} />
+                    <span>{isRegenerating ? 'Перегенерируем…' : 'Сгенерировать и заменить изображение'}</span>
                   </button>
                 </form>
               )}
