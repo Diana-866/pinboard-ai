@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import {
-  Plus,
-} from 'lucide-react';
+import { Plus, Pencil } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
 import { BoardItem } from '../../data/mockData';
 
@@ -10,7 +8,8 @@ interface BoardsManagerProps {
   loadError?: string;
   isLoading?: boolean;
   onRetry?: () => void;
-  onAddBoard: (board: BoardItem, createRequestId: string) => Promise<void> | void;\n  onUpdateBoard: (boardId: string, patch: { title: string; category: string }) => Promise<void>;
+  onAddBoard: (board: BoardItem, createRequestId: string) => Promise<void> | void;
+  onUpdateBoard: (boardId: string, patch: { title: string; category: string }) => Promise<void>;
 }
 
 export const BoardsManager: React.FC<BoardsManagerProps> = ({
@@ -19,6 +18,7 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
   isLoading = false,
   onRetry,
   onAddBoard,
+  onUpdateBoard,
 }) => {
   const { t } = useI18n();
 
@@ -27,7 +27,12 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
   const [category, setCategory] = useState('Home Decor');
   const [saving, setSaving] = useState(false);
   const [createError, setCreateError] = useState('');
-  const [createRequestId, setCreateRequestId] = useState(() => crypto.randomUUID());\n  const [editingBoard, setEditingBoard] = useState<BoardItem | null>(null);\n  const [editName, setEditName] = useState('');\n  const [editCategory, setEditCategory] = useState('Home Decor');\n  const [editSaving, setEditSaving] = useState(false);\n  const [editError, setEditError] = useState('');
+  const [createRequestId, setCreateRequestId] = useState(() => crypto.randomUUID());
+  const [editingBoard, setEditingBoard] = useState<BoardItem | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editCategory, setEditCategory] = useState('Home Decor');
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState('');
 
   const closeCreateModal = () => {
     if (saving) return;
