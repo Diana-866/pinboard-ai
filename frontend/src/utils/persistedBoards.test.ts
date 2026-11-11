@@ -4,19 +4,19 @@ import { mapPersistedBoards } from './persistedBoards';
 
 const invalid = 'Invalid boards response';
 
-test('maps persisted boards and uses project niche when available', () => {
+test('maps persisted boards using their own category before the shared project niche', () => {
   const boards = mapPersistedBoards([
     {
       id: 'board-1',
       title: '  Interior ideas  ',
-      description: 'fallback description',
-      projects: { niche: '  Home Decor  ' },
+      description: '  Home Decor  ',
+      projects: { niche: 'Fashion' },
     },
     {
       id: 'board-2',
       title: 'Recipes',
       description: 'Food',
-      projects: [{ niche: '' }],
+      projects: [{ niche: 'Lifestyle' }],
     },
   ], invalid);
 
@@ -26,6 +26,16 @@ test('maps persisted boards and uses project niche when available', () => {
   assert.equal(boards[0].category, 'Home Decor');
   assert.equal(boards[1].category, 'Food');
   assert.equal(boards[0].pinCount, 0);
+});
+
+test('falls back to project niche for legacy boards without a description', () => {
+  const boards = mapPersistedBoards([
+    { id: 'board-legacy', title: 'Legacy board', description: '', projects: { niche: 'Travel' } },
+    { id: 'board-empty', title: 'Uncategorized', projects: { niche: '' } },
+  ], invalid);
+
+  assert.equal(boards[0].category, 'Travel');
+  assert.equal(boards[1].category, '—');
 });
 
 test('accepts an empty array as a valid account with no boards', () => {
