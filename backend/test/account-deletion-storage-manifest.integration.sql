@@ -93,6 +93,44 @@ begin
     raise exception 'generation response reference did not block Storage deletion: %',v_result;
   end if;
 
+  -- Verify the next durable stage removes operational content but retains
+  -- financial evidence and never crosses the account ownership boundary.
+  insert into public.auth_tokens(user_id,token_hash,purpose,expires_at)
+  values(v_user::text,'deletion-test-'||v_user,'password_reset',clock_timestamp()+interval '1 hour');
+  insert into public.credit_transactions(user_id,amount,type,description)
+  values(v_user::text,190,'purchase','retained financial evidence');
+
+  update public.account_deletion_jobs
+     set status='succeeded',claim_token=null,lease_expires_at=null,finished_at=clock_timestamp()
+   where id=v_job;
+  insert into public.account_deletion_jobs(
+    id,request_id,step_key,status,claim_token,lease_expires_at,attempts
+  ) values (
+    gen_random_uuid(),v_request,'erase_content','running',gen_random_uuid(),
+    clock_timestamp()+interval '5 minutes',1
+  );
+  -- Retrieve the claim token from the active erasure job.
+  select claim_token into v_claim from public.account_deletion_jobs
+   where request_id=v_request and step_key='erase_content';
+  select id into v_job from public.account_deletion_jobs
+   where request_id=v_request and step_key='erase_content';
+
+  v_result := public.erase_account_deletion_content(v_job,v_claim);
+  if v_result->>'erased' <> 'true'
+     or v_result->>'financial_records_retained' <> 'true' then
+    raise exception 'local content erasure was not confirmed: %',v_result;
+  end if;
+  if exists(select 1 from public.projects where user_id=v_user)
+     or exists(select 1 from public.auth_tokens where user_id=v_user::text)
+     or exists(select 1 from public.pin_generation_requests where user_id=v_user::text)
+     or exists(select 1 from public.pinterest_publications where user_id=v_user::text) then
+    raise exception 'owned operational rows remain after content erasure';
+  end if;
+  if not exists(select 1 from public.credit_transactions where user_id=v_user::text)
+     or not exists(select 1 from public.projects where user_id=v_other) then
+    raise exception 'financial evidence or other-user data was incorrectly removed';
+  end if;
+
   raise notice 'Account deletion Storage manifest checks passed';
 end;
 $$;
