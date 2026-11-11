@@ -1,0 +1,34 @@
+name: Backend regression tests
+
+on:
+  push:
+    branches:
+      - ci/backend-regression-tests
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  backend-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+      - name: Test Prodamus subscription payment flow
+        run: node test/billing-flow.js
+      - name: Test credit purchase and duplicate webhook protection
+        run: node test/credits-flow.js
+      - name: Test email verification flow
+        run: node test/e2e-email-verify.js
