@@ -53,6 +53,7 @@ interface PinGeneratorProps {
   initialTime?: string;
   initialBoardId?: string;
   onSchedulePin: (pin: ScheduledPinItem) => void;
+  onPinsChanged?: () => void;
   onAddToReview?: (pin: { id: string; pinId: string; title: string; description: string; boardName: string; boardId: string; imageUrl: string; aspectRatio: string; reason: string; trendMetric: string; scheduledTime: string; scheduledDate: string; destinationUrl: string; accountHandle?: string; accountId?: string }) => Promise<void>;
   onGoToCalendar: () => void;
 }
@@ -78,6 +79,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   initialTime,
   initialBoardId,
   onSchedulePin,
+  onPinsChanged,
   onAddToReview,
   onGoToCalendar,
 }) => {
@@ -560,6 +562,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       results.forEach((pin) => pinAspectRatioConfirmedRef.current.set(pin.id, pin.aspectRatio));
       setGeneratedPins(results);
       setActivePinIndex(0);
+      // Refresh board-card counts only after the server has confirmed all generated pins.
+      onPinsChanged?.();
       generationKeyRef.current = null;
       clearPendingGenerationRequest(requestFingerprint);
     } catch (err) {
