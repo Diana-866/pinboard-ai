@@ -8,7 +8,7 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const { parseMultipartFields } = require("./prodamusWebhookBody");
 const { isOwnedByUser } = require("./resourceOwnership");
-const { serializeGenerationRecovery } = require("./generationRecovery");
+const { serializeGenerationRecovery, countDurableRecoveryPins } = require("./generationRecovery");
 const { isAllowedPinImageUploadMime } = require("./imageUploadValidation");
 const { serializePinImageUploadError } = require("./imageUploadErrors");
 const { buildPinImageRateLimitKey } = require("./pinImageRateLimitKey");
@@ -1546,7 +1546,7 @@ app.get("/generation/requests/:key", requireAuth, async (req, res) => {
         code: "idempotency_result_expired",
         status: "expired",
         board_id: request.board_id,
-        pin_count: Array.isArray(request.pins) ? request.pins.length : 0,
+        pin_count: countDurableRecoveryPins(request.pins),
       });
     }
 
