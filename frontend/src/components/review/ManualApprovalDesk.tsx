@@ -304,6 +304,9 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     window.addEventListener('pinposy:review-queue-error', handleRestoreError);
     return () => window.removeEventListener('pinposy:review-queue-error', handleRestoreError);
   }, []);
+  useEffect(() => {
+    if (queueLoading) setQueueRestoreError(false);
+  }, [queueLoading]);
   const queue = pendingPins ?? internalQueue;
 
   const updateQueue = (fn: (prev: PendingReviewPin[]) => PendingReviewPin[]) => {
