@@ -412,3 +412,59 @@ export const getCalendarMonthGrid = (
     };
   });
 };
+
+
+/**
+ * Pick a valid future wall-clock slot for the calendar quick-add action.
+ * If the default time has already passed today, advance to the next
+ * quarter-hour with enough lead time for the user to finish the form.
+ */
+export const resolveScheduleSlotTime = (
+  date: string,
+  timeZone: string,
+  defaultTime = '20:15',
+  now: Date = new Date(),
+): string => {
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || !isValidIanaTimezone(timeZone) || !Number.isFinite(now.getTime())) {
+    throw new Error('Invalid schedule slot');
+  }
+
+  const today = formatInstantInTimezone(now, timeZone);
+  if (date < today.date) throw new Error('Cannot schedule a publication in the past');
+
+  const parseMinutes = (value: string): number => {
+    const match = /^(\\d{2}):(\\d{2})$/.exec(value);
+    if (!match) throw new Error('Invalid schedule time');
+    const hour = Number(match[1]);
+    const minute = Number(match[2]);
+    if (hour > 23 || minute > 59) throw new Error('Invalid schedule time');
+    return hour * 60 + minute;
+  };
+  const formatMinutes = (value: number): string =>
+    `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
+  const minimumInstant = now.getTime() + 10 * 60 * 1000;
+
+  let startMinutes = parseMinutes(defaultTime);
+  if (date === today.date) {
+    const nowMinutes = parseMinutes(today.time);
+    const defaultCandidate = (() => {
+      try { return localDateTimeToDate(date, defaultTime, timeZone).getTime(); }
+      catch { return Number.NaN; }
+    })();
+    if (defaultCandidate > minimumInstant) return defaultTime;
+    startMinutes = Math.ceil((nowMinutes + 15) / 15) * 15;
+  }
+
+  for (let minutes = startMinutes; minutes < 24 * 60; minutes += 15) {
+    const candidateTime = formatMinutes(minutes);
+    try {
+      if (localDateTimeToDate(date, candidateTime, timeZone).getTime() > minimumInstant) {
+        return candidateTime;
+      }
+    } catch {
+      // Skip nonexistent wall-clock times during a daylight-saving transition.
+    }
+  }
+
+  throw new Error('No future schedule slot remains on this date');
+};
