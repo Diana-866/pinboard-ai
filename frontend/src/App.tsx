@@ -489,6 +489,28 @@ const MainApp: React.FC = () => {
       window.alert('Проверьте дату и время публикации.');
       return;
     }
+    // Approval from the review desk is a real persisted transition, not just
+    // a local queue animation. Persist edited creative fields before freezing
+    // the immutable schedule snapshot.
+    const creativePatch: Record<string, string> = { title: pin.title };
+    if (typeof pin.description === 'string') creativePatch.description = pin.description;
+    const updatedPin = await apiRequest(`/pins/${encodeURIComponent(pin.pinId)}/`, {
+      method: 'PATCH',
+      body: JSON.stringify(creativePatch),
+    });
+    if (!updatedPin || updatedPin.id !== pin.pinId ||
+        updatedPin.title !== pin.title ||
+        (typeof pin.description === 'string' && updatedPin.description !== pin.description)) {
+      throw new Error('Сервер не подтвердил сохранение изменений пина.');
+    }
+    const approvedPin = await apiRequest(`/pins/${encodeURIComponent(pin.pinId)}/status`, {
+      method: 'POST',
+      body: JSON.stringify({ status: 'approved' }),
+    });
+    if (!approvedPin || approvedPin.id !== pin.pinId || approvedPin.status !== 'approved') {
+      throw new Error('Сервер не подтвердил одобрение пина.');
+    }
+
     const schedulePayload = {
       scheduled_at: localDateTime.toISOString(),
       timezone,
