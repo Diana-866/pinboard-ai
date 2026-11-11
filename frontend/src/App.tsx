@@ -588,26 +588,46 @@ const MainApp: React.FC = () => {
 
   const handleReconcileLegacySchedule = async (pin: ScheduledPinItem, accountId: string) => {
     try {
-      const saved = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/reconcile-account`, {
-        method: 'POST',
-        body: JSON.stringify({ pinterest_account_id: accountId }),
-      });
-      if (!saved || typeof saved.pinterest_account_id !== 'string' || !saved.pinterest_account_id.trim()) {
-        throw new Error('Сервер не подтвердил Pinterest-аккаунт для восстановленного расписания.');
+      const expected = {
+        scheduleId: pin.id,
+        statuses: ['scheduled', 'failed', 'publishing', 'unknown'],
+        pinterestBoardId: String(pin.pinterestBoardId || ''),
+        pinterestAccountId: accountId,
+      };
+      let saved: any;
+      try {
+        const response = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/reconcile-account`, {
+          method: 'POST',
+          body: JSON.stringify({ pinterest_account_id: accountId }),
+        });
+        if (!isPersistedScheduleMutationResponse(response, expected)) {
+          throw new Error('Сервер не подтвердил привязку аккаунта к этому расписанию.');
+        }
+        saved = response;
+      } catch (originalError) {
+        // Account reconciliation is an atomic DB transition. If its response
+        // is lost, accept only the exact schedule/account/board from GET.
+        try {
+          const rows = await apiRequest('/schedule');
+          saved = findPersistedScheduleMutation(rows, expected);
+          if (!saved) throw originalError;
+        } catch {
+          throw originalError;
+        }
       }
+
       const account = accounts.find((item) => item.id === saved.pinterest_account_id);
       setScheduledPins((prev) => prev.map((item) => item.id === pin.id ? {
         ...item,
         status: parsePersistedScheduleStatus(saved.status),
         pinterestAccountId: saved.pinterest_account_id,
-        pinterestBoardId: typeof saved.pinterest_board_id === 'string'
-          ? saved.pinterest_board_id
-          : item.pinterestBoardId,
+        pinterestBoardId: saved.pinterest_board_id,
         accountHandle: account?.handle || account?.name || item.accountHandle || '',
         retryable: saved.retryable === true,
         retryReason: typeof saved.retry_reason === 'string' ? saved.retry_reason : undefined,
         failureReason: saved.failure_reason === 'board_unavailable' ? 'board_unavailable' : null,
       } : item));
+      setScheduleReloadToken((value) => value + 1);
     } catch (error) {
       console.error('[schedule] Не удалось восстановить старое расписание:', error);
       window.alert(error instanceof Error ? error.message : 'Не удалось восстановить расписание');
