@@ -189,7 +189,12 @@ async function waitForImageTask(taskId, callbacks = {}) {
   const maxPolls = Number.isInteger(callbacks.maxPolls) ? Math.max(1, Math.min(callbacks.maxPolls, 30)) : 30;
   const pollIntervalMs = Number.isInteger(callbacks.pollIntervalMs) ? Math.max(0, callbacks.pollIntervalMs) : 3000;
   for (let i = 0; i < maxPolls; i++) {
-    if (pollIntervalMs > 0) await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+    // Check immediately on entry: a recovered task may already be complete,
+    // and making every caller wait one full interval adds avoidable latency.
+    // Keep the delay only between subsequent polls.
+    if (i > 0 && pollIntervalMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+    }
     const task = await checkImage(taskId);
 
     // Never accept a provider response for a different task than the one
