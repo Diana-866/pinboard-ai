@@ -19,7 +19,6 @@ import { PrivacyPolicyModal } from './components/auth/PrivacyPolicyModal';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { PinGenerator } from './components/pins/PinGenerator';
 import { KeywordExplorer } from './components/keywords/KeywordExplorer';
-import { CompetitorAudit } from './components/competitors/CompetitorAudit';
 import { PublishingCalendar } from './components/calendar/PublishingCalendar';
 import { parsePersistedScheduleStatus } from './utils/scheduleStatus';
 import { BoardsManager } from './components/boards/BoardsManager';
@@ -982,12 +981,6 @@ const MainApp: React.FC = () => {
           {activeTab === 'keywords' && (
             <KeywordExplorer
               onGenerateFromKeyword={(kw) => handleGenerateFromTopic(kw)}
-            />
-          )}
-
-          {activeTab === 'competitors' && (
-            <CompetitorAudit
-              onGenerateFromGap={(gap) => handleGenerateFromTopic(gap)}
             />
           )}
 
