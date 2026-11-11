@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const localeDir = join(root, '..', 'i18n', 'locales');
+const translationSchemaPath = join(root, '..', 'i18n', 'types.ts');
 
 // Account deletion has an automated worker pipeline, but rollout is explicitly
 // gated and no completion SLA is promised to users.
@@ -20,6 +21,8 @@ const forbiddenPromises = [
 ];
 
 test('account deletion confirmation does not promise an unsupported erasure deadline', () => {
+  const schema = readFileSync(translationSchemaPath, 'utf8');
+  assert.match(schema, /deleteAccountUnavailable:\s*string;/, 'TranslationSchema must declare the unavailable message');
   for (const locale of locales) {
     const source = readFileSync(join(localeDir, `${locale}.ts`), 'utf8');
     const lines = source.split(/\r?\n/);
