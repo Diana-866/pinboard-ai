@@ -1,4 +1,4 @@
--- Run after migrations 045-071 in disposable PostgreSQL CI.
+-- Run after migrations 045-148 in disposable PostgreSQL CI.
 -- Verifies partial success is chargeable only when every task is terminal and
 -- the saved pins exactly correspond to the successful journal rows.
 begin;
@@ -15,6 +15,9 @@ declare
   v_pin_count integer;
   v_status text;
   v_saved jsonb;
+  v_result_url text;
+  v_storage_url text;
+  v_price numeric;
 begin
   insert into public.users(id,email,credits_balance,token_version)
   values(v_user,'generation-completion-guard-'||v_user||'@example.invalid',20,0);
@@ -125,6 +128,69 @@ begin
   if v_balance <> 18 or v_pin_count <> 0 or v_status <> 'processing' then
     raise exception 'non-terminal completion changed durable state (balance %, pins %, status %)',
       v_balance,v_pin_count,v_status;
+  end if;
+
+
+  -- A provider-confirmed success is immutable. Storage may be attached once,
+  -- but a retry must not replace the charged provider result, price or object.
+  v_key := 'completion-immutable-result-'||v_user;
+  v_request := public.begin_pin_generation_request(v_user::text,v_board,v_key,repeat('d',64));
+  v_claim := (v_request->>'claim_token')::uuid;
+  perform public.reserve_pin_generation_credits(v_user::text,v_key,5);
+  perform public.save_pin_generation_plan(v_user::text,v_key,v_claim,jsonb_build_array(
+    jsonb_build_object('title','Immutable task','description','description','prompt','immutable prompt','model','flux-schnell','aspect_ratio','2:3')
+  ));
+  perform public.record_pin_generation_provider_outcome(
+    v_user::text,v_key,v_claim,1,'provider-task-immutable','succeeded',1.25,null,null,null,
+    'https://provider.example.invalid/immutable.png'
+  );
+
+  begin
+    perform public.update_pin_generation_task(
+      v_user::text,v_key,v_claim,1,'succeeded','provider-task-immutable',
+      'https://provider.example.invalid/substituted.png',null,1.25,null
+    );
+    raise exception 'task journal accepted a substituted provider result URL';
+  exception when others then
+    if sqlerrm not like '%provider result URL is immutable%' then raise; end if;
+  end;
+
+  begin
+    perform public.update_pin_generation_task(
+      v_user::text,v_key,v_claim,1,'succeeded','provider-task-immutable',
+      'https://provider.example.invalid/immutable.png',null,1.50,null
+    );
+    raise exception 'task journal accepted a substituted provider price';
+  exception when others then
+    if sqlerrm not like '%provider price is immutable%' then raise; end if;
+  end;
+
+  perform public.update_pin_generation_task(
+    v_user::text,v_key,v_claim,1,'succeeded','provider-task-immutable',
+    'https://provider.example.invalid/immutable.png',
+    'https://storage.example.invalid/immutable.png',1.25,null
+  );
+  begin
+    perform public.update_pin_generation_task(
+      v_user::text,v_key,v_claim,1,'succeeded','provider-task-immutable',
+      'https://provider.example.invalid/immutable.png',
+      'https://storage.example.invalid/substituted.png',1.25,null
+    );
+    raise exception 'task journal accepted a substituted Storage URL';
+  exception when others then
+    if sqlerrm not like '%Storage URL is immutable%' then raise; end if;
+  end;
+
+  select provider_result_url,storage_url,provider_price
+    into v_result_url,v_storage_url,v_price
+    from public.pin_generation_tasks t
+    join public.pin_generation_requests r on r.id=t.generation_request_id
+   where r.user_id=v_user::text and r.idempotency_key=v_key and t.task_index=1;
+  if v_result_url <> 'https://provider.example.invalid/immutable.png'
+     or v_storage_url <> 'https://storage.example.invalid/immutable.png'
+     or v_price <> 1.25 then
+    raise exception 'immutable generation result facts changed (result %, storage %, price %)',
+      v_result_url,v_storage_url,v_price;
   end if;
 
   raise notice 'Generation completion journal guard checks passed';
