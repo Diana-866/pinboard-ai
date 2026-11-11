@@ -119,9 +119,21 @@ test("account export reports unreadable sections instead of failing outright", a
   const exported = await buildAccountExport(USER_ID, db);
 
   assert.equal(exported.account.email, "user@example.com");
-  for (const section of ["projects", "creditTransactions", "reviewQueue"]) {
+  for (const section of ["projects", "boards", "pins", "creditTransactions", "reviewQueue"]) {
     assert.ok(exported.degradedSections.includes(section), section);
   }
+});
+
+test("account export does not report dependent tables empty when parent read fails", async () => {
+  const db = fakeDb({ users: [{ id: USER_ID, email: "user@example.com" }] });
+  const exported = await buildAccountExport(USER_ID, db);
+
+  assert.deepEqual(exported.projects, []);
+  assert.deepEqual(exported.boards, []);
+  assert.deepEqual(exported.pins, []);
+  assert.ok(exported.degradedSections.includes("projects"));
+  assert.ok(exported.degradedSections.includes("boards"));
+  assert.ok(exported.degradedSections.includes("pins"));
 });
 
 test("account export rejects a non-uuid user id", async () => {
