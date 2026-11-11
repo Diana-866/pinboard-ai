@@ -63,17 +63,21 @@ test("preflight paginates project and board identifiers beyond the API row cap",
   const client = {
     from(table) {
       const query = {
-        select() { return this; },
-        eq() { return this; },
-        in() { return this; },
-        range(start, end) { ranges.push({ table, start, end }); return this; },
+        filters: [],
+        headOnly: false,
+        rangeArgs: [0, 999],
+        select(_columns, options) { this.headOnly = Boolean(options && options.head); return this; },
+        eq(column, value) { this.filters.push([column, value]); return this; },
+        in(column, value) { this.filters.push([column, value]); return this; },
+        range(start, end) { this.rangeArgs = [start, end]; ranges.push({ table, start, end }); return this; },
         maybeSingle() { return Promise.resolve({ data: { id: USER_ID, account_status: "deletion_pending" }, error: null }); },
         then(resolve, reject) {
-          if (table === "projects" && this.rangeArgs?.[0] === 0) {
+          if (this.headOnly) return Promise.resolve({ data: null, count: 0, error: null }).then(resolve, reject);
+          if (table === "projects" && this.rangeArgs[0] === 0) {
             return Promise.resolve({ data: Array.from({ length: 1000 }, (_, i) => ({ id: `p${i}` })), error: null }).then(resolve, reject);
           }
           if (table === "projects") return Promise.resolve({ data: [{ id: "p1000" }], error: null }).then(resolve, reject);
-          if (table === "boards" && this.rangeArgs?.[0] === 0) {
+          if (table === "boards" && this.rangeArgs[0] === 0) {
             return Promise.resolve({ data: Array.from({ length: 1000 }, (_, i) => ({ id: `b${i}` })), error: null }).then(resolve, reject);
           }
           if (table === "boards") return Promise.resolve({ data: [{ id: "b1000" }], error: null }).then(resolve, reject);
@@ -83,26 +87,11 @@ test("preflight paginates project and board identifiers beyond the API row cap",
       return query;
     },
   };
-  // Direct-table head counts and per-chunk pin counts return exact counts.
-  const originalFrom = client.from.bind(client);
-  client.from = (table) => {
-    const q = originalFrom(table);
-    const select = q.select.bind(q);
-    q.select = (columns, options) => {
-      q.headOnly = Boolean(options?.head);
-      return select(columns, options);
-    };
-    q.then = (resolve, reject) => {
-      if (q.headOnly) return Promise.resolve({ data: null, count: 0, error: null }).then(resolve, reject);
-      return Promise.resolve({ data: [], error: null }).then(resolve, reject);
-    };
-    return q;
-  };
-  // This test exercises pagination itself; inventory counts of direct tables are zero.
   const result = await inspectAccountForDeletion(client, USER_ID);
-  assert.equal(result.counts.projects, 0);
+  assert.equal(result.ok, true);
   assert.ok(ranges.some((r) => r.table === "projects" && r.start === 1000));
   assert.ok(ranges.some((r) => r.table === "boards" && r.start === 1000));
+  assert.equal(result.counts.boards, 1001);
 });
 
 test("preflight fails closed when a dependent table cannot be read", async () => {
