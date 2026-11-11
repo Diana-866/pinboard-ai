@@ -482,6 +482,7 @@ export const de: TranslationSchema = {
     deleteAccountConfirm: "Löschung beantragen",
     deleteAccountDone: "Ihr Löschantrag ist eingegangen und der Zugriff wurde gesperrt. Ihre Daten wurden noch nicht gelöscht.",
     deleteAccountUnavailable: "Die Kontolöschung ist vorübergehend nicht verfügbar. Bitte versuchen Sie es später erneut.",
+    exportIncomplete: "Ein vollständiger Datenexport konnte nicht erstellt werden. Es wurde nichts heruntergeladen – bitte versuchen Sie es später erneut.",
     requestFailed: "Anfrage konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
   },
 
