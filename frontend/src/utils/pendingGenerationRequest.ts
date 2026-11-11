@@ -37,7 +37,7 @@ function getDefaultStorage(): StorageLike | undefined {
   }
 }
 
-function getLegacySessionStorage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | undefined {
+function getLegacySessionStorage(): StorageLike | undefined {
   try {
     return typeof window !== 'undefined' ? window.sessionStorage : undefined;
   } catch {
