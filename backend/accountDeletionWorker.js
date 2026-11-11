@@ -145,7 +145,7 @@ function createAccountDeletionWorker({
   cancelSchedule = clearTimeout,
   intervalMs = POLL_INTERVAL_MS,
   deleteImageObject = deleteManagedPinImageObject,
-  supabaseUrl = process.env.SUPABASE_URL || client.supabaseUrl,
+  supabaseUrl = process.env.SUPABASE_URL || (client && client.supabaseUrl),
 }) {
   if (!client || typeof client.rpc !== "function") throw new Error("Supabase service client is required");
   let timer = null;
