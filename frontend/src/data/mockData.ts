@@ -55,6 +55,7 @@ export interface ScheduledPinItem {
   id: string;
   pinId?: string;
   title: string;
+  description?: string;
   boardId: string;
   boardName: string;
   imageUrl: string;
