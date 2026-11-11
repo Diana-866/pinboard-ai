@@ -3007,6 +3007,8 @@ if (process.env.ACCOUNT_DELETION_WORKER_ENABLED === "true") {
   accountDeletionWorker = createAccountDeletionWorker({ client: supabase });
   accountDeletionWorker.start();
   logInfo("account_deletion_worker.enabled");
+} else if (process.env.NODE_ENV === "production") {
+  logWarning("account_deletion_worker.disabled_in_production");
 }
 
 const server = app.listen(PORT, () => {
