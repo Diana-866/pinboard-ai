@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   findPersistedScheduleMutation,
+  isPersistedScheduleMutationResponse,
   findPersistedScheduleRequest,
   isScheduleAbsentFromActiveList,
 } from './scheduleMutationReconciliation';
@@ -21,6 +22,14 @@ const persisted = {
   pinterest_board_id: 'board-new',
   pinterest_account_id: 'account-1',
 };
+
+test('validates direct mutation responses with the same strict persisted contract', () => {
+  assert.equal(isPersistedScheduleMutationResponse(persisted, expected), true);
+  assert.equal(isPersistedScheduleMutationResponse({ ...persisted, status: 'failed' }, expected), false);
+  assert.equal(isPersistedScheduleMutationResponse({ ...persisted, pinterest_board_id: 'board-old' }, expected), false);
+  assert.equal(isPersistedScheduleMutationResponse({ ...persisted, scheduled_at: 'invalid' }, expected), false);
+  assert.equal(isPersistedScheduleMutationResponse({ id: persisted.id, status: 'scheduled' }, expected), false);
+});
 
 test('confirms the exact persisted schedule mutation', () => {
   assert.deepEqual(findPersistedScheduleMutation([persisted], expected), persisted);
