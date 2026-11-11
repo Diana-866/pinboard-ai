@@ -1,8 +1,8 @@
 "use strict";
 
-// Dedicated worker for the account-deletion queue.
-// The current first stage inventories owned data and revokes locally stored
-// Pinterest credentials. Physical content erasure is a separate later stage.
+// Dedicated worker for the durable account-deletion pipeline.
+// Stages: preflight + Pinterest credential revocation, transactional content
+// erasure + managed Storage removal, then pseudonymous account finalization.
 const { logError, logInfo } = require("./safeLogger");
 const { deleteManagedPinImageObject } = require("./pinImageLifecycle");
 
