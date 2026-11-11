@@ -382,7 +382,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         // These reads never resubmit generation or spend credits.
         const hasProcessing = found.some((item) => item.status === 'processing');
         const hasUnknown = found.some((item) => item.status === 'unknown');
-        if (hasProcessing || hasUnknown) {
+        // A just-persisted local key can briefly precede the server-side row
+        // while the original POST is still in flight. Recheck 404s twice, but
+        // do not poll genuinely missing historical keys forever.
+        const hasRecentNotFound = recoveryCheckAttempt < 2 &&
+          found.some((item) => item.status === 'not_found');
+        if (hasProcessing || hasUnknown || hasRecentNotFound) {
           retryTimer = window.setTimeout(() => {
             if (active) setRecoveryCheckAttempt((attempt) => attempt + 1);
           }, hasProcessing ? 15000 : 30000);
@@ -574,9 +579,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         body: JSON.stringify(requestBody),
       });
 
-      // A 202 response is a successful acknowledgement that the same durable
-      // generation is still running, not a malformed pins array. Keep its key
-      // and refresh the read-only recovery card instead of showing a false error.
+      // A legacy processing payload is a successful acknowledgement that the same
+      // durable generation is still running, not a malformed pins array. Keep
+      // its key and refresh the read-only recovery card instead of showing a false error.
       if (rows && typeof rows === 'object' && rows.status === 'processing') {
         setRecoveryCheckAttempt((attempt) => attempt + 1);
         window.alert(language === 'ru'
