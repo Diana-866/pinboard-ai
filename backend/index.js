@@ -1850,27 +1850,32 @@ app.get("/schedule", requireAuth, async (req, res) => {
     const attempts = attemptsResults.flatMap((result) => result.data || []);
     const publications = publicationsResults.flatMap((result) => result.data || []);
     const activeAccountIds = new Set(accountsResults.flatMap((result) => result.data || []).map((account) => String(account.id)));
+    // Index retry metadata once. Re-scanning every attempt/publication/schedule
+    // for every failed row turns a large calendar into quadratic work.
+    const identityKey = (...parts) => JSON.stringify(parts.map((part) => String(part || "")));
+    const attemptsByPinAndAccount = new Map();
+    const attemptsByExactDestination = new Map();
+    for (const attempt of attempts) {
+      const baseKey = identityKey(attempt.user_id, attempt.pin_id, attempt.pinterest_account_id);
+      if (!attemptsByPinAndAccount.has(baseKey)) attemptsByPinAndAccount.set(baseKey, attempt);
+      const destinationKey = identityKey(attempt.user_id, attempt.pin_id, attempt.pinterest_account_id, attempt.pinterest_board_id);
+      if (!attemptsByExactDestination.has(destinationKey)) attemptsByExactDestination.set(destinationKey, attempt);
+    }
+    const publicationKeys = new Set(publications.map((item) =>
+      identityKey(item.user_id, item.pin_id, item.pinterest_account_id)
+    ));
     const activeScheduleStatuses = new Set(["scheduled", "publishing", "published", "unknown"]);
+    const activeScheduleKeys = new Set(rows
+      .filter((row) => activeScheduleStatuses.has(row.status))
+      .map((row) => identityKey(row.pin_id, row.pinterest_account_id)));
     const enriched = rows.map((row) => {
       if (row.status !== "failed") return sanitizeScheduleForClient({ ...row, retryable: false, retry_reason: null, failure_reason: null });
       const accountId = row.pinterest_account_id ? String(row.pinterest_account_id) : null;
-      const attempt = selectScheduleAttemptForRetry(attempts, {
-        user_id: String(req.userId),
-        pin_id: String(row.pin_id),
-        pinterest_account_id: accountId,
-        pinterest_board_id: row.pinterest_board_id,
-      });
-      const hasPublication = publications.some((item) =>
-        String(item.user_id || "") === String(req.userId) &&
-        String(item.pin_id) === String(row.pin_id) &&
-        String(item.pinterest_account_id || "") === String(accountId || "")
-      );
-      const hasActiveDuplicate = rows.some((other) =>
-        other.id !== row.id &&
-        String(other.pin_id) === String(row.pin_id) &&
-        String(other.pinterest_account_id || "") === String(accountId || "") &&
-        activeScheduleStatuses.has(other.status)
-      );
+      const baseKey = identityKey(req.userId, row.pin_id, accountId);
+      const destinationKey = identityKey(req.userId, row.pin_id, accountId, row.pinterest_board_id);
+      const attempt = attemptsByExactDestination.get(destinationKey) || attemptsByPinAndAccount.get(baseKey) || null;
+      const hasPublication = publicationKeys.has(baseKey);
+      const hasActiveDuplicate = activeScheduleKeys.has(identityKey(row.pin_id, accountId));
       const retry = getScheduleRetryability(
         row,
         attempt,
