@@ -431,27 +431,27 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     setIsDecisionInFlight(true);
     setSwipeDirection('right');
     setTimeout(async () => {
-      const selectedBoard = boards.find((b) => b.id === editBoardId) || boards[0];
-      const scheduledItem: ScheduledPinItem = {
-        id: `pin-${Date.now()}`,
-        pinId: currentPin.pinId,
-        title: editTitle,
-        description: editDesc,
-        boardId: editBoardId,
-        boardName: selectedBoard?.name || currentPin.boardName,
-        imageUrl: currentPin.imageUrl,
-        scheduledDate: editDate,
-        scheduledTime: editTime,
-        status: 'scheduled',
-        isOptimalSlot: true,
-        destinationUrl: currentPin.destinationUrl,
-        accountHandle: currentPin.accountHandle,
-        pinterestBoardId: selectedPinterestBoardId,
-        pinterestAccountId: selectedPinterestAccountId,
-      };
-
       let scheduleWasPersisted = false;
       try {
+        const selectedBoard = boards.find((b) => b.id === editBoardId) || boards[0];
+        const scheduledItem: ScheduledPinItem = {
+          id: `pin-${Date.now()}`,
+          pinId: currentPin.pinId!,
+          title: editTitle,
+          description: editDesc,
+          boardId: editBoardId,
+          boardName: selectedBoard?.name || currentPin.boardName,
+          imageUrl: currentPin.imageUrl,
+          scheduledDate: editDate,
+          scheduledTime: editTime,
+          status: 'scheduled',
+          isOptimalSlot: true,
+          destinationUrl: currentPin.destinationUrl,
+          accountHandle: currentPin.accountHandle,
+          pinterestBoardId: selectedPinterestBoardId,
+          pinterestAccountId: selectedPinterestAccountId,
+        };
+
         await onApprovePin(scheduledItem);
         scheduleWasPersisted = true;
         await updateQueue((prev) => prev.filter((pin) => pin.id !== currentPin.id));
