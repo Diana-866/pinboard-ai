@@ -1319,7 +1319,28 @@ app.get("/boards", requireAuth, async (req, res) => {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    res.json((data || []).map(serializeBoardForClient));
+
+    // Fetch exact counts without downloading pin rows or relying on Supabase's
+    // default row cap. Keep the small per-board count requests bounded.
+    const boards = data || [];
+    const pinCounts = new Map();
+    for (let offset = 0; offset < boards.length; offset += 5) {
+      const batch = boards.slice(offset, offset + 5);
+      const counts = await Promise.all(batch.map(async (board) => {
+        const { count, error: countError } = await supabase
+          .from("pins")
+          .select("id", { count: "exact", head: true })
+          .eq("board_id", board.id);
+        if (countError) throw countError;
+        return [board.id, Number.isInteger(count) && count >= 0 ? count : 0];
+      }));
+      for (const [boardId, count] of counts) pinCounts.set(boardId, count);
+    }
+
+    res.json(boards.map((board) => ({
+      ...serializeBoardForClient(board),
+      pin_count: pinCounts.get(board.id) || 0,
+    })));
   } catch (e) {
     handleError(res, e);
   }
