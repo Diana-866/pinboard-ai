@@ -36,7 +36,9 @@ function fakeDb(tables, { rpcResult } = {}) {
         for (const [column, value, op] of filters) {
           rows = op === "in"
             ? rows.filter((row) => value.includes(row[column]))
-            : rows.filter((row) => String(row[column]) === String(value));
+            : op === "gt"
+              ? rows.filter((row) => String(row[column]) > String(value))
+              : rows.filter((row) => String(row[column]) === String(value));
         }
         if (orderBy) rows.sort((a, b) => String(a[orderBy]).localeCompare(String(b[orderBy])) * (orderAscending ? 1 : -1));
         if (rangeLimit !== null) rows = rows.slice(offset, offset + rangeLimit);
@@ -47,6 +49,7 @@ function fakeDb(tables, { rpcResult } = {}) {
         select() { return builder; },
         eq(column, value) { filters.push([column, value, "eq"]); return builder; },
         in(column, value) { filters.push([column, value, "in"]); return builder; },
+        gt(column, value) { filters.push([column, value, "gt"]); return builder; },
         order(column, options = {}) { orderBy = column; orderAscending = options.ascending !== false; return builder; },
         limit(value) { limit = value; return builder; },
         range(from, to) { offset = from; rangeLimit = to - from + 1; return builder; },
