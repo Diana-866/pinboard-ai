@@ -63,6 +63,9 @@ begin
   ) then
     raise exception 'active worker could not persist preflight inventory';
   end if;
+  if not public.mark_account_deletion_storage_manifest(v_job_id,v_claim) then
+    raise exception 'active worker could not mark Storage manifest complete';
+  end if;
 
   v_finished := public.finish_account_deletion_job(v_job_id,v_claim,'succeeded',null);
   if not v_finished then raise exception 'current worker claim failed to finalize job'; end if;
