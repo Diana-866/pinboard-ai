@@ -377,12 +377,15 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       }
       if (active && isCurrentBillingOwner(generationRecoveryOwnerIdRef.current, ownerId)) {
         setRecoverableGenerations(found);
-        // Keep checking only while the server confirms work is still running.
-        // This is read-only and does not resubmit generation or spend credits.
-        if (found.some((item) => item.status === 'processing')) {
+        // Keep recovery alive while work is running or its outcome is uncertain.
+        // Transient network/5xx failures are rechecked more gently than active jobs.
+        // These reads never resubmit generation or spend credits.
+        const hasProcessing = found.some((item) => item.status === 'processing');
+        const hasUnknown = found.some((item) => item.status === 'unknown');
+        if (hasProcessing || hasUnknown) {
           retryTimer = window.setTimeout(() => {
             if (active) setRecoveryCheckAttempt((attempt) => attempt + 1);
-          }, 15000);
+          }, hasProcessing ? 15000 : 30000);
         }
       }
     };
