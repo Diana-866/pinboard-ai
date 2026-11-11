@@ -22,10 +22,10 @@ declare
   v_request_state text;
   v_job public.account_deletion_jobs%rowtype;
 begin
-  if p_job_id is null or p_claim_token is null
-     or jsonb_typeof(p_inventory) <> 'object'
-     or p_inventory->>'ok' <> 'true'
-     or jsonb_typeof(p_inventory->'counts') <> 'object' then
+  if p_job_id is null or p_claim_token is null or p_inventory is null
+     or jsonb_typeof(p_inventory) is distinct from 'object'
+     or p_inventory->>'ok' is distinct from 'true'
+     or jsonb_typeof(p_inventory->'counts') is distinct from 'object' then
     raise exception 'invalid account deletion inventory';
   end if;
 
@@ -59,6 +59,31 @@ begin
   return true;
 end;
 $$;
+
+
+create or replace function public.require_account_deletion_preflight_inventory()
+returns trigger
+language plpgsql
+set search_path = pg_catalog, public
+as $
+begin
+  if new.step_key = 'preflight' and new.status = 'succeeded'
+     and old.status is distinct from 'succeeded'
+     and (new.inventory is null or new.inventory_recorded_at is null) then
+    raise exception 'account deletion preflight inventory is required';
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists account_deletion_preflight_inventory_required
+  on public.account_deletion_jobs;
+create trigger account_deletion_preflight_inventory_required
+before update of status on public.account_deletion_jobs
+for each row execute function public.require_account_deletion_preflight_inventory();
+
+revoke all on function public.require_account_deletion_preflight_inventory()
+  from public, anon, authenticated, service_role;
 
 revoke all on function public.record_account_deletion_preflight(uuid,uuid,jsonb)
   from public, anon, authenticated, service_role;
