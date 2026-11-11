@@ -42,7 +42,7 @@ import { getOrCreateProject } from './utils/projectProvisioning';
 import { validatePersistedScheduleRows } from './utils/persistedSchedule';
 import { mergeRestoredReviewQueue } from './utils/reviewQueueHydration';
 import { isReviewQueueOwnerCurrent } from './utils/reviewQueueOwnerFence';
-import { findPersistedScheduleMutation, findPersistedScheduleRequest, isPersistedScheduleMutationResponse, isScheduleAbsentFromActiveList } from './utils/scheduleMutationReconciliation';
+import { findPersistedScheduleMutation, findPersistedScheduleRequest, isPersistedScheduleMutationResponse, isScheduleAbsentFromActiveList, isPersistedScheduleCancellationResponse } from './utils/scheduleMutationReconciliation';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Landing } from './pages/Landing';
@@ -713,9 +713,12 @@ const MainApp: React.FC = () => {
 
   const handleCancelScheduledPin = async (pin: ScheduledPinItem) => {
     try {
-      await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/cancel`, {
+      const response = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/cancel`, {
         method: 'POST',
       });
+      if (!isPersistedScheduleCancellationResponse(response, pin.id)) {
+        throw new Error('Сервер не подтвердил отмену именно этой публикации. Проверяем сохранённое расписание.');
+      }
       setScheduledPins((prev) => prev.filter((item) => item.id !== pin.id));
     } catch (originalError) {
       // GET /schedule intentionally omits cancelled rows. A valid list without
