@@ -481,7 +481,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   };
 
   const handleReject = () => {
-    if (!currentPin || decisionInFlightRef.current) return;
+    if (!currentPin || decisionInFlightRef.current || bulkApprovalInFlightRef.current) return;
 
     decisionInFlightRef.current = true;
     setIsDecisionInFlight(true);
