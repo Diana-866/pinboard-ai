@@ -3009,7 +3009,7 @@ if (typeof emailOutboxTimer.unref === "function") emailOutboxTimer.unref();
 // when explicitly enabled after migrations 127-144 are applied. This avoids a
 // second service while keeping rollout opt-in and independently reversible.
 let accountDeletionWorker = null;
-if (process.env.ACCOUNT_DELETION_WORKER_ENABLED === "true") {
+if (isAccountDeletionWorkerEnabled()) {
   const { createAccountDeletionWorker } = require("./accountDeletionWorker");
   accountDeletionWorker = createAccountDeletionWorker({ client: supabase });
   accountDeletionWorker.start();
