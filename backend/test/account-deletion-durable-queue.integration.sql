@@ -71,6 +71,13 @@ begin
    where id=v_job_id and status='succeeded' and claim_token is null and lease_expires_at is null;
   if v_count <> 1 then raise exception 'successful job was not finalized cleanly'; end if;
 
+  select count(*) into v_count from public.account_deletion_jobs
+   where id=v_job_id
+     and inventory_recorded_at is not null
+     and inventory->>'ok' = 'true'
+     and inventory->'counts'->>'projects' = '0';
+  if v_count <> 1 then raise exception 'preflight inventory was not durably persisted'; end if;
+
   -- Event log must be immutable.
   begin
     update public.account_deletion_events set reason_code='tampered'
