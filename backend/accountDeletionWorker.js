@@ -28,32 +28,8 @@ async function countOwnedRows(client, table, userId) {
 // PostgREST applies a default row cap. Explicitly page every identifier query;
 // otherwise a large account could receive a false "complete" inventory.
 async function fetchAllRows(query, pageSize = 1000) {
-  // All callers select primary-key identifiers. Prefer keyset pagination so
-  // concurrent row changes cannot shift offset boundaries during inventory.
-  if (typeof query.gt === "function" && typeof query.limit === "function"
-      && typeof query.order === "function") {
-    const rows = [];
-    // PostgREST builders mutate their URL parameters; apply order once, then
-    // advance only the keyset cursor on each iteration.
-    const orderedQuery = query.order("id", { ascending: true });
-    let lastId = null;
-    for (;;) {
-      let pageQuery = orderedQuery;
-      if (lastId !== null) pageQuery = pageQuery.gt("id", lastId);
-      const { data, error } = await pageQuery.limit(pageSize);
-      if (error) throw error;
-      const page = Array.isArray(data) ? data : [];
-      rows.push(...page);
-      if (page.length < pageSize) return rows;
-      const nextId = page[page.length - 1] && page[page.length - 1].id;
-      if (nextId === null || nextId === undefined || nextId === lastId) {
-        throw new Error("account deletion inventory pagination cursor did not advance");
-      }
-      lastId = nextId;
-    }
-  }
-
-  // Compatibility fallback for test doubles and older query adapters.
+  // Account deletion is fenced before inventory begins; order every page by
+  // primary key so pagination is deterministic and bounded.
   const orderedQuery = typeof query.order === "function"
     ? query.order("id", { ascending: true })
     : query;
