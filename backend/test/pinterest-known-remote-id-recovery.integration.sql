@@ -76,7 +76,7 @@ begin
   -- The normal worker tick invokes this reconciler. It must recover even
   -- if the process died after recording the ID and before calling completion.
   v_reconciled := public.reconcile_confirmed_pinterest_schedule_successes();
-  if v_reconciled <> 1
+  if v_reconciled < 1
      or not exists (
        select 1 from public.pinterest_publications
         where user_id=v_user::text and pin_id=v_pin
@@ -93,10 +93,17 @@ begin
     raise exception 'known remote ID was not recovered by the scheduler reconciler (count=%)',v_reconciled;
   end if;
 
-  -- A second worker tick is idempotent and does not rewrite the published row.
+  -- A second worker tick must leave this fixture published. Other users'
+  -- independently recoverable rows may also be reconciled on the same tick,
+  -- so do not assert a global zero row count on a shared test database.
   v_reconciled := public.reconcile_confirmed_pinterest_schedule_successes();
-  if v_reconciled <> 0 then
-    raise exception 'known remote ID reconciliation was not idempotent: % rows changed',v_reconciled;
+  if not exists (
+    select 1 from public.pin_schedules
+     where id=v_schedule and status='published'
+       and pinterest_pin_id='remote-known-123'
+       and claim_token is null and next_attempt_at is null
+  ) then
+    raise exception 'repeated scheduler reconciliation changed the recovered publication';
   end if;
 
   delete from public.pin_schedules where id=v_schedule;
