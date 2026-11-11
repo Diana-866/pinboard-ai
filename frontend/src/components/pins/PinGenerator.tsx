@@ -53,7 +53,7 @@ interface PinGeneratorProps {
   initialTime?: string;
   initialBoardId?: string;
   onSchedulePin: (pin: ScheduledPinItem) => void;
-  onAddToReview?: (pin: { id: string; pinId: string; title: string; description: string; boardName: string; boardId: string; imageUrl: string; aspectRatio: string; reason: string; trendMetric: string; scheduledTime: string; scheduledDate: string; destinationUrl: string; accountHandle?: string; accountId?: string }) => void;
+  onAddToReview?: (pin: { id: string; pinId: string; title: string; description: string; boardName: string; boardId: string; imageUrl: string; aspectRatio: string; reason: string; trendMetric: string; scheduledTime: string; scheduledDate: string; destinationUrl: string; accountHandle?: string; accountId?: string }) => Promise<void>;
   onGoToCalendar: () => void;
 }
 
@@ -276,6 +276,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [generatedPins, setGeneratedPins] = useState<GeneratedPinVariation[]>([]);
   const [activePinIndex, setActivePinIndex] = useState(0);
   const [scheduledSuccess, setScheduledSuccess] = useState(false);
+  const [isAddingToReview, setIsAddingToReview] = useState(false);
+  const [reviewQueueSuccess, setReviewQueueSuccess] = useState(false);
   const [recoverableGenerations, setRecoverableGenerations] = useState<Array<{
     key: string;
     status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found';
@@ -1634,32 +1636,51 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               {onAddToReview && currentPin && (
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
                     const board = boards.find((item) => item.id === selectedBoardId);
-                    if (!board) return;
-                    const title = resolvePinTitleSelection(pinTitleSelectionRef.current, currentPin.id, currentPin.selectedTitle);
-                    onAddToReview({
-                      id: `review-${currentPin.id}`,
-                      pinId: currentPin.id,
-                      title,
-                      description: currentPin.description,
-                      boardName: board.name,
-                      boardId: board.id,
-                      imageUrl: currentPin.imageUrl,
-                      aspectRatio: currentPin.aspectRatio,
-                      reason: 'Создано в генераторе и ожидает ручной проверки',
-                      trendMetric: '',
-                      scheduledDate: customScheduleDate,
-                      scheduledTime: customScheduleTime,
-                      destinationUrl,
-                      accountHandle: pinterestAccounts.find((account) => account.id === selectedPinterestAccountId)?.username,
-                      accountId: selectedPinterestAccountId || undefined,
-                    });
+                    if (!board || !currentPin || !onAddToReview || isAddingToReview) return;
+                    setIsAddingToReview(true);
+                    setReviewQueueSuccess(false);
+                    try {
+                      if (descriptionSaveTimerRef.current) {
+                        clearTimeout(descriptionSaveTimerRef.current);
+                        descriptionSaveTimerRef.current = null;
+                      }
+                      const pendingDescription = pendingDescriptionSaveRef.current;
+                      if (pendingDescription?.pinId === currentPin.id && pendingDescription.boardId === board.id) {
+                        pendingDescriptionSaveRef.current = null;
+                        await savePinDescription(board.id, currentPin.id, pendingDescription.description, pendingDescription.revision);
+                      }
+                      await pendingPinSavesRef.current.get(currentPin.id);
+                      const title = resolvePinTitleSelection(pinTitleSelectionRef.current, currentPin.id, currentPin.selectedTitle);
+                      await onAddToReview({
+                        id: `review-${currentPin.id}`,
+                        pinId: currentPin.id,
+                        title,
+                        description: currentPin.description,
+                        boardName: board.name,
+                        boardId: board.id,
+                        imageUrl: currentPin.imageUrl,
+                        aspectRatio: currentPin.aspectRatio,
+                        reason: 'Создано в генераторе и ожидает ручной проверки',
+                        trendMetric: '',
+                        scheduledDate: customScheduleDate,
+                        scheduledTime: customScheduleTime,
+                        destinationUrl,
+                        accountHandle: pinterestAccounts.find((account) => account.id === selectedPinterestAccountId)?.username,
+                        accountId: selectedPinterestAccountId || undefined,
+                      });
+                      setReviewQueueSuccess(true);
+                    } catch (error) {
+                      window.alert(error instanceof Error ? error.message : 'Не удалось сохранить пин в очереди проверки.');
+                    } finally {
+                      setIsAddingToReview(false);
+                    }
                   }}
-                  disabled={!currentPin.id || !currentPin.imageUrl || !boards.some((item) => item.id === selectedBoardId)}
+                  disabled={!currentPin.id || !currentPin.imageUrl || !boards.some((item) => item.id === selectedBoardId) || isAddingToReview}
                   className="w-full py-2.5 px-4 rounded-xl text-xs md:text-sm font-semibold border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
                 >
-                  Отправить пин на ручную проверку
+                  {isAddingToReview ? 'Сохраняем в очереди…' : reviewQueueSuccess ? 'Пин отправлен на проверку' : 'Отправить пин на ручную проверку'}
                 </button>
               )}
 
