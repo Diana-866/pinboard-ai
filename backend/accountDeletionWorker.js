@@ -130,6 +130,19 @@ function createAccountDeletionWorker({
         logger.info("account_deletion_worker.inventory_claim_lost", { job_id: job.job_id });
         return { status: "claim_lost" };
       }
+      // Revoke locally stored Pinterest credentials only after a complete,
+      // durable preflight. The RPC is idempotent and uses the established
+      // OAuth-generation/refresh-lease fencing for every connected account.
+      const { data: disconnectedCount, error: disconnectError } = await client.rpc(
+        "disconnect_pinterest_for_account_deletion",
+        { p_user_id: job.user_id }
+      );
+      if (disconnectError) throw disconnectError;
+      if (!Number.isInteger(disconnectedCount) || disconnectedCount < 0) {
+        const error = new Error("invalid Pinterest disconnect result");
+        error.code = "invalid_disconnect_result";
+        throw error;
+      }
       const { data, error } = await client.rpc("finish_account_deletion_job", {
         p_job_id: job.job_id,
         p_claim_token: job.claim_token,
