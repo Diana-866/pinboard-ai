@@ -652,3 +652,34 @@ test("known Pinterest remote ID journal rejects an unconfirmed or malformed RPC 
     (error) => error.httpStatus === 503 && error.code === "PUBLISH_REMOTE_ID_JOURNAL_FAILED"
   );
 });
+
+
+test("schedule failure records never persist raw provider or request secrets", () => {
+  const state = buildScheduleWorkerFailureState({
+    error: Object.assign(new Error("Authorization: Bearer private-token?access_token=secret"), {
+      httpStatus: 503,
+      code: "ECONNRESET",
+    }),
+    attempts: 1,
+  });
+  assert.equal(state.message, "Pinterest publication failed; check the account and schedule status before retrying.");
+  assert.equal(state.message.includes("private-token"), false);
+  assert.equal(state.message.includes("secret"), false);
+});
+
+test("safe schedule failure messages preserve the actionable board-unavailable classification", () => {
+  const state = buildScheduleWorkerFailureState({
+    error: new Error("Выбранная доска не найдена или недоступна подключённому Pinterest-аккаунту"),
+    attempts: 1,
+  });
+  assert.equal(state.message, "Выбранная доска не найдена или недоступна подключённому Pinterest-аккаунту");
+  assert.equal(getScheduleFailureReason({ status: "failed", last_error: state.message }), "board_unavailable");
+});
+
+test("unreadable publication journal errors use a fixed safe schedule message", () => {
+  const state = buildScheduleWorkerFailureState({
+    attemptLookupError: new Error("database password=secret"),
+    error: new Error("private provider response"),
+  });
+  assert.equal(state.message, "Could not verify the publication journal; publication outcome remains unknown.");
+});
