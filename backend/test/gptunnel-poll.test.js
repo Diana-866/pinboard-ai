@@ -158,6 +158,28 @@ test("waitForImageTask does not retry non-Axios errors without an HTTP response"
   }
 });
 
+test("waitForImageTask does not retry cancelled provider polling requests", async () => {
+  const originalGet = axios.get;
+  let calls = 0;
+  axios.get = async () => {
+    calls += 1;
+    const error = new Error("canceled");
+    error.code = "ERR_CANCELED";
+    error.isAxiosError = true;
+    throw error;
+  };
+
+  try {
+    await assert.rejects(
+      waitForImageTask("task-cancelled", { maxPolls: 4, pollIntervalMs: 0 }),
+      /canceled/
+    );
+    assert.equal(calls, 1);
+  } finally {
+    axios.get = originalGet;
+  }
+});
+
 test("waitForImageTask stops after the bounded transient retry budget", async () => {
   const originalGet = axios.get;
   let calls = 0;
