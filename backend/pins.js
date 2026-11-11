@@ -45,7 +45,7 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
       options.onTextProviderSubmission();
     }
     const textResult = await generateTextWithUsage(prompt, { requireUsage: false });
-    if (textResult.costCurrency !== "RUB" || !Number.isFinite(textResult.usage && textResult.usage.totalCost)) {
+    if (textResult.costCurrency !== "RUB" || !Number.isFinite(textResult.usage && textResult.usage.totalCost) || textResult.usage.totalCost < 0) {
       if (typeof options.recordTextUsage === "function") {
         await options.recordTextUsage(textResult);
       } else if (typeof options.onTextProviderUsage === "function") {
