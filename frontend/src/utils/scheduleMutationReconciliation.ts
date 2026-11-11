@@ -1,3 +1,25 @@
+function isValidPersistedScheduleRow(row: unknown): row is Record<string, any> {
+  return !!row &&
+    typeof row === 'object' &&
+    !Array.isArray(row) &&
+    typeof row.id === 'string' &&
+    row.id.trim().length > 0 &&
+    typeof row.pin_id === 'string' &&
+    row.pin_id.trim().length > 0 &&
+    typeof row.status === 'string' &&
+    row.status.trim().length > 0 &&
+    typeof row.scheduled_at === 'string' &&
+    Number.isFinite(Date.parse(row.scheduled_at)) &&
+    Object.prototype.hasOwnProperty.call(row, 'pinterest_board_id') &&
+    (row.pinterest_board_id === null || typeof row.pinterest_board_id === 'string') &&
+    Object.prototype.hasOwnProperty.call(row, 'pinterest_account_id') &&
+    (row.pinterest_account_id === null || typeof row.pinterest_account_id === 'string');
+}
+
+function isValidPersistedScheduleList(rows: unknown): rows is Record<string, any>[] {
+  return Array.isArray(rows) && rows.every(isValidPersistedScheduleRow);
+}
+
 export interface PersistedScheduleMutationExpectation {
   scheduleId: string;
   statuses: readonly string[];
@@ -14,7 +36,7 @@ export function findPersistedScheduleMutation(
   rows: unknown,
   expected: PersistedScheduleMutationExpectation,
 ): Record<string, any> | null {
-  if (!Array.isArray(rows)) return null;
+  if (!isValidPersistedScheduleList(rows)) return null;
   const matches = rows.filter((row): row is Record<string, any> =>
     !!row &&
     typeof row === 'object' &&
@@ -36,28 +58,7 @@ export function isScheduleAbsentFromActiveList(
   rows: unknown,
   scheduleId: string,
 ): boolean {
-  if (!Array.isArray(rows)) return false;
-  for (const row of rows) {
-    if (
-      !row ||
-      typeof row !== 'object' ||
-      Array.isArray(row) ||
-      typeof row.id !== 'string' ||
-      row.id.trim().length === 0 ||
-      typeof row.pin_id !== 'string' ||
-      row.pin_id.trim().length === 0 ||
-      typeof row.status !== 'string' ||
-      row.status.trim().length === 0 ||
-      typeof row.scheduled_at !== 'string' ||
-      !Number.isFinite(Date.parse(row.scheduled_at)) ||
-      !Object.prototype.hasOwnProperty.call(row, 'pinterest_board_id') ||
-      (row.pinterest_board_id !== null && typeof row.pinterest_board_id !== 'string') ||
-      !Object.prototype.hasOwnProperty.call(row, 'pinterest_account_id') ||
-      (row.pinterest_account_id !== null && typeof row.pinterest_account_id !== 'string')
-    ) {
-      return false;
-    }
-  }
+  if (!isValidPersistedScheduleList(rows)) return false;
   return !rows.some((row) => row.id === scheduleId);
 }
 
@@ -78,27 +79,9 @@ export function findPersistedScheduleRequest(
   rows: unknown,
   expected: PersistedScheduleRequestExpectation,
 ): Record<string, any> | null {
-  if (!Array.isArray(rows)) return null;
+  if (!isValidPersistedScheduleList(rows)) return null;
   const expectedTime = Date.parse(expected.scheduledAt);
   if (!Number.isFinite(expectedTime)) return null;
-  // A partially malformed listing cannot prove that the mutation is unique.
-  if (rows.some((row) =>
-    !row ||
-    typeof row !== 'object' ||
-    Array.isArray(row) ||
-    typeof row.id !== 'string' ||
-    row.id.trim().length === 0 ||
-    typeof row.pin_id !== 'string' ||
-    row.pin_id.trim().length === 0 ||
-    typeof row.status !== 'string' ||
-    row.status.trim().length === 0 ||
-    typeof row.scheduled_at !== 'string' ||
-    !Number.isFinite(Date.parse(row.scheduled_at)) ||
-    !Object.prototype.hasOwnProperty.call(row, 'pinterest_board_id') ||
-    (row.pinterest_board_id !== null && typeof row.pinterest_board_id !== 'string') ||
-    !Object.prototype.hasOwnProperty.call(row, 'pinterest_account_id') ||
-    (row.pinterest_account_id !== null && typeof row.pinterest_account_id !== 'string')
-  )) return null;
 
   const matches = rows.filter((row): row is Record<string, any> =>
     !!row &&
