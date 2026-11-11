@@ -111,6 +111,6 @@ test("generation recovery returns a machine-readable 410 after replay expiry", (
   assert.ok(source.includes('code: "idempotency_result_expired"'));
   assert.ok(source.includes('status: "expired"'));
   assert.ok(source.includes('board_id: request.board_id'));
-  assert.ok(source.includes('pin_count: Array.isArray(request.pins) ? request.pins.length : 0'));
+  assert.ok(source.includes('pin_count: countDurableRecoveryPins(request.pins)'));
   assert.ok(source.includes('return res.status(410).json({'));
 });
