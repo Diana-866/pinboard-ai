@@ -197,3 +197,23 @@ test("fatal logger writes only a fixed event synchronously", () => {
   assert.deepEqual(JSON.parse(output[0].value), { level: "fatal", event: "process.uncaught_exception" });
   assert.equal(output[0].value.endsWith("\n"), true);
 });
+
+
+test("includes only a bounded safe error name", () => {
+  const original = console.error;
+  const output = [];
+  console.error = (value) => output.push(value);
+  try {
+    logError("worker.request_failed", { name: "AxiosError", code: "ECONNRESET" }, 503);
+    logError("worker.request_failed", { name: "token=secret" }, 503);
+  } finally {
+    console.error = original;
+  }
+  assert.deepEqual(JSON.parse(output[0]), {
+    level: "error", event: "worker.request_failed", status: 503,
+    error_name: "AxiosError", error_code: "ECONNRESET",
+  });
+  assert.deepEqual(JSON.parse(output[1]), {
+    level: "error", event: "worker.request_failed", status: 503,
+  });
+});
