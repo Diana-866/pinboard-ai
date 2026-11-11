@@ -481,6 +481,7 @@ export const pt: TranslationSchema = {
     deleteAccountPasswordLabel: "Confirme com sua senha",
     deleteAccountConfirm: "Solicitar exclusão",
     deleteAccountDone: "Recebemos seu pedido de exclusão e o acesso foi desativado. Seus dados ainda não foram excluídos.",
+    deleteAccountUnavailable: "A exclusão da conta está temporariamente indisponível. Tente novamente mais tarde.",
     requestFailed: "Não foi possível concluir o pedido. Tente novamente.",
   },
 
