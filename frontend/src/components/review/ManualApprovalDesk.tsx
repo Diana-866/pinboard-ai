@@ -426,7 +426,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   }, [currentPin, editTitle, editDesc, editBoardId, editDate, editTime, selectedPinterestBoardId, selectedPinterestAccountId]);
 
   const handleApprove = () => {
-    if (!currentPin || decisionInFlightRef.current) return;
+    if (!currentPin || decisionInFlightRef.current || bulkApprovalInFlightRef.current) return;
     if (!currentPin.pinId) {
       window.alert('Эта карточка — демонстрационный пример, а не сохранённый пин. Сначала создайте и сохраните пин в генераторе — только после этого его можно добавить в расписание.');
       return;
