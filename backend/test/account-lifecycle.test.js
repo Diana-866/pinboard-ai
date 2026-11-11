@@ -23,6 +23,8 @@ function fakeDb(tables, { rpcResult } = {}) {
       let limit = null;
       let offset = 0;
       let rangeLimit = null;
+      let orderBy = null;
+      let orderAscending = true;
       const resolve = () => {
         if (!(table in tables)) {
           return Promise.resolve({
@@ -36,6 +38,7 @@ function fakeDb(tables, { rpcResult } = {}) {
             ? rows.filter((row) => value.includes(row[column]))
             : rows.filter((row) => String(row[column]) === String(value));
         }
+        if (orderBy) rows.sort((a, b) => String(a[orderBy]).localeCompare(String(b[orderBy])) * (orderAscending ? 1 : -1));
         if (rangeLimit !== null) rows = rows.slice(offset, offset + rangeLimit);
         else if (limit !== null) rows = rows.slice(0, limit);
         return Promise.resolve({ data: rows, error: null });
@@ -44,6 +47,7 @@ function fakeDb(tables, { rpcResult } = {}) {
         select() { return builder; },
         eq(column, value) { filters.push([column, value, "eq"]); return builder; },
         in(column, value) { filters.push([column, value, "in"]); return builder; },
+        order(column, options = {}) { orderBy = column; orderAscending = options.ascending !== false; return builder; },
         limit(value) { limit = value; return builder; },
         range(from, to) { offset = from; rangeLimit = to - from + 1; return builder; },
         maybeSingle() { return resolve().then((rows) => ({ data: rows.data[0] ?? null, error: rows.error })); },
@@ -120,7 +124,7 @@ test("account export never leaks credentials and follows the ownership graph", a
 
 test("account export paginates sections beyond the PostgREST default row cap", async () => {
   const transactions = Array.from({ length: 1005 }, (_, index) => ({
-    id: `tx-${index + 1}`, user_id: USER_ID, amount: index + 1,
+    id: `tx-${String(index + 1).padStart(4, "0")}`, user_id: USER_ID, amount: index + 1,
   }));
   const db = fakeDb({
     users: [{ id: USER_ID, email: "user@example.com" }],
@@ -136,7 +140,7 @@ test("account export paginates sections beyond the PostgREST default row cap", a
 
   const exported = await buildAccountExport(USER_ID, db);
   assert.equal(exported.creditTransactions.length, 1005);
-  assert.equal(exported.creditTransactions[0].id, "tx-1");
+  assert.equal(exported.creditTransactions[0].id, "tx-0001");
   assert.equal(exported.creditTransactions[1004].id, "tx-1005");
   assert.deepEqual(exported.degradedSections, []);
 });
