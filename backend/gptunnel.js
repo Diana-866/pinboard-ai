@@ -200,7 +200,12 @@ async function waitForImageTask(taskId, callbacks = {}) {
       task = await checkImage(taskId);
     } catch (error) {
       const status = Number(error && error.response && error.response.status);
-      const retryable = !error?.response ||
+      const networkFailure = !error?.response && (
+        error?.isAxiosError === true ||
+        ["ECONNABORTED", "ETIMEDOUT", "ECONNRESET", "EAI_AGAIN", "ENOTFOUND", "ERR_NETWORK"]
+          .includes(error?.code)
+      );
+      const retryable = networkFailure ||
         status === 408 || status === 425 || status === 429 || status >= 500;
       // Provider polling is read-only: retry transient transport/rate-limit/
       // server failures within the existing bounded poll budget. Never retry
