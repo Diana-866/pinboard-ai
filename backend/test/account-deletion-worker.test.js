@@ -50,8 +50,8 @@ test("preflight refuses an account that is not fenced for deletion", async () =>
 test("preflight inventories every exported user-owned section without loading row contents", async () => {
   const result = await inspectAccountForDeletion(createReadClient(), USER_ID);
   assert.equal(result.ok, true);
-  assert.equal(result.sectionsChecked, 9);
-  assert.equal(result.counts.projects, 0);
+  assert.equal(result.sectionsChecked, 10);
+  assert.equal(result.counts.projects, 1);
   assert.equal(result.counts.boards, 1);
   assert.equal(result.counts.pins, 0);
 });
