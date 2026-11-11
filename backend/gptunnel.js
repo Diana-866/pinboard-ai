@@ -135,7 +135,7 @@ function normalizeIgnoredParams(value) {
 }
 
 function normalizeMediaQuote(data) {
-  const price = data && typeof data.price === "number" ? data.price : NaN;
+  const price = finiteUsageNumber(data && data.price);
   if (!data || data.code !== 0 || data.price == null || data.currency !== "RUB" ||
       !Number.isFinite(price) || price < 0) {
     throw new Error("Провайдер вернул некорректную котировку генерации");
