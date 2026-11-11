@@ -12,6 +12,7 @@ const USER_ID = "11111111-1111-4111-8111-111111111111";
 
 function createReadClient({ account = { id: USER_ID, account_status: "deletion_pending" }, failTable = null } = {}) {
   return {
+    supabaseUrl: "https://project.supabase.co",
     from(table) {
       const query = {
         filters: [],
@@ -130,6 +131,7 @@ test("worker claims and finalizes only through fenced RPCs", async () => {
   assert.equal(calls[1].args.p_claim_token, "claim-1");
   assert.equal(calls[2].name, "materialize_account_deletion_storage_manifest");
   assert.equal(calls[2].args.p_claim_token, "claim-1");
+  assert.equal(calls[2].args.p_supabase_url, "https://project.supabase.co");
   assert.equal(calls[3].name, "mark_account_deletion_storage_manifest");
   assert.equal(calls[4].name, "disconnect_pinterest_for_account_deletion");
   assert.equal(calls[4].args.p_user_id, USER_ID);
