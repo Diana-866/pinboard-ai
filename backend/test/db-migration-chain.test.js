@@ -38,9 +38,9 @@ test("account deletion Storage manifest accepts the full generated object suffix
   const migration = fs.readFileSync(path.join(migrationsDir, "148_account_deletion_storage_object_path_length.sql"), "utf8");
   const lifecycle = fs.readFileSync(path.join(__dirname, "..", "pinImageLifecycle.js"), "utf8");
   assert.match(migration, /account_deletion_storage_objects_object_path_check/);
-  assert.match(migration, /[a-z0-9]\{1,32\}/);
-  assert.match(lifecycle, /pins\\\/\\\$\{Date\.now\(\)\}-\\\$\{crypto\.randomBytes\(16\)\.toString\("hex"\)\}/);
-  assert.match(lifecycle, /generation-\[a-f0-9\]\{32\}/);
+  assert.ok(migration.includes("[a-z0-9]{1,32}"));
+  assert.ok(lifecycle.includes('return `pins/${Date.now()}-${crypto.randomBytes(16).toString("hex")}.${ext}`;'));
+  assert.ok(lifecycle.includes("generation-[a-f0-9]{32}"));
 });
 
 test("account deletion Storage manifest migrations contain complete SQL guards", () => {
