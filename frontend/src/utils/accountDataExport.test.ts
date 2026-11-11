@@ -69,3 +69,44 @@ test('only structurally complete versioned account exports are accepted for down
   assert.equal(isCompleteAccountExport(null, USER_ID), false);
   assert.equal(isCompleteAccountExport([], USER_ID), false);
 });
+
+
+test('download helper releases its Blob URL even when DOM insertion fails', () => {
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+  const scheduled = [];
+  const created = [];
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      createElement: () => ({ click() {}, parentNode: null }),
+      body: { appendChild() { throw new Error('DOM unavailable'); } },
+    },
+  });
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: { setTimeout: (callback, delay) => { scheduled.push({ callback, delay }); } },
+  });
+  URL.createObjectURL = () => {
+    const value = 'blob:test-export';
+    created.push(value);
+    return value;
+  };
+  URL.revokeObjectURL = (value) => { created.push(`revoked:${value}`); };
+  try {
+    assert.throws(() => downloadJsonFile('account.json', { ok: true }), /DOM unavailable/);
+    assert.equal(scheduled.length, 1);
+    assert.equal(scheduled[0].delay, 1000);
+    scheduled[0].callback();
+    assert.deepEqual(created, ['blob:test-export', 'revoked:blob:test-export']);
+  } finally {
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
+    else delete globalThis.document;
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else delete globalThis.window;
+  }
+});
