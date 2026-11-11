@@ -100,6 +100,64 @@ test("waitForImageTask does not retry permanent provider client errors", async (
   }
 });
 
+test("waitForImageTask retries Axios network failures without a response", async () => {
+  const originalGet = axios.get;
+  const originalSetTimeout = global.setTimeout;
+  let calls = 0;
+  axios.get = async () => {
+    calls += 1;
+    if (calls === 1) {
+      const error = new Error("connection reset");
+      error.isAxiosError = true;
+      error.code = "ECONNRESET";
+      throw error;
+    }
+    return {
+      data: {
+        id: "task-network-retry",
+        status: "done",
+        price: 1,
+        result: [{ url: "https://images.example.com/network-retry.webp" }],
+      },
+    };
+  };
+  global.setTimeout = (callback) => {
+    callback();
+    return 0;
+  };
+
+  try {
+    const result = await waitForImageTask("task-network-retry", {
+      maxPolls: 2,
+      pollIntervalMs: 1,
+    });
+    assert.equal(calls, 2);
+    assert.equal(result.taskId, "task-network-retry");
+  } finally {
+    axios.get = originalGet;
+    global.setTimeout = originalSetTimeout;
+  }
+});
+
+test("waitForImageTask does not retry non-Axios errors without an HTTP response", async () => {
+  const originalGet = axios.get;
+  let calls = 0;
+  axios.get = async () => {
+    calls += 1;
+    throw new TypeError("unexpected local programming error");
+  };
+
+  try {
+    await assert.rejects(
+      waitForImageTask("task-local-error", { maxPolls: 4, pollIntervalMs: 0 }),
+      /unexpected local programming error/
+    );
+    assert.equal(calls, 1);
+  } finally {
+    axios.get = originalGet;
+  }
+});
+
 test("waitForImageTask stops after the bounded transient retry budget", async () => {
   const originalGet = axios.get;
   let calls = 0;
