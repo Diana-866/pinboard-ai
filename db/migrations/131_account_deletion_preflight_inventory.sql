@@ -58,7 +58,7 @@ begin
    where id = p_job_id;
   return true;
 end;
-$record_inventory$;
+$;
 
 
 create or replace function public.require_account_deletion_preflight_inventory()

@@ -51,6 +51,7 @@ test("preflight inventories every exported user-owned section without loading ro
   const result = await inspectAccountForDeletion(createReadClient(), USER_ID);
   assert.equal(result.ok, true);
   assert.equal(result.sectionsChecked, 10);
+  assert.equal(Object.keys(result.counts).length, result.sectionsChecked);
   assert.equal(result.counts.projects, 1);
   assert.equal(result.counts.boards, 1);
   assert.equal(result.counts.pins, 0);

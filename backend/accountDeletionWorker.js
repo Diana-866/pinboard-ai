@@ -75,7 +75,7 @@ async function inspectAccountForDeletion(client, userId) {
     counts.pins = 0;
   }
 
-  return { ok: true, sectionsChecked: Object.keys(counts).length + 1, counts };
+  return { ok: true, sectionsChecked: Object.keys(counts).length, counts };
 }
 
 function createAccountDeletionWorker({
