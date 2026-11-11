@@ -34,9 +34,10 @@ function buildImageTaskPayload(prompt, model = "flux-schnell", aspectRatio = "2:
 
 function providerTaskError(task) {
   const providerError = task && task.error && typeof task.error === "object" ? task.error : {};
-  const price = task && typeof task.price === "number" && Number.isFinite(task.price) && task.price >= 0
-    ? task.price
-    : null;
+  // Provider payloads may encode decimal amounts as JSON numbers or strings.
+  // Preserve a valid failed-task price instead of silently losing accounting data.
+  const parsedPrice = finiteUsageNumber(task && task.price);
+  const price = Number.isFinite(parsedPrice) && parsedPrice >= 0 ? parsedPrice : null;
   const error = new Error("Генерация не удалась: " + (providerError.message || "неизвестная ошибка"));
   error.providerStatus = "failed";
   error.providerTaskId = typeof task?.id === "string" ? task.id : null;
