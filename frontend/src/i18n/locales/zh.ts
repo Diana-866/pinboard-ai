@@ -481,6 +481,7 @@ export const zh: TranslationSchema = {
     deleteAccountPasswordLabel: "使用密码确认",
     deleteAccountConfirm: "申请删除",
     deleteAccountDone: "已收到您的删除申请，账户访问已停用。您的数据尚未删除。",
+    deleteAccountUnavailable: "账户删除功能暂时不可用，请稍后重试。",
     requestFailed: "无法完成请求，请重试。",
   },
 
