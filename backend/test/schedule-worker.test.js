@@ -258,3 +258,33 @@ test("worker logs safe failure diagnostics without leaking provider or request s
   assert.equal(JSON.stringify(errors).includes("scheduler-secret-value"), false);
   assert.equal(JSON.stringify(errors).includes("private-token"), false);
 });
+
+
+test("default worker logger persists safe failure diagnostics", async () => {
+  const originalError = console.error;
+  const output = [];
+  console.error = (value) => output.push(value);
+  try {
+    const worker = createWorker({
+      config: { endpoint: "https://api.example.com/internal/pinterest/schedule/run", secret: "scheduler-secret-value" },
+      client: { post: async () => {
+        const error = new Error("scheduler-secret-value private-token");
+        error.name = "AxiosError";
+        error.code = "ECONNRESET";
+        error.response = { status: 503, config: { headers: { authorization: "Bearer private-token" } } };
+        throw error;
+      } },
+    });
+    await worker.tick();
+  } finally {
+    console.error = originalError;
+  }
+  assert.equal(output.length, 1);
+  const record = JSON.parse(output[0]);
+  assert.equal(record.event, "schedule_worker.batch_failed");
+  assert.equal(record.error_name, "AxiosError");
+  assert.equal(record.error_code, "ECONNRESET");
+  assert.equal(record.status, 503);
+  assert.equal(output[0].includes("scheduler-secret-value"), false);
+  assert.equal(output[0].includes("private-token"), false);
+});
