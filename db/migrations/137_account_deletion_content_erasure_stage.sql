@@ -201,7 +201,9 @@ begin
 
   v_next_status := case
     when p_outcome = 'succeeded' then 'succeeded'
-    when p_outcome = 'blocked' or v_job.attempts >= 8 then 'blocked'
+    when p_outcome = 'blocked'
+      or (v_job.step_key = 'preflight' and v_job.attempts >= 8)
+      or (v_job.step_key = 'erase_content' and v_job.attempts >= 100) then 'blocked'
     else 'retry_wait'
   end;
   v_delay := least(3600, 30 * (2 ^ least(v_job.attempts, 7))::integer);
