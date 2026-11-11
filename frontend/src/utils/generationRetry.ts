@@ -24,5 +24,10 @@ export function isDefinitiveGenerationFailure(error: unknown): boolean {
   const data = (error as { data?: unknown }).data;
   if (!data || typeof data !== 'object') return false;
   const code = (data as { code?: unknown }).code;
-  return code === 'generation_request_failed' || code === 'generation_insufficient_credits';
+  // The server explicitly returns 410 when an idempotency record has expired.
+  // Reusing that key can never recover the old result; a new attempt must rotate it.
+  const status = (error as { status?: unknown }).status;
+  return code === 'generation_request_failed' ||
+    code === 'generation_insufficient_credits' ||
+    (code === 'idempotency_result_expired' && status === 410);
 }
