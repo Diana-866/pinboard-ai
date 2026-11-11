@@ -1,5 +1,5 @@
 -- Durable account-deletion Storage manifest integration test.
--- Run after migrations 127-140 in the disposable PostgreSQL database.
+-- Run after migrations 127-141 in the disposable PostgreSQL database.
 begin;
 do $$
 declare
@@ -33,7 +33,10 @@ begin
   );
 
   insert into public.projects(user_id,niche) values(v_user,'storage-manifest') returning id into v_project;
-  insert into public.boards(project_id,title) values(v_project,'owned') returning id into v_board;
+  insert into public.boards(project_id,title,cover_url) values(
+    v_project,'owned',
+    'https://project.supabase.co/storage/v1/object/public/pin-images/pins/555-0123456789abcdef0123456789abcdef.webp'
+  ) returning id into v_board;
   insert into public.pins(board_id,image_url,title,description,status,model_used,credits_cost)
   values(
     v_board,
@@ -83,15 +86,15 @@ begin
   end if;
 
   v_result := public.materialize_account_deletion_storage_manifest(v_job,v_claim,'https://project.supabase.co');
-  if v_result->>'recorded' <> 'true' or (v_result->>'inserted')::integer <> 3
-     or (v_result->>'total')::integer <> 3 then
+  if v_result->>'recorded' <> 'true' or (v_result->>'inserted')::integer <> 4
+     or (v_result->>'total')::integer <> 4 then
     raise exception 'unexpected Storage manifest result: %',v_result;
   end if;
 
   -- Re-running the same leased operation is idempotent.
   v_result := public.materialize_account_deletion_storage_manifest(v_job,v_claim);
   if v_result->>'recorded' <> 'true' or (v_result->>'inserted')::integer <> 0
-     or (v_result->>'total')::integer <> 3 then
+     or (v_result->>'total')::integer <> 4 then
     raise exception 'Storage manifest retry was not idempotent: %',v_result;
   end if;
   if public.mark_account_deletion_storage_manifest(v_job,v_claim) is distinct from true then
@@ -118,6 +121,13 @@ begin
        and object_path='pins/999-0123456789abcdef0123456789abcdef.webp' and state='pending'
   ) then
     raise exception 'review queue image path was not persisted';
+  end if;
+  if not exists (
+    select 1 from public.account_deletion_storage_objects
+     where request_id=v_request and bucket_id='pin-images'
+       and object_path='pins/555-0123456789abcdef0123456789abcdef.webp' and state='pending'
+  ) then
+    raise exception 'board cover image path was not persisted';
   end if;
   if exists (
     select 1 from public.account_deletion_storage_objects
@@ -232,7 +242,8 @@ begin
   values
     ('pin-images','pins/123-0123456789abcdef0123456789abcdef.png','deleted'),
     ('pin-images','pins/generation-0123456789abcdef0123456789abcdef.webp','deleted'),
-    ('pin-images','pins/999-0123456789abcdef0123456789abcdef.webp','deleted')
+    ('pin-images','pins/999-0123456789abcdef0123456789abcdef.webp','deleted'),
+    ('pin-images','pins/555-0123456789abcdef0123456789abcdef.webp','deleted')
   on conflict(bucket_id,object_path) do update
     set state='deleted',claim_token=null,claim_expires_at=null,updated_at=clock_timestamp();
   update public.account_deletion_storage_objects
