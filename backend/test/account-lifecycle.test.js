@@ -145,7 +145,7 @@ test("deletion request rejects a wrong password with 403 and never calls the RPC
 
 test("deletion request accepts a correct password and returns the receipt", async () => {
   const db = fakeDb(
-    { users: [{ id: USER_ID, password_hash: bcrypt.hashSync("correct-horse-battery", 10) }] },
+    { users: [{ id: USER_ID, password_hash: bcrypt.hashSync("correct-horse-battery", 10), token_version: 12 }] },
     {
       rpcResult: {
         data: {
@@ -176,6 +176,7 @@ test("deletion request accepts a correct password and returns the receipt", asyn
 test("deletion RPC errors map to stable HTTP statuses", () => {
   assert.equal(mapDeletionRpcError({ message: "user not found" }).httpStatus, 404);
   assert.equal(mapDeletionRpcError({ message: "account already deleted" }).httpStatus, 409);
+  assert.equal(mapDeletionRpcError({ message: "reauthentication expired" }).httpStatus, 409);
   assert.equal(
     mapDeletionRpcError({ message: "Could not find the function public.request_account_deletion" }).httpStatus,
     503
