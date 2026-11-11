@@ -683,3 +683,23 @@ test("unreadable publication journal errors use a fixed safe schedule message", 
   });
   assert.equal(state.message, "Could not verify the publication journal; publication outcome remains unknown.");
 });
+
+
+test("unreadable retry metadata fails closed instead of repeating a possibly accepted publication", () => {
+  const hostileRetryable = {};
+  Object.defineProperty(hostileRetryable, "retryable", {
+    get() { throw new Error("private retry metadata"); },
+  });
+  assert.equal(canRetryScheduleFailure(null, null, hostileRetryable), false);
+
+  const hostileStatus = {};
+  Object.defineProperty(hostileStatus, "httpStatus", {
+    get() { throw new Error("private HTTP metadata"); },
+  });
+  assert.equal(canRetryScheduleFailure(null, null, hostileStatus), false);
+  assert.equal(
+    canRetryScheduleFailure({ status: "failed", retry_safe: true }, null, hostileRetryable),
+    false,
+    "hostile fresh metadata must override an older retry-safe journal"
+  );
+});
