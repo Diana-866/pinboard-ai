@@ -3006,7 +3006,7 @@ const emailOutboxTimer = setInterval(dispatchSubscriptionEmailOutbox, 60 * 1000)
 if (typeof emailOutboxTimer.unref === "function") emailOutboxTimer.unref();
 
 // The complete account-deletion pipeline runs in this backend process only
-// when explicitly enabled after migrations 127-144 are applied. This avoids a
+// when explicitly enabled after migrations 127-147 are applied. This avoids a
 // second service while keeping rollout opt-in and independently reversible.
 let accountDeletionWorker = null;
 if (isAccountDeletionWorkerEnabled()) {
