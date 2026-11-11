@@ -1,5 +1,5 @@
 -- Durable account-deletion Storage manifest integration test.
--- Run after migrations 127-134 in the disposable PostgreSQL database.
+-- Run after migrations 127-137 in the disposable PostgreSQL database.
 begin;
 do $$
 declare
@@ -61,6 +61,9 @@ begin
   if v_result->>'recorded' <> 'true' or (v_result->>'inserted')::integer <> 0
      or (v_result->>'total')::integer <> 1 then
     raise exception 'Storage manifest retry was not idempotent: %',v_result;
+  end if;
+  if public.mark_account_deletion_storage_manifest(v_job,v_claim) is distinct from true then
+    raise exception 'Storage manifest completion marker was not fenced';
   end if;
 
   if not exists (
