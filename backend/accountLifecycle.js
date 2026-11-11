@@ -159,8 +159,8 @@ function mapDeletionRpcError(error) {
   if (/account already deleted/i.test(message)) {
     return httpError(409, "Аккаунт уже удалён");
   }
-  if (/reauthentication expired/i.test(message)) {
-    return httpError(409, "Пароль или сессия изменились — повторите подтверждение");
+  if (/reauthentication expired|account is not active/i.test(message)) {
+    return httpError(409, "Состояние аккаунта изменилось — обновите страницу и повторите действие");
   }
   if (/unsupported confirmation method/i.test(message)) {
     return httpError(422, "Некорректный способ подтверждения");
