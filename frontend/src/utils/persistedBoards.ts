@@ -1,6 +1,14 @@
 import { BoardItem } from '../data/mockData';
 
 const DEFAULT_BOARD_COVER = '/src/assets/images/pin_home_decor_1790670043705.jpg';
+const LEGACY_BOARD_CATEGORIES = new Set([
+  'Home Decor',
+  'Recipes',
+  'Wellness',
+  'Travel',
+  'Digital Products',
+  'Fashion',
+]);
 
 /**
  * Convert the authenticated boards API response into the UI model.
@@ -19,13 +27,14 @@ export function mapPersistedBoards(rows: unknown, invalidResponseMessage: string
     }
 
     const project = Array.isArray(row.projects) ? row.projects[0] : row.projects;
-    // Board description stores the category selected in BoardsManager.
-    // Project niche is shared by every board and is only a legacy fallback.
-    const category = typeof row.description === 'string' && row.description.trim()
+    const storedCategory = typeof row.category === 'string' ? row.category.trim() : '';
+    const legacyCategory = typeof row.description === 'string' && LEGACY_BOARD_CATEGORIES.has(row.description.trim())
       ? row.description.trim()
-      : typeof project?.niche === 'string' && project.niche.trim()
-        ? project.niche.trim()
-        : '—';
+      : '';
+    // Generated boards use description for SEO copy; only known legacy manual
+    // category values may be recovered from that column.
+    const category = storedCategory || legacyCategory ||
+      (typeof project?.niche === 'string' && project.niche.trim() ? project.niche.trim() : '—');
 
     return {
       id: String(row.id),
