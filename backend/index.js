@@ -183,7 +183,7 @@ const imageUploadLimiter = rateLimit({
 const { generateImage, checkImage, imageTaskResult, providerTaskError, quoteImageTask } = require("./gptunnel");
 const { register, login, verifyToken } = require("./auth");
 const supabase = require("./supabase");
-const { buildPinScheduleSnapshot, classifyLegacyScheduleAccount, getScheduleRetryability, getScheduleFailureReason, sanitizeScheduleForClient } = require("./pinterestSchedule");
+const { buildPinScheduleSnapshot, classifyLegacyScheduleAccount, getScheduleRetryability, selectScheduleAttemptForRetry, getScheduleFailureReason, sanitizeScheduleForClient } = require("./pinterestSchedule");
 const { pinterestScheduleLimiter } = require("./pinterestRateLimit");
 const { analyzeSite } = require("./analyze");
 const { generateBoards } = require("./boards");
@@ -1834,11 +1834,12 @@ app.get("/schedule", requireAuth, async (req, res) => {
     const enriched = rows.map((row) => {
       if (row.status !== "failed") return sanitizeScheduleForClient({ ...row, retryable: false, retry_reason: null, failure_reason: null });
       const accountId = row.pinterest_account_id ? String(row.pinterest_account_id) : null;
-      const attempt = attempts.find((item) =>
-        String(item.user_id || "") === String(req.userId) &&
-        String(item.pin_id) === String(row.pin_id) &&
-        String(item.pinterest_account_id || "") === String(accountId || "")
-      ) || null;
+      const attempt = selectScheduleAttemptForRetry(attempts, {
+        user_id: String(req.userId),
+        pin_id: String(row.pin_id),
+        pinterest_account_id: accountId,
+        pinterest_board_id: row.pinterest_board_id,
+      });
       const hasPublication = publications.some((item) =>
         String(item.user_id || "") === String(req.userId) &&
         String(item.pin_id) === String(row.pin_id) &&
