@@ -348,6 +348,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         const batchResults = await Promise.all(batch.map(async (identity) => {
           try {
             const result = await apiRequest(`/generation/requests/${encodeURIComponent(identity.idempotencyKey)}`);
+            if (!active) return null;
             const status = ['processing', 'completed', 'failed', 'unknown'].includes(result?.status)
               ? result.status as 'processing' | 'completed' | 'failed' | 'unknown'
               : 'unknown';
@@ -364,6 +365,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               pinCount: status === 'completed' && Array.isArray(result?.pins) ? result.pins.length : 0,
             };
           } catch (error: any) {
+            if (!active) return null;
             // A 404 can mean an old local key whose server record has expired.
             // Preserve it: a transient/auth/network error must never erase recovery data.
             if (error?.status === 410 && error?.data?.code === 'idempotency_result_expired') {
