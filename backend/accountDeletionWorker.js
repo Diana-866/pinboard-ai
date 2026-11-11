@@ -145,6 +145,7 @@ function createAccountDeletionWorker({
   cancelSchedule = clearTimeout,
   intervalMs = POLL_INTERVAL_MS,
   deleteImageObject = deleteManagedPinImageObject,
+  supabaseUrl = process.env.SUPABASE_URL || client.supabaseUrl,
 }) {
   if (!client || typeof client.rpc !== "function") throw new Error("Supabase service client is required");
   let timer = null;
@@ -263,9 +264,18 @@ function createAccountDeletionWorker({
       // Persist exact managed Storage paths while the account's source rows
       // still exist. This is inventory only: no object or user data is deleted
       // until a later, separately fenced erasure stage.
+      if (typeof supabaseUrl !== "string" || !supabaseUrl.trim()) {
+        const error = new Error("Supabase project URL is required to inventory owned Storage objects");
+        error.code = "supabase_url_missing";
+        throw error;
+      }
       const { data: storageManifest, error: manifestError } = await client.rpc(
         "materialize_account_deletion_storage_manifest",
-        { p_job_id: job.job_id, p_claim_token: job.claim_token }
+        {
+          p_job_id: job.job_id,
+          p_claim_token: job.claim_token,
+          p_supabase_url: supabaseUrl,
+        }
       );
       if (manifestError) throw manifestError;
       if (!storageManifest || storageManifest.recorded !== true ||
