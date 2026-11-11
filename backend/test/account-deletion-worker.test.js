@@ -77,10 +77,14 @@ test("preflight paginates project and board identifiers beyond the API row cap",
             return Promise.resolve({ data: Array.from({ length: 1000 }, (_, i) => ({ id: `p${i}` })), error: null }).then(resolve, reject);
           }
           if (table === "projects") return Promise.resolve({ data: [{ id: "p1000" }], error: null }).then(resolve, reject);
-          if (table === "boards" && this.rangeArgs[0] === 0) {
-            return Promise.resolve({ data: Array.from({ length: 1000 }, (_, i) => ({ id: `b${i}` })), error: null }).then(resolve, reject);
+          if (table === "boards") {
+            const projectFilter = this.filters.find(([column]) => column === "project_id");
+            const boardCount = projectFilter ? projectFilter[1].length : 0;
+            return Promise.resolve({
+              data: Array.from({ length: boardCount }, (_, i) => ({ id: `b${this.rangeArgs[0]}-${i}` })),
+              error: null,
+            }).then(resolve, reject);
           }
-          if (table === "boards") return Promise.resolve({ data: [{ id: "b1000" }], error: null }).then(resolve, reject);
           return Promise.resolve({ data: [], count: 0, error: null }).then(resolve, reject);
         },
       };
