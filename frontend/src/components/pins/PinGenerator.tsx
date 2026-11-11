@@ -1078,7 +1078,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     <p className="text-xs font-semibold text-primary-theme">{label}</p>
                     {board && <p className="text-[11px] text-muted-theme">{board.name}</p>}
                   </div>
-                  {(item.status === 'completed' && item.pinCount > 0 || item.status === 'expired' && item.pinCount > 0) && board && (
+                  {(item.status === 'completed' && item.pinCount > 0 || item.status === 'expired') && board && (
                     <button
                       type="button"
                       onClick={() => {
@@ -1089,7 +1089,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                       }}
                       className="px-3 py-2 rounded-lg accent-btn text-xs font-semibold"
                     >
-                      {language === 'ru' ? 'Открыть готовые пины' : 'Open saved pins'}
+                      {item.status === 'expired' && item.pinCount === 0
+                        ? (language === 'ru' ? 'Открыть доску' : 'Open board')
+                        : (language === 'ru' ? 'Открыть готовые пины' : 'Open saved pins')}
                     </button>
                   )}
                   {(item.status === 'completed' && item.pinCount > 0 || item.status === 'expired' && item.pinCount > 0) && !board && (
