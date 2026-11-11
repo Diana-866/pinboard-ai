@@ -30,6 +30,8 @@ export interface PendingReviewPin {
   id: string;
   /** ID of a real pin already persisted by the backend. Demo queue entries do not have one. */
   pinId?: string;
+  /** Current persisted pin state, refreshed by GET /review-queue. */
+  pinStatus?: string;
   title: string;
   description: string;
   boardName: string;
@@ -1098,7 +1100,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
               <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
                 <Check className="w-4 h-4 stroke-[3]" />
               </div>
-              <span>{isDecisionInFlight ? 'Сохраняем решение…' : 'Одобрить и запланировать'}</span>
+              <span>{isDecisionInFlight ? 'Сохраняем решение…' : currentPin?.pinStatus === 'approved' ? 'Повторить планирование' : 'Одобрить и запланировать'}</span>
               <span className="hidden md:inline text-[11px] font-mono text-white/80 font-normal">
                 [ ➡️ ]
               </span>
