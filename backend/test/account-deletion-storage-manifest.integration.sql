@@ -1,5 +1,5 @@
 -- Durable account-deletion Storage manifest integration test.
--- Run after migrations 127-137 in the disposable PostgreSQL database.
+-- Run after migrations 127-138 in the disposable PostgreSQL database.
 begin;
 do $$
 declare
