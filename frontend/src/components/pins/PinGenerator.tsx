@@ -347,8 +347,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             pinCount: status === 'completed' && Array.isArray(result?.pins) ? result.pins.length : 0,
           });
         } catch (error: any) {
-          // A 404 can mean an old local key whose server record has expired.
-          // Preserve it: a transient/auth/network error must never erase recovery data.
+          // A 410 is an explicit expiry and permits a fresh key on the next attempt.
+          // Preserve 404 identities: absence alone does not prove a provider outcome.
           if (error?.status === 410 && error?.data?.code === 'idempotency_result_expired') {
             found.push({ key: identity.fingerprint, status: 'expired', boardId: '', pinCount: 0 });
             continue;
