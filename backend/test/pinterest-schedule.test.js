@@ -113,6 +113,26 @@ test("an expired subscription is terminal even when an older publish attempt was
   assert.equal(state.nextStatus, "failed");
   assert.equal(state.retryAt, null);
 });
+test("known client rejections never inherit an older retry-safe journal", () => {
+  const previousSafeAttempt = { status: "failed", retry_safe: true };
+  for (const httpStatus of [400, 401, 403, 404, 409, 422]) {
+    assert.equal(
+      canRetryScheduleFailure(previousSafeAttempt, null, Object.assign(new Error("known client rejection"), { httpStatus })),
+      false,
+      `HTTP ${httpStatus} must not inherit retry permission`
+    );
+  }
+  // Rate limits and timeouts are ambiguous and remain governed by the durable
+  // journal; they must not be converted into automatic retries here.
+  for (const httpStatus of [408, 429]) {
+    assert.equal(
+      canRetryScheduleFailure(previousSafeAttempt, null, Object.assign(new Error("ambiguous response"), { httpStatus })),
+      true,
+      `HTTP ${httpStatus} remains journal-governed`
+    );
+  }
+});
+
 test("terminal Pinterest preflight failures never inherit an older retry-safe journal", () => {
   const previousSafeAttempt = { status: "failed", retry_safe: true };
   for (const [httpStatus, message] of [
