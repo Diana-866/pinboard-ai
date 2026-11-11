@@ -8,7 +8,7 @@ const { deleteManagedPinImageObject } = require("./pinImageLifecycle");
 
 const POLL_INTERVAL_MS = Math.max(5000, Number(process.env.ACCOUNT_DELETION_WORKER_INTERVAL_MS) || 30000);
 const LEASE_SECONDS = 300;
-const CLAIM_LIMIT = 2;
+const CLAIM_LIMIT = 1;
 
 function safeErrorCode(error) {
   const candidate = String(error && (error.code || error.name) || "preflight_failed")
@@ -35,6 +35,36 @@ async function fetchAllRows(query, pageSize = 1000) {
     rows.push(...page);
     if (page.length < pageSize) return rows;
   }
+}
+
+function startLeaseHeartbeat({client, job, intervalMs = 60000, schedule = setInterval, cancelSchedule = clearInterval}) {
+  let lost = false;
+  let stopped = false;
+  let inFlight = false;
+  const timer = schedule(async () => {
+    if (stopped || lost || inFlight) return;
+    inFlight = true;
+    try {
+      const { data, error } = await client.rpc("renew_account_deletion_job_lease", {
+        p_job_id: job.job_id,
+        p_claim_token: job.claim_token,
+        p_lease_seconds: LEASE_SECONDS,
+      });
+      if (error || data !== true) lost = true;
+    } catch (_error) {
+      lost = true;
+    } finally {
+      inFlight = false;
+    }
+  }, intervalMs);
+  if (timer && typeof timer.unref === "function") timer.unref();
+  return {
+    get lost() { return lost; },
+    stop() {
+      stopped = true;
+      if (timer) cancelSchedule(timer);
+    },
+  };
 }
 
 function chunkValues(values, size = 200) {
@@ -146,6 +176,9 @@ function createAccountDeletionWorker({
   intervalMs = POLL_INTERVAL_MS,
   deleteImageObject = deleteManagedPinImageObject,
   supabaseUrl = process.env.SUPABASE_URL || (client && client.supabaseUrl),
+  scheduleHeartbeat = setInterval,
+  cancelHeartbeat = clearInterval,
+  heartbeatIntervalMs = 60000,
 }) {
   if (!client || typeof client.rpc !== "function") throw new Error("Supabase service client is required");
   let timer = null;
@@ -153,7 +186,19 @@ function createAccountDeletionWorker({
   let stopped = false;
 
   async function processJob(job) {
+    const heartbeat = startLeaseHeartbeat({
+      client, job, intervalMs: heartbeatIntervalMs,
+      schedule: scheduleHeartbeat, cancelSchedule: cancelHeartbeat,
+    });
+    const ensureLease = () => {
+      if (heartbeat.lost) {
+        const error = new Error("account deletion worker lease renewal was not confirmed");
+        error.code = "account_deletion_lease_lost";
+        throw error;
+      }
+    };
     try {
+      ensureLease();
       if (job.step_key === "finalize") {
         const { data: finalized, error: finalizeError } = await client.rpc(
           "finalize_account_deletion",
@@ -182,6 +227,7 @@ function createAccountDeletionWorker({
           throw error;
         }
 
+        ensureLease();
         // Source rows have now been removed transactionally. Delete only the
         // exact, pre-recorded managed paths through the shared lifecycle guard.
         let storageObjectsDeleted = 0;
@@ -201,6 +247,7 @@ function createAccountDeletionWorker({
           const batch = Array.isArray(storageObjects) ? storageObjects : [];
           if (batch.length === 0) break;
           for (const object of batch) {
+            ensureLease();
             if (!object || object.bucket_id !== "pin-images" ||
                 typeof object.object_path !== "string" ||
                 !/^pins\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp|gif)$/i.test(object.object_path)) {
@@ -240,6 +287,7 @@ function createAccountDeletionWorker({
           }
         }
 
+        ensureLease();
         const { data: finished, error: finishError } = await client.rpc("finish_account_deletion_job", {
           p_job_id: job.job_id,
           p_claim_token: job.claim_token,
@@ -264,6 +312,7 @@ function createAccountDeletionWorker({
         throw error;
       }
       const inventory = await inspectAccountForDeletion(client, job.user_id);
+      ensureLease();
       const { data: inventoryRecorded, error: inventoryError } = await client.rpc("record_account_deletion_preflight", {
         p_job_id: job.job_id,
         p_claim_token: job.claim_token,
@@ -282,6 +331,7 @@ function createAccountDeletionWorker({
         error.code = "supabase_url_missing";
         throw error;
       }
+      ensureLease();
       const { data: storageManifest, error: manifestError } = await client.rpc(
         "materialize_account_deletion_storage_manifest",
         {
@@ -297,6 +347,7 @@ function createAccountDeletionWorker({
         error.code = "storage_manifest_not_recorded";
         throw error;
       }
+      ensureLease();
       const { data: manifestMarked, error: manifestMarkError } = await client.rpc(
         "mark_account_deletion_storage_manifest",
         { p_job_id: job.job_id, p_claim_token: job.claim_token }
@@ -310,6 +361,7 @@ function createAccountDeletionWorker({
       // Revoke locally stored Pinterest credentials only after a complete,
       // durable preflight. The RPC is idempotent and uses the established
       // OAuth-generation/refresh-lease fencing for every connected account.
+      ensureLease();
       const { data: disconnectedCount, error: disconnectError } = await client.rpc(
         "disconnect_pinterest_for_account_deletion",
         { p_user_id: job.user_id }
@@ -320,6 +372,7 @@ function createAccountDeletionWorker({
         error.code = "invalid_disconnect_result";
         throw error;
       }
+      ensureLease();
       const { data, error } = await client.rpc("finish_account_deletion_job", {
         p_job_id: job.job_id,
         p_claim_token: job.claim_token,
@@ -337,6 +390,10 @@ function createAccountDeletionWorker({
       });
       return { status: "succeeded" };
     } catch (error) {
+      if (heartbeat.lost || error.code === "account_deletion_lease_lost") {
+        logger.info("account_deletion_worker.lease_lost", { job_id: job.job_id });
+        return { status: "claim_lost" };
+      }
       const code = safeErrorCode(error);
       try {
         const { data, error: finishError } = await client.rpc("finish_account_deletion_job", {
@@ -354,6 +411,8 @@ function createAccountDeletionWorker({
         });
         return { status: "finalize_failed", error_code: code };
       }
+    } finally {
+      heartbeat.stop();
     }
   }
 
@@ -424,4 +483,4 @@ if (require.main === module) {
   process.once("SIGINT", () => { void shutdown(); });
 }
 
-module.exports = { safeErrorCode, countOwnedRows, fetchAllRows, chunkValues, countPinsForBoards, inspectAccountForDeletion, createAccountDeletionWorker };
+module.exports = { safeErrorCode, countOwnedRows, fetchAllRows, chunkValues, countPinsForBoards, inspectAccountForDeletion, startLeaseHeartbeat, createAccountDeletionWorker };
