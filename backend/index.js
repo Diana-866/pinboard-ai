@@ -19,6 +19,7 @@ const { serializeProjectForClient } = require("./projectSerialization");
 const { sortProjectsForProvisioning } = require("./projectProvisioningOrder");
 const { buildPinPatch } = require("./pinPatch");
 const { logError, logWarning, logInfo, runWithCorrelationId } = require("./safeLogger");
+const { buildAccountExport, requestAccountDeletion } = require("./accountLifecycle");
 
 const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
@@ -446,6 +447,37 @@ app.get("/me", requireAuth, async (req, res) => {
       preferred_language: row.preferred_language || "en",
       is_admin: !!row.is_admin,
     });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// --- Самообслуживание аккаунта: экспорт данных и удаление ---
+
+// Экспорт всех данных аккаунта. Секреты (OAuth-токены, хеш пароля, счётчики
+// сессий) в выгрузку не попадают — только колонки из allowlist.
+app.get("/account/export", requireAuth, async (req, res) => {
+  try {
+    const payload = await buildAccountExport(req.userId);
+    res.setHeader("Content-Disposition", 'attachment; filename="pinposy-account-export.json"');
+    res.json(payload);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// Запрос на удаление аккаунта. Требует повторного ввода пароля, затем
+// закрывает доступ (инкремент token_version аннулирует все сессии) и
+// фиксирует запрос. Данные здесь не удаляются — физическая очистка идёт
+// отдельным контролируемым этапом и никогда не запускается из этого метода.
+app.post("/account/deletion-request", requireAuth, authLimiter, async (req, res) => {
+  try {
+    const result = await requestAccountDeletion({
+      userId: req.userId,
+      password: req.body && req.body.password,
+      confirmationMethod: "password_reauth",
+    });
+    res.json(result);
   } catch (e) {
     handleError(res, e);
   }

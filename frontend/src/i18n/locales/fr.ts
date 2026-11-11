@@ -473,6 +473,15 @@ export const fr: TranslationSchema = {
     accountLimitReached: "Limite de comptes du forfait atteinte ({count} sur {max}).",
     accountLimitDesc: "Changez de forfait pour connecter d’autres comptes.",
     changePlan: "Changer de forfait",
+    dataSection: "Données et compte",
+    dataSectionDesc: "Téléchargez une copie de vos données ou demandez la suppression de votre compte.",
+    downloadData: "Télécharger mes données",
+    deleteAccount: "Supprimer le compte",
+    deleteAccountWarning: "Cela programme la suppression de votre compte et vous déconnecte immédiatement de tous les appareils. Action irréversible.",
+    deleteAccountPasswordLabel: "Confirmez avec votre mot de passe",
+    deleteAccountConfirm: "Demander la suppression",
+    deleteAccountDone: "Demande de suppression acceptée. L'accès a été fermé — nous supprimerons vos données sous 30 jours.",
+    requestFailed: "Impossible de terminer la demande. Veuillez réessayer.",
   },
 
   pricing: {

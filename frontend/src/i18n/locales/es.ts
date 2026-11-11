@@ -473,6 +473,15 @@ export const es: TranslationSchema = {
     accountLimitReached: "Se alcanzó el límite de cuentas del plan ({count} de {max}).",
     accountLimitDesc: "Cambie de plan para conectar más cuentas.",
     changePlan: "Cambiar plan",
+    dataSection: "Datos y cuenta",
+    dataSectionDesc: "Descarga una copia de tus datos o solicita la eliminación de tu cuenta.",
+    downloadData: "Descargar mis datos",
+    deleteAccount: "Eliminar cuenta",
+    deleteAccountWarning: "Esto programa la eliminación de tu cuenta y cierra la sesión en todos los dispositivos de inmediato. No se puede deshacer.",
+    deleteAccountPasswordLabel: "Confirma con tu contraseña",
+    deleteAccountConfirm: "Solicitar eliminación",
+    deleteAccountDone: "Solicitud de eliminación aceptada. El acceso se ha cerrado: eliminaremos tus datos en un plazo de 30 días.",
+    requestFailed: "No se pudo completar la solicitud. Inténtalo de nuevo.",
   },
 
   pricing: {

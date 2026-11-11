@@ -473,6 +473,15 @@ export const ru: TranslationSchema = {
     accountLimitReached: "Лимит аккаунтов на текущем тарифе исчерпан ({count} из {max}).",
     accountLimitDesc: "Чтобы подключить больше аккаунтов, смените тарифный план.",
     changePlan: "Сменить тариф",
+    dataSection: "Данные и аккаунт",
+    dataSectionDesc: "Скачайте копию своих данных или запросите удаление аккаунта.",
+    downloadData: "Скачать мои данные",
+    deleteAccount: "Удалить аккаунт",
+    deleteAccountWarning: "Запрос удаления аккаунта немедленно завершит все сеансы на всех устройствах. Действие необратимо.",
+    deleteAccountPasswordLabel: "Подтвердите паролем",
+    deleteAccountConfirm: "Запросить удаление",
+    deleteAccountDone: "Запрос на удаление принят. Доступ закрыт — мы удалим данные в течение 30 дней.",
+    requestFailed: "Не удалось выполнить запрос. Попробуйте ещё раз.",
   },
 
   pricing: {

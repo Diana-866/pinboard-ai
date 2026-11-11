@@ -5,15 +5,24 @@ import {
   CreditCard,
   Check,
   Clock,
+  Download,
+  Trash2,
+  ShieldAlert,
 } from 'lucide-react';
 import { useTheme } from '../../theme/themeContext';
 import { useI18n } from '../../i18n/i18nContext';
 import { useAuth } from '../../context/AuthContext';
+import { apiRequest } from '../../lib/api';
 import {
   getDefaultTimezone,
   saveUserTimezone,
   SUPPORTED_TIMEZONES,
 } from '../../utils/timezone';
+import {
+  buildAccountExportFilename,
+  downloadJsonFile,
+  parseDeletionReceipt,
+} from '../../utils/accountDataExport';
 
 import { PinterestCard } from './PinterestCard';
 
@@ -24,7 +33,7 @@ interface SettingsViewProps {
 export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing, onPinterestStatusChange }) => {
   const { theme, setTheme, allThemes } = useTheme();
   const { language, setLanguage, t, supportedLanguages } = useI18n();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const [userTimezone, setUserTimezone] = useState<string>(() => getDefaultTimezone(language));
   const planId = user?.tariff_plan || 'none';
@@ -35,6 +44,50 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing, onPin
         : planId === 'pro' ? t.pricing.planProTitle
           : planId === 'agency' ? t.pricing.planAgencyTitle : t.settings.noActivePlan;
   const availableCredits = Number(user?.credits_balance ?? 0);
+
+  // --- Данные и аккаунт: экспорт и удаление ---
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteDone, setDeleteDone] = useState(false);
+
+  async function handleDownload() {
+    setExporting(true);
+    setExportError(null);
+    try {
+      const data = await apiRequest('/account/export');
+      downloadJsonFile(buildAccountExportFilename(String(user?.id || ''), new Date()), data);
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : t.settings.requestFailed);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleDeleteRequest() {
+    if (!deletePassword) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const data = await apiRequest('/account/deletion-request', {
+        method: 'POST',
+        body: JSON.stringify({ password: deletePassword }),
+      });
+      const receipt = parseDeletionReceipt(data);
+      if (!receipt) throw new Error(t.settings.requestFailed);
+      setDeleteDone(true);
+      setDeletePassword('');
+      // Доступ уже закрыт на сервере — завершаем локальную сессию.
+      setTimeout(() => logout(), 4000);
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : t.settings.requestFailed);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-10">
@@ -220,6 +273,84 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing, onPin
           </div>
         </div>
       </section>
+
+      {/* 4b. DATA & ACCOUNT (self-service export and deletion) */}
+      {user && (
+        <section className="custom-card p-6 space-y-4">
+          <div>
+            <h2 className="text-base font-bold text-primary-theme font-heading flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-accent-ghost" />
+              <span>{t.settings.dataSection}</span>
+            </h2>
+            <p className="text-xs text-muted-theme mt-0.5">{t.settings.dataSectionDesc}</p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <button
+              type="button"
+              onClick={handleDownload}
+              disabled={exporting}
+              className="secondary-btn px-4 py-2 text-xs font-semibold cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <Download className="w-3.5 h-3.5" />
+              {exporting ? t.common.loading : t.settings.downloadData}
+            </button>
+            {exportError && <span className="text-xs text-red-500">{exportError}</span>}
+          </div>
+
+          <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/5 space-y-3">
+            <div className="flex items-center gap-2">
+              <Trash2 className="w-4 h-4 text-red-500" />
+              <span className="text-xs font-bold text-primary-theme">{t.settings.deleteAccount}</span>
+            </div>
+            <p className="text-xs text-secondary-theme leading-relaxed">{t.settings.deleteAccountWarning}</p>
+
+            {deleteDone ? (
+              <p className="text-xs text-primary-theme font-semibold">{t.settings.deleteAccountDone}</p>
+            ) : !deleteOpen ? (
+              <button
+                type="button"
+                onClick={() => { setDeleteOpen(true); setDeleteError(null); }}
+                className="px-4 py-2 text-xs font-semibold rounded-xl border border-red-500/50 text-red-500 hover:bg-red-500/10 cursor-pointer"
+              >
+                {t.settings.deleteAccount}
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-xs text-secondary-theme block" htmlFor="delete-account-password">
+                  {t.settings.deleteAccountPasswordLabel}
+                </label>
+                <input
+                  id="delete-account-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={deletePassword}
+                  onChange={(event) => setDeletePassword(event.target.value)}
+                  className="w-full sm:max-w-md rounded-xl border border-subtle bg-surface px-3 py-2 text-sm text-primary-theme"
+                />
+                {deleteError && <p className="text-xs text-red-500">{deleteError}</p>}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDeleteRequest}
+                    disabled={deleting || !deletePassword}
+                    className="px-4 py-2 text-xs font-semibold rounded-xl border border-red-500/50 text-red-500 hover:bg-red-500/10 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {deleting ? t.common.loading : t.settings.deleteAccountConfirm}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setDeleteOpen(false); setDeletePassword(''); setDeleteError(null); }}
+                    className="secondary-btn px-4 py-2 text-xs font-semibold cursor-pointer"
+                  >
+                    {t.common.cancel}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* 5. TERMS OF SERVICE & PEAK LOAD SLA POLICY */}
       <section className="custom-card p-6 space-y-4">

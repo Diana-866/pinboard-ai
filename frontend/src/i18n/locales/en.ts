@@ -473,6 +473,15 @@ export const en: TranslationSchema = {
     accountLimitReached: "Account limit reached on your current plan ({count} of {max}).",
     accountLimitDesc: "Upgrade your plan to connect more accounts.",
     changePlan: "Change plan",
+    dataSection: "Data & account",
+    dataSectionDesc: "Download a copy of your data or request deletion of your account.",
+    downloadData: "Download my data",
+    deleteAccount: "Delete account",
+    deleteAccountWarning: "This schedules deletion of your account and immediately signs you out of every device. This cannot be undone.",
+    deleteAccountPasswordLabel: "Confirm with your password",
+    deleteAccountConfirm: "Request deletion",
+    deleteAccountDone: "Deletion request accepted. Access has been closed — we will remove your data within 30 days.",
+    requestFailed: "Could not complete the request. Please try again.",
   },
 
   pricing: {

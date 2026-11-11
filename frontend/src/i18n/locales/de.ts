@@ -473,6 +473,15 @@ export const de: TranslationSchema = {
     accountLimitReached: "Kontolimit des aktuellen Tarifs erreicht ({count} von {max}).",
     accountLimitDesc: "Wechseln Sie den Tarif, um weitere Konten zu verbinden.",
     changePlan: "Tarif wechseln",
+    dataSection: "Daten & Konto",
+    dataSectionDesc: "Laden Sie eine Kopie Ihrer Daten herunter oder beantragen Sie die Löschung Ihres Kontos.",
+    downloadData: "Meine Daten herunterladen",
+    deleteAccount: "Konto löschen",
+    deleteAccountWarning: "Dies plant die Löschung Ihres Kontos und meldet Sie sofort auf allen Geräten ab. Dies kann nicht rückgängig gemacht werden.",
+    deleteAccountPasswordLabel: "Mit Passwort bestätigen",
+    deleteAccountConfirm: "Löschung beantragen",
+    deleteAccountDone: "Löschantrag akzeptiert. Der Zugang wurde geschlossen — wir entfernen Ihre Daten innerhalb von 30 Tagen.",
+    requestFailed: "Anfrage konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
   },
 
   pricing: {

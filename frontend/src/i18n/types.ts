@@ -502,6 +502,15 @@ export interface TranslationSchema {
     accountLimitReached: string;
     accountLimitDesc: string;
     changePlan: string;
+    dataSection: string;
+    dataSectionDesc: string;
+    downloadData: string;
+    deleteAccount: string;
+    deleteAccountWarning: string;
+    deleteAccountPasswordLabel: string;
+    deleteAccountConfirm: string;
+    deleteAccountDone: string;
+    requestFailed: string;
   };
 
   // Pricing & Credits

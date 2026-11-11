@@ -473,6 +473,15 @@ export const zh: TranslationSchema = {
     accountLimitReached: "已达到当前套餐的账号上限（{count}/{max}）。",
     accountLimitDesc: "升级套餐以连接更多账号。",
     changePlan: "更改套餐",
+    dataSection: "数据与账户",
+    dataSectionDesc: "下载您的数据副本，或申请删除您的账户。",
+    downloadData: "下载我的数据",
+    deleteAccount: "删除账户",
+    deleteAccountWarning: "此操作将安排删除您的账户，并立即在所有设备上退出登录。此操作不可撤销。",
+    deleteAccountPasswordLabel: "使用密码确认",
+    deleteAccountConfirm: "申请删除",
+    deleteAccountDone: "删除申请已受理。访问已关闭——我们将在 30 天内删除您的数据。",
+    requestFailed: "无法完成请求，请重试。",
   },
 
   pricing: {
