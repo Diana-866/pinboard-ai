@@ -219,6 +219,7 @@ module.exports = {
   resolvePinScheduleSnapshot,
   classifyLegacyScheduleAccount,
   getScheduleRetryability,
+  selectScheduleAttemptForRetry,
   getScheduleFailureReason,
   sanitizeScheduleForClient,
   createScheduleClaimHeartbeat,
@@ -333,6 +334,20 @@ function getScheduleFailureReason(schedule) {
     return "board_unavailable";
   }
   return null;
+}
+
+function selectScheduleAttemptForRetry(attempts, schedule) {
+  if (!Array.isArray(attempts) || !schedule) return null;
+  const samePinAndAccount = (attempt) =>
+    String(attempt.user_id || "") === String(schedule.user_id || "") &&
+    String(attempt.pin_id || "") === String(schedule.pin_id || "") &&
+    String(attempt.pinterest_account_id || "") === String(schedule.pinterest_account_id || "");
+  // Prefer the exact board attempt if multiple attempts exist. If only a
+  // different-board attempt exists, return it so retry policy fails closed.
+  return attempts.find((attempt) =>
+    samePinAndAccount(attempt) &&
+    String(attempt.pinterest_board_id || "") === String(schedule.pinterest_board_id || "")
+  ) || attempts.find(samePinAndAccount) || null;
 }
 
 function getScheduleRetryability(schedule, attempt, hasPublication, accountActive, hasActiveDuplicate) {
