@@ -113,14 +113,23 @@ test("an expired subscription is terminal even when an older publish attempt was
   assert.equal(state.nextStatus, "failed");
   assert.equal(state.retryAt, null);
 });
-test("a terminal Pinterest board preflight rejection overrides an older retry-safe journal", () => {
+test("terminal Pinterest preflight failures never inherit an older retry-safe journal", () => {
   const previousSafeAttempt = { status: "failed", retry_safe: true };
-  const deletedBoardError = Object.assign(new Error("Selected Pinterest board is unavailable"), {
-    httpStatus: 422,
-    retryable: false,
-  });
-
-  assert.equal(canRetryScheduleFailure(previousSafeAttempt, null, deletedBoardError), false);
+  for (const [httpStatus, message] of [
+    [404, "Pinterest account unavailable"],
+    [409, "Pinterest account is not connected"],
+    [422, "Select a Pinterest account"],
+  ]) {
+    const terminalError = Object.assign(new Error(message), {
+      httpStatus,
+      retryable: false,
+    });
+    assert.equal(
+      canRetryScheduleFailure(previousSafeAttempt, null, terminalError),
+      false,
+      `HTTP ${httpStatus} must not be retried automatically`
+    );
+  }
 });
 
 test("transient pre-publication failures can retry when no publish attempt exists", () => {
