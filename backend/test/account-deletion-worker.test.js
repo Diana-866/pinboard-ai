@@ -72,6 +72,7 @@ test("worker claims and finalizes only through fenced RPCs", async () => {
       if (name === "claim_account_deletion_jobs") {
         return { data: [{ job_id: "job-1", user_id: USER_ID, claim_token: "claim-1" }], error: null };
       }
+      if (name === "record_account_deletion_preflight") return { data: true, error: null };
       if (name === "finish_account_deletion_job") return { data: true, error: null };
       throw new Error("unexpected RPC");
     },
@@ -80,9 +81,10 @@ test("worker claims and finalizes only through fenced RPCs", async () => {
   const result = await worker.tick();
   assert.deepEqual(result, { claimed: 1, completed: 1, retried: 0 });
   assert.equal(calls[0].name, "claim_account_deletion_jobs");
-  assert.equal(calls[1].name, "finish_account_deletion_job");
+  assert.equal(calls[1].name, "record_account_deletion_preflight");
   assert.equal(calls[1].args.p_claim_token, "claim-1");
-  assert.equal(calls[1].args.p_outcome, "succeeded");
+  assert.equal(calls[2].name, "finish_account_deletion_job");
+  assert.equal(calls[2].args.p_outcome, "succeeded");
 });
 
 test("worker schedules retry when inventory is incomplete", async () => {
@@ -94,6 +96,7 @@ test("worker schedules retry when inventory is incomplete", async () => {
       if (name === "claim_account_deletion_jobs") {
         return { data: [{ job_id: "job-2", user_id: USER_ID, claim_token: "claim-2" }], error: null };
       }
+      if (name === "record_account_deletion_preflight") return { data: true, error: null };
       return { data: true, error: null };
     },
   };

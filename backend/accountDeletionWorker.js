@@ -93,6 +93,16 @@ function createAccountDeletionWorker({
   async function processJob(job) {
     try {
       const inventory = await inspectAccountForDeletion(client, job.user_id);
+      const { data: inventoryRecorded, error: inventoryError } = await client.rpc("record_account_deletion_preflight", {
+        p_job_id: job.job_id,
+        p_claim_token: job.claim_token,
+        p_inventory: inventory,
+      });
+      if (inventoryError) throw inventoryError;
+      if (inventoryRecorded !== true) {
+        logger.info("account_deletion_worker.inventory_claim_lost", { job_id: job.job_id });
+        return { status: "claim_lost" };
+      }
       const { data, error } = await client.rpc("finish_account_deletion_job", {
         p_job_id: job.job_id,
         p_claim_token: job.claim_token,
