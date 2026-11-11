@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   findPersistedScheduleMutation,
+  findPersistedScheduleRequest,
   isScheduleAbsentFromActiveList,
 } from './scheduleMutationReconciliation';
 
@@ -64,4 +65,42 @@ test('does not treat malformed or incomplete schedule lists as cancellation', ()
   assert.equal(isScheduleAbsentFromActiveList([{ id: 'schedule-2' }], 'schedule-1'), false);
   assert.equal(isScheduleAbsentFromActiveList([{ ...persisted, scheduled_at: 'not-a-date' }], 'schedule-1'), false);
   assert.equal(isScheduleAbsentFromActiveList([{ ...persisted, pinterest_board_id: undefined }], 'schedule-1'), false);
+});
+
+
+test('reconciles a lost schedule-create response only against one exact active row', () => {
+  const expectedRequest = {
+    pinId: 'pin-1',
+    scheduledAt: persisted.scheduled_at,
+    pinterestBoardId: 'board-new',
+    pinterestAccountId: 'account-1',
+    statuses: ['scheduled', 'publishing', 'failed', 'unknown'],
+  };
+  assert.deepEqual(findPersistedScheduleRequest([persisted], expectedRequest), persisted);
+  assert.deepEqual(
+    findPersistedScheduleRequest([{ ...persisted, status: 'publishing' }], expectedRequest),
+    { ...persisted, status: 'publishing' },
+  );
+});
+
+test('does not reconcile schedule creation against a different time, destination, state, or ambiguous row', () => {
+  const expectedRequest = {
+    pinId: 'pin-1',
+    scheduledAt: persisted.scheduled_at,
+    pinterestBoardId: 'board-new',
+    pinterestAccountId: 'account-1',
+    statuses: ['scheduled', 'publishing', 'failed', 'unknown'],
+  };
+  for (const row of [
+    { ...persisted, scheduled_at: '2026-11-09T18:15:00.000Z' },
+    { ...persisted, pinterest_board_id: 'board-other' },
+    { ...persisted, pinterest_account_id: 'account-other' },
+    { ...persisted, status: 'cancelled' },
+    { ...persisted, scheduled_at: 'not-a-date' },
+    { ...persisted, id: '' },
+  ]) {
+    assert.equal(findPersistedScheduleRequest([row], expectedRequest), null);
+  }
+  assert.equal(findPersistedScheduleRequest([persisted, persisted], expectedRequest), null);
+  assert.equal(findPersistedScheduleRequest({ data: [persisted] }, expectedRequest), null);
 });
