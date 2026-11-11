@@ -67,9 +67,15 @@ async function selectRows(query, pageSize = 1000) {
     if (error) throw error;
     return Array.isArray(data) ? data : [];
   }
+  // Stable ordering is required for offset pagination: without it,
+  // PostgREST may return tied/unspecified row order between requests and an
+  // export can duplicate or skip records at page boundaries.
+  const orderedQuery = typeof query.order === "function"
+    ? query.order("id", { ascending: true })
+    : query;
   const rows = [];
   for (let offset = 0; ; offset += pageSize) {
-    const { data, error } = await query.range(offset, offset + pageSize - 1);
+    const { data, error } = await orderedQuery.range(offset, offset + pageSize - 1);
     if (error) throw error;
     const page = Array.isArray(data) ? data : [];
     rows.push(...page);
