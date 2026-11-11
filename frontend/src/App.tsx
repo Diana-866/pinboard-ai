@@ -938,6 +938,7 @@ const MainApp: React.FC = () => {
           {activeTab === 'generator' && (
             <PinGenerator
               boards={boards}
+              onPinsChanged={() => setBoardsReloadToken((value) => value + 1)}
               initialTopic={prefilledTopic}
               initialDate={prefilledDate}
               initialTime={prefilledTime}
