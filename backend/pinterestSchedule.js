@@ -127,6 +127,28 @@ function hasMatchingScheduleAttemptIdentity(attempt, schedule) {
     && String(attempt.pinterest_board_id || "") === String(schedule.pinterest_board_id || "");
 }
 
+function getSafeScheduleFailureMessage(error, lookupError) {
+  if (lookupError) {
+    return "Could not verify the publication journal; publication outcome remains unknown.";
+  }
+  let message = "";
+  try {
+    message = error && typeof error.message === "string" ? error.message : "";
+  } catch {
+    // Ignore hostile or malformed error objects.
+  }
+  if (/Выбранная доска не найдена или недоступна|не подтвердил принадлежность выбранной доски аккаунту/i.test(message)) {
+    return "Выбранная доска не найдена или недоступна подключённому Pinterest-аккаунту";
+  }
+  if (error && error.code === "SCHEDULE_CLAIM_LOST") {
+    return "Расписание больше не принадлежит этому обработчику";
+  }
+  if (error && error.retryable === false && Number(error.httpStatus) === 403) {
+    return "Для автоматической публикации требуется активная подписка";
+  }
+  return "Pinterest publication failed; check the account and schedule status before retrying.";
+}
+
 function buildScheduleWorkerFailureState({
   attempt = null,
   attemptLookupError = null,
@@ -138,11 +160,7 @@ function buildScheduleWorkerFailureState({
   retryLimit = 5,
 }) {
   const finalStatus = classifyScheduleFailure(attempt, attemptLookupError, publicationLedger, publicationLedgerLookupError);
-  const message = String(
-    attemptLookupError
-      ? "Could not verify publication journal after worker error: " + String(attemptLookupError.message || "lookup failed")
-      : error && error.message || "Publication failed"
-  ).slice(0, 500);
+  const message = getSafeScheduleFailureMessage(error, attemptLookupError);
   const retryable = canRetryScheduleFailure(attempt, attemptLookupError, error);
   const shouldRetry = retryable && Number(attempts || 0) < retryLimit;
   const retryAt = shouldRetry
