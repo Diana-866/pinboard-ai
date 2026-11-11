@@ -868,7 +868,7 @@ const MainApp: React.FC = () => {
               onApprovePin={handleSchedulePin}
               onGoToCalendar={() => setActiveTab('calendar')}
               onGoToDashboard={() => setActiveTab('dashboard')}
-              onGoToGenerator={(topic?: string) => handleGenerateFromTopic(topic)}
+              onGoToGenerator={(topic, date, time, boardId) => handleGenerateFromTopic(topic, date, time, boardId)}
             />
           )}
 
