@@ -193,6 +193,37 @@ begin
       v_result_url,v_storage_url,v_price;
   end if;
 
+
+  -- The trigger also protects facts when a different privileged RPC writes
+  -- the task row. This closes a bypass around update_pin_generation_task.
+  v_key := 'completion-immutable-writer-'||v_user;
+  v_request := public.begin_pin_generation_request(v_user::text,v_board,v_key,repeat('e',64));
+  v_claim := (v_request->>'claim_token')::uuid;
+  perform public.reserve_pin_generation_credits(v_user::text,v_key,5);
+  perform public.save_pin_generation_plan(v_user::text,v_key,v_claim,jsonb_build_array(
+    jsonb_build_object('title','Immutable writer task','description','','prompt','writer prompt','model','flux-schnell','aspect_ratio','2:3')
+  ));
+  perform public.update_pin_generation_task(
+    v_user::text,v_key,v_claim,1,'submitting',null,null,null,null,null
+  );
+  perform public.update_pin_generation_task(
+    v_user::text,v_key,v_claim,1,'running','provider-task-writer',
+    'https://provider.example.invalid/writer-original.png',null,1.75,null
+  );
+  begin
+    perform public.record_pin_generation_provider_outcome(
+      v_user::text,v_key,v_claim,1,'provider-task-writer','succeeded',2.25,null,null,null,
+      'https://provider.example.invalid/writer-substituted.png'
+    );
+    raise exception 'provider outcome RPC overwrote previously journaled immutable facts';
+  exception when others then
+    if sqlerrm not like '%provider result URL is immutable%' then raise; end if;
+  end;
+  perform public.record_pin_generation_provider_outcome(
+    v_user::text,v_key,v_claim,1,'provider-task-writer','succeeded',1.75,null,null,null,
+    'https://provider.example.invalid/writer-original.png'
+  );
+
   raise notice 'Generation completion journal guard checks passed';
 end;
 $$;
