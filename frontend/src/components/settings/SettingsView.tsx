@@ -62,7 +62,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing, onPin
       const data = await apiRequest('/account/export');
       // The API can return a deliberately partial archive when a table is
       // unavailable. Never present that as a successful full account export.
-      if (!isCompleteAccountExport(data)) {
+      if (!isCompleteAccountExport(data, String(user?.id || ''))) {
         throw new Error(t.settings.exportIncomplete);
       }
       downloadJsonFile(buildAccountExportFilename(String(user?.id || ''), new Date()), data);
