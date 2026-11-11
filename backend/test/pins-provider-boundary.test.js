@@ -44,6 +44,58 @@ require.cache[storagePath] = {
 
 const { generatePins } = require("../pins");
 
+
+test("missing text cost is journaled and blocks all image spend with a known provider outcome", async (t) => {
+  const original = provider.generateTextWithUsage;
+  t.after(() => { provider.generateTextWithUsage = original; });
+  provider.generateTextWithUsage = async () => ({
+    content: JSON.stringify([
+      { title: "Unpriced text", description: "Test", image_prompt: "An image" },
+    ]),
+    usage: {
+      promptTokens: 10,
+      completionTokens: 5,
+      totalTokens: 15,
+      promptCost: null,
+      completionCost: null,
+      totalCost: null,
+      cachedPromptTokens: null,
+      cacheWriteTokens: null,
+    },
+    costCurrency: "RUB",
+    model: "gpt-4o",
+    requestId: "chatcmpl-missing-cost",
+  });
+
+  const events = [];
+  await assert.rejects(
+    generatePins(
+      { id: "board-missing-cost", title: "Test board", description: "" },
+      { niche: "test", tone: "neutral", language: "en" },
+      "flux-schnell",
+      1,
+      "2:3",
+      null,
+      {
+        onTextProviderSubmission: () => events.push("submitted"),
+        onTextProviderCompleted: () => events.push("completed"),
+        recordTextUsage: async (result) => {
+          assert.equal(result.usage.totalCost, null);
+          events.push("cost-missing-journaled");
+        },
+        ensureTaskQuotes: async () => {
+          events.push("quoted");
+          return [];
+        },
+        onProviderSubmission: () => events.push("image-submitted"),
+      }
+    ),
+    (error) => error.code === "GPTUNNEL_TEXT_COST_MISSING" && error.httpStatus === 502
+  );
+
+  assert.deepEqual(events, ["submitted", "completed", "cost-missing-journaled"]);
+});
+
 test("text-generation failure does not cross the billable image submission boundary", async () => {
   let submitted = false;
   provider.generateText = async () => "not-json";
