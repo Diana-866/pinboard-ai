@@ -42,7 +42,7 @@ import { getOrCreateProject } from './utils/projectProvisioning';
 import { validatePersistedScheduleRows } from './utils/persistedSchedule';
 import { mergeRestoredReviewQueue } from './utils/reviewQueueHydration';
 import { isReviewQueueOwnerCurrent } from './utils/reviewQueueOwnerFence';
-import { findPersistedScheduleMutation, findPersistedScheduleRequest, isScheduleAbsentFromActiveList } from './utils/scheduleMutationReconciliation';
+import { findPersistedScheduleMutation, findPersistedScheduleRequest, isPersistedScheduleMutationResponse, isScheduleAbsentFromActiveList } from './utils/scheduleMutationReconciliation';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Landing } from './pages/Landing';
@@ -620,21 +620,26 @@ const MainApp: React.FC = () => {
   const handleRetryScheduledPin = async (pin: ScheduledPinItem) => {
     try {
       let saved: any;
+      const expected = {
+        scheduleId: pin.id,
+        statuses: ['scheduled', 'publishing'],
+        pinterestBoardId: String(pin.pinterestBoardId || ''),
+        pinterestAccountId: String(pin.pinterestAccountId || ''),
+      };
       try {
-        saved = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/retry`, {
+        const response = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/retry`, {
           method: 'POST',
         });
+        if (!isPersistedScheduleMutationResponse(response, expected)) {
+          throw new Error('Сервер не подтвердил новое состояние публикации.');
+        }
+        saved = response;
       } catch (originalError) {
-        // Retry is a guarded DB transition. If its response is lost, accept only
-        // the same schedule after it is visibly back in the queue on the same destination.
+        // A lost or malformed 2xx response is ambiguous too. Accept only the
+        // exact schedule after it is visibly back in the queue on the same destination.
         try {
           const rows = await apiRequest('/schedule');
-          saved = findPersistedScheduleMutation(rows, {
-            scheduleId: pin.id,
-            statuses: ['scheduled', 'publishing'],
-            pinterestBoardId: String(pin.pinterestBoardId || ''),
-            pinterestAccountId: String(pin.pinterestAccountId || ''),
-          });
+          saved = findPersistedScheduleMutation(rows, expected);
           if (!saved) throw originalError;
         } catch {
           throw originalError;
