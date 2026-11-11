@@ -177,6 +177,7 @@ test("deletion RPC errors map to stable HTTP statuses", () => {
   assert.equal(mapDeletionRpcError({ message: "user not found" }).httpStatus, 404);
   assert.equal(mapDeletionRpcError({ message: "account already deleted" }).httpStatus, 409);
   assert.equal(mapDeletionRpcError({ message: "reauthentication expired" }).httpStatus, 409);
+  assert.equal(mapDeletionRpcError({ message: "account is not active" }).httpStatus, 409);
   assert.equal(
     mapDeletionRpcError({ message: "Could not find the function public.request_account_deletion" }).httpStatus,
     503
