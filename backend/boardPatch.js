@@ -2,7 +2,7 @@ const { httpError, optionalString } = require("./validate");
 
 function buildBoardPatch(body) {
   const input = body && typeof body === "object" && !Array.isArray(body) ? body : {};
-  const allowedFields = new Set(["title", "description"]);
+  const allowedFields = new Set(["title", "description", "category"]);
   const unknownFields = Object.keys(input).filter((key) => !allowedFields.has(key));
   if (unknownFields.length > 0) {
     throw httpError(422, "Неизвестные поля обновления доски");
@@ -25,8 +25,17 @@ function buildBoardPatch(body) {
       : input.description.trim().slice(0, 500);
   }
 
+  if (Object.prototype.hasOwnProperty.call(input, "category")) {
+    if (input.category !== null && typeof input.category !== "string") {
+      throw httpError(422, "Некорректный формат категории доски");
+    }
+    patch.category = input.category === null
+      ? null
+      : input.category.trim().slice(0, 120) || null;
+  }
+
   if (Object.keys(patch).length === 0) {
-    throw httpError(422, "Передайте title и/или description");
+    throw httpError(422, "Передайте title, description и/или category");
   }
 
   return patch;
