@@ -546,12 +546,21 @@ const MainApp: React.FC = () => {
         method: 'POST',
         body: JSON.stringify({ pinterest_account_id: accountId }),
       });
-      const account = accounts.find((item) => item.id === String(saved.pinterest_account_id));
+      if (!saved || typeof saved.pinterest_account_id !== 'string' || !saved.pinterest_account_id.trim()) {
+        throw new Error('Сервер не подтвердил Pinterest-аккаунт для восстановленного расписания.');
+      }
+      const account = accounts.find((item) => item.id === saved.pinterest_account_id);
       setScheduledPins((prev) => prev.map((item) => item.id === pin.id ? {
         ...item,
-        status: 'scheduled',
-        pinterestAccountId: String(saved.pinterest_account_id),
-        accountHandle: account?.handle || account?.name || '',
+        status: parsePersistedScheduleStatus(saved.status),
+        pinterestAccountId: saved.pinterest_account_id,
+        pinterestBoardId: typeof saved.pinterest_board_id === 'string'
+          ? saved.pinterest_board_id
+          : item.pinterestBoardId,
+        accountHandle: account?.handle || account?.name || item.accountHandle || '',
+        retryable: saved.retryable === true,
+        retryReason: typeof saved.retry_reason === 'string' ? saved.retry_reason : undefined,
+        failureReason: saved.failure_reason === 'board_unavailable' ? 'board_unavailable' : null,
       } : item));
     } catch (error) {
       console.error('[schedule] Не удалось восстановить старое расписание:', error);
