@@ -66,6 +66,25 @@ test("waitForImageTask polls the persisted task and never creates another task",
 });
 
 
+test("polling rejects a provider response whose task ID differs from the journaled task", async (t) => {
+  const originalGet = axios.get;
+  axios.get = async () => ({
+    data: {
+      id: "different-provider-task",
+      status: "done",
+      price: 1.25,
+      result: [{ url: "https://provider.example/wrong-task.png" }],
+    },
+  });
+  t.after(() => { axios.get = originalGet; });
+
+  await assert.rejects(
+    waitForImageTask("provider-task-expected", { pollIntervalMs: 0, maxPolls: 1 }),
+    (error) => error.code === "GPTUNNEL_TASK_ID_MISMATCH"
+  );
+});
+
+
 test("poll exhaustion returns the same persisted task as pending without creating a replacement", async (t) => {
   const originalGet = axios.get;
   const originalPost = axios.post;
