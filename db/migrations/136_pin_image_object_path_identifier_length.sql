@@ -73,6 +73,14 @@ begin
                 where public.managed_pin_image_object_path(t.storage_url) = p_object_path)
     or exists (select 1 from public.pin_regeneration_requests r
                 where public.managed_pin_image_object_path(r.storage_url) = p_object_path)
+    or exists (
+      select 1
+        from public.pin_generation_requests r
+        cross join lateral jsonb_array_elements(
+          case when jsonb_typeof(r.pins) = 'array' then r.pins else '[]'::jsonb end
+        ) as item(value)
+       where public.managed_pin_image_object_path(item.value ->> 'image_url') = p_object_path
+    )
     into v_has_reference;
 
   if v_has_reference then
@@ -160,6 +168,16 @@ begin
       select 1
         from public.pin_regeneration_requests r
        where public.managed_pin_image_object_path(r.storage_url) = p_object_path
+    )
+    or exists (
+      -- Completed generation results also retain their image URLs in the
+      -- idempotency response payload, independently of task storage_url.
+      select 1
+        from public.pin_generation_requests r
+        cross join lateral jsonb_array_elements(
+          case when jsonb_typeof(r.pins) = 'array' then r.pins else '[]'::jsonb end
+        ) as item(value)
+       where public.managed_pin_image_object_path(item.value ->> 'image_url') = p_object_path
     )
     into v_has_reference;
 
