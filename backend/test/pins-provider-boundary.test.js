@@ -8,7 +8,8 @@ const originalStorage = require.cache[storagePath];
 
 const provider = {
   generateText: async () => "not-json",
-  generateTextWithUsage: async (prompt) => ({
+  generateTextWithUsage: (...args) => provider.generateTextWithUsageImpl(...args),
+  generateTextWithUsageImpl: async (prompt) => ({
     content: await provider.generateText(prompt),
     usage: {
       promptTokens: 12,
@@ -46,9 +47,9 @@ const { generatePins } = require("../pins");
 
 
 test("missing text cost is journaled and blocks all image spend with a known provider outcome", async (t) => {
-  const original = provider.generateTextWithUsage;
-  t.after(() => { provider.generateTextWithUsage = original; });
-  provider.generateTextWithUsage = async () => ({
+  const original = provider.generateTextWithUsageImpl;
+  t.after(() => { provider.generateTextWithUsageImpl = original; });
+  provider.generateTextWithUsageImpl = async () => ({
     content: JSON.stringify([
       { title: "Unpriced text", description: "Test", image_prompt: "An image" },
     ]),
@@ -93,7 +94,7 @@ test("missing text cost is journaled and blocks all image spend with a known pro
     (error) => error.code === "GPTUNNEL_TEXT_COST_MISSING" && error.httpStatus === 502
   );
 
-  assert.deepEqual(events, ["submitted", "completed", "cost-missing-journaled"]);
+  assert.deepEqual(events, ["submitted", "cost-missing-journaled", "completed"]);
 });
 
 test("text-generation failure does not cross the billable image submission boundary", async () => {
