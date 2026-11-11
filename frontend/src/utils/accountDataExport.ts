@@ -2,12 +2,29 @@
 // Kept free of React so they can be unit-tested directly.
 
 /** Only a complete, explicitly healthy server response may be downloaded. */
+const ACCOUNT_EXPORT_ARRAY_SECTIONS = [
+  'projects',
+  'boards',
+  'pins',
+  'creditTransactions',
+  'subscriptions',
+  'creditPurchases',
+  'pinterestAccounts',
+  'pinterestPublications',
+  'pinSchedules',
+  'reviewQueue',
+] as const;
+
 export function isCompleteAccountExport(payload: unknown): boolean {
-  if (!payload || typeof payload !== 'object') return false;
-  const candidate = payload as { formatVersion?: unknown; degradedSections?: unknown };
-  return candidate.formatVersion === 1 &&
-    Array.isArray(candidate.degradedSections) &&
-    candidate.degradedSections.length === 0;
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
+  const candidate = payload as Record<string, unknown>;
+  if (candidate.formatVersion !== 1 ||
+      !candidate.account || typeof candidate.account !== 'object' || Array.isArray(candidate.account) ||
+      !Array.isArray(candidate.degradedSections) ||
+      candidate.degradedSections.length !== 0) {
+    return false;
+  }
+  return ACCOUNT_EXPORT_ARRAY_SECTIONS.every((section) => Array.isArray(candidate[section]));
 }
 
 export interface AccountDeletionReceipt {
