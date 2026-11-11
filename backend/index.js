@@ -1009,7 +1009,14 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
             Number(savedQuote.provider_quote_price) <= 0) {
           throw httpError(502, "Сохранённая котировка перегенерации повреждена или не соответствует запросу.");
         }
-        quotedCreditCost = Number(savedQuote.amount);
+        const savedQuotePrice = Number(savedQuote.provider_quote_price);
+        const savedQuoteCredits = Number(savedQuote.amount);
+        const expectedQuoteCredits = ceilCredits(savedQuotePrice * MARKUP);
+        if (!Number.isSafeInteger(savedQuoteCredits) || savedQuoteCredits <= 0 ||
+            savedQuoteCredits !== expectedQuoteCredits) {
+          throw httpError(502, "Сохранённая стоимость перегенерации не соответствует котировке.");
+        }
+        quotedCreditCost = savedQuoteCredits;
       } else {
         const quote = await quoteImageTask(prompt, model, "2:3");
         quotedCreditCost = ceilCredits(quote.price * MARKUP);
