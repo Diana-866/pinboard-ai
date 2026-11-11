@@ -237,9 +237,12 @@ async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3"
     throw new Error("Провайдер вернул некорректный идентификатор задачи");
   }
   if (task && task.status === "done") {
-    // A provider may complete synchronously in the create response. Persist its
-    // immutable task ID and terminal status before returning the result so a
-    // backend restart never has to rediscover it through provider idempotency.
+    // Persist the immutable task ID before parsing a terminal payload. If the
+    // provider's completed response is malformed, recovery can still poll this
+    // exact task instead of accidentally creating and charging a replacement.
+    if (typeof callbacks.onTaskUpdate === "function") {
+      await callbacks.onTaskUpdate(taskId, "running");
+    }
     const result = imageTaskResult(task);
     if (typeof callbacks.onTaskUpdate === "function") {
       await callbacks.onTaskUpdate(taskId, "succeeded");
