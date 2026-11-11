@@ -20,6 +20,7 @@ const { sortProjectsForProvisioning } = require("./projectProvisioningOrder");
 const { buildPinPatch } = require("./pinPatch");
 const { logError, logWarning, logInfo, runWithCorrelationId } = require("./safeLogger");
 const { buildAccountExport, requestAccountDeletion } = require("./accountLifecycle");
+const { isAccountDeletionWorkerEnabled } = require("./accountDeletionWorkerGate");
 
 const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
@@ -471,6 +472,12 @@ app.get("/account/export", requireAuth, async (req, res) => {
 // фиксирует запрос. Данные здесь не удаляются — физическая очистка идёт
 // отдельным контролируемым этапом и никогда не запускается из этого метода.
 app.post("/account/deletion-request", requireAuth, authLimiter, async (req, res) => {
+  if (!isAccountDeletionWorkerEnabled()) {
+    return res.status(503).json({
+      error: "Удаление аккаунта временно недоступно. Повторите попытку позже.",
+      code: "account_deletion_unavailable",
+    });
+  }
   try {
     const result = await requestAccountDeletion({
       userId: req.userId,
