@@ -507,7 +507,11 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     }, 220);
   };
 
-  const handleApproveAll = () => {
+  const handleApproveAll = async () => {
+    // Bulk scheduling must share the same synchronous lock as single-item
+    // decisions. React's disabled state alone is not enough to stop two clicks
+    // in the same render frame from creating duplicate schedule requests.
+    if (decisionInFlightRef.current) return;
     if (queue.some((pin) => !pin.pinId)) {
       window.alert('В очереди есть демонстрационные карточки без сохранённых пинов. Создайте и сохраните реальные пины в генераторе, прежде чем добавлять их в расписание.');
       return;
@@ -516,35 +520,40 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       window.alert('Сначала подключите Pinterest и выберите настоящую доску Pinterest для публикации.');
       return;
     }
-    const scheduledItems = queue.map((p, idx) => {
-      // Bulk approval must not discard edits in the currently open review card.
-      const approved = applyCurrentReviewEdits(p, idx, {
-        title: editTitle,
-        description: editDesc,
-        boardId: editBoardId,
-        scheduledDate: editDate,
-        scheduledTime: editTime,
+
+    decisionInFlightRef.current = true;
+    setIsDecisionInFlight(true);
+    try {
+      const scheduledItems = queue.map((p, idx) => {
+        // Bulk approval must not discard edits in the currently open review card.
+        const approved = applyCurrentReviewEdits(p, idx, {
+          title: editTitle,
+          description: editDesc,
+          boardId: editBoardId,
+          scheduledDate: editDate,
+          scheduledTime: editTime,
+        });
+        const selectedBoard = boards.find((b) => b.id === approved.boardId) || boards[0];
+        return {
+          id: `pin-${Date.now()}-${idx}`,
+          pinId: approved.pinId,
+          title: approved.title,
+          description: approved.description,
+          boardId: approved.boardId,
+          boardName: selectedBoard?.name || approved.boardName,
+          imageUrl: approved.imageUrl,
+          scheduledDate: approved.scheduledDate,
+          scheduledTime: approved.scheduledTime,
+          status: 'scheduled' as const,
+          isOptimalSlot: true,
+          destinationUrl: approved.destinationUrl,
+          accountHandle: approved.accountHandle,
+          pinterestBoardId: selectedPinterestBoardId,
+          pinterestAccountId: selectedPinterestAccountId,
+        };
       });
-      const selectedBoard = boards.find((b) => b.id === approved.boardId) || boards[0];
-      return {
-        id: `pin-${Date.now()}-${idx}`,
-        pinId: approved.pinId,
-        title: approved.title,
-        description: approved.description,
-        boardId: approved.boardId,
-        boardName: selectedBoard?.name || approved.boardName,
-        imageUrl: approved.imageUrl,
-        scheduledDate: approved.scheduledDate,
-        scheduledTime: approved.scheduledTime,
-        status: 'scheduled' as const,
-        isOptimalSlot: true,
-        destinationUrl: approved.destinationUrl,
-        accountHandle: approved.accountHandle,
-        pinterestBoardId: selectedPinterestBoardId,
-        pinterestAccountId: selectedPinterestAccountId,
-      };
-    });
-    Promise.allSettled(scheduledItems.map((item) => onApprovePin(item))).then(async (results) => {
+
+      const results = await Promise.allSettled(scheduledItems.map((item) => onApprovePin(item)));
       const successfulIds = new Set<string>();
       results.forEach((result, index) => {
         if (result.status === 'fulfilled') successfulIds.add(queue[index].id);
@@ -561,7 +570,12 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       if (successfulIds.size !== scheduledItems.length) {
         window.alert(`В расписание добавлено: ${successfulIds.size} из ${scheduledItems.length}. Неудачные карточки остались в очереди.`);
       }
-    });
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Не удалось обработать массовое одобрение.');
+    } finally {
+      decisionInFlightRef.current = false;
+      setIsDecisionInFlight(false);
+    }
   };
 
   const handleResetQueue = async () => {
@@ -742,11 +756,12 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
           {queue.length > 0 && (
             <button
               onClick={handleApproveAll}
-              className="px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold hover:bg-emerald-500/20 cursor-pointer flex items-center gap-1.5 transition-colors"
+              disabled={isDecisionInFlight}
+              className="px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1.5 transition-colors"
               title="Утвердить все пины из очереди в расписание публикаций"
             >
               <Check className="w-3.5 h-3.5" />
-              <span>Одобрить все ({queue.length})</span>
+              <span>{isDecisionInFlight ? 'Сохраняем…' : `Одобрить все (${queue.length})`}</span>
             </button>
           )}
 
