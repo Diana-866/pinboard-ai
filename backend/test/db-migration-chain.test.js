@@ -22,10 +22,10 @@ test("historical 002-008 SQL files are visibly excluded from clean installs", ()
   }
 });
 
-test("canonical migration files 001 and 010-149 exist; 009 stays archived", () => {
+test("canonical migration files 001 and 010-150 exist; 009 stays archived", () => {
   assert.ok(fs.existsSync(path.join(migrationsDir, "001_baseline.sql")));
   assert.equal(fs.existsSync(path.join(migrationsDir, "009_hardening.sql")), false);
-  for (let number = 10; number <= 149; number += 1) {
+  for (let number = 10; number <= 150; number += 1) {
     const prefix = String(number).padStart(3, "0") + "_";
     const matches = fs.readdirSync(migrationsDir).filter((file) => file.startsWith(prefix) && file.endsWith(".sql"));
     assert.equal(matches.length, 1, `expected exactly one canonical migration for ${prefix}`);
@@ -71,4 +71,12 @@ test("generation task journal migrations are included in the canonical chain", (
   assert.match(immutable, /provider price is immutable/);
   assert.match(immutable, /Storage URL is immutable/);
   assert.match(facts, /create trigger pin_generation_task_facts_immutable/);
+});
+
+
+test("pin image deletion path guard uses a literal-dot extension matcher", () => {
+  const sql = fs.readFileSync(path.join(migrationsDir, "150_fix_pin_image_deletion_path_regex.sql"), "utf8");
+  assert.match(sql, /p_object_path !~\* '[^']*\[\.\][^']*'/);
+  assert.doesNotMatch(sql, /p_object_path !~\* '[^']*\\\\\.[^']*'/);
+  assert.match(sql, /grant execute on function public\.claim_pin_image_deletion\(text,text,integer\)\s+to service_role;/i);
 });
