@@ -20,6 +20,7 @@ function createReadClient({ account = { id: USER_ID, account_status: "deletion_p
         select() { return this; },
         eq(column, value) { this.filters.push([column, value]); return this; },
         in(column, value) { this.filters.push([column, value]); return this; },
+        order(column, options = {}) { this.orderArgs = [column, options]; return this; },
         range(start, end) { this.rangeArgs = [start, end]; return this; },
         maybeSingle() {
           return Promise.resolve({ data: table === "users" ? account : null, error: null });
@@ -62,6 +63,7 @@ test("preflight inventories every exported user-owned section without loading ro
 
 test("preflight paginates project and board identifiers beyond the API row cap", async () => {
   const ranges = [];
+  const orders = [];
   const client = {
     from(table) {
       const query = {
@@ -71,6 +73,7 @@ test("preflight paginates project and board identifiers beyond the API row cap",
         select(_columns, options) { this.headOnly = Boolean(options && options.head); return this; },
         eq(column, value) { this.filters.push([column, value]); return this; },
         in(column, value) { this.filters.push([column, value]); return this; },
+        order(column, options = {}) { orders.push({ table, column, options }); return this; },
         range(start, end) { this.rangeArgs = [start, end]; ranges.push({ table, start, end }); return this; },
         maybeSingle() { return Promise.resolve({ data: { id: USER_ID, account_status: "deletion_pending" }, error: null }); },
         then(resolve, reject) {
@@ -97,6 +100,8 @@ test("preflight paginates project and board identifiers beyond the API row cap",
   assert.equal(result.ok, true);
   assert.ok(ranges.some((r) => r.table === "projects" && r.start === 1000));
   assert.ok(ranges.some((r) => r.table === "boards" && r.start === 1000));
+  assert.ok(orders.some((r) => r.table === "projects" && r.column === "id" && r.options.ascending === true));
+  assert.ok(orders.some((r) => r.table === "boards" && r.column === "id" && r.options.ascending === true));
   assert.equal(result.counts.boards, 1001);
 });
 
