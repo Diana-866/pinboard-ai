@@ -116,6 +116,7 @@ test("worker claims and finalizes only through fenced RPCs", async () => {
       }
       if (name === "record_account_deletion_preflight") return { data: true, error: null };
       if (name === "materialize_account_deletion_storage_manifest") return { data: { recorded: true, inserted: 1, total: 1 }, error: null };
+      if (name === "mark_account_deletion_storage_manifest") return { data: true, error: null };
       if (name === "disconnect_pinterest_for_account_deletion") return { data: 0, error: null };
       if (name === "finish_account_deletion_job") return { data: true, error: null };
       throw new Error("unexpected RPC");
@@ -129,10 +130,11 @@ test("worker claims and finalizes only through fenced RPCs", async () => {
   assert.equal(calls[1].args.p_claim_token, "claim-1");
   assert.equal(calls[2].name, "materialize_account_deletion_storage_manifest");
   assert.equal(calls[2].args.p_claim_token, "claim-1");
-  assert.equal(calls[3].name, "disconnect_pinterest_for_account_deletion");
-  assert.equal(calls[3].args.p_user_id, USER_ID);
-  assert.equal(calls[4].name, "finish_account_deletion_job");
-  assert.equal(calls[4].args.p_outcome, "succeeded");
+  assert.equal(calls[3].name, "mark_account_deletion_storage_manifest");
+  assert.equal(calls[4].name, "disconnect_pinterest_for_account_deletion");
+  assert.equal(calls[4].args.p_user_id, USER_ID);
+  assert.equal(calls[5].name, "finish_account_deletion_job");
+  assert.equal(calls[5].args.p_outcome, "succeeded");
 });
 
 test("worker never marks preflight complete after losing the inventory claim", async () => {
@@ -166,6 +168,7 @@ test("worker persists only a successful bounded inventory before finalizing", as
       }
       if (name === "record_account_deletion_preflight") return { data: true, error: null };
       if (name === "materialize_account_deletion_storage_manifest") return { data: { recorded: true, inserted: 1, total: 1 }, error: null };
+      if (name === "mark_account_deletion_storage_manifest") return { data: true, error: null };
       if (name === "disconnect_pinterest_for_account_deletion") return { data: 0, error: null };
       if (name === "finish_account_deletion_job") return { data: true, error: null };
       throw new Error("unexpected RPC");
@@ -192,6 +195,7 @@ test("worker schedules retry when inventory is incomplete", async () => {
       }
       if (name === "record_account_deletion_preflight") return { data: true, error: null };
       if (name === "materialize_account_deletion_storage_manifest") return { data: { recorded: true, inserted: 1, total: 1 }, error: null };
+      if (name === "mark_account_deletion_storage_manifest") return { data: true, error: null };
       return { data: true, error: null };
     },
   };
