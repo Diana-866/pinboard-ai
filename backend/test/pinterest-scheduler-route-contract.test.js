@@ -34,3 +34,15 @@ test("scheduler heartbeat completion migration fences terminal and superseded ru
   assert.match(migration, /last_run_id = p_run_id/);
   assert.match(migration, /status = 'running'/);
 });
+
+test("scheduler recovers a durable remote Pinterest ID without repeating the remote POST", () => {
+  const pinterest = read("pinterest.js");
+  const recovery = pinterest.indexOf("attempt.status === \"unknown\"");
+  const completion = pinterest.indexOf('supabase.rpc("complete_pinterest_publish_v2"', recovery);
+  const ledgerCheck = pinterest.indexOf("matchesConfirmedPublicationLedger(ledgerLookup.data", completion);
+  const retryPost = pinterest.indexOf('callPinterest("POST", "/pins"', recovery);
+  assert.notEqual(recovery, -1, "unknown attempts with a known remote ID are recovered");
+  assert.ok(completion > recovery, "recovery uses the atomic publication completion RPC");
+  assert.ok(ledgerCheck > completion, "lost completion responses require exact ledger confirmation");
+  assert.ok(retryPost === -1 || retryPost < recovery, "recovery path must not issue another Pinterest POST");
+});
