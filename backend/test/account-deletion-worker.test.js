@@ -206,3 +206,29 @@ test("worker error codes are normalized and bounded", () => {
   assert.equal(safeErrorCode({ code: "DB TIMEOUT" }), "db_timeout");
   assert.equal(safeErrorCode(null), "preflight_failed");
 });
+
+test("worker retries and does not revoke credentials when Storage manifest persistence fails", async () => {
+  const calls = [];
+  const client = {
+    ...createReadClient(),
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_account_deletion_jobs") {
+        return { data: [{ job_id: "job-manifest-failed", user_id: USER_ID, claim_token: "claim-manifest-failed" }], error: null };
+      }
+      if (name === "record_account_deletion_preflight") return { data: true, error: null };
+      if (name === "materialize_account_deletion_storage_manifest") {
+        return { data: null, error: { code: "XX000" } };
+      }
+      if (name === "finish_account_deletion_job") return { data: true, error: null };
+      throw new Error("unexpected RPC");
+    },
+  };
+  const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} } });
+  const result = await worker.tick();
+  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1 });
+  assert.equal(calls.some((call) => call.name === "disconnect_pinterest_for_account_deletion"), false);
+  const finish = calls.find((call) => call.name === "finish_account_deletion_job");
+  assert.equal(finish.args.p_outcome, "retry");
+  assert.equal(finish.args.p_error_code, "xx000");
+});
