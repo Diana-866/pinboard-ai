@@ -132,7 +132,7 @@ test("worker claims and finalizes only through fenced RPCs", async () => {
   assert.equal(calls[3].name, "disconnect_pinterest_for_account_deletion");
   assert.equal(calls[3].args.p_user_id, USER_ID);
   assert.equal(calls[4].name, "finish_account_deletion_job");
-  assert.equal(calls[3].args.p_outcome, "succeeded");
+  assert.equal(calls[4].args.p_outcome, "succeeded");
 });
 
 test("worker never marks preflight complete after losing the inventory claim", async () => {
