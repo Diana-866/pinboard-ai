@@ -73,6 +73,17 @@ export function isScheduleAbsentFromActiveList(
 }
 
 
+
+/** A cancellation 2xx is accepted only when it identifies the exact row as cancelled. */
+export function isPersistedScheduleCancellationResponse(
+  row: unknown,
+  scheduleId: string,
+): row is Record<string, any> {
+  return isValidPersistedScheduleRow(row) &&
+    row.id === scheduleId &&
+    row.status === 'cancelled';
+}
+
 export interface PersistedScheduleRequestExpectation {
   pinId: string;
   scheduledAt: string;
