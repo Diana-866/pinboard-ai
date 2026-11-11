@@ -136,6 +136,22 @@ test("account export does not report dependent tables empty when parent read fai
   assert.ok(exported.degradedSections.includes("pins"));
 });
 
+test("account export returns 404 when the account row does not exist", async () => {
+  const db = fakeDb({ users: [] });
+  await assert.rejects(
+    () => buildAccountExport(USER_ID, db),
+    (error) => error.httpStatus === 404
+  );
+});
+
+test("account export returns 503 when the account row cannot be read", async () => {
+  const db = fakeDb({});
+  await assert.rejects(
+    () => buildAccountExport(USER_ID, db),
+    (error) => error.httpStatus === 503
+  );
+});
+
 test("account export rejects a non-uuid user id", async () => {
   await assert.rejects(
     () => buildAccountExport("not-a-uuid", fakeDb({})),
