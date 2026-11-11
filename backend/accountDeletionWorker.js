@@ -42,6 +42,22 @@ function chunkValues(values, size = 200) {
   return chunks;
 }
 
+async function countOwnedEmailOutboxRows(client, userId) {
+  const subscriptions = await fetchAllRows(
+    client.from("subscriptions").select("id").eq("user_id", userId)
+  );
+  const subscriptionIds = subscriptions.map((row) => row.id).filter(Boolean);
+  let total = 0;
+  for (const ids of chunkValues(subscriptionIds)) {
+    const { count, error } = await client.from("email_outbox")
+      .select("id", { count: "exact", head: true })
+      .in("subscription_id", ids);
+    if (error) throw error;
+    total += Number(count || 0);
+  }
+  return total;
+}
+
 async function countPinsForBoards(client, boardIds) {
   let total = 0;
   for (const ids of chunkValues(boardIds)) {
@@ -90,9 +106,19 @@ async function inspectAccountForDeletion(client, userId) {
     "pin_generation_requests",
     "pin_generation_tasks",
     "pin_regeneration_requests",
+    // Provider publication/OAuth state must be purged; accounting journals
+    // are inventoried but retained for payment and provider-cost evidence.
+    "pinterest_publish_attempts",
+    "pinterest_token_refresh_leases",
+    "pinterest_oauth_connection_state",
+    "pinterest_account_refresh_leases",
+    "pin_generation_credit_reservations",
+    "pin_generation_text_usage",
+    "provider_refund_reconciliation_audit",
   ]) {
     counts[table] = await countOwnedRows(client, table, userId);
   }
+  counts.email_outbox = await countOwnedEmailOutboxRows(client, userId);
 
   const projectRows = await fetchAllRows(
     client.from("projects").select("id").eq("user_id", userId)
