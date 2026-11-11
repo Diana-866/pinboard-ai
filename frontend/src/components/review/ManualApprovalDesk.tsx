@@ -332,6 +332,8 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [isDecisionInFlight, setIsDecisionInFlight] = useState(false);
+  const decisionInFlightRef = useRef(false);
   const dragStartX = useRef(0);
 
   useEffect(() => {
@@ -415,7 +417,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   }, [currentPin, editTitle, editDesc, editBoardId, editDate, editTime, selectedPinterestBoardId, selectedPinterestAccountId]);
 
   const handleApprove = () => {
-    if (!currentPin) return;
+    if (!currentPin || decisionInFlightRef.current) return;
     if (!currentPin.pinId) {
       window.alert('Эта карточка — демонстрационный пример, а не сохранённый пин. Сначала создайте и сохраните пин в генераторе — только после этого его можно добавить в расписание.');
       return;
@@ -425,6 +427,8 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       return;
     }
 
+    decisionInFlightRef.current = true;
+    setIsDecisionInFlight(true);
     setSwipeDirection('right');
     setTimeout(async () => {
       const selectedBoard = boards.find((b) => b.id === editBoardId) || boards[0];
@@ -461,13 +465,17 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       } finally {
         setSwipeDirection(null);
         setDragOffset(0);
+        decisionInFlightRef.current = false;
+        setIsDecisionInFlight(false);
       }
     }, 220);
   };
 
   const handleReject = () => {
-    if (!currentPin) return;
+    if (!currentPin || decisionInFlightRef.current) return;
 
+    decisionInFlightRef.current = true;
+    setIsDecisionInFlight(true);
     setSwipeDirection('left');
     setTimeout(async () => {
       let pinWasRejected = false;
@@ -491,6 +499,8 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       } finally {
         setSwipeDirection(null);
         setDragOffset(0);
+        decisionInFlightRef.current = false;
+        setIsDecisionInFlight(false);
       }
     }, 220);
   };
@@ -1067,6 +1077,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
             {/* Left Big Button: Reject / Skip */}
             <button
               onClick={handleReject}
+              disabled={isDecisionInFlight}
               className="py-4 px-6 rounded-full border border-subtle hover:border-rose-400 bg-surface hover:bg-rose-50 dark:hover:bg-rose-950/20 text-primary-theme font-bold text-sm md:text-base flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 group shadow-xs"
             >
               <div className="w-7 h-7 rounded-full bg-subtle group-hover:bg-rose-500 group-hover:text-white flex items-center justify-center transition-colors">
@@ -1081,12 +1092,13 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
             {/* Right Big Button: Approve & Schedule */}
             <button
               onClick={handleApprove}
+              disabled={isDecisionInFlight}
               className="accent-btn py-4 px-6 rounded-full text-white font-bold text-sm md:text-base flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 group shadow-xs"
             >
               <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
                 <Check className="w-4 h-4 stroke-[3]" />
               </div>
-              <span>Одобрить и запланировать</span>
+              <span>{isDecisionInFlight ? 'Сохраняем решение…' : 'Одобрить и запланировать'}</span>
               <span className="hidden md:inline text-[11px] font-mono text-white/80 font-normal">
                 [ ➡️ ]
               </span>
