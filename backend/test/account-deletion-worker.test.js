@@ -115,6 +115,7 @@ test("worker claims and finalizes only through fenced RPCs", async () => {
         return { data: [{ job_id: "job-1", user_id: USER_ID, claim_token: "claim-1" }], error: null };
       }
       if (name === "record_account_deletion_preflight") return { data: true, error: null };
+      if (name === "disconnect_pinterest_for_account_deletion") return { data: 0, error: null };
       if (name === "finish_account_deletion_job") return { data: true, error: null };
       throw new Error("unexpected RPC");
     },
@@ -125,8 +126,10 @@ test("worker claims and finalizes only through fenced RPCs", async () => {
   assert.equal(calls[0].name, "claim_account_deletion_jobs");
   assert.equal(calls[1].name, "record_account_deletion_preflight");
   assert.equal(calls[1].args.p_claim_token, "claim-1");
-  assert.equal(calls[2].name, "finish_account_deletion_job");
-  assert.equal(calls[2].args.p_outcome, "succeeded");
+  assert.equal(calls[2].name, "disconnect_pinterest_for_account_deletion");
+  assert.equal(calls[2].args.p_user_id, USER_ID);
+  assert.equal(calls[3].name, "finish_account_deletion_job");
+  assert.equal(calls[3].args.p_outcome, "succeeded");
 });
 
 test("worker never marks preflight complete after losing the inventory claim", async () => {
@@ -159,6 +162,7 @@ test("worker persists only a successful bounded inventory before finalizing", as
         return { data: [{ job_id: "job-inventory", user_id: USER_ID, claim_token: "claim-inventory" }], error: null };
       }
       if (name === "record_account_deletion_preflight") return { data: true, error: null };
+      if (name === "disconnect_pinterest_for_account_deletion") return { data: 0, error: null };
       if (name === "finish_account_deletion_job") return { data: true, error: null };
       throw new Error("unexpected RPC");
     },
@@ -169,6 +173,7 @@ test("worker persists only a successful bounded inventory before finalizing", as
   assert.equal(inventoryCall.args.p_inventory.ok, true);
   assert.equal(inventoryCall.args.p_inventory.sectionsChecked, 10);
   assert.equal(Object.keys(inventoryCall.args.p_inventory.counts).length, 10);
+  assert.equal(calls.some((call) => call.name === "disconnect_pinterest_for_account_deletion"), true);
   assert.equal(calls[calls.length - 1].name, "finish_account_deletion_job");
 });
 
