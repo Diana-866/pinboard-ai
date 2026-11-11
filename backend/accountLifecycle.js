@@ -93,6 +93,13 @@ async function buildAccountExport(userId, client = defaultSupabase) {
     return rows.map((row) => pickColumns(row, PROFILE_COLUMNS));
   }, degraded);
 
+  if (!profileRows.length) {
+    if (degraded.includes("account")) {
+      throw httpError(503, "Не удалось прочитать аккаунт для экспорта — попробуйте позже");
+    }
+    throw httpError(404, "Аккаунт не найден");
+  }
+
   const projects = await loadSection("projects", () =>
     selectRows(client.from("projects").select("*").eq("user_id", id)), degraded);
 
