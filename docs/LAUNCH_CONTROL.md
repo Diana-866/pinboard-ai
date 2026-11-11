@@ -432,3 +432,20 @@
 - **Новые задания пользователя:** применить `db/migrations/127_account_lifecycle.sql` в Supabase SQL Editor (после backup).
 - **Production/merge/deploy статус:** merge и deploy выпущены; production SQL migration не выполнялась.
 
+### 2026-11-12 — заморозка публикаций удаляемого аккаунта (P6.17)
+
+- **Что проверено:** синхронизация `main` с `origin/main` (`959081e3`); самое свежее определение `claim_due_pin_schedules` — миграция 093; обнаружено, что ни один ремонтный/claim-путь worker'а не проверяет `users.account_status`, то есть расписания аккаунта в `deletion_pending` продолжали бы публиковаться. Это прямо противоречит правилу владельца (P6.17) и логически продолжает блок 127.
+- **Что изменено:**
+  - `db/migrations/128_account_deletion_stops_publications.sql` (новый) — единое правило «владелец существует и `users.account_status <> 'active'`» (join `users.id::text = pin_schedules.user_id`) применено в трёх SECURITY DEFINER функциях. `claim_due_pin_schedules` отменяет ещё не опубликованные расписания такого аккаунта (`status='cancelled'`) до всех прочих ремонтов и исключает аккаунт из финального claim; `renew_pin_schedule_claim` возвращает `false`, из-за чего worker прерывается на `assertClaimCurrent` перед `POST /pins`; `begin_scheduled_pinterest_publish` отклоняет резервацию до создания journal-строки. Уже `published`/`publishing`/`unknown` строки и активные аккаунты не затрагиваются; строки не удаляются.
+  - `backend/test/account-deletion-publication-fence.integration.sql` (новый) — изолированный тест: due-расписание fenced-аккаунта не выдаётся worker'у и становится `cancelled`, in-flight claim не продлевается, резервация отклоняется (42501), при этом активный контрольный аккаунт по-прежнему клеймится и продлевается.
+  - `.github/workflows/atomic-payment-integration.yml` — в шаг применения миграций добавлены 121–128 (ранее список обрывался на 120, из-за чего SQL integration-тесты собирались на устаревшей схеме); зарегистрирован новый тест.
+  - `backend/test/db-migration-chain.test.js` — граница канонической цепочки `127 → 128`.
+- **Commit SHA:** `caeb8623` (запушен в `origin/main`).
+- **Тесты (запускались реально):** backend `node --test` → 538/538 pass; frontend `tsc --noEmit` → 0, `tsx --test` → 145/145 pass, `vite build` → 0; replay цепочки на чистой PostgreSQL 18 (stub + `001_baseline` + `010–128`) → 128 файлов, exit 0, 32 таблицы; новый SQL-тест → exit 0; регрессия `pinterest-stale-schedule-recovery.integration.sql` → exit 0.
+- **Production:** кода backend/frontend не менялось (только SQL-миграция + CI). Миграция 128 **не применена** к рабочей Supabase; до её применения (вместе с 127) future-публикации удаляемого аккаунта продолжают обрабатываться. Прямые пользовательские сценарии не затронуты.
+- **Что осталось непроверенным / требует действия владельца:**
+  - Применить `127` + `128` к рабочей Supabase (после backup и staging-прогона) — иначе fence не действует в production.
+  - Физическая очистка данных удалённого аккаунта — отдельный контролируемый этап, пока не реализован.
+- **Новые задания пользователя:** применить `db/migrations/127_account_lifecycle.sql` и `db/migrations/128_account_deletion_stops_publications.sql` в Supabase SQL Editor в этом порядке (после backup).
+- **Production/merge/deploy статус:** merge в `main` и deploy CI-конфигурации выполнены; production SQL migration не выполнялась.
+
