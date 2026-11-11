@@ -153,6 +153,20 @@ function createAccountDeletionWorker({
 
   async function processJob(job) {
     try {
+      if (job.step_key === "finalize") {
+        const { data: finalized, error: finalizeError } = await client.rpc(
+          "finalize_account_deletion",
+          { p_job_id: job.job_id, p_claim_token: job.claim_token }
+        );
+        if (finalizeError) throw finalizeError;
+        if (finalized !== true) {
+          const error = new Error("account deletion finalization was not confirmed");
+          error.code = "account_finalization_unconfirmed";
+          throw error;
+        }
+        logger.info("account_deletion_worker.account_finalized", { job_id: job.job_id });
+        return { status: "succeeded" };
+      }
       if (job.step_key === "erase_content") {
         const { data: erasure, error: erasureError } = await client.rpc(
           "erase_account_deletion_content",
