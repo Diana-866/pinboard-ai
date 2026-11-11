@@ -6,6 +6,7 @@ const {
   inspectAccountForDeletion,
   createAccountDeletionWorker,
   safeErrorCode,
+  startLeaseHeartbeat,
 } = require("../accountDeletionWorker");
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
@@ -127,6 +128,7 @@ test("worker claims and finalizes only through fenced RPCs", async () => {
   const result = await worker.tick();
   assert.deepEqual(result, { claimed: 1, completed: 1, retried: 0 });
   assert.equal(calls[0].name, "claim_account_deletion_jobs");
+  assert.equal(calls[0].args.p_limit, 1);
   assert.equal(calls[1].name, "record_account_deletion_preflight");
   assert.equal(calls[1].args.p_claim_token, "claim-1");
   assert.equal(calls[2].name, "materialize_account_deletion_storage_manifest");
@@ -536,4 +538,53 @@ test("worker retries rather than completing when Storage deletion is not confirm
   assert.equal(calls.some((call) => call.name === "finish_account_deletion_job" && call.args.p_outcome === "succeeded"), false);
   assert.equal(calls.some((call) => call.name === "finish_account_deletion_job" && call.args.p_outcome === "retry"), true);
   assert.equal(calls.some((call) => call.name === "mark_account_deletion_storage_object_deleted"), true);
+});
+
+
+test("lease heartbeat renews only the current fenced claim and stops cleanly", async () => {
+  const calls = [];
+  let callback;
+  let cancelled = false;
+  const client = { async rpc(name, args) { calls.push({ name, args }); return { data: true, error: null }; } };
+  const heartbeat = startLeaseHeartbeat({
+    client,
+    job: { job_id: "job-heartbeat", claim_token: "claim-heartbeat" },
+    intervalMs: 12345,
+    schedule(fn, ms) { assert.equal(ms, 12345); callback = fn; return { unref() {} }; },
+    cancelSchedule() { cancelled = true; },
+  });
+  await callback();
+  assert.equal(heartbeat.lost, false);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].name, "renew_account_deletion_job_lease");
+  assert.deepEqual(calls[0].args, { p_job_id: "job-heartbeat", p_claim_token: "claim-heartbeat", p_lease_seconds: 300 });
+  heartbeat.stop();
+  assert.equal(cancelled, true);
+  await callback();
+  assert.equal(calls.length, 1);
+});
+
+test("lease heartbeat fails closed when renewal is rejected or errors", async () => {
+  for (const response of [{ data: false, error: null }, { data: null, error: { code: "XX000" } }]) {
+    let callback;
+    const heartbeat = startLeaseHeartbeat({
+      client: { async rpc() { return response; } },
+      job: { job_id: "job-lost", claim_token: "claim-lost" },
+      schedule(fn) { callback = fn; return null; },
+      cancelSchedule() {},
+    });
+    await callback();
+    assert.equal(heartbeat.lost, true);
+    heartbeat.stop();
+  }
+  let callback;
+  const heartbeat = startLeaseHeartbeat({
+    client: { async rpc() { throw new Error("network unavailable"); } },
+    job: { job_id: "job-network", claim_token: "claim-network" },
+    schedule(fn) { callback = fn; return null; },
+    cancelSchedule() {},
+  });
+  await callback();
+  assert.equal(heartbeat.lost, true);
+  heartbeat.stop();
 });
