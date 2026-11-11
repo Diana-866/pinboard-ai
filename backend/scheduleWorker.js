@@ -29,6 +29,13 @@ function getNextPollDelayMs(consecutiveFailures, baseIntervalMs = POLL_INTERVAL_
   const base = Math.max(1_000, Number(baseIntervalMs) || POLL_INTERVAL_MS);
   return Math.min(MAX_RETRY_INTERVAL_MS, base * (2 ** Math.min(failures, 4)));
 }
+const MAX_RETRY_INTERVAL_MS = 5 * 60_000;
+
+function getNextPollDelayMs(consecutiveFailures, baseIntervalMs = POLL_INTERVAL_MS) {
+  const failures = Math.max(0, Math.floor(Number(consecutiveFailures) || 0));
+  const base = Math.max(1_000, Number(baseIntervalMs) || POLL_INTERVAL_MS);
+  return Math.min(MAX_RETRY_INTERVAL_MS, base * (2 ** Math.min(failures, 4)));
+}
 
 function getWorkerConfig(env = process.env) {
   const baseUrl = String(env.PINPOSY_BACKEND_URL || env.PUBLIC_BACKEND_URL || "").trim().replace(/[/]+$/, "");
@@ -50,15 +57,28 @@ function createWorker({
   intervalMs = POLL_INTERVAL_MS,
   timeoutMs = REQUEST_TIMEOUT_MS,
   drainTimeoutMs = DEFAULT_DRAIN_TIMEOUT_MS,
+  schedule = setTimeout,
+  cancelSchedule = clearTimeout,
 }) {
   let timer = null;
   let active = false;
+  let started = false;
   let stopped = false;
+  let consecutiveFailures = 0;
 
   // Process one row per request. The backend renews that row's lease while
   // preflight and Pinterest publication are in progress.
   const safeBatchLimit = BATCH_LIMIT;
   const safeTimeoutMs = Math.min(MAX_REQUEST_TIMEOUT_MS, Math.max(10_000, Number(timeoutMs) || REQUEST_TIMEOUT_MS));
+
+  function scheduleNext(delayMs) {
+    if (!started || stopped || timer) return;
+    timer = schedule(() => {
+      timer = null;
+      void tick();
+    }, delayMs);
+    if (timer && typeof timer.unref === "function") timer.unref();
+  }
 
   async function tick() {
     if (stopped || active) return;
@@ -72,6 +92,7 @@ function createWorker({
         });
         const data = response && response.data;
         if (!data || data.ok !== true) throw new Error("Backend returned an invalid worker response");
+        consecutiveFailures = 0;
         logger.info("schedule_worker.batch_completed", {
           claimed: Number(data.claimed) || 0,
           published: Number(data.published) || 0,
@@ -81,23 +102,25 @@ function createWorker({
         });
       } catch (error) {
         // Never print request config/headers: they contain the scheduler secret.
+        consecutiveFailures += 1;
         logger.error("schedule_worker.batch_failed");
       } finally {
         active = false;
+        scheduleNext(getNextPollDelayMs(consecutiveFailures, intervalMs));
       }
     });
   }
 
   function start() {
-    if (timer || stopped) return;
+    if (started || stopped) return;
+    started = true;
     void tick();
-    timer = setInterval(() => { void tick(); }, intervalMs);
-    if (typeof timer.unref === "function") timer.unref();
   }
 
   async function stop() {
     stopped = true;
-    if (timer) clearInterval(timer);
+    started = false;
+    if (timer) cancelSchedule(timer);
     timer = null;
     // Drain briefly, but never hold SIGTERM for the full HTTP timeout (up to
     // 15 minutes). If the request outlives the host's shutdown grace period,
