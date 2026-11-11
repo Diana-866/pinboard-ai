@@ -48,3 +48,16 @@ export function normalizeGenerationRecoveryStatus(
     ? status
     : 'unknown';
 }
+
+/** Count only server-confirmed pins with the minimum durable identity and image fields. */
+export function countDurableGenerationPins(pins: unknown): number {
+  if (!Array.isArray(pins)) return 0;
+  return pins.filter((pin) =>
+    pin !== null &&
+    typeof pin === 'object' &&
+    typeof (pin as { id?: unknown }).id === 'string' &&
+    (pin as { id: string }).id.trim().length > 0 &&
+    typeof (pin as { image_url?: unknown }).image_url === 'string' &&
+    /^https?:\\/\\//i.test((pin as { image_url: string }).image_url),
+  ).length;
+}
