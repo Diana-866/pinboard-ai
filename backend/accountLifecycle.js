@@ -40,6 +40,7 @@ const PINTEREST_ACCOUNT_COLUMNS = [
   "expires_at",
   "created_at",
   "updated_at",
+  "disconnected_at",
 ];
 
 // Explicit export projections prevent newly added internal/provider columns
@@ -68,11 +69,11 @@ const CREDIT_PURCHASE_EXPORT_COLUMNS = [
   "amount", "currency", "paid_at", "created_at",
 ];
 const PINTEREST_PUBLICATION_EXPORT_COLUMNS = [
-  "id", "user_id", "pin_id", "pinterest_pin_id", "pinterest_board_id", "created_at",
+  "id", "user_id", "pin_id", "pinterest_account_id", "pinterest_pin_id", "pinterest_board_id", "created_at",
 ];
 const PIN_SCHEDULE_EXPORT_COLUMNS = [
   "id", "user_id", "pin_id", "scheduled_at", "timezone", "destination_url",
-  "pinterest_board_id", "status", "pinterest_pin_id", "published_at",
+  "pinterest_board_id", "pinterest_account_id", "status", "pinterest_pin_id", "published_at",
   "created_at", "updated_at", "snapshot_title", "snapshot_description",
   "snapshot_image_url", "snapshot_destination_url",
 ];
