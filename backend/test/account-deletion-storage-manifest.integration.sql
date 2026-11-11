@@ -1,5 +1,5 @@
 -- Durable account-deletion Storage manifest integration test.
--- Run after migrations 127-139 in the disposable PostgreSQL database.
+-- Run after migrations 127-140 in the disposable PostgreSQL database.
 begin;
 do $$
 declare
@@ -70,6 +70,11 @@ begin
   insert into public.pin_image_object_lifecycle(bucket_id,object_path,state)
   values ('pin-images','pins/generation-0123456789abcdef0123456789abcdef.webp','active')
   on conflict (bucket_id,object_path) do nothing;
+  insert into public.pin_review_queue(id,user_id,payload)
+  values(
+    'review-image-test',v_user::text,
+    '{"id":"review-image-test","title":"review image","imageUrl":"https://project.supabase.co/storage/v1/object/public/pin-images/pins/999-0123456789abcdef0123456789abcdef.webp"}'::jsonb
+  );
   v_result := public.claim_pin_image_deletion(
     'pin-images','pins/generation-0123456789abcdef0123456789abcdef.webp',600
   );
@@ -78,15 +83,15 @@ begin
   end if;
 
   v_result := public.materialize_account_deletion_storage_manifest(v_job,v_claim,'https://project.supabase.co');
-  if v_result->>'recorded' <> 'true' or (v_result->>'inserted')::integer <> 2
-     or (v_result->>'total')::integer <> 2 then
+  if v_result->>'recorded' <> 'true' or (v_result->>'inserted')::integer <> 3
+     or (v_result->>'total')::integer <> 3 then
     raise exception 'unexpected Storage manifest result: %',v_result;
   end if;
 
   -- Re-running the same leased operation is idempotent.
   v_result := public.materialize_account_deletion_storage_manifest(v_job,v_claim);
   if v_result->>'recorded' <> 'true' or (v_result->>'inserted')::integer <> 0
-     or (v_result->>'total')::integer <> 2 then
+     or (v_result->>'total')::integer <> 3 then
     raise exception 'Storage manifest retry was not idempotent: %',v_result;
   end if;
   if public.mark_account_deletion_storage_manifest(v_job,v_claim) is distinct from true then
@@ -106,6 +111,13 @@ begin
        and object_path='pins/generation-0123456789abcdef0123456789abcdef.webp' and state='pending'
   ) then
     raise exception 'generation replay image path was not persisted';
+  end if;
+  if not exists (
+    select 1 from public.account_deletion_storage_objects
+     where request_id=v_request and bucket_id='pin-images'
+       and object_path='pins/999-0123456789abcdef0123456789abcdef.webp' and state='pending'
+  ) then
+    raise exception 'review queue image path was not persisted';
   end if;
   if exists (
     select 1 from public.account_deletion_storage_objects
@@ -219,7 +231,8 @@ begin
   insert into public.pin_image_object_lifecycle(bucket_id,object_path,state)
   values
     ('pin-images','pins/123-0123456789abcdef0123456789abcdef.png','deleted'),
-    ('pin-images','pins/generation-0123456789abcdef0123456789abcdef.webp','deleted')
+    ('pin-images','pins/generation-0123456789abcdef0123456789abcdef.webp','deleted'),
+    ('pin-images','pins/999-0123456789abcdef0123456789abcdef.webp','deleted')
   on conflict(bucket_id,object_path) do update
     set state='deleted',claim_token=null,claim_expires_at=null,updated_at=clock_timestamp();
   update public.account_deletion_storage_objects
