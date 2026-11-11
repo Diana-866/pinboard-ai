@@ -2193,7 +2193,27 @@ app.post("/pins/:id/schedule", requireAuth, pinterestScheduleLimiter, requireTar
       .select("*, pins(id, board_id, title, description, image_url, boards(id, title))")
       .single();
     if (error && error.code === "23505") {
-      throw httpError(409, "Этот пин уже находится в расписании или был опубликован");
+      // The partial unique index allows only one active/uncertain schedule per
+      // pin. A client may lose the 201 response after the insert committed and
+      // retry the same request; return the existing row only for an exact match.
+      const { data: existing, error: existingError } = await supabase
+        .from("pin_schedules")
+        .select("*, pins(id, board_id, title, description, image_url, boards(id, title))")
+        .eq("user_id", String(req.userId))
+        .eq("pin_id", pin.id)
+        .in("status", ["scheduled", "publishing", "published", "unknown"])
+        .maybeSingle();
+      if (existingError) throw existingError;
+      const sameRequest = existing &&
+        new Date(existing.scheduled_at).getTime() === scheduledAt.getTime() &&
+        String(existing.timezone || "") === timezone &&
+        String(existing.destination_url || "") === String(destinationUrl || "") &&
+        String(existing.pinterest_board_id || "") === pinterestBoardId &&
+        String(existing.pinterest_account_id || "") === String(selectedAccount.id);
+      if (sameRequest) {
+        return res.status(200).json(sanitizeScheduleForClient(existing));
+      }
+      throw httpError(409, "Этот пин уже находится в расписании или был опубликован. Проверьте календарь перед повторным планированием.");
     }
     if (error) throw error;
     res.status(201).json(sanitizeScheduleForClient(data));
