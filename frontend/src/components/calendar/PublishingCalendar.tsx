@@ -81,6 +81,15 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
   const [busyScheduleAction, setBusyScheduleAction] = useState<string | null>(null);
   const scheduleActionLockRef = useRef<string | null>(null);
 
+  // Keep an open detail modal in sync with server refreshes. Without this,
+  // the calendar grid updates after publication but the modal keeps its old
+  // scheduled/publishing snapshot until the user closes and reopens it.
+  useEffect(() => {
+    if (!selectedPin) return;
+    const latest = scheduledPins.find((pin) => pin.id === selectedPin.id);
+    if (latest && latest !== selectedPin) setSelectedPin(latest);
+  }, [scheduledPins, selectedPin]);
+
   const runScheduleAction = async (actionKey: string, action: () => Promise<void>) => {
     // State updates are asynchronous; the ref closes the rapid double-click gap.
     if (scheduleActionLockRef.current) return;
