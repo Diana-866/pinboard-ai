@@ -1941,7 +1941,76 @@ app.post("/schedule/:id/reconcile-account", requireAuth, pinterestScheduleLimite
       .eq("user_id", String(req.userId))
       .single();
     if (readError) throw readError;
-    res.json(sanitizeScheduleForClient(updated));
+
+    // Match GET /schedule: a reconciled failed row must expose the same safe
+    // retry decision as the calendar list, otherwise the UI can incorrectly
+    // disable a retry immediately after successful account recovery.
+    const accountId = updated.pinterest_account_id ? String(updated.pinterest_account_id) : null;
+    if (updated.status !== "failed") {
+      return res.json(sanitizeScheduleForClient({
+        ...updated,
+        retryable: false,
+        retry_reason: null,
+        failure_reason: null,
+      }));
+    }
+
+    const [attemptsResult, publicationsResult, accountResult, duplicatesResult] = await Promise.all([
+      supabase.from("pinterest_publish_attempts")
+        .select("user_id, pin_id, pinterest_account_id, pinterest_board_id, status, retry_safe")
+        .eq("user_id", String(req.userId))
+        .eq("pin_id", String(updated.pin_id))
+        .eq("pinterest_account_id", String(accountId || ""))
+        .limit(1),
+      supabase.from("pinterest_publications")
+        .select("user_id, pin_id, pinterest_account_id")
+        .eq("user_id", String(req.userId))
+        .eq("pin_id", String(updated.pin_id))
+        .eq("pinterest_account_id", String(accountId || ""))
+        .limit(1),
+      accountId
+        ? supabase.from("pinterest_accounts")
+            .select("id")
+            .eq("user_id", String(req.userId))
+            .eq("id", accountId)
+            .is("disconnected_at", null)
+            .not("access_token", "is", null)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      supabase.from("pin_schedules")
+        .select("id")
+        .eq("user_id", String(req.userId))
+        .eq("pin_id", String(updated.pin_id))
+        .eq("pinterest_account_id", String(accountId || ""))
+        .in("status", ["scheduled", "publishing", "published", "unknown"])
+        .neq("id", String(updated.id))
+        .limit(1),
+    ]);
+    const metadataError = attemptsResult.error || publicationsResult.error ||
+      accountResult.error || duplicatesResult.error;
+    if (metadataError) {
+      logError("index.event_006");
+      return res.json(sanitizeScheduleForClient({
+        ...updated,
+        retryable: false,
+        retry_reason: "metadata_unavailable",
+        failure_reason: getScheduleFailureReason(updated),
+      }));
+    }
+
+    const retry = getScheduleRetryability(
+      updated,
+      (attemptsResult.data || [])[0] || null,
+      (publicationsResult.data || []).length > 0,
+      !!accountId && !!accountResult.data,
+      (duplicatesResult.data || []).length > 0
+    );
+    res.json(sanitizeScheduleForClient({
+      ...updated,
+      retryable: retry.retryable,
+      retry_reason: retry.reason,
+      failure_reason: getScheduleFailureReason(updated),
+    }));
   } catch (e) {
     handleError(res, e);
   }
