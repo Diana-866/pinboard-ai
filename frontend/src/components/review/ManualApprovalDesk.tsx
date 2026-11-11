@@ -51,7 +51,6 @@ export interface ManualApprovalDeskProps {
   onUpdatePendingPins?: (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => void | Promise<void>;
   onApprovePin: (pin: ScheduledPinItem) => void;
   onGoToCalendar?: () => void;
-  onGoToGenerator?: (topic?: string, date?: string, time?: string, boardId?: string) => void;
   onGoToDashboard?: () => void;
 }
 
@@ -289,7 +288,6 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   onUpdatePendingPins,
   onApprovePin,
   onGoToCalendar,
-  onGoToGenerator,
   onGoToDashboard,
 }) => {
   const { t, formatDate } = useI18n();
