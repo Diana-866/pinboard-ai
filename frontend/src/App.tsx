@@ -497,26 +497,29 @@ const MainApp: React.FC = () => {
       pinterest_account_id: pin.pinterestAccountId || undefined,
     };
     let saved: any;
+    const expectedRequest = {
+      pinId: pin.pinId,
+      scheduledAt: localDateTime.toISOString(),
+      pinterestBoardId: String(pin.pinterestBoardId || ''),
+      pinterestAccountId: pin.pinterestAccountId || undefined,
+      statuses: ['scheduled', 'publishing', 'failed', 'unknown'],
+    };
     try {
-      saved = await apiRequest(`/pins/${encodeURIComponent(pin.pinId)}/schedule`, {
+      const response = await apiRequest(`/pins/${encodeURIComponent(pin.pinId)}/schedule`, {
         method: 'POST',
         body: JSON.stringify(schedulePayload),
       });
+      // A 2xx response is not enough: only accept the exact persisted row that
+      // the calendar would later load. Malformed success responses are ambiguous.
+      saved = findPersistedScheduleRequest([response], expectedRequest);
+      if (!saved) throw new Error('Сервер не подтвердил сохранение расписания.');
     } catch (originalError) {
       // The server may have committed the schedule even when the response was
-      // lost. The API's one-active-schedule-per-pin constraint prevents a
-      // duplicate, but a blind retry would otherwise look like a failed action.
-      // Reconcile against the user's persisted schedule list before surfacing
+      // lost or malformed. Reconcile against the persisted list before surfacing
       // the original error; never infer success from a loose pin-ID match alone.
       try {
         const rows = await apiRequest('/schedule');
-        saved = findPersistedScheduleRequest(rows, {
-          pinId: pin.pinId,
-          scheduledAt: localDateTime.toISOString(),
-          pinterestBoardId: String(pin.pinterestBoardId || ''),
-          pinterestAccountId: pin.pinterestAccountId || undefined,
-          statuses: ['scheduled', 'publishing', 'failed', 'unknown'],
-        });
+        saved = findPersistedScheduleRequest(rows, expectedRequest);
         if (!saved) throw originalError;
       } catch {
         throw originalError;
