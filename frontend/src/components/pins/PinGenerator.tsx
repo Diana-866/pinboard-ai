@@ -23,7 +23,7 @@ import { useNotifications } from '../../context/NotificationContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { addCalendarDaysInTimezone, formatInstantInTimezone, getDefaultTimezone, resolveScheduleSlotTime } from '../../utils/timezone';
-import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure, isGenerationInProgress, normalizeGenerationRecoveryStatus } from '../../utils/generationRetry';
+import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure, isGenerationInProgress, normalizeGenerationRecoveryStatus, countDurableGenerationPins } from '../../utils/generationRetry';
 import { clearPendingPinDescriptionIfMatches, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
 import { enqueuePinSave } from '../../utils/pendingPinSaveQueue';
 import { isCurrentPinDescriptionSave } from '../../utils/pinDescriptionSaveGuard';
@@ -349,9 +349,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
           try {
             const result = await apiRequest(`/generation/requests/${encodeURIComponent(identity.idempotencyKey)}`);
             if (!active) return null;
-            // An empty/malformed completed payload is not proof of durable success.
-            const status = normalizeGenerationRecoveryStatus(result?.status, result?.pins);
-            const hasSavedPins = Array.isArray(result?.pins) && result.pins.length > 0;
+            // Only pins with a persisted identity and HTTP image URL count as durable.
+            const durablePinCount = countDurableGenerationPins(result?.pins);
+            const status = normalizeGenerationRecoveryStatus(result?.status, durablePinCount > 0 ? result.pins : []);
+            const hasSavedPins = durablePinCount > 0;
             // The server has confirmed the pins are durably saved. The recovery
             // identity is no longer needed; keep the in-memory card for this view,
             // while preventing completed requests from resurfacing after reload.
@@ -362,7 +363,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               key: identity.fingerprint,
               status,
               boardId: typeof result?.board_id === 'string' ? result.board_id : '',
-              pinCount: status === 'completed' && Array.isArray(result?.pins) ? result.pins.length : 0,
+              pinCount: status === 'completed' ? durablePinCount : 0,
             };
           } catch (error: any) {
             if (!active) return null;
