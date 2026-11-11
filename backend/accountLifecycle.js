@@ -83,6 +83,21 @@ async function selectRows(query, pageSize = 1000) {
   }
 }
 
+// Keep PostgREST URL/filter payloads bounded when an account owns many
+// projects or boards. A failed chunk rejects the section rather than silently
+// returning a partial export.
+async function selectRowsByValues(client, table, column, values, chunkSize = 200) {
+  const rows = [];
+  for (let offset = 0; offset < values.length; offset += chunkSize) {
+    const chunk = values.slice(offset, offset + chunkSize);
+    const page = await selectRows(
+      client.from(table).select("*").in(column, chunk)
+    );
+    rows.push(...page);
+  }
+  return rows;
+}
+
 /** Load one export section without failing the whole export when a single
  *  table is missing or temporarily unreadable. Returns [] on failure and
  *  records the section name so the caller can report partial data. */
@@ -126,7 +141,7 @@ async function buildAccountExport(userId, client = defaultSupabase) {
   const projectsUnavailable = degraded.includes("projects");
   const boards = projectIds.length
     ? await loadSection("boards", () =>
-        selectRows(client.from("boards").select("*").in("project_id", projectIds)), degraded)
+        selectRowsByValues(client, "boards", "project_id", projectIds), degraded)
     : [];
 
   // An empty parent list is only a valid empty result when the parent section
@@ -137,7 +152,7 @@ async function buildAccountExport(userId, client = defaultSupabase) {
   const boardsUnavailable = degraded.includes("boards");
   const pins = boardIds.length
     ? await loadSection("pins", () =>
-        selectRows(client.from("pins").select("*").in("board_id", boardIds)), degraded)
+        selectRowsByValues(client, "pins", "board_id", boardIds), degraded)
     : [];
 
   if (!boardIds.length && boardsUnavailable) degraded.push("pins");
