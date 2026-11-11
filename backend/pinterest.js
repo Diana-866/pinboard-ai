@@ -15,6 +15,7 @@ const express = require("express");
 const {
   pinterestReadLimiter,
   pinterestPublishLimiter,
+  pinterestAccountLimiter,
   pinterestOAuthStartLimiter,
   pinterestOAuthCallbackLimiter,
   pinterestWorkerLimiter,
@@ -1442,6 +1443,5 @@ module.exports = {
   resolveAccount,
   publishPin,
   verifyPinterestBoard,
-  classifyScheduleFailure,
   SCOPES,
 };
