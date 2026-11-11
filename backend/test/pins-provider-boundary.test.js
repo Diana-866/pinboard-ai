@@ -1105,6 +1105,66 @@ test("malformed immediate completion recovers by polling the journaled provider 
   assert.equal(recoveredAttempt.pendingTasks[0].task_id, "provider-task-malformed-001");
 });
 
+test("a terminal failure in one task does not discard other durable successful pins", async () => {
+  let providerCreateCalls = 0;
+  provider.generateText = async () => {
+    throw new Error("partial recovery must reuse the saved plan");
+  };
+  provider.generateImageImpl = async () => {
+    providerCreateCalls += 1;
+    throw new Error("terminally failed tasks must not be resubmitted");
+  };
+
+  const pins = await generatePins(
+    { id: "board-partial-recovery", title: "Partial recovery", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell",
+    2,
+    "2:3",
+    null,
+    {
+      loadPlan: async () => [
+        {
+          task_index: 1,
+          title: "Durable success",
+          description: "Already stored",
+          prompt: "saved prompt one",
+          model: "flux-schnell",
+          aspect_ratio: "2:3",
+          provider_idempotency_key: "partial-recovery-success-0001",
+          provider_task_id: "provider-task-partial-success",
+          provider_result_url: "https://provider.example.invalid/success.png",
+          provider_price: 0.75,
+          storage_url: "https://storage.example.invalid/success.png",
+          status: "succeeded",
+          provider_outcome_status: "succeeded",
+        },
+        {
+          task_index: 2,
+          title: "Terminal failure",
+          description: "Provider confirmed failure",
+          prompt: "saved prompt two",
+          model: "flux-schnell",
+          aspect_ratio: "2:3",
+          provider_idempotency_key: "partial-recovery-failed-0002",
+          provider_task_id: "provider-task-partial-failed",
+          status: "failed",
+        },
+      ],
+    }
+  );
+
+  assert.equal(providerCreateCalls, 0);
+  assert.equal(pins.length, 1);
+  assert.equal(pins[0].title, "Durable success");
+  assert.equal(pins[0].image_url, "https://storage.example.invalid/success.png");
+  assert.equal(pins[0].credits_cost, 0.75);
+  assert.deepEqual(pins.failedTasks, [{ task_index: 2 }]);
+  assert.deepEqual(pins.pendingTasks, []);
+  assert.deepEqual(pins.unknownTasks, []);
+  assert.equal(pins.plannedTaskCount, 2);
+});
+
 test("restore original module cache entries", () => {
   if (originalGptunnel) require.cache[gptunnelPath] = originalGptunnel;
   else delete require.cache[gptunnelPath];
