@@ -417,11 +417,11 @@ const MainApp: React.FC = () => {
       generation: pendingReviewOwnerGenerationRef.current,
     });
     // Ignore callbacks from a child rendered for the previous account.
-    if (!isCurrentOwner()) return;
-
+    if (!isCurrentOwner()) return Promise.reject(new Error('Сессия пользователя изменилась.'));
+ 
     const previous = pendingReviewPinsRef.current;
     const next = updater(previous);
-    if (next === previous) return;
+    if (next === previous) return Promise.resolve();
     if (reviewQueueHydratingRef.current) {
       const previousById = new Map(previous.map((pin) => [pin.id, pin]));
       const nextById = new Map(next.map((pin) => [pin.id, pin]));
@@ -462,7 +462,7 @@ const MainApp: React.FC = () => {
       .filter((pin) => !nextById.has(pin.id))
       .map((pin) => enqueueById(pin.id, () => apiRequest(`/review-queue/${encodeURIComponent(pin.id)}`, { method: 'DELETE' })));
 
-    Promise.all([...writes, ...removals]).catch((error) => {
+    return Promise.all([...writes, ...removals]).then(() => undefined).catch((error) => {
       console.error('[review-queue] Не удалось сохранить изменения очереди:', error);
       // Do not overwrite newer edits or a newly authenticated user's queue.
       if (isCurrentOwner() && pendingReviewPinsRef.current === next) {
@@ -470,6 +470,7 @@ const MainApp: React.FC = () => {
         setPendingReviewPins(previous);
       }
       window.dispatchEvent(new CustomEvent('pinposy:review-queue-error'));
+      throw error;
     });
   };
 
