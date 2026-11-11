@@ -46,3 +46,11 @@ test("scheduler recovers a durable remote Pinterest ID without repeating the rem
   assert.ok(ledgerCheck > completion, "lost completion responses require exact ledger confirmation");
   assert.ok(retryPost === -1 || retryPost < recovery, "recovery path must not issue another Pinterest POST");
 });
+
+test("database reconciliation recovers known remote IDs and rejects identity conflicts", () => {
+  const migration = read(path.join("..", "db", "migrations", "125_pinterest_recover_known_remote_publication_ids.sql"));
+  assert.match(migration, /status = 'unknown'[\s\S]*?pinterest_pin_id[\s\S]*?pinterest_board_id/);
+  assert.match(migration, /v_attempt\.pinterest_pin_id is not null[\s\S]*?is distinct from trim\(p_pinterest_pin_id\)/);
+  assert.match(migration, /pinterest_pin_id is not null[\s\S]*?is distinct from trim\(p_pinterest_pin_id\)/);
+  assert.match(migration, /complete_pinterest_publish_v2\(/);
+});
