@@ -4,6 +4,25 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const axios = require("axios");
 const { generateImage, waitForImageTask } = require("../gptunnel");
+const { providerTaskError } = require("../gptunnel");
+
+test("provider failure preserves a decimal price returned as a string", () => {
+  const error = providerTaskError({
+    id: "provider-task-failed-priced",
+    status: "failed",
+    price: "2.75",
+    refunded: false,
+    error: { code: 429, title: "Rate limited", message: "Provider rejected task" },
+  });
+
+  assert.equal(error.providerStatus, "failed");
+  assert.equal(error.providerTaskId, "provider-task-failed-priced");
+  assert.equal(error.providerPrice, 2.75);
+  assert.equal(error.providerRefunded, false);
+  assert.equal(error.providerErrorCode, 429);
+  assert.equal(error.providerErrorTitle, "Rate limited");
+});
+
 
 test("waitForImageTask polls the persisted task and never creates another task", async (t) => {
   const originalGet = axios.get;
