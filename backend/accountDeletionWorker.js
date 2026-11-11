@@ -84,6 +84,12 @@ async function inspectAccountForDeletion(client, userId) {
     "pinterest_publications",
     "pin_schedules",
     "pin_review_queue",
+    // Session/reset credentials and generation journals must be included in
+    // the deletion manifest; they are not represented by the pins table.
+    "auth_tokens",
+    "pin_generation_requests",
+    "pin_generation_tasks",
+    "pin_regeneration_requests",
   ]) {
     counts[table] = await countOwnedRows(client, table, userId);
   }
