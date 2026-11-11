@@ -62,6 +62,32 @@ npm run dev
 - Отдельный этап инфраструктуры: `docs/INFRASTRUCTURE_REQUIREMENTS.md`
 - Операционный план и журнал: `docs/LAUNCH_CONTROL.md`
 
+## Фоновая публикация Pinterest
+
+Планировщик запускается **отдельным постоянно работающим worker-процессом**, а не внутри web-сервера и не в браузере.
+
+### Развёртывание worker
+
+Создайте отдельный Background Worker из этого же репозитория и той же ветки, что и backend:
+
+- **Root / Working directory:** `backend`
+- **Build command:** `npm ci`
+- **Start command:** `npm run worker`
+- **Restart policy:** автоматический перезапуск при сбое
+
+Переменные окружения:
+
+| Переменная | Где задаётся | Значение |
+|---|---|---|
+| `PINPOSY_SCHEDULER_SECRET` | backend и worker | Один и тот же случайный секрет минимум 32 символа |
+| `PINPOSY_BACKEND_URL` | worker | HTTPS URL backend, например `https://pinboard-ai-backend.onrender.com` |
+| `PINPOSY_SCHEDULER_INTERVAL_MS` | worker, необязательно | Интервал опроса, по умолчанию 30000 мс |
+| `PINPOSY_SCHEDULER_REQUEST_TIMEOUT_MS` | worker, необязательно | Тайм-аут запроса, по умолчанию 120000 мс, максимум 900000 мс |
+
+Сгенерируйте секрет криптографически стойким генератором, сохраните его только в настройках окружения обоих сервисов. Не помещайте секрет в Git, frontend или URL.
+
+Worker обращается к закрытому endpoint `POST /internal/pinterest/schedule/run` и обрабатывает не более одной записи за запрос. Если worker остановлен, задания остаются в PostgreSQL и не исполняются до его восстановления. Перед включением реальных публикаций необходимо применить все необходимые миграции расписания на отдельной staging-БД и проверить OAuth, публикацию, повторный запуск worker и восстановление просроченного задания. **Не включайте worker на production без отдельного согласования и проверки миграций.**
+
 ## Документы
 
 - Политика конфиденциальности: `frontend/src/legal/privacy-policy.ru.md` / `.en.md` (отображается на `/privacy`)
