@@ -79,4 +79,9 @@ test("schedule API paginates the full calendar and chunks retry metadata lookups
   assert.match(route, /chunksOf\(pinIds\)/);
   assert.match(route, /chunksOf\(accountIds\)/);
   assert.match(route, /flatMap\(\(result\) => result\.data \|\| \[\]\)/);
+  assert.match(route, /attemptsByPinAndAccount/);
+  assert.match(route, /attemptsByExactDestination/);
+  assert.match(route, /publicationKeys/);
+  assert.match(route, /activeScheduleKeys/);
+  assert.doesNotMatch(route, /attempts\.find|publications\.some|rows\.some/);
 });
