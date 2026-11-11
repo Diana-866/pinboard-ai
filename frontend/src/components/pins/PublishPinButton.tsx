@@ -3,6 +3,7 @@ import { Send, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { apiRequest, ApiError } from '../../lib/api';
 import { resolvePublishBoardId } from '../../utils/publishBoardSelection';
 import { readConfirmedPinterestPublish } from '../../utils/pinterestPublishResponse';
+import { isAmbiguousPinterestPublishStatus } from '../../utils/pinterestPublishOutcome';
 
 interface PinterestAccount {
   id: string;
@@ -125,7 +126,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
       // A lost connection or server-side failure after POST /pins is ambiguous:
       // Pinterest may have created the pin even though the browser got no reply.
       // 409 also means the backend has fenced an in-flight/unknown attempt.
-      if (err?.status === 0 || err?.status === 409 || (Number(err?.status) >= 500)) {
+      if (isAmbiguousPinterestPublishStatus(err?.status)) {
         setUncertain(true);
       } else {
         setError(err?.message || 'Не удалось опубликовать пин');
