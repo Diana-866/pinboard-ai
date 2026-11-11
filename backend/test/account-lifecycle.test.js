@@ -125,7 +125,7 @@ test("account export never leaks credentials and follows the ownership graph", a
 test("account export paginates sections beyond the PostgREST default row cap", async () => {
   const transactions = Array.from({ length: 1005 }, (_, index) => ({
     id: `tx-${String(index + 1).padStart(4, "0")}`, user_id: USER_ID, amount: index + 1,
-  }));
+  })).reverse();
   const db = fakeDb({
     users: [{ id: USER_ID, email: "user@example.com" }],
     projects: [],
