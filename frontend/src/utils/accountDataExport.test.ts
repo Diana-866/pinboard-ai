@@ -38,10 +38,30 @@ test('a malformed deletion receipt never counts as success', () => {
   assert.equal(parseDeletionReceipt({ request: { requestId: 'req-1' } }), null);
 });
 
-test('only complete versioned account exports are accepted for download', () => {
-  assert.equal(isCompleteAccountExport({ formatVersion: 1, degradedSections: [] }), true);
-  assert.equal(isCompleteAccountExport({ formatVersion: 1, degradedSections: ['projects'] }), false);
-  assert.equal(isCompleteAccountExport({ formatVersion: 2, degradedSections: [] }), false);
+const completeExport = {
+  formatVersion: 1,
+  generatedAt: '2026-11-12T00:00:00.000Z',
+  account: { id: '3f2504e0-4f89-41d3-9a0c-0305e82c3301' },
+  projects: [],
+  boards: [],
+  pins: [],
+  creditTransactions: [],
+  subscriptions: [],
+  creditPurchases: [],
+  pinterestAccounts: [],
+  pinterestPublications: [],
+  pinSchedules: [],
+  reviewQueue: [],
+  degradedSections: [],
+};
+
+test('only structurally complete versioned account exports are accepted for download', () => {
+  assert.equal(isCompleteAccountExport(completeExport), true);
+  assert.equal(isCompleteAccountExport({ ...completeExport, degradedSections: ['projects'] }), false);
+  assert.equal(isCompleteAccountExport({ ...completeExport, formatVersion: 2 }), false);
+  assert.equal(isCompleteAccountExport({ ...completeExport, account: null }), false);
+  assert.equal(isCompleteAccountExport({ ...completeExport, pins: undefined }), false);
+  assert.equal(isCompleteAccountExport({ formatVersion: 1, degradedSections: [] }), false);
   assert.equal(isCompleteAccountExport({ degradedSections: [] }), false);
   assert.equal(isCompleteAccountExport({ formatVersion: 1 }), false);
   assert.equal(isCompleteAccountExport(null), false);
