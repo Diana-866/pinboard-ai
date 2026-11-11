@@ -4,6 +4,7 @@ import { apiRequest, ApiError } from '../../lib/api';
 import { resolvePublishBoardId } from '../../utils/publishBoardSelection';
 import { readConfirmedPinterestPublish } from '../../utils/pinterestPublishResponse';
 import { isAmbiguousPinterestPublishStatus } from '../../utils/pinterestPublishOutcome';
+import { buildPinterestPinUrl } from '../../utils/pinterestPinUrl';
 
 interface PinterestAccount {
   id: string;
@@ -138,9 +139,20 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
   };
 
   if (done) {
+    const publishedUrl = buildPinterestPinUrl(done);
     return (
-      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+      <span className="inline-flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
         <CheckCircle2 className="w-3.5 h-3.5" /> Опубликован в Pinterest
+        {publishedUrl && (
+          <a
+            href={publishedUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 hover:opacity-80"
+          >
+            Открыть пин
+          </a>
+        )}
       </span>
     );
   }
