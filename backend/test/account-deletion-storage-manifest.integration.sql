@@ -1,5 +1,5 @@
 -- Durable account-deletion Storage manifest integration test.
--- Run after migrations 127-141 in the disposable PostgreSQL database.
+-- Run after migrations 127-142 in the disposable PostgreSQL database.
 begin;
 do $$
 declare
@@ -13,6 +13,7 @@ declare
   v_pin uuid;
   v_pinterest_account uuid;
   v_subscription uuid;
+  v_active_generation_request bigint;
   v_other_project uuid;
   v_other_board uuid;
   v_result jsonb;
@@ -178,6 +179,18 @@ begin
     request_kind,user_id,idempotency_key,provider_task_id,provider_refunded,evidence_reference
   ) values('generation',v_user::text,'retained-refund-audit','provider-task-123',true,'evidence-ref-123');
 
+  insert into public.pin_generation_requests(
+    user_id,board_id,idempotency_key,status,pins,request_fingerprint
+  ) values(
+    v_user::text,v_board,'active-provider-task-key','processing','[]'::jsonb,repeat('b',64)
+  ) returning id into v_active_generation_request;
+  insert into public.pin_generation_tasks(
+    generation_request_id,user_id,board_id,task_index,title,prompt,model,aspect_ratio,status
+  ) values(
+    v_active_generation_request,v_user::text,v_board,1,'In flight','test prompt',
+    'flux-schnell','2:3','running'
+  );
+
   update public.account_deletion_jobs
      set status='succeeded',claim_token=null,lease_expires_at=null,finished_at=clock_timestamp()
    where id=v_job;
@@ -192,6 +205,23 @@ begin
    where request_id=v_request and step_key='erase_content';
   select id into v_job from public.account_deletion_jobs
    where request_id=v_request and step_key='erase_content';
+
+  v_result := public.erase_account_deletion_content(v_job,v_claim);
+  if v_result->>'erased' <> 'false'
+     or v_result->>'reason' <> 'provider_tasks_unresolved' then
+    raise exception 'in-flight provider task did not block erasure: %',v_result;
+  end if;
+  if not exists(select 1 from public.projects where user_id=v_user)
+     or not exists(select 1 from public.pin_generation_tasks where idempotency_key is null and generation_request_id=v_active_generation_request) then
+    -- The task journal is retained; it has no idempotency_key column of its own.
+    if not exists(select 1 from public.pin_generation_tasks where generation_request_id=v_active_generation_request) then
+      raise exception 'provider task journal was erased before its outcome was definitive';
+    end if;
+  end if;
+  update public.pin_generation_tasks set status='failed'
+   where generation_request_id=v_active_generation_request;
+  update public.pin_generation_requests set status='failed'
+   where id=v_active_generation_request;
 
   v_result := public.erase_account_deletion_content(v_job,v_claim);
   if v_result->>'erased' <> 'true'
