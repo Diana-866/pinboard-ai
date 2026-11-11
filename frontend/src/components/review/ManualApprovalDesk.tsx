@@ -539,10 +539,14 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     });
   };
 
-  const handleResetQueue = () => {
-    updateQueue(() => []);
-    setApprovedCount(0);
-    setRejectedCount(0);
+  const handleResetQueue = async () => {
+    try {
+      await updateQueue(() => []);
+      setApprovedCount(0);
+      setRejectedCount(0);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Не удалось очистить очередь. Попробуйте ещё раз.');
+    }
   };
 
   // Touch / Mouse Drag Swiping
