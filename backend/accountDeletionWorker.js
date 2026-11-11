@@ -1,8 +1,8 @@
 "use strict";
 
-// Dedicated worker for the account-deletion preflight queue.
-// This phase is intentionally read-only: it proves that the worker can see
-// every owned-data section before a separately reviewed erasure phase exists.
+// Dedicated worker for the account-deletion queue.
+// The current first stage inventories owned data and revokes locally stored
+// Pinterest credentials. Physical content erasure is a separate later stage.
 const { logError, logInfo } = require("./safeLogger");
 
 const POLL_INTERVAL_MS = Math.max(5000, Number(process.env.ACCOUNT_DELETION_WORKER_INTERVAL_MS) || 30000);
