@@ -116,7 +116,9 @@ test("quarantined deterministic upload path is reported as a conflict, not an in
     (error) => error.httpStatus === 409 &&
       /защиты от дубликатов/.test(error.message)
   );
-  assert.deepEqual(calls.slice(-1), [{ type: "upload" }]);
+  // The mock records the deterministic object path alongside the call type.
+  assert.equal(calls.slice(-1)[0].type, "upload");
+  assert.match(calls.slice(-1)[0].path, /^pins\/generation-[a-f0-9]{32}\.png$/);
   uploadError = null;
 });
 
@@ -130,15 +132,6 @@ test("rehost preserves Storage finalization errors instead of misreporting provi
   assert.equal(calls.some((call) => call.type === "upload"), true);
   uploadError = null;
   lookupFailure = lookupError;
-});
-
-test("restore original module cache entries", () => {
-  for (const path of modulePaths) {
-    const original = originals.get(path);
-    if (original) require.cache[path] = original;
-    else delete require.cache[path];
-  }
-  delete require.cache[require.resolve("../storage")];
 });
 
 
@@ -227,4 +220,14 @@ test("does not re-upload an object when its completed record exists but its publ
   completedRecoveryPath = null;
   missingPublicUrlPath = null;
   lookupFailure = lookupError;
+});
+
+
+test("restore original module cache entries", () => {
+  for (const path of modulePaths) {
+    const original = originals.get(path);
+    if (original) require.cache[path] = original;
+    else delete require.cache[path];
+  }
+  delete require.cache[require.resolve("../storage")];
 });

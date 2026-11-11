@@ -1,5 +1,6 @@
 const supabase = require("./supabase");
 const { httpError } = require("./validate");
+const { asError } = require("./dbErrors");
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -45,7 +46,7 @@ async function listPaymentCreationRequests(query = {}, now = Date.now(), db = su
     .in("status", ["unknown", "creating"])
     .order("updated_at", { ascending: true })
     .limit(limit);
-  if (error) throw error;
+  if (error) throw asError(error);
 
   const requestRows = data || [];
   const orderIds = [...new Set(requestRows.map((row) => row.provider_order_id).filter(Boolean))];
@@ -61,8 +62,8 @@ async function listPaymentCreationRequests(query = {}, now = Date.now(), db = su
         .select("id, user_id, provider_payment_id, package_id, status, amount, currency")
         .in("provider_payment_id", orderIds),
     ]);
-    if (subscriptionsResult.error) throw subscriptionsResult.error;
-    if (creditsResult.error) throw creditsResult.error;
+    if (subscriptionsResult.error) throw asError(subscriptionsResult.error);
+    if (creditsResult.error) throw asError(creditsResult.error);
     subscriptionRows = subscriptionsResult.data || [];
     creditPurchaseRows = creditsResult.data || [];
   }

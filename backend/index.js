@@ -186,9 +186,11 @@ const supabase = require("./supabase");
 const { buildPinScheduleSnapshot, classifyLegacyScheduleAccount, getScheduleRetryability, getScheduleFailureReason, sanitizeScheduleForClient } = require("./pinterestSchedule");
 const { pinterestScheduleLimiter } = require("./pinterestRateLimit");
 const { analyzeSite } = require("./analyze");
+const { suggestKeywords } = require("./keywordIdeas");
+const { asError } = require("./dbErrors");
 const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
-const { calculateGenerationReservation, calculateQuotedGenerationPricing } = require("./generationPricing");
+const { calculateGenerationReservation, calculateQuotedGenerationPricing, ceilCredits } = require("./generationPricing");
 const { uploadPinImage, rehostImage, deletePinImageIfUnreferenced } = require("./storage");
 const { reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects, inspectBlockedPinImageRetentionQueue, retryFailedPinImageDeletions, processPendingPinImageRetentionQueue } = require("./pinImageLifecycle");
 const { validateDevTopupRequest } = require("./devTopup");
@@ -667,6 +669,58 @@ app.post("/projects/:id/analyze", requireAuth, aiLimiter, async (req, res) => {
   }
 });
 
+// --- Ключевые слова ---
+
+// Keyword ideas for the user's niche. These are model suggestions, not measured
+// search volumes: the endpoint returns nothing that looks like a metric, because
+// Pinterest does not expose search volume to apps.
+app.post("/keywords", requireAuth, aiLimiter, async (req, res) => {
+  try {
+    const requestedCount = req.body && req.body.count != null ? Number(req.body.count) : 12;
+    if (!Number.isInteger(requestedCount) || requestedCount < 1 || requestedCount > 20) {
+      throw httpError(422, "count: допустимо целое число от 1 до 20");
+    }
+
+    let topic = optionalString(req.body && req.body.topic, { max: 200 });
+    let niche = null;
+
+    if (!topic || !(req.body && req.body.language)) {
+      const { data: projects, error: projectError } = await supabase
+        .from("projects")
+        .select("niche, site_summary, preferred_language")
+        .eq("user_id", req.userId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (projectError) throw asError(projectError);
+      const project = Array.isArray(projects) ? projects[0] : null;
+      niche = project ? optionalString(project.niche, { max: 200 }) : null;
+      topic = topic || niche;
+      if (!topic) {
+        throw httpError(
+          422,
+          "Укажите тему: у вашего профиля ещё нет ниши сайта. Проанализируйте сайт или введите тему вручную."
+        );
+      }
+      if (!(req.body && req.body.language) && project && project.preferred_language) {
+        req.body = { ...(req.body || {}), language: project.preferred_language };
+      }
+    }
+
+    const language = validateEnum(
+      req.body && req.body.language,
+      ["en", "ru", "es", "pt", "de", "fr", "zh"],
+      "ru",
+      "Язык"
+    );
+
+    const ideas = await suggestKeywords({ topic, niche, language, count: requestedCount });
+
+    res.json({ topic, language, count: ideas.length, items: ideas });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 // --- Доски ---
 
 app.post("/projects/:id/boards/generate", requireAuth, aiLimiter, requireTariff(["standard", "pro", "agency", "start"]), async (req, res) => {
@@ -850,7 +904,7 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
     const pin = await getPinWithOwnerCheck(req.params.id, req.userId);
     const instruction = optionalString(req.body && req.body.instruction, { max: 300 }) || "";
     const model = validateEnum(pin.model_used, Object.keys(MODEL_PRICES), "flux-schnell", "Модель");
-    const cost = Math.ceil((MODEL_PRICES[model] || 15) * MARKUP);
+    const cost = ceilCredits((MODEL_PRICES[model] || 15) * MARKUP);
     const prompt = `${pin.title}. ${pin.description}. ${instruction}`.trim();
     const fingerprint = crypto.createHash("sha256").update(JSON.stringify({
       pinId: String(pin.id), model, prompt, amount: cost,
@@ -907,7 +961,7 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
         quotedCreditCost = Number(savedQuote.amount);
       } else {
         const quote = await quoteImageTask(prompt, model, "2:3");
-        quotedCreditCost = Math.ceil(quote.price * MARKUP);
+        quotedCreditCost = ceilCredits(quote.price * MARKUP);
         const { error: quoteError } = await supabase.rpc("record_pin_regeneration_quote", {
           p_user_id: String(req.userId),
           p_idempotency_key: idempotencyKey,
@@ -1065,7 +1119,7 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
     if (!Number.isFinite(actualPrice) || actualPrice <= 0) {
       throw httpError(502, "Провайдер не вернул корректную фактическую стоимость изображения.");
     }
-    const actualCharge = Math.ceil(actualPrice * MARKUP);
+    const actualCharge = ceilCredits(actualPrice * MARKUP);
     const { error: settlementResizeError } = await supabase.rpc("resize_pin_regeneration_credit_reservation", {
       p_user_id: String(req.userId),
       p_idempotency_key: idempotencyKey,
@@ -1774,7 +1828,7 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
 
     const markedUpPins = okPins.map((p) => ({
       ...p,
-      credits_cost: Math.ceil(p.credits_cost * MARKUP),
+      credits_cost: ceilCredits(p.credits_cost * MARKUP),
     }));
     const totalCharge = markedUpPins.reduce((sum, p) => sum + p.credits_cost, 0);
 

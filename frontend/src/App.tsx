@@ -19,7 +19,6 @@ import { PrivacyPolicyModal } from './components/auth/PrivacyPolicyModal';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { PinGenerator } from './components/pins/PinGenerator';
 import { KeywordExplorer } from './components/keywords/KeywordExplorer';
-import { CompetitorAudit } from './components/competitors/CompetitorAudit';
 import { PublishingCalendar } from './components/calendar/PublishingCalendar';
 import { parsePersistedScheduleStatus } from './utils/scheduleStatus';
 import { BoardsManager } from './components/boards/BoardsManager';
@@ -372,6 +371,7 @@ const MainApp: React.FC = () => {
       monthlyViews: '—',
       minDailyPins: 8,
       maxDailyPins: 16,
+      nightlyAuto: false,
       status: account.needs_reauth ? 'error' : 'active',
       niche: '',
     }));
@@ -984,12 +984,6 @@ const MainApp: React.FC = () => {
             />
           )}
 
-          {activeTab === 'competitors' && (
-            <CompetitorAudit
-              onGenerateFromGap={(gap) => handleGenerateFromTopic(gap)}
-            />
-          )}
-
           {activeTab === 'calendar' && (
             <PublishingCalendar
               scheduledPins={scheduledPins}
@@ -1042,6 +1036,13 @@ const MainApp: React.FC = () => {
         }}
         isOpen={isBotOpen}
         onToggleOpen={() => setIsBotOpen(!isBotOpen)}
+        account={{
+          credits: user?.credits_balance,
+          planLabel: user?.tariff_plan && user.tariff_plan !== 'none' ? user.tariff_plan : undefined,
+          boardsCount: boards.length,
+          scheduledCount: scheduledPins.filter((pin) => pin.status === 'scheduled').length,
+          pendingCount,
+        }}
       />
 
       {/* Real-time Toast Queue Notification */}

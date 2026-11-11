@@ -2,11 +2,13 @@
 -- Repair schedules already stranded in unknown before migration 047 was applied.
 -- A row is promoted only when both the attempt journal and publication ledger
 -- independently agree on owner, pin, account, and the exact remote Pinterest ID.
+-- public.pins has no updated_at column (see 001_baseline), so the timestamp comes
+-- from the attempt journal only.
 
 update public.pin_schedules s
    set status='published',
        pinterest_pin_id=a.pinterest_pin_id,
-       published_at=coalesce(s.published_at,a.updated_at,p.updated_at,now()),
+       published_at=coalesce(s.published_at,a.updated_at,now()),
        last_error=null,
        next_attempt_at=null,
        updated_at=now()

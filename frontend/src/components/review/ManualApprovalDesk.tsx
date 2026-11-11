@@ -368,7 +368,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         if (!active) return;
         const rows = Array.isArray(data?.boards) ? data.boards : [];
         setPinterestBoards(rows);
-        if (!rows.some((board) => board.id === selectedPinterestBoardId)) {
+        if (!rows.some((board: { id: string }) => board.id === selectedPinterestBoardId)) {
           setSelectedPinterestBoardId(rows[0]?.id || '');
         }
         setPinterestBoardsLoaded(true);

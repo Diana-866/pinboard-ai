@@ -205,7 +205,9 @@ export function clearPendingGenerationRequest(
     return;
   }
   inMemoryRequests.clear();
-  const targets = [storage, getLegacySessionStorage()];
+  const targets: Array<
+    Pick<Storage, 'removeItem'> & Partial<Pick<Storage, 'key' | 'length'>> | undefined
+  > = [storage, getLegacySessionStorage()];
   for (const target of targets) {
     for (const key of [REQUEST_KEY, LEGACY_FINGERPRINT_KEY, LEGACY_IDEMPOTENCY_KEY]) {
       try { target?.removeItem(key); } catch { /* Best-effort legacy cleanup. */ }

@@ -4,11 +4,19 @@ on:
   workflow_dispatch:
   push:
     branches:
+      # Every branch that work actually lands on. The previous list covered only
+      # feat/persisted-boards-api, so a broken build on any other branch or PR
+      # reached the shared branch unnoticed.
+      - main
       - feat/persisted-boards-api
+      - 'fix/**'
+      - 'feat/**'
+      - 'chore/**'
   pull_request:
     branches:
-      - fix/atomic-payment-fulfillment
       - main
+      - feat/persisted-boards-api
+      - fix/atomic-payment-fulfillment
 
 permissions:
   contents: read

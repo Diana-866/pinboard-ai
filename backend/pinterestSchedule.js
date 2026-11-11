@@ -35,9 +35,12 @@ function canRetryScheduleFailure(attempt, attemptLookupError, error) {
   const status = Number(statusValue);
   if (retryable === false) return false;
   // A known client rejection must not inherit an older retry-safe journal.
-  // In particular, 401/403/404/409/422 usually mean credentials, account,
-  // board, or request state must be corrected before another attempt.
-  if (Number.isFinite(status) && status >= 400 && status < 500 && retryable !== true) return false;
+  // In particular, 400/401/403/404/409/422 mean request state, credentials,
+  // account or board must be corrected before another attempt.
+  // 408/429 are deliberately excluded: a timeout or a throttle is ambiguous or
+  // transient, so the durable journal still decides whether a retry is safe.
+  const isKnownClientRejection = [400, 401, 403, 404, 409, 422].includes(status);
+  if (isKnownClientRejection && retryable !== true) return false;
   if (attempt) return attempt.status === "failed" && attempt.retry_safe === true;
   return !Number.isFinite(status) || status === 0 || status === 502 || status === 503;
 }

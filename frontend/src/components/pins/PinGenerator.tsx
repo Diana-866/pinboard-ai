@@ -42,7 +42,7 @@ import {
 import {
   GeneratedPinVariation,
   SupportedAspectRatio,
-} from '../../services/gemini';
+} from '../../types/pinGeneration';
 import { PinCanvas, PinCanvasData, ASPECT_RATIO_SPECS } from './PinCanvas';
 import { useAuth } from '../../context/AuthContext';
 
@@ -106,6 +106,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [pinterestAccounts, setPinterestAccounts] = useState<Array<{ id: string; username?: string | null }>>([]);
   const [selectedPinterestAccountId, setSelectedPinterestAccountId] = useState('');
   const [pinterestBoards, setPinterestBoards] = useState<Array<{ id: string; name: string }>>([]);
+  // Account the loaded board list belongs to: guards against scheduling to a
+  // board fetched for the previously selected account.
+  const [pinterestBoardsAccountId, setPinterestBoardsAccountId] = useState<string>('');
   const [selectedPinterestBoardId, setSelectedPinterestBoardId] = useState('');
 
   useEffect(() => {
@@ -115,6 +118,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     setPinterestAccounts([]);
     setSelectedPinterestAccountId('');
     setPinterestBoards([]);
+    setPinterestBoardsAccountId('');
     setSelectedPinterestBoardId('');
     if (!userId) return () => { active = false; };
 
@@ -139,6 +143,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   useEffect(() => {
     let active = true;
     setPinterestBoards([]);
+    setPinterestBoardsAccountId('');
     setSelectedPinterestBoardId('');
     if (!userId || !selectedPinterestAccountId) {
       return () => { active = false; };
@@ -152,11 +157,13 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               typeof board.name === 'string' && board.name.trim())
           : [];
         setPinterestBoards(rows);
+        setPinterestBoardsAccountId(selectedPinterestAccountId);
         setSelectedPinterestBoardId(rows[0]?.id || '');
       })
       .catch(() => {
         if (active) {
           setPinterestBoards([]);
+          setPinterestBoardsAccountId('');
           setSelectedPinterestBoardId('');
         }
       });
@@ -778,6 +785,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         pinterestBoards,
         selectedPinterestAccountId,
         selectedPinterestBoardId,
+        pinterestBoardsAccountId,
       );
       if (!pinterestDestination) {
         window.alert('Доска назначения больше не связана с выбранным Pinterest-аккаунтом. Дождитесь загрузки досок и выберите доску заново.');
@@ -1673,7 +1681,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                         scheduledDate: customScheduleDate,
                         scheduledTime: customScheduleTime,
                         destinationUrl,
-                        accountHandle: pinterestAccounts.find((account) => account.id === selectedPinterestAccountId)?.username,
+                        accountHandle: pinterestAccounts.find((account) => account.id === selectedPinterestAccountId)?.username ?? undefined,
                         accountId: selectedPinterestAccountId || undefined,
                       });
                       setReviewQueueSuccess(true);

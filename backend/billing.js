@@ -281,6 +281,12 @@ async function handleWebhook(req, res, dependencies = {}) {
     return res.status(403).json({ ok: false, error: `Подпись не принята: ${check.reason}` });
   }
 
+  if (prodamus.isDemoWebhookBlocked()) {
+    // A demo payment form on a production deployment must never activate a plan.
+    logError("billing.event_010");
+    return res.status(503).json({ ok: false, error: "demo payments are disabled in production" });
+  }
+
   const orderId = String(body.order_id || "").trim();
   const status = String(body.payment_status || "").trim().toLowerCase();
 

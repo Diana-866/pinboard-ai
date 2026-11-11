@@ -68,9 +68,16 @@ async function getTariffState(userId, db = supabase) {
   }
 
   const plan = normalizePlan(sub.plan || cachedPlan);
-  // The user period end is the accumulated entitlement horizon. A late older
-  // webhook can have a later per-order period_end without owning the current plan.
-  const periodEnd = user.tariff_period_end || sub.period_end || null;
+  // The entitlement horizon is the later of the accumulated user horizon and the
+  // current paid order. A stale user cache (or a late webhook on an older order)
+  // must never shorten access the customer has already paid for; picking the
+  // later value keeps both the accumulated extension and a fresh order effective.
+  const horizon = [user.tariff_period_end, sub.period_end]
+    .map((value) => (value ? new Date(value).getTime() : NaN))
+    .filter((value) => Number.isFinite(value));
+  const periodEnd = horizon.length === 0
+    ? null
+    : new Date(Math.max(...horizon)).toISOString();
   // A successful paid order must have a finite entitlement horizon. NULL is
   // valid only for an explicit manual grant (the no-subscription branch above),
   // never as an accidental permanent paid subscription.

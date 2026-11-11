@@ -264,6 +264,22 @@ export interface TranslationSchema {
     tableIntent: string;
     tableAction: string;
     generateFromKeyword: string;
+    aiTitle: string;
+    aiSubtitle: string;
+    aiPlaceholder: string;
+    aiSubmit: string;
+    aiLoading: string;
+    aiEmpty: string;
+    aiError: string;
+    aiNote: string;
+    aiWhyLabel: string;
+    intents: {
+      inspiration: string;
+      how_to: string;
+      product: string;
+      style: string;
+      seasonal: string;
+    };
     highIntentTags: string;
     relatedQueries: string;
     exportCsv: string;
@@ -554,7 +570,7 @@ export interface TranslationSchema {
   };
 
   // История покупок пакетов кредитов (переводится только в ru; остальные локали берут фолбэк в UI)
-  purchases?: {
+  purchases: {
     purchasesHistoryTitle: string;
     thPack: string;
     thCredits: string;
@@ -613,6 +629,12 @@ export interface TranslationSchema {
     thinking: string;
     clearChat: string;
     suggestedTitle: string;
+    ctxCredits: string;
+    ctxPlan: string;
+    ctxBoards: string;
+    ctxQueue: string;
+    ctxPending: string;
+    ctxHeader: string;
   };
 
   // Notifications Bell & Queue System

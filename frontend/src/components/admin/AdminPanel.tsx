@@ -35,6 +35,7 @@ import {
   ArrowUpRight,
   ExternalLink,
   LogOut,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   ADMIN_USERS,

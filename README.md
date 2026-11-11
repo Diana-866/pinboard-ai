@@ -39,7 +39,24 @@ npm install
 npm run dev
 ```
 
+## Проверка перед деплоем
+
+GitHub Actions на аккаунте не запускаются (раннеры заблокированы лимитом оплаты),
+поэтому проверка идёт одной командой локально:
+
+```bash
+./scripts/verify.sh              # бэкенд: node --check + тесты; фронтенд: tsc + тесты + сборка
+./scripts/verify.sh --migrations # плюс прогон всех миграций на чистой PostgreSQL
+```
+
+Скрипт печатает итог по шагам и завершается с ненулевым кодом, если что-то упало.
+Для шага с миграциями нужен локальный PostgreSQL (`psql`) и файл
+`db/supabase-stub.sql` — он создаёт роли Supabase и `auth.uid()`.
+
 ## Переменные окружения бэкенда
+
+Полный список с назначением и признаком обязательности — в
+[`backend/.env.example`](backend/.env.example). Кратко:
 
 | Переменная | Назначение |
 |---|---|
@@ -47,6 +64,7 @@ npm run dev
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (или `SUPABASE_ANON_KEY`) | доступ к БД |
 | `GPTUNNEL_API_KEY` | ключ AI-провайдера |
 | `FRONTEND_URL` | CORS: адрес фронтенда |
+| `PINPOSY_SCHEDULER_SECRET` | секрет внутреннего вызова воркера публикаций (≥32 символа) |
 | `ADMIN_SECRET` | секрет админ-операций |
 | `ENABLE_DEV_TOPUP` | `true` — включает тестовое пополнение кредитов (только вне production) |
 | `PINTEREST_TOKEN_ENCRYPTION_KEY` | Активный 32-байтовый ключ AES-256-GCM для токенов Pinterest (base64 или 64 hex-символа) |

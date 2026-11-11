@@ -8,8 +8,10 @@ export function enqueuePinSave<T>(
   pinId: string,
   save: () => Promise<T>,
 ): Promise<T> {
-  const previous = pending.get(pinId) || Promise.resolve();
-  const request = previous.catch(() => undefined).then(save);
+  const previous = pending.get(pinId);
+  const request = previous
+    ? previous.catch(() => undefined).then(save)
+    : new Promise<T>((resolve) => resolve(save()));
   pending.set(pinId, request);
 
   const cleanup = () => {

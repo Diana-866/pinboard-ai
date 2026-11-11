@@ -1,19 +1,18 @@
 function isValidPersistedScheduleRow(row: unknown): row is Record<string, any> {
-  return !!row &&
-    typeof row === 'object' &&
-    !Array.isArray(row) &&
-    typeof row.id === 'string' &&
-    row.id.trim().length > 0 &&
-    typeof row.pin_id === 'string' &&
-    row.pin_id.trim().length > 0 &&
-    typeof row.status === 'string' &&
-    row.status.trim().length > 0 &&
-    typeof row.scheduled_at === 'string' &&
-    Number.isFinite(Date.parse(row.scheduled_at)) &&
-    Object.prototype.hasOwnProperty.call(row, 'pinterest_board_id') &&
-    (row.pinterest_board_id === null || typeof row.pinterest_board_id === 'string') &&
-    Object.prototype.hasOwnProperty.call(row, 'pinterest_account_id') &&
-    (row.pinterest_account_id === null || typeof row.pinterest_account_id === 'string');
+  if (!row || typeof row !== 'object' || Array.isArray(row)) return false;
+  const candidate = row as Record<string, any>;
+  return typeof candidate.id === 'string' &&
+    candidate.id.trim().length > 0 &&
+    typeof candidate.pin_id === 'string' &&
+    candidate.pin_id.trim().length > 0 &&
+    typeof candidate.status === 'string' &&
+    candidate.status.trim().length > 0 &&
+    typeof candidate.scheduled_at === 'string' &&
+    Number.isFinite(Date.parse(candidate.scheduled_at)) &&
+    Object.prototype.hasOwnProperty.call(candidate, 'pinterest_board_id') &&
+    (candidate.pinterest_board_id === null || typeof candidate.pinterest_board_id === 'string') &&
+    Object.prototype.hasOwnProperty.call(candidate, 'pinterest_account_id') &&
+    (candidate.pinterest_account_id === null || typeof candidate.pinterest_account_id === 'string');
 }
 
 function isValidPersistedScheduleList(rows: unknown): rows is Record<string, any>[] {

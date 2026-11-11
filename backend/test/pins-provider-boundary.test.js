@@ -25,10 +25,18 @@ const provider = {
     model: "gpt-4o",
     requestId: "chatcmpl-test-usage",
   }),
-  generateImage: async () => { throw new Error("simulated image provider failure"); },
-  waitForImageTask: async () => { throw new Error("unexpected task polling"); },
+  // pins.js destructures these at require time, so per-test overrides must go
+  // through a stable indirection (same pattern as generateTextWithUsage above).
+  generateImage: (...args) => provider.generateImageImpl(...args),
+  generateImageImpl: async () => { throw new Error("simulated image provider failure"); },
+  waitForImageTask: (...args) => provider.waitForImageTaskImpl(...args),
+  waitForImageTaskImpl: async () => { throw new Error("unexpected task polling"); },
 };
-const storage = { rehostImage: async (url) => url };
+// pins.js destructures rehostImage at require time; overrides go through the impl slot.
+const storage = {
+  rehostImage: (...args) => storage.rehostImageImpl(...args),
+  rehostImageImpl: async (url) => url,
+};
 
 require.cache[gptunnelPath] = {
   id: gptunnelPath,
@@ -240,7 +248,7 @@ test("text provider usage is awaited and persisted before parsing ideas", async 
       { title: "Usage pin", description: "Test", image_prompt: "An image" },
     ]);
   };
-  provider.generateImage = async () => {
+  provider.generateImageImpl = async () => {
     events.push("image");
     throw new Error("stop after usage callback");
   };
@@ -271,7 +279,7 @@ test("text usage journal failure stops before quote and image provider boundarie
   provider.generateText = async () => JSON.stringify([
     { title: "Journal failure pin", description: "Test", image_prompt: "A test image" },
   ]);
-  provider.generateImage = async () => {
+  provider.generateImageImpl = async () => {
     imageSubmitted = true;
     throw new Error("image provider must not be called after journal failure");
   };
@@ -309,7 +317,7 @@ test("plan journal failure after text provider success stops before quotes and i
       { title: "Unjournaled plan", description: "Test", image_prompt: "A test image" },
     ]);
   };
-  provider.generateImage = async () => {
+  provider.generateImageImpl = async () => {
     events.push("image-provider");
     throw new Error("image provider must not be called");
   };
@@ -351,7 +359,7 @@ test("atomic text-plan journal receives usage and normalized tasks before image 
   provider.generateText = async () => JSON.stringify([
     { title: "Atomic plan", description: "Description", image_prompt: "A test image" },
   ]);
-  provider.generateImage = async () => {
+  provider.generateImageImpl = async () => {
     events.push("image-provider");
     return { taskId: "image-task-atomic" };
   };
@@ -430,12 +438,12 @@ test("text-plan generation extracts a JSON array surrounded by provider prose", 
     JSON.stringify([{ title: "Wrapped response", description: "Test", image_prompt: "A test image" }]),
     "End of response.",
   ].join("\n");
-  provider.generateImage = async () => ({
+  provider.generateImageImpl = async () => ({
     url: "https://provider.example.invalid/wrapped-response.png",
     price: 0.6,
     taskId: "provider-task-wrapped-0001",
   });
-  storage.rehostImage = async () => "https://storage.example.invalid/wrapped-response.png";
+  storage.rehostImageImpl = async () => "https://storage.example.invalid/wrapped-response.png";
 
   const pins = await generatePins(
     { id: "board-1", title: "Test board", description: "" },
@@ -458,7 +466,7 @@ test("task quote validation completes before the first billable image submission
   provider.generateText = async () => JSON.stringify([
     { title: "Quoted pin", description: "Test", image_prompt: "A quoted image" },
   ]);
-  provider.generateImage = async () => {
+  provider.generateImageImpl = async () => {
     events.push("image");
     return {
       url: "https://provider.example.invalid/quoted.png",
@@ -466,7 +474,7 @@ test("task quote validation completes before the first billable image submission
       taskId: "provider-task-quoted-0001",
     };
   };
-  storage.rehostImage = async () => "https://storage.example.invalid/quoted.png";
+  storage.rehostImageImpl = async () => "https://storage.example.invalid/quoted.png";
 
   const pins = await generatePins(
     { id: "board-1", title: "Test board", description: "" },
@@ -495,7 +503,7 @@ test("quote validation failure prevents any image provider submission", async ()
   provider.generateText = async () => JSON.stringify([
     { title: "Unquoted pin", description: "Test", image_prompt: "An unquoted image" },
   ]);
-  provider.generateImage = async () => {
+  provider.generateImageImpl = async () => {
     imageSubmitted = true;
     throw new Error("image provider must not be called");
   };
@@ -521,7 +529,7 @@ test("image generation marks the provider submission boundary before calling the
   provider.generateText = async () => JSON.stringify([
     { title: "Test pin", description: "Test", image_prompt: "A test image" },
   ]);
-  provider.generateImage = async () => {
+  provider.generateImageImpl = async () => {
     assert.equal(submitted, true, "callback must run before the image provider call");
     throw new Error("simulated image provider failure");
   };
@@ -549,14 +557,14 @@ test("journal recovery reuses the saved prompt and provider idempotency key with
     throw new Error("resume must not request new text ideas");
   };
   let receivedKey = null;
-  provider.generateImage = async (prompt, model, ratio, key) => {
+  provider.generateImageImpl = async (prompt, model, ratio, key) => {
     assert.equal(prompt, "immutable saved prompt");
     assert.equal(model, "flux-schnell");
     assert.equal(ratio, "2:3");
     receivedKey = key;
     return { url: "https://provider.example.invalid/image.png", price: 0.6, taskId: "provider-task-0001" };
   };
-  storage.rehostImage = async () => "https://storage.example.invalid/image.png";
+  storage.rehostImageImpl = async () => "https://storage.example.invalid/image.png";
 
   const pins = await generatePins(
     { id: "board-1", title: "Test board", description: "" },
@@ -588,7 +596,7 @@ test("journal recovery reuses the saved prompt and provider idempotency key with
 
 test("recovery does not submit prepared provider tasks when balance is insufficient", async () => {
   let submitted = false;
-  provider.generateImage = async () => {
+  provider.generateImageImpl = async () => {
     submitted = true;
     throw new Error("prepared task must not be submitted without balance");
   };
@@ -623,7 +631,7 @@ test("recovery does not submit prepared provider tasks when balance is insuffici
 
 test("recovery reconciles ambiguous submitting tasks even when balance is insufficient", async () => {
   let submitted = false;
-  provider.generateImage = async () => {
+  provider.generateImageImpl = async () => {
     submitted = true;
     throw new Error("provider temporarily unavailable");
   };
@@ -657,7 +665,7 @@ test("recovery reconciles ambiguous submitting tasks even when balance is insuff
 
 test("recovery restores completed tasks while leaving unsubmitted tasks pending", async () => {
   let submitted = false;
-  provider.generateImage = async () => {
+  provider.generateImageImpl = async () => {
     submitted = true;
     throw new Error("prepared task should remain pending");
   };
@@ -713,7 +721,7 @@ test("storage failure after provider success preserves the billable result for s
   provider.generateText = async () => {
     throw new Error("recovery must not generate new text ideas");
   };
-  provider.generateImage = async (prompt, model, ratio, key) => {
+  provider.generateImageImpl = async (prompt, model, ratio, key) => {
     providerCalls.push({ prompt, model, ratio, key });
     return {
       url: "https://provider.example.invalid/durable-result.png",
@@ -721,7 +729,7 @@ test("storage failure after provider success preserves the billable result for s
       taskId: "provider-task-durable-0001",
     };
   };
-  storage.rehostImage = async () => {
+  storage.rehostImageImpl = async () => {
     storageAttempts += 1;
     if (storageAttempts === 1) throw new Error("temporary storage outage");
     return "https://storage.example.invalid/durable-result.png";
@@ -806,12 +814,12 @@ test("a succeeded provider result is rehosted from its saved URL without another
   provider.generateText = async () => {
     throw new Error("saved plan recovery must not generate text");
   };
-  provider.generateImage = async () => {
+  provider.generateImageImpl = async () => {
     throw new Error("saved provider result must not submit another create request");
   };
   let rehostedUrl = null;
   let journalUpdate = null;
-  storage.rehostImage = async (url, options) => {
+  storage.rehostImageImpl = async (url, options) => {
     rehostedUrl = { url, options };
     return "https://storage.example.invalid/recovered-result.png";
   };
@@ -860,12 +868,12 @@ test("a missing permanent storage URL is not returned as a generated pin", async
   provider.generateText = async () => JSON.stringify([
     { title: "No storage URL", description: "Test", image_prompt: "A test image" },
   ]);
-  provider.generateImage = async () => ({
+  provider.generateImageImpl = async () => ({
     url: "https://provider.example.invalid/no-storage.png",
     price: 0.5,
     taskId: "provider-task-no-storage-0001",
   });
-  storage.rehostImage = async () => null;
+  storage.rehostImageImpl = async () => null;
 
   const pins = await generatePins(
     { id: "board-1", title: "Test board", description: "" },
@@ -886,11 +894,11 @@ test("unrecoverable succeeded tasks never submit a duplicate provider create req
   provider.generateText = async () => {
     throw new Error("saved plan recovery must not generate text");
   };
-  provider.generateImage = async () => {
+  provider.generateImageImpl = async () => {
     providerCreateCalls += 1;
     throw new Error("a terminal succeeded task must never be resubmitted");
   };
-  storage.rehostImage = async () => {
+  storage.rehostImageImpl = async () => {
     throw new Error("there is no saved result URL to rehost");
   };
 
@@ -934,11 +942,11 @@ test("a journaled provider task ID is polled even if its last persisted state is
   provider.generateText = async () => {
     throw new Error("recovery must not generate new text");
   };
-  provider.generateImage = async () => {
+  provider.generateImageImpl = async () => {
     createCalls += 1;
     throw new Error("must not create another provider task");
   };
-  provider.waitForImageTask = async (taskId) => {
+  provider.waitForImageTaskImpl = async (taskId) => {
     pollCalls += 1;
     assert.equal(taskId, "provider-task-submitting-recovery");
     return { pending: true, taskId };
@@ -984,7 +992,7 @@ test("invalid pin-plan fields fail before quote validation or billable image sub
     { title: "Valid first idea", description: "Description", image_prompt: "Prompt" },
     { title: 42, description: "Wrong title type", image_prompt: "Prompt" },
   ]);
-  provider.generateImage = async () => {
+  provider.generateImageImpl = async () => {
     imageSubmitted = true;
     throw new Error("image provider must not be called");
   };
@@ -1011,7 +1019,7 @@ test("pin-plan parser keeps requested partial count and normalizes optional desc
     { title: "Only one idea", image_prompt: "A valid image prompt" },
   ]);
   let quotedTasks = null;
-  provider.generateImage = async () => {
+  provider.generateImageImpl = async () => {
     throw new Error("stop after validating and quoting the partial plan");
   };
 

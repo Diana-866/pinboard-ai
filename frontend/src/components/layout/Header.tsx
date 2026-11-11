@@ -84,7 +84,6 @@ export const Header: React.FC<HeaderProps> = ({
       case 'dashboard': return t.nav.dashboard;
       case 'generator': return t.nav.pinGenerator;
       case 'keywords': return t.nav.keywordResearch;
-      case 'competitors': return t.nav.competitorAudit;
       case 'calendar': return t.nav.calendar;
       case 'boards': return t.nav.boards;
       case 'analytics': return t.nav.analytics;

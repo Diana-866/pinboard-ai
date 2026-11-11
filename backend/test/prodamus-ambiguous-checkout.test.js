@@ -124,7 +124,7 @@ test("subscription remains pending when Prodamus link request has an ambiguous o
     assert.equal(db.paymentRequests.get("ambiguous-user:subscription-retry-key-001").providerOrderId, db.subscriptions[0].provider_payment_id);
     await assert.rejects(
       billing.createPayment("ambiguous-user", { plan: "start", currency: "rub" }, "subscription-retry-key-001"),
-      /неопределён/
+      /Повторное создание заблокировано|неопределён/
     );
     assert.equal(providerCalls, 1, "a retry must not create a second Prodamus invoice");
     assert.equal(db.subscriptions.length, 1);
@@ -155,7 +155,7 @@ test("credit purchase remains pending when Prodamus link request has an ambiguou
     assert.equal(db.credit_purchases[0].balance_credited_at, undefined);
     await assert.rejects(
       creditsBilling.createCreditsPayment("ambiguous-user", { package_id: "pack_100" }, "credits-retry-key-001"),
-      /неопределён/
+      /Повторное создание заблокировано|неопределён/
     );
     assert.equal(providerCalls, 1, "a retry must not create a second Prodamus invoice");
     assert.equal(db.credit_purchases.length, 1);
@@ -189,6 +189,9 @@ test("successful subscription checkout is replayed from the durable idempotency 
 
 
 test("successful credit checkout is replayed from the durable idempotency result", async () => {
+  // Isolate from rows and payment requests created by earlier cases in this file.
+  db.credit_purchases.length = 0;
+  db.paymentRequests.clear();
   const original = prodamus.createPaymentLink;
   let providerCalls = 0;
   prodamus.createPaymentLink = async ({ orderId }) => {
