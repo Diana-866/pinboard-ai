@@ -187,7 +187,7 @@ function createAccountDeletionWorker({
           for (const object of batch) {
             if (!object || object.bucket_id !== "pin-images" ||
                 typeof object.object_path !== "string" ||
-                !/^pins\\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\\.(?:png|jpe?g|webp|gif)$/i.test(object.object_path)) {
+                !/^pins\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp|gif)$/i.test(object.object_path)) {
               const error = new Error("invalid account deletion Storage manifest entry");
               error.code = "invalid_storage_manifest_entry";
               throw error;
@@ -231,6 +231,8 @@ function createAccountDeletionWorker({
           projects: erasure.projects,
           schedules: erasure.schedules,
           publications: erasure.publications,
+          storage_objects_deleted: storageObjectsDeleted,
+          storage_batches: storageBatches - 1,
         });
         return { status: "succeeded" };
       }
