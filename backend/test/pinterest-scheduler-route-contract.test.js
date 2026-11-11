@@ -24,6 +24,10 @@ test("internal scheduler route preserves auth, claim fencing, publish journal an
   assert.match(pinterest, /complete_pinterest_scheduler_run/);
   assert.match(pinterest, /claim_due_pin_schedules/);
   assert.match(pinterest, /renew_pin_schedule_claim/);
+  const reconciliation = pinterest.indexOf('supabase.rpc("reconcile_confirmed_pinterest_schedule_successes")');
+  const claim = pinterest.indexOf('supabase.rpc("claim_due_pin_schedules")');
+  assert.notEqual(reconciliation, -1, "every worker tick must reconcile known remote successes");
+  assert.ok(reconciliation < claim, "reconciliation must run before claiming new schedules");
   assert.match(pinterest, /await publishPin\(/);
   assert.match(pinterest, /scheduleId: schedule\.id/);
   assert.match(pinterest, /claimToken: schedule\.claim_token/);
