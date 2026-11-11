@@ -23,7 +23,7 @@ import { useNotifications } from '../../context/NotificationContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { addCalendarDaysInTimezone, formatInstantInTimezone, getDefaultTimezone, resolveScheduleSlotTime } from '../../utils/timezone';
-import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure, isGenerationInProgress } from '../../utils/generationRetry';
+import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure, isGenerationInProgress, normalizeGenerationRecoveryStatus } from '../../utils/generationRetry';
 import { clearPendingPinDescriptionIfMatches, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
 import { enqueuePinSave } from '../../utils/pendingPinSaveQueue';
 import { isCurrentPinDescriptionSave } from '../../utils/pinDescriptionSaveGuard';
@@ -349,16 +349,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
           try {
             const result = await apiRequest(`/generation/requests/${encodeURIComponent(identity.idempotencyKey)}`);
             if (!active) return null;
-            const reportedStatus = ['processing', 'completed', 'failed', 'unknown'].includes(result?.status)
-              ? result.status as 'processing' | 'completed' | 'failed' | 'unknown'
-              : 'unknown';
-            // A completed request must contain at least one durable pin. Treat
-            // an empty/malformed completion payload as uncertain and keep its
-            // recovery identity instead of displaying a false "Completed: 0".
+            // An empty/malformed completed payload is not proof of durable success.
+            const status = normalizeGenerationRecoveryStatus(result?.status, result?.pins);
             const hasSavedPins = Array.isArray(result?.pins) && result.pins.length > 0;
-            const status = reportedStatus === 'completed' && !hasSavedPins
-              ? 'unknown'
-              : reportedStatus;
             // The server has confirmed the pins are durably saved. The recovery
             // identity is no longer needed; keep the in-memory card for this view,
             // while preventing completed requests from resurfacing after reload.
