@@ -254,6 +254,8 @@ declare
   v_request_state text;
   v_job public.account_deletion_jobs%rowtype;
   v_preflight_status text;
+  v_preflight_inventory_recorded_at timestamptz;
+  v_preflight_manifest_recorded_at timestamptz;
   v_schedules integer := 0;
   v_review integer := 0;
   v_publications integer := 0;
@@ -296,28 +298,18 @@ begin
    where id=p_job_id for update;
   if not found or v_job.step_key <> 'erase_content' or v_job.status <> 'running'
      or v_job.claim_token is distinct from p_claim_token
-     or v_job.lease_expires_at <= clock_timestamp()
-     or v_job.inventory_recorded_at is null
-     or v_job.storage_manifest_recorded_at is null then
+     or v_job.lease_expires_at <= clock_timestamp() then
     return jsonb_build_object('erased',false,'reason','claim_or_manifest_lost');
   end if;
 
-  select status into v_preflight_status
+  select status,inventory_recorded_at,storage_manifest_recorded_at
+    into v_preflight_status,v_preflight_inventory_recorded_at,v_preflight_manifest_recorded_at
     from public.account_deletion_jobs
    where request_id=v_request_id and step_key='preflight';
-  if v_preflight_status <> 'succeeded' then
+  if not found or v_preflight_status <> 'succeeded'
+     or v_preflight_inventory_recorded_at is null
+     or v_preflight_manifest_recorded_at is null then
     return jsonb_build_object('erased',false,'reason','preflight_not_complete');
-  end if;
-
-  if not exists (
-    select 1 from public.account_deletion_storage_objects
-     where request_id=v_request_id
-  ) and not exists (
-    select 1 from public.projects where user_id=v_user_id
-  ) then
-    -- Empty accounts are valid. The existence of a completed preflight is the
-    -- authorization; an empty manifest does not mean missing preparation.
-    null;
   end if;
 
   -- Remove local operational/user content in dependency order. The durable
