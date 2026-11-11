@@ -29,6 +29,20 @@ test("media quote rejects malformed numeric strings", () => {
   }), /некорректную котировку/);
 });
 
+
+test("media quote rejects zero and negative prices", () => {
+  for (const price of [0, "0", -1, "-0.01"]) {
+    assert.throws(() => normalizeMediaQuote({
+      code: 0,
+      model: "flux-schnell",
+      price,
+      currency: "RUB",
+      params: { aspect_ratio: "2:3" },
+      ignored_params: [],
+    }), /некорректную котировку/);
+  }
+});
+
 test("provider failure preserves a decimal price returned as a string", () => {
   const error = providerTaskError({
     id: "provider-task-failed-priced",
