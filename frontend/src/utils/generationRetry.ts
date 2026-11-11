@@ -42,7 +42,7 @@ export function normalizeGenerationRecoveryStatus(
   pins: unknown,
 ): GenerationRecoveryStatus {
   if (status === 'completed') {
-    return Array.isArray(pins) && pins.length > 0 ? 'completed' : 'unknown';
+    return countDurableGenerationPins(pins) > 0 ? 'completed' : 'unknown';
   }
   return status === 'processing' || status === 'failed' || status === 'unknown'
     ? status
@@ -58,6 +58,14 @@ export function countDurableGenerationPins(pins: unknown): number {
     typeof (pin as { id?: unknown }).id === 'string' &&
     (pin as { id: string }).id.trim().length > 0 &&
     typeof (pin as { image_url?: unknown }).image_url === 'string' &&
-    /^https?:\/\//i.test((pin as { image_url: string }).image_url),
+    (() => {
+      try {
+        const url = new URL((pin as { image_url: string }).image_url);
+        return (url.protocol === 'https:' || url.protocol === 'http:') &&
+          Boolean(url.hostname) && !url.username && !url.password;
+      } catch {
+        return false;
+      }
+    })(),
   ).length;
 }
