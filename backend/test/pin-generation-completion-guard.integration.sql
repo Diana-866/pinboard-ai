@@ -26,6 +26,7 @@ declare
   v_retry_key text;
   v_blocker_key text;
   v_reservation_status text;
+  v_retry_storage_url text;
 begin
   insert into public.users(id,email,credits_balance,token_version)
   values(v_user,'generation-completion-guard-'||v_user||'@example.invalid',20,0);
@@ -307,13 +308,14 @@ begin
   if v_balance <> 15 then
     raise exception 'same-key credit recovery charged an incorrect balance: %',v_balance;
   end if;
-  select provider_task_id,provider_result_url,storage_url
-    into v_result_url,v_storage_url,v_price
+  select provider_task_id,provider_result_url,storage_url,provider_price
+    into v_result_url,v_storage_url,v_retry_storage_url,v_price
     from public.pin_generation_tasks t
     join public.pin_generation_requests r on r.id=t.generation_request_id
    where r.user_id=v_retry_user::text and r.idempotency_key=v_retry_key and t.task_index=1;
   if v_result_url <> 'provider-credit-retry'
      or v_storage_url <> 'https://provider.example.invalid/recoverable.png'
+     or v_retry_storage_url <> 'https://storage.example.invalid/recoverable.png'
      or v_price <> 1.25 then
     raise exception 'same-key recovery replaced the original provider task or result facts';
   end if;
