@@ -4,6 +4,7 @@
 // The current first stage inventories owned data and revokes locally stored
 // Pinterest credentials. Physical content erasure is a separate later stage.
 const { logError, logInfo } = require("./safeLogger");
+const { deleteManagedPinImageObject } = require("./pinImageLifecycle");
 
 const POLL_INTERVAL_MS = Math.max(5000, Number(process.env.ACCOUNT_DELETION_WORKER_INTERVAL_MS) || 30000);
 const LEASE_SECONDS = 300;
@@ -137,6 +138,57 @@ async function inspectAccountForDeletion(client, userId) {
   return { ok: true, sectionsChecked: Object.keys(counts).length, counts };
 }
 
+const ACCOUNT_STORAGE_MANIFEST_BATCH_SIZE = 100;
+const MANAGED_ACCOUNT_IMAGE_PATH = /^pins\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp|gif)$/i;
+
+async function eraseAccountStorageManifest({ client, job, deleteObject = deleteManagedPinImageObject }) {
+  let deleted = 0;
+  let batches = 0;
+  while (true) {
+    batches += 1;
+    if (batches > 10000) {
+      const error = new Error("account Storage manifest exceeded the safety batch limit");
+      error.code = "storage_manifest_batch_limit";
+      throw error;
+    }
+    const { data: rows, error: listError } = await client.rpc("list_account_deletion_storage_manifest", {
+      p_job_id: job.job_id,
+      p_claim_token: job.claim_token,
+      p_limit: ACCOUNT_STORAGE_MANIFEST_BATCH_SIZE,
+    });
+    if (listError) throw listError;
+    const pending = Array.isArray(rows) ? rows : [];
+    if (pending.length === 0) return { deleted, batches: batches - 1 };
+    for (const row of pending) {
+      if (!row || row.bucket_id !== "pin-images" ||
+          typeof row.object_path !== "string" || !MANAGED_ACCOUNT_IMAGE_PATH.test(row.object_path)) {
+        const error = new Error("account Storage manifest contains an unsupported object");
+        error.code = "storage_manifest_invalid_object";
+        throw error;
+      }
+      const removed = await deleteObject({ supabase: client, bucket: row.bucket_id, objectPath: row.object_path });
+      if (removed !== true) {
+        const error = new Error("managed Storage object deletion was not confirmed");
+        error.code = "storage_object_delete_unconfirmed";
+        throw error;
+      }
+      const { data: marked, error: markError } = await client.rpc("mark_account_deletion_storage_object_deleted", {
+        p_job_id: job.job_id,
+        p_claim_token: job.claim_token,
+        p_bucket_id: row.bucket_id,
+        p_object_path: row.object_path,
+      });
+      if (markError) throw markError;
+      if (marked !== true) {
+        const error = new Error("account Storage manifest completion was not fenced");
+        error.code = "storage_manifest_mark_failed";
+        throw error;
+      }
+      deleted += 1;
+    }
+  }
+}
+
 function createAccountDeletionWorker({
   client,
   logger = { info: logInfo, error: logError },
@@ -162,6 +214,7 @@ function createAccountDeletionWorker({
           error.code = "content_erasure_unconfirmed";
           throw error;
         }
+        const storageErasure = await eraseAccountStorageManifest({ client, job });
         const { data: finished, error: finishError } = await client.rpc("finish_account_deletion_job", {
           p_job_id: job.job_id,
           p_claim_token: job.claim_token,
@@ -175,6 +228,7 @@ function createAccountDeletionWorker({
           projects: erasure.projects,
           schedules: erasure.schedules,
           publications: erasure.publications,
+          storage_objects_deleted: storageErasure.deleted,
         });
         return { status: "succeeded" };
       }
@@ -335,4 +389,4 @@ if (require.main === module) {
   process.once("SIGINT", () => { void shutdown(); });
 }
 
-module.exports = { safeErrorCode, countOwnedRows, fetchAllRows, chunkValues, countPinsForBoards, inspectAccountForDeletion, createAccountDeletionWorker };
+module.exports = { safeErrorCode, countOwnedRows, fetchAllRows, chunkValues, countPinsForBoards, inspectAccountForDeletion, eraseAccountStorageManifest, createAccountDeletionWorker };
