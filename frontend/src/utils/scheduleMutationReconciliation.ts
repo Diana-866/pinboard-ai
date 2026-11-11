@@ -81,6 +81,24 @@ export function findPersistedScheduleRequest(
   if (!Array.isArray(rows)) return null;
   const expectedTime = Date.parse(expected.scheduledAt);
   if (!Number.isFinite(expectedTime)) return null;
+  // A partially malformed listing cannot prove that the mutation is unique.
+  if (rows.some((row) =>
+    !row ||
+    typeof row !== 'object' ||
+    Array.isArray(row) ||
+    typeof row.id !== 'string' ||
+    row.id.trim().length === 0 ||
+    typeof row.pin_id !== 'string' ||
+    row.pin_id.trim().length === 0 ||
+    typeof row.status !== 'string' ||
+    row.status.trim().length === 0 ||
+    typeof row.scheduled_at !== 'string' ||
+    !Number.isFinite(Date.parse(row.scheduled_at)) ||
+    !Object.prototype.hasOwnProperty.call(row, 'pinterest_board_id') ||
+    (row.pinterest_board_id !== null && typeof row.pinterest_board_id !== 'string') ||
+    !Object.prototype.hasOwnProperty.call(row, 'pinterest_account_id') ||
+    (row.pinterest_account_id !== null && typeof row.pinterest_account_id !== 'string')
+  )) return null;
 
   const matches = rows.filter((row): row is Record<string, any> =>
     !!row &&
