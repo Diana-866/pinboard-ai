@@ -76,10 +76,11 @@ test('does not classify unknown or unrelated errors as in-progress', () => {
 
 
 test('accepts completed recovery only when at least one saved pin is present', () => {
-  assert.equal(normalizeGenerationRecoveryStatus('completed', [{ id: 'pin-1' }]), 'completed');
+  const savedPin = { id: 'pin-1', image_url: 'https://storage.example/pin-1.png' };
+  assert.equal(normalizeGenerationRecoveryStatus('completed', [savedPin]), 'completed');
   assert.equal(normalizeGenerationRecoveryStatus('completed', []), 'unknown');
   assert.equal(normalizeGenerationRecoveryStatus('completed', null), 'unknown');
-  assert.equal(normalizeGenerationRecoveryStatus('unexpected', [{ id: 'pin-1' }]), 'unknown');
+  assert.equal(normalizeGenerationRecoveryStatus('unexpected', [savedPin]), 'unknown');
 });
 
 test('preserves non-completed recovery states', () => {
