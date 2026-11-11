@@ -30,6 +30,17 @@ function getNextPollDelayMs(consecutiveFailures, baseIntervalMs = POLL_INTERVAL_
   return Math.min(MAX_RETRY_INTERVAL_MS, base * (2 ** Math.min(failures, 4)));
 }
 
+function getSafeWorkerErrorDetails(error) {
+  const details = {};
+  if (error && typeof error.name === "string") details.error_name = error.name.slice(0, 40);
+  if (error && typeof error.code === "string" && /^[A-Z0-9_]{1,40}$/.test(error.code)) {
+    details.error_code = error.code;
+  }
+  const status = Number(error && error.response && error.response.status);
+  if (Number.isInteger(status) && status >= 100 && status <= 599) details.http_status = status;
+  return details;
+}
+
 function getWorkerConfig(env = process.env) {
   const baseUrl = String(env.PINPOSY_BACKEND_URL || env.PUBLIC_BACKEND_URL || "").trim().replace(/[/]+$/, "");
   const secret = String(env.PINPOSY_SCHEDULER_SECRET || "");
@@ -96,7 +107,7 @@ function createWorker({
       } catch (error) {
         // Never print request config/headers: they contain the scheduler secret.
         consecutiveFailures += 1;
-        logger.error("schedule_worker.batch_failed");
+        logger.error("schedule_worker.batch_failed", getSafeWorkerErrorDetails(error));
       } finally {
         active = false;
         scheduleNext(getNextPollDelayMs(consecutiveFailures, intervalMs));
