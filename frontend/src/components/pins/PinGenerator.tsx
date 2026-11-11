@@ -350,7 +350,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
           // The server has confirmed the pins are durably saved. The recovery
           // identity is no longer needed; keep the in-memory card for this view,
           // while preventing completed requests from resurfacing after reload.
-          if (status === 'completed') {
+          if (status === 'completed' && Array.isArray(result?.pins) && result.pins.length > 0) {
             clearPendingGenerationRequest(identity.fingerprint);
           }
         } catch (error: any) {
