@@ -26,6 +26,7 @@ import {
   addCalendarDaysInTimezone,
   getCalendarMonthGrid,
   getDefaultTimezone,
+  resolveScheduleSlotTime,
   saveUserTimezone,
   SUPPORTED_TIMEZONES,
 } from '../../utils/timezone';
@@ -283,10 +284,21 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
   });
 
   const handleSlotClick = (dateStr: string, timeStr = '20:15') => {
+    let safeTime: string;
+    try {
+      safeTime = resolveScheduleSlotTime(dateStr, userTimezone, timeStr);
+    } catch {
+      window.alert(
+        language === 'ru'
+          ? 'На выбранную дату больше нет доступного времени. Выберите сегодняшнюю или будущую дату.'
+          : 'No future time is available on this date. Choose today or a future date.'
+      );
+      return;
+    }
     setSlotModalData({
       isOpen: true,
       date: dateStr,
-      time: timeStr,
+      time: safeTime,
       boardId: boards[0]?.id || '',
     });
     setSlotTopic('Minimalist Scandinavian styling and warm beige palette');
