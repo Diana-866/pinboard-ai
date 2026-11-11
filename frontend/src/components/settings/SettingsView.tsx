@@ -86,7 +86,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing, onPin
       // The API currently returns this gate message in Russian. Keep the
       // account-deletion UI consistent with the selected application language.
       if (error instanceof ApiError && error.data?.code === 'account_deletion_unavailable') {
-        setDeleteError(t.settings.requestFailed);
+        setDeleteError(t.settings.deleteAccountUnavailable);
       } else {
         setDeleteError(error instanceof Error ? error.message : t.settings.requestFailed);
       }
