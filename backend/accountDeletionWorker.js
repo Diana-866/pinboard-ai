@@ -42,7 +42,15 @@ function startLeaseHeartbeat({client, job, intervalMs = 60000, schedule = setInt
   let stopped = false;
   let inFlight = false;
   const timer = schedule(async () => {
-    if (stopped || lost || inFlight) return;
+    if (stopped || lost) return;
+    // A renewal still pending at the next heartbeat means its result can no
+    // longer be trusted before the lease safety margin. Fail closed rather
+    // than letting a worker continue destructive Storage work on an unknown
+    // lease while another worker may reclaim the job.
+    if (inFlight) {
+      lost = true;
+      return;
+    }
     inFlight = true;
     try {
       const { data, error } = await client.rpc("renew_account_deletion_job_lease", {
