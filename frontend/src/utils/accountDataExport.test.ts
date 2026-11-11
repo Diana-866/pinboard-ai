@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildAccountExportFilename, isCompleteAccountExport, parseDeletionReceipt } from './accountDataExport';
+import { buildAccountExportFilename, downloadJsonFile, isCompleteAccountExport, parseDeletionReceipt } from './accountDataExport';
 
 test('export filename is deterministic, UTC-based and sanitized', () => {
   const now = new Date('2026-11-12T08:05:09Z');
