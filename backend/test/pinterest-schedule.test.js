@@ -19,6 +19,7 @@ const {
   resolvePinScheduleSnapshot,
   classifyLegacyScheduleAccount,
   getScheduleRetryability,
+  selectScheduleAttemptForRetry,
   getScheduleFailureReason,
   sanitizeScheduleForClient,
   createScheduleClaimHeartbeat,
@@ -702,4 +703,29 @@ test("unreadable retry metadata fails closed instead of repeating a possibly acc
     false,
     "hostile fresh metadata must override an older retry-safe journal"
   );
+});
+
+
+test("schedule retry selects the exact board attempt when older attempts target another board", () => {
+  const schedule = {
+    user_id: "user-1",
+    pin_id: "pin-1",
+    pinterest_account_id: "account-1",
+    pinterest_board_id: "board-current",
+  };
+  const stale = {
+    ...schedule,
+    pinterest_board_id: "board-old",
+    status: "failed",
+    retry_safe: false,
+  };
+  const current = {
+    ...schedule,
+    status: "failed",
+    retry_safe: true,
+  };
+
+  assert.equal(selectScheduleAttemptForRetry([stale, current], schedule), current);
+  assert.equal(selectScheduleAttemptForRetry([stale], schedule), stale);
+  assert.equal(selectScheduleAttemptForRetry([], schedule), null);
 });
