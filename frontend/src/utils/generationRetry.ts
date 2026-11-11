@@ -33,3 +33,18 @@ export function isGenerationInProgress(error: unknown): boolean {
   if (!data || typeof data !== 'object') return false;
   return (data as { code?: unknown }).code === 'generation_in_progress';
 }
+
+export type GenerationRecoveryStatus = 'processing' | 'completed' | 'failed' | 'unknown';
+
+/** Never label an empty or malformed completion payload as a durable success. */
+export function normalizeGenerationRecoveryStatus(
+  status: unknown,
+  pins: unknown,
+): GenerationRecoveryStatus {
+  if (status === 'completed') {
+    return Array.isArray(pins) && pins.length > 0 ? 'completed' : 'unknown';
+  }
+  return status === 'processing' || status === 'failed' || status === 'unknown'
+    ? status
+    : 'unknown';
+}
