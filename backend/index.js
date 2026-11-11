@@ -1337,13 +1337,22 @@ app.get("/boards/:id", requireAuth, async (req, res) => {
 app.get("/boards/:id/pins", requireAuth, async (req, res) => {
   try {
     await getBoardWithOwnerCheck(req.params.id, req.userId);
-    const { data, error } = await supabase
-      .from("pins")
-      .select("*")
-      .eq("board_id", req.params.id)
-      .order("created_at", { ascending: true });
-    if (error) throw error;
-    res.json(data);
+    const pageSize = 500;
+    const pins = [];
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await supabase
+        .from("pins")
+        .select("*")
+        .eq("board_id", req.params.id)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, from + pageSize - 1);
+      if (error) throw error;
+      const page = Array.isArray(data) ? data : [];
+      pins.push(...page);
+      if (page.length < pageSize) break;
+    }
+    res.json(pins);
   } catch (e) {
     handleError(res, e);
   }
