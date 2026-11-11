@@ -460,6 +460,13 @@ app.get("/me", requireAuth, async (req, res) => {
 app.get("/account/export", requireAuth, async (req, res) => {
   try {
     const payload = await buildAccountExport(req.userId);
+    if (payload.degradedSections.length > 0) {
+      return res.status(503).json({
+        error: "Полный архив данных временно недоступен — попробуйте позже",
+        code: "account_export_incomplete",
+        degradedSections: payload.degradedSections,
+      });
+    }
     res.setHeader("Content-Disposition", 'attachment; filename="pinposy-account-export.json"');
     res.json(payload);
   } catch (e) {
