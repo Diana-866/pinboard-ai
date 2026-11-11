@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure } from './generationRetry';
+import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure, isGenerationInProgress } from './generationRetry';
 
 test('rotates key after an explicitly definitive generation failure', () => {
   assert.equal(isDefinitiveGenerationFailure({
@@ -61,4 +61,15 @@ test('fails closed when secure browser randomness is unavailable', () => {
     () => createGenerationIdempotencyKey({} as unknown as Crypto),
     /HTTPS/,
   );
+});
+
+test('recognizes the backend 409 in-progress generation response without treating it as definitive failure', () => {
+  const error = { status: 409, data: { code: 'generation_in_progress' } };
+  assert.equal(isGenerationInProgress(error), true);
+  assert.equal(isDefinitiveGenerationFailure(error), false);
+});
+
+test('does not classify unknown or unrelated errors as in-progress', () => {
+  assert.equal(isGenerationInProgress({ status: 409, data: { code: 'generation_outcome_unknown' } }), false);
+  assert.equal(isGenerationInProgress(new Error('network failure')), false);
 });
