@@ -9,8 +9,8 @@ drop function if exists public.request_account_deletion(uuid, text);
 
 create or replace function public.request_account_deletion(
   p_user_id uuid,
-  p_confirmation_method text default 'password_reauth',
-  p_expected_token_version bigint default null
+  p_confirmation_method text,
+  p_expected_token_version bigint
 )
 returns jsonb
 language plpgsql
