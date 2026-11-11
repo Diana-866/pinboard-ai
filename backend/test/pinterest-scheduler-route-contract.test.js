@@ -64,3 +64,19 @@ test("database reconciliation recovers known remote IDs and rejects identity con
   assert.match(boundedRecovery, /s\.status in \('publishing','unknown'\)/);
   assert.match(boundedRecovery, /limit 50/);
 });
+
+test("schedule API paginates the full calendar and chunks retry metadata lookups", () => {
+  const index = read("index.js");
+  const routeStart = index.indexOf('app.get("/schedule", requireAuth');
+  const routeEnd = index.indexOf('app.post("/schedule/:id/reconcile-account"', routeStart);
+  assert.notEqual(routeStart, -1, "authenticated schedule route exists");
+  assert.ok(routeEnd > routeStart, "schedule route has a bounded source section");
+  const route = index.slice(routeStart, routeEnd);
+  assert.match(route, /const pageSize = 500/);
+  assert.match(route, /\.range\(offset, offset \+ pageSize - 1\)/);
+  assert.match(route, /\.order\("scheduled_at", \{ ascending: true \}\)[\s\S]*\.order\("id", \{ ascending: true \}\)/);
+  assert.match(route, /if \(batch\.length < pageSize\) break/);
+  assert.match(route, /chunksOf\(pinIds\)/);
+  assert.match(route, /chunksOf\(accountIds\)/);
+  assert.match(route, /flatMap\(\(result\) => result\.data \|\| \[\]\)/);
+});
