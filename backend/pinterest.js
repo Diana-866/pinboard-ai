@@ -1248,6 +1248,68 @@ function registerRoutes(app, deps) {
             attemptLookupError = lookupError;
           }
 
+          // Pinterest may have returned a remote ID before the local completion
+          // transaction lost its response. The ID is durable in the attempt journal
+          // (status=unknown); finalize it through the same atomic completion RPC
+          // instead of leaving a permanently unknown schedule.
+          if (
+            !attemptLookupError &&
+            attempt &&
+            attempt.status === "unknown" &&
+            String(attempt.pinterest_pin_id || "").trim() &&
+            hasCompleteScheduleClaimIdentity(schedule)
+          ) {
+            const remoteId = String(attempt.pinterest_pin_id).trim();
+            let recovered = null;
+            try {
+              recovered = await supabase.rpc("complete_pinterest_publish_v2", {
+                p_user_id: String(schedule.user_id),
+                p_pin_id: String(schedule.pin_id),
+                p_pinterest_account_id: String(schedule.pinterest_account_id),
+                p_pinterest_pin_id: remoteId,
+                p_pinterest_board_id: String(schedule.pinterest_board_id),
+              });
+            } catch (recoveryError) {
+              // A lost RPC response is reconciled against the durable ledger below.
+            }
+            if (
+              recovered &&
+              !recovered.error &&
+              recovered.data &&
+              recovered.data.status === "published" &&
+              String(recovered.data.pinterest_pin_id || "") === remoteId &&
+              String(recovered.data.pinterest_board_id || "") === String(schedule.pinterest_board_id)
+            ) {
+              results.push({ schedule_id: schedule.id, status: "published", recovered: true });
+              continue;
+            }
+
+            // Completion may have committed even if PostgREST lost its response.
+            // Accept only the exact five-field ledger identity; never infer success
+            // from the attempt's remote ID alone.
+            try {
+              const ledgerLookup = await supabase
+                .from("pinterest_publications")
+                .select("user_id, pin_id, pinterest_account_id, pinterest_board_id, pinterest_pin_id")
+                .eq("user_id", String(schedule.user_id))
+                .eq("pin_id", String(schedule.pin_id))
+                .eq("pinterest_account_id", String(schedule.pinterest_account_id))
+                .maybeSingle();
+              if (matchesConfirmedPublicationLedger(ledgerLookup.data, {
+                user_id: String(schedule.user_id),
+                pin_id: String(schedule.pin_id),
+                pinterest_account_id: String(schedule.pinterest_account_id),
+                pinterest_board_id: String(schedule.pinterest_board_id),
+                pinterest_pin_id: remoteId,
+              })) {
+                results.push({ schedule_id: schedule.id, status: "published", recovered: true });
+                continue;
+              }
+            } catch (ledgerRecoveryError) {
+              // Keep the schedule unknown when the completion cannot be verified.
+            }
+          }
+
           // A "published" attempt is not enough: only the durable publication
           // ledger proves that Pinterest's remote ID and exact destination were
           // committed. If this lookup fails or disagrees, keep the schedule unknown.
