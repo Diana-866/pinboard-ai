@@ -4,6 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   inspectAccountForDeletion,
+  eraseAccountStorageManifest,
   createAccountDeletionWorker,
   safeErrorCode,
 } = require("../accountDeletionWorker");
@@ -259,6 +260,7 @@ test("worker executes the separately claimed content-erasure stage", async () =>
           financial_records_retained: true,
         }, error: null };
       }
+      if (name === "list_account_deletion_storage_manifest") return { data: [], error: null };
       if (name === "finish_account_deletion_job") return { data: true, error: null };
       throw new Error("unexpected RPC: " + name);
     },
@@ -299,4 +301,82 @@ test("worker retries content erasure unless the RPC explicitly confirms retained
   const finish = calls.find((call) => call.name === "finish_account_deletion_job");
   assert.equal(finish.args.p_outcome, "retry");
   assert.equal(finish.args.p_error_code, "content_erasure_unconfirmed");
+});
+
+
+test("account erasure drains the durable Storage manifest through lifecycle deletion and fenced marking", async () => {
+  const calls = [];
+  let listed = false;
+  const client = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "list_account_deletion_storage_manifest") {
+        if (listed) return { data: [], error: null };
+        listed = true;
+        return { data: [
+          { bucket_id: "pin-images", object_path: "pins/123-0123456789abcdef0123456789abcdef.png" },
+          { bucket_id: "pin-images", object_path: "pins/generation-0123456789abcdef0123456789abcdef.webp" },
+        ], error: null };
+      }
+      if (name === "mark_account_deletion_storage_object_deleted") return { data: true, error: null };
+      throw new Error("unexpected RPC: " + name);
+    },
+  };
+  const deletedObjects = [];
+  const result = await eraseAccountStorageManifest({
+    client,
+    job: { job_id: "job-storage", claim_token: "claim-storage" },
+    deleteObject: async (args) => { deletedObjects.push(args); return true; },
+  });
+  assert.deepEqual(result, { deleted: 2, batches: 1 });
+  assert.deepEqual(deletedObjects.map((item) => item.objectPath), [
+    "pins/123-0123456789abcdef0123456789abcdef.png",
+    "pins/generation-0123456789abcdef0123456789abcdef.webp",
+  ]);
+  const marks = calls.filter((call) => call.name === "mark_account_deletion_storage_object_deleted");
+  assert.equal(marks.length, 2);
+  assert.ok(marks.every((call) => call.args.p_job_id === "job-storage" && call.args.p_claim_token === "claim-storage"));
+});
+
+test("account erasure refuses unsupported buckets and paths without touching Storage", async () => {
+  let deleteCalls = 0;
+  const client = {
+    async rpc(name) {
+      if (name === "list_account_deletion_storage_manifest") {
+        return { data: [{ bucket_id: "other-bucket", object_path: "private/foreign.png" }], error: null };
+      }
+      throw new Error("unexpected RPC: " + name);
+    },
+  };
+  await assert.rejects(
+    eraseAccountStorageManifest({
+      client,
+      job: { job_id: "job-invalid", claim_token: "claim-invalid" },
+      deleteObject: async () => { deleteCalls += 1; return true; },
+    }),
+    (error) => error.code === "storage_manifest_invalid_object"
+  );
+  assert.equal(deleteCalls, 0);
+});
+
+test("account erasure does not mark manifest rows after an unconfirmed Storage deletion", async () => {
+  const calls = [];
+  const client = {
+    async rpc(name) {
+      calls.push(name);
+      if (name === "list_account_deletion_storage_manifest") {
+        return { data: [{ bucket_id: "pin-images", object_path: "pins/123-0123456789abcdef0123456789abcdef.png" }], error: null };
+      }
+      throw new Error("unexpected RPC: " + name);
+    },
+  };
+  await assert.rejects(
+    eraseAccountStorageManifest({
+      client,
+      job: { job_id: "job-failed", claim_token: "claim-failed" },
+      deleteObject: async () => false,
+    }),
+    (error) => error.code === "storage_object_delete_unconfirmed"
+  );
+  assert.equal(calls.includes("mark_account_deletion_storage_object_deleted"), false);
 });
