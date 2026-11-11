@@ -31,6 +31,26 @@ test('validates direct mutation responses with the same strict persisted contrac
   assert.equal(isPersistedScheduleMutationResponse({ id: persisted.id, status: 'scheduled' }, expected), false);
 });
 
+test('validates a failed-schedule board change against the requested board and original account', () => {
+  const boardChange = {
+    ...expected,
+    pinterestBoardId: 'board-replacement',
+  };
+  assert.equal(isPersistedScheduleMutationResponse({
+    ...persisted,
+    pinterest_board_id: 'board-replacement',
+  }, boardChange), true);
+  assert.equal(isPersistedScheduleMutationResponse({
+    ...persisted,
+    pinterest_board_id: 'board-replacement',
+    pinterest_account_id: 'account-other',
+  }, boardChange), false);
+  assert.equal(isPersistedScheduleMutationResponse({
+    ...persisted,
+    pinterest_board_id: 'board-old',
+  }, boardChange), false);
+});
+
 test('confirms the exact persisted schedule mutation', () => {
   assert.deepEqual(findPersistedScheduleMutation([persisted], expected), persisted);
 });
