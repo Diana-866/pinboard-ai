@@ -389,6 +389,8 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       setEditTime(currentPin.scheduledTime);
       setShowRegenBox(false);
       setRegenComment('');
+      setRegenStatusMessage('');
+      regenerationAttemptRef.current = null;
       setSwipeDirection(null);
       setDragOffset(0);
     }
