@@ -1,4 +1,4 @@
--- Run after migrations 045-148 in disposable PostgreSQL CI.
+-- Run after migrations 045-149 in disposable PostgreSQL CI.
 -- Verifies partial success is chargeable only when every task is terminal and
 -- the saved pins exactly correspond to the successful journal rows.
 begin;
