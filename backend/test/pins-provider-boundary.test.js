@@ -1045,6 +1045,69 @@ test("pin-plan parser keeps requested partial count and normalizes optional desc
   assert.equal(pins.plannedTaskCount, 1);
 });
 
+
+test("malformed immediate completion recovers by polling the journaled provider task ID", async () => {
+  provider.generateText = async () => {
+    throw new Error("recovery must reuse the saved plan");
+  };
+  let firstSubmission = true;
+  let pollTaskId = null;
+  const updates = [];
+  provider.generateImageImpl = async () => {
+    if (!firstSubmission) throw new Error("recovery must not create another provider task");
+    firstSubmission = false;
+    // Mirrors generateImage: the provider returned a task ID, but its done
+    // payload failed validation after the ID was durably attached to the task.
+    await updates.push({ status: "running", providerTaskId: "provider-task-malformed-001" });
+    throw new Error("malformed completed image payload");
+  };
+  provider.waitForImageTaskImpl = async (taskId) => {
+    pollTaskId = taskId;
+    return { pending: true, taskId };
+  };
+
+  const plan = {
+    task_index: 1,
+    title: "Recoverable result",
+    description: "Saved description",
+    prompt: "immutable saved prompt",
+    model: "flux-schnell",
+    aspect_ratio: "2:3",
+    provider_idempotency_key: "stable-malformed-result-key",
+    status: "unknown",
+  };
+  const firstAttempt = await generatePins(
+    { id: "board-malformed", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell", 1, "2:3", null,
+    {
+      loadPlan: async () => [{ ...plan }],
+      updateTask: async (index, status, details) => updates.push({
+        status,
+        providerTaskId: details.providerTaskId || null,
+      }),
+    }
+  );
+  assert.equal(firstAttempt.unknownTasks.length, 1);
+
+  const recoveredAttempt = await generatePins(
+    { id: "board-malformed", title: "Test board", description: "" },
+    { niche: "test", tone: "neutral", language: "en" },
+    "flux-schnell", 1, "2:3", null,
+    {
+      loadPlan: async () => [{
+        ...plan,
+        status: "unknown",
+        provider_task_id: "provider-task-malformed-001",
+      }],
+      updateTask: async () => {},
+    }
+  );
+
+  assert.equal(pollTaskId, "provider-task-malformed-001");
+  assert.equal(recoveredAttempt.pendingTasks[0].task_id, "provider-task-malformed-001");
+});
+
 test("restore original module cache entries", () => {
   if (originalGptunnel) require.cache[gptunnelPath] = originalGptunnel;
   else delete require.cache[gptunnelPath];
