@@ -480,7 +480,7 @@ export const fr: TranslationSchema = {
     deleteAccountWarning: "Cela programme la suppression de votre compte et vous déconnecte immédiatement de tous les appareils. Action irréversible.",
     deleteAccountPasswordLabel: "Confirmez avec votre mot de passe",
     deleteAccountConfirm: "Demander la suppression",
-    deleteAccountDone: "Demande de suppression acceptée. L'accès a été fermé — nous supprimerons vos données sous 30 jours.",
+    deleteAccountDone: "Votre demande de suppression a été reçue et l’accès est désactivé. Vos données n’ont pas encore été supprimées.",
     requestFailed: "Impossible de terminer la demande. Veuillez réessayer.",
   },
 
