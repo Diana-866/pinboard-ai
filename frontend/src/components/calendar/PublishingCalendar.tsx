@@ -22,6 +22,7 @@ import { useI18n } from '../../i18n/i18nContext';
 import { BoardItem, ScheduledPinItem, PinterestAccount } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { getScheduleRetryReasonMessage } from '../../utils/scheduleRetryReason';
+import { resolveLatestSelectedSchedulePin } from '../../utils/resolveLatestSelectedSchedulePin';
 import {
   addCalendarDaysInTimezone,
   getCalendarMonthGrid,
@@ -86,8 +87,8 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
   // scheduled/publishing snapshot until the user closes and reopens it.
   useEffect(() => {
     if (!selectedPin) return;
-    const latest = scheduledPins.find((pin) => pin.id === selectedPin.id);
-    if (latest && latest !== selectedPin) setSelectedPin(latest);
+    const latest = resolveLatestSelectedSchedulePin(selectedPin, scheduledPins);
+    if (latest !== selectedPin) setSelectedPin(latest);
   }, [scheduledPins, selectedPin]);
 
   const runScheduleAction = async (actionKey: string, action: () => Promise<void>) => {
