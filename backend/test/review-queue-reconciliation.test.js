@@ -18,6 +18,8 @@ test("keeps demo queue items and owned pins that are not rejected", () => {
   );
   assert.deepEqual(result.staleIds, []);
   assert.deepEqual(result.active.map((item) => item.id), ["demo", "pending", "approved"]);
+  assert.equal(result.active[1].pinStatus, "pending");
+  assert.equal(result.active[2].pinStatus, "approved");
 });
 
 test("removes rejected, missing and foreign-owned pins from the review queue", () => {
