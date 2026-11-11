@@ -480,7 +480,7 @@ export const de: TranslationSchema = {
     deleteAccountWarning: "Dies plant die Löschung Ihres Kontos und meldet Sie sofort auf allen Geräten ab. Dies kann nicht rückgängig gemacht werden.",
     deleteAccountPasswordLabel: "Mit Passwort bestätigen",
     deleteAccountConfirm: "Löschung beantragen",
-    deleteAccountDone: "Löschantrag akzeptiert. Der Zugang wurde geschlossen — wir entfernen Ihre Daten innerhalb von 30 Tagen.",
+    deleteAccountDone: "Ihr Löschantrag ist eingegangen und der Zugriff wurde gesperrt. Ihre Daten wurden noch nicht gelöscht.",
     requestFailed: "Anfrage konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
   },
 
