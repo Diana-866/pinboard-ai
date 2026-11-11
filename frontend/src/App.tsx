@@ -307,6 +307,7 @@ const MainApp: React.FC = () => {
   // Queue entries are session-local and must never survive an authenticated-user switch.
   const [pendingReviewPins, setPendingReviewPins] = useState<PendingReviewPin[]>([]);
   const [pendingReviewQueueLoading, setPendingReviewQueueLoading] = useState(Boolean(user?.id));
+  const [pendingReviewQueueError, setPendingReviewQueueError] = useState(false);
   const pendingReviewPinsRef = React.useRef<PendingReviewPin[]>([]);
   const reviewQueueWriteChainsRef = React.useRef<Map<string, Promise<unknown>>>(new Map());
   const pendingReviewUserIdRef = React.useRef(user?.id || '');
@@ -323,6 +324,7 @@ const MainApp: React.FC = () => {
     pendingReviewUserIdRef.current = user?.id || '';
     reviewQueueHydratingRef.current = Boolean(user?.id);
     setPendingReviewQueueLoading(Boolean(user?.id));
+    setPendingReviewQueueError(false);
     reviewQueueTouchedIdsRef.current = new Set();
     pendingReviewPinsRef.current = [];
     setPendingReviewPins([]);
@@ -349,6 +351,7 @@ const MainApp: React.FC = () => {
         );
         reviewQueueHydratingRef.current = false;
         setPendingReviewQueueLoading(false);
+        setPendingReviewQueueError(false);
         reviewQueueTouchedIdsRef.current.clear();
         pendingReviewPinsRef.current = hydratedRows;
         setPendingReviewPins(hydratedRows);
@@ -357,9 +360,9 @@ const MainApp: React.FC = () => {
         if (!active || !isCurrentOwner()) return;
         reviewQueueHydratingRef.current = false;
         setPendingReviewQueueLoading(false);
+        setPendingReviewQueueError(true);
         reviewQueueTouchedIdsRef.current.clear();
         console.error('[review-queue] Не удалось восстановить очередь:', error);
-        window.dispatchEvent(new CustomEvent('pinposy:review-queue-error'));
       });
     return () => { active = false; };
   }, [user?.id]);
@@ -933,6 +936,7 @@ const MainApp: React.FC = () => {
               boards={boards}
               pendingPins={pendingReviewPins}
               queueLoading={pendingReviewQueueLoading}
+              queueError={pendingReviewQueueError}
               onUpdatePendingPins={handleUpdatePendingPins}
               onApprovePin={handleSchedulePin}
               onGoToCalendar={() => setActiveTab('calendar')}
