@@ -298,6 +298,12 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   const { t, formatDate } = useI18n();
 
   const [internalQueue, setInternalQueue] = useState<PendingReviewPin[]>([]);
+  const [queueRestoreError, setQueueRestoreError] = useState(false);
+  useEffect(() => {
+    const handleRestoreError = () => setQueueRestoreError(true);
+    window.addEventListener('pinposy:review-queue-error', handleRestoreError);
+    return () => window.removeEventListener('pinposy:review-queue-error', handleRestoreError);
+  }, []);
   const queue = pendingPins ?? internalQueue;
 
   const updateQueue = (fn: (prev: PendingReviewPin[]) => PendingReviewPin[]) => {
@@ -657,6 +663,20 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       setIsRegenerating(false);
     }
   };
+
+  // A failed restore is not an empty queue: preserve the distinction and let the user retry.
+  if (queueRestoreError && !queueLoading) {
+    return (
+      <div className="custom-card p-8 md:p-12 text-center space-y-4 max-w-xl mx-auto my-8 border border-subtle" role="alert">
+        <AlertCircle className="w-8 h-8 mx-auto text-rose-500" />
+        <h2 className="text-lg font-bold text-primary-theme">Не удалось загрузить очередь проверки</h2>
+        <p className="text-sm text-secondary-theme">Пины не удалены. Проверьте соединение и повторите загрузку — пустая очередь не означает, что все пины проверены.</p>
+        <button type="button" onClick={() => window.location.reload()} className="accent-btn px-5 py-2.5 rounded-xl inline-flex items-center justify-center gap-2">
+          <RefreshCw className="w-4 h-4" /> Повторить загрузку
+        </button>
+      </div>
+    );
+  }
 
   // Do not present the empty/completed state until the authenticated server queue is restored.
   if (queueLoading) {
