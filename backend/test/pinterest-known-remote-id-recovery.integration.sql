@@ -7,6 +7,7 @@ declare
   v_pin uuid;
   v_account uuid;
   v_schedule uuid;
+  v_reconciled integer;
   v_result jsonb;
 begin
   insert into public.users(id,email,token_version)
@@ -72,11 +73,10 @@ begin
     raise exception 'recorded remote ID incorrectly enabled another publish attempt: %',v_result;
   end if;
 
-  v_result := public.complete_pinterest_publish_v2(
-    v_user::text,v_pin,v_account,'remote-known-123','board-known'
-  );
-  if v_result->>'status' <> 'published'
-     or v_result->>'pinterest_pin_id' <> 'remote-known-123'
+  -- The normal worker tick invokes this reconciler. It must recover even
+  -- if the process died after recording the ID and before calling completion.
+  v_reconciled := public.reconcile_confirmed_pinterest_schedule_successes();
+  if v_reconciled <> 1
      or not exists (
        select 1 from public.pinterest_publications
         where user_id=v_user::text and pin_id=v_pin
@@ -90,15 +90,13 @@ begin
           and pinterest_pin_id='remote-known-123'
           and claim_token is null and next_attempt_at is null
      ) then
-    raise exception 'known remote ID did not atomically recover publication and schedule: %',v_result;
+    raise exception 'known remote ID was not recovered by the scheduler reconciler (count=%)',v_reconciled;
   end if;
 
-  -- Replaying the completion after a lost response must remain idempotent.
-  v_result := public.complete_pinterest_publish_v2(
-    v_user::text,v_pin,v_account,'remote-known-123','board-known'
-  );
-  if v_result->>'status' <> 'published' then
-    raise exception 'completion replay was not idempotent: %',v_result;
+  -- A second worker tick is idempotent and does not rewrite the published row.
+  v_reconciled := public.reconcile_confirmed_pinterest_schedule_successes();
+  if v_reconciled <> 0 then
+    raise exception 'known remote ID reconciliation was not idempotent: % rows changed',v_reconciled;
   end if;
 
   delete from public.pin_schedules where id=v_schedule;
