@@ -182,18 +182,7 @@ begin
     raise exception 'financial evidence or other-user data was incorrectly removed';
   end if;
 
-  -- Finalization is allowed only after every manifest object has a confirmed
-  -- deleted lifecycle state. Keep accounting rows under the stable UUID.
-  insert into public.pin_image_object_lifecycle(bucket_id,object_path,state)
-  values
-    ('pin-images','pins/123-0123456789abcdef0123456789abcdef.png','deleted'),
-    ('pin-images','pins/generation-0123456789abcdef0123456789abcdef.webp','deleted')
-  on conflict(bucket_id,object_path) do update
-    set state='deleted',claim_token=null,claim_expires_at=null,updated_at=clock_timestamp();
-  update public.account_deletion_storage_objects
-     set state='deleted',updated_at=clock_timestamp()
-   where request_id=v_request;
-
+  -- Finalization is fenced until every manifest object is confirmed deleted.
   update public.account_deletion_jobs
      set status='succeeded',claim_token=null,lease_expires_at=null,finished_at=clock_timestamp()
    where request_id=v_request and step_key='erase_content';
@@ -208,8 +197,23 @@ begin
   select id into v_job from public.account_deletion_jobs
    where request_id=v_request and step_key='finalize';
 
+  if public.finalize_account_deletion(v_job,v_claim) is distinct from false then
+    raise exception 'account finalized while Storage manifest was still pending';
+  end if;
+
+  -- Simulate confirmed Storage removal and update the durable manifest.
+  insert into public.pin_image_object_lifecycle(bucket_id,object_path,state)
+  values
+    ('pin-images','pins/123-0123456789abcdef0123456789abcdef.png','deleted'),
+    ('pin-images','pins/generation-0123456789abcdef0123456789abcdef.webp','deleted')
+  on conflict(bucket_id,object_path) do update
+    set state='deleted',claim_token=null,claim_expires_at=null,updated_at=clock_timestamp();
+  update public.account_deletion_storage_objects
+     set state='deleted',updated_at=clock_timestamp()
+   where request_id=v_request;
+
   if public.finalize_account_deletion(v_job,v_claim) is distinct from true then
-    raise exception 'account finalization was not confirmed';
+    raise exception 'account finalization was not confirmed after Storage deletion';
   end if;
   if not exists (
     select 1 from public.users
