@@ -75,13 +75,13 @@ export function downloadJsonFile(filename: string, data: unknown): void {
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
-  document.body.appendChild(link);
   try {
+    document.body.appendChild(link);
     link.click();
   } finally {
     if (link.parentNode) link.parentNode.removeChild(link);
-    // Some browsers start consuming the Blob URL after click() returns.
-    // Revoking synchronously can race the download and produce an empty file.
+    // Revoke even if DOM insertion or click fails, but allow the browser to
+    // begin consuming the Blob URL before releasing it.
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 }
