@@ -42,7 +42,7 @@ import {
 import {
   GeneratedPinVariation,
   SupportedAspectRatio,
-} from '../../services/gemini';
+} from '../../types/pinGeneration';
 import { PinCanvas, PinCanvasData, ASPECT_RATIO_SPECS } from './PinCanvas';
 import { useAuth } from '../../context/AuthContext';
 
