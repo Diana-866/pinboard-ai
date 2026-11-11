@@ -8,6 +8,7 @@ const {
   requestAccountDeletion,
   mapDeletionRpcError,
   pickColumns,
+  sanitizeReviewQueuePayload,
 } = require("../accountLifecycle");
 
 const USER_ID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
@@ -77,6 +78,29 @@ function fakeDb(tables, { rpcResult } = {}) {
 test("pickColumns keeps only allowlisted fields", () => {
   const row = { id: "1", email: "a@b.c", password_hash: "secret", access_token: "tok" };
   assert.deepEqual(pickColumns(row, ["id", "email"]), { id: "1", email: "a@b.c" });
+});
+
+test("review queue export preserves user content but strips arbitrary payload fields", () => {
+  const payload = {
+    id: "review-1",
+    title: "Spring ideas",
+    description: "A user-authored description",
+    imageUrl: "https://cdn.example.com/pin.png",
+    destinationUrl: "https://example.com",
+    access_token: "SECRET-TOKEN",
+    refresh_token: "SECRET-REFRESH",
+    provider_response: { payment_secret: "SECRET-PAYMENT" },
+    internal_error: "private stack trace",
+  };
+
+  const exported = sanitizeReviewQueuePayload(payload);
+  assert.equal(exported.title, "Spring ideas");
+  assert.equal(exported.description, "A user-authored description");
+  assert.equal(exported.imageUrl, "https://cdn.example.com/pin.png");
+  assert.equal(exported.destinationUrl, "https://example.com");
+  assert.equal(JSON.stringify(exported).includes("SECRET"), false);
+  assert.equal("provider_response" in exported, false);
+  assert.equal("internal_error" in exported, false);
 });
 
 test("account export never leaks credentials and follows the ownership graph", async () => {
