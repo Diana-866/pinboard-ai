@@ -182,7 +182,58 @@ begin
     raise exception 'financial evidence or other-user data was incorrectly removed';
   end if;
 
-  raise notice 'Account deletion Storage manifest checks passed';
+  -- Finalization is allowed only after every manifest object has a confirmed
+  -- deleted lifecycle state. Keep accounting rows under the stable UUID.
+  insert into public.pin_image_object_lifecycle(bucket_id,object_path,state)
+  values
+    ('pin-images','pins/123-0123456789abcdef0123456789abcdef.png','deleted'),
+    ('pin-images','pins/generation-0123456789abcdef0123456789abcdef.webp','deleted')
+  on conflict(bucket_id,object_path) do update
+    set state='deleted',claim_token=null,claim_expires_at=null,updated_at=clock_timestamp();
+  update public.account_deletion_storage_objects
+     set state='deleted',updated_at=clock_timestamp()
+   where request_id=v_request;
+
+  update public.account_deletion_jobs
+     set status='succeeded',claim_token=null,lease_expires_at=null,finished_at=clock_timestamp()
+   where request_id=v_request and step_key='erase_content';
+  insert into public.account_deletion_jobs(
+    id,request_id,step_key,status,claim_token,lease_expires_at,attempts
+  ) values (
+    gen_random_uuid(),v_request,'finalize','running',gen_random_uuid(),
+    clock_timestamp()+interval '5 minutes',1
+  );
+  select claim_token into v_claim from public.account_deletion_jobs
+   where request_id=v_request and step_key='finalize';
+  select id into v_job from public.account_deletion_jobs
+   where request_id=v_request and step_key='finalize';
+
+  if public.finalize_account_deletion(v_job,v_claim) is distinct from true then
+    raise exception 'account finalization was not confirmed';
+  end if;
+  if not exists (
+    select 1 from public.users
+     where id=v_user and account_status='deleted'
+       and email='deleted+'||v_user::text||'@deleted.invalid'
+       and password_hash is null and credits_balance=0
+  ) then
+    raise exception 'user row was not reduced to a pseudonymous tombstone';
+  end if;
+  if not exists (
+    select 1 from public.account_deletion_requests
+     where id=v_request and state='completed' and completed_at is not null
+  ) then
+    raise exception 'deletion request was not marked completed';
+  end if;
+  if not exists(select 1 from public.credit_transactions where user_id=v_user::text)
+     or not exists(select 1 from public.subscriptions where id=v_subscription)
+     or not exists(select 1 from public.pin_generation_credit_reservations where user_id=v_user::text)
+     or not exists(select 1 from public.pin_generation_text_usage where user_id=v_user::text)
+     or not exists(select 1 from public.provider_refund_reconciliation_audit where user_id=v_user::text) then
+    raise exception 'financial and provider-cost ledgers were not retained';
+  end if;
+
+  raise notice 'Account deletion Storage manifest and finalization checks passed';
 end;
 $$;
 rollback;
