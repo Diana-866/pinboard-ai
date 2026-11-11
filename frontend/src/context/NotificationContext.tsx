@@ -37,38 +37,6 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 'notif-1',
-    title: 'Пакетная генерация завершена (5 пинов)',
-    message: 'Пины по теме «Скандинавский минимализм» готовы и направлены в центр согласования.',
-    timestamp: '5 мин назад',
-    status: 'ready',
-    type: 'generation',
-    isRead: false,
-    actionTab: 'review',
-  },
-  {
-    id: 'notif-2',
-    title: 'Рекомендация нового конкурента',
-    message: 'Найден похожий аккаунт @aesthetichomenordic с пересечением 96% по вашим доскам.',
-    timestamp: '25 мин назад',
-    status: 'ready',
-    type: 'competitor',
-    isRead: false,
-    actionTab: 'competitors',
-  },
-  {
-    id: 'notif-3',
-    title: 'Ночная авто-генерация в очереди',
-    message: 'Запланировано 8 пинов в 01:00 UTC с учетом трендов ниши.',
-    timestamp: '1 час назад',
-    status: 'queued',
-    type: 'generation',
-    isRead: true,
-    actionTab: 'calendar',
-  },
-];
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
@@ -80,7 +48,9 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } catch {
       // ignore
     }
-    return INITIAL_NOTIFICATIONS;
+    // No seeded feed: notifications describe things that actually happened in this
+    // account. Demo entries here used to invent a scheduled batch and a top-up.
+    return [];
   });
 
   const [toast, setToast] = useState<{ title: string; message: string; type?: string } | null>(null);
