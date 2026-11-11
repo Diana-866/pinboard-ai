@@ -262,19 +262,19 @@ begin
     from public.account_deletion_jobs j
     join public.account_deletion_requests r on r.id=j.request_id
    where j.id=p_job_id;
-  if not found then return; end if;
+  if not found then raise exception 'account deletion Storage job missing' using errcode='P0002'; end if;
   perform 1 from public.users
    where id=v_user_id and account_status='deletion_pending' for update;
-  if not found then return; end if;
+  if not found then raise exception 'account deletion Storage owner fence lost' using errcode='40001'; end if;
   perform 1 from public.account_deletion_requests
    where id=v_request_id and state='pending' for update;
-  if not found then return; end if;
+  if not found then raise exception 'account deletion Storage request fence lost' using errcode='40001'; end if;
   select * into v_job from public.account_deletion_jobs
    where id=p_job_id for update;
   if not found or v_job.step_key <> 'erase_content' or v_job.status <> 'running'
      or v_job.claim_token is distinct from p_claim_token
      or v_job.lease_expires_at <= clock_timestamp() then
-    return;
+    raise exception 'account deletion Storage claim lost' using errcode='40001';
   end if;
   return query
     select o.bucket_id,o.object_path
