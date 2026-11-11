@@ -49,7 +49,6 @@ test('does not confirm malformed, missing, or ambiguous schedule lists', () => {
   assert.equal(findPersistedScheduleMutation([persisted, persisted], expected), null);
   assert.equal(findPersistedScheduleMutation([null, persisted], expected), null);
   assert.equal(findPersistedScheduleMutation([{ ...persisted, scheduled_at: 'invalid' }, persisted], expected), null);
-  assert.equal(findPersistedScheduleMutation([null, persisted], expected), null);
 });
 
 test('confirms cancellation only when a valid active schedule list omits the schedule', () => {
