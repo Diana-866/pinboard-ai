@@ -339,52 +339,59 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         boardId: string;
         pinCount: number;
       }> = [];
-      // Keep requests sequential to avoid a burst against a sleeping/free backend.
-      for (const identity of identities) {
+      // Check every saved identity in small batches: this avoids the long serial
+      // wait for large histories without flooding a sleeping/free backend.
+      for (let offset = 0; offset < identities.length; offset += 4) {
         if (!active) return;
-        try {
-          const result = await apiRequest(`/generation/requests/${encodeURIComponent(identity.idempotencyKey)}`);
-          const status = ['processing', 'completed', 'failed', 'unknown'].includes(result?.status)
-            ? result.status as 'processing' | 'completed' | 'failed' | 'unknown'
-            : 'unknown';
-          found.push({
-            key: identity.fingerprint,
-            status,
-            boardId: typeof result?.board_id === 'string' ? result.board_id : '',
-            pinCount: status === 'completed' && Array.isArray(result?.pins) ? result.pins.length : 0,
-          });
-          // The server has confirmed the pins are durably saved. The recovery
-          // identity is no longer needed; keep the in-memory card for this view,
-          // while preventing completed requests from resurfacing after reload.
-          if (status === 'completed' && Array.isArray(result?.pins) && result.pins.length > 0) {
-            clearPendingGenerationRequest(identity.fingerprint);
-          }
-        } catch (error: any) {
-          // A 404 can mean an old local key whose server record has expired.
-          // Preserve it: a transient/auth/network error must never erase recovery data.
-          if (error?.status === 410 && error?.data?.code === 'idempotency_result_expired') {
-            // The replay window expired, not the saved pins themselves. Keep
-            // enough safe metadata to let the user reopen the original board.
-            found.push({
+        let unauthorized = false;
+        const batch = identities.slice(offset, offset + 4);
+        const batchResults = await Promise.all(batch.map(async (identity) => {
+          try {
+            const result = await apiRequest(`/generation/requests/${encodeURIComponent(identity.idempotencyKey)}`);
+            const status = ['processing', 'completed', 'failed', 'unknown'].includes(result?.status)
+              ? result.status as 'processing' | 'completed' | 'failed' | 'unknown'
+              : 'unknown';
+            // The server has confirmed the pins are durably saved. The recovery
+            // identity is no longer needed; keep the in-memory card for this view,
+            // while preventing completed requests from resurfacing after reload.
+            if (status === 'completed' && Array.isArray(result?.pins) && result.pins.length > 0) {
+              clearPendingGenerationRequest(identity.fingerprint);
+            }
+            return {
               key: identity.fingerprint,
-              status: 'expired',
-              boardId: typeof error.data.board_id === 'string' ? error.data.board_id : '',
-              pinCount: Number.isInteger(error.data.pin_count) && error.data.pin_count > 0
-                ? error.data.pin_count
-                : 0,
-            });
-            continue;
+              status,
+              boardId: typeof result?.board_id === 'string' ? result.board_id : '',
+              pinCount: status === 'completed' && Array.isArray(result?.pins) ? result.pins.length : 0,
+            };
+          } catch (error: any) {
+            // A 404 can mean an old local key whose server record has expired.
+            // Preserve it: a transient/auth/network error must never erase recovery data.
+            if (error?.status === 410 && error?.data?.code === 'idempotency_result_expired') {
+              return {
+                key: identity.fingerprint,
+                status: 'expired' as const,
+                boardId: typeof error.data.board_id === 'string' ? error.data.board_id : '',
+                pinCount: Number.isInteger(error.data.pin_count) && error.data.pin_count > 0
+                  ? error.data.pin_count
+                  : 0,
+              };
+            }
+            if (error?.status === 404) {
+              return { key: identity.fingerprint, status: 'not_found' as const, boardId: '', pinCount: 0 };
+            }
+            if (error?.status === 401) {
+              unauthorized = true;
+              return null;
+            }
+            // A temporary network/5xx failure is not evidence that the request
+            // disappeared. Keep it visible as uncertain so users can retry the
+            // read-only status check instead of seeing the recovery entry vanish.
+            return { key: identity.fingerprint, status: 'unknown' as const, boardId: '', pinCount: 0 };
           }
-          if (error?.status === 404) {
-            found.push({ key: identity.fingerprint, status: 'not_found', boardId: '', pinCount: 0 });
-            continue;
-          }
-          if (error?.status === 401) return;
-          // A temporary network/5xx failure is not evidence that the request
-          // disappeared. Keep it visible as uncertain so users can retry the
-          // read-only status check instead of seeing the recovery entry vanish.
-          found.push({ key: identity.fingerprint, status: 'unknown', boardId: '', pinCount: 0 });
-          // Keep checking other independent requests after a single failure.
+        }));
+        if (unauthorized) return;
+        for (const item of batchResults) {
+          if (item) found.push(item);
         }
       }
       if (active && isCurrentBillingOwner(generationRecoveryOwnerIdRef.current, ownerId)) {
