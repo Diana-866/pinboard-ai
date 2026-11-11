@@ -288,3 +288,21 @@ test("default worker logger persists safe failure diagnostics", async () => {
   assert.equal(output[0].includes("scheduler-secret-value"), false);
   assert.equal(output[0].includes("private-token"), false);
 });
+
+
+test("worker safely ignores hostile error diagnostic getters", async () => {
+  const errors = [];
+  const hostile = new Error("private payload");
+  Object.defineProperty(hostile, "name", { get() { throw new Error("name getter secret"); } });
+  Object.defineProperty(hostile, "code", { get() { throw new Error("code getter secret"); } });
+  Object.defineProperty(hostile, "response", { get() { throw new Error("response getter secret"); } });
+  const worker = createWorker({
+    config: { endpoint: "https://api.example.com/internal/pinterest/schedule/run", secret: "scheduler-secret-value" },
+    client: { post: async () => { throw hostile; } },
+    logger: { info() {}, error: (...args) => errors.push(args) },
+  });
+  await assert.doesNotReject(worker.tick());
+  assert.equal(errors.length, 1);
+  assert.deepEqual(errors[0], ["schedule_worker.batch_failed", {}]);
+  assert.equal(JSON.stringify(errors).includes("secret"), false);
+});
