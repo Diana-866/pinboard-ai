@@ -10,7 +10,7 @@ alter table public.account_deletion_storage_objects
   drop constraint if exists account_deletion_storage_objects_object_path_check;
 alter table public.account_deletion_storage_objects
   add constraint account_deletion_storage_objects_object_path_check
-  check (object_path ~* '^pins/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\\.(?:png|jpe?g|webp|gif)
+  check (object_path ~* '^pins/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp|gif)$');
 create or replace function public.managed_pin_image_object_path_for_project(
   p_url text,
   p_supabase_url text
