@@ -15,11 +15,17 @@ const ACCOUNT_EXPORT_ARRAY_SECTIONS = [
   'reviewQueue',
 ] as const;
 
-export function isCompleteAccountExport(payload: unknown): boolean {
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
+export function isCompleteAccountExport(payload: unknown, expectedUserId: string): boolean {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload) ||
+      typeof expectedUserId !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(expectedUserId)) {
+    return false;
+  }
   const candidate = payload as Record<string, unknown>;
+  const account = candidate.account;
   if (candidate.formatVersion !== 1 ||
-      !candidate.account || typeof candidate.account !== 'object' || Array.isArray(candidate.account) ||
+      !account || typeof account !== 'object' || Array.isArray(account) ||
+      (account as Record<string, unknown>).id !== expectedUserId ||
       !Array.isArray(candidate.degradedSections) ||
       candidate.degradedSections.length !== 0) {
     return false;
