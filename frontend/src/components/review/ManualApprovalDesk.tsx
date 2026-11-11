@@ -470,11 +470,24 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
     setSwipeDirection('left');
     setTimeout(async () => {
+      let pinWasRejected = false;
       try {
+        // Persist the decision on the saved pin before removing its review item.
+        // Demo cards have no server pin ID and remain local-only.
+        if (currentPin.pinId) {
+          await apiRequest(`/pins/${encodeURIComponent(currentPin.pinId)}/status`, {
+            method: 'POST',
+            body: JSON.stringify({ status: 'rejected' }),
+          });
+          pinWasRejected = true;
+        }
         await updateQueue((prev) => prev.filter((pin) => pin.id !== currentPin.id));
         setRejectedCount((c) => c + 1);
       } catch (error) {
-        window.alert(error instanceof Error ? error.message : 'Не удалось сохранить отклонение. Карточка осталась в очереди.');
+        const message = error instanceof Error ? error.message : 'Не удалось сохранить отклонение.';
+        window.alert(pinWasRejected
+          ? `Пин отклонён, но не удалось убрать карточку из очереди проверки. Обновите страницу и повторите удаление карточки. ${message}`
+          : `${message} Карточка осталась в очереди.`);
       } finally {
         setSwipeDirection(null);
         setDragOffset(0);
@@ -1059,7 +1072,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
               <div className="w-7 h-7 rounded-full bg-subtle group-hover:bg-rose-500 group-hover:text-white flex items-center justify-center transition-colors">
                 <X className="w-4 h-4 stroke-[2.5]" />
               </div>
-              <span>Отклонить (Удалить)</span>
+              <span>Отклонить</span>
               <span className="hidden md:inline text-[11px] font-mono text-muted-theme group-hover:text-rose-600 font-normal">
                 [ ⬅️ ]
               </span>
