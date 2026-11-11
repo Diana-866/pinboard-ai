@@ -813,6 +813,21 @@ const MainApp: React.FC = () => {
     }
   };
 
+  const handleUpdateBoard = async (boardId: string, patch: { title: string; category: string }) => {
+    const saved = await apiRequest(`/boards/${encodeURIComponent(boardId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+    if (!saved || String(saved.id) !== String(boardId)) {
+      throw new Error('Сервер не подтвердил обновление этой доски. Обновите список перед повторной попыткой.');
+    }
+    setBoards((prev) => prev.map((item) => item.id === boardId
+      ? { ...item, name: saved.title || patch.title, category: saved.category || patch.category }
+      : item));
+    setBoardsReloadToken((value) => value + 1);
+    setBoardsLoadError('');
+  };
+
   const handleGenerateFromTopic = (topic?: string, date?: string, time?: string, boardId?: string) => {
     // Each navigation starts with exactly the supplied context; never leak a
     // previous calendar slot into a later, unrelated generation session.
@@ -1000,6 +1015,7 @@ const MainApp: React.FC = () => {
               isLoading={boardsLoading}
               onRetry={() => setBoardsReloadToken((value) => value + 1)}
               onAddBoard={handleAddBoard}
+              onUpdateBoard={handleUpdateBoard}
             />
           )}
 
