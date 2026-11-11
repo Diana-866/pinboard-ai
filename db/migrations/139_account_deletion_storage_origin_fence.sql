@@ -61,7 +61,7 @@ begin
     raise exception 'invalid account deletion storage manifest claim';
   end if;
   if p_supabase_url is null
-     or p_supabase_url !~ '^(https://[^/]+/?|http://(localhost|127\\.0\\.0\\.1)(:[0-9]+)?/?)
+     or p_supabase_url !~ '^(https://[^/]+/?|http://(localhost|127\.0\.0\.1)(:[0-9]+)?/?)
     from public.account_deletion_jobs j
     join public.account_deletion_requests r on r.id = j.request_id
    where j.id = p_job_id;
