@@ -32,9 +32,13 @@ function canRetryScheduleFailure(attempt, attemptLookupError, error) {
     // An unreadable error object cannot establish that a remote publish is safe to repeat.
     return false;
   }
-  if (retryable === false) return false;
-  if (attempt) return attempt.status === "failed" && attempt.retry_safe === true;
   const status = Number(statusValue);
+  if (retryable === false) return false;
+  // A known client rejection must not inherit an older retry-safe journal.
+  // In particular, 401/403/404/409/422 usually mean credentials, account,
+  // board, or request state must be corrected before another attempt.
+  if (Number.isFinite(status) && status >= 400 && status < 500 && retryable !== true) return false;
+  if (attempt) return attempt.status === "failed" && attempt.retry_safe === true;
   return !Number.isFinite(status) || status === 0 || status === 502 || status === 503;
 }
 
