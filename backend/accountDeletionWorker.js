@@ -176,7 +176,9 @@ function createAccountDeletionWorker({
         if (erasureError) throw erasureError;
         if (!erasure || erasure.erased !== true || erasure.financial_records_retained !== true) {
           const error = new Error("account content erasure was not confirmed");
-          error.code = "content_erasure_unconfirmed";
+          error.code = erasure && /^[a-z0-9_]{1,64}$/.test(erasure.reason || "")
+            ? erasure.reason
+            : "content_erasure_unconfirmed";
           throw error;
         }
 
