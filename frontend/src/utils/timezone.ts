@@ -425,7 +425,7 @@ export const resolveScheduleSlotTime = (
   defaultTime = '20:15',
   now: Date = new Date(),
 ): string => {
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || !isValidIanaTimezone(timeZone) || !Number.isFinite(now.getTime())) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !isValidIanaTimezone(timeZone) || !Number.isFinite(now.getTime())) {
     throw new Error('Invalid schedule slot');
   }
 
@@ -433,7 +433,7 @@ export const resolveScheduleSlotTime = (
   if (date < today.date) throw new Error('Cannot schedule a publication in the past');
 
   const parseMinutes = (value: string): number => {
-    const match = /^(\\d{2}):(\\d{2})$/.exec(value);
+    const match = /^(\d{2}):(\d{2})$/.exec(value);
     if (!match) throw new Error('Invalid schedule time');
     const hour = Number(match[1]);
     const minute = Number(match[2]);
