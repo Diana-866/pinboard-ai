@@ -646,10 +646,16 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
           ? `Сохранено ${validatedRows.length} из ${pinCount} запрошенных пинов. Не все пины удалось подготовить. Кредиты списаны только за сохранённые пины.`
           : `Saved ${validatedRows.length} of ${pinCount} requested pins. Not all requested pins could be prepared. Credits were charged only for saved pins.`);
       }
-      // Refresh board-card counts only after the server has confirmed all generated pins.
-      onPinsChanged?.();
+      // The server has durably completed this idempotent request. Clear its
+      // recovery identity before best-effort UI refresh so a parent refresh
+      // callback cannot turn a saved generation into a misleading failure.
       generationKeyRef.current = null;
       clearPendingGenerationRequest(requestFingerprint);
+      try {
+        onPinsChanged?.();
+      } catch (refreshError) {
+        console.error('Failed to refresh pin counts after durable generation', refreshError);
+      }
     } catch (err) {
       // The server only emits generation_request_failed after a definitive failure.
       // Rotate the key then; unknown/in-progress outcomes must keep their original key.
