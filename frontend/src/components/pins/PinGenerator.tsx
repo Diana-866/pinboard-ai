@@ -1024,12 +1024,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     <p className="text-xs font-semibold text-primary-theme">{label}</p>
                     {board && <p className="text-[11px] text-muted-theme">{board.name}</p>}
                   </div>
-                  {(item.status === 'completed' || item.status === 'expired') && item.pinCount > 0 && board && (
+                  {(item.status === 'completed' && item.pinCount > 0 || item.status === 'expired') && board && (
                     <button
                       type="button"
                       onClick={() => {
-                        // The completed pins are already persisted. Switch to their board;
-                        // the existing board loader restores them without another AI call.
+                        // The completed pins are already persisted. An expired replay may
+                        // not retain a count, so let the board loader confirm what remains.
                         setSelectedBoardId(item.boardId);
                         setSavedPinsReloadAttempt((attempt) => attempt + 1);
                       }}
