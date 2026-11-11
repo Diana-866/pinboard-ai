@@ -325,6 +325,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     const identities = listPendingGenerationRequests().slice(-10).reverse();
     if (!identities.length) {
       setRecoverableGenerations([]);
+      // A previous recovery check may have been in flight before its identity
+      // was cleared. Do not leave the loading indicator stuck on an empty list.
+      setIsCheckingRecoveries(false);
       return () => { active = false; };
     }
 
