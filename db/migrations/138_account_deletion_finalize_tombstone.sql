@@ -156,7 +156,7 @@ begin
   select status into v_content_status
     from public.account_deletion_jobs
    where request_id=v_request_id and step_key='erase_content';
-  if v_content_status <> 'succeeded' then return false; end if;
+  if not found or v_content_status is distinct from 'succeeded' then return false; end if;
 
   -- Never mark the account deleted while any managed image is pending or blocked.
   if exists (
