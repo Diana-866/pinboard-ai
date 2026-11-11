@@ -412,3 +412,23 @@
 - Очередь ручной проверки (P4) и очередь запланированных публикаций (P6) — две разные очереди; persistence требуется для обеих, но публикации дополнительно должны автономно исполняться.
 
 Требования добавлены в MASTER_REQUIREMENTS.md (P6.14–P6.19) и INFRASTRUCTURE_REQUIREMENTS.md (I2.7–I2.10). До внедрения и тестов это требования, а не заявление о том, что production worker уже работает.
+
+### 2026-11-12 — самообслуживание аккаунта (экспорт данных + запрос на удаление), P1.8
+
+- **Что проверено:** `main` синхронизирован с `origin/main`; очередь ручной проверки уже серверная (113 + маршруты `/review-queue`); крупнейший незакрытый пункт с подтверждённым дизайном, но без реализации — P1.8 (удаление аккаунта и экспорт данных, AUD-114/372/389–400 содержали только дизайн).
+- **Что изменено:**
+  - `db/migrations/127_account_lifecycle.sql` (новый) — `users.account_status`, `users.deletion_requested_at`, таблица `account_deletion_requests`, SECURITY DEFINER RPC `request_account_deletion` с `search_path=pg_catalog,public`, доступ только `service_role`.
+  - `backend/accountLifecycle.js` (новый) — экспорт по графу владения с allowlist колонок и приём запроса на удаление (bcrypt-reauth → RPC, fencing через `token_version`).
+  - `backend/index.js` — маршруты `GET /account/export`, `POST /account/deletion-request`; `backend/auth.js` — запрет входа при `account_status != active`.
+  - `frontend/src/utils/accountDataExport.ts` (+тест), секция «Данные и аккаунт» в `frontend/src/components/settings/SettingsView.tsx`, ключи в `i18n/types.ts` и 7 локалях.
+  - Тесты: `backend/test/account-lifecycle.test.js` (7), `frontend/src/utils/accountDataExport.test.ts` (3); в `db-migration-chain.test.js` граница цепочки `123 → 127`.
+- **Commit SHA:** `4ed5da52` (запушен в `origin/main`).
+- **Тесты (запускались реально):** backend `node --check` + `node --test` → 538/538 pass; frontend `tsc --noEmit` → 0, `tsx --test` → 145/145 pass, `vite build` → 0; replay цепочки `001_baseline` + `010–127` на чистой PostgreSQL 18 → 127 файлов, exit 0, 32 таблицы в `public`.
+- **Production:** backend `https://api.pinposy.com` жив (`/health` → `{"ok":true}`), новые маршруты отдают 401 (а не 404) — код выкачен Render'ом; фронтенд на `https://www.pinposy.com` содержит маркеры `pinposy-export-` и `account/deletion-request` — сборка Vercel выкачена.
+- **Что осталось непроверенным / требует действия владельца:**
+  - `127_account_lifecycle.sql` **не применена** к рабочей Supabase (миграции применяются вручную в SQL Editor; локальных DB-креденшелов нет). До применения `POST /account/deletion-request` вернёт 503; `GET /account/export` работает уже сейчас.
+  - Физическая очистка данных (отдельный контролируемый этап, P6.17) не реализована.
+  - Перед применением 127 к рабочей базе — резервная копия и staging-прогон (см. `docs/database.md`).
+- **Новые задания пользователя:** применить `db/migrations/127_account_lifecycle.sql` в Supabase SQL Editor (после backup).
+- **Production/merge/deploy статус:** merge и deploy выпущены; production SQL migration не выполнялась.
+

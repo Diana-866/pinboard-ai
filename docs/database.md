@@ -24,7 +24,7 @@ SQL Editor → New query → вставить файл целиком → **Run*
 
 1. `db/migrations/000_check_schema.sql` — необязательная read-only диагностика; она ничего не создаёт и на пустой базе ожидаемо покажет отсутствующие объекты.
 2. `db/migrations/001_baseline.sql` — единая базовая схема: все 10 базовых таблиц, их базовые колонки, индексы, RLS/политики и `adjust_credits_balance`. Заменяет прежнюю цепочку `001_base_schema.sql` + `002–008`.
-3. Затем последовательно примени файлы `db/migrations/010_*.sql` … `db/migrations/123_*.sql` в числовом порядке. Миграция 009 исключена и архивирована: она меняла `user_id TEXT` на UUID и удаляла некорректные/осиротевшие строки. Не запускай её.
+3. Затем последовательно примени файлы `db/migrations/010_*.sql` … `db/migrations/127_*.sql` в числовом порядке. Миграция 009 исключена и архивирована: она меняла `user_id TEXT` на UUID и удаляла некорректные/осиротевшие строки. Не запускай её.
 
 Файлы применяются по одному в Supabase SQL Editor. Эта инструкция описывает сборку схемы на пустой базе; она не является разрешением запускать миграции на рабочей Supabase базе. Для production сначала нужен backup, staging-прогон всей цепочки и отдельное подтверждение владельца.
 
@@ -37,11 +37,11 @@ SQL Editor → New query → вставить файл целиком → **Run*
 | `db/archive/001_base_schema.sql` | Архивная копия старой базовой миграции. Не запускать в новой установке и не применять вместе с `001_baseline.sql`. |
 | `db/archive/009_hardening.sql` | Архивная версия миграции с преобразованием TEXT → UUID и очисткой строк. Не запускать. Для безопасной установки используется TEXT-контракт из baseline. |
 
-## Последующие миграции 010–123
+## Последующие миграции 010–127
 
-После `001_baseline.sql` нужно последовательно применить файлы `db/migrations/010_*.sql` … `123_*.sql` в порядке номеров. Не запускай старые `002–008`: их базовые объекты уже включены в baseline. Не запускай `009_hardening.sql`: он перенесён в `db/archive/` из-за преобразования `user_id` и удаления данных. Последующие миграции добавляют ограничения и атомарные операции платежей/кредитов, auth recovery, Pinterest OAuth/publication lifecycle, журналирование, административные операции и дополнительные проверки безопасности.
+После `001_baseline.sql` нужно последовательно применить файлы `db/migrations/010_*.sql` … `127_*.sql` в порядке номеров. Не запускай старые `002–008`: их базовые объекты уже включены в baseline. Не запускай `009_hardening.sql`: он перенесён в `db/archive/` из-за преобразования `user_id` и удаления данных. Последующие миграции добавляют ограничения и атомарные операции платежей/кредитов, auth recovery, Pinterest OAuth/publication lifecycle, журналирование, административные операции и дополнительные проверки безопасности.
 
-Текущая ветка содержит цепочку миграций вплоть до 123. Отдельные миграции feature-ветки могут требовать согласованного backend/frontend rollout; наличие файла не означает, что его можно без проверки применять к production. Для auth recovery особенно важны:
+Текущая ветка содержит цепочку миграций вплоть до 127. Отдельные миграции feature-ветки могут требовать согласованного backend/frontend rollout; наличие файла не означает, что его можно без проверки применять к production. Для auth recovery особенно важны:
 - `020_atomic_password_reset.sql` — атомарный выпуск/погашение reset-токена;
 - `021_atomic_email_verification.sql` и `022_atomic_email_verification_issuance.sql` — атомарное подтверждение email и выпуск verification-ссылок с cooldown;
 - `023_revoke_sessions_after_password_reset.sql` — добавляет `users.token_version` и увеличивает его в той же транзакции, что меняет пароль и погашает reset-токен;
@@ -49,6 +49,18 @@ SQL Editor → New query → вставить файл целиком → **Run*
 - `055_auth_token_version.sql` — идемпотентно закрепляет колонку, DEFAULT 0, NOT NULL и CHECK >= 0 для baseline/схем, где колонка ещё не была создана.
 
 Не путать наличие колонки с наличием RPC: функции auth recovery определяются миграциями 020–025. Применять всю цепочку по порядку; 055 не заменяет миграции 020–025. Миграции 034–083 из feature branch не следует применять к production без отдельного согласованного rollout, резервной копии и проверки на staging.
+
+Жизненный цикл аккаунта (приватность/self-service):
+- `127_account_lifecycle.sql` — самообслуживание аккаунта. Добавляет `users.account_status` (DEFAULT `active`, CHECK `active|deletion_pending|deleted`) и `users.deletion_requested_at`, создаёт таблицу `account_deletion_requests` (RLS без клиентских грантов, доступ только для `service_role`) и SECURITY DEFINER RPC `request_account_deletion(uuid, text)` с захардкоженным `search_path=pg_catalog,public`. RPC принимает запрос на удаление и **ограничивается блокировкой доступа**: инкрементирует `token_version` (аннулируя все активные JWT) и ставит `account_status='deletion_pending'`. Строки НЕ удаляются — физическая очистка данных вынесена в отдельный контролируемый этап.
+  - Миграция **аддитивна и безопасна для деплоя по частям**: код backend/frontend уже умеет работать до её применения. Экспорт данных пропускает отсутствующие колонки, а запрос на удаление возвращает 503, пока RPC не создан; вход в аккаунт не меняется, т.к. проверка `account_status` пропускается при `undefined`.
+  - Порядок выката: сначала backend/frontend (уже в `main`), затем применить 127 в Supabase SQL Editor. Перед применением к рабочей базе — резервная копия и staging-прогон всей цепочки.
+  - Проверка после применения:
+    ```sql
+    select proname from pg_proc where proname = 'request_account_deletion';
+    select column_name from information_schema.columns
+     where table_schema='public' and table_name='users'
+       and column_name in ('account_status','deletion_requested_at');
+    ```
 
 Pinterest multi-account rollout:
 - `031_pinterest_account_scoped_foundation.sql` adds stable account references, nullable credentials for soft disconnect, and per-account refresh leases.
@@ -77,13 +89,13 @@ Pinterest multi-account rollout:
    where table_schema='public' and table_name='users'
    order by ordinal_position;
    ```
-   Ожидается: `id, email, password_hash, credits_balance, subscription_tier, is_admin, created_at, name, surname, onboarded, tariff_plan, email_verified, tariff_period_end, token_version`.
+   Ожидается: `id, email, password_hash, credits_balance, subscription_tier, is_admin, created_at, name, surname, onboarded, tariff_plan, email_verified, tariff_period_end, token_version, preferred_language, account_status, deletion_requested_at`.
 
 ## Восстановление базы с нуля (полный сценарий)
 
 1. Создай отдельный проект Supabase для проверки. Не очищай рабочую базу ради теста.
 2. Примени `001_baseline.sql`.
-3. Примени миграции `010–123` по порядку, пропуская архивную `009_hardening.sql`.
+3. Примени миграции `010–127` по порядку, пропуская архивную `009_hardening.sql`.
 4. Запусти `000_check_schema.sql` — после полной цепочки раздел 4 должен вернуть 0 строк.
 5. Проверь RPC и таблицы по контрольным запросам ниже.
 5. Настройки проекта Supabase, которые НЕ живут в миграциях и их надо вернуть руками:
