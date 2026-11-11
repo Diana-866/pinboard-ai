@@ -51,7 +51,7 @@ test("preflight refuses an account that is not fenced for deletion", async () =>
 test("preflight inventories every exported user-owned section without loading row contents", async () => {
   const result = await inspectAccountForDeletion(createReadClient(), USER_ID);
   assert.equal(result.ok, true);
-  assert.equal(result.sectionsChecked, 10);
+  assert.equal(result.sectionsChecked, 14);
   assert.equal(Object.keys(result.counts).length, result.sectionsChecked);
   assert.equal(result.counts.projects, 1);
   assert.equal(result.counts.boards, 1);
@@ -171,8 +171,8 @@ test("worker persists only a successful bounded inventory before finalizing", as
   await worker.tick();
   const inventoryCall = calls.find((call) => call.name === "record_account_deletion_preflight");
   assert.equal(inventoryCall.args.p_inventory.ok, true);
-  assert.equal(inventoryCall.args.p_inventory.sectionsChecked, 10);
-  assert.equal(Object.keys(inventoryCall.args.p_inventory.counts).length, 10);
+  assert.equal(inventoryCall.args.p_inventory.sectionsChecked, 14);
+  assert.equal(Object.keys(inventoryCall.args.p_inventory.counts).length, 14);
   assert.equal(calls.some((call) => call.name === "disconnect_pinterest_for_account_deletion"), true);
   assert.equal(calls[calls.length - 1].name, "finish_account_deletion_job");
 });
