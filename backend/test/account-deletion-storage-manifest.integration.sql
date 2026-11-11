@@ -1,5 +1,5 @@
 -- Durable account-deletion Storage manifest integration test.
--- Run after migrations 127-144 in the disposable PostgreSQL database.
+-- Run after migrations 127-145 in the disposable PostgreSQL database.
 begin;
 do $$
 declare
@@ -54,7 +54,38 @@ begin
   );
 
   insert into public.projects(user_id,niche) values(v_other,'storage-manifest-other') returning id into v_other_project;
-  insert into public.boards(project_id,title) values(v_other_project,'not-owned') returning id into v_other_board;
+  insert into public.boards(project_id,title,cover_url) values(
+    v_other_project,'not-owned',
+    'https://project.supabase.co/storage/v1/object/public/pin-images/pins/777-0123456789abcdef0123456789abcdef.webp'
+  ) returning id into v_other_board;
+  insert into public.pin_review_queue(id,user_id,payload)
+  values(
+    'review-other-image',v_other::text,
+    '{"id":"review-other-image","title":"other user review image","imageUrl":"https://project.supabase.co/storage/v1/object/public/pin-images/pins/888-0123456789abcdef0123456789abcdef.webp"}'::jsonb
+  );
+  insert into public.pin_image_object_lifecycle(bucket_id,object_path,state)
+  values
+    ('pin-images','pins/777-0123456789abcdef0123456789abcdef.webp','active'),
+    ('pin-images','pins/888-0123456789abcdef0123456789abcdef.webp','active')
+  on conflict(bucket_id,object_path) do nothing;
+  v_result := public.claim_pin_image_deletion(
+    'pin-images','pins/777-0123456789abcdef0123456789abcdef.webp',600
+  );
+  if v_result->>'claimed' <> 'false' or v_result->>'reason' <> 'referenced' then
+    raise exception 'other-user board cover did not block Storage deletion: %',v_result;
+  end if;
+  v_result := public.claim_pin_image_deletion(
+    'pin-images','pins/888-0123456789abcdef0123456789abcdef.webp',600
+  );
+  if v_result->>'claimed' <> 'false' or v_result->>'reason' <> 'referenced' then
+    raise exception 'other-user review image did not block Storage deletion: %',v_result;
+  end if;
+  v_result := public.begin_pin_image_upload(
+    'pin-images','pins/777-0123456789abcdef0123456789abcdef.webp',600
+  );
+  if v_result->>'reserved' <> 'false' or v_result->>'reason' <> 'referenced' then
+    raise exception 'board cover did not block reuse of a referenced image path: %',v_result;
+  end if;
   insert into public.pins(board_id,image_url,title,description,status,model_used,credits_cost)
   values(
     v_other_board,
