@@ -1196,6 +1196,9 @@ app.put("/review-queue/:id", requireAuth, async (req, res) => {
     const payload = req.body && req.body.pin;
     const { normalizeReviewQueuePin } = require("./reviewQueueValidation");
     const safePayload = normalizeReviewQueuePin(id, payload);
+    // Queue entries may reference only pins owned by the authenticated user.
+    // Demo entries without pinId remain supported for the existing preview UI.
+    if (safePayload.pinId) await getPinWithOwnerCheck(safePayload.pinId, req.userId);
     const { data, error } = await supabase
       .from("pin_review_queue")
       .upsert({
