@@ -69,13 +69,17 @@ function calculateQuotedGenerationPricing(quotes, markup) {
 function validateSavedRegenerationQuote(providerPrice, savedCredits, markup) {
   const price = Number(providerPrice);
   const credits = Number(savedCredits);
+  const multiplier = Number(markup);
+  if (!Number.isFinite(multiplier) || multiplier < 1) {
+    throw new TypeError("markup must be at least 1");
+  }
   if (!Number.isFinite(price) || price <= 0) {
     throw new TypeError("saved regeneration quote price must be positive");
   }
   if (!Number.isSafeInteger(credits) || credits <= 0) {
     throw new TypeError("saved regeneration credits must be a positive safe integer");
   }
-  const expectedCredits = ceilCredits(price * Number(markup));
+  const expectedCredits = ceilCredits(price * multiplier);
   if (!Number.isSafeInteger(expectedCredits) || credits !== expectedCredits) {
     throw new TypeError("saved regeneration credits do not match provider quote");
   }
