@@ -23,6 +23,7 @@ import {
 import { useI18n } from '../../i18n/i18nContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
+import { applyCurrentReviewEdits } from '../../utils/reviewApproval';
 
 export interface PendingReviewPin {
   id: string;
@@ -479,21 +480,29 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       return;
     }
     const scheduledItems = queue.map((p, idx) => {
-      const selectedBoard = boards.find((b) => b.id === p.boardId) || boards[0];
+      // Bulk approval must not discard edits in the currently open review card.
+      const approved = applyCurrentReviewEdits(p, idx, {
+        title: editTitle,
+        description: editDesc,
+        boardId: editBoardId,
+        scheduledDate: editDate,
+        scheduledTime: editTime,
+      });
+      const selectedBoard = boards.find((b) => b.id === approved.boardId) || boards[0];
       return {
         id: `pin-${Date.now()}-${idx}`,
-        pinId: p.pinId,
-        title: p.title,
-        description: p.description,
-        boardId: p.boardId,
-        boardName: selectedBoard?.name || p.boardName,
-        imageUrl: p.imageUrl,
-        scheduledDate: p.scheduledDate,
-        scheduledTime: p.scheduledTime,
+        pinId: approved.pinId,
+        title: approved.title,
+        description: approved.description,
+        boardId: approved.boardId,
+        boardName: selectedBoard?.name || approved.boardName,
+        imageUrl: approved.imageUrl,
+        scheduledDate: approved.scheduledDate,
+        scheduledTime: approved.scheduledTime,
         status: 'scheduled' as const,
         isOptimalSlot: true,
-        destinationUrl: p.destinationUrl,
-        accountHandle: p.accountHandle,
+        destinationUrl: approved.destinationUrl,
+        accountHandle: approved.accountHandle,
         pinterestBoardId: selectedPinterestBoardId,
         pinterestAccountId: selectedPinterestAccountId,
       };
