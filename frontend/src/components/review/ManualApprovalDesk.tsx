@@ -52,6 +52,7 @@ export interface ManualApprovalDeskProps {
   pendingPins?: PendingReviewPin[];
   /** Prevent an empty queue from appearing reviewed before the server restores it. */
   queueLoading?: boolean;
+  queueError?: boolean;
   onUpdatePendingPins?: (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => void | Promise<void>;
   onApprovePin: (pin: ScheduledPinItem) => void;
   onGoToCalendar?: () => void;
@@ -290,6 +291,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   boards,
   pendingPins,
   queueLoading = false,
+  queueError = false,
   onUpdatePendingPins,
   onApprovePin,
   onGoToCalendar,
@@ -298,15 +300,6 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   const { t, formatDate } = useI18n();
 
   const [internalQueue, setInternalQueue] = useState<PendingReviewPin[]>([]);
-  const [queueRestoreError, setQueueRestoreError] = useState(false);
-  useEffect(() => {
-    const handleRestoreError = () => setQueueRestoreError(true);
-    window.addEventListener('pinposy:review-queue-error', handleRestoreError);
-    return () => window.removeEventListener('pinposy:review-queue-error', handleRestoreError);
-  }, []);
-  useEffect(() => {
-    if (queueLoading) setQueueRestoreError(false);
-  }, [queueLoading]);
   const queue = pendingPins ?? internalQueue;
 
   const updateQueue = (fn: (prev: PendingReviewPin[]) => PendingReviewPin[]) => {
@@ -668,7 +661,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   };
 
   // A failed restore is not an empty queue: preserve the distinction and let the user retry.
-  if (queueRestoreError && !queueLoading) {
+  if (queueError && !queueLoading) {
     return (
       <div className="custom-card p-8 md:p-12 text-center space-y-4 max-w-xl mx-auto my-8 border border-subtle" role="alert">
         <AlertCircle className="w-8 h-8 mx-auto text-rose-500" />
