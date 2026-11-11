@@ -97,16 +97,24 @@ async function buildAccountExport(userId, client = defaultSupabase) {
     selectRows(client.from("projects").select("*").eq("user_id", id)), degraded);
 
   const projectIds = projects.map((p) => p.id).filter(Boolean);
+  const projectsUnavailable = degraded.includes("projects");
   const boards = projectIds.length
     ? await loadSection("boards", () =>
         selectRows(client.from("boards").select("*").in("project_id", projectIds)), degraded)
     : [];
 
+  // An empty parent list is only a valid empty result when the parent section
+  // was read successfully. Otherwise downstream sections are unknown, not empty.
+  if (!projectIds.length && projectsUnavailable) degraded.push("boards");
+
   const boardIds = boards.map((b) => b.id).filter(Boolean);
+  const boardsUnavailable = degraded.includes("boards");
   const pins = boardIds.length
     ? await loadSection("pins", () =>
         selectRows(client.from("pins").select("*").in("board_id", boardIds)), degraded)
     : [];
+
+  if (!boardIds.length && boardsUnavailable) degraded.push("pins");
 
   const creditTransactions = await loadSection("creditTransactions", () =>
     selectRows(client.from("credit_transactions").select("*").eq("user_id", id)), degraded);
