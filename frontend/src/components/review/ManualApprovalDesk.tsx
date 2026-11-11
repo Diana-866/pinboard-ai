@@ -565,9 +565,15 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     }
 
     const existingAttempt = regenerationAttemptRef.current;
-    const attempt = existingAttempt && existingAttempt.pinId === currentPin.pinId && existingAttempt.instruction === instruction
-      ? existingAttempt
-      : { pinId: currentPin.pinId, instruction, key: createGenerationIdempotencyKey() };
+    let attempt: { pinId: string; instruction: string; key: string };
+    try {
+      attempt = existingAttempt && existingAttempt.pinId === currentPin.pinId && existingAttempt.instruction === instruction
+        ? existingAttempt
+        : { pinId: currentPin.pinId, instruction, key: createGenerationIdempotencyKey() };
+    } catch (error) {
+      setRegenStatusMessage(error instanceof Error ? error.message : 'Не удалось создать безопасный ключ запроса.');
+      return;
+    }
     regenerationAttemptRef.current = attempt;
     setIsRegenerating(true);
     setRegenStatusMessage('Отправляем запрос на перегенерацию…');
