@@ -74,6 +74,25 @@ begin
     raise exception 'foreign account image path entered deletion manifest';
   end if;
 
+  -- A completed generation response is a durable replay reference even
+  -- when its pin/task rows are absent. The lifecycle claim must still refuse.
+  insert into public.pin_generation_requests(
+    user_id,board_id,idempotency_key,status,pins,request_fingerprint
+  ) values (
+    v_user::text,v_board,'manifest-generation-key-001','completed',
+    '[{"image_url":"https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-0123456789abcdef0123456789abcdef.webp"}]'::jsonb,
+    repeat('a',64)
+  );
+  insert into public.pin_image_object_lifecycle(bucket_id,object_path,state)
+  values ('pin-images','pins/generation-0123456789abcdef0123456789abcdef.webp','active')
+  on conflict (bucket_id,object_path) do nothing;
+  v_result := public.claim_pin_image_deletion(
+    'pin-images','pins/generation-0123456789abcdef0123456789abcdef.webp',600
+  );
+  if v_result->>'claimed' <> 'false' or v_result->>'reason' <> 'referenced' then
+    raise exception 'generation response reference did not block Storage deletion: %',v_result;
+  end if;
+
   raise notice 'Account deletion Storage manifest checks passed';
 end;
 $$;
