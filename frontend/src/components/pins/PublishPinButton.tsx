@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Send, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { apiRequest, ApiError } from '../../lib/api';
 import { resolvePublishBoardId } from '../../utils/publishBoardSelection';
+import { readConfirmedPinterestPublish } from '../../utils/pinterestPublishResponse';
 
 interface PinterestAccount {
   id: string;
@@ -30,6 +31,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
   const publishLockRef = useRef(false);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
+  const [uncertain, setUncertain] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -110,7 +112,14 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
         method: 'POST',
         body: JSON.stringify({ board_id: selectedBoard, account_id: accountId }),
       });
-      setDone(data?.pinterest_pin_id || 'ok');
+      const confirmed = readConfirmedPinterestPublish(data, selectedBoard);
+      if (!confirmed) {
+        // The remote POST may have succeeded even though its response was
+        // malformed or incomplete. Never let this UI issue a duplicate POST.
+        setUncertain(true);
+        return;
+      }
+      setDone(confirmed.pinId);
     } catch (e) {
       const err = e as ApiError;
       setError(err?.message || 'Не удалось опубликовать пин');
@@ -125,6 +134,14 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
       <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
         <CheckCircle2 className="w-3.5 h-3.5" /> Опубликован в Pinterest
       </span>
+    );
+  }
+
+  if (uncertain) {
+    return (
+      <p role="status" className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+        Pinterest мог создать пин, но PinPosy не подтвердил результат. Не отправляйте его повторно: обновите страницу и проверьте Pinterest.
+      </p>
     );
   }
 
