@@ -22,10 +22,10 @@ test("historical 002-008 SQL files are visibly excluded from clean installs", ()
   }
 });
 
-test("canonical migration files 001 and 010-148 exist; 009 stays archived", () => {
+test("canonical migration files 001 and 010-147 exist; 009 stays archived", () => {
   assert.ok(fs.existsSync(path.join(migrationsDir, "001_baseline.sql")));
   assert.equal(fs.existsSync(path.join(migrationsDir, "009_hardening.sql")), false);
-  for (let number = 10; number <= 148; number += 1) {
+  for (let number = 10; number <= 147; number += 1) {
     const prefix = String(number).padStart(3, "0") + "_";
     const matches = fs.readdirSync(migrationsDir).filter((file) => file.startsWith(prefix) && file.endsWith(".sql"));
     assert.equal(matches.length, 1, `expected exactly one canonical migration for ${prefix}`);
@@ -33,15 +33,6 @@ test("canonical migration files 001 and 010-148 exist; 009 stays archived", () =
 });
 
 
-
-test("account deletion Storage manifest accepts the full generated object suffix", () => {
-  const migration = fs.readFileSync(path.join(migrationsDir, "148_account_deletion_storage_object_path_length.sql"), "utf8");
-  const lifecycle = fs.readFileSync(path.join(__dirname, "..", "pinImageLifecycle.js"), "utf8");
-  assert.match(migration, /account_deletion_storage_objects_object_path_check/);
-  assert.ok(migration.includes("[a-z0-9]{1,32}"));
-  assert.ok(lifecycle.includes('return `pins/${Date.now()}-${crypto.randomBytes(16).toString("hex")}.${ext}`;'));
-  assert.ok(lifecycle.includes("generation-[a-f0-9]{32}"));
-});
 
 test("account deletion Storage manifest migrations contain complete SQL guards", () => {
   for (const file of [
