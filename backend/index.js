@@ -774,35 +774,10 @@ app.post("/pins/:id/status", requireAuth, async (req, res) => {
     const status = req.body && !Array.isArray(req.body) ? req.body.status : undefined;
     if (!["approved", "rejected"].includes(status)) throw httpError(422, "Некорректный статус");
 
-    // A pin with a live/ambiguous publication history must not be rejected
-    // from review: doing so could hide work already claimed by the scheduler
-    // or a publication whose provider response needs reconciliation.
+    // Never reject a pin whose publication may be live or need reconciliation.
     if (status === "rejected") {
-      const pinId = String(req.params.id);
-      const userId = String(req.userId);
-      const [schedules, attempts, publications] = await Promise.all([
-        supabase.from("pin_schedules")
-          .select("id")
-          .eq("user_id", userId)
-          .eq("pin_id", pinId)
-          .in("status", ["scheduled", "publishing", "published", "unknown"])
-          .limit(1),
-        supabase.from("pinterest_publish_attempts")
-          .select("pin_id")
-          .eq("user_id", userId)
-          .eq("pin_id", pinId)
-          .limit(1),
-        supabase.from("pinterest_publications")
-          .select("pin_id")
-          .eq("user_id", userId)
-          .eq("pin_id", pinId)
-          .limit(1),
-      ]);
-      const historyError = schedules.error || attempts.error || publications.error;
-      if (historyError) throw historyError;
-      if ((schedules.data || []).length || (attempts.data || []).length || (publications.data || []).length) {
-        throw httpError(409, "Этот пин связан с расписанием или историей публикации. Сначала разберите публикацию в календаре.");
-      }
+      const { assertPinCanBeRejected } = require("./pinStatusGuard");
+      await assertPinCanBeRejected(supabase, req.userId, req.params.id);
     }
 
     const { data, error } = await supabase
