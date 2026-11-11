@@ -1204,6 +1204,7 @@ app.post("/boards", requireAuth, async (req, res) => {
     const projectId = optionalString(req.body && req.body.project_id, { max: 64 });
     const title = optionalString(req.body && req.body.title, { max: 100 });
     const description = optionalString(req.body && req.body.description, { max: 500 }) || "";
+    const category = optionalString(req.body && req.body.category, { max: 120 }) || null;
     const requestId = optionalString(req.body && req.body.create_request_id, { max: 36 });
 
     if (!projectId) throw httpError(422, "Укажите project_id");
@@ -1225,8 +1226,11 @@ app.post("/boards", requireAuth, async (req, res) => {
     // retry of the same logical create operation. The database unique index
     // makes concurrent retries converge on one row.
     if (requestId) {
+      const fingerprintPayload = { project_id: project.id, title, description };
+      // Preserve the original fingerprint for retries from clients that predate category support.
+      if (category !== null) fingerprintPayload.category = category;
       const fingerprint = crypto.createHash("sha256")
-        .update(JSON.stringify({ project_id: project.id, title, description }))
+        .update(JSON.stringify(fingerprintPayload))
         .digest("hex");
       const { error: insertError } = await supabase
         .from("boards")
@@ -1234,6 +1238,7 @@ app.post("/boards", requireAuth, async (req, res) => {
           project_id: project.id,
           title,
           description,
+          category,
           status: "new",
           create_request_id: requestId,
           create_request_fingerprint: fingerprint,
@@ -1262,7 +1267,7 @@ app.post("/boards", requireAuth, async (req, res) => {
 
     const { data, error } = await supabase
       .from("boards")
-      .insert({ project_id: project.id, title, description, status: "new" })
+      .insert({ project_id: project.id, title, description, category, status: "new" })
       .select("*")
       .single();
 
