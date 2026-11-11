@@ -547,6 +547,17 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         body: JSON.stringify(requestBody),
       });
 
+      // A 202 response is a successful acknowledgement that the same durable
+      // generation is still running, not a malformed pins array. Keep its key
+      // and refresh the read-only recovery card instead of showing a false error.
+      if (rows && typeof rows === 'object' && rows.status === 'processing') {
+        setRecoveryCheckAttempt((attempt) => attempt + 1);
+        window.alert(language === 'ru'
+          ? 'Генерация ещё выполняется. Мы сохранили запрос — повторно запускать генерацию не нужно. Статус можно проверить в блоке восстановления.'
+          : 'Generation is still processing. Your request is محفوظ; do not start it again. Check its status in the recovery panel.');
+        return;
+      }
+
       // Do not discard the recovery identity until every returned pin has the
       // durable fields required by the canvas. A malformed success payload is
       // recoverable from the server with the same key; it is not a completed UI result.
