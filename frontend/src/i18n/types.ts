@@ -510,6 +510,7 @@ export interface TranslationSchema {
     deleteAccountPasswordLabel: string;
     deleteAccountConfirm: string;
     deleteAccountDone: string;
+    deleteAccountUnavailable: string;
     requestFailed: string;
   };
 
