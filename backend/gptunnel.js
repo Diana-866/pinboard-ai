@@ -192,7 +192,16 @@ async function waitForImageTask(taskId, callbacks = {}) {
     if (pollIntervalMs > 0) await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
     const task = await checkImage(taskId);
 
-    if (task && task.status === "done") return imageTaskResult(task);
+    // Never accept a provider response for a different task than the one
+    // recorded in our generation journal. This prevents cross-task settlement
+    // if an upstream proxy/cache returns a mismatched task payload.
+    if (task && task.id != null && task.id !== taskId) {
+      const error = new Error("Провайдер вернул результат другой задачи генерации");
+      error.code = "GPTUNNEL_TASK_ID_MISMATCH";
+      throw error;
+    }
+
+    if (task && task.status === "done") return imageTaskResult({ ...task, id: taskId });
 
     if (task && (task.status === "queued" || task.status === "running") &&
         typeof callbacks.onTaskUpdate === "function") {
