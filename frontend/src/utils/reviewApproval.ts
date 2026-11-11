@@ -6,7 +6,13 @@ export type CurrentReviewEdits = {
   scheduledTime: string;
 };
 
-type ReviewEditableFields = CurrentReviewEdits;
+type ReviewEditableFields = {
+  title: string;
+  description?: string;
+  boardId: string;
+  scheduledDate: string;
+  scheduledTime: string;
+};
 
 export function applyCurrentReviewEdits<T extends ReviewEditableFields>(
   pin: T,
@@ -20,5 +26,5 @@ export function applyCurrentReviewEdits<T extends ReviewEditableFields>(
     boardId: edits.boardId || pin.boardId,
     scheduledDate: edits.scheduledDate || pin.scheduledDate,
     scheduledTime: edits.scheduledTime || pin.scheduledTime,
-  };
+  } as T;
 }
