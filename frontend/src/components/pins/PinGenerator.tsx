@@ -367,11 +367,13 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     return () => { active = false; };
   }, [recoveryCheckAttempt, userId]);
 
-  // Restore the selected board's persisted pins whenever the board changes or the generator remounts.
+  // A count refresh replaces the boards array but must not reset the active pin editor.
+  const selectedBoardName = boards.find((board) => board.id === selectedBoardId)?.name || '';
+
+  // Restore persisted pins when the selected board changes or the generator remounts.
   useEffect(() => {
     let active = true;
-    const selectedBoard = boards.find((board) => board.id === selectedBoardId);
-    if (!selectedBoard) {
+    if (!selectedBoardName) {
       setGeneratedPins([]);
       setActivePinIndex(0);
       setIsLoadingSavedPins(false);
@@ -402,7 +404,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             selectedTitle: title,
             description: readPendingPinDescription(selectedBoardId, String(row.id))?.description ?? String(row.description || ''),
             altText: '',
-            suggestedBoard: selectedBoard.name,
+            suggestedBoard: selectedBoardName,
             keywords: [],
             headlineOverlay: title,
             subheadlineOverlay: '',
@@ -469,7 +471,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         });
       }
     };
-  }, [selectedBoardId, boards, savedPinsReloadAttempt]);
+  }, [selectedBoardId, selectedBoardName, savedPinsReloadAttempt]);
 
   // Quick preset topic suggestions
   const topicPresets = [
