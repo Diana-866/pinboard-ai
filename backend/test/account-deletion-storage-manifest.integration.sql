@@ -212,11 +212,8 @@ begin
     raise exception 'in-flight provider task did not block erasure: %',v_result;
   end if;
   if not exists(select 1 from public.projects where user_id=v_user)
-     or not exists(select 1 from public.pin_generation_tasks where idempotency_key is null and generation_request_id=v_active_generation_request) then
-    -- The task journal is retained; it has no idempotency_key column of its own.
-    if not exists(select 1 from public.pin_generation_tasks where generation_request_id=v_active_generation_request) then
-      raise exception 'provider task journal was erased before its outcome was definitive';
-    end if;
+     or not exists(select 1 from public.pin_generation_tasks where generation_request_id=v_active_generation_request) then
+    raise exception 'provider task journal or source content was erased before its outcome was definitive';
   end if;
   update public.pin_generation_tasks set status='failed'
    where generation_request_id=v_active_generation_request;
