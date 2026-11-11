@@ -519,14 +519,19 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         pinterestAccountId: selectedPinterestAccountId,
       };
     });
-    Promise.allSettled(scheduledItems.map((item) => onApprovePin(item))).then((results) => {
+    Promise.allSettled(scheduledItems.map((item) => onApprovePin(item))).then(async (results) => {
       const successfulIds = new Set<string>();
       results.forEach((result, index) => {
         if (result.status === 'fulfilled') successfulIds.add(queue[index].id);
       });
       if (successfulIds.size > 0) {
-        setApprovedCount((count) => count + successfulIds.size);
-        updateQueue((prev) => prev.filter((pin) => !successfulIds.has(pin.id)));
+        try {
+          await updateQueue((prev) => prev.filter((pin) => !successfulIds.has(pin.id)));
+          setApprovedCount((count) => count + successfulIds.size);
+        } catch {
+          window.alert(`В календаре уже сохранено ${successfulIds.size} пинов, но очередь проверки не обновилась. Не одобряйте эти карточки повторно: обновите страницу и проверьте календарь.`);
+          return;
+        }
       }
       if (successfulIds.size !== scheduledItems.length) {
         window.alert(`В расписание добавлено: ${successfulIds.size} из ${scheduledItems.length}. Неудачные карточки остались в очереди.`);
