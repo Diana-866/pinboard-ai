@@ -2998,8 +2998,8 @@ function dispatchSubscriptionEmailOutbox() {
 const emailOutboxTimer = setInterval(dispatchSubscriptionEmailOutbox, 60 * 1000);
 if (typeof emailOutboxTimer.unref === "function") emailOutboxTimer.unref();
 
-// Account deletion preflight runs in the existing backend process only when
-// explicitly enabled after migrations 127-131 are applied. This avoids a
+// The complete account-deletion pipeline runs in this backend process only
+// when explicitly enabled after migrations 127-144 are applied. This avoids a
 // second service while keeping rollout opt-in and independently reversible.
 let accountDeletionWorker = null;
 if (process.env.ACCOUNT_DELETION_WORKER_ENABLED === "true") {
