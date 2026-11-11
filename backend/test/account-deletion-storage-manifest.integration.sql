@@ -10,6 +10,9 @@ declare
   v_claim uuid := gen_random_uuid();
   v_project uuid;
   v_board uuid;
+  v_pin uuid;
+  v_pinterest_account uuid;
+  v_subscription uuid;
   v_other_project uuid;
   v_other_board uuid;
   v_result jsonb;
@@ -36,7 +39,7 @@ begin
     v_board,
     'https://project.supabase.co/storage/v1/object/public/pin-images/pins/123-0123456789abcdef0123456789abcdef.png',
     'owned image','','approved','flux-schnell',0
-  );
+  ) returning id into v_pin;
 
   insert into public.projects(user_id,niche) values(v_other,'storage-manifest-other') returning id into v_other_project;
   insert into public.boards(project_id,title) values(v_other_project,'not-owned') returning id into v_other_board;
@@ -100,6 +103,35 @@ begin
   insert into public.credit_transactions(user_id,amount,type,description)
   values(v_user::text,190,'purchase','retained financial evidence');
 
+  insert into public.pinterest_publish_attempts(user_id,pin_id,pinterest_board_id,status)
+  values(v_user::text,v_pin,'board-123','failed');
+  insert into public.pinterest_token_refresh_leases(user_id,lease_id,lease_until)
+  values(v_user::text,gen_random_uuid(),clock_timestamp()+interval '5 minutes');
+  insert into public.pinterest_oauth_connection_state(user_id,generation)
+  values(v_user::text,1);
+  insert into public.pinterest_accounts(user_id,access_token)
+  values(v_user::text,'test-token') returning id into v_pinterest_account;
+  insert into public.pinterest_account_refresh_leases(
+    pinterest_account_id,user_id,lease_id,lease_until
+  ) values(v_pinterest_account,v_user::text,gen_random_uuid(),clock_timestamp()+interval '5 minutes');
+
+  insert into public.subscriptions(user_id,plan,status,amount)
+  values(v_user::text,'start','pending',190) returning id into v_subscription;
+  insert into public.email_outbox(
+    event_key,subscription_id,recipient_email,template_key,payload
+  ) values(
+    'deletion-email-'||v_user,v_subscription,'user@example.invalid','subscription_created','{"email":"user@example.invalid"}'::jsonb
+  );
+
+  insert into public.pin_generation_credit_reservations(user_id,idempotency_key,amount)
+  values(v_user::text,'retained-credit-reservation',5);
+  insert into public.pin_generation_text_usage(
+    user_id,idempotency_key,provider_model,usage_status,total_cost_rub
+  ) values(v_user::text,'retained-text-usage','gptunnel-model','recorded',0.10);
+  insert into public.provider_refund_reconciliation_audit(
+    request_kind,user_id,idempotency_key,provider_task_id,provider_refunded,evidence_reference
+  ) values('generation',v_user::text,'retained-refund-audit','provider-task-123',true,'evidence-ref-123');
+
   update public.account_deletion_jobs
      set status='succeeded',claim_token=null,lease_expires_at=null,finished_at=clock_timestamp()
    where id=v_job;
@@ -123,10 +155,19 @@ begin
   if exists(select 1 from public.projects where user_id=v_user)
      or exists(select 1 from public.auth_tokens where user_id=v_user::text)
      or exists(select 1 from public.pin_generation_requests where user_id=v_user::text)
-     or exists(select 1 from public.pinterest_publications where user_id=v_user::text) then
+     or exists(select 1 from public.pinterest_publications where user_id=v_user::text)
+     or exists(select 1 from public.pinterest_publish_attempts where user_id=v_user::text)
+     or exists(select 1 from public.pinterest_token_refresh_leases where user_id=v_user::text)
+     or exists(select 1 from public.pinterest_oauth_connection_state where user_id=v_user::text)
+     or exists(select 1 from public.pinterest_account_refresh_leases where user_id=v_user::text)
+     or exists(select 1 from public.email_outbox where subscription_id=v_subscription) then
     raise exception 'owned operational rows remain after content erasure';
   end if;
-  if not exists(select 1 from public.credit_transactions where user_id=v_user::text)
+  if not exists(select 1 from public.pin_generation_credit_reservations where user_id=v_user::text)
+     or not exists(select 1 from public.pin_generation_text_usage where user_id=v_user::text)
+     or not exists(select 1 from public.provider_refund_reconciliation_audit where user_id=v_user::text)
+     or not exists(select 1 from public.subscriptions where id=v_subscription)
+     or not exists(select 1 from public.credit_transactions where user_id=v_user::text)
      or not exists(select 1 from public.projects where user_id=v_other) then
     raise exception 'financial evidence or other-user data was incorrectly removed';
   end if;
