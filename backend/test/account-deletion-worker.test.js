@@ -88,6 +88,49 @@ test("worker claims and finalizes only through fenced RPCs", async () => {
   assert.equal(calls[2].args.p_outcome, "succeeded");
 });
 
+test("worker never marks preflight complete after losing the inventory claim", async () => {
+  const calls = [];
+  const client = {
+    ...createReadClient(),
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_account_deletion_jobs") {
+        return { data: [{ job_id: "job-lost", user_id: USER_ID, claim_token: "claim-lost" }], error: null };
+      }
+      if (name === "record_account_deletion_preflight") return { data: false, error: null };
+      if (name === "finish_account_deletion_job") return { data: true, error: null };
+      throw new Error("unexpected RPC");
+    },
+  };
+  const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} } });
+  const result = await worker.tick();
+  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 0 });
+  assert.equal(calls.some((call) => call.name === "finish_account_deletion_job"), false);
+});
+
+test("worker persists only a successful bounded inventory before finalizing", async () => {
+  const calls = [];
+  const client = {
+    ...createReadClient(),
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_account_deletion_jobs") {
+        return { data: [{ job_id: "job-inventory", user_id: USER_ID, claim_token: "claim-inventory" }], error: null };
+      }
+      if (name === "record_account_deletion_preflight") return { data: true, error: null };
+      if (name === "finish_account_deletion_job") return { data: true, error: null };
+      throw new Error("unexpected RPC");
+    },
+  };
+  const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} } });
+  await worker.tick();
+  const inventoryCall = calls.find((call) => call.name === "record_account_deletion_preflight");
+  assert.equal(inventoryCall.args.p_inventory.ok, true);
+  assert.equal(inventoryCall.args.p_inventory.sectionsChecked, 10);
+  assert.equal(Object.keys(inventoryCall.args.p_inventory.counts).length, 10);
+  assert.equal(calls[calls.length - 1].name, "finish_account_deletion_job");
+});
+
 test("worker schedules retry when inventory is incomplete", async () => {
   const calls = [];
   const client = {
