@@ -6,6 +6,7 @@ declare
   v_board uuid;
   v_pin uuid;
   v_account uuid;
+  v_schedule uuid;
   v_result jsonb;
 begin
   insert into public.users(id,email,token_version)
@@ -42,6 +43,17 @@ begin
     raise exception 'remote ID was not preserved as a non-retryable unknown attempt';
   end if;
 
+  -- Simulate a scheduled publish whose remote POST succeeded but local
+  -- completion response was lost. The stored remote ID must finalize it
+  -- atomically without issuing another Pinterest POST.
+  insert into public.pin_schedules(
+    user_id,pin_id,pinterest_account_id,scheduled_at,timezone,
+    pinterest_board_id,status,last_error,next_attempt_at
+  ) values(
+    v_user::text,v_pin,v_account,now()-interval '1 minute','UTC',
+    'board-known','unknown','completion response was lost',null
+  ) returning id into v_schedule;
+
   -- Exact replay is safe; a conflicting ID must never overwrite the first one.
   perform public.record_pinterest_publish_unknown_v2(
     v_user::text,v_pin,v_account,'board-known','remote-known-123','retry'
@@ -60,6 +72,36 @@ begin
     raise exception 'recorded remote ID incorrectly enabled another publish attempt: %',v_result;
   end if;
 
+  v_result := public.complete_pinterest_publish_v2(
+    v_user::text,v_pin,v_account,'remote-known-123','board-known'
+  );
+  if v_result->>'status' <> 'published'
+     or v_result->>'pinterest_pin_id' <> 'remote-known-123'
+     or not exists (
+       select 1 from public.pinterest_publications
+        where user_id=v_user::text and pin_id=v_pin
+          and pinterest_account_id=v_account
+          and pinterest_pin_id='remote-known-123'
+          and pinterest_board_id='board-known'
+     )
+     or not exists (
+       select 1 from public.pin_schedules
+        where id=v_schedule and status='published'
+          and pinterest_pin_id='remote-known-123'
+          and claim_token is null and next_attempt_at is null
+     ) then
+    raise exception 'known remote ID did not atomically recover publication and schedule: %',v_result;
+  end if;
+
+  -- Replaying the completion after a lost response must remain idempotent.
+  v_result := public.complete_pinterest_publish_v2(
+    v_user::text,v_pin,v_account,'remote-known-123','board-known'
+  );
+  if v_result->>'status' <> 'published' then
+    raise exception 'completion replay was not idempotent: %',v_result;
+  end if;
+
+  delete from public.pin_schedules where id=v_schedule;
   delete from public.pinterest_publish_attempts where user_id=v_user::text;
   delete from public.pinterest_publications where user_id=v_user::text;
   delete from public.pinterest_accounts where user_id=v_user::text;
