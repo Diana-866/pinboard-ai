@@ -539,6 +539,20 @@ export const zh: TranslationSchema = {
     paymentCreating: '正在创建订单…',
   },
 
+  purchases: {
+    purchasesHistoryTitle: '积分购买记录',
+    thPack: '套餐',
+    thCredits: '积分',
+    thAmount: '金额',
+    thStatus: '状态',
+    thDate: '日期',
+    statusSuccess: '已支付',
+    statusPending: '等待支付',
+    statusCanceled: '已取消',
+    statusDenied: '已拒绝',
+    neverBurn: '付费套餐购买的积分会计入余额，且不会过期。',
+  },
+
   review: {
     title: '审核新生成的 Pin',
     subtitle: '右滑（或点击批准）加入发布队列，左滑（或点击拒绝）舍弃该 Pin。',

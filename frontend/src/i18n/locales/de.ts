@@ -539,6 +539,20 @@ export const de: TranslationSchema = {
     paymentCreating: 'Rechnung wird erstellt…',
   },
 
+  purchases: {
+    purchasesHistoryTitle: 'Kaufhistorie der Credits',
+    thPack: 'Paket',
+    thCredits: 'Credits',
+    thAmount: 'Betrag',
+    thStatus: 'Status',
+    thDate: 'Datum',
+    statusSuccess: 'Bezahlt',
+    statusPending: 'Zahlung ausstehend',
+    statusCanceled: 'Storniert',
+    statusDenied: 'Abgelehnt',
+    neverBurn: 'Credits aus bezahlten Paketen werden dem Guthaben gutgeschrieben und verfallen nicht.',
+  },
+
   review: {
     title: 'Freigabe generierter Pins',
     subtitle: 'Nach rechts wischen zum Freigeben in den Planer, nach links zum Verwerfen.',

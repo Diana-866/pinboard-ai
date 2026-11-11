@@ -539,6 +539,20 @@ export const pt: TranslationSchema = {
     paymentCreating: 'A criar fatura…',
   },
 
+  purchases: {
+    purchasesHistoryTitle: 'Histórico de compras de créditos',
+    thPack: 'Pacote',
+    thCredits: 'Créditos',
+    thAmount: 'Valor',
+    thStatus: 'Estado',
+    thDate: 'Data',
+    statusSuccess: 'Pago',
+    statusPending: 'A aguardar pagamento',
+    statusCanceled: 'Cancelado',
+    statusDenied: 'Recusado',
+    neverBurn: 'Os créditos dos pacotes pagos são adicionados ao saldo e não expiram.',
+  },
+
   review: {
     title: 'Aprovação de Pins Gerados',
     subtitle: 'Arraste para a direita para aprovar na fila, ou para a esquerda para descartar.',

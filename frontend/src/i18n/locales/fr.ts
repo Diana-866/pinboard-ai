@@ -539,6 +539,20 @@ export const fr: TranslationSchema = {
     paymentCreating: 'Création de la facture…',
   },
 
+  purchases: {
+    purchasesHistoryTitle: "Historique des achats de crédits",
+    thPack: 'Pack',
+    thCredits: 'Crédits',
+    thAmount: 'Montant',
+    thStatus: 'Statut',
+    thDate: 'Date',
+    statusSuccess: 'Payé',
+    statusPending: 'En attente de paiement',
+    statusCanceled: 'Annulé',
+    statusDenied: 'Refusé',
+    neverBurn: 'Les crédits des packs payés sont ajoutés au solde et n’expirent pas.',
+  },
+
   review: {
     title: 'Validation des Épingles Générées',
     subtitle: 'Glissez vers la droite pour approuver dans le calendrier, vers la gauche pour rejeter.',

@@ -539,6 +539,20 @@ export const es: TranslationSchema = {
     paymentCreating: 'Creando factura…',
   },
 
+  purchases: {
+    purchasesHistoryTitle: 'Historial de compras de créditos',
+    thPack: 'Paquete',
+    thCredits: 'Créditos',
+    thAmount: 'Importe',
+    thStatus: 'Estado',
+    thDate: 'Fecha',
+    statusSuccess: 'Pagado',
+    statusPending: 'Pendiente de pago',
+    statusCanceled: 'Cancelado',
+    statusDenied: 'Rechazado',
+    neverBurn: 'Los créditos de los paquetes pagados se suman al saldo y no caducan.',
+  },
+
   review: {
     title: 'Aprobación de Pines Generados',
     subtitle: 'Deslice a la derecha para aprobar en la cola, o a la izquierda para descartar.',

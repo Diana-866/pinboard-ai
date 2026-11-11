@@ -539,6 +539,20 @@ export const en: TranslationSchema = {
     paymentCreating: 'Creating invoice…',
   },
 
+  purchases: {
+    purchasesHistoryTitle: 'Credit purchase history',
+    thPack: 'Pack',
+    thCredits: 'Credits',
+    thAmount: 'Amount',
+    thStatus: 'Status',
+    thDate: 'Date',
+    statusSuccess: 'Paid',
+    statusPending: 'Awaiting payment',
+    statusCanceled: 'Cancelled',
+    statusDenied: 'Declined',
+    neverBurn: 'Credits from paid packs are added to your balance and never expire.',
+  },
+
   review: {
     title: 'Review Generated Pins',
     subtitle: 'Swipe right to approve to publishing queue, or swipe left to reject.',

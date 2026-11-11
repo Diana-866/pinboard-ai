@@ -570,7 +570,7 @@ export interface TranslationSchema {
   };
 
   // История покупок пакетов кредитов (переводится только в ru; остальные локали берут фолбэк в UI)
-  purchases?: {
+  purchases: {
     purchasesHistoryTitle: string;
     thPack: string;
     thCredits: string;
