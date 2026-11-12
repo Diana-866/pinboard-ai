@@ -1,5 +1,5 @@
 -- Durable account-deletion Storage manifest integration test.
--- Run after migrations 127-147 in the disposable PostgreSQL database.
+-- Run after migrations 127-158 in the disposable PostgreSQL database.
 begin;
 do $$
 declare
@@ -246,6 +246,42 @@ begin
   update public.credit_purchases set status='canceled'
    where user_id=v_user::text and package_id='pack_100';
 
+  -- Paid-but-unfulfilled credit purchases must remain blocked until a verified
+  -- provider refund is recorded; an ordinary failed fulfillment is not enough.
+  insert into public.credit_purchases(
+    user_id,package_id,credits,amount,status,provider_payment_id,paid_at
+  ) values(
+    v_user::text,'pack_100',100,190,'paid_uncredited',
+    'deletion-paid-credit-'||v_user::text,clock_timestamp()
+  );
+  v_result := public.erase_account_deletion_content(v_job,v_claim);
+  if v_result->>'erased' <> 'false' or v_result->>'reason' <> 'payment_outcome_unresolved' then
+    raise exception 'paid uncredited credit purchase did not block account erasure: %',v_result;
+  end if;
+  update public.credit_purchases
+     set provider_refunded_at=clock_timestamp(),
+         provider_refund_evidence_type='manual_review',
+         provider_refund_evidence_reference='deletion-credit-refund-'||v_user::text
+   where user_id=v_user::text and provider_payment_id='deletion-paid-credit-'||v_user::text;
+
+  -- The subscription path has an independent refund ledger and must enforce
+  -- the same gate, even after the credit purchase was reconciled.
+  insert into public.subscriptions(
+    user_id,plan,status,amount,provider_payment_id,provider_paid_at
+  ) values(
+    v_user::text,'start','paid_unactivated',190,
+    'deletion-paid-subscription-'||v_user::text,clock_timestamp()
+  );
+  v_result := public.erase_account_deletion_content(v_job,v_claim);
+  if v_result->>'erased' <> 'false' or v_result->>'reason' <> 'payment_outcome_unresolved' then
+    raise exception 'paid unactivated subscription did not block account erasure: %',v_result;
+  end if;
+  update public.subscriptions
+     set provider_refunded_at=clock_timestamp(),
+         provider_refund_evidence_type='manual_review',
+         provider_refund_evidence_reference='deletion-subscription-refund-'||v_user::text
+   where user_id=v_user::text and provider_payment_id='deletion-paid-subscription-'||v_user::text;
+
   insert into public.pin_generation_credit_reservations(user_id,idempotency_key,amount,status)
   values(v_user::text,'pending-credit-reservation',5,'reserved');
   v_result := public.erase_account_deletion_content(v_job,v_claim);
@@ -343,6 +379,38 @@ begin
   end if;
   update public.credit_purchases set status='canceled'
    where user_id=v_user::text and package_id='finalize-pending-pack';
+
+  -- Recheck paid-but-unfulfilled payments at the final tombstone boundary,
+  -- even if such a row appears after the content-erasure transaction.
+  insert into public.credit_purchases(
+    user_id,package_id,credits,amount,status,provider_payment_id,paid_at
+  ) values(
+    v_user::text,'pack_100',100,190,'paid_uncredited',
+    'finalize-paid-credit-'||v_user::text,clock_timestamp()
+  );
+  if public.finalize_account_deletion(v_job,v_claim) is distinct from false then
+    raise exception 'account finalized with an unrefunded paid-uncredited purchase';
+  end if;
+  update public.credit_purchases
+     set provider_refunded_at=clock_timestamp(),
+         provider_refund_evidence_type='manual_review',
+         provider_refund_evidence_reference='finalize-credit-refund-'||v_user::text
+   where user_id=v_user::text and provider_payment_id='finalize-paid-credit-'||v_user::text;
+
+  insert into public.subscriptions(
+    user_id,plan,status,amount,provider_payment_id,provider_paid_at
+  ) values(
+    v_user::text,'start','paid_unactivated',190,
+    'finalize-paid-subscription-'||v_user::text,clock_timestamp()
+  );
+  if public.finalize_account_deletion(v_job,v_claim) is distinct from false then
+    raise exception 'account finalized with an unrefunded paid-unactivated subscription';
+  end if;
+  update public.subscriptions
+     set provider_refunded_at=clock_timestamp(),
+         provider_refund_evidence_type='manual_review',
+         provider_refund_evidence_reference='finalize-subscription-refund-'||v_user::text
+   where user_id=v_user::text and provider_payment_id='finalize-paid-subscription-'||v_user::text;
 
   insert into public.projects(user_id,niche) values(v_user,'finalize-leftover-project')
   returning id into v_project;
