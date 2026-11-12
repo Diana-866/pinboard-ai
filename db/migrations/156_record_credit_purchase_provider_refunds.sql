@@ -34,6 +34,7 @@ as $function$
 declare
   v_purchase public.credit_purchases%rowtype;
   v_existing public.credit_purchase_reconciliation_events%rowtype;
+  v_owner_user_id text;
   v_recorded_at timestamptz;
 begin
   if p_operator_user_id is null or p_purchase_id is null or p_action_id is null
@@ -49,9 +50,19 @@ begin
    for update;
   if not found then raise exception 'administrator privileges required'; end if;
 
+  -- Match billing/deletion lock order: owner user first, then purchase.
+  select user_id into v_owner_user_id from public.credit_purchases
+   where id=p_purchase_id;
+  if not found then raise exception 'credit purchase not found'; end if;
+
+  perform 1 from public.users where id::text=v_owner_user_id for update;
+  if not found then raise exception 'credit purchase owner not found'; end if;
+
   select * into v_purchase from public.credit_purchases
    where id=p_purchase_id for update;
-  if not found then raise exception 'credit purchase not found'; end if;
+  if not found or v_purchase.user_id is distinct from v_owner_user_id then
+    raise exception 'credit purchase changed during lock acquisition';
+  end if;
 
   select * into v_existing from public.credit_purchase_reconciliation_events
    where purchase_id=p_purchase_id and action_key=p_action_id;
