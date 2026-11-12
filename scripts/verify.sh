@@ -62,7 +62,9 @@ migration_replay() {
   local db="pinposy_verify_$$"
   local psql_cmd=(psql -q -v ON_ERROR_STOP=1)
   if [ "$(id -u)" = "0" ]; then
-    :
+    # PostgreSQL's default peer-auth role is usually not named "root".
+    # Connect explicitly as the database superuser in root-owned containers.
+    psql_cmd=(psql -U postgres -q -v ON_ERROR_STOP=1)
   else
     psql_cmd=(sudo -u postgres "${psql_cmd[@]}")
   fi
