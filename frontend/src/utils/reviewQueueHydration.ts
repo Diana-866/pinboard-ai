@@ -29,3 +29,12 @@ export function getReviewQueueRestoreView(input: {
   if (input.hasError) return 'error';
   return 'ready';
 }
+
+
+/** Reject malformed API payloads instead of treating them as a genuinely empty queue. */
+export function requireReviewQueueRows<T>(value: unknown): T[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError('Review queue response must be an array');
+  }
+  return value as T[];
+}
