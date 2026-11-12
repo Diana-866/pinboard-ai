@@ -139,6 +139,30 @@ test("worker rejects a null claim response instead of reporting an empty queue",
   await assert.rejects(worker.tick(), (error) => error.code === "invalid_claim_response");
 });
 
+test("worker rejects malformed claimed jobs before starting destructive processing", async () => {
+  const calls = [];
+  const client = {
+    async rpc(name) {
+      calls.push(name);
+      if (name === "claim_account_deletion_jobs") {
+        return {
+          data: [{
+            job_id: "not-a-uuid",
+            user_id: USER_ID,
+            claim_token: "22222222-2222-4222-8222-222222222222",
+            step_key: "erase_content",
+          }],
+          error: null,
+        };
+      }
+      throw new Error("unexpected RPC");
+    },
+  };
+  const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} } });
+  await assert.rejects(worker.tick(), (error) => error.code === "invalid_claimed_job");
+  assert.deepEqual(calls, ["claim_account_deletion_jobs"]);
+});
+
 test("worker claims and finalizes only through fenced RPCs", async () => {
   const calls = [];
   const client = {
