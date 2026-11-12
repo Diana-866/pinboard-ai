@@ -44,3 +44,20 @@ export function requirePinStatusResponse(
     throw new Error('Сервер не подтвердил решение по пину.');
   }
 }
+
+
+export function canApproveReviewToPinterest(input: {
+  accountId: string;
+  boardId: string;
+  boardsLoaded: boolean;
+  boardsError: boolean;
+  boards: Array<{ id: string }>;
+}): boolean {
+  return Boolean(
+    input.accountId &&
+    input.boardId &&
+    input.boardsLoaded &&
+    !input.boardsError &&
+    input.boards.some((board) => board.id === input.boardId)
+  );
+}
