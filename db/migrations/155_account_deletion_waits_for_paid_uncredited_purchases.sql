@@ -83,7 +83,8 @@ begin
      where user_id=v_user_id::text and (status='pending' or (status='paid_uncredited' and provider_refunded_at is null))
   ) or exists (
     select 1 from public.subscriptions
-     where user_id=v_user_id::text and status='pending'
+     where user_id=v_user_id::text
+       and (status='pending' or (status='paid_unactivated' and provider_refunded_at is null))
   ) then
     return jsonb_build_object('erased',false,'reason','payment_outcome_unresolved');
   end if;
