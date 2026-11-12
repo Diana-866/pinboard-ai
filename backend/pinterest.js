@@ -619,7 +619,7 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
   // take precedence; legacy schedules retain their existing destination fallback.
   const destinationCandidate = resolvedSnapshot.is_snapshot
     ? resolvedSnapshot.destination_url
-    : (scheduledDestinationUrl || resolvedSnapshot.destination_url || projectUrl);
+    : (resolvedSnapshot.destination_url || scheduledDestinationUrl || projectUrl);
   let destinationUrl = null;
   try {
     destinationUrl = normalizePinterestDestinationUrl(destinationCandidate);
