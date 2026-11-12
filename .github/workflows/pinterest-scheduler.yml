@@ -18,6 +18,7 @@ on:
   push:
     branches:
       - feat/render-schedule-cron-runner
+      - 'integrate/**'
     paths:
       - "backend/scheduleCron.js"
       - "backend/scheduleResponse.js"
