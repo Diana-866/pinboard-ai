@@ -7,6 +7,8 @@ export function validatePersistedScheduleRows(value: unknown): Record<string, an
     throw new Error('Invalid schedule response: expected an array');
   }
 
+  const seenScheduleIds = new Set<string>();
+
   return value.map((row, index) => {
     if (!row || typeof row !== 'object' || Array.isArray(row)) {
       throw new Error(`Invalid schedule response: row ${index + 1} is not an object`);
@@ -16,6 +18,11 @@ export function validatePersistedScheduleRows(value: unknown): Record<string, an
     if (typeof item.id !== 'string' || !item.id.trim()) {
       throw new Error(`Invalid schedule response: row ${index + 1} has no schedule ID`);
     }
+    const scheduleId = item.id.trim();
+    if (seenScheduleIds.has(scheduleId)) {
+      throw new Error(`Invalid schedule response: duplicate schedule ID at row ${index + 1}`);
+    }
+    seenScheduleIds.add(scheduleId);
     if (typeof item.pin_id !== 'string' || !item.pin_id.trim()) {
       throw new Error(`Invalid schedule response: row ${index + 1} has no pin ID`);
     }
