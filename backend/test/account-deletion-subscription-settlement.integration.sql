@@ -75,6 +75,11 @@ begin
     raise exception 'activation email was queued after deletion was requested';
   end if;
 
+  update public.subscriptions
+     set status = 'paid_unactivated',
+         provider_paid_at = '2026-11-12T09:00:00Z'
+   where id = v_deleted_sub;
+
   select public.activate_paid_subscription(v_deleted_sub, '2026-11-12T10:00:00Z')
     into v_result;
   if (select tariff_plan from public.users where id = v_deleted_user) <> 'none'
