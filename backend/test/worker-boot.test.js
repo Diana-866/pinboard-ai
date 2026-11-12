@@ -188,3 +188,31 @@ test("the one-shot worker treats an overlapping busy response as a successful no
   assert.equal(calls.length, 1, "a busy cron invocation must make only one request");
   assert.equal(calls[0].secret, SECRET);
 });
+
+
+test("one-shot worker never schedules a follow-up timer after success or failure", async () => {
+  const { createWorker } = require("../scheduleWorker");
+  let scheduled = 0;
+  const schedule = () => { scheduled += 1; return { unref() {} }; };
+  const logger = { info() {}, error() {} };
+
+  const successfulWorker = createWorker({
+    config: { endpoint: "https://backend.example/internal/pinterest/schedule/run", secret: SECRET },
+    client: { async post() { return { data: { ok: true, claimed: 0 } }; } },
+    logger,
+    oneShot: true,
+    schedule,
+  });
+  assert.equal(await successfulWorker.tick(), true);
+  assert.equal(scheduled, 0, "successful one-shot invocation must not schedule another tick");
+
+  const failedWorker = createWorker({
+    config: { endpoint: "https://backend.example/internal/pinterest/schedule/run", secret: SECRET },
+    client: { async post() { throw new Error("temporary network failure"); } },
+    logger,
+    oneShot: true,
+    schedule,
+  });
+  assert.equal(await failedWorker.tick(), false);
+  assert.equal(scheduled, 0, "failed one-shot invocation must exit for the cron host to retry later");
+});
