@@ -32,7 +32,7 @@ const supabase = require("./supabase");
 const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
 const { httpError } = require("./validate");
 const { getPinterestTokenExpiresAt } = require("./pinterestOAuth");
-const { buildScheduleWorkerFailureState, hasCompleteScheduleClaimIdentity, hasMatchingScheduleAttemptIdentity, isScheduleClaimUpdateConfirmed, resolvePublishedReservation, resolvePinScheduleSnapshot, isPinterestPublishOutcomeUnknown, matchesConfirmedPublicationLedger, persistPublishFailureJournal, persistKnownRemotePublishOutcome, createScheduleClaimHeartbeat, isScheduleClaimLostError } = require("./pinterestSchedule");
+const { buildScheduleWorkerFailureState, hasCompleteScheduleClaimIdentity, hasMatchingScheduleAttemptIdentity, isScheduleClaimUpdateConfirmed, resolvePublishedReservation, resolvePinScheduleSnapshot, normalizePinterestDestinationUrl, isPinterestPublishOutcomeUnknown, matchesConfirmedPublicationLedger, persistPublishFailureJournal, persistKnownRemotePublishOutcome, createScheduleClaimHeartbeat, isScheduleClaimLostError } = require("./pinterestSchedule");
 const {
   createBrowserBinding,
   readCookie,
@@ -614,17 +614,19 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
   accountId = selectedAccount.id;
   await verifyPinterestBoard(userId, boardId, accountId);
 
+  const projectUrl = pin.boards && pin.boards.projects ? pin.boards.projects.website_url : null;
+  // Validate the exact URL that will be sent to Pinterest. Immutable snapshots
+  // take precedence; legacy schedules retain their existing destination fallback.
+  const destinationCandidate = resolvedSnapshot.is_snapshot
+    ? resolvedSnapshot.destination_url
+    : (scheduledDestinationUrl || resolvedSnapshot.destination_url || projectUrl);
   let destinationUrl = null;
-  if (scheduledDestinationUrl) {
-    try {
-      const parsed = new URL(String(scheduledDestinationUrl).trim());
-      if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("invalid protocol");
-      destinationUrl = parsed.toString();
-    } catch {
-      const error = httpError(422, "Ссылка для публикации должна быть корректным HTTP- или HTTPS-адресом");
-      error.retryable = false;
-      throw error;
-    }
+  try {
+    destinationUrl = normalizePinterestDestinationUrl(destinationCandidate);
+  } catch {
+    const error = httpError(422, "Ссылка для публикации должна быть корректным HTTP- или HTTPS-адресом");
+    error.retryable = false;
+    throw error;
   }
 
   // Атомарная резервация в БД не позволяет двум запросам одновременно
@@ -725,10 +727,7 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
     throw httpError(503, "Не удалось безопасно зарезервировать публикацию. Попробуйте позже.");
   }
 
-  const projectUrl = pin.boards && pin.boards.projects ? pin.boards.projects.website_url : null;
-  const link = resolvedSnapshot.is_snapshot
-    ? resolvedSnapshot.destination_url
-    : (resolvedSnapshot.destination_url || destinationUrl || projectUrl);
+  const link = destinationUrl;
   const body = {
     board_id: boardId,
     title: String(publishPinData.title || "").slice(0, 100),
