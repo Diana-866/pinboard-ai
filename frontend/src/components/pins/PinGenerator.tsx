@@ -1665,12 +1665,39 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                         clearTimeout(descriptionSaveTimerRef.current);
                         descriptionSaveTimerRef.current = null;
                       }
-                      const pendingDescription = pendingDescriptionSaveRef.current;
-                      if (pendingDescription?.pinId === currentPin.id && pendingDescription.boardId === board.id) {
-                        pendingDescriptionSaveRef.current = null;
-                        await savePinDescription(board.id, currentPin.id, pendingDescription.description, pendingDescription.revision);
+                      const queuedDescription = pendingDescriptionSaveRef.current;
+                      const recoveredDescription = readPendingPinDescription(board.id, currentPin.id);
+                      const descriptionToFlush = queuedDescription?.pinId === currentPin.id && queuedDescription.boardId === board.id
+                        ? queuedDescription
+                        : recoveredDescription
+                          ? {
+                              boardId: board.id,
+                              pinId: currentPin.id,
+                              description: recoveredDescription.description,
+                              revision: descriptionSaveRevisionRef.current,
+                            }
+                          : null;
+                      if (descriptionToFlush) {
+                        if (descriptionSaveTimerRef.current) {
+                          clearTimeout(descriptionSaveTimerRef.current);
+                          descriptionSaveTimerRef.current = null;
+                        }
+                        if (queuedDescription?.pinId === currentPin.id && queuedDescription.boardId === board.id) {
+                          pendingDescriptionSaveRef.current = null;
+                        }
+                        const revision = ++descriptionSaveRevisionRef.current;
+                        const saved = await savePinDescription(
+                          board.id,
+                          currentPin.id,
+                          descriptionToFlush.description,
+                          revision,
+                        );
+                        if (!saved) {
+                          throw new Error('Не удалось сохранить последнее описание. Исправьте соединение и повторите отправку на проверку.');
+                        }
                       }
-                      await pendingPinSavesRef.current.get(currentPin.id);
+                      const pendingSave = pendingPinSavesRef.current.get(currentPin.id);
+                      if (pendingSave) await pendingSave;
                       const title = resolvePinTitleSelection(pinTitleSelectionRef.current, currentPin.id, currentPin.selectedTitle);
                       await onAddToReview({
                         id: `review-${currentPin.id}`,
