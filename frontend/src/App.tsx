@@ -346,6 +346,7 @@ const MainApp: React.FC = () => {
 
     setIsReviewQueueLoading(true);
     setReviewQueueLoadError(false);
+    reviewQueueHydratingRef.current = true;
     apiRequest('/review-queue')
       .then((rows) => {
         if (!active || !isCurrentOwner()) return;
@@ -365,7 +366,8 @@ const MainApp: React.FC = () => {
       .catch((error) => {
         if (!active || !isCurrentOwner()) return;
         reviewQueueHydratingRef.current = false;
-        reviewQueueTouchedIdsRef.current.clear();
+        // Keep local touches until a later retry succeeds; otherwise a retry
+        // could overwrite edits made while the failed restore was in flight.
         setIsReviewQueueLoading(false);
         setReviewQueueLoadError(true);
         console.error('[review-queue] Не удалось восстановить очередь:', error);
