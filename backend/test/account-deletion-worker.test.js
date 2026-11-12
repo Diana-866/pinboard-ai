@@ -429,6 +429,40 @@ test("worker drains multiple Storage manifest pages before marking erasure compl
   assert.ok(finishIndex > lastListIndex);
 });
 
+test("worker retries rather than treating an invalid Storage manifest response as empty", async () => {
+  const calls = [];
+  const client = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_account_deletion_jobs") return { data: [{
+        job_id: "job-storage-invalid-response", user_id: USER_ID,
+        step_key: "erase_content", claim_token: "claim-invalid-response",
+      }], error: null };
+      if (name === "erase_account_deletion_content") {
+        return { data: { erased: true, financial_records_retained: true }, error: null };
+      }
+      if (name === "list_account_deletion_storage_manifest") return { data: null, error: null };
+      if (name === "finish_account_deletion_job") return { data: true, error: null };
+      throw new Error("unexpected RPC: " + name);
+    },
+  };
+  const worker = createAccountDeletionWorker({
+    client,
+    logger: { info() {}, error() {} },
+  });
+
+  const result = await worker.tick();
+
+  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1 });
+  assert.equal(calls.some((call) =>
+    call.name === "finish_account_deletion_job" && call.args.p_outcome === "succeeded"
+  ), false);
+  const retry = calls.find((call) =>
+    call.name === "finish_account_deletion_job" && call.args.p_outcome === "retry"
+  );
+  assert.equal(retry.args.p_error_code, "invalid_storage_manifest_response");
+});
+
 test("worker retries when the fenced Storage manifest mark is not confirmed", async () => {
   const calls = [];
   const client = {
