@@ -57,3 +57,21 @@ export function mapPersistedBoards(rows: unknown, invalidResponseMessage: string
     };
   });
 }
+
+/** Validate the single row returned by POST /boards before adding it to local UI state. */
+export function requireCreatedBoardResponse(
+  value: unknown,
+  invalidResponseMessage: string,
+): { id: string; title: string } {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(invalidResponseMessage);
+  }
+  const row = value as Record<string, unknown>;
+  const id = typeof row.id === 'string' || typeof row.id === 'number'
+    ? String(row.id)
+    : '';
+  if (!id.trim() || id !== id.trim() || typeof row.title !== 'string' || !row.title.trim()) {
+    throw new Error(invalidResponseMessage);
+  }
+  return { id, title: row.title.trim() };
+}
