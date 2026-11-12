@@ -84,7 +84,10 @@ export async function apiUpload(path: string, body: FormData) {
   }
 
   if (!res.ok) {
-    if (res.status === 401 && typeof window !== "undefined") {
+    // Match apiRequest: invalid credentials on login/register are form errors,
+    // not expired sessions, and must not clear the token or force navigation.
+    const isAuthAttempt = path === "/login" || path === "/register";
+    if (res.status === 401 && !isAuthAttempt && typeof window !== "undefined") {
       clearAuthToken();
       if (!window.location.pathname.startsWith("/login")) {
         window.location.href = "/login";
