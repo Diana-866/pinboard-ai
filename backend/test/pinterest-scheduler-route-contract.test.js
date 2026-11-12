@@ -124,3 +124,24 @@ test("calendar retry and cancellation stay fenced to the initiating authenticate
     assert.match(handler, /await apiRequest[\s\S]*?assertScheduleOwner\(\)/);
   }
 });
+
+test("legacy schedule account recovery and board reassignment are fenced to their initiating owner", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "..", "frontend", "src", "App.tsx"), "utf8");
+  for (const [name, nextName] of [
+    ["handleReconcileLegacySchedule", "handleChangeFailedScheduleBoard"],
+    ["handleChangeFailedScheduleBoard", "handleRetryScheduledPin"],
+  ]) {
+    const start = app.indexOf(`const ${name} = async`);
+    const end = app.indexOf(`const ${nextName} =`, start);
+    assert.notEqual(start, -1, `${name} exists`);
+    assert.ok(end > start, `${name} has a bounded handler body`);
+    const handler = app.slice(start, end);
+    assert.match(handler, /userId: pendingReviewUserIdRef\.current/);
+    assert.match(handler, /generation: pendingReviewOwnerGenerationRef\.current/);
+    assert.match(handler, /isReviewQueueOwnerCurrent\(scheduleOwnerSnapshot/);
+    assert.match(handler, /catch \(originalError\) \{\s*assertScheduleOwner\(\)/);
+    assert.match(handler, /await apiRequest\('\/schedule'\);\s*assertScheduleOwner\(\)/);
+    assert.match(handler, /setScheduledPins\(\(prev\)/);
+    assert.ok(handler.lastIndexOf("assertScheduleOwner();", handler.indexOf("setScheduledPins")) >= 0);
+  }
+});
