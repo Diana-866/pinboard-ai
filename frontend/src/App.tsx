@@ -92,13 +92,11 @@ const MainApp: React.FC = () => {
       userDataRequestGenerationRef.current += 1;
       setScheduledPins([]);
       setScheduleLoadError('');
+      // Clear account-scoped boards in the same layout phase, before paint.
+      setBoards([]);
+      setBoardsLoadError('');
+      setBoardsLoading(Boolean(nextUserId));
     }
-  }, [user?.id]);
-  // Never expose the previous account's boards after an account switch.
-  React.useEffect(() => {
-    setBoards([]);
-    setBoardsLoadError('');
-    setBoardsLoading(Boolean(user?.id));
   }, [user?.id]);
 
   // Доски загружаются из API, а не из демонстрационного массива браузера.
