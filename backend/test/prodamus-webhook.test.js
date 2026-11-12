@@ -329,6 +329,55 @@ function createPaymentDb({ subscription, purchase, activate, credit, settle, can
   return db;
 }
 
+test("duplicate provider success callbacks are acknowledged without fulfillment after refund", async () => {
+  const db = createPaymentDb({
+    subscription: {
+      id: "sub-refunded",
+      provider_payment_id: "pp-sub-refunded",
+      amount: 1990,
+      currency: "rub",
+      status: "paid_unactivated",
+      provider_paid_at: "2026-11-12T00:00:00.000Z",
+      provider_refunded_at: "2026-11-12T00:05:00.000Z",
+      period_end: null,
+    },
+    purchase: {
+      id: "purchase-refunded",
+      provider_payment_id: "ppc-refunded",
+      amount: 490,
+      currency: "rub",
+      credits: 100,
+      package_id: "pack_100",
+      status: "paid_uncredited",
+      paid_at: "2026-11-12T00:00:00.000Z",
+      provider_refunded_at: "2026-11-12T00:05:00.000Z",
+      balance_credited_at: null,
+    },
+    activate: async () => { throw new Error("refunded subscription must not activate"); },
+    credit: async () => { throw new Error("refunded purchase must not be credited"); },
+  });
+
+  const subscriptionResponse = createWebhookResponse();
+  await require("../billing").handleWebhook(
+    signedWebhook({ order_id: "pp-sub-refunded", payment_status: "success", sum: "1990.00", currency: "rub" }),
+    subscriptionResponse,
+    { supabase: db, dispatchPendingSubscriptionEmails: async () => ({}) }
+  );
+  assert.equal(subscriptionResponse.statusCode, 200);
+  assert.equal(subscriptionResponse.body.ignored, "provider refund already confirmed");
+  assert.equal(db.rpcCalls.activate, 0);
+
+  const creditResponse = createWebhookResponse();
+  await require("../creditsBilling").handleCreditsWebhook(
+    signedWebhook({ order_id: "ppc-refunded", payment_status: "success", sum: "490.00", currency: "rub" }),
+    creditResponse,
+    { supabase: db }
+  );
+  assert.equal(creditResponse.statusCode, 200);
+  assert.equal(creditResponse.body.ignored, "provider refund already confirmed");
+  assert.equal(db.rpcCalls.credit, 0);
+});
+
 test("subscription webhook concurrent duplicate callbacks activate exactly once", async () => {
   const db = createPaymentDb({
     subscription: { id: "sub-1", provider_payment_id: "pp-sub-1", amount: 1990, currency: "rub", status: "pending" },
