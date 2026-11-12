@@ -100,3 +100,16 @@ test("schedule creation persists and reconciles the resolved project destination
   assert.ok(route.includes("destination_url: snapshotDestinationUrl"));
   assert.ok(route.includes('String(existing.destination_url || "") === String(snapshotDestinationUrl || "")'));
 });
+
+test("schedule duplicate reconciliation uses the same account+pin identity as the database unique index", () => {
+  const source = read("index.js");
+  const start = source.indexOf('app.post("/pins/:id/schedule"');
+  const end = source.indexOf('app.post("/schedule/:id/change-board"', start);
+  assert.notEqual(start, -1, "pin schedule route must exist");
+  assert.ok(end > start, "pin schedule route boundary must exist");
+  const route = source.slice(start, end);
+  const conflict = route.indexOf('if (error && error.code === "23505")');
+  assert.notEqual(conflict, -1, "unique-conflict reconciliation must exist");
+  const lookup = route.slice(conflict);
+  assert.match(lookup, /\.eq\("user_id", String\(req\.userId\)\)[\s\S]*?\.eq\("pin_id", pin\.id\)[\s\S]*?\.eq\("pinterest_account_id", selectedAccount\.id\)/);
+});
