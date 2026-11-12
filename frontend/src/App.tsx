@@ -308,6 +308,7 @@ const MainApp: React.FC = () => {
   const [pendingReviewPins, setPendingReviewPins] = useState<PendingReviewPin[]>([]);
   const [pendingReviewQueueLoading, setPendingReviewQueueLoading] = useState(Boolean(user?.id));
   const [pendingReviewQueueError, setPendingReviewQueueError] = useState(false);
+  const [reviewQueueReloadToken, setReviewQueueReloadToken] = useState(0);
   const pendingReviewPinsRef = React.useRef<PendingReviewPin[]>([]);
   const reviewQueueWriteChainsRef = React.useRef<Map<string, Promise<unknown>>>(new Map());
   const pendingReviewUserIdRef = React.useRef(user?.id || '');
@@ -365,7 +366,7 @@ const MainApp: React.FC = () => {
         console.error('[review-queue] Не удалось восстановить очередь:', error);
       });
     return () => { active = false; };
-  }, [user?.id]);
+  }, [user?.id, reviewQueueReloadToken]);
 
   const handlePinterestStatusChange = React.useCallback((status: { configured: boolean; account_limit?: number | null; accounts?: Array<{ id: string; username?: string | null; pinterest_user_id?: string | null; needs_reauth?: boolean }> }) => {
     const rows = Array.isArray(status.accounts) ? status.accounts : [];
@@ -937,6 +938,7 @@ const MainApp: React.FC = () => {
               pendingPins={pendingReviewPins}
               queueLoading={pendingReviewQueueLoading}
               queueError={pendingReviewQueueError}
+              onRetryQueue={() => setReviewQueueReloadToken((value) => value + 1)}
               onUpdatePendingPins={handleUpdatePendingPins}
               onApprovePin={handleSchedulePin}
               onGoToCalendar={() => setActiveTab('calendar')}
