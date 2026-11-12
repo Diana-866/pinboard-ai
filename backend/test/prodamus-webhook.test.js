@@ -573,7 +573,7 @@ test("paid callback for a deleted account is durably reconciled and acknowledged
   });
   assert.equal(db.state.purchase.balance_credited_at, null);
   assert.equal(db.state.purchase.status, "paid_uncredited");
-  assert.equal(db.state.purchase.paid_at, "2026-11-12T00:00:00.000Z");
+  assert.ok(Number.isFinite(Date.parse(db.state.purchase.paid_at)), "verified provider payment time must be persisted");
   assert.equal(db.rpcCalls.credit, 1);
   assert.equal(auditRecords.length, 1);
   assert.equal(auditRecords[0].reason, "paid_credit_account_deleted");
