@@ -476,7 +476,7 @@ function createAccountDeletionWorker({
             !uuidPattern.test(job.job_id || "") ||
             !uuidPattern.test(job.user_id || "") ||
             !uuidPattern.test(job.claim_token || "") ||
-            typeof job.step_key !== "string" || !job.step_key) {
+            !["preflight", "erase_content", "finalize"].includes(job.step_key)) {
           const invalidJob = new Error("account deletion claim contains an invalid job");
           invalidJob.code = "invalid_claimed_job";
           throw invalidJob;
