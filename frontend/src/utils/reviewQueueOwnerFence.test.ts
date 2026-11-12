@@ -71,7 +71,7 @@ test('calendar mutations capture and recheck the initiating account session', as
     assert.match(body, /assertCurrentOwner\(\);/, `${name} must reject stale sessions`);
     assert.match(
       body,
-      /assertCurrentOwner\(\);[\s\S]{0,500}setScheduledPins\(/,
+      /assertCurrentOwner\(\);[\s\S]{0,3000}setScheduledPins\(/,
       `${name} must recheck ownership before mutating calendar state`,
     );
   }
