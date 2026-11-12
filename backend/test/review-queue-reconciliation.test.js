@@ -103,3 +103,18 @@ test("refreshes creative fields from the saved pin instead of returning stale qu
   assert.equal(result.active[0].scheduledDate, "2026-11-20");
   assert.equal(result.active[0].scheduledTime, "18:30");
 });
+
+test("does not resurrect a stale queue image when the saved pin image was removed", () => {
+  const stale = {
+    ...row("review-removed-image", "pin-1"),
+    payload: {
+      ...row("review-removed-image", "pin-1").payload,
+      imageUrl: "https://cdn.example/old-image.png",
+    },
+  };
+  const currentPin = pin("pin-1", "pending", "user-1", { image_url: null });
+
+  const result = reconcileReviewQueueRows([stale], new Map([["pin-1", currentPin]]), "user-1");
+
+  assert.equal(result.active[0].imageUrl, "");
+});
