@@ -335,7 +335,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     const check = async () => {
       const found: Array<{
         key: string;
-        status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found';
+        status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found' | 'expired';
         boardId: string;
         pinCount: number;
       }> = [];
