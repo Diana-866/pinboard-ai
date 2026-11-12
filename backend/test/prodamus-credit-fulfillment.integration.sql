@@ -8,6 +8,8 @@ declare
   v_purchase_id uuid;
   v_balance integer;
   v_ledger_count integer;
+  v_deleting_user_id uuid;
+  v_deleting_purchase_id uuid;
   v_paid_at timestamptz := '2026-11-07T20:00:00Z';
 begin
   if not has_function_privilege('service_role',
@@ -77,7 +79,44 @@ begin
   if v_balance <> 125 then
     raise exception 'stored user balance %, expected 125', v_balance;
   end if;
+
+  -- A late paid callback must not replenish an account after deletion has
+  -- fenced it. The purchase stays uncredited for reconciliation instead.
+  insert into public.users(email, credits_balance, account_status)
+  values ('aud089-deleting-account@example.invalid', 40, 'deletion_pending')
+  returning id into v_deleting_user_id;
+
+  insert into public.credit_purchases(
+    user_id, package_id, pack_title, credits, status, amount, currency
+  ) values (
+    v_deleting_user_id::text, 'pack_100', '100 credits', 100, 'pending', 190.00, 'rub'
+  ) returning id into v_deleting_purchase_id;
+
+  begin
+    perform public.credit_paid_purchase(
+      v_deleting_purchase_id, v_paid_at, 'AUD-089 late fulfillment after deletion request'
+    );
+    raise exception 'expected credit_paid_purchase to reject a deletion-pending account';
+  exception
+    when others then
+      if sqlerrm not like 'account is not active%' then
+        raise;
+      end if;
+  end;
+
+  if (select credits_balance from public.users where id = v_deleting_user_id) <> 40 then
+    raise exception 'deletion-pending account balance was unexpectedly changed';
+  end if;
+
+  if not exists (
+    select 1 from public.credit_purchases
+     where id = v_deleting_purchase_id
+       and status = 'pending'
+       and balance_credited_at is null
+  ) then
+    raise exception 'rejected late fulfillment unexpectedly changed the purchase';
+  end if;
 end;
-$$;
+$;
 
 rollback;
