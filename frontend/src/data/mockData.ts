@@ -1,3 +1,8 @@
+import homeDecorImage from '../assets/images/1.png';
+import matchaImage from '../assets/images/2.png';
+import skincareImage from '../assets/images/3.png';
+import travelImage from '../assets/images/4.png';
+
 export interface BoardItem {
   id: string;
   name: string;
@@ -59,7 +64,7 @@ export const INITIAL_ACCOUNTS: PinterestAccount[] = [
     id: 'acc-1',
     name: 'Botanica Nordic Living',
     handle: '@botanica_nordic',
-    avatar: '/src/assets/images/pin_home_decor_1790670043705.jpg',
+    avatar: homeDecorImage,
     boardsCount: 4,
     monthlyViews: '340,2K',
     minDailyPins: 8,
@@ -82,7 +87,7 @@ export const INITIAL_BOARDS: BoardItem[] = [
     seoScore: 94,
     missingKeywords: ['linen sofa styling', 'travertine coffee table', 'warm minimalist rug'],
     targetWeeklyPins: 12,
-    coverImage: '/src/assets/images/pin_home_decor_1790670043705.jpg',
+    coverImage: homeDecorImage,
   },
   {
     id: 'b-2',
@@ -93,7 +98,7 @@ export const INITIAL_BOARDS: BoardItem[] = [
     seoScore: 89,
     missingKeywords: ['oat milk matcha foam', 'aesthetic iced latte glass', 'ceremonial grade tips'],
     targetWeeklyPins: 8,
-    coverImage: '/src/assets/images/pin_matcha_latte_1790670057380.jpg',
+    coverImage: matchaImage,
   },
   {
     id: 'b-3',
@@ -104,7 +109,7 @@ export const INITIAL_BOARDS: BoardItem[] = [
     seoScore: 91,
     missingKeywords: ['travertine bathroom tray', 'barrier repair serum routine', 'morning glass skin'],
     targetWeeklyPins: 10,
-    coverImage: '/src/assets/images/pin_skincare_routine_1790670067721.jpg',
+    coverImage: skincareImage,
   },
   {
     id: 'b-4',
@@ -115,7 +120,7 @@ export const INITIAL_BOARDS: BoardItem[] = [
     seoScore: 86,
     missingKeywords: ['positano viewpoint map', 'amalfi ferry tips', 'quiet italian villages'],
     targetWeeklyPins: 6,
-    coverImage: '/src/assets/images/pin_travel_amalfi_1790670078173.jpg',
+    coverImage: travelImage,
   },
 ];
 
@@ -130,7 +135,7 @@ export const PRESET_ACCOUNTS_TO_ADD: Omit<PinterestAccount, 'id'>[] = [
   {
     name: 'Artisanal Matcha Rituals',
     handle: '@matcha_rituals',
-    avatar: '/src/assets/images/pin_matcha_latte_1790670057380.jpg',
+    avatar: matchaImage,
     boardsCount: 3,
     monthlyViews: '185,4K',
     minDailyPins: 6,
@@ -143,7 +148,7 @@ export const PRESET_ACCOUNTS_TO_ADD: Omit<PinterestAccount, 'id'>[] = [
   {
     name: 'Clean Skincare & Barrier Glow',
     handle: '@minimal_skin',
-    avatar: '/src/assets/images/pin_skincare_routine_1790670067721.jpg',
+    avatar: skincareImage,
     boardsCount: 2,
     monthlyViews: '94,1K',
     minDailyPins: 4,
@@ -156,7 +161,7 @@ export const PRESET_ACCOUNTS_TO_ADD: Omit<PinterestAccount, 'id'>[] = [
   {
     name: 'Amalfi & European Escapes',
     handle: '@amalfi_voyage',
-    avatar: '/src/assets/images/pin_travel_amalfi_1790670078173.jpg',
+    avatar: travelImage,
     boardsCount: 5,
     monthlyViews: '512,0K',
     minDailyPins: 10,
@@ -174,7 +179,7 @@ export const INITIAL_SCHEDULED_PINS: ScheduledPinItem[] = [
     title: '7 Warm Minimalist Living Room Rules That Transform Your Space',
     boardId: 'b-1',
     boardName: 'Scandinavian Living & Cozy Interiors',
-    imageUrl: '/src/assets/images/pin_home_decor_1790670043705.jpg',
+    imageUrl: homeDecorImage,
     scheduledDate: getRelativeDate(0),
     scheduledTime: '20:30',
     status: 'scheduled',
@@ -188,7 +193,7 @@ export const INITIAL_SCHEDULED_PINS: ScheduledPinItem[] = [
     title: 'Artisanal Iced Matcha Cloud Latte: The 3-Minute Secret Foam',
     boardId: 'b-2',
     boardName: 'Artisanal Drinks & Matcha Rituals',
-    imageUrl: '/src/assets/images/pin_matcha_latte_1790670057380.jpg',
+    imageUrl: matchaImage,
     scheduledDate: getRelativeDate(1),
     scheduledTime: '21:15',
     status: 'scheduled',
@@ -202,7 +207,7 @@ export const INITIAL_SCHEDULED_PINS: ScheduledPinItem[] = [
     title: 'The Minimalist AM Routine for Barrier Repair & Glass Skin Glow',
     boardId: 'b-3',
     boardName: 'Clean Skincare & Luxury Shelfies',
-    imageUrl: '/src/assets/images/pin_skincare_routine_1790670067721.jpg',
+    imageUrl: skincareImage,
     scheduledDate: getRelativeDate(2),
     scheduledTime: '19:45',
     status: 'scheduled',
@@ -216,7 +221,7 @@ export const INITIAL_SCHEDULED_PINS: ScheduledPinItem[] = [
     title: 'Amalfi Coast Hidden Views: 5 Spots Tourists Always Miss in Positano',
     boardId: 'b-4',
     boardName: 'European Escapes & Amalfi Dreamscapes',
-    imageUrl: '/src/assets/images/pin_travel_amalfi_1790670078173.jpg',
+    imageUrl: travelImage,
     scheduledDate: getRelativeDate(3),
     scheduledTime: '20:15',
     status: 'scheduled',
@@ -230,7 +235,7 @@ export const INITIAL_SCHEDULED_PINS: ScheduledPinItem[] = [
     title: 'Japandi Bedroom Color Palettes That Promote Restful Deep Sleep',
     boardId: 'b-1',
     boardName: 'Scandinavian Living & Cozy Interiors',
-    imageUrl: '/src/assets/images/pin_home_decor_1790670043705.jpg',
+    imageUrl: homeDecorImage,
     scheduledDate: getRelativeDate(-2),
     scheduledTime: '20:30',
     status: 'published',
@@ -246,7 +251,7 @@ export const INITIAL_SCHEDULED_PINS: ScheduledPinItem[] = [
     title: 'Ceremony Grade vs Culinary Matcha: What Coffee Shops Hide',
     boardId: 'b-2',
     boardName: 'Artisanal Drinks & Matcha Rituals',
-    imageUrl: '/src/assets/images/pin_matcha_latte_1790670057380.jpg',
+    imageUrl: matchaImage,
     scheduledDate: getRelativeDate(-5),
     scheduledTime: '21:00',
     status: 'published',
