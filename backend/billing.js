@@ -387,6 +387,12 @@ async function handleWebhook(req, res, dependencies = {}) {
     return res.json({ ok: true, ignored: "amount mismatch", review_required: true });
   }
 
+  // A delayed duplicate success callback after a confirmed provider refund
+  // is acknowledged without attempting to restore the refunded entitlement.
+  if (sub.provider_refunded_at) {
+    return res.json({ ok: true, ignored: "provider refund already confirmed" });
+  }
+
   // Подписка, период и тариф пользователя активируются одной транзакцией PostgreSQL.
   const { data: activation, error: activationError } = await db.rpc("activate_paid_subscription", {
     p_subscription_id: sub.id,
@@ -423,12 +429,15 @@ async function handleWebhook(req, res, dependencies = {}) {
     // lock-ordered marker RPC returns false for an already activated row.
     if (flagged !== true) {
       const { data: current, error: readError } = await db.from("subscriptions")
-        .select("status,period_end")
+        .select("status,period_end,provider_refunded_at")
         .eq("id", sub.id)
         .maybeSingle();
       if (readError || !current) {
         logError("billing.event_023");
         return res.status(500).json({ ok: false, error: "activation requires reconciliation" });
+      }
+      if (current.provider_refunded_at) {
+        return res.json({ ok: true, ignored: "provider refund already confirmed" });
       }
       if (current.status === "success" && current.period_end) {
         try {
