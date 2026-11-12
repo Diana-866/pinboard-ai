@@ -42,6 +42,14 @@ begin
     raise exception 'active account did not receive its paid entitlement';
   end if;
 
+  if not exists (
+    select 1 from public.email_outbox
+     where subscription_id = v_active_sub
+       and template_key = 'subscription_activated'
+  ) then
+    raise exception 'active account activation email was not queued';
+  end if;
+
   select public.activate_paid_subscription(v_pending_sub, '2026-11-12T10:00:00Z')
     into v_result;
   if (select tariff_plan from public.users where id = v_pending_user) <> 'none'
@@ -53,6 +61,11 @@ begin
      where id = v_pending_sub and status = 'success' and period_end is not null
   ) then
     raise exception 'paid subscription outcome was not retained for pending deletion';
+  end if;
+  if exists (
+    select 1 from public.email_outbox where subscription_id = v_pending_sub
+  ) then
+    raise exception 'activation email was queued after deletion was requested';
   end if;
 
   select public.activate_paid_subscription(v_deleted_sub, '2026-11-12T10:00:00Z')
@@ -66,6 +79,11 @@ begin
      where id = v_deleted_sub and status = 'success' and period_end is not null
   ) then
     raise exception 'late paid subscription evidence was not retained for deleted account';
+  end if;
+  if exists (
+    select 1 from public.email_outbox where subscription_id = v_deleted_sub
+  ) then
+    raise exception 'activation email was queued for a deleted account';
   end if;
 end;
 $$;
