@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { reconcileDisconnectedPinterestAccount } from './pinterestAccountState';
+import { reconcileDisconnectedPinterestAccount, isPinterestAccountLimitReached } from './pinterestAccountState';
 
 test('removes only the disconnected account and selects a remaining account', () => {
   const a = { id: 'a', username: 'first' };
