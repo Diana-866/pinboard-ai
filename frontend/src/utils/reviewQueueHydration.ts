@@ -15,10 +15,15 @@ export function mergeRestoredReviewQueue<T extends ReviewQueueItem>(
   return [...merged.values()];
 }
 
-export function isReviewQueuePayload(value: unknown): value is ReviewQueueItem[] {
+export function isReviewQueuePayload(
+  value: unknown,
+): value is Array<ReviewQueueItem & { title: string; description: string }> {
   return Array.isArray(value) && value.every((row) =>
     row !== null && typeof row === 'object' &&
     typeof (row as { id?: unknown }).id === 'string' &&
-    (row as { id: string }).id.trim().length > 0
+    (row as { id: string }).id.trim().length > 0 &&
+    typeof (row as { title?: unknown }).title === 'string' &&
+    (row as { title: string }).title.trim().length > 0 &&
+    typeof (row as { description?: unknown }).description === 'string'
   );
 }
