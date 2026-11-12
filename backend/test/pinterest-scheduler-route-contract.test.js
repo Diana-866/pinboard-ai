@@ -216,3 +216,12 @@ test("board edit and create dialogs are scoped to the authenticated owner", () =
   assert.match(boards, /key=\{user\?\.id \|\| 'anonymous'\}/);
   assert.match(boards, /boards=\{boards\}/);
 });
+
+test("review editor is remounted for each authenticated owner", () => {
+  const app = read(path.join("..", "..", "frontend", "src", "App.tsx"));
+  const reviewStart = app.indexOf("<ManualApprovalDesk");
+  assert.notEqual(reviewStart, -1, "review desk is rendered by the authenticated app");
+  const review = app.slice(reviewStart, reviewStart + 450);
+  assert.match(review, /key=\{user\?\.id \|\| 'anonymous'\}/);
+  assert.match(review, /pendingPins=\{pendingReviewPins\}/);
+});
