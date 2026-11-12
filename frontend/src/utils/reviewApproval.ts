@@ -50,6 +50,7 @@ export function canApproveReviewToPinterest(input: {
   accountId: string;
   boardId: string;
   boardsLoaded: boolean;
+  boardsAccountId: string;
   boardsError: boolean;
   boards: Array<{ id: string }>;
 }): boolean {
@@ -57,6 +58,7 @@ export function canApproveReviewToPinterest(input: {
     input.accountId &&
     input.boardId &&
     input.boardsLoaded &&
+    input.boardsAccountId === input.accountId &&
     !input.boardsError &&
     input.boards.some((board) => board.id === input.boardId)
   );
