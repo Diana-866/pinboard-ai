@@ -156,7 +156,9 @@ function createWorker({
         });
         // Process one row per request to bound lease duration, but do not sleep
         // a full poll interval between rows in an already-active backlog.
-        scheduleNext(claimed > 0 ? BACKLOG_POLL_DELAY_MS : getNextPollDelayMs(0, intervalMs));
+        if (!oneShot) {
+          scheduleNext(claimed > 0 ? BACKLOG_POLL_DELAY_MS : getNextPollDelayMs(0, intervalMs));
+        }
         return true;
       } catch (error) {
         // Never print request config/headers: they contain the scheduler secret.
@@ -165,7 +167,7 @@ function createWorker({
         return false;
       } finally {
         active = false;
-        if (consecutiveFailures > 0) {
+        if (!oneShot && consecutiveFailures > 0) {
           scheduleNext(getNextPollDelayMs(consecutiveFailures, intervalMs));
         }
       }
