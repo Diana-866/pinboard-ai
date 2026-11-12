@@ -20,6 +20,7 @@ async function runOnce({
         { limit: 1 },
         {
           timeout: REQUEST_TIMEOUT_MS,
+          maxRedirects: 0,
           headers: { "x-pinposy-scheduler-secret": resolvedConfig.secret },
         }
       );
