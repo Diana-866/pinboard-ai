@@ -201,6 +201,24 @@ test("scheduled publication resolves the immutable snapshot after live pin edits
   });
 });
 
+test("partial immutable snapshots never borrow edited live title or description", () => {
+  const resolved = resolvePinScheduleSnapshot({
+    snapshot_title: null,
+    snapshot_description: null,
+    snapshot_image_url: "https://cdn.example/scheduled.jpg",
+    snapshot_destination_url: "https://scheduled.example/",
+  }, {
+    title: "Edited live title",
+    description: "Edited live description",
+    image_url: "https://cdn.example/current.jpg",
+  });
+  assert.equal(resolved.title, "");
+  assert.equal(resolved.description, "");
+  assert.equal(resolved.image_url, "https://cdn.example/scheduled.jpg");
+  assert.equal(resolved.destination_url, "https://scheduled.example/");
+  assert.equal(resolved.is_snapshot, true);
+});
+
 test("snapshot schedules fall back to the resolved schedule destination when snapshot URL is absent", () => {
   const pin = { title: "Current", description: "Current copy", image_url: "https://cdn.example/current.jpg" };
   for (const snapshotDestination of [null, ""]) {
