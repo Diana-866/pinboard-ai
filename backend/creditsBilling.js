@@ -244,7 +244,7 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
     const mapped = normalizedStatus;
     const { error: statusError } = await db.from("credit_purchases")
       .update({ status: mapped }).eq("id", purchase.id)
-      .is("balance_credited_at", null).neq("status", "success");
+      .is("balance_credited_at", null).neq("status", "success").neq("status", "paid_uncredited");
     if (statusError) return res.status(500).json({ ok: false, error: "db error" });
     return res.json({ ok: true, status: mapped });
   }
