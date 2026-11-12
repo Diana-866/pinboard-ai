@@ -328,7 +328,8 @@ test("worker drains a due backlog quickly but keeps the normal idle polling cade
     cancelSchedule() {},
   });
 
-  await worker.tick();
+  worker.start();
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(scheduled[0].delay, 250, "a claimed row should trigger a quick next claim");
   scheduled[0].callback();
   await new Promise((resolve) => setImmediate(resolve));
