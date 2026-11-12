@@ -1143,8 +1143,20 @@ function registerRoutes(app, deps) {
       const { data: monitorStarted, error: monitorStartError } = await supabase.rpc("begin_pinterest_scheduler_run", {
         p_run_id: schedulerRunId,
       });
-      if (monitorStartError || monitorStarted !== true) {
-        throw monitorStartError || new Error("Scheduler monitor did not confirm run start");
+      if (monitorStartError) throw monitorStartError;
+      if (monitorStarted !== true) {
+        // A previous invocation still owns the singleton scheduler monitor.
+        // Treat overlap as a successful no-op for fixed-interval cron wakeups.
+        return res.json({
+          ok: true,
+          busy: true,
+          claimed: 0,
+          published: 0,
+          failed: 0,
+          scheduled: 0,
+          unknown: 0,
+          results: [],
+        });
       }
       schedulerMonitorStarted = true;
       requireConfigured();
