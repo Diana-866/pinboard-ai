@@ -60,7 +60,7 @@ function ageLabel(value: number | null) {
 
 type PaymentRow = Operation & { payment_id: string; payment_kind: 'credits' | 'subscription' };
 
-function CreditRefundControl({ row, onRecorded }: { row: PaymentRow; onRecorded: () => void }) {
+function PaymentRefundControl({ row, onRecorded }: { row: PaymentRow; onRecorded: () => void }) {
   const [evidenceType, setEvidenceType] = useState('provider_dashboard');
   const [evidenceReference, setEvidenceReference] = useState('');
   const [actionId] = useState(() => crypto.randomUUID());
@@ -72,10 +72,13 @@ function CreditRefundControl({ row, onRecorded }: { row: PaymentRow; onRecorded:
     setSaving(true);
     setError('');
     try {
-      await apiRequest('/admin/credit-purchases/record-provider-refund', {
+      const isCreditPurchase = row.payment_kind === 'credits';
+      await apiRequest(isCreditPurchase
+        ? '/admin/credit-purchases/record-provider-refund'
+        : '/admin/subscriptions/record-provider-refund', {
         method: 'POST',
         body: JSON.stringify({
-          purchase_id: row.payment_id,
+          [isCreditPurchase ? 'purchase_id' : 'subscription_id']: row.payment_id,
           action_id: actionId,
           evidence_type: evidenceType,
           evidence_reference: evidenceReference.trim(),
@@ -170,9 +173,7 @@ function OperationTable({ title, rows, empty, rowLabel, onRefresh }: { title: st
                   <td className="whitespace-nowrap px-4 py-3 align-top text-[10px] text-muted-theme">{new Date(row.updated_at || row.paid_at || row.created_at).toLocaleString()}</td>
                   {row.payment_kind && (
                     <td className="px-4 py-3 align-top">
-                      {row.payment_kind === 'credits'
-                        ? <CreditRefundControl row={row as PaymentRow} onRecorded={onRefresh || (() => {})} />
-                        : <span className="text-[10px] text-muted-theme">Требуется сверка оплаты и тарифа</span>}
+                      <PaymentRefundControl row={row as PaymentRow} onRecorded={onRefresh || (() => {})} />
                     </td>
                   )}
                 </tr>
