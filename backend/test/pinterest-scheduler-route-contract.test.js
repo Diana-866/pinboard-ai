@@ -86,3 +86,17 @@ test("schedule API paginates the full calendar and chunks retry metadata lookups
   assert.match(route, /activeScheduleKeys/);
   assert.doesNotMatch(route, /attempts\.find|publications\.some|rows\.some/);
 });
+
+
+test("schedule creation persists and reconciles the resolved project destination URL", () => {
+  const source = fs.readFileSync(path.join(__dirname, "..", "index.js"), "utf8");
+  const start = source.indexOf('app.post("/pins/:id/schedule"');
+  assert.notEqual(start, -1, "pin schedule route must exist");
+  const end = source.indexOf('app.post("/schedule/:id/change-board"', start);
+  assert.notEqual(end, -1, "pin schedule route boundary must exist");
+  const route = source.slice(start, end);
+
+  assert.match(route, /const snapshotDestinationUrl = destinationUrl \\|\\| snapshotPin\\.boards\\?\\.projects\\?\\.website_url \\|\\| null/);
+  assert.match(route, /destination_url:\\s*snapshotDestinationUrl/);
+  assert.match(route, /String\\(existing\\.destination_url \\|\\| ""\\) === String\\(snapshotDestinationUrl \\|\\| ""\\)/);
+});
