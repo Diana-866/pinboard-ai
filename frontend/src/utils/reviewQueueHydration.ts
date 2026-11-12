@@ -32,9 +32,20 @@ export function getReviewQueueRestoreView(input: {
 
 
 /** Reject malformed API payloads instead of treating them as a genuinely empty queue. */
-export function requireReviewQueueRows<T>(value: unknown): T[] {
+export function requireReviewQueueRows<T extends ReviewQueueItem>(value: unknown): T[] {
   if (!Array.isArray(value)) {
     throw new TypeError('Review queue response must be an array');
+  }
+  for (const [index, row] of value.entries()) {
+    if (
+      !row ||
+      typeof row !== 'object' ||
+      Array.isArray(row) ||
+      typeof (row as { id?: unknown }).id !== 'string' ||
+      !(row as { id: string }).id.trim()
+    ) {
+      throw new TypeError(`Review queue row at index ${index} is malformed`);
+    }
   }
   return value as T[];
 }
