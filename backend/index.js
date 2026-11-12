@@ -824,7 +824,7 @@ async function getBoardWithOwnerCheck(boardId, userId) {
 async function getPinWithOwnerCheck(pinId, userId) {
   const { data: pin, error } = await supabase
     .from("pins")
-    .select("*, boards(id, title, description, projects(user_id, niche, tone))")
+    .select("*, boards(id, title, description, projects(user_id, niche, tone, website_url))")
     .eq("id", pinId)
     .single();
   if (error || !pin) throw httpError(404, "Пин не найден");
