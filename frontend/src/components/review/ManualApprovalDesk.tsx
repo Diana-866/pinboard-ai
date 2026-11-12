@@ -26,7 +26,7 @@ import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { applyCurrentReviewEdits } from '../../utils/reviewApproval';
 import { createGenerationIdempotencyKey } from '../../utils/generationRetry';
-import { isReviewQueueOwnerCurrent, type ReviewQueueOwnerSnapshot } from '../../utils/reviewQueueOwnerFence';
+import { isReviewQueueItemCurrent, isReviewQueueOwnerCurrent, type ReviewQueueOwnerSnapshot } from '../../utils/reviewQueueOwnerFence';
 
 export interface PendingReviewPin {
   id: string;
@@ -343,7 +343,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   const regenerationRequestRef = useRef(0);
   const isCurrentReviewItem = (id: string, pinId: string | undefined, owner: ReviewQueueOwnerSnapshot) => {
     const active = currentReviewItemRef.current;
-    return isOwnerCurrent(owner) && Boolean(active && active.id === id && active.pinId === (pinId || ''));
+    return isOwnerCurrent(owner) && isReviewQueueItemCurrent({ id, pinId: pinId || '' }, active);
   };
 
   useLayoutEffect(() => {
