@@ -80,7 +80,7 @@ begin
   -- operation can still settle asynchronously.
   if exists (
     select 1 from public.credit_purchases
-     where user_id=v_user_id::text and status in ('pending','paid_uncredited')
+     where user_id=v_user_id::text and (status='pending' or (status='paid_uncredited' and provider_refunded_at is null))
   ) or exists (
     select 1 from public.subscriptions
      where user_id=v_user_id::text and status='pending'
