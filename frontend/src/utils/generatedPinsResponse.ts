@@ -20,6 +20,16 @@ export function requireGeneratedPinsArray(value: unknown): any[] {
       throw new Error('Сервер вернул повторяющийся идентификатор пина. Ключ восстановления сохранён.');
     }
     seenIds.add(pin.id);
+    if (pin.title != null && typeof pin.title !== 'string') {
+      throw new Error('Сервер вернул некорректный заголовок пина. Ключ восстановления сохранён.');
+    }
+    if (pin.description != null && typeof pin.description !== 'string') {
+      throw new Error('Сервер вернул некорректное описание пина. Ключ восстановления сохранён.');
+    }
+    if (pin.aspect_ratio != null &&
+        !['2:3', '9:16', '3:4', '4:5', '1:1'].includes(pin.aspect_ratio)) {
+      throw new Error('Сервер вернул неподдерживаемый формат пина. Ключ восстановления сохранён.');
+    }
     if (typeof pin.image_url !== 'string' || !pin.image_url.trim()) {
       throw new Error('У сохранённого пина отсутствует постоянная ссылка на изображение. Ключ восстановления сохранён.');
     }
