@@ -30,6 +30,8 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
   const userId = user?.id || '';
   const activeOwnerIdRef = useRef(userId);
   const activeSessionIdRef = useRef(0);
+  const activePinIdRef = useRef(pinId);
+  const activePinGenerationRef = useRef(0);
   const [accounts, setAccounts] = useState<PinterestAccount[]>([]);
   const [accountId, setAccountId] = useState('');
   const [boards, setBoards] = useState<PinterestBoard[]>([]);
@@ -60,6 +62,16 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
     setUncertain(false);
     setError(null);
   }, [userId]);
+
+  // A reused card can receive a different pin without unmounting. Fence the
+  // old POST response so it cannot mark the newly displayed pin as published.
+  useLayoutEffect(() => {
+    activePinIdRef.current = pinId;
+    activePinGenerationRef.current += 1;
+    setDone(null);
+    setUncertain(false);
+    setError(null);
+  }, [pinId]);
 
   useEffect(() => {
     let active = true;
@@ -148,6 +160,8 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
     if (!isCurrentPublishSession(activeOwnerIdRef.current, activeSessionIdRef.current, userId, activeSessionIdRef.current) || hasPublishSessionLock(publishLockRef.current, userId, activeSessionIdRef.current) || accountsLoading || boardsLoading || !accountId || !selectedBoard) return;
     const ownerId = userId;
     const sessionId = activeSessionIdRef.current;
+    const publishingPinId = pinId;
+    const pinGeneration = activePinGenerationRef.current;
     const publishingAccountId = accountId;
     const publishingBoardId = selectedBoard;
     const requestId = ++publishRequestIdRef.current;
@@ -155,11 +169,15 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
     setError(null);
     setBusy(true);
     try {
-      const data = await apiRequest(`/pins/${encodeURIComponent(pinId)}/publish`, {
+      const data = await apiRequest(`/pins/${encodeURIComponent(publishingPinId)}/publish`,
         method: 'POST',
         body: JSON.stringify({ board_id: publishingBoardId, account_id: publishingAccountId }),
       });
-      if (!isCurrentPublishSession(activeOwnerIdRef.current, activeSessionIdRef.current, ownerId, sessionId)) return;
+      if (
+        !isCurrentPublishSession(activeOwnerIdRef.current, activeSessionIdRef.current, ownerId, sessionId) ||
+        activePinGenerationRef.current !== pinGeneration ||
+        activePinIdRef.current !== publishingPinId
+      ) return;
       const confirmed = readConfirmedPinterestPublish(data, publishingBoardId);
       if (!confirmed) {
         // The remote POST may have succeeded even though its response was
