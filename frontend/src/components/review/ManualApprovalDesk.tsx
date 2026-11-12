@@ -25,6 +25,7 @@ import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { applyCurrentReviewEdits } from '../../utils/reviewApproval';
 import { createGenerationIdempotencyKey } from '../../utils/generationRetry';
+import { useAuth } from '../../context/AuthContext';
 
 export interface PendingReviewPin {
   id: string;
@@ -293,6 +294,8 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   onGoToDashboard,
 }) => {
   const { t, formatDate } = useI18n();
+  const { user } = useAuth();
+  const userId = user?.id || '';
 
   const [internalQueue, setInternalQueue] = useState<PendingReviewPin[]>([]);
   const queue = pendingPins ?? internalQueue;
@@ -341,18 +344,38 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
   useEffect(() => {
     let active = true;
+    // The review desk can remain mounted while AuthContext changes users.
+    // Clear the previous owner's Pinterest selection before loading the new one.
+    setPinterestAccounts([]);
+    setSelectedPinterestAccountId('');
+    setPinterestBoards([]);
+    setSelectedPinterestBoardId('');
+    setPinterestBoardsLoaded(false);
+    setPinterestBoardsError(false);
+    if (!userId) {
+      setPinterestBoardsLoaded(true);
+      return () => { active = false; };
+    }
+
     apiRequest('/integrations/pinterest/status')
       .then((data) => {
         if (!active) return;
-        const rows = Array.isArray(data?.accounts) ? data.accounts : [];
+        const rows = Array.isArray(data?.accounts)
+          ? data.accounts.filter((account: any) => account && typeof account.id === 'string' && account.id.trim())
+          : [];
         setPinterestAccounts(rows);
         if (rows.length === 1) setSelectedPinterestAccountId(rows[0].id);
       })
       .catch(() => {
-        if (active) setPinterestBoardsError(true);
+        if (active) {
+          setPinterestAccounts([]);
+          setSelectedPinterestAccountId('');
+          setPinterestBoardsError(true);
+          setPinterestBoardsLoaded(true);
+        }
       });
     return () => { active = false; };
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     let active = true;
