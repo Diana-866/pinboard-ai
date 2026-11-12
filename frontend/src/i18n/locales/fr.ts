@@ -580,6 +580,10 @@ export const fr: TranslationSchema = {
     queueLoadErrorDescription: "Vos épingles n’ont pas été supprimées. Vérifiez votre connexion et réessayez. Une file vide ne signifie pas que toutes les épingles ont été examinées.",
     queueRetry: "Réessayer le chargement",
     queueLoading: "Chargement de la file de vérification…",
+    queueLoadErrorTitle: "Impossible de charger la file de vérification",
+    queueLoadErrorDescription: "Vos épingles n’ont pas été supprimées. Vérifiez votre connexion et réessayez. Une file vide ne signifie pas que toutes les épingles ont été examinées.",
+    queueRetry: "Réessayer le chargement",
+    queueLoading: "Chargement de la file de vérification…",
   },
 
   bot: {
