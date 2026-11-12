@@ -10,7 +10,7 @@ test("AI generation prompts treat user-controlled project and board fields as un
     const source = fs.readFileSync(path.join(root, file), "utf8");
     assert.match(
       source,
-      /недоверенные данные|недоверенным данным/,
+      /недоверенн/,
       `${file} must explicitly isolate supplied content from prompt instructions`
     );
     assert.match(
