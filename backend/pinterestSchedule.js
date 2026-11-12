@@ -228,6 +228,7 @@ module.exports = {
   persistKnownRemotePublishOutcome,
   isPinterestPublishOutcomeUnknown,
   buildPinScheduleSnapshot,
+  isSamePinScheduleRequest,
   resolvePinScheduleSnapshot,
   normalizePinterestDestinationUrl,
   classifyLegacyScheduleAccount,
@@ -283,6 +284,20 @@ function createScheduleClaimHeartbeat({ renew, logger = console, intervalMs = 60
   return stop;
 }
 
+
+// A duplicate schedule request is idempotent only when every destination and timing
+// field matches. A different request must never receive the existing schedule as success.
+function isSamePinScheduleRequest(existing, requested) {
+  if (!existing || !requested) return false;
+  const existingTime = new Date(existing.scheduled_at).getTime();
+  const requestedTime = new Date(requested.scheduledAt).getTime();
+  if (!Number.isFinite(existingTime) || !Number.isFinite(requestedTime)) return false;
+  return existingTime === requestedTime &&
+    String(existing.timezone || "") === String(requested.timezone || "") &&
+    String(existing.destination_url || "") === String(requested.destinationUrl || "") &&
+    String(existing.pinterest_board_id || "") === String(requested.pinterestBoardId || "") &&
+    String(existing.pinterest_account_id || "") === String(requested.pinterestAccountId || "");
+}
 
 // Pure helpers for the immutable creative attached to a scheduled Pinterest publish.
 function buildPinScheduleSnapshot(pin, destinationUrl) {
