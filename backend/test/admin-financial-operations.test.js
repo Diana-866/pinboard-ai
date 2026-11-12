@@ -24,7 +24,7 @@ const fixtures = {
     { id: 42, status: "paid_uncredited", amount: 190, currency: "rub", provider_payment_id: "ppc-42", provider_refunded_at: oldTimestamp, paid_at: oldTimestamp, created_at: oldTimestamp, user_id: "refunded-credit-user" },
   ],
   subscriptions: [
-    { id: 51, status: "paid_unactivated", amount: 790, currency: "rub", provider_paid_at: oldTimestamp, provider_refunded_at: null, created_at: oldTimestamp, user_id: "private-subscription-user" },
+    { id: 51, status: "paid_unactivated", amount: 790, currency: "rub", provider_payment_id: "sub-ppc-51", provider_paid_at: oldTimestamp, provider_refunded_at: null, created_at: oldTimestamp, user_id: "private-subscription-user" },
     { id: 52, status: "paid_unactivated", amount: 790, currency: "rub", provider_paid_at: oldTimestamp, provider_refunded_at: oldTimestamp, created_at: oldTimestamp, user_id: "refunded-subscription-user" },
   ],
 };
@@ -75,6 +75,7 @@ test("read-only queue classifies unresolved provider outcomes and stale reservat
   assert.equal(result.payment_reconciliation[0].reason, "paid_credit_requires_fulfillment_or_refund");
   assert.equal(result.payment_reconciliation[0].provider_order_id, "ppc-41");
   assert.equal(result.payment_reconciliation[1].reason, "paid_subscription_requires_entitlement_or_refund");
+  assert.equal(result.payment_reconciliation[1].provider_order_id, "sub-ppc-51");
   assert.deepEqual(result.payment_reconciliation.map((row) => row.payment_id), ["41", "51"], "verified refunds must not remain in the unresolved queue");
   assert.equal(result.counts.payment_reconciliation, 2);
 
