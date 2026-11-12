@@ -44,12 +44,6 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
   // pin's result into another account/session. In-flight responses are fenced.
   useEffect(() => {
     publishScopeRef.current += 1;
-    setAccounts([]);
-    setAccountId('');
-    setBoards([]);
-    setSelectedBoard('');
-    setAccountsLoading(Boolean(userId));
-    setBoardsLoading(false);
     setDone(null);
     setUncertain(false);
     setError(null);
@@ -58,6 +52,11 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
 
   useEffect(() => {
     let active = true;
+    setAccounts([]);
+    setAccountId('');
+    setBoards([]);
+    setSelectedBoard('');
+    setBoardsLoading(false);
     setAccountsLoading(Boolean(userId));
     if (!userId) {
       setAccounts([]);
