@@ -1253,19 +1253,24 @@ app.get("/review-queue", requireAuth, async (req, res) => {
     const pinsById = new Map();
     const scheduledPinIds = new Set();
     if (pinIds.length) {
-      const { data: pins, error: pinsError } = await supabase
-        .from("pins")
-        .select("id,status,boards(id,projects(user_id))")
-        .in("id", pinIds);
+      const pinIdChunks = Array.from({ length: Math.ceil(pinIds.length / 200) }, (_, index) =>
+        pinIds.slice(index * 200, (index + 1) * 200)
+      );
+      const pinResults = await Promise.all(pinIdChunks.map((ids) =>
+        supabase
+          .from("pins")
+          .select("id,status,boards(id,projects(user_id))")
+          .in("id", ids)
+      ));
+      const pinsError = pinResults.find((result) => result.error)?.error;
       if (pinsError) throw pinsError;
-      for (const pin of pins || []) pinsById.set(String(pin.id), pin);
+      for (const result of pinResults) {
+        for (const pin of result.data || []) pinsById.set(String(pin.id), pin);
+      }
 
       // A queue row can survive if scheduling succeeded but the follow-up
       // queue deletion failed. Reconcile against persisted schedules so a
       // refresh cannot offer the same pin for approval a second time.
-      const pinIdChunks = Array.from({ length: Math.ceil(pinIds.length / 200) }, (_, index) =>
-        pinIds.slice(index * 200, (index + 1) * 200)
-      );
       const scheduleResults = await Promise.all(pinIdChunks.map((ids) =>
         supabase
           .from("pin_schedules")
