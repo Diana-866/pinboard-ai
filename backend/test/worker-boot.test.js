@@ -222,11 +222,16 @@ test("one-shot worker never schedules a follow-up timer after success or failure
 test("one-shot worker destroys its dedicated HTTP agents after the request", async () => {
   const { createWorker } = require("../scheduleWorker");
   let requestConfig;
+  const destroyed = { http: 0, https: 0 };
   const worker = createWorker({
     config: { endpoint: "https://backend.example/internal/pinterest/schedule/run", secret: SECRET },
     client: {
       async post(_url, _body, config) {
         requestConfig = config;
+        for (const [key, agent] of [["http", config.httpAgent], ["https", config.httpsAgent]]) {
+          const destroy = agent.destroy.bind(agent);
+          agent.destroy = () => { destroyed[key] += 1; return destroy(); };
+        }
         return { data: { ok: true, claimed: 0 } };
       },
     },
@@ -237,6 +242,5 @@ test("one-shot worker destroys its dedicated HTTP agents after the request", asy
   assert.equal(await worker.tick(), true);
   assert.equal(requestConfig.httpAgent.keepAlive, false);
   assert.equal(requestConfig.httpsAgent.keepAlive, false);
-  assert.equal(requestConfig.httpAgent.destroyed, true);
-  assert.equal(requestConfig.httpsAgent.destroyed, true);
+  assert.deepEqual(destroyed, { http: 1, https: 1 });
 });
