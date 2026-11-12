@@ -7,8 +7,10 @@ const { logError, logInfo } = require("./safeLogger");
 const { deleteManagedPinImageObject } = require("./pinImageLifecycle");
 
 const POLL_INTERVAL_MS = Math.max(5000, Number(process.env.ACCOUNT_DELETION_WORKER_INTERVAL_MS) || 30000);
-const LEASE_SECONDS = 300;
-const CLAIM_LIMIT = 2;
+// Claim one job per worker tick: jobs run serially, so claiming multiple
+// 15-minute leases up front would let later jobs expire before processing.
+const LEASE_SECONDS = 900;
+const CLAIM_LIMIT = 1;
 
 function safeErrorCode(error) {
   const candidate = String(error && (error.code || error.name) || "preflight_failed")
