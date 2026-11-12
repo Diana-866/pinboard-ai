@@ -240,9 +240,43 @@ test("worker claims and finalizes only through fenced RPCs", async () => {
   assert.equal(calls[2].args.p_supabase_url, "https://project.supabase.co");
   assert.equal(calls[3].name, "mark_account_deletion_storage_manifest");
   assert.equal(calls[4].name, "disconnect_pinterest_for_account_deletion");
+  assert.equal(calls[4].args.p_job_id, "aaaaaaaa-aaaa-4aaa-8aaa-000000000001");
+  assert.equal(calls[4].args.p_claim_token, "aaaaaaaa-aaaa-4aaa-8aaa-000000000101");
   assert.equal(calls[4].args.p_user_id, USER_ID);
   assert.equal(calls[5].name, "finish_account_deletion_job");
   assert.equal(calls[5].args.p_outcome, "succeeded");
+});
+
+test("worker stops preflight when the Pinterest disconnect RPC rejects a stale claim", async () => {
+  const calls = [];
+  const client = {
+    ...createReadClient(),
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_account_deletion_jobs") {
+        return {
+          data: [{
+            job_id: "cccccccc-cccc-4ccc-8ccc-000000000001",
+            user_id: USER_ID,
+            step_key: "preflight",
+            claim_token: "cccccccc-cccc-4ccc-8ccc-000000000002",
+          }],
+          error: null,
+        };
+      }
+      if (name === "record_account_deletion_preflight") return { data: true, error: null };
+      if (name === "materialize_account_deletion_storage_manifest") {
+        return { data: { recorded: true, inserted: 0, total: 0 }, error: null };
+      }
+      if (name === "mark_account_deletion_storage_manifest") return { data: true, error: null };
+      if (name === "disconnect_pinterest_for_account_deletion") return { data: -1, error: null };
+      throw new Error("unexpected RPC");
+    },
+  };
+  const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} } });
+  const result = await worker.tick();
+  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 0 });
+  assert.equal(calls.some((call) => call.name === "finish_account_deletion_job"), false);
 });
 
 test("worker never marks preflight complete after losing the inventory claim", async () => {
