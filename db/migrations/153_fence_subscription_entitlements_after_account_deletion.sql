@@ -89,7 +89,8 @@ begin
     v_end := v_start + interval '30 days';
 
     update public.subscriptions
-       set status = 'success',
+       set status = case when v_user.account_status = 'active'
+                         then 'success' else 'paid_unactivated' end,
            provider_paid_at = coalesce(provider_paid_at, p_paid_at, now()),
            period_start = v_start,
            period_end = v_end
