@@ -179,7 +179,7 @@ test("Pinterest account status cannot restore another user's accounts after a se
   assert.match(identityEffect, /setActiveAccountId\(''\)/);
   assert.match(identityEffect, /setMaxAccounts\(0\)/);
 
-  const effectStart = app.indexOf("apiRequest('/integrations/pinterest/status')");
+  const effectStart = app.indexOf("const requestOwnerId = user?.id || '';", identityEnd);
   const effectEnd = app.indexOf("const handleUpdatePendingPins", effectStart);
   assert.notEqual(effectStart, -1);
   assert.ok(effectEnd > effectStart);
