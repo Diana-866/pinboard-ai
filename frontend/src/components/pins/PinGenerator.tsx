@@ -1807,11 +1807,15 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                       const pendingSave = pendingPinSavesRef.current.get(currentPin.id);
                       if (pendingSave) await pendingSave;
                       const title = resolvePinTitleSelection(pinTitleSelectionRef.current, currentPin.id, currentPin.selectedTitle);
+                      // The textarea state captured by this render may be stale after
+                      // the awaited PATCH. Prefer the exact draft just confirmed by
+                      // savePinDescription so the review queue receives the latest text.
+                      const reviewDescription = descriptionToFlush?.description ?? currentPin.description;
                       await onAddToReview({
                         id: `review-${currentPin.id}`,
                         pinId: currentPin.id,
                         title,
-                        description: currentPin.description,
+                        description: reviewDescription,
                         boardName: board.name,
                         boardId: board.id,
                         imageUrl: currentPin.imageUrl,
