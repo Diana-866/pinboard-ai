@@ -335,6 +335,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isDecisionInFlight, setIsDecisionInFlight] = useState(false);
+  const [bulkApprovalProgress, setBulkApprovalProgress] = useState<{ completed: number; total: number } | null>(null);
   const decisionInFlightRef = useRef(false);
   const dragStartX = useRef(0);
 
@@ -552,11 +553,23 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
           pinterestAccountId: selectedPinterestAccountId,
         };
       });
-      const results = await Promise.allSettled(scheduledItems.map((item) => onApprovePin(item)));
+      // Schedule one pin at a time. Each approval performs several persisted
+      // API transitions and a Pinterest board verification; firing the whole
+      // queue concurrently can trigger rate limits and make bulk approval flaky.
       const successfulIds = new Set<string>();
-      results.forEach((result, index) => {
-        if (result.status === 'fulfilled') successfulIds.add(queueSnapshot[index].id);
-      });
+      setBulkApprovalProgress({ completed: 0, total: scheduledItems.length });
+      for (let index = 0; index < scheduledItems.length; index += 1) {
+        try {
+          await onApprovePin(scheduledItems[index]);
+          successfulIds.add(queueSnapshot[index].id);
+        } catch {
+          // Keep this card in the review queue and continue with the rest.
+          // A partial failure must not discard successful approvals or stop
+          // independent cards from being processed.
+        } finally {
+          setBulkApprovalProgress({ completed: index + 1, total: scheduledItems.length });
+        }
+      }
       if (successfulIds.size > 0) {
         try {
           await updateQueue((prev) => prev.filter((pin) => !successfulIds.has(pin.id)));
@@ -570,6 +583,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         window.alert(`В расписание добавлено: ${successfulIds.size} из ${scheduledItems.length}. Неудачные карточки остались в очереди.`);
       }
     } finally {
+      setBulkApprovalProgress(null);
       decisionInFlightRef.current = false;
       setIsDecisionInFlight(false);
     }
@@ -758,7 +772,9 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
               title="Утвердить все пины из очереди в расписание публикаций"
             >
               <Check className="w-3.5 h-3.5" />
-              <span>{isDecisionInFlight ? 'Сохраняем…' : `Одобрить все (${queue.length})`}</span>
+              <span>{bulkApprovalProgress
+                ? `Добавляем ${bulkApprovalProgress.completed} из ${bulkApprovalProgress.total}…`
+                : isDecisionInFlight ? 'Сохраняем…' : `Одобрить все (${queue.length})`}</span>
             </button>
           )}
 
