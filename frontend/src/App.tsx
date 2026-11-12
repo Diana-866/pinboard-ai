@@ -306,6 +306,9 @@ const MainApp: React.FC = () => {
   // Synchronized Pending Review Pins queue (Shared between Dashboard, Calendar, Sidebar & ManualApprovalDesk).
   // Queue entries are session-local and must never survive an authenticated-user switch.
   const [pendingReviewPins, setPendingReviewPins] = useState<PendingReviewPin[]>([]);
+  const [pendingReviewQueueLoading, setPendingReviewQueueLoading] = useState(Boolean(user?.id));
+  const [pendingReviewQueueError, setPendingReviewQueueError] = useState(false);
+  const [reviewQueueReloadToken, setReviewQueueReloadToken] = useState(0);
   const pendingReviewPinsRef = React.useRef<PendingReviewPin[]>([]);
   const reviewQueueWriteChainsRef = React.useRef<Map<string, Promise<unknown>>>(new Map());
   const pendingReviewUserIdRef = React.useRef(user?.id || '');
@@ -321,6 +324,8 @@ const MainApp: React.FC = () => {
     pendingReviewOwnerGenerationRef.current += 1;
     pendingReviewUserIdRef.current = user?.id || '';
     reviewQueueHydratingRef.current = Boolean(user?.id);
+    setPendingReviewQueueLoading(Boolean(user?.id));
+    setPendingReviewQueueError(false);
     reviewQueueTouchedIdsRef.current = new Set();
     pendingReviewPinsRef.current = [];
     setPendingReviewPins([]);
@@ -336,6 +341,9 @@ const MainApp: React.FC = () => {
     });
     if (!ownerId) return () => { active = false; };
 
+    reviewQueueHydratingRef.current = true;
+    setPendingReviewQueueLoading(true);
+    setPendingReviewQueueError(false);
     apiRequest('/review-queue')
       .then((rows) => {
         if (!active || !isCurrentOwner()) return;
@@ -346,6 +354,8 @@ const MainApp: React.FC = () => {
           reviewQueueTouchedIdsRef.current,
         );
         reviewQueueHydratingRef.current = false;
+        setPendingReviewQueueLoading(false);
+        setPendingReviewQueueError(false);
         reviewQueueTouchedIdsRef.current.clear();
         pendingReviewPinsRef.current = hydratedRows;
         setPendingReviewPins(hydratedRows);
@@ -353,12 +363,14 @@ const MainApp: React.FC = () => {
       .catch((error) => {
         if (!active || !isCurrentOwner()) return;
         reviewQueueHydratingRef.current = false;
+        setPendingReviewQueueLoading(false);
+        setPendingReviewQueueError(true);
         reviewQueueTouchedIdsRef.current.clear();
         console.error('[review-queue] Не удалось восстановить очередь:', error);
         window.dispatchEvent(new CustomEvent('pinposy:review-queue-error'));
       });
     return () => { active = false; };
-  }, [user?.id]);
+  }, [user?.id, reviewQueueReloadToken]);
 
   const handlePinterestStatusChange = React.useCallback((status: { configured: boolean; account_limit?: number | null; accounts?: Array<{ id: string; username?: string | null; pinterest_user_id?: string | null; needs_reauth?: boolean }> }) => {
     const rows = Array.isArray(status.accounts) ? status.accounts : [];
@@ -421,6 +433,13 @@ const MainApp: React.FC = () => {
 
     return () => { active = false; };
   }, [user?.id, handlePinterestStatusChange]);
+
+  const handleRetryReviewQueue = React.useCallback(() => {
+    if (!user?.id) return;
+    setPendingReviewQueueError(false);
+    setPendingReviewQueueLoading(true);
+    setReviewQueueReloadToken((value) => value + 1);
+  }, [user?.id]);
 
   const handleUpdatePendingPins = (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => {
     const ownerId = user?.id || '';
@@ -928,6 +947,9 @@ const MainApp: React.FC = () => {
             <ManualApprovalDesk
               boards={boards}
               pendingPins={pendingReviewPins}
+              queueLoading={pendingReviewQueueLoading}
+              queueLoadError={pendingReviewQueueError}
+              onRetryQueueLoad={handleRetryReviewQueue}
               onUpdatePendingPins={handleUpdatePendingPins}
               onApprovePin={handleSchedulePin}
               onGoToCalendar={() => setActiveTab('calendar')}
