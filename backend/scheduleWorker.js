@@ -64,6 +64,9 @@ function getSafeWorkerErrorDetails(error) {
 function getWorkerConfig(env = process.env) {
   const baseUrl = String(env.PINPOSY_BACKEND_URL || env.PUBLIC_BACKEND_URL || "").trim().replace(/[/]+$/, "");
   const secret = String(env.PINPOSY_SCHEDULER_SECRET || "");
+  if (secret !== secret.trim() || /\s/.test(secret)) {
+    throw new Error("PINPOSY_SCHEDULER_SECRET must not contain whitespace");
+  }
   if (!baseUrl) throw new Error("PINPOSY_BACKEND_URL (or PUBLIC_BACKEND_URL) is required");
   let parsed;
   try { parsed = new URL(baseUrl); } catch { throw new Error("PINPOSY_BACKEND_URL must be a valid URL"); }
