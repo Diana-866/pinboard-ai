@@ -107,13 +107,25 @@ test('does not treat malformed or incomplete schedule lists as cancellation', ()
 });
 
 
+test('accepts a schedule that the worker published before the create response was reconciled', () => {
+  const expectedRequest = {
+    pinId: 'pin-1',
+    scheduledAt: persisted.scheduled_at,
+    pinterestBoardId: 'board-new',
+    pinterestAccountId: 'account-1',
+    statuses: ['scheduled', 'publishing', 'published', 'failed', 'unknown'],
+  };
+  const published = { ...persisted, status: 'published' };
+  assert.deepEqual(findPersistedScheduleRequest([published], expectedRequest), published);
+});
+
 test('reconciles a lost schedule-create response only against one exact active row', () => {
   const expectedRequest = {
     pinId: 'pin-1',
     scheduledAt: persisted.scheduled_at,
     pinterestBoardId: 'board-new',
     pinterestAccountId: 'account-1',
-    statuses: ['scheduled', 'publishing', 'failed', 'unknown'],
+    statuses: ['scheduled', 'publishing', 'published', 'failed', 'unknown'],
   };
   assert.deepEqual(findPersistedScheduleRequest([persisted], expectedRequest), persisted);
   assert.deepEqual(
@@ -128,7 +140,7 @@ test('does not reconcile schedule creation against a different time, destination
     scheduledAt: persisted.scheduled_at,
     pinterestBoardId: 'board-new',
     pinterestAccountId: 'account-1',
-    statuses: ['scheduled', 'publishing', 'failed', 'unknown'],
+    statuses: ['scheduled', 'publishing', 'published', 'failed', 'unknown'],
   };
   for (const row of [
     { ...persisted, scheduled_at: '2026-11-09T18:15:00.000Z' },
