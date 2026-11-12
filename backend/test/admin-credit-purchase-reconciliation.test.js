@@ -163,6 +163,23 @@ test("maps database authorization, conflict, and missing-purchase errors safely"
   );
 });
 
+test("maps owner-lock races and missing subscription owners to safe errors", async () => {
+  reset();
+  rpcResult = { data: null, error: { message: "credit purchase changed during lock acquisition" } };
+  await assert.rejects(reconciliation.recordProviderRefund(OPERATOR_ID, {
+    purchase_id: PURCHASE_ID, action_id: ACTION_ID,
+    evidence_type: "provider_dashboard", evidence_reference: "refund-case-2026-001",
+  }), { httpStatus: 409 });
+
+  reset();
+  rpcResult = { data: null, error: { message: "subscription user not found" } };
+  await assert.rejects(reconciliation.recordSubscriptionProviderRefund(OPERATOR_ID, {
+    subscription_id: "e6d1b2c3-4e5f-4678-9abc-0123456789ab",
+    action_id: ACTION_ID, evidence_type: "provider_dashboard",
+    evidence_reference: "refund-case-2026-092",
+  }), { httpStatus: 404 });
+});
+
 test("records subscription provider refund with the authenticated administrator", async () => {
   reset();
   const subscriptionId = "e6d1b2c3-4e5f-4678-9abc-0123456789ab";
