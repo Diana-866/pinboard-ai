@@ -470,6 +470,18 @@ function createAccountDeletionWorker({
         invalidJobs.code = "invalid_claim_response";
         throw invalidJobs;
       }
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      for (const job of jobs) {
+        if (!job || typeof job !== "object" ||
+            !uuidPattern.test(job.job_id || "") ||
+            !uuidPattern.test(job.user_id || "") ||
+            !uuidPattern.test(job.claim_token || "") ||
+            typeof job.step_key !== "string" || !job.step_key) {
+          const invalidJob = new Error("account deletion claim contains an invalid job");
+          invalidJob.code = "invalid_claimed_job";
+          throw invalidJob;
+        }
+      }
       let completed = 0;
       let retried = 0;
       for (const job of jobs) {
