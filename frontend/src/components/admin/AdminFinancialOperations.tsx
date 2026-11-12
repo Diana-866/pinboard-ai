@@ -145,7 +145,7 @@ export const AdminFinancialOperations: React.FC = () => {
 
       {data && (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             <div className="custom-card p-4"><div className="text-[10px] uppercase tracking-wide text-muted-theme">Всего в очереди</div><div className="mt-1 text-2xl font-bold text-primary-theme">{total}</div></div>
             <div className="custom-card p-4"><div className="text-[10px] uppercase tracking-wide text-muted-theme">Генерации</div><div className="mt-1 text-2xl font-bold text-primary-theme">{data.counts.generation}</div></div>
             <div className="custom-card p-4"><div className="text-[10px] uppercase tracking-wide text-muted-theme">Перегенерации</div><div className="mt-1 text-2xl font-bold text-primary-theme">{data.counts.regeneration}</div></div>
