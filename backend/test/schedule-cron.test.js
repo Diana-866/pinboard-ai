@@ -12,10 +12,16 @@ const config = {
 test("one-shot cron invokes one authenticated scheduler batch and exits", async () => {
   const calls = [];
   const events = [];
+  const destroyedAgents = [];
   const result = await runOnce({
     config,
     client: { post: async (...args) => {
       calls.push(args);
+      for (const agent of [args[2].httpAgent, args[2].httpsAgent]) {
+        assert.equal(agent.options.keepAlive, false);
+        const destroy = agent.destroy.bind(agent);
+        agent.destroy = () => { destroyedAgents.push(agent); return destroy(); };
+      }
       return { data: {
         ok: true,
         claimed: 1,
@@ -37,6 +43,7 @@ test("one-shot cron invokes one authenticated scheduler batch and exits", async 
   assert.deepEqual(calls[0][1], { limit: 1 });
   assert.equal(calls[0][2].timeout, REQUEST_TIMEOUT_MS);
   assert.equal(calls[0][2].maxRedirects, 0, "scheduler credentials must never be forwarded through HTTP redirects");
+  assert.equal(destroyedAgents.length, 2, "both one-shot HTTP agents must be destroyed after the request");
   assert.equal(calls[0][2].headers["x-pinposy-scheduler-secret"], config.secret);
   assert.equal(result.published, 1);
   assert.deepEqual(events, [["schedule_cron.batch_completed"]]);
