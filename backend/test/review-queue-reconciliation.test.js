@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const { reconcileReviewQueueRows } = require("../reviewQueueReconciliation");
 
 function row(id, pinId) {
-  return { id, pin_id: pinId, payload: { id, pinId, title: id } };
+  return { id, pin_id: pinId, payload: { id, pinId, title: id, description: "" } };
 }
 
 function pin(id, status = "pending", ownerId = "user-1") {
@@ -17,6 +17,7 @@ test("keeps demo queue items and owned pins that are not rejected", () => {
     "user-1",
   );
   assert.deepEqual(result.staleIds, []);
+  assert.deepEqual(result.invalidIds, []);
   assert.deepEqual(result.active.map((item) => item.id), ["demo", "pending", "approved"]);
   assert.equal(result.active[1].pinStatus, "pending");
   assert.equal(result.active[2].pinStatus, "approved");
@@ -33,17 +34,47 @@ test("removes rejected, missing and foreign-owned pins from the review queue", (
   );
   assert.deepEqual(result.active, []);
   assert.deepEqual(result.staleIds, ["rejected", "missing", "foreign"]);
+  assert.deepEqual(result.invalidIds, []);
 });
 
 test("uses the persisted pin_id when present and falls back to legacy payload pinId", () => {
   const result = reconcileReviewQueueRows(
     [
-      { id: "persisted", pin_id: "pin-1", payload: { id: "persisted", pinId: "wrong-pin", title: "A" } },
-      { id: "legacy", pin_id: null, payload: { id: "legacy", pinId: "pin-2", title: "B" } },
+      { id: "persisted", pin_id: "pin-1", payload: { id: "persisted", pinId: "wrong-pin", title: "A", description: "" } },
+      { id: "legacy", pin_id: null, payload: { id: "legacy", pinId: "pin-2", title: "B", description: "" } },
     ],
     new Map([["pin-1", pin("pin-1")], ["pin-2", pin("pin-2")]]),
     "user-1",
   );
   assert.deepEqual(result.active.map((item) => item.pinId), ["pin-1", "pin-2"]);
   assert.deepEqual(result.staleIds, []);
+  assert.deepEqual(result.invalidIds, []);
+});
+
+test("identifies malformed persisted payloads for safe restore failure", () => {
+  const result = reconcileReviewQueueRows(
+    [
+      row("valid", null),
+      { id: "missing-title", pin_id: null, payload: { id: "missing-title", description: "" } },
+      { id: "legacy-no-description", pin_id: null, payload: { id: "legacy-no-description", title: "A" } },
+      { id: "legacy-null-description", pin_id: null, payload: { id: "legacy-null-description", title: "B", description: null } },
+      { id: "invalid-description", pin_id: null, payload: { id: "invalid-description", title: "C", description: { text: "bad" } } },
+      { id: "mismatched-id", pin_id: null, payload: { id: "other", title: "A", description: "" } },
+      { id: "array-payload", pin_id: null, payload: [] },
+      { id: "null-payload", pin_id: null, payload: null },
+    ],
+    new Map(),
+    "user-1",
+  );
+  assert.deepEqual(result.active.map((item) => item.id), ["valid", "legacy-no-description", "legacy-null-description"]);
+  assert.equal(result.active[1].description, "");
+  assert.equal(result.active[2].description, "");
+  assert.deepEqual(result.staleIds, []);
+  assert.deepEqual(result.invalidIds, [
+    "missing-title",
+    "invalid-description",
+    "mismatched-id",
+    "array-payload",
+    "null-payload",
+  ]);
 });

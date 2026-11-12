@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { reconcileDisconnectedPinterestAccount } from './pinterestAccountState';
+import { reconcileDisconnectedPinterestAccount, isPinterestAccountLimitReached } from './pinterestAccountState';
 
 test('removes only the disconnected account and selects a remaining account', () => {
   const a = { id: 'a', username: 'first' };
@@ -31,4 +31,14 @@ test('prefers the authoritative account list returned by disconnect API', () => 
   const result = reconcileDisconnectedPinterestAccount(current, null, 'a', server);
   assert.deepEqual(result.accounts, server);
   assert.equal(result.status.connected, true);
+});
+
+
+test('detects when the connected account limit is reached', () => {
+  assert.equal(isPinterestAccountLimitReached(2, 2), true);
+  assert.equal(isPinterestAccountLimitReached(3, 2), true);
+  assert.equal(isPinterestAccountLimitReached(1, 2), false);
+  assert.equal(isPinterestAccountLimitReached(20, null), false);
+  assert.equal(isPinterestAccountLimitReached(0, undefined), false);
+  assert.equal(isPinterestAccountLimitReached(0, 0), true);
 });

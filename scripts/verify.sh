@@ -8,7 +8,7 @@
 # first failure with a readable summary.
 #
 #   ./scripts/verify.sh              # backend + frontend
-#   ./scripts/verify.sh --migrations # also replay db/migrations on a local PG
+#   ./scripts/verify.sh --migrations # replay db/migrations + scheduler SQL integration test on local PG
 #
 set -uo pipefail
 
@@ -56,13 +56,15 @@ frontend_checks() {
 
 migration_replay() {
   if ! command -v psql >/dev/null 2>&1; then
-    echo "psql not found — skipping migration replay (install PostgreSQL to enable it)"
-    return 0
+    echo "psql not found — --migrations requires a PostgreSQL client; install PostgreSQL or run this check in a PostgreSQL-enabled environment"
+    return 1
   fi
   local db="pinposy_verify_$$"
   local psql_cmd=(psql -q -v ON_ERROR_STOP=1)
   if [ "$(id -u)" = "0" ]; then
-    :
+    # Peer authentication maps the OS user to the DB role. Switch OS identity
+    # instead of asking PostgreSQL to authenticate root as postgres.
+    psql_cmd=(runuser -u postgres -- psql -q -v ON_ERROR_STOP=1)
   else
     psql_cmd=(sudo -u postgres "${psql_cmd[@]}")
   fi
@@ -72,7 +74,7 @@ migration_replay() {
   local scratch
   scratch="$(mktemp -d)"
   SCRATCH_DIRS+=("$scratch")
-  cp -r "$ROOT/db/migrations" "$ROOT/db/supabase-stub.sql" "$scratch/" 2>/dev/null || {
+  cp -r "$ROOT/db/migrations" "$ROOT/db/supabase-stub.sql" "$ROOT/backend/test/pinterest-scheduler-completion-fencing.integration.sql" "$scratch/" 2>/dev/null || {
     echo "missing db/migrations or db/supabase-stub.sql"
     return 1
   }
@@ -88,6 +90,13 @@ migration_replay() {
       break
     fi
   done
+  if [ "$failed" -eq 0 ]; then
+    echo "▶ scheduler monitor integration (completion fencing + stale takeover)"
+    if ! "${psql_cmd[@]}" -d "$db" -f "$scratch/pinterest-scheduler-completion-fencing.integration.sql"; then
+      echo "scheduler monitor integration failed"
+      failed=1
+    fi
+  fi
   "${psql_cmd[@]}" -c "drop database if exists ${db}" >/dev/null 2>&1
   return $failed
 }

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, AlertCircle, Link2, Loader2, RefreshCw, Unlink } from 'lucide-react';
 import { apiRequest, ApiError } from '../../lib/api';
 import { useI18n } from '../../i18n/i18nContext';
-import { reconcileDisconnectedPinterestAccount } from './pinterestAccountState';
+import { reconcileDisconnectedPinterestAccount, isPinterestAccountLimitReached } from './pinterestAccountState';
 
 interface PinterestAccount {
   id: string;
@@ -205,6 +205,7 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
   };
 
   const selectedAccount = accounts.find((account) => account.id === selectedAccountId) || null;
+  const accountLimitReached = isPinterestAccountLimitReached(accounts.length, status?.account_limit);
 
   return (
     <section className="custom-card p-6 space-y-4">
@@ -220,7 +221,7 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
         </div>
         <button
           onClick={handleConnect}
-          disabled={busy || loading || status?.configured === false}
+          disabled={busy || loading || status?.configured === false || accountLimitReached}
           className="accent-btn self-start px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
@@ -246,6 +247,12 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
       {!loading && status?.configured === false && (
         <p className="text-xs text-muted-theme">
           {t.settings.pinterestNotConfigured}
+        </p>
+      )}
+
+      {!loading && status?.configured && accountLimitReached && (
+        <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300" role="status">
+          {status?.account_limit === 0 ? t.settings.pinterestPlanRequired : t.settings.pinterestAccountLimitReached}
         </p>
       )}
 

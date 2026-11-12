@@ -57,6 +57,7 @@ interface PinGeneratorProps {
   onPinsChanged?: () => void;
   onAddToReview?: (pin: { id: string; pinId: string; title: string; description: string; boardName: string; boardId: string; imageUrl: string; aspectRatio: string; reason: string; trendMetric: string; scheduledTime: string; scheduledDate: string; destinationUrl: string; accountHandle?: string; accountId?: string }) => Promise<void>;
   onGoToCalendar: () => void;
+  onGoToSettings?: () => void;
 }
 
 const ALL_ASPECT_RATIOS: {
@@ -83,6 +84,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   onPinsChanged,
   onAddToReview,
   onGoToCalendar,
+  onGoToSettings,
 }) => {
   const { t, aiContentLanguage, setAiContentLanguage, language } = useI18n();
   const { user } = useAuth();
@@ -105,6 +107,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [customScheduleTime, setCustomScheduleTime] = useState(initialTime || '20:15');
 
   const [pinterestAccounts, setPinterestAccounts] = useState<Array<{ id: string; username?: string | null }>>([]);
+  const [pinterestAccountsLoading, setPinterestAccountsLoading] = useState(true);
   const [selectedPinterestAccountId, setSelectedPinterestAccountId] = useState('');
   const [pinterestBoards, setPinterestBoards] = useState<Array<{ id: string; name: string }>>([]);
   // Account the loaded board list belongs to: guards against scheduling to a
@@ -117,11 +120,15 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     // A mounted generator can survive an auth-context user switch. Clear every
     // account-scoped value before loading the new owner's Pinterest connections.
     setPinterestAccounts([]);
+    setPinterestAccountsLoading(Boolean(userId));
     setSelectedPinterestAccountId('');
     setPinterestBoards([]);
     setPinterestBoardsAccountId('');
     setSelectedPinterestBoardId('');
-    if (!userId) return () => { active = false; };
+    if (!userId) {
+      setPinterestAccountsLoading(false);
+      return () => { active = false; };
+    }
 
     apiRequest('/integrations/pinterest/status')
       .then((data) => {
@@ -131,11 +138,13 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
           : [];
         setPinterestAccounts(rows);
         if (rows.length === 1) setSelectedPinterestAccountId(rows[0].id);
+        setPinterestAccountsLoading(false);
       })
       .catch(() => {
         if (active) {
           setPinterestAccounts([]);
           setSelectedPinterestAccountId('');
+          setPinterestAccountsLoading(false);
         }
       });
     return () => { active = false; };
@@ -1636,6 +1645,21 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                       </span>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {!pinterestAccountsLoading && pinterestAccounts.length === 0 && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+                  <p className="text-xs text-secondary-theme">{t.settings.noAccountsConnected}</p>
+                  {onGoToSettings && (
+                    <button
+                      type="button"
+                      onClick={onGoToSettings}
+                      className="text-xs font-semibold text-accent-ghost hover:underline"
+                    >
+                      {t.settings.connectPinterestAccount}
+                    </button>
+                  )}
                 </div>
               )}
 

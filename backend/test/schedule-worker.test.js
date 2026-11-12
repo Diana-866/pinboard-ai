@@ -311,3 +311,48 @@ test("worker safely ignores hostile error diagnostic getters", async () => {
   assert.deepEqual(errors[0], ["schedule_worker.batch_failed", {}]);
   assert.equal(JSON.stringify(errors).includes("secret"), false);
 });
+
+test("worker can use the public backend URL when its dedicated URL is not set", () => {
+  assert.deepEqual(
+    getWorkerConfig({
+      PUBLIC_BACKEND_URL: "https://api.example.com/",
+      PINPOSY_SCHEDULER_SECRET: "s".repeat(32),
+    }),
+    {
+      endpoint: "https://api.example.com/internal/pinterest/schedule/run",
+      secret: "s".repeat(32),
+    }
+  );
+});
+
+test("dedicated worker backend URL takes precedence over the public fallback", () => {
+  assert.deepEqual(
+    getWorkerConfig({
+      PINPOSY_BACKEND_URL: "https://worker-target.example.com",
+      PUBLIC_BACKEND_URL: "https://other-api.example.com",
+      PINPOSY_SCHEDULER_SECRET: "s".repeat(32),
+    }),
+    {
+      endpoint: "https://worker-target.example.com/internal/pinterest/schedule/run",
+      secret: "s".repeat(32),
+    }
+  );
+});
+
+test("worker reports an overlapping scheduler wakeup as busy without treating it as a failure", async () => {
+  const info = [];
+  const errors = [];
+  const worker = createWorker({
+    config: { endpoint: "https://api.example.com/internal/pinterest/schedule/run", secret: "secret-value" },
+    client: { post: async () => ({ data: { ok: true, busy: true, claimed: 0, published: 0, failed: 0, scheduled: 0, unknown: 0 } }) },
+    logger: { info: (...args) => info.push(args), error: (...args) => errors.push(args) },
+  });
+
+  await worker.tick();
+
+  assert.equal(info.length, 1);
+  assert.equal(info[0][0], "schedule_worker.batch_completed");
+  assert.equal(info[0][1].busy, true);
+  assert.equal(info[0][1].claimed, 0);
+  assert.equal(errors.length, 0);
+});

@@ -132,6 +132,7 @@ function createWorker({
         if (!data || data.ok !== true) throw new Error("Backend returned an invalid worker response");
         consecutiveFailures = 0;
         logger.info("schedule_worker.batch_completed", {
+          busy: data.busy === true,
           claimed: Number(data.claimed) || 0,
           published: Number(data.published) || 0,
           failed: Number(data.failed) || 0,

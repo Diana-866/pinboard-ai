@@ -13,8 +13,14 @@ function normalizeReviewQueuePin(idValue, payload) {
     throw error;
   }
 
-  const title = String(payload.title || "").trim();
-  const description = String(payload.description || "");
+  if (typeof payload.title !== "string" ||
+      (payload.description !== undefined && payload.description !== null && typeof payload.description !== "string")) {
+    const error = new Error("Заголовок и описание пина должны быть текстом");
+    error.httpStatus = 422;
+    throw error;
+  }
+  const title = payload.title.trim();
+  const description = payload.description == null ? "" : payload.description;
   if (!title || title.length > 100 || description.length > 500) {
     const error = new Error("Проверьте заголовок и описание пина");
     error.httpStatus = 422;

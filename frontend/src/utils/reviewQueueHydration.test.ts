@@ -33,9 +33,12 @@ test('does not duplicate rows when local and server versions share an ID', () =>
   assert.deepEqual(rows, [{ id: 'same', title: 'local' }]);
 });
 
-
 test('accepts a valid empty review queue payload', () => {
   assert.equal(isReviewQueuePayload([]), true);
+});
+
+test('accepts a valid persisted review queue item', () => {
+  assert.equal(isReviewQueuePayload([{ id: 'pin-1', title: 'A pin', description: '' }]), true);
 });
 
 test('rejects malformed queue payloads instead of treating them as an empty queue', () => {
@@ -44,5 +47,8 @@ test('rejects malformed queue payloads instead of treating them as an empty queu
   assert.equal(isReviewQueuePayload([null]), false);
   assert.equal(isReviewQueuePayload([{}]), false);
   assert.equal(isReviewQueuePayload([{ id: '' }]), false);
-  assert.equal(isReviewQueuePayload([{ id: 123 }]), false);
+  assert.equal(isReviewQueuePayload([{ id: 123, title: 'A', description: '' }]), false);
+  assert.equal(isReviewQueuePayload([{ id: 'pin-1', description: '' }]), false);
+  assert.equal(isReviewQueuePayload([{ id: 'pin-1', title: '   ', description: '' }]), false);
+  assert.equal(isReviewQueuePayload([{ id: 'pin-1', title: 'A', description: null }]), false);
 });

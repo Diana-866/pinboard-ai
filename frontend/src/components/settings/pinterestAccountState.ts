@@ -31,3 +31,13 @@ export function reconcileDisconnectedPinterestAccount<T extends PinterestAccount
     selectedAccountId: accounts[0]?.id || null,
   };
 }
+
+
+export function isPinterestAccountLimitReached(
+  accountCount: number,
+  accountLimit: number | null | undefined
+): boolean {
+  return Number.isFinite(accountCount) && accountCount >= 0 &&
+    typeof accountLimit === 'number' && Number.isFinite(accountLimit) &&
+    accountLimit >= 0 && accountCount >= accountLimit;
+}
