@@ -6,7 +6,7 @@ import { resolvePublishBoardId } from '../../utils/publishBoardSelection';
 import { readConfirmedPinterestPublish } from '../../utils/pinterestPublishResponse';
 import { isAmbiguousPinterestPublishStatus } from '../../utils/pinterestPublishOutcome';
 import { buildPinterestPinUrl } from '../../utils/pinterestPinUrl';
-import { isCurrentPublishOwner, ownsPublishSessionLock } from '../../utils/publishSession';
+import { hasPublishSessionLock, isCurrentPublishOwner, ownsPublishSessionLock } from '../../utils/publishSession';
 
 interface PinterestAccount {
   id: string;
@@ -140,7 +140,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
   };
 
   const handlePublish = async () => {
-    if (!isCurrentPublishOwner(activeOwnerIdRef.current, userId) || ownsPublishSessionLock(publishLockRef.current, userId, publishLockRef.current?.requestId ?? -1) || accountsLoading || boardsLoading || !accountId || !selectedBoard) return;
+    if (!isCurrentPublishOwner(activeOwnerIdRef.current, userId) || hasPublishSessionLock(publishLockRef.current, userId) || accountsLoading || boardsLoading || !accountId || !selectedBoard) return;
     const ownerId = userId;
     const publishingAccountId = accountId;
     const publishingBoardId = selectedBoard;
