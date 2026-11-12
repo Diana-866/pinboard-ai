@@ -170,7 +170,7 @@ test("worker claims and finalizes only through fenced RPCs", async () => {
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
-        return { data: [{ job_id: "job-1", user_id: USER_ID, claim_token: "claim-1" }], error: null };
+        return { data: [{ job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000001", user_id: USER_ID, step_key: "preflight", claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000101" }], error: null };
       }
       if (name === "record_account_deletion_preflight") return { data: true, error: null };
       if (name === "materialize_account_deletion_storage_manifest") return { data: { recorded: true, inserted: 1, total: 1 }, error: null };
@@ -186,9 +186,9 @@ test("worker claims and finalizes only through fenced RPCs", async () => {
   assert.equal(calls[0].name, "claim_account_deletion_jobs");
   assert.equal(calls[0].args.p_limit, 1);
   assert.equal(calls[1].name, "record_account_deletion_preflight");
-  assert.equal(calls[1].args.p_claim_token, "claim-1");
+  assert.equal(calls[1].args.p_claim_token, "aaaaaaaa-aaaa-4aaa-8aaa-000000000101");
   assert.equal(calls[2].name, "materialize_account_deletion_storage_manifest");
-  assert.equal(calls[2].args.p_claim_token, "claim-1");
+  assert.equal(calls[2].args.p_claim_token, "aaaaaaaa-aaaa-4aaa-8aaa-000000000101");
   assert.equal(calls[2].args.p_supabase_url, "https://project.supabase.co");
   assert.equal(calls[3].name, "mark_account_deletion_storage_manifest");
   assert.equal(calls[4].name, "disconnect_pinterest_for_account_deletion");
@@ -204,7 +204,7 @@ test("worker never marks preflight complete after losing the inventory claim", a
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
-        return { data: [{ job_id: "job-lost", user_id: USER_ID, claim_token: "claim-lost" }], error: null };
+        return { data: [{ job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000002", user_id: USER_ID, step_key: "preflight", claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000102" }], error: null };
       }
       if (name === "record_account_deletion_preflight") return { data: false, error: null };
       if (name === "finish_account_deletion_job") return { data: true, error: null };
@@ -224,7 +224,7 @@ test("worker persists only a successful bounded inventory before finalizing", as
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
-        return { data: [{ job_id: "job-inventory", user_id: USER_ID, claim_token: "claim-inventory" }], error: null };
+        return { data: [{ job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000003", user_id: USER_ID, step_key: "preflight", claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000103" }], error: null };
       }
       if (name === "record_account_deletion_preflight") return { data: true, error: null };
       if (name === "materialize_account_deletion_storage_manifest") return { data: { recorded: true, inserted: 1, total: 1 }, error: null };
@@ -251,7 +251,7 @@ test("worker schedules retry when inventory is incomplete", async () => {
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
-        return { data: [{ job_id: "job-2", user_id: USER_ID, claim_token: "claim-2" }], error: null };
+        return { data: [{ job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000004", user_id: USER_ID, step_key: "preflight", claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000104" }], error: null };
       }
       if (name === "record_account_deletion_preflight") return { data: true, error: null };
       if (name === "materialize_account_deletion_storage_manifest") return { data: { recorded: true, inserted: 1, total: 1 }, error: null };
@@ -278,7 +278,7 @@ test("worker retries and does not revoke credentials when Storage manifest persi
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
-        return { data: [{ job_id: "job-manifest-failed", user_id: USER_ID, claim_token: "claim-manifest-failed" }], error: null };
+        return { data: [{ job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000005", user_id: USER_ID, claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000105" }], error: null };
       }
       if (name === "record_account_deletion_preflight") return { data: true, error: null };
       if (name === "materialize_account_deletion_storage_manifest") {
@@ -304,10 +304,10 @@ test("worker executes the separately claimed content-erasure stage", async () =>
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
         return { data: [{
-          job_id: "job-erase",
+          job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000006",
           user_id: USER_ID,
           step_key: "erase_content",
-          claim_token: "claim-erase",
+          claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000106",
         }], error: null };
       }
       if (name === "erase_account_deletion_content") {
@@ -328,8 +328,8 @@ test("worker executes the separately claimed content-erasure stage", async () =>
   const result = await worker.tick();
   assert.deepEqual(result, { claimed: 1, completed: 1, retried: 0 });
   assert.equal(calls[1].name, "erase_account_deletion_content");
-  assert.equal(calls[1].args.p_job_id, "job-erase");
-  assert.equal(calls[1].args.p_claim_token, "claim-erase");
+  assert.equal(calls[1].args.p_job_id, "aaaaaaaa-aaaa-4aaa-8aaa-000000000006");
+  assert.equal(calls[1].args.p_claim_token, "aaaaaaaa-aaaa-4aaa-8aaa-000000000106");
   assert.equal(calls[2].name, "finish_account_deletion_job");
   assert.equal(calls[2].args.p_outcome, "succeeded");
 });
@@ -341,10 +341,10 @@ test("worker retries content erasure unless the RPC explicitly confirms retained
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
         return { data: [{
-          job_id: "job-erase-unsafe",
+          job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000007",
           user_id: USER_ID,
           step_key: "erase_content",
-          claim_token: "claim-erase-unsafe",
+          claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000107",
         }], error: null };
       }
       if (name === "erase_account_deletion_content") {
@@ -371,10 +371,10 @@ test("worker removes only manifested Storage objects and confirms lifecycle comp
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
         return { data: [{
-          job_id: "job-storage",
+          job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000008",
           user_id: USER_ID,
           step_key: "erase_content",
-          claim_token: "claim-storage",
+          claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000108",
         }], error: null };
       }
       if (name === "erase_account_deletion_content") {
@@ -415,10 +415,10 @@ test("worker finalizes only through the fenced tombstone RPC", async () => {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
         return { data: [{
-          job_id: "job-finalize",
+          job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000009",
           user_id: USER_ID,
           step_key: "finalize",
-          claim_token: "claim-finalize",
+          claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000109",
         }], error: null };
       }
       if (name === "finalize_account_deletion") return { data: true, error: null };
@@ -429,7 +429,7 @@ test("worker finalizes only through the fenced tombstone RPC", async () => {
   const result = await worker.tick();
   assert.deepEqual(result, { claimed: 1, completed: 1, retried: 0 });
   assert.equal(calls[1].name, "finalize_account_deletion");
-  assert.equal(calls[1].args.p_claim_token, "claim-finalize");
+  assert.equal(calls[1].args.p_claim_token, "aaaaaaaa-aaaa-4aaa-8aaa-000000000109");
   assert.equal(calls.some((call) => call.name === "finish_account_deletion_job"), false);
 });
 
@@ -451,7 +451,7 @@ test("worker drains multiple Storage manifest pages before marking erasure compl
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") return { data: [{
-        job_id: "job-storage-pages", user_id: USER_ID, step_key: "erase_content", claim_token: "claim-pages",
+        job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000010", user_id: USER_ID, step_key: "erase_content", claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000110",
       }], error: null };
       if (name === "erase_account_deletion_content") {
         return { data: { erased: true, financial_records_retained: true }, error: null };
@@ -486,8 +486,8 @@ test("worker retries rather than treating an invalid Storage manifest response a
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") return { data: [{
-        job_id: "job-storage-invalid-response", user_id: USER_ID,
-        step_key: "erase_content", claim_token: "claim-invalid-response",
+        job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000011", user_id: USER_ID,
+        step_key: "erase_content", claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000111",
       }], error: null };
       if (name === "erase_account_deletion_content") {
         return { data: { erased: true, financial_records_retained: true }, error: null };
@@ -520,8 +520,8 @@ test("worker retries when the fenced Storage manifest mark is not confirmed", as
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") return { data: [{
-        job_id: "job-storage-mark-unconfirmed", user_id: USER_ID,
-        step_key: "erase_content", claim_token: "claim-mark-unconfirmed",
+        job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000012", user_id: USER_ID,
+        step_key: "erase_content", claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000112",
       }], error: null };
       if (name === "erase_account_deletion_content") {
         return { data: { erased: true, financial_records_retained: true }, error: null };
@@ -560,8 +560,8 @@ test("worker recovers when Storage lifecycle deletion completed before manifest 
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") return { data: [{
-        job_id: "job-storage-recovery", user_id: USER_ID,
-        step_key: "erase_content", claim_token: "claim-storage-recovery",
+        job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000013", user_id: USER_ID,
+        step_key: "erase_content", claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000113",
       }], error: null };
       if (name === "erase_account_deletion_content") {
         return { data: { erased: true, financial_records_retained: true }, error: null };
@@ -603,7 +603,7 @@ test("worker retries rather than completing when Storage deletion is not confirm
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") return { data: [{
-        job_id: "job-storage-unconfirmed", user_id: USER_ID, step_key: "erase_content", claim_token: "claim-unconfirmed",
+        job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000014", user_id: USER_ID, step_key: "erase_content", claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000114",
       }], error: null };
       if (name === "erase_account_deletion_content") {
         return { data: { erased: true, financial_records_retained: true }, error: null };
@@ -638,7 +638,7 @@ test("lease heartbeat renews only the current fenced claim and stops cleanly", a
   const client = { async rpc(name, args) { calls.push({ name, args }); return { data: true, error: null }; } };
   const heartbeat = startLeaseHeartbeat({
     client,
-    job: { job_id: "job-heartbeat", claim_token: "claim-heartbeat" },
+    job: { job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000015", claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000115" },
     intervalMs: 12345,
     schedule(fn, ms) { assert.equal(ms, 12345); callback = fn; return { unref() {} }; },
     cancelSchedule() { cancelled = true; },
@@ -647,7 +647,7 @@ test("lease heartbeat renews only the current fenced claim and stops cleanly", a
   assert.equal(heartbeat.lost, false);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].name, "renew_account_deletion_job_lease");
-  assert.deepEqual(calls[0].args, { p_job_id: "job-heartbeat", p_claim_token: "claim-heartbeat", p_lease_seconds: 300 });
+  assert.deepEqual(calls[0].args, { p_job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000015", p_claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000115", p_lease_seconds: 300 });
   heartbeat.stop();
   assert.equal(cancelled, true);
   await callback();
@@ -662,7 +662,7 @@ test("lease heartbeat fails closed when a previous renewal is still pending at t
   let calls = 0;
   const heartbeat = startLeaseHeartbeat({
     client: { rpc() { calls += 1; return renewal; } },
-    job: { job_id: "job-stalled", claim_token: "claim-stalled" },
+    job: { job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000016", claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000116" },
     schedule(fn) { callback = fn; return null; },
     cancelSchedule() {},
   });
@@ -687,7 +687,7 @@ test("lease heartbeat fails closed when renewal is rejected or errors", async ()
     let callback;
     const heartbeat = startLeaseHeartbeat({
       client: { async rpc() { return response; } },
-      job: { job_id: "job-lost", claim_token: "claim-lost" },
+      job: { job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000002", claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000102" },
       schedule(fn) { callback = fn; return null; },
       cancelSchedule() {},
     });
@@ -698,7 +698,7 @@ test("lease heartbeat fails closed when renewal is rejected or errors", async ()
   let callback;
   const heartbeat = startLeaseHeartbeat({
     client: { async rpc() { throw new Error("network unavailable"); } },
-    job: { job_id: "job-network", claim_token: "claim-network" },
+    job: { job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000017", claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000117" },
     schedule(fn) { callback = fn; return null; },
     cancelSchedule() {},
   });
@@ -716,10 +716,10 @@ test("worker stops after Storage deletion when its lease renewal is rejected", a
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") return { data: [{
-        job_id: "job-lease-lost-during-storage",
+        job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000018",
         user_id: USER_ID,
         step_key: "erase_content",
-        claim_token: "claim-lease-lost",
+        claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000118",
       }], error: null };
       if (name === "erase_account_deletion_content") {
         return { data: { erased: true, financial_records_retained: true }, error: null };
