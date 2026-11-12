@@ -34,3 +34,17 @@ test('rejects malformed rows instead of silently dropping publications', () => {
     assert.throws(() => validatePersistedScheduleRows([row]));
   }
 });
+
+test('rejects duplicate schedule IDs instead of rendering ambiguous calendar entries', () => {
+  assert.throws(
+    () => validatePersistedScheduleRows([validRow, { ...validRow, pin_id: 'pin-2' }]),
+    /duplicate schedule ID/
+  );
+});
+
+test('treats IDs with surrounding whitespace as the same persisted identity', () => {
+  assert.throws(
+    () => validatePersistedScheduleRows([validRow, { ...validRow, id: ' schedule-1 ' }]),
+    /duplicate schedule ID/
+  );
+});
