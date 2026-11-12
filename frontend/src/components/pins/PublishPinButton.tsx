@@ -87,6 +87,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
 
   useEffect(() => {
     let active = true;
+    const ownerId = userId;
     if (!accountId) {
       setBoards([]);
       setSelectedBoard('');
@@ -101,7 +102,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
     setError(null);
     apiRequest(`/integrations/pinterest/boards?account_id=${encodeURIComponent(accountId)}`)
       .then((data) => {
-        if (!active) return;
+        if (!active || activeOwnerIdRef.current !== ownerId) return;
         const list: PinterestBoard[] = Array.isArray(data?.boards) ? data.boards : [];
         setBoards(list);
         const resolvedBoardId = resolvePublishBoardId(list, boardId);
@@ -113,19 +114,20 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
         }
       })
       .catch((e) => {
-        if (!active) return;
+        if (!active || activeOwnerIdRef.current !== ownerId) return;
         const err = e as ApiError;
         setBoards([]);
         setSelectedBoard('');
         setError(err?.message || 'Не удалось загрузить доски Pinterest');
       })
       .finally(() => {
-        if (active) setBoardsLoading(false);
+        if (active && activeOwnerIdRef.current === ownerId) setBoardsLoading(false);
       });
     return () => { active = false; };
   }, [accountId, boardId, userId]);
 
   const handleAccountChange = (nextAccountId: string) => {
+    if (activeOwnerIdRef.current !== userId) return;
     // Clear synchronously so a rapid click cannot publish to the old account's board.
     setAccountId(nextAccountId);
     setBoards([]);
@@ -135,7 +137,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
   };
 
   const handlePublish = async () => {
-    if (publishLockRef.current || accountsLoading || boardsLoading || !accountId || !selectedBoard) return;
+    if (activeOwnerIdRef.current !== userId || publishLockRef.current || accountsLoading || boardsLoading || !accountId || !selectedBoard) return;
     publishLockRef.current = true;
     setError(null);
     setBusy(true);
