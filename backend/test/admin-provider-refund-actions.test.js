@@ -166,3 +166,35 @@ test("database authorization and conflict errors are mapped to safe HTTP errors"
     { httpStatus: 500, message: "Не удалось выполнить административную операцию" }
   );
 });
+
+test("credit purchase refund reconciliation uses authenticated operator and narrow RPC payload", async () => {
+  reset();
+  const result = await actions.recordCreditPurchaseRefund(OPERATOR_ID, {
+    purchase_id: "c6d1b2c3-4e5f-4678-9abc-0123456789ab",
+    action_id: ACTION_ID,
+    evidence_type: "provider_dashboard",
+    evidence_reference: "refund-case-2026-001",
+  });
+  assert.equal(calls[0].name, "admin_record_credit_purchase_refund");
+  assert.deepEqual(calls[0].args, {
+    p_operator_user_id: OPERATOR_ID,
+    p_purchase_id: "c6d1b2c3-4e5f-4678-9abc-0123456789ab",
+    p_action_id: ACTION_ID,
+    p_evidence_type: "provider_dashboard",
+    p_evidence_reference: "refund-case-2026-001",
+  });
+  assert.equal(result.action_kind, "provider_refund_confirmed");
+});
+
+test("credit purchase refund reconciliation rejects invalid evidence before RPC", async () => {
+  reset();
+  await assert.rejects(actions.recordCreditPurchaseRefund(OPERATOR_ID, {
+    purchase_id: "not-a-uuid", action_id: ACTION_ID,
+    evidence_type: "provider_dashboard", evidence_reference: "refund-case-2026-001",
+  }), { httpStatus: 422 });
+  await assert.rejects(actions.recordCreditPurchaseRefund(OPERATOR_ID, {
+    purchase_id: "c6d1b2c3-4e5f-4678-9abc-0123456789ab", action_id: ACTION_ID,
+    evidence_type: "provider_dashboard", evidence_reference: "https://example.com/refund",
+  }), { httpStatus: 422 });
+  assert.equal(calls.length, 0);
+});
