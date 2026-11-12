@@ -100,3 +100,55 @@ test("schedule creation persists and reconciles the resolved project destination
   assert.ok(route.includes("destination_url: snapshotDestinationUrl"));
   assert.ok(route.includes('String(existing.destination_url || "") === String(snapshotDestinationUrl || "")'));
 });
+
+
+test("overlapping external scheduler wakeups return a successful busy response", () => {
+  const pinterest = read("pinterest.js");
+  const start = pinterest.indexOf('app.post("/internal/pinterest/schedule/run"');
+  const end = pinterest.indexOf('logInfo("pinterest.event_029")', start);
+  assert.notEqual(start, -1, "internal scheduler route exists");
+  const route = pinterest.slice(start, end);
+  assert.match(route, /if (monitorStartError) throw monitorStartError/);
+  assert.match(route, /if \(monitorStarted !== true\)[\s\S]*?ok: true,[\s\S]*?busy: true,[\s\S]*?return res\.json/);
+  assert.match(route, /schedulerMonitorStarted = true/);
+});
+
+
+test("schedule cancellation never overwrites a worker claim and safely handles lost responses", () => {
+  const source = read("index.js");
+  const start = source.indexOf('app.post("/schedule/:id/cancel"');
+  const end = source.indexOf("// --- Кредиты ---", start);
+  assert.notEqual(start, -1, "schedule cancellation route exists");
+  assert.ok(end > start, "schedule cancellation route has a bounded source section");
+  const route = source.slice(start, end);
+  const updateStart = route.indexOf('.from("pin_schedules")');
+  const conditionalStatus = route.indexOf('.eq("status", "scheduled")', updateStart);
+  assert.ok(updateStart >= 0 && conditionalStatus > updateStart,
+    "cancellation must be a conditional update from scheduled state only");
+  assert.match(route.slice(updateStart, conditionalStatus), /\.eq\("user_id", String\(req\.userId\)\)/);
+  assert.match(route, /current\.status === "cancelled"[\s\S]*?return res\.json/);
+  assert.match(route, /current\.status === "publishing"[\s\S]*?не может быть отменена/);
+  assert.match(route, /current\.status === "published"[\s\S]*?не может быть отменена/);
+});
+
+test("exact schedule retries reconcile the committed row before live Pinterest board preflight", () => {
+  const source = read("index.js");
+  const routeStart = source.indexOf('app.post("/pins/:id/schedule"');
+  const routeEnd = source.indexOf('app.post("/schedule/:id/change-board"', routeStart);
+  assert.notEqual(routeStart, -1, "pin schedule route must exist");
+  assert.ok(routeEnd > routeStart, "pin schedule route boundary must exist");
+  const route = source.slice(routeStart, routeEnd);
+  const existingLookup = route.indexOf('.from("pin_schedules")');
+  const exactMatch = route.indexOf("isSamePinScheduleRequest(existingSchedule, scheduleIdentity)");
+  const boardPreflight = route.indexOf("await pinterest.verifyPinterestBoard");
+  assert.ok(existingLookup >= 0 && exactMatch > existingLookup, "the server must load and compare the persisted request");
+  assert.match(route, /\.eq\("scheduled_at", scheduledAt\)/);
+  assert.match(route, /\.eq\("timezone", timezone\)/);
+  assert.match(route, /\.eq\("pinterest_board_id", pinterestBoardId\)/);
+  assert.match(route, /\.eq\("pinterest_account_id", selectedAccount\.id\)/);
+  assert.match(route, /existingScheduleQuery\.eq\("destination_url", snapshotDestinationUrl\)/);
+  assert.match(route, /existingScheduleQuery\.is\("destination_url", null\)/);
+  assert.match(route, /\.limit\(1\)\s*\.maybeSingle\(\)/);
+  assert.ok(boardPreflight > exactMatch, "an exact retry must return before another Pinterest API request");
+  assert.match(route.slice(exactMatch, boardPreflight), /return res\.status\(200\)\.json\(sanitizeScheduleForClient\(existingSchedule\)\)/);
+});

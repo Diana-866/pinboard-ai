@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { applyCurrentReviewEdits } from './reviewApproval';
+import { applyCurrentReviewEdits, canApproveReviewToPinterest, requirePinStatusResponse } from './reviewApproval';
 
 const first = {
   id: 'pin-1',
@@ -43,4 +43,32 @@ test('bulk approval keeps original schedule fields if the edit controls are empt
     title: edits.title,
     description: edits.description,
   });
+});
+
+
+test('review decision response must confirm the exact pin and requested status', () => {
+  assert.doesNotThrow(() => requirePinStatusResponse(
+    { id: 'saved-1', status: 'rejected' }, 'saved-1', 'rejected',
+  ));
+  assert.throws(() => requirePinStatusResponse(null, 'saved-1', 'rejected'));
+  assert.throws(() => requirePinStatusResponse(
+    { id: 'another-pin', status: 'rejected' }, 'saved-1', 'rejected',
+  ));
+  assert.throws(() => requirePinStatusResponse(
+    { id: 'saved-1', status: 'approved' }, 'saved-1', 'rejected',
+  ));
+});
+
+
+test('Pinterest approval requires the selected board to be loaded for the selected account', () => {
+  const valid = {
+    accountId: 'account-1', boardId: 'pinterest-board-1', boardsLoaded: true,
+    boardsAccountId: 'account-1', boardsError: false, boards: [{ id: 'pinterest-board-1' }],
+  };
+  assert.equal(canApproveReviewToPinterest(valid), true);
+  assert.equal(canApproveReviewToPinterest({ ...valid, boardsLoaded: false }), false);
+  assert.equal(canApproveReviewToPinterest({ ...valid, boardsAccountId: 'account-2' }), false);
+  assert.equal(canApproveReviewToPinterest({ ...valid, boardsError: true }), false);
+  assert.equal(canApproveReviewToPinterest({ ...valid, boardId: 'stale-board' }), false);
+  assert.equal(canApproveReviewToPinterest({ ...valid, accountId: '' }), false);
 });

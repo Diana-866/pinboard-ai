@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Pencil } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
 import { BoardItem } from '../../data/mockData';
+import defaultBoardCover from '../../assets/images/1.png';
 
 interface BoardsManagerProps {
   boards: BoardItem[];
@@ -83,7 +84,7 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
       seoScore: 0,
       missingKeywords: [],
       targetWeeklyPins: 0,
-      coverImage: '/src/assets/images/pin_home_decor_1790670043705.jpg',
+      coverImage: defaultBoardCover,
     };
 
     setSaving(true);

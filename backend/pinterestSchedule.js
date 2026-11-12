@@ -16,10 +16,24 @@ function classifyScheduleFailure(attempt, attemptLookupError, publicationLedger 
   return "failed";
 }
 
+// Failure to persist the publication journal is itself an ambiguous outcome:
+// Pinterest may have created the remote pin, while PostgreSQL has no durable
+// record. Such rows must stay fenced as unknown and must never be retried.
+function isPublishJournalPersistenceFailure(error) {
+  try {
+    return Boolean(error && [
+      "PUBLISH_JOURNAL_PERSISTENCE_FAILED",
+      "PUBLISH_REMOTE_ID_JOURNAL_FAILED",
+    ].includes(error.code));
+  } catch {
+    return true;
+  }
+}
+
 // A journaled retry is allowed only when the database failure RPC explicitly
 // marked the attempt safe. Legacy failed rows default to retry_safe=false.
 function canRetryScheduleFailure(attempt, attemptLookupError, error) {
-  if (attemptLookupError) return false;
+  if (attemptLookupError || isPublishJournalPersistenceFailure(error)) return false;
   // A fresh preflight/validation rejection takes precedence over an older
   // journal row that was safe to retry. In particular, a deleted Pinterest
   // board must not be retried just because a previous attempt was retry-safe.
@@ -190,7 +204,9 @@ function buildScheduleWorkerFailureState({
   now = Date.now(),
   retryLimit = 5,
 }) {
-  const finalStatus = classifyScheduleFailure(attempt, attemptLookupError, publicationLedger, publicationLedgerLookupError);
+  const finalStatus = isPublishJournalPersistenceFailure(error)
+    ? "unknown"
+    : classifyScheduleFailure(attempt, attemptLookupError, publicationLedger, publicationLedgerLookupError);
   const message = getSafeScheduleFailureMessage(error, attemptLookupError, publicationLedgerLookupError);
   const retryable = canRetryScheduleFailure(attempt, attemptLookupError, error);
   const shouldRetry = retryable && Number(attempts || 0) < retryLimit;
@@ -215,6 +231,7 @@ function getScheduleRetryDelayMinutes(attempts) {
 
 module.exports = {
   classifyScheduleFailure,
+  isPublishJournalPersistenceFailure,
   canRetryScheduleFailure,
   getScheduleRetryDelayMinutes,
   buildScheduleWorkerFailureState,

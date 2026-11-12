@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { getDefaultTimezone, localDateTimeToDate, formatInstantInTimezone } from './utils/timezone';
 import { apiRequest } from './lib/api';
 import { buildPinterestPinUrl } from './utils/pinterestPinUrl';
+import { requirePinterestAccounts } from './utils/pinterestResources';
 import { ThemeProvider } from './theme/themeContext';
 import { I18nProvider, useI18n } from './i18n/i18nContext';
 import { NotificationProvider, useNotifications } from './context/NotificationContext';
@@ -21,6 +22,7 @@ import { PinGenerator } from './components/pins/PinGenerator';
 import { KeywordExplorer } from './components/keywords/KeywordExplorer';
 import { PublishingCalendar } from './components/calendar/PublishingCalendar';
 import { parsePersistedScheduleStatus } from './utils/scheduleStatus';
+import { requireCreatedBoardResponse, requireUpdatedBoardResponse } from './utils/persistedBoards';
 import { BoardsManager } from './components/boards/BoardsManager';
 import { AnalyticsView } from './components/analytics/AnalyticsView';
 import { PricingView } from './components/pricing/PricingView';
@@ -312,6 +314,7 @@ const MainApp: React.FC = () => {
   const pendingReviewOwnerGenerationRef = React.useRef(0);
   const reviewQueueHydratingRef = React.useRef(false);
   const reviewQueueTouchedIdsRef = React.useRef<Set<string>>(new Set());
+  const schedulePinInFlightRef = React.useRef<Map<string, Promise<void>>>(new Map());
 
   // Restore the authenticated user's review queue from the backend. Never use
   // localStorage: it is not an ownership boundary and can leak across accounts.
@@ -361,9 +364,11 @@ const MainApp: React.FC = () => {
   }, [user?.id]);
 
   const handlePinterestStatusChange = React.useCallback((status: { configured: boolean; account_limit?: number | null; accounts?: Array<{ id: string; username?: string | null; pinterest_user_id?: string | null; needs_reauth?: boolean }> }) => {
-    const rows = Array.isArray(status.accounts) ? status.accounts : [];
-    const mapped: PinterestAccount[] = rows.map((account, index) => ({
-      id: String(account.id),
+    // The status endpoint is an external-data boundary. Reject duplicate,
+    // blank or padded IDs instead of creating ambiguous account selections.
+    const validAccounts = requirePinterestAccounts(status.accounts ?? []);
+    const mapped: PinterestAccount[] = validAccounts.map((account, index) => ({
+      id: account.id,
       name: account.username || account.pinterest_user_id || `Pinterest ${index + 1}`,
       handle: account.username ? `@${account.username}` : String(account.pinterest_user_id || ''),
       avatar: '',
@@ -490,7 +495,7 @@ const MainApp: React.FC = () => {
   const currentAccount = accounts.find((a) => a.id === activeAccountId) || accounts[0];
   const pendingCount = pendingReviewPins.length;
 
-  const handleSchedulePin = async (pin: ScheduledPinItem) => {
+  const performSchedulePin = async (pin: ScheduledPinItem) => {
     if (!pin.pinId) {
       window.alert('Не найден ID сохранённого пина. Сначала сохраните пин в генераторе.');
       return;
@@ -584,6 +589,24 @@ const MainApp: React.FC = () => {
       accountHandle: accounts.find((account) => account.id === (saved.pinterest_account_id || pin.pinterestAccountId))?.handle || pin.accountHandle,
     };
     setScheduledPins((prev) => [persisted, ...prev.filter((item) => item.id !== persisted.id)]);
+  };
+
+  // A double click or two UI entry points must share one in-flight operation.
+  // This prevents duplicate approval/schedule requests in the same browser tab;
+  // server-side idempotency remains the final protection across tabs/devices.
+  const handleSchedulePin = (pin: ScheduledPinItem): Promise<void> => {
+    const pinId = typeof pin.pinId === 'string' ? pin.pinId.trim() : '';
+    if (!pinId) return performSchedulePin(pin);
+    const existing = schedulePinInFlightRef.current.get(pinId);
+    if (existing) return existing;
+
+    const operation = performSchedulePin(pin).finally(() => {
+      if (schedulePinInFlightRef.current.get(pinId) === operation) {
+        schedulePinInFlightRef.current.delete(pinId);
+      }
+    });
+    schedulePinInFlightRef.current.set(pinId, operation);
+    return operation;
   };
 
   const handleReconcileLegacySchedule = async (pin: ScheduledPinItem, accountId: string) => {
@@ -789,14 +812,15 @@ const MainApp: React.FC = () => {
           create_request_id: createRequestId,
         }),
       });
-      if (!saved || saved.id == null) {
-        throw new Error('Сервер не подтвердил сохранение доски. Обновите список перед повторной попыткой.');
-      }
+      const confirmedBoard = requireCreatedBoardResponse(
+        saved,
+        'Сервер вернул некорректный ответ при сохранении доски. Обновите список перед повторной попыткой.',
+      );
 
       const persisted: BoardItem = {
         ...board,
-        id: String(saved.id),
-        name: saved.title || board.name,
+        id: confirmedBoard.id,
+        name: confirmedBoard.title,
         category: board.category,
       };
       setBoards((prev) => [persisted, ...prev.filter((item) => item.id !== persisted.id)]);
@@ -818,11 +842,17 @@ const MainApp: React.FC = () => {
       method: 'PATCH',
       body: JSON.stringify(patch),
     });
-    if (!saved || String(saved.id) !== String(boardId)) {
-      throw new Error('Сервер не подтвердил обновление этой доски. Обновите список перед повторной попыткой.');
-    }
+    const confirmedBoard = requireUpdatedBoardResponse(
+      saved,
+      String(boardId),
+      'Сервер вернул некорректный ответ при обновлении доски. Обновите список перед повторной попыткой.',
+    );
     setBoards((prev) => prev.map((item) => item.id === boardId
-      ? { ...item, name: saved.title || patch.title, category: saved.category || patch.category }
+      ? {
+          ...item,
+          name: confirmedBoard.title,
+          category: confirmedBoard.category || patch.category,
+        }
       : item));
     setBoardsReloadToken((value) => value + 1);
     setBoardsLoadError('');

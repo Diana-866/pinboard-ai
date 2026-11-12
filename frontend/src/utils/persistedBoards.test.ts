@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mapPersistedBoards } from './persistedBoards';
+import { mapPersistedBoards, requireCreatedBoardResponse, requireUpdatedBoardResponse, resolveSelectedBoardId } from './persistedBoards';
 
 const invalid = 'Invalid boards response';
 
@@ -54,4 +54,88 @@ test('rejects a non-array response instead of treating it as an empty board list
 test('rejects malformed rows instead of silently dropping boards', () => {
   assert.throws(() => mapPersistedBoards([{ id: 'board-1', title: '   ' }], invalid), /Invalid boards response/);
   assert.throws(() => mapPersistedBoards([null], invalid), /Invalid boards response/);
+});
+
+
+test('rejects blank and whitespace-padded persisted board IDs', () => {
+  assert.throws(() => mapPersistedBoards([{ id: ' ', title: 'Board' }], invalid), /Invalid boards response/);
+  assert.throws(() => mapPersistedBoards([{ id: ' board-1 ', title: 'Board' }], invalid), /Invalid boards response/);
+});
+
+test('rejects duplicate persisted board IDs instead of producing colliding UI keys', () => {
+  assert.throws(() => mapPersistedBoards([
+    { id: 'board-1', title: 'First board' },
+    { id: 'board-1', title: 'Second board' },
+  ], invalid), /Invalid boards response/);
+});
+
+test('accepts a complete created-board response and trims its title', () => {
+  assert.deepEqual(
+    requireCreatedBoardResponse({ id: 'board-1', title: '  New board  ' }, invalid),
+    { id: 'board-1', title: 'New board' },
+  );
+});
+
+test('rejects malformed created-board responses before optimistic UI insertion', () => {
+  for (const response of [
+    null,
+    [],
+    {},
+    { id: {}, title: 'Board' },
+    { id: ' board-1 ', title: 'Board' },
+    { id: 'board-1', title: '   ' },
+    { id: 'board-1', title: { text: 'Board' } },
+  ]) {
+    assert.throws(() => requireCreatedBoardResponse(response, invalid), /Invalid boards response/);
+  }
+});
+
+test('accepts an updated board response only for the requested board', () => {
+  assert.deepEqual(
+    requireUpdatedBoardResponse(
+      { id: 'board-1', title: '  Updated  ', category: '  Travel  ' },
+      'board-1',
+      invalid,
+    ),
+    { id: 'board-1', title: 'Updated', category: 'Travel' },
+  );
+  assert.deepEqual(
+    requireUpdatedBoardResponse(
+      { id: 'board-1', title: 'Updated', category: null },
+      'board-1',
+      invalid,
+    ),
+    { id: 'board-1', title: 'Updated', category: null },
+  );
+});
+
+test('rejects mismatched or malformed updated-board responses', () => {
+  for (const response of [
+    null,
+    [],
+    { id: 'another-board', title: 'Updated', category: 'Travel' },
+    { id: 'board-1', title: '  ', category: 'Travel' },
+    { id: 'board-1', title: 'Updated', category: {} },
+  ]) {
+    assert.throws(
+      () => requireUpdatedBoardResponse(response, 'board-1', invalid),
+      /Invalid boards response/,
+    );
+  }
+});
+
+
+test('keeps the current board when it still exists after refresh', () => {
+  assert.equal(
+    resolveSelectedBoardId([{ id: 'board-1' }, { id: 'board-2' }], 'board-2', 'board-1', 'board-1'),
+    'board-2',
+  );
+});
+
+test('recovers a removed selection using preferred, recommended, then first available board', () => {
+  const boards = [{ id: 'board-2' }, { id: 'board-3' }];
+  assert.equal(resolveSelectedBoardId(boards, 'deleted', 'board-3', 'board-2'), 'board-3');
+  assert.equal(resolveSelectedBoardId(boards, 'deleted', 'missing', 'board-2'), 'board-2');
+  assert.equal(resolveSelectedBoardId(boards, 'deleted', 'missing', 'missing'), 'board-2');
+  assert.equal(resolveSelectedBoardId([], 'deleted'), '');
 });

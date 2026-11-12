@@ -21,6 +21,7 @@ import {
 import { AI_CONTENT_LANGUAGES, useI18n } from '../../i18n/i18nContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
+import defaultPinImage from '../../assets/images/1.png';
 import { apiRequest } from '../../lib/api';
 import { addCalendarDaysInTimezone, formatInstantInTimezone, getDefaultTimezone, resolveScheduleSlotTime } from '../../utils/timezone';
 import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure } from '../../utils/generationRetry';
@@ -35,6 +36,8 @@ import { isExpiredGenerationRecoveryError } from '../../utils/generationRecovery
 import { isCurrentBillingOwner } from '../../utils/billingOwner';
 import { rollbackPinAspectRatioIfUnchanged } from '../../utils/pinAspectRatio';
 import { resolvePinterestDestination } from '../../utils/pinterestDestination';
+import { requirePinterestAccounts, requirePinterestBoards } from '../../utils/pinterestResources';
+import { resolveSelectedBoardId } from '../../utils/persistedBoards';
 import {
   rememberPinTitleSelection,
   resolvePinTitleSelection,
@@ -111,14 +114,20 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   // board fetched for the previously selected account.
   const [pinterestBoardsAccountId, setPinterestBoardsAccountId] = useState<string>('');
   const [selectedPinterestBoardId, setSelectedPinterestBoardId] = useState('');
+  const [pinterestAccountsLoadError, setPinterestAccountsLoadError] = useState('');
+  const [pinterestBoardsLoadError, setPinterestBoardsLoadError] = useState('');
+  const [pinterestAccountsReloadAttempt, setPinterestAccountsReloadAttempt] = useState(0);
+  const [pinterestBoardsReloadAttempt, setPinterestBoardsReloadAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
     // A mounted generator can survive an auth-context user switch. Clear every
     // account-scoped value before loading the new owner's Pinterest connections.
     setPinterestAccounts([]);
+    setPinterestAccountsLoadError('');
     setSelectedPinterestAccountId('');
     setPinterestBoards([]);
+    setPinterestBoardsLoadError('');
     setPinterestBoardsAccountId('');
     setSelectedPinterestBoardId('');
     if (!userId) return () => { active = false; };
@@ -126,20 +135,20 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     apiRequest('/integrations/pinterest/status')
       .then((data) => {
         if (!active) return;
-        const rows = Array.isArray(data?.accounts)
-          ? data.accounts.filter((account: any) => account && typeof account.id === 'string' && account.id.trim())
-          : [];
+        const rows = requirePinterestAccounts(data?.accounts);
         setPinterestAccounts(rows);
         if (rows.length === 1) setSelectedPinterestAccountId(rows[0].id);
       })
-      .catch(() => {
+      .catch((error) => {
         if (active) {
+          console.error('[pinterest] Не удалось загрузить аккаунты:', error);
           setPinterestAccounts([]);
           setSelectedPinterestAccountId('');
+          setPinterestAccountsLoadError('Не удалось загрузить Pinterest-аккаунты. Проверьте соединение и повторите попытку.');
         }
       });
     return () => { active = false; };
-  }, [userId]);
+  }, [userId, pinterestAccountsReloadAttempt]);
 
   useEffect(() => {
     let active = true;
@@ -152,24 +161,22 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     apiRequest(`/integrations/pinterest/boards?account_id=${encodeURIComponent(selectedPinterestAccountId)}`)
       .then((data) => {
         if (!active) return;
-        const rows = Array.isArray(data?.boards)
-          ? data.boards.filter((board: any) =>
-              board && typeof board.id === 'string' && board.id.trim() &&
-              typeof board.name === 'string' && board.name.trim())
-          : [];
+        const rows = requirePinterestBoards(data?.boards);
         setPinterestBoards(rows);
         setPinterestBoardsAccountId(selectedPinterestAccountId);
         setSelectedPinterestBoardId(rows[0]?.id || '');
       })
-      .catch(() => {
+      .catch((error) => {
         if (active) {
+          console.error('[pinterest] Не удалось загрузить доски:', error);
           setPinterestBoards([]);
           setPinterestBoardsAccountId('');
           setSelectedPinterestBoardId('');
+          setPinterestBoardsLoadError('Не удалось загрузить доски Pinterest. Проверьте соединение и повторите попытку.');
         }
       });
     return () => { active = false; };
-  }, [userId, selectedPinterestAccountId]);
+  }, [userId, selectedPinterestAccountId, pinterestBoardsReloadAttempt]);
 
 
   useEffect(() => {
@@ -257,6 +264,19 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       setSelectedBoardId(initialBoardId);
     }
   }, [initialBoardId, boards]);
+
+  useEffect(() => {
+    // Board lists can change after account refreshes or a board is removed.
+    // Recover a stale selection instead of leaving the generator with no active board.
+    if (generationInFlightRef.current) return;
+    const nextBoardId = resolveSelectedBoardId(
+      boards,
+      selectedBoardId,
+      initialBoardId,
+      recommendedBoard?.id,
+    );
+    if (nextBoardId !== selectedBoardId) setSelectedBoardId(nextBoardId);
+  }, [boards, selectedBoardId, initialBoardId, recommendedBoard]);
 
   const [tone, setTone] = useState<string>('inspirational');
   const [destinationUrl, setDestinationUrl] = useState('');
@@ -512,7 +532,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   };
 
   const handleGenerate = async () => {
-    if (generationInFlightRef.current) return;
+    // Never start a new paid generation while the board's saved pins are unknown.
+    // A failed restore must be retried first so a transient GET failure cannot
+    // make the user unknowingly create a duplicate batch.
+    if (generationInFlightRef.current || isLoadingSavedPins || savedPinsLoadError) return;
     generationInFlightRef.current = true;
     setIsGenerating(true);
     setScheduledSuccess(false);
@@ -909,7 +932,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   // Canvas data binding
   const activeRatio = currentPin?.aspectRatio || selectedSingleRatio;
   const canvasData: PinCanvasData = {
-    imageUrl: currentPin?.imageUrl || '/src/assets/images/pin_home_decor_1790670043705.jpg',
+    imageUrl: currentPin?.imageUrl || defaultPinImage,
     headline: currentPin?.headlineOverlay || currentPin?.selectedTitle || topic,
     subheadline: currentPin?.subheadlineOverlay || 'Essential tips and aesthetic breakdown',
     brandText: 'pinposy.com',
@@ -1015,10 +1038,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                       {language === 'ru' ? 'Доска недоступна в текущем списке' : 'Board is unavailable'}
                     </span>
                   )}
-                  {item.status === 'expired' && (
+                  {(item.status === 'expired' || item.status === 'failed') && (
                     <button
                       type="button"
                       onClick={() => {
+                        // These outcomes are terminal and known. Removing the local
+                        // recovery pointer does not delete the server journal or pins.
                         clearPendingGenerationRequest(item.key);
                         setRecoverableGenerations((current) => current.filter((entry) => entry.key !== item.key));
                       }}
@@ -1427,7 +1452,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             <div className="pt-2">
               <button
                 onClick={handleGenerate}
-                disabled={isGenerating || isLoadingSavedPins}
+                disabled={isGenerating || isLoadingSavedPins || Boolean(savedPinsLoadError)}
                 className="w-full accent-btn py-3 px-4 rounded-xl text-xs md:text-sm font-semibold flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
               >
                 {isGenerating ? (
@@ -1643,6 +1668,22 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                 <label className="block text-[11px] font-bold text-primary-theme">
                   {t.generator.pinterestBoardForPublishingLabel}
                 </label>
+                {pinterestAccountsLoadError && (
+                  <div className="text-xs text-red-600 space-y-2" role="alert">
+                    <p>{pinterestAccountsLoadError}</p>
+                    <button type="button" onClick={() => setPinterestAccountsReloadAttempt((attempt) => attempt + 1)} className="underline font-semibold">
+                      Повторить загрузку аккаунтов
+                    </button>
+                  </div>
+                )}
+                {pinterestBoardsLoadError && (
+                  <div className="text-xs text-red-600 space-y-2" role="alert">
+                    <p>{pinterestBoardsLoadError}</p>
+                    <button type="button" onClick={() => setPinterestBoardsReloadAttempt((attempt) => attempt + 1)} className="underline font-semibold">
+                      Повторить загрузку досок
+                    </button>
+                  </div>
+                )}
                 {pinterestAccounts.length > 1 && (
                   <select
                     value={selectedPinterestAccountId}

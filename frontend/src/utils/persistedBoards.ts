@@ -1,6 +1,7 @@
 import { BoardItem } from '../data/mockData';
+import defaultBoardCover from '../assets/images/1.png';
 
-const DEFAULT_BOARD_COVER = '/src/assets/images/pin_home_decor_1790670043705.jpg';
+const DEFAULT_BOARD_COVER = defaultBoardCover;
 const LEGACY_BOARD_CATEGORIES = new Set([
   'Home Decor',
   'Recipes',
@@ -20,11 +21,18 @@ export function mapPersistedBoards(rows: unknown, invalidResponseMessage: string
     throw new Error(invalidResponseMessage);
   }
 
+  const seenIds = new Set<string>();
   return rows.map((row: any) => {
     if (!row || (typeof row.id !== 'string' && typeof row.id !== 'number') ||
         typeof row.title !== 'string' || !row.title.trim()) {
       throw new Error(invalidResponseMessage);
     }
+
+    const id = String(row.id).trim();
+    if (!id || String(row.id) !== id || seenIds.has(id)) {
+      throw new Error(invalidResponseMessage);
+    }
+    seenIds.add(id);
 
     const project = Array.isArray(row.projects) ? row.projects[0] : row.projects;
     const storedCategory = typeof row.category === 'string' ? row.category.trim() : '';
@@ -37,7 +45,7 @@ export function mapPersistedBoards(rows: unknown, invalidResponseMessage: string
       (typeof project?.niche === 'string' && project.niche.trim() ? project.niche.trim() : '—');
 
     return {
-      id: String(row.id),
+      id,
       name: row.title.trim(),
       category,
       pinCount: Number.isInteger(row.pin_count) && row.pin_count >= 0 ? row.pin_count : 0,
@@ -48,4 +56,62 @@ export function mapPersistedBoards(rows: unknown, invalidResponseMessage: string
       coverImage: DEFAULT_BOARD_COVER,
     };
   });
+}
+
+/** Validate the single row returned by POST /boards before adding it to local UI state. */
+export function requireCreatedBoardResponse(
+  value: unknown,
+  invalidResponseMessage: string,
+): { id: string; title: string } {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(invalidResponseMessage);
+  }
+  const row = value as Record<string, unknown>;
+  const id = typeof row.id === 'string' || typeof row.id === 'number'
+    ? String(row.id)
+    : '';
+  if (!id.trim() || id !== id.trim() || typeof row.title !== 'string' || !row.title.trim()) {
+    throw new Error(invalidResponseMessage);
+  }
+  return { id, title: row.title.trim() };
+}
+
+/** Validate the server's PATCH /boards/:id response before reconciling UI state. */
+export function requireUpdatedBoardResponse(
+  value: unknown,
+  expectedId: string,
+  invalidResponseMessage: string,
+): { id: string; title: string; category: string | null } {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(invalidResponseMessage);
+  }
+  const row = value as Record<string, unknown>;
+  const id = typeof row.id === 'string' || typeof row.id === 'number'
+    ? String(row.id)
+    : '';
+  if (id !== expectedId || !id.trim() || id !== id.trim() ||
+      typeof row.title !== 'string' || !row.title.trim() ||
+      (row.category != null && typeof row.category !== 'string')) {
+    throw new Error(invalidResponseMessage);
+  }
+  return {
+    id,
+    title: row.title.trim(),
+    category: typeof row.category === 'string' && row.category.trim()
+      ? row.category.trim()
+      : null,
+  };
+}
+
+/** Keep the generator pointed at an existing board after board/account refreshes. */
+export function resolveSelectedBoardId(
+  boards: Array<{ id: string }>,
+  currentId: string,
+  preferredId?: string | null,
+  recommendedId?: string | null,
+): string {
+  if (currentId && boards.some((board) => board.id === currentId)) return currentId;
+  if (preferredId && boards.some((board) => board.id === preferredId)) return preferredId;
+  if (recommendedId && boards.some((board) => board.id === recommendedId)) return recommendedId;
+  return boards[0]?.id || '';
 }

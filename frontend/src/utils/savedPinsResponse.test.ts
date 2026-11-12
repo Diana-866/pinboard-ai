@@ -36,3 +36,37 @@ test('rejects missing, malformed, or non-HTTPS image URLs', () => {
   assert.throws(() => requireSavedPinsArray([{ id: 'pin-1', image_url: 'not-a-url' }]), /некорректную ссылку/);
   assert.throws(() => requireSavedPinsArray([{ id: 'pin-1', image_url: 'http://storage.example/pin.png' }]), /HTTPS/);
 });
+
+
+test('rejects whitespace-padded saved pin IDs', () => {
+  assert.throws(() => requireSavedPinsArray([{
+    id: ' pin-1 ',
+    image_url: 'https://storage.example/pin.png',
+  }]), /некорректен идентификатор/);
+});
+
+test('rejects saved image URLs with missing hosts or embedded credentials', () => {
+  assert.throws(() => requireSavedPinsArray([{
+    id: 'pin-1',
+    image_url: 'https://',
+  }]), /некорректную ссылку/);
+  assert.throws(() => requireSavedPinsArray([{
+    id: 'pin-1',
+    image_url: 'https://user:password@storage.example/pin.png',
+  }]), /безопасной HTTPS-ссылкой/);
+});
+
+test('rejects malformed saved-pin display fields before restoring the editor', () => {
+  assert.throws(() => requireSavedPinsArray([{
+    id: 'pin-1', title: { text: 'bad' }, image_url: 'https://storage.example/pin.png',
+  }]), /некорректный заголовок/);
+  assert.throws(() => requireSavedPinsArray([{
+    id: 'pin-1', description: ['bad'], image_url: 'https://storage.example/pin.png',
+  }]), /некорректное описание/);
+});
+
+test('rejects unsupported saved-pin aspect ratios', () => {
+  assert.throws(() => requireSavedPinsArray([{
+    id: 'pin-1', aspect_ratio: '16:9', image_url: 'https://storage.example/pin.png',
+  }]), /неподдерживаемый формат/);
+});

@@ -23,8 +23,9 @@ import {
 import { useI18n } from '../../i18n/i18nContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
-import { applyCurrentReviewEdits } from '../../utils/reviewApproval';
+import { applyCurrentReviewEdits, canApproveReviewToPinterest, requirePinStatusResponse } from '../../utils/reviewApproval';
 import { createGenerationIdempotencyKey } from '../../utils/generationRetry';
+import { requirePinterestAccounts, requirePinterestBoards } from '../../utils/pinterestResources';
 
 export interface PendingReviewPin {
   id: string;
@@ -319,6 +320,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   const [pinterestBoards, setPinterestBoards] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedPinterestBoardId, setSelectedPinterestBoardId] = useState('');
   const [pinterestBoardsLoaded, setPinterestBoardsLoaded] = useState(false);
+  const [pinterestBoardsAccountId, setPinterestBoardsAccountId] = useState('');
   const [pinterestBoardsError, setPinterestBoardsError] = useState(false);
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
@@ -344,9 +346,12 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     apiRequest('/integrations/pinterest/status')
       .then((data) => {
         if (!active) return;
-        const rows = Array.isArray(data?.accounts) ? data.accounts : [];
+        const rows = requirePinterestAccounts(data?.accounts ?? []);
         setPinterestAccounts(rows);
-        if (rows.length === 1) setSelectedPinterestAccountId(rows[0].id);
+        setSelectedPinterestAccountId((current) => {
+          if (current && rows.some((account) => account.id === current)) return current;
+          return rows.length === 1 ? rows[0].id : '';
+        });
       })
       .catch(() => {
         if (active) setPinterestBoardsError(true);
@@ -357,6 +362,10 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   useEffect(() => {
     let active = true;
     setPinterestBoardsError(false);
+    setPinterestBoardsAccountId('');
+    // Never leave the previous account's options visible while the new account loads.
+    setPinterestBoards([]);
+    setSelectedPinterestBoardId('');
     if (!selectedPinterestAccountId) {
       setPinterestBoards([]);
       setSelectedPinterestBoardId('');
@@ -367,11 +376,14 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     apiRequest(`/integrations/pinterest/boards?account_id=${encodeURIComponent(selectedPinterestAccountId)}`)
       .then((data) => {
         if (!active) return;
-        const rows = Array.isArray(data?.boards) ? data.boards : [];
+        const rows = requirePinterestBoards(data?.boards);
         setPinterestBoards(rows);
-        if (!rows.some((board: { id: string }) => board.id === selectedPinterestBoardId)) {
-          setSelectedPinterestBoardId(rows[0]?.id || '');
-        }
+        setPinterestBoardsAccountId(selectedPinterestAccountId);
+        setSelectedPinterestBoardId((current) =>
+          current && rows.some((board) => board.id === current)
+            ? current
+            : rows[0]?.id || ''
+        );
         setPinterestBoardsLoaded(true);
       })
       .catch(() => {
@@ -425,8 +437,17 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       window.alert('Эта карточка — демонстрационный пример, а не сохранённый пин. Сначала создайте и сохраните пин в генераторе — только после этого его можно добавить в расписание.');
       return;
     }
-    if (!selectedPinterestAccountId || !selectedPinterestBoardId) {
-      window.alert('Сначала подключите Pinterest и выберите настоящую доску Pinterest для публикации.');
+    if (!canApproveReviewToPinterest({
+      accountId: selectedPinterestAccountId,
+      boardId: selectedPinterestBoardId,
+      boardsLoaded: pinterestBoardsLoaded,
+      boardsAccountId: pinterestBoardsAccountId,
+      boardsError: pinterestBoardsError,
+      boards: pinterestBoards,
+    })) {
+      window.alert(pinterestBoardsError
+        ? 'Не удалось загрузить доски Pinterest. Повторите загрузку перед одобрением.'
+        : 'Дождитесь загрузки досок Pinterest и выберите доску подключённого аккаунта.');
       return;
     }
 
@@ -486,10 +507,11 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         // Persist the decision on the saved pin before removing its review item.
         // Demo cards have no server pin ID and remain local-only.
         if (currentPin.pinId) {
-          await apiRequest(`/pins/${encodeURIComponent(currentPin.pinId)}/status`, {
+          const rejectedPin = await apiRequest(`/pins/${encodeURIComponent(currentPin.pinId)}/status`, {
             method: 'POST',
             body: JSON.stringify({ status: 'rejected' }),
           });
+          requirePinStatusResponse(rejectedPin, currentPin.pinId, 'rejected');
           pinWasRejected = true;
         }
         await updateQueue((prev) => prev.filter((pin) => pin.id !== currentPin.id));
@@ -516,8 +538,17 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       window.alert('В очереди есть демонстрационные карточки без сохранённых пинов. Создайте и сохраните реальные пины в генераторе, прежде чем добавлять их в расписание.');
       return;
     }
-    if (!selectedPinterestAccountId || !selectedPinterestBoardId) {
-      window.alert('Сначала подключите Pinterest и выберите настоящую доску Pinterest для публикации.');
+    if (!canApproveReviewToPinterest({
+      accountId: selectedPinterestAccountId,
+      boardId: selectedPinterestBoardId,
+      boardsLoaded: pinterestBoardsLoaded,
+      boardsAccountId: pinterestBoardsAccountId,
+      boardsError: pinterestBoardsError,
+      boards: pinterestBoards,
+    })) {
+      window.alert(pinterestBoardsError
+        ? 'Не удалось загрузить доски Pinterest. Повторите загрузку перед одобрением.'
+        : 'Дождитесь загрузки досок Pinterest и выберите доску подключённого аккаунта.');
       return;
     }
 
