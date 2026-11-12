@@ -127,6 +127,8 @@ test('reconciles a lost schedule-create response only against one exact active r
   const expectedRequest = {
     pinId: 'pin-1',
     scheduledAt: persisted.scheduled_at,
+    timezone: 'Europe/Moscow',
+    destinationUrl: 'https://example.com/article',
     pinterestBoardId: 'board-new',
     pinterestAccountId: 'account-1',
     statuses: ['scheduled', 'publishing', 'published', 'failed', 'unknown'],
@@ -142,6 +144,8 @@ test('does not reconcile schedule creation against a different time, destination
   const expectedRequest = {
     pinId: 'pin-1',
     scheduledAt: persisted.scheduled_at,
+    timezone: 'Europe/Moscow',
+    destinationUrl: 'https://example.com/article',
     pinterestBoardId: 'board-new',
     pinterestAccountId: 'account-1',
     statuses: ['scheduled', 'publishing', 'published', 'failed', 'unknown'],
