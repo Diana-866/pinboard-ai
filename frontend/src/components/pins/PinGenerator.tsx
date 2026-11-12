@@ -282,6 +282,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const descriptionSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingDescriptionSaveRef = React.useRef<{ boardId: string; pinId: string; description: string; revision: number } | null>(null);
   const descriptionSaveRevisionRef = React.useRef(0);
+  // Async saves and board loads must remain bound to the account that started them.
+  const pinEditorOwnerIdRef = React.useRef(userId);
+  pinEditorOwnerIdRef.current = userId;
   // Async saves may finish after the user switches boards. Keep the latest
   // board identity synchronously available to completion handlers.
   const descriptionSaveBoardIdRef = React.useRef(selectedBoardId);
@@ -475,6 +478,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       }
       const pendingDescription = pendingDescriptionSaveRef.current;
       pendingDescriptionSaveRef.current = null;
+      // Never flush a previous account's draft with the newly active account's
+      // credentials after an auth switch. The local recovery copy remains intact.
+      if (pinEditorOwnerIdRef.current !== userId) return;
       if (pendingDescription) {
         const request = enqueuePinSave(
           pendingPinSavesRef.current,
@@ -496,7 +502,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         });
       }
     };
-  }, [selectedBoardId, selectedBoardName, savedPinsReloadAttempt]);
+  }, [selectedBoardId, selectedBoardName, savedPinsReloadAttempt, userId]);
 
   // Quick preset topic suggestions
   const topicPresets = [
