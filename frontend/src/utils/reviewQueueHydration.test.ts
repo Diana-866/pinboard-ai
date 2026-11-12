@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mergeRestoredReviewQueue } from './reviewQueueHydration';
+import { getReviewQueueRestoreView, mergeRestoredReviewQueue } from './reviewQueueHydration';
 
 test('restores untouched server rows and preserves local edits made during hydration', () => {
   const rows = mergeRestoredReviewQueue(
@@ -31,4 +31,22 @@ test('does not duplicate rows when local and server versions share an ID', () =>
     new Set(['same']),
   );
   assert.deepEqual(rows, [{ id: 'same', title: 'local' }]);
+});
+
+
+test('shows loading rather than an empty queue while initial restore is pending', () => {
+  assert.equal(getReviewQueueRestoreView({ isLoading: true, hasError: false, hasCurrentPin: false }), 'loading');
+});
+
+test('shows a retryable error rather than an empty queue when restore fails', () => {
+  assert.equal(getReviewQueueRestoreView({ isLoading: false, hasError: true, hasCurrentPin: false }), 'error');
+});
+
+test('keeps an existing card visible during background refreshes and errors', () => {
+  assert.equal(getReviewQueueRestoreView({ isLoading: true, hasError: false, hasCurrentPin: true }), 'ready');
+  assert.equal(getReviewQueueRestoreView({ isLoading: false, hasError: true, hasCurrentPin: true }), 'ready');
+});
+
+test('shows completion only after a successful empty restore', () => {
+  assert.equal(getReviewQueueRestoreView({ isLoading: false, hasError: false, hasCurrentPin: false }), 'ready');
 });
