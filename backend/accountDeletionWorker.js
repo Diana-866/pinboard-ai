@@ -22,7 +22,12 @@ async function countOwnedRows(client, table, userId) {
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId);
   if (error) throw error;
-  return Number(count || 0);
+  if (!Number.isSafeInteger(count) || count < 0) {
+    const invalidCount = new Error("account deletion inventory count is invalid");
+    invalidCount.code = "invalid_inventory_count";
+    throw invalidCount;
+  }
+  return count;
 }
 
 // PostgREST applies a default row cap. Explicitly page every identifier query;
@@ -103,7 +108,12 @@ async function countOwnedEmailOutboxRows(client, userId) {
       .select("id", { count: "exact", head: true })
       .in("subscription_id", ids);
     if (error) throw error;
-    total += Number(count || 0);
+    if (!Number.isSafeInteger(count) || count < 0) {
+      const invalidCount = new Error("account deletion email outbox count is invalid");
+      invalidCount.code = "invalid_inventory_count";
+      throw invalidCount;
+    }
+    total += count;
   }
   return total;
 }
@@ -115,7 +125,12 @@ async function countPinsForBoards(client, boardIds) {
       .select("id", { count: "exact", head: true })
       .in("board_id", ids);
     if (error) throw error;
-    total += Number(count || 0);
+    if (!Number.isSafeInteger(count) || count < 0) {
+      const invalidCount = new Error("account deletion pin count is invalid");
+      invalidCount.code = "invalid_inventory_count";
+      throw invalidCount;
+    }
+    total += count;
   }
   return total;
 }
