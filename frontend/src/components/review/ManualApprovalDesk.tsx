@@ -458,10 +458,13 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       return;
     }
 
+    const ownerSnapshot = captureOwner();
+    if (!isOwnerCurrent(ownerSnapshot)) return;
     decisionInFlightRef.current = true;
     setIsDecisionInFlight(true);
     setSwipeDirection('right');
     setTimeout(async () => {
+      if (!isOwnerCurrent(ownerSnapshot)) return;
       let scheduleWasPersisted = false;
       try {
         const selectedBoard = boards.find((b) => b.id === editBoardId) || boards[0];
@@ -485,19 +488,24 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
         await onApprovePin(scheduledItem);
         scheduleWasPersisted = true;
+        if (!isOwnerCurrent(ownerSnapshot)) return;
         await updateQueue((prev) => prev.filter((pin) => pin.id !== currentPin.id));
+        if (!isOwnerCurrent(ownerSnapshot)) return;
         setApprovedCount((c) => c + 1);
       } catch (error) {
+        if (!isOwnerCurrent(ownerSnapshot)) return;
         if (scheduleWasPersisted) {
           window.alert('Пин уже сохранён в календаре, но не удалось убрать его из очереди проверки. Не одобряйте его повторно: обновите страницу и проверьте календарь.');
         } else {
           window.alert(error instanceof Error ? error.message : 'Не удалось добавить пин в расписание. Карточка осталась в очереди.');
         }
       } finally {
-        setSwipeDirection(null);
-        setDragOffset(0);
-        decisionInFlightRef.current = false;
-        setIsDecisionInFlight(false);
+        if (isOwnerCurrent(ownerSnapshot)) {
+          setSwipeDirection(null);
+          setDragOffset(0);
+          decisionInFlightRef.current = false;
+          setIsDecisionInFlight(false);
+        }
       }
     }, 220);
   };
@@ -505,10 +513,13 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   const handleReject = () => {
     if (!currentPin || decisionInFlightRef.current) return;
 
+    const ownerSnapshot = captureOwner();
+    if (!isOwnerCurrent(ownerSnapshot)) return;
     decisionInFlightRef.current = true;
     setIsDecisionInFlight(true);
     setSwipeDirection('left');
     setTimeout(async () => {
+      if (!isOwnerCurrent(ownerSnapshot)) return;
       let pinWasRejected = false;
       try {
         // Persist the decision on the saved pin before removing its review item.
@@ -520,18 +531,23 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
           });
           pinWasRejected = true;
         }
+        if (!isOwnerCurrent(ownerSnapshot)) return;
         await updateQueue((prev) => prev.filter((pin) => pin.id !== currentPin.id));
+        if (!isOwnerCurrent(ownerSnapshot)) return;
         setRejectedCount((c) => c + 1);
       } catch (error) {
+        if (!isOwnerCurrent(ownerSnapshot)) return;
         const message = error instanceof Error ? error.message : 'Не удалось сохранить отклонение.';
         window.alert(pinWasRejected
           ? `Пин отклонён, но не удалось убрать карточку из очереди проверки. Обновите страницу и повторите удаление карточки. ${message}`
           : `${message} Карточка осталась в очереди.`);
       } finally {
-        setSwipeDirection(null);
-        setDragOffset(0);
-        decisionInFlightRef.current = false;
-        setIsDecisionInFlight(false);
+        if (isOwnerCurrent(ownerSnapshot)) {
+          setSwipeDirection(null);
+          setDragOffset(0);
+          decisionInFlightRef.current = false;
+          setIsDecisionInFlight(false);
+        }
       }
     }, 220);
   };
@@ -549,6 +565,8 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       return;
     }
 
+    const ownerSnapshot = captureOwner();
+    if (!isOwnerCurrent(ownerSnapshot)) return;
     decisionInFlightRef.current = true;
     setIsDecisionInFlight(true);
     try {
@@ -587,8 +605,10 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       const successfulIds = new Set<string>();
       setBulkApprovalProgress({ completed: 0, total: scheduledItems.length });
       for (let index = 0; index < scheduledItems.length; index += 1) {
+        if (!isOwnerCurrent(ownerSnapshot)) return;
         try {
           await onApprovePin(scheduledItems[index]);
+          if (!isOwnerCurrent(ownerSnapshot)) return;
           successfulIds.add(queueSnapshot[index].id);
         } catch {
           // Keep this card in the review queue and continue with the rest.
@@ -598,22 +618,27 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
           setBulkApprovalProgress({ completed: index + 1, total: scheduledItems.length });
         }
       }
+      if (!isOwnerCurrent(ownerSnapshot)) return;
       if (successfulIds.size > 0) {
         try {
           await updateQueue((prev) => prev.filter((pin) => !successfulIds.has(pin.id)));
+          if (!isOwnerCurrent(ownerSnapshot)) return;
           setApprovedCount((count) => count + successfulIds.size);
         } catch {
+          if (!isOwnerCurrent(ownerSnapshot)) return;
           window.alert(`В календаре уже сохранено ${successfulIds.size} пинов, но очередь проверки не обновилась. Не одобряйте эти карточки повторно: обновите страницу и проверьте календарь.`);
           return;
         }
       }
-      if (successfulIds.size !== scheduledItems.length) {
+      if (isOwnerCurrent(ownerSnapshot) && successfulIds.size !== scheduledItems.length) {
         window.alert(`В расписание добавлено: ${successfulIds.size} из ${scheduledItems.length}. Неудачные карточки остались в очереди.`);
       }
     } finally {
-      setBulkApprovalProgress(null);
-      decisionInFlightRef.current = false;
-      setIsDecisionInFlight(false);
+      if (isOwnerCurrent(ownerSnapshot)) {
+        setBulkApprovalProgress(null);
+        decisionInFlightRef.current = false;
+        setIsDecisionInFlight(false);
+      }
     }
   };
 
