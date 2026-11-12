@@ -2882,6 +2882,16 @@ app.post("/admin/credit-purchases/record-provider-refund", adminActionLimiter, r
   }
 });
 
+// Record a provider-confirmed refund for a paid subscription without entitlement.
+app.post("/admin/subscriptions/record-provider-refund", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await adminCreditPurchaseReconciliation.recordSubscriptionProviderRefund(req.userId, req.body || {});
+    res.json(result);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 // Список подписок и платежей для админки
 app.get("/admin/subscriptions", requireAuth, requireAdmin, async (req, res) => {
   try {
