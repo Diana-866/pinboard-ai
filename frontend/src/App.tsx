@@ -491,6 +491,22 @@ const MainApp: React.FC = () => {
   const pendingCount = pendingReviewPins.length;
 
   const handleSchedulePin = async (pin: ScheduledPinItem) => {
+    // A schedule operation must stay attached to the authenticated session
+    // that initiated it. In particular, never publish an old user's result
+    // into the newly signed-in user's calendar after an account switch.
+    const scheduleOwnerSnapshot = {
+      userId: pendingReviewUserIdRef.current,
+      generation: pendingReviewOwnerGenerationRef.current,
+    };
+    const assertScheduleOwner = () => {
+      if (!isReviewQueueOwnerCurrent(scheduleOwnerSnapshot, {
+        userId: pendingReviewUserIdRef.current,
+        generation: pendingReviewOwnerGenerationRef.current,
+      })) {
+        throw new Error('Сессия пользователя изменилась. Обновите страницу и проверьте расписание.');
+      }
+    };
+    assertScheduleOwner();
     if (!pin.pinId) {
       window.alert('Не найден ID сохранённого пина. Сначала сохраните пин в генераторе.');
       return;
@@ -517,6 +533,7 @@ const MainApp: React.FC = () => {
       method: 'PATCH',
       body: JSON.stringify(creativePatch),
     });
+    assertScheduleOwner();
     if (!updatedPin || updatedPin.id !== pin.pinId ||
         updatedPin.title !== approvedTitle ||
         (approvedDescription !== undefined && updatedPin.description !== approvedDescription)) {
@@ -526,6 +543,7 @@ const MainApp: React.FC = () => {
       method: 'POST',
       body: JSON.stringify({ status: 'approved' }),
     });
+    assertScheduleOwner();
     if (!approvedPin || approvedPin.id !== pin.pinId || approvedPin.status !== 'approved') {
       throw new Error('Сервер не подтвердил одобрение пина.');
     }
@@ -550,22 +568,30 @@ const MainApp: React.FC = () => {
         method: 'POST',
         body: JSON.stringify(schedulePayload),
       });
+      assertScheduleOwner();
       // A 2xx response is not enough: only accept the exact persisted row that
       // the calendar would later load. Malformed success responses are ambiguous.
       saved = findPersistedScheduleRequest([response], expectedRequest);
       if (!saved) throw new Error('Сервер не подтвердил сохранение расписания.');
     } catch (originalError) {
+      // Do not issue a reconciliation GET with a different user's session.
+      assertScheduleOwner();
       // The server may have committed the schedule even when the response was
       // lost or malformed. Reconcile against the persisted list before surfacing
       // the original error; never infer success from a loose pin-ID match alone.
       try {
         const rows = await apiRequest('/schedule');
+        assertScheduleOwner();
         saved = findPersistedScheduleRequest(rows, expectedRequest);
         if (!saved) throw originalError;
       } catch {
+        // Preserve the session-change error if ownership changed while the
+        // reconciliation request itself was in flight.
+        assertScheduleOwner();
         throw originalError;
       }
     }
+    assertScheduleOwner();
     const date = formatInstantInTimezone(new Date(saved.scheduled_at), timezone);
     const persisted: ScheduledPinItem = {
       ...pin,
