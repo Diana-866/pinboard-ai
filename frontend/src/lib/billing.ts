@@ -103,6 +103,8 @@ export interface SubscriptionRow {
   currency: string;
   period_start: string | null;
   period_end: string | null;
+  provider_paid_at?: string | null;
+  provider_refunded_at?: string | null;
   created_at: string;
   provider_payment_id: string | null;
   email?: string | null;
