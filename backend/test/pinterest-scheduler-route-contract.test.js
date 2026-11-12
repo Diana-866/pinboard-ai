@@ -114,6 +114,23 @@ test("overlapping external scheduler wakeups return a successful busy response",
 });
 
 
+test("schedule cancellation never overwrites a worker claim and safely handles lost responses", () => {
+  const source = read("index.js");
+  const start = source.indexOf('app.post("/schedule/:id/cancel"');
+  const end = source.indexOf("// --- Кредиты ---", start);
+  assert.notEqual(start, -1, "schedule cancellation route exists");
+  assert.ok(end > start, "schedule cancellation route has a bounded source section");
+  const route = source.slice(start, end);
+  const updateStart = route.indexOf('.from("pin_schedules")');
+  const conditionalStatus = route.indexOf('.eq("status", "scheduled")', updateStart);
+  assert.ok(updateStart >= 0 && conditionalStatus > updateStart,
+    "cancellation must be a conditional update from scheduled state only");
+  assert.match(route.slice(updateStart, conditionalStatus), /\.eq\("user_id", String\(req\.userId\)\)/);
+  assert.match(route, /current\.status === "cancelled"[\s\S]*?return res\.json/);
+  assert.match(route, /current\.status === "publishing"[\s\S]*?не может быть отменена/);
+  assert.match(route, /current\.status === "published"[\s\S]*?не может быть отменена/);
+});
+
 test("exact schedule retries reconcile the committed row before live Pinterest board preflight", () => {
   const source = read("index.js");
   const routeStart = source.indexOf('app.post("/pins/:id/schedule"');
