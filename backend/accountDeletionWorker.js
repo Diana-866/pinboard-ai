@@ -400,19 +400,27 @@ function createAccountDeletionWorker({
 }
 
 if (require.main === module) {
-  require("./fatalProcessHandlers").installFatalProcessHandlers();
-  const supabase = require("./supabase");
-  const worker = createAccountDeletionWorker({ client: supabase });
-  worker.start();
-  let shuttingDown = false;
-  const shutdown = async () => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    await worker.stop();
-    process.exit(0);
-  };
-  process.once("SIGTERM", () => { void shutdown(); });
-  process.once("SIGINT", () => { void shutdown(); });
+  const { isAccountDeletionWorkerEnabled } = require("./accountDeletionWorkerGate");
+  if (!isAccountDeletionWorkerEnabled()) {
+    // Keep the standalone entrypoint behind the same explicit opt-in as the
+    // embedded backend worker. Manual invocation must not bypass the rollout gate.
+    console.error("Account deletion worker is disabled; set ACCOUNT_DELETION_WORKER_ENABLED=true after staging validation.");
+    process.exitCode = 1;
+  } else {
+    require("./fatalProcessHandlers").installFatalProcessHandlers();
+    const supabase = require("./supabase");
+    const worker = createAccountDeletionWorker({ client: supabase });
+    worker.start();
+    let shuttingDown = false;
+    const shutdown = async () => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      await worker.stop();
+      process.exit(0);
+    };
+    process.once("SIGTERM", () => { void shutdown(); });
+    process.once("SIGINT", () => { void shutdown(); });
+  }
 }
 
 module.exports = { safeErrorCode, countOwnedRows, fetchAllRows, chunkValues, countPinsForBoards, inspectAccountForDeletion, createAccountDeletionWorker };

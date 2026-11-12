@@ -2998,11 +2998,11 @@ function dispatchSubscriptionEmailOutbox() {
 const emailOutboxTimer = setInterval(dispatchSubscriptionEmailOutbox, 60 * 1000);
 if (typeof emailOutboxTimer.unref === "function") emailOutboxTimer.unref();
 
-// The complete account-deletion pipeline runs in this backend process only
-// when explicitly enabled after migrations 127-144 are applied. This avoids a
-// second service while keeping rollout opt-in and independently reversible.
+// The account-deletion pipeline runs only behind the shared explicit opt-in.
+// The standalone worker entrypoint uses the same gate to prevent bypass.
+const { isAccountDeletionWorkerEnabled } = require("./accountDeletionWorkerGate");
 let accountDeletionWorker = null;
-if (process.env.ACCOUNT_DELETION_WORKER_ENABLED === "true") {
+if (isAccountDeletionWorkerEnabled()) {
   const { createAccountDeletionWorker } = require("./accountDeletionWorker");
   accountDeletionWorker = createAccountDeletionWorker({ client: supabase });
   accountDeletionWorker.start();
