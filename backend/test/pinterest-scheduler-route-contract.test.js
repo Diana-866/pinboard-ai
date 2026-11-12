@@ -195,3 +195,15 @@ test("Pinterest account status cannot restore another user's accounts after a se
   assert.match(statusEffect, /requestGeneration === userDataRequestGenerationRef\.current/);
   assert.match(statusEffect, /if \(!isCurrentRequest\(\)\) return/);
 });
+
+test("calendar detail state is remounted when the authenticated owner changes", () => {
+  const app = read(path.join("..", "..", "frontend", "src", "App.tsx"));
+  const calendarStart = app.indexOf("<PublishingCalendar");
+  assert.notEqual(calendarStart, -1, "calendar is rendered by the authenticated app");
+  const calendar = app.slice(calendarStart, calendarStart + 500);
+  assert.match(calendar, /key=\{user\?\.id \|\| 'anonymous'\}/);
+  // PublishingCalendar owns the selected schedule modal and account-specific
+  // replacement-board state. A user key forces React to discard that private
+  // state before another account can see the calendar.
+  assert.match(calendar, /scheduledPins=\{scheduledPins\}/);
+});
