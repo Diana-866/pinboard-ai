@@ -25,6 +25,7 @@ const { isAccountDeletionWorkerEnabled } = require("./accountDeletionWorkerGate"
 const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
 const { getFinancialOperationsQueue } = require("./adminFinancialOperations");
+const adminBillingRefundReconciliation = require("./adminBillingRefundReconciliation");
 const adminPaymentCreationRequests = require("./adminPaymentCreationRequests");
 const adminProviderRefundActions = require("./adminProviderRefundActions");
 const adminPinterestReconciliation = require("./adminPinterestReconciliation");
@@ -2866,6 +2867,25 @@ app.get("/admin/financial-operations/unresolved", requireAuth, requireAdmin, asy
     const limit = Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 50;
     const queue = await getFinancialOperationsQueue({ olderThanMinutes, limit });
     res.json(queue);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// Record provider-confirmed refunds only after the operator has verified them with Prodamus.
+app.post("/admin/credit-purchases/record-provider-refund", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await adminBillingRefundReconciliation.recordProviderRefund(req.userId, req.body || {});
+    res.json(result);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+app.post("/admin/subscriptions/record-provider-refund", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await adminBillingRefundReconciliation.recordSubscriptionProviderRefund(req.userId, req.body || {});
+    res.json(result);
   } catch (e) {
     handleError(res, e);
   }
