@@ -575,6 +575,8 @@ export const es: TranslationSchema = {
     scheduledFor: 'Horario Programado',
     allReviewed: '¡Todos los pines han sido revisados!',
     allReviewedDesc: 'Los pines aprobados se han añadido a su calendario de publicación en los mejores horarios.',
+    emptyQueue: 'No hay Pines pendientes de revisión',
+    emptyQueueDesc: 'Los Pines nuevos aparecerán aquí cuando se guarden para su revisión.'
     queueLoading: 'Restaurando la cola de revisión…',
     queueLoadingDesc: 'Estamos cargando tus Pines guardados. Puede tardar un momento.',
     queueLoadError: 'No se pudo restaurar la cola',
