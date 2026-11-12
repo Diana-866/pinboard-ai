@@ -1059,6 +1059,14 @@ const MainApp: React.FC = () => {
             <h5 className="text-xs font-bold text-primary-theme font-heading">{toast.title}</h5>
             <p className="text-[11px] text-secondary-theme mt-0.5 leading-snug">{toast.message}</p>
           </div>
+          {toast.type === 'error' && (
+            <button
+              onClick={() => window.location.reload()}
+              className="text-xs font-semibold text-accent hover:underline whitespace-nowrap"
+            >
+              Обновить
+            </button>
+          )}
           <button
             onClick={clearToast}
             className="text-muted-theme hover:text-primary-theme text-xs p-1 rounded-md transition-colors cursor-pointer"
