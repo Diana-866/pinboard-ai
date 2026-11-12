@@ -381,6 +381,8 @@ $$;
 rollback;
 
 
+begin;
+
 -- Successful bounded Storage batches must be retried promptly in real job state,
 -- while the normal exponential backoff remains reserved for actual failures.
 do $batch$
@@ -421,3 +423,5 @@ begin
   end if;
 end;
 $batch$;
+
+rollback;
