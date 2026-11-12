@@ -404,9 +404,17 @@ function createAccountDeletionWorker({
       ensureLease();
       const { data: disconnectedCount, error: disconnectError } = await client.rpc(
         "disconnect_pinterest_for_account_deletion",
-        { p_user_id: job.user_id }
+        {
+          p_job_id: job.job_id,
+          p_claim_token: job.claim_token,
+          p_user_id: job.user_id,
+        }
       );
       if (disconnectError) throw disconnectError;
+      if (disconnectedCount === -1) {
+        logger.info("account_deletion_worker.disconnect_claim_lost", { job_id: job.job_id });
+        return { status: "claim_lost" };
+      }
       if (!Number.isInteger(disconnectedCount) || disconnectedCount < 0) {
         const error = new Error("invalid Pinterest disconnect result");
         error.code = "invalid_disconnect_result";
