@@ -61,7 +61,7 @@ async function getFinancialOperationsQueue(options = {}) {
       .order("paid_at", { ascending: true })
       .limit(fetchLimit),
     supabase.from("subscriptions")
-      .select("id,status,amount,currency,provider_paid_at,created_at")
+      .select("id,status,amount,currency,provider_payment_id,provider_paid_at,created_at")
       .eq("status", "paid_unactivated")
       .is("provider_refunded_at", null)
       .order("provider_paid_at", { ascending: true })
@@ -222,6 +222,7 @@ async function getFinancialOperationsQueue(options = {}) {
     })),
     ...paidSubscriptions.map((row) => ({
       operation: "payment_reconciliation", payment_id: String(row.id), payment_kind: "subscription", status: row.status,
+      provider_order_id: row.provider_payment_id || null,
       amount: row.amount, currency: row.currency,
       reason: "paid_subscription_requires_entitlement_or_refund",
       paid_at: row.provider_paid_at || null, created_at: row.created_at,
