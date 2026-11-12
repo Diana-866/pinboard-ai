@@ -172,6 +172,13 @@ test("in-flight board and schedule reads cannot publish data after an account sw
 
 test("Pinterest account status cannot restore another user's accounts after a session switch", () => {
   const app = fs.readFileSync(path.join(__dirname, "..", "..", "frontend", "src", "App.tsx"), "utf8");
+  assert.match(app, /<SettingsView\\s+key=\\{user\\?\\.id \\|\\| 'anonymous'\\}/);
+  const callbackStart = app.indexOf("const handlePinterestStatusChange");
+  const callbackEnd = app.indexOf("React.useEffect(() => {", callbackStart);
+  assert.ok(callbackEnd > callbackStart);
+  const callback = app.slice(callbackStart, callbackEnd);
+  assert.match(callback, /callbackOwnerId !== scheduleUserIdRef\\.current/);
+  assert.match(callback, /\\}, \\[user\\?\\.id\\]\\);/);
   const identityStart = app.indexOf("const scheduleUserIdRef");
   const identityEnd = app.indexOf("}, [user?.id]);", identityStart) + "}, [user?.id]);".length;
   const identityEffect = app.slice(identityStart, identityEnd);
