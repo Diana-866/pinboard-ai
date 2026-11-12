@@ -25,6 +25,7 @@ import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { applyCurrentReviewEdits } from '../../utils/reviewApproval';
 import { createGenerationIdempotencyKey } from '../../utils/generationRetry';
+import { getReviewQueueRestoreView } from '../../utils/reviewQueueHydration';
 
 export interface PendingReviewPin {
   id: string;
@@ -687,7 +688,13 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   };
 
   // Never present a failed or still-running server restore as a genuinely empty queue.
-  if (queueLoading && !currentPin) {
+  const queueRestoreView = getReviewQueueRestoreView({
+    isLoading: queueLoading,
+    hasError: queueLoadError,
+    hasCurrentPin: Boolean(currentPin),
+  });
+
+  if (queueRestoreView === 'loading') {
     return (
       <div className="custom-card p-8 md:p-12 text-center space-y-4 max-w-xl mx-auto my-8 border border-subtle" role="status" aria-live="polite">
         <RefreshCw className="w-8 h-8 mx-auto text-accent-ghost animate-spin" />
@@ -696,7 +703,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     );
   }
 
-  if (queueLoadError && !currentPin) {
+  if (queueRestoreView === 'error') {
     return (
       <div className="custom-card p-8 md:p-12 text-center space-y-4 max-w-xl mx-auto my-8 border border-subtle" role="alert">
         <AlertCircle className="w-8 h-8 mx-auto text-amber-500" />
