@@ -38,3 +38,26 @@ test("review queue deletion is scoped to both row ID and authenticated owner", (
   assert.match(route, /\.eq\("id", id\)/);
   assert.match(route, /\.eq\("user_id", String\(req\.userId\)\)/);
 });
+
+test("review approval can only schedule an owned, approved pin to a verified account board", () => {
+  const route = routeBetween('app.post("/pins/:id/schedule"', 'app.post("/schedule/:id/change-board"');
+  assert.match(route, /getPinWithOwnerCheck\(req\.params\.id, req\.userId\)/);
+  assert.match(route, /pin\.status !== "approved"/);
+  assert.match(route, /pinterest\.resolveAccount\(req\.userId, requestedAccountId\)/);
+  assert.match(route, /pinterest\.verifyPinterestBoard\(req\.userId, pinterestBoardId, selectedAccount\.id\)/);
+  assert.match(route, /const snapshotPin = await getPinWithOwnerCheck\(req\.params\.id, req\.userId\)/);
+  assert.match(route, /buildPinScheduleSnapshot\(snapshotPin, snapshotDestinationUrl\)/);
+  assert.ok(route.indexOf("verifyPinterestBoard") < route.indexOf("const snapshotPin"),
+    "the pin snapshot must be refreshed after external board verification");
+});
+
+test("schedule duplicate recovery accepts only an exact user-scoped request match", () => {
+  const route = routeBetween('app.post("/pins/:id/schedule"', 'app.post("/schedule/:id/change-board"');
+  assert.match(route, /\.eq\("user_id", String\(req\.userId\)\)/);
+  assert.match(route, /\.eq\("pin_id", pin\.id\)/);
+  assert.match(route, /\.in\("status", \["scheduled", "publishing", "published", "unknown"\]\)/);
+  assert.match(route, /existing\.scheduled_at/);
+  assert.match(route, /existing\.pinterest_board_id/);
+  assert.match(route, /existing\.pinterest_account_id/);
+  assert.match(route, /if \(sameRequest\)/);
+});
