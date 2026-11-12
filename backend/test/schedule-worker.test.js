@@ -7,6 +7,9 @@ const { getWorkerConfig, createWorker, getNextPollDelayMs, MAX_REQUEST_TIMEOUT_M
 test("worker config requires a secure backend URL and long secret", () => {
   assert.throws(() => getWorkerConfig({ PINPOSY_SCHEDULER_SECRET: "x".repeat(32) }), /BACKEND_URL/);
   assert.throws(() => getWorkerConfig({ PINPOSY_BACKEND_URL: "http://example.com", PINPOSY_SCHEDULER_SECRET: "x".repeat(32) }), /HTTPS/);
+  assert.throws(() => getWorkerConfig({ PINPOSY_BACKEND_URL: "https://api.example.com/api", PINPOSY_SCHEDULER_SECRET: "x".repeat(32) }), /only the backend origin/);
+  assert.throws(() => getWorkerConfig({ PINPOSY_BACKEND_URL: "https://user:pass@api.example.com", PINPOSY_SCHEDULER_SECRET: "x".repeat(32) }), /only the backend origin/);
+  assert.throws(() => getWorkerConfig({ PINPOSY_BACKEND_URL: "https://api.example.com?debug=1", PINPOSY_SCHEDULER_SECRET: "x".repeat(32) }), /only the backend origin/);
   assert.throws(() => getWorkerConfig({ PINPOSY_BACKEND_URL: "https://api.example.com", PINPOSY_SCHEDULER_SECRET: "short" }), /32 characters/);
   assert.deepEqual(
     getWorkerConfig({ PINPOSY_BACKEND_URL: "https://api.example.com/", PINPOSY_SCHEDULER_SECRET: "s".repeat(32) }),
