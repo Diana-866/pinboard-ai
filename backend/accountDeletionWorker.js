@@ -254,6 +254,8 @@ function createAccountDeletionWorker({
           projects: erasure.projects,
           schedules: erasure.schedules,
           publications: erasure.publications,
+          storage_objects_confirmed: storageObjectsDeleted,
+          storage_batches: storageBatches - 1,
         });
         return { status: "succeeded" };
       }
