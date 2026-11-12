@@ -61,3 +61,11 @@ test('rejects malformed server responses instead of treating them as an empty qu
   assert.throws(() => requireReviewQueueRows(null), /must be an array/);
   assert.throws(() => requireReviewQueueRows(undefined), /must be an array/);
 });
+
+test('rejects malformed rows inside an otherwise valid response array', () => {
+  assert.throws(() => requireReviewQueueRows([null]), /row at index 0 is malformed/);
+  assert.throws(() => requireReviewQueueRows([{}]), /row at index 0 is malformed/);
+  assert.throws(() => requireReviewQueueRows([{ id: '   ' }]), /row at index 0 is malformed/);
+  assert.throws(() => requireReviewQueueRows(['not-a-row']), /row at index 0 is malformed/);
+  assert.deepEqual(requireReviewQueueRows([{ id: 'pin-1' }]), [{ id: 'pin-1' }]);
+});
