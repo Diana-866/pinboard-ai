@@ -243,6 +243,8 @@ test("Pinterest destination normalization validates the exact outgoing URL", () 
   assert.equal(normalizePinterestDestinationUrl(null), null);
   assert.throws(() => normalizePinterestDestinationUrl("javascript:alert(1)"), /HTTP or HTTPS/);
   assert.throws(() => normalizePinterestDestinationUrl("data:text/html,hello"), /HTTP or HTTPS/);
+  assert.throws(() => normalizePinterestDestinationUrl("https://user:secret@example.com/"), /credentials/);
+  assert.throws(() => normalizePinterestDestinationUrl("https://example.com/" + "a".repeat(2048)), /too long/);
 });
 
 test("legacy schedules without snapshots retain live-pin compatibility", () => {
