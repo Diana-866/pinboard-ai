@@ -595,15 +595,20 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       // API transitions and a Pinterest board verification; firing the whole
       // queue concurrently can trigger rate limits and make bulk approval flaky.
       const successfulIds = new Set<string>();
+      const failedItems: Array<{ title: string; reason: string }> = [];
       setBulkApprovalProgress({ completed: 0, total: scheduledItems.length });
       for (let index = 0; index < scheduledItems.length; index += 1) {
         try {
           await onApprovePin(scheduledItems[index]);
           successfulIds.add(queueSnapshot[index].id);
-        } catch {
+        } catch (error) {
           // Keep this card in the review queue and continue with the rest.
-          // A partial failure must not discard successful approvals or stop
-          // independent cards from being processed.
+          // Preserve the actual server reason so the user can fix the failed
+          // item instead of seeing an unexplained partial-success count.
+          failedItems.push({
+            title: String(scheduledItems[index].title || 'Без названия').slice(0, 80),
+            reason: error instanceof Error ? error.message : 'Неизвестная ошибка',
+          });
         } finally {
           setBulkApprovalProgress({ completed: index + 1, total: scheduledItems.length });
         }
@@ -618,7 +623,16 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         }
       }
       if (successfulIds.size !== scheduledItems.length) {
-        window.alert(`В расписание добавлено: ${successfulIds.size} из ${scheduledItems.length}. Неудачные карточки остались в очереди.`);
+        const details = failedItems.slice(0, 3)
+          .map((item) => `• ${item.title}: ${item.reason}`)
+          .join('\n');
+        const remaining = failedItems.length > 3
+          ? `\nИ ещё ошибок: ${failedItems.length - 3}.`
+          : '';
+        window.alert(
+          `В расписание добавлено: ${successfulIds.size} из ${scheduledItems.length}. Неудачные карточки остались в очереди.` +
+          (details ? `\n\nПричины:\n${details}${remaining}` : '')
+        );
       }
     } finally {
       setBulkApprovalProgress(null);
