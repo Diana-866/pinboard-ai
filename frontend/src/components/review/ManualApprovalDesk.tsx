@@ -25,7 +25,7 @@ import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { applyCurrentReviewEdits } from '../../utils/reviewApproval';
 import { createGenerationIdempotencyKey } from '../../utils/generationRetry';
-import { isPinterestDestinationReady } from '../../utils/pinterestDestination';
+import { resolvePinterestDestination } from '../../utils/pinterestDestination';
 
 export interface PendingReviewPin {
   id: string;
@@ -321,6 +321,9 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   const [selectedPinterestBoardId, setSelectedPinterestBoardId] = useState('');
   const [pinterestBoardsLoaded, setPinterestBoardsLoaded] = useState(false);
   const [pinterestBoardsError, setPinterestBoardsError] = useState(false);
+  // Track which account produced the currently displayed board list. This
+  // closes the render-before-effect window when the selected account changes.
+  const [pinterestBoardsAccountId, setPinterestBoardsAccountId] = useState('');
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
 
@@ -361,6 +364,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     if (!selectedPinterestAccountId) {
       setPinterestBoards([]);
       setSelectedPinterestBoardId('');
+      setPinterestBoardsAccountId('');
       setPinterestBoardsLoaded(true);
       return () => { active = false; };
     }
@@ -370,6 +374,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         if (!active) return;
         const rows = Array.isArray(data?.boards) ? data.boards : [];
         setPinterestBoards(rows);
+        setPinterestBoardsAccountId(selectedPinterestAccountId);
         if (!rows.some((board: { id: string }) => board.id === selectedPinterestBoardId)) {
           setSelectedPinterestBoardId(rows[0]?.id || '');
         }
@@ -378,6 +383,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       .catch(() => {
         if (!active) return;
         setPinterestBoardsError(true);
+        setPinterestBoardsAccountId('');
         setPinterestBoardsLoaded(true);
       });
     return () => { active = false; };
@@ -423,13 +429,17 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   // A previously selected board can remain in state while a different
   // account's board list is still loading. Never allow approval against that
   // stale destination; prevent the invalid request in the UI.
-  const hasValidPinterestDestination = isPinterestDestinationReady({
-    accountId: selectedPinterestAccountId,
-    boardId: selectedPinterestBoardId,
-    boards: pinterestBoards,
-    loaded: pinterestBoardsLoaded,
-    hasError: pinterestBoardsError,
-  });
+  const hasValidPinterestDestination = Boolean(
+    pinterestBoardsLoaded &&
+    !pinterestBoardsError &&
+    resolvePinterestDestination(
+      pinterestAccounts,
+      pinterestBoards,
+      selectedPinterestAccountId,
+      selectedPinterestBoardId,
+      pinterestBoardsAccountId,
+    )
+  );
 
   const handleApprove = () => {
     if (!currentPin || decisionInFlightRef.current) return;
