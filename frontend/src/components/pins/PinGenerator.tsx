@@ -320,6 +320,13 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     generationRecoveryOwnerIdRef.current = userId;
     setRecoverableGenerations([]);
     setIsCheckingRecoveries(false);
+    // Remove the previous owner's pins before the browser paints the new account.
+    setGeneratedPins([]);
+    setActivePinIndex(0);
+    setDescriptionSavePinId(null);
+    setDescriptionSaveState('idle');
+    setSavedPinsLoadError('');
+    setIsLoadingSavedPins(false);
   }, [userId]);
 
   // Look up saved generation identities after login/reload. This is read-only:
