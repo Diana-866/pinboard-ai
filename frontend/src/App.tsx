@@ -616,7 +616,20 @@ const MainApp: React.FC = () => {
   };
 
   const handleReconcileLegacySchedule = async (pin: ScheduledPinItem, accountId: string) => {
+    const scheduleOwnerSnapshot = {
+      userId: pendingReviewUserIdRef.current,
+      generation: pendingReviewOwnerGenerationRef.current,
+    };
+    const assertScheduleOwner = () => {
+      if (!isReviewQueueOwnerCurrent(scheduleOwnerSnapshot, {
+        userId: pendingReviewUserIdRef.current,
+        generation: pendingReviewOwnerGenerationRef.current,
+      })) {
+        throw new Error('Сессия пользователя изменилась. Обновите страницу и проверьте расписание.');
+      }
+    };
     try {
+      assertScheduleOwner();
       const expected = {
         scheduleId: pin.id,
         statuses: ['scheduled', 'failed', 'publishing', 'unknown'],
@@ -629,6 +642,7 @@ const MainApp: React.FC = () => {
           method: 'POST',
           body: JSON.stringify({ pinterest_account_id: accountId }),
         });
+        assertScheduleOwner();
         if (!isPersistedScheduleMutationResponse(response, expected)) {
           throw new Error('Сервер не подтвердил привязку аккаунта к этому расписанию.');
         }
@@ -638,6 +652,7 @@ const MainApp: React.FC = () => {
         // is lost, accept only the exact schedule/account/board from GET.
         try {
           const rows = await apiRequest('/schedule');
+        assertScheduleOwner();
           saved = findPersistedScheduleMutation(rows, expected);
           if (!saved) throw originalError;
         } catch {
@@ -645,7 +660,9 @@ const MainApp: React.FC = () => {
         }
       }
 
+      assertScheduleOwner();
       const account = accounts.find((item) => item.id === saved.pinterest_account_id);
+      assertScheduleOwner();
       setScheduledPins((prev) => prev.map((item) => item.id === pin.id ? {
         ...item,
         status: parsePersistedScheduleStatus(saved.status),
