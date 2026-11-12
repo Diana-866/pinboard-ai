@@ -121,7 +121,12 @@ async function selectRows(query, pageSize = 1000) {
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await orderedQuery.range(offset, offset + pageSize - 1);
     if (error) throw error;
-    const page = Array.isArray(data) ? data : [];
+    if (!Array.isArray(data)) {
+      const invalidPage = new Error("account export query returned an invalid page");
+      invalidPage.code = "invalid_export_page";
+      throw invalidPage;
+    }
+    const page = data;
     rows.push(...page);
     if (page.length < pageSize) return rows;
   }
