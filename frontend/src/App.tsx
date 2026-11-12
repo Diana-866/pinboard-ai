@@ -349,7 +349,13 @@ const MainApp: React.FC = () => {
     apiRequest('/review-queue')
       .then((rows) => {
         if (!active || !isCurrentOwner()) return;
-        const safeRows = Array.isArray(rows) ? rows as PendingReviewPin[] : [];
+        // A malformed response must never be interpreted as a genuinely empty queue.
+        if (!Array.isArray(rows) || rows.some((row) =>
+          !row || typeof row !== 'object' || typeof row.id !== 'string' || !row.id.trim()
+        )) {
+          throw new Error('Сервер вернул некорректный формат очереди проверки');
+        }
+        const safeRows = rows as PendingReviewPin[];
         const hydratedRows = mergeRestoredReviewQueue(
           safeRows,
           pendingReviewPinsRef.current,
