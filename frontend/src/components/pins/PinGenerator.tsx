@@ -31,6 +31,7 @@ import { shouldFlushPendingPinDescription } from '../../utils/pendingPinDescript
 import { clearPendingGenerationRequest, createGenerationFingerprint, listPendingGenerationRequests, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
 import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
 import { requireGeneratedPinsArray } from '../../utils/generatedPinsResponse';
+import { isExpiredGenerationRecoveryError } from '../../utils/generationRecovery';
 import { isCurrentBillingOwner } from '../../utils/billingOwner';
 import { rollbackPinAspectRatioIfUnchanged } from '../../utils/pinAspectRatio';
 import { resolvePinterestDestination } from '../../utils/pinterestDestination';
@@ -296,7 +297,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [reviewQueueSuccess, setReviewQueueSuccess] = useState(false);
   const [recoverableGenerations, setRecoverableGenerations] = useState<Array<{
     key: string;
-    status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found';
+    status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found' | 'expired';
     boardId: string;
     pinCount: number;
   }>>([]);
@@ -335,7 +336,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     const check = async () => {
       const found: Array<{
         key: string;
-        status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found';
+        status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found' | 'expired';
         boardId: string;
         pinCount: number;
       }> = [];
@@ -358,6 +359,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
           // Preserve it: a transient/auth/network error must never erase recovery data.
           if (error?.status === 404) {
             found.push({ key: identity.fingerprint, status: 'not_found', boardId: '', pinCount: 0 });
+            continue;
+          }
+          if (isExpiredGenerationRecoveryError(error)) {
+            found.push({ key: identity.fingerprint, status: 'expired', boardId: '', pinCount: 0 });
             continue;
           }
           if (error?.status === 401) return;
@@ -981,7 +986,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     ? (language === 'ru' ? 'Предыдущая генерация завершилась ошибкой' : 'Previous generation failed')
                     : item.status === 'not_found'
                     ? (language === 'ru' ? 'Запрос не найден на сервере — ключ сохранён' : 'Request not found on server — recovery key kept')
-                    : (language === 'ru' ? 'Результат пока не подтверждён' : 'Result is not confirmed yet');
+                    : item.status === 'expired'
+                      ? (language === 'ru' ? 'Срок восстановления истёк — можно убрать запись' : 'Recovery period expired — entry can be dismissed')
+                      : (language === 'ru' ? 'Результат пока не подтверждён' : 'Result is not confirmed yet');
               return (
                 <div key={item.key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg bg-subtle border border-subtle">
                   <div className="min-w-0">
@@ -1007,6 +1014,18 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     <span className="text-[11px] text-muted-theme">
                       {language === 'ru' ? 'Доска недоступна в текущем списке' : 'Board is unavailable'}
                     </span>
+                  )}
+                  {item.status === 'expired' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        clearPendingGenerationRequest(item.key);
+                        setRecoverableGenerations((current) => current.filter((entry) => entry.key !== item.key));
+                      }}
+                      className="px-3 py-2 rounded-lg border border-subtle text-xs font-semibold text-secondary-theme hover:bg-subtle"
+                    >
+                      {language === 'ru' ? 'Убрать запись' : 'Dismiss'}
+                    </button>
                   )}
                 </div>
               );
