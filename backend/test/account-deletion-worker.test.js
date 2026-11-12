@@ -326,7 +326,10 @@ test("worker removes only manifested Storage objects and confirms lifecycle comp
         listCalls += 1;
         return {
           data: listCalls === 1
-            ? [{ bucket_id: "pin-images", object_path: "pins/123-0123456789abcdef0123456789abcdef.webp" }]
+            ? [
+                { bucket_id: "pin-images", object_path: "pins/123-0123456789abcdef0123456789abcdef.webp" },
+                { bucket_id: "pin-images", object_path: "pins/generation-0123456789abcdef0123456789abcdef.webp" },
+              ]
             : [],
           error: null,
         };
@@ -343,9 +346,11 @@ test("worker removes only manifested Storage objects and confirms lifecycle comp
   });
   const result = await worker.tick();
   assert.deepEqual(result, { claimed: 1, completed: 1, retried: 0 });
-  assert.equal(removedObjects.length, 1);
+  assert.equal(removedObjects.length, 2);
   assert.equal(removedObjects[0].bucket, "pin-images");
   assert.equal(removedObjects[0].objectPath, "pins/123-0123456789abcdef0123456789abcdef.webp");
+  assert.equal(removedObjects[1].bucket, "pin-images");
+  assert.equal(removedObjects[1].objectPath, "pins/generation-0123456789abcdef0123456789abcdef.webp");
   assert.equal(calls.some((call) => call.name === "mark_account_deletion_storage_object_deleted"), true);
 });
 
