@@ -309,6 +309,23 @@ test("retryability allows only explicitly safe failed journal entries", () => {
   assert.equal(getScheduleRetryability(schedule, attempt({ status: "processing", retry_safe: true }), false, true, false).retryable, false);
 });
 
+test("retryability fails closed when schedule owner or pin identity is missing or blank", () => {
+  const schedule = {
+    status: "failed", user_id: "user-1", pin_id: "pin-1",
+    pinterest_account_id: "account-a", pinterest_board_id: "board-a",
+    pins: { image_url: "https://cdn.example/pin.jpg" },
+  };
+  for (const field of ["user_id", "pin_id", "pinterest_account_id", "pinterest_board_id"]) {
+    for (const value of ["", "   ", null]) {
+      assert.deepEqual(
+        getScheduleRetryability({ ...schedule, [field]: value }, null, false, true, false),
+        { retryable: false, reason: "schedule_identity_incomplete" },
+        `${field}=${String(value)}`
+      );
+    }
+  }
+});
+
 test("retryability blocks missing account, board, pin, publication, and duplicate active schedule", () => {
   const schedule = {
     status: "failed", pinterest_account_id: "account-a", pinterest_board_id: "board-a",
