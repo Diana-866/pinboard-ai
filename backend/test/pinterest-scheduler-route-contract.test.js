@@ -105,3 +105,22 @@ test("schedule creation persists and reconciles the resolved project destination
   assert.ok(route.includes("destination_url: snapshotDestinationUrl"));
   assert.ok(route.includes("isSamePinScheduleRequest(existing"));
 });
+
+test("calendar retry and cancellation stay fenced to the initiating authenticated owner", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "..", "frontend", "src", "App.tsx"), "utf8");
+  for (const [name, nextHandler] of [
+    ["handleRetryScheduledPin", "handleCancelScheduledPin"],
+    ["handleCancelScheduledPin", "handleAddBoard"],
+  ]) {
+    const start = app.indexOf(`const ${name} = async`);
+    const end = app.indexOf(`const ${nextHandler} =`, start);
+    assert.notEqual(start, -1, `${name} exists`);
+    assert.ok(end > start, `${name} has a bounded handler body`);
+    const handler = app.slice(start, end);
+    assert.match(handler, /userId: pendingReviewUserIdRef\.current/);
+    assert.match(handler, /generation: pendingReviewOwnerGenerationRef\.current/);
+    assert.match(handler, /isReviewQueueOwnerCurrent\(ownerSnapshot/);
+    assert.match(handler, /assertScheduleOwner\(\);[\s\S]*?await apiRequest/);
+    assert.match(handler, /await apiRequest[\s\S]*?assertScheduleOwner\(\)/);
+  }
+});
