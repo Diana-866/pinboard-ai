@@ -87,6 +87,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const { t, aiContentLanguage, setAiContentLanguage, language } = useI18n();
   const { user } = useAuth();
   const userId = user?.id || '';
+  const currentUserIdRef = React.useRef(userId);
+  currentUserIdRef.current = userId;
   const { enqueueTask } = useNotifications();
 
   const [pinCount, setPinCount] = useState<number>(5);
@@ -460,6 +462,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
     return () => {
       active = false;
+      // Never flush a previous user's pending write with the next user's auth token.
+      const sameOwner = currentUserIdRef.current === userId;
       // A debounced description belongs to the previous board selection. Flush it
       // before switching boards or leaving the generator so the last keystrokes
       // are not silently discarded by clearing the timer.
@@ -469,7 +473,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       }
       const pendingDescription = pendingDescriptionSaveRef.current;
       pendingDescriptionSaveRef.current = null;
-      if (pendingDescription) {
+      if (pendingDescription && sameOwner) {
         const request = enqueuePinSave(
           pendingPinSavesRef.current,
           pendingDescription.pinId,
@@ -490,7 +494,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         });
       }
     };
-  }, [selectedBoardId, selectedBoardName, savedPinsReloadAttempt]);
+  }, [selectedBoardId, selectedBoardName, savedPinsReloadAttempt, userId]);
 
   // Quick preset topic suggestions
   const topicPresets = [
