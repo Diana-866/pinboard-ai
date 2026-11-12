@@ -112,3 +112,19 @@ test("overlapping external scheduler wakeups return a successful busy response",
   assert.match(route, /if \(monitorStarted !== true\)[\s\S]*?ok: true,[\s\S]*?busy: true,[\s\S]*?return res\.json/);
   assert.match(route, /schedulerMonitorStarted = true/);
 });
+
+
+test("exact schedule retries reconcile the committed row before live Pinterest board preflight", () => {
+  const source = read("index.js");
+  const routeStart = source.indexOf('app.post("/pins/:id/schedule"');
+  const routeEnd = source.indexOf('app.post("/schedule/:id/change-board"', routeStart);
+  assert.notEqual(routeStart, -1, "pin schedule route must exist");
+  assert.ok(routeEnd > routeStart, "pin schedule route boundary must exist");
+  const route = source.slice(routeStart, routeEnd);
+  const existingLookup = route.indexOf('.from("pin_schedules")');
+  const exactMatch = route.indexOf("isSamePinScheduleRequest(existingSchedule, scheduleIdentity)");
+  const boardPreflight = route.indexOf("await pinterest.verifyPinterestBoard");
+  assert.ok(existingLookup >= 0 && exactMatch > existingLookup, "the server must load and compare the persisted request");
+  assert.ok(boardPreflight > exactMatch, "an exact retry must return before another Pinterest API request");
+  assert.match(route.slice(exactMatch, boardPreflight), /return res\\.status\\(200\\)\\.json\\(sanitizeScheduleForClient\\(existingSchedule\\)\\)/);
+});
