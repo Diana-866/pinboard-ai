@@ -92,3 +92,23 @@ test("paid credit fulfillment failures are fingerprinted as reconciliation event
   assert.equal(record.order_id, "ppc-pack_100-deleted-account");
   assert.equal(JSON.stringify(record).includes("private@example.com"), false);
 });
+
+
+test("paid subscription activation failures are recorded for reconciliation without PII", () => {
+  const record = buildWebhookException({
+    paymentKind: "subscription",
+    body: {
+      order_id: "pp-start-deleted-account",
+      payment_status: "success",
+      sum: "790.00",
+      customer_email: "private@example.com",
+    },
+    expectedAmount: 790,
+    reason: "subscription_activation_failed",
+  });
+
+  assert.equal(record.reason, "subscription_activation_failed");
+  assert.equal(record.payment_kind, "subscription");
+  assert.equal(record.expected_amount, 790);
+  assert.equal(JSON.stringify(record).includes("private@example.com"), false);
+});
