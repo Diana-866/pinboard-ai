@@ -201,6 +201,22 @@ test("scheduled publication resolves the immutable snapshot after live pin edits
   });
 });
 
+test("snapshot schedules fall back to the resolved schedule destination when snapshot URL is absent", () => {
+  const pin = { title: "Current", description: "Current copy", image_url: "https://cdn.example/current.jpg" };
+  for (const snapshotDestination of [null, ""]) {
+    const resolved = resolvePinScheduleSnapshot({
+      snapshot_title: "Scheduled title",
+      snapshot_description: "Scheduled copy",
+      snapshot_image_url: "https://cdn.example/scheduled.jpg",
+      snapshot_destination_url: snapshotDestination,
+      destination_url: "https://project.example/article",
+    }, pin);
+    assert.equal(resolved.destination_url, "https://project.example/article");
+    assert.equal(resolved.is_snapshot, true);
+    assert.equal(resolved.image_url, "https://cdn.example/scheduled.jpg");
+  }
+});
+
 test("legacy schedules without snapshots retain live-pin compatibility", () => {
   const resolved = resolvePinScheduleSnapshot({ destination_url: "https://chosen.example/" }, {
     title: "Current", description: "Current copy", image_url: "https://cdn.example/current.jpg",
