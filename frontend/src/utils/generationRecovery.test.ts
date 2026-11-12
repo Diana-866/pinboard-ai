@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isExpiredGenerationRecoveryError } from './generationRecovery';
+import { isDefinitiveGenerationRecoveryStatus, isExpiredGenerationRecoveryError } from './generationRecovery';
 
 test('recognizes only the explicit HTTP 410 expiry response', () => {
   assert.equal(isExpiredGenerationRecoveryError({
@@ -35,4 +35,15 @@ test('does not classify transient, unauthorized, or unrelated errors as expired'
   assert.equal(isExpiredGenerationRecoveryError({ data: { code: 'generation_in_progress' } }), false);
   assert.equal(isExpiredGenerationRecoveryError(null), false);
   assert.equal(isExpiredGenerationRecoveryError(new Error('network failure')), false);
+});
+
+
+test('only server-confirmed failed or expired recovery records permit a fresh key', () => {
+  assert.equal(isDefinitiveGenerationRecoveryStatus('failed'), true);
+  assert.equal(isDefinitiveGenerationRecoveryStatus('expired'), true);
+  assert.equal(isDefinitiveGenerationRecoveryStatus('processing'), false);
+  assert.equal(isDefinitiveGenerationRecoveryStatus('unknown'), false);
+  assert.equal(isDefinitiveGenerationRecoveryStatus('completed'), false);
+  assert.equal(isDefinitiveGenerationRecoveryStatus('not_found'), false);
+  assert.equal(isDefinitiveGenerationRecoveryStatus(null), false);
 });
