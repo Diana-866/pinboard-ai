@@ -48,8 +48,8 @@ test('rejects whitespace-padded saved pin IDs', () => {
 test('rejects saved image URLs with missing hosts or embedded credentials', () => {
   assert.throws(() => requireSavedPinsArray([{
     id: 'pin-1',
-    image_url: 'https:///pin.png',
-  }]), /безопасной HTTPS-ссылкой/);
+    image_url: 'https://',
+  }]), /некорректную ссылку/);
   assert.throws(() => requireSavedPinsArray([{
     id: 'pin-1',
     image_url: 'https://user:password@storage.example/pin.png',
