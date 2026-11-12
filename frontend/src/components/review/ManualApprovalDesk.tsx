@@ -25,6 +25,7 @@ import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { applyCurrentReviewEdits } from '../../utils/reviewApproval';
 import { createGenerationIdempotencyKey } from '../../utils/generationRetry';
+import { isPinterestDestinationReady } from '../../utils/pinterestDestination';
 
 export interface PendingReviewPin {
   id: string;
@@ -422,13 +423,13 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   // A previously selected board can remain in state while a different
   // account's board list is still loading. Never allow approval against that
   // stale destination; prevent the invalid request in the UI.
-  const hasValidPinterestDestination = Boolean(
-    selectedPinterestAccountId &&
-    selectedPinterestBoardId &&
-    pinterestBoardsLoaded &&
-    !pinterestBoardsError &&
-    pinterestBoards.some((board) => board.id === selectedPinterestBoardId)
-  );
+  const hasValidPinterestDestination = isPinterestDestinationReady({
+    accountId: selectedPinterestAccountId,
+    boardId: selectedPinterestBoardId,
+    boards: pinterestBoards,
+    loaded: pinterestBoardsLoaded,
+    hasError: pinterestBoardsError,
+  });
 
   const handleApprove = () => {
     if (!currentPin || decisionInFlightRef.current) return;
