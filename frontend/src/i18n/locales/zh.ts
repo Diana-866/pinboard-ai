@@ -576,7 +576,7 @@ export const zh: TranslationSchema = {
     allReviewed: '已完成本轮全部 Pin 审核！',
     allReviewedDesc: '所有批准的 Pin 已自动分配至发布日历的高互动黄金时段。',
     emptyQueue: '没有待审核的 Pin',
-    emptyQueueDesc: '新生成的 Pin 保存到审核队列后，会显示在这里。
+    emptyQueueDesc: '新生成的 Pin 保存到审核队列后，会显示在这里。',
     queueLoading: '正在恢复审核队列…',
     queueLoadingDesc: '正在加载已保存的 Pin，请稍候。',
     queueLoadError: '无法恢复审核队列',
