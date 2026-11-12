@@ -71,7 +71,8 @@ jobs:
             email_verified boolean not null default false,
             credits_balance integer not null default 0,
             tariff_plan text not null default 'none',
-            tariff_period_end timestamptz
+            tariff_period_end timestamptz,
+            is_admin boolean not null default false
           );
           create table public.auth_tokens (
             id uuid primary key default gen_random_uuid(),
@@ -351,6 +352,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/154_allow_paid_uncredited_credit_purchase_state.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/155_account_deletion_waits_for_paid_uncredited_purchases.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/156_record_credit_purchase_provider_refunds.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/credit-purchase-refund-reconciliation.integration.sql
       - name: Verify Pinterest credentials are disconnected for deletion-pending accounts
         env:
           PGPASSWORD: postgres
