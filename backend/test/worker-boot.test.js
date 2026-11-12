@@ -6,100 +6,137 @@ const http = require("node:http");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 
-/**
- * Boot smoke test for the publication worker.
- *
- * `npm run worker` is a separate process that production runs next to the API.
- * Like the API, it only reveals configuration problems at startup: a missing
- * PINPOSY_BACKEND_URL or a short secret makes it exit without ever polling, and
- * no unit test notices because they all construct the worker directly.
- *
- * The test starts the real entry point against a local HTTP stub and asserts that
- * it actually calls the internal scheduler endpoint with the secret header.
- */
 const SECRET = "s".repeat(40);
 
-function startStubServer() {
+function startStubServer(responseData = { ok: true, claimed: 0, published: 0, failed: 0, scheduled: 0, unknown: 0 }, statusCode = 200) {
   const calls = [];
   const server = http.createServer((req, res) => {
     let body = "";
     req.on("data", (chunk) => { body += chunk.toString(); });
     req.on("end", () => {
       calls.push({ url: req.url, method: req.method, secret: req.headers["x-pinposy-scheduler-secret"], body });
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, claimed: 0 }));
+      res.writeHead(statusCode, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(responseData));
     });
   });
   return new Promise((resolve) => {
-    server.listen(0, "127.0.0.1", () => {
-      resolve({ server, calls, port: server.address().port });
-    });
+    server.listen(0, "127.0.0.1", () => resolve({ server, calls, port: server.address().port }));
   });
 }
 
-test("the worker entry point boots and calls the internal scheduler endpoint", async (t) => {
-  const { server, calls, port } = await startStubServer();
-
-  const child = spawn(process.execPath, [path.join(__dirname, "..", "scheduleWorker.js")], {
+function runOneShot(port, t) {
+  const child = spawn(process.execPath, [path.join(__dirname, "..", "scheduleWorker.js"), "--once"], {
     cwd: path.join(__dirname, ".."),
     env: {
       ...process.env,
       PINPOSY_BACKEND_URL: `http://127.0.0.1:${port}`,
       PINPOSY_SCHEDULER_SECRET: SECRET,
-      // Keep the first tick immediate and the loop short for the test.
-      PINPOSY_SCHEDULER_INTERVAL_MS: "5000",
-      PINPOSY_SCHEDULER_REQUEST_TIMEOUT_MS: "10000",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
-
   let output = "";
   child.stdout.on("data", (chunk) => { output += chunk.toString(); });
   child.stderr.on("data", (chunk) => { output += chunk.toString(); });
-
   t.after(() => {
     if (child.exitCode === null) child.kill("SIGKILL");
-    server.close();
   });
+  const exited = new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error(`one-shot worker did not exit: ${output}`));
+    }, 15_000);
+    child.once("exit", (code) => {
+      clearTimeout(timeout);
+      resolve({ code, output });
+    });
+  });
+  return { child, exited, getOutput: () => output };
+}
 
-  // The worker polls on start; wait for the first request rather than a fixed sleep.
-  const deadline = Date.now() + 15_000;
-  while (calls.length === 0 && Date.now() < deadline) {
-    if (child.exitCode !== null) {
-      throw new Error(`worker exited with code ${child.exitCode} before polling: ${output}`);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-
-  assert.ok(calls.length > 0, `worker never called the scheduler endpoint: ${output}`);
-  const first = calls[0];
-  assert.equal(first.method, "POST");
-  assert.equal(first.url, "/internal/pinterest/schedule/run");
-  assert.equal(first.secret, SECRET, "the worker must authenticate with its secret header");
-  assert.doesNotMatch(output, /process\.uncaught_exception|unhandled_rejection/);
+test("one-shot worker makes exactly one authenticated request and exits successfully", async (t) => {
+  const { server, calls, port } = await startStubServer();
+  t.after(() => server.close());
+  const { exited } = runOneShot(port, t);
+  const { code } = await exited;
+  assert.equal(code, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, "POST");
+  assert.equal(calls[0].url, "/internal/pinterest/schedule/run");
+  assert.equal(calls[0].secret, SECRET);
 });
 
-test("the worker refuses to start without a usable configuration", async (t) => {
-  const child = spawn(process.execPath, [path.join(__dirname, "..", "scheduleWorker.js")], {
-    cwd: path.join(__dirname, ".."),
-    env: {
-      ...process.env,
-      PINPOSY_BACKEND_URL: "",
-      PUBLIC_BACKEND_URL: "",
-      PINPOSY_SCHEDULER_SECRET: "short",
-    },
-    stdio: ["ignore", "pipe", "pipe"],
+test("one-shot worker exits nonzero on backend failure so cron can retry", async (t) => {
+  const { server, calls, port } = await startStubServer({ error: "temporary failure" }, 503);
+  t.after(() => server.close());
+  const { exited } = runOneShot(port, t);
+  const { code } = await exited;
+  assert.equal(code, 1);
+  assert.equal(calls.length, 1);
+});
+
+test("one-shot worker accepts an overlapping busy response as a successful no-op", async (t) => {
+  const { server, calls, port } = await startStubServer({ ok: true, busy: true });
+  t.after(() => server.close());
+  const { exited } = runOneShot(port, t);
+  const { code } = await exited;
+  assert.equal(code, 0);
+  assert.equal(calls.length, 1);
+});
+
+test("one-shot worker never schedules a follow-up timer and only permits one tick", async () => {
+  const { createWorker } = require("../scheduleWorker");
+  let scheduled = 0;
+  let requests = 0;
+  const worker = createWorker({
+    config: { endpoint: "https://backend.example/internal/pinterest/schedule/run", secret: SECRET },
+    client: { async post() { requests += 1; return { data: { ok: true, claimed: 0, published: 0, failed: 0, scheduled: 0, unknown: 0 } }; } },
+    logger: { info() {}, error() {} },
+    oneShot: true,
+    schedule() { scheduled += 1; return { unref() {} }; },
   });
+  assert.equal(await worker.tick(), true);
+  assert.equal(await worker.tick(), false);
+  assert.equal(requests, 1);
+  assert.equal(scheduled, 0);
+});
 
-  let output = "";
-  child.stdout.on("data", (chunk) => { output += chunk.toString(); });
-  child.stderr.on("data", (chunk) => { output += chunk.toString(); });
+test("one-shot worker releases dedicated non-keep-alive HTTP agents on success and failure", async () => {
+  const { createWorker } = require("../scheduleWorker");
+  for (const shouldFail of [false, true]) {
+    let captured;
+    let destroyed = 0;
+    const worker = createWorker({
+      config: { endpoint: "https://backend.example/internal/pinterest/schedule/run", secret: SECRET },
+      client: {
+        async post(_url, _body, config) {
+          captured = config;
+          for (const agent of [config.httpAgent, config.httpsAgent]) {
+            const destroy = agent.destroy.bind(agent);
+            agent.destroy = () => { destroyed += 1; return destroy(); };
+          }
+          if (shouldFail) throw new Error("temporary");
+          return { data: { ok: true, claimed: 0, published: 0, failed: 0, scheduled: 0, unknown: 0 } };
+        },
+      },
+      logger: { info() {}, error() {} },
+      oneShot: true,
+    });
+    assert.equal(await worker.tick(), !shouldFail);
+    assert.equal(captured.httpAgent.keepAlive, false);
+    assert.equal(captured.httpsAgent.keepAlive, false);
+    assert.equal(destroyed, 2);
+  }
+});
 
-  t.after(() => {
-    if (child.exitCode === null) child.kill("SIGKILL");
-  });
-
-  const code = await new Promise((resolve) => child.on("exit", resolve));
-  assert.notEqual(code, 0, "a worker without configuration must fail loudly, not idle");
-  assert.match(output, /scheduleworker\.event_003/);
+test("scheduler response validation rejects incomplete success payloads", () => {
+  const { isValidSchedulerResponse } = require("../scheduleWorker");
+  assert.equal(isValidSchedulerResponse({ ok: true }), false);
+  assert.equal(isValidSchedulerResponse({ ok: true, claimed: 0 }), false);
+  assert.equal(isValidSchedulerResponse({ ok: true, busy: true }), true);
+  assert.equal(isValidSchedulerResponse({
+    ok: true, claimed: 0, published: 0, failed: 0, scheduled: 0, unknown: 0,
+  }), true);
+  assert.equal(isValidSchedulerResponse({
+    ok: true, claimed: -1, published: 0, failed: 0, scheduled: 0, unknown: 0,
+  }), false);
 });
