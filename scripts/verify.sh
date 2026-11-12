@@ -8,7 +8,7 @@
 # first failure with a readable summary.
 #
 #   ./scripts/verify.sh              # backend + frontend
-#   ./scripts/verify.sh --migrations # also replay db/migrations on a local PG
+#   ./scripts/verify.sh --migrations # replay db/migrations + scheduler SQL integration test on local PG
 #
 set -uo pipefail
 
@@ -88,6 +88,13 @@ migration_replay() {
       break
     fi
   done
+  if [ "$failed" -eq 0 ]; then
+    echo "▶ scheduler monitor integration (completion fencing + stale takeover)"
+    if ! "${psql_cmd[@]}" -d "$db" -f "$ROOT/backend/test/pinterest-scheduler-completion-fencing.integration.sql"; then
+      echo "scheduler monitor integration failed"
+      failed=1
+    fi
+  fi
   "${psql_cmd[@]}" -c "drop database if exists ${db}" >/dev/null 2>&1
   return $failed
 }
