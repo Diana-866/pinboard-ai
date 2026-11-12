@@ -127,7 +127,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
   }, [accountId, boardId, userId]);
 
   const handleAccountChange = (nextAccountId: string) => {
-    if (activeOwnerIdRef.current !== userId) return;
+    if (activeOwnerIdRef.current !== userId || busy) return;
     // Clear synchronously so a rapid click cannot publish to the old account's board.
     setAccountId(nextAccountId);
     setBoards([]);
@@ -213,6 +213,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
       {accounts.length > 1 && (
         <select
           value={accountId}
+          disabled={busy}
           onChange={(e) => handleAccountChange(e.target.value)}
           className="w-full text-[11px] rounded-lg border border-subtle bg-surface px-2 py-1.5 text-primary-theme"
         >
@@ -229,6 +230,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
         (!boardId || !boards.some((board) => board.id === boardId)) && (
           <select
             value={selectedBoard}
+            disabled={busy}
             onChange={(e) => {
               setSelectedBoard(e.target.value);
               setError(null);
