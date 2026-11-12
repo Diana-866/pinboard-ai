@@ -338,3 +338,18 @@ test("scheduler worker rejects incomplete 200 responses but accepts complete and
     ok: true, claimed: -1, published: 0, failed: 0, scheduled: 0, unknown: 0,
   }), false);
 });
+
+
+test("one-shot worker reports an incomplete 200 response as a failed invocation", async () => {
+  const { createWorker } = require("../scheduleWorker");
+  const errors = [];
+  const worker = createWorker({
+    config: { endpoint: "https://backend.example/internal/pinterest/schedule/run", secret: SECRET },
+    client: { async post() { return { data: { ok: true } }; } },
+    logger: { info() {}, error(event) { errors.push(event); } },
+    oneShot: true,
+  });
+
+  assert.equal(await worker.tick(), false);
+  assert.deepEqual(errors, ["schedule_worker.batch_failed"]);
+});
