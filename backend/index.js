@@ -1251,6 +1251,7 @@ app.get("/review-queue", requireAuth, async (req, res) => {
       .filter(Boolean)
       .map(String))];
     const pinsById = new Map();
+    const scheduledPinIds = new Set();
     if (pinIds.length) {
       const { data: pins, error: pinsError } = await supabase
         .from("pins")
@@ -1258,10 +1259,22 @@ app.get("/review-queue", requireAuth, async (req, res) => {
         .in("id", pinIds);
       if (pinsError) throw pinsError;
       for (const pin of pins || []) pinsById.set(String(pin.id), pin);
+
+      // A queue row can survive if scheduling succeeded but the follow-up
+      // queue deletion failed. Reconcile against persisted schedules so a
+      // refresh cannot offer the same pin for approval a second time.
+      const { data: schedules, error: schedulesError } = await supabase
+        .from("pin_schedules")
+        .select("pin_id")
+        .eq("user_id", userId)
+        .in("pin_id", pinIds)
+        .in("status", ["scheduled", "publishing", "published", "unknown"]);
+      if (schedulesError) throw schedulesError;
+      for (const schedule of schedules || []) scheduledPinIds.add(String(schedule.pin_id));
     }
 
     const { reconcileReviewQueueRows } = require("./reviewQueueReconciliation");
-    const reconciled = reconcileReviewQueueRows(rows, pinsById, userId);
+    const reconciled = reconcileReviewQueueRows(rows, pinsById, userId, scheduledPinIds);
     if (reconciled.staleIds.length) {
       const { error: cleanupError } = await supabase
         .from("pin_review_queue")
