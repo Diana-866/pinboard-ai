@@ -30,7 +30,7 @@ test("scheduler response accepts one identified scheduled result", () => {
   }), true);
 });
 
-test("scheduler response rejects missing or duplicated result identity", () => {
+test("scheduler response rejects missing identity and accepts one identified result", () => {
   const missingId = {
     ...emptyResponse(),
     claimed: 1,
@@ -38,7 +38,7 @@ test("scheduler response rejects missing or duplicated result identity", () => {
   };
   assert.equal(isValidScheduleWorkerResponse(missingId), false);
 
-  const duplicateIds = {
+  const identifiedResult = {
     ...emptyResponse(),
     claimed: 1,
     published: 1,
@@ -46,7 +46,7 @@ test("scheduler response rejects missing or duplicated result identity", () => {
       { schedule_id: "schedule-1", status: "published" },
     ],
   };
-  assert.equal(isValidScheduleWorkerResponse(duplicateIds), true);
+  assert.equal(isValidScheduleWorkerResponse(identifiedResult), true);
 });
 
 test("scheduler response rejects contradictory counters and unsupported batch sizes", () => {
