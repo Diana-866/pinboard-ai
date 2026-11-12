@@ -16,7 +16,15 @@ test("one-shot cron invokes one authenticated scheduler batch and exits", async 
     config,
     client: { post: async (...args) => {
       calls.push(args);
-      return { data: { ok: true, claimed: 1, published: 1, failed: 0, scheduled: 0, unknown: 0 } };
+      return { data: {
+        ok: true,
+        claimed: 1,
+        published: 1,
+        failed: 0,
+        scheduled: 0,
+        unknown: 0,
+        results: [{ schedule_id: "schedule-1", status: "published" }],
+      } };
     } },
     logger: {
       info: (...args) => events.push(args),
@@ -32,6 +40,30 @@ test("one-shot cron invokes one authenticated scheduler batch and exits", async 
   assert.equal(calls[0][2].headers["x-pinposy-scheduler-secret"], config.secret);
   assert.equal(result.published, 1);
   assert.deepEqual(events, [["schedule_cron.batch_completed"]]);
+});
+
+test("one-shot cron rejects inconsistent batch counters instead of reporting success", async () => {
+  const events = [];
+  await assert.rejects(runOnce({
+    config,
+    client: { post: async () => ({
+      data: {
+        ok: true,
+        claimed: 1,
+        published: 1,
+        failed: 0,
+        scheduled: 0,
+        unknown: 0,
+        results: [{ schedule_id: "schedule-1", status: "failed" }],
+      },
+    }) },
+    logger: {
+      info: (...args) => events.push(args),
+      error: (...args) => events.push(args),
+    },
+  }), /invalid scheduler response/);
+  assert.equal(events[0][0], "schedule_cron.batch_failed");
+  assert.equal(events.some(([event]) => event === "schedule_cron.batch_completed"), false);
 });
 
 test("one-shot cron rejects malformed responses and logs no raw secrets", async () => {
