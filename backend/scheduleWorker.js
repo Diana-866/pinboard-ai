@@ -144,11 +144,12 @@ function createWorker({
         // Process one row per request to bound lease duration, but do not sleep
         // a full poll interval between rows in an already-active backlog.
         scheduleNext(claimed > 0 ? BACKLOG_POLL_DELAY_MS : getNextPollDelayMs(0, intervalMs));
-        return;
+        return true;
       } catch (error) {
         // Never print request config/headers: they contain the scheduler secret.
         consecutiveFailures += 1;
         logger.error("schedule_worker.batch_failed", getSafeWorkerErrorDetails(error));
+        return false;
       } finally {
         active = false;
         if (consecutiveFailures > 0) {
@@ -197,20 +198,30 @@ if (require.main === module) {
 
   if (config) {
     const worker = createWorker({ config });
-    worker.start();
-    let shuttingDown = false;
-    const shutdown = async (signal) => {
-      if (shuttingDown) return;
-      shuttingDown = true;
-      logInfo("scheduleWorker.event_002");
-      const drained = await worker.stop();
-      if (!drained) {
-        logWarning("scheduleWorker.event_001");
-      }
-      process.exit(0);
-    };
-    process.once("SIGTERM", () => { void shutdown("SIGTERM"); });
-    process.once("SIGINT", () => { void shutdown("SIGINT"); });
+    if (process.argv.includes("--once")) {
+      // Cron hosts start a fresh process per invocation. One bounded tick lets
+      // the durable PostgreSQL queue remain the source of truth between runs.
+      void worker.tick().then((succeeded) => {
+        process.exitCode = succeeded ? 0 : 1;
+      }).catch(() => {
+        process.exitCode = 1;
+      });
+    } else {
+      worker.start();
+      let shuttingDown = false;
+      const shutdown = async () => {
+        if (shuttingDown) return;
+        shuttingDown = true;
+        logInfo("scheduleWorker.event_002");
+        const drained = await worker.stop();
+        if (!drained) {
+          logWarning("scheduleWorker.event_001");
+        }
+        process.exit(0);
+      };
+      process.once("SIGTERM", () => { void shutdown(); });
+      process.once("SIGINT", () => { void shutdown(); });
+    }
   }
 }
 
