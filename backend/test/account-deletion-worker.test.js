@@ -278,7 +278,7 @@ test("worker retries and does not revoke credentials when Storage manifest persi
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
-        return { data: [{ job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000005", user_id: USER_ID, claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000105" }], error: null };
+        return { data: [{ job_id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000005", user_id: USER_ID, step_key: "preflight", claim_token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000105" }], error: null };
       }
       if (name === "record_account_deletion_preflight") return { data: true, error: null };
       if (name === "materialize_account_deletion_storage_manifest") {
