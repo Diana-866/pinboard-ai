@@ -383,7 +383,7 @@ rollback;
 
 -- Successful bounded Storage batches must be retried promptly in real job state,
 -- while the normal exponential backoff remains reserved for actual failures.
-do $
+do $batch$
 declare
   v_user uuid := gen_random_uuid();
   v_request uuid := gen_random_uuid();
@@ -419,4 +419,5 @@ begin
     raise exception 'remaining Storage batch was not scheduled promptly: status %, next attempt %',
       v_status,v_after;
   end if;
-end;$$;
+end;
+$batch$;
