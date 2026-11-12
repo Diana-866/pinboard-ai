@@ -393,8 +393,22 @@ async function handleWebhook(req, res, dependencies = {}) {
     p_paid_at: new Date().toISOString(),
   });
   if (activationError || !activation) {
-    logError("billing.event_022");
-    return res.status(500).json({ ok: false, error: "activation failed" });
+    // Preserve a privacy-safe reconciliation record for a signed paid event
+    // that the database could not settle (including an unexpected lifecycle
+    // or schema conflict). Keep the provider retry response.
+    try {
+      await persistWebhookException(db, {
+        paymentKind: "subscription",
+        body,
+        expectedAmount: expected,
+        reason: "subscription_activation_failed",
+      });
+    } catch (auditError) {
+      logError("billing.event_022");
+      return res.status(500).json({ ok: false, error: "activation and audit storage failed" });
+    }
+    logError("billing.event_023");
+    return res.status(500).json({ ok: false, error: "activation requires reconciliation" });
   }
 
   // Close the matching checkout idempotency record only after the atomic
