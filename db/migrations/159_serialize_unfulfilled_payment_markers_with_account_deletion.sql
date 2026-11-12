@@ -91,10 +91,16 @@ begin
   if v_sub.provider_refunded_at is not null then
     return false;
   end if;
+  if v_sub.status='paid_unactivated' then
+    update public.subscriptions
+       set provider_paid_at=coalesce(provider_paid_at,p_paid_at,clock_timestamp())
+     where id=p_subscription_id;
+    return true;
+  end if;
   if v_sub.period_end is not null then
     raise exception 'subscription period is already assigned';
   end if;
-  if v_sub.status not in ('pending','denied','canceled','paid_unactivated') then
+  if v_sub.status not in ('pending','denied','canceled') then
     raise exception 'subscription cannot be marked paid-unactivated (status=%)',v_sub.status;
   end if;
 
