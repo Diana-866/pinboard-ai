@@ -317,6 +317,10 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     decisionInFlightRef.current = false;
     setIsDecisionInFlight(false);
     setBulkApprovalProgress(null);
+    regenerationAttemptRef.current = null;
+    regenerationRequestRef.current += 1;
+    setIsRegenerating(false);
+    setRegenStatusMessage('');
   }, [ownerId]);
 
   const [internalQueue, setInternalQueue] = useState<PendingReviewPin[]>([]);
@@ -738,7 +742,10 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       }
 
       const updatedPin = { ...targetPin, imageUrl: savedPin.image_url, aspectRatio: '2:3' };
-      await updateQueue((prev) => prev.map((pin) => pin.id === targetPin.id && pin.pinId === targetPinId ? updatedPin : pin));
+      await updateQueue((prev) => {
+        if (!isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot) || regenerationRequestRef.current !== regenerationRequestId) return prev;
+        return prev.map((pin) => pin.id === targetPin.id && pin.pinId === targetPinId ? updatedPin : pin);
+      });
       if (!isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot) || regenerationRequestRef.current !== regenerationRequestId) return;
       regenerationAttemptRef.current = null;
       setRegenStatusMessage('Новое изображение сохранено и привязано к исходной карточке.');
@@ -947,9 +954,11 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                       throw new Error('Сервер не вернул постоянную ссылку на изображение.');
                     }
 
-                    await updateQueue((prev) =>
-                      prev.map((p) => (p.id === targetPin.id && p.pinId === targetPinId ? { ...p, imageUrl: savedPin.image_url } : p))
-                    );
+                    await updateQueue((prev) => {
+                      if (!isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot)) return prev;
+                      return prev.map((p) => (p.id === targetPin.id && p.pinId === targetPinId ? { ...p, imageUrl: savedPin.image_url } : p));
+                    });
+                    if (!isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot)) return;
                   } catch (error) {
                     if (isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot)) window.alert(error instanceof Error ? error.message : 'Не удалось обновить изображение.');
                   } finally {
