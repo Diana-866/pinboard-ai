@@ -145,9 +145,12 @@ function hasMatchingScheduleAttemptIdentity(attempt, schedule) {
   });
 }
 
-function getSafeScheduleFailureMessage(error, lookupError) {
+function getSafeScheduleFailureMessage(error, lookupError, publicationLedgerLookupError) {
   if (lookupError) {
-    return "Could not verify the publication journal; publication outcome remains unknown.";
+    return "Не удалось проверить журнал публикации. Результат остаётся неопределённым; повторная публикация заблокирована.";
+  }
+  if (publicationLedgerLookupError) {
+    return "Не удалось сверить подтверждение публикации Pinterest. Результат остаётся неопределённым; повторная публикация заблокирована.";
   }
   let message = "";
   try {
@@ -188,7 +191,7 @@ function buildScheduleWorkerFailureState({
   retryLimit = 5,
 }) {
   const finalStatus = classifyScheduleFailure(attempt, attemptLookupError, publicationLedger, publicationLedgerLookupError);
-  const message = getSafeScheduleFailureMessage(error, attemptLookupError);
+  const message = getSafeScheduleFailureMessage(error, attemptLookupError, publicationLedgerLookupError);
   const retryable = canRetryScheduleFailure(attempt, attemptLookupError, error);
   const shouldRetry = retryable && Number(attempts || 0) < retryLimit;
   const retryAt = shouldRetry
