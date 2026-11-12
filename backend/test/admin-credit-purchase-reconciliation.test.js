@@ -162,3 +162,24 @@ test("maps database authorization, conflict, and missing-purchase errors safely"
     { httpStatus: 404 }
   );
 });
+
+test("records subscription provider refund with the authenticated administrator", async () => {
+  reset();
+  const subscriptionId = "e6d1b2c3-4e5f-4678-9abc-0123456789ab";
+  const result = await reconciliation.recordSubscriptionProviderRefund(OPERATOR_ID, {
+    subscription_id: subscriptionId,
+    action_id: ACTION_ID,
+    evidence_type: "provider_support",
+    evidence_reference: "support-refund-2026-092",
+  });
+  assert.equal(calls[0].name, "admin_record_subscription_provider_refund");
+  assert.deepEqual(calls[0].args, {
+    p_operator_user_id: OPERATOR_ID,
+    p_subscription_id: subscriptionId,
+    p_action_id: ACTION_ID,
+    p_evidence_type: "provider_support",
+    p_evidence_reference: "support-refund-2026-092",
+  });
+  assert.equal(result.subscription_id, subscriptionId);
+  assert.equal(result.action_kind, "provider_refund_confirmed");
+});
