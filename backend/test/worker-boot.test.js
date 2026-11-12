@@ -216,3 +216,27 @@ test("one-shot worker never schedules a follow-up timer after success or failure
   assert.equal(await failedWorker.tick(), false);
   assert.equal(scheduled, 0, "failed one-shot invocation must exit for the cron host to retry later");
 });
+
+
+
+test("one-shot worker destroys its dedicated HTTP agents after the request", async () => {
+  const { createWorker } = require("../scheduleWorker");
+  let requestConfig;
+  const worker = createWorker({
+    config: { endpoint: "https://backend.example/internal/pinterest/schedule/run", secret: SECRET },
+    client: {
+      async post(_url, _body, config) {
+        requestConfig = config;
+        return { data: { ok: true, claimed: 0 } };
+      },
+    },
+    logger: { info() {}, error() {} },
+    oneShot: true,
+  });
+
+  assert.equal(await worker.tick(), true);
+  assert.equal(requestConfig.httpAgent.keepAlive, false);
+  assert.equal(requestConfig.httpsAgent.keepAlive, false);
+  assert.equal(requestConfig.httpAgent.destroyed, true);
+  assert.equal(requestConfig.httpsAgent.destroyed, true);
+});
