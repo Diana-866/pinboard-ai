@@ -106,6 +106,38 @@ GitHub Actions на аккаунте не запускаются (раннеры
 
 Worker обращается к закрытому endpoint `POST /internal/pinterest/schedule/run` и обрабатывает не более одной записи за запрос. Если worker остановлен, задания остаются в PostgreSQL и не исполняются до его восстановления. Перед включением реальных публикаций необходимо применить все необходимые миграции расписания на отдельной staging-БД и проверить OAuth, публикацию, повторный запуск worker и восстановление просроченного задания. **Не включайте worker на production без отдельного согласования и проверки миграций.**
 
+
+## Фоновое физическое удаление аккаунтов
+
+Физическое удаление выполняется отдельным постоянно работающим worker-процессом. Он обрабатывает только аккаунты в состоянии `deletion_pending`, использует durable queue и fenced RPC, удаляет только объекты из заранее сохранённого Storage manifest и сохраняет финансовые записи. Запуск worker не означает, что миграции уже применены.
+
+### Подготовка и безопасный запуск
+
+1. Сделайте резервную копию production PostgreSQL и проверьте восстановление копии.
+2. На отдельной staging-БД последовательно примените канонические миграции до `145_pin_image_lifecycle_guard_review_and_board_references.sql` включительно. В частности, должны присутствовать миграции `127–145`; не применяйте их выборочно или в произвольном порядке.
+3. Запустите `./scripts/verify.sh --migrations` и SQL integration test `backend/test/account-deletion-storage-manifest.integration.sql` на disposable/staging базе. Проверьте полный сценарий тестового аккаунта: preflight, отзыв Pinterest credentials, очистка содержимого и Storage, сохранение финансовых записей, финализация tombstone и повторный запуск после искусственного сбоя.
+4. Только после успешной staging-проверки примените те же миграции к production в SQL Editor, строго по порядку, после резервной копии. Не передавайте ключи или дампы в чат.
+5. Создайте отдельный Background Worker из той же проверенной ветки и commit, что и backend:
+   - **Root / Working directory:** `backend`
+   - **Build command:** `npm ci`
+   - **Start command:** `npm run worker:account-deletion`
+   - **Restart policy:** автоматический перезапуск при сбое
+   - **Environment:** те же `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` и `NODE_ENV=production`, что у backend.
+6. Сначала включите worker на staging и убедитесь, что он обрабатывает только тестовый аккаунт. Для production запуска используйте отдельное подтверждение владельца после проверки миграций и staging.
+
+Переменные worker:
+
+| Переменная | Значение |
+|---|---|
+| `SUPABASE_URL` | URL того же Supabase проекта, что использует backend |
+| `SUPABASE_SERVICE_ROLE_KEY` | серверный service-role ключ; не использовать anon key |
+| `NODE_ENV` | `production` |
+| `ACCOUNT_DELETION_WORKER_INTERVAL_MS` | необязательно; интервал опроса, по умолчанию 30000 мс, минимум 5000 мс |
+
+**Не включайте** `ACCOUNT_DELETION_WORKER_ENABLED=true` на web backend одновременно с отдельным worker: это запустит второй poller. Переменная нужна только для встроенного режима backend, который по умолчанию выключен. Для рекомендуемого отдельного Background Worker её задавать не нужно.
+
+Если worker остановить, незавершённые задания останутся в durable queue; после повторного запуска обработка продолжится. Не удаляйте вручную строки очереди, Storage manifest или lifecycle-журнала для «починки» зависшего удаления.
+
 ## Документы
 
 - Политика конфиденциальности: `frontend/src/legal/privacy-policy.ru.md` / `.en.md` (отображается на `/privacy`)
