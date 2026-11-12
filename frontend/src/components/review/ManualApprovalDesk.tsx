@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   Sparkles,
   Check,
@@ -21,10 +21,12 @@ import {
   CornerDownRight,
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
+import { useAuth } from '../../context/AuthContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { applyCurrentReviewEdits } from '../../utils/reviewApproval';
 import { createGenerationIdempotencyKey } from '../../utils/generationRetry';
+import { isReviewQueueOwnerCurrent, type ReviewQueueOwnerSnapshot } from '../../utils/reviewQueueOwnerFence';
 
 export interface PendingReviewPin {
   id: string;
@@ -293,6 +295,29 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   onGoToDashboard,
 }) => {
   const { t, formatDate } = useI18n();
+  const { user } = useAuth();
+  const ownerId = user?.id || '';
+  const ownerGenerationRef = useRef(0);
+  const ownerIdRef = useRef(ownerId);
+  const isOwnerCurrent = (snapshot: ReviewQueueOwnerSnapshot) => isReviewQueueOwnerCurrent(snapshot, {
+    userId: ownerIdRef.current,
+    generation: ownerGenerationRef.current,
+  });
+  const captureOwner = (): ReviewQueueOwnerSnapshot => ({ userId: ownerId, generation: ownerGenerationRef.current });
+
+  useLayoutEffect(() => {
+    ownerGenerationRef.current += 1;
+    ownerIdRef.current = ownerId;
+    setPinterestAccounts([]);
+    setSelectedPinterestAccountId('');
+    setPinterestBoards([]);
+    setSelectedPinterestBoardId('');
+    setPinterestBoardsLoaded(false);
+    setPinterestBoardsError(false);
+    decisionInFlightRef.current = false;
+    setIsDecisionInFlight(false);
+    setBulkApprovalProgress(null);
+  }, [ownerId]);
 
   const [internalQueue, setInternalQueue] = useState<PendingReviewPin[]>([]);
   const queue = pendingPins ?? internalQueue;
@@ -341,21 +366,24 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
   useEffect(() => {
     let active = true;
+    const ownerSnapshot = captureOwner();
+    if (!ownerSnapshot.userId) return () => { active = false; };
     apiRequest('/integrations/pinterest/status')
       .then((data) => {
-        if (!active) return;
-        const rows = Array.isArray(data?.accounts) ? data.accounts : [];
+        if (!active || !isOwnerCurrent(ownerSnapshot)) return;
+        const rows = Array.isArray(data?.accounts) ? data.accounts.filter((row: any) => row && typeof row.id === 'string' && row.id.trim()) : [];
         setPinterestAccounts(rows);
         if (rows.length === 1) setSelectedPinterestAccountId(rows[0].id);
       })
       .catch(() => {
-        if (active) setPinterestBoardsError(true);
+        if (active && isOwnerCurrent(ownerSnapshot)) setPinterestBoardsError(true);
       });
     return () => { active = false; };
-  }, []);
+  }, [ownerId]);
 
   useEffect(() => {
     let active = true;
+    const ownerSnapshot = captureOwner();
     setPinterestBoardsError(false);
     if (!selectedPinterestAccountId) {
       setPinterestBoards([]);
@@ -366,8 +394,8 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     setPinterestBoardsLoaded(false);
     apiRequest(`/integrations/pinterest/boards?account_id=${encodeURIComponent(selectedPinterestAccountId)}`)
       .then((data) => {
-        if (!active) return;
-        const rows = Array.isArray(data?.boards) ? data.boards : [];
+        if (!active || !isOwnerCurrent(ownerSnapshot)) return;
+        const rows = Array.isArray(data?.boards) ? data.boards.filter((row: any) => row && typeof row.id === 'string' && row.id.trim()) : [];
         setPinterestBoards(rows);
         if (!rows.some((board: { id: string }) => board.id === selectedPinterestBoardId)) {
           setSelectedPinterestBoardId(rows[0]?.id || '');
@@ -375,12 +403,12 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         setPinterestBoardsLoaded(true);
       })
       .catch(() => {
-        if (!active) return;
+        if (!active || !isOwnerCurrent(ownerSnapshot)) return;
         setPinterestBoardsError(true);
         setPinterestBoardsLoaded(true);
       });
     return () => { active = false; };
-  }, [selectedPinterestAccountId]);
+  }, [selectedPinterestAccountId, ownerId]);
 
   // Sync state whenever the active top card changes
   useEffect(() => {
