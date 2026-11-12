@@ -9,6 +9,8 @@ const { logError, logInfo, logWarning, runWithCorrelationId } = require("./safeL
 // process only wakes up and asks the authenticated backend worker endpoint
 // to claim and process due rows.
 const axios = require("axios");
+const http = require("node:http");
+const https = require("node:https");
 
 const POLL_INTERVAL_MS = Math.max(5_000, Number(process.env.PINPOSY_SCHEDULER_INTERVAL_MS) || 30_000);
 const MAX_REQUEST_TIMEOUT_MS = 15 * 60_000; // Stay below the 20-minute stale-claim recovery window.
@@ -99,6 +101,7 @@ function createWorker({
   drainTimeoutMs = DEFAULT_DRAIN_TIMEOUT_MS,
   schedule = setTimeout,
   cancelSchedule = clearTimeout,
+  oneShot = false,
 }) {
   let timer = null;
   let active = false;
@@ -109,6 +112,15 @@ function createWorker({
   // Process one row per request. The backend renews that row's lease while
   // preflight and Pinterest publication are in progress.
   const safeBatchLimit = BATCH_LIMIT;
+  // Cron invocations must release their socket as soon as the single request
+  // completes; Node's default keep-alive agent can otherwise keep the process
+  // alive after the work is done.
+  const requestAgents = oneShot
+    ? {
+      httpAgent: new http.Agent({ keepAlive: false }),
+      httpsAgent: new https.Agent({ keepAlive: false }),
+    }
+    : {};
   const safeTimeoutMs = Math.min(MAX_REQUEST_TIMEOUT_MS, Math.max(10_000, Number(timeoutMs) || REQUEST_TIMEOUT_MS));
 
   function scheduleNext(delayMs) {
@@ -129,6 +141,7 @@ function createWorker({
         const response = await client.post(config.endpoint, { limit: safeBatchLimit }, {
           timeout: safeTimeoutMs,
           headers: { "x-pinposy-scheduler-secret": config.secret },
+          ...requestAgents,
         });
         const data = response && response.data;
         if (!data || data.ok !== true) throw new Error("Backend returned an invalid worker response");
@@ -197,8 +210,9 @@ if (require.main === module) {
   }
 
   if (config) {
-    const worker = createWorker({ config });
-    if (process.argv.includes("--once")) {
+    const oneShot = process.argv.includes("--once");
+    const worker = createWorker({ config, oneShot });
+    if (oneShot) {
       // Cron hosts start a fresh process per invocation. One bounded tick lets
       // the durable PostgreSQL queue remain the source of truth between runs.
       void worker.tick().then((succeeded) => {
