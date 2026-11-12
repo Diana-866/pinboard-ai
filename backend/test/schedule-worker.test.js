@@ -19,7 +19,7 @@ test("worker config requires a secure backend URL and long secret", () => {
   );
 });
 
-test("worker claims only one row per run to protect the fixed stale-claim lease", async () => {
+test("worker accepts only one validated result per run to protect the fixed stale-claim lease", async () => {
   const calls = [];
   const logs = [];
   const worker = createWorker({
