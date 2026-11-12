@@ -575,6 +575,10 @@ export const ru: TranslationSchema = {
     scheduledFor: 'Запланированное время',
     allReviewed: 'Все пины просмотрены!',
     allReviewedDesc: 'Одобренные пины успешно отправлены в календарь публикаций с оптимальными интервалами.',
+    queueLoading: 'Загружаем сохранённую очередь проверки…',
+    queueLoadErrorTitle: 'Не удалось загрузить очередь проверки',
+    queueLoadErrorDescription: 'Сохранённые пины не потеряны. Проверьте соединение и попробуйте ещё раз.',
+    retryQueueLoad: 'Повторить загрузку',
     finishBtn: 'Перейти в календарь',
   },
 
