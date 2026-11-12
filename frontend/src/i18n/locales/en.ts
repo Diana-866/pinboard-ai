@@ -580,6 +580,10 @@ export const en: TranslationSchema = {
     queueLoadErrorDescription: "Your pins have not been deleted. Check your connection and try loading again. An empty queue does not mean every pin has been reviewed.",
     queueRetry: "Retry loading",
     queueLoading: "Loading review queue…",
+    queueLoadErrorTitle: "Could not load the review queue",
+    queueLoadErrorDescription: "Your pins have not been deleted. Check your connection and try loading again. An empty queue does not mean every pin has been reviewed.",
+    queueRetry: "Retry loading",
+    queueLoading: "Loading review queue…",
   },
 
   bot: {
