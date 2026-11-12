@@ -26,6 +26,7 @@ const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
 const { getFinancialOperationsQueue } = require("./adminFinancialOperations");
 const adminPaymentCreationRequests = require("./adminPaymentCreationRequests");
+const adminCreditPurchaseReconciliation = require("./adminCreditPurchaseReconciliation");
 const adminProviderRefundActions = require("./adminProviderRefundActions");
 const adminPinterestReconciliation = require("./adminPinterestReconciliation");
 const adminPinterestInventory = require("./adminPinterestInventory");
@@ -2866,6 +2867,16 @@ app.get("/admin/financial-operations/unresolved", requireAuth, requireAdmin, asy
     const limit = Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 50;
     const queue = await getFinancialOperationsQueue({ olderThanMinutes, limit });
     res.json(queue);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// Record a provider-confirmed refund for a paid but uncredited credit purchase.
+app.post("/admin/credit-purchases/record-provider-refund", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await adminCreditPurchaseReconciliation.recordProviderRefund(req.userId, req.body || {});
+    res.json(result);
   } catch (e) {
     handleError(res, e);
   }
