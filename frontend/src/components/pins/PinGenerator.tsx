@@ -407,6 +407,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   // Restore persisted pins when the selected board changes or the generator remounts.
   useEffect(() => {
     let active = true;
+    const ownerId = userId;
     if (!selectedBoardName) {
       setGeneratedPins([]);
       setActivePinIndex(0);
@@ -424,7 +425,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
     apiRequest(`/boards/${encodeURIComponent(selectedBoardId)}/pins`)
       .then((rows) => {
-        if (!active) return;
+        if (!active || generationOwnerIdRef.current !== ownerId) return;
         // A malformed/empty HTTP payload is not the same as a board with zero
         // pins. Never turn an unexpected API response into a silent empty state.
         const restored = requireSavedPinsArray(rows).map((row: any) => {
@@ -464,13 +465,13 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       })
       .catch((error) => {
         console.error('[pins] Не удалось восстановить сохранённые пины:', error);
-        if (active) {
+        if (active && generationOwnerIdRef.current === ownerId) {
           setGeneratedPins([]);
           setSavedPinsLoadError('Не удалось загрузить сохранённые пины. Проверьте соединение и попробуйте ещё раз.');
         }
       })
       .finally(() => {
-        if (active) setIsLoadingSavedPins(false);
+        if (active && generationOwnerIdRef.current === ownerId) setIsLoadingSavedPins(false);
       });
 
     return () => {
