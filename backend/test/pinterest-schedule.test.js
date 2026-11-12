@@ -62,6 +62,16 @@ test("a disconnected Pinterest account before publication is a terminal failure"
   assert.equal(classifyScheduleFailure(null, null), "failed");
 });
 
+test("schedule attempt identity requires every non-empty owner and destination field", () => {
+  const identity = { user_id: "user-1", pin_id: "pin-1", pinterest_account_id: "account-1", pinterest_board_id: "board-1" };
+  assert.equal(hasMatchingScheduleAttemptIdentity({ ...identity }, { ...identity }), true);
+  for (const field of Object.keys(identity)) {
+    assert.equal(hasMatchingScheduleAttemptIdentity({ ...identity, [field]: "" }, { ...identity, [field]: "" }), false, `blank ${field}`);
+    assert.equal(hasMatchingScheduleAttemptIdentity({ ...identity, [field]: "   " }, { ...identity }), false, `whitespace ${field}`);
+  }
+  assert.equal(hasMatchingScheduleAttemptIdentity(identity, { ...identity, pinterest_board_id: "other-board" }), false);
+});
+
 test("an unreadable publish journal is unknown and must not be retried", () => {
   assert.equal(classifyScheduleFailure(null, new Error("database unavailable")), "unknown");
   assert.equal(canRetryScheduleFailure(null, new Error("database unavailable"), new Error("503")), false);
