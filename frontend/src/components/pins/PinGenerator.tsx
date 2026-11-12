@@ -37,6 +37,7 @@ import { isCurrentBillingOwner } from '../../utils/billingOwner';
 import { rollbackPinAspectRatioIfUnchanged } from '../../utils/pinAspectRatio';
 import { resolvePinterestDestination } from '../../utils/pinterestDestination';
 import { requirePinterestAccounts, requirePinterestBoards } from '../../utils/pinterestResources';
+import { resolveSelectedBoardId } from '../../utils/persistedBoards';
 import {
   rememberPinTitleSelection,
   resolvePinTitleSelection,
@@ -263,6 +264,19 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       setSelectedBoardId(initialBoardId);
     }
   }, [initialBoardId, boards]);
+
+  useEffect(() => {
+    // Board lists can change after account refreshes or a board is removed.
+    // Recover a stale selection instead of leaving the generator with no active board.
+    if (generationInFlightRef.current) return;
+    const nextBoardId = resolveSelectedBoardId(
+      boards,
+      selectedBoardId,
+      initialBoardId,
+      recommendedBoard?.id,
+    );
+    if (nextBoardId !== selectedBoardId) setSelectedBoardId(nextBoardId);
+  }, [boards, selectedBoardId, initialBoardId, recommendedBoard]);
 
   const [tone, setTone] = useState<string>('inspirational');
   const [destinationUrl, setDestinationUrl] = useState('');
