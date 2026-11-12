@@ -29,12 +29,21 @@ async function runOnce({
       const validCounts = data && countKeys.every((key) =>
         Number.isSafeInteger(data[key]) && data[key] >= 0
       );
+      const scheduleIds = new Set();
       const validResults = data && Array.isArray(data.results) &&
         data.results.length === data.claimed &&
-        data.results.every((item) =>
-          item && typeof item === "object" &&
-          ["published", "failed", "scheduled", "unknown"].includes(item.status)
-        );
+        data.results.every((item) => {
+          if (
+            !item ||
+            typeof item !== "object" ||
+            typeof item.schedule_id !== "string" ||
+            !item.schedule_id.trim() ||
+            scheduleIds.has(item.schedule_id) ||
+            !["published", "failed", "scheduled", "unknown"].includes(item.status)
+          ) return false;
+          scheduleIds.add(item.schedule_id);
+          return true;
+        });
       const resultCounts = validResults
         ? data.results.reduce((counts, item) => {
             counts[item.status] += 1;
