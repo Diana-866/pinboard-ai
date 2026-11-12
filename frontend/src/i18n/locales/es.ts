@@ -575,6 +575,10 @@ export const es: TranslationSchema = {
     scheduledFor: 'Horario Programado',
     allReviewed: '¡Todos los pines han sido revisados!',
     allReviewedDesc: 'Los pines aprobados se han añadido a su calendario de publicación en los mejores horarios.',
+    queueLoading: 'Cargando la cola de revisión guardada…',
+    queueLoadErrorTitle: 'No se pudo cargar la cola de revisión',
+    queueLoadErrorDescription: 'Tus pines guardados están a salvo. Comprueba la conexión e inténtalo de nuevo.',
+    retryQueueLoad: 'Reintentar carga',
     finishBtn: 'Ir al Calendario',
   },
 
