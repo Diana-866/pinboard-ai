@@ -31,6 +31,7 @@ import { shouldFlushPendingPinDescription } from '../../utils/pendingPinDescript
 import { clearPendingGenerationRequest, createGenerationFingerprint, listPendingGenerationRequests, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
 import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
 import { requireGeneratedPinsArray } from '../../utils/generatedPinsResponse';
+import { isExpiredGenerationRecoveryError } from '../../utils/generationRecovery';
 import { isCurrentBillingOwner } from '../../utils/billingOwner';
 import { rollbackPinAspectRatioIfUnchanged } from '../../utils/pinAspectRatio';
 import { resolvePinterestDestination } from '../../utils/pinterestDestination';
@@ -360,7 +361,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             found.push({ key: identity.fingerprint, status: 'not_found', boardId: '', pinCount: 0 });
             continue;
           }
-          if (error?.status === 410 || error?.data?.code === 'idempotency_result_expired') {
+          if (isExpiredGenerationRecoveryError(error)) {
             found.push({ key: identity.fingerprint, status: 'expired', boardId: '', pinCount: 0 });
             continue;
           }
