@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mergeRestoredReviewQueue } from './reviewQueueHydration';
+import { isReviewQueuePayload, mergeRestoredReviewQueue } from './reviewQueueHydration';
 
 test('restores untouched server rows and preserves local edits made during hydration', () => {
   const rows = mergeRestoredReviewQueue(
@@ -31,4 +31,18 @@ test('does not duplicate rows when local and server versions share an ID', () =>
     new Set(['same']),
   );
   assert.deepEqual(rows, [{ id: 'same', title: 'local' }]);
+});
+
+
+test('accepts a valid empty review queue payload', () => {
+  assert.equal(isReviewQueuePayload([]), true);
+});
+
+test('rejects malformed queue payloads instead of treating them as an empty queue', () => {
+  assert.equal(isReviewQueuePayload(null), false);
+  assert.equal(isReviewQueuePayload({ rows: [] }), false);
+  assert.equal(isReviewQueuePayload([null]), false);
+  assert.equal(isReviewQueuePayload([{}]), false);
+  assert.equal(isReviewQueuePayload([{ id: '' }]), false);
+  assert.equal(isReviewQueuePayload([{ id: 123 }]), false);
 });
