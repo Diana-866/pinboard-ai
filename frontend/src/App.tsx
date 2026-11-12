@@ -341,7 +341,8 @@ const MainApp: React.FC = () => {
     });
     if (!ownerId) return () => { active = false; };
 
-    // A manual retry must show the loading state just like the initial restore.
+    // Initial restore and manual retry both protect local changes while the server snapshot loads.
+    reviewQueueHydratingRef.current = true;
     setPendingReviewQueueLoading(true);
     setPendingReviewQueueError(false);
 
@@ -366,7 +367,7 @@ const MainApp: React.FC = () => {
         reviewQueueHydratingRef.current = false;
         setPendingReviewQueueLoading(false);
         setPendingReviewQueueError(true);
-        reviewQueueTouchedIdsRef.current.clear();
+        // Keep touched IDs so a later retry cannot resurrect locally removed rows.
         console.error('[review-queue] Не удалось восстановить очередь:', error);
       });
     return () => { active = false; };
@@ -433,6 +434,18 @@ const MainApp: React.FC = () => {
 
     return () => { active = false; };
   }, [user?.id, handlePinterestStatusChange]);
+
+  const handleRetryReviewQueue = () => {
+    if (!user?.id || pendingReviewQueueLoading) return;
+    // Preserve local additions, edits, and removals while the retry request is in flight.
+    reviewQueueHydratingRef.current = true;
+    for (const pin of pendingReviewPinsRef.current) {
+      reviewQueueTouchedIdsRef.current.add(pin.id);
+    }
+    setPendingReviewQueueLoading(true);
+    setPendingReviewQueueError(false);
+    setReviewQueueReloadToken((value) => value + 1);
+  };
 
   const handleUpdatePendingPins = (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => {
     const ownerId = user?.id || '';
@@ -942,7 +955,7 @@ const MainApp: React.FC = () => {
               pendingPins={pendingReviewPins}
               queueLoading={pendingReviewQueueLoading}
               queueError={pendingReviewQueueError}
-              onRetryQueue={() => setReviewQueueReloadToken((value) => value + 1)}
+              onRetryQueue={handleRetryReviewQueue}
               onUpdatePendingPins={handleUpdatePendingPins}
               onApprovePin={handleSchedulePin}
               onGoToCalendar={() => setActiveTab('calendar')}
