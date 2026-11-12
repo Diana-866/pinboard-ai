@@ -6,6 +6,7 @@ import { resolvePublishBoardId } from '../../utils/publishBoardSelection';
 import { readConfirmedPinterestPublish } from '../../utils/pinterestPublishResponse';
 import { isAmbiguousPinterestPublishStatus } from '../../utils/pinterestPublishOutcome';
 import { buildPinterestPinUrl } from '../../utils/pinterestPinUrl';
+import { isCurrentPublishOwner, ownsPublishSessionLock } from '../../utils/publishSession';
 
 interface PinterestAccount {
   id: string;
@@ -34,7 +35,8 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
   const [selectedBoard, setSelectedBoard] = useState<string>(boardId || '');
   const [accountsLoading, setAccountsLoading] = useState(true);
   const [boardsLoading, setBoardsLoading] = useState(false);
-  const publishLockRef = useRef(false);
+  const publishLockRef = useRef<{ ownerId: string; requestId: number } | null>(null);
+  const publishRequestIdRef = useRef(0);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [uncertain, setUncertain] = useState(false);
@@ -50,6 +52,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
     setSelectedBoard('');
     setAccountsLoading(Boolean(userId));
     setBoardsLoading(false);
+    setBusy(false);
     setDone(null);
     setUncertain(false);
     setError(null);
@@ -127,7 +130,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
   }, [accountId, boardId, userId]);
 
   const handleAccountChange = (nextAccountId: string) => {
-    if (activeOwnerIdRef.current !== userId || busy) return;
+    if (!isCurrentPublishOwner(activeOwnerIdRef.current, userId) || busy) return;
     // Clear synchronously so a rapid click cannot publish to the old account's board.
     setAccountId(nextAccountId);
     setBoards([]);
@@ -137,11 +140,12 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
   };
 
   const handlePublish = async () => {
-    if (activeOwnerIdRef.current !== userId || publishLockRef.current || accountsLoading || boardsLoading || !accountId || !selectedBoard) return;
+    if (!isCurrentPublishOwner(activeOwnerIdRef.current, userId) || ownsPublishSessionLock(publishLockRef.current, userId, publishLockRef.current?.requestId ?? -1) || accountsLoading || boardsLoading || !accountId || !selectedBoard) return;
     const ownerId = userId;
     const publishingAccountId = accountId;
     const publishingBoardId = selectedBoard;
-    publishLockRef.current = true;
+    const requestId = ++publishRequestIdRef.current;
+    publishLockRef.current = { ownerId, requestId };
     setError(null);
     setBusy(true);
     try {
@@ -149,7 +153,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
         method: 'POST',
         body: JSON.stringify({ board_id: publishingBoardId, account_id: publishingAccountId }),
       });
-      if (activeOwnerIdRef.current !== ownerId) return;
+      if (!isCurrentPublishOwner(activeOwnerIdRef.current, ownerId)) return;
       const confirmed = readConfirmedPinterestPublish(data, publishingBoardId);
       if (!confirmed) {
         // The remote POST may have succeeded even though its response was
@@ -159,7 +163,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
       }
       setDone(confirmed.pinId);
     } catch (e) {
-      if (activeOwnerIdRef.current !== ownerId) return;
+      if (!isCurrentPublishOwner(activeOwnerIdRef.current, ownerId)) return;
       const err = e as ApiError;
       // A lost connection or server-side failure after POST /pins is ambiguous:
       // Pinterest may have created the pin even though the browser got no reply.
@@ -170,8 +174,10 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
         setError(err?.message || 'Не удалось опубликовать пин');
       }
     } finally {
-      publishLockRef.current = false;
-      setBusy(false);
+      if (ownsPublishSessionLock(publishLockRef.current, ownerId, requestId)) {
+        publishLockRef.current = null;
+        setBusy(false);
+      }
     }
   };
 
