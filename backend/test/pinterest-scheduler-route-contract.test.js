@@ -145,3 +145,21 @@ test("legacy schedule account recovery and board reassignment are fenced to thei
     assert.ok(handler.lastIndexOf("assertScheduleOwner();", handler.indexOf("setScheduledPins")) >= 0);
   }
 });
+
+test("in-flight board and schedule reads cannot publish data after an account switch", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "..", "frontend", "src", "App.tsx"), "utf8");
+  assert.match(app, /userDataRequestGenerationRef\.current \+= 1/);
+  for (const [name, nextMarker] of [
+    ["loadBoards", "Never show a previous user's schedule"],
+    ["loadSchedule", "Тарифные «замочки»"],
+  ]) {
+    const start = app.indexOf(`async function ${name}()`);
+    const end = app.indexOf(nextMarker, start);
+    assert.notEqual(start, -1, `${name} exists`);
+    assert.ok(end > start, `${name} has a bounded loader`);
+    const loader = app.slice(start, end);
+    assert.match(loader, /requestGeneration === userDataRequestGenerationRef\.current/);
+    assert.match(loader, /if \(isCurrentRequest\(\)\) set/);
+    assert.match(loader, /if \(isCurrentRequest\(\)\) \{/);
+  }
+});
