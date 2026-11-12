@@ -82,6 +82,12 @@ migration_replay() {
   "${psql_cmd[@]}" -d "$db" -f "$scratch/supabase-stub.sql" >/dev/null || return 1
   local failed=0
   for migration in "$scratch"/migrations/*.sql; do
+    # Only replay the canonical install chain. 000_check_schema.sql is a
+    # diagnostic, and 002-008 are retained historical files marked legacy.
+    case "$(basename "$migration")" in
+      001_baseline.sql|0[1-9][0-9]_*.sql|1[0-4][0-9]_*.sql) ;;
+      *) continue ;;
+    esac
     if ! "${psql_cmd[@]}" -d "$db" -f "$migration" >/dev/null 2>&1; then
       echo "migration failed: $(basename "$migration")"
       failed=1
