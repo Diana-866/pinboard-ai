@@ -61,7 +61,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const handleReviewQueueError = () => {
       setToast({
         title: 'Не удалось синхронизировать очередь',
-        message: 'Изменения очереди не сохранены. Проверьте соединение и обновите страницу, чтобы повторить загрузку.',
+        message: 'Не удалось загрузить или сохранить очередь. Проверьте соединение и обновите страницу, чтобы повторить синхронизацию.',
         type: 'error',
       });
     };
