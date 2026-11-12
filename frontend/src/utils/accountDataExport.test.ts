@@ -11,25 +11,39 @@ test('export filename is deterministic, UTC-based and sanitized', () => {
   assert.equal(buildAccountExportFilename('', now), 'pinposy-export-20261112-080509-account.json');
 });
 
-test('a well-formed deletion receipt is accepted', () => {
+test('a complete, valid deletion receipt is accepted', () => {
   assert.deepEqual(
     parseDeletionReceipt({
       ok: true,
-      request: { requestId: 'req-1', state: 'pending', requestedAt: '2026-11-12T00:00:00Z', alreadyRequested: false },
+      request: {
+        requestId: '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
+        state: 'pending',
+        requestedAt: '2026-11-12T00:00:00Z',
+        alreadyRequested: false,
+      },
     }),
-    { requestId: 'req-1', state: 'pending', alreadyRequested: false }
-  );
-  assert.deepEqual(
-    parseDeletionReceipt({ request: { requestId: 'req-2', state: 'pending', alreadyRequested: true } }),
-    { requestId: 'req-2', state: 'pending', alreadyRequested: true }
+    {
+      requestId: '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
+      state: 'pending',
+      alreadyRequested: false,
+    }
   );
 });
 
-test('a malformed deletion receipt never counts as success', () => {
+test('a malformed or contradictory deletion receipt never counts as success', () => {
+  const validRequest = {
+    requestId: '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
+    state: 'pending',
+    alreadyRequested: false,
+  };
   assert.equal(parseDeletionReceipt(null), null);
   assert.equal(parseDeletionReceipt({}), null);
+  assert.equal(parseDeletionReceipt({ request: validRequest }), null);
+  assert.equal(parseDeletionReceipt({ ok: false, request: validRequest }), null);
   assert.equal(parseDeletionReceipt({ ok: true }), null);
-  assert.equal(parseDeletionReceipt({ request: {} }), null);
-  assert.equal(parseDeletionReceipt({ request: { requestId: '', state: 'pending' } }), null);
-  assert.equal(parseDeletionReceipt({ request: { requestId: 'req-1' } }), null);
+  assert.equal(parseDeletionReceipt({ ok: true, request: {} }), null);
+  assert.equal(parseDeletionReceipt({ ok: true, request: { ...validRequest, requestId: 'req-1' } }), null);
+  assert.equal(parseDeletionReceipt({ ok: true, request: { ...validRequest, state: 'deleted' } }), null);
+  assert.equal(parseDeletionReceipt({ ok: true, request: { ...validRequest, alreadyRequested: 'false' } }), null);
+  assert.equal(parseDeletionReceipt({ ok: true, request: { ...validRequest, alreadyRequested: undefined } }), null);
 });
