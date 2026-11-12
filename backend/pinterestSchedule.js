@@ -297,8 +297,8 @@ function buildPinScheduleSnapshot(pin, destinationUrl) {
 function resolvePinScheduleSnapshot(schedule, currentPin) {
   if (schedule && schedule.snapshot_image_url) {
     return {
-      title: schedule.snapshot_title ?? currentPin.title,
-      description: schedule.snapshot_description ?? currentPin.description,
+      title: String(schedule.snapshot_title ?? "").slice(0, 100),
+      description: String(schedule.snapshot_description ?? "").slice(0, 800),
       image_url: schedule.snapshot_image_url,
       destination_url: schedule.snapshot_destination_url || schedule.destination_url || null,
       is_snapshot: true,
