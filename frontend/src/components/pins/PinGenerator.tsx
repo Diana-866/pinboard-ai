@@ -21,6 +21,7 @@ import {
 import { AI_CONTENT_LANGUAGES, useI18n } from '../../i18n/i18nContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
+import defaultPinImage from '../../assets/images/1.png';
 import { apiRequest } from '../../lib/api';
 import { addCalendarDaysInTimezone, formatInstantInTimezone, getDefaultTimezone, resolveScheduleSlotTime } from '../../utils/timezone';
 import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure } from '../../utils/generationRetry';
@@ -917,7 +918,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   // Canvas data binding
   const activeRatio = currentPin?.aspectRatio || selectedSingleRatio;
   const canvasData: PinCanvasData = {
-    imageUrl: currentPin?.imageUrl || '/src/assets/images/pin_home_decor_1790670043705.jpg',
+    imageUrl: currentPin?.imageUrl || defaultPinImage,
     headline: currentPin?.headlineOverlay || currentPin?.selectedTitle || topic,
     subheadline: currentPin?.subheadlineOverlay || 'Essential tips and aesthetic breakdown',
     brandText: 'pinposy.com',
