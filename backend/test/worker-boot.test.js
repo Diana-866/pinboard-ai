@@ -19,14 +19,14 @@ const { spawn } = require("node:child_process");
  */
 const SECRET = "s".repeat(40);
 
-function startStubServer(responseData = { ok: true, claimed: 0 }) {
+function startStubServer(responseData = { ok: true, claimed: 0 }, statusCode = 200) {
   const calls = [];
   const server = http.createServer((req, res) => {
     let body = "";
     req.on("data", (chunk) => { body += chunk.toString(); });
     req.on("end", () => {
       calls.push({ url: req.url, method: req.method, secret: req.headers["x-pinposy-scheduler-secret"], body });
-      res.writeHead(200, { "Content-Type": "application/json" });
+      res.writeHead(statusCode, { "Content-Type": "application/json" });
       res.end(JSON.stringify(responseData));
     });
   });
@@ -143,6 +143,41 @@ test("the one-shot worker entry point performs exactly one scheduler request and
   assert.equal(calls[0].secret, SECRET);
 });
 
+
+test("the one-shot worker exits nonzero when the backend rejects the scheduler request", async (t) => {
+  const { server, calls, port } = await startStubServer({ error: "temporary failure" }, 503);
+  const child = spawn(process.execPath, [path.join(__dirname, "..", "scheduleWorker.js"), "--once"], {
+    cwd: path.join(__dirname, ".."),
+    env: {
+      ...process.env,
+      PINPOSY_BACKEND_URL: `http://127.0.0.1:${port}`,
+      PINPOSY_SCHEDULER_SECRET: SECRET,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  let output = "";
+  child.stdout.on("data", (chunk) => { output += chunk.toString(); });
+  child.stderr.on("data", (chunk) => { output += chunk.toString(); });
+  t.after(() => {
+    if (child.exitCode === null) child.kill("SIGKILL");
+    server.close();
+  });
+
+  const code = await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error(`failed one-shot worker did not exit: ${output}`));
+    }, 15_000);
+    child.once("exit", (exitCode) => {
+      clearTimeout(timeout);
+      resolve(exitCode);
+    });
+  });
+
+  assert.equal(code, 1, "Cron must be able to detect backend failures and retry on a later invocation");
+  assert.equal(calls.length, 1, "a failed cron invocation must not loop in the same process");
+});
 
 test("the one-shot worker treats an overlapping busy response as a successful no-op", async (t) => {
   const { server, calls, port } = await startStubServer({
