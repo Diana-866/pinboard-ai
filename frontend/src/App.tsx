@@ -22,6 +22,7 @@ import { PinGenerator } from './components/pins/PinGenerator';
 import { KeywordExplorer } from './components/keywords/KeywordExplorer';
 import { PublishingCalendar } from './components/calendar/PublishingCalendar';
 import { parsePersistedScheduleStatus } from './utils/scheduleStatus';
+import { requireCreatedBoardResponse } from './utils/persistedBoards';
 import { BoardsManager } from './components/boards/BoardsManager';
 import { AnalyticsView } from './components/analytics/AnalyticsView';
 import { PricingView } from './components/pricing/PricingView';
@@ -811,14 +812,15 @@ const MainApp: React.FC = () => {
           create_request_id: createRequestId,
         }),
       });
-      if (!saved || saved.id == null) {
-        throw new Error('Сервер не подтвердил сохранение доски. Обновите список перед повторной попыткой.');
-      }
+      const confirmedBoard = requireCreatedBoardResponse(
+        saved,
+        'Сервер вернул некорректный ответ при сохранении доски. Обновите список перед повторной попыткой.',
+      );
 
       const persisted: BoardItem = {
         ...board,
-        id: String(saved.id),
-        name: saved.title || board.name,
+        id: confirmedBoard.id,
+        name: confirmedBoard.title,
         category: board.category,
       };
       setBoards((prev) => [persisted, ...prev.filter((item) => item.id !== persisted.id)]);
