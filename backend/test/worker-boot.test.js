@@ -103,3 +103,42 @@ test("the worker refuses to start without a usable configuration", async (t) => 
   assert.notEqual(code, 0, "a worker without configuration must fail loudly, not idle");
   assert.match(output, /scheduleworker\.event_003/);
 });
+
+
+test("the one-shot worker entry point performs exactly one scheduler request and exits", async (t) => {
+  const { server, calls, port } = await startStubServer();
+  const child = spawn(process.execPath, [path.join(__dirname, "..", "scheduleWorker.js"), "--once"], {
+    cwd: path.join(__dirname, ".."),
+    env: {
+      ...process.env,
+      PINPOSY_BACKEND_URL: `http://127.0.0.1:${port}`,
+      PINPOSY_SCHEDULER_SECRET: SECRET,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  let output = "";
+  child.stdout.on("data", (chunk) => { output += chunk.toString(); });
+  child.stderr.on("data", (chunk) => { output += chunk.toString(); });
+  t.after(() => {
+    if (child.exitCode === null) child.kill("SIGKILL");
+    server.close();
+  });
+
+  const code = await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error(`one-shot worker did not exit: ${output}`));
+    }, 15_000);
+    child.once("exit", (exitCode) => {
+      clearTimeout(timeout);
+      resolve(exitCode);
+    });
+  });
+
+  assert.equal(code, 0);
+  assert.equal(calls.length, 1, "one cron invocation must make exactly one backend request");
+  assert.equal(calls[0].method, "POST");
+  assert.equal(calls[0].url, "/internal/pinterest/schedule/run");
+  assert.equal(calls[0].secret, SECRET);
+});
