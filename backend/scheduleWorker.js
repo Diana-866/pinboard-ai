@@ -9,6 +9,8 @@ const { logError, logInfo, logWarning, runWithCorrelationId } = require("./safeL
 // process only wakes up and asks the authenticated backend worker endpoint
 // to claim and process due rows.
 const axios = require("axios");
+const http = require("node:http");
+const https = require("node:https");
 
 const POLL_INTERVAL_MS = Math.max(5_000, Number(process.env.PINPOSY_SCHEDULER_INTERVAL_MS) || 30_000);
 const MAX_REQUEST_TIMEOUT_MS = 15 * 60_000; // Stay below the 20-minute stale-claim recovery window.
@@ -30,6 +32,17 @@ function getNextPollDelayMs(consecutiveFailures, baseIntervalMs = POLL_INTERVAL_
   const failures = Math.max(0, Math.floor(Number(consecutiveFailures) || 0));
   const base = Math.max(1_000, Number(baseIntervalMs) || POLL_INTERVAL_MS);
   return Math.min(MAX_RETRY_INTERVAL_MS, base * (2 ** Math.min(failures, 30)));
+}
+
+function isValidSchedulerResponse(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data) || data.ok !== true) return false;
+  // A concurrent invocation is an intentional no-op; normal runs must return
+  // the complete summary so a truncated/misrouted 200 response is not reported
+  // to the cron host as a successful scheduler execution.
+  if (data.busy === true) return true;
+  return ["claimed", "published", "failed", "scheduled", "unknown"].every((key) =>
+    Number.isSafeInteger(data[key]) && data[key] >= 0
+  );
 }
 
 function getSafeWorkerErrorDetails(error) {
@@ -99,16 +112,27 @@ function createWorker({
   drainTimeoutMs = DEFAULT_DRAIN_TIMEOUT_MS,
   schedule = setTimeout,
   cancelSchedule = clearTimeout,
+  oneShot = false,
 }) {
   let timer = null;
   let active = false;
   let started = false;
   let stopped = false;
+  let oneShotStarted = false;
   let consecutiveFailures = 0;
 
   // Process one row per request. The backend renews that row's lease while
   // preflight and Pinterest publication are in progress.
   const safeBatchLimit = BATCH_LIMIT;
+  // Cron invocations must release their socket as soon as the single request
+  // completes; Node's default keep-alive agent can otherwise keep the process
+  // alive after the work is done.
+  const requestAgents = oneShot
+    ? {
+      httpAgent: new http.Agent({ keepAlive: false }),
+      httpsAgent: new https.Agent({ keepAlive: false }),
+    }
+    : {};
   const safeTimeoutMs = Math.min(MAX_REQUEST_TIMEOUT_MS, Math.max(10_000, Number(timeoutMs) || REQUEST_TIMEOUT_MS));
 
   function scheduleNext(delayMs) {
@@ -121,7 +145,8 @@ function createWorker({
   }
 
   async function tick() {
-    if (stopped || active) return;
+    if (stopped || active || (oneShot && oneShotStarted)) return false;
+    if (oneShot) oneShotStarted = true;
     active = true;
     const correlationId = crypto.randomUUID();
     return runWithCorrelationId(correlationId, async () => {
@@ -129,9 +154,10 @@ function createWorker({
         const response = await client.post(config.endpoint, { limit: safeBatchLimit }, {
           timeout: safeTimeoutMs,
           headers: { "x-pinposy-scheduler-secret": config.secret },
+          ...requestAgents,
         });
         const data = response && response.data;
-        if (!data || data.ok !== true) throw new Error("Backend returned an invalid worker response");
+        if (!isValidSchedulerResponse(data)) throw new Error("Backend returned an invalid worker response");
         consecutiveFailures = 0;
         const claimed = Number(data.claimed) || 0;
         logger.info("schedule_worker.batch_completed", {
@@ -143,15 +169,25 @@ function createWorker({
         });
         // Process one row per request to bound lease duration, but do not sleep
         // a full poll interval between rows in an already-active backlog.
-        scheduleNext(claimed > 0 ? BACKLOG_POLL_DELAY_MS : getNextPollDelayMs(0, intervalMs));
-        return;
+        if (!oneShot) {
+          scheduleNext(claimed > 0 ? BACKLOG_POLL_DELAY_MS : getNextPollDelayMs(0, intervalMs));
+        }
+        return true;
       } catch (error) {
         // Never print request config/headers: they contain the scheduler secret.
         consecutiveFailures += 1;
         logger.error("schedule_worker.batch_failed", getSafeWorkerErrorDetails(error));
+        return false;
       } finally {
         active = false;
-        if (consecutiveFailures > 0) {
+        if (oneShot) {
+          // Explicitly release both per-invocation agents on success and error.
+          // Cron hosts may reuse a warm process between invocations or enforce
+          // strict shutdown deadlines; no socket pool should outlive this tick.
+          requestAgents.httpAgent.destroy();
+          requestAgents.httpsAgent.destroy();
+        }
+        if (!oneShot && consecutiveFailures > 0) {
           scheduleNext(getNextPollDelayMs(consecutiveFailures, intervalMs));
         }
       }
@@ -196,22 +232,33 @@ if (require.main === module) {
   }
 
   if (config) {
-    const worker = createWorker({ config });
-    worker.start();
-    let shuttingDown = false;
-    const shutdown = async (signal) => {
-      if (shuttingDown) return;
-      shuttingDown = true;
-      logInfo("scheduleWorker.event_002");
-      const drained = await worker.stop();
-      if (!drained) {
-        logWarning("scheduleWorker.event_001");
-      }
-      process.exit(0);
-    };
-    process.once("SIGTERM", () => { void shutdown("SIGTERM"); });
-    process.once("SIGINT", () => { void shutdown("SIGINT"); });
+    const oneShot = process.argv.includes("--once");
+    const worker = createWorker({ config, oneShot });
+    if (oneShot) {
+      // Cron hosts start a fresh process per invocation. One bounded tick lets
+      // the durable PostgreSQL queue remain the source of truth between runs.
+      void worker.tick().then((succeeded) => {
+        process.exitCode = succeeded ? 0 : 1;
+      }).catch(() => {
+        process.exitCode = 1;
+      });
+    } else {
+      worker.start();
+      let shuttingDown = false;
+      const shutdown = async () => {
+        if (shuttingDown) return;
+        shuttingDown = true;
+        logInfo("scheduleWorker.event_002");
+        const drained = await worker.stop();
+        if (!drained) {
+          logWarning("scheduleWorker.event_001");
+        }
+        process.exit(0);
+      };
+      process.once("SIGTERM", () => { void shutdown(); });
+      process.once("SIGINT", () => { void shutdown(); });
+    }
   }
 }
 
-module.exports = { getWorkerConfig, createWorker, getNextPollDelayMs, MAX_REQUEST_TIMEOUT_MS, DEFAULT_DRAIN_TIMEOUT_MS, MAX_RETRY_INTERVAL_MS };
+module.exports = { getWorkerConfig, createWorker, getNextPollDelayMs, isValidSchedulerResponse, MAX_REQUEST_TIMEOUT_MS, DEFAULT_DRAIN_TIMEOUT_MS, MAX_RETRY_INTERVAL_MS };
