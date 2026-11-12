@@ -23,7 +23,7 @@ import {
 import { useI18n } from '../../i18n/i18nContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
-import { applyCurrentReviewEdits, requirePinStatusResponse } from '../../utils/reviewApproval';
+import { applyCurrentReviewEdits, canApproveReviewToPinterest, requirePinStatusResponse } from '../../utils/reviewApproval';
 import { createGenerationIdempotencyKey } from '../../utils/generationRetry';
 import { requirePinterestAccounts, requirePinterestBoards } from '../../utils/pinterestResources';
 
@@ -431,8 +431,16 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       window.alert('Эта карточка — демонстрационный пример, а не сохранённый пин. Сначала создайте и сохраните пин в генераторе — только после этого его можно добавить в расписание.');
       return;
     }
-    if (!selectedPinterestAccountId || !selectedPinterestBoardId) {
-      window.alert('Сначала подключите Pinterest и выберите настоящую доску Pinterest для публикации.');
+    if (!canApproveReviewToPinterest({
+      accountId: selectedPinterestAccountId,
+      boardId: selectedPinterestBoardId,
+      boardsLoaded: pinterestBoardsLoaded,
+      boardsError: pinterestBoardsError,
+      boards: pinterestBoards,
+    })) {
+      window.alert(pinterestBoardsError
+        ? 'Не удалось загрузить доски Pinterest. Повторите загрузку перед одобрением.'
+        : 'Дождитесь загрузки досок Pinterest и выберите доску подключённого аккаунта.');
       return;
     }
 
@@ -523,8 +531,16 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       window.alert('В очереди есть демонстрационные карточки без сохранённых пинов. Создайте и сохраните реальные пины в генераторе, прежде чем добавлять их в расписание.');
       return;
     }
-    if (!selectedPinterestAccountId || !selectedPinterestBoardId) {
-      window.alert('Сначала подключите Pinterest и выберите настоящую доску Pinterest для публикации.');
+    if (!canApproveReviewToPinterest({
+      accountId: selectedPinterestAccountId,
+      boardId: selectedPinterestBoardId,
+      boardsLoaded: pinterestBoardsLoaded,
+      boardsError: pinterestBoardsError,
+      boards: pinterestBoards,
+    })) {
+      window.alert(pinterestBoardsError
+        ? 'Не удалось загрузить доски Pinterest. Повторите загрузку перед одобрением.'
+        : 'Дождитесь загрузки досок Pinterest и выберите доску подключённого аккаунта.');
       return;
     }
 
