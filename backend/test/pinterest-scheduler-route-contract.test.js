@@ -95,6 +95,7 @@ test("schedule creation persists and reconciles the resolved project destination
   const end = source.indexOf('app.post("/schedule/:id/change-board"', start);
   assert.notEqual(end, -1, "pin schedule route boundary must exist");
   const route = source.slice(start, end);
+  assert.match(source, /projects\(user_id, niche, tone, website_url\)/);
 
   assert.ok(route.includes("let snapshotDestinationUrl = destinationUrl"));
   assert.ok(route.includes("if (!snapshotDestinationUrl && snapshotPin.boards?.projects?.website_url)"));
