@@ -66,7 +66,7 @@ test("one-shot cron rejects inconsistent batch counters instead of reporting suc
   assert.equal(events.some(([event]) => event === "schedule_cron.batch_completed"), false);
 });
 
-test("one-shot cron rejects missing or duplicate schedule identities", async () => {
+test("one-shot cron rejects missing schedule identities and oversized batches", async () => {
   for (const results of [
     [{ status: "published" }],
     [
