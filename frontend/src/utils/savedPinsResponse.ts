@@ -20,6 +20,17 @@ export function requireSavedPinsArray(value: unknown): any[] {
     }
     seenIds.add(pin.id);
 
+    if (pin.title != null && typeof pin.title !== 'string') {
+      throw new Error('У сохранённого пина некорректный заголовок.');
+    }
+    if (pin.description != null && typeof pin.description !== 'string') {
+      throw new Error('У сохранённого пина некорректное описание.');
+    }
+    if (pin.aspect_ratio != null &&
+        !['2:3', '9:16', '3:4', '4:5', '1:1'].includes(pin.aspect_ratio)) {
+      throw new Error('У сохранённого пина неподдерживаемый формат изображения.');
+    }
+
     if (typeof pin.image_url !== 'string' || !pin.image_url.trim()) {
       throw new Error('У сохранённого пина отсутствует постоянная ссылка на изображение.');
     }
