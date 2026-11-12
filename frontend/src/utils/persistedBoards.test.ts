@@ -68,3 +68,26 @@ test('rejects duplicate persisted board IDs instead of producing colliding UI ke
     { id: 'board-1', title: 'Second board' },
   ], invalid), /Invalid boards response/);
 });
+
+test('accepts a complete created-board response and trims its title', async () => {
+  const { requireCreatedBoardResponse } = await import('./persistedBoards');
+  assert.deepEqual(
+    requireCreatedBoardResponse({ id: 'board-1', title: '  New board  ' }, invalid),
+    { id: 'board-1', title: 'New board' },
+  );
+});
+
+test('rejects malformed created-board responses before optimistic UI insertion', async () => {
+  const { requireCreatedBoardResponse } = await import('./persistedBoards');
+  for (const response of [
+    null,
+    [],
+    {},
+    { id: {}, title: 'Board' },
+    { id: ' board-1 ', title: 'Board' },
+    { id: 'board-1', title: '   ' },
+    { id: 'board-1', title: { text: 'Board' } },
+  ]) {
+    assert.throws(() => requireCreatedBoardResponse(response, invalid), /Invalid boards response/);
+  }
+});
