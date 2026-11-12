@@ -364,11 +364,16 @@ function selectScheduleAttemptForRetry(attempts, schedule) {
 
 function getScheduleRetryability(schedule, attempt, hasPublication, accountActive, hasActiveDuplicate) {
   if (!schedule || schedule.status !== "failed") return { retryable: false, reason: "not_failed" };
+  if (!String(schedule.pinterest_account_id == null ? "" : schedule.pinterest_account_id).trim() || !accountActive) {
+    return { retryable: false, reason: "account_unavailable" };
+  }
+  if (!String(schedule.pinterest_board_id == null ? "" : schedule.pinterest_board_id).trim()) {
+    return { retryable: false, reason: "board_missing" };
+  }
   const requiredIdentity = ["user_id", "pin_id", "pinterest_account_id", "pinterest_board_id"];
   if (requiredIdentity.some((field) => !String(schedule[field] == null ? "" : schedule[field]).trim())) {
     return { retryable: false, reason: "schedule_identity_incomplete" };
   }
-  if (!accountActive) return { retryable: false, reason: "account_unavailable" };
   // A scheduled snapshot is the durable creative source; the live pin image may have changed.
   if (!(schedule.snapshot_image_url || (schedule.pins && schedule.pins.image_url))) {
     return { retryable: false, reason: "pin_unavailable" };
