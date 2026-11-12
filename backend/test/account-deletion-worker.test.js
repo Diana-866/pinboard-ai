@@ -128,6 +128,17 @@ test("preflight fails closed when a dependent table cannot be read", async () =>
   );
 });
 
+test("worker rejects a null claim response instead of reporting an empty queue", async () => {
+  const client = {
+    async rpc(name) {
+      assert.equal(name, "claim_account_deletion_jobs");
+      return { data: null, error: null };
+    },
+  };
+  const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} } });
+  await assert.rejects(worker.tick(), (error) => error.code === "invalid_claim_response");
+});
+
 test("worker claims and finalizes only through fenced RPCs", async () => {
   const calls = [];
   const client = {
