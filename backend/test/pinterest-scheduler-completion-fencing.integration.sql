@@ -4,6 +4,8 @@ do $$
 declare
   v_run_a uuid := gen_random_uuid();
   v_run_b uuid := gen_random_uuid();
+  v_run_c uuid := gen_random_uuid();
+  v_run_d uuid := gen_random_uuid();
   v_ok boolean;
   v_status text;
   v_current uuid;
@@ -41,10 +43,6 @@ begin
   end if;
 
   -- A live monitor rejects overlapping invocations.
-  declare
-    v_run_c uuid := gen_random_uuid();
-    v_run_d uuid := gen_random_uuid();
-  begin
     select public.begin_pinterest_scheduler_run(v_run_c) into v_ok;
     if not v_ok then raise exception 'third scheduler run did not acquire monitor'; end if;
 
@@ -70,10 +68,9 @@ begin
     select status, last_run_id into v_status, v_current
       from public.pinterest_scheduler_monitor
      where singleton_key = 'pinterest_scheduler';
-    if v_status <> 'succeeded' or v_current <> v_run_d then
-      raise exception 'stale monitor recovery did not preserve the new run';
-    end if;
-  end;
+  if v_status <> 'succeeded' or v_current <> v_run_d then
+    raise exception 'stale monitor recovery did not preserve the new run';
+  end if;
 
   raise notice 'AUD-364 scheduler completion fencing checks passed';
 end;
