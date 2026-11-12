@@ -1,6 +1,8 @@
 "use strict";
 
 const crypto = require("node:crypto");
+const http = require("node:http");
+const https = require("node:https");
 const axios = require("axios");
 const { getWorkerConfig } = require("./scheduleWorker");
 const { isValidScheduleWorkerResponse } = require("./scheduleResponse");
@@ -14,14 +16,22 @@ async function runOnce({
   logger = { info: logInfo, error: logError },
 } = {}) {
   return runWithCorrelationId(crypto.randomUUID(), async () => {
+    let requestAgents;
     try {
       const resolvedConfig = config || getWorkerConfig();
+      // A one-shot cron invocation must not leave pooled sockets alive after
+      // its single request; some Node versions enable keep-alive by default.
+      requestAgents = {
+        httpAgent: new http.Agent({ keepAlive: false }),
+        httpsAgent: new https.Agent({ keepAlive: false }),
+      };
       const response = await client.post(
         resolvedConfig.endpoint,
         { limit: 1 },
         {
           timeout: REQUEST_TIMEOUT_MS,
           maxRedirects: 0,
+          ...requestAgents,
           headers: { "x-pinposy-scheduler-secret": resolvedConfig.secret },
         }
       );
@@ -62,6 +72,13 @@ async function runOnce({
       }
       logger.error("schedule_cron.batch_failed", safeError, status);
       throw error;
+    } finally {
+      // Release sockets on both success and failure so the cron process exits
+      // promptly and cannot retain resources between provider invocations.
+      if (requestAgents) {
+        requestAgents.httpAgent.destroy();
+        requestAgents.httpsAgent.destroy();
+      }
     }
   });
 }
