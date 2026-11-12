@@ -1121,6 +1121,7 @@ const MainApp: React.FC = () => {
 
           {activeTab === 'boards' && (
             <BoardsManager
+              key={user?.id || 'anonymous'}
               boards={boards}
               loadError={boardsLoadError}
               isLoading={boardsLoading}
