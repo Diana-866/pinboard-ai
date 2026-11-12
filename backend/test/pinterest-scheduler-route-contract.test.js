@@ -126,5 +126,5 @@ test("exact schedule retries reconcile the committed row before live Pinterest b
   const boardPreflight = route.indexOf("await pinterest.verifyPinterestBoard");
   assert.ok(existingLookup >= 0 && exactMatch > existingLookup, "the server must load and compare the persisted request");
   assert.ok(boardPreflight > exactMatch, "an exact retry must return before another Pinterest API request");
-  assert.match(route.slice(exactMatch, boardPreflight), /return res\\.status\\(200\\)\\.json\\(sanitizeScheduleForClient\\(existingSchedule\\)\\)/);
+  assert.match(route.slice(exactMatch, boardPreflight), /return res\.status\(200\)\.json\(sanitizeScheduleForClient\(existingSchedule\)\)/);
 });
