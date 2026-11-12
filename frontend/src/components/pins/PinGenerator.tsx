@@ -240,24 +240,29 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   }, [topic, boards]);
 
   const [selectedBoardId, setSelectedBoardId] = useState<string>(initialBoardId || recommendedBoard?.id || boards[0]?.id || '');
+  // Preserve the board restored from an interrupted generation against the
+  // topic recommendation and initial-board effects until the user edits it.
+  const restoredGenerationBoardRef = React.useRef<string | null>(null);
 
   useEffect(() => {
     // A generation request is bound to the board captured when it starts.
     // Do not let topic recommendations move the editor to another board while
     // its response is in flight, or generated pins could appear under the wrong board.
     if (generationInFlightRef.current) return;
+    if (restoredGenerationBoardRef.current && restoredGenerationBoardRef.current === selectedBoardId) return;
     // An explicit board selected in the calendar takes precedence over topic-based recommendations.
     if (!initialBoardId && recommendedBoard) {
       setSelectedBoardId(recommendedBoard.id);
     }
-  }, [recommendedBoard, initialBoardId]);
+  }, [recommendedBoard, initialBoardId, selectedBoardId]);
 
   useEffect(() => {
     if (generationInFlightRef.current) return;
+    if (restoredGenerationBoardRef.current && restoredGenerationBoardRef.current === selectedBoardId) return;
     if (initialBoardId && boards.some((board) => board.id === initialBoardId)) {
       setSelectedBoardId(initialBoardId);
     }
-  }, [initialBoardId, boards]);
+  }, [initialBoardId, boards, selectedBoardId]);
 
   const [tone, setTone] = useState<string>('inspirational');
   const [destinationUrl, setDestinationUrl] = useState('');
@@ -1025,6 +1030,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                       onClick={() => {
                         const saved = readPendingGenerationContext(item.key, userId);
                         if (!saved) return;
+                        restoredGenerationBoardRef.current = saved.boardId;
                         setSelectedBoardId(saved.boardId);
                         setTopic(saved.topic);
                         setTone(saved.tone);
@@ -1091,7 +1097,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               </label>
               <textarea
                 value={topic}
-                onChange={(e) => setTopic(e.target.value)}
+                onChange={(e) => {
+                  restoredGenerationBoardRef.current = null;
+                  setTopic(e.target.value);
+                }}
                 placeholder={t.generator.topicPlaceholder}
                 rows={2}
                 className="w-full px-3.5 py-2.5 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme placeholder:text-muted-theme focus:outline-none focus:ring-2 focus:ring-accent"
@@ -1103,7 +1112,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => setTopic(preset)}
+                    onClick={() => {
+                      restoredGenerationBoardRef.current = null;
+                      setTopic(preset);
+                    }}
                     className="text-[11px] px-2 py-1 rounded-md bg-subtle hover:bg-surface border border-subtle text-secondary-theme hover:text-primary-theme transition-colors truncate max-w-full text-left cursor-pointer"
                   >
                     {preset.slice(0, 48)}...
@@ -1311,7 +1323,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
               <select
                 value={selectedBoardId}
-                onChange={(e) => setSelectedBoardId(e.target.value)}
+                onChange={(e) => {
+                  restoredGenerationBoardRef.current = null;
+                  setSelectedBoardId(e.target.value);
+                }}
                 disabled={isGenerating}
                 className="w-full px-3 py-2 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-60 disabled:cursor-not-allowed"
               >
