@@ -69,6 +69,8 @@ test("atomic payment integration workflow applies existing migrations in ascendi
   for (const file of applied) {
     assert.ok(fs.existsSync(path.join(migrationsDir, file)), `workflow references missing migration ${file}`);
   }
+  assert.match(workflow, /backend\/test\/paid-unfulfilled-payment-deletion-lock\.integration\.sql/,
+    "workflow must execute the paid-liability deletion-lock integration test");
 });
 
 
