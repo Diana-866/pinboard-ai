@@ -55,3 +55,16 @@ test('rejects malformed rows instead of silently dropping boards', () => {
   assert.throws(() => mapPersistedBoards([{ id: 'board-1', title: '   ' }], invalid), /Invalid boards response/);
   assert.throws(() => mapPersistedBoards([null], invalid), /Invalid boards response/);
 });
+
+
+test('rejects blank and whitespace-padded persisted board IDs', () => {
+  assert.throws(() => mapPersistedBoards([{ id: ' ', title: 'Board' }], invalid), /Invalid boards response/);
+  assert.throws(() => mapPersistedBoards([{ id: ' board-1 ', title: 'Board' }], invalid), /Invalid boards response/);
+});
+
+test('rejects duplicate persisted board IDs instead of producing colliding UI keys', () => {
+  assert.throws(() => mapPersistedBoards([
+    { id: 'board-1', title: 'First board' },
+    { id: 'board-1', title: 'Second board' },
+  ], invalid), /Invalid boards response/);
+});
