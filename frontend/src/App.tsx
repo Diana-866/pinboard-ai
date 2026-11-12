@@ -561,7 +561,7 @@ const MainApp: React.FC = () => {
       scheduledAt: localDateTime.toISOString(),
       pinterestBoardId: String(pin.pinterestBoardId || ''),
       pinterestAccountId: pin.pinterestAccountId || undefined,
-      statuses: ['scheduled', 'publishing', 'failed', 'unknown'],
+      statuses: ['scheduled', 'publishing', 'published', 'failed', 'unknown'],
     };
     try {
       const response = await apiRequest(`/pins/${encodeURIComponent(pin.pinId)}/schedule`, {
