@@ -650,6 +650,8 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       // If the queue is refreshed/replaced while this batch is running, a new
       // card may reuse an ID; never remove that replacement as a side effect.
       const successfulItems: Array<{ id: string; pinId: string }> = [];
+      let skippedCount = 0;
+      let failedCount = 0;
       setBulkApprovalProgress({ completed: 0, total: scheduledItems.length });
       for (let index = 0; index < scheduledItems.length; index += 1) {
         if (!isOwnerCurrent(ownerSnapshot)) return;
@@ -660,6 +662,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         )) {
           // The card was removed or replaced while this batch was running.
           // Do not schedule stale work from the original snapshot.
+          skippedCount += 1;
           setBulkApprovalProgress({ completed: index + 1, total: scheduledItems.length });
           continue;
         }
@@ -671,6 +674,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
           // Keep this card in the review queue and continue with the rest.
           // A partial failure must not discard successful approvals or stop
           // independent cards from being processed.
+          failedCount += 1;
         } finally {
           if (isOwnerCurrent(ownerSnapshot)) {
             setBulkApprovalProgress({ completed: index + 1, total: scheduledItems.length });
@@ -692,8 +696,12 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
           return;
         }
       }
-      if (isOwnerCurrent(ownerSnapshot) && successfulItems.length !== scheduledItems.length) {
-        window.alert(`В расписание добавлено: ${successfulItems.length} из ${scheduledItems.length}. Неудачные карточки остались в очереди.`);
+      if (isOwnerCurrent(ownerSnapshot) && (failedCount > 0 || skippedCount > 0)) {
+        const details = [
+          failedCount > 0 ? `Не удалось обработать: ${failedCount} (карточки остались в очереди).` : '',
+          skippedCount > 0 ? `Пропущено устаревших карточек: ${skippedCount} (они были удалены или заменены во время обработки).` : '',
+        ].filter(Boolean).join(' ');
+        window.alert(`В расписание добавлено: ${successfulItems.length} из ${scheduledItems.length}. ${details}`);
       }
     } finally {
       if (isOwnerCurrent(ownerSnapshot)) {
