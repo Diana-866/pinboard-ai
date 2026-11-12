@@ -34,6 +34,17 @@ function getNextPollDelayMs(consecutiveFailures, baseIntervalMs = POLL_INTERVAL_
   return Math.min(MAX_RETRY_INTERVAL_MS, base * (2 ** Math.min(failures, 30)));
 }
 
+function isValidSchedulerResponse(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data) || data.ok !== true) return false;
+  // A concurrent invocation is an intentional no-op; normal runs must return
+  // the complete summary so a truncated/misrouted 200 response is not reported
+  // to the cron host as a successful scheduler execution.
+  if (data.busy === true) return true;
+  return ["claimed", "published", "failed", "scheduled", "unknown"].every((key) =>
+    Number.isSafeInteger(data[key]) && data[key] >= 0
+  );
+}
+
 function getSafeWorkerErrorDetails(error) {
   const details = {};
   // Error objects can be supplied by HTTP clients and adapters. Read each
@@ -146,7 +157,7 @@ function createWorker({
           ...requestAgents,
         });
         const data = response && response.data;
-        if (!data || data.ok !== true) throw new Error("Backend returned an invalid worker response");
+        if (!isValidSchedulerResponse(data)) throw new Error("Backend returned an invalid worker response");
         consecutiveFailures = 0;
         const claimed = Number(data.claimed) || 0;
         logger.info("schedule_worker.batch_completed", {
@@ -250,4 +261,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { getWorkerConfig, createWorker, getNextPollDelayMs, MAX_REQUEST_TIMEOUT_MS, DEFAULT_DRAIN_TIMEOUT_MS, MAX_RETRY_INTERVAL_MS };
+module.exports = { getWorkerConfig, createWorker, getNextPollDelayMs, isValidSchedulerResponse, MAX_REQUEST_TIMEOUT_MS, DEFAULT_DRAIN_TIMEOUT_MS, MAX_RETRY_INTERVAL_MS };
