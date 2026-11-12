@@ -576,6 +576,10 @@ export const es: TranslationSchema = {
     allReviewed: '¡Todos los pines han sido revisados!',
     allReviewedDesc: 'Los pines aprobados se han añadido a su calendario de publicación en los mejores horarios.',
     finishBtn: 'Ir al Calendario',
+    queueLoadErrorTitle: "No se pudo cargar la cola de revisión",
+    queueLoadErrorDescription: "Tus pines no se han eliminado. Comprueba la conexión e inténtalo de nuevo. Una cola vacía no significa que todos los pines estén revisados.",
+    queueRetry: "Reintentar carga",
+    queueLoading: "Cargando cola de revisión…",
   },
 
   bot: {
