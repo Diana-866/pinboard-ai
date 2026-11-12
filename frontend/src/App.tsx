@@ -373,6 +373,10 @@ const MainApp: React.FC = () => {
   }, [user?.id]);
 
   const handlePinterestStatusChange = React.useCallback((status: { configured: boolean; account_limit?: number | null; accounts?: Array<{ id: string; username?: string | null; pinterest_user_id?: string | null; needs_reauth?: boolean }> }) => {
+    // Settings may finish a request after its component was replaced by a
+    // different signed-in user. Ignore callbacks captured by the old owner.
+    const callbackOwnerId = user?.id || '';
+    if (callbackOwnerId !== scheduleUserIdRef.current) return;
     const rows = Array.isArray(status.accounts) ? status.accounts : [];
     const mapped: PinterestAccount[] = rows.map((account, index) => ({
       id: String(account.id),
@@ -396,7 +400,7 @@ const MainApp: React.FC = () => {
     setMaxAccounts(status.configured === false
       ? 0
       : status.account_limit == null ? 99 : Math.max(0, Number(status.account_limit) || 0));
-  }, []);
+  }, [user?.id]);
 
   React.useEffect(() => {
     // Remove demo account/review data left by older client builds.
@@ -1131,6 +1135,7 @@ const MainApp: React.FC = () => {
 
           {activeTab === 'settings' && (
             <SettingsView
+              key={user?.id || 'anonymous'}
               onGoToPricing={() => setActiveTab('pricing')}
               onPinterestStatusChange={handlePinterestStatusChange}
             />
