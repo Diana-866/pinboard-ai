@@ -648,14 +648,16 @@ const MainApp: React.FC = () => {
         }
         saved = response;
       } catch (originalError) {
+        assertScheduleOwner();
         // Account reconciliation is an atomic DB transition. If its response
         // is lost, accept only the exact schedule/account/board from GET.
         try {
           const rows = await apiRequest('/schedule');
-        assertScheduleOwner();
+          assertScheduleOwner();
           saved = findPersistedScheduleMutation(rows, expected);
           if (!saved) throw originalError;
         } catch {
+          assertScheduleOwner();
           throw originalError;
         }
       }
@@ -718,14 +720,16 @@ const MainApp: React.FC = () => {
         }
         saved = response;
       } catch (originalError) {
+        assertScheduleOwner();
         // A lost or malformed 2xx response is ambiguous. Reconcile only against
         // this exact schedule, target board, account and queued state.
         try {
           const rows = await apiRequest('/schedule');
-        assertScheduleOwner();
+          assertScheduleOwner();
           saved = findPersistedScheduleMutation(rows, expected);
           if (!saved) throw originalError;
         } catch {
+          assertScheduleOwner();
           throw originalError;
         }
       }
