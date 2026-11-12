@@ -244,3 +244,26 @@ test("one-shot worker destroys its dedicated HTTP agents after the request", asy
   assert.equal(requestConfig.httpsAgent.keepAlive, false);
   assert.deepEqual(destroyed, { http: 1, https: 1 });
 });
+
+
+test("one-shot worker releases both agents when the backend request fails", async () => {
+  const { createWorker } = require("../scheduleWorker");
+  const destroyed = { http: 0, https: 0 };
+  const worker = createWorker({
+    config: { endpoint: "https://backend.example/internal/pinterest/schedule/run", secret: SECRET },
+    client: {
+      async post(_url, _body, config) {
+        for (const [key, agent] of [["http", config.httpAgent], ["https", config.httpsAgent]]) {
+          const destroy = agent.destroy.bind(agent);
+          agent.destroy = () => { destroyed[key] += 1; return destroy(); };
+        }
+        throw new Error("simulated network failure");
+      },
+    },
+    logger: { info() {}, error() {} },
+    oneShot: true,
+  });
+
+  assert.equal(await worker.tick(), false);
+  assert.deepEqual(destroyed, { http: 1, https: 1 });
+});
