@@ -1,3 +1,8 @@
+/** A server-confirmed failed or expired request can safely move to a fresh idempotency key. */
+export function isDefinitiveGenerationRecoveryStatus(status: unknown): boolean {
+  return status === 'failed' || status === 'expired';
+}
+
 /** True only when the API explicitly confirms that a generation replay window expired. */
 export function isExpiredGenerationRecoveryError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
