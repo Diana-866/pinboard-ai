@@ -128,6 +128,7 @@ function createWorker({
       try {
         const response = await client.post(config.endpoint, { limit: safeBatchLimit }, {
           timeout: safeTimeoutMs,
+          maxRedirects: 0,
           headers: { "x-pinposy-scheduler-secret": config.secret },
         });
         const data = response && response.data;
