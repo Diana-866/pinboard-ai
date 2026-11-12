@@ -44,10 +44,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: backend/package-lock.json
       - name: Install backend dependencies
-        run: npm ci --prefix backend
+        run: npm install --prefix backend --no-package-lock
       - name: Test scheduler response contract
         run: node --test backend/test/schedule-response.test.js
       - name: Test one-shot cron runner
