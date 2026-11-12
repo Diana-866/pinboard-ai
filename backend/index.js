@@ -2310,7 +2310,13 @@ app.post("/pins/:id/schedule", requireAuth, pinterestScheduleLimiter, requireTar
       .select("*, pins(id, board_id, title, description, image_url, boards(id, title))")
       .eq("user_id", String(req.userId))
       .eq("pin_id", pin.id)
+      .eq("scheduled_at", scheduledAt)
+      .eq("timezone", timezone)
+      .eq("pinterest_board_id", pinterestBoardId)
+      .eq("pinterest_account_id", selectedAccount.id)
       .in("status", ["scheduled", "publishing", "published", "unknown"])
+      .order("created_at", { ascending: true })
+      .limit(1)
       .maybeSingle();
     if (existingScheduleError) throw existingScheduleError;
     if (existingSchedule && isSamePinScheduleRequest(existingSchedule, scheduleIdentity)) {
