@@ -83,10 +83,13 @@ const MainApp: React.FC = () => {
   // Schedule rows belong to the authenticated user. Clear the previous account's
   // calendar immediately on identity change, without clearing it on ordinary reloads.
   const scheduleUserIdRef = React.useRef(user?.id || '');
+  const userDataRequestGenerationRef = React.useRef(0);
   React.useLayoutEffect(() => {
     const nextUserId = user?.id || '';
     if (scheduleUserIdRef.current !== nextUserId) {
       scheduleUserIdRef.current = nextUserId;
+      // Invalidate in-flight reads synchronously before the next account paints.
+      userDataRequestGenerationRef.current += 1;
       setScheduledPins([]);
       setScheduleLoadError('');
     }
@@ -101,6 +104,9 @@ const MainApp: React.FC = () => {
   // Доски загружаются из API, а не из демонстрационного массива браузера.
   React.useEffect(() => {
     let cancelled = false;
+    const requestOwnerId = user?.id || '';
+    const requestGeneration = userDataRequestGenerationRef.current;
+    const isCurrentRequest = () => !cancelled && requestOwnerId === (user?.id || '') && requestGeneration === userDataRequestGenerationRef.current;
     async function loadBoards() {
       if (!user?.id) {
         setBoardsLoading(false);
@@ -111,14 +117,14 @@ const MainApp: React.FC = () => {
       try {
         const rows = await apiRequest('/boards');
         const mapped = mapPersistedBoards(rows, t.boards.loadErrorFallback);
-        if (!cancelled) setBoards(mapped);
+        if (isCurrentRequest()) setBoards(mapped);
       } catch (error) {
         console.error('[boards] Не удалось загрузить доски:', error);
-        if (!cancelled) {
+        if (isCurrentRequest()) {
           setBoardsLoadError(error instanceof Error ? error.message : t.boards.loadErrorFallback);
         }
       } finally {
-        if (!cancelled) setBoardsLoading(false);
+        if (isCurrentRequest()) setBoardsLoading(false);
       }
     }
     loadBoards();
@@ -165,6 +171,9 @@ const MainApp: React.FC = () => {
   // Расписание загружается из БД; демонстрационные публикации не показываем.
   React.useEffect(() => {
     let cancelled = false;
+    const requestOwnerId = user?.id || '';
+    const requestGeneration = userDataRequestGenerationRef.current;
+    const isCurrentRequest = () => !cancelled && requestOwnerId === (user?.id || '') && requestGeneration === userDataRequestGenerationRef.current;
     async function loadSchedule() {
       if (!user?.id) {
         setScheduledPins([]);
@@ -176,7 +185,7 @@ const MainApp: React.FC = () => {
       setScheduleLoadError('');
       try {
         const response = await apiRequest('/schedule');
-        if (cancelled) return;
+        if (!isCurrentRequest()) return;
         const rows = validatePersistedScheduleRows(response);
         const mapped: ScheduledPinItem[] = rows.map((row: any) => {
           const date = new Date(row.scheduled_at);
@@ -204,12 +213,12 @@ const MainApp: React.FC = () => {
             isOptimalSlot: false,
           };
         });
-        setScheduledPins(mapped);
+        if (isCurrentRequest()) setScheduledPins(mapped);
       } catch (error) {
         console.error('[schedule] Не удалось загрузить расписание:', error);
-        if (!cancelled) setScheduleLoadError('Не удалось загрузить расписание. Проверьте соединение и попробуйте ещё раз. Существующие публикации не удалены.');
+        if (isCurrentRequest()) setScheduleLoadError('Не удалось загрузить расписание. Проверьте соединение и попробуйте ещё раз. Существующие публикации не удалены.');
       } finally {
-        if (!cancelled) setScheduleLoading(false);
+        if (isCurrentRequest()) setScheduleLoading(false);
       }
     }
     loadSchedule();
