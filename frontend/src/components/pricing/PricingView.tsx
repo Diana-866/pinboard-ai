@@ -906,14 +906,16 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
                         <td className="py-3 px-3">
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                              p.status === 'success'
+                              p.status === 'success' || p.provider_refunded_at
                                 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                                 : p.status === 'pending'
                                 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
                                 : 'bg-red-500/10 text-red-600 dark:text-red-400'
                             }`}
                           >
-                            {purchaseStatusLabels[p.status] || p.status}
+                            {p.provider_refunded_at
+                              ? (language === 'ru' ? 'Возврат подтверждён' : 'Refund confirmed')
+                              : purchaseStatusLabels[p.status] || p.status}
                           </span>
                         </td>
                         <td className="py-3 px-3 font-mono text-secondary-theme">
@@ -928,7 +930,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
                 <History className="w-3.5 h-3.5" />
                 {t.purchases?.neverBurn || 'Кредиты из оплаченных пакетов зачислены на баланс и не сгорают.'}
               </p>
-              {purchases.some((purchase) => purchase.status === 'paid_uncredited') && (
+              {purchases.some((purchase) => purchase.status === 'paid_uncredited' && !purchase.provider_refunded_at) && (
                 <p className="text-[11px] text-amber-700 dark:text-amber-300" role="status">
                   {language === 'ru'
                     ? 'Платёж подтверждён, но кредиты пока не зачислены. Не оплачивайте заказ повторно — обратитесь в поддержку и укажите номер заказа из истории.'
