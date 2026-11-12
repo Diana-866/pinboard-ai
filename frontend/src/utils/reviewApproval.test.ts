@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { applyCurrentReviewEdits, requirePinStatusResponse } from './reviewApproval';
+import { applyCurrentReviewEdits, canApproveReviewToPinterest, requirePinStatusResponse } from './reviewApproval';
 
 const first = {
   id: 'pin-1',
@@ -57,4 +57,17 @@ test('review decision response must confirm the exact pin and requested status',
   assert.throws(() => requirePinStatusResponse(
     { id: 'saved-1', status: 'approved' }, 'saved-1', 'rejected',
   ));
+});
+
+
+test('Pinterest approval requires the selected board to be loaded for the selected account', () => {
+  const valid = {
+    accountId: 'account-1', boardId: 'pinterest-board-1', boardsLoaded: true,
+    boardsError: false, boards: [{ id: 'pinterest-board-1' }],
+  };
+  assert.equal(canApproveReviewToPinterest(valid), true);
+  assert.equal(canApproveReviewToPinterest({ ...valid, boardsLoaded: false }), false);
+  assert.equal(canApproveReviewToPinterest({ ...valid, boardsError: true }), false);
+  assert.equal(canApproveReviewToPinterest({ ...valid, boardId: 'stale-board' }), false);
+  assert.equal(canApproveReviewToPinterest({ ...valid, accountId: '' }), false);
 });
