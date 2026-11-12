@@ -96,7 +96,7 @@ test("schedule creation persists and reconciles the resolved project destination
   assert.notEqual(end, -1, "pin schedule route boundary must exist");
   const route = source.slice(start, end);
 
-  assert.match(route, /const snapshotDestinationUrl = destinationUrl \\|\\| snapshotPin\\.boards\\?\\.projects\\?\\.website_url \\|\\| null/);
-  assert.match(route, /destination_url:\\s*snapshotDestinationUrl/);
-  assert.match(route, /String\\(existing\\.destination_url \\|\\| ""\\) === String\\(snapshotDestinationUrl \\|\\| ""\\)/);
+  assert.ok(route.includes("const snapshotDestinationUrl = destinationUrl || snapshotPin.boards?.projects?.website_url || null"));
+  assert.ok(route.includes("destination_url: snapshotDestinationUrl"));
+  assert.ok(route.includes('String(existing.destination_url || "") === String(snapshotDestinationUrl || "")'));
 });
