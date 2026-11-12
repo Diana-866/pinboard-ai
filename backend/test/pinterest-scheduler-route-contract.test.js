@@ -125,6 +125,13 @@ test("exact schedule retries reconcile the committed row before live Pinterest b
   const exactMatch = route.indexOf("isSamePinScheduleRequest(existingSchedule, scheduleIdentity)");
   const boardPreflight = route.indexOf("await pinterest.verifyPinterestBoard");
   assert.ok(existingLookup >= 0 && exactMatch > existingLookup, "the server must load and compare the persisted request");
+  assert.match(route, /\.eq\("scheduled_at", scheduledAt\)/);
+  assert.match(route, /\.eq\("timezone", timezone\)/);
+  assert.match(route, /\.eq\("pinterest_board_id", pinterestBoardId\)/);
+  assert.match(route, /\.eq\("pinterest_account_id", selectedAccount\.id\)/);
+  assert.match(route, /existingScheduleQuery\.eq\("destination_url", snapshotDestinationUrl\)/);
+  assert.match(route, /existingScheduleQuery\.is\("destination_url", null\)/);
+  assert.match(route, /\.limit\(1\)\s*\.maybeSingle\(\)/);
   assert.ok(boardPreflight > exactMatch, "an exact retry must return before another Pinterest API request");
   assert.match(route.slice(exactMatch, boardPreflight), /return res\.status\(200\)\.json\(sanitizeScheduleForClient\(existingSchedule\)\)/);
 });
