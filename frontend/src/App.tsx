@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { getDefaultTimezone, localDateTimeToDate, formatInstantInTimezone } from './utils/timezone';
+import { getDefaultTimezone, localDateTimeToDate, formatInstantInTimezone, validateScheduleInstant } from './utils/timezone';
 import { apiRequest } from './lib/api';
 import { buildPinterestPinUrl } from './utils/pinterestPinUrl';
 import { ThemeProvider } from './theme/themeContext';
@@ -533,6 +533,8 @@ const MainApp: React.FC = () => {
       window.alert('Проверьте дату и время публикации.');
       return;
     }
+    // Match the backend's accepted time window before changing the pin's title or status.
+    validateScheduleInstant(localDateTime);
     // Approval from the review desk is a real persisted transition, not just
     // a local queue animation. Persist edited creative fields before freezing
     // the immutable schedule snapshot.
