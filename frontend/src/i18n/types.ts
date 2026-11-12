@@ -609,6 +609,10 @@ export interface TranslationSchema {
     allReviewed: string;
     allReviewedDesc: string;
     finishBtn: string;
+    queueLoadErrorTitle: string;
+    queueLoadErrorDescription: string;
+    queueRetry: string;
+    queueLoading: string;
   };
 
   // AI Strategist Bot Widget
