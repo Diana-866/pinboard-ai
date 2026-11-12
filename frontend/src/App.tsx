@@ -306,7 +306,7 @@ const MainApp: React.FC = () => {
   // Synchronized Pending Review Pins queue (Shared between Dashboard, Calendar, Sidebar & ManualApprovalDesk).
   // Queue entries are session-local and must never survive an authenticated-user switch.
   const [pendingReviewPins, setPendingReviewPins] = useState<PendingReviewPin[]>([]);
-  const [isReviewQueueLoading, setIsReviewQueueLoading] = useState(false);
+  const [isReviewQueueLoading, setIsReviewQueueLoading] = useState(Boolean(user?.id));
   const [reviewQueueLoadError, setReviewQueueLoadError] = useState(false);
   const [reviewQueueReloadToken, setReviewQueueReloadToken] = useState(0);
   const pendingReviewPinsRef = React.useRef<PendingReviewPin[]>([]);
