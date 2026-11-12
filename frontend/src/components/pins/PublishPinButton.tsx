@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { Send, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { apiRequest, ApiError } from '../../lib/api';
 import { resolvePublishBoardId } from '../../utils/publishBoardSelection';
@@ -24,6 +25,9 @@ interface PublishPinButtonProps {
 
 /** Publishes to the explicitly selected Pinterest identity and board. */
 export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, boardId, className }) => {
+  const { user } = useAuth();
+  const userId = user?.id || '';
+  const activeOwnerIdRef = useRef(userId);
   const [accounts, setAccounts] = useState<PinterestAccount[]>([]);
   const [accountId, setAccountId] = useState('');
   const [boards, setBoards] = useState<PinterestBoard[]>([]);
@@ -36,24 +40,50 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
   const [uncertain, setUncertain] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Publishing controls are account-scoped. Clear the previous owner's
+  // selections before paint and fence every outstanding request by owner.
+  useLayoutEffect(() => {
+    activeOwnerIdRef.current = userId;
+    setAccounts([]);
+    setAccountId('');
+    setBoards([]);
+    setSelectedBoard('');
+    setAccountsLoading(Boolean(userId));
+    setBoardsLoading(false);
+    setDone(null);
+    setUncertain(false);
+    setError(null);
+  }, [userId]);
+
   useEffect(() => {
     let active = true;
+    const ownerId = userId;
+    if (!ownerId) {
+      setAccountsLoading(false);
+      return () => { active = false; };
+    }
     setAccountsLoading(true);
     apiRequest('/integrations/pinterest/status')
       .then((data) => {
-        if (!active) return;
-        const list: PinterestAccount[] = Array.isArray(data?.accounts) ? data.accounts : [];
+        if (!active || activeOwnerIdRef.current !== ownerId) return;
+        const list: PinterestAccount[] = Array.isArray(data?.accounts)
+          ? data.accounts.filter((account: any) => account && typeof account.id === 'string' && account.id.trim())
+          : [];
         setAccounts(list);
         setAccountId(list.length === 1 ? list[0].id : '');
       })
       .catch(() => {
-        if (active) setError('Не удалось загрузить Pinterest-аккаунты');
+        if (active && activeOwnerIdRef.current === ownerId) {
+          setAccounts([]);
+          setAccountId('');
+          setError('Не удалось загрузить Pinterest-аккаунты');
+        }
       })
       .finally(() => {
-        if (active) setAccountsLoading(false);
+        if (active && activeOwnerIdRef.current === ownerId) setAccountsLoading(false);
       });
     return () => { active = false; };
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     let active = true;
@@ -93,7 +123,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
         if (active) setBoardsLoading(false);
       });
     return () => { active = false; };
-  }, [accountId, boardId]);
+  }, [accountId, boardId, userId]);
 
   const handleAccountChange = (nextAccountId: string) => {
     // Clear synchronously so a rapid click cannot publish to the old account's board.
