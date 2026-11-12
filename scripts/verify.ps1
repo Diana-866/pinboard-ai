@@ -53,7 +53,7 @@ function Ensure-Dependencies {
         return (Invoke-Step -Name "Install dependencies: $(Split-Path $Directory -Leaf)" -WorkingDirectory $Directory -Command "npm.cmd" -Arguments @("ci", "--no-audit", "--no-fund"))
     }
 
-    return (Invoke-Step -Name "Install dependencies: $(Split-Path $Directory -Leaf)" -WorkingDirectory $Directory -Command "npm" -Arguments @("install", "--no-package-lock", "--no-audit", "--no-fund"))
+    return (Invoke-Step -Name "Install dependencies: $(Split-Path $Directory -Leaf)" -WorkingDirectory $Directory -Command "npm.cmd" -Arguments @("install", "--no-package-lock", "--no-audit", "--no-fund"))
 }
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
@@ -72,7 +72,7 @@ if (-not (Ensure-Dependencies -Directory $Backend -HasLockFile $false)) {
     if (-not (Invoke-Step -Name "Backend syntax check" -WorkingDirectory $Backend -Command "node" -Arguments @("--check", "index.js"))) {
         $Failed = $true
     }
-    if (-not (Invoke-Step -Name "Backend tests" -WorkingDirectory $Backend -Command "npm" -Arguments @("test"))) {
+    if (-not (Invoke-Step -Name "Backend tests" -WorkingDirectory $Backend -Command "npm.cmd" -Arguments @("test"))) {
         $Failed = $true
     }
 }
@@ -80,13 +80,13 @@ if (-not (Ensure-Dependencies -Directory $Backend -HasLockFile $false)) {
 if (-not (Ensure-Dependencies -Directory $Frontend -HasLockFile $true)) {
     $Failed = $true
 } else {
-    if (-not (Invoke-Step -Name "Frontend type-check" -WorkingDirectory $Frontend -Command "npm" -Arguments @("run", "lint"))) {
+    if (-not (Invoke-Step -Name "Frontend type-check" -WorkingDirectory $Frontend -Command "npm.cmd" -Arguments @("run", "lint"))) {
         $Failed = $true
     }
-    if (-not (Invoke-Step -Name "Frontend tests" -WorkingDirectory $Frontend -Command "npm" -Arguments @("test"))) {
+    if (-not (Invoke-Step -Name "Frontend tests" -WorkingDirectory $Frontend -Command "npm.cmd" -Arguments @("test"))) {
         $Failed = $true
     }
-    if (-not (Invoke-Step -Name "Frontend production build" -WorkingDirectory $Frontend -Command "npm" -Arguments @("run", "build"))) {
+    if (-not (Invoke-Step -Name "Frontend production build" -WorkingDirectory $Frontend -Command "npm.cmd" -Arguments @("run", "build"))) {
         $Failed = $true
     }
 }
