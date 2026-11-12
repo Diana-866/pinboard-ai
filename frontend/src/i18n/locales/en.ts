@@ -576,7 +576,7 @@ export const en: TranslationSchema = {
     allReviewed: 'All pins reviewed!',
     allReviewedDesc: 'Approved pins have been added to your publishing calendar at optimal engagement hours.',
     emptyQueue: 'No pins waiting for review',
-    emptyQueueDesc: 'Newly generated pins will appear here after they are saved for review.'
+    emptyQueueDesc: 'Newly generated pins will appear here after they are saved for review.',
     queueLoading: 'Restoring your review queue…',
     queueLoadingDesc: 'Your saved pins are being loaded. This may take a moment.',
     queueLoadError: 'We couldn\'t restore your review queue',
