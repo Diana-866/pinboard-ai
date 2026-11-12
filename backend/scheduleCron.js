@@ -8,18 +8,19 @@ const { logError, logInfo, runWithCorrelationId } = require("./safeLogger");
 const REQUEST_TIMEOUT_MS = 120_000;
 
 async function runOnce({
-  config = getWorkerConfig(),
+  config,
   client = axios,
   logger = { info: logInfo, error: logError },
 } = {}) {
   return runWithCorrelationId(crypto.randomUUID(), async () => {
     try {
+      const resolvedConfig = config || getWorkerConfig();
       const response = await client.post(
-        config.endpoint,
+        resolvedConfig.endpoint,
         { limit: 1 },
         {
           timeout: REQUEST_TIMEOUT_MS,
-          headers: { "x-pinposy-scheduler-secret": config.secret },
+          headers: { "x-pinposy-scheduler-secret": resolvedConfig.secret },
         }
       );
       if (!response || !response.data || response.data.ok !== true) {
