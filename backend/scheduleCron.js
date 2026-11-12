@@ -28,9 +28,15 @@ async function runOnce({
       logger.info("schedule_cron.batch_completed");
       return response.data;
     } catch (error) {
-      const status = error && error.response && Number.isInteger(error.response.status)
-        ? error.response.status
-        : undefined;
+      let status;
+      try {
+        const candidate = error && error.response && error.response.status;
+        if (Number.isInteger(candidate) && candidate >= 400 && candidate <= 599) {
+          status = candidate;
+        }
+      } catch {
+        // A malformed error object must not break the one-shot failure path.
+      }
       logger.error("schedule_cron.batch_failed", error, status);
       throw error;
     }
