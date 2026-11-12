@@ -127,7 +127,7 @@ begin
   insert into public.credit_purchases(
     user_id, package_id, pack_title, credits, status, amount, currency
   ) values (
-    v_deleting_user_id::text, 'pack_100', '100 credits', 100, 'pending', 190.00, 'rub'
+    v_deleting_user_id::text, 'pack_100', '100 credits', 100, 'paid_uncredited', 190.00, 'rub'
   ) returning id into v_deleting_purchase_id;
 
   begin
@@ -149,10 +149,10 @@ begin
   if not exists (
     select 1 from public.credit_purchases
      where id = v_deleting_purchase_id
-       and status = 'pending'
+       and status = 'paid_uncredited'
        and balance_credited_at is null
   ) then
-    raise exception 'rejected late fulfillment unexpectedly changed the purchase';
+    raise exception 'rejected late fulfillment unexpectedly changed the paid-uncredited purchase';
   end if;
 end;
 $;
