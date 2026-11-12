@@ -574,6 +574,8 @@ const MainApp: React.FC = () => {
       saved = findPersistedScheduleRequest([response], expectedRequest);
       if (!saved) throw new Error('Сервер не подтвердил сохранение расписания.');
     } catch (originalError) {
+      // Do not issue a reconciliation GET with a different user's session.
+      assertScheduleOwner();
       // The server may have committed the schedule even when the response was
       // lost or malformed. Reconcile against the persisted list before surfacing
       // the original error; never infer success from a loose pin-ID match alone.
