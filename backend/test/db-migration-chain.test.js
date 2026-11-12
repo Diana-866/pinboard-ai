@@ -73,6 +73,8 @@ test("atomic payment integration workflow applies existing migrations in ascendi
   assert.ok(applied.includes("160_block_payment_fulfillment_after_provider_refund.sql"), "workflow must apply provider refund fulfillment guards");
   assert.match(workflow, /backend\/test\/paid-unfulfilled-payment-deletion-lock\.integration\.sql/,
     "workflow must execute the paid-liability deletion-lock integration test");
+  assert.match(workflow, /backend\\/test\\/subscription-refund-activation-races\\.integration\\.sql/,
+    "workflow must execute subscription refund and delayed-webhook race coverage");
 });
 
 
