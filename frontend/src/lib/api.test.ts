@@ -124,3 +124,31 @@ test("apiUpload reports malformed error responses without leaking JSON parse err
     );
   });
 });
+
+
+test("apiUpload does not redirect or clear the session for login credential errors", async () => {
+  let removed = false;
+  const location = { pathname: "/login", href: "/login" };
+  await withGlobals({
+    window: {
+      localStorage: { getItem: () => null, removeItem: () => { removed = true; } },
+      location,
+    },
+    fetch: (async () => new Response(JSON.stringify({ error: "Invalid credentials" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    })) as typeof fetch,
+  }, async () => {
+    await assert.rejects(
+      apiUpload("/login", makeFormData()),
+      (error: unknown) => {
+        assert.ok(error instanceof ApiError);
+        assert.equal(error.message, "Invalid credentials");
+        return true;
+      },
+    );
+  });
+
+  assert.equal(removed, false);
+  assert.equal(location.href, "/login");
+});
