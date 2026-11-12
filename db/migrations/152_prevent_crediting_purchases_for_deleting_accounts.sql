@@ -1,7 +1,7 @@
 -- 152_prevent_crediting_purchases_for_deleting_accounts.sql
 -- Serialize payment crediting with account deletion using the established
--- owner -> purchase lock order. A late webhook must never replenish a
--- deletion tombstone or race the final zeroing of its balance.
+-- owner -> purchase lock order. A late webhook may settle while deletion is pending (the worker waits for
+-- pending purchases), but must never replenish a finalized deletion tombstone.
 begin;
 
 create or replace function public.credit_paid_purchase(
@@ -59,8 +59,8 @@ begin
     return v_balance;
   end if;
 
-  if v_user_status is distinct from 'active' then
-    raise exception 'account is not active; paid purchase requires reconciliation';
+  if v_user_status = 'deleted' then
+    raise exception 'account is deleted; paid purchase requires reconciliation';
   end if;
 
   if v_purchase.status not in ('pending', 'denied', 'canceled', 'success') then
@@ -73,10 +73,10 @@ begin
   update public.users
      set credits_balance = coalesce(credits_balance, 0) + v_purchase.credits
    where id::text = v_purchase_user_id
-     and account_status = 'active'
+     and account_status <> 'deleted'
    returning credits_balance into v_balance;
   if not found then
-    raise exception 'account is not active; paid purchase requires reconciliation';
+    raise exception 'account is deleted; paid purchase requires reconciliation';
   end if;
 
   insert into public.credit_transactions(user_id, amount, type, description, purchase_id)
