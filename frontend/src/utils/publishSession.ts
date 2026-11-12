@@ -1,20 +1,17 @@
 export interface PublishSessionLock {
   ownerId: string;
+  sessionId: number;
   requestId: number;
 }
 
-export function isCurrentPublishOwner(activeOwnerId: string, requestOwnerId: string): boolean {
-  return Boolean(requestOwnerId) && activeOwnerId === requestOwnerId;
+export function isCurrentPublishSession(activeOwnerId: string, activeSessionId: number, requestOwnerId: string, requestSessionId: number): boolean {
+  return Boolean(requestOwnerId) && activeOwnerId === requestOwnerId && activeSessionId === requestSessionId;
 }
 
-export function ownsPublishSessionLock(
-  lock: PublishSessionLock | null,
-  ownerId: string,
-  requestId: number,
-): boolean {
-  return Boolean(lock && lock.ownerId === ownerId && lock.requestId === requestId);
+export function ownsPublishSessionLock(lock: PublishSessionLock | null, ownerId: string, sessionId: number, requestId: number): boolean {
+  return Boolean(lock && lock.ownerId === ownerId && lock.sessionId === sessionId && lock.requestId === requestId);
 }
 
-export function hasPublishSessionLock(lock: PublishSessionLock | null, ownerId: string): boolean {
-  return Boolean(lock && lock.ownerId === ownerId);
+export function hasPublishSessionLock(lock: PublishSessionLock | null, ownerId: string, sessionId: number): boolean {
+  return Boolean(lock && lock.ownerId === ownerId && lock.sessionId === sessionId);
 }
