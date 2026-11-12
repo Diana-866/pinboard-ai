@@ -608,6 +608,13 @@ const MainApp: React.FC = () => {
   };
 
   const handleReconcileLegacySchedule = async (pin: ScheduledPinItem, accountId: string) => {
+    const ownerSnapshot = { userId: pendingReviewUserIdRef.current, generation: pendingReviewOwnerGenerationRef.current };
+    const assertCurrentOwner = () => {
+      if (!ownerSnapshot.userId || !isReviewQueueOwnerCurrent(ownerSnapshot, { userId: pendingReviewUserIdRef.current, generation: pendingReviewOwnerGenerationRef.current })) {
+        throw new Error('Сессия пользователя изменилась. Обновите страницу и повторите действие.');
+      }
+    };
+    assertCurrentOwner();
     try {
       const expected = {
         scheduleId: pin.id,
@@ -621,6 +628,7 @@ const MainApp: React.FC = () => {
           method: 'POST',
           body: JSON.stringify({ pinterest_account_id: accountId }),
         });
+        assertCurrentOwner();
         if (!isPersistedScheduleMutationResponse(response, expected)) {
           throw new Error('Сервер не подтвердил привязку аккаунта к этому расписанию.');
         }
@@ -630,6 +638,7 @@ const MainApp: React.FC = () => {
         // is lost, accept only the exact schedule/account/board from GET.
         try {
           const rows = await apiRequest('/schedule');
+          assertCurrentOwner();
           saved = findPersistedScheduleMutation(rows, expected);
           if (!saved) throw originalError;
         } catch {
@@ -637,6 +646,7 @@ const MainApp: React.FC = () => {
         }
       }
 
+      assertCurrentOwner();
       const account = accounts.find((item) => item.id === saved.pinterest_account_id);
       setScheduledPins((prev) => prev.map((item) => item.id === pin.id ? {
         ...item,
@@ -661,6 +671,13 @@ const MainApp: React.FC = () => {
     pinterestBoardId: string,
     boardName: string
   ) => {
+    const ownerSnapshot = { userId: pendingReviewUserIdRef.current, generation: pendingReviewOwnerGenerationRef.current };
+    const assertCurrentOwner = () => {
+      if (!ownerSnapshot.userId || !isReviewQueueOwnerCurrent(ownerSnapshot, { userId: pendingReviewUserIdRef.current, generation: pendingReviewOwnerGenerationRef.current })) {
+        throw new Error('Сессия пользователя изменилась. Обновите страницу и повторите действие.');
+      }
+    };
+    assertCurrentOwner();
     try {
       let saved: any;
       const expected = {
@@ -674,6 +691,7 @@ const MainApp: React.FC = () => {
           method: 'POST',
           body: JSON.stringify({ pinterest_board_id: pinterestBoardId }),
         });
+        assertCurrentOwner();
         if (!isPersistedScheduleMutationResponse(response, expected)) {
           throw new Error('Сервер не подтвердил новое состояние публикации.');
         }
@@ -690,6 +708,7 @@ const MainApp: React.FC = () => {
         }
       }
 
+      assertCurrentOwner();
       const date = formatInstantInTimezone(new Date(saved.scheduled_at), getDefaultTimezone());
       setScheduledPins((prev) => prev.map((item) => item.id === pin.id ? {
         ...item,
@@ -713,6 +732,13 @@ const MainApp: React.FC = () => {
   };
 
   const handleRetryScheduledPin = async (pin: ScheduledPinItem) => {
+    const ownerSnapshot = { userId: pendingReviewUserIdRef.current, generation: pendingReviewOwnerGenerationRef.current };
+    const assertCurrentOwner = () => {
+      if (!ownerSnapshot.userId || !isReviewQueueOwnerCurrent(ownerSnapshot, { userId: pendingReviewUserIdRef.current, generation: pendingReviewOwnerGenerationRef.current })) {
+        throw new Error('Сессия пользователя изменилась. Обновите страницу и повторите действие.');
+      }
+    };
+    assertCurrentOwner();
     try {
       let saved: any;
       const expected = {
@@ -725,6 +751,7 @@ const MainApp: React.FC = () => {
         const response = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/retry`, {
           method: 'POST',
         });
+        assertCurrentOwner();
         if (!isPersistedScheduleMutationResponse(response, expected)) {
           throw new Error('Сервер не подтвердил новое состояние публикации.');
         }
@@ -765,10 +792,18 @@ const MainApp: React.FC = () => {
   };
 
   const handleCancelScheduledPin = async (pin: ScheduledPinItem) => {
+    const ownerSnapshot = { userId: pendingReviewUserIdRef.current, generation: pendingReviewOwnerGenerationRef.current };
+    const assertCurrentOwner = () => {
+      if (!ownerSnapshot.userId || !isReviewQueueOwnerCurrent(ownerSnapshot, { userId: pendingReviewUserIdRef.current, generation: pendingReviewOwnerGenerationRef.current })) {
+        throw new Error('Сессия пользователя изменилась. Обновите страницу и повторите действие.');
+      }
+    };
+    assertCurrentOwner();
     try {
       const response = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/cancel`, {
         method: 'POST',
       });
+      assertCurrentOwner();
       if (!isPersistedScheduleCancellationResponse(response, pin.id)) {
         throw new Error('Сервер не подтвердил отмену именно этой публикации. Проверяем сохранённое расписание.');
       }
@@ -779,6 +814,7 @@ const MainApp: React.FC = () => {
       // even if the POST response was lost. Any malformed/failed read is inconclusive.
       try {
         const rows = await apiRequest('/schedule');
+        assertCurrentOwner();
         if (!isScheduleAbsentFromActiveList(rows, pin.id)) throw originalError;
         setScheduledPins((prev) => prev.filter((item) => item.id !== pin.id));
       } catch {
