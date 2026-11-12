@@ -1,0 +1,58 @@
+name: Pinterest scheduler checks
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "backend/scheduleCron.js"
+      - "backend/scheduleResponse.js"
+      - "backend/scheduleWorker.js"
+      - "backend/pinterest.js"
+      - "backend/pinterestSchedule.js"
+      - "backend/test/*schedule*.test.js"
+      - "backend/test/pinterest-scheduler-route-contract.test.js"
+      - "backend/package.json"
+      - "backend/package-lock.json"
+      - ".github/workflows/pinterest-scheduler.yml"
+  push:
+    branches:
+      - feat/render-schedule-cron-runner
+    paths:
+      - "backend/scheduleCron.js"
+      - "backend/scheduleResponse.js"
+      - "backend/scheduleWorker.js"
+      - "backend/pinterest.js"
+      - "backend/pinterestSchedule.js"
+      - "backend/test/*schedule*.test.js"
+      - "backend/test/pinterest-scheduler-route-contract.test.js"
+      - "backend/package.json"
+      - "backend/package-lock.json"
+      - ".github/workflows/pinterest-scheduler.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  scheduler-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+      - name: Test scheduler response contract
+        run: node --test backend/test/schedule-response.test.js
+      - name: Test one-shot cron runner
+        run: node --test backend/test/schedule-cron.test.js
+      - name: Test persistent worker lifecycle
+        run: node --test backend/test/schedule-worker.test.js
+      - name: Test backend scheduler route contract
+        run: node --test backend/test/pinterest-scheduler-route-contract.test.js
