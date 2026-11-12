@@ -576,7 +576,7 @@ export const de: TranslationSchema = {
     allReviewed: 'Alle Pins wurden geprüft!',
     allReviewedDesc: 'Die freigegebenen Pins wurden zu den besten Interaktionszeiten in Ihren Kalender eingetragen.',
     emptyQueue: 'Keine Pins zur Prüfung',
-    emptyQueueDesc: 'Neu generierte Pins erscheinen hier, sobald sie zur Prüfung gespeichert wurden.'
+    emptyQueueDesc: 'Neu generierte Pins erscheinen hier, sobald sie zur Prüfung gespeichert wurden.',
     queueLoading: 'Prüfliste wird wiederhergestellt…',
     queueLoadingDesc: 'Deine gespeicherten Pins werden geladen. Das kann kurz dauern.',
     queueLoadError: 'Prüfliste konnte nicht geladen werden',
