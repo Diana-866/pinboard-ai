@@ -345,7 +345,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     apiRequest('/integrations/pinterest/status')
       .then((data) => {
         if (!active) return;
-        const rows = requirePinterestAccounts(data?.accounts);
+        const rows = requirePinterestAccounts(data?.accounts ?? []);
         setPinterestAccounts(rows);
         setSelectedPinterestAccountId((current) => {
           if (current && rows.some((account) => account.id === current)) return current;
