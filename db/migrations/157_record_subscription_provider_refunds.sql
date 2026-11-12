@@ -47,11 +47,10 @@ begin
     raise exception 'invalid subscription refund reconciliation evidence';
   end if;
 
-  select is_admin into v_is_admin
-    from public.users where id=p_operator_user_id;
-  if not found or v_is_admin is distinct from true then
-    raise exception 'administrator privileges required';
-  end if;
+  perform 1 from public.users
+   where id=p_operator_user_id and is_admin=true
+   for update;
+  if not found then raise exception 'administrator privileges required'; end if;
 
   -- Lock the account owner before the dependent subscription row.
   select user_id into v_owner_id
