@@ -465,14 +465,19 @@ function createAccountDeletionWorker({
         p_lease_seconds: LEASE_SECONDS,
       });
       if (error) throw error;
+      if (!Array.isArray(jobs)) {
+        const invalidJobs = new Error("account deletion claim response is invalid");
+        invalidJobs.code = "invalid_claim_response";
+        throw invalidJobs;
+      }
       let completed = 0;
       let retried = 0;
-      for (const job of jobs || []) {
+      for (const job of jobs) {
         const result = await processJob(job);
         if (result.status === "succeeded") completed += 1;
         if (result.status === "retry_scheduled") retried += 1;
       }
-      return { claimed: (jobs || []).length, completed, retried };
+      return { claimed: jobs.length, completed, retried };
     } finally {
       active = false;
     }
