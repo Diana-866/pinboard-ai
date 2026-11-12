@@ -30,7 +30,6 @@ begin
 
   select r.user_id, r.id into v_user_id, v_request_id
     from public.account_deletion_jobs j
-    from public.account_deletion_jobs j
     join public.account_deletion_requests r on r.id = j.request_id
    where j.id = p_job_id;
   if not found then return jsonb_build_object('recorded', false, 'reason', 'job_missing'); end if;
