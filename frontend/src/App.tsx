@@ -22,7 +22,7 @@ import { PinGenerator } from './components/pins/PinGenerator';
 import { KeywordExplorer } from './components/keywords/KeywordExplorer';
 import { PublishingCalendar } from './components/calendar/PublishingCalendar';
 import { parsePersistedScheduleStatus } from './utils/scheduleStatus';
-import { requireCreatedBoardResponse } from './utils/persistedBoards';
+import { requireCreatedBoardResponse, requireUpdatedBoardResponse } from './utils/persistedBoards';
 import { BoardsManager } from './components/boards/BoardsManager';
 import { AnalyticsView } from './components/analytics/AnalyticsView';
 import { PricingView } from './components/pricing/PricingView';
@@ -842,11 +842,17 @@ const MainApp: React.FC = () => {
       method: 'PATCH',
       body: JSON.stringify(patch),
     });
-    if (!saved || String(saved.id) !== String(boardId)) {
-      throw new Error('Сервер не подтвердил обновление этой доски. Обновите список перед повторной попыткой.');
-    }
+    const confirmedBoard = requireUpdatedBoardResponse(
+      saved,
+      String(boardId),
+      'Сервер вернул некорректный ответ при обновлении доски. Обновите список перед повторной попыткой.',
+    );
     setBoards((prev) => prev.map((item) => item.id === boardId
-      ? { ...item, name: saved.title || patch.title, category: saved.category || patch.category }
+      ? {
+          ...item,
+          name: confirmedBoard.title,
+          category: confirmedBoard.category || patch.category,
+        }
       : item));
     setBoardsReloadToken((value) => value + 1);
     setBoardsLoadError('');
