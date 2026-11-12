@@ -68,13 +68,13 @@ function mapRpcError(error) {
   if (/administrator privileges required/i.test(message)) {
     return httpError(403, "Доступ запрещён");
   }
-  if (/target request not found|target user not found|generation task not found|generation request not found|regeneration request not found|generation user not found|regeneration user not found/i.test(message)) {
+  if (/target request not found|target user not found|generation task not found|generation request not found|regeneration request not found|generation user not found|regeneration user not found|credit purchase not found|credit purchase owner not found/i.test(message)) {
     return httpError(404, "Операция или задача не найдена");
   }
   if (/invalid administrator provider-refund action|invalid provider-refund reconciliation evidence|invalid provider refund reconciliation|invalid finalization action payload|invalid generation reconciliation finalization|invalid regeneration reconciliation finalization/i.test(message)) {
     return httpError(422, "Некорректные параметры административного действия");
   }
-  if (/not awaiting reconciliation|not eligible for reconciliation|not reconciled|not finalized by refund reconciliation|all generation tasks must be failed|active credit reservation|credit reservation is not active|logical administrator action already recorded|action id replay payload mismatch|already finalized|changed during lock acquisition/i.test(message)) {
+  if (/not awaiting reconciliation|not eligible for reconciliation|not reconciled|not finalized by refund reconciliation|all generation tasks must be failed|active credit reservation|credit reservation is not active|logical administrator action already recorded|action id replay payload mismatch|already finalized|changed during lock acquisition|not awaiting refund reconciliation/i.test(message)) {
     return httpError(409, "Операция изменилась или больше не доступна для этого действия");
   }
   return httpError(500, "Не удалось выполнить административную операцию");
@@ -178,7 +178,26 @@ async function finalizeRegeneration(operatorUserId, body = {}) {
   });
 }
 
+
+async function recordCreditPurchaseRefund(operatorUserId, body = {}) {
+  validateBodyFields(body, ["purchase_id", "action_id", "evidence_type", "evidence_reference"]);
+  const purchaseId = actionId(body.purchase_id);
+  const idempotencyId = actionId(body.action_id);
+  const proof = evidence(body);
+  return invoke(operatorUserId, "admin_record_credit_purchase_refund", {
+    p_purchase_id: purchaseId,
+    p_action_id: idempotencyId,
+    p_evidence_type: proof.evidenceType,
+    p_evidence_reference: proof.evidenceReference,
+  }, {
+    action_id: idempotencyId,
+    purchase_id: purchaseId,
+    action_kind: "provider_refund_confirmed",
+  });
+}
+
 module.exports = {
+  recordCreditPurchaseRefund,
   reconcileGeneration,
   reconcileRegeneration,
   finalizeGeneration,
