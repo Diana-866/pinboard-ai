@@ -499,9 +499,10 @@ const MainApp: React.FC = () => {
     // stop between steps if the user changes accounts mid-flight.
     const ownerId = user?.id || '';
     const ownerGeneration = scheduleOwnerGenerationRef.current;
-    const isOwnerCurrent = () => !!ownerId
-      && scheduleUserIdRef.current === ownerId
-      && scheduleOwnerGenerationRef.current === ownerGeneration;
+    const isOwnerCurrent = () => isReviewQueueOwnerCurrent(
+      { userId: ownerId, generation: ownerGeneration },
+      { userId: scheduleUserIdRef.current, generation: scheduleOwnerGenerationRef.current },
+    );
     const assertOwnerCurrent = () => {
       if (!isOwnerCurrent()) throw new Error('Аккаунт изменился. Повторите действие в текущем аккаунте.');
     };
