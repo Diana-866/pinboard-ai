@@ -701,6 +701,7 @@ const MainApp: React.FC = () => {
         // this exact schedule, target board, account and queued state.
         try {
           const rows = await apiRequest('/schedule');
+          assertCurrentOwner();
           saved = findPersistedScheduleMutation(rows, expected);
           if (!saved) throw originalError;
         } catch {
@@ -768,6 +769,7 @@ const MainApp: React.FC = () => {
         }
       }
 
+      assertCurrentOwner();
       const date = formatInstantInTimezone(new Date(saved.scheduled_at), getDefaultTimezone());
       setScheduledPins((prev) => prev.map((item) => item.id === pin.id ? {
         ...item,
