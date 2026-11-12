@@ -102,3 +102,29 @@ test("one-shot cron survives hostile diagnostic getters without leaking payloads
   assert.equal(output[0].includes("private payload"), false);
   assert.equal(output[0].includes("secret"), false);
 });
+
+test("one-shot cron reports missing configuration without an uncaught exception", async () => {
+  const oldBackend = process.env.PINPOSY_BACKEND_URL;
+  const oldPublic = process.env.PUBLIC_BACKEND_URL;
+  const oldSecret = process.env.PINPOSY_SCHEDULER_SECRET;
+  const originalError = console.error;
+  const output = [];
+  delete process.env.PINPOSY_BACKEND_URL;
+  delete process.env.PUBLIC_BACKEND_URL;
+  delete process.env.PINPOSY_SCHEDULER_SECRET;
+  console.error = (value) => output.push(value);
+  try {
+    await assert.rejects(runOnce(), /PINPOSY_BACKEND_URL/);
+  } finally {
+    console.error = originalError;
+    if (oldBackend === undefined) delete process.env.PINPOSY_BACKEND_URL;
+    else process.env.PINPOSY_BACKEND_URL = oldBackend;
+    if (oldPublic === undefined) delete process.env.PUBLIC_BACKEND_URL;
+    else process.env.PUBLIC_BACKEND_URL = oldPublic;
+    if (oldSecret === undefined) delete process.env.PINPOSY_SCHEDULER_SECRET;
+    else process.env.PINPOSY_SCHEDULER_SECRET = oldSecret;
+  }
+
+  assert.equal(output.length, 1);
+  assert.equal(JSON.parse(output[0]).event, "schedule_cron.batch_failed");
+});
