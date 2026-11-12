@@ -2,15 +2,30 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { isExpiredGenerationRecoveryError } from './generationRecovery';
 
-test('recognizes HTTP 410 from ApiError', () => {
-  assert.equal(isExpiredGenerationRecoveryError({ status: 410 }), true);
+test('recognizes only the explicit HTTP 410 expiry response', () => {
+  assert.equal(isExpiredGenerationRecoveryError({
+    status: 410,
+    data: { code: 'idempotency_result_expired' },
+  }), true);
 });
 
-test('recognizes the structured expired-result API code', () => {
+test('does not rotate the key when the expiry code arrives with another status', () => {
   assert.equal(isExpiredGenerationRecoveryError({
     status: 400,
     data: { code: 'idempotency_result_expired' },
-  }), true);
+  }), false);
+  assert.equal(isExpiredGenerationRecoveryError({
+    status: 409,
+    data: { code: 'idempotency_result_expired' },
+  }), false);
+});
+
+test('does not classify HTTP 410 with an unrelated or missing code as expiry', () => {
+  assert.equal(isExpiredGenerationRecoveryError({ status: 410 }), false);
+  assert.equal(isExpiredGenerationRecoveryError({
+    status: 410,
+    data: { code: 'generation_in_progress' },
+  }), false);
 });
 
 test('does not classify transient, unauthorized, or unrelated errors as expired', () => {

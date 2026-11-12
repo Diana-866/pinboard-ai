@@ -24,5 +24,7 @@ export function isDefinitiveGenerationFailure(error: unknown): boolean {
   const data = (error as { data?: unknown }).data;
   if (!data || typeof data !== 'object') return false;
   const code = (data as { code?: unknown }).code;
-  return code === 'generation_request_failed' || code === 'generation_insufficient_credits';
+  const status = (error as { status?: unknown }).status;
+  return code === 'generation_request_failed' || code === 'generation_insufficient_credits' ||
+    (code === 'idempotency_result_expired' && status === 410);
 }
