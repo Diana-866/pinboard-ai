@@ -575,6 +575,8 @@ export const fr: TranslationSchema = {
     scheduledFor: 'Créneau prévu',
     allReviewed: 'Toutes les épingles ont été examinées !',
     allReviewedDesc: 'Les épingles approuvées ont été programmées aux heures optimales de visibilité.',
+    emptyQueue: 'Aucune épingle en attente de vérification',
+    emptyQueueDesc: 'Les nouvelles épingles apparaîtront ici une fois enregistrées pour vérification.'
     queueLoading: 'Restauration de la file de vérification…',
     queueLoadingDesc: 'Chargement de vos épingles enregistrées. Cela peut prendre un instant.',
     queueLoadError: 'Impossible de restaurer la file',
