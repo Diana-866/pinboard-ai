@@ -615,7 +615,9 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
           // A partial failure must not discard successful approvals or stop
           // independent cards from being processed.
         } finally {
-          setBulkApprovalProgress({ completed: index + 1, total: scheduledItems.length });
+          if (isOwnerCurrent(ownerSnapshot)) {
+            setBulkApprovalProgress({ completed: index + 1, total: scheduledItems.length });
+          }
         }
       }
       if (!isOwnerCurrent(ownerSnapshot)) return;
