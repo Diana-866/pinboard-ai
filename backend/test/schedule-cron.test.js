@@ -49,6 +49,31 @@ test("one-shot cron invokes one authenticated scheduler batch and exits", async 
   assert.deepEqual(events, [["schedule_cron.batch_completed"]]);
 });
 
+test("one-shot cron releases both HTTP agents when the backend request fails", async () => {
+  const destroyedAgents = [];
+  const events = [];
+  const requestError = Object.assign(new Error("temporary failure"), { code: "ECONNRESET" });
+
+  await assert.rejects(runOnce({
+    config,
+    client: { post: async (...args) => {
+      for (const agent of [args[2].httpAgent, args[2].httpsAgent]) {
+        assert.equal(agent.options.keepAlive, false);
+        const destroy = agent.destroy.bind(agent);
+        agent.destroy = () => { destroyedAgents.push(agent); return destroy(); };
+      }
+      throw requestError;
+    } },
+    logger: {
+      info: (...args) => events.push(args),
+      error: (...args) => events.push(args),
+    },
+  }), /temporary failure/);
+
+  assert.equal(destroyedAgents.length, 2);
+  assert.equal(events[0][0], "schedule_cron.batch_failed");
+});
+
 test("one-shot cron rejects inconsistent batch counters instead of reporting success", async () => {
   const events = [];
   await assert.rejects(runOnce({
