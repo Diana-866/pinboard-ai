@@ -370,18 +370,18 @@ const MainApp: React.FC = () => {
     const mapped: PinterestAccount[] = validAccounts.map((account, index) => {
       const details = rowsById.get(account.id)!;
       return {
-      id: account.id,
-      name: account.username || details.pinterest_user_id || `Pinterest ${index + 1}`,
-      handle: account.username ? `@${account.username}` : String(details.pinterest_user_id || ''),
-      avatar: '',
-      boardsCount: 0,
-      monthlyViews: '—',
-      minDailyPins: 8,
-      maxDailyPins: 16,
-      nightlyAuto: false,
-      status: details.needs_reauth ? 'error' : 'active',
-      niche: '',
-    };
+        id: account.id,
+        name: account.username || details.pinterest_user_id || `Pinterest ${index + 1}`,
+        handle: account.username ? `@${account.username}` : String(details.pinterest_user_id || ''),
+        avatar: '',
+        boardsCount: 0,
+        monthlyViews: '—',
+        minDailyPins: 8,
+        maxDailyPins: 16,
+        nightlyAuto: false,
+        status: details.needs_reauth ? 'error' : 'active',
+        niche: '',
+      };
     });
     setAccounts(mapped);
     setActiveAccountId((current) =>
