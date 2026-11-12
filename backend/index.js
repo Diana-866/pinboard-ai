@@ -2960,8 +2960,8 @@ app.get("/admin/billing/pending-orders", requireAuth, requireAdmin, async (req, 
         .order("created_at", { ascending: true })
         .limit(limit),
       supabase.from("credit_purchases")
-        .select("id, user_id, provider_payment_id, package_id, credits, amount, currency, created_at")
-        .eq("status", "pending")
+        .select("id, user_id, provider_payment_id, package_id, credits, amount, currency, status, paid_at, created_at")
+        .in("status", ["pending", "paid_uncredited"])
         .is("balance_credited_at", null)
         .lt("created_at", cutoff)
         .order("created_at", { ascending: true })
