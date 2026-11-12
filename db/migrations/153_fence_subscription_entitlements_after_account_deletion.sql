@@ -1,6 +1,7 @@
 -- 153_fence_subscription_entitlements_after_account_deletion.sql
--- A paid subscription webhook may settle after deletion was requested, but it
--- must never restore access to a pending/deleted account.
+-- Paid subscription callbacks may settle during/after deletion, but must not
+-- restore access or send activation mail to a fenced account. Preserve the
+-- latest-success ordering and transactional email behavior from migration 030.
 -- Lock order is owner -> subscription, matching account lifecycle operations.
 begin;
 
@@ -20,14 +21,17 @@ declare
   v_start timestamptz;
   v_end timestamptz;
   v_already_activated boolean;
-  v_entitlement_applied boolean := false;
+  v_latest_success_created_at timestamptz;
+  v_latest_success_id uuid;
+  v_effective_plan text;
+  v_plan_applied boolean := false;
 begin
   if p_subscription_id is null then
     raise exception 'subscription id is required';
   end if;
 
-  -- Read owner without locking the dependent row, then take the canonical
-  -- owner lock before locking/re-reading the subscription.
+  -- Discover owner without locking dependent row, then take canonical owner
+  -- lock before locking/re-reading the subscription.
   select user_id into v_subscription_user_id
     from public.subscriptions
    where id = p_subscription_id;
@@ -57,6 +61,15 @@ begin
 
   v_already_activated := (v_sub.status = 'success' and v_sub.period_end is not null);
 
+  select created_at, id
+    into v_latest_success_created_at, v_latest_success_id
+    from public.subscriptions
+   where user_id = v_sub.user_id
+     and status = 'success'
+     and id <> v_sub.id
+   order by created_at desc, id desc
+   limit 1;
+
   if v_already_activated then
     v_end := v_sub.period_end;
     v_start := coalesce(v_sub.period_start, v_end - interval '30 days');
@@ -67,7 +80,7 @@ begin
         coalesce(v_user.tariff_period_end, coalesce(p_paid_at, now()))
       );
     else
-      -- Keep the paid period as financial evidence without extending access.
+      -- Retain paid-period evidence without extending access after deletion.
       v_start := coalesce(p_paid_at, now());
     end if;
     v_end := v_start + interval '30 days';
@@ -79,27 +92,73 @@ begin
      where id = v_sub.id;
   end if;
 
-  -- A paid order can settle during/after account deletion. Record its
-  -- financial outcome, but never reactivate a fenced account's entitlement.
+  -- Only active accounts can receive an entitlement. Preserve ordering so an
+  -- older delayed webhook cannot downgrade a newer paid plan.
   if v_user.account_status = 'active'
      and (v_user.tariff_period_end is null or v_user.tariff_period_end <= v_end) then
-    update public.users
-       set tariff_plan = v_sub.plan,
-           tariff_period_end = v_end
-     where id = v_user.id
-       and account_status = 'active';
-    v_entitlement_applied := found;
+    if v_latest_success_created_at is null
+       or v_sub.created_at > v_latest_success_created_at
+       or (
+         v_sub.created_at = v_latest_success_created_at
+         and v_sub.id >= v_latest_success_id
+       ) then
+      update public.users
+         set tariff_plan = v_sub.plan,
+             tariff_period_end = v_end
+       where id = v_user.id
+         and account_status = 'active';
+      v_plan_applied := found;
+    else
+      update public.users
+         set tariff_period_end = v_end
+       where id = v_user.id
+         and account_status = 'active';
+    end if;
   end if;
+
+  -- Do not enqueue activation email for accounts that have requested or
+  -- completed deletion. This avoids sending new mail after consent withdrawal.
+  if v_user.account_status = 'active'
+     and not v_already_activated
+     and v_user.email is not null
+     and btrim(v_user.email) <> '' then
+    select tariff_plan into v_effective_plan
+      from public.users
+     where id = v_user.id;
+
+    insert into public.email_outbox (
+      event_key, subscription_id, recipient_email, locale, template_key, payload
+    ) values (
+      'subscription_activated:' || v_sub.id::text,
+      v_sub.id,
+      v_user.email,
+      coalesce(nullif(v_user.preferred_language, ''), 'en'),
+      'subscription_activated',
+      jsonb_build_object(
+        'paid_plan', v_sub.plan,
+        'current_plan', v_effective_plan,
+        'amount', v_sub.amount,
+        'currency', v_sub.currency,
+        'payment_reference', v_sub.provider_payment_id,
+        'period_end', v_end
+      )
+    )
+    on conflict (event_key) do nothing;
+  end if;
+
+  select tariff_plan into v_effective_plan
+    from public.users where id = v_user.id;
 
   return jsonb_build_object(
     'subscription_id', v_sub.id,
     'plan', v_sub.plan,
-    'current_plan', v_user.tariff_plan,
+    'current_plan', v_effective_plan,
+    'plan_applied', v_plan_applied,
+    'entitlement_applied', v_plan_applied,
     'period_start', v_start,
     'period_end', v_end,
     'email', v_user.email,
-    'already_activated', v_already_activated,
-    'entitlement_applied', v_entitlement_applied
+    'already_activated', v_already_activated
   );
 end;
 $function$;
