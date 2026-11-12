@@ -56,8 +56,8 @@ frontend_checks() {
 
 migration_replay() {
   if ! command -v psql >/dev/null 2>&1; then
-    echo "psql not found — skipping migration replay (install PostgreSQL to enable it)"
-    return 0
+    echo "psql not found — migration replay cannot be verified. Install PostgreSQL client/server and rerun ./scripts/verify.sh --migrations."
+    return 1
   fi
   local db="pinposy_verify_$$"
   local psql_cmd=(psql -q -v ON_ERROR_STOP=1)
