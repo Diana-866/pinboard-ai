@@ -4,7 +4,7 @@ import { apiRequest } from '../../lib/api';
 
 interface SchedulerHealth {
   generated_at: string;
-  status: 'not_seen' | 'healthy' | 'running' | 'stale' | 'failed' | string;
+  status: 'not_seen' | 'healthy' | 'running' | 'stale' | 'failed';
   stale_after_seconds?: number;
   running_timeout_seconds?: number;
   last_started_at?: string | null;
@@ -91,7 +91,7 @@ export const AdminPinterestScheduler: React.FC = () => {
             <Activity className="w-5 h-5" /> Состояние планировщика Pinterest
           </h2>
           <p className="text-xs text-muted-theme mt-1">
-            Мониторинг отдельного worker-процесса. Здесь нет ручного запуска или повторной отправки пинов.
+            Контроль фоновых запусков через worker или cron. Здесь нет ручного запуска или повторной отправки пинов.
           </p>
         </div>
         <button onClick={() => void load()} disabled={loading}
@@ -112,6 +112,7 @@ export const AdminPinterestScheduler: React.FC = () => {
               <div className="text-sm font-bold text-primary-theme">{statusLabels[health.status] || health.status}</div>
               <p className="text-xs text-secondary-theme mt-1">
                 Последний запуск: {formatDate(health.last_started_at)} · завершение: {formatDate(health.last_completed_at)}
+                {health.last_run_status ? ` · Результат: ${health.last_run_status}` : ''}
               </p>
               {health.status === 'not_seen' && <p className="text-xs text-secondary-theme mt-2">Нужно развернуть отдельный worker или настроить внешний cron. Само наличие backend API не запускает публикации по расписанию.</p>}
               {health.last_error_code && <p className="text-xs text-rose-600 dark:text-rose-400 mt-2">Код последней ошибки: <code>{health.last_error_code}</code></p>}
