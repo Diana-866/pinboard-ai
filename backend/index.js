@@ -2305,7 +2305,7 @@ app.post("/pins/:id/schedule", requireAuth, pinterestScheduleLimiter, requireTar
       pinterestBoardId,
       pinterestAccountId: selectedAccount.id,
     };
-    const { data: existingSchedule, error: existingScheduleError } = await supabase
+    let existingScheduleQuery = supabase
       .from("pin_schedules")
       .select("*, pins(id, board_id, title, description, image_url, boards(id, title))")
       .eq("user_id", String(req.userId))
@@ -2313,7 +2313,11 @@ app.post("/pins/:id/schedule", requireAuth, pinterestScheduleLimiter, requireTar
       .eq("scheduled_at", scheduledAt)
       .eq("timezone", timezone)
       .eq("pinterest_board_id", pinterestBoardId)
-      .eq("pinterest_account_id", selectedAccount.id)
+      .eq("pinterest_account_id", selectedAccount.id);
+    existingScheduleQuery = snapshotDestinationUrl
+      ? existingScheduleQuery.eq("destination_url", snapshotDestinationUrl)
+      : existingScheduleQuery.is("destination_url", null);
+    const { data: existingSchedule, error: existingScheduleError } = await existingScheduleQuery
       .in("status", ["scheduled", "publishing", "published", "unknown"])
       .order("created_at", { ascending: true })
       .limit(1)
