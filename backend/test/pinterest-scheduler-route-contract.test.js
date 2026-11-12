@@ -100,3 +100,15 @@ test("schedule creation persists and reconciles the resolved project destination
   assert.ok(route.includes("destination_url: snapshotDestinationUrl"));
   assert.ok(route.includes('String(existing.destination_url || "") === String(snapshotDestinationUrl || "")'));
 });
+
+
+test("overlapping external scheduler wakeups return a successful busy response", () => {
+  const pinterest = read("pinterest.js");
+  const start = pinterest.indexOf('app.post("/internal/pinterest/schedule/run"');
+  const end = pinterest.indexOf('logInfo("pinterest.event_029")', start);
+  assert.notEqual(start, -1, "internal scheduler route exists");
+  const route = pinterest.slice(start, end);
+  assert.match(route, /if (monitorStartError) throw monitorStartError/);
+  assert.match(route, /if \(monitorStarted !== true\)[\s\S]*?ok: true,[\s\S]*?busy: true,[\s\S]*?return res\.json/);
+  assert.match(route, /schedulerMonitorStarted = true/);
+});
