@@ -184,53 +184,61 @@ function createAccountDeletionWorker({
           throw error;
         }
 
-        // Source rows have now been removed transactionally. Delete only the
-        // exact, pre-recorded managed paths through the shared lifecycle guard.
-        const { data: storageObjects, error: storageListError } = await client.rpc(
-          "list_account_deletion_storage_manifest",
-          { p_job_id: job.job_id, p_claim_token: job.claim_token, p_limit: 100 }
-        );
-        if (storageListError) throw storageListError;
-        for (const object of storageObjects || []) {
-          if (object.bucket_id !== "pin-images" ||
-              typeof object.object_path !== "string" ||
-              !/^pins\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp|gif)$/i.test(object.object_path)) {
-            const error = new Error("invalid account deletion Storage manifest entry");
-            error.code = "invalid_storage_manifest_entry";
+        // Drain the fenced manifest in this lease instead of retrying once per
+        // 100 objects. Each item is marked only after the lifecycle RPC confirms
+        // terminal deletion; an interrupted batch is safely replayable.
+        let storageObjectsDeleted = 0;
+        let storageBatches = 0;
+        while (true) {
+          storageBatches += 1;
+          if (storageBatches > 10000) {
+            const error = new Error("account deletion Storage manifest exceeded the safety batch limit");
+            error.code = "storage_manifest_batch_limit";
             throw error;
           }
-          const removed = await deleteImageObject({
-            supabase: client,
-            bucket: object.bucket_id,
-            objectPath: object.object_path,
-          });
-          const { data: marked, error: markError } = await client.rpc(
-            "mark_account_deletion_storage_object_deleted",
-            {
-              p_job_id: job.job_id,
-              p_claim_token: job.claim_token,
-              p_bucket_id: object.bucket_id,
-              p_object_path: object.object_path,
-            }
+          const { data: storageObjects, error: storageListError } = await client.rpc(
+            "list_account_deletion_storage_manifest",
+            { p_job_id: job.job_id, p_claim_token: job.claim_token, p_limit: 100 }
           );
-          if (markError) throw markError;
-          // A false remove result is acceptable only when a previous attempt
-          // already completed Storage removal and the lifecycle row confirms it.
-          if (marked !== true || (removed !== true && removed !== false)) {
-            const error = new Error("account deletion Storage object removal is unconfirmed");
-            error.code = "storage_object_not_deleted";
+          if (storageListError) throw storageListError;
+          if (!Array.isArray(storageObjects)) {
+            const error = new Error("account deletion Storage manifest response is invalid");
+            error.code = "invalid_storage_manifest_response";
             throw error;
           }
-        }
-        const { data: remainingObjects, error: remainingError } = await client.rpc(
-          "list_account_deletion_storage_manifest",
-          { p_job_id: job.job_id, p_claim_token: job.claim_token, p_limit: 1 }
-        );
-        if (remainingError) throw remainingError;
-        if (Array.isArray(remainingObjects) && remainingObjects.length > 0) {
-          const error = new Error("account deletion Storage manifest has more pending objects");
-          error.code = "storage_manifest_batch_remaining";
-          throw error;
+          if (storageObjects.length === 0) break;
+          for (const object of storageObjects) {
+            if (!object || object.bucket_id !== "pin-images" ||
+                typeof object.object_path !== "string" ||
+                !/^pins\\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\\.(?:png|jpe?g|webp|gif)$/i.test(object.object_path)) {
+              const error = new Error("invalid account deletion Storage manifest entry");
+              error.code = "invalid_storage_manifest_entry";
+              throw error;
+            }
+            const removed = await deleteImageObject({
+              supabase: client,
+              bucket: object.bucket_id,
+              objectPath: object.object_path,
+            });
+            const { data: marked, error: markError } = await client.rpc(
+              "mark_account_deletion_storage_object_deleted",
+              {
+                p_job_id: job.job_id,
+                p_claim_token: job.claim_token,
+                p_bucket_id: object.bucket_id,
+                p_object_path: object.object_path,
+              }
+            );
+            if (markError) throw markError;
+            // A false remove result is acceptable only when the DB lifecycle
+            // record confirms a previous attempt already completed deletion.
+            if (marked !== true || (removed !== true && removed !== false)) {
+              const error = new Error("account deletion Storage object removal is unconfirmed");
+              error.code = "storage_object_not_deleted";
+              throw error;
+            }
+            storageObjectsDeleted += 1;
+          }
         }
 
         const { data: finished, error: finishError } = await client.rpc("finish_account_deletion_job", {
