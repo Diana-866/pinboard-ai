@@ -1101,6 +1101,7 @@ const MainApp: React.FC = () => {
 
           {activeTab === 'calendar' && (
             <PublishingCalendar
+              key={user?.id || 'anonymous'}
               scheduledPins={scheduledPins}
               scheduleLoadError={scheduleLoadError}
               scheduleLoading={scheduleLoading}
