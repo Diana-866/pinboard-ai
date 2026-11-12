@@ -560,6 +560,8 @@ const MainApp: React.FC = () => {
     const expectedRequest = {
       pinId: pin.pinId,
       scheduledAt: localDateTime.toISOString(),
+      timezone,
+      ...(pin.destinationUrl ? { destinationUrl: pin.destinationUrl } : {}),
       pinterestBoardId: String(pin.pinterestBoardId || ''),
       pinterestAccountId: pin.pinterestAccountId || undefined,
       statuses: ['scheduled', 'publishing', 'published', 'failed', 'unknown'],
