@@ -964,6 +964,7 @@ const MainApp: React.FC = () => {
               onUpdatePendingPins={handleUpdatePendingPins}
               onApprovePin={handleSchedulePin}
               onGoToCalendar={() => setActiveTab('calendar')}
+              onGoToSettings={() => setActiveTab('settings')}
               onGoToDashboard={() => setActiveTab('dashboard')}
             />
           )}
