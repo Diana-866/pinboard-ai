@@ -306,6 +306,9 @@ const MainApp: React.FC = () => {
   // Synchronized Pending Review Pins queue (Shared between Dashboard, Calendar, Sidebar & ManualApprovalDesk).
   // Queue entries are session-local and must never survive an authenticated-user switch.
   const [pendingReviewPins, setPendingReviewPins] = useState<PendingReviewPin[]>([]);
+  const [isReviewQueueLoading, setIsReviewQueueLoading] = useState(false);
+  const [reviewQueueLoadError, setReviewQueueLoadError] = useState(false);
+  const [reviewQueueReloadToken, setReviewQueueReloadToken] = useState(0);
   const pendingReviewPinsRef = React.useRef<PendingReviewPin[]>([]);
   const reviewQueueWriteChainsRef = React.useRef<Map<string, Promise<unknown>>>(new Map());
   const pendingReviewUserIdRef = React.useRef(user?.id || '');
@@ -321,6 +324,8 @@ const MainApp: React.FC = () => {
     pendingReviewOwnerGenerationRef.current += 1;
     pendingReviewUserIdRef.current = user?.id || '';
     reviewQueueHydratingRef.current = Boolean(user?.id);
+    setIsReviewQueueLoading(Boolean(user?.id));
+    setReviewQueueLoadError(false);
     reviewQueueTouchedIdsRef.current = new Set();
     pendingReviewPinsRef.current = [];
     setPendingReviewPins([]);
@@ -334,8 +339,13 @@ const MainApp: React.FC = () => {
       userId: pendingReviewUserIdRef.current,
       generation: pendingReviewOwnerGenerationRef.current,
     });
-    if (!ownerId) return () => { active = false; };
+    if (!ownerId) {
+      setIsReviewQueueLoading(false);
+      return () => { active = false; };
+    }
 
+    setIsReviewQueueLoading(true);
+    setReviewQueueLoadError(false);
     apiRequest('/review-queue')
       .then((rows) => {
         if (!active || !isCurrentOwner()) return;
@@ -349,15 +359,23 @@ const MainApp: React.FC = () => {
         reviewQueueTouchedIdsRef.current.clear();
         pendingReviewPinsRef.current = hydratedRows;
         setPendingReviewPins(hydratedRows);
+        setIsReviewQueueLoading(false);
+        setReviewQueueLoadError(false);
       })
       .catch((error) => {
         if (!active || !isCurrentOwner()) return;
         reviewQueueHydratingRef.current = false;
         reviewQueueTouchedIdsRef.current.clear();
+        setIsReviewQueueLoading(false);
+        setReviewQueueLoadError(true);
         console.error('[review-queue] Не удалось восстановить очередь:', error);
         window.dispatchEvent(new CustomEvent('pinposy:review-queue-error'));
       });
     return () => { active = false; };
+  }, [user?.id, reviewQueueReloadToken]);
+
+  const handleRetryReviewQueue = React.useCallback(() => {
+    if (user?.id) setReviewQueueReloadToken((value) => value + 1);
   }, [user?.id]);
 
   const handlePinterestStatusChange = React.useCallback((status: { configured: boolean; account_limit?: number | null; accounts?: Array<{ id: string; username?: string | null; pinterest_user_id?: string | null; needs_reauth?: boolean }> }) => {
@@ -928,6 +946,9 @@ const MainApp: React.FC = () => {
             <ManualApprovalDesk
               boards={boards}
               pendingPins={pendingReviewPins}
+              queueLoading={isReviewQueueLoading}
+              queueLoadError={reviewQueueLoadError}
+              onRetryQueueLoad={handleRetryReviewQueue}
               onUpdatePendingPins={handleUpdatePendingPins}
               onApprovePin={handleSchedulePin}
               onGoToCalendar={() => setActiveTab('calendar')}
