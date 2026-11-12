@@ -149,6 +149,12 @@ test("legacy schedule account recovery and board reassignment are fenced to thei
 test("in-flight board and schedule reads cannot publish data after an account switch", () => {
   const app = fs.readFileSync(path.join(__dirname, "..", "..", "frontend", "src", "App.tsx"), "utf8");
   assert.match(app, /userDataRequestGenerationRef\.current \+= 1/);
+  const identityLayoutEffect = app.slice(
+    app.indexOf("React.useLayoutEffect(() => {", app.indexOf("scheduleUserIdRef")),
+    app.indexOf("}, [user?.id]);", app.indexOf("scheduleUserIdRef")) + "}, [user?.id]);".length
+  );
+  assert.match(identityLayoutEffect, /setBoards\(\[\]\)/);
+  assert.match(identityLayoutEffect, /setScheduledPins\(\[\]\)/);
   for (const [name, nextMarker] of [
     ["loadBoards", "Never show a previous user's schedule"],
     ["loadSchedule", "Тарифные «замочки»"],
