@@ -3052,8 +3052,8 @@ const emailOutboxTimer = setInterval(dispatchSubscriptionEmailOutbox, 60 * 1000)
 if (typeof emailOutboxTimer.unref === "function") emailOutboxTimer.unref();
 
 // The complete account-deletion pipeline runs in this backend process only
-// when explicitly enabled after migrations 127-147 are applied. This avoids a
-// second service while keeping rollout opt-in and independently reversible.
+// when explicitly enabled after the account-deletion migration chain is applied.
+// This avoids a second service while keeping rollout opt-in and reversible.
 let accountDeletionWorker = null;
 if (isAccountDeletionWorkerEnabled()) {
   const { createAccountDeletionWorker } = require("./accountDeletionWorker");
@@ -3069,35 +3069,45 @@ const server = app.listen(PORT, () => {
   dispatchSubscriptionEmailOutbox();
 });
 
-// Hosted platforms send SIGTERM during deploys/restarts. Stop new HTTP work,
-// stop the in-process outbox timer, and allow active requests a bounded drain.
+// Hosted platforms send SIGTERM during deploys/restarts. Stop accepting new
+// HTTP work and drain both requests and the deletion worker before shutdown.
 let shuttingDown = false;
 function shutdown() {
   if (shuttingDown) return;
   shuttingDown = true;
   logInfo("index.shutdown_started");
   clearInterval(emailOutboxTimer);
-  if (accountDeletionWorker) {
-    void accountDeletionWorker.stop().catch(() => {
-      logError("account_deletion_worker.shutdown_failed");
-    });
-  }
 
   const forceExit = setTimeout(() => {
     logError("index.shutdown_timeout");
     process.exit(1);
   }, 10_000);
 
-  server.close((error) => {
+  const serverClosed = new Promise((resolve) => {
+    server.close((error) => resolve(error || null));
+  });
+  const workerStopped = accountDeletionWorker
+    ? accountDeletionWorker.stop().catch(() => {
+        logError("account_deletion_worker.shutdown_failed");
+        return new Error("account deletion worker did not stop cleanly");
+      })
+    : Promise.resolve(null);
+
+  Promise.all([serverClosed, workerStopped]).then(([serverError, workerError]) => {
     clearTimeout(forceExit);
-    if (error) {
+    if (serverError || workerError) {
       logError("index.shutdown_failed");
       process.exitCode = 1;
       return;
     }
     logInfo("index.shutdown_completed");
     process.exitCode = 0;
+  }).catch(() => {
+    clearTimeout(forceExit);
+    logError("index.shutdown_failed");
+    process.exitCode = 1;
   });
+
   // Do not wait for idle keep-alive sockets to expire naturally.
   if (typeof server.closeIdleConnections === "function") {
     server.closeIdleConnections();
