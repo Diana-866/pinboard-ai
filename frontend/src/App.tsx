@@ -96,6 +96,10 @@ const MainApp: React.FC = () => {
       setBoards([]);
       setBoardsLoadError('');
       setBoardsLoading(Boolean(nextUserId));
+      // Pinterest connections and plan limits are also account-scoped.
+      setAccounts([]);
+      setActiveAccountId('');
+      setMaxAccounts(0);
     }
   }, [user?.id]);
 
@@ -403,24 +407,22 @@ const MainApp: React.FC = () => {
   // Pinterest accounts and plan limits come from the server, never from demo/local state.
   React.useEffect(() => {
     let active = true;
-    // Clear the previous session immediately so another signed-in user never
-    // sees stale Pinterest profiles or the previous user's plan limit.
-    setAccounts([]);
-    setActiveAccountId('');
-    setMaxAccounts(0);
+    const requestOwnerId = user?.id || '';
+    const requestGeneration = userDataRequestGenerationRef.current;
+    const isCurrentRequest = () => active
+      && requestOwnerId === (user?.id || '')
+      && requestGeneration === userDataRequestGenerationRef.current;
 
-    if (!user?.id) {
-      return () => { active = false; };
-    }
+    if (!requestOwnerId) return () => { active = false; };
 
     apiRequest('/integrations/pinterest/status')
       .then((data) => {
-        if (!active) return;
+        if (!isCurrentRequest()) return;
         handlePinterestStatusChange(data);
       })
       .catch((error) => {
         console.error('[pinterest] Не удалось загрузить подключённые аккаунты:', error);
-        if (active) {
+        if (isCurrentRequest()) {
           setAccounts([]);
           setActiveAccountId('');
           setMaxAccounts(0);
