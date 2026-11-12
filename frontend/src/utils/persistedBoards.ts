@@ -1,6 +1,7 @@
 import { BoardItem } from '../data/mockData';
+import defaultBoardCover from '../assets/images/1.png';
 
-const DEFAULT_BOARD_COVER = '/src/assets/images/pin_home_decor_1790670043705.jpg';
+const DEFAULT_BOARD_COVER = defaultBoardCover;
 const LEGACY_BOARD_CATEGORIES = new Set([
   'Home Decor',
   'Recipes',
