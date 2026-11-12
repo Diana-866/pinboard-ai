@@ -585,6 +585,9 @@ const MainApp: React.FC = () => {
         saved = findPersistedScheduleRequest(rows, expectedRequest);
         if (!saved) throw originalError;
       } catch {
+        // Preserve the session-change error if ownership changed while the
+        // reconciliation request itself was in flight.
+        assertScheduleOwner();
         throw originalError;
       }
     }
