@@ -63,7 +63,7 @@ begin
     raise exception 'account is deleted; paid purchase requires reconciliation';
   end if;
 
-  if v_purchase.status not in ('pending', 'denied', 'canceled', 'success') then
+  if v_purchase.status not in ('pending', 'denied', 'canceled', 'success', 'paid_uncredited') then
     raise exception 'purchase is not eligible for crediting (status=%)', v_purchase.status;
   end if;
   if v_purchase.credits is null or v_purchase.credits <= 0 then
