@@ -50,6 +50,14 @@ GitHub Actions на аккаунте не запускаются (раннеры
 ```
 
 Скрипт печатает итог по шагам и завершается с ненулевым кодом, если что-то упало.
+
+На Windows PowerShell используйте нативный сценарий (без WSL):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\\scripts\\verify.ps1
+```
+
+Он выполняет backend syntax/tests и frontend lint/tests/production build. Для backend без lock-файла зависимости устанавливаются через `npm install --no-package-lock`; frontend использует `npm ci` при наличии `package-lock.json`.
 Для шага с миграциями нужен локальный PostgreSQL (`psql`) и файл
 `db/supabase-stub.sql` — он создаёт роли Supabase и `auth.uid()`.
 
