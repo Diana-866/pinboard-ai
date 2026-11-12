@@ -6,7 +6,7 @@ import { resolvePublishBoardId } from '../../utils/publishBoardSelection';
 import { readConfirmedPinterestPublish } from '../../utils/pinterestPublishResponse';
 import { isAmbiguousPinterestPublishStatus } from '../../utils/pinterestPublishOutcome';
 import { buildPinterestPinUrl } from '../../utils/pinterestPinUrl';
-import { hasPublishSessionLock, isCurrentPublishSession, ownsPublishSessionLock } from '../../utils/publishSession';
+import { hasPublishSessionLock, isCurrentPublishSession, isCurrentPublishPin, ownsPublishSessionLock } from '../../utils/publishSession';
 
 interface PinterestAccount {
   id: string;
@@ -68,6 +68,10 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
   useLayoutEffect(() => {
     activePinIdRef.current = pinId;
     activePinGenerationRef.current += 1;
+    // Release the previous pin's UI lock immediately. Its eventual finally
+    // block is request-ID fenced and cannot clear a newer pin's lock.
+    publishLockRef.current = null;
+    setBusy(false);
     setDone(null);
     setUncertain(false);
     setError(null);
@@ -175,8 +179,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
       });
       if (
         !isCurrentPublishSession(activeOwnerIdRef.current, activeSessionIdRef.current, ownerId, sessionId) ||
-        activePinGenerationRef.current !== pinGeneration ||
-        activePinIdRef.current !== publishingPinId
+        !isCurrentPublishPin(activePinIdRef.current, activePinGenerationRef.current, publishingPinId, pinGeneration)
       ) return;
       const confirmed = readConfirmedPinterestPublish(data, publishingBoardId);
       if (!confirmed) {
@@ -189,8 +192,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
     } catch (e) {
       if (
         !isCurrentPublishSession(activeOwnerIdRef.current, activeSessionIdRef.current, ownerId, sessionId) ||
-        activePinGenerationRef.current !== pinGeneration ||
-        activePinIdRef.current !== publishingPinId
+        !isCurrentPublishPin(activePinIdRef.current, activePinGenerationRef.current, publishingPinId, pinGeneration)
       ) return;
       const err = e as ApiError;
       // A lost connection or server-side failure after POST /pins is ambiguous:
