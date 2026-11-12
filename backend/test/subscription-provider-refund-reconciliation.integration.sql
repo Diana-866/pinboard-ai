@@ -6,6 +6,10 @@ declare
   v_admin_id uuid;
   v_non_admin_id uuid;
   v_subscription_id uuid;
+  v_deleting_user_id uuid;
+  v_request_id uuid;
+  v_erase_job_id uuid;
+  v_finalize_job_id uuid;
   v_action_id uuid := 'e6d1b2c3-4e5f-4678-9abc-0123456789ab';
   v_recorded_at timestamptz;
   v_replayed_at timestamptz;
@@ -28,10 +32,25 @@ begin
   values ('aud092-non-admin@example.invalid', false)
   returning id into v_non_admin_id;
 
+  insert into public.users(email, is_admin, account_status, token_version)
+  values ('aud092-deleting@example.invalid', false, 'deletion_pending', 1)
+  returning id into v_deleting_user_id;
+
+  insert into public.account_deletion_requests(user_id, state, confirmation_method, token_version)
+  values (v_deleting_user_id, 'pending', 'password_reauth', 1)
+  returning id into v_request_id;
+
+  insert into public.account_deletion_jobs(request_id, step_key, status, attempts)
+  values (v_request_id, 'erase_content', 'blocked', 100)
+  returning id into v_erase_job_id;
+  insert into public.account_deletion_jobs(request_id, step_key, status, attempts)
+  values (v_request_id, 'finalize', 'blocked', 8)
+  returning id into v_finalize_job_id;
+
   insert into public.subscriptions(
     user_id, plan, status, provider_payment_id, amount, currency, provider_paid_at
   ) values (
-    v_admin_id::text, 'start', 'paid_unactivated', 'aud092-provider-order',
+    v_deleting_user_id::text, 'start', 'paid_unactivated', 'aud092-provider-order',
     790.00, 'rub', '2026-11-12T11:00:00Z'
   ) returning id into v_subscription_id;
 
@@ -67,6 +86,16 @@ begin
        and provider_refund_recorded_by = v_admin_id::text
   ) then
     raise exception 'subscription refund evidence was not persisted';
+  end if;
+
+  if (
+    select count(*) from public.account_deletion_jobs
+     where id in (v_erase_job_id, v_finalize_job_id)
+       and status = 'retry_wait' and attempts = 0
+       and claim_token is null and lease_expires_at is null
+       and next_attempt_at <= clock_timestamp()
+  ) <> 2 then
+    raise exception 'subscription refund did not reopen blocked account-deletion stages';
   end if;
 
   begin
