@@ -22,10 +22,10 @@ test("historical 002-008 SQL files are visibly excluded from clean installs", ()
   }
 });
 
-test("canonical migration files 001 and 010-150 exist; 009 stays archived", () => {
+test("canonical migration files 001 and 010-158 exist; 009 stays archived", () => {
   assert.ok(fs.existsSync(path.join(migrationsDir, "001_baseline.sql")));
   assert.equal(fs.existsSync(path.join(migrationsDir, "009_hardening.sql")), false);
-  for (let number = 10; number <= 150; number += 1) {
+  for (let number = 10; number <= 158; number += 1) {
     const prefix = String(number).padStart(3, "0") + "_";
     const matches = fs.readdirSync(migrationsDir).filter((file) => file.startsWith(prefix) && file.endsWith(".sql"));
     assert.equal(matches.length, 1, `expected exactly one canonical migration for ${prefix}`);
@@ -55,6 +55,8 @@ test("atomic payment integration workflow applies existing migrations in ascendi
   assert.ok(applied.length > 0, "workflow must apply database migrations");
   assert.ok(applied.includes("148_pin_generation_task_result_immutability.sql"), "workflow must apply provider result immutability");
   assert.ok(applied.includes("149_pin_generation_task_facts_guard.sql"), "workflow must apply generation task fact guards");
+  assert.ok(applied.includes("157_record_subscription_provider_refunds.sql"), "workflow must apply subscription refund reconciliation");
+  assert.ok(applied.includes("158_account_deletion_finalization_financial_recheck.sql"), "workflow must apply finalization financial recheck");
   const numbers = applied.map((file) => Number(file.slice(0, 3)));
   assert.deepEqual(numbers, [...numbers].sort((a, b) => a - b), "workflow migration order must be ascending");
   assert.equal(new Set(applied).size, applied.length, "workflow must not apply a migration twice");
@@ -63,6 +65,13 @@ test("atomic payment integration workflow applies existing migrations in ascendi
   }
 });
 
+
+test("account deletion finalization rechecks paid-but-unfulfilled financial records", () => {
+  const sql = fs.readFileSync(path.join(migrationsDir, "158_account_deletion_finalization_financial_recheck.sql"), "utf8");
+  assert.match(sql, /status='paid_uncredited' and provider_refunded_at is null/);
+  assert.match(sql, /status='paid_unactivated' and provider_refunded_at is null/);
+  assert.match(sql, /account_deleted/);
+});
 
 test("generation task journal migrations are included in the canonical chain", () => {
   const immutable = fs.readFileSync(path.join(migrationsDir, "148_pin_generation_task_result_immutability.sql"), "utf8");
