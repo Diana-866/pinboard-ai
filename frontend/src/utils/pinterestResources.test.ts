@@ -4,9 +4,17 @@ import { requirePinterestAccounts, requirePinterestBoards } from './pinterestRes
 
 test('accepts empty and valid Pinterest account lists', () => {
   assert.deepEqual(requirePinterestAccounts([]), []);
-  assert.deepEqual(requirePinterestAccounts([{ id: 'account-1', username: 'creator' }]), [
-    { id: 'account-1', username: 'creator' },
-  ]);
+  assert.deepEqual(requirePinterestAccounts([{
+    id: 'account-1',
+    username: 'creator',
+    pinterest_user_id: 'pinterest-user-1',
+    needs_reauth: false,
+  }]), [{
+    id: 'account-1',
+    username: 'creator',
+    pinterest_user_id: 'pinterest-user-1',
+    needs_reauth: false,
+  }]);
 });
 
 test('rejects malformed, padded, and duplicate Pinterest account IDs', () => {
@@ -14,6 +22,8 @@ test('rejects malformed, padded, and duplicate Pinterest account IDs', () => {
   assert.throws(() => requirePinterestAccounts([{ id: ' ' }]), /идентификатор аккаунта/);
   assert.throws(() => requirePinterestAccounts([{ id: ' account-1 ' }]), /идентификатор аккаунта/);
   assert.throws(() => requirePinterestAccounts([{ id: 'account-1' }, { id: 'account-1' }]), /повторяющийся идентификатор аккаунта/);
+  assert.throws(() => requirePinterestAccounts([{ id: 'account-1', pinterest_user_id: 42 }]), /идентификатор пользователя/);
+  assert.throws(() => requirePinterestAccounts([{ id: 'account-1', needs_reauth: 'false' }]), /статус авторизации/);
 });
 
 test('accepts empty and valid Pinterest board lists', () => {
