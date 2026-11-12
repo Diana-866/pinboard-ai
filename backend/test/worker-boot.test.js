@@ -140,3 +140,68 @@ test("scheduler response validation rejects incomplete success payloads", () => 
     ok: true, claimed: -1, published: 0, failed: 0, scheduled: 0, unknown: 0,
   }), false);
 });
+
+
+test("the existing long-running worker still boots and polls the scheduler", async (t) => {
+  const { server, calls, port } = await startStubServer();
+  const child = spawn(process.execPath, [path.join(__dirname, "..", "scheduleWorker.js")], {
+    cwd: path.join(__dirname, ".."),
+    env: {
+      ...process.env,
+      PINPOSY_BACKEND_URL: `http://127.0.0.1:${port}`,
+      PINPOSY_SCHEDULER_SECRET: SECRET,
+      PINPOSY_SCHEDULER_INTERVAL_MS: "5000",
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let output = "";
+  child.stdout.on("data", (chunk) => { output += chunk.toString(); });
+  child.stderr.on("data", (chunk) => { output += chunk.toString(); });
+  t.after(() => {
+    if (child.exitCode === null) child.kill("SIGKILL");
+    server.close();
+  });
+
+  const deadline = Date.now() + 15_000;
+  while (calls.length === 0 && Date.now() < deadline) {
+    if (child.exitCode !== null) {
+      throw new Error(`long-running worker exited before polling (code ${child.exitCode}): ${output}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  assert.equal(calls.length > 0, true, `worker never called scheduler endpoint: ${output}`);
+  assert.equal(calls[0].method, "POST");
+  assert.equal(calls[0].url, "/internal/pinterest/schedule/run");
+  assert.equal(calls[0].secret, SECRET);
+});
+
+test("the worker refuses to start without a usable configuration", async (t) => {
+  const child = spawn(process.execPath, [path.join(__dirname, "..", "scheduleWorker.js")], {
+    cwd: path.join(__dirname, ".."),
+    env: {
+      ...process.env,
+      PINPOSY_BACKEND_URL: "",
+      PUBLIC_BACKEND_URL: "",
+      PINPOSY_SCHEDULER_SECRET: "short",
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let output = "";
+  child.stdout.on("data", (chunk) => { output += chunk.toString(); });
+  child.stderr.on("data", (chunk) => { output += chunk.toString(); });
+  t.after(() => {
+    if (child.exitCode === null) child.kill("SIGKILL");
+  });
+  const code = await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error(`misconfigured worker did not exit: ${output}`));
+    }, 10_000);
+    child.once("exit", (exitCode) => {
+      clearTimeout(timeout);
+      resolve(exitCode);
+    });
+  });
+  assert.notEqual(code, 0);
+  assert.match(output, /scheduleWorker\.event_003/);
+});
