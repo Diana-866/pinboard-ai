@@ -407,8 +407,46 @@ async function handleWebhook(req, res, dependencies = {}) {
       logError("billing.event_022");
       return res.status(500).json({ ok: false, error: "activation and audit storage failed" });
     }
+    const paidAt = new Date().toISOString();
+    const { data: flagged, error: flagError } = await db.from("subscriptions")
+      .update({ status: "paid_unactivated", provider_paid_at: paidAt })
+      .eq("id", sub.id)
+      .is("period_end", null)
+      .neq("status", "success")
+      .select("id");
+    if (flagError) {
+      logError("billing.event_023");
+      return res.status(500).json({ ok: false, error: "activation requires reconciliation" });
+    }
+
+    // Activation may have committed even if its response was lost. Confirm
+    // before recording an unresolved state so a paid entitlement is never
+    // accidentally downgraded.
+    if (!Array.isArray(flagged) || flagged.length === 0) {
+      const { data: current, error: readError } = await db.from("subscriptions")
+        .select("status,period_end")
+        .eq("id", sub.id)
+        .maybeSingle();
+      if (readError || !current) {
+        logError("billing.event_023");
+        return res.status(500).json({ ok: false, error: "activation requires reconciliation" });
+      }
+      if (current.status === "success" && current.period_end) {
+        try {
+          await settlePaymentCreationRequest(orderId, "subscription", sub.id, db);
+        } catch (_settlementError) {
+          logError("billing.event_023");
+          return res.status(500).json({ ok: false, error: "payment reconciliation failed" });
+        }
+        return res.json({ ok: true, status: "success", idempotent: true });
+      }
+      if (current.status !== "paid_unactivated") {
+        logError("billing.event_023");
+        return res.status(500).json({ ok: false, error: "activation requires manual reconciliation" });
+      }
+    }
     logError("billing.event_023");
-    return res.status(500).json({ ok: false, error: "activation requires reconciliation" });
+    return res.status(500).json({ ok: false, error: "payment received; subscription activation pending reconciliation" });
   }
 
   // Close the matching checkout idempotency record only after the atomic
