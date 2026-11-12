@@ -275,6 +275,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const descriptionSaveBoardIdRef = React.useRef(selectedBoardId);
   descriptionSaveBoardIdRef.current = selectedBoardId;
   const generationKeyRef = React.useRef<string | null>(null);
+  // State updates render asynchronously; this ref blocks same-tick double submissions.
+  const generationInFlightRef = React.useRef(false);
   // Serialize edits per pin and let scheduling wait for the final persisted version.
   const pendingPinSavesRef = React.useRef<Map<string, Promise<unknown>>>(new Map());
   // Keep the user's latest title choice available to scheduling even before React
@@ -500,6 +502,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   };
 
   const handleGenerate = async () => {
+    if (generationInFlightRef.current) return;
+    generationInFlightRef.current = true;
     setIsGenerating(true);
     setScheduledSuccess(false);
 
@@ -585,6 +589,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       console.error('Error generating pins:', err);
       window.alert(err instanceof Error ? err.message : t.generator.errorGeneratePins);
     } finally {
+      generationInFlightRef.current = false;
       setIsGenerating(false);
     }
   };
