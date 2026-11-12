@@ -23,6 +23,8 @@ const BATCH_LIMIT = 1;
 // Any unfinished request is recovered from its durable DB claim after restart.
 const DEFAULT_DRAIN_TIMEOUT_MS = 20_000;
 const MAX_RETRY_INTERVAL_MS = 5 * 60_000;
+// Drain a due backlog quickly while preserving a slower idle polling cadence.
+const BACKLOG_POLL_DELAY_MS = 250;
 
 function getNextPollDelayMs(consecutiveFailures, baseIntervalMs = POLL_INTERVAL_MS) {
   const failures = Math.max(0, Math.floor(Number(consecutiveFailures) || 0));
@@ -131,20 +133,27 @@ function createWorker({
         const data = response && response.data;
         if (!data || data.ok !== true) throw new Error("Backend returned an invalid worker response");
         consecutiveFailures = 0;
+        const claimed = Number(data.claimed) || 0;
         logger.info("schedule_worker.batch_completed", {
-          claimed: Number(data.claimed) || 0,
+          claimed,
           published: Number(data.published) || 0,
           failed: Number(data.failed) || 0,
           scheduled: Number(data.scheduled) || 0,
           unknown: Number(data.unknown) || 0,
         });
+        // Process one row per request to bound lease duration, but do not sleep
+        // a full poll interval between rows in an already-active backlog.
+        scheduleNext(claimed > 0 ? BACKLOG_POLL_DELAY_MS : getNextPollDelayMs(0, intervalMs));
+        return;
       } catch (error) {
         // Never print request config/headers: they contain the scheduler secret.
         consecutiveFailures += 1;
         logger.error("schedule_worker.batch_failed", getSafeWorkerErrorDetails(error));
       } finally {
         active = false;
-        scheduleNext(getNextPollDelayMs(consecutiveFailures, intervalMs));
+        if (consecutiveFailures > 0) {
+          scheduleNext(getNextPollDelayMs(consecutiveFailures, intervalMs));
+        }
       }
     });
   }
