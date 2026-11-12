@@ -77,3 +77,28 @@ test("one-shot cron redacts provider response details from diagnostics", async (
   assert.equal(output[0].includes("private-token"), false);
   assert.equal(output[0].includes("private request payload"), false);
 });
+
+test("one-shot cron survives hostile diagnostic getters without leaking payloads", async () => {
+  const originalError = console.error;
+  const output = [];
+  const hostile = new Error("private payload");
+  Object.defineProperty(hostile, "name", { get() { throw new Error("name secret"); } });
+  Object.defineProperty(hostile, "code", { get() { throw new Error("code secret"); } });
+  Object.defineProperty(hostile, "response", { get() { throw new Error("response secret"); } });
+
+  console.error = (value) => output.push(value);
+  try {
+    await assert.rejects(runOnce({
+      config,
+      client: { post: async () => { throw hostile; } },
+    }), /private payload/);
+  } finally {
+    console.error = originalError;
+  }
+
+  assert.equal(output.length, 1);
+  const record = JSON.parse(output[0]);
+  assert.equal(record.event, "schedule_cron.batch_failed");
+  assert.equal(output[0].includes("private payload"), false);
+  assert.equal(output[0].includes("secret"), false);
+});
