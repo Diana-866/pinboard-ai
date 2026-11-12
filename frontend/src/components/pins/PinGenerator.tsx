@@ -32,6 +32,7 @@ import { clearPendingGenerationRequest, createGenerationFingerprint, listPending
 import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
 import { requireGeneratedPinsArray } from '../../utils/generatedPinsResponse';
 import { isDefinitiveGenerationRecoveryStatus, isExpiredGenerationRecoveryError } from '../../utils/generationRecovery';
+import { clearPendingGenerationContext, readPendingGenerationContext, writePendingGenerationContext } from '../../utils/pendingGenerationContext';
 import { isCurrentBillingOwner } from '../../utils/billingOwner';
 import { rollbackPinAspectRatioIfUnchanged } from '../../utils/pinAspectRatio';
 import { resolvePinterestDestination } from '../../utils/pinterestDestination';
@@ -565,6 +566,17 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
           generationKeyRef.current = storedRequest.idempotencyKey;
         }
       }
+      writePendingGenerationContext(requestFingerprint, {
+        ownerId: userId,
+        boardId: selectedBoard.id,
+        topic: currentTopic,
+        tone,
+        contentLanguage: aiContentLanguage || 'en',
+        count: pinCount,
+        aspectMode,
+        selectedSingleRatio,
+        randomizerRatios: { ...randomizerRatios },
+      });
       const rows = await apiRequest(`/boards/${encodeURIComponent(selectedBoard.id)}/pins/generate`, {
         method: 'POST',
         headers: { 'Idempotency-Key': generationKeyRef.current || '' },
@@ -599,6 +611,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       onPinsChanged?.();
       generationKeyRef.current = null;
       clearPendingGenerationRequest(requestFingerprint);
+      clearPendingGenerationContext(requestFingerprint);
     } catch (err) {
       // The server only emits generation_request_failed after a definitive failure.
       // Rotate the key then; unknown/in-progress outcomes must keep their original key.
@@ -1005,6 +1018,27 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     <p className="text-xs font-semibold text-primary-theme">{label}</p>
                     {board && <p className="text-[11px] text-muted-theme">{board.name}</p>}
                   </div>
+                  {readPendingGenerationContext(item.key, userId) && (
+                    <button
+                      type="button"
+                      disabled={isGenerating || isCheckingRecoveries}
+                      onClick={() => {
+                        const saved = readPendingGenerationContext(item.key, userId);
+                        if (!saved) return;
+                        setSelectedBoardId(saved.boardId);
+                        setTopic(saved.topic);
+                        setTone(saved.tone);
+                        setAiContentLanguage(saved.contentLanguage);
+                        setPinCount(saved.count);
+                        setAspectMode(saved.aspectMode);
+                        setSelectedSingleRatio(saved.selectedSingleRatio);
+                        setRandomizerRatios({ ...saved.randomizerRatios });
+                      }}
+                      className="px-3 py-2 rounded-lg border border-subtle text-xs font-semibold text-secondary-theme hover:bg-subtle disabled:opacity-50"
+                    >
+                      {language === 'ru' ? 'Восстановить настройки' : 'Restore settings'}
+                    </button>
+                  )}
                   {item.status === 'completed' && item.pinCount > 0 && board && (
                     <button
                       type="button"
@@ -1030,6 +1064,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                       type="button"
                       onClick={() => {
                         clearPendingGenerationRequest(item.key);
+                        clearPendingGenerationContext(item.key);
                         setRecoverableGenerations((current) => current.filter((entry) => entry.key !== item.key));
                       }}
                       className="px-3 py-2 rounded-lg border border-subtle text-xs font-semibold text-secondary-theme hover:bg-subtle"
