@@ -56,7 +56,9 @@ test("identifies malformed persisted payloads for safe restore failure", () => {
     [
       row("valid", null),
       { id: "missing-title", pin_id: null, payload: { id: "missing-title", description: "" } },
-      { id: "missing-description", pin_id: null, payload: { id: "missing-description", title: "A" } },
+      { id: "legacy-no-description", pin_id: null, payload: { id: "legacy-no-description", title: "A" } },
+      { id: "legacy-null-description", pin_id: null, payload: { id: "legacy-null-description", title: "B", description: null } },
+      { id: "invalid-description", pin_id: null, payload: { id: "invalid-description", title: "C", description: { text: "bad" } } },
       { id: "mismatched-id", pin_id: null, payload: { id: "other", title: "A", description: "" } },
       { id: "array-payload", pin_id: null, payload: [] },
       { id: "null-payload", pin_id: null, payload: null },
@@ -64,11 +66,13 @@ test("identifies malformed persisted payloads for safe restore failure", () => {
     new Map(),
     "user-1",
   );
-  assert.deepEqual(result.active.map((item) => item.id), ["valid"]);
+  assert.deepEqual(result.active.map((item) => item.id), ["valid", "legacy-no-description", "legacy-null-description"]);
+  assert.equal(result.active[1].description, "");
+  assert.equal(result.active[2].description, "");
   assert.deepEqual(result.staleIds, []);
   assert.deepEqual(result.invalidIds, [
     "missing-title",
-    "missing-description",
+    "invalid-description",
     "mismatched-id",
     "array-payload",
     "null-payload",
