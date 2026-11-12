@@ -408,21 +408,20 @@ async function handleWebhook(req, res, dependencies = {}) {
       return res.status(500).json({ ok: false, error: "activation and audit storage failed" });
     }
     const paidAt = new Date().toISOString();
-    const { data: flagged, error: flagError } = await db.from("subscriptions")
-      .update({ status: "paid_unactivated", provider_paid_at: paidAt })
-      .eq("id", sub.id)
-      .is("period_end", null)
-      .neq("status", "success")
-      .select("id");
+    // Persist the paid-but-unactivated liability under the same owner lock
+    // used by deletion finalization and provider-refund reconciliation.
+    const { data: flagged, error: flagError } = await db.rpc("record_paid_unactivated_subscription", {
+      p_subscription_id: sub.id,
+      p_paid_at: paidAt,
+    });
     if (flagError) {
       logError("billing.event_023");
       return res.status(500).json({ ok: false, error: "activation requires reconciliation" });
     }
 
-    // Activation may have committed even if its response was lost. Confirm
-    // before recording an unresolved state so a paid entitlement is never
-    // accidentally downgraded.
-    if (!Array.isArray(flagged) || flagged.length === 0) {
+    // Activation may have committed even if its response was lost. The
+    // lock-ordered marker RPC returns false for an already activated row.
+    if (flagged !== true) {
       const { data: current, error: readError } = await db.from("subscriptions")
         .select("status,period_end")
         .eq("id", sub.id)
