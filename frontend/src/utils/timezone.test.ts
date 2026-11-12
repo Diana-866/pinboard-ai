@@ -9,6 +9,7 @@ import {
   localDateTimeToDate,
   saveUserTimezone,
   resolveScheduleSlotTime,
+  validateScheduleInstant,
 } from './timezone';
 
 function withMockStorage(run: (values: Map<string, string>) => void) {
