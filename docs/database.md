@@ -48,7 +48,7 @@ SQL Editor → New query → вставить файл целиком → **Run*
 - `024_password_reset_email_cooldown.sql` и `025_drop_legacy_password_reset_overload.sql` — per-account cooldown и удаление старой трёхпараметрической RPC-сигнатуры, обходившей cooldown;
 - `055_auth_token_version.sql` — идемпотентно закрепляет колонку, DEFAULT 0, NOT NULL и CHECK >= 0 для baseline/схем, где колонка ещё не была создана.
 
-Не путать наличие колонки с наличием RPC: функции auth recovery определяются миграциями 020–025. Применять всю цепочку по порядку; 055 не заменяет миграции 020–025. Миграции 034–083 из feature branch не следует применять к production без отдельного согласованного rollout, резервной копии и проверки на staging.
+Не путать наличие колонки с наличием RPC: функции auth recovery определяются миграциями 020–025. Применять всю цепочку по порядку; 055 не заменяет миграции 020–025. Миграции 034–083 присутствуют в репозитории; статус их применения к рабочей базе не подтверждён. Не применяй их к production отдельно от согласованного rollout, резервной копии и проверки на staging.
 
 Жизненный цикл аккаунта (приватность/self-service):
 - `127_account_lifecycle.sql` — самообслуживание аккаунта. Добавляет `users.account_status` (DEFAULT `active`, CHECK `active|deletion_pending|deleted`) и `users.deletion_requested_at`, создаёт таблицу `account_deletion_requests` (RLS без клиентских грантов, доступ только для `service_role`) и SECURITY DEFINER RPC `request_account_deletion(uuid, text)` с захардкоженным `search_path=pg_catalog,public`. RPC принимает запрос на удаление и **ограничивается блокировкой доступа**: инкрементирует `token_version` (аннулируя все активные JWT) и ставит `account_status='deletion_pending'`. Строки НЕ удаляются — физическая очистка данных вынесена в отдельный контролируемый этап.
@@ -81,7 +81,7 @@ Pinterest multi-account rollout:
 - `019_prevent_late_subscription_downgrade.sql` защищает текущий тариф от запоздавшего вебхука.
 - `030_transactional_email_outbox.sql` зависит от `subscriptions` и `users.preferred_language`; заменяет `activate_paid_subscription`, чтобы событие письма записывалось атомарно с активацией тарифа, и создаёт служебные RPC для очереди.
 
-Миграции 030–083 находятся в feature branch и **не применялись** к рабочей Supabase базе. Не запускай их в production отдельно от согласованного rollout backend/frontend-кода: сначала резервная копия, проверка всей цепочки на отдельной базе и явное подтверждение владельца проекта.
+Миграции 030–083 присутствуют в текущем репозитории, но их применение к рабочей Supabase базе не подтверждено. Не запускай их в production отдельно от согласованного rollout backend/frontend-кода: сначала резервная копия, проверка всей цепочки на отдельной базе и явное подтверждение владельца проекта.
 
 ## Как проверить, что всё применилось
 
