@@ -29,6 +29,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
   const userId = user?.id || '';
   const publishScopeRef = useRef(0);
   const [accounts, setAccounts] = useState<PinterestAccount[]>([]);
+  const [accountsUserId, setAccountsUserId] = useState('');
   const [accountId, setAccountId] = useState('');
   const [boards, setBoards] = useState<PinterestBoard[]>([]);
   const [selectedBoard, setSelectedBoard] = useState<string>(boardId || '');
@@ -53,6 +54,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
   useEffect(() => {
     let active = true;
     setAccounts([]);
+    setAccountsUserId('');
     setAccountId('');
     setBoards([]);
     setSelectedBoard('');
@@ -68,6 +70,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
         if (!active) return;
         const list: PinterestAccount[] = Array.isArray(data?.accounts) ? data.accounts : [];
         setAccounts(list);
+        setAccountsUserId(userId);
         setAccountId(list.length === 1 ? list[0].id : '');
       })
       .catch(() => {
@@ -129,7 +132,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
   };
 
   const handlePublish = async () => {
-    if (publishLockRef.current || accountsLoading || boardsLoading || !userId || !accountId || !selectedBoard) return;
+    if (publishLockRef.current || accountsLoading || boardsLoading || !userId || accountsUserId !== userId || !accountId || !selectedBoard) return;
     publishLockRef.current = true;
     const requestScope = publishScopeRef.current;
     setError(null);
@@ -237,7 +240,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
 
       <button
         onClick={handlePublish}
-        disabled={busy || accountsLoading || boardsLoading || !accountId || !selectedBoard}
+        disabled={busy || accountsLoading || boardsLoading || !userId || accountsUserId !== userId || !accountId || !selectedBoard}
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold accent-btn disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
