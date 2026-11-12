@@ -575,6 +575,11 @@ export const pt: TranslationSchema = {
     scheduledFor: 'Horário Agendado',
     allReviewed: 'Todos os pins foram revisados!',
     allReviewedDesc: 'Os pins aprovados foram adicionados ao seu calendário nos horários de maior engajamento.',
+    queueLoading: 'A restaurar a fila de revisão…',
+    queueLoadingDesc: 'A carregar os Pins guardados. Isto pode demorar um momento.',
+    queueLoadError: 'Não foi possível restaurar a fila',
+    queueLoadErrorDesc: 'Ainda não confirmámos que a fila está vazia. Verifique a ligação e tente novamente.',
+    retryQueueLoad: 'Tentar novamente',
     finishBtn: 'Ir para o Calendário',
   },
 
