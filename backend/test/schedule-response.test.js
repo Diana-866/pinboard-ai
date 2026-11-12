@@ -78,3 +78,30 @@ test("scheduler response rejects unsafe and negative counters", () => {
     claimed: Number.MAX_SAFE_INTEGER + 1,
   }), false);
 });
+
+test("scheduler response rejects duplicate schedule identities and count mismatches", () => {
+  const duplicate = {
+    ok: true,
+    claimed: 1,
+    published: 1,
+    failed: 0,
+    scheduled: 0,
+    unknown: 0,
+    results: [
+      { schedule_id: "schedule-1", status: "published" },
+      { schedule_id: "schedule-1", status: "published" },
+    ],
+  };
+  assert.equal(isValidScheduleWorkerResponse(duplicate), false);
+
+  const wrongCount = {
+    ok: true,
+    claimed: 1,
+    published: 0,
+    failed: 0,
+    scheduled: 1,
+    unknown: 0,
+    results: [{ schedule_id: "schedule-1", status: "published" }],
+  };
+  assert.equal(isValidScheduleWorkerResponse(wrongCount), false);
+});
