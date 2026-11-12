@@ -284,6 +284,12 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
     return res.json({ ok: true, ignored: "amount mismatch", review_required: true });
   }
 
+  // A delayed duplicate success callback after a confirmed provider refund
+  // must never attempt to credit the account again.
+  if (purchase.provider_refunded_at) {
+    return res.json({ ok: true, ignored: "provider refund already confirmed" });
+  }
+
   // Validate every signed success callback, even after a prior credit, so a later
   // duplicate with an unexpected amount is still durably recorded for reconciliation.
   if (purchase.balance_credited_at) {
@@ -346,12 +352,15 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
     // overwrite a successful credit marker; confirm the durable row first.
     if (flagged !== true) {
       const { data: current, error: readError } = await db.from("credit_purchases")
-        .select("status,balance_credited_at")
+        .select("status,balance_credited_at,provider_refunded_at")
         .eq("id", purchase.id)
         .maybeSingle();
       if (readError || !current) {
         logError("creditsBilling.event_020");
         return res.status(500).json({ ok: false, error: "crediting requires reconciliation" });
+      }
+      if (current.provider_refunded_at) {
+        return res.json({ ok: true, ignored: "provider refund already confirmed" });
       }
       if (current.balance_credited_at || current.status === "success") {
         try {
