@@ -249,20 +249,20 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     // Do not let topic recommendations move the editor to another board while
     // its response is in flight, or generated pins could appear under the wrong board.
     if (generationInFlightRef.current) return;
-    if (restoredGenerationBoardRef.current && restoredGenerationBoardRef.current === selectedBoardId) return;
+    if (restoredGenerationBoardRef.current) return;
     // An explicit board selected in the calendar takes precedence over topic-based recommendations.
     if (!initialBoardId && recommendedBoard) {
       setSelectedBoardId(recommendedBoard.id);
     }
-  }, [recommendedBoard, initialBoardId, selectedBoardId]);
+  }, [recommendedBoard, initialBoardId]);
 
   useEffect(() => {
     if (generationInFlightRef.current) return;
-    if (restoredGenerationBoardRef.current && restoredGenerationBoardRef.current === selectedBoardId) return;
+    if (restoredGenerationBoardRef.current) return;
     if (initialBoardId && boards.some((board) => board.id === initialBoardId)) {
       setSelectedBoardId(initialBoardId);
     }
-  }, [initialBoardId, boards, selectedBoardId]);
+  }, [initialBoardId, boards]);
 
   const [tone, setTone] = useState<string>('inspirational');
   const [destinationUrl, setDestinationUrl] = useState('');
