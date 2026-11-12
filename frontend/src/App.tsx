@@ -312,6 +312,7 @@ const MainApp: React.FC = () => {
   const pendingReviewOwnerGenerationRef = React.useRef(0);
   const reviewQueueHydratingRef = React.useRef(false);
   const reviewQueueTouchedIdsRef = React.useRef<Set<string>>(new Set());
+  const schedulePinInFlightRef = React.useRef<Map<string, Promise<void>>>(new Map());
 
   // Restore the authenticated user's review queue from the backend. Never use
   // localStorage: it is not an ownership boundary and can leak across accounts.
@@ -490,7 +491,7 @@ const MainApp: React.FC = () => {
   const currentAccount = accounts.find((a) => a.id === activeAccountId) || accounts[0];
   const pendingCount = pendingReviewPins.length;
 
-  const handleSchedulePin = async (pin: ScheduledPinItem) => {
+  const performSchedulePin = async (pin: ScheduledPinItem) => {
     if (!pin.pinId) {
       window.alert('Не найден ID сохранённого пина. Сначала сохраните пин в генераторе.');
       return;
@@ -584,6 +585,24 @@ const MainApp: React.FC = () => {
       accountHandle: accounts.find((account) => account.id === (saved.pinterest_account_id || pin.pinterestAccountId))?.handle || pin.accountHandle,
     };
     setScheduledPins((prev) => [persisted, ...prev.filter((item) => item.id !== persisted.id)]);
+  };
+
+  // A double click or two UI entry points must share one in-flight operation.
+  // This prevents duplicate approval/schedule requests in the same browser tab;
+  // server-side idempotency remains the final protection across tabs/devices.
+  const handleSchedulePin = (pin: ScheduledPinItem): Promise<void> => {
+    const pinId = typeof pin.pinId === 'string' ? pin.pinId.trim() : '';
+    if (!pinId) return performSchedulePin(pin);
+    const existing = schedulePinInFlightRef.current.get(pinId);
+    if (existing) return existing;
+
+    const operation = performSchedulePin(pin).finally(() => {
+      if (schedulePinInFlightRef.current.get(pinId) === operation) {
+        schedulePinInFlightRef.current.delete(pinId);
+      }
+    });
+    schedulePinInFlightRef.current.set(pinId, operation);
+    return operation;
   };
 
   const handleReconcileLegacySchedule = async (pin: ScheduledPinItem, accountId: string) => {
