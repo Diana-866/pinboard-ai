@@ -53,6 +53,7 @@ export interface ManualApprovalDeskProps {
   /** Prevent an empty queue from appearing reviewed before the server restores it. */
   queueLoading?: boolean;
   queueError?: boolean;
+  onRetryQueue?: () => void;
   onUpdatePendingPins?: (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => void | Promise<void>;
   onApprovePin: (pin: ScheduledPinItem) => void;
   onGoToCalendar?: () => void;
@@ -292,6 +293,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   pendingPins,
   queueLoading = false,
   queueError = false,
+  onRetryQueue,
   onUpdatePendingPins,
   onApprovePin,
   onGoToCalendar,
@@ -678,7 +680,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         <AlertCircle className="w-8 h-8 mx-auto text-rose-500" />
         <h2 className="text-lg font-bold text-primary-theme">Не удалось загрузить очередь проверки</h2>
         <p className="text-sm text-secondary-theme">Пины не удалены. Проверьте соединение и повторите загрузку — пустая очередь не означает, что все пины проверены.</p>
-        <button type="button" onClick={() => window.location.reload()} className="accent-btn px-5 py-2.5 rounded-xl inline-flex items-center justify-center gap-2">
+        <button type="button" onClick={onRetryQueue} disabled={!onRetryQueue} className="accent-btn px-5 py-2.5 rounded-xl inline-flex items-center justify-center gap-2 disabled:opacity-50">
           <RefreshCw className="w-4 h-4" /> Повторить загрузку
         </button>
       </div>
