@@ -57,6 +57,7 @@ async function getFinancialOperationsQueue(options = {}) {
     supabase.from("credit_purchases")
       .select("id,status,amount,currency,provider_payment_id,paid_at,created_at")
       .eq("status", "paid_uncredited")
+      .is("provider_refunded_at", null)
       .order("paid_at", { ascending: true })
       .limit(fetchLimit),
     supabase.from("subscriptions")
