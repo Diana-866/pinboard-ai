@@ -363,6 +363,9 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     let active = true;
     setPinterestBoardsError(false);
     setPinterestBoardsAccountId('');
+    // Never leave the previous account's options visible while the new account loads.
+    setPinterestBoards([]);
+    setSelectedPinterestBoardId('');
     if (!selectedPinterestAccountId) {
       setPinterestBoards([]);
       setSelectedPinterestBoardId('');
