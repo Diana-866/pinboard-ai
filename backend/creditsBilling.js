@@ -244,7 +244,7 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
     const mapped = normalizedStatus;
     const { error: statusError } = await db.from("credit_purchases")
       .update({ status: mapped }).eq("id", purchase.id)
-      .is("balance_credited_at", null).neq("status", "success");
+      .is("balance_credited_at", null).neq("status", "success").neq("status", "paid_uncredited");
     if (statusError) return res.status(500).json({ ok: false, error: "db error" });
     return res.json({ ok: true, status: mapped });
   }
@@ -279,9 +279,15 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
     logError("creditsBilling.event_017");
     const { error: mismatchError } = await db.from("credit_purchases")
       .update({ status: "denied" }).eq("id", purchase.id)
-      .is("balance_credited_at", null).neq("status", "success");
+      .is("balance_credited_at", null).neq("status", "success").neq("status", "paid_uncredited");
     if (mismatchError) return res.status(500).json({ ok: false, error: "db error" });
     return res.json({ ok: true, ignored: "amount mismatch", review_required: true });
+  }
+
+  // A delayed duplicate success callback after a confirmed provider refund
+  // must never attempt to credit the account again.
+  if (purchase.provider_refunded_at) {
+    return res.json({ ok: true, ignored: "provider refund already confirmed" });
   }
 
   // Validate every signed success callback, even after a prior credit, so a later
@@ -304,8 +310,74 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
     p_description: `Пакет кредитов «${purchase.pack_title || purchase.package_id}» (+${purchase.credits}, не сгорают), заказ ${orderId}`,
   });
   if (creditError) {
-    logError("creditsBilling.event_019");
-    return res.status(500).json({ ok: false, error: "crediting failed" });
+    // A deleted account cannot receive credits. Once the signed success event
+    // is durably recorded, acknowledge it to Prodamus: repeated delivery cannot
+    // restore a deleted account and would only create retry traffic. Other
+    // fulfillment failures remain retryable because they may be transient.
+    const accountDeleted = String(creditError.message || "").includes("account is deleted");
+    try {
+      await persistWebhookException(db, {
+        paymentKind: "credits",
+        body,
+        expectedAmount: expected,
+        reason: accountDeleted ? "paid_credit_account_deleted" : "credit_fulfillment_failed",
+      });
+    } catch (auditError) {
+      logError("creditsBilling.event_019");
+      return res.status(500).json({ ok: false, error: "crediting and audit storage failed" });
+    }
+    // Persist the paid-but-uncredited liability under the same owner lock
+    // used by deletion finalization and provider-refund reconciliation.
+    const { data: flagged, error: flagError } = await db.rpc("record_paid_uncredited_credit_purchase", {
+      p_purchase_id: purchase.id,
+      p_paid_at: paidAt,
+    });
+    if (flagError) {
+      logError("creditsBilling.event_020");
+      return res.status(500).json({ ok: false, error: "crediting requires reconciliation" });
+    }
+
+    if (accountDeleted) {
+      // Preserve the paid liability even after the user has become a tombstone.
+      // The global admin reconciliation queue must still be able to find and refund it.
+      logWarning("creditsBilling.event_020");
+      return res.json({
+        ok: true,
+        payment_received: true,
+        credited: false,
+        reconciliation_required: true,
+      });
+    }
+    // The RPC response can be lost after its transaction committed. Never
+    // overwrite a successful credit marker; confirm the durable row first.
+    if (flagged !== true) {
+      const { data: current, error: readError } = await db.from("credit_purchases")
+        .select("status,balance_credited_at,provider_refunded_at")
+        .eq("id", purchase.id)
+        .maybeSingle();
+      if (readError || !current) {
+        logError("creditsBilling.event_020");
+        return res.status(500).json({ ok: false, error: "crediting requires reconciliation" });
+      }
+      if (current.provider_refunded_at) {
+        return res.json({ ok: true, ignored: "provider refund already confirmed" });
+      }
+      if (current.balance_credited_at || current.status === "success") {
+        try {
+          await settlePaymentCreationRequest(orderId, "credits", purchase.id, db);
+        } catch (_settlementError) {
+          logError("creditsBilling.event_020");
+          return res.status(500).json({ ok: false, error: "payment reconciliation failed" });
+        }
+        return res.json({ ok: true, idempotent: true, credits: purchase.credits });
+      }
+      if (current.status !== "paid_uncredited") {
+        logError("creditsBilling.event_020");
+        return res.status(500).json({ ok: false, error: "crediting requires manual reconciliation" });
+      }
+    }
+    logError("creditsBilling.event_020");
+    return res.status(500).json({ ok: false, error: "payment received; credit fulfillment pending reconciliation" });
   }
 
   try {
@@ -324,7 +396,7 @@ async function listUserCreditPurchases(userId, limit = 20) {
   const { data, error } = await supabase
     .from("credit_purchases")
     .select(
-      "id, package_id, pack_title, credits, status, amount, currency, paid_at, balance_credited_at, created_at, provider_payment_id"
+      "id, package_id, pack_title, credits, status, amount, currency, paid_at, balance_credited_at, provider_refunded_at, created_at, provider_payment_id"
     )
     .eq("user_id", String(userId))
     .order("created_at", { ascending: false })

@@ -240,7 +240,7 @@ function signedWebhook(body) {
 
 function createPaymentDb({ subscription, purchase, activate, credit, settle, cancel }) {
   const state = { subscription: structuredClone(subscription), purchase: structuredClone(purchase) };
-  const rpcCalls = { activate: 0, credit: 0, settle: 0 };
+  const rpcCalls = { activate: 0, credit: 0, settle: 0, markSubscription: 0, markCredit: 0 };
   const db = {
     from(table) {
       const key = table === "subscriptions" ? "subscription" : "purchase";
@@ -283,6 +283,26 @@ function createPaymentDb({ subscription, purchase, activate, credit, settle, can
         rpcCalls.credit++;
         return credit(state, args, rpcCalls);
       }
+      if (name === "record_paid_unactivated_subscription") {
+        rpcCalls.markSubscription++;
+        const row = state.subscription;
+        if (!row || row.id !== args.p_subscription_id) return { data: null, error: { message: "subscription not found" } };
+        if (row.status === "success" && row.period_end) return { data: false, error: null };
+        if (row.provider_refunded_at) return { data: false, error: null };
+        if (row.status !== "paid_unactivated" && row.period_end) return { data: false, error: null };
+        row.status = "paid_unactivated";
+        row.provider_paid_at = row.provider_paid_at || args.p_paid_at;
+        return { data: true, error: null };
+      }
+      if (name === "record_paid_uncredited_credit_purchase") {
+        rpcCalls.markCredit++;
+        const row = state.purchase;
+        if (!row || row.id !== args.p_purchase_id) return { data: null, error: { message: "credit purchase not found" } };
+        if (row.balance_credited_at || row.status === "success" || row.provider_refunded_at) return { data: false, error: null };
+        row.status = "paid_uncredited";
+        row.paid_at = row.paid_at || args.p_paid_at;
+        return { data: true, error: null };
+      }
       if (name === "settle_payment_creation_request") {
         rpcCalls.settle++;
         if (settle) return settle(state, args, rpcCalls);
@@ -308,6 +328,55 @@ function createPaymentDb({ subscription, purchase, activate, credit, settle, can
   };
   return db;
 }
+
+test("duplicate provider success callbacks are acknowledged without fulfillment after refund", async () => {
+  const db = createPaymentDb({
+    subscription: {
+      id: "sub-refunded",
+      provider_payment_id: "pp-sub-refunded",
+      amount: 1990,
+      currency: "rub",
+      status: "paid_unactivated",
+      provider_paid_at: "2026-11-12T00:00:00.000Z",
+      provider_refunded_at: "2026-11-12T00:05:00.000Z",
+      period_end: null,
+    },
+    purchase: {
+      id: "purchase-refunded",
+      provider_payment_id: "ppc-refunded",
+      amount: 490,
+      currency: "rub",
+      credits: 100,
+      package_id: "pack_100",
+      status: "paid_uncredited",
+      paid_at: "2026-11-12T00:00:00.000Z",
+      provider_refunded_at: "2026-11-12T00:05:00.000Z",
+      balance_credited_at: null,
+    },
+    activate: async () => { throw new Error("refunded subscription must not activate"); },
+    credit: async () => { throw new Error("refunded purchase must not be credited"); },
+  });
+
+  const subscriptionResponse = createWebhookResponse();
+  await require("../billing").handleWebhook(
+    signedWebhook({ order_id: "pp-sub-refunded", payment_status: "success", sum: "1990.00", currency: "rub" }),
+    subscriptionResponse,
+    { supabase: db, dispatchPendingSubscriptionEmails: async () => ({}) }
+  );
+  assert.equal(subscriptionResponse.statusCode, 200);
+  assert.equal(subscriptionResponse.body.ignored, "provider refund already confirmed");
+  assert.equal(db.rpcCalls.activate, 0);
+
+  const creditResponse = createWebhookResponse();
+  await require("../creditsBilling").handleCreditsWebhook(
+    signedWebhook({ order_id: "ppc-refunded", payment_status: "success", sum: "490.00", currency: "rub" }),
+    creditResponse,
+    { supabase: db }
+  );
+  assert.equal(creditResponse.statusCode, 200);
+  assert.equal(creditResponse.body.ignored, "provider refund already confirmed");
+  assert.equal(db.rpcCalls.credit, 0);
+});
 
 test("subscription webhook concurrent duplicate callbacks activate exactly once", async () => {
   const db = createPaymentDb({
@@ -425,6 +494,51 @@ test("subscription webhook retries checkout settlement after activation already 
   assert.equal(db.rpcCalls.settle, 2);
 });
 
+test("subscription webhook records a paid-unactivated liability through the lock-ordered RPC", async () => {
+  const db = createPaymentDb({
+    subscription: {
+      id: "sub-paid-unactivated",
+      provider_payment_id: "pp-sub-paid-unactivated",
+      amount: 1990,
+      currency: "rub",
+      status: "pending",
+      period_end: null,
+    },
+    activate: async () => ({
+      data: null,
+      error: { message: "temporary database connection failure" },
+    }),
+    credit: async () => ({ data: 0, error: null }),
+  });
+  const auditRecords = [];
+  const auditedDb = {
+    ...db,
+    from(table) {
+      if (table === "billing_webhook_exceptions") {
+        return { insert: async (record) => { auditRecords.push(record); return { error: null }; } };
+      }
+      return db.from(table);
+    },
+  };
+  const response = createWebhookResponse();
+  await require("../billing").handleWebhook(
+    signedWebhook({
+      order_id: "pp-sub-paid-unactivated",
+      payment_status: "success",
+      sum: "1990.00",
+      currency: "rub",
+    }),
+    response,
+    { supabase: auditedDb, dispatchPendingSubscriptionEmails: async () => ({}) }
+  );
+
+  assert.equal(response.statusCode, 500, "paid but unactivated subscriptions remain retryable");
+  assert.equal(db.state.subscription.status, "paid_unactivated");
+  assert.ok(db.state.subscription.provider_paid_at);
+  assert.equal(db.rpcCalls.markSubscription, 1);
+  assert.equal(auditRecords.length, 1);
+});
+
 test("subscription webhook amount mismatch is audited and never activates the plan", async () => {
   const db = createPaymentDb({
     subscription: {
@@ -446,6 +560,9 @@ test("subscription webhook amount mismatch is audited and never activates the pl
       if (table === "billing_webhook_exceptions") {
         return {
           insert: async (record) => {
+            if (auditRecords.some((item) => item.event_hash === record.event_hash)) {
+              return { error: { code: "23505" } };
+            }
             auditRecords.push(record);
             return { error: null };
           },
@@ -513,6 +630,130 @@ test("credit webhook concurrent duplicate callbacks credit once; retry after amb
   assert.equal(retry.body.idempotent, true);
   assert.equal(db.rpcCalls.credit, 2);
   assert.equal(db.rpcCalls.settle, 2, "successful fulfillment and its duplicate must reconcile checkout state");
+});
+
+test("paid callback for a deleted account is durably reconciled and acknowledged without crediting", async () => {
+  const db = createPaymentDb({
+    purchase: {
+      id: "purchase-deleted",
+      provider_payment_id: "ppc-deleted",
+      amount: 490,
+      currency: "rub",
+      credits: 100,
+      package_id: "pack_100",
+      balance_credited_at: null,
+      status: "pending",
+    },
+    activate: async () => ({ data: null, error: null }),
+    credit: async () => ({
+      data: null,
+      error: { message: "account is deleted; paid purchase requires reconciliation" },
+    }),
+  });
+  const auditRecords = [];
+  const auditedDb = {
+    ...db,
+    from(table) {
+      if (table === "billing_webhook_exceptions") {
+        return {
+          insert: async (record) => {
+            if (auditRecords.some((item) => item.event_hash === record.event_hash)) {
+              return { error: { code: "23505" } };
+            }
+            auditRecords.push(record);
+            return { error: null };
+          },
+        };
+      }
+      return db.from(table);
+    },
+  };
+  const request = signedWebhook({
+    order_id: "ppc-deleted",
+    payment_status: "success",
+    sum: "490.00",
+    currency: "rub",
+  });
+  const handler = require("../creditsBilling").handleCreditsWebhook;
+
+  const first = createWebhookResponse();
+  await handler(request, first, { supabase: auditedDb });
+  assert.equal(first.statusCode, 200);
+  assert.deepEqual(first.body, {
+    ok: true,
+    payment_received: true,
+    credited: false,
+    reconciliation_required: true,
+  });
+  assert.equal(db.state.purchase.balance_credited_at, null);
+  assert.equal(db.state.purchase.status, "paid_uncredited");
+  assert.ok(Number.isFinite(Date.parse(db.state.purchase.paid_at)), "verified provider payment time must be persisted");
+  assert.equal(db.rpcCalls.credit, 1);
+  assert.equal(db.rpcCalls.markCredit, 1);
+  assert.equal(auditRecords.length, 1);
+  assert.equal(auditRecords[0].reason, "paid_credit_account_deleted");
+
+  // Prodamus retry receives the same acknowledgement; the audit fingerprint
+  // is stable, so a real DB's unique event_hash keeps one durable queue item.
+  const retry = createWebhookResponse();
+  await handler(request, retry, { supabase: auditedDb });
+  assert.equal(retry.statusCode, 200);
+  assert.equal(retry.body.reconciliation_required, true);
+  assert.equal(db.rpcCalls.credit, 2);
+  assert.equal(auditRecords.length, 1, "duplicate delivery must remain one durable reconciliation event");
+});
+
+test("paid success with a transient credit failure is marked paid_uncredited for manual reconciliation", async () => {
+  const db = createPaymentDb({
+    purchase: {
+      id: "purchase-paid-uncredited",
+      provider_payment_id: "ppc-paid-uncredited",
+      amount: 490,
+      currency: "rub",
+      credits: 100,
+      package_id: "pack_100",
+      balance_credited_at: null,
+      status: "pending",
+    },
+    activate: async () => ({ data: null, error: null }),
+    credit: async () => ({
+      data: null,
+      error: { message: "temporary database connection failure" },
+    }),
+  });
+  const auditRecords = [];
+  const auditedDb = {
+    ...db,
+    from(table) {
+      if (table === "billing_webhook_exceptions") {
+        return {
+          insert: async (record) => {
+            auditRecords.push(record);
+            return { error: null };
+          },
+        };
+      }
+      return db.from(table);
+    },
+  };
+  const response = createWebhookResponse();
+  await require("../creditsBilling").handleCreditsWebhook(
+    signedWebhook({
+      order_id: "ppc-paid-uncredited",
+      payment_status: "success",
+      sum: "490.00",
+      currency: "rub",
+    }),
+    response,
+    { supabase: auditedDb }
+  );
+
+  assert.equal(response.statusCode, 500, "transient fulfillment failures remain retryable");
+  assert.equal(db.state.purchase.status, "paid_uncredited");
+  assert.equal(db.state.purchase.balance_credited_at, null);
+  assert.equal(db.rpcCalls.markCredit, 1);
+  assert.equal(auditRecords.length, 1);
+  assert.equal(auditRecords[0].reason, "credit_fulfillment_failed");
 });
 
 test("credit webhook retries checkout settlement without crediting twice", async () => {

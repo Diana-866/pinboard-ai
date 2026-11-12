@@ -8,6 +8,10 @@ declare
   v_purchase_id uuid;
   v_balance integer;
   v_ledger_count integer;
+  v_pending_user_id uuid;
+  v_pending_purchase_id uuid;
+  v_deleting_user_id uuid;
+  v_deleting_purchase_id uuid;
   v_paid_at timestamptz := '2026-11-07T20:00:00Z';
 begin
   if not has_function_privilege('service_role',
@@ -77,7 +81,80 @@ begin
   if v_balance <> 125 then
     raise exception 'stored user balance %, expected 125', v_balance;
   end if;
+
+  -- A deletion-pending account may still settle a real payment: the
+  -- deletion worker waits for pending purchases, then finalization zeros the
+  -- remaining balance. This prevents a paid order from becoming stranded.
+  insert into public.users(email, credits_balance, account_status)
+  values ('aud089-pending-deletion@example.invalid', 40, 'deletion_pending')
+  returning id into v_pending_user_id;
+
+  insert into public.credit_purchases(
+    user_id, package_id, pack_title, credits, status, amount, currency
+  ) values (
+    v_pending_user_id::text, 'pack_100', '100 credits', 100, 'pending', 190.00, 'rub'
+  ) returning id into v_pending_purchase_id;
+
+  -- A previously confirmed provider payment can be retried from its explicit
+  -- paid_uncredited state while the account is still deletion-pending.
+  update public.credit_purchases
+     set status = 'paid_uncredited', paid_at = v_paid_at
+   where id = v_pending_purchase_id;
+
+  select public.credit_paid_purchase(
+    v_pending_purchase_id, v_paid_at, 'AUD-089 settlement during deletion pending'
+  ) into v_balance;
+
+  if v_balance <> 140 then
+    raise exception 'deletion-pending settlement returned balance %, expected 140', v_balance;
+  end if;
+
+  if not exists (
+    select 1 from public.credit_purchases
+     where id = v_pending_purchase_id
+       and status = 'success'
+       and balance_credited_at is not null
+  ) then
+    raise exception 'deletion-pending paid purchase was not settled';
+  end if;
+
+  -- A late paid callback must not replenish a finalized deletion tombstone.
+  -- The purchase stays uncredited for reconciliation instead.
+  insert into public.users(email, credits_balance, account_status)
+  values ('aud089-deleted-account@example.invalid', 40, 'deleted')
+  returning id into v_deleting_user_id;
+
+  insert into public.credit_purchases(
+    user_id, package_id, pack_title, credits, status, amount, currency
+  ) values (
+    v_deleting_user_id::text, 'pack_100', '100 credits', 100, 'paid_uncredited', 190.00, 'rub'
+  ) returning id into v_deleting_purchase_id;
+
+  begin
+    perform public.credit_paid_purchase(
+      v_deleting_purchase_id, v_paid_at, 'AUD-089 late fulfillment after deletion finalization'
+    );
+    raise exception 'expected credit_paid_purchase to reject a deleted account';
+  exception
+    when others then
+      if sqlerrm not like 'account is deleted%' then
+        raise;
+      end if;
+  end;
+
+  if (select credits_balance from public.users where id = v_deleting_user_id) <> 40 then
+    raise exception 'deleted account balance was unexpectedly changed';
+  end if;
+
+  if not exists (
+    select 1 from public.credit_purchases
+     where id = v_deleting_purchase_id
+       and status = 'paid_uncredited'
+       and balance_credited_at is null
+  ) then
+    raise exception 'rejected late fulfillment unexpectedly changed the paid-uncredited purchase';
+  end if;
 end;
-$$;
+$;
 
 rollback;

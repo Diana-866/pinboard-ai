@@ -1,4 +1,4 @@
--- 145_pin_image_lifecycle_guard_review_and_board_references.sql
+-- 146_pin_image_lifecycle_guard_review_and_board_references.sql
 -- Lifecycle reservations must see every managed image reference that deletion inventories.
 begin;
 

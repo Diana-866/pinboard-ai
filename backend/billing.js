@@ -347,7 +347,7 @@ async function handleWebhook(req, res, dependencies = {}) {
     }
     const mapped = normalizedStatus;
     const { error: statusError } = await db.from("subscriptions")
-      .update({ status: mapped }).eq("id", sub.id).neq("status", "success");
+      .update({ status: mapped }).eq("id", sub.id).neq("status", "success").neq("status", "paid_unactivated");
     if (statusError) return res.status(500).json({ ok: false, error: "db error" });
     logWarning("billing.event_017");
     return res.json({ ok: true, status: mapped });
@@ -382,9 +382,15 @@ async function handleWebhook(req, res, dependencies = {}) {
     }
     logError("billing.event_021");
     const { error: mismatchError } = await db.from("subscriptions")
-      .update({ status: "denied" }).eq("id", sub.id).neq("status", "success");
+      .update({ status: "denied" }).eq("id", sub.id).neq("status", "success").neq("status", "paid_unactivated");
     if (mismatchError) return res.status(500).json({ ok: false, error: "db error" });
     return res.json({ ok: true, ignored: "amount mismatch", review_required: true });
+  }
+
+  // A delayed duplicate success callback after a confirmed provider refund
+  // is acknowledged without attempting to restore the refunded entitlement.
+  if (sub.provider_refunded_at) {
+    return res.json({ ok: true, ignored: "provider refund already confirmed" });
   }
 
   // Подписка, период и тариф пользователя активируются одной транзакцией PostgreSQL.
@@ -393,8 +399,62 @@ async function handleWebhook(req, res, dependencies = {}) {
     p_paid_at: new Date().toISOString(),
   });
   if (activationError || !activation) {
-    logError("billing.event_022");
-    return res.status(500).json({ ok: false, error: "activation failed" });
+    // Preserve a privacy-safe reconciliation record for a signed paid event
+    // that the database could not settle (including an unexpected lifecycle
+    // or schema conflict). Keep the provider retry response.
+    try {
+      await persistWebhookException(db, {
+        paymentKind: "subscription",
+        body,
+        expectedAmount: expected,
+        reason: "subscription_activation_failed",
+      });
+    } catch (auditError) {
+      logError("billing.event_022");
+      return res.status(500).json({ ok: false, error: "activation and audit storage failed" });
+    }
+    const paidAt = new Date().toISOString();
+    // Persist the paid-but-unactivated liability under the same owner lock
+    // used by deletion finalization and provider-refund reconciliation.
+    const { data: flagged, error: flagError } = await db.rpc("record_paid_unactivated_subscription", {
+      p_subscription_id: sub.id,
+      p_paid_at: paidAt,
+    });
+    if (flagError) {
+      logError("billing.event_023");
+      return res.status(500).json({ ok: false, error: "activation requires reconciliation" });
+    }
+
+    // Activation may have committed even if its response was lost. The
+    // lock-ordered marker RPC returns false for an already activated row.
+    if (flagged !== true) {
+      const { data: current, error: readError } = await db.from("subscriptions")
+        .select("status,period_end,provider_refunded_at")
+        .eq("id", sub.id)
+        .maybeSingle();
+      if (readError || !current) {
+        logError("billing.event_023");
+        return res.status(500).json({ ok: false, error: "activation requires reconciliation" });
+      }
+      if (current.provider_refunded_at) {
+        return res.json({ ok: true, ignored: "provider refund already confirmed" });
+      }
+      if (current.status === "success" && current.period_end) {
+        try {
+          await settlePaymentCreationRequest(orderId, "subscription", sub.id, db);
+        } catch (_settlementError) {
+          logError("billing.event_023");
+          return res.status(500).json({ ok: false, error: "payment reconciliation failed" });
+        }
+        return res.json({ ok: true, status: "success", idempotent: true });
+      }
+      if (current.status !== "paid_unactivated") {
+        logError("billing.event_023");
+        return res.status(500).json({ ok: false, error: "activation requires manual reconciliation" });
+      }
+    }
+    logError("billing.event_023");
+    return res.status(500).json({ ok: false, error: "payment received; subscription activation pending reconciliation" });
   }
 
   // Close the matching checkout idempotency record only after the atomic
@@ -522,7 +582,7 @@ async function listUserSubscriptions(userId, limit = 20) {
 async function listAllSubscriptions(limit = 100) {
   const { data, error } = await supabase
     .from("subscriptions")
-    .select("id, user_id, plan, status, amount, currency, period_start, period_end, created_at, provider_payment_id")
+    .select("id, user_id, plan, status, amount, currency, period_start, period_end, created_at, provider_payment_id, provider_paid_at, provider_refunded_at")
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw httpError(500, "Не удалось получить подписки — примените миграцию 006");

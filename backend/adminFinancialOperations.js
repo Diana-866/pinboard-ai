@@ -53,7 +53,19 @@ async function getFinancialOperationsQueue(options = {}) {
   const cutoff = new Date(Date.now() - olderThanMinutes * 60000).toISOString();
   const fetchLimit = limit + 1;
 
-  const [generationResult, regenerationResult, reservationsResult] = await Promise.all([
+  const [paidCreditsResult, paidSubscriptionsResult, generationResult, regenerationResult, reservationsResult] = await Promise.all([
+    supabase.from("credit_purchases")
+      .select("id,status,amount,currency,provider_payment_id,paid_at,created_at")
+      .eq("status", "paid_uncredited")
+      .is("provider_refunded_at", null)
+      .order("paid_at", { ascending: true })
+      .limit(fetchLimit),
+    supabase.from("subscriptions")
+      .select("id,status,amount,currency,provider_payment_id,provider_paid_at,created_at")
+      .eq("status", "paid_unactivated")
+      .is("provider_refunded_at", null)
+      .order("provider_paid_at", { ascending: true })
+      .limit(fetchLimit),
     supabase.from("pin_generation_requests")
       .select("id,user_id,idempotency_key,status,error_code,created_at,updated_at")
       .eq("status", "processing")
@@ -74,13 +86,15 @@ async function getFinancialOperationsQueue(options = {}) {
       .limit(fetchLimit),
   ]);
 
-  for (const result of [generationResult, regenerationResult, reservationsResult]) {
+  for (const result of [generationResult, regenerationResult, reservationsResult, paidCreditsResult, paidSubscriptionsResult]) {
     if (result.error) throw result.error;
   }
 
   const generationRequests = (generationResult.data || []).slice(0, limit);
   const regenerationRequests = (regenerationResult.data || []).slice(0, limit);
   const reservations = (reservationsResult.data || []).slice(0, limit);
+  const paidCredits = (paidCreditsResult.data || []).slice(0, limit);
+  const paidSubscriptions = (paidSubscriptionsResult.data || []).slice(0, limit);
   const generationIds = generationRequests.map((row) => row.id);
   let taskRows = [];
 
@@ -196,6 +210,27 @@ async function getFinancialOperationsQueue(options = {}) {
     };
   });
 
+  const paymentReconciliation = [
+    ...paidCredits.map((row) => ({
+      operation: "payment_reconciliation", payment_id: String(row.id), payment_kind: "credits", status: row.status,
+      provider_order_id: row.provider_payment_id || null,
+      amount: row.amount, currency: row.currency,
+      reason: "paid_credit_requires_fulfillment_or_refund",
+      paid_at: row.paid_at || null, created_at: row.created_at,
+      updated_at: row.paid_at || row.created_at,
+      age_minutes: ageMinutes(row.paid_at || row.created_at, nowMs),
+    })),
+    ...paidSubscriptions.map((row) => ({
+      operation: "payment_reconciliation", payment_id: String(row.id), payment_kind: "subscription", status: row.status,
+      provider_order_id: row.provider_payment_id || null,
+      amount: row.amount, currency: row.currency,
+      reason: "paid_subscription_requires_entitlement_or_refund",
+      paid_at: row.provider_paid_at || null, created_at: row.created_at,
+      updated_at: row.provider_paid_at || row.created_at,
+      age_minutes: ageMinutes(row.provider_paid_at || row.created_at, nowMs),
+    })),
+  ];
+
   return {
     older_than_minutes: olderThanMinutes,
     limit_per_category: limit,
@@ -203,17 +238,21 @@ async function getFinancialOperationsQueue(options = {}) {
       generation: (generationResult.data || []).length > limit,
       regeneration: (regenerationResult.data || []).length > limit,
       reservations: (reservationsResult.data || []).length > limit,
+      paid_credits: (paidCreditsResult.data || []).length > limit,
+      paid_subscriptions: (paidSubscriptionsResult.data || []).length > limit,
     },
     counts: {
       generation: generation.length,
       regeneration: regeneration.length,
       reservations: reservationRows.length,
+      payment_reconciliation: paymentReconciliation.length,
     },
     generation,
     regeneration,
     reservations: reservationRows,
+    payment_reconciliation: paymentReconciliation,
     read_only: true,
-    note: "Age indicates that an operation needs review; it does not prove provider failure, refund, or that a credit reservation is safe to release. No records were changed.",
+    note: "Paid but unfulfilled purchases and subscriptions require fulfillment or refund review. Age alone does not prove provider failure or refund. No records were changed.",
   };
 }
 

@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { calculateGenerationReservation, calculateQuotedGenerationPricing, ceilCredits } = require("../generationPricing");
+const { calculateGenerationReservation, calculateQuotedGenerationPricing, ceilCredits, validateSavedRegenerationQuote } = require("../generationPricing");
 
 test("reservation rounds each image independently like settlement", () => {
   assert.equal(calculateGenerationReservation(0.6, 6, 1.5), 6);
@@ -83,4 +83,14 @@ test("float noise in a marked-up product never charges an extra credit", () => {
   ], 1.1);
   assert.equal(pricing.totalUserCredits, 110);
   assert.equal(calculateGenerationReservation(50, 2, 1.1), 110);
+});
+
+
+test("saved regeneration credits must match the immutable provider quote", () => {
+  assert.equal(validateSavedRegenerationQuote("2.75", "5", 1.5), 5);
+  assert.equal(validateSavedRegenerationQuote(2.75, 5, 1.5), 5);
+  assert.throws(() => validateSavedRegenerationQuote(2.75, 4, 1.5), /do not match/);
+  assert.throws(() => validateSavedRegenerationQuote(2.75, 5.5, 1.5), /safe integer/);
+  assert.throws(() => validateSavedRegenerationQuote(0, 1, 1.5), /quote price/);
+  assert.throws(() => validateSavedRegenerationQuote(2.75, 5, 0.5), /markup/);
 });

@@ -481,6 +481,8 @@ export const fr: TranslationSchema = {
     deleteAccountPasswordLabel: "Confirmez avec votre mot de passe",
     deleteAccountConfirm: "Demander la suppression",
     deleteAccountDone: "Votre demande de suppression a été reçue et l’accès est désactivé. Vos données n’ont pas encore été supprimées.",
+    deleteAccountUnavailable: "La suppression du compte est temporairement indisponible. Veuillez réessayer plus tard.",
+    exportIncomplete: "Impossible de préparer une archive complète. Aucun fichier n’a été téléchargé ; veuillez réessayer plus tard.",
     requestFailed: "Impossible de terminer la demande. Veuillez réessayer.",
   },
 

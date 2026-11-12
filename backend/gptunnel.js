@@ -34,9 +34,10 @@ function buildImageTaskPayload(prompt, model = "flux-schnell", aspectRatio = "2:
 
 function providerTaskError(task) {
   const providerError = task && task.error && typeof task.error === "object" ? task.error : {};
-  const price = task && typeof task.price === "number" && Number.isFinite(task.price) && task.price >= 0
-    ? task.price
-    : null;
+  // Provider payloads may encode decimal amounts as JSON numbers or strings.
+  // Preserve a valid failed-task price instead of silently losing accounting data.
+  const parsedPrice = finiteUsageNumber(task && task.price);
+  const price = Number.isFinite(parsedPrice) && parsedPrice >= 0 ? parsedPrice : null;
   const error = new Error("Генерация не удалась: " + (providerError.message || "неизвестная ошибка"));
   error.providerStatus = "failed";
   error.providerTaskId = typeof task?.id === "string" ? task.id : null;
@@ -134,9 +135,9 @@ function normalizeIgnoredParams(value) {
 }
 
 function normalizeMediaQuote(data) {
-  const price = data && typeof data.price === "number" ? data.price : NaN;
+  const price = finiteUsageNumber(data && data.price);
   if (!data || data.code !== 0 || data.price == null || data.currency !== "RUB" ||
-      !Number.isFinite(price) || price < 0) {
+      !Number.isFinite(price) || price <= 0) {
     throw new Error("Провайдер вернул некорректную котировку генерации");
   }
   return {
@@ -188,10 +189,42 @@ async function waitForImageTask(taskId, callbacks = {}) {
   const maxPolls = Number.isInteger(callbacks.maxPolls) ? Math.max(1, Math.min(callbacks.maxPolls, 30)) : 30;
   const pollIntervalMs = Number.isInteger(callbacks.pollIntervalMs) ? Math.max(0, callbacks.pollIntervalMs) : 3000;
   for (let i = 0; i < maxPolls; i++) {
-    if (pollIntervalMs > 0) await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
-    const task = await checkImage(taskId);
+    // Check immediately on entry: a recovered task may already be complete,
+    // and making every caller wait one full interval adds avoidable latency.
+    // Keep the delay only between subsequent polls.
+    if (i > 0 && pollIntervalMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+    }
+    let task;
+    try {
+      task = await checkImage(taskId);
+    } catch (error) {
+      const status = Number(error && error.response && error.response.status);
+      const isCancellation = error?.code === "ERR_CANCELED" || error?.__CANCEL__ === true;
+      const networkFailure = !error?.response && !isCancellation && (
+        error?.isAxiosError === true ||
+        ["ECONNABORTED", "ETIMEDOUT", "ECONNRESET", "EAI_AGAIN", "ENOTFOUND", "ERR_NETWORK"]
+          .includes(error?.code)
+      );
+      const retryable = networkFailure ||
+        status === 408 || status === 425 || status === 429 || status >= 500;
+      // Provider polling is read-only: retry transient transport/rate-limit/
+      // server failures within the existing bounded poll budget. Never retry
+      // permanent client errors or create a replacement task here.
+      if (!retryable || i === maxPolls - 1) throw error;
+      continue;
+    }
 
-    if (task && task.status === "done") return imageTaskResult(task);
+    // Never accept a provider response for a different task than the one
+    // recorded in our generation journal. This prevents cross-task settlement
+    // if an upstream proxy/cache returns a mismatched task payload.
+    if (task && task.id != null && task.id !== taskId) {
+      const error = new Error("Провайдер вернул результат другой задачи генерации");
+      error.code = "GPTUNNEL_TASK_ID_MISMATCH";
+      throw error;
+    }
+
+    if (task && task.status === "done") return imageTaskResult({ ...task, id: taskId });
 
     if (task && (task.status === "queued" || task.status === "running") &&
         typeof callbacks.onTaskUpdate === "function") {
@@ -227,9 +260,12 @@ async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3"
     throw new Error("Провайдер вернул некорректный идентификатор задачи");
   }
   if (task && task.status === "done") {
-    // A provider may complete synchronously in the create response. Persist its
-    // immutable task ID and terminal status before returning the result so a
-    // backend restart never has to rediscover it through provider idempotency.
+    // Persist the immutable task ID before parsing a terminal payload. If the
+    // provider's completed response is malformed, recovery can still poll this
+    // exact task instead of accidentally creating and charging a replacement.
+    if (typeof callbacks.onTaskUpdate === "function") {
+      await callbacks.onTaskUpdate(taskId, "running");
+    }
     const result = imageTaskResult(task);
     if (typeof callbacks.onTaskUpdate === "function") {
       await callbacks.onTaskUpdate(taskId, "succeeded");

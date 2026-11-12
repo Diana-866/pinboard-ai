@@ -481,6 +481,8 @@ export const en: TranslationSchema = {
     deleteAccountPasswordLabel: "Confirm with your password",
     deleteAccountConfirm: "Request deletion",
     deleteAccountDone: "Your deletion request has been received and access is disabled. Your data has not yet been deleted.",
+    deleteAccountUnavailable: "Account deletion is temporarily unavailable. Please try again later.",
+    exportIncomplete: "A complete data archive could not be prepared. Nothing was downloaded — please try again later.",
     requestFailed: "Could not complete the request. Please try again.",
   },
 

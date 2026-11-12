@@ -40,6 +40,45 @@ const PINTEREST_ACCOUNT_COLUMNS = [
   "expires_at",
   "created_at",
   "updated_at",
+  "disconnected_at",
+];
+
+// Explicit export projections prevent newly added internal/provider columns
+// from becoming public in an account archive by accident.
+const PROJECT_EXPORT_COLUMNS = [
+  "id", "user_id", "website_url", "niche", "tone", "goal", "language",
+  "site_summary", "analyzed_at", "created_at",
+];
+const BOARD_EXPORT_COLUMNS = [
+  "id", "project_id", "title", "description", "status", "cover_url",
+  "category", "created_at",
+];
+const PIN_EXPORT_COLUMNS = [
+  "id", "board_id", "image_url", "title", "description", "status",
+  "model_used", "credits_cost", "scheduled_date", "aspect_ratio", "created_at",
+];
+const CREDIT_TRANSACTION_EXPORT_COLUMNS = [
+  "id", "user_id", "amount", "type", "description", "created_at",
+];
+const SUBSCRIPTION_EXPORT_COLUMNS = [
+  "id", "user_id", "plan", "status", "amount", "currency",
+  "period_start", "period_end", "created_at",
+];
+const CREDIT_PURCHASE_EXPORT_COLUMNS = [
+  "id", "user_id", "package_id", "pack_title", "credits", "status",
+  "amount", "currency", "paid_at", "created_at",
+];
+const PINTEREST_PUBLICATION_EXPORT_COLUMNS = [
+  "id", "user_id", "pin_id", "pinterest_account_id", "pinterest_pin_id", "pinterest_board_id", "created_at",
+];
+const PIN_SCHEDULE_EXPORT_COLUMNS = [
+  "id", "user_id", "pin_id", "scheduled_at", "timezone", "destination_url",
+  "pinterest_board_id", "pinterest_account_id", "status", "pinterest_pin_id", "published_at",
+  "created_at", "updated_at", "snapshot_title", "snapshot_description",
+  "snapshot_image_url", "snapshot_destination_url",
+];
+const REVIEW_QUEUE_EXPORT_COLUMNS = [
+  "id", "user_id", "pin_id", "payload", "created_at", "updated_at",
 ];
 
 function pickColumns(row, columns) {
@@ -52,6 +91,17 @@ function pickColumns(row, columns) {
   return out;
 }
 
+const REVIEW_QUEUE_PAYLOAD_COLUMNS = [
+  "id", "title", "description", "boardName", "boardId", "imageUrl", "image_url",
+  "aspectRatio", "reason", "trendMetric", "scheduledTime", "scheduledDate",
+  "destinationUrl", "accountHandle", "accountId", "pinId",
+];
+
+function sanitizeReviewQueuePayload(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return {};
+  return pickColumns(payload, REVIEW_QUEUE_PAYLOAD_COLUMNS);
+}
+
 function requireUserId(userId) {
   if (typeof userId !== "string" || !UUID_RE.test(userId)) {
     throw httpError(422, "Некорректный идентификатор аккаунта");
@@ -59,10 +109,42 @@ function requireUserId(userId) {
   return userId;
 }
 
-async function selectRows(query) {
-  const { data, error } = await query;
-  if (error) throw error;
-  return Array.isArray(data) ? data : [];
+// PostgREST applies a default row cap. Page every export section so a
+// successful export never silently omits records after the first 1,000 rows.
+async function selectRows(query, pageSize = 1000) {
+  // Stable ordering keeps page boundaries deterministic for the duration
+  // of this export. The account data remains read-only during export.
+  const orderedQuery = typeof query.order === "function"
+    ? query.order("id", { ascending: true })
+    : query;
+  const rows = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await orderedQuery.range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    if (!Array.isArray(data)) {
+      const invalidPage = new Error("account export query returned an invalid page");
+      invalidPage.code = "invalid_export_page";
+      throw invalidPage;
+    }
+    const page = data;
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+}
+
+// Keep PostgREST URL/filter payloads bounded when an account owns many
+// projects or boards. A failed chunk rejects the section rather than silently
+// returning a partial export.
+async function selectRowsByValues(client, table, column, values, columns, chunkSize = 200) {
+  const rows = [];
+  for (let offset = 0; offset < values.length; offset += chunkSize) {
+    const chunk = values.slice(offset, offset + chunkSize);
+    const page = await selectRows(
+      client.from(table).select(columns.join(", ")).in(column, chunk)
+    );
+    rows.push(...page);
+  }
+  return rows;
 }
 
 /** Load one export section without failing the whole export when a single
@@ -89,8 +171,9 @@ async function buildAccountExport(userId, client = defaultSupabase) {
   const degraded = [];
 
   const profileRows = await loadSection("account", async () => {
-    const rows = await selectRows(client.from("users").select("*").eq("id", id).limit(1));
-    return rows.map((row) => pickColumns(row, PROFILE_COLUMNS));
+    const { data, error } = await client.from("users").select(PROFILE_COLUMNS.join(", ")).eq("id", id).maybeSingle();
+    if (error) throw error;
+    return data ? [pickColumns(data, PROFILE_COLUMNS)] : [];
   }, degraded);
 
   if (!profileRows.length) {
@@ -101,13 +184,13 @@ async function buildAccountExport(userId, client = defaultSupabase) {
   }
 
   const projects = await loadSection("projects", () =>
-    selectRows(client.from("projects").select("*").eq("user_id", id)), degraded);
+    selectRows(client.from("projects").select(PROJECT_EXPORT_COLUMNS.join(", ")).eq("user_id", id)), degraded);
 
   const projectIds = projects.map((p) => p.id).filter(Boolean);
   const projectsUnavailable = degraded.includes("projects");
   const boards = projectIds.length
     ? await loadSection("boards", () =>
-        selectRows(client.from("boards").select("*").in("project_id", projectIds)), degraded)
+        selectRowsByValues(client, "boards", "project_id", projectIds, BOARD_EXPORT_COLUMNS), degraded)
     : [];
 
   // An empty parent list is only a valid empty result when the parent section
@@ -118,35 +201,42 @@ async function buildAccountExport(userId, client = defaultSupabase) {
   const boardsUnavailable = degraded.includes("boards");
   const pins = boardIds.length
     ? await loadSection("pins", () =>
-        selectRows(client.from("pins").select("*").in("board_id", boardIds)), degraded)
+        selectRowsByValues(client, "pins", "board_id", boardIds, PIN_EXPORT_COLUMNS), degraded)
     : [];
 
   if (!boardIds.length && boardsUnavailable) degraded.push("pins");
 
   const creditTransactions = await loadSection("creditTransactions", () =>
-    selectRows(client.from("credit_transactions").select("*").eq("user_id", id)), degraded);
+    selectRows(client.from("credit_transactions").select(CREDIT_TRANSACTION_EXPORT_COLUMNS.join(", ")).eq("user_id", id)), degraded);
 
   const subscriptions = await loadSection("subscriptions", () =>
-    selectRows(client.from("subscriptions").select("*").eq("user_id", id)), degraded);
+    selectRows(client.from("subscriptions").select(SUBSCRIPTION_EXPORT_COLUMNS.join(", ")).eq("user_id", id)), degraded);
 
   const creditPurchases = await loadSection("creditPurchases", () =>
-    selectRows(client.from("credit_purchases").select("*").eq("user_id", id)), degraded);
+    selectRows(client.from("credit_purchases").select(CREDIT_PURCHASE_EXPORT_COLUMNS.join(", ")).eq("user_id", id)), degraded);
 
   const pinterestAccounts = await loadSection("pinterestAccounts", async () => {
     const rows = await selectRows(
-      client.from("pinterest_accounts").select("*").eq("user_id", id)
+      client.from("pinterest_accounts").select(PINTEREST_ACCOUNT_COLUMNS.join(", ")).eq("user_id", id)
     );
     return rows.map((row) => pickColumns(row, PINTEREST_ACCOUNT_COLUMNS));
   }, degraded);
 
   const pinterestPublications = await loadSection("pinterestPublications", () =>
-    selectRows(client.from("pinterest_publications").select("*").eq("user_id", id)), degraded);
+    selectRows(client.from("pinterest_publications").select(PINTEREST_PUBLICATION_EXPORT_COLUMNS.join(", ")).eq("user_id", id)), degraded);
 
   const pinSchedules = await loadSection("pinSchedules", () =>
-    selectRows(client.from("pin_schedules").select("*").eq("user_id", id)), degraded);
+    selectRows(client.from("pin_schedules").select(PIN_SCHEDULE_EXPORT_COLUMNS.join(", ")).eq("user_id", id)), degraded);
 
-  const reviewQueue = await loadSection("reviewQueue", () =>
-    selectRows(client.from("pin_review_queue").select("*").eq("user_id", id)), degraded);
+  const reviewQueue = await loadSection("reviewQueue", async () => {
+    const rows = await selectRows(
+      client.from("pin_review_queue").select(REVIEW_QUEUE_EXPORT_COLUMNS.join(", ")).eq("user_id", id)
+    );
+    return rows.map((row) => ({
+      ...row,
+      payload: sanitizeReviewQueuePayload(row.payload),
+    }));
+  }, degraded);
 
   return {
     formatVersion: EXPORT_FORMAT_VERSION,
@@ -248,6 +338,7 @@ module.exports = {
   EXPORT_FORMAT_VERSION,
   loadSection,
   pickColumns,
+  sanitizeReviewQueuePayload,
   buildAccountExport,
   requestAccountDeletion,
   mapDeletionRpcError,

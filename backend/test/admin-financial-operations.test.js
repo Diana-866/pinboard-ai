@@ -19,6 +19,14 @@ const fixtures = {
   pin_generation_tasks: [
     { generation_request_id: 11, status: "failed", provider_outcome_status: "failed", provider_refunded: false, provider_reconciled_at: oldTimestamp },
   ],
+  credit_purchases: [
+    { id: 41, status: "paid_uncredited", amount: 190, currency: "rub", provider_payment_id: "ppc-41", provider_refunded_at: null, paid_at: oldTimestamp, created_at: oldTimestamp, user_id: "private-credit-user" },
+    { id: 42, status: "paid_uncredited", amount: 190, currency: "rub", provider_payment_id: "ppc-42", provider_refunded_at: oldTimestamp, paid_at: oldTimestamp, created_at: oldTimestamp, user_id: "refunded-credit-user" },
+  ],
+  subscriptions: [
+    { id: 51, status: "paid_unactivated", amount: 790, currency: "rub", provider_payment_id: "sub-ppc-51", provider_paid_at: oldTimestamp, provider_refunded_at: null, created_at: oldTimestamp, user_id: "private-subscription-user" },
+    { id: 52, status: "paid_unactivated", amount: 790, currency: "rub", provider_paid_at: oldTimestamp, provider_refunded_at: oldTimestamp, created_at: oldTimestamp, user_id: "refunded-subscription-user" },
+  ],
 };
 
 const supabaseMock = {
@@ -26,7 +34,9 @@ const supabaseMock = {
     const query = {
       select() { return this; },
       eq() { return this; },
+      is() { return this; },
       lt() { return this; },
+      is(column, value) { this.isColumn = column; this.isValue = value; return this; },
       order() { return this; },
       limit() { return this; },
       in(column, values) {
@@ -37,6 +47,7 @@ const supabaseMock = {
       then(resolve, reject) {
         let data = fixtures[table] || [];
         if (this.filterColumn) data = data.filter((row) => this.filterValues.includes(row[this.filterColumn]));
+        if (this.isColumn) data = data.filter((row) => row[this.isColumn] === this.isValue);
         return Promise.resolve({ data, error: null }).then(resolve, reject);
       },
     };
@@ -60,9 +71,16 @@ test("read-only queue classifies unresolved provider outcomes and stale reservat
   assert.equal(result.reservations[1].reason, "reservation_without_matching_request_review");
   assert.equal(result.reservations[0].operation, "generation");
   assert.equal(result.reservations[1].operation, "unmatched");
+  assert.equal(result.payment_reconciliation.length, 2);
+  assert.equal(result.payment_reconciliation[0].reason, "paid_credit_requires_fulfillment_or_refund");
+  assert.equal(result.payment_reconciliation[0].provider_order_id, "ppc-41");
+  assert.equal(result.payment_reconciliation[1].reason, "paid_subscription_requires_entitlement_or_refund");
+  assert.equal(result.payment_reconciliation[1].provider_order_id, "sub-ppc-51");
+  assert.deepEqual(result.payment_reconciliation.map((row) => row.payment_id), ["41", "51"], "verified refunds must not remain in the unresolved queue");
+  assert.equal(result.counts.payment_reconciliation, 2);
 
   const serialized = JSON.stringify(result);
-  for (const secret of ["private-user", "private-generation-key", "private-regeneration-key", "private-orphan-key"]) {
+  for (const secret of ["private-user", "private-generation-key", "private-regeneration-key", "private-orphan-key", "private-credit-user", "private-subscription-user"]) {
     assert.equal(serialized.includes(secret), false);
   }
   assert.equal(serialized.includes("provider_task_id"), false);

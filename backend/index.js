@@ -8,7 +8,7 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const { parseMultipartFields } = require("./prodamusWebhookBody");
 const { isOwnedByUser } = require("./resourceOwnership");
-const { serializeGenerationRecovery } = require("./generationRecovery");
+const { serializeGenerationRecovery, countDurableRecoveryPins } = require("./generationRecovery");
 const { isAllowedPinImageUploadMime } = require("./imageUploadValidation");
 const { serializePinImageUploadError } = require("./imageUploadErrors");
 const { buildPinImageRateLimitKey } = require("./pinImageRateLimitKey");
@@ -20,10 +20,12 @@ const { sortProjectsForProvisioning } = require("./projectProvisioningOrder");
 const { buildPinPatch } = require("./pinPatch");
 const { logError, logWarning, logInfo, runWithCorrelationId } = require("./safeLogger");
 const { buildAccountExport, requestAccountDeletion } = require("./accountLifecycle");
+const { isAccountDeletionWorkerEnabled } = require("./accountDeletionWorkerGate");
 
 const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
 const { getFinancialOperationsQueue } = require("./adminFinancialOperations");
+const adminBillingRefundReconciliation = require("./adminBillingRefundReconciliation");
 const adminPaymentCreationRequests = require("./adminPaymentCreationRequests");
 const adminProviderRefundActions = require("./adminProviderRefundActions");
 const adminPinterestReconciliation = require("./adminPinterestReconciliation");
@@ -191,7 +193,7 @@ const { suggestKeywords } = require("./keywordIdeas");
 const { asError } = require("./dbErrors");
 const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
-const { calculateGenerationReservation, calculateQuotedGenerationPricing, ceilCredits } = require("./generationPricing");
+const { calculateGenerationReservation, calculateQuotedGenerationPricing, ceilCredits, validateSavedRegenerationQuote } = require("./generationPricing");
 const { uploadPinImage, rehostImage, deletePinImageIfUnreferenced } = require("./storage");
 const { reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects, inspectBlockedPinImageRetentionQueue, retryFailedPinImageDeletions, processPendingPinImageRetentionQueue } = require("./pinImageLifecycle");
 const { validateDevTopupRequest } = require("./devTopup");
@@ -457,8 +459,20 @@ app.get("/me", requireAuth, async (req, res) => {
 // Экспорт всех данных аккаунта. Секреты (OAuth-токены, хеш пароля, счётчики
 // сессий) в выгрузку не попадают — только колонки из allowlist.
 app.get("/account/export", requireAuth, async (req, res) => {
+  // Account archives contain personal and financial data. Prevent browsers,
+  // shared proxies, and intermediary caches from retaining the response.
+  res.setHeader("Cache-Control", "private, no-store, max-age=0");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("X-Content-Type-Options", "nosniff");
   try {
     const payload = await buildAccountExport(req.userId);
+    if (payload.degradedSections.length > 0) {
+      return res.status(503).json({
+        error: "Полный архив данных временно недоступен — попробуйте позже",
+        code: "account_export_incomplete",
+        degradedSections: payload.degradedSections,
+      });
+    }
     res.setHeader("Content-Disposition", 'attachment; filename="pinposy-account-export.json"');
     res.json(payload);
   } catch (e) {
@@ -471,6 +485,12 @@ app.get("/account/export", requireAuth, async (req, res) => {
 // фиксирует запрос. Данные здесь не удаляются — физическая очистка идёт
 // отдельным контролируемым этапом и никогда не запускается из этого метода.
 app.post("/account/deletion-request", requireAuth, authLimiter, async (req, res) => {
+  if (!isAccountDeletionWorkerEnabled()) {
+    return res.status(503).json({
+      error: "Удаление аккаунта временно недоступно. Повторите попытку позже.",
+      code: "account_deletion_unavailable",
+    });
+  }
   try {
     const result = await requestAccountDeletion({
       userId: req.userId,
@@ -990,7 +1010,15 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
             Number(savedQuote.provider_quote_price) <= 0) {
           throw httpError(502, "Сохранённая котировка перегенерации повреждена или не соответствует запросу.");
         }
-        quotedCreditCost = Number(savedQuote.amount);
+        try {
+          quotedCreditCost = validateSavedRegenerationQuote(
+            savedQuote.provider_quote_price,
+            savedQuote.amount,
+            MARKUP
+          );
+        } catch (quoteValidationError) {
+          throw httpError(502, "Сохранённая стоимость перегенерации не соответствует котировке.");
+        }
       } else {
         const quote = await quoteImageTask(prompt, model, "2:3");
         quotedCreditCost = ceilCredits(quote.price * MARKUP);
@@ -1519,9 +1547,15 @@ app.get("/generation/requests/:key", requireAuth, async (req, res) => {
     if (error) throw error;
     if (!request) throw httpError(404, "Запрос генерации не найден");
     if (request.replay_expired_at) {
+      // The idempotency replay window expired, but the generated pins remain
+      // persisted on the board. Return safe navigation metadata so the client
+      // can still reopen those pins without starting or charging a new task.
       return res.status(410).json({
-        error: "Срок хранения результата генерации истёк. Используйте новый ключ идемпотентности для новой операции.",
+        error: "Срок восстановления исходного запроса истёк. Сохранённые пины можно открыть на исходной доске.",
         code: "idempotency_result_expired",
+        status: "expired",
+        board_id: request.board_id,
+        pin_count: countDurableRecoveryPins(request.pins),
       });
     }
 
@@ -2838,6 +2872,25 @@ app.get("/admin/financial-operations/unresolved", requireAuth, requireAdmin, asy
   }
 });
 
+// Record provider-confirmed refunds only after the operator has verified them with Prodamus.
+app.post("/admin/credit-purchases/record-provider-refund", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await adminBillingRefundReconciliation.recordProviderRefund(req.userId, req.body || {});
+    res.json(result);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+app.post("/admin/subscriptions/record-provider-refund", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await adminBillingRefundReconciliation.recordSubscriptionProviderRefund(req.userId, req.body || {});
+    res.json(result);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 // Список подписок и платежей для админки
 app.get("/admin/subscriptions", requireAuth, requireAdmin, async (req, res) => {
   try {
@@ -2927,8 +2980,8 @@ app.get("/admin/billing/pending-orders", requireAuth, requireAdmin, async (req, 
         .order("created_at", { ascending: true })
         .limit(limit),
       supabase.from("credit_purchases")
-        .select("id, user_id, provider_payment_id, package_id, credits, amount, currency, created_at")
-        .eq("status", "pending")
+        .select("id, user_id, provider_payment_id, package_id, credits, amount, currency, status, paid_at, created_at")
+        .in("status", ["pending", "paid_uncredited"])
         .is("balance_credited_at", null)
         .lt("created_at", cutoff)
         .order("created_at", { ascending: true })
@@ -2999,10 +3052,10 @@ const emailOutboxTimer = setInterval(dispatchSubscriptionEmailOutbox, 60 * 1000)
 if (typeof emailOutboxTimer.unref === "function") emailOutboxTimer.unref();
 
 // The complete account-deletion pipeline runs in this backend process only
-// when explicitly enabled after migrations 127-144 are applied. This avoids a
-// second service while keeping rollout opt-in and independently reversible.
+// when explicitly enabled after the account-deletion migration chain is applied.
+// This avoids a second service while keeping rollout opt-in and reversible.
 let accountDeletionWorker = null;
-if (process.env.ACCOUNT_DELETION_WORKER_ENABLED === "true") {
+if (isAccountDeletionWorkerEnabled()) {
   const { createAccountDeletionWorker } = require("./accountDeletionWorker");
   accountDeletionWorker = createAccountDeletionWorker({ client: supabase });
   accountDeletionWorker.start();
@@ -3016,35 +3069,45 @@ const server = app.listen(PORT, () => {
   dispatchSubscriptionEmailOutbox();
 });
 
-// Hosted platforms send SIGTERM during deploys/restarts. Stop new HTTP work,
-// stop the in-process outbox timer, and allow active requests a bounded drain.
+// Hosted platforms send SIGTERM during deploys/restarts. Stop accepting new
+// HTTP work and drain both requests and the deletion worker before shutdown.
 let shuttingDown = false;
 function shutdown() {
   if (shuttingDown) return;
   shuttingDown = true;
   logInfo("index.shutdown_started");
   clearInterval(emailOutboxTimer);
-  if (accountDeletionWorker) {
-    void accountDeletionWorker.stop().catch(() => {
-      logError("account_deletion_worker.shutdown_failed");
-    });
-  }
 
   const forceExit = setTimeout(() => {
     logError("index.shutdown_timeout");
     process.exit(1);
   }, 10_000);
 
-  server.close((error) => {
+  const serverClosed = new Promise((resolve) => {
+    server.close((error) => resolve(error || null));
+  });
+  const workerStopped = accountDeletionWorker
+    ? accountDeletionWorker.stop().catch(() => {
+        logError("account_deletion_worker.shutdown_failed");
+        return new Error("account deletion worker did not stop cleanly");
+      })
+    : Promise.resolve(null);
+
+  Promise.all([serverClosed, workerStopped]).then(([serverError, workerError]) => {
     clearTimeout(forceExit);
-    if (error) {
+    if (serverError || workerError) {
       logError("index.shutdown_failed");
       process.exitCode = 1;
       return;
     }
     logInfo("index.shutdown_completed");
     process.exitCode = 0;
+  }).catch(() => {
+    clearTimeout(forceExit);
+    logError("index.shutdown_failed");
+    process.exitCode = 1;
   });
+
   // Do not wait for idle keep-alive sockets to expire naturally.
   if (typeof server.closeIdleConnections === "function") {
     server.closeIdleConnections();

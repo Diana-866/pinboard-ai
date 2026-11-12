@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure } from './generationRetry';
+import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure, isGenerationInProgress, normalizeGenerationRecoveryStatus, countDurableGenerationPins } from './generationRetry';
 
 test('rotates key after an explicitly definitive generation failure', () => {
   assert.equal(isDefinitiveGenerationFailure({
@@ -61,4 +61,55 @@ test('fails closed when secure browser randomness is unavailable', () => {
     () => createGenerationIdempotencyKey({} as unknown as Crypto),
     /HTTPS/,
   );
+});
+
+test('recognizes the backend 409 in-progress generation response without treating it as definitive failure', () => {
+  const error = { status: 409, data: { code: 'generation_in_progress' } };
+  assert.equal(isGenerationInProgress(error), true);
+  assert.equal(isDefinitiveGenerationFailure(error), false);
+});
+
+test('does not classify unknown or unrelated errors as in-progress', () => {
+  assert.equal(isGenerationInProgress({ status: 409, data: { code: 'generation_outcome_unknown' } }), false);
+  assert.equal(isGenerationInProgress(new Error('network failure')), false);
+});
+
+
+test('accepts completed recovery only when at least one saved pin is present', () => {
+  const savedPin = { id: 'pin-1', image_url: 'https://storage.example/pin-1.png' };
+  assert.equal(normalizeGenerationRecoveryStatus('completed', [savedPin]), 'completed');
+  assert.equal(normalizeGenerationRecoveryStatus('completed', []), 'unknown');
+  assert.equal(normalizeGenerationRecoveryStatus('completed', null), 'unknown');
+  assert.equal(normalizeGenerationRecoveryStatus('unexpected', [savedPin]), 'unknown');
+});
+
+test('does not treat malformed or credential-bearing image URLs as durable pins', () => {
+  assert.equal(countDurableGenerationPins([
+    { id: 'empty-host', image_url: 'https://' },
+    { id: 'bad-host', image_url: 'https://not a url' },
+    { id: 'credentials', image_url: 'https://user:pass@storage.example/pin.png' },
+    { id: 'wrong-scheme', image_url: 'ftp://storage.example/pin.png' },
+    { id: 'valid-http', image_url: 'http://storage.example/pin.png' },
+  ]), 1);
+  assert.equal(normalizeGenerationRecoveryStatus('completed', [
+    { id: 'pin-invalid', image_url: 'https://' },
+  ]), 'unknown');
+});
+
+test('preserves non-completed recovery states', () => {
+  assert.equal(normalizeGenerationRecoveryStatus('processing', []), 'processing');
+  assert.equal(normalizeGenerationRecoveryStatus('failed', []), 'failed');
+  assert.equal(normalizeGenerationRecoveryStatus('unknown', []), 'unknown');
+});
+
+
+test('counts only persisted pins with an identity and an HTTP image URL', () => {
+  assert.equal(countDurableGenerationPins([
+    { id: 'pin-1', image_url: 'https://storage.example/pin-1.png' },
+    { id: '', image_url: 'https://storage.example/pin-2.png' },
+    { id: 'pin-3', image_url: '' },
+    { id: 'pin-4', image_url: 'javascript:alert(1)' },
+    null,
+  ]), 1);
+  assert.equal(countDurableGenerationPins(null), 0);
 });

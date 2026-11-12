@@ -481,6 +481,8 @@ export const ru: TranslationSchema = {
     deleteAccountPasswordLabel: "Подтвердите паролем",
     deleteAccountConfirm: "Запросить удаление",
     deleteAccountDone: "Запрос на удаление принят, доступ к аккаунту закрыт. Фактическое удаление данных ещё не выполнено.",
+    deleteAccountUnavailable: "Удаление аккаунта временно недоступно. Попробуйте позже.",
+    exportIncomplete: "Не удалось собрать полный архив данных. Ничего не скачано — попробуйте позже.",
     requestFailed: "Не удалось выполнить запрос. Попробуйте ещё раз.",
   },
 

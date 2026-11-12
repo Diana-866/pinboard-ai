@@ -23,7 +23,7 @@ import { useNotifications } from '../../context/NotificationContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { addCalendarDaysInTimezone, formatInstantInTimezone, getDefaultTimezone, resolveScheduleSlotTime } from '../../utils/timezone';
-import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure } from '../../utils/generationRetry';
+import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure, isGenerationInProgress, normalizeGenerationRecoveryStatus, countDurableGenerationPins } from '../../utils/generationRetry';
 import { clearPendingPinDescriptionIfMatches, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
 import { enqueuePinSave } from '../../utils/pendingPinSaveQueue';
 import { isCurrentPinDescriptionSave } from '../../utils/pinDescriptionSaveGuard';
@@ -289,7 +289,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [reviewQueueSuccess, setReviewQueueSuccess] = useState(false);
   const [recoverableGenerations, setRecoverableGenerations] = useState<Array<{
     key: string;
-    status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found';
+    status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found' | 'expired';
     boardId: string;
     pinCount: number;
   }>>([]);
@@ -303,6 +303,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     generationRecoveryOwnerIdRef.current = userId;
     setRecoverableGenerations([]);
     setIsCheckingRecoveries(false);
+    // Retry budget belongs to the current account/session, not to the
+    // component's lifetime. A previous user's stale 404s must not consume it.
+    setRecoveryCheckAttempt(0);
   }, [userId]);
 
   // Look up saved generation identities after login/reload. This is read-only:
@@ -310,6 +313,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   useEffect(() => {
     let active = true;
     const ownerId = userId;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let token = '';
     try { token = localStorage.getItem('token') || ''; } catch { /* storage may be blocked */ }
     if (!ownerId || !token) {
@@ -318,9 +322,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       return () => { active = false; };
     }
 
-    const identities = listPendingGenerationRequests().slice(-10).reverse();
+    const identities = listPendingGenerationRequests().reverse();
     if (!identities.length) {
       setRecoverableGenerations([]);
+      // A previous recovery check may have been in flight before its identity
+      // was cleared. Do not leave the loading indicator stuck on an empty list.
+      setIsCheckingRecoveries(false);
       return () => { active = false; };
     }
 
@@ -328,41 +335,85 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     const check = async () => {
       const found: Array<{
         key: string;
-        status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found';
+        status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found' | 'expired';
         boardId: string;
         pinCount: number;
       }> = [];
-      // Keep requests sequential to avoid a burst against a sleeping/free backend.
-      for (const identity of identities) {
+      // Check every saved identity in small batches: this avoids the long serial
+      // wait for large histories without flooding a sleeping/free backend.
+      for (let offset = 0; offset < identities.length; offset += 4) {
         if (!active) return;
-        try {
-          const result = await apiRequest(`/generation/requests/${encodeURIComponent(identity.idempotencyKey)}`);
-          const status = ['processing', 'completed', 'failed', 'unknown'].includes(result?.status)
-            ? result.status as 'processing' | 'completed' | 'failed' | 'unknown'
-            : 'unknown';
-          found.push({
-            key: identity.fingerprint,
-            status,
-            boardId: typeof result?.board_id === 'string' ? result.board_id : '',
-            pinCount: status === 'completed' && Array.isArray(result?.pins) ? result.pins.length : 0,
-          });
-        } catch (error: any) {
-          // A 404 can mean an old local key whose server record has expired.
-          // Preserve it: a transient/auth/network error must never erase recovery data.
-          if (error?.status === 404) {
-            found.push({ key: identity.fingerprint, status: 'not_found', boardId: '', pinCount: 0 });
-            continue;
+        let unauthorized = false;
+        const batch = identities.slice(offset, offset + 4);
+        const batchResults = await Promise.all(batch.map(async (identity) => {
+          try {
+            const result = await apiRequest(`/generation/requests/${encodeURIComponent(identity.idempotencyKey)}`);
+            if (!active) return null;
+            // Only pins with a persisted identity and HTTP image URL count as durable.
+            const durablePinCount = countDurableGenerationPins(result?.pins);
+            const status = normalizeGenerationRecoveryStatus(result?.status, durablePinCount > 0 ? result.pins : []);
+            const hasSavedPins = durablePinCount > 0;
+            // The server has confirmed the pins are durably saved. The recovery
+            // identity is no longer needed; keep the in-memory card for this view,
+            // while preventing completed requests from resurfacing after reload.
+            if (status === 'completed' && hasSavedPins) {
+              clearPendingGenerationRequest(identity.fingerprint);
+            }
+            return {
+              key: identity.fingerprint,
+              status,
+              boardId: typeof result?.board_id === 'string' ? result.board_id : '',
+              pinCount: status === 'completed' ? durablePinCount : 0,
+            };
+          } catch (error: any) {
+            if (!active) return null;
+            // A 404 can mean an old local key whose server record has expired.
+            // Preserve it: a transient/auth/network error must never erase recovery data.
+            if (error?.status === 410 && error?.data?.code === 'idempotency_result_expired') {
+              return {
+                key: identity.fingerprint,
+                status: 'expired' as const,
+                boardId: typeof error.data.board_id === 'string' ? error.data.board_id : '',
+                pinCount: Number.isInteger(error.data.pin_count) && error.data.pin_count > 0
+                  ? error.data.pin_count
+                  : 0,
+              };
+            }
+            if (error?.status === 404) {
+              return { key: identity.fingerprint, status: 'not_found' as const, boardId: '', pinCount: 0 };
+            }
+            if (error?.status === 401) {
+              unauthorized = true;
+              return null;
+            }
+            // A temporary network/5xx failure is not evidence that the request
+            // disappeared. Keep it visible as uncertain so users can retry the
+            // read-only status check instead of seeing the recovery entry vanish.
+            return { key: identity.fingerprint, status: 'unknown' as const, boardId: '', pinCount: 0 };
           }
-          if (error?.status === 401) return;
-          // A temporary network/5xx failure is not evidence that the request
-          // disappeared. Keep it visible as uncertain so users can retry the
-          // read-only status check instead of seeing the recovery entry vanish.
-          found.push({ key: identity.fingerprint, status: 'unknown', boardId: '', pinCount: 0 });
-          // Keep checking other independent requests after a single failure.
+        }));
+        if (unauthorized) return;
+        for (const item of batchResults) {
+          if (item) found.push(item);
         }
       }
       if (active && isCurrentBillingOwner(generationRecoveryOwnerIdRef.current, ownerId)) {
         setRecoverableGenerations(found);
+        // Keep recovery alive while work is running or its outcome is uncertain.
+        // Transient network/5xx failures are rechecked more gently than active jobs.
+        // These reads never resubmit generation or spend credits.
+        const hasProcessing = found.some((item) => item.status === 'processing');
+        const hasUnknown = found.some((item) => item.status === 'unknown');
+        // A just-persisted local key can briefly precede the server-side row
+        // while the original POST is still in flight. Recheck 404s twice, but
+        // do not poll genuinely missing historical keys forever.
+        const hasRecentNotFound = recoveryCheckAttempt < 2 &&
+          found.some((item) => item.status === 'not_found');
+        if (hasProcessing || hasUnknown || hasRecentNotFound) {
+          retryTimer = window.setTimeout(() => {
+            if (active) setRecoveryCheckAttempt((attempt) => attempt + 1);
+          }, hasProcessing ? 15000 : 30000);
+        }
       }
     };
 
@@ -371,7 +422,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         setIsCheckingRecoveries(false);
       }
     });
-    return () => { active = false; };
+    return () => {
+      active = false;
+      if (retryTimer !== null) window.clearTimeout(retryTimer);
+    };
   }, [recoveryCheckAttempt, userId]);
 
   // A count refresh replaces the boards array but must not reset the active pin editor.
@@ -536,6 +590,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       const storedRequest = readPendingGenerationRequest(requestFingerprint);
       if (storedRequest?.fingerprint !== requestFingerprint || !storedRequest.idempotencyKey) {
         generationKeyRef.current = createGenerationIdempotencyKey();
+        // A new identity gets its own initial 404 grace window while the
+        // server-side idempotency row is being created.
+        setRecoveryCheckAttempt(0);
         writePendingGenerationRequest(requestFingerprint, generationKeyRef.current);
       } else {
         // Restore the durable request identity after a remount or page reload.
@@ -546,6 +603,17 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         headers: { 'Idempotency-Key': generationKeyRef.current || '' },
         body: JSON.stringify(requestBody),
       });
+
+      // A legacy processing payload is a successful acknowledgement that the same
+      // durable generation is still running, not a malformed pins array. Keep
+      // its key and refresh the read-only recovery card instead of showing a false error.
+      if (rows && typeof rows === 'object' && rows.status === 'processing') {
+        setRecoveryCheckAttempt((attempt) => attempt + 1);
+        window.alert(language === 'ru'
+          ? 'Генерация ещё выполняется. Мы сохранили запрос — повторно запускать генерацию не нужно. Статус можно проверить в блоке восстановления.'
+          : 'Generation is still processing. Your request has been saved; do not start it again. Check its status in the recovery panel.');
+        return;
+      }
 
       // Do not discard the recovery identity until every returned pin has the
       // durable fields required by the canvas. A malformed success payload is
@@ -571,16 +639,44 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       results.forEach((pin) => pinAspectRatioConfirmedRef.current.set(pin.id, pin.aspectRatio));
       setGeneratedPins(results);
       setActivePinIndex(0);
-      // Refresh board-card counts only after the server has confirmed all generated pins.
-      onPinsChanged?.();
+      // A partial 201 is still a successful durable save. Tell the user that
+      // fewer pins were saved, without discarding the completed results or
+      // suggesting that the failed tasks should be submitted as a new request.
+      if (validatedRows.length < pinCount) {
+        window.alert(language === 'ru'
+          ? `Сохранено ${validatedRows.length} из ${pinCount} запрошенных пинов. Не все пины удалось подготовить. Кредиты списаны только за сохранённые пины.`
+          : `Saved ${validatedRows.length} of ${pinCount} requested pins. Not all requested pins could be prepared. Credits were charged only for saved pins.`);
+      }
+      // The server has durably completed this idempotent request. Clear its
+      // recovery identity before best-effort UI refresh so a parent refresh
+      // callback cannot turn a saved generation into a misleading failure.
       generationKeyRef.current = null;
       clearPendingGenerationRequest(requestFingerprint);
+      // Also absorb rejected promises from async parent refresh callbacks.
+      // A refresh failure is non-fatal because the generated pins are already durable.
+      void Promise.resolve()
+        .then(() => onPinsChanged?.())
+        .catch(() => {
+          console.error('Failed to refresh pin counts after durable generation');
+        });
     } catch (err) {
       // The server only emits generation_request_failed after a definitive failure.
       // Rotate the key then; unknown/in-progress outcomes must keep their original key.
       if (isDefinitiveGenerationFailure(err)) {
         generationKeyRef.current = createGenerationIdempotencyKey();
+        // The replacement key is a new request identity; don't inherit the
+        // previous key's exhausted not_found retry budget.
+        setRecoveryCheckAttempt(0);
         if (requestFingerprint) writePendingGenerationRequest(requestFingerprint, generationKeyRef.current);
+      }
+      if (isGenerationInProgress(err)) {
+        // The backend uses 409 for an already-running idempotent request.
+        // Keep the exact same key and surface the recovery panel, never retry as new work.
+        setRecoveryCheckAttempt((attempt) => attempt + 1);
+        window.alert(language === 'ru'
+          ? 'Эта генерация ещё выполняется. Запрос сохранён — не запускайте её повторно. Статус появится в блоке восстановления.'
+          : 'This generation is still running. Your request is saved — do not start it again. Its status will appear in the recovery panel.');
+        return;
       }
       console.error('Error generating pins:', err);
       window.alert(err instanceof Error ? err.message : t.generator.errorGeneratePins);
@@ -969,30 +1065,36 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   ? (language === 'ru' ? 'Генерация ещё выполняется' : 'Generation is still processing')
                   : item.status === 'failed'
                     ? (language === 'ru' ? 'Предыдущая генерация завершилась ошибкой' : 'Previous generation failed')
+                    : item.status === 'expired'
+                    ? item.pinCount > 0
+                      ? (language === 'ru' ? 'Срок восстановления истёк; сохранённые пины доступны на доске' : 'Recovery expired; saved pins are available on the board')
+                      : (language === 'ru' ? 'Срок восстановления истёк; наличие сохранённых пинов не подтверждено' : 'Recovery expired; saved pins could not be confirmed')
                     : item.status === 'not_found'
-                    ? (language === 'ru' ? 'Запрос не найден на сервере — ключ сохранён' : 'Request not found on server — recovery key kept')
-                    : (language === 'ru' ? 'Результат пока не подтверждён' : 'Result is not confirmed yet');
+                      ? (language === 'ru' ? 'Запрос не найден на сервере — ключ сохранён' : 'Request not found on server — recovery key kept')
+                      : (language === 'ru' ? 'Результат пока не подтверждён' : 'Result is not confirmed yet');
               return (
                 <div key={item.key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg bg-subtle border border-subtle">
                   <div className="min-w-0">
                     <p className="text-xs font-semibold text-primary-theme">{label}</p>
                     {board && <p className="text-[11px] text-muted-theme">{board.name}</p>}
                   </div>
-                  {item.status === 'completed' && item.pinCount > 0 && board && (
+                  {(item.status === 'completed' && item.pinCount > 0 || item.status === 'expired') && board && (
                     <button
                       type="button"
                       onClick={() => {
-                        // The completed pins are already persisted. Switch to their board;
-                        // the existing board loader restores them without another AI call.
+                        // The completed pins are already persisted. An expired replay may
+                        // has a positive durable pin count, so opening the board is safe.
                         setSelectedBoardId(item.boardId);
                         setSavedPinsReloadAttempt((attempt) => attempt + 1);
                       }}
                       className="px-3 py-2 rounded-lg accent-btn text-xs font-semibold"
                     >
-                      {language === 'ru' ? 'Открыть готовые пины' : 'Open saved pins'}
+                      {item.status === 'expired' && item.pinCount === 0
+                        ? (language === 'ru' ? 'Открыть доску' : 'Open board')
+                        : (language === 'ru' ? 'Открыть готовые пины' : 'Open saved pins')}
                     </button>
                   )}
-                  {item.status === 'completed' && !board && (
+                  {(item.status === 'completed' && item.pinCount > 0 || item.status === 'expired' && item.pinCount > 0) && !board && (
                     <span className="text-[11px] text-muted-theme">
                       {language === 'ru' ? 'Доска недоступна в текущем списке' : 'Board is unavailable'}
                     </span>

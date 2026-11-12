@@ -144,6 +144,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
 
   const purchaseStatusLabels: Record<string, string> = {
     success: t.purchases?.statusSuccess || 'Оплачено',
+    paid_uncredited: language === 'ru' ? 'Оплачено — требуется зачисление' : 'Paid — credit pending',
     pending: t.purchases?.statusPending || 'Ожидает оплаты',
     canceled: t.purchases?.statusCanceled || 'Отменён',
     denied: t.purchases?.statusDenied || 'Отклонён',
@@ -186,8 +187,8 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
   // A provider webhook may arrive after the customer returns from checkout.
   // Refresh only while this account has pending orders; never create a new payment.
   const pendingPaymentKey = [
-    ...history.filter((row) => row.status === 'pending').map((row) => `subscription:${row.id}`),
-    ...purchases.filter((row) => row.status === 'pending').map((row) => `purchase:${row.id}`),
+    ...history.filter((row) => row.status === 'pending' || row.status === 'paid_unactivated').map((row) => `subscription:${row.id}`),
+    ...purchases.filter((row) => row.status === 'pending' || row.status === 'paid_uncredited').map((row) => `purchase:${row.id}`),
   ].sort().join('|');
 
   useEffect(() => {
@@ -215,10 +216,10 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
         // (for example, "unknown" or "processing") must never release a checkout
         // idempotency key while the provider outcome may still be unresolved.
         const previouslyPendingSubscriptionIds = new Set(
-          history.filter((row) => row.status === 'pending').map((row) => row.id)
+          history.filter((row) => row.status === 'pending' || row.status === 'paid_unactivated').map((row) => row.id)
         );
         const previouslyPendingPurchaseIds = new Set(
-          purchases.filter((row) => row.status === 'pending').map((row) => row.id)
+          purchases.filter((row) => row.status === 'pending' || row.status === 'paid_uncredited').map((row) => row.id)
         );
         const settledSubscriptions = nextHistory.filter((row: SubscriptionRow) =>
           previouslyPendingSubscriptionIds.has(row.id) &&
@@ -905,14 +906,16 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
                         <td className="py-3 px-3">
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                              p.status === 'success'
+                              p.status === 'success' || p.provider_refunded_at
                                 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                                 : p.status === 'pending'
                                 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
                                 : 'bg-red-500/10 text-red-600 dark:text-red-400'
                             }`}
                           >
-                            {purchaseStatusLabels[p.status] || p.status}
+                            {p.provider_refunded_at
+                              ? (language === 'ru' ? 'Возврат подтверждён' : 'Refund confirmed')
+                              : purchaseStatusLabels[p.status] || p.status}
                           </span>
                         </td>
                         <td className="py-3 px-3 font-mono text-secondary-theme">
@@ -927,6 +930,13 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
                 <History className="w-3.5 h-3.5" />
                 {t.purchases?.neverBurn || 'Кредиты из оплаченных пакетов зачислены на баланс и не сгорают.'}
               </p>
+              {purchases.some((purchase) => purchase.status === 'paid_uncredited' && !purchase.provider_refunded_at) && (
+                <p className="text-[11px] text-amber-700 dark:text-amber-300" role="status">
+                  {language === 'ru'
+                    ? 'Платёж подтверждён, но кредиты пока не зачислены. Не оплачивайте заказ повторно — обратитесь в поддержку и укажите номер заказа из истории.'
+                    : 'Your payment was confirmed, but credits have not been added yet. Do not pay again; contact support with the order reference from your history.'}
+                </p>
+              )}
               {purchases.some((purchase) => purchase.status === 'pending') && (
                 <p className="text-[11px] text-amber-700 dark:text-amber-300" role="status">
                   {language === 'ru'

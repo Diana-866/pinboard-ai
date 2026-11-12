@@ -98,11 +98,13 @@ export async function payAndRedirect(plan: PayablePlan, currency: 'rub' | 'usd' 
 export interface SubscriptionRow {
   id: string;
   plan: string;
-  status: 'pending' | 'success' | 'canceled' | 'denied' | 'expired';
+  status: 'pending' | 'success' | 'canceled' | 'denied' | 'expired' | 'paid_unactivated';
   amount: number;
   currency: string;
   period_start: string | null;
   period_end: string | null;
+  provider_paid_at?: string | null;
+  provider_refunded_at?: string | null;
   created_at: string;
   provider_payment_id: string | null;
   email?: string | null;
@@ -135,11 +137,12 @@ export interface CreditPurchaseRow {
   package_id: string;
   pack_title: string | null;
   credits: number;
-  status: 'pending' | 'success' | 'canceled' | 'denied';
+  status: 'pending' | 'success' | 'canceled' | 'denied' | 'paid_uncredited';
   amount: number;
   currency: string;
   paid_at: string | null;
   balance_credited_at: string | null;
+  provider_refunded_at?: string | null;
   created_at: string;
   provider_payment_id: string | null;
 }

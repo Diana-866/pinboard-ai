@@ -3,7 +3,63 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const axios = require("axios");
-const { generateImage, waitForImageTask } = require("../gptunnel");
+const { generateImage, waitForImageTask, normalizeMediaQuote } = require("../gptunnel");
+const { providerTaskError } = require("../gptunnel");
+
+test("media quote accepts a valid decimal price returned as a string", () => {
+  const quote = normalizeMediaQuote({
+    code: 0,
+    model: "flux-schnell",
+    price: "2.75",
+    currency: "RUB",
+    params: { aspect_ratio: "2:3" },
+    ignored_params: [],
+  });
+  assert.equal(quote.price, 2.75);
+});
+
+test("media quote rejects malformed numeric strings", () => {
+  assert.throws(() => normalizeMediaQuote({
+    code: 0,
+    model: "flux-schnell",
+    price: "2,75",
+    currency: "RUB",
+    params: { aspect_ratio: "2:3" },
+    ignored_params: [],
+  }), /некорректную котировку/);
+});
+
+
+test("media quote rejects zero and negative prices", () => {
+  for (const price of [0, "0", -1, "-0.01"]) {
+    assert.throws(() => normalizeMediaQuote({
+      code: 0,
+      model: "flux-schnell",
+      price,
+      currency: "RUB",
+      params: { aspect_ratio: "2:3" },
+      ignored_params: [],
+    }), /некорректную котировку/);
+  }
+});
+
+test("provider failure preserves a decimal price returned as a string", () => {
+  const error = providerTaskError({
+    id: "provider-task-failed-priced",
+    status: "failed",
+    price: "2.75",
+    refunded: false,
+    error: { code: 429, title: "Rate limited", message: "Provider rejected task" },
+  });
+
+  assert.equal(error.providerStatus, "failed");
+  assert.equal(error.providerTaskId, "provider-task-failed-priced");
+  assert.equal(error.providerPrice, 2.75);
+  assert.equal(error.providerRefunded, false);
+  assert.equal(error.providerErrorCode, 429);
+  assert.equal(error.providerErrorTitle, "Rate limited");
+});
+
 
 test("waitForImageTask polls the persisted task and never creates another task", async (t) => {
   const originalGet = axios.get;
@@ -44,6 +100,25 @@ test("waitForImageTask polls the persisted task and never creates another task",
   assert.equal(requested.length, 2);
   assert.ok(requested.every((url) => url.endsWith("/provider-task-123")));
   assert.deepEqual(updates, [{ id: "provider-task-123", status: "running" }]);
+});
+
+
+test("polling rejects a provider response whose task ID differs from the journaled task", async (t) => {
+  const originalGet = axios.get;
+  axios.get = async () => ({
+    data: {
+      id: "different-provider-task",
+      status: "done",
+      price: 1.25,
+      result: [{ url: "https://provider.example/wrong-task.png" }],
+    },
+  });
+  t.after(() => { axios.get = originalGet; });
+
+  await assert.rejects(
+    waitForImageTask("provider-task-expected", { pollIntervalMs: 0, maxPolls: 1 }),
+    (error) => error.code === "GPTUNNEL_TASK_ID_MISMATCH"
+  );
 });
 
 
@@ -132,4 +207,29 @@ test("synchronous provider completion is journaled before generateImage returns"
   assert.equal(payloads.length, 1);
   assert.equal(payloads[0].payload.idempotency_key, "generation-key-123456");
   assert.equal(pollCalls, 0);
+});
+
+
+test("malformed synchronous completion persists task identity before result parsing", async (t) => {
+  const originalPost = axios.post;
+  axios.post = async () => ({
+    data: {
+      id: "provider-task-malformed-result",
+      status: "done",
+      price: 2.5,
+      result: [],
+    },
+  });
+  t.after(() => { axios.post = originalPost; });
+
+  const updates = [];
+  await assert.rejects(
+    generateImage("test prompt", "flux-schnell", "2:3", "generation-key-malformed", {
+      onTaskUpdate: async (id, status) => updates.push({ id, status }),
+    }),
+    /некорректный результат генерации/
+  );
+  assert.deepEqual(updates, [
+    { id: "provider-task-malformed-result", status: "running" },
+  ]);
 });

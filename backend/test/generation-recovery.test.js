@@ -44,6 +44,32 @@ test("completed recovery returns only safe fields for the user's saved pins", ()
   assert.equal(JSON.stringify(result).includes("must-not-leak"), false);
 });
 
+test("completed recovery filters malformed pins and downgrades empty durable results", () => {
+  const result = serializeGenerationRecovery({
+    status: "completed",
+    board_id: "board-1",
+    pins: [
+      { id: "pin-valid", image_url: "https://cdn.example/pin.png", title: "Saved" },
+      { id: "", image_url: "https://cdn.example/no-id.png" },
+      { id: "pin-no-image", image_url: "" },
+      { id: "pin-bad-scheme", image_url: "javascript:alert(1)" },
+      { id: "pin-credentials", image_url: "https://user:pass@cdn.example/pin.png" },
+      null,
+    ],
+  });
+  assert.equal(result.status, "completed");
+  assert.equal(result.pins.length, 1);
+  assert.equal(result.pins[0].id, "pin-valid");
+
+  const empty = serializeGenerationRecovery({
+    status: "completed",
+    board_id: "board-1",
+    pins: [{ id: "pin-no-image", image_url: "" }],
+  });
+  assert.equal(empty.status, "unknown");
+  assert.deepEqual(empty.pins, []);
+});
+
 test("in-progress and uncertain requests never expose partial pin payloads", () => {
   for (const status of ["processing", "unknown", "failed"]) {
     const result = serializeGenerationRecovery({
@@ -67,9 +93,24 @@ test("unexpected database status is normalized to unknown", () => {
 });
 
 
+test("durable recovery pin count ignores malformed or unsafe image records", () => {
+  const { countDurableRecoveryPins } = require("../generationRecovery");
+  assert.equal(countDurableRecoveryPins([
+    { id: "valid", image_url: "https://cdn.example/pin.png" },
+    { id: "", image_url: "https://cdn.example/no-id.png" },
+    { id: "empty-host", image_url: "https://" },
+    { id: "credentials", image_url: "https://user:pass@cdn.example/pin.png" },
+    { id: "wrong-scheme", image_url: "ftp://cdn.example/pin.png" },
+  ]), 1);
+  assert.equal(countDurableRecoveryPins(null), 0);
+});
+
 test("generation recovery returns a machine-readable 410 after replay expiry", () => {
   const source = fs.readFileSync(path.join(__dirname, "..", "index.js"), "utf8");
   assert.ok(source.includes('.select("id, board_id, status, pins, replay_expired_at, created_at, updated_at")'));
   assert.ok(source.includes('code: "idempotency_result_expired"'));
+  assert.ok(source.includes('status: "expired"'));
+  assert.ok(source.includes('board_id: request.board_id'));
+  assert.ok(source.includes('pin_count: countDurableRecoveryPins(request.pins)'));
   assert.ok(source.includes('return res.status(410).json({'));
 });

@@ -12,7 +12,7 @@ import {
 import { useTheme } from '../../theme/themeContext';
 import { useI18n } from '../../i18n/i18nContext';
 import { useAuth } from '../../context/AuthContext';
-import { apiRequest } from '../../lib/api';
+import { apiRequest, ApiError } from '../../lib/api';
 import {
   getDefaultTimezone,
   saveUserTimezone,
@@ -21,6 +21,7 @@ import {
 import {
   buildAccountExportFilename,
   downloadJsonFile,
+  isCompleteAccountExport,
   parseDeletionReceipt,
 } from '../../utils/accountDataExport';
 
@@ -59,9 +60,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing, onPin
     setExportError(null);
     try {
       const data = await apiRequest('/account/export');
+      // The API can return a deliberately partial archive when a table is
+      // unavailable. Never present that as a successful full account export.
+      if (!isCompleteAccountExport(data, String(user?.id || ''))) {
+        throw new Error(t.settings.exportIncomplete);
+      }
       downloadJsonFile(buildAccountExportFilename(String(user?.id || ''), new Date()), data);
     } catch (error) {
-      setExportError(error instanceof Error ? error.message : t.settings.requestFailed);
+      if (error instanceof ApiError && error.data?.code === 'account_export_incomplete') {
+        setExportError(t.settings.exportIncomplete);
+      } else {
+        setExportError(error instanceof Error ? error.message : t.settings.requestFailed);
+      }
     } finally {
       setExporting(false);
     }
@@ -83,7 +93,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing, onPin
       // Доступ уже закрыт на сервере — завершаем локальную сессию.
       setTimeout(() => logout(), 4000);
     } catch (error) {
-      setDeleteError(error instanceof Error ? error.message : t.settings.requestFailed);
+      // The API currently returns this gate message in Russian. Keep the
+      // account-deletion UI consistent with the selected application language.
+      if (error instanceof ApiError && error.data?.code === 'account_deletion_unavailable') {
+        setDeleteError(t.settings.deleteAccountUnavailable);
+      } else {
+        setDeleteError(error instanceof Error ? error.message : t.settings.requestFailed);
+      }
     } finally {
       setDeleting(false);
     }

@@ -71,3 +71,44 @@ test("webhook exception preserves malformed amounts without treating them as exp
   assert.equal(record.received_sum, "not-a-number");
   assert.equal(record.expected_amount, null);
 });
+
+
+test("paid credit fulfillment failures are fingerprinted as reconciliation events", () => {
+  const record = buildWebhookException({
+    paymentKind: "credits",
+    body: {
+      order_id: "ppc-pack_100-deleted-account",
+      payment_status: "success",
+      sum: "190.00",
+      customer_email: "private@example.com",
+    },
+    expectedAmount: 190,
+    reason: "credit_fulfillment_failed",
+  });
+
+  assert.equal(record.reason, "credit_fulfillment_failed");
+  assert.equal(record.payment_status, "success");
+  assert.equal(record.expected_amount, 190);
+  assert.equal(record.order_id, "ppc-pack_100-deleted-account");
+  assert.equal(JSON.stringify(record).includes("private@example.com"), false);
+});
+
+
+test("paid subscription activation failures are recorded for reconciliation without PII", () => {
+  const record = buildWebhookException({
+    paymentKind: "subscription",
+    body: {
+      order_id: "pp-start-deleted-account",
+      payment_status: "success",
+      sum: "790.00",
+      customer_email: "private@example.com",
+    },
+    expectedAmount: 790,
+    reason: "subscription_activation_failed",
+  });
+
+  assert.equal(record.reason, "subscription_activation_failed");
+  assert.equal(record.payment_kind, "subscription");
+  assert.equal(record.expected_amount, 790);
+  assert.equal(JSON.stringify(record).includes("private@example.com"), false);
+});
