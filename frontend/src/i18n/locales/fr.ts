@@ -576,6 +576,10 @@ export const fr: TranslationSchema = {
     allReviewed: 'Toutes les épingles ont été examinées !',
     allReviewedDesc: 'Les épingles approuvées ont été programmées aux heures optimales de visibilité.',
     finishBtn: 'Aller au Calendrier',
+    queueLoadErrorTitle: "Impossible de charger la file de vérification",
+    queueLoadErrorDescription: "Vos épingles n’ont pas été supprimées. Vérifiez votre connexion et réessayez. Une file vide ne signifie pas que toutes les épingles ont été examinées.",
+    queueRetry: "Réessayer le chargement",
+    queueLoading: "Chargement de la file de vérification…",
   },
 
   bot: {
