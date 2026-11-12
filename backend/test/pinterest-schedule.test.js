@@ -16,7 +16,7 @@ const {
   persistKnownRemotePublishOutcome,
   isPinterestPublishOutcomeUnknown,
   buildPinScheduleSnapshot,
-  resolvePinScheduleSnapshot,
+  resolvePinScheduleSnapshot, normalizePinterestDestinationUrl,
   classifyLegacyScheduleAccount,
   getScheduleRetryability,
   selectScheduleAttemptForRetry,
@@ -233,6 +233,16 @@ test("snapshot schedules fall back to the resolved schedule destination when sna
     assert.equal(resolved.is_snapshot, true);
     assert.equal(resolved.image_url, "https://cdn.example/scheduled.jpg");
   }
+});
+
+test("Pinterest destination normalization validates the exact outgoing URL", () => {
+  assert.equal(
+    normalizePinterestDestinationUrl(" https://example.com/path "),
+    "https://example.com/path"
+  );
+  assert.equal(normalizePinterestDestinationUrl(null), null);
+  assert.throws(() => normalizePinterestDestinationUrl("javascript:alert(1)"), /HTTP or HTTPS/);
+  assert.throws(() => normalizePinterestDestinationUrl("data:text/html,hello"), /HTTP or HTTPS/);
 });
 
 test("legacy schedules without snapshots retain live-pin compatibility", () => {
