@@ -304,8 +304,22 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
     p_description: `Пакет кредитов «${purchase.pack_title || purchase.package_id}» (+${purchase.credits}, не сгорают), заказ ${orderId}`,
   });
   if (creditError) {
-    logError("creditsBilling.event_019");
-    return res.status(500).json({ ok: false, error: "crediting failed" });
+    // A signed provider success can still be impossible to fulfill (for
+    // example, the account was already finalized for deletion). Persist a
+    // privacy-safe reconciliation record before asking Prodamus to retry.
+    try {
+      await persistWebhookException(db, {
+        paymentKind: "credits",
+        body,
+        expectedAmount: expected,
+        reason: "credit_fulfillment_failed",
+      });
+    } catch (auditError) {
+      logError("creditsBilling.event_019");
+      return res.status(500).json({ ok: false, error: "crediting and audit storage failed" });
+    }
+    logError("creditsBilling.event_020");
+    return res.status(500).json({ ok: false, error: "crediting requires reconciliation" });
   }
 
   try {
