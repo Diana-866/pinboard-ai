@@ -20,7 +20,9 @@ function fakeDb(tables, { rpcResult } = {}) {
     rpcCalls,
     from(table) {
       const filters = [];
-      let limit = null;\n      let rangeStart = 0;\n      let rangeEnd = Number.MAX_SAFE_INTEGER;
+      let limit = null;
+      let rangeStart = 0;
+      let rangeEnd = Number.MAX_SAFE_INTEGER;
       const resolve = () => {
         if (!(table in tables)) {
           return Promise.resolve({
