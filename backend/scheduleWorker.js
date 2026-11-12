@@ -32,6 +32,31 @@ function getNextPollDelayMs(consecutiveFailures, baseIntervalMs = POLL_INTERVAL_
   return Math.min(MAX_RETRY_INTERVAL_MS, base * (2 ** Math.min(failures, 30)));
 }
 
+function validateSchedulerResponse(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data) || data.ok !== true) return false;
+  const countKeys = ["claimed", "published", "failed", "scheduled", "unknown"];
+  for (const key of countKeys) {
+    if (!Number.isSafeInteger(data[key]) || data[key] < 0) return false;
+  }
+  if (data.claimed > BATCH_LIMIT) return false;
+  const outcomes = data.published + data.failed + data.scheduled + data.unknown;
+  if (outcomes !== data.claimed) return false;
+  if (!Array.isArray(data.results) || data.results.length !== data.claimed) return false;
+  const allowedStatuses = new Set(["published", "failed", "scheduled", "unknown"]);
+  if (data.results.some((item) =>
+    !item ||
+    typeof item !== "object" ||
+    typeof item.schedule_id !== "string" ||
+    !item.schedule_id.trim() ||
+    !allowedStatuses.has(item.status)
+  )) return false;
+  const resultCounts = data.results.reduce((counts, item) => {
+    counts[item.status] += 1;
+    return counts;
+  }, { published: 0, failed: 0, scheduled: 0, unknown: 0 });
+  return countKeys.slice(1).every((key) => resultCounts[key] === data[key]);
+}
+
 function getSafeWorkerErrorDetails(error) {
   const details = {};
   // Error objects can be supplied by HTTP clients and adapters. Read each
@@ -131,7 +156,7 @@ function createWorker({
           headers: { "x-pinposy-scheduler-secret": config.secret },
         });
         const data = response && response.data;
-        if (!data || data.ok !== true) throw new Error("Backend returned an invalid worker response");
+        if (!validateSchedulerResponse(data)) throw new Error("Backend returned an invalid worker response");
         consecutiveFailures = 0;
         const claimed = Number(data.claimed) || 0;
         logger.info("schedule_worker.batch_completed", {
@@ -214,4 +239,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { getWorkerConfig, createWorker, getNextPollDelayMs, MAX_REQUEST_TIMEOUT_MS, DEFAULT_DRAIN_TIMEOUT_MS, MAX_RETRY_INTERVAL_MS };
+module.exports = { getWorkerConfig, createWorker, getNextPollDelayMs, validateSchedulerResponse, MAX_REQUEST_TIMEOUT_MS, DEFAULT_DRAIN_TIMEOUT_MS, MAX_RETRY_INTERVAL_MS };
