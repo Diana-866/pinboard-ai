@@ -308,6 +308,16 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
   const [approvedCount, setApprovedCount] = useState(0);
   const [rejectedCount, setRejectedCount] = useState(0);
+
+  // Progress and any fallback queue state are scoped to the authenticated user.
+  // Do not carry one person's review totals into the next signed-in session.
+  useEffect(() => {
+    setApprovedCount(0);
+    setRejectedCount(0);
+    setInternalQueue([]);
+    setBulkApprovalProgress(null);
+  }, [userId]);
+
   const totalInitial = Math.max(1, queue.length + approvedCount + rejectedCount);
 
   // Active pin in focus
