@@ -58,7 +58,73 @@ function ageLabel(value: number | null) {
   return minutes ? `${hours} ч. ${minutes} мин.` : `${hours} ч.`;
 }
 
-function OperationTable({ title, rows, empty, rowLabel }: { title: string; rows: Operation[]; empty: string; rowLabel: string }) {
+type PaymentRow = Operation & { payment_id: string; payment_kind: 'credits' | 'subscription' };
+
+function CreditRefundControl({ row, onRecorded }: { row: PaymentRow; onRecorded: () => void }) {
+  const [evidenceType, setEvidenceType] = useState('provider_dashboard');
+  const [evidenceReference, setEvidenceReference] = useState('');
+  const [actionId] = useState(() => crypto.randomUUID());
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = async () => {
+    if (!evidenceReference.trim() || saving) return;
+    setSaving(true);
+    setError('');
+    try {
+      await apiRequest('/admin/credit-purchases/record-provider-refund', {
+        method: 'POST',
+        body: JSON.stringify({
+          purchase_id: row.payment_id,
+          action_id: actionId,
+          evidence_type: evidenceType,
+          evidence_reference: evidenceReference.trim(),
+        }),
+      });
+      onRecorded();
+    } catch (e: any) {
+      setError(e?.message || 'Не удалось записать подтверждение возврата');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="min-w-[230px] space-y-1.5">
+      <select
+        value={evidenceType}
+        onChange={(event) => setEvidenceType(event.target.value)}
+        className="w-full rounded-lg border border-subtle bg-surface px-2 py-1.5 text-[10px] text-primary-theme"
+        aria-label="Тип подтверждения возврата"
+      >
+        <option value="provider_dashboard">Кабинет Prodamus</option>
+        <option value="provider_support">Ответ поддержки</option>
+        <option value="payment_statement">Платёжная выписка</option>
+        <option value="manual_review">Ручная проверка</option>
+      </select>
+      <input
+        value={evidenceReference}
+        onChange={(event) => setEvidenceReference(event.target.value)}
+        placeholder="ID возврата / номер обращения"
+        maxLength={500}
+        className="w-full rounded-lg border border-subtle bg-surface px-2 py-1.5 text-[10px] text-primary-theme"
+        aria-label="Номер подтверждения возврата"
+      />
+      <button
+        type="button"
+        onClick={submit}
+        disabled={saving || evidenceReference.trim().length < 8}
+        className="rounded-lg bg-amber-600 px-2.5 py-1.5 text-[10px] font-semibold text-white disabled:opacity-40"
+      >
+        {saving ? 'Сохраняем…' : 'Подтвердить возврат'}
+      </button>
+      {error && <p role="alert" className="text-[10px] text-rose-600">{error}</p>}
+      <p className="text-[10px] text-muted-theme">Сначала выполните возврат в Prodamus, затем внесите подтверждение.</p>
+    </div>
+  );
+}
+
+function OperationTable({ title, rows, empty, rowLabel, onRefresh }: { title: string; rows: Operation[]; empty: string; rowLabel: string; onRefresh?: () => void }) {
   return (
     <section className="custom-card overflow-hidden">
       <div className="flex items-center justify-between gap-3 border-b border-subtle px-4 py-3">
@@ -77,6 +143,7 @@ function OperationTable({ title, rows, empty, rowLabel }: { title: string; rows:
                 <th className="px-4 py-2.5">Что проверить</th>
                 <th className="px-4 py-2.5">Возраст</th>
                 <th className="px-4 py-2.5">Обновлено</th>
+                {rows.some((row) => row.payment_kind) && <th className="px-4 py-2.5">Действие</th>}
               </tr>
             </thead>
             <tbody>
@@ -101,6 +168,13 @@ function OperationTable({ title, rows, empty, rowLabel }: { title: string; rows:
                   <td className="max-w-[320px] px-4 py-3 align-top text-secondary-theme">{REASONS[row.reason] || row.reason}</td>
                   <td className="whitespace-nowrap px-4 py-3 align-top font-mono text-[10px] text-secondary-theme">{ageLabel(row.age_minutes)}</td>
                   <td className="whitespace-nowrap px-4 py-3 align-top text-[10px] text-muted-theme">{new Date(row.updated_at || row.paid_at || row.created_at).toLocaleString()}</td>
+                  {row.payment_kind && (
+                    <td className="px-4 py-3 align-top">
+                      {row.payment_kind === 'credits'
+                        ? <CreditRefundControl row={row as PaymentRow} onRecorded={onRefresh || (() => {})} />
+                        : <span className="text-[10px] text-muted-theme">Требуется сверка оплаты и тарифа</span>}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -165,7 +239,7 @@ export const AdminFinancialOperations: React.FC = () => {
           <OperationTable title="Генерации" rowLabel="Генерация" rows={data.generation} empty="Старых незавершённых генераций нет." />
           <OperationTable title="Перегенерации" rowLabel="Перегенерация" rows={data.regeneration} empty="Старых незавершённых перегенераций нет." />
           <OperationTable title="Активные резервы кредитов" rowLabel="Резерв кредитов" rows={data.reservations} empty="Старых активных резервов нет." />
-          <OperationTable title="Оплаты, требующие сверки" rowLabel="Оплаченный заказ" rows={data.payment_reconciliation} empty="Оплаченных заказов без зачисления нет." />
+          <OperationTable title="Оплаты, требующие сверки" rowLabel="Оплаченный заказ" rows={data.payment_reconciliation} empty="Оплаченных заказов без зачисления нет." onRefresh={load} />
           {(data.truncated.generation || data.truncated.regeneration || data.truncated.reservations || data.truncated.paid_credits || data.truncated.paid_subscriptions) && (
             <p className="text-[11px] text-amber-700 dark:text-amber-300">Показана только первая часть очереди (до {data.limit_per_category} записей в каждой категории). Обновите список позже, чтобы увидеть следующие операции.</p>
           )}
