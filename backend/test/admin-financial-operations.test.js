@@ -23,7 +23,7 @@ const fixtures = {
     { id: 41, status: "paid_uncredited", amount: 190, currency: "rub", provider_payment_id: "ppc-41", paid_at: oldTimestamp, created_at: oldTimestamp, user_id: "private-credit-user" },
   ],
   subscriptions: [
-    { id: 51, status: "paid_unactivated", amount: 790, currency: "rub", provider_paid_at: oldTimestamp, created_at: oldTimestamp, user_id: "private-subscription-user" },
+    { id: 51, status: "paid_unactivated", amount: 790, currency: "rub", provider_paid_at: oldTimestamp, provider_refunded_at: null, created_at: oldTimestamp, user_id: "private-subscription-user" },
   ],
 };
 
@@ -32,6 +32,7 @@ const supabaseMock = {
     const query = {
       select() { return this; },
       eq() { return this; },
+      is() { return this; },
       lt() { return this; },
       order() { return this; },
       limit() { return this; },
