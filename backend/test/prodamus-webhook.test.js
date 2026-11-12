@@ -515,6 +515,73 @@ test("credit webhook concurrent duplicate callbacks credit once; retry after amb
   assert.equal(db.rpcCalls.settle, 2, "successful fulfillment and its duplicate must reconcile checkout state");
 });
 
+test("paid callback for a deleted account is durably reconciled and acknowledged without crediting", async () => {
+  const db = createPaymentDb({
+    purchase: {
+      id: "purchase-deleted",
+      provider_payment_id: "ppc-deleted",
+      amount: 490,
+      currency: "rub",
+      credits: 100,
+      package_id: "pack_100",
+      balance_credited_at: null,
+      status: "pending",
+    },
+    activate: async () => ({ data: null, error: null }),
+    credit: async () => ({
+      data: null,
+      error: { message: "account is deleted; paid purchase requires reconciliation" },
+    }),
+  });
+  const auditRecords = [];
+  const auditedDb = {
+    ...db,
+    from(table) {
+      if (table === "billing_webhook_exceptions") {
+        return {
+          insert: async (record) => {
+            auditRecords.push(record);
+            return { error: null };
+          },
+        };
+      }
+      return db.from(table);
+    },
+  };
+  const request = signedWebhook({
+    order_id: "ppc-deleted",
+    payment_status: "success",
+    sum: "490.00",
+    currency: "rub",
+  });
+  const handler = require("../creditsBilling").handleCreditsWebhook;
+
+  const first = createWebhookResponse();
+  await handler(request, first, { supabase: auditedDb });
+  assert.equal(first.statusCode, 200);
+  assert.deepEqual(first.body, {
+    ok: true,
+    payment_received: true,
+    credited: false,
+    reconciliation_required: true,
+  });
+  assert.equal(db.state.purchase.balance_credited_at, null);
+  assert.equal(db.state.purchase.status, "pending");
+  assert.equal(db.rpcCalls.credit, 1);
+  assert.equal(auditRecords.length, 1);
+  assert.equal(auditRecords[0].reason, "paid_credit_account_deleted");
+
+  // Prodamus retry receives the same acknowledgement; the audit fingerprint
+  // is stable, so a real DB's unique event_hash keeps one durable queue item.
+  const retry = createWebhookResponse();
+  await handler(request, retry, { supabase: auditedDb });
+  assert.equal(retry.statusCode, 200);
+  assert.equal(retry.body.reconciliation_required, true);
+  assert.equal(db.rpcCalls.credit, 2);
+  assert.equal(auditRecords.length, 2);
+  assert.equal(auditRecords[0].event_hash, auditRecords[1].event_hash);
+});
+
 test("credit webhook retries checkout settlement without crediting twice", async () => {
   let settlementCommitted = false;
   let creditsApplied = 0;
