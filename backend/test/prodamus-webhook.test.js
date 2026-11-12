@@ -240,7 +240,7 @@ function signedWebhook(body) {
 
 function createPaymentDb({ subscription, purchase, activate, credit, settle, cancel }) {
   const state = { subscription: structuredClone(subscription), purchase: structuredClone(purchase) };
-  const rpcCalls = { activate: 0, credit: 0, settle: 0 };
+  const rpcCalls = { activate: 0, credit: 0, settle: 0, markSubscription: 0, markCredit: 0 };
   const db = {
     from(table) {
       const key = table === "subscriptions" ? "subscription" : "purchase";
@@ -282,6 +282,25 @@ function createPaymentDb({ subscription, purchase, activate, credit, settle, can
       if (name === "credit_paid_purchase") {
         rpcCalls.credit++;
         return credit(state, args, rpcCalls);
+      }
+      if (name === "record_paid_unactivated_subscription") {
+        rpcCalls.markSubscription++;
+        const row = state.subscription;
+        if (!row || row.id !== args.p_subscription_id) return { data: null, error: { message: "subscription not found" } };
+        if (row.status === "success" && row.period_end) return { data: false, error: null };
+        if (row.provider_refunded_at || row.period_end) return { data: false, error: null };
+        row.status = "paid_unactivated";
+        row.provider_paid_at = row.provider_paid_at || args.p_paid_at;
+        return { data: true, error: null };
+      }
+      if (name === "record_paid_uncredited_credit_purchase") {
+        rpcCalls.markCredit++;
+        const row = state.purchase;
+        if (!row || row.id !== args.p_purchase_id) return { data: null, error: { message: "credit purchase not found" } };
+        if (row.balance_credited_at || row.status === "success" || row.provider_refunded_at) return { data: false, error: null };
+        row.status = "paid_uncredited";
+        row.paid_at = row.paid_at || args.p_paid_at;
+        return { data: true, error: null };
       }
       if (name === "settle_payment_creation_request") {
         rpcCalls.settle++;
