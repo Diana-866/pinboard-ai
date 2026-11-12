@@ -28,16 +28,35 @@ async function runOnce({
       logger.info("schedule_cron.batch_completed");
       return response.data;
     } catch (error) {
+      const safeError = {};
       let status;
+      // Axios errors may contain credentials in request config and can even
+      // expose hostile getters. Read only fixed diagnostic fields defensively.
+      try {
+        const name = error && error.name;
+        if (typeof name === "string" && /^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(name)) {
+          safeError.name = name;
+        }
+      } catch {
+        // Omit unreadable error name.
+      }
+      try {
+        const code = error && error.code;
+        if (typeof code === "string" && /^[A-Z0-9_]{1,40}$/.test(code)) {
+          safeError.code = code;
+        }
+      } catch {
+        // Omit unreadable error code.
+      }
       try {
         const candidate = error && error.response && error.response.status;
         if (Number.isInteger(candidate) && candidate >= 400 && candidate <= 599) {
           status = candidate;
         }
       } catch {
-        // A malformed error object must not break the one-shot failure path.
+        // Omit unreadable HTTP status.
       }
-      logger.error("schedule_cron.batch_failed", error, status);
+      logger.error("schedule_cron.batch_failed", safeError, status);
       throw error;
     }
   });
