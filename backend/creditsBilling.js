@@ -279,7 +279,7 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
     logError("creditsBilling.event_017");
     const { error: mismatchError } = await db.from("credit_purchases")
       .update({ status: "denied" }).eq("id", purchase.id)
-      .is("balance_credited_at", null).neq("status", "success");
+      .is("balance_credited_at", null).neq("status", "success").neq("status", "paid_uncredited");
     if (mismatchError) return res.status(500).json({ ok: false, error: "db error" });
     return res.json({ ok: true, ignored: "amount mismatch", review_required: true });
   }
