@@ -347,7 +347,7 @@ async function handleWebhook(req, res, dependencies = {}) {
     }
     const mapped = normalizedStatus;
     const { error: statusError } = await db.from("subscriptions")
-      .update({ status: mapped }).eq("id", sub.id).neq("status", "success");
+      .update({ status: mapped }).eq("id", sub.id).neq("status", "success").neq("status", "paid_unactivated");
     if (statusError) return res.status(500).json({ ok: false, error: "db error" });
     logWarning("billing.event_017");
     return res.json({ ok: true, status: mapped });
@@ -382,7 +382,7 @@ async function handleWebhook(req, res, dependencies = {}) {
     }
     logError("billing.event_021");
     const { error: mismatchError } = await db.from("subscriptions")
-      .update({ status: "denied" }).eq("id", sub.id).neq("status", "success");
+      .update({ status: "denied" }).eq("id", sub.id).neq("status", "success").neq("status", "paid_unactivated");
     if (mismatchError) return res.status(500).json({ ok: false, error: "db error" });
     return res.json({ ok: true, ignored: "amount mismatch", review_required: true });
   }
