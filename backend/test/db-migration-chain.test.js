@@ -101,6 +101,17 @@ test("pin image deletion path guard uses a literal-dot extension matcher", () =>
 });
 
 
+test("refunded subscriptions cannot reapply an already-activated entitlement", () => {
+  const sql = fs.readFileSync(path.join(migrationsDir, "160_block_payment_fulfillment_after_provider_refund.sql"), "utf8");
+  const start = sql.indexOf("create or replace function public.activate_paid_subscription");
+  assert.notEqual(start, -1, "migration 160 must replace the subscription activation RPC");
+  const end = sql.indexOf("$function$;", start);
+  assert.notEqual(end, -1, "subscription activation replacement must close its function body");
+  const body = sql.slice(start, end);
+  assert.match(body, /if v_sub\.provider_refunded_at is not null then[\s\S]*provider refund confirmed/i,
+    "activation must reject refunded rows before the already-activated idempotent path");
+});
+
 test("paid subscription fallback has a durable provider-paid timestamp column", () => {
   const sql = fs.readFileSync(path.join(migrationsDir, "159_serialize_unfulfilled_payment_markers_with_account_deletion.sql"), "utf8");
   assert.match(sql, /alter table public\.subscriptions[\s\S]*add column if not exists provider_paid_at timestamptz/i);
