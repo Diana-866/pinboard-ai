@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const {
   classifyScheduleFailure,
+  isPublishJournalPersistenceFailure,
   canRetryScheduleFailure,
   getScheduleRetryDelayMinutes,
   buildScheduleWorkerFailureState,
@@ -884,4 +885,32 @@ test("failed schedule board reassignment accepts the durable image snapshot", ()
   assert.ok(migration.includes("or nullif(btrim(v_schedule.snapshot_image_url), '') is not null"));
   assert.ok(migration.includes("grant execute on function public.change_failed_pin_schedule_board(text,uuid,text)"));
   assert.ok(migration.includes("to service_role"));
+});
+
+
+test("publication journal persistence failures remain unknown and can never be retried", () => {
+  for (const code of [
+    "PUBLISH_JOURNAL_PERSISTENCE_FAILED",
+    "PUBLISH_REMOTE_ID_JOURNAL_FAILED",
+  ]) {
+    const error = Object.assign(new Error("journal persistence failed"), {
+      httpStatus: 503,
+      code,
+    });
+    assert.equal(isPublishJournalPersistenceFailure(error), true);
+    assert.equal(canRetryScheduleFailure(null, null, error), false);
+    const state = buildScheduleWorkerFailureState({
+      attempt: null,
+      attemptLookupError: null,
+      error,
+      attempts: 0,
+      now: 1_000,
+    });
+    assert.equal(state.finalStatus, "unknown", code);
+    assert.equal(state.retryable, false, code);
+    assert.equal(state.shouldRetry, false, code);
+    assert.equal(state.nextStatus, "unknown", code);
+    assert.equal(state.retryAt, null, code);
+  }
+  assert.equal(isPublishJournalPersistenceFailure(new Error("ordinary error")), false);
 });
