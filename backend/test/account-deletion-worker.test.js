@@ -11,7 +11,7 @@ const {
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 
-function createReadClient({ account = { id: USER_ID, account_status: "deletion_pending" }, failTable = null, invalidPageTable = null } = {}) {
+function createReadClient({ account = { id: USER_ID, account_status: "deletion_pending" }, failTable = null, invalidPageTable = null, invalidCountTable = null } = {}) {
   return {
     supabaseUrl: "https://project.supabase.co",
     from(table) {
@@ -26,6 +26,7 @@ function createReadClient({ account = { id: USER_ID, account_status: "deletion_p
           return Promise.resolve({ data: table === "users" ? account : null, error: null });
         },
         then(resolve, reject) {
+          if (this.headOnly && table === invalidCountTable) return Promise.resolve({ data: null, count: null, error: null }).then(resolve, reject);
           if (table === failTable) return Promise.resolve({ data: null, error: { code: "XX000" } }).then(resolve, reject);
           if (!this.headOnly && table === invalidPageTable) return Promise.resolve({ data: null, error: null }).then(resolve, reject);
           if (table === "projects") return Promise.resolve({ data: [{ id: "project-1" }], count: 1, error: null }).then(resolve, reject);
@@ -104,6 +105,13 @@ test("preflight paginates project and board identifiers beyond the API row cap",
   assert.ok(orders.some((r) => r.table === "projects" && r.column === "id" && r.options.ascending === true));
   assert.ok(orders.some((r) => r.table === "boards" && r.column === "id" && r.options.ascending === true));
   assert.equal(result.counts.boards, 1001);
+});
+
+test("preflight fails closed when a head count is missing", async () => {
+  await assert.rejects(
+    inspectAccountForDeletion(createReadClient({ invalidCountTable: "credit_transactions" }), USER_ID),
+    (error) => error.code === "invalid_inventory_count"
+  );
 });
 
 test("preflight fails closed when an inventory page is null without a database error", async () => {
