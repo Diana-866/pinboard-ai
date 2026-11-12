@@ -43,6 +43,8 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [uncertain, setUncertain] = useState(false);
+  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [uncertainMessage, setUncertainMessage] = useState('Pinterest мог создать пин, но PinPosy пока не подтвердил результат. Проверьте статус перед любыми дальнейшими действиями.');
   const [error, setError] = useState<string | null>(null);
 
   // Publishing controls are account-scoped. Clear the previous owner's
@@ -60,6 +62,8 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
     setBusy(false);
     setDone(null);
     setUncertain(false);
+    setCheckingStatus(false);
+    setUncertainMessage('Pinterest мог создать пин, но PinPosy пока не подтвердил результат. Проверьте статус перед любыми дальнейшими действиями.');
     setError(null);
   }, [userId]);
 
@@ -160,6 +164,64 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
     setError(null);
   };
 
+  const handleCheckStatus = async () => {
+    if (
+      checkingStatus ||
+      !accountId ||
+      !isCurrentPublishSession(activeOwnerIdRef.current, activeSessionIdRef.current, userId, activeSessionIdRef.current)
+    ) return;
+
+    const ownerId = userId;
+    const sessionId = activeSessionIdRef.current;
+    const checkingPinId = pinId;
+    const pinGeneration = activePinGenerationRef.current;
+    const checkingBoardId = selectedBoard;
+    const checkingAccountId = accountId;
+    setCheckingStatus(true);
+    setError(null);
+    try {
+      const result = await apiRequest(
+        `/pins/${encodeURIComponent(checkingPinId)}/publish-status?account_id=${encodeURIComponent(checkingAccountId)}`
+      );
+      if (
+        !isCurrentPublishSession(activeOwnerIdRef.current, activeSessionIdRef.current, ownerId, sessionId) ||
+        !isCurrentPublishPin(activePinIdRef.current, activePinGenerationRef.current, checkingPinId, pinGeneration)
+      ) return;
+
+      const confirmed = readConfirmedPinterestPublish(result, checkingBoardId);
+      if (confirmed) {
+        setDone(confirmed.pinId);
+        setUncertain(false);
+        return;
+      }
+      switch (result?.status) {
+        case 'processing':
+          setUncertainMessage('Публикация ещё обрабатывается. Подождите немного и проверьте статус снова.');
+          break;
+        case 'failed':
+          setUncertainMessage('Pinterest отклонил публикацию, но PinPosy не разрешает автоматический повтор. Проверьте Pinterest и историю публикаций.');
+          break;
+        case 'not_found':
+          setUncertainMessage('Сервер пока не нашёл запись о попытке. Это не подтверждает отсутствие пина в Pinterest — повторная отправка остаётся заблокированной.');
+          break;
+        default:
+          setUncertainMessage('Результат остаётся неопределённым. Повторная отправка заблокирована, чтобы не создать дубликат.');
+      }
+    } catch (statusError) {
+      if (
+        !isCurrentPublishSession(activeOwnerIdRef.current, activeSessionIdRef.current, ownerId, sessionId) ||
+        !isCurrentPublishPin(activePinIdRef.current, activePinGenerationRef.current, checkingPinId, pinGeneration)
+      ) return;
+      const err = statusError as ApiError;
+      setError(err?.message || 'Не удалось проверить статус публикации');
+    } finally {
+      if (
+        isCurrentPublishSession(activeOwnerIdRef.current, activeSessionIdRef.current, ownerId, sessionId) &&
+        isCurrentPublishPin(activePinIdRef.current, activePinGenerationRef.current, checkingPinId, pinGeneration)
+      ) setCheckingStatus(false);
+    }
+  };
+
   const handlePublish = async () => {
     if (!isCurrentPublishSession(activeOwnerIdRef.current, activeSessionIdRef.current, userId, activeSessionIdRef.current) || hasPublishSessionLock(publishLockRef.current, userId, activeSessionIdRef.current) || accountsLoading || boardsLoading || !accountId || !selectedBoard) return;
     const ownerId = userId;
@@ -186,6 +248,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
         // The remote POST may have succeeded even though its response was
         // malformed or incomplete. Never let this UI issue a duplicate POST.
         setUncertain(true);
+        setUncertainMessage('Pinterest мог создать пин, но ответ PinPosy неполный. Проверьте сохранённый результат; повторная отправка заблокирована.');
         return;
       }
       setDone(confirmed.pinId);
@@ -200,6 +263,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
       // 409 also means the backend has fenced an in-flight/unknown attempt.
       if (isAmbiguousPinterestPublishStatus(err?.status)) {
         setUncertain(true);
+        setUncertainMessage('Pinterest мог создать пин, но соединение оборвалось. Проверьте статус публикации; повторная отправка заблокирована.');
       } else {
         setError(err?.message || 'Не удалось опубликовать пин');
       }
@@ -232,9 +296,19 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
 
   if (uncertain) {
     return (
-      <p role="status" className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
-        Pinterest мог создать пин, но PinPosy не подтвердил результат. Не отправляйте его повторно: обновите страницу и проверьте Pinterest.
-      </p>
+      <div role="status" className="space-y-2 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+        <p>{uncertainMessage}</p>
+        <button
+          type="button"
+          onClick={handleCheckStatus}
+          disabled={checkingStatus || !accountId}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-current/30 px-3 py-1.5 disabled:opacity-50"
+        >
+          {checkingStatus ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+          {checkingStatus ? 'Проверяем…' : 'Проверить статус публикации'}
+        </button>
+        {error && <p className="font-medium text-red-600 dark:text-red-400">{error}</p>}
+      </div>
     );
   }
 
