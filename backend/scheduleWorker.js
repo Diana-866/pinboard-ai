@@ -167,6 +167,13 @@ function createWorker({
         return false;
       } finally {
         active = false;
+        if (oneShot) {
+          // Explicitly release both per-invocation agents on success and error.
+          // Cron hosts may reuse a warm process between invocations or enforce
+          // strict shutdown deadlines; no socket pool should outlive this tick.
+          requestAgents.httpAgent.destroy();
+          requestAgents.httpsAgent.destroy();
+        }
         if (!oneShot && consecutiveFailures > 0) {
           scheduleNext(getNextPollDelayMs(consecutiveFailures, intervalMs));
         }
