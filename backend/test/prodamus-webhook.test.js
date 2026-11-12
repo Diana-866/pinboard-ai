@@ -288,7 +288,8 @@ function createPaymentDb({ subscription, purchase, activate, credit, settle, can
         const row = state.subscription;
         if (!row || row.id !== args.p_subscription_id) return { data: null, error: { message: "subscription not found" } };
         if (row.status === "success" && row.period_end) return { data: false, error: null };
-        if (row.provider_refunded_at || row.period_end) return { data: false, error: null };
+        if (row.provider_refunded_at) return { data: false, error: null };
+        if (row.status !== "paid_unactivated" && row.period_end) return { data: false, error: null };
         row.status = "paid_unactivated";
         row.provider_paid_at = row.provider_paid_at || args.p_paid_at;
         return { data: true, error: null };
