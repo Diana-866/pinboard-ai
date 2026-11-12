@@ -320,6 +320,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   const [pinterestBoards, setPinterestBoards] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedPinterestBoardId, setSelectedPinterestBoardId] = useState('');
   const [pinterestBoardsLoaded, setPinterestBoardsLoaded] = useState(false);
+  const [pinterestBoardsAccountId, setPinterestBoardsAccountId] = useState('');
   const [pinterestBoardsError, setPinterestBoardsError] = useState(false);
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
@@ -361,6 +362,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   useEffect(() => {
     let active = true;
     setPinterestBoardsError(false);
+    setPinterestBoardsAccountId('');
     if (!selectedPinterestAccountId) {
       setPinterestBoards([]);
       setSelectedPinterestBoardId('');
@@ -373,6 +375,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         if (!active) return;
         const rows = requirePinterestBoards(data?.boards);
         setPinterestBoards(rows);
+        setPinterestBoardsAccountId(selectedPinterestAccountId);
         setSelectedPinterestBoardId((current) =>
           current && rows.some((board) => board.id === current)
             ? current
@@ -435,6 +438,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       accountId: selectedPinterestAccountId,
       boardId: selectedPinterestBoardId,
       boardsLoaded: pinterestBoardsLoaded,
+      boardsAccountId: pinterestBoardsAccountId,
       boardsError: pinterestBoardsError,
       boards: pinterestBoards,
     })) {
@@ -535,6 +539,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       accountId: selectedPinterestAccountId,
       boardId: selectedPinterestBoardId,
       boardsLoaded: pinterestBoardsLoaded,
+      boardsAccountId: pinterestBoardsAccountId,
       boardsError: pinterestBoardsError,
       boards: pinterestBoards,
     })) {
