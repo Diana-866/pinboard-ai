@@ -169,7 +169,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
     setError(null);
     setBusy(true);
     try {
-      const data = await apiRequest(`/pins/${encodeURIComponent(publishingPinId)}/publish`,
+      const data = await apiRequest(`/pins/${encodeURIComponent(publishingPinId)}/publish`, {
         method: 'POST',
         body: JSON.stringify({ board_id: publishingBoardId, account_id: publishingAccountId }),
       });
@@ -187,7 +187,11 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
       }
       setDone(confirmed.pinId);
     } catch (e) {
-      if (!isCurrentPublishSession(activeOwnerIdRef.current, activeSessionIdRef.current, ownerId, sessionId)) return;
+      if (
+        !isCurrentPublishSession(activeOwnerIdRef.current, activeSessionIdRef.current, ownerId, sessionId) ||
+        activePinGenerationRef.current !== pinGeneration ||
+        activePinIdRef.current !== publishingPinId
+      ) return;
       const err = e as ApiError;
       // A lost connection or server-side failure after POST /pins is ambiguous:
       // Pinterest may have created the pin even though the browser got no reply.
