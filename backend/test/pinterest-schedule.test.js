@@ -840,3 +840,16 @@ test("schedule retry selects the exact board attempt when older attempts target 
   assert.equal(selectScheduleAttemptForRetry([stale], schedule), stale);
   assert.equal(selectScheduleAttemptForRetry([], schedule), null);
 });
+
+
+test("failed schedule board reassignment accepts the durable image snapshot", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const migration = fs.readFileSync(
+    path.join(__dirname, "..", "..", "db", "migrations", "146_pinterest_board_reassignment_uses_immutable_snapshot.sql"),
+    "utf8"
+  );
+  assert.match(migration, /create or replace function public\\.change_failed_pin_schedule_board/);
+  assert.match(migration, /p\\.image_url is not null[\\s\\S]*or nullif\\(btrim\\(v_schedule\\.snapshot_image_url\\), ''\\) is not null/);
+  assert.match(migration, /grant execute on function public\\.change_failed_pin_schedule_board\\(text,uuid,text\\)[\\s\\S]*to service_role/);
+});
