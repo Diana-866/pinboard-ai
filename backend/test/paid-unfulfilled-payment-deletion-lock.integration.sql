@@ -67,6 +67,46 @@ begin
   if public.record_paid_unactivated_subscription(v_subscription,clock_timestamp()) is distinct from false then
     raise exception 'subscription webhook marker overwrote confirmed refund evidence';
   end if;
+
+  -- A delayed success callback must not fulfill either payment after the
+  -- provider refund has been durably recorded.
+  update public.users
+     set account_status='active',tariff_plan='none',tariff_period_end=null
+   where id=v_user;
+
+  begin
+    perform public.credit_paid_purchase(v_purchase,clock_timestamp(),'duplicate webhook after refund');
+    raise exception 'expected credit fulfillment guard after refund';
+  exception when others then
+    if position('provider refund confirmed' in sqlerrm)=0 then raise; end if;
+  end;
+
+  if exists (
+    select 1 from public.credit_purchases
+     where id=v_purchase and (balance_credited_at is not null or status='success')
+  ) then
+    raise exception 'duplicate webhook fulfilled a refunded credit purchase';
+  end if;
+  if (select credits_balance from public.users where id=v_user) <> 0 then
+    raise exception 'duplicate webhook changed credits after refund';
+  end if;
+
+  begin
+    perform public.activate_paid_subscription(v_subscription,clock_timestamp());
+    raise exception 'expected subscription activation guard after refund';
+  exception when others then
+    if position('provider refund confirmed' in sqlerrm)=0 then raise; end if;
+  end;
+
+  if exists (
+    select 1 from public.subscriptions
+     where id=v_subscription and status='success'
+  ) then
+    raise exception 'duplicate webhook activated a refunded subscription';
+  end if;
+  if (select tariff_plan from public.users where id=v_user) <> 'none' then
+    raise exception 'duplicate webhook restored a refunded subscription entitlement';
+  end if;
 end;
 $$;
 
