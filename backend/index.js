@@ -2271,7 +2271,9 @@ app.post("/pins/:id/schedule", requireAuth, pinterestScheduleLimiter, requireTar
         pinterest_account_id: selectedAccount.id,
         scheduled_at: scheduledAt.toISOString(),
         timezone,
-        destination_url: destinationUrl,
+        // Persist the resolved destination, including the project's website fallback.
+        // The same value is used by duplicate-request reconciliation below.
+        destination_url: snapshotDestinationUrl,
         ...buildPinScheduleSnapshot(snapshotPin, snapshotDestinationUrl),
         pinterest_board_id: pinterestBoardId,
         status: "scheduled",
@@ -2293,7 +2295,7 @@ app.post("/pins/:id/schedule", requireAuth, pinterestScheduleLimiter, requireTar
       const sameRequest = existing &&
         new Date(existing.scheduled_at).getTime() === scheduledAt.getTime() &&
         String(existing.timezone || "") === timezone &&
-        String(existing.destination_url || "") === String(destinationUrl || "") &&
+        String(existing.destination_url || "") === String(snapshotDestinationUrl || "") &&
         String(existing.pinterest_board_id || "") === pinterestBoardId &&
         String(existing.pinterest_account_id || "") === String(selectedAccount.id);
       if (sameRequest) {
