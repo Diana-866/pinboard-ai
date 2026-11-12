@@ -159,13 +159,24 @@ test("account export rejects a non-uuid user id", async () => {
   );
 });
 
+test("deletion request fails closed when the worker is disabled", async () => {
+  const db = fakeDb({
+    users: [{ id: USER_ID, password_hash: bcrypt.hashSync("correct-horse-battery", 10), token_version: 12 }],
+  });
+  await assert.rejects(
+    () => requestAccountDeletion({ userId: USER_ID, password: "correct-horse-battery" }, db, false),
+    (error) => error.httpStatus === 503
+  );
+  assert.equal(db.rpcCalls.length, 0);
+});
+
 test("deletion request rejects a wrong password with 403 and never calls the RPC", async () => {
   const db = fakeDb({
     users: [{ id: USER_ID, password_hash: bcrypt.hashSync("correct-horse-battery", 10), token_version: 12 }],
   });
 
   await assert.rejects(
-    () => requestAccountDeletion({ userId: USER_ID, password: "wrong-password" }, db),
+    () => requestAccountDeletion({ userId: USER_ID, password: "wrong-password" }, db, true),
     (error) => error.httpStatus === 403
   );
   assert.equal(db.rpcCalls.length, 0);
@@ -189,7 +200,8 @@ test("deletion request accepts a correct password and returns the receipt", asyn
 
   const result = await requestAccountDeletion(
     { userId: USER_ID, password: "correct-horse-battery" },
-    db
+    db,
+    true
   );
 
   assert.deepEqual(db.rpcCalls, [{

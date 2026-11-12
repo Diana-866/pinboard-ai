@@ -4,6 +4,7 @@ const bcrypt = require("bcryptjs");
 const { logError, logWarning } = require("./safeLogger");
 const defaultSupabase = require("./supabase");
 const { httpError } = require("./validate");
+const { isAccountDeletionWorkerEnabled } = require("./accountDeletionWorkerGate");
 
 const EXPORT_FORMAT_VERSION = 1;
 
@@ -195,8 +196,15 @@ function mapDeletionRpcError(error) {
  */
 async function requestAccountDeletion(
   { userId, password, confirmationMethod = "password_reauth" },
-  client = defaultSupabase
+  client = defaultSupabase,
+  workerEnabled = isAccountDeletionWorkerEnabled()
 ) {
+  // Do not fence the account or accept a durable deletion job when no worker
+  // is enabled to process it. This is fail-closed for every caller, not just
+  // the HTTP route.
+  if (workerEnabled !== true) {
+    throw httpError(503, "Удаление аккаунта временно недоступно — попробуйте позже");
+  }
   const id = requireUserId(userId);
 
   if (typeof password !== "string" || !password) {
