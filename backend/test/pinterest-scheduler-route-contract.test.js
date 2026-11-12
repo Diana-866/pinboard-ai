@@ -230,9 +230,12 @@ test("review approval validates the backend schedule window before mutating pin 
   const app = read(path.join("..", "..", "frontend", "src", "App.tsx"));
   const approval = app.slice(app.indexOf("const handleSchedulePin"), app.indexOf("const handleReconcileLegacySchedule"));
   const validation = approval.indexOf("validateScheduleInstant(localDateTime)");
+  const boardPreflight = approval.indexOf("Выберите доску Pinterest для публикации.");
   const creativeUpdate = approval.indexOf('apiRequest(`/pins/${encodeURIComponent(pin.pinId)}`');
   const approvalMutation = approval.indexOf('body: JSON.stringify({ status: \'approved\' })');
   assert.notEqual(validation, -1, "schedule window is validated before approval");
+  assert.notEqual(boardPreflight, -1, "Pinterest destination is required before approval");
+  assert.ok(creativeUpdate > boardPreflight, "creative fields are not changed before Pinterest destination validation");
   assert.ok(creativeUpdate > validation, "creative fields are not changed before schedule validation");
   assert.ok(approvalMutation > validation, "pin status is not approved before schedule validation");
 });
