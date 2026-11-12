@@ -1298,12 +1298,17 @@ app.get("/review-queue", requireAuth, async (req, res) => {
     const { reconcileReviewQueueRows } = require("./reviewQueueReconciliation");
     const reconciled = reconcileReviewQueueRows(rows, pinsById, userId, scheduledPinIds);
     if (reconciled.staleIds.length) {
-      const { error: cleanupError } = await supabase
-        .from("pin_review_queue")
-        .delete()
-        .eq("user_id", userId)
-        .in("id", reconciled.staleIds);
-      if (cleanupError) throw cleanupError;
+      // Keep cleanup filters bounded as well: a large stale backlog can
+      // otherwise exceed PostgREST URL/request limits during reconciliation.
+      for (let offset = 0; offset < reconciled.staleIds.length; offset += 200) {
+        const staleIdChunk = reconciled.staleIds.slice(offset, offset + 200);
+        const { error: cleanupError } = await supabase
+          .from("pin_review_queue")
+          .delete()
+          .eq("user_id", userId)
+          .in("id", staleIdChunk);
+        if (cleanupError) throw cleanupError;
+      }
     }
     res.json(reconciled.active);
   } catch (e) {
