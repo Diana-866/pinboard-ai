@@ -379,3 +379,19 @@ begin
 end;
 $$;
 rollback;
+
+
+-- Successful bounded Storage batches must not inherit the exponential retry delay.
+do $$
+declare
+  v_definition text;
+begin
+  v_definition := pg_get_functiondef(
+    'public.finish_account_deletion_job(uuid,uuid,text,text)'::regprocedure
+  );
+  if position('storage_manifest_batch_remaining' in v_definition) = 0
+     or position('then 5' in v_definition) = 0 then
+    raise exception 'Storage manifest batch retry fast path is missing';
+  end if;
+end;
+$$;
