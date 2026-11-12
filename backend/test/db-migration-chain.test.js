@@ -22,10 +22,10 @@ test("historical 002-008 SQL files are visibly excluded from clean installs", ()
   }
 });
 
-test("canonical migration files 001 and 010-158 exist; 009 stays archived", () => {
+test("canonical migration files 001 and 010-159 exist; 009 stays archived", () => {
   assert.ok(fs.existsSync(path.join(migrationsDir, "001_baseline.sql")));
   assert.equal(fs.existsSync(path.join(migrationsDir, "009_hardening.sql")), false);
-  for (let number = 10; number <= 158; number += 1) {
+  for (let number = 10; number <= 159; number += 1) {
     const prefix = String(number).padStart(3, "0") + "_";
     const matches = fs.readdirSync(migrationsDir).filter((file) => file.startsWith(prefix) && file.endsWith(".sql"));
     assert.equal(matches.length, 1, `expected exactly one canonical migration for ${prefix}`);
@@ -94,4 +94,21 @@ test("pin image deletion path guard uses a literal-dot extension matcher", () =>
   assert.match(sql, /p_object_path !~\* '[^']*\[\.\][^']*'/);
   assert.doesNotMatch(sql, /p_object_path !~\* '[^']*\\\\\.[^']*'/);
   assert.match(sql, /grant execute on function public\.claim_pin_image_deletion\(text,text,integer\)\s+to service_role;/i);
+});
+
+
+test("paid-but-unfulfilled webhook fallback markers serialize on the account owner", () => {
+  const sql = fs.readFileSync(path.join(migrationsDir, "159_serialize_unfulfilled_payment_markers_with_account_deletion.sql"), "utf8");
+  for (const fn of ["record_paid_uncredited_credit_purchase", "record_paid_unactivated_subscription"]) {
+    const start = sql.indexOf(`create or replace function public.${fn}`);
+    assert.notEqual(start, -1, `${fn} must exist`);
+    const end = sql.indexOf("$function$;", start);
+    assert.notEqual(end, -1, `${fn} must have a closed function body`);
+    const body = sql.slice(start, end);
+    assert.match(body, /from public\.users where id::text=v_owner_id for update/i, `${fn} must lock the account owner`);
+    assert.match(body, /for update/i, `${fn} must lock the dependent payment row`);
+    assert.match(body, /provider_refunded_at is not null|provider_refunded_at/i, `${fn} must preserve refund state`);
+  }
+  assert.match(sql, /revoke all on function public\.record_paid_uncredited_credit_purchase/i);
+  assert.match(sql, /revoke all on function public\.record_paid_unactivated_subscription/i);
 });
