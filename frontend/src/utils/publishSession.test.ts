@@ -1,33 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  hasPublishSessionLock,
-  isCurrentPublishOwner,
-  ownsPublishSessionLock,
-  type PublishSessionLock,
-} from './publishSession';
+import { hasPublishSessionLock, isCurrentPublishSession, ownsPublishSessionLock, type PublishSessionLock } from './publishSession';
 
-test('publish responses are accepted only by the owner session that started them', () => {
-  assert.equal(isCurrentPublishOwner('user-a', 'user-a'), true);
-  assert.equal(isCurrentPublishOwner('user-b', 'user-a'), false);
-  assert.equal(isCurrentPublishOwner('', ''), false);
+test('publish responses are accepted only by the exact authenticated session', () => {
+  assert.equal(isCurrentPublishSession('user-a', 1, 'user-a', 1), true);
+  assert.equal(isCurrentPublishSession('user-b', 2, 'user-a', 1), false);
+  assert.equal(isCurrentPublishSession('user-a', 3, 'user-a', 1), false);
+  assert.equal(isCurrentPublishSession('', 4, '', 4), false);
 });
 
-test('an in-flight publish lock blocks only its own owner session', () => {
-  const lock: PublishSessionLock = { ownerId: 'user-a', requestId: 12 };
-
-  assert.equal(hasPublishSessionLock(lock, 'user-a'), true);
-  assert.equal(hasPublishSessionLock(lock, 'user-b'), false);
-  assert.equal(hasPublishSessionLock(null, 'user-a'), false);
-  assert.equal(ownsPublishSessionLock(lock, 'user-a', 12), true);
-  assert.equal(ownsPublishSessionLock(lock, 'user-a', 13), false);
-  assert.equal(ownsPublishSessionLock(lock, 'user-b', 12), false);
-  assert.equal(ownsPublishSessionLock(null, 'user-a', 12), false);
+test('an in-flight publish lock blocks only its exact owner session', () => {
+  const lock: PublishSessionLock = { ownerId: 'user-a', sessionId: 7, requestId: 12 };
+  assert.equal(hasPublishSessionLock(lock, 'user-a', 7), true);
+  assert.equal(hasPublishSessionLock(lock, 'user-a', 8), false);
+  assert.equal(hasPublishSessionLock(lock, 'user-b', 7), false);
+  assert.equal(hasPublishSessionLock(null, 'user-a', 7), false);
+  assert.equal(ownsPublishSessionLock(lock, 'user-a', 7, 12), true);
+  assert.equal(ownsPublishSessionLock(lock, 'user-a', 7, 13), false);
+  assert.equal(ownsPublishSessionLock(lock, 'user-a', 8, 12), false);
+  assert.equal(ownsPublishSessionLock(null, 'user-a', 7, 12), false);
 });
 
-test('a stale publish completion cannot release a newer session lock', () => {
-  const newerLock: PublishSessionLock = { ownerId: 'user-b', requestId: 13 };
-
-  assert.equal(ownsPublishSessionLock(newerLock, 'user-a', 12), false);
-  assert.equal(ownsPublishSessionLock(newerLock, 'user-b', 13), true);
+test('a stale completion cannot release a newer session lock', () => {
+  const newerLock: PublishSessionLock = { ownerId: 'user-a', sessionId: 8, requestId: 13 };
+  assert.equal(ownsPublishSessionLock(newerLock, 'user-a', 7, 12), false);
+  assert.equal(ownsPublishSessionLock(newerLock, 'user-a', 8, 13), true);
 });
