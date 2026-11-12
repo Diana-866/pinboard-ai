@@ -15,3 +15,7 @@ export function ownsPublishSessionLock(lock: PublishSessionLock | null, ownerId:
 export function hasPublishSessionLock(lock: PublishSessionLock | null, ownerId: string, sessionId: number): boolean {
   return Boolean(lock && lock.ownerId === ownerId && lock.sessionId === sessionId);
 }
+
+export function isCurrentPublishPin(activePinId: string, activeGeneration: number, requestPinId: string, requestGeneration: number): boolean {
+  return Boolean(requestPinId) && activePinId === requestPinId && activeGeneration === requestGeneration;
+}
