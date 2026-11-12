@@ -3,6 +3,7 @@
 const crypto = require("node:crypto");
 const axios = require("axios");
 const { getWorkerConfig } = require("./scheduleWorker");
+const { isValidScheduleWorkerResponse } = require("./scheduleResponse");
 const { logError, logInfo, runWithCorrelationId } = require("./safeLogger");
 
 const REQUEST_TIMEOUT_MS = 120_000;
@@ -25,38 +26,7 @@ async function runOnce({
         }
       );
       const data = response && response.data;
-      const countKeys = ["claimed", "published", "failed", "scheduled", "unknown"];
-      const validCounts = data && countKeys.every((key) =>
-        Number.isSafeInteger(data[key]) && data[key] >= 0
-      );
-      const scheduleIds = new Set();
-      const validResults = data && Array.isArray(data.results) &&
-        data.results.length === data.claimed &&
-        data.results.every((item) => {
-          if (
-            !item ||
-            typeof item !== "object" ||
-            typeof item.schedule_id !== "string" ||
-            !item.schedule_id.trim() ||
-            scheduleIds.has(item.schedule_id) ||
-            !["published", "failed", "scheduled", "unknown"].includes(item.status)
-          ) return false;
-          scheduleIds.add(item.schedule_id);
-          return true;
-        });
-      const resultCounts = validResults
-        ? data.results.reduce((counts, item) => {
-            counts[item.status] += 1;
-            return counts;
-          }, { published: 0, failed: 0, scheduled: 0, unknown: 0 })
-        : null;
-      if (
-        !data ||
-        data.ok !== true ||
-        !validCounts ||
-        !validResults ||
-        countKeys.slice(1).some((key) => resultCounts[key] !== data[key])
-      ) {
+      if (!isValidScheduleWorkerResponse(data)) {
         throw new Error("Backend returned an invalid scheduler response");
       }
       logger.info("schedule_cron.batch_completed");
