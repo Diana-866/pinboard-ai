@@ -63,6 +63,19 @@ if (-not (Get-Command npm.cmd -ErrorAction SilentlyContinue)) {
     throw "npm.cmd is required. Repair the Node.js installation and rerun this script."
 }
 
+$NodeVersionText = & node -p "process.versions.node"
+if ($LASTEXITCODE -ne 0) {
+    throw "Unable to determine the installed Node.js version."
+}
+try {
+    $NodeVersion = [version]$NodeVersionText
+} catch {
+    throw "Unable to parse the installed Node.js version: $NodeVersionText"
+}
+if ($NodeVersion.Major -lt 22) {
+    throw "Node.js 22 or newer is required. Installed version: $NodeVersionText"
+}
+
 $Backend = Join-Path $Root "backend"
 $Frontend = Join-Path $Root "frontend"
 
