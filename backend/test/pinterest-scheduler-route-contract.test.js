@@ -7,6 +7,24 @@ const path = require("node:path");
 
 const read = (file) => fs.readFileSync(path.join(__dirname, "..", file), "utf8");
 
+test("direct Pinterest publish recovery is read-only and confirms only an exact publication ledger row", () => {
+  const pinterest = read("pinterest.js");
+  const start = pinterest.indexOf('app.get("/pins/:id/publish-status"');
+  const end = pinterest.indexOf('app.post(\n    "/pins/:id/publish"', start);
+  assert.notEqual(start, -1, "authenticated publish-status route exists");
+  assert.ok(end > start, "publish-status route is bounded before the publish POST route");
+  const route = pinterest.slice(start, end);
+  assert.match(route, /requireAuth/);
+  assert.match(route, /getPinWithOwner\(req\.params\.id, req\.userId\)/);
+  assert.match(route, /\.eq\("user_id", String\(req\.userId\)\)/);
+  assert.match(route, /\.eq\("pin_id", req\.params\.id\)/);
+  assert.match(route, /\.eq\("pinterest_account_id", accountId\)/);
+  assert.match(route, /publication\.pinterest_pin_id/);
+  assert.match(route, /status: "published"/);
+  assert.match(route, /status: "not_found"/);
+  assert.doesNotMatch(route, /\.rpc\(|callPinterest\(|\.update\(/);
+});
+
 test("Pinterest scheduler worker URL is registered by the backend router", () => {
   const worker = read("scheduleWorker.js");
   const index = read("index.js");
