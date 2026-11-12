@@ -75,3 +75,30 @@ export function requireCreatedBoardResponse(
   }
   return { id, title: row.title.trim() };
 }
+
+/** Validate the server's PATCH /boards/:id response before reconciling UI state. */
+export function requireUpdatedBoardResponse(
+  value: unknown,
+  expectedId: string,
+  invalidResponseMessage: string,
+): { id: string; title: string; category: string | null } {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(invalidResponseMessage);
+  }
+  const row = value as Record<string, unknown>;
+  const id = typeof row.id === 'string' || typeof row.id === 'number'
+    ? String(row.id)
+    : '';
+  if (id !== expectedId || !id.trim() || id !== id.trim() ||
+      typeof row.title !== 'string' || !row.title.trim() ||
+      (row.category != null && typeof row.category !== 'string')) {
+    throw new Error(invalidResponseMessage);
+  }
+  return {
+    id,
+    title: row.title.trim(),
+    category: typeof row.category === 'string' && row.category.trim()
+      ? row.category.trim()
+      : null,
+  };
+}
