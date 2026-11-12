@@ -324,3 +324,17 @@ test("one-shot worker rejects every tick after its first attempt", async () => {
   assert.equal(await worker.tick(), false);
   assert.equal(requests, 1, "one-shot worker instance must issue at most one request");
 });
+
+
+test("scheduler worker rejects incomplete 200 responses but accepts complete and busy responses", () => {
+  const { isValidSchedulerResponse } = require("../scheduleWorker");
+  assert.equal(isValidSchedulerResponse({ ok: true }), false);
+  assert.equal(isValidSchedulerResponse({ ok: true, claimed: 0 }), false);
+  assert.equal(isValidSchedulerResponse({
+    ok: true, claimed: 0, published: 0, failed: 0, scheduled: 0, unknown: 0,
+  }), true);
+  assert.equal(isValidSchedulerResponse({ ok: true, busy: true }), true);
+  assert.equal(isValidSchedulerResponse({
+    ok: true, claimed: -1, published: 0, failed: 0, scheduled: 0, unknown: 0,
+  }), false);
+});
