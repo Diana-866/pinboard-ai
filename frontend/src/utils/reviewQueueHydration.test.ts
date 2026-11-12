@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getReviewQueueRestoreView, mergeRestoredReviewQueue } from './reviewQueueHydration';
+import { getReviewQueueRestoreView, mergeRestoredReviewQueue, requireReviewQueueRows } from './reviewQueueHydration';
 
 test('restores untouched server rows and preserves local edits made during hydration', () => {
   const rows = mergeRestoredReviewQueue(
@@ -49,4 +49,15 @@ test('keeps an existing card visible during background refreshes and errors', ()
 
 test('shows completion only after a successful empty restore', () => {
   assert.equal(getReviewQueueRestoreView({ isLoading: false, hasError: false, hasCurrentPin: false }), 'ready');
+});
+
+
+test('accepts a genuinely empty server queue', () => {
+  assert.deepEqual(requireReviewQueueRows([]), []);
+});
+
+test('rejects malformed server responses instead of treating them as an empty queue', () => {
+  assert.throws(() => requireReviewQueueRows({ items: [] }), /must be an array/);
+  assert.throws(() => requireReviewQueueRows(null), /must be an array/);
+  assert.throws(() => requireReviewQueueRows(undefined), /must be an array/);
 });
