@@ -250,6 +250,12 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
         </p>
       )}
 
+      {!loading && status?.configured && accountLimitReached && (
+        <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300" role="status">
+          {status?.account_limit === 0 ? t.settings.pinterestPlanRequired : t.settings.pinterestAccountLimitReached}
+        </p>
+      )}
+
       {!loading && status?.configured && accounts.length === 0 && (
         <div className="space-y-2">
           <p className="text-xs font-semibold text-secondary-theme">
@@ -263,11 +269,6 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
 
       {!loading && accounts.length > 0 && (
         <div className="space-y-3">
-          {accountLimitReached && (
-            <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300" role="status">
-              {status?.account_limit === 0 ? t.settings.pinterestPlanRequired : t.settings.pinterestAccountLimitReached}
-            </p>
-          )}
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-semibold text-secondary-theme">
               {t.settings.connectedAccountsCount.replace('{count}', String(accounts.length)).replace('{max}', String(status?.account_limit ?? '∞'))}
