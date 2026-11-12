@@ -82,10 +82,13 @@ const MainApp: React.FC = () => {
   // Schedule rows belong to the authenticated user. Clear the previous account's
   // calendar immediately on identity change, without clearing it on ordinary reloads.
   const scheduleUserIdRef = React.useRef(user?.id || '');
+  // A -> B -> A must not make an old async operation for A look current again.
+  const scheduleOwnerGenerationRef = React.useRef(0);
   React.useLayoutEffect(() => {
     const nextUserId = user?.id || '';
     if (scheduleUserIdRef.current !== nextUserId) {
       scheduleUserIdRef.current = nextUserId;
+      scheduleOwnerGenerationRef.current += 1;
       setScheduledPins([]);
       setScheduleLoadError('');
     }
@@ -495,7 +498,10 @@ const MainApp: React.FC = () => {
     // initiated it. apiRequest reads the current token for each request, so
     // stop between steps if the user changes accounts mid-flight.
     const ownerId = user?.id || '';
-    const isOwnerCurrent = () => !!ownerId && scheduleUserIdRef.current === ownerId;
+    const ownerGeneration = scheduleOwnerGenerationRef.current;
+    const isOwnerCurrent = () => !!ownerId
+      && scheduleUserIdRef.current === ownerId
+      && scheduleOwnerGenerationRef.current === ownerGeneration;
     const assertOwnerCurrent = () => {
       if (!isOwnerCurrent()) throw new Error('Аккаунт изменился. Повторите действие в текущем аккаунте.');
     };
