@@ -690,7 +690,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   if (queueLoading && !currentPin) {
     return (
       <div className="custom-card p-8 md:p-12 text-center space-y-4 max-w-xl mx-auto my-8 border border-subtle" role="status" aria-live="polite">
-        <RefreshCw className="w-8 h-8 mx-auto text-accent animate-spin" />
+        <RefreshCw className="w-8 h-8 mx-auto text-accent-ghost animate-spin" />
         <h2 className="text-xl font-bold text-primary-theme font-heading">{t.review.queueLoading}</h2>
       </div>
     );
