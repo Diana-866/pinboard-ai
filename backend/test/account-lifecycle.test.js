@@ -177,7 +177,7 @@ test("deletion request accepts a correct password and returns the receipt", asyn
     {
       rpcResult: {
         data: {
-          requestId: "req-1",
+          requestId: "3f2504e0-4f89-41d3-9a0c-0305e82c3302",
           state: "pending",
           requestedAt: "2026-11-12T00:00:00Z",
           alreadyRequested: false,
@@ -197,7 +197,7 @@ test("deletion request accepts a correct password and returns the receipt", asyn
     params: { p_user_id: USER_ID, p_confirmation_method: "password_reauth", p_expected_token_version: 12 },
   }]);
   assert.equal(result.ok, true);
-  assert.equal(result.request.requestId, "req-1");
+  assert.equal(result.request.requestId, "3f2504e0-4f89-41d3-9a0c-0305e82c3302");
   assert.equal(result.request.alreadyRequested, false);
 });
 
