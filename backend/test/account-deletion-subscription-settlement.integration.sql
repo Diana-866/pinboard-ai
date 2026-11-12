@@ -65,7 +65,7 @@ begin
   end if;
   if not exists (
     select 1 from public.subscriptions
-     where id = v_pending_sub and status = 'success' and period_end is not null
+     where id = v_pending_sub and status = 'paid_unactivated' and provider_paid_at is not null and period_end is not null
   ) then
     raise exception 'paid subscription outcome was not retained for pending deletion';
   end if;
@@ -83,7 +83,7 @@ begin
   end if;
   if not exists (
     select 1 from public.subscriptions
-     where id = v_deleted_sub and status = 'success' and period_end is not null
+     where id = v_deleted_sub and status = 'paid_unactivated' and provider_paid_at is not null and period_end is not null
   ) then
     raise exception 'late paid subscription evidence was not retained for deleted account';
   end if;
