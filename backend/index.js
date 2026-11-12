@@ -184,7 +184,7 @@ const imageUploadLimiter = rateLimit({
 const { generateImage, checkImage, imageTaskResult, providerTaskError, quoteImageTask } = require("./gptunnel");
 const { register, login, verifyToken } = require("./auth");
 const supabase = require("./supabase");
-const { buildPinScheduleSnapshot, classifyLegacyScheduleAccount, getScheduleRetryability, getScheduleFailureReason, sanitizeScheduleForClient } = require("./pinterestSchedule");
+const { buildPinScheduleSnapshot, normalizePinterestDestinationUrl, classifyLegacyScheduleAccount, getScheduleRetryability, getScheduleFailureReason, sanitizeScheduleForClient } = require("./pinterestSchedule");
 const { pinterestScheduleLimiter } = require("./pinterestRateLimit");
 const { analyzeSite } = require("./analyze");
 const { suggestKeywords } = require("./keywordIdeas");
@@ -2226,11 +2226,11 @@ app.post("/pins/:id/schedule", requireAuth, pinterestScheduleLimiter, requireTar
     }
     let destinationUrl = null;
     if (req.body && req.body.destination_url) {
-      destinationUrl = String(req.body.destination_url).trim();
-      if (destinationUrl.length > 2048) throw httpError(422, "Ссылка слишком длинная");
-      let parsed;
-      try { parsed = new URL(destinationUrl); } catch { throw httpError(422, "Некорректная ссылка"); }
-      if (!["http:", "https:"].includes(parsed.protocol)) throw httpError(422, "Разрешены только HTTP- и HTTPS-ссылки");
+      try {
+        destinationUrl = normalizePinterestDestinationUrl(req.body.destination_url);
+      } catch {
+        throw httpError(422, "Укажите корректную HTTP- или HTTPS-ссылку длиной до 2048 символов без логина и пароля.");
+      }
     }
 
     // Persist the exact Pinterest identity with the schedule; the worker must
@@ -2252,14 +2252,12 @@ app.post("/pins/:id/schedule", requireAuth, pinterestScheduleLimiter, requireTar
     }
 
     // Freeze the approved creative and the resolved link at schedule time.
-    const snapshotDestinationUrl = destinationUrl || snapshotPin.boards?.projects?.website_url || null;
-    if (snapshotDestinationUrl) {
-      let parsedSnapshotUrl;
-      try { parsedSnapshotUrl = new URL(String(snapshotDestinationUrl)); } catch {
-        throw httpError(422, "У проекта сохранена некорректная ссылка для публикации");
-      }
-      if (!["http:", "https:"].includes(parsedSnapshotUrl.protocol)) {
-        throw httpError(422, "Ссылка проекта должна использовать HTTP или HTTPS");
+    let snapshotDestinationUrl = destinationUrl;
+    if (!snapshotDestinationUrl && snapshotPin.boards?.projects?.website_url) {
+      try {
+        snapshotDestinationUrl = normalizePinterestDestinationUrl(snapshotPin.boards.projects.website_url);
+      } catch {
+        throw httpError(422, "У проекта сохранена некорректная ссылка для публикации. Исправьте адрес сайта в настройках проекта.");
       }
     }
 
