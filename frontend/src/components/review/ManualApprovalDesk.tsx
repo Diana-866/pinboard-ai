@@ -26,7 +26,7 @@ import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { applyCurrentReviewEdits } from '../../utils/reviewApproval';
 import { createGenerationIdempotencyKey } from '../../utils/generationRetry';
-import { isReviewQueueItemCurrent, isReviewQueueOwnerCurrent, type ReviewQueueOwnerSnapshot } from '../../utils/reviewQueueOwnerFence';
+import { isReviewQueueItemCurrent, isReviewQueueItemPresent, isReviewQueueOwnerCurrent, type ReviewQueueOwnerSnapshot } from '../../utils/reviewQueueOwnerFence';
 
 export interface PendingReviewPin {
   id: string;
@@ -325,6 +325,9 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
   const [internalQueue, setInternalQueue] = useState<PendingReviewPin[]>([]);
   const queue = pendingPins ?? internalQueue;
+  // Keep the latest rendered queue available to long-running bulk operations.
+  const queueRef = useRef(queue);
+  queueRef.current = queue;
 
   const updateQueue = (fn: (prev: PendingReviewPin[]) => PendingReviewPin[]) => {
     if (onUpdatePendingPins) return Promise.resolve(onUpdatePendingPins(fn));
@@ -650,6 +653,15 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       setBulkApprovalProgress({ completed: 0, total: scheduledItems.length });
       for (let index = 0; index < scheduledItems.length; index += 1) {
         if (!isOwnerCurrent(ownerSnapshot)) return;
+        const queuedItem = queueSnapshot[index];
+        if (!isReviewQueueItemPresent(
+          { id: queuedItem.id, pinId: queuedItem.pinId || '' },
+          queueRef.current,
+        )) {
+          // The card was removed or replaced while this batch was running.
+          // Do not schedule stale work from the original snapshot.
+          continue;
+        }
         try {
           await onApprovePin(scheduledItems[index]);
           if (!isOwnerCurrent(ownerSnapshot)) return;
