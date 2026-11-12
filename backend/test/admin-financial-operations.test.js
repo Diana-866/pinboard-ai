@@ -20,7 +20,8 @@ const fixtures = {
     { generation_request_id: 11, status: "failed", provider_outcome_status: "failed", provider_refunded: false, provider_reconciled_at: oldTimestamp },
   ],
   credit_purchases: [
-    { id: 41, status: "paid_uncredited", amount: 190, currency: "rub", provider_payment_id: "ppc-41", paid_at: oldTimestamp, created_at: oldTimestamp, user_id: "private-credit-user" },
+    { id: 41, status: "paid_uncredited", amount: 190, currency: "rub", provider_payment_id: "ppc-41", provider_refunded_at: null, paid_at: oldTimestamp, created_at: oldTimestamp, user_id: "private-credit-user" },
+    { id: 42, status: "paid_uncredited", amount: 190, currency: "rub", provider_payment_id: "ppc-42", provider_refunded_at: oldTimestamp, paid_at: oldTimestamp, created_at: oldTimestamp, user_id: "refunded-credit-user" },
   ],
   subscriptions: [
     { id: 51, status: "paid_unactivated", amount: 790, currency: "rub", provider_paid_at: oldTimestamp, provider_refunded_at: null, created_at: oldTimestamp, user_id: "private-subscription-user" },
@@ -34,6 +35,7 @@ const supabaseMock = {
       eq() { return this; },
       is() { return this; },
       lt() { return this; },
+      is(column, value) { this.isColumn = column; this.isValue = value; return this; },
       order() { return this; },
       limit() { return this; },
       in(column, values) {
@@ -44,6 +46,7 @@ const supabaseMock = {
       then(resolve, reject) {
         let data = fixtures[table] || [];
         if (this.filterColumn) data = data.filter((row) => this.filterValues.includes(row[this.filterColumn]));
+        if (this.isColumn) data = data.filter((row) => row[this.isColumn] === this.isValue);
         return Promise.resolve({ data, error: null }).then(resolve, reject);
       },
     };
