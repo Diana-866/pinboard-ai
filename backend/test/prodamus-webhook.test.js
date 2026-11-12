@@ -543,6 +543,9 @@ test("paid callback for a deleted account is durably reconciled and acknowledged
       if (table === "billing_webhook_exceptions") {
         return {
           insert: async (record) => {
+            if (auditRecords.some((item) => item.event_hash === record.event_hash)) {
+              return { error: { code: "23505" } };
+            }
             auditRecords.push(record);
             return { error: null };
           },
@@ -582,6 +585,58 @@ test("paid callback for a deleted account is durably reconciled and acknowledged
   assert.equal(retry.body.reconciliation_required, true);
   assert.equal(db.rpcCalls.credit, 2);
   assert.equal(auditRecords.length, 1, "duplicate delivery must remain one durable reconciliation event");
+});
+
+test("paid success with a transient credit failure is marked paid_uncredited for manual reconciliation", async () => {
+  const db = createPaymentDb({
+    purchase: {
+      id: "purchase-paid-uncredited",
+      provider_payment_id: "ppc-paid-uncredited",
+      amount: 490,
+      currency: "rub",
+      credits: 100,
+      package_id: "pack_100",
+      balance_credited_at: null,
+      status: "pending",
+    },
+    activate: async () => ({ data: null, error: null }),
+    credit: async () => ({
+      data: null,
+      error: { message: "temporary database connection failure" },
+    }),
+  });
+  const auditRecords = [];
+  const auditedDb = {
+    ...db,
+    from(table) {
+      if (table === "billing_webhook_exceptions") {
+        return {
+          insert: async (record) => {
+            auditRecords.push(record);
+            return { error: null };
+          },
+        };
+      }
+      return db.from(table);
+    },
+  };
+  const response = createWebhookResponse();
+  await require("../creditsBilling").handleCreditsWebhook(
+    signedWebhook({
+      order_id: "ppc-paid-uncredited",
+      payment_status: "success",
+      sum: "490.00",
+      currency: "rub",
+    }),
+    response,
+    { supabase: auditedDb }
+  );
+
+  assert.equal(response.statusCode, 500, "transient fulfillment failures remain retryable");
+  assert.equal(db.state.purchase.status, "paid_uncredited");
+  assert.equal(db.state.purchase.balance_credited_at, null);
+  assert.equal(auditRecords.length, 1);
+  assert.equal(auditRecords[0].reason, "credit_fulfillment_failed");
 });
 
 test("credit webhook retries checkout settlement without crediting twice", async () => {
