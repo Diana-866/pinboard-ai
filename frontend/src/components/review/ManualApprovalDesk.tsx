@@ -649,7 +649,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       // Keep the exact persisted item identity, not just its queue row ID.
       // If the queue is refreshed/replaced while this batch is running, a new
       // card may reuse an ID; never remove that replacement as a side effect.
-      const successfulItems = new Map<string, string>();
+      const successfulItems: Array<{ id: string; pinId: string }> = [];
       setBulkApprovalProgress({ completed: 0, total: scheduledItems.length });
       for (let index = 0; index < scheduledItems.length; index += 1) {
         if (!isOwnerCurrent(ownerSnapshot)) return;
@@ -660,12 +660,13 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         )) {
           // The card was removed or replaced while this batch was running.
           // Do not schedule stale work from the original snapshot.
+          setBulkApprovalProgress({ completed: index + 1, total: scheduledItems.length });
           continue;
         }
         try {
           await onApprovePin(scheduledItems[index]);
           if (!isOwnerCurrent(ownerSnapshot)) return;
-          successfulItems.set(queueSnapshot[index].id, queueSnapshot[index].pinId || '');
+          successfulItems.push({ id: queueSnapshot[index].id, pinId: queueSnapshot[index].pinId || '' });
         } catch {
           // Keep this card in the review queue and continue with the rest.
           // A partial failure must not discard successful approvals or stop
@@ -677,19 +678,22 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         }
       }
       if (!isOwnerCurrent(ownerSnapshot)) return;
-      if (successfulItems.size > 0) {
+      if (successfulItems.length > 0) {
         try {
-          await updateQueue((prev) => prev.filter((pin) => successfulItems.get(pin.id) !== (pin.pinId || '')));
+          await updateQueue((prev) => prev.filter((pin) => !isReviewQueueItemPresent(
+            { id: pin.id, pinId: pin.pinId || '' },
+            successfulItems,
+          )));
           if (!isOwnerCurrent(ownerSnapshot)) return;
-          setApprovedCount((count) => count + successfulItems.size);
+          setApprovedCount((count) => count + successfulItems.length);
         } catch {
           if (!isOwnerCurrent(ownerSnapshot)) return;
-          window.alert(`В календаре уже сохранено ${successfulItems.size} пинов, но очередь проверки не обновилась. Не одобряйте эти карточки повторно: обновите страницу и проверьте календарь.`);
+          window.alert(`В календаре уже сохранено ${successfulItems.length} пинов, но очередь проверки не обновилась. Не одобряйте эти карточки повторно: обновите страницу и проверьте календарь.`);
           return;
         }
       }
-      if (isOwnerCurrent(ownerSnapshot) && successfulItems.size !== scheduledItems.length) {
-        window.alert(`В расписание добавлено: ${successfulItems.size} из ${scheduledItems.length}. Неудачные карточки остались в очереди.`);
+      if (isOwnerCurrent(ownerSnapshot) && successfulItems.length !== scheduledItems.length) {
+        window.alert(`В расписание добавлено: ${successfulItems.length} из ${scheduledItems.length}. Неудачные карточки остались в очереди.`);
       }
     } finally {
       if (isOwnerCurrent(ownerSnapshot)) {
