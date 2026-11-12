@@ -50,6 +50,9 @@ export interface PendingReviewPin {
 export interface ManualApprovalDeskProps {
   boards: BoardItem[];
   pendingPins?: PendingReviewPin[];
+  queueLoading?: boolean;
+  queueLoadError?: boolean;
+  onRetryQueueLoad?: () => void;
   onUpdatePendingPins?: (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => void | Promise<void>;
   onApprovePin: (pin: ScheduledPinItem) => void;
   onGoToCalendar?: () => void;
@@ -287,6 +290,9 @@ export const INITIAL_QUEUE_PINS: PendingReviewPin[] = [
 export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   boards,
   pendingPins,
+  queueLoading = false,
+  queueLoadError = false,
+  onRetryQueueLoad,
   onUpdatePendingPins,
   onApprovePin,
   onGoToCalendar,
@@ -679,6 +685,30 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       setIsRegenerating(false);
     }
   };
+
+  // Never present a failed or still-running server restore as a genuinely empty queue.
+  if (queueLoading && !currentPin) {
+    return (
+      <div className="custom-card p-8 md:p-12 text-center space-y-4 max-w-xl mx-auto my-8 border border-subtle" role="status" aria-live="polite">
+        <RefreshCw className="w-8 h-8 mx-auto text-accent animate-spin" />
+        <h2 className="text-xl font-bold text-primary-theme font-heading">{t.review.queueLoading}</h2>
+      </div>
+    );
+  }
+
+  if (queueLoadError && !currentPin) {
+    return (
+      <div className="custom-card p-8 md:p-12 text-center space-y-4 max-w-xl mx-auto my-8 border border-subtle" role="alert">
+        <AlertCircle className="w-8 h-8 mx-auto text-amber-500" />
+        <h2 className="text-xl font-bold text-primary-theme font-heading">{t.review.queueLoadErrorTitle}</h2>
+        <p className="text-sm text-secondary-theme max-w-md mx-auto">{t.review.queueLoadErrorDescription}</p>
+        <button type="button" onClick={onRetryQueueLoad} className="accent-btn px-6 py-2.5 text-sm cursor-pointer inline-flex items-center justify-center gap-2">
+          <RefreshCw className="w-4 h-4" />
+          {t.review.retryQueueLoad}
+        </button>
+      </div>
+    );
+  }
 
   // Completed State Screen
   if (!currentPin) {
