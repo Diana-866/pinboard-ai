@@ -79,8 +79,8 @@ test("scheduler response rejects unsafe and negative counters", () => {
   }), false);
 });
 
-test("scheduler response rejects duplicate schedule identities and count mismatches", () => {
-  const duplicate = {
+test("scheduler response rejects oversized result lists and count mismatches", () => {
+  const oversized = {
     ok: true,
     claimed: 1,
     published: 1,
@@ -92,7 +92,7 @@ test("scheduler response rejects duplicate schedule identities and count mismatc
       { schedule_id: "schedule-1", status: "published" },
     ],
   };
-  assert.equal(isValidScheduleWorkerResponse(duplicate), false);
+  assert.equal(isValidScheduleWorkerResponse(oversized), false);
 
   const wrongCount = {
     ok: true,
