@@ -176,7 +176,7 @@ export const AdminSubscriptions: React.FC = () => {
                     ) : (
                       <XCircle className="w-3 h-3" />
                     )}
-                    {STATUS_LABEL[r.status] || r.status}
+                    {r.provider_refunded_at ? 'Возврат подтверждён' : STATUS_LABEL[r.status] || r.status}
                   </span>
                 </td>
                 <td className="py-2.5 px-3 text-right font-mono font-bold text-primary-theme tabular-nums whitespace-nowrap">
