@@ -2280,12 +2280,9 @@ app.post("/pins/:id/schedule", requireAuth, pinterestScheduleLimiter, requireTar
       ? String(req.body.pinterest_account_id || req.body.account_id)
       : null;
     const selectedAccount = await pinterest.resolveAccount(req.userId, requestedAccountId);
-    // Reject stale, foreign or inaccessible board IDs before persisting a schedule.
-    // The worker repeats this check at publish time because access may later change.
-    await pinterest.verifyPinterestBoard(req.userId, pinterestBoardId, selectedAccount.id);
-
-    // Re-read after the external board check so a concurrent image/title edit
-    // cannot make this schedule snapshot stale before it is persisted.
+    // Re-read the creative before resolving an idempotent retry. A lost
+    // response must not force a second Pinterest API round-trip just to discover
+    // that this exact schedule was already committed.
     const snapshotPin = await getPinWithOwnerCheck(req.params.id, req.userId);
     if (snapshotPin.status !== "approved" || !snapshotPin.image_url) {
       throw httpError(409, "Пин изменился во время планирования. Проверьте его и повторите действие.");
@@ -2300,6 +2297,29 @@ app.post("/pins/:id/schedule", requireAuth, pinterestScheduleLimiter, requireTar
         throw httpError(422, "У проекта сохранена некорректная ссылка для публикации. Исправьте адрес сайта в настройках проекта.");
       }
     }
+
+    const scheduleIdentity = {
+      scheduledAt,
+      timezone,
+      destinationUrl: snapshotDestinationUrl,
+      pinterestBoardId,
+      pinterestAccountId: selectedAccount.id,
+    };
+    const { data: existingSchedule, error: existingScheduleError } = await supabase
+      .from("pin_schedules")
+      .select("*, pins(id, board_id, title, description, image_url, boards(id, title))")
+      .eq("user_id", String(req.userId))
+      .eq("pin_id", pin.id)
+      .in("status", ["scheduled", "publishing", "published", "unknown"])
+      .maybeSingle();
+    if (existingScheduleError) throw existingScheduleError;
+    if (existingSchedule && isSamePinScheduleRequest(existingSchedule, scheduleIdentity)) {
+      return res.status(200).json(sanitizeScheduleForClient(existingSchedule));
+    }
+
+    // Only a genuinely new schedule needs a live Pinterest board check. The
+    // worker repeats this check at publish time because access may later change.
+    await pinterest.verifyPinterestBoard(req.userId, pinterestBoardId, selectedAccount.id);
 
     const { data, error } = await supabase
       .from("pin_schedules")
