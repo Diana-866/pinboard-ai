@@ -575,6 +575,11 @@ export const de: TranslationSchema = {
     scheduledFor: 'Geplanter Zeitpunkt',
     allReviewed: 'Alle Pins wurden geprüft!',
     allReviewedDesc: 'Die freigegebenen Pins wurden zu den besten Interaktionszeiten in Ihren Kalender eingetragen.',
+    queueLoading: 'Prüfliste wird wiederhergestellt…',
+    queueLoadingDesc: 'Deine gespeicherten Pins werden geladen. Das kann kurz dauern.',
+    queueLoadError: 'Prüfliste konnte nicht geladen werden',
+    queueLoadErrorDesc: 'Es wurde nicht bestätigt, dass die Liste leer ist. Prüfe die Verbindung und versuche es erneut.',
+    retryQueueLoad: 'Erneut versuchen',
     finishBtn: 'Zum Kalender wechseln',
   },
 
