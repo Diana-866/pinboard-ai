@@ -110,3 +110,36 @@ test('download helper releases its Blob URL even when DOM insertion fails', () =
     else delete globalThis.window;
   }
 });
+
+
+test('download helper releases its Blob URL when anchor creation fails', () => {
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+  const scheduled: Array<{ callback: () => void; delay: number }> = [];
+  const revoked: string[] = [];
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: { createElement() { throw new Error('DOM unavailable'); }, body: { appendChild() {} } },
+  });
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: { setTimeout: (callback: () => void, delay: number) => { scheduled.push({ callback, delay }); } },
+  });
+  URL.createObjectURL = () => 'blob:test-anchor-failure';
+  URL.revokeObjectURL = (value) => { revoked.push(value); };
+  try {
+    assert.throws(() => downloadJsonFile('account.json', { ok: true }), /DOM unavailable/);
+    assert.equal(scheduled.length, 1);
+    scheduled[0].callback();
+    assert.deepEqual(revoked, ['blob:test-anchor-failure']);
+  } finally {
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
+    else delete globalThis.document;
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else delete globalThis.window;
+  }
+});
