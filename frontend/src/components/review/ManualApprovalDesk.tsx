@@ -643,14 +643,17 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       // Schedule one pin at a time. Each approval performs several persisted
       // API transitions and a Pinterest board verification; firing the whole
       // queue concurrently can trigger rate limits and make bulk approval flaky.
-      const successfulIds = new Set<string>();
+      // Keep the exact persisted item identity, not just its queue row ID.
+      // If the queue is refreshed/replaced while this batch is running, a new
+      // card may reuse an ID; never remove that replacement as a side effect.
+      const successfulItems = new Map<string, string>();
       setBulkApprovalProgress({ completed: 0, total: scheduledItems.length });
       for (let index = 0; index < scheduledItems.length; index += 1) {
         if (!isOwnerCurrent(ownerSnapshot)) return;
         try {
           await onApprovePin(scheduledItems[index]);
           if (!isOwnerCurrent(ownerSnapshot)) return;
-          successfulIds.add(queueSnapshot[index].id);
+          successfulItems.set(queueSnapshot[index].id, queueSnapshot[index].pinId || '');
         } catch {
           // Keep this card in the review queue and continue with the rest.
           // A partial failure must not discard successful approvals or stop
@@ -662,19 +665,19 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         }
       }
       if (!isOwnerCurrent(ownerSnapshot)) return;
-      if (successfulIds.size > 0) {
+      if (successfulItems.size > 0) {
         try {
-          await updateQueue((prev) => prev.filter((pin) => !successfulIds.has(pin.id)));
+          await updateQueue((prev) => prev.filter((pin) => successfulItems.get(pin.id) !== (pin.pinId || '')));
           if (!isOwnerCurrent(ownerSnapshot)) return;
-          setApprovedCount((count) => count + successfulIds.size);
+          setApprovedCount((count) => count + successfulItems.size);
         } catch {
           if (!isOwnerCurrent(ownerSnapshot)) return;
-          window.alert(`В календаре уже сохранено ${successfulIds.size} пинов, но очередь проверки не обновилась. Не одобряйте эти карточки повторно: обновите страницу и проверьте календарь.`);
+          window.alert(`В календаре уже сохранено ${successfulItems.size} пинов, но очередь проверки не обновилась. Не одобряйте эти карточки повторно: обновите страницу и проверьте календарь.`);
           return;
         }
       }
-      if (isOwnerCurrent(ownerSnapshot) && successfulIds.size !== scheduledItems.length) {
-        window.alert(`В расписание добавлено: ${successfulIds.size} из ${scheduledItems.length}. Неудачные карточки остались в очереди.`);
+      if (isOwnerCurrent(ownerSnapshot) && successfulItems.size !== scheduledItems.length) {
+        window.alert(`В расписание добавлено: ${successfulItems.size} из ${scheduledItems.length}. Неудачные карточки остались в очереди.`);
       }
     } finally {
       if (isOwnerCurrent(ownerSnapshot)) {
