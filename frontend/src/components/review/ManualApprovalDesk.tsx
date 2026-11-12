@@ -596,16 +596,6 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     }
   };
 
-  const handleResetQueue = async () => {
-    try {
-      await updateQueue(() => []);
-      setApprovedCount(0);
-      setRejectedCount(0);
-    } catch (error) {
-      window.alert(error instanceof Error ? error.message : 'Не удалось очистить очередь. Попробуйте ещё раз.');
-    }
-  };
-
   // Touch / Mouse Drag Swiping
   const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -730,10 +720,12 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
         <div className="space-y-2">
           <h2 className="text-2xl font-bold text-primary-theme font-heading">
-            {t.review.allReviewed}
+            {approvedCount + rejectedCount > 0 ? t.review.allReviewed : t.review.emptyQueue}
           </h2>
           <p className="text-sm text-secondary-theme max-w-md mx-auto leading-relaxed">
-            {t.review.allReviewedDesc} {t.review.approvedCount}: <b>{approvedCount}</b>, {t.review.rejectedCount}: <b>{rejectedCount}</b>.
+            {approvedCount + rejectedCount > 0
+              ? <>{t.review.allReviewedDesc} {t.review.approvedCount}: <b>{approvedCount}</b>, {t.review.rejectedCount}: <b>{rejectedCount}</b>.</>
+              : t.review.emptyQueueDesc}
           </p>
         </div>
 
@@ -757,14 +749,6 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
             </button>
           )}
 
-          <button
-            onClick={handleResetQueue}
-            className="px-4 py-2.5 text-xs text-secondary-theme hover:text-primary-theme hover:bg-subtle rounded-xl border border-subtle cursor-pointer transition-colors flex items-center justify-center gap-1.5"
-            title="Восстановить исходные 15 пинов для повторной проверки"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Сбросить очередь (15 пинов)</span>
-          </button>
         </div>
       </div>
     );
@@ -798,7 +782,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
             </span>
           </div>
           <p className="text-xs text-muted-theme mt-1">
-            Очередь для Botanica Nordic (@botanica_nordic): подтвердите сгенерированные AI пины или отклоните неподходящие.
+            {t.review.subtitle}
           </p>
         </div>
 
