@@ -575,6 +575,10 @@ export const en: TranslationSchema = {
     scheduledFor: 'Scheduled Slot',
     allReviewed: 'All pins reviewed!',
     allReviewedDesc: 'Approved pins have been added to your publishing calendar at optimal engagement hours.',
+    queueLoading: 'Loading your saved review queue…',
+    queueLoadErrorTitle: 'Couldn't load your review queue',
+    queueLoadErrorDescription: 'Your saved pins are safe. Check your connection and try again.',
+    retryQueueLoad: 'Retry loading',
     finishBtn: 'Go to Calendar',
   },
 
