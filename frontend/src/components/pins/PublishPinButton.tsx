@@ -78,6 +78,8 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
     setBusy(false);
     setDone(null);
     setUncertain(false);
+    setCheckingStatus(false);
+    setUncertainMessage('Pinterest мог создать пин, но PinPosy пока не подтвердил результат. Проверьте статус перед любыми дальнейшими действиями.');
     setError(null);
   }, [pinId]);
 
