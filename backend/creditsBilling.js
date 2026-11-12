@@ -329,8 +329,44 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
         reconciliation_required: true,
       });
     }
+    const { data: flagged, error: flagError } = await db.from("credit_purchases")
+      .update({ status: "paid_uncredited", paid_at: paidAt })
+      .eq("id", purchase.id)
+      .is("balance_credited_at", null)
+      .neq("status", "success")
+      .select("id");
+    if (flagError) {
+      logError("creditsBilling.event_020");
+      return res.status(500).json({ ok: false, error: "crediting requires reconciliation" });
+    }
+
+    // The RPC response can be lost after its transaction committed. Never
+    // overwrite a successful credit marker; confirm the durable row first.
+    if (!Array.isArray(flagged) || flagged.length === 0) {
+      const { data: current, error: readError } = await db.from("credit_purchases")
+        .select("status,balance_credited_at")
+        .eq("id", purchase.id)
+        .maybeSingle();
+      if (readError || !current) {
+        logError("creditsBilling.event_020");
+        return res.status(500).json({ ok: false, error: "crediting requires reconciliation" });
+      }
+      if (current.balance_credited_at || current.status === "success") {
+        try {
+          await settlePaymentCreationRequest(orderId, "credits", purchase.id, db);
+        } catch (_settlementError) {
+          logError("creditsBilling.event_020");
+          return res.status(500).json({ ok: false, error: "payment reconciliation failed" });
+        }
+        return res.json({ ok: true, idempotent: true, credits: purchase.credits });
+      }
+      if (current.status !== "paid_uncredited") {
+        logError("creditsBilling.event_020");
+        return res.status(500).json({ ok: false, error: "crediting requires manual reconciliation" });
+      }
+    }
     logError("creditsBilling.event_020");
-    return res.status(500).json({ ok: false, error: "crediting requires reconciliation" });
+    return res.status(500).json({ ok: false, error: "payment received; credit fulfillment pending reconciliation" });
   }
 
   try {
