@@ -304,19 +304,30 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
     p_description: `Пакет кредитов «${purchase.pack_title || purchase.package_id}» (+${purchase.credits}, не сгорают), заказ ${orderId}`,
   });
   if (creditError) {
-    // A signed provider success can still be impossible to fulfill (for
-    // example, the account was already finalized for deletion). Persist a
-    // privacy-safe reconciliation record before asking Prodamus to retry.
+    // A deleted account cannot receive credits. Once the signed success event
+    // is durably recorded, acknowledge it to Prodamus: repeated delivery cannot
+    // restore a deleted account and would only create retry traffic. Other
+    // fulfillment failures remain retryable because they may be transient.
+    const accountDeleted = String(creditError.message || "").includes("account is deleted");
     try {
       await persistWebhookException(db, {
         paymentKind: "credits",
         body,
         expectedAmount: expected,
-        reason: "credit_fulfillment_failed",
+        reason: accountDeleted ? "paid_credit_account_deleted" : "credit_fulfillment_failed",
       });
     } catch (auditError) {
       logError("creditsBilling.event_019");
       return res.status(500).json({ ok: false, error: "crediting and audit storage failed" });
+    }
+    if (accountDeleted) {
+      logWarning("creditsBilling.event_020");
+      return res.json({
+        ok: true,
+        payment_received: true,
+        credited: false,
+        reconciliation_required: true,
+      });
     }
     logError("creditsBilling.event_020");
     return res.status(500).json({ ok: false, error: "crediting requires reconciliation" });
