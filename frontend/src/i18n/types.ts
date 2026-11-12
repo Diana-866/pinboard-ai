@@ -608,6 +608,11 @@ export interface TranslationSchema {
     scheduledFor: string;
     allReviewed: string;
     allReviewedDesc: string;
+    queueLoading: string;
+    queueLoadingDesc: string;
+    queueLoadError: string;
+    queueLoadErrorDesc: string;
+    retryQueueLoad: string;
     finishBtn: string;
   };
 
