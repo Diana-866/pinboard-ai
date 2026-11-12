@@ -20,6 +20,8 @@ const persisted = {
   pin_id: 'pin-1',
   status: 'scheduled',
   scheduled_at: '2026-11-09T18:00:00.000Z',
+  timezone: 'Europe/Moscow',
+  destination_url: 'https://example.com/article',
   pinterest_board_id: 'board-new',
   pinterest_account_id: 'account-1',
 };
@@ -111,6 +113,8 @@ test('accepts a schedule that the worker published before the create response wa
   const expectedRequest = {
     pinId: 'pin-1',
     scheduledAt: persisted.scheduled_at,
+    timezone: 'Europe/Moscow',
+    destinationUrl: 'https://example.com/article',
     pinterestBoardId: 'board-new',
     pinterestAccountId: 'account-1',
     statuses: ['scheduled', 'publishing', 'published', 'failed', 'unknown'],
@@ -155,4 +159,33 @@ test('does not reconcile schedule creation against a different time, destination
   assert.equal(findPersistedScheduleRequest([persisted, persisted], expectedRequest), null);
   assert.equal(findPersistedScheduleRequest([null, persisted], expectedRequest), null);
   assert.equal(findPersistedScheduleRequest({ data: [persisted] }, expectedRequest), null);
+});
+
+test('does not reconcile a lost create response against a different timezone or destination', () => {
+  const expectedRequest = {
+    pinId: 'pin-1',
+    scheduledAt: persisted.scheduled_at,
+    timezone: 'Europe/Moscow',
+    destinationUrl: 'https://example.com/article',
+    pinterestBoardId: 'board-new',
+    pinterestAccountId: 'account-1',
+    statuses: ['scheduled', 'publishing', 'published', 'failed', 'unknown'],
+  };
+  assert.equal(findPersistedScheduleRequest([{ ...persisted, timezone: 'UTC' }], expectedRequest), null);
+  assert.equal(findPersistedScheduleRequest([{ ...persisted, destination_url: 'https://example.com/other' }], expectedRequest), null);
+});
+
+test('allows destination fallback reconciliation only when the client did not know the resolved URL', () => {
+  const expectedRequest = {
+    pinId: 'pin-1',
+    scheduledAt: persisted.scheduled_at,
+    timezone: 'Europe/Moscow',
+    pinterestBoardId: 'board-new',
+    pinterestAccountId: 'account-1',
+    statuses: ['scheduled', 'publishing', 'published', 'failed', 'unknown'],
+  };
+  assert.deepEqual(findPersistedScheduleRequest([{ ...persisted, destination_url: 'https://project.example/' }], expectedRequest), {
+    ...persisted,
+    destination_url: 'https://project.example/',
+  });
 });
