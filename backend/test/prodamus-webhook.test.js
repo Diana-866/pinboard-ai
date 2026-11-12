@@ -446,6 +446,9 @@ test("subscription webhook amount mismatch is audited and never activates the pl
       if (table === "billing_webhook_exceptions") {
         return {
           insert: async (record) => {
+            if (auditRecords.some((item) => item.event_hash === record.event_hash)) {
+              return { error: { code: "23505" } };
+            }
             auditRecords.push(record);
             return { error: null };
           },
@@ -578,8 +581,7 @@ test("paid callback for a deleted account is durably reconciled and acknowledged
   assert.equal(retry.statusCode, 200);
   assert.equal(retry.body.reconciliation_required, true);
   assert.equal(db.rpcCalls.credit, 2);
-  assert.equal(auditRecords.length, 2);
-  assert.equal(auditRecords[0].event_hash, auditRecords[1].event_hash);
+  assert.equal(auditRecords.length, 1, "duplicate delivery must remain one durable reconciliation event");
 });
 
 test("credit webhook retries checkout settlement without crediting twice", async () => {
