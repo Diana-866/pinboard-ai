@@ -575,6 +575,11 @@ export const zh: TranslationSchema = {
     scheduledFor: '建议发布时间',
     allReviewed: '已完成本轮全部 Pin 审核！',
     allReviewedDesc: '所有批准的 Pin 已自动分配至发布日历的高互动黄金时段。',
+    queueLoading: '正在恢复审核队列…',
+    queueLoadingDesc: '正在加载已保存的 Pin，请稍候。',
+    queueLoadError: '无法恢复审核队列',
+    queueLoadErrorDesc: '尚未确认队列为空。请检查网络连接后重试。',
+    retryQueueLoad: '重试',
     finishBtn: '前往发布日历查看',
   },
 
