@@ -2,7 +2,19 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { getWorkerConfig, createWorker, getNextPollDelayMs, MAX_REQUEST_TIMEOUT_MS, DEFAULT_DRAIN_TIMEOUT_MS, MAX_RETRY_INTERVAL_MS } = require("../scheduleWorker");
+const { getWorkerConfig, createWorker, getNextPollDelayMs, validateSchedulerResponse, MAX_REQUEST_TIMEOUT_MS, DEFAULT_DRAIN_TIMEOUT_MS, MAX_RETRY_INTERVAL_MS } = require("../scheduleWorker");
+
+test("scheduler response validator rejects missing, inconsistent, or multi-item results", () => {
+  const empty = { ok: true, claimed: 0, published: 0, failed: 0, scheduled: 0, unknown: 0, results: [] };
+  const published = { ok: true, claimed: 1, published: 1, failed: 0, scheduled: 0, unknown: 0, results: [{ schedule_id: "schedule-1", status: "published" }] };
+  assert.equal(validateSchedulerResponse(empty), true);
+  assert.equal(validateSchedulerResponse(published), true);
+  assert.equal(validateSchedulerResponse({ ok: true }), false);
+  assert.equal(validateSchedulerResponse({ ...empty, claimed: 1 }), false);
+  assert.equal(validateSchedulerResponse({ ...published, claimed: 2 }), false);
+  assert.equal(validateSchedulerResponse({ ...published, results: [{ schedule_id: "schedule-1", status: "failed" }] }), false);
+  assert.equal(validateSchedulerResponse({ ...published, results: [{ schedule_id: "", status: "published" }] }), false);
+});
 
 test("worker config requires a secure backend URL and long secret", () => {
   assert.throws(() => getWorkerConfig({ PINPOSY_SCHEDULER_SECRET: "x".repeat(32) }), /BACKEND_URL/);
@@ -24,7 +36,7 @@ test("worker claims only one row per run to protect the fixed stale-claim lease"
   const logs = [];
   const worker = createWorker({
     config: { endpoint: "https://api.example.com/internal/pinterest/schedule/run", secret: "secret-value" },
-    client: { post: async (...args) => { calls.push(args); return { data: { ok: true, claimed: 3, published: 1, failed: 0, scheduled: 2, unknown: 0 } }; } },
+    client: { post: async (...args) => { calls.push(args); return { data: { ok: true, claimed: 1, published: 1, failed: 0, scheduled: 0, unknown: 0, results: [{ schedule_id: "schedule-1", status: "published" }] } }; } },
     logger: { info: (...args) => logs.push(args), error: (...args) => logs.push(args) },
   });
   await worker.tick();
@@ -41,7 +53,7 @@ test("worker prevents overlapping ticks", async () => {
   let calls = 0;
   const worker = createWorker({
     config: { endpoint: "https://api.example.com/internal/pinterest/schedule/run", secret: "secret-value" },
-    client: { post: async () => { calls += 1; await new Promise((resolve) => { release = resolve; }); return { data: { ok: true } }; } },
+    client: { post: async () => { calls += 1; await new Promise((resolve) => { release = resolve; }); return { data: { ok: true, claimed: 0, published: 0, failed: 0, scheduled: 0, unknown: 0, results: [] } }; } },
     logger: { info() {}, error() {} },
   });
   const first = worker.tick();
@@ -61,7 +73,7 @@ test("worker releases its lock after a failed request and can retry", async () =
     client: { post: async () => {
       calls += 1;
       if (calls === 1) throw new Error("temporary network failure");
-      return { data: { ok: true, claimed: 0, published: 0, failed: 0, unknown: 0 } };
+      return { data: { ok: true, claimed: 0, published: 0, failed: 0, scheduled: 0, unknown: 0, results: [] } };
     } },
     logger: { info() {}, error: (...args) => errors.push(args) },
   });
@@ -96,7 +108,7 @@ test("stop prevents future polling and waits for the active request", async () =
     client: { post: async () => {
       calls += 1;
       await new Promise((resolve) => { release = resolve; });
-      return { data: { ok: true } };
+      return { data: { ok: true, claimed: 0, published: 0, failed: 0, scheduled: 0, unknown: 0, results: [] } };
     } },
     logger: { info() {}, error() {} },
     intervalMs: 5,
@@ -118,7 +130,7 @@ test("worker caps request timeout below stale-claim recovery even when configure
     config: { endpoint: "https://api.example.com/internal/pinterest/schedule/run", secret: "secret-value" },
     client: { post: async (_url, _body, options) => {
       requestOptions = options;
-      return { data: { ok: true } };
+      return { data: { ok: true, claimed: 0, published: 0, failed: 0, scheduled: 0, unknown: 0, results: [] } };
     } },
     logger: { info() {}, error() {} },
     timeoutMs: 60 * 60_000,
@@ -137,7 +149,7 @@ test("worker shutdown uses a bounded drain and reports an unfinished request", a
     config: { endpoint: "https://api.example.com/internal/pinterest/schedule/run", secret: "secret-value" },
     client: { post: async () => {
       await new Promise((resolve) => { release = resolve; });
-      return { data: { ok: true } };
+      return { data: { ok: true, claimed: 0, published: 0, failed: 0, scheduled: 0, unknown: 0, results: [] } };
     } },
     logger: { info() {}, error() {} },
     drainTimeoutMs: 0,
@@ -161,7 +173,7 @@ test("worker stop prevents polling even when the active request outlives the dra
     client: { post: async () => {
       calls += 1;
       await new Promise((resolve) => { release = resolve; });
-      return { data: { ok: true } };
+      return { data: { ok: true, claimed: 0, published: 0, failed: 0, scheduled: 0, unknown: 0, results: [] } };
     } },
     logger: { info() {}, error() {} },
     intervalMs: 5,
@@ -183,7 +195,7 @@ test("worker tick emits a server-generated correlation ID in safe logs", async (
   try {
     const worker = createWorker({
       config: { endpoint: "https://api.example.com/internal/pinterest/schedule/run", secret: "secret-value" },
-      client: { post: async () => ({ data: { ok: true, claimed: 1, published: 1 } }) },
+      client: { post: async () => ({ data: { ok: true, claimed: 1, published: 1, failed: 0, scheduled: 0, unknown: 0, results: [{ schedule_id: "schedule-1", status: "published" }] } }) },
     });
     await worker.tick();
   } finally {
@@ -206,7 +218,7 @@ test("worker backs off after consecutive failures and resets polling cadence aft
     client: { post: async () => {
       calls += 1;
       if (calls === 1) throw new Error("temporary outage");
-      return { data: { ok: true, claimed: 0, published: 0, failed: 0, unknown: 0 } };
+      return { data: { ok: true, claimed: 0, published: 0, failed: 0, scheduled: 0, unknown: 0, results: [] } };
     } },
     logger: { info() {}, error() {} },
     intervalMs: 10_000,
@@ -320,7 +332,9 @@ test("worker drains a due backlog quickly but keeps the normal idle polling cade
     config: { endpoint: "https://api.example.com/internal/pinterest/schedule/run", secret: "secret-value" },
     client: { post: async () => {
       calls += 1;
-      return { data: { ok: true, claimed: calls === 1 ? 1 : 0, published: calls === 1 ? 1 : 0 } };
+      return calls === 1
+        ? { data: { ok: true, claimed: 1, published: 1, failed: 0, scheduled: 0, unknown: 0, results: [{ schedule_id: "schedule-1", status: "published" }] } }
+        : { data: { ok: true, claimed: 0, published: 0, failed: 0, scheduled: 0, unknown: 0, results: [] } };
     } },
     logger: { info() {}, error() {} },
     intervalMs: 30_000,
