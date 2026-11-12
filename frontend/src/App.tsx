@@ -983,19 +983,21 @@ const MainApp: React.FC = () => {
                   throw new Error('Сессия пользователя изменилась. Обновите страницу и повторите попытку.');
                 }
                 const existing = pendingReviewPinsRef.current.find((item) => item.pinId === pin.pinId);
-                if (existing) {
-                  setActiveTab('review');
-                  return;
-                }
-                await apiRequest(`/review-queue/${encodeURIComponent(pin.id)}`, {
+                // Re-adding an already queued pin must refresh its creative data
+                // (description/image/title), not silently keep an obsolete snapshot.
+                // Preserve the queue row ID so this remains an idempotent upsert.
+                const queuePin = existing ? { ...existing, ...pin, id: existing.id } : pin;
+                await apiRequest(`/review-queue/${encodeURIComponent(queuePin.id)}`, {
                   method: 'PUT',
-                  body: JSON.stringify({ pin }),
+                  body: JSON.stringify({ pin: queuePin }),
                 });
                 if (!isCurrentOwner()) {
                   throw new Error('Сессия пользователя изменилась во время сохранения.');
                 }
-                if (reviewQueueHydratingRef.current) reviewQueueTouchedIdsRef.current.add(pin.id);
-                const next = [...pendingReviewPinsRef.current, pin];
+                if (reviewQueueHydratingRef.current) reviewQueueTouchedIdsRef.current.add(queuePin.id);
+                const next = existing
+                  ? pendingReviewPinsRef.current.map((item) => item.id === existing.id ? queuePin : item)
+                  : [...pendingReviewPinsRef.current, queuePin];
                 pendingReviewPinsRef.current = next;
                 setPendingReviewPins(next);
                 setActiveTab('review');
