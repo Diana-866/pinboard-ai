@@ -34,7 +34,7 @@ export function isReviewQueueItemCurrent(
 /** A batch may continue only while the exact persisted card remains queued. */
 export function isReviewQueueItemPresent(
   expected: ReviewQueueItemSnapshot,
-  queue: readonly ReviewQueueItemSnapshot[],
+  queue: readonly { id: string; pinId?: string }[],
 ): boolean {
-  return Boolean(expected.id && queue.some((item) => item.id === expected.id && item.pinId === expected.pinId));
+  return Boolean(expected.id && queue.some((item) => item.id === expected.id && (item.pinId || '') === expected.pinId));
 }
