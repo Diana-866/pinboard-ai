@@ -6,6 +6,7 @@ declare
   v_user uuid;
   v_purchase uuid;
   v_subscription uuid;
+  v_activated_subscription uuid;
   v_marked boolean;
 begin
   insert into public.users(email,password_hash,account_status)
@@ -106,6 +107,29 @@ begin
   end if;
   if (select tariff_plan from public.users where id=v_user) <> 'none' then
     raise exception 'duplicate webhook restored a refunded subscription entitlement';
+  end if;
+
+  -- A subscription may have been activated before its provider refund was
+  -- confirmed. The idempotent activation path must not reapply that entitlement.
+  insert into public.subscriptions(
+    user_id,plan,status,amount,currency,provider_payment_id,
+    period_start,period_end,provider_refunded_at
+  ) values (
+    v_user::text,'pro','success',1990,'rub','already-active-refunded-'||v_user::text,
+    clock_timestamp() - interval '1 day',
+    clock_timestamp() + interval '29 days',
+    clock_timestamp()
+  ) returning id into v_activated_subscription;
+
+  begin
+    perform public.activate_paid_subscription(v_activated_subscription,clock_timestamp());
+    raise exception 'expected already-activated subscription refund guard';
+  exception when others then
+    if position('provider refund confirmed' in sqlerrm)=0 then raise; end if;
+  end;
+
+  if (select tariff_plan from public.users where id=v_user) <> 'none' then
+    raise exception 'idempotent webhook restored an already-refunded subscription entitlement';
   end if;
 end;
 $$;
