@@ -23,7 +23,7 @@ import {
 import { useI18n } from '../../i18n/i18nContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
-import { applyCurrentReviewEdits } from '../../utils/reviewApproval';
+import { applyCurrentReviewEdits, requirePinStatusResponse } from '../../utils/reviewApproval';
 import { createGenerationIdempotencyKey } from '../../utils/generationRetry';
 import { requirePinterestAccounts, requirePinterestBoards } from '../../utils/pinterestResources';
 
@@ -492,10 +492,11 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         // Persist the decision on the saved pin before removing its review item.
         // Demo cards have no server pin ID and remain local-only.
         if (currentPin.pinId) {
-          await apiRequest(`/pins/${encodeURIComponent(currentPin.pinId)}/status`, {
+          const rejectedPin = await apiRequest(`/pins/${encodeURIComponent(currentPin.pinId)}/status`, {
             method: 'POST',
             body: JSON.stringify({ status: 'rejected' }),
           });
+          requirePinStatusResponse(rejectedPin, currentPin.pinId, 'rejected');
           pinWasRejected = true;
         }
         await updateQueue((prev) => prev.filter((pin) => pin.id !== currentPin.id));
