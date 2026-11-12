@@ -419,5 +419,4 @@ begin
     raise exception 'remaining Storage batch was not scheduled promptly: status %, next attempt %',
       v_status,v_after;
   end if;
-end;
-$;
+end;$$;
