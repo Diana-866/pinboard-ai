@@ -184,7 +184,7 @@ const imageUploadLimiter = rateLimit({
 const { generateImage, checkImage, imageTaskResult, providerTaskError, quoteImageTask } = require("./gptunnel");
 const { register, login, verifyToken } = require("./auth");
 const supabase = require("./supabase");
-const { buildPinScheduleSnapshot, normalizePinterestDestinationUrl, classifyLegacyScheduleAccount, getScheduleRetryability, getScheduleFailureReason, sanitizeScheduleForClient } = require("./pinterestSchedule");
+const { buildPinScheduleSnapshot, isSamePinScheduleRequest, normalizePinterestDestinationUrl, classifyLegacyScheduleAccount, getScheduleRetryability, getScheduleFailureReason, sanitizeScheduleForClient } = require("./pinterestSchedule");
 const { pinterestScheduleLimiter } = require("./pinterestRateLimit");
 const { analyzeSite } = require("./analyze");
 const { suggestKeywords } = require("./keywordIdeas");
@@ -2290,12 +2290,13 @@ app.post("/pins/:id/schedule", requireAuth, pinterestScheduleLimiter, requireTar
         .in("status", ["scheduled", "publishing", "published", "unknown"])
         .maybeSingle();
       if (existingError) throw existingError;
-      const sameRequest = existing &&
-        new Date(existing.scheduled_at).getTime() === scheduledAt.getTime() &&
-        String(existing.timezone || "") === timezone &&
-        String(existing.destination_url || "") === String(snapshotDestinationUrl || "") &&
-        String(existing.pinterest_board_id || "") === pinterestBoardId &&
-        String(existing.pinterest_account_id || "") === String(selectedAccount.id);
+      const sameRequest = isSamePinScheduleRequest(existing, {
+        scheduledAt,
+        timezone,
+        destinationUrl: snapshotDestinationUrl,
+        pinterestBoardId,
+        pinterestAccountId: selectedAccount.id,
+      });
       if (sameRequest) {
         return res.status(200).json(sanitizeScheduleForClient(existing));
       }
