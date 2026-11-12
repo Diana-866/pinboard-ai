@@ -341,6 +341,10 @@ const MainApp: React.FC = () => {
     });
     if (!ownerId) return () => { active = false; };
 
+    // A manual retry must show the loading state just like the initial restore.
+    setPendingReviewQueueLoading(true);
+    setPendingReviewQueueError(false);
+
     apiRequest('/review-queue')
       .then((rows) => {
         if (!active || !isCurrentOwner()) return;
