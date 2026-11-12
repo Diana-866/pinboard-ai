@@ -83,7 +83,7 @@ begin
   -- A late paid callback must not replenish an account after deletion has
   -- fenced it. The purchase stays uncredited for reconciliation instead.
   insert into public.users(email, credits_balance, account_status)
-  values ('aud089-deleting-account@example.invalid', 40, 'deletion_pending')
+  values ('aud089-deleted-account@example.invalid', 40, 'deleted')
   returning id into v_deleting_user_id;
 
   insert into public.credit_purchases(
@@ -94,9 +94,9 @@ begin
 
   begin
     perform public.credit_paid_purchase(
-      v_deleting_purchase_id, v_paid_at, 'AUD-089 late fulfillment after deletion request'
+      v_deleting_purchase_id, v_paid_at, 'AUD-089 late fulfillment after deletion finalization'
     );
-    raise exception 'expected credit_paid_purchase to reject a deletion-pending account';
+    raise exception 'expected credit_paid_purchase to reject a deleted account';
   exception
     when others then
       if sqlerrm not like 'account is not active%' then
@@ -105,7 +105,7 @@ begin
   end;
 
   if (select credits_balance from public.users where id = v_deleting_user_id) <> 40 then
-    raise exception 'deletion-pending account balance was unexpectedly changed';
+    raise exception 'deleted account balance was unexpectedly changed';
   end if;
 
   if not exists (
