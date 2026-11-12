@@ -43,3 +43,18 @@ test('rejects duplicate pin IDs so separate saved results cannot overwrite each 
   ];
   assert.throws(() => requireGeneratedPinsArray(duplicate), /повторяющийся идентификатор/);
 });
+
+
+test('rejects whitespace-padded pin IDs instead of accepting ambiguous identities', () => {
+  assert.throws(() => requireGeneratedPinsArray([{
+    id: ' pin-1 ',
+    image_url: 'https://storage.example/pin.png',
+  }]), /некорректен идентификатор/);
+});
+
+test('rejects HTTPS image URLs containing embedded credentials', () => {
+  assert.throws(() => requireGeneratedPinsArray([{
+    id: 'pin-1',
+    image_url: 'https://user:password@storage.example/pin.png',
+  }]), /безопасной HTTPS-ссылкой/);
+});
