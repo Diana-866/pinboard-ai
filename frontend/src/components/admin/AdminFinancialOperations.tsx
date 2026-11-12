@@ -8,6 +8,7 @@ type Operation = {
   operation: 'generation' | 'regeneration' | 'ambiguous' | 'unmatched' | 'payment_reconciliation';
   payment_id?: string;
   payment_kind?: 'credits' | 'subscription';
+  provider_order_id?: string | null;
   amount?: number;
   currency?: string;
   paid_at?: string | null;
@@ -84,6 +85,11 @@ function OperationTable({ title, rows, empty, rowLabel }: { title: string; rows:
                   <td className="px-4 py-3 align-top">
                     <div className="font-semibold text-primary-theme">{row.payment_kind === 'credits' ? 'Покупка кредитов' : row.payment_kind === 'subscription' ? 'Подписка' : rowLabel}</div>
                     <div className="mt-0.5 max-w-[180px] truncate font-mono text-[10px] text-muted-theme">{row.request_id || row.reservation_id || row.payment_id}</div>
+                    {row.provider_order_id && (
+                      <div className="mt-1 text-[10px] text-secondary-theme">
+                        Заказ Prodamus: <span className="select-all font-mono font-semibold">{row.provider_order_id}</span>
+                      </div>
+                    )}
                     {row.amount != null && <div className="mt-1 text-[10px] text-muted-theme">Оплачено: {row.amount} {row.currency?.toUpperCase()}</div>}
                     {row.task_counts && <div className="mt-1 text-[10px] text-muted-theme">Задач: {row.task_counts.total} · успех: {row.task_counts.succeeded} · ошибка: {row.task_counts.failed} · неизвестно: {row.task_counts.unknown}</div>}
                     {row.amount_credits != null && <div className="mt-1 text-[10px] text-muted-theme">Зарезервировано: {row.amount_credits} кр.</div>}
@@ -134,7 +140,7 @@ export const AdminFinancialOperations: React.FC = () => {
           <h2 className="flex items-center gap-2 text-lg font-bold text-primary-theme font-heading">
             <Activity className="h-5 w-5 text-accent-ghost" /> Незавершённые финансовые операции
           </h2>
-          <p className="mt-0.5 text-[11.5px] text-muted-theme">Генерации, перегенерации и резервы кредитов, которым требуется внимание.</p>
+          <p className="mt-0.5 text-[11.5px] text-muted-theme">Незавершённые генерации, резервы и подтверждённые оплаты. Для платёжной сверки указан ID заказа Prodamus — найдите его в кабинете провайдера.</p>
         </div>
         <button onClick={load} disabled={loading} className="flex items-center gap-1.5 rounded-xl border border-subtle bg-subtle px-3.5 py-2 text-xs font-semibold text-secondary-theme hover:bg-surface disabled:opacity-50">
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Обновить
