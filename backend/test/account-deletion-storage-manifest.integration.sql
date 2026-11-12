@@ -18,6 +18,30 @@ declare
   v_other_board uuid;
   v_result jsonb;
 begin
+  if public.managed_pin_image_object_path_for_project(
+       'https://project.supabase.co/storage/v1/object/public/pin-images/pins/123-0123456789abcdef0123456789abcdef.png',
+       'https://project.supabase.co'
+     ) is distinct from 'pins/123-0123456789abcdef0123456789abcdef.png' then
+    raise exception 'configured Supabase project image URL was not recognized';
+  end if;
+  if public.managed_pin_image_object_path_for_project(
+       'https://attacker.example/storage/v1/object/public/pin-images/pins/123-0123456789abcdef0123456789abcdef.png',
+       'https://project.supabase.co'
+     ) is not null then
+    raise exception 'foreign-origin image URL was accepted';
+  end if;
+
+  begin
+    perform public.materialize_account_deletion_storage_manifest(
+      v_job,v_claim,'javascript:alert(1)'
+    );
+    raise exception 'invalid configured Supabase project URL was accepted';
+  exception when raise_exception then
+    if sqlerrm = 'invalid configured Supabase project URL was accepted' then
+      raise;
+    end if;
+  end;
+
   insert into public.users(id,email,password_hash,token_version,account_status)
   values
     (v_user,'storage-manifest-'||v_user||'@example.invalid','unused',1,'deletion_pending'),
@@ -124,7 +148,7 @@ begin
   end if;
 
   -- Re-running the same leased operation is idempotent.
-  v_result := public.materialize_account_deletion_storage_manifest(v_job,v_claim);
+  v_result := public.materialize_account_deletion_storage_manifest(v_job,v_claim,'https://project.supabase.co');
   if v_result->>'recorded' <> 'true' or (v_result->>'inserted')::integer <> 0
      or (v_result->>'total')::integer <> 4 then
     raise exception 'Storage manifest retry was not idempotent: %',v_result;
@@ -355,3 +379,19 @@ begin
 end;
 $$;
 rollback;
+
+
+-- Successful bounded Storage batches must not inherit the exponential retry delay.
+do $$
+declare
+  v_definition text;
+begin
+  v_definition := pg_get_functiondef(
+    'public.finish_account_deletion_job(uuid,uuid,text,text)'::regprocedure
+  );
+  if position('storage_manifest_batch_remaining' in v_definition) = 0
+     or position('then 5' in v_definition) = 0 then
+    raise exception 'Storage manifest batch retry fast path is missing';
+  end if;
+end;
+$$;
