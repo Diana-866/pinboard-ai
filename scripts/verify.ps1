@@ -57,7 +57,7 @@ function Ensure-Dependencies {
 }
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-    throw "Node.js is required. Install Node.js 22 or newer and rerun this script."
+    throw "Node.js is required. Install Node.js 22.12 or newer and rerun this script."
 }
 if (-not (Get-Command npm.cmd -ErrorAction SilentlyContinue)) {
     throw "npm.cmd is required. Repair the Node.js installation and rerun this script."
@@ -72,8 +72,8 @@ try {
 } catch {
     throw "Unable to parse the installed Node.js version: $NodeVersionText"
 }
-if ($NodeVersion.Major -lt 22) {
-    throw "Node.js 22 or newer is required. Installed version: $NodeVersionText"
+if ($NodeVersion -lt [version]"22.12.0") {
+    throw "Node.js 22.12 or newer is required. Installed version: $NodeVersionText"
 }
 
 $Backend = Join-Path $Root "backend"
