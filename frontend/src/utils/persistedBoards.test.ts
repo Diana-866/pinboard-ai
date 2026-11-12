@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mapPersistedBoards, requireCreatedBoardResponse, requireUpdatedBoardResponse } from './persistedBoards';
+import { mapPersistedBoards, requireCreatedBoardResponse, requireUpdatedBoardResponse, resolveSelectedBoardId } from './persistedBoards';
 
 const invalid = 'Invalid boards response';
 
@@ -122,4 +122,20 @@ test('rejects mismatched or malformed updated-board responses', () => {
       /Invalid boards response/,
     );
   }
+});
+
+
+test('keeps the current board when it still exists after refresh', () => {
+  assert.equal(
+    resolveSelectedBoardId([{ id: 'board-1' }, { id: 'board-2' }], 'board-2', 'board-1', 'board-1'),
+    'board-2',
+  );
+});
+
+test('recovers a removed selection using preferred, recommended, then first available board', () => {
+  const boards = [{ id: 'board-2' }, { id: 'board-3' }];
+  assert.equal(resolveSelectedBoardId(boards, 'deleted', 'board-3', 'board-2'), 'board-3');
+  assert.equal(resolveSelectedBoardId(boards, 'deleted', 'missing', 'board-2'), 'board-2');
+  assert.equal(resolveSelectedBoardId(boards, 'deleted', 'missing', 'missing'), 'board-2');
+  assert.equal(resolveSelectedBoardId([], 'deleted'), '');
 });
