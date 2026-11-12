@@ -140,6 +140,7 @@ export interface CreditPurchaseRow {
   currency: string;
   paid_at: string | null;
   balance_credited_at: string | null;
+  provider_refunded_at?: string | null;
   created_at: string;
   provider_payment_id: string | null;
 }
