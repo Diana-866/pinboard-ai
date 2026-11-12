@@ -4,6 +4,11 @@
 -- owner -> payment-row locks as deletion finalization and refund reconciliation.
 begin;
 
+-- The payment webhook records the provider-confirmed payment time before
+-- entitlement activation; keep this additive for older installations.
+alter table public.subscriptions
+  add column if not exists provider_paid_at timestamptz;
+
 create or replace function public.record_paid_uncredited_credit_purchase(
   p_purchase_id uuid,
   p_paid_at timestamptz
