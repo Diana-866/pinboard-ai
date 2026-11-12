@@ -53,10 +53,16 @@ test("atomic payment integration workflow applies existing migrations in ascendi
   const workflow = fs.readFileSync(workflowPath, "utf8");
   const applied = [...workflow.matchAll(/db\/migrations\/(\d{3}_[^\s]+\.sql)/g)].map((match) => match[1]);
   assert.ok(applied.length > 0, "workflow must apply database migrations");
-  assert.ok(applied.includes("148_pin_generation_task_result_immutability.sql"), "workflow must apply provider result immutability");
-  assert.ok(applied.includes("149_pin_generation_task_facts_guard.sql"), "workflow must apply generation task fact guards");
-  assert.ok(applied.includes("157_record_subscription_provider_refunds.sql"), "workflow must apply subscription refund reconciliation");
-  assert.ok(applied.includes("158_account_deletion_finalization_financial_recheck.sql"), "workflow must apply finalization financial recheck");
+  // The disposable PostgreSQL workflow must replay every canonical migration,
+  // not merely a handful of recent security-sensitive files. A missing file
+  // here can otherwise let CI pass while production has a different schema.
+  for (let number = 10; number <= 158; number += 1) {
+    const prefix = String(number).padStart(3, "0") + "_";
+    const canonical = fs.readdirSync(migrationsDir)
+      .filter((file) => file.startsWith(prefix) && file.endsWith(".sql"));
+    assert.equal(canonical.length, 1, `expected exactly one migration for ${prefix}`);
+    assert.ok(applied.includes(canonical[0]), `workflow must apply canonical migration ${canonical[0]}`);
+  }
   const numbers = applied.map((file) => Number(file.slice(0, 3)));
   assert.deepEqual(numbers, [...numbers].sort((a, b) => a - b), "workflow migration order must be ascending");
   assert.equal(new Set(applied).size, applied.length, "workflow must not apply a migration twice");
