@@ -311,3 +311,29 @@ test("worker safely ignores hostile error diagnostic getters", async () => {
   assert.deepEqual(errors[0], ["schedule_worker.batch_failed", {}]);
   assert.equal(JSON.stringify(errors).includes("secret"), false);
 });
+
+ 
+test("worker drains a due backlog quickly but keeps the normal idle polling cadence", async () => {
+  const scheduled = [];
+  let calls = 0;
+  const worker = createWorker({
+    config: { endpoint: "https://api.example.com/internal/pinterest/schedule/run", secret: "secret-value" },
+    client: { post: async () => {
+      calls += 1;
+      return { data: { ok: true, claimed: calls === 1 ? 1 : 0, published: calls === 1 ? 1 : 0 } };
+    } },
+    logger: { info() {}, error() {} },
+    intervalMs: 30_000,
+    schedule: (callback, delay) => { const timer = { callback, delay }; scheduled.push(timer); return timer; },
+    cancelSchedule() {},
+  });
+
+  worker.start();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(scheduled[0].delay, 250, "a claimed row should trigger a quick next claim");
+  scheduled[0].callback();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(calls, 2);
+  assert.equal(scheduled[1].delay, 30_000, "an empty queue should return to idle cadence");
+  await worker.stop();
+});
