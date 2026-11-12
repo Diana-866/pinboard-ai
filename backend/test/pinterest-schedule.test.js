@@ -329,7 +329,8 @@ test("retryability fails closed when schedule owner or pin identity is missing o
 
 test("retryability blocks missing account, board, pin, publication, and duplicate active schedule", () => {
   const schedule = {
-    status: "failed", pinterest_account_id: "account-a", pinterest_board_id: "board-a",
+    status: "failed", user_id: "user-1", pin_id: "pin-1",
+    pinterest_account_id: "account-a", pinterest_board_id: "board-a",
     pins: { image_url: "https://cdn.example/pin.jpg" },
   };
   assert.equal(getScheduleRetryability({ ...schedule, pinterest_account_id: null }, null, false, false, false).reason, "account_unavailable");
