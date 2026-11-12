@@ -72,7 +72,7 @@ migration_replay() {
   local scratch
   scratch="$(mktemp -d)"
   SCRATCH_DIRS+=("$scratch")
-  cp -r "$ROOT/db/migrations" "$ROOT/db/supabase-stub.sql" "$scratch/" 2>/dev/null || {
+  cp -r "$ROOT/db/migrations" "$ROOT/db/supabase-stub.sql" "$ROOT/backend/test/account-deletion-storage-manifest.integration.sql" "$scratch/" 2>/dev/null || {
     echo "missing db/migrations or db/supabase-stub.sql"
     return 1
   }
@@ -88,6 +88,13 @@ migration_replay() {
       break
     fi
   done
+  if [ "$failed" -eq 0 ]; then
+    echo "▶ account deletion Storage manifest + financial retention integration"
+    if ! "${psql_cmd[@]}" -d "$db" -f "$scratch/account-deletion-storage-manifest.integration.sql"; then
+      echo "account deletion Storage manifest integration test failed"
+      failed=1
+    fi
+  fi
   "${psql_cmd[@]}" -c "drop database if exists ${db}" >/dev/null 2>&1
   return $failed
 }
