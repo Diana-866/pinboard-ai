@@ -481,6 +481,23 @@ test("worker confirms a conditional schedule update actually changed its claimed
   assert.equal(isScheduleClaimUpdateConfirmed(null), false);
 });
 
+test("worker publication ledger lookup failure explains that confirmation is unavailable", () => {
+  const state = buildScheduleWorkerFailureState({
+    attempt: {
+      user_id: "user-1", pin_id: "pin-1", pinterest_account_id: "account-1",
+      pinterest_board_id: "board-1", status: "published", pinterest_pin_id: "remote-1",
+    },
+    publicationLedgerLookupError: new Error("database connection reset"),
+    error: new Error("worker failed"),
+    attempts: 1,
+  });
+  assert.equal(state.finalStatus, "unknown");
+  assert.equal(state.retryable, true);
+  assert.equal(state.shouldRetry, false);
+  assert.match(state.message, /Не удалось сверить подтверждение публикации/);
+  assert.match(state.message, /повторная публикация заблокирована/);
+});
+
 test("worker journal lookup failure remains unknown and never authorizes a retry", () => {
   const state = buildScheduleWorkerFailureState({
     attempt: null,
