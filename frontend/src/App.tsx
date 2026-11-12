@@ -366,23 +366,19 @@ const MainApp: React.FC = () => {
     // The status endpoint is an external-data boundary. Reject duplicate,
     // blank or padded IDs instead of creating ambiguous account selections.
     const validAccounts = requirePinterestAccounts(status.accounts ?? []);
-    const rowsById = new Map((status.accounts ?? []).map((account) => [account.id, account]));
-    const mapped: PinterestAccount[] = validAccounts.map((account, index) => {
-      const details = rowsById.get(account.id)!;
-      return {
-        id: account.id,
-        name: account.username || details.pinterest_user_id || `Pinterest ${index + 1}`,
-        handle: account.username ? `@${account.username}` : String(details.pinterest_user_id || ''),
-        avatar: '',
-        boardsCount: 0,
-        monthlyViews: '—',
-        minDailyPins: 8,
-        maxDailyPins: 16,
-        nightlyAuto: false,
-        status: details.needs_reauth ? 'error' : 'active',
-        niche: '',
-      };
-    });
+    const mapped: PinterestAccount[] = validAccounts.map((account, index) => ({
+      id: account.id,
+      name: account.username || account.pinterest_user_id || `Pinterest ${index + 1}`,
+      handle: account.username ? `@${account.username}` : String(account.pinterest_user_id || ''),
+      avatar: '',
+      boardsCount: 0,
+      monthlyViews: '—',
+      minDailyPins: 8,
+      maxDailyPins: 16,
+      nightlyAuto: false,
+      status: account.needs_reauth ? 'error' : 'active',
+      niche: '',
+    }));
     setAccounts(mapped);
     setActiveAccountId((current) =>
       current && mapped.some((account) => account.id === current)
