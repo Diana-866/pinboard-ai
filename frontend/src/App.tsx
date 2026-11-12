@@ -369,6 +369,7 @@ const MainApp: React.FC = () => {
         setPendingReviewQueueError(true);
         // Keep touched IDs so a later retry cannot resurrect locally removed rows.
         console.error('[review-queue] Не удалось восстановить очередь:', error);
+        window.dispatchEvent(new CustomEvent('pinposy:review-queue-error'));
       });
     return () => { active = false; };
   }, [user?.id, reviewQueueReloadToken]);
