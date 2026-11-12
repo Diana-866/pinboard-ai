@@ -580,6 +580,10 @@ export const de: TranslationSchema = {
     queueLoadErrorDescription: "Pins wurden nicht gelöscht. Prüfen Sie Ihre Verbindung und laden Sie die Warteschlange erneut. Eine leere Warteschlange bedeutet nicht, dass alle Pins geprüft wurden.",
     queueRetry: "Warteschlange erneut laden",
     queueLoading: "Prüfwarteschlange wird geladen…",
+    queueLoadErrorTitle: "Prüfwarteschlange konnte nicht geladen werden",
+    queueLoadErrorDescription: "Pins wurden nicht gelöscht. Prüfen Sie Ihre Verbindung und laden Sie die Warteschlange erneut. Eine leere Warteschlange bedeutet nicht, dass alle Pins geprüft wurden.",
+    queueRetry: "Warteschlange erneut laden",
+    queueLoading: "Prüfwarteschlange wird geladen…",
   },
 
   bot: {
