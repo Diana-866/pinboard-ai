@@ -320,15 +320,6 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
       logError("creditsBilling.event_019");
       return res.status(500).json({ ok: false, error: "crediting and audit storage failed" });
     }
-    if (accountDeleted) {
-      logWarning("creditsBilling.event_020");
-      return res.json({
-        ok: true,
-        payment_received: true,
-        credited: false,
-        reconciliation_required: true,
-      });
-    }
     const { data: flagged, error: flagError } = await db.from("credit_purchases")
       .update({ status: "paid_uncredited", paid_at: paidAt })
       .eq("id", purchase.id)
@@ -340,6 +331,17 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
       return res.status(500).json({ ok: false, error: "crediting requires reconciliation" });
     }
 
+    if (accountDeleted) {
+      // Preserve the paid liability even after the user has become a tombstone.
+      // The global admin reconciliation queue must still be able to find and refund it.
+      logWarning("creditsBilling.event_020");
+      return res.json({
+        ok: true,
+        payment_received: true,
+        credited: false,
+        reconciliation_required: true,
+      });
+    }
     // The RPC response can be lost after its transaction committed. Never
     // overwrite a successful credit marker; confirm the durable row first.
     if (!Array.isArray(flagged) || flagged.length === 0) {
