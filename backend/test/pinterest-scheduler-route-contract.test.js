@@ -25,6 +25,18 @@ test("direct Pinterest publish recovery is read-only and confirms only an exact 
   assert.doesNotMatch(route, /\.rpc\(|callPinterest\(|\.update\(/);
 });
 
+test("direct publish uncertainty exposes a status check without issuing a second publish POST", () => {
+  const button = fs.readFileSync(
+    path.join(__dirname, "..", "..", "frontend", "src", "components", "pins", "PublishPinButton.tsx"),
+    "utf8"
+  );
+  assert.match(button, /const handleCheckStatus = async/);
+  assert.match(button, /\/pins\/\$\{encodeURIComponent\(checkingPinId\)\}\/publish-status\?account_id=/);
+  assert.match(button, /readConfirmedPinterestPublish\(result, checkingBoardId\)/);
+  assert.match(button, /onClick=\{handleCheckStatus\}/);
+  assert.match(button, /Повторная отправка остаётся заблокированной/);
+});
+
 test("Pinterest scheduler worker URL is registered by the backend router", () => {
   const worker = read("scheduleWorker.js");
   const index = read("index.js");
