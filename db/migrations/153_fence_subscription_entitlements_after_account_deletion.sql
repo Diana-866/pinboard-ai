@@ -79,12 +79,12 @@ begin
   else
     if v_user.account_status = 'active' then
       v_start := greatest(
-        coalesce(p_paid_at, now()),
-        coalesce(v_user.tariff_period_end, coalesce(p_paid_at, now()))
+        coalesce(v_sub.provider_paid_at, p_paid_at, now()),
+        coalesce(v_user.tariff_period_end, coalesce(v_sub.provider_paid_at, p_paid_at, now()))
       );
     else
-      -- Retain paid-period evidence without extending access after deletion.
-      v_start := coalesce(p_paid_at, now());
+      -- Retain the original provider-paid timestamp without extending access.
+      v_start := coalesce(v_sub.provider_paid_at, p_paid_at, now());
     end if;
     v_end := v_start + interval '30 days';
 
