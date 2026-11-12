@@ -31,7 +31,7 @@ import { shouldFlushPendingPinDescription } from '../../utils/pendingPinDescript
 import { clearPendingGenerationRequest, createGenerationFingerprint, listPendingGenerationRequests, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
 import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
 import { requireGeneratedPinsArray } from '../../utils/generatedPinsResponse';
-import { isExpiredGenerationRecoveryError } from '../../utils/generationRecovery';
+import { isDefinitiveGenerationRecoveryStatus, isExpiredGenerationRecoveryError } from '../../utils/generationRecovery';
 import { isCurrentBillingOwner } from '../../utils/billingOwner';
 import { rollbackPinAspectRatioIfUnchanged } from '../../utils/pinAspectRatio';
 import { resolvePinterestDestination } from '../../utils/pinterestDestination';
@@ -547,13 +547,23 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         mixed_ratios: targetRatios,
       };
       requestFingerprint = createGenerationFingerprint(JSON.stringify({ boardId: selectedBoard.id, ...requestBody }));
-      const storedRequest = readPendingGenerationRequest(requestFingerprint);
-      if (storedRequest?.fingerprint !== requestFingerprint || !storedRequest.idempotencyKey) {
+      const recoveredRequest = recoverableGenerations.find((item) => item.key === requestFingerprint);
+      if (recoveredRequest && isDefinitiveGenerationRecoveryStatus(recoveredRequest.status)) {
+        // The read-only recovery endpoint has already confirmed that the old
+        // request cannot produce another result. Start a new attempt directly
+        // instead of making the user submit the known-failed key once more.
         generationKeyRef.current = createGenerationIdempotencyKey();
         writePendingGenerationRequest(requestFingerprint, generationKeyRef.current);
+        setRecoverableGenerations((current) => current.filter((item) => item.key !== requestFingerprint));
       } else {
-        // Restore the durable request identity after a remount or page reload.
-        generationKeyRef.current = storedRequest.idempotencyKey;
+        const storedRequest = readPendingGenerationRequest(requestFingerprint);
+        if (storedRequest?.fingerprint !== requestFingerprint || !storedRequest.idempotencyKey) {
+          generationKeyRef.current = createGenerationIdempotencyKey();
+          writePendingGenerationRequest(requestFingerprint, generationKeyRef.current);
+        } else {
+          // Restore the durable request identity after a remount or page reload.
+          generationKeyRef.current = storedRequest.idempotencyKey;
+        }
       }
       const rows = await apiRequest(`/boards/${encodeURIComponent(selectedBoard.id)}/pins/generate`, {
         method: 'POST',
