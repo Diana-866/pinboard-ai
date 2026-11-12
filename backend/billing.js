@@ -574,7 +574,7 @@ async function listUserSubscriptions(userId, limit = 20) {
 async function listAllSubscriptions(limit = 100) {
   const { data, error } = await supabase
     .from("subscriptions")
-    .select("id, user_id, plan, status, amount, currency, period_start, period_end, created_at, provider_payment_id")
+    .select("id, user_id, plan, status, amount, currency, period_start, period_end, created_at, provider_payment_id, provider_paid_at, provider_refunded_at")
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw httpError(500, "Не удалось получить подписки — примените миграцию 006");
