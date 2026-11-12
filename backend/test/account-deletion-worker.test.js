@@ -163,6 +163,30 @@ test("worker rejects malformed claimed jobs before starting destructive processi
   assert.deepEqual(calls, ["claim_account_deletion_jobs"]);
 });
 
+test("worker rejects unknown claimed stages before starting processing", async () => {
+  const calls = [];
+  const client = {
+    async rpc(name) {
+      calls.push(name);
+      if (name === "claim_account_deletion_jobs") {
+        return {
+          data: [{
+            job_id: "bbbbbbbb-bbbb-4bbb-8bbb-000000000001",
+            user_id: USER_ID,
+            claim_token: "bbbbbbbb-bbbb-4bbb-8bbb-000000000002",
+            step_key: "delete_everything",
+          }],
+          error: null,
+        };
+      }
+      throw new Error("unexpected RPC");
+    },
+  };
+  const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} } });
+  await assert.rejects(worker.tick(), (error) => error.code === "invalid_claimed_job");
+  assert.deepEqual(calls, ["claim_account_deletion_jobs"]);
+});
+
 test("worker claims and finalizes only through fenced RPCs", async () => {
   const calls = [];
   const client = {
