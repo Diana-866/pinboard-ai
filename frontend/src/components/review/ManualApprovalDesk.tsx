@@ -379,10 +379,13 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
   useEffect(() => {
     let active = true;
+    // Never leave the previous account's boards selectable while the next
+    // account is loading. This also closes the window where approval could
+    // submit an old board ID together with a newly selected account ID.
+    setPinterestBoards([]);
+    setSelectedPinterestBoardId('');
     setPinterestBoardsError(false);
     if (!selectedPinterestAccountId) {
-      setPinterestBoards([]);
-      setSelectedPinterestBoardId('');
       setPinterestBoardsLoaded(true);
       return () => { active = false; };
     }
@@ -390,20 +393,22 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     apiRequest(`/integrations/pinterest/boards?account_id=${encodeURIComponent(selectedPinterestAccountId)}`)
       .then((data) => {
         if (!active) return;
-        const rows = Array.isArray(data?.boards) ? data.boards : [];
+        const rows = Array.isArray(data?.boards)
+          ? data.boards.filter((board: any) => board && typeof board.id === 'string' && board.id.trim())
+          : [];
         setPinterestBoards(rows);
-        if (!rows.some((board: { id: string }) => board.id === selectedPinterestBoardId)) {
-          setSelectedPinterestBoardId(rows[0]?.id || '');
-        }
+        setSelectedPinterestBoardId(rows[0]?.id || '');
         setPinterestBoardsLoaded(true);
       })
       .catch(() => {
         if (!active) return;
+        setPinterestBoards([]);
+        setSelectedPinterestBoardId('');
         setPinterestBoardsError(true);
         setPinterestBoardsLoaded(true);
       });
     return () => { active = false; };
-  }, [selectedPinterestAccountId]);
+  }, [selectedPinterestAccountId, userId]);
 
   // Sync state whenever the active top card changes
   useEffect(() => {
