@@ -55,3 +55,18 @@ test('rejects saved image URLs with missing hosts or embedded credentials', () =
     image_url: 'https://user:password@storage.example/pin.png',
   }]), /безопасной HTTPS-ссылкой/);
 });
+
+test('rejects malformed saved-pin display fields before restoring the editor', () => {
+  assert.throws(() => requireSavedPinsArray([{
+    id: 'pin-1', title: { text: 'bad' }, image_url: 'https://storage.example/pin.png',
+  }]), /некорректный заголовок/);
+  assert.throws(() => requireSavedPinsArray([{
+    id: 'pin-1', description: ['bad'], image_url: 'https://storage.example/pin.png',
+  }]), /некорректное описание/);
+});
+
+test('rejects unsupported saved-pin aspect ratios', () => {
+  assert.throws(() => requireSavedPinsArray([{
+    id: 'pin-1', aspect_ratio: '16:9', image_url: 'https://storage.example/pin.png',
+  }]), /неподдерживаемый формат/);
+});
