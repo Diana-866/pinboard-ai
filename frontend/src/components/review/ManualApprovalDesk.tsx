@@ -25,6 +25,7 @@ import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { applyCurrentReviewEdits } from '../../utils/reviewApproval';
 import { createGenerationIdempotencyKey } from '../../utils/generationRetry';
+import { requirePinterestAccounts, requirePinterestBoards } from '../../utils/pinterestResources';
 
 export interface PendingReviewPin {
   id: string;
@@ -344,9 +345,12 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     apiRequest('/integrations/pinterest/status')
       .then((data) => {
         if (!active) return;
-        const rows = Array.isArray(data?.accounts) ? data.accounts : [];
+        const rows = requirePinterestAccounts(data?.accounts);
         setPinterestAccounts(rows);
-        if (rows.length === 1) setSelectedPinterestAccountId(rows[0].id);
+        setSelectedPinterestAccountId((current) => {
+          if (current && rows.some((account) => account.id === current)) return current;
+          return rows.length === 1 ? rows[0].id : '';
+        });
       })
       .catch(() => {
         if (active) setPinterestBoardsError(true);
@@ -367,11 +371,13 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     apiRequest(`/integrations/pinterest/boards?account_id=${encodeURIComponent(selectedPinterestAccountId)}`)
       .then((data) => {
         if (!active) return;
-        const rows = Array.isArray(data?.boards) ? data.boards : [];
+        const rows = requirePinterestBoards(data?.boards);
         setPinterestBoards(rows);
-        if (!rows.some((board: { id: string }) => board.id === selectedPinterestBoardId)) {
-          setSelectedPinterestBoardId(rows[0]?.id || '');
-        }
+        setSelectedPinterestBoardId((current) =>
+          current && rows.some((board) => board.id === current)
+            ? current
+            : rows[0]?.id || ''
+        );
         setPinterestBoardsLoaded(true);
       })
       .catch(() => {
