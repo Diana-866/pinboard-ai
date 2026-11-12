@@ -112,14 +112,20 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   // board fetched for the previously selected account.
   const [pinterestBoardsAccountId, setPinterestBoardsAccountId] = useState<string>('');
   const [selectedPinterestBoardId, setSelectedPinterestBoardId] = useState('');
+  const [pinterestAccountsLoadError, setPinterestAccountsLoadError] = useState('');
+  const [pinterestBoardsLoadError, setPinterestBoardsLoadError] = useState('');
+  const [pinterestAccountsReloadAttempt, setPinterestAccountsReloadAttempt] = useState(0);
+  const [pinterestBoardsReloadAttempt, setPinterestBoardsReloadAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
     // A mounted generator can survive an auth-context user switch. Clear every
     // account-scoped value before loading the new owner's Pinterest connections.
     setPinterestAccounts([]);
+    setPinterestAccountsLoadError('');
     setSelectedPinterestAccountId('');
     setPinterestBoards([]);
+    setPinterestBoardsLoadError('');
     setPinterestBoardsAccountId('');
     setSelectedPinterestBoardId('');
     if (!userId) return () => { active = false; };
@@ -131,14 +137,16 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         setPinterestAccounts(rows);
         if (rows.length === 1) setSelectedPinterestAccountId(rows[0].id);
       })
-      .catch(() => {
+      .catch((error) => {
         if (active) {
+          console.error('[pinterest] Не удалось загрузить аккаунты:', error);
           setPinterestAccounts([]);
           setSelectedPinterestAccountId('');
+          setPinterestAccountsLoadError('Не удалось загрузить Pinterest-аккаунты. Проверьте соединение и повторите попытку.');
         }
       });
     return () => { active = false; };
-  }, [userId]);
+  }, [userId, pinterestAccountsReloadAttempt]);
 
   useEffect(() => {
     let active = true;
@@ -156,15 +164,17 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         setPinterestBoardsAccountId(selectedPinterestAccountId);
         setSelectedPinterestBoardId(rows[0]?.id || '');
       })
-      .catch(() => {
+      .catch((error) => {
         if (active) {
+          console.error('[pinterest] Не удалось загрузить доски:', error);
           setPinterestBoards([]);
           setPinterestBoardsAccountId('');
           setSelectedPinterestBoardId('');
+          setPinterestBoardsLoadError('Не удалось загрузить доски Pinterest. Проверьте соединение и повторите попытку.');
         }
       });
     return () => { active = false; };
-  }, [userId, selectedPinterestAccountId]);
+  }, [userId, selectedPinterestAccountId, pinterestBoardsReloadAttempt]);
 
 
   useEffect(() => {
@@ -1643,6 +1653,22 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                 <label className="block text-[11px] font-bold text-primary-theme">
                   {t.generator.pinterestBoardForPublishingLabel}
                 </label>
+                {pinterestAccountsLoadError && (
+                  <div className="text-xs text-red-600 space-y-2" role="alert">
+                    <p>{pinterestAccountsLoadError}</p>
+                    <button type="button" onClick={() => setPinterestAccountsReloadAttempt((attempt) => attempt + 1)} className="underline font-semibold">
+                      Повторить загрузку аккаунтов
+                    </button>
+                  </div>
+                )}
+                {pinterestBoardsLoadError && (
+                  <div className="text-xs text-red-600 space-y-2" role="alert">
+                    <p>{pinterestBoardsLoadError}</p>
+                    <button type="button" onClick={() => setPinterestBoardsReloadAttempt((attempt) => attempt + 1)} className="underline font-semibold">
+                      Повторить загрузку досок
+                    </button>
+                  </div>
+                )}
                 {pinterestAccounts.length > 1 && (
                   <select
                     value={selectedPinterestAccountId}
