@@ -187,8 +187,8 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
   // A provider webhook may arrive after the customer returns from checkout.
   // Refresh only while this account has pending orders; never create a new payment.
   const pendingPaymentKey = [
-    ...history.filter((row) => row.status === 'pending').map((row) => `subscription:${row.id}`),
-    ...purchases.filter((row) => row.status === 'pending').map((row) => `purchase:${row.id}`),
+    ...history.filter((row) => row.status === 'pending' || row.status === 'paid_unactivated').map((row) => `subscription:${row.id}`),
+    ...purchases.filter((row) => row.status === 'pending' || row.status === 'paid_uncredited').map((row) => `purchase:${row.id}`),
   ].sort().join('|');
 
   useEffect(() => {
@@ -216,10 +216,10 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
         // (for example, "unknown" or "processing") must never release a checkout
         // idempotency key while the provider outcome may still be unresolved.
         const previouslyPendingSubscriptionIds = new Set(
-          history.filter((row) => row.status === 'pending').map((row) => row.id)
+          history.filter((row) => row.status === 'pending' || row.status === 'paid_unactivated').map((row) => row.id)
         );
         const previouslyPendingPurchaseIds = new Set(
-          purchases.filter((row) => row.status === 'pending').map((row) => row.id)
+          purchases.filter((row) => row.status === 'pending' || row.status === 'paid_uncredited').map((row) => row.id)
         );
         const settledSubscriptions = nextHistory.filter((row: SubscriptionRow) =>
           previouslyPendingSubscriptionIds.has(row.id) &&
