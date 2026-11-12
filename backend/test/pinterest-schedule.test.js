@@ -492,7 +492,7 @@ test("worker publication ledger lookup failure explains that confirmation is una
     attempts: 1,
   });
   assert.equal(state.finalStatus, "unknown");
-  assert.equal(state.retryable, true);
+  assert.equal(state.retryable, false);
   assert.equal(state.shouldRetry, false);
   assert.match(state.message, /Не удалось сверить подтверждение публикации/);
   assert.match(state.message, /повторная публикация заблокирована/);
@@ -511,7 +511,7 @@ test("worker journal lookup failure remains unknown and never authorizes a retry
   assert.equal(state.shouldRetry, false);
   assert.equal(state.nextStatus, "unknown");
   assert.equal(state.retryAt, null);
-  assert.match(state.message, /Could not verify (the )?publication journal/);
+  assert.match(state.message, /Не удалось проверить журнал публикации/);
 });
 
 test("worker safely retries only a journal-confirmed retry-safe rejection", () => {
