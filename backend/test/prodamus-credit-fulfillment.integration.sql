@@ -131,7 +131,7 @@ begin
     raise exception 'expected credit_paid_purchase to reject a deleted account';
   exception
     when others then
-      if sqlerrm not like 'account is not active%' then
+      if sqlerrm not like 'account is deleted%' then
         raise;
       end if;
   end;
