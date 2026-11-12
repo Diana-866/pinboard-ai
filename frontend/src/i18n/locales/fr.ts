@@ -575,6 +575,10 @@ export const fr: TranslationSchema = {
     scheduledFor: 'Créneau prévu',
     allReviewed: 'Toutes les épingles ont été examinées !',
     allReviewedDesc: 'Les épingles approuvées ont été programmées aux heures optimales de visibilité.',
+    queueLoading: 'Chargement de la file de vérification enregistrée…',
+    queueLoadErrorTitle: 'Impossible de charger la file de vérification',
+    queueLoadErrorDescription: 'Vos épingles enregistrées sont en sécurité. Vérifiez la connexion et réessayez.',
+    retryQueueLoad: 'Réessayer le chargement',
     finishBtn: 'Aller au Calendrier',
   },
 
