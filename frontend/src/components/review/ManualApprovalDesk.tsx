@@ -552,11 +552,20 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
           pinterestAccountId: selectedPinterestAccountId,
         };
       });
-      const results = await Promise.allSettled(scheduledItems.map((item) => onApprovePin(item)));
+      // Schedule one pin at a time. Each approval performs several persisted
+      // API transitions and a Pinterest board verification; firing the whole
+      // queue concurrently can trigger rate limits and make bulk approval flaky.
       const successfulIds = new Set<string>();
-      results.forEach((result, index) => {
-        if (result.status === 'fulfilled') successfulIds.add(queueSnapshot[index].id);
-      });
+      for (let index = 0; index < scheduledItems.length; index += 1) {
+        try {
+          await onApprovePin(scheduledItems[index]);
+          successfulIds.add(queueSnapshot[index].id);
+        } catch {
+          // Keep this card in the review queue and continue with the rest.
+          // A partial failure must not discard successful approvals or stop
+          // independent cards from being processed.
+        }
+      }
       if (successfulIds.size > 0) {
         try {
           await updateQueue((prev) => prev.filter((pin) => !successfulIds.has(pin.id)));
