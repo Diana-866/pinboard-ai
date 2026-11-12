@@ -5,6 +5,7 @@ import { resolvePublishBoardId } from '../../utils/publishBoardSelection';
 import { readConfirmedPinterestPublish } from '../../utils/pinterestPublishResponse';
 import { isAmbiguousPinterestPublishStatus } from '../../utils/pinterestPublishOutcome';
 import { buildPinterestPinUrl } from '../../utils/pinterestPinUrl';
+import { useAuth } from '../../context/AuthContext';
 
 interface PinterestAccount {
   id: string;
@@ -24,6 +25,9 @@ interface PublishPinButtonProps {
 
 /** Publishes to the explicitly selected Pinterest identity and board. */
 export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, boardId, className }) => {
+  const { user } = useAuth();
+  const userId = user?.id || '';
+  const publishScopeRef = useRef(0);
   const [accounts, setAccounts] = useState<PinterestAccount[]>([]);
   const [accountId, setAccountId] = useState('');
   const [boards, setBoards] = useState<PinterestBoard[]>([]);
@@ -36,9 +40,30 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
   const [uncertain, setUncertain] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // A reused button must never carry one user's Pinterest identity or a previous
+  // pin's result into another account/session. In-flight responses are fenced.
+  useEffect(() => {
+    publishScopeRef.current += 1;
+    setAccounts([]);
+    setAccountId('');
+    setBoards([]);
+    setSelectedBoard('');
+    setAccountsLoading(Boolean(userId));
+    setBoardsLoading(false);
+    setDone(null);
+    setUncertain(false);
+    setError(null);
+    setBusy(false);
+  }, [userId, pinId]);
+
   useEffect(() => {
     let active = true;
-    setAccountsLoading(true);
+    setAccountsLoading(Boolean(userId));
+    if (!userId) {
+      setAccounts([]);
+      setAccountId('');
+      return () => { active = false; };
+    }
     apiRequest('/integrations/pinterest/status')
       .then((data) => {
         if (!active) return;
@@ -53,7 +78,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
         if (active) setAccountsLoading(false);
       });
     return () => { active = false; };
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     let active = true;
@@ -105,8 +130,9 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
   };
 
   const handlePublish = async () => {
-    if (publishLockRef.current || accountsLoading || boardsLoading || !accountId || !selectedBoard) return;
+    if (publishLockRef.current || accountsLoading || boardsLoading || !userId || !accountId || !selectedBoard) return;
     publishLockRef.current = true;
+    const requestScope = publishScopeRef.current;
     setError(null);
     setBusy(true);
     try {
@@ -114,6 +140,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
         method: 'POST',
         body: JSON.stringify({ board_id: selectedBoard, account_id: accountId }),
       });
+      if (requestScope !== publishScopeRef.current) return;
       const confirmed = readConfirmedPinterestPublish(data, selectedBoard);
       if (!confirmed) {
         // The remote POST may have succeeded even though its response was
@@ -123,6 +150,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
       }
       setDone(confirmed.pinId);
     } catch (e) {
+      if (requestScope !== publishScopeRef.current) return;
       const err = e as ApiError;
       // A lost connection or server-side failure after POST /pins is ambiguous:
       // Pinterest may have created the pin even though the browser got no reply.
@@ -134,7 +162,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
       }
     } finally {
       publishLockRef.current = false;
-      setBusy(false);
+      if (requestScope === publishScopeRef.current) setBusy(false);
     }
   };
 
@@ -176,6 +204,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
       {accounts.length > 1 && (
         <select
           value={accountId}
+          disabled={busy}
           onChange={(e) => handleAccountChange(e.target.value)}
           className="w-full text-[11px] rounded-lg border border-subtle bg-surface px-2 py-1.5 text-primary-theme"
         >
@@ -192,6 +221,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
         (!boardId || !boards.some((board) => board.id === boardId)) && (
           <select
             value={selectedBoard}
+            disabled={busy}
             onChange={(e) => {
               setSelectedBoard(e.target.value);
               setError(null);
