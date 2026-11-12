@@ -34,6 +34,17 @@ type PinterestSchedule = {
   actionable_reconciliation: boolean;
 };
 
+type SchedulerHealth = {
+  status: "not_seen" | "healthy" | "running" | "failed" | "stale";
+  generated_at?: string;
+  last_started_at?: string | null;
+  last_completed_at?: string | null;
+  last_started_age_seconds?: number | null;
+  last_completed_age_seconds?: number | null;
+  counts?: { claimed: number; published: number; failed: number; scheduled: number; unknown: number };
+  last_error_code?: string | null;
+};
+
 type InventoryResponse = {
   limit: number;
   offset: number;
@@ -84,6 +95,8 @@ function safeError(value: string | null | undefined): string {
 export const AdminPinterestSchedules: React.FC = () => {
   const [status, setStatus] = useState(STATUS_FILTERS[0].value);
   const [data, setData] = useState<InventoryResponse | null>(null);
+  const [schedulerHealth, setSchedulerHealth] = useState<SchedulerHealth | null>(null);
+  const [schedulerHealthError, setSchedulerHealthError] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -97,6 +110,23 @@ export const AdminPinterestSchedules: React.FC = () => {
   const [reconciliationError, setReconciliationError] = useState("");
   const [reconciliationSuccess, setReconciliationSuccess] = useState("");
   const inventoryRequestIdRef = useRef(0);
+  const healthRequestIdRef = useRef(0);
+
+  const loadSchedulerHealth = useCallback(async () => {
+    const requestId = ++healthRequestIdRef.current;
+    setSchedulerHealthError("");
+    try {
+      const result = await apiRequest("/admin/operations/pinterest-scheduler");
+      if (!result || !["not_seen", "healthy", "running", "failed", "stale"].includes(result.status)) {
+        throw new Error("Сервер вернул неожиданный статус планировщика.");
+      }
+      if (requestId === healthRequestIdRef.current) setSchedulerHealth(result as SchedulerHealth);
+    } catch (err) {
+      if (requestId === healthRequestIdRef.current) {
+        setSchedulerHealthError(err instanceof Error ? err.message : "Не удалось загрузить состояние планировщика.");
+      }
+    }
+  }, []);
   
   const createActionId = () => {
     const bytes = new Uint8Array(16);
@@ -154,6 +184,7 @@ export const AdminPinterestSchedules: React.FC = () => {
 
   const load = useCallback(async (isRefresh = false) => {
     const requestId = ++inventoryRequestIdRef.current;
+    void loadSchedulerHealth();
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     setError("");
@@ -176,13 +207,14 @@ export const AdminPinterestSchedules: React.FC = () => {
         setRefreshing(false);
       }
     }
-  }, [status]);
+  }, [status, loadSchedulerHealth]);
 
   useEffect(() => {
     void load();
     return () => {
       // Invalidate in-flight requests when the filter changes or this panel unmounts.
       inventoryRequestIdRef.current += 1;
+      healthRequestIdRef.current += 1;
     };
   }, [load]);
 
@@ -202,6 +234,44 @@ export const AdminPinterestSchedules: React.FC = () => {
           <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
           Обновить
         </button>
+      </div>
+
+      <div className="custom-card rounded-2xl p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="font-semibold text-primary-theme">Автоматический планировщик</h3>
+            <p className="text-xs text-muted-theme mt-0.5">Последний запуск фоновой обработки Pinterest</p>
+          </div>
+          <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${schedulerHealth?.status === "healthy" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : schedulerHealth?.status === "running" ? "bg-sky-500/10 text-sky-700 dark:text-sky-300" : "bg-amber-500/10 text-amber-700 dark:text-amber-300"}`}>
+            {schedulerHealth?.status === "healthy" ? "Работает" : schedulerHealth?.status === "running" ? "Выполняется" : schedulerHealth?.status === "failed" ? "Ошибка" : schedulerHealth?.status === "stale" ? "Нет свежих запусков" : schedulerHealth?.status === "not_seen" ? "Ещё не запускался" : "Загрузка…"}
+          </span>
+        </div>
+        {schedulerHealthError ? (
+          <p role="alert" className="text-xs text-rose-700 dark:text-rose-300">{schedulerHealthError}</p>
+        ) : schedulerHealth ? (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+              {[
+                ["Взято в работу", schedulerHealth.counts?.claimed],
+                ["Опубликовано", schedulerHealth.counts?.published],
+                ["Ошибки", schedulerHealth.counts?.failed],
+                ["Ожидают", schedulerHealth.counts?.scheduled],
+                ["Неизвестно", schedulerHealth.counts?.unknown],
+              ].map(([label, value]) => (
+                <div key={String(label)} className="rounded-xl bg-surface/70 border border-subtle p-2">
+                  <p className="text-muted-theme">{label}</p>
+                  <p className="text-lg font-bold text-primary-theme tabular-nums">{typeof value === "number" ? value : "—"}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-theme">
+              Последний запуск: {formatDate(schedulerHealth.last_started_at)}
+              {" · "}
+              Завершён: {formatDate(schedulerHealth.last_completed_at)}
+              {schedulerHealth.last_error_code ? ` · Код: ${schedulerHealth.last_error_code}` : ""}
+            </p>
+          </>
+        ) : <p className="text-xs text-muted-theme">Загружаем состояние планировщика…</p>}
       </div>
 
       <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 flex items-start gap-3 text-sm">
