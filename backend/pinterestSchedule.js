@@ -229,6 +229,7 @@ module.exports = {
   isPinterestPublishOutcomeUnknown,
   buildPinScheduleSnapshot,
   resolvePinScheduleSnapshot,
+  normalizePinterestDestinationUrl,
   classifyLegacyScheduleAccount,
   getScheduleRetryability,
   selectScheduleAttemptForRetry,
@@ -313,6 +314,15 @@ function resolvePinScheduleSnapshot(schedule, currentPin) {
   };
 }
 
+
+function normalizePinterestDestinationUrl(value) {
+  if (!value) return null;
+  const parsed = new URL(String(value).trim());
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new TypeError("Pinterest destination must use HTTP or HTTPS");
+  }
+  return parsed.toString();
+}
 
 function classifyLegacyScheduleAccount(accounts, requestedAccountId = null) {
   const active = Array.isArray(accounts) ? accounts : [];
