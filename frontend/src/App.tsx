@@ -525,6 +525,11 @@ const MainApp: React.FC = () => {
       window.alert('Не найден ID сохранённого пина. Сначала сохраните пин в генераторе.');
       return;
     }
+    // Fail before changing the pin's creative fields or status. The schedule
+    // endpoint requires an actual Pinterest board ID, not the app's local board ID.
+    if (!String(pin.pinterestBoardId || '').trim()) {
+      throw new Error('Выберите доску Pinterest для публикации.');
+    }
     const timezone = getDefaultTimezone();
     let localDateTime: Date;
     try {
