@@ -96,7 +96,7 @@ Backend в любом случае принудительно обрабатыв
 
 При таймауте сначала проверь `pin_schedules` и `pinterest_publish_attempts`, а не отправляй публикацию повторно вручную. Записи `unknown` нельзя автоматически переводить в `scheduled`: их нужно сверить в Pinterest и восстановить только по подтверждённым данным.
 
-## Heartbeat планировщика — реализация в feature branch, staging validation pending
+## Heartbeat планировщика — код интегрирован в main, staging validation pending
 
 Текущая ветка `main` содержит migration `122_pinterest_scheduler_health_monitor.sql`, migration `123_pinterest_scheduler_completion_fencing.sql`, helper `backend/pinterestSchedulerHealth.js` и read-only admin endpoint:
 
