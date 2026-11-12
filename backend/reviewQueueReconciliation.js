@@ -29,7 +29,7 @@ function reconcileReviewQueueRows(queueRows, pinsById, userId, scheduledPinIds =
       pinStatus: pin.status || "pending",
       title: typeof pin.title === "string" ? pin.title : row.payload.title,
       description: typeof pin.description === "string" ? pin.description : row.payload.description,
-      imageUrl: typeof pin.image_url === "string" ? pin.image_url : row.payload.imageUrl,
+      imageUrl: typeof pin.image_url === "string" ? pin.image_url : "",
       boardId: pin.board_id ? String(pin.board_id) : row.payload.boardId,
       boardName: pin.boards && typeof pin.boards.title === "string"
         ? pin.boards.title
