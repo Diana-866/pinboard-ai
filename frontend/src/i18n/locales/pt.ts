@@ -575,6 +575,8 @@ export const pt: TranslationSchema = {
     scheduledFor: 'Horário Agendado',
     allReviewed: 'Todos os pins foram revisados!',
     allReviewedDesc: 'Os pins aprovados foram adicionados ao seu calendário nos horários de maior engajamento.',
+    emptyQueue: 'Não há Pins aguardando revisão',
+    emptyQueueDesc: 'Os novos Pins aparecerão aqui depois de serem salvos para revisão.'
     queueLoading: 'A restaurar a fila de revisão…',
     queueLoadingDesc: 'A carregar os Pins guardados. Isto pode demorar um momento.',
     queueLoadError: 'Não foi possível restaurar a fila',
