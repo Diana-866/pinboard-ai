@@ -97,6 +97,38 @@ begin
     p_subscription_id,p_operator_user_id::text,p_action_id,'provider_refund_confirmed',
     p_evidence_type,p_evidence_reference,v_recorded_at
   );
+  -- If a deletion job exhausted its retry budget while waiting for this
+  -- provider refund, reopen only its financial erasure/finalization stages.
+  -- The account owner lock above serializes this with worker stage execution.
+  with reopened as (
+    update public.account_deletion_jobs j
+       set status='retry_wait',
+           attempts=0,
+           claim_token=null,
+           lease_expires_at=null,
+           next_attempt_at=clock_timestamp(),
+           safe_error_code=null,
+           started_at=null,
+           finished_at=null,
+           updated_at=clock_timestamp()
+      from public.account_deletion_requests r
+      join public.users u on u.id=r.user_id
+     where j.request_id=r.id
+       and r.user_id::text=v_owner_id
+       and r.state='pending'
+       and u.account_status='deletion_pending'
+       and j.step_key in ('erase_content','finalize')
+       and j.status in ('pending','retry_wait','blocked')
+    returning j.request_id,j.id
+  )
+  insert into public.account_deletion_events(request_id,event_key,actor_class,reason_code)
+  select request_id,
+         'provider_refund_requeued_'||id::text||'_'||p_action_id::text,
+         'operator',
+         'provider_refund_confirmed'
+    from reopened
+  on conflict(request_id,event_key) do nothing;
+
   return v_recorded_at;
 end;
 $function$;
