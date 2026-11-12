@@ -320,12 +320,12 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
       logError("creditsBilling.event_019");
       return res.status(500).json({ ok: false, error: "crediting and audit storage failed" });
     }
-    const { data: flagged, error: flagError } = await db.from("credit_purchases")
-      .update({ status: "paid_uncredited", paid_at: paidAt })
-      .eq("id", purchase.id)
-      .is("balance_credited_at", null)
-      .neq("status", "success")
-      .select("id");
+    // Persist the paid-but-uncredited liability under the same owner lock
+    // used by deletion finalization and provider-refund reconciliation.
+    const { data: flagged, error: flagError } = await db.rpc("record_paid_uncredited_credit_purchase", {
+      p_purchase_id: purchase.id,
+      p_paid_at: paidAt,
+    });
     if (flagError) {
       logError("creditsBilling.event_020");
       return res.status(500).json({ ok: false, error: "crediting requires reconciliation" });
@@ -344,7 +344,7 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
     }
     // The RPC response can be lost after its transaction committed. Never
     // overwrite a successful credit marker; confirm the durable row first.
-    if (!Array.isArray(flagged) || flagged.length === 0) {
+    if (flagged !== true) {
       const { data: current, error: readError } = await db.from("credit_purchases")
         .select("status,balance_credited_at")
         .eq("id", purchase.id)
