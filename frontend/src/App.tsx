@@ -39,7 +39,7 @@ import {
 import { mapPersistedBoards } from './utils/persistedBoards';
 import { getOrCreateProject } from './utils/projectProvisioning';
 import { validatePersistedScheduleRows } from './utils/persistedSchedule';
-import { mergeRestoredReviewQueue } from './utils/reviewQueueHydration';
+import { isReviewQueuePayload, mergeRestoredReviewQueue } from './utils/reviewQueueHydration';
 import { isReviewQueueOwnerCurrent } from './utils/reviewQueueOwnerFence';
 import { findPersistedScheduleMutation, findPersistedScheduleRequest, isPersistedScheduleMutationResponse, isScheduleAbsentFromActiveList, isPersistedScheduleCancellationResponse } from './utils/scheduleMutationReconciliation';
 
@@ -350,9 +350,7 @@ const MainApp: React.FC = () => {
       .then((rows) => {
         if (!active || !isCurrentOwner()) return;
         // A malformed response must never be interpreted as a genuinely empty queue.
-        if (!Array.isArray(rows) || rows.some((row) =>
-          !row || typeof row !== 'object' || typeof row.id !== 'string' || !row.id.trim()
-        )) {
+        if (!isReviewQueuePayload(rows)) {
           throw new Error('Сервер вернул некорректный формат очереди проверки');
         }
         const safeRows = rows as PendingReviewPin[];
