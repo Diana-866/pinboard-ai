@@ -19,6 +19,12 @@ const fixtures = {
   pin_generation_tasks: [
     { generation_request_id: 11, status: "failed", provider_outcome_status: "failed", provider_refunded: false, provider_reconciled_at: oldTimestamp },
   ],
+  credit_purchases: [
+    { id: 41, status: "paid_uncredited", amount: 190, currency: "rub", paid_at: oldTimestamp, created_at: oldTimestamp, user_id: "private-credit-user" },
+  ],
+  subscriptions: [
+    { id: 51, status: "paid_unactivated", amount: 790, currency: "rub", provider_paid_at: oldTimestamp, created_at: oldTimestamp, user_id: "private-subscription-user" },
+  ],
 };
 
 const supabaseMock = {
@@ -60,9 +66,13 @@ test("read-only queue classifies unresolved provider outcomes and stale reservat
   assert.equal(result.reservations[1].reason, "reservation_without_matching_request_review");
   assert.equal(result.reservations[0].operation, "generation");
   assert.equal(result.reservations[1].operation, "unmatched");
+  assert.equal(result.payment_reconciliation.length, 2);
+  assert.equal(result.payment_reconciliation[0].reason, "paid_credit_requires_fulfillment_or_refund");
+  assert.equal(result.payment_reconciliation[1].reason, "paid_subscription_requires_entitlement_or_refund");
+  assert.equal(result.counts.payment_reconciliation, 2);
 
   const serialized = JSON.stringify(result);
-  for (const secret of ["private-user", "private-generation-key", "private-regeneration-key", "private-orphan-key"]) {
+  for (const secret of ["private-user", "private-generation-key", "private-regeneration-key", "private-orphan-key", "private-credit-user", "private-subscription-user"]) {
     assert.equal(serialized.includes(secret), false);
   }
   assert.equal(serialized.includes("provider_task_id"), false);
