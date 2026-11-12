@@ -10,6 +10,7 @@ interface Payload {
 
 const STATUS_LABEL: Record<string, string> = {
   success: 'Оплачено',
+  paid_unactivated: 'Оплачено — тариф не активирован',
   pending: 'Ожидает оплаты',
   canceled: 'Отменено клиентом',
   denied: 'Отклонено банком',
@@ -18,6 +19,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 const STATUS_STYLE: Record<string, string> = {
   success: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+  paid_unactivated: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30',
   pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30',
   canceled: 'bg-subtle text-muted-theme border-subtle',
   denied: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30',
@@ -71,7 +73,8 @@ export const AdminSubscriptions: React.FC = () => {
           <p className="text-[11.5px] text-muted-theme mt-0.5">
             Таблица <span className="font-mono">subscriptions</span>: каждая попытка оплаты — отдельная
             строка со статусом. Успешный вебхук переводит <span className="font-mono">pending</span> в{' '}
-            <span className="font-mono">success</span> и активирует тариф на 30 дней.
+            <span className="font-mono">success</span> и активирует тариф на 30 дней. Оплата со статусом{' '}
+            <span className="font-mono">paid_unactivated</span> подтверждена, но тариф не выдан и требует сверки.
           </p>
         </div>
         <button
