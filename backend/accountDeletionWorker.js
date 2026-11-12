@@ -258,7 +258,12 @@ function createAccountDeletionWorker({
             { p_job_id: job.job_id, p_claim_token: job.claim_token, p_limit: 100 }
           );
           if (storageListError) throw storageListError;
-          const batch = Array.isArray(storageObjects) ? storageObjects : [];
+          if (!Array.isArray(storageObjects)) {
+            const error = new Error("account deletion Storage manifest response is invalid");
+            error.code = "invalid_storage_manifest_response";
+            throw error;
+          }
+          const batch = storageObjects;
           if (batch.length === 0) break;
           for (const object of batch) {
             ensureLease();
