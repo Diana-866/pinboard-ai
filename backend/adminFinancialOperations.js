@@ -55,7 +55,7 @@ async function getFinancialOperationsQueue(options = {}) {
 
   const [paidCreditsResult, paidSubscriptionsResult, generationResult, regenerationResult, reservationsResult] = await Promise.all([
     supabase.from("credit_purchases")
-      .select("id,status,amount,currency,paid_at,created_at")
+      .select("id,status,amount,currency,provider_payment_id,paid_at,created_at")
       .eq("status", "paid_uncredited")
       .order("paid_at", { ascending: true })
       .limit(fetchLimit),
@@ -211,6 +211,7 @@ async function getFinancialOperationsQueue(options = {}) {
   const paymentReconciliation = [
     ...paidCredits.map((row) => ({
       operation: "payment_reconciliation", payment_id: String(row.id), payment_kind: "credits", status: row.status,
+      provider_order_id: row.provider_payment_id || null,
       amount: row.amount, currency: row.currency,
       reason: "paid_credit_requires_fulfillment_or_refund",
       paid_at: row.paid_at || null, created_at: row.created_at,
