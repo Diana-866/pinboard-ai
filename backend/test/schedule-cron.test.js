@@ -28,6 +28,7 @@ test("one-shot cron invokes one authenticated scheduler batch and exits", async 
   assert.equal(calls[0][0], config.endpoint);
   assert.deepEqual(calls[0][1], { limit: 1 });
   assert.equal(calls[0][2].timeout, REQUEST_TIMEOUT_MS);
+  assert.equal(calls[0][2].maxRedirects, 0, "scheduler credentials must never be forwarded through HTTP redirects");
   assert.equal(calls[0][2].headers["x-pinposy-scheduler-secret"], config.secret);
   assert.equal(result.published, 1);
   assert.deepEqual(events, [["schedule_cron.batch_completed"]]);
