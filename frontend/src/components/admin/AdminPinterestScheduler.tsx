@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, AlertTriangle, CheckCircle2, Clock3, RefreshCw } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
 
@@ -42,24 +42,35 @@ export const AdminPinterestScheduler: React.FC = () => {
   const [health, setHealth] = useState<SchedulerHealth | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const requestIdRef = useRef(0);
 
   const load = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError('');
     try {
       const result = await apiRequest('/admin/operations/pinterest-scheduler');
-      setHealth(result as SchedulerHealth);
+      const allowedStatuses = ['not_seen', 'healthy', 'running', 'stale', 'failed'];
+      if (!result || typeof result !== 'object' || !allowedStatuses.includes(result.status)) {
+        throw new Error('Сервер вернул некорректное состояние планировщика.');
+      }
+      if (requestId === requestIdRef.current) setHealth(result as SchedulerHealth);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось загрузить состояние планировщика');
+      if (requestId === requestIdRef.current) {
+        setError(e instanceof Error ? e.message : 'Не удалось загрузить состояние планировщика');
+      }
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void load();
     const timer = window.setInterval(() => void load(), 60000);
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearInterval(timer);
+      requestIdRef.current += 1;
+    };
   }, [load]);
 
   const counts = health?.counts;
