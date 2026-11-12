@@ -141,3 +141,49 @@ test("the worker entry point boots with PUBLIC_BACKEND_URL as its only backend U
   assert.equal(calls[0].url, "/internal/pinterest/schedule/run");
   assert.equal(calls[0].secret, SECRET);
 });
+
+test("the worker entry point exits cleanly after SIGTERM", async (t) => {
+  const { server, calls, port } = await startStubServer();
+  const child = spawn(process.execPath, [path.join(__dirname, "..", "scheduleWorker.js")], {
+    cwd: path.join(__dirname, ".."),
+    env: {
+      ...process.env,
+      PINPOSY_BACKEND_URL: `http://127.0.0.1:${port}`,
+      PUBLIC_BACKEND_URL: "",
+      PINPOSY_SCHEDULER_SECRET: SECRET,
+      PINPOSY_SCHEDULER_INTERVAL_MS: "5000",
+      PINPOSY_SCHEDULER_REQUEST_TIMEOUT_MS: "10000",
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  let output = "";
+  child.stdout.on("data", (chunk) => { output += chunk.toString(); });
+  child.stderr.on("data", (chunk) => { output += chunk.toString(); });
+
+  t.after(() => {
+    if (child.exitCode === null) child.kill("SIGKILL");
+    server.close();
+  });
+
+  const deadline = Date.now() + 15_000;
+  while (calls.length === 0 && Date.now() < deadline) {
+    if (child.exitCode !== null) {
+      throw new Error(`worker exited with code ${child.exitCode} before polling: ${output}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  assert.ok(calls.length > 0, `worker did not poll before shutdown: ${output}`);
+
+  child.kill("SIGTERM");
+  const exitCode = await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error("worker did not exit after SIGTERM")), 5_000);
+    child.once("exit", (code) => {
+      clearTimeout(timeout);
+      resolve(code);
+    });
+  });
+
+  assert.equal(exitCode, 0, output);
+  assert.match(output, /scheduleWorker\.event_002/);
+});
