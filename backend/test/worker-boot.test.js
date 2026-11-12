@@ -267,3 +267,25 @@ test("one-shot worker releases both agents when the backend request fails", asyn
   assert.equal(await worker.tick(), false);
   assert.deepEqual(destroyed, { http: 1, https: 1 });
 });
+
+
+test("one-shot worker rejects every tick after its first attempt", async () => {
+  const { createWorker } = require("../scheduleWorker");
+  let requests = 0;
+  const worker = createWorker({
+    config: { endpoint: "https://backend.example/internal/pinterest/schedule/run", secret: SECRET },
+    client: {
+      async post() {
+        requests += 1;
+        return { data: { ok: true, claimed: 0 } };
+      },
+    },
+    logger: { info() {}, error() {} },
+    oneShot: true,
+  });
+
+  assert.equal(await worker.tick(), true);
+  assert.equal(await worker.tick(), false);
+  assert.equal(await worker.tick(), false);
+  assert.equal(requests, 1, "one-shot worker instance must issue at most one request");
+});
