@@ -17,6 +17,8 @@ test("keeps demo queue items and owned pins that are not rejected", () => {
     "user-1",
   );
   assert.deepEqual(result.staleIds, []);
+  assert.deepEqual(result.invalidIds, []);
+  assert.deepEqual(result.invalidIds, []);
   assert.deepEqual(result.active.map((item) => item.id), ["demo", "pending", "approved"]);
   assert.equal(result.active[1].pinStatus, "pending");
   assert.equal(result.active[2].pinStatus, "approved");
@@ -33,6 +35,7 @@ test("removes rejected, missing and foreign-owned pins from the review queue", (
   );
   assert.deepEqual(result.active, []);
   assert.deepEqual(result.staleIds, ["rejected", "missing", "foreign"]);
+  assert.deepEqual(result.invalidIds, []);
 });
 
 test("uses the persisted pin_id when present and falls back to legacy payload pinId", () => {
@@ -62,7 +65,8 @@ test("quarantines malformed persisted payloads without breaking valid queue rows
     "user-1",
   );
   assert.deepEqual(result.active.map((item) => item.id), ["valid"]);
-  assert.deepEqual(result.staleIds, [
+  assert.deepEqual(result.staleIds, []);
+  assert.deepEqual(result.invalidIds, [
     "missing-title",
     "missing-description",
     "mismatched-id",
