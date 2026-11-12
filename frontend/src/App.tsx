@@ -39,7 +39,7 @@ import {
 import { mapPersistedBoards } from './utils/persistedBoards';
 import { getOrCreateProject } from './utils/projectProvisioning';
 import { validatePersistedScheduleRows } from './utils/persistedSchedule';
-import { mergeRestoredReviewQueue } from './utils/reviewQueueHydration';
+import { mergeRestoredReviewQueue, requireReviewQueueRows } from './utils/reviewQueueHydration';
 import { isReviewQueueOwnerCurrent } from './utils/reviewQueueOwnerFence';
 import { findPersistedScheduleMutation, findPersistedScheduleRequest, isPersistedScheduleMutationResponse, isScheduleAbsentFromActiveList, isPersistedScheduleCancellationResponse } from './utils/scheduleMutationReconciliation';
 
@@ -350,10 +350,7 @@ const MainApp: React.FC = () => {
     apiRequest('/review-queue')
       .then((rows) => {
         if (!active || !isCurrentOwner()) return;
-        if (!Array.isArray(rows)) {
-          throw new Error('Некорректный ответ сервера при восстановлении очереди проверки');
-        }
-        const safeRows = rows as PendingReviewPin[];
+        const safeRows = requireReviewQueueRows<PendingReviewPin>(rows);
         const hydratedRows = mergeRestoredReviewQueue(
           safeRows,
           pendingReviewPinsRef.current,
