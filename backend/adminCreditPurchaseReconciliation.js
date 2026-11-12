@@ -53,7 +53,7 @@ function mapRpcError(error) {
   if (/invalid credit purchase refund reconciliation evidence|invalid subscription refund reconciliation evidence/i.test(message)) {
     return httpError(422, "Некорректные параметры подтверждения возврата");
   }
-  if (/not awaiting refund reconciliation|action id replay payload mismatch|subscription owner changed/i.test(message)) {
+  if (/not awaiting refund reconciliation|action id replay payload mismatch|subscription owner changed|subscription user not found|changed during lock acquisition/i.test(message)) {
     return httpError(409, "Платёж уже обработан или действие конфликтует с предыдущей сверкой");
   }
   return httpError(500, "Не удалось записать подтверждение возврата");
