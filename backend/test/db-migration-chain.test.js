@@ -56,7 +56,7 @@ test("atomic payment integration workflow applies existing migrations in ascendi
   // The disposable PostgreSQL workflow must replay every canonical migration,
   // not merely a handful of recent security-sensitive files. A missing file
   // here can otherwise let CI pass while production has a different schema.
-  for (let number = 10; number <= 158; number += 1) {
+  for (let number = 10; number <= 159; number += 1) {
     const prefix = String(number).padStart(3, "0") + "_";
     const canonical = fs.readdirSync(migrationsDir)
       .filter((file) => file.startsWith(prefix) && file.endsWith(".sql"));
