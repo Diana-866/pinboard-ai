@@ -102,3 +102,16 @@ export function requireUpdatedBoardResponse(
       : null,
   };
 }
+
+/** Keep the generator pointed at an existing board after board/account refreshes. */
+export function resolveSelectedBoardId(
+  boards: Array<{ id: string }>,
+  currentId: string,
+  preferredId?: string | null,
+  recommendedId?: string | null,
+): string {
+  if (currentId && boards.some((board) => board.id === currentId)) return currentId;
+  if (preferredId && boards.some((board) => board.id === preferredId)) return preferredId;
+  if (recommendedId && boards.some((board) => board.id === recommendedId)) return recommendedId;
+  return boards[0]?.id || '';
+}
