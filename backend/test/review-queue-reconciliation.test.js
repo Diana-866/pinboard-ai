@@ -47,3 +47,17 @@ test("uses the persisted pin_id when present and falls back to legacy payload pi
   assert.deepEqual(result.active.map((item) => item.pinId), ["pin-1", "pin-2"]);
   assert.deepEqual(result.staleIds, []);
 });
+
+test("removes queue entries for pins with a persisted active or uncertain schedule", () => {
+  const result = reconcileReviewQueueRows(
+    [row("scheduled", "pin-1"), row("still-pending", "pin-2")],
+    new Map([
+      ["pin-1", pin("pin-1", "approved")],
+      ["pin-2", pin("pin-2", "pending")],
+    ]),
+    "user-1",
+    new Set(["pin-1"]),
+  );
+  assert.deepEqual(result.active.map((item) => item.id), ["still-pending"]);
+  assert.deepEqual(result.staleIds, ["scheduled"]);
+});
