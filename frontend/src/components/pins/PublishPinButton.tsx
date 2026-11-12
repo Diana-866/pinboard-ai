@@ -138,15 +138,19 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
 
   const handlePublish = async () => {
     if (activeOwnerIdRef.current !== userId || publishLockRef.current || accountsLoading || boardsLoading || !accountId || !selectedBoard) return;
+    const ownerId = userId;
+    const publishingAccountId = accountId;
+    const publishingBoardId = selectedBoard;
     publishLockRef.current = true;
     setError(null);
     setBusy(true);
     try {
       const data = await apiRequest(`/pins/${encodeURIComponent(pinId)}/publish`, {
         method: 'POST',
-        body: JSON.stringify({ board_id: selectedBoard, account_id: accountId }),
+        body: JSON.stringify({ board_id: publishingBoardId, account_id: publishingAccountId }),
       });
-      const confirmed = readConfirmedPinterestPublish(data, selectedBoard);
+      if (activeOwnerIdRef.current !== ownerId) return;
+      const confirmed = readConfirmedPinterestPublish(data, publishingBoardId);
       if (!confirmed) {
         // The remote POST may have succeeded even though its response was
         // malformed or incomplete. Never let this UI issue a duplicate POST.
@@ -155,6 +159,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
       }
       setDone(confirmed.pinId);
     } catch (e) {
+      if (activeOwnerIdRef.current !== ownerId) return;
       const err = e as ApiError;
       // A lost connection or server-side failure after POST /pins is ambiguous:
       // Pinterest may have created the pin even though the browser got no reply.
