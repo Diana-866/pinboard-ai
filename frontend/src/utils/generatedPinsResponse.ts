@@ -13,8 +13,8 @@ export function requireGeneratedPinsArray(value: unknown): any[] {
     if (!pin || typeof pin !== 'object' || Array.isArray(pin)) {
       throw new Error('Сервер вернул неполные данные пина. Ключ восстановления сохранён.');
     }
-    if (typeof pin.id !== 'string' || !pin.id.trim()) {
-      throw new Error('У сохранённого пина отсутствует идентификатор. Ключ восстановления сохранён.');
+    if (typeof pin.id !== 'string' || !pin.id.trim() || pin.id !== pin.id.trim()) {
+      throw new Error('У сохранённого пина отсутствует или некорректен идентификатор. Ключ восстановления сохранён.');
     }
     if (seenIds.has(pin.id)) {
       throw new Error('Сервер вернул повторяющийся идентификатор пина. Ключ восстановления сохранён.');
@@ -30,8 +30,8 @@ export function requireGeneratedPinsArray(value: unknown): any[] {
     } catch {
       throw new Error('Сервер вернул некорректную ссылку на изображение. Ключ восстановления сохранён.');
     }
-    if (imageUrl.protocol !== 'https:') {
-      throw new Error('Ссылка на сохранённое изображение должна использовать HTTPS. Ключ восстановления сохранён.');
+    if (imageUrl.protocol !== 'https:' || !imageUrl.hostname || imageUrl.username || imageUrl.password) {
+      throw new Error('Ссылка на сохранённое изображение должна быть безопасной HTTPS-ссылкой. Ключ восстановления сохранён.');
     }
   }
 
