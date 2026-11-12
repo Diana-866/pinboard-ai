@@ -5,6 +5,9 @@
 -- Lock order is owner -> subscription, matching account lifecycle operations.
 begin;
 
+alter table public.subscriptions
+  add column if not exists provider_paid_at timestamptz;
+
 create or replace function public.activate_paid_subscription(
   p_subscription_id uuid,
   p_paid_at timestamptz
@@ -55,7 +58,7 @@ begin
     raise exception 'subscription owner changed';
   end if;
 
-  if v_sub.status not in ('pending', 'denied', 'canceled', 'success') then
+  if v_sub.status not in ('pending', 'denied', 'canceled', 'success', 'paid_unactivated') then
     raise exception 'subscription is not eligible for activation (status=%)', v_sub.status;
   end if;
 
@@ -87,6 +90,7 @@ begin
 
     update public.subscriptions
        set status = 'success',
+           provider_paid_at = coalesce(provider_paid_at, p_paid_at, now()),
            period_start = v_start,
            period_end = v_end
      where id = v_sub.id;
