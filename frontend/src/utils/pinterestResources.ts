@@ -1,6 +1,8 @@
 export interface PinterestAccountOption {
   id: string;
   username?: string | null;
+  pinterest_user_id?: string | null;
+  needs_reauth?: boolean;
 }
 
 export interface PinterestBoardOption {
@@ -36,7 +38,18 @@ export function requirePinterestAccounts(value: unknown): PinterestAccountOption
     if (account.username != null && typeof account.username !== 'string') {
       throw new Error('Pinterest вернул некорректное имя аккаунта.');
     }
-    return { id: account.id, username: account.username ?? null };
+    if (account.pinterest_user_id != null && typeof account.pinterest_user_id !== 'string') {
+      throw new Error('Pinterest вернул некорректный идентификатор пользователя.');
+    }
+    if (account.needs_reauth != null && typeof account.needs_reauth !== 'boolean') {
+      throw new Error('Pinterest вернул некорректный статус авторизации.');
+    }
+    return {
+      id: account.id,
+      username: account.username ?? null,
+      pinterest_user_id: account.pinterest_user_id ?? null,
+      needs_reauth: account.needs_reauth ?? false,
+    };
   });
 }
 
