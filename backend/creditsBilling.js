@@ -387,7 +387,7 @@ async function listUserCreditPurchases(userId, limit = 20) {
   const { data, error } = await supabase
     .from("credit_purchases")
     .select(
-      "id, package_id, pack_title, credits, status, amount, currency, paid_at, balance_credited_at, created_at, provider_payment_id"
+      "id, package_id, pack_title, credits, status, amount, currency, paid_at, balance_credited_at, provider_refunded_at, created_at, provider_payment_id"
     )
     .eq("user_id", String(userId))
     .order("created_at", { ascending: false })
