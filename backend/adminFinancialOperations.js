@@ -53,7 +53,7 @@ async function getFinancialOperationsQueue(options = {}) {
   const cutoff = new Date(Date.now() - olderThanMinutes * 60000).toISOString();
   const fetchLimit = limit + 1;
 
-  const [generationResult, regenerationResult, reservationsResult, paidCreditsResult, paidSubscriptionsResult] = await Promise.all([
+  const [paidCreditsResult, paidSubscriptionsResult, generationResult, regenerationResult, reservationsResult] = await Promise.all([
     supabase.from("credit_purchases")
       .select("id,status,amount,currency,paid_at,created_at")
       .eq("status", "paid_uncredited")
