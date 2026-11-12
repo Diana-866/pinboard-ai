@@ -1238,37 +1238,77 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
 app.get("/review-queue", requireAuth, async (req, res) => {
   try {
     const userId = String(req.userId);
-    const { data: queueRows, error: queueError } = await supabase
-      .from("pin_review_queue")
-      .select("id,pin_id,payload,created_at,updated_at")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: true });
-    if (queueError) throw queueError;
-
-    const rows = queueRows || [];
+    // Supabase/PostgREST applies a per-request row cap. Page through the
+    // complete queue so large review backlogs are not silently truncated.
+    const pageSize = 500;
+    const rows = [];
+    for (let offset = 0; ; offset += pageSize) {
+      const { data: page, error: queueError } = await supabase
+        .from("pin_review_queue")
+        .select("id,pin_id,payload,created_at,updated_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(offset, offset + pageSize - 1);
+      if (queueError) throw queueError;
+      const batch = page || [];
+      rows.push(...batch);
+      if (batch.length < pageSize) break;
+    }
     const pinIds = [...new Set(rows
       .map((row) => row.pin_id || (row.payload && row.payload.pinId))
       .filter(Boolean)
       .map(String))];
     const pinsById = new Map();
+    const scheduledPinIds = new Set();
     if (pinIds.length) {
-      const { data: pins, error: pinsError } = await supabase
-        .from("pins")
-        .select("id,status,boards(id,projects(user_id))")
-        .in("id", pinIds);
+      const pinIdChunks = Array.from({ length: Math.ceil(pinIds.length / 200) }, (_, index) =>
+        pinIds.slice(index * 200, (index + 1) * 200)
+      );
+      const pinResults = await Promise.all(pinIdChunks.map((ids) =>
+        supabase
+          .from("pins")
+          .select("id,status,boards(id,projects(user_id))")
+          .in("id", ids)
+      ));
+      const pinsError = pinResults.find((result) => result.error)?.error;
       if (pinsError) throw pinsError;
-      for (const pin of pins || []) pinsById.set(String(pin.id), pin);
+      for (const result of pinResults) {
+        for (const pin of result.data || []) pinsById.set(String(pin.id), pin);
+      }
+
+      // A queue row can survive if scheduling succeeded but the follow-up
+      // queue deletion failed. Reconcile against persisted schedules so a
+      // refresh cannot offer the same pin for approval a second time.
+      const scheduleResults = await Promise.all(pinIdChunks.map((ids) =>
+        supabase
+          .from("pin_schedules")
+          .select("pin_id")
+          .eq("user_id", userId)
+          .in("pin_id", ids)
+          .in("status", ["scheduled", "publishing", "published", "unknown"])
+      ));
+      const schedulesError = scheduleResults.find((result) => result.error)?.error;
+      if (schedulesError) throw schedulesError;
+      for (const result of scheduleResults) {
+        for (const schedule of result.data || []) scheduledPinIds.add(String(schedule.pin_id));
+      }
     }
 
     const { reconcileReviewQueueRows } = require("./reviewQueueReconciliation");
-    const reconciled = reconcileReviewQueueRows(rows, pinsById, userId);
+    const reconciled = reconcileReviewQueueRows(rows, pinsById, userId, scheduledPinIds);
     if (reconciled.staleIds.length) {
-      const { error: cleanupError } = await supabase
-        .from("pin_review_queue")
-        .delete()
-        .eq("user_id", userId)
-        .in("id", reconciled.staleIds);
-      if (cleanupError) throw cleanupError;
+      // Keep cleanup filters bounded as well: a large stale backlog can
+      // otherwise exceed PostgREST URL/request limits during reconciliation.
+      for (let offset = 0; offset < reconciled.staleIds.length; offset += 200) {
+        const staleIdChunk = reconciled.staleIds.slice(offset, offset + 200);
+        const { error: cleanupError } = await supabase
+          .from("pin_review_queue")
+          .delete()
+          .eq("user_id", userId)
+          .in("id", staleIdChunk);
+        if (cleanupError) throw cleanupError;
+      }
     }
     res.json(reconciled.active);
   } catch (e) {
