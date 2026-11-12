@@ -10,7 +10,7 @@ function hasRenderablePayload(row) {
     payload.id === row.id &&
     typeof payload.title === "string" &&
     payload.title.trim().length > 0 &&
-    typeof payload.description === "string"
+    (payload.description == null || typeof payload.description === "string")
   );
 }
 
@@ -30,7 +30,7 @@ function reconcileReviewQueueRows(queueRows, pinsById, userId) {
 
     const pinId = row.pin_id || row.payload.pinId || null;
     if (!pinId) {
-      active.push({ ...row.payload, id: row.id, pinId: undefined });
+      active.push({ ...row.payload, description: row.payload.description == null ? "" : row.payload.description, id: row.id, pinId: undefined });
       continue;
     }
 
@@ -41,7 +41,7 @@ function reconcileReviewQueueRows(queueRows, pinsById, userId) {
       continue;
     }
 
-    active.push({ ...row.payload, id: row.id, pinId: String(pin.id), pinStatus: pin.status || "pending" });
+    active.push({ ...row.payload, description: row.payload.description == null ? "" : row.payload.description, id: row.id, pinId: String(pin.id), pinStatus: pin.status || "pending" });
   }
 
   return { active, staleIds, invalidIds };
