@@ -721,7 +721,20 @@ const MainApp: React.FC = () => {
   };
 
   const handleRetryScheduledPin = async (pin: ScheduledPinItem) => {
+    const ownerSnapshot = {
+      userId: pendingReviewUserIdRef.current,
+      generation: pendingReviewOwnerGenerationRef.current,
+    };
+    const assertScheduleOwner = () => {
+      if (!isReviewQueueOwnerCurrent(ownerSnapshot, {
+        userId: pendingReviewUserIdRef.current,
+        generation: pendingReviewOwnerGenerationRef.current,
+      })) {
+        throw new Error('Сессия пользователя изменилась. Обновите страницу и проверьте расписание.');
+      }
+    };
     try {
+      assertScheduleOwner();
       let saved: any;
       const expected = {
         scheduleId: pin.id,
@@ -733,22 +746,28 @@ const MainApp: React.FC = () => {
         const response = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/retry`, {
           method: 'POST',
         });
+        assertScheduleOwner();
         if (!isPersistedScheduleMutationResponse(response, expected)) {
           throw new Error('Сервер не подтвердил новое состояние публикации.');
         }
         saved = response;
       } catch (originalError) {
+        // Never reconcile a request under a different signed-in user's session.
+        assertScheduleOwner();
         // A lost or malformed 2xx response is ambiguous too. Accept only the
         // exact schedule after it is visibly back in the queue on the same destination.
         try {
           const rows = await apiRequest('/schedule');
+          assertScheduleOwner();
           saved = findPersistedScheduleMutation(rows, expected);
           if (!saved) throw originalError;
         } catch {
+          assertScheduleOwner();
           throw originalError;
         }
       }
 
+      assertScheduleOwner();
       const date = formatInstantInTimezone(new Date(saved.scheduled_at), getDefaultTimezone());
       setScheduledPins((prev) => prev.map((item) => item.id === pin.id ? {
         ...item,
@@ -773,10 +792,24 @@ const MainApp: React.FC = () => {
   };
 
   const handleCancelScheduledPin = async (pin: ScheduledPinItem) => {
+    const ownerSnapshot = {
+      userId: pendingReviewUserIdRef.current,
+      generation: pendingReviewOwnerGenerationRef.current,
+    };
+    const assertScheduleOwner = () => {
+      if (!isReviewQueueOwnerCurrent(ownerSnapshot, {
+        userId: pendingReviewUserIdRef.current,
+        generation: pendingReviewOwnerGenerationRef.current,
+      })) {
+        throw new Error('Сессия пользователя изменилась. Обновите страницу и проверьте расписание.');
+      }
+    };
     try {
+      assertScheduleOwner();
       const response = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/cancel`, {
         method: 'POST',
       });
+      assertScheduleOwner();
       if (!isPersistedScheduleCancellationResponse(response, pin.id)) {
         throw new Error('Сервер не подтвердил отмену именно этой публикации. Проверяем сохранённое расписание.');
       }
@@ -785,11 +818,14 @@ const MainApp: React.FC = () => {
       // GET /schedule intentionally omits cancelled rows. A valid list without
       // this previously visible schedule confirms that cancellation committed
       // even if the POST response was lost. Any malformed/failed read is inconclusive.
+      assertScheduleOwner();
       try {
         const rows = await apiRequest('/schedule');
+        assertScheduleOwner();
         if (!isScheduleAbsentFromActiveList(rows, pin.id)) throw originalError;
         setScheduledPins((prev) => prev.filter((item) => item.id !== pin.id));
       } catch {
+        assertScheduleOwner();
         console.error('[schedule] Не удалось подтвердить отмену публикации:', originalError);
         window.alert(originalError instanceof Error ? originalError.message : 'Не удалось отменить публикацию');
         throw originalError;
