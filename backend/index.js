@@ -2327,6 +2327,10 @@ app.post("/pins/:id/schedule", requireAuth, pinterestScheduleLimiter, requireTar
         .select("*, pins(id, board_id, title, description, image_url, boards(id, title))")
         .eq("user_id", String(req.userId))
         .eq("pin_id", pin.id)
+        // The database uniqueness boundary is account + pin. Match that
+        // exact identity here as well; other connected accounts may have
+        // their own valid active schedule for the same creative.
+        .eq("pinterest_account_id", selectedAccount.id)
         .in("status", ["scheduled", "publishing", "published", "unknown"])
         .maybeSingle();
       if (existingError) throw existingError;
