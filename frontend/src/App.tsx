@@ -1042,6 +1042,7 @@ const MainApp: React.FC = () => {
 
           {activeTab === 'review' && (
             <ManualApprovalDesk
+              key={user?.id || 'anonymous'}
               boards={boards}
               pendingPins={pendingReviewPins}
               onUpdatePendingPins={handleUpdatePendingPins}
