@@ -15,7 +15,7 @@ const USER_ID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
 
 // Minimal in-memory Supabase double: only the query chains accountLifecycle
 // actually builds (select/eq/in/limit/maybeSingle) plus rpc().
-function fakeDb(tables, { rpcResult } = {}) {
+function fakeDb(tables, { rpcResult, nullPageTable } = {}) {
   const rpcCalls = [];
   const db = {
     rpcCalls,
@@ -52,6 +52,7 @@ function fakeDb(tables, { rpcResult } = {}) {
               .map((column) => [column, row[column]])
           ));
         }
+        if (table === nullPageTable) return Promise.resolve({ data: null, error: null });
         return Promise.resolve({ data: rows, error: null });
       };
       const builder = {
@@ -237,6 +238,24 @@ test("account export does not report dependent tables empty when parent read fai
   assert.ok(exported.degradedSections.includes("projects"));
   assert.ok(exported.degradedSections.includes("boards"));
   assert.ok(exported.degradedSections.includes("pins"));
+});
+
+test("account export marks a null data page as degraded instead of treating it as empty", async () => {
+  const db = fakeDb({
+    users: [{ id: USER_ID, email: "user@example.com" }],
+    projects: [],
+    credit_transactions: [{ id: "tx1", user_id: USER_ID, amount: 10 }],
+    subscriptions: [],
+    credit_purchases: [],
+    pinterest_accounts: [],
+    pinterest_publications: [],
+    pin_schedules: [],
+    pin_review_queue: [],
+  }, { nullPageTable: "credit_transactions" });
+
+  const exported = await buildAccountExport(USER_ID, db);
+  assert.deepEqual(exported.creditTransactions, []);
+  assert.ok(exported.degradedSections.includes("creditTransactions"));
 });
 
 test("account export returns 404 when the account row does not exist", async () => {
