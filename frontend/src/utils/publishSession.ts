@@ -14,3 +14,7 @@ export function ownsPublishSessionLock(
 ): boolean {
   return Boolean(lock && lock.ownerId === ownerId && lock.requestId === requestId);
 }
+
+export function hasPublishSessionLock(lock: PublishSessionLock | null, ownerId: string): boolean {
+  return Boolean(lock && lock.ownerId === ownerId);
+}
