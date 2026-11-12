@@ -32,3 +32,13 @@ test('prefers the authoritative account list returned by disconnect API', () => 
   assert.deepEqual(result.accounts, server);
   assert.equal(result.status.connected, true);
 });
+
+
+test('detects when the connected account limit is reached', () => {
+  assert.equal(isPinterestAccountLimitReached(2, 2), true);
+  assert.equal(isPinterestAccountLimitReached(3, 2), true);
+  assert.equal(isPinterestAccountLimitReached(1, 2), false);
+  assert.equal(isPinterestAccountLimitReached(20, null), false);
+  assert.equal(isPinterestAccountLimitReached(0, undefined), false);
+  assert.equal(isPinterestAccountLimitReached(0, 0), true);
+});
