@@ -417,7 +417,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentPin, editTitle, editDesc, editBoardId, editDate, editTime, selectedPinterestBoardId, selectedPinterestAccountId]);
+  }, [currentPin, editTitle, editDesc, editBoardId, editDate, editTime, selectedPinterestBoardId, selectedPinterestAccountId, pinterestBoards, pinterestBoardsLoaded, pinterestBoardsError]);
 
   // A previously selected board can remain in state while a different
   // account's board list is still loading. Never allow approval against that
