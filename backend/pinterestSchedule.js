@@ -137,10 +137,12 @@ function hasCompleteScheduleClaimIdentity(schedule) {
 
 function hasMatchingScheduleAttemptIdentity(attempt, schedule) {
   if (!attempt || !schedule) return false;
-  return String(attempt.user_id || "") === String(schedule.user_id || "")
-    && String(attempt.pin_id || "") === String(schedule.pin_id || "")
-    && String(attempt.pinterest_account_id || "") === String(schedule.pinterest_account_id || "")
-    && String(attempt.pinterest_board_id || "") === String(schedule.pinterest_board_id || "");
+  const identityFields = ["user_id", "pin_id", "pinterest_account_id", "pinterest_board_id"];
+  return identityFields.every((field) => {
+    const actual = String(attempt[field] == null ? "" : attempt[field]).trim();
+    const expected = String(schedule[field] == null ? "" : schedule[field]).trim();
+    return actual.length > 0 && expected.length > 0 && actual === expected;
+  });
 }
 
 function getSafeScheduleFailureMessage(error, lookupError) {
