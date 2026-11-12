@@ -360,7 +360,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             found.push({ key: identity.fingerprint, status: 'not_found', boardId: '', pinCount: 0 });
             continue;
           }
-          if (error?.status === 410 || error?.code === 'idempotency_result_expired') {
+          if (error?.status === 410 || error?.data?.code === 'idempotency_result_expired') {
             found.push({ key: identity.fingerprint, status: 'expired', boardId: '', pinCount: 0 });
             continue;
           }
