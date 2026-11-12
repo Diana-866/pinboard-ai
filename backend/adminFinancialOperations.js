@@ -210,17 +210,19 @@ async function getFinancialOperationsQueue(options = {}) {
 
   const paymentReconciliation = [
     ...paidCredits.map((row) => ({
-      payment_id: String(row.id), payment_kind: "credits", status: row.status,
+      operation: "payment_reconciliation", payment_id: String(row.id), payment_kind: "credits", status: row.status,
       amount: row.amount, currency: row.currency,
       reason: "paid_credit_requires_fulfillment_or_refund",
       paid_at: row.paid_at || null, created_at: row.created_at,
+      updated_at: row.paid_at || row.created_at,
       age_minutes: ageMinutes(row.paid_at || row.created_at, nowMs),
     })),
     ...paidSubscriptions.map((row) => ({
-      payment_id: String(row.id), payment_kind: "subscription", status: row.status,
+      operation: "payment_reconciliation", payment_id: String(row.id), payment_kind: "subscription", status: row.status,
       amount: row.amount, currency: row.currency,
       reason: "paid_subscription_requires_entitlement_or_refund",
       paid_at: row.provider_paid_at || null, created_at: row.created_at,
+      updated_at: row.provider_paid_at || row.created_at,
       age_minutes: ageMinutes(row.provider_paid_at || row.created_at, nowMs),
     })),
   ];
