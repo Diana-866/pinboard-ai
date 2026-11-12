@@ -403,4 +403,66 @@ test("worker drains every Storage manifest batch before completing erasure", asy
   const finish = calls.find((call) => call.name === "finish_account_deletion_job");
   assert.equal(finish.args.p_outcome, "succeeded");
 });
+test("worker refuses unsafe Storage manifest paths without deleting objects", async () => {
+  const calls = [];
+  const removedObjects = [];
+  const client = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_account_deletion_jobs") {
+        return { data: [{
+          job_id: "job-storage-invalid",
+          user_id: USER_ID,
+          step_key: "erase_content",
+          claim_token: "claim-storage-invalid",
+        }], error: null };
+      }
+      if (name === "erase_account_deletion_content") {
+        return { data: { erased: true, financial_records_retained: true }, error: null };
+      }
+      if (name === "list_account_deletion_storage_manifest") {
+        return { data: [{ bucket_id: "pin-images", object_path: "pins/../private/secret.png" }], error: null };
+      }
+      if (name === "finish_account_deletion_job") return { data: true, error: null };
+      throw new Error("unexpected RPC: " + name);
+    },
+  };
+  const worker = createAccountDeletionWorker({
+    client,
+    deleteImageObject: async (args) => { removedObjects.push(args); return true; },
+    logger: { info() {}, error() {} },
+  });
+  const result = await worker.tick();
+  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1 });
+  assert.equal(removedObjects.length, 0);
+  const finish = calls.find((call) => call.name === "finish_account_deletion_job");
+  assert.equal(finish.args.p_outcome, "retry");
+  assert.equal(finish.args.p_error_code, "invalid_storage_manifest_entry");
+});
+
+
+test("worker finalizes only through the fenced tombstone RPC", async () => {
+  const calls = [];
+  const client = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_account_deletion_jobs") {
+        return { data: [{
+          job_id: "job-finalize",
+          user_id: USER_ID,
+          step_key: "finalize",
+          claim_token: "claim-finalize",
+        }], error: null };
+      }
+      if (name === "finalize_account_deletion") return { data: true, error: null };
+      throw new Error("unexpected RPC: " + name);
+    },
+  };
+  const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} } });
+  const result = await worker.tick();
+  assert.deepEqual(result, { claimed: 1, completed: 1, retried: 0 });
+  assert.equal(calls[1].name, "finalize_account_deletion");
+  assert.equal(calls[1].args.p_claim_token, "claim-finalize");
+  assert.equal(calls.some((call) => call.name === "finish_account_deletion_job"), false);
+});
 
