@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mapPersistedBoards } from './persistedBoards';
+import { mapPersistedBoards, requireCreatedBoardResponse } from './persistedBoards';
 
 const invalid = 'Invalid boards response';
 
@@ -69,16 +69,14 @@ test('rejects duplicate persisted board IDs instead of producing colliding UI ke
   ], invalid), /Invalid boards response/);
 });
 
-test('accepts a complete created-board response and trims its title', async () => {
-  const { requireCreatedBoardResponse } = await import('./persistedBoards');
+test('accepts a complete created-board response and trims its title', () => {
   assert.deepEqual(
     requireCreatedBoardResponse({ id: 'board-1', title: '  New board  ' }, invalid),
     { id: 'board-1', title: 'New board' },
   );
 });
 
-test('rejects malformed created-board responses before optimistic UI insertion', async () => {
-  const { requireCreatedBoardResponse } = await import('./persistedBoards');
+test('rejects malformed created-board responses before optimistic UI insertion', () => {
   for (const response of [
     null,
     [],
