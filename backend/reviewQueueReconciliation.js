@@ -17,13 +17,14 @@ function hasRenderablePayload(row) {
 function reconcileReviewQueueRows(queueRows, pinsById, userId) {
   const active = [];
   const staleIds = [];
+  const invalidIds = [];
   const ownerId = String(userId);
 
   for (const row of queueRows || []) {
-    // A malformed persisted JSON payload cannot be rendered safely. Remove only
-    // this user's unusable queue row in the caller; never expose partial items.
+    // Preserve malformed persisted rows for recovery. The API reports a restore
+    // conflict instead of silently deleting user data or pretending the queue is empty.
     if (!hasRenderablePayload(row)) {
-      if (row && row.id != null) staleIds.push(String(row.id));
+      if (row && row.id != null) invalidIds.push(String(row.id));
       continue;
     }
 
@@ -43,7 +44,7 @@ function reconcileReviewQueueRows(queueRows, pinsById, userId) {
     active.push({ ...row.payload, id: row.id, pinId: String(pin.id), pinStatus: pin.status || "pending" });
   }
 
-  return { active, staleIds };
+  return { active, staleIds, invalidIds };
 }
 
 module.exports = { reconcileReviewQueueRows };
