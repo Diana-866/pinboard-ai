@@ -19,7 +19,7 @@ const { spawn } = require("node:child_process");
  */
 const SECRET = "s".repeat(40);
 
-function startStubServer() {
+function startStubServer(responseData = { ok: true, claimed: 0 }) {
   const calls = [];
   const server = http.createServer((req, res) => {
     let body = "";
@@ -27,7 +27,7 @@ function startStubServer() {
     req.on("end", () => {
       calls.push({ url: req.url, method: req.method, secret: req.headers["x-pinposy-scheduler-secret"], body });
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, claimed: 0 }));
+      res.end(JSON.stringify(responseData));
     });
   });
   return new Promise((resolve) => {
@@ -140,5 +140,51 @@ test("the one-shot worker entry point performs exactly one scheduler request and
   assert.equal(calls.length, 1, "one cron invocation must make exactly one backend request");
   assert.equal(calls[0].method, "POST");
   assert.equal(calls[0].url, "/internal/pinterest/schedule/run");
+  assert.equal(calls[0].secret, SECRET);
+});
+
+
+test("the one-shot worker treats an overlapping busy response as a successful no-op", async (t) => {
+  const { server, calls, port } = await startStubServer({
+    ok: true,
+    busy: true,
+    claimed: 0,
+    published: 0,
+    failed: 0,
+    scheduled: 0,
+    unknown: 0,
+    results: [],
+  });
+  const child = spawn(process.execPath, [path.join(__dirname, "..", "scheduleWorker.js"), "--once"], {
+    cwd: path.join(__dirname, ".."),
+    env: {
+      ...process.env,
+      PINPOSY_BACKEND_URL: `http://127.0.0.1:${port}`,
+      PINPOSY_SCHEDULER_SECRET: SECRET,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  let output = "";
+  child.stdout.on("data", (chunk) => { output += chunk.toString(); });
+  child.stderr.on("data", (chunk) => { output += chunk.toString(); });
+  t.after(() => {
+    if (child.exitCode === null) child.kill("SIGKILL");
+    server.close();
+  });
+
+  const code = await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error(`busy one-shot worker did not exit: ${output}`));
+    }, 15_000);
+    child.once("exit", (exitCode) => {
+      clearTimeout(timeout);
+      resolve(exitCode);
+    });
+  });
+
+  assert.equal(code, 0, "a valid busy response is not a worker failure");
+  assert.equal(calls.length, 1, "a busy cron invocation must make only one request");
   assert.equal(calls[0].secret, SECRET);
 });
