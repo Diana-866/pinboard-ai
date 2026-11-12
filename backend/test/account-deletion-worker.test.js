@@ -127,6 +127,7 @@ test("worker claims and finalizes only through fenced RPCs", async () => {
   const result = await worker.tick();
   assert.deepEqual(result, { claimed: 1, completed: 1, retried: 0 });
   assert.equal(calls[0].name, "claim_account_deletion_jobs");
+  assert.deepEqual(calls[0].args, { p_limit: 1, p_lease_seconds: 900 });
   assert.equal(calls[1].name, "record_account_deletion_preflight");
   assert.equal(calls[1].args.p_claim_token, "claim-1");
   assert.equal(calls[2].name, "materialize_account_deletion_storage_manifest");
