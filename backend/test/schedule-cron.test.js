@@ -50,7 +50,8 @@ test("one-shot cron rejects malformed responses and logs no raw secrets", async 
 });
 
 test("one-shot cron redacts provider response details from diagnostics", async () => {
-  const events = [];
+  const originalError = console.error;
+  const output = [];
   const error = new Error("private request payload");
   error.code = "ECONNRESET";
   error.response = {
@@ -58,16 +59,21 @@ test("one-shot cron redacts provider response details from diagnostics", async (
     config: { headers: { authorization: "Bearer private-token" } },
   };
 
-  await assert.rejects(runOnce({
-    config,
-    client: { post: async () => { throw error; } },
-    logger: {
-      info: (...args) => events.push(args),
-      error: (...args) => events.push(args),
-    },
-  }), /private request payload/);
+  console.error = (value) => output.push(value);
+  try {
+    await assert.rejects(runOnce({
+      config,
+      client: { post: async () => { throw error; } },
+    }), /private request payload/);
+  } finally {
+    console.error = originalError;
+  }
 
-  assert.equal(events[0][0], "schedule_cron.batch_failed");
-  assert.equal(events[0][2], 503);
-  assert.equal(JSON.stringify(events).includes("private-token"), false);
+  assert.equal(output.length, 1);
+  const record = JSON.parse(output[0]);
+  assert.equal(record.event, "schedule_cron.batch_failed");
+  assert.equal(record.status, 503);
+  assert.equal(record.error_code, "ECONNRESET");
+  assert.equal(output[0].includes("private-token"), false);
+  assert.equal(output[0].includes("private request payload"), false);
 });
