@@ -473,9 +473,10 @@ function createAccountDeletionWorker({
       const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
       for (const job of jobs) {
         if (!job || typeof job !== "object" ||
-            !uuidPattern.test(job.job_id || "") ||
-            !uuidPattern.test(job.user_id || "") ||
-            !uuidPattern.test(job.claim_token || "") ||
+            typeof job.job_id !== "string" || !uuidPattern.test(job.job_id) ||
+            typeof job.user_id !== "string" || !uuidPattern.test(job.user_id) ||
+            typeof job.claim_token !== "string" || !uuidPattern.test(job.claim_token) ||
+            typeof job.step_key !== "string" ||
             !["preflight", "erase_content", "finalize"].includes(job.step_key)) {
           const invalidJob = new Error("account deletion claim contains an invalid job");
           invalidJob.code = "invalid_claimed_job";
