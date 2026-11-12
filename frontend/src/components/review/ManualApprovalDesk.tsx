@@ -335,6 +335,21 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   // Active pin in focus
   const currentPin = queue[0];
 
+  const currentReviewItemRef = useRef<{ id: string; pinId: string } | null>(null);
+  const regenerationRequestRef = useRef(0);
+  const isCurrentReviewItem = (id: string, pinId: string | undefined, owner: ReviewQueueOwnerSnapshot) => {
+    const active = currentReviewItemRef.current;
+    return isOwnerCurrent(owner) && Boolean(active && active.id === id && active.pinId === (pinId || ''));
+  };
+
+  useLayoutEffect(() => {
+    currentReviewItemRef.current = currentPin ? { id: currentPin.id, pinId: currentPin.pinId || '' } : null;
+    regenerationAttemptRef.current = null;
+    regenerationRequestRef.current += 1;
+    setIsRegenerating(false);
+    setRegenStatusMessage('');
+  }, [currentPin?.id, currentPin?.pinId]);
+
   // Inline editable fields for the current pin
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
@@ -684,7 +699,10 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     e.preventDefault();
     const instruction = regenComment.trim();
     if (!instruction || !currentPin || isRegenerating) return;
-    if (!currentPin.pinId) {
+    const targetPin = currentPin;
+    const ownerSnapshot = captureOwner();
+    const targetPinId = targetPin.pinId;
+    if (!targetPinId || !isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot)) {
       window.alert('Нельзя заменить изображение: исходный пин ещё не сохранён на сервере.');
       return;
     }
@@ -692,23 +710,25 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     const existingAttempt = regenerationAttemptRef.current;
     let attempt: { pinId: string; instruction: string; key: string };
     try {
-      attempt = existingAttempt && existingAttempt.pinId === currentPin.pinId && existingAttempt.instruction === instruction
+      attempt = existingAttempt && existingAttempt.pinId === targetPinId && existingAttempt.instruction === instruction
         ? existingAttempt
-        : { pinId: currentPin.pinId, instruction, key: createGenerationIdempotencyKey() };
+        : { pinId: targetPinId, instruction, key: createGenerationIdempotencyKey() };
     } catch (error) {
       setRegenStatusMessage(error instanceof Error ? error.message : 'Не удалось создать безопасный ключ запроса.');
       return;
     }
     regenerationAttemptRef.current = attempt;
+    const regenerationRequestId = ++regenerationRequestRef.current;
     setIsRegenerating(true);
     setRegenStatusMessage('Отправляем запрос на перегенерацию…');
 
     try {
-      const savedPin = await apiRequest(`/pins/${encodeURIComponent(currentPin.pinId)}/regenerate`, {
+      const savedPin = await apiRequest(`/pins/${encodeURIComponent(targetPinId)}/regenerate`, {
         method: 'POST',
         headers: { 'Idempotency-Key': attempt.key },
         body: JSON.stringify({ instruction }),
       });
+      if (!isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot) || regenerationRequestRef.current !== regenerationRequestId) return;
       if (savedPin?.status === 'processing' || savedPin?.code === 'regeneration_pending') {
         setRegenStatusMessage('Генерация ещё выполняется. Нажмите кнопку ещё раз через несколько секунд — запрос продолжится с тем же ключом без повторного списания.');
         return;
@@ -717,13 +737,15 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         throw new Error('Сервер не подтвердил сохранение нового изображения. Повторите проверку с тем же запросом.');
       }
 
-      const updatedPin = { ...currentPin, imageUrl: savedPin.image_url, aspectRatio: '2:3' };
-      await updateQueue((prev) => prev.map((pin) => pin.id === currentPin.id ? updatedPin : pin));
+      const updatedPin = { ...targetPin, imageUrl: savedPin.image_url, aspectRatio: '2:3' };
+      await updateQueue((prev) => prev.map((pin) => pin.id === targetPin.id && pin.pinId === targetPinId ? updatedPin : pin));
+      if (!isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot) || regenerationRequestRef.current !== regenerationRequestId) return;
       regenerationAttemptRef.current = null;
       setRegenStatusMessage('Новое изображение сохранено и привязано к исходной карточке.');
       setShowRegenBox(false);
       setRegenComment('');
     } catch (error: any) {
+      if (!isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot) || regenerationRequestRef.current !== regenerationRequestId) return;
       const code = error?.data?.code;
       if (code === 'regeneration_in_progress' || code === 'regeneration_pending') {
         setRegenStatusMessage('Генерация ещё выполняется. Нажмите кнопку повторно через несколько секунд; используется тот же запрос.');
@@ -731,7 +753,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         setRegenStatusMessage(error instanceof Error ? error.message : 'Не удалось перегенерировать изображение. Повторите попытку.');
       }
     } finally {
-      setIsRegenerating(false);
+      if (isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot) && regenerationRequestRef.current === regenerationRequestId) setIsRegenerating(false);
     }
   };
 
@@ -898,16 +920,20 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                 accept="image/png,image/jpeg,image/webp"
                 className="hidden"
                 onChange={async (e) => {
-                  const file = e.target.files?.[0];
+                  const file = e.currentTarget.files?.[0];
+                  const input = e.currentTarget;
+                  const targetPin = currentPin;
+                  const ownerSnapshot = captureOwner();
+                  const targetPinId = targetPin.pinId;
                   if (!file) return;
                   try {
-                    if (!currentPin.pinId) {
+                    if (!targetPinId || !isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot)) {
                       throw new Error('Сначала сохраните пин в генераторе — только сохранённому пину можно заменить изображение.');
                     }
                     const fd = new FormData();
                     fd.append('image', file);
                     const API = (import.meta as any).env?.VITE_API_URL || 'https://pinboard-ai-backend.onrender.com';
-                    const response = await fetch(API + '/pins/' + encodeURIComponent(currentPin.pinId) + '/image', {
+                    const response = await fetch(API + '/pins/' + encodeURIComponent(targetPinId) + '/image', {
                       method: 'POST',
                       headers: { Authorization: 'Bearer ' + localStorage.getItem('token') },
                       body: fd,
@@ -916,17 +942,18 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                       throw new Error('Не удалось сохранить изображение на сервере. Попробуйте ещё раз.');
                     }
                     const savedPin = await response.json();
+                    if (!isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot)) return;
                     if (typeof savedPin.image_url !== 'string' || !savedPin.image_url) {
                       throw new Error('Сервер не вернул постоянную ссылку на изображение.');
                     }
 
                     await updateQueue((prev) =>
-                      prev.map((p) => (p.id === currentPin.id ? { ...p, imageUrl: savedPin.image_url } : p))
+                      prev.map((p) => (p.id === targetPin.id && p.pinId === targetPinId ? { ...p, imageUrl: savedPin.image_url } : p))
                     );
                   } catch (error) {
-                    window.alert(error instanceof Error ? error.message : 'Не удалось обновить изображение.');
+                    if (isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot)) window.alert(error instanceof Error ? error.message : 'Не удалось обновить изображение.');
                   } finally {
-                    e.target.value = '';
+                    input.value = '';
                   }
                 }}
               />
