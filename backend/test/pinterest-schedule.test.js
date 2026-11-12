@@ -276,7 +276,7 @@ test("public schedule payloads never expose raw provider diagnostics", () => {
 
 test("retryability allows a failed schedule without any publication attempt", () => {
   assert.deepEqual(getScheduleRetryability({
-    status: "failed", pinterest_account_id: "account-a", pinterest_board_id: "board-a",
+    status: "failed", user_id: "user-1", pin_id: "pin-1", pinterest_account_id: "account-a", pinterest_board_id: "board-a",
     pins: { image_url: "https://cdn.example/pin.jpg" },
   }, null, false, true, false), { retryable: true, reason: null });
 });
@@ -284,6 +284,7 @@ test("retryability allows a failed schedule without any publication attempt", ()
 test("retryability accepts the immutable schedule image when the live pin image was cleared", () => {
   assert.deepEqual(getScheduleRetryability({
     status: "failed",
+    user_id: "user-1", pin_id: "pin-1",
     pinterest_account_id: "account-a",
     pinterest_board_id: "board-a",
     snapshot_image_url: "https://cdn.example/scheduled-snapshot.jpg",
@@ -299,7 +300,7 @@ test("retryability allows only explicitly safe failed journal entries", () => {
   // A journal row only authorizes a retry when it still identifies this exact
   // account and board, so the fixture carries the identity fields.
   const attempt = (overrides) => ({
-    pinterest_account_id: "account-a", pinterest_board_id: "board-a", ...overrides,
+    user_id: "user-1", pin_id: "pin-1", pinterest_account_id: "account-a", pinterest_board_id: "board-a", ...overrides,
   });
   assert.deepEqual(getScheduleRetryability(schedule, attempt({ status: "failed", retry_safe: true }), false, true, false), {
     retryable: true, reason: null,
