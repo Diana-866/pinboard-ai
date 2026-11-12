@@ -103,5 +103,5 @@ test("schedule creation persists and reconciles the resolved project destination
   const duplicateCheck = route.slice(route.indexOf("isSamePinScheduleRequest(existing"));
   assert.match(duplicateCheck, /scheduledAt,[\\s\\S]*?timezone,[\\s\\S]*?destinationUrl: snapshotDestinationUrl/);
   assert.ok(route.includes("destination_url: snapshotDestinationUrl"));
-  assert.ok(route.includes('String(existing.destination_url || "") === String(snapshotDestinationUrl || "")'));
+  assert.ok(route.includes("isSamePinScheduleRequest(existing"));
 });
