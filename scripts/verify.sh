@@ -72,7 +72,7 @@ migration_replay() {
   local scratch
   scratch="$(mktemp -d)"
   SCRATCH_DIRS+=("$scratch")
-  cp -r "$ROOT/db/migrations" "$ROOT/db/supabase-stub.sql" "$scratch/" 2>/dev/null || {
+  cp -r "$ROOT/db/migrations" "$ROOT/db/supabase-stub.sql" "$ROOT/backend/test/pinterest-scheduler-completion-fencing.integration.sql" "$scratch/" 2>/dev/null || {
     echo "missing db/migrations or db/supabase-stub.sql"
     return 1
   }
@@ -90,7 +90,7 @@ migration_replay() {
   done
   if [ "$failed" -eq 0 ]; then
     echo "▶ scheduler monitor integration (completion fencing + stale takeover)"
-    if ! "${psql_cmd[@]}" -d "$db" -f "$ROOT/backend/test/pinterest-scheduler-completion-fencing.integration.sql"; then
+    if ! "${psql_cmd[@]}" -d "$db" -f "$scratch/pinterest-scheduler-completion-fencing.integration.sql"; then
       echo "scheduler monitor integration failed"
       failed=1
     fi
