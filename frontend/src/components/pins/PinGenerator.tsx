@@ -512,7 +512,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   };
 
   const handleGenerate = async () => {
-    if (generationInFlightRef.current) return;
+    // Never start a new paid generation while the board's saved pins are unknown.
+    // A failed restore must be retried first so a transient GET failure cannot
+    // make the user unknowingly create a duplicate batch.
+    if (generationInFlightRef.current || isLoadingSavedPins || savedPinsLoadError) return;
     generationInFlightRef.current = true;
     setIsGenerating(true);
     setScheduledSuccess(false);
@@ -1429,7 +1432,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             <div className="pt-2">
               <button
                 onClick={handleGenerate}
-                disabled={isGenerating || isLoadingSavedPins}
+                disabled={isGenerating || isLoadingSavedPins || Boolean(savedPinsLoadError)}
                 className="w-full accent-btn py-3 px-4 rounded-xl text-xs md:text-sm font-semibold flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
               >
                 {isGenerating ? (
