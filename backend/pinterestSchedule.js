@@ -317,9 +317,16 @@ function resolvePinScheduleSnapshot(schedule, currentPin) {
 
 function normalizePinterestDestinationUrl(value) {
   if (!value) return null;
-  const parsed = new URL(String(value).trim());
+  const normalizedValue = String(value).trim();
+  if (normalizedValue.length > 2048) {
+    throw new TypeError("Pinterest destination is too long");
+  }
+  const parsed = new URL(normalizedValue);
   if (!["http:", "https:"].includes(parsed.protocol)) {
     throw new TypeError("Pinterest destination must use HTTP or HTTPS");
+  }
+  if (parsed.username || parsed.password) {
+    throw new TypeError("Pinterest destination must not contain embedded credentials");
   }
   return parsed.toString();
 }
