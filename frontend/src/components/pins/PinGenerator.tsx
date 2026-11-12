@@ -35,6 +35,7 @@ import { isExpiredGenerationRecoveryError } from '../../utils/generationRecovery
 import { isCurrentBillingOwner } from '../../utils/billingOwner';
 import { rollbackPinAspectRatioIfUnchanged } from '../../utils/pinAspectRatio';
 import { resolvePinterestDestination } from '../../utils/pinterestDestination';
+import { requirePinterestAccounts, requirePinterestBoards } from '../../utils/pinterestResources';
 import {
   rememberPinTitleSelection,
   resolvePinTitleSelection,
@@ -126,9 +127,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     apiRequest('/integrations/pinterest/status')
       .then((data) => {
         if (!active) return;
-        const rows = Array.isArray(data?.accounts)
-          ? data.accounts.filter((account: any) => account && typeof account.id === 'string' && account.id.trim())
-          : [];
+        const rows = requirePinterestAccounts(data?.accounts);
         setPinterestAccounts(rows);
         if (rows.length === 1) setSelectedPinterestAccountId(rows[0].id);
       })
@@ -152,11 +151,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     apiRequest(`/integrations/pinterest/boards?account_id=${encodeURIComponent(selectedPinterestAccountId)}`)
       .then((data) => {
         if (!active) return;
-        const rows = Array.isArray(data?.boards)
-          ? data.boards.filter((board: any) =>
-              board && typeof board.id === 'string' && board.id.trim() &&
-              typeof board.name === 'string' && board.name.trim())
-          : [];
+        const rows = requirePinterestBoards(data?.boards);
         setPinterestBoards(rows);
         setPinterestBoardsAccountId(selectedPinterestAccountId);
         setSelectedPinterestBoardId(rows[0]?.id || '');
