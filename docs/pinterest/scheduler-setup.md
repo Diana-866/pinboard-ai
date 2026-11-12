@@ -221,3 +221,51 @@ Migration 122 создаёт таблицу мониторинга и RPC. Migra
 **Rollout:** миграции 122–123 находятся только в feature branch и не применялись к production Supabase. До запуска worker/cron требуются staging-прогон точной последовательности миграций и backend на одном commit, Node/PostgreSQL integration tests, проверка секретов и отдельное подтверждение владельца. В production должен работать только один способ пробуждения очереди — отдельный worker ИЛИ внешний cron.
 
 Статусы admin health: `not_seen`, `running`, `healthy`, `failed`, `stale`. Heartbeat подтверждает вызов endpoint, но не доступность Pinterest API и не заменяет сверку `scheduled/publishing/unknown`.
+
+## Read-only database preflight (before staging or production)
+
+Run this query in Supabase SQL Editor against the database used by the target backend. It does not modify data. Every row must report `present`; otherwise do not start the scheduler. It checks the scheduler monitor and the database routines used by the current backend route.
+
+```sql
+with required_tables(name) as (
+  values
+    ('pinterest_scheduler_monitor'),
+    ('pin_schedules'),
+    ('pinterest_publish_attempts')
+),
+required_functions(name) as (
+  values
+    ('begin_pinterest_scheduler_run'),
+    ('complete_pinterest_scheduler_run'),
+    ('reconcile_confirmed_pinterest_schedule_successes'),
+    ('claim_due_pin_schedules'),
+    ('renew_pin_schedule_claim'),
+    ('complete_pinterest_publish_v2')
+),
+checks as (
+  select 'table'::text as object_type, name,
+         exists (
+           select 1
+           from pg_catalog.pg_class c
+           join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+           where n.nspname = 'public' and c.relname = required_tables.name
+             and c.relkind in ('r', 'p')
+         ) as present
+  from required_tables
+  union all
+  select 'function', name,
+         exists (
+           select 1
+           from pg_catalog.pg_proc p
+           join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'public' and p.proname = required_functions.name
+         )
+  from required_functions
+)
+select object_type, name,
+       case when present then 'present' else 'MISSING' end as status
+from checks
+order by object_type, name;
+```
+
+This is a presence check, not proof that every historical migration was applied in order or that the live schema matches every function signature. If anything is missing, compare the database with the numbered migrations in `db/migrations` and apply the missing migrations in order after a backup. Do not paste the entire migration directory into SQL Editor as one unreviewed batch. After the preflight, use a dedicated staging Pinterest account and a test board for the first end-to-end publication.
