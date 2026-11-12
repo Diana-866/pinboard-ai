@@ -169,3 +169,22 @@ test("in-flight board and schedule reads cannot publish data after an account sw
     assert.match(loader, /if \(isCurrentRequest\(\)\) \{/);
   }
 });
+
+test("Pinterest account status cannot restore another user's accounts after a session switch", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "..", "frontend", "src", "App.tsx"), "utf8");
+  const identityStart = app.indexOf("const scheduleUserIdRef");
+  const identityEnd = app.indexOf("}, [user?.id]);", identityStart) + "}, [user?.id]);".length;
+  const identityEffect = app.slice(identityStart, identityEnd);
+  assert.match(identityEffect, /setAccounts\(\[\]\)/);
+  assert.match(identityEffect, /setActiveAccountId\(''\)/);
+  assert.match(identityEffect, /setMaxAccounts\(0\)/);
+
+  const effectStart = app.indexOf("apiRequest('/integrations/pinterest/status')");
+  const effectEnd = app.indexOf("const handleUpdatePendingPins", effectStart);
+  assert.notEqual(effectStart, -1);
+  assert.ok(effectEnd > effectStart);
+  const statusEffect = app.slice(effectStart, effectEnd);
+  assert.match(statusEffect, /requestOwnerId === \(user\?\.id \|\| ''\)/);
+  assert.match(statusEffect, /requestGeneration === userDataRequestGenerationRef\.current/);
+  assert.match(statusEffect, /if \(!isCurrentRequest\(\)\) return/);
+});
