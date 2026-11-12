@@ -70,8 +70,13 @@ function getWorkerConfig(env = process.env) {
   if (parsed.protocol !== "https:" && !(parsed.protocol === "http:" && ["localhost", "127.0.0.1"].includes(parsed.hostname))) {
     throw new Error("PINPOSY_BACKEND_URL must use HTTPS outside localhost");
   }
+  // This setting is an origin, not an arbitrary endpoint. Reject URL parts
+  // that would silently produce a malformed worker path or embed credentials.
+  if (parsed.username || parsed.password || parsed.search || parsed.hash || (parsed.pathname && parsed.pathname !== "/")) {
+    throw new Error("PINPOSY_BACKEND_URL must contain only the backend origin (no path, query, fragment or credentials)");
+  }
   if (secret.length < 32) throw new Error("PINPOSY_SCHEDULER_SECRET must contain at least 32 characters");
-  return { endpoint: baseUrl + "/internal/pinterest/schedule/run", secret };
+  return { endpoint: parsed.origin + "/internal/pinterest/schedule/run", secret };
 }
 
 function createWorker({
