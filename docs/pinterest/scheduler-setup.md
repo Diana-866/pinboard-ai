@@ -81,6 +81,12 @@ npm run worker
 
 Worker сам обращается к защищённому endpoint каждые 30 секунд по умолчанию, отправляет только `limit: 1`, не допускает перекрывающихся запросов и корректно завершает работу при SIGTERM/SIGINT. Интервал можно задать через `PINPOSY_SCHEDULER_INTERVAL_MS`. Не запускай worker внутри нескольких реплик backend: для него нужен один выделенный процесс; защита claim в БД остаётся последним барьером от конкурентной публикации.
 
+**Ограничение Render Free (важно для текущего размещения PinPosy).**
+
+Render не предоставляет бесплатные инстансы для Background Worker и Cron Job: Free доступны для Web Service, Static Site и отдельных datastore. Минимальный тариф Background Worker — платный `0.5c-512mb` (на текущей странице Render указан как $7/месяц). Поэтому отдельный `npm run worker` нельзя развернуть как бесплатный Render Background Worker. См. [Render Free instances](https://render.com/docs/free) и [тарифы compute](https://render.com/pricing).
+
+Если backend остаётся на Render Free, возможен внешний HTTP scheduler, вызывающий защищённый endpoint. Например, cron-job.org поддерживает POST, произвольные заголовки и интервал от одной минуты бесплатно, но ограничивает время ожидания HTTP-ответа примерно 30 секундами. Это не эквивалент постоянно работающего worker: длинный вызов может быть отмечен как timeout, хотя backend продолжит обработку; повторный вызов во время активного запуска теперь возвращает `200 { ok: true, busy: true }`, не создавая второй claim. Для production предпочтительнее отдельный постоянно работающий Background Worker на платном хостинге. См. [FAQ cron-job.org](https://cron-job.org/en/faq/).
+
 **Вариант B — внешний cron / scheduler-провайдер.**
 
 Если отдельный worker-процесс не используется, внешний scheduler может вызывать endpoint по HTTPS примерно раз в минуту:
