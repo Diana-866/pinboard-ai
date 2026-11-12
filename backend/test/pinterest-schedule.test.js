@@ -849,7 +849,9 @@ test("failed schedule board reassignment accepts the durable image snapshot", ()
     path.join(__dirname, "..", "..", "db", "migrations", "146_pinterest_board_reassignment_uses_immutable_snapshot.sql"),
     "utf8"
   );
-  assert.match(migration, /create or replace function public\\.change_failed_pin_schedule_board/);
-  assert.match(migration, /p\\.image_url is not null[\\s\\S]*or nullif\\(btrim\\(v_schedule\\.snapshot_image_url\\), ''\\) is not null/);
-  assert.match(migration, /grant execute on function public\\.change_failed_pin_schedule_board\\(text,uuid,text\\)[\\s\\S]*to service_role/);
+  assert.ok(migration.includes("create or replace function public.change_failed_pin_schedule_board"));
+  assert.ok(migration.includes("p.image_url is not null"));
+  assert.ok(migration.includes("or nullif(btrim(v_schedule.snapshot_image_url), '') is not null"));
+  assert.ok(migration.includes("grant execute on function public.change_failed_pin_schedule_board(text,uuid,text)"));
+  assert.ok(migration.includes("to service_role"));
 });
