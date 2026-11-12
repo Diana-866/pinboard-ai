@@ -7,6 +7,9 @@ export interface AccountDeletionReceipt {
   alreadyRequested: boolean;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const DELETION_STATES = new Set(['pending']);
+
 function pad(value: number): string {
   return String(value).padStart(2, '0');
 }
@@ -20,18 +23,20 @@ export function buildAccountExportFilename(userId: string, now: Date): string {
 }
 
 /**
- * Validate a deletion receipt. The UI must not report success on a malformed
- * or partial response — a false success would tell the user their account is
- * being removed when no request was actually accepted.
+ * Validate the complete API success contract. A malformed or contradictory
+ * response must never make the UI claim that account deletion was accepted.
  */
 export function parseDeletionReceipt(payload: unknown): AccountDeletionReceipt | null {
   if (!payload || typeof payload !== 'object') return null;
-  const request = (payload as { request?: unknown }).request;
-  if (!request || typeof request !== 'object') return null;
-  const { requestId, state, alreadyRequested } = request as Record<string, unknown>;
-  if (typeof requestId !== 'string' || !requestId) return null;
-  if (typeof state !== 'string' || !state) return null;
-  return { requestId, state, alreadyRequested: Boolean(alreadyRequested) };
+  const response = payload as { ok?: unknown; request?: unknown };
+  if (response.ok !== true || !response.request || typeof response.request !== 'object') return null;
+
+  const { requestId, state, alreadyRequested } = response.request as Record<string, unknown>;
+  if (typeof requestId !== 'string' || !UUID_RE.test(requestId)) return null;
+  if (typeof state !== 'string' || !DELETION_STATES.has(state)) return null;
+  if (typeof alreadyRequested !== 'boolean') return null;
+
+  return { requestId, state, alreadyRequested };
 }
 
 /** Trigger a browser download of an in-memory JSON document. */
