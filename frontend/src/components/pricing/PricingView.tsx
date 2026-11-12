@@ -144,6 +144,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
 
   const purchaseStatusLabels: Record<string, string> = {
     success: t.purchases?.statusSuccess || 'Оплачено',
+    paid_uncredited: language === 'ru' ? 'Оплачено — требуется зачисление' : 'Paid — credit pending',
     pending: t.purchases?.statusPending || 'Ожидает оплаты',
     canceled: t.purchases?.statusCanceled || 'Отменён',
     denied: t.purchases?.statusDenied || 'Отклонён',
@@ -927,6 +928,13 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
                 <History className="w-3.5 h-3.5" />
                 {t.purchases?.neverBurn || 'Кредиты из оплаченных пакетов зачислены на баланс и не сгорают.'}
               </p>
+              {purchases.some((purchase) => purchase.status === 'paid_uncredited') && (
+                <p className="text-[11px] text-amber-700 dark:text-amber-300" role="status">
+                  {language === 'ru'
+                    ? 'Платёж подтверждён, но кредиты пока не зачислены. Не оплачивайте заказ повторно — обратитесь в поддержку и укажите номер заказа из истории.'
+                    : 'Your payment was confirmed, but credits have not been added yet. Do not pay again; contact support with the order reference from your history.'}
+                </p>
+              )}
               {purchases.some((purchase) => purchase.status === 'pending') && (
                 <p className="text-[11px] text-amber-700 dark:text-amber-300" role="status">
                   {language === 'ru'
