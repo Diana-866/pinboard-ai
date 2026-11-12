@@ -14,6 +14,7 @@ declare
   v_refund_at timestamptz;
   v_plan text;
   v_period_end timestamptz;
+  v_expected_period_end timestamptz;
   v_status text;
 begin
   insert into public.users(email,is_admin,account_status)
@@ -73,7 +74,7 @@ begin
          provider_refund_recorded_by=v_admin_id::text
    where id=v_after_sub_id;
 
-  select tariff_period_end into v_period_end from public.users where id=v_after_user_id;
+  select tariff_period_end into v_expected_period_end from public.users where id=v_after_user_id;
   begin
     perform public.activate_paid_subscription(v_after_sub_id,clock_timestamp());
     raise exception 'expected duplicate activation to reject a subscription refunded after activation';
@@ -83,7 +84,7 @@ begin
 
   select tariff_plan,tariff_period_end into v_plan,v_period_end
     from public.users where id=v_after_user_id;
-  if v_plan <> 'pro' or v_period_end is null then
+  if v_plan <> 'pro' or v_period_end is distinct from v_expected_period_end then
     raise exception 'duplicate webhook changed or erased the existing entitlement unexpectedly';
   end if;
 
