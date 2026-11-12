@@ -580,6 +580,10 @@ export const es: TranslationSchema = {
     queueLoadErrorDescription: "Tus pines no se han eliminado. Comprueba la conexión e inténtalo de nuevo. Una cola vacía no significa que todos los pines estén revisados.",
     queueRetry: "Reintentar carga",
     queueLoading: "Cargando cola de revisión…",
+    queueLoadErrorTitle: "No se pudo cargar la cola de revisión",
+    queueLoadErrorDescription: "Tus pines no se han eliminado. Comprueba la conexión e inténtalo de nuevo. Una cola vacía no significa que todos los pines estén revisados.",
+    queueRetry: "Reintentar carga",
+    queueLoading: "Cargando cola de revisión…",
   },
 
   bot: {
