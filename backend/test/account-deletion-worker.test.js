@@ -621,3 +621,44 @@ test("lease heartbeat fails closed when renewal is rejected or errors", async ()
   assert.equal(heartbeat.lost, true);
   heartbeat.stop();
 });
+
+
+test("worker stops after Storage deletion when its lease renewal is rejected", async () => {
+  const calls = [];
+  let heartbeatCallback;
+  let storageDeleted = false;
+  const client = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_account_deletion_jobs") return { data: [{
+        job_id: "job-lease-lost-during-storage",
+        user_id: USER_ID,
+        step_key: "erase_content",
+        claim_token: "claim-lease-lost",
+      }], error: null };
+      if (name === "erase_account_deletion_content") {
+        return { data: { erased: true, financial_records_retained: true }, error: null };
+      }
+      if (name === "renew_account_deletion_job_lease") return { data: false, error: null };
+      throw new Error("unexpected RPC: " + name);
+    },
+  };
+  const worker = createAccountDeletionWorker({
+    client,
+    scheduleHeartbeat(fn) { heartbeatCallback = fn; return { unref() {} }; },
+    cancelHeartbeat() {},
+    deleteImageObject: async () => {
+      storageDeleted = true;
+      await heartbeatCallback();
+      return true;
+    },
+    logger: { info() {}, error() {} },
+  });
+
+  const result = await worker.tick();
+
+  assert.equal(storageDeleted, true);
+  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 0 });
+  assert.equal(calls.some((call) => call.name === "mark_account_deletion_storage_object_deleted"), false);
+  assert.equal(calls.some((call) => call.name === "finish_account_deletion_job"), false);
+});
