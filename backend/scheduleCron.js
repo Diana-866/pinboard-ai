@@ -24,11 +24,34 @@ async function runOnce({
           headers: { "x-pinposy-scheduler-secret": resolvedConfig.secret },
         }
       );
-      if (!response || !response.data || response.data.ok !== true) {
+      const data = response && response.data;
+      const countKeys = ["claimed", "published", "failed", "scheduled", "unknown"];
+      const validCounts = data && countKeys.every((key) =>
+        Number.isSafeInteger(data[key]) && data[key] >= 0
+      );
+      const validResults = data && Array.isArray(data.results) &&
+        data.results.length === data.claimed &&
+        data.results.every((item) =>
+          item && typeof item === "object" &&
+          ["published", "failed", "scheduled", "unknown"].includes(item.status)
+        );
+      const resultCounts = validResults
+        ? data.results.reduce((counts, item) => {
+            counts[item.status] += 1;
+            return counts;
+          }, { published: 0, failed: 0, scheduled: 0, unknown: 0 })
+        : null;
+      if (
+        !data ||
+        data.ok !== true ||
+        !validCounts ||
+        !validResults ||
+        countKeys.slice(1).some((key) => resultCounts[key] !== data[key])
+      ) {
         throw new Error("Backend returned an invalid scheduler response");
       }
       logger.info("schedule_cron.batch_completed");
-      return response.data;
+      return data;
     } catch (error) {
       const safeError = {};
       let status;
