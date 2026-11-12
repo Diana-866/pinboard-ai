@@ -47,7 +47,7 @@ function mapRpcError(error) {
   if (/administrator privileges required/i.test(message)) {
     return httpError(403, "Доступ запрещён");
   }
-  if (/credit purchase not found|subscription not found/i.test(message)) {
+  if (/credit purchase not found|credit purchase owner not found|subscription not found|subscription user not found/i.test(message)) {
     return httpError(404, "Платёжная запись не найдена");
   }
   if (/invalid credit purchase refund reconciliation evidence|invalid subscription refund reconciliation evidence/i.test(message)) {
