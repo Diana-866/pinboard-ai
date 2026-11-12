@@ -72,16 +72,17 @@ export function parseDeletionReceipt(payload: unknown): AccountDeletionReceipt |
 export function downloadJsonFile(filename: string, data: unknown): void {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
+  let link: HTMLAnchorElement | null = null;
   try {
+    link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
   } finally {
-    if (link.parentNode) link.parentNode.removeChild(link);
-    // Revoke even if DOM insertion or click fails, but allow the browser to
-    // begin consuming the Blob URL before releasing it.
+    if (link?.parentNode) link.parentNode.removeChild(link);
+    // Revoke even if element creation, DOM insertion or click fails, but allow
+    // the browser to begin consuming the Blob URL before releasing it.
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 }
