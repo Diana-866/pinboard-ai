@@ -66,6 +66,33 @@ test("one-shot cron rejects inconsistent batch counters instead of reporting suc
   assert.equal(events.some(([event]) => event === "schedule_cron.batch_completed"), false);
 });
 
+test("one-shot cron rejects missing or duplicate schedule identities", async () => {
+  for (const results of [
+    [{ status: "published" }],
+    [
+      { schedule_id: "same-schedule", status: "published" },
+      { schedule_id: "same-schedule", status: "failed" },
+    ],
+  ]) {
+    const claimed = results.length;
+    await assert.rejects(runOnce({
+      config,
+      client: { post: async () => ({
+        data: {
+          ok: true,
+          claimed,
+          published: results.filter((item) => item.status === "published").length,
+          failed: results.filter((item) => item.status === "failed").length,
+          scheduled: 0,
+          unknown: 0,
+          results,
+        },
+      }) },
+      logger: { info() {}, error() {} },
+    }), /invalid scheduler response/);
+  }
+});
+
 test("one-shot cron rejects malformed responses and logs no raw secrets", async () => {
   const events = [];
   await assert.rejects(runOnce({
