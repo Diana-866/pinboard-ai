@@ -477,38 +477,49 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       return;
     }
 
+    const targetPin = currentPin;
     const ownerSnapshot = captureOwner();
-    if (!isOwnerCurrent(ownerSnapshot)) return;
+    if (!isCurrentReviewItem(targetPin.id, targetPin.pinId, ownerSnapshot)) return;
     decisionInFlightRef.current = true;
     setIsDecisionInFlight(true);
     setSwipeDirection('right');
     setTimeout(async () => {
-      if (!isOwnerCurrent(ownerSnapshot)) return;
+      if (!isCurrentReviewItem(targetPin.id, targetPin.pinId, ownerSnapshot)) {
+        if (isOwnerCurrent(ownerSnapshot)) {
+          decisionInFlightRef.current = false;
+          setIsDecisionInFlight(false);
+          setSwipeDirection(null);
+        }
+        return;
+      }
       let scheduleWasPersisted = false;
       try {
         const selectedBoard = boards.find((b) => b.id === editBoardId) || boards[0];
         const scheduledItem: ScheduledPinItem = {
           id: `pin-${Date.now()}`,
-          pinId: currentPin.pinId!,
+          pinId: targetPin.pinId!,
           title: editTitle,
           description: editDesc,
           boardId: editBoardId,
-          boardName: selectedBoard?.name || currentPin.boardName,
-          imageUrl: currentPin.imageUrl,
+          boardName: selectedBoard?.name || targetPin.boardName,
+          imageUrl: targetPin.imageUrl,
           scheduledDate: editDate,
           scheduledTime: editTime,
           status: 'scheduled',
           isOptimalSlot: true,
-          destinationUrl: currentPin.destinationUrl,
-          accountHandle: currentPin.accountHandle,
+          destinationUrl: targetPin.destinationUrl,
+          accountHandle: targetPin.accountHandle,
           pinterestBoardId: selectedPinterestBoardId,
           pinterestAccountId: selectedPinterestAccountId,
         };
 
         await onApprovePin(scheduledItem);
         scheduleWasPersisted = true;
-        if (!isOwnerCurrent(ownerSnapshot)) return;
-        await updateQueue((prev) => prev.filter((pin) => pin.id !== currentPin.id));
+        if (!isCurrentReviewItem(targetPin.id, targetPin.pinId, ownerSnapshot)) return;
+        await updateQueue((prev) => {
+          if (!isCurrentReviewItem(targetPin.id, targetPin.pinId, ownerSnapshot)) return prev;
+          return prev.filter((pin) => pin.id !== targetPin.id || pin.pinId !== targetPin.pinId);
+        });
         if (!isOwnerCurrent(ownerSnapshot)) return;
         setApprovedCount((c) => c + 1);
       } catch (error) {
@@ -532,26 +543,37 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   const handleReject = () => {
     if (!currentPin || decisionInFlightRef.current) return;
 
+    const targetPin = currentPin;
     const ownerSnapshot = captureOwner();
-    if (!isOwnerCurrent(ownerSnapshot)) return;
+    if (!isCurrentReviewItem(targetPin.id, targetPin.pinId, ownerSnapshot)) return;
     decisionInFlightRef.current = true;
     setIsDecisionInFlight(true);
     setSwipeDirection('left');
     setTimeout(async () => {
-      if (!isOwnerCurrent(ownerSnapshot)) return;
+      if (!isCurrentReviewItem(targetPin.id, targetPin.pinId, ownerSnapshot)) {
+        if (isOwnerCurrent(ownerSnapshot)) {
+          decisionInFlightRef.current = false;
+          setIsDecisionInFlight(false);
+          setSwipeDirection(null);
+        }
+        return;
+      }
       let pinWasRejected = false;
       try {
         // Persist the decision on the saved pin before removing its review item.
         // Demo cards have no server pin ID and remain local-only.
-        if (currentPin.pinId) {
-          await apiRequest(`/pins/${encodeURIComponent(currentPin.pinId)}/status`, {
+        if (targetPin.pinId) {
+          await apiRequest(`/pins/${encodeURIComponent(targetPin.pinId)}/status`, {
             method: 'POST',
             body: JSON.stringify({ status: 'rejected' }),
           });
           pinWasRejected = true;
         }
-        if (!isOwnerCurrent(ownerSnapshot)) return;
-        await updateQueue((prev) => prev.filter((pin) => pin.id !== currentPin.id));
+        if (!isCurrentReviewItem(targetPin.id, targetPin.pinId, ownerSnapshot)) return;
+        await updateQueue((prev) => {
+          if (!isCurrentReviewItem(targetPin.id, targetPin.pinId, ownerSnapshot)) return prev;
+          return prev.filter((pin) => pin.id !== targetPin.id || pin.pinId !== targetPin.pinId);
+        });
         if (!isOwnerCurrent(ownerSnapshot)) return;
         setRejectedCount((c) => c + 1);
       } catch (error) {
