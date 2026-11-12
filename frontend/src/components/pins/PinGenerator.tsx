@@ -1015,10 +1015,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                       {language === 'ru' ? 'Доска недоступна в текущем списке' : 'Board is unavailable'}
                     </span>
                   )}
-                  {item.status === 'expired' && (
+                  {(item.status === 'expired' || item.status === 'failed') && (
                     <button
                       type="button"
                       onClick={() => {
+                        // These outcomes are terminal and known. Removing the local
+                        // recovery pointer does not delete the server journal or pins.
                         clearPendingGenerationRequest(item.key);
                         setRecoverableGenerations((current) => current.filter((entry) => entry.key !== item.key));
                       }}
