@@ -36,3 +36,22 @@ test('rejects missing, malformed, or non-HTTPS image URLs', () => {
   assert.throws(() => requireSavedPinsArray([{ id: 'pin-1', image_url: 'not-a-url' }]), /некорректную ссылку/);
   assert.throws(() => requireSavedPinsArray([{ id: 'pin-1', image_url: 'http://storage.example/pin.png' }]), /HTTPS/);
 });
+
+
+test('rejects whitespace-padded saved pin IDs', () => {
+  assert.throws(() => requireSavedPinsArray([{
+    id: ' pin-1 ',
+    image_url: 'https://storage.example/pin.png',
+  }]), /некорректен идентификатор/);
+});
+
+test('rejects saved image URLs with missing hosts or embedded credentials', () => {
+  assert.throws(() => requireSavedPinsArray([{
+    id: 'pin-1',
+    image_url: 'https:///pin.png',
+  }]), /безопасной HTTPS-ссылкой/);
+  assert.throws(() => requireSavedPinsArray([{
+    id: 'pin-1',
+    image_url: 'https://user:password@storage.example/pin.png',
+  }]), /безопасной HTTPS-ссылкой/);
+});
