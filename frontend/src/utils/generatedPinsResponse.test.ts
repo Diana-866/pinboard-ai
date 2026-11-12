@@ -58,3 +58,18 @@ test('rejects HTTPS image URLs containing embedded credentials', () => {
     image_url: 'https://user:password@storage.example/pin.png',
   }]), /безопасной HTTPS-ссылкой/);
 });
+
+test('rejects non-string display fields that could crash the pin editor', () => {
+  assert.throws(() => requireGeneratedPinsArray([{
+    id: 'pin-1', title: { text: 'bad' }, image_url: 'https://storage.example/pin.png',
+  }]), /некорректный заголовок/);
+  assert.throws(() => requireGeneratedPinsArray([{
+    id: 'pin-1', description: ['bad'], image_url: 'https://storage.example/pin.png',
+  }]), /некорректное описание/);
+});
+
+test('rejects unsupported aspect ratios before rendering generated pins', () => {
+  assert.throws(() => requireGeneratedPinsArray([{
+    id: 'pin-1', aspect_ratio: '16:9', image_url: 'https://storage.example/pin.png',
+  }]), /неподдерживаемый формат/);
+});
