@@ -41,6 +41,7 @@ import { getOrCreateProject } from './utils/projectProvisioning';
 import { validatePersistedScheduleRows } from './utils/persistedSchedule';
 import { mergeRestoredReviewQueue } from './utils/reviewQueueHydration';
 import { isReviewQueueOwnerCurrent } from './utils/reviewQueueOwnerFence';
+import { mergeReviewQueuePin, upsertReviewQueuePin } from './utils/reviewQueueUpsert';
 import { findPersistedScheduleMutation, findPersistedScheduleRequest, isPersistedScheduleMutationResponse, isScheduleAbsentFromActiveList, isPersistedScheduleCancellationResponse } from './utils/scheduleMutationReconciliation';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -983,10 +984,9 @@ const MainApp: React.FC = () => {
                   throw new Error('Сессия пользователя изменилась. Обновите страницу и повторите попытку.');
                 }
                 const existing = pendingReviewPinsRef.current.find((item) => item.pinId === pin.pinId);
-                // Re-adding an already queued pin must refresh its creative data
-                // (description/image/title), not silently keep an obsolete snapshot.
-                // Preserve the queue row ID so this remains an idempotent upsert.
-                const queuePin = existing ? { ...existing, ...pin, id: existing.id } : pin;
+                // Re-adding an already queued pin refreshes its creative snapshot
+                // while preserving the stable queue-row ID for idempotent writes.
+                const queuePin = mergeReviewQueuePin(existing, pin);
                 await apiRequest(`/review-queue/${encodeURIComponent(queuePin.id)}`, {
                   method: 'PUT',
                   body: JSON.stringify({ pin: queuePin }),
@@ -995,9 +995,7 @@ const MainApp: React.FC = () => {
                   throw new Error('Сессия пользователя изменилась во время сохранения.');
                 }
                 if (reviewQueueHydratingRef.current) reviewQueueTouchedIdsRef.current.add(queuePin.id);
-                const next = existing
-                  ? pendingReviewPinsRef.current.map((item) => item.id === existing.id ? queuePin : item)
-                  : [...pendingReviewPinsRef.current, queuePin];
+                const next = upsertReviewQueuePin(pendingReviewPinsRef.current, queuePin);
                 pendingReviewPinsRef.current = next;
                 setPendingReviewPins(next);
                 setActiveTab('review');
