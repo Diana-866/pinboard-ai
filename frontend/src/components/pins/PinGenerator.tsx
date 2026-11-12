@@ -505,7 +505,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         });
       }
     };
-  }, [selectedBoardId, selectedBoardName, savedPinsReloadAttempt]);
+  }, [selectedBoardId, selectedBoardName, savedPinsReloadAttempt, userId]);
 
   // Quick preset topic suggestions
   const topicPresets = [
