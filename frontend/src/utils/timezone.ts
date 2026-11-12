@@ -339,6 +339,25 @@ export const localDateTimeToDate = (date: string, time: string, timeZone: string
   return new Date(candidate);
 };
 
+/**
+ * Mirrors the backend's accepted publication window before the UI mutates
+ * an approved pin. The server permits a 10-minute clock-skew grace period
+ * and rejects schedules more than one year ahead.
+ */
+export const validateScheduleInstant = (instant: Date, now: Date = new Date()): void => {
+  const scheduledAt = instant.getTime();
+  const currentTime = now.getTime();
+  if (!Number.isFinite(scheduledAt) || !Number.isFinite(currentTime)) {
+    throw new Error('Укажите корректные дату и время публикации');
+  }
+  if (scheduledAt < currentTime - 10 * 60 * 1000) {
+    throw new Error('Время публикации не может быть в прошлом');
+  }
+  if (scheduledAt > currentTime + 366 * 24 * 60 * 60 * 1000) {
+    throw new Error('Нельзя планировать публикацию более чем на год вперёд');
+  }
+};
+
 /** Add calendar days in an IANA timezone without relying on the browser's timezone or fixed 24-hour durations. */
 export const addCalendarDaysInTimezone = (instant: Date, timeZone: string, days: number): string => {
   if (!Number.isFinite(instant.getTime()) || !Number.isInteger(days)) {
