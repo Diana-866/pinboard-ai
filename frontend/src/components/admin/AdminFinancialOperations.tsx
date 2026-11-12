@@ -5,7 +5,12 @@ import { apiRequest } from '../../lib/api';
 type Operation = {
   request_id?: string;
   reservation_id?: string;
-  operation: 'generation' | 'regeneration' | 'ambiguous' | 'unmatched';
+  operation: 'generation' | 'regeneration' | 'ambiguous' | 'unmatched' | 'payment_reconciliation';
+  payment_id?: string;
+  payment_kind?: 'credits' | 'subscription';
+  amount?: number;
+  currency?: string;
+  paid_at?: string | null;
   status: string;
   reason: string;
   created_at: string;
@@ -19,11 +24,12 @@ type Operation = {
 type QueueResponse = {
   older_than_minutes: number;
   limit_per_category: number;
-  truncated: { generation: boolean; regeneration: boolean; reservations: boolean };
-  counts: { generation: number; regeneration: number; reservations: number };
+  truncated: { generation: boolean; regeneration: boolean; reservations: boolean; paid_credits: boolean; paid_subscriptions: boolean };
+  counts: { generation: number; regeneration: number; reservations: number; payment_reconciliation: number };
   generation: Operation[];
   regeneration: Operation[];
   reservations: Operation[];
+  payment_reconciliation: Operation[];
   read_only: boolean;
   note: string;
 };
@@ -39,6 +45,8 @@ const REASONS: Record<string, string> = {
   multiple_matching_requests_integrity_review: 'Несколько операций соответствуют одному резерву',
   old_active_reservation_requires_request_review: 'Старый активный резерв требует проверки операции',
   active_reservation_with_terminal_request_integrity_review: 'Резерв активен при завершённой операции — нужна проверка',
+  paid_credit_requires_fulfillment_or_refund: 'Оплата подтверждена, но кредиты не зачислены: требуется зачисление или возврат',
+  paid_subscription_requires_entitlement_or_refund: 'Оплата подтверждена, но тариф не активирован: требуется решение по зачислению или возврату',
 };
 
 function ageLabel(value: number | null) {
@@ -72,10 +80,11 @@ function OperationTable({ title, rows, empty, rowLabel }: { title: string; rows:
             </thead>
             <tbody>
               {rows.map((row, index) => (
-                <tr key={row.request_id || row.reservation_id || index} className="border-b border-subtle/60 last:border-0">
+                <tr key={row.request_id || row.reservation_id || row.payment_id || index} className="border-b border-subtle/60 last:border-0">
                   <td className="px-4 py-3 align-top">
-                    <div className="font-semibold text-primary-theme">{rowLabel}</div>
-                    <div className="mt-0.5 max-w-[180px] truncate font-mono text-[10px] text-muted-theme">{row.request_id || row.reservation_id}</div>
+                    <div className="font-semibold text-primary-theme">{row.payment_kind === 'credits' ? 'Покупка кредитов' : row.payment_kind === 'subscription' ? 'Подписка' : rowLabel}</div>
+                    <div className="mt-0.5 max-w-[180px] truncate font-mono text-[10px] text-muted-theme">{row.request_id || row.reservation_id || row.payment_id}</div>
+                    {row.amount != null && <div className="mt-1 text-[10px] text-muted-theme">Оплачено: {row.amount} {row.currency?.toUpperCase()}</div>}
                     {row.task_counts && <div className="mt-1 text-[10px] text-muted-theme">Задач: {row.task_counts.total} · успех: {row.task_counts.succeeded} · ошибка: {row.task_counts.failed} · неизвестно: {row.task_counts.unknown}</div>}
                     {row.amount_credits != null && <div className="mt-1 text-[10px] text-muted-theme">Зарезервировано: {row.amount_credits} кр.</div>}
                   </td>
@@ -85,7 +94,7 @@ function OperationTable({ title, rows, empty, rowLabel }: { title: string; rows:
                   </td>
                   <td className="max-w-[320px] px-4 py-3 align-top text-secondary-theme">{REASONS[row.reason] || row.reason}</td>
                   <td className="whitespace-nowrap px-4 py-3 align-top font-mono text-[10px] text-secondary-theme">{ageLabel(row.age_minutes)}</td>
-                  <td className="whitespace-nowrap px-4 py-3 align-top text-[10px] text-muted-theme">{new Date(row.updated_at).toLocaleString()}</td>
+                  <td className="whitespace-nowrap px-4 py-3 align-top text-[10px] text-muted-theme">{new Date(row.updated_at || row.paid_at || row.created_at).toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>
@@ -116,7 +125,7 @@ export const AdminFinancialOperations: React.FC = () => {
 
   useEffect(() => { load(); }, [load]);
 
-  const total = useMemo(() => data ? data.counts.generation + data.counts.regeneration + data.counts.reservations : 0, [data]);
+  const total = useMemo(() => data ? data.counts.generation + data.counts.regeneration + data.counts.reservations + data.counts.payment_reconciliation : 0, [data]);
 
   return (
     <div className="space-y-5">
@@ -141,15 +150,17 @@ export const AdminFinancialOperations: React.FC = () => {
             <div className="custom-card p-4"><div className="text-[10px] uppercase tracking-wide text-muted-theme">Генерации</div><div className="mt-1 text-2xl font-bold text-primary-theme">{data.counts.generation}</div></div>
             <div className="custom-card p-4"><div className="text-[10px] uppercase tracking-wide text-muted-theme">Перегенерации</div><div className="mt-1 text-2xl font-bold text-primary-theme">{data.counts.regeneration}</div></div>
             <div className="custom-card p-4"><div className="text-[10px] uppercase tracking-wide text-muted-theme">Резервы</div><div className="mt-1 text-2xl font-bold text-primary-theme">{data.counts.reservations}</div></div>
+            <div className="custom-card p-4"><div className="text-[10px] uppercase tracking-wide text-muted-theme">Оплаты к сверке</div><div className="mt-1 text-2xl font-bold text-primary-theme">{data.counts.payment_reconciliation}</div></div>
           </div>
           <div className="flex items-start gap-2 rounded-xl border border-sky-500/25 bg-sky-500/5 px-4 py-3 text-xs text-secondary-theme">
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />
-            <div><strong>Безопасный режим просмотра.</strong> Этот раздел ничего не списывает, не возвращает и не закрывает автоматически. Возраст операции сам по себе не доказывает, что провайдер завершил задачу или вернул деньги.</div>
+            <div><strong>Безопасный режим просмотра.</strong> Этот раздел ничего не списывает, не возвращает и не закрывает автоматически. Оплаты в последней таблице подтверждены провайдером, но требуют ручной сверки зачисления или возврата.</div>
           </div>
           <OperationTable title="Генерации" rowLabel="Генерация" rows={data.generation} empty="Старых незавершённых генераций нет." />
           <OperationTable title="Перегенерации" rowLabel="Перегенерация" rows={data.regeneration} empty="Старых незавершённых перегенераций нет." />
           <OperationTable title="Активные резервы кредитов" rowLabel="Резерв кредитов" rows={data.reservations} empty="Старых активных резервов нет." />
-          {(data.truncated.generation || data.truncated.regeneration || data.truncated.reservations) && (
+          <OperationTable title="Оплаты, требующие сверки" rowLabel="Оплаченный заказ" rows={data.payment_reconciliation} empty="Оплаченных заказов без зачисления нет." />
+          {(data.truncated.generation || data.truncated.regeneration || data.truncated.reservations || data.truncated.paid_credits || data.truncated.paid_subscriptions) && (
             <p className="text-[11px] text-amber-700 dark:text-amber-300">Показана только первая часть очереди (до {data.limit_per_category} записей в каждой категории). Обновите список позже, чтобы увидеть следующие операции.</p>
           )}
           <p className="flex items-center gap-1.5 text-[10px] text-muted-theme"><Clock3 className="h-3 w-3" /> В выборку попадают операции без обновлений более {data.older_than_minutes} минут.</p>
