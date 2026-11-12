@@ -1024,26 +1024,35 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     {board && <p className="text-[11px] text-muted-theme">{board.name}</p>}
                   </div>
                   {readPendingGenerationContext(item.key, userId) && (
-                    <button
-                      type="button"
-                      disabled={isGenerating || isCheckingRecoveries}
-                      onClick={() => {
-                        const saved = readPendingGenerationContext(item.key, userId);
-                        if (!saved) return;
-                        restoredGenerationBoardRef.current = saved.boardId;
-                        setSelectedBoardId(saved.boardId);
-                        setTopic(saved.topic);
-                        setTone(saved.tone);
-                        setAiContentLanguage(saved.contentLanguage);
-                        setPinCount(saved.count);
-                        setAspectMode(saved.aspectMode);
-                        setSelectedSingleRatio(saved.selectedSingleRatio);
-                        setRandomizerRatios({ ...saved.randomizerRatios });
-                      }}
-                      className="px-3 py-2 rounded-lg border border-subtle text-xs font-semibold text-secondary-theme hover:bg-subtle disabled:opacity-50"
-                    >
-                      {language === 'ru' ? 'Восстановить настройки' : 'Restore settings'}
-                    </button>
+                    <div className="flex flex-col items-start gap-1">
+                      <button
+                        type="button"
+                        disabled={isGenerating || isCheckingRecoveries || !board}
+                        onClick={() => {
+                          const saved = readPendingGenerationContext(item.key, userId);
+                          // Never restore a deleted or unavailable board as the active
+                          // target: that would make the next generation fail or land elsewhere.
+                          if (!saved || !boards.some((candidate) => candidate.id === saved.boardId)) return;
+                          restoredGenerationBoardRef.current = saved.boardId;
+                          setSelectedBoardId(saved.boardId);
+                          setTopic(saved.topic);
+                          setTone(saved.tone);
+                          setAiContentLanguage(saved.contentLanguage);
+                          setPinCount(saved.count);
+                          setAspectMode(saved.aspectMode);
+                          setSelectedSingleRatio(saved.selectedSingleRatio);
+                          setRandomizerRatios({ ...saved.randomizerRatios });
+                        }}
+                        className="px-3 py-2 rounded-lg border border-subtle text-xs font-semibold text-secondary-theme hover:bg-subtle disabled:opacity-50"
+                      >
+                        {language === 'ru' ? 'Восстановить настройки' : 'Restore settings'}
+                      </button>
+                      {!board && (
+                        <span className="text-[11px] text-muted-theme">
+                          {language === 'ru' ? 'Сначала восстановите или создайте исходную доску' : 'Restore or recreate the original board first'}
+                        </span>
+                      )}
+                    </div>
                   )}
                   {item.status === 'completed' && item.pinCount > 0 && board && (
                     <button
