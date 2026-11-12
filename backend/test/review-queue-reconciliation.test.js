@@ -18,7 +18,6 @@ test("keeps demo queue items and owned pins that are not rejected", () => {
   );
   assert.deepEqual(result.staleIds, []);
   assert.deepEqual(result.invalidIds, []);
-  assert.deepEqual(result.invalidIds, []);
   assert.deepEqual(result.active.map((item) => item.id), ["demo", "pending", "approved"]);
   assert.equal(result.active[1].pinStatus, "pending");
   assert.equal(result.active[2].pinStatus, "approved");
@@ -49,9 +48,10 @@ test("uses the persisted pin_id when present and falls back to legacy payload pi
   );
   assert.deepEqual(result.active.map((item) => item.pinId), ["pin-1", "pin-2"]);
   assert.deepEqual(result.staleIds, []);
+  assert.deepEqual(result.invalidIds, []);
 });
 
-test("quarantines malformed persisted payloads without breaking valid queue rows", () => {
+test("identifies malformed persisted payloads for safe restore failure", () => {
   const result = reconcileReviewQueueRows(
     [
       row("valid", null),
