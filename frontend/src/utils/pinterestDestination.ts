@@ -24,8 +24,12 @@ export function resolvePinterestDestination(
   boardsAccountId?: string | null,
 ): PinterestDestination | null {
   if (
+    !Array.isArray(accounts) ||
+    !Array.isArray(boards) ||
+    typeof selectedAccountId !== 'string' ||
     !selectedAccountId ||
     selectedAccountId !== selectedAccountId.trim() ||
+    typeof selectedBoardId !== 'string' ||
     !selectedBoardId ||
     selectedBoardId !== selectedBoardId.trim()
   ) return null;
