@@ -98,7 +98,7 @@ export async function payAndRedirect(plan: PayablePlan, currency: 'rub' | 'usd' 
 export interface SubscriptionRow {
   id: string;
   plan: string;
-  status: 'pending' | 'success' | 'canceled' | 'denied' | 'expired';
+  status: 'pending' | 'success' | 'canceled' | 'denied' | 'expired' | 'paid_unactivated';
   amount: number;
   currency: string;
   period_start: string | null;
@@ -135,7 +135,7 @@ export interface CreditPurchaseRow {
   package_id: string;
   pack_title: string | null;
   credits: number;
-  status: 'pending' | 'success' | 'canceled' | 'denied';
+  status: 'pending' | 'success' | 'canceled' | 'denied' | 'paid_uncredited';
   amount: number;
   currency: string;
   paid_at: string | null;
