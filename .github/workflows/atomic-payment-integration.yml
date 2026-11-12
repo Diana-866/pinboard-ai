@@ -53,7 +53,7 @@ jobs:
       - name: Test checkout settlement helper
         run: node --test backend/test/payment-creation-settlement.test.js
       - name: Test admin billing reconciliation actions and queue
-        run: node --test backend/test/admin-credit-purchase-reconciliation.test.js backend/test/admin-financial-operations.test.js
+        run: node --test backend/test/admin-billing-refund-reconciliation.test.js backend/test/admin-financial-operations.test.js
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update
