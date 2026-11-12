@@ -686,7 +686,20 @@ const MainApp: React.FC = () => {
     pinterestBoardId: string,
     boardName: string
   ) => {
+    const scheduleOwnerSnapshot = {
+      userId: pendingReviewUserIdRef.current,
+      generation: pendingReviewOwnerGenerationRef.current,
+    };
+    const assertScheduleOwner = () => {
+      if (!isReviewQueueOwnerCurrent(scheduleOwnerSnapshot, {
+        userId: pendingReviewUserIdRef.current,
+        generation: pendingReviewOwnerGenerationRef.current,
+      })) {
+        throw new Error('Сессия пользователя изменилась. Обновите страницу и проверьте расписание.');
+      }
+    };
     try {
+      assertScheduleOwner();
       let saved: any;
       const expected = {
         scheduleId: pin.id,
@@ -699,6 +712,7 @@ const MainApp: React.FC = () => {
           method: 'POST',
           body: JSON.stringify({ pinterest_board_id: pinterestBoardId }),
         });
+        assertScheduleOwner();
         if (!isPersistedScheduleMutationResponse(response, expected)) {
           throw new Error('Сервер не подтвердил новое состояние публикации.');
         }
@@ -708,6 +722,7 @@ const MainApp: React.FC = () => {
         // this exact schedule, target board, account and queued state.
         try {
           const rows = await apiRequest('/schedule');
+        assertScheduleOwner();
           saved = findPersistedScheduleMutation(rows, expected);
           if (!saved) throw originalError;
         } catch {
@@ -715,7 +730,9 @@ const MainApp: React.FC = () => {
         }
       }
 
+      assertScheduleOwner();
       const date = formatInstantInTimezone(new Date(saved.scheduled_at), getDefaultTimezone());
+      assertScheduleOwner();
       setScheduledPins((prev) => prev.map((item) => item.id === pin.id ? {
         ...item,
         scheduledDate: date.date,
