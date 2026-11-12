@@ -59,7 +59,7 @@ test("preflight inventories every exported user-owned section without loading ro
   assert.equal(result.counts.pins, 0);
 });
 
-test("preflight paginates project and board identifiers beyond the API row cap", async () => {
+test("preflight paginates projects and chunks board identifiers beyond the API row cap", async () => {
   const ranges = [];
   const client = {
     from(table) {
@@ -95,7 +95,7 @@ test("preflight paginates project and board identifiers beyond the API row cap",
   const result = await inspectAccountForDeletion(client, USER_ID);
   assert.equal(result.ok, true);
   assert.ok(ranges.some((r) => r.table === "projects" && r.start === 1000));
-  assert.ok(ranges.some((r) => r.table === "boards" && r.start === 1000));
+  assert.ok(ranges.filter((r) => r.table === "boards").length > 1);
   assert.equal(result.counts.boards, 1001);
 });
 
@@ -113,7 +113,7 @@ test("worker claims and finalizes only through fenced RPCs", async () => {
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
-        return { data: [{ job_id: "job-1", user_id: USER_ID, claim_token: "claim-1" }], error: null };
+        return { data: [{ job_id: "job-1", user_id: USER_ID, step_key: "preflight", claim_token: "claim-1" }], error: null };
       }
       if (name === "record_account_deletion_preflight") return { data: true, error: null };
       if (name === "materialize_account_deletion_storage_manifest") return { data: { recorded: true, inserted: 1, total: 1 }, error: null };
@@ -147,7 +147,7 @@ test("worker never marks preflight complete after losing the inventory claim", a
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
-        return { data: [{ job_id: "job-lost", user_id: USER_ID, claim_token: "claim-lost" }], error: null };
+        return { data: [{ job_id: "job-lost", user_id: USER_ID, step_key: "preflight", claim_token: "claim-lost" }], error: null };
       }
       if (name === "record_account_deletion_preflight") return { data: false, error: null };
       if (name === "finish_account_deletion_job") return { data: true, error: null };
@@ -167,7 +167,7 @@ test("worker persists only a successful bounded inventory before finalizing", as
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
-        return { data: [{ job_id: "job-inventory", user_id: USER_ID, claim_token: "claim-inventory" }], error: null };
+        return { data: [{ job_id: "job-inventory", user_id: USER_ID, step_key: "preflight", claim_token: "claim-inventory" }], error: null };
       }
       if (name === "record_account_deletion_preflight") return { data: true, error: null };
       if (name === "materialize_account_deletion_storage_manifest") return { data: { recorded: true, inserted: 1, total: 1 }, error: null };
@@ -194,7 +194,7 @@ test("worker schedules retry when inventory is incomplete", async () => {
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
-        return { data: [{ job_id: "job-2", user_id: USER_ID, claim_token: "claim-2" }], error: null };
+        return { data: [{ job_id: "job-2", user_id: USER_ID, step_key: "preflight", claim_token: "claim-2" }], error: null };
       }
       if (name === "record_account_deletion_preflight") return { data: true, error: null };
       if (name === "materialize_account_deletion_storage_manifest") return { data: { recorded: true, inserted: 1, total: 1 }, error: null };
@@ -221,7 +221,7 @@ test("worker retries and does not revoke credentials when Storage manifest persi
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
-        return { data: [{ job_id: "job-manifest-failed", user_id: USER_ID, claim_token: "claim-manifest-failed" }], error: null };
+        return { data: [{ job_id: "job-manifest-failed", user_id: USER_ID, step_key: "preflight", claim_token: "claim-manifest-failed" }], error: null };
       }
       if (name === "record_account_deletion_preflight") return { data: true, error: null };
       if (name === "materialize_account_deletion_storage_manifest") {
@@ -273,8 +273,10 @@ test("worker executes the separately claimed content-erasure stage", async () =>
   assert.equal(calls[1].name, "erase_account_deletion_content");
   assert.equal(calls[1].args.p_job_id, "job-erase");
   assert.equal(calls[1].args.p_claim_token, "claim-erase");
-  assert.equal(calls[2].name, "finish_account_deletion_job");
-  assert.equal(calls[2].args.p_outcome, "succeeded");
+  assert.equal(calls[2].name, "list_account_deletion_storage_manifest");
+  assert.equal(calls[3].name, "list_account_deletion_storage_manifest");
+  assert.equal(calls[4].name, "finish_account_deletion_job");
+  assert.equal(calls[4].args.p_outcome, "succeeded");
 });
 
 test("worker retries content erasure unless the RPC explicitly confirms retained financial records", async () => {
