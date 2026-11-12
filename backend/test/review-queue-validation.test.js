@@ -35,3 +35,9 @@ test("bounds optional metadata before it reaches the database", () => {
   assert.equal(result.boardName.length, 120);
   assert.equal(result.imageUrl.length, 2048);
 });
+
+test("rejects non-string title and description instead of coercing objects", () => {
+  assert.throws(() => normalizeReviewQueuePin("one", { id: "one", title: { text: "Title" } }), { httpStatus: 422 });
+  assert.throws(() => normalizeReviewQueuePin("one", { id: "one", title: "Title", description: { text: "Description" } }), { httpStatus: 422 });
+  assert.throws(() => normalizeReviewQueuePin("one", { id: "one", title: 123 }), { httpStatus: 422 });
+});
