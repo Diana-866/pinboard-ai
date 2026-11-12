@@ -356,6 +356,9 @@ jobs:
           declare
             v_user_id uuid;
             v_account_id uuid;
+            v_request_id uuid;
+            v_job_id uuid;
+            v_claim_token uuid := gen_random_uuid();
             v_disconnected integer;
             v_access_token text;
             v_refresh_token text;
@@ -365,6 +368,19 @@ jobs:
             values ('deletion-pinterest-test@example.invalid', 'deletion_pending')
             returning id into v_user_id;
 
+            insert into public.account_deletion_requests(
+              user_id, state, confirmation_method, token_version
+            ) values (
+              v_user_id, 'pending', 'password_reauth', 1
+            ) returning id into v_request_id;
+
+            insert into public.account_deletion_jobs(
+              request_id, step_key, status, claim_token, lease_expires_at
+            ) values (
+              v_request_id, 'preflight', 'running', v_claim_token,
+              clock_timestamp() + interval '5 minutes'
+            ) returning id into v_job_id;
+
             insert into public.pinterest_accounts(
               user_id, pinterest_user_id, username, access_token, refresh_token
             ) values (
@@ -372,7 +388,9 @@ jobs:
               'encrypted-access-placeholder', 'encrypted-refresh-placeholder'
             ) returning id into v_account_id;
 
-            v_disconnected := public.disconnect_pinterest_for_account_deletion(v_user_id);
+            v_disconnected := public.disconnect_pinterest_for_account_deletion(
+              v_job_id, v_claim_token, v_user_id
+            );
             if v_disconnected <> 1 then
               raise exception 'expected one disconnected Pinterest account, got %', v_disconnected;
             end if;
@@ -385,8 +403,16 @@ jobs:
               raise exception 'Pinterest credentials were not revoked';
             end if;
 
-            if public.disconnect_pinterest_for_account_deletion(v_user_id) <> 0 then
+            if public.disconnect_pinterest_for_account_deletion(
+              v_job_id, v_claim_token, v_user_id
+            ) <> 0 then
               raise exception 'repeated Pinterest disconnect must be idempotent';
+            end if;
+
+            if public.disconnect_pinterest_for_account_deletion(
+              v_job_id, gen_random_uuid(), v_user_id
+            ) <> -1 then
+              raise exception 'stale Pinterest disconnect claim must be rejected';
             end if;
           end;
           $body$;
