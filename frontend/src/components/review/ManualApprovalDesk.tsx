@@ -527,8 +527,8 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       window.alert('В очереди есть демонстрационные карточки без сохранённых пинов. Создайте и сохраните реальные пины в генераторе, прежде чем добавлять их в расписание.');
       return;
     }
-    if (!selectedPinterestAccountId || !selectedPinterestBoardId) {
-      window.alert('Сначала подключите Pinterest и выберите настоящую доску Pinterest для публикации.');
+    if (!hasValidPinterestDestination) {
+      window.alert('Дождитесь загрузки досок выбранного Pinterest-аккаунта и выберите доступную доску для публикации.');
       return;
     }
 
