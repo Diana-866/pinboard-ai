@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { applyCurrentReviewEdits } from './reviewApproval';
+import { applyCurrentReviewEdits, requirePinStatusResponse } from './reviewApproval';
 
 const first = {
   id: 'pin-1',
@@ -43,4 +43,18 @@ test('bulk approval keeps original schedule fields if the edit controls are empt
     title: edits.title,
     description: edits.description,
   });
+});
+
+
+test('review decision response must confirm the exact pin and requested status', () => {
+  assert.doesNotThrow(() => requirePinStatusResponse(
+    { id: 'saved-1', status: 'rejected' }, 'saved-1', 'rejected',
+  ));
+  assert.throws(() => requirePinStatusResponse(null, 'saved-1', 'rejected'));
+  assert.throws(() => requirePinStatusResponse(
+    { id: 'another-pin', status: 'rejected' }, 'saved-1', 'rejected',
+  ));
+  assert.throws(() => requirePinStatusResponse(
+    { id: 'saved-1', status: 'approved' }, 'saved-1', 'rejected',
+  ));
 });
