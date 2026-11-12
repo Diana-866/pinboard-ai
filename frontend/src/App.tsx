@@ -1047,14 +1047,26 @@ const MainApp: React.FC = () => {
 
       {/* Real-time Toast Queue Notification */}
       {toast && (
-        <div className="fixed top-20 right-4 sm:right-6 z-50 p-4 rounded-2xl custom-card border border-strong shadow-2xl flex items-start gap-3 max-w-sm animate-in slide-in-from-top-2 duration-200">
-          <div className="w-8 h-8 rounded-xl bg-accent-light text-accent flex items-center justify-center shrink-0">
-            <span className="text-sm">✨</span>
+        <div
+          role={toast.type === 'error' ? 'alert' : 'status'}
+          aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+          className="fixed top-20 right-4 sm:right-6 z-50 p-4 rounded-2xl custom-card border border-strong shadow-2xl flex items-start gap-3 max-w-sm animate-in slide-in-from-top-2 duration-200"
+        >
+          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${toast.type === 'error' ? 'bg-red-500/10 text-red-500' : 'bg-accent-light text-accent'}`}>
+            <span className="text-sm">{toast.type === 'error' ? '⚠️' : '✨'}</span>
           </div>
           <div className="flex-1 min-w-0">
             <h5 className="text-xs font-bold text-primary-theme font-heading">{toast.title}</h5>
             <p className="text-[11px] text-secondary-theme mt-0.5 leading-snug">{toast.message}</p>
           </div>
+          {toast.type === 'error' && (
+            <button
+              onClick={() => window.location.reload()}
+              className="text-xs font-semibold text-accent hover:underline whitespace-nowrap"
+            >
+              Обновить
+            </button>
+          )}
           <button
             onClick={clearToast}
             className="text-muted-theme hover:text-primary-theme text-xs p-1 rounded-md transition-colors cursor-pointer"

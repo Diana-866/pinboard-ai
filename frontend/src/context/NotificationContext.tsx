@@ -55,6 +55,21 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const [toast, setToast] = useState<{ title: string; message: string; type?: string } | null>(null);
 
+  // The review queue can fail during initial hydration or a persisted edit.
+  // Surface that failure globally so users are not left with a silently stale queue.
+  useEffect(() => {
+    const handleReviewQueueError = () => {
+      setToast({
+        title: 'Не удалось синхронизировать очередь',
+        message: 'Не удалось загрузить или сохранить очередь. Проверьте соединение и обновите страницу, чтобы повторить синхронизацию.',
+        type: 'error',
+      });
+    };
+
+    window.addEventListener('pinposy:review-queue-error', handleReviewQueueError);
+    return () => window.removeEventListener('pinposy:review-queue-error', handleReviewQueueError);
+  }, []);
+
   useEffect(() => {
     try {
       localStorage.setItem('pinposy_notifications', JSON.stringify(notifications));
