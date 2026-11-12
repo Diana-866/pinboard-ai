@@ -101,6 +101,11 @@ test("pin image deletion path guard uses a literal-dot extension matcher", () =>
 });
 
 
+test("paid subscription fallback has a durable provider-paid timestamp column", () => {
+  const sql = fs.readFileSync(path.join(migrationsDir, "159_serialize_unfulfilled_payment_markers_with_account_deletion.sql"), "utf8");
+  assert.match(sql, /alter table public\.subscriptions[\s\S]*add column if not exists provider_paid_at timestamptz/i);
+});
+
 test("paid-but-unfulfilled webhook fallback markers serialize on the account owner", () => {
   const sql = fs.readFileSync(path.join(migrationsDir, "159_serialize_unfulfilled_payment_markers_with_account_deletion.sql"), "utf8");
   for (const fn of ["record_paid_uncredited_credit_purchase", "record_paid_unactivated_subscription"]) {
