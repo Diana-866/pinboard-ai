@@ -576,6 +576,10 @@ export const pt: TranslationSchema = {
     allReviewed: 'Todos os pins foram revisados!',
     allReviewedDesc: 'Os pins aprovados foram adicionados ao seu calendário nos horários de maior engajamento.',
     finishBtn: 'Ir para o Calendário',
+    queueLoadErrorTitle: "Não foi possível carregar a fila de revisão",
+    queueLoadErrorDescription: "Seus pins não foram excluídos. Verifique a conexão e tente carregar novamente. Uma fila vazia não significa que todos os pins foram revisados.",
+    queueRetry: "Tentar carregar novamente",
+    queueLoading: "Carregando fila de revisão…",
   },
 
   bot: {
