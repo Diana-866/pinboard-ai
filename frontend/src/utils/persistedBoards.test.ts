@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mapPersistedBoards, requireCreatedBoardResponse } from './persistedBoards';
+import { mapPersistedBoards, requireCreatedBoardResponse, requireUpdatedBoardResponse } from './persistedBoards';
 
 const invalid = 'Invalid boards response';
 
@@ -87,5 +87,39 @@ test('rejects malformed created-board responses before optimistic UI insertion',
     { id: 'board-1', title: { text: 'Board' } },
   ]) {
     assert.throws(() => requireCreatedBoardResponse(response, invalid), /Invalid boards response/);
+  }
+});
+
+test('accepts an updated board response only for the requested board', () => {
+  assert.deepEqual(
+    requireUpdatedBoardResponse(
+      { id: 'board-1', title: '  Updated  ', category: '  Travel  ' },
+      'board-1',
+      invalid,
+    ),
+    { id: 'board-1', title: 'Updated', category: 'Travel' },
+  );
+  assert.deepEqual(
+    requireUpdatedBoardResponse(
+      { id: 'board-1', title: 'Updated', category: null },
+      'board-1',
+      invalid,
+    ),
+    { id: 'board-1', title: 'Updated', category: null },
+  );
+});
+
+test('rejects mismatched or malformed updated-board responses', () => {
+  for (const response of [
+    null,
+    [],
+    { id: 'another-board', title: 'Updated', category: 'Travel' },
+    { id: 'board-1', title: '  ', category: 'Travel' },
+    { id: 'board-1', title: 'Updated', category: {} },
+  ]) {
+    assert.throws(
+      () => requireUpdatedBoardResponse(response, 'board-1', invalid),
+      /Invalid boards response/,
+    );
   }
 });
