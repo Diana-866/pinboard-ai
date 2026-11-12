@@ -530,6 +530,11 @@ const MainApp: React.FC = () => {
     if (!String(pin.pinterestBoardId || '').trim()) {
       throw new Error('Выберите доску Pinterest для публикации.');
     }
+    // The backend refuses to schedule a saved pin without a durable image URL.
+    // Catch that before persisting edits or changing its approval status.
+    if (!String(pin.imageUrl || '').trim()) {
+      throw new Error('У пина нет сохранённого изображения. Вернитесь в генератор и сохраните изображение перед публикацией.');
+    }
     const timezone = getDefaultTimezone();
     let localDateTime: Date;
     try {
