@@ -22,10 +22,10 @@ test("historical 002-008 SQL files are visibly excluded from clean installs", ()
   }
 });
 
-test("canonical migration files 001 and 010-159 exist; 009 stays archived", () => {
+test("canonical migration files 001 and 010-160 exist; 009 stays archived", () => {
   assert.ok(fs.existsSync(path.join(migrationsDir, "001_baseline.sql")));
   assert.equal(fs.existsSync(path.join(migrationsDir, "009_hardening.sql")), false);
-  for (let number = 10; number <= 159; number += 1) {
+  for (let number = 10; number <= 160; number += 1) {
     const prefix = String(number).padStart(3, "0") + "_";
     const matches = fs.readdirSync(migrationsDir).filter((file) => file.startsWith(prefix) && file.endsWith(".sql"));
     assert.equal(matches.length, 1, `expected exactly one canonical migration for ${prefix}`);
@@ -69,6 +69,8 @@ test("atomic payment integration workflow applies existing migrations in ascendi
   for (const file of applied) {
     assert.ok(fs.existsSync(path.join(migrationsDir, file)), `workflow references missing migration ${file}`);
   }
+  assert.ok(applied.includes("159_serialize_unfulfilled_payment_markers_with_account_deletion.sql"), "workflow must apply lock-ordered paid liability markers");
+  assert.ok(applied.includes("160_block_payment_fulfillment_after_provider_refund.sql"), "workflow must apply provider refund fulfillment guards");
   assert.match(workflow, /backend\/test\/paid-unfulfilled-payment-deletion-lock\.integration\.sql/,
     "workflow must execute the paid-liability deletion-lock integration test");
 });
@@ -113,4 +115,14 @@ test("paid-but-unfulfilled webhook fallback markers serialize on the account own
   }
   assert.match(sql, /revoke all on function public\.record_paid_uncredited_credit_purchase/i);
   assert.match(sql, /revoke all on function public\.record_paid_unactivated_subscription/i);
+});
+
+
+test("confirmed provider refunds permanently fence payment fulfillment", () => {
+  const sql = fs.readFileSync(path.join(migrationsDir, "160_block_payment_fulfillment_after_provider_refund.sql"), "utf8");
+  assert.match(sql, /old\.provider_refunded_at is not null/i);
+  assert.match(sql, /new\.balance_credited_at is distinct from old\.balance_credited_at/i);
+  assert.match(sql, /new\.status='success'/i);
+  assert.match(sql, /credit_purchases_provider_refund_fulfillment_guard/i);
+  assert.match(sql, /subscriptions_provider_refund_fulfillment_guard/i);
 });
