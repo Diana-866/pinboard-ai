@@ -107,6 +107,7 @@ function createWorker({
   let active = false;
   let started = false;
   let stopped = false;
+  let oneShotStarted = false;
   let consecutiveFailures = 0;
 
   // Process one row per request. The backend renews that row's lease while
@@ -133,7 +134,8 @@ function createWorker({
   }
 
   async function tick() {
-    if (stopped || active) return;
+    if (stopped || active || (oneShot && oneShotStarted)) return false;
+    if (oneShot) oneShotStarted = true;
     active = true;
     const correlationId = crypto.randomUUID();
     return runWithCorrelationId(correlationId, async () => {
