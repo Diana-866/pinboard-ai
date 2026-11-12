@@ -22,3 +22,22 @@ test('rejects stale or incomplete Pinterest destination selections', () => {
   assert.equal(resolvePinterestDestination(accounts, boardsA, 'account-a', ''), null);
   assert.equal(resolvePinterestDestination(accounts, [{ id: 'board-a', name: ' ' }], 'account-a', 'board-a'), null);
 });
+
+test('fails closed when account or board IDs are duplicated or malformed', () => {
+  assert.equal(
+    resolvePinterestDestination([...accounts, { id: 'account-a' }], boardsA, 'account-a', 'board-a'),
+    null,
+  );
+  assert.equal(
+    resolvePinterestDestination(accounts, [...boardsA, { id: 'board-a', name: 'Duplicate' }], 'account-a', 'board-a'),
+    null,
+  );
+  assert.equal(
+    resolvePinterestDestination([{ id: ' account-a ' }], boardsA, 'account-a', 'board-a'),
+    null,
+  );
+  assert.equal(
+    resolvePinterestDestination(accounts, [{ id: ' board-a', name: 'Padded' }], 'account-a', 'board-a'),
+    null,
+  );
+});
