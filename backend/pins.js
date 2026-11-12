@@ -2,6 +2,7 @@ const { logError } = require("./safeLogger");
 const { generateTextWithUsage, generateImage, waitForImageTask } = require("./gptunnel");
 const { rehostImage, deletePinImageIfUnreferenced } = require("./storage");
 const { parsePinIdeasResponse } = require("./textOutputValidation");
+const { serializeUntrustedPromptContext } = require("./promptContext");
 
 const DEFAULT_ASPECT_RATIOS = ["2:3", "9:16", "4:5", "3:4"];
 
@@ -21,7 +22,6 @@ async function generatePins(board, project, model, count, aspectRatio = "mixed",
     ja: "японский (Japanese)",
   };
   const outputLanguage = languageNames[language] || language;
-  const { serializeUntrustedPromptContext } = require("./promptContext");
   const context = serializeUntrustedPromptContext({
     board_title: board.title,
     board_description: board.description,
