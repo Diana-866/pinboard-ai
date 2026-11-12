@@ -11,6 +11,8 @@ test("worker config requires a secure backend URL and long secret", () => {
   assert.throws(() => getWorkerConfig({ PINPOSY_BACKEND_URL: "https://user:pass@api.example.com", PINPOSY_SCHEDULER_SECRET: "x".repeat(32) }), /only the backend origin/);
   assert.throws(() => getWorkerConfig({ PINPOSY_BACKEND_URL: "https://api.example.com?debug=1", PINPOSY_SCHEDULER_SECRET: "x".repeat(32) }), /only the backend origin/);
   assert.throws(() => getWorkerConfig({ PINPOSY_BACKEND_URL: "https://api.example.com", PINPOSY_SCHEDULER_SECRET: "short" }), /32 characters/);
+  assert.throws(() => getWorkerConfig({ PINPOSY_BACKEND_URL: "https://api.example.com", PINPOSY_SCHEDULER_SECRET: "s".repeat(16) + " " + "s".repeat(16) }), /must not contain whitespace/);
+  assert.throws(() => getWorkerConfig({ PINPOSY_BACKEND_URL: "https://api.example.com", PINPOSY_SCHEDULER_SECRET: " " + "s".repeat(32) }), /must not contain whitespace/);
   assert.deepEqual(
     getWorkerConfig({ PINPOSY_BACKEND_URL: "https://api.example.com/", PINPOSY_SCHEDULER_SECRET: "s".repeat(32) }),
     { endpoint: "https://api.example.com/internal/pinterest/schedule/run", secret: "s".repeat(32) }
