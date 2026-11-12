@@ -300,7 +300,7 @@ function resolvePinScheduleSnapshot(schedule, currentPin) {
       title: schedule.snapshot_title ?? currentPin.title,
       description: schedule.snapshot_description ?? currentPin.description,
       image_url: schedule.snapshot_image_url,
-      destination_url: schedule.snapshot_destination_url ?? null,
+      destination_url: schedule.snapshot_destination_url || schedule.destination_url || null,
       is_snapshot: true,
     };
   }
