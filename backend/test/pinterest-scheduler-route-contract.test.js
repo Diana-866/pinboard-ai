@@ -225,3 +225,14 @@ test("review editor is remounted for each authenticated owner", () => {
   assert.match(review, /key=\{user\?\.id \|\| 'anonymous'\}/);
   assert.match(review, /pendingPins=\{pendingReviewPins\}/);
 });
+
+test("review approval validates the backend schedule window before mutating pin state", () => {
+  const app = read(path.join("..", "..", "frontend", "src", "App.tsx"));
+  const approval = app.slice(app.indexOf("const handleSchedulePin"), app.indexOf("const handleReconcileLegacySchedule"));
+  const validation = approval.indexOf("validateScheduleInstant(localDateTime)");
+  const creativeUpdate = approval.indexOf('apiRequest(`/pins/${encodeURIComponent(pin.pinId)}`');
+  const approvalMutation = approval.indexOf('body: JSON.stringify({ status: \'approved\' })');
+  assert.notEqual(validation, -1, "schedule window is validated before approval");
+  assert.ok(creativeUpdate > validation, "creative fields are not changed before schedule validation");
+  assert.ok(approvalMutation > validation, "pin status is not approved before schedule validation");
+});
