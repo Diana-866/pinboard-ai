@@ -444,6 +444,51 @@ test("subscription webhook retries checkout settlement after activation already 
   assert.equal(db.rpcCalls.settle, 2);
 });
 
+test("subscription webhook records a paid-unactivated liability through the lock-ordered RPC", async () => {
+  const db = createPaymentDb({
+    subscription: {
+      id: "sub-paid-unactivated",
+      provider_payment_id: "pp-sub-paid-unactivated",
+      amount: 1990,
+      currency: "rub",
+      status: "pending",
+      period_end: null,
+    },
+    activate: async () => ({
+      data: null,
+      error: { message: "temporary database connection failure" },
+    }),
+    credit: async () => ({ data: 0, error: null }),
+  });
+  const auditRecords = [];
+  const auditedDb = {
+    ...db,
+    from(table) {
+      if (table === "billing_webhook_exceptions") {
+        return { insert: async (record) => { auditRecords.push(record); return { error: null }; } };
+      }
+      return db.from(table);
+    },
+  };
+  const response = createWebhookResponse();
+  await require("../billing").handleWebhook(
+    signedWebhook({
+      order_id: "pp-sub-paid-unactivated",
+      payment_status: "success",
+      sum: "1990.00",
+      currency: "rub",
+    }),
+    response,
+    { supabase: auditedDb, dispatchPendingSubscriptionEmails: async () => ({}) }
+  );
+
+  assert.equal(response.statusCode, 500, "paid but unactivated subscriptions remain retryable");
+  assert.equal(db.state.subscription.status, "paid_unactivated");
+  assert.ok(db.state.subscription.provider_paid_at);
+  assert.equal(db.rpcCalls.markSubscription, 1);
+  assert.equal(auditRecords.length, 1);
+});
+
 test("subscription webhook amount mismatch is audited and never activates the plan", async () => {
   const db = createPaymentDb({
     subscription: {
@@ -594,6 +639,7 @@ test("paid callback for a deleted account is durably reconciled and acknowledged
   assert.equal(db.state.purchase.status, "paid_uncredited");
   assert.ok(Number.isFinite(Date.parse(db.state.purchase.paid_at)), "verified provider payment time must be persisted");
   assert.equal(db.rpcCalls.credit, 1);
+  assert.equal(db.rpcCalls.markCredit, 1);
   assert.equal(auditRecords.length, 1);
   assert.equal(auditRecords[0].reason, "paid_credit_account_deleted");
 
@@ -655,6 +701,7 @@ test("paid success with a transient credit failure is marked paid_uncredited for
   assert.equal(response.statusCode, 500, "transient fulfillment failures remain retryable");
   assert.equal(db.state.purchase.status, "paid_uncredited");
   assert.equal(db.state.purchase.balance_credited_at, null);
+  assert.equal(db.rpcCalls.markCredit, 1);
   assert.equal(auditRecords.length, 1);
   assert.equal(auditRecords[0].reason, "credit_fulfillment_failed");
 });
