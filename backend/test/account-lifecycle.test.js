@@ -21,6 +21,8 @@ function fakeDb(tables, { rpcResult } = {}) {
     from(table) {
       const filters = [];
       let limit = null;
+      let rangeStart = 0;
+      let rangeEnd = Number.MAX_SAFE_INTEGER;
       const resolve = () => {
         if (!(table in tables)) {
           return Promise.resolve({
@@ -35,6 +37,7 @@ function fakeDb(tables, { rpcResult } = {}) {
             : rows.filter((row) => String(row[column]) === String(value));
         }
         if (limit !== null) rows = rows.slice(0, limit);
+        rows = rows.slice(rangeStart, rangeEnd + 1);
         return Promise.resolve({ data: rows, error: null });
       };
       const builder = {
@@ -42,6 +45,8 @@ function fakeDb(tables, { rpcResult } = {}) {
         eq(column, value) { filters.push([column, value, "eq"]); return builder; },
         in(column, value) { filters.push([column, value, "in"]); return builder; },
         limit(value) { limit = value; return builder; },
+        order() { return builder; },
+        range(start, end) { rangeStart = start; rangeEnd = end; return builder; },
         maybeSingle() { return resolve().then((rows) => ({ data: rows.data[0] ?? null, error: rows.error })); },
         then(onFulfilled, onRejected) { return resolve().then(onFulfilled, onRejected); },
       };
@@ -111,6 +116,29 @@ test("account export never leaks credentials and follows the ownership graph", a
 
   assert.deepEqual(exported.degradedSections, []);
   assert.equal(exported.formatVersion, 1);
+});
+
+test("account export paginates sections beyond the PostgREST 1,000-row cap", async () => {
+  const transactions = Array.from({ length: 1005 }, (_, index) => ({
+    id: String(index + 1).padStart(4, "0"),
+    user_id: USER_ID,
+    amount: 1,
+  }));
+  const db = fakeDb({
+    users: [{ id: USER_ID, email: "user@example.com" }],
+    projects: [],
+    credit_transactions: transactions,
+  });
+
+  const exported = await buildAccountExport(USER_ID, db);
+
+  assert.equal(exported.creditTransactions.length, 1005);
+  assert.equal(exported.creditTransactions[0].id, "0001");
+  assert.equal(exported.creditTransactions[1004].id, "1005");
+  assert.deepEqual(exported.degradedSections, [
+    "subscriptions", "creditPurchases", "pinterestAccounts",
+    "pinterestPublications", "pinSchedules", "reviewQueue",
+  ]);
 });
 
 test("account export reports unreadable sections instead of failing outright", async () => {

@@ -60,10 +60,36 @@ function requireUserId(userId) {
   return userId;
 }
 
-async function selectRows(query) {
-  const { data, error } = await query;
-  if (error) throw error;
-  return Array.isArray(data) ? data : [];
+async function selectRows(query, pageSize = 1000) {
+  // PostgREST applies a default row cap. Stable ordering plus explicit ranges
+  // ensures account exports never silently omit records after the first page.
+  const orderedQuery = typeof query.order === "function"
+    ? query.order("id", { ascending: true })
+    : query;
+  const rows = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = typeof orderedQuery.range === "function"
+      ? await orderedQuery.range(offset, offset + pageSize - 1)
+      : await orderedQuery;
+    if (error) throw error;
+    if (!Array.isArray(data)) {
+      const invalidPage = new Error("account export query returned an invalid page");
+      invalidPage.code = "invalid_export_page";
+      throw invalidPage;
+    }
+    rows.push(...data);
+    if (typeof orderedQuery.range !== "function" || data.length < pageSize) return rows;
+  }
+}
+
+// Keep PostgREST filter payloads bounded for accounts with many boards/projects.
+async function selectRowsByValues(client, table, column, values, chunkSize = 200) {
+  const rows = [];
+  for (let offset = 0; offset < values.length; offset += chunkSize) {
+    const chunk = values.slice(offset, offset + chunkSize);
+    rows.push(...await selectRows(client.from(table).select("*").in(column, chunk)));
+  }
+  return rows;
 }
 
 /** Load one export section without failing the whole export when a single
@@ -108,7 +134,7 @@ async function buildAccountExport(userId, client = defaultSupabase) {
   const projectsUnavailable = degraded.includes("projects");
   const boards = projectIds.length
     ? await loadSection("boards", () =>
-        selectRows(client.from("boards").select("*").in("project_id", projectIds)), degraded)
+        selectRowsByValues(client, "boards", "project_id", projectIds), degraded)
     : [];
 
   // An empty parent list is only a valid empty result when the parent section
@@ -119,7 +145,7 @@ async function buildAccountExport(userId, client = defaultSupabase) {
   const boardsUnavailable = degraded.includes("boards");
   const pins = boardIds.length
     ? await loadSection("pins", () =>
-        selectRows(client.from("pins").select("*").in("board_id", boardIds)), degraded)
+        selectRowsByValues(client, "pins", "board_id", boardIds), degraded)
     : [];
 
   if (!boardIds.length && boardsUnavailable) degraded.push("pins");
