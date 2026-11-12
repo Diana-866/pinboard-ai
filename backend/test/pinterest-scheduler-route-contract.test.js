@@ -207,3 +207,12 @@ test("calendar detail state is remounted when the authenticated owner changes", 
   // state before another account can see the calendar.
   assert.match(calendar, /scheduledPins=\{scheduledPins\}/);
 });
+
+test("board edit and create dialogs are scoped to the authenticated owner", () => {
+  const app = read(path.join("..", "..", "frontend", "src", "App.tsx"));
+  const boardsStart = app.indexOf("<BoardsManager");
+  assert.notEqual(boardsStart, -1, "board manager is rendered by the authenticated app");
+  const boards = app.slice(boardsStart, boardsStart + 400);
+  assert.match(boards, /key=\{user\?\.id \|\| 'anonymous'\}/);
+  assert.match(boards, /boards=\{boards\}/);
+});
