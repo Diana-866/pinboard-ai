@@ -240,6 +240,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [selectedBoardId, setSelectedBoardId] = useState<string>(initialBoardId || recommendedBoard?.id || boards[0]?.id || '');
 
   useEffect(() => {
+    // A generation request is bound to the board captured when it starts.
+    // Do not let topic recommendations move the editor to another board while
+    // its response is in flight, or generated pins could appear under the wrong board.
+    if (generationInFlightRef.current) return;
     // An explicit board selected in the calendar takes precedence over topic-based recommendations.
     if (!initialBoardId && recommendedBoard) {
       setSelectedBoardId(recommendedBoard.id);
@@ -986,6 +990,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   {item.status === 'completed' && item.pinCount > 0 && board && (
                     <button
                       type="button"
+                      disabled={isGenerating}
                       onClick={() => {
                         // The completed pins are already persisted. Switch to their board;
                         // the existing board loader restores them without another AI call.
@@ -1242,7 +1247,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               <select
                 value={selectedBoardId}
                 onChange={(e) => setSelectedBoardId(e.target.value)}
-                className="w-full px-3 py-2 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent"
+                disabled={isGenerating}
+                className="w-full px-3 py-2 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {boards.map((b) => (
                   <option key={b.id} value={b.id}>
