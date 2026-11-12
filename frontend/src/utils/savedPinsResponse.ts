@@ -12,8 +12,8 @@ export function requireSavedPinsArray(value: unknown): any[] {
     if (!pin || typeof pin !== 'object' || Array.isArray(pin)) {
       throw new Error('Сервер вернул некорректную запись сохранённого пина.');
     }
-    if (typeof pin.id !== 'string' || !pin.id.trim()) {
-      throw new Error('У сохранённого пина отсутствует идентификатор.');
+    if (typeof pin.id !== 'string' || !pin.id.trim() || pin.id !== pin.id.trim()) {
+      throw new Error('У сохранённого пина отсутствует или некорректен идентификатор.');
     }
     if (seenIds.has(pin.id)) {
       throw new Error('Сервер вернул повторяющийся идентификатор сохранённого пина.');
@@ -29,8 +29,8 @@ export function requireSavedPinsArray(value: unknown): any[] {
     } catch {
       throw new Error('Сервер вернул некорректную ссылку на изображение сохранённого пина.');
     }
-    if (imageUrl.protocol !== 'https:') {
-      throw new Error('Ссылка на сохранённое изображение должна использовать HTTPS.');
+    if (imageUrl.protocol !== 'https:' || !imageUrl.hostname || imageUrl.username || imageUrl.password) {
+      throw new Error('Ссылка на сохранённое изображение должна быть безопасной HTTPS-ссылкой.');
     }
   }
 
