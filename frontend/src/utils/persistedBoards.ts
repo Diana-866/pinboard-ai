@@ -20,11 +20,18 @@ export function mapPersistedBoards(rows: unknown, invalidResponseMessage: string
     throw new Error(invalidResponseMessage);
   }
 
+  const seenIds = new Set<string>();
   return rows.map((row: any) => {
     if (!row || (typeof row.id !== 'string' && typeof row.id !== 'number') ||
         typeof row.title !== 'string' || !row.title.trim()) {
       throw new Error(invalidResponseMessage);
     }
+
+    const id = String(row.id).trim();
+    if (!id || String(row.id) !== id || seenIds.has(id)) {
+      throw new Error(invalidResponseMessage);
+    }
+    seenIds.add(id);
 
     const project = Array.isArray(row.projects) ? row.projects[0] : row.projects;
     const storedCategory = typeof row.category === 'string' ? row.category.trim() : '';
@@ -37,7 +44,7 @@ export function mapPersistedBoards(rows: unknown, invalidResponseMessage: string
       (typeof project?.niche === 'string' && project.niche.trim() ? project.niche.trim() : '—');
 
     return {
-      id: String(row.id),
+      id,
       name: row.title.trim(),
       category,
       pinCount: Number.isInteger(row.pin_count) && row.pin_count >= 0 ? row.pin_count : 0,
