@@ -10,11 +10,11 @@ const EVIDENCE_TYPES = new Set([
 ]);
 const SAFE_EVIDENCE_REFERENCE_RE = /^[A-Za-z0-9][A-Za-z0-9._/#:-]{7,499}$/;
 
-function validateBodyFields(body) {
+function validateBodyFields(body, idField = "purchase_id") {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     throw httpError(422, "Некорректный формат административного запроса");
   }
-  const allowed = new Set(["purchase_id", "action_id", "evidence_type", "evidence_reference"]);
+  const allowed = new Set([idField, "action_id", "evidence_type", "evidence_reference"]);
   if (Object.keys(body).some((key) => !allowed.has(key))) {
     throw httpError(422, "Запрос содержит неподдерживаемые поля");
   }
@@ -47,14 +47,14 @@ function mapRpcError(error) {
   if (/administrator privileges required/i.test(message)) {
     return httpError(403, "Доступ запрещён");
   }
-  if (/credit purchase not found/i.test(message)) {
-    return httpError(404, "Покупка кредитов не найдена");
+  if (/credit purchase not found|subscription not found/i.test(message)) {
+    return httpError(404, "Платёжная запись не найдена");
   }
-  if (/invalid credit purchase refund reconciliation evidence/i.test(message)) {
+  if (/invalid credit purchase refund reconciliation evidence|invalid subscription refund reconciliation evidence/i.test(message)) {
     return httpError(422, "Некорректные параметры подтверждения возврата");
   }
-  if (/not awaiting refund reconciliation|action id replay payload mismatch/i.test(message)) {
-    return httpError(409, "Покупка уже обработана или действие конфликтует с предыдущей сверкой");
+  if (/not awaiting refund reconciliation|action id replay payload mismatch|subscription owner changed/i.test(message)) {
+    return httpError(409, "Платёж уже обработан или действие конфликтует с предыдущей сверкой");
   }
   return httpError(500, "Не удалось записать подтверждение возврата");
 }
@@ -87,4 +87,38 @@ async function recordProviderRefund(operatorUserId, body = {}) {
   };
 }
 
-module.exports = { recordProviderRefund, validateBodyFields, evidence, mapRpcError };
+async function recordSubscriptionProviderRefund(operatorUserId, body = {}) {
+  if (!operatorUserId || !UUID_RE.test(String(operatorUserId))) {
+    throw httpError(401, "Не авторизован");
+  }
+  validateBodyFields(body, "subscription_id");
+  const subscriptionId = uuid(body.subscription_id, "Некорректный идентификатор подписки");
+  const actionId = uuid(body.action_id, "Некорректный идентификатор действия");
+  const proof = evidence(body);
+
+  const { data, error } = await supabase.rpc("admin_record_subscription_provider_refund", {
+    p_operator_user_id: String(operatorUserId).toLowerCase(),
+    p_subscription_id: subscriptionId,
+    p_action_id: actionId,
+    p_evidence_type: proof.evidenceType,
+    p_evidence_reference: proof.evidenceReference,
+  });
+  if (error) throw mapRpcError(error);
+  if (!data) throw httpError(500, "Не удалось получить подтверждение записи возврата");
+
+  return {
+    ok: true,
+    subscription_id: subscriptionId,
+    action_id: actionId,
+    action_kind: "provider_refund_confirmed",
+    recorded_at: data,
+  };
+}
+
+module.exports = {
+  recordProviderRefund,
+  recordSubscriptionProviderRefund,
+  validateBodyFields,
+  evidence,
+  mapRpcError,
+};
