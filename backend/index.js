@@ -1262,6 +1262,11 @@ app.get("/review-queue", requireAuth, async (req, res) => {
 
     const { reconcileReviewQueueRows } = require("./reviewQueueReconciliation");
     const reconciled = reconcileReviewQueueRows(rows, pinsById, userId);
+    // Never delete malformed user data automatically. Fail the restore visibly
+    // so the client keeps its retry/error state and the row can be repaired.
+    if (reconciled.invalidIds.length) {
+      throw httpError(409, "В очереди проверки найдены повреждённые записи. Данные сохранены; требуется восстановление.");
+    }
     if (reconciled.staleIds.length) {
       const { error: cleanupError } = await supabase
         .from("pin_review_queue")
