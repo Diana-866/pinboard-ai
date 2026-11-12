@@ -251,6 +251,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   }, [recommendedBoard, initialBoardId]);
 
   useEffect(() => {
+    if (generationInFlightRef.current) return;
     if (initialBoardId && boards.some((board) => board.id === initialBoardId)) {
       setSelectedBoardId(initialBoardId);
     }
