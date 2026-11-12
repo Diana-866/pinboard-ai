@@ -356,6 +356,55 @@ test("worker removes only manifested Storage objects and confirms lifecycle comp
 });
 
 
+
+
+test("worker schedules a fast retry when more Storage manifest batches remain", async () => {
+  const calls = [];
+  const removedObjects = [];
+  let listCalls = 0;
+  const firstBatch = Array.from({ length: 100 }, (_, i) => ({
+    bucket_id: "pin-images",
+    object_path: `pins/${i + 1}-0123456789abcdef0123456789abcdef.webp`,
+  }));
+  const client = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_account_deletion_jobs") {
+        return { data: [{
+          job_id: "job-storage-batches",
+          user_id: USER_ID,
+          step_key: "erase_content",
+          claim_token: "claim-storage-batches",
+        }], error: null };
+      }
+      if (name === "erase_account_deletion_content") {
+        return { data: { erased: true, financial_records_retained: true }, error: null };
+      }
+      if (name === "list_account_deletion_storage_manifest") {
+        listCalls += 1;
+        return {
+          data: listCalls === 1 ? firstBatch : [{ bucket_id: "pin-images", object_path: "pins/101-0123456789abcdef0123456789abcdef.webp" }],
+          error: null,
+        };
+      }
+      if (name === "mark_account_deletion_storage_object_deleted") return { data: true, error: null };
+      if (name === "finish_account_deletion_job") return { data: true, error: null };
+      throw new Error("unexpected RPC: " + name);
+    },
+  };
+  const worker = createAccountDeletionWorker({
+    client,
+    deleteImageObject: async (args) => { removedObjects.push(args); return true; },
+    logger: { info() {}, error() {} },
+  });
+  const result = await worker.tick();
+  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1 });
+  assert.equal(removedObjects.length, 100);
+  const finish = calls.find((call) => call.name === "finish_account_deletion_job");
+  assert.equal(finish.args.p_outcome, "retry");
+  assert.equal(finish.args.p_error_code, "storage_manifest_batch_remaining");
+});
+
 test("worker refuses unsafe Storage manifest paths without deleting objects", async () => {
   const calls = [];
   const removedObjects = [];
