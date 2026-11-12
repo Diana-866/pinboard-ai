@@ -50,6 +50,13 @@ begin
     raise exception 'active account activation email was not queued';
   end if;
 
+  -- Retry a paid callback recorded as unresolved; the RPC settles the
+  -- financial row but still refuses to restore an entitlement.
+  update public.subscriptions
+     set status = 'paid_unactivated',
+         provider_paid_at = '2026-11-12T10:00:00Z'
+   where id = v_pending_sub;
+
   select public.activate_paid_subscription(v_pending_sub, '2026-11-12T10:00:00Z')
     into v_result;
   if (select tariff_plan from public.users where id = v_pending_user) <> 'none'
