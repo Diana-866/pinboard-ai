@@ -23,6 +23,25 @@ test('rejects stale or incomplete Pinterest destination selections', () => {
   assert.equal(resolvePinterestDestination(accounts, [{ id: 'board-a', name: ' ' }], 'account-a', 'board-a'), null);
 });
 
+test('returns no destination for malformed runtime payloads', () => {
+  assert.equal(
+    resolvePinterestDestination(null as any, boardsA, 'account-a', 'board-a'),
+    null,
+  );
+  assert.equal(
+    resolvePinterestDestination(accounts, undefined as any, 'account-a', 'board-a'),
+    null,
+  );
+  assert.equal(
+    resolvePinterestDestination(accounts, boardsA, null as any, 'board-a'),
+    null,
+  );
+  assert.equal(
+    resolvePinterestDestination(accounts, boardsA, 'account-a', 42 as any),
+    null,
+  );
+});
+
 test('fails closed when account or board IDs are duplicated or malformed', () => {
   assert.equal(
     resolvePinterestDestination([...accounts, { id: 'account-a' }], boardsA, 'account-a', 'board-a'),
