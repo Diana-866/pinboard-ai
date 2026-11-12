@@ -576,6 +576,10 @@ export const zh: TranslationSchema = {
     allReviewed: '已完成本轮全部 Pin 审核！',
     allReviewedDesc: '所有批准的 Pin 已自动分配至发布日历的高互动黄金时段。',
     finishBtn: '前往发布日历查看',
+    queueLoadErrorTitle: "无法加载审核队列",
+    queueLoadErrorDescription: "你的 Pin 并未被删除。请检查网络连接并重试。队列为空并不代表所有 Pin 都已审核。",
+    queueRetry: "重新加载",
+    queueLoading: "正在加载审核队列…",
   },
 
   bot: {
