@@ -55,6 +55,46 @@ test("records provider-confirmed refund using authenticated operator identity", 
   assert.equal(result.recorded_at, rpcResult.data);
 });
 
+test("records a provider-confirmed subscription refund with a narrow RPC payload", async () => {
+  reset();
+  const result = await reconciliation.recordSubscriptionProviderRefund(OPERATOR_ID, {
+    subscription_id: PURCHASE_ID,
+    action_id: ACTION_ID,
+    evidence_type: "provider_support",
+    evidence_reference: "support-case-2026-092",
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].name, "admin_record_subscription_provider_refund");
+  assert.deepEqual(calls[0].args, {
+    p_operator_user_id: OPERATOR_ID,
+    p_subscription_id: PURCHASE_ID,
+    p_action_id: ACTION_ID,
+    p_evidence_type: "provider_support",
+    p_evidence_reference: "support-case-2026-092",
+  });
+  assert.equal(result.subscription_id, PURCHASE_ID);
+  assert.equal(result.action_kind, "provider_refund_confirmed");
+});
+
+test("subscription refund action rejects purchase fields and unsafe payloads", async () => {
+  reset();
+  await assert.rejects(reconciliation.recordSubscriptionProviderRefund(OPERATOR_ID, {
+    subscription_id: PURCHASE_ID,
+    purchase_id: PURCHASE_ID,
+    action_id: ACTION_ID,
+    evidence_type: "provider_dashboard",
+    evidence_reference: "refund-case-2026-092",
+  }), { httpStatus: 422 });
+  await assert.rejects(reconciliation.recordSubscriptionProviderRefund(OPERATOR_ID, {
+    subscription_id: PURCHASE_ID,
+    action_id: ACTION_ID,
+    evidence_type: "provider_dashboard",
+    evidence_reference: "https://provider.example/refund",
+  }), { httpStatus: 422 });
+  assert.equal(calls.length, 0);
+});
+
 test("rejects malformed identifiers, unsafe evidence, and extra fields before RPC", async () => {
   reset();
   const body = {
