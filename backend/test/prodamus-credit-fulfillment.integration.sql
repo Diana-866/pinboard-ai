@@ -95,6 +95,12 @@ begin
     v_pending_user_id::text, 'pack_100', '100 credits', 100, 'pending', 190.00, 'rub'
   ) returning id into v_pending_purchase_id;
 
+  -- A previously confirmed provider payment can be retried from its explicit
+  -- paid_uncredited state while the account is still deletion-pending.
+  update public.credit_purchases
+     set status = 'paid_uncredited', paid_at = v_paid_at
+   where id = v_pending_purchase_id;
+
   select public.credit_paid_purchase(
     v_pending_purchase_id, v_paid_at, 'AUD-089 settlement during deletion pending'
   ) into v_balance;
