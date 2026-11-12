@@ -31,6 +31,17 @@ begin
     raise exception 'foreign-origin image URL was accepted';
   end if;
 
+  begin
+    perform public.materialize_account_deletion_storage_manifest(
+      v_job,v_claim,'javascript:alert(1)'
+    );
+    raise exception 'invalid configured Supabase project URL was accepted';
+  exception when raise_exception then
+    if sqlerrm = 'invalid configured Supabase project URL was accepted' then
+      raise;
+    end if;
+  end;
+
   insert into public.users(id,email,password_hash,token_version,account_status)
   values
     (v_user,'storage-manifest-'||v_user||'@example.invalid','unused',1,'deletion_pending'),
