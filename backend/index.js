@@ -17,6 +17,7 @@ const { buildBoardPatch } = require("./boardPatch");
 const { serializeBoardForClient } = require("./boardSerialization");
 const { serializeProjectForClient } = require("./projectSerialization");
 const { sortProjectsForProvisioning } = require("./projectProvisioningOrder");
+const { resolveProjectLanguage } = require("./projectLanguage");
 const { buildPinPatch } = require("./pinPatch");
 const { logError, logWarning, logInfo, runWithCorrelationId } = require("./safeLogger");
 const { buildAccountExport, requestAccountDeletion } = require("./accountLifecycle");
@@ -536,10 +537,7 @@ app.patch("/me/onboarding", requireAuth, async (req, res) => {
 
     // New projects inherit the language chosen during registration so the
     // first AI workflow does not silently switch international users to Russian.
-    const supportedProjectLanguages = ["en", "ru", "es", "pt", "de", "fr", "zh"];
-    const projectLanguage = supportedProjectLanguages.includes(data.preferred_language)
-      ? data.preferred_language
-      : "ru";
+    const projectLanguage = resolveProjectLanguage(data.preferred_language);
 
     // Первая запись проекта: user_id, website_url, goal = комментарий о продукте
     const { data: existing, error: lookupError } = await supabase
