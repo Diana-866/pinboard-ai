@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
 import { useAuth } from '../../context/AuthContext';
-import { payAndRedirect, PayablePlan, SubscriptionRow, buyCreditsAndRedirect, CreditPurchaseRow, releasePaymentIdempotencyKey, releaseRememberedCreditPurchaseKey } from '../../lib/billing';
+import { payAndRedirect, PayablePlan, SubscriptionRow, buyCreditsAndRedirect, CreditPurchaseRow, releaseRememberedPaymentKey, releaseRememberedCreditPurchaseKey } from '../../lib/billing';
 import { apiRequest } from '../../lib/api';
 import { isTerminalCreditPurchaseStatus, isTerminalSubscriptionPaymentStatus } from '../../utils/paymentTerminalStatus';
 import { isCurrentBillingOwner } from '../../utils/billingOwner';
@@ -195,8 +195,19 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
     apiRequest('/billing/subscriptions')
       .then((res: any) => {
         if (active && isCurrentBillingOwner(billingOwnerIdRef.current, user.id)) {
-          setHistory(Array.isArray(res?.subscriptions) ? res.subscriptions : []);
+          const initialSubscriptions = Array.isArray(res?.subscriptions) ? res.subscriptions : [];
+          setHistory(initialSubscriptions);
           setTariffEnd(res?.tariff?.periodEnd || null);
+          // On return from checkout the first observed state may already be terminal.
+          // Match the exact remembered provider order before releasing its key.
+          for (const row of initialSubscriptions) {
+            if (isTerminalSubscriptionPaymentStatus(row.status)) {
+              releaseRememberedPaymentKey(
+                `subscription:${row.plan}:${row.currency || 'rub'}`,
+                row.provider_payment_id,
+              );
+            }
+          }
         }
       })
       .catch(() => {});
@@ -256,7 +267,11 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
         // Release only keys whose own pending order has reached a terminal
         // provider-confirmed state. Do not clear keys for unrelated old history.
         for (const row of settledSubscriptions) {
-          releasePaymentIdempotencyKey(`subscription:${row.plan}:${row.currency || 'rub'}`);
+          // A stale terminal event must not unlock a newer checkout for this plan.
+          releaseRememberedPaymentKey(
+            `subscription:${row.plan}:${row.currency || 'rub'}`,
+            row.provider_payment_id,
+          );
         }
         for (const row of settledPurchases) {
           // A stale terminal event for an older order must not unlock a newer checkout.
