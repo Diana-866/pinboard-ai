@@ -27,6 +27,7 @@ import { apiRequest } from '../../lib/api';
 import { isTerminalCreditPurchaseStatus, isTerminalSubscriptionPaymentStatus } from '../../utils/paymentTerminalStatus';
 import { isCurrentBillingOwner } from '../../utils/billingOwner';
 import { shouldRefreshCreditBalance } from '../../utils/creditBalanceSync';
+import { releaseSettledCreditPurchaseKey } from '../../lib/billing';
 
 export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initialPlanId = null }) => {
   const { t, language } = useI18n();
@@ -159,7 +160,24 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
     apiRequest('/billing/credit-purchases')
       .then(async (res: any) => {
         if (!active || !isCurrentBillingOwner(billingOwnerIdRef.current, user.id)) return;
-        setPurchases(Array.isArray(res?.purchases) ? res.purchases : []);
+        const initialPurchases = Array.isArray(res?.purchases) ? res.purchases : [];
+        setPurchases(initialPurchases);
+
+        // A completed checkout can be the very first history state seen after
+        // the provider redirect. Release only the key tied to that exact order;
+        // an older success must never unlock a newer pending checkout.
+        for (const row of initialPurchases) {
+          if (isTerminalCreditPurchaseStatus(row.status)) {
+            const scope = `credits:${row.package_id}:rub`;
+            let expectedOrderId: string | null = null;
+            try {
+              expectedOrderId = window.localStorage.getItem(`pinposy:payment-order:${scope}`);
+            } catch {
+              expectedOrderId = null;
+            }
+            releaseSettledCreditPurchaseKey(scope, expectedOrderId, row.provider_payment_id);
+          }
+        }
 
         // The webhook can finish before the customer returns from Prodamus.
         // In that case the initial history is already "success", so no pending
