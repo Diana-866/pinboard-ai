@@ -22,12 +22,11 @@ import {
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
 import { useAuth } from '../../context/AuthContext';
-import { payAndRedirect, PayablePlan, SubscriptionRow, buyCreditsAndRedirect, CreditPurchaseRow, releasePaymentIdempotencyKey } from '../../lib/billing';
+import { payAndRedirect, PayablePlan, SubscriptionRow, buyCreditsAndRedirect, CreditPurchaseRow, releasePaymentIdempotencyKey, releaseSettledCreditPurchaseKey } from '../../lib/billing';
 import { apiRequest } from '../../lib/api';
 import { isTerminalCreditPurchaseStatus, isTerminalSubscriptionPaymentStatus } from '../../utils/paymentTerminalStatus';
 import { isCurrentBillingOwner } from '../../utils/billingOwner';
 import { shouldRefreshCreditBalance } from '../../utils/creditBalanceSync';
-import { releaseSettledCreditPurchaseKey } from '../../lib/billing';
 
 export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initialPlanId = null }) => {
   const { t, language } = useI18n();
