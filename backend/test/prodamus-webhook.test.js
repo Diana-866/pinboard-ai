@@ -769,9 +769,47 @@ test("blocks demo checkout creation in production before contacting Prodamus", a
         amount: 190,
         description: "PinPosy test credits",
       }),
-      (error) => error.httpStatus === 503 && /Демо-оплата отключена/.test(error.message)
+      (error) => error.httpStatus === 503 && /Тестовый режим оплаты отключён/.test(error.message)
     );
     assert.equal(providerCalls, 0, "production demo checkout must not reach provider");
+  } finally {
+    axios.post = originalPost;
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+
+test("blocks locally fabricated offline checkout URLs in production", async () => {
+  const previous = {
+    NODE_ENV: process.env.NODE_ENV,
+    PRODAMUS_DEMO: process.env.PRODAMUS_DEMO,
+    PRODAMUS_SECRET: process.env.PRODAMUS_SECRET,
+    PRODAMUS_OFFLINE: process.env.PRODAMUS_OFFLINE,
+  };
+  const originalPost = axios.post;
+  let providerCalls = 0;
+  try {
+    process.env.NODE_ENV = "production";
+    process.env.PRODAMUS_DEMO = "0";
+    process.env.PRODAMUS_SECRET = "shop-secret-test";
+    process.env.PRODAMUS_OFFLINE = "1";
+    axios.post = async () => {
+      providerCalls += 1;
+      return { status: 200, data: { link: "https://pinposy.payform.ru/pay/fake" } };
+    };
+
+    await assert.rejects(
+      prodamus.createPaymentLink({
+        orderId: "ppc-offline-production",
+        amount: 190,
+        description: "PinPosy test credits",
+      }),
+      (error) => error.httpStatus === 503 && /Тестовый режим оплаты отключён/.test(error.message)
+    );
+    assert.equal(providerCalls, 0, "offline production checkout must not fabricate a payment URL");
   } finally {
     axios.post = originalPost;
     for (const [key, value] of Object.entries(previous)) {
