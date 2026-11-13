@@ -282,9 +282,9 @@ async function handleWebhook(req, res, dependencies = {}) {
   }
 
   if (prodamus.isDemoWebhookBlocked()) {
-    // A demo payment form on a production deployment must never activate a plan.
+    // Simulated payment modes must never fulfill real purchases in production.
     logError("billing.event_010");
-    return res.status(503).json({ ok: false, error: "demo payments are disabled in production" });
+    return res.status(503).json({ ok: false, error: "simulated payments are disabled in production" });
   }
 
   const orderId = String(body.order_id || "").trim();
