@@ -16,6 +16,73 @@ function isConfigured() {
   return !!(process.env.PRODAMUS_SHOP_ID && process.env.PRODAMUS_SECRET);
 }
 
+/** Демо-режим Prodamus: платежи виртуальные, реальные деньги не списываются */
+function isDemo() {
+  const v = String(process.env.PRODAMUS_DEMO || "").trim().toLowerCase();
+  return v === "1" || v === "true";
+}
+
+/** Оффлайн-режим: без сети до Prodamus (локальные тесты, CI) */
+function isOffline() {
+  return String(process.env.PRODAMUS_OFFLINE || "").trim() === "1";
+}
+
+function baseUrl() {
+  const configuredUrl = String(process.env.PRODAMUS_URL || "").trim();
+  const shopId = String(process.env.PRODAMUS_SHOP_ID || "pinposy").trim();
+  const value = configuredUrl || `https://${shopId}.payform.ru/`;
+  return value.replace(/\/?$/, "/");
+}
+
+function normalizeSignatureValue(value) {
+  if (Array.isArray(value)) return value.map(normalizeSignatureValue);
+  if (value && typeof value === "object") {
+    const normalized = Object.create(null);
+    for (const key of Object.keys(value).sort()) normalized[key] = normalizeSignatureValue(value[key]);
+    return normalized;
+  }
+  return value === undefined || value === null ? "" : String(value);
+}
+
+function canonicalString(params) {
+  const payload = Object.create(null);
+  for (const key of Object.keys(params || {}).sort()) {
+    if (key === "Sign" || key === "sign") continue;
+    payload[key] = normalizeSignatureValue(params[key]);
+  }
+  return JSON.stringify(payload).replace(/\//g, "\\/");
+}
+
+function appendFormField(form, key, value) {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => appendFormField(form, `${key}[${index}]`, item));
+    return;
+  }
+  if (value && typeof value === "object") {
+    for (const childKey of Object.keys(value).sort()) appendFormField(form, `${key}[${childKey}]`, value[childKey]);
+    return;
+  }
+  form.append(key, value === undefined || value === null ? "" : String(value));
+}
+
+function toFormEncoded(params) {
+  const form = new URLSearchParams();
+  for (const key of Object.keys(params || {}).sort()) appendFormField(form, key, params[key]);
+  return form.toString();
+}
+
+function signPayload(params) {
+  const secret = process.env.PRODAMUS_SECRET;
+  if (!secret) throw httpError(500, "PRODAMUS_SECRET не задан");
+  return crypto.createHmac("sha256", secret).update(canonicalString(params), "utf8").digest("hex");
+}
+
+function safeEqual(a, b) {
+  const ha = crypto.createHash("sha256").update(String(a || "")).digest("hex");
+  const hb = crypto.createHash("sha256").update(String(b || "")).digest("hex");
+  return crypto.timingSafeEqual(Buffer.from(ha), Buffer.from(hb));
+}
+
 /**
  * Simulated payment modes must never be used by a production deployment.
  * This covers provider demo_mode links and locally fabricated offline checkout
