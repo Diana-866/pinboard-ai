@@ -42,6 +42,7 @@ export function releasePaymentIdempotencyKey(scope: string): void {
   paymentIdempotencyKeys.delete(storageKey);
   try {
     window.localStorage.removeItem(storageKey);
+    window.localStorage.removeItem(`pinposy:payment-order:${scope}`);
   } catch {
     // The in-memory key is still cleared when browser storage is unavailable.
   }
