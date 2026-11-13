@@ -1,7 +1,8 @@
 /**
  * Resolve the generator's target board without overriding a valid user choice.
- * A calendar handoff wins initially; a manual choice then remains stable while
- * topic recommendations and board counts refresh. Removed boards fall back safely.
+ * A calendar handoff wins until the user makes a manual choice; after that,
+ * the manual choice remains stable while topics and board counts refresh.
+ * Removed boards fall back safely.
  */
 export function resolveGeneratorBoardId(
   initialBoardId: string | undefined,
@@ -10,11 +11,11 @@ export function resolveGeneratorBoardId(
   currentBoardId = '',
   wasManuallySelected = false,
 ): string {
-  if (initialBoardId && availableBoardIds.includes(initialBoardId)) {
-    return initialBoardId;
-  }
   if (wasManuallySelected && currentBoardId && availableBoardIds.includes(currentBoardId)) {
     return currentBoardId;
+  }
+  if (initialBoardId && availableBoardIds.includes(initialBoardId)) {
+    return initialBoardId;
   }
   if (recommendedBoardId && availableBoardIds.includes(recommendedBoardId)) {
     return recommendedBoardId;
