@@ -45,6 +45,17 @@ test('malformed stored data is ignored safely', () => {
   assert.equal(readPendingPinDescription('board:1', 'pin:1', storage), null);
 });
 
+test('recovered drafts longer than the editor limit are ignored', () => {
+  const storage = memoryStorage();
+  writePendingPinDescription('board-1', 'pin-1', 'x'.repeat(700), storage);
+  assert.equal(readPendingPinDescription('board-1', 'pin-1', storage)?.description.length, 500);
+  storage.setItem(
+    'pinposy.pending-pin-description.v1:board-1:pin-2',
+    JSON.stringify({ pinId: 'pin-2', description: 'x'.repeat(501), updatedAt: Date.now() }),
+  );
+  assert.equal(readPendingPinDescription('board-1', 'pin-2', storage), null);
+});
+
 
 test('an older successful save cannot clear a newer local draft', () => {
   const storage = memoryStorage();
