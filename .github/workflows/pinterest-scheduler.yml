@@ -40,6 +40,7 @@ jobs:
     defaults:
       run:
         shell: cmd
+        working-directory: backend
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -49,12 +50,12 @@ jobs:
         with:
           node-version: 22
       - name: Install backend dependencies
-        run: npm install --prefix backend --no-package-lock
+        run: npm install --no-package-lock
       - name: Test scheduler response contract
-        run: node --test backend/test/schedule-response.test.js
+        run: node --test test/schedule-response.test.js
       - name: Test one-shot cron runner
-        run: node --test backend/test/schedule-cron.test.js
+        run: node --test test/schedule-cron.test.js
       - name: Test persistent worker lifecycle
-        run: node --test backend/test/schedule-worker.test.js
+        run: node --test test/schedule-worker.test.js
       - name: Test backend scheduler route contract
-        run: node --test backend/test/pinterest-scheduler-route-contract.test.js
+        run: node --test test/pinterest-scheduler-route-contract.test.js
