@@ -677,7 +677,17 @@ test("schedule claim heartbeat renews while active, avoids overlap, and stops cl
     logger: { warn: (...args) => warnings.push(args) },
   });
 
-  await new Promise((resolve) => setTimeout(resolve, 75));
+  // Windows self-hosted runners can have coarse timer scheduling under CI load.
+  // Wait for two completed heartbeat opportunities rather than assuming that
+  // three 10ms timer periods always elapse within a fixed 75ms wall-clock window.
+  await new Promise((resolve) => {
+    const deadline = Date.now() + 1_000;
+    const waitForRenewals = () => {
+      if (calls >= 2 || Date.now() >= deadline) return resolve();
+      setTimeout(waitForRenewals, 10);
+    };
+    waitForRenewals();
+  });
   await stop();
   const callsAtStop = calls;
   await new Promise((resolve) => setTimeout(resolve, 35));
