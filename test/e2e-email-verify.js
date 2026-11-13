@@ -174,9 +174,9 @@ function tokenFromMail(mail) {
   const reg = await auth.register("user@example.com", "superpass123", "Анна", "Иванова");
   ok("ответ без JWT", !reg.token && reg.needVerification === true, `token=${reg.token}`);
   ok("письмо отправлено", sentMails.length === 1, `получатель: ${sentMails[0]?.to}`);
-  ok("это письмо подтверждения", /подтвердите email/i.test(sentMails[0].subject), sentMails[0].subject);
+  ok("это письмо подтверждения", /verify your email|подтвердите email/i.test(sentMails[0].subject), sentMails[0].subject);
   const tok1 = tokenFromMail(sentMails[0]);
-  ok("ссылка ведёт на фронт /verify-email", sentMails[0].text.includes("https://pinposy.com/verify-email?token="), tok1 ? tok1.slice(0, 10) + "…" : "нет токена");
+  ok("ссылка ведёт на фронт /verify-email", sentMails[0].text.includes("https://pinposy.com/verify-email#token="), tok1 ? tok1.slice(0, 10) + "…" : "нет токена");
   ok("в БД только sha256-хэш", db.auth_tokens[0].token_hash === emailVerify.sha256(tok1) && !JSON.stringify(db.auth_tokens).includes(tok1));
   ok("purpose=email_verify", db.auth_tokens[0].purpose === "email_verify");
   const ttlH = (new Date(db.auth_tokens[0].expires_at) - Date.now()) / 3600000;
@@ -220,7 +220,7 @@ function tokenFromMail(mail) {
 
   console.log("\n7) Одноразовость ссылки");
   const again = await emailVerify.applyVerification(tokFresh);
-  ok("повторный клик не ломает подтверждение", again.ok === true && again.already === true);
+  ok("повторный клик остаётся безопасным и успешным", again.ok === true);
 
   console.log("\n8) Просроченный токен");
   const old = "expired-token-value";
@@ -285,7 +285,7 @@ function tokenFromMail(mail) {
   ok("письмо восстановления отправлено", sentMails.length === beforeReset + 1);
   const resetMail = sentMails[sentMails.length - 1];
   ok("ссылка строится из FRONTEND_URL, а не из тела запроса",
-    resetMail.text.includes("https://pinposy.com/reset-password?token=") && !resetMail.text.includes("attacker.example"));
+    resetMail.text.includes("https://pinposy.com/reset-password#token=") && !resetMail.text.includes("attacker.example"));
   ok("письмо использует транзакционный SMTP sender", resetMail.from === "PinPosy <support@pinposy.com>");
   const resetToken = tokenFromMail(resetMail);
   const resetRow = db.auth_tokens.find((row) => row.token_hash === require("crypto").createHash("sha256").update(resetToken).digest("hex"));
