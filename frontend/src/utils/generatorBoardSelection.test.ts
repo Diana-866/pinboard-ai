@@ -14,6 +14,10 @@ test('preserves a valid manual selection when topic recommendations change', () 
   assert.equal(resolveGeneratorBoardId(undefined, 'board-a', ['board-a', 'board-b'], 'board-b', true), 'board-b');
 });
 
+test('manual selection takes priority over a still-valid calendar handoff', () => {
+  assert.equal(resolveGeneratorBoardId('board-a', 'board-c', ['board-a', 'board-b', 'board-c'], 'board-b', true), 'board-b');
+});
+
 test('preserves a valid manual selection when the board list refreshes', () => {
   assert.equal(resolveGeneratorBoardId(undefined, 'board-a', ['board-a', 'board-b'], 'board-b', true), 'board-b');
 });
