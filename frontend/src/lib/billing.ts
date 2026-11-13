@@ -46,6 +46,30 @@ export function releasePaymentIdempotencyKey(scope: string): void {
   }
 }
 
+function rememberPaymentOrderId(scope: string, orderId: string): void {
+  try {
+    window.localStorage.setItem(`pinposy:payment-order:${scope}`, orderId);
+  } catch {
+    // The provider order remains discoverable in the server-side purchase history.
+  }
+}
+
+export function releaseSettledCreditPurchaseKey(
+  scope: string,
+  expectedOrderId: string | null | undefined,
+  settledOrderId: string | null | undefined,
+): boolean {
+  if (!expectedOrderId || !settledOrderId || expectedOrderId !== settledOrderId) return false;
+  releasePaymentIdempotencyKey(scope);
+  try {
+    window.localStorage.removeItem(`pinposy:payment-order:${scope}`);
+  } catch {
+    // The in-memory key is already cleared.
+  }
+  return true;
+}
+
+
 export interface PaymentIntent {
   ok: boolean;
   subscription_id: string;
@@ -168,9 +192,10 @@ export async function startCreditsPurchase(packageId: string): Promise<CreditsPa
   if (!data?.payment_url) {
     throw new Error('Сервер не вернул ссылку на оплату. Попробуйте ещё раз или напишите в поддержку.');
   }
+  if (data.order_id) rememberPaymentOrderId(scope, data.order_id);
   // Keep the key while the checkout is open so a retry or page reload
   // reuses the same provider invoice instead of creating a second one.
-  // The key is cleared only after the backend reports settled/terminal status.
+  // The key is cleared only after this exact order reaches a terminal status.
   return data;
 }
 
