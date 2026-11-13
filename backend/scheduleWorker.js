@@ -9,6 +9,7 @@ const { logError, logInfo, logWarning, runWithCorrelationId } = require("./safeL
 // process only wakes up and asks the authenticated backend worker endpoint
 // to claim and process due rows.
 const axios = require("axios");
+const { isValidScheduleWorkerResponse } = require("./scheduleResponse");
 
 const POLL_INTERVAL_MS = Math.max(5_000, Number(process.env.PINPOSY_SCHEDULER_INTERVAL_MS) || 30_000);
 const MAX_REQUEST_TIMEOUT_MS = 15 * 60_000; // Stay below the 20-minute stale-claim recovery window.
@@ -128,10 +129,13 @@ function createWorker({
       try {
         const response = await client.post(config.endpoint, { limit: safeBatchLimit }, {
           timeout: safeTimeoutMs,
+          maxRedirects: 0,
           headers: { "x-pinposy-scheduler-secret": config.secret },
         });
         const data = response && response.data;
-        if (!data || data.ok !== true) throw new Error("Backend returned an invalid worker response");
+        if (!isValidScheduleWorkerResponse(data)) {
+          throw new Error("Backend returned an invalid scheduler response");
+        }
         consecutiveFailures = 0;
         const claimed = Number(data.claimed) || 0;
         logger.info("schedule_worker.batch_completed", {
