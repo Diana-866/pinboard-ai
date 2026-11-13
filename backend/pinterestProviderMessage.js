@@ -1,6 +1,6 @@
 "use strict";
 
-const SENSITIVE_VALUE_PATTERN = /((?:authorization\s*:\s*bearer\s+)|(?:\bbearer\s+)|(?:\b(?:access_token|refresh_token|client_secret|client_id|token)\s*[=:]\s*["']?))[^ \t\r\n"'&,}]+/gi;
+const SENSITIVE_VALUE_PATTERN = /((?:authorization\s*:\s*bearer\s+)|(?:\bbearer\s+)|(?:\b(?:access_token|refresh_token|client_secret|client_id|token)["']?\s*[=:]\s*["']?))[^ \t\r\n"'&,}]+/gi;
 
 function sanitizePinterestProviderMessage(data, fallback = "unknown error") {
   try {
