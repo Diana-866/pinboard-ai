@@ -1,15 +1,20 @@
 /**
- * Resolve the board selected by the generator.
- * A stale calendar handoff must not leave the editor pointing at a board that
- * is no longer available to the current user.
+ * Resolve the generator's target board without overriding a valid user choice.
+ * A calendar handoff wins initially; a manual choice then remains stable while
+ * topic recommendations and board counts refresh. Removed boards fall back safely.
  */
 export function resolveGeneratorBoardId(
   initialBoardId: string | undefined,
   recommendedBoardId: string | undefined,
   availableBoardIds: string[],
+  currentBoardId = '',
+  wasManuallySelected = false,
 ): string {
   if (initialBoardId && availableBoardIds.includes(initialBoardId)) {
     return initialBoardId;
+  }
+  if (wasManuallySelected && currentBoardId && availableBoardIds.includes(currentBoardId)) {
+    return currentBoardId;
   }
   if (recommendedBoardId && availableBoardIds.includes(recommendedBoardId)) {
     return recommendedBoardId;
