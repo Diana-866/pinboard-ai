@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 import { mergeReviewQueuePin, upsertReviewQueuePin } from './reviewQueueUpsert';
 import type { PendingReviewPin } from '../components/review/ManualApprovalDesk';
 
@@ -31,10 +32,10 @@ describe('review queue upsert', () => {
 
     const merged = mergeReviewQueuePin(existing, incoming);
 
-    expect(merged.id).toBe(existing.id);
-    expect(merged.title).toBe('New title');
-    expect(merged.description).toBe('Latest description');
-    expect(merged.imageUrl).toBe('https://cdn.example/new.png');
+    assert.equal(merged.id, existing.id);
+    assert.equal(merged.title, 'New title');
+    assert.equal(merged.description, 'Latest description');
+    assert.equal(merged.imageUrl, 'https://cdn.example/new.png');
   });
 
   it('replaces the matching pin without duplicating the queue row', () => {
@@ -43,8 +44,8 @@ describe('review queue upsert', () => {
 
     const result = upsertReviewQueuePin([existing], refreshed);
 
-    expect(result).toHaveLength(1);
-    expect(result[0].title).toBe('Refreshed');
+    assert.equal(result.length, 1);
+    assert.equal(result[0].title, 'Refreshed');
   });
 
   it('appends a different pin', () => {
@@ -53,7 +54,7 @@ describe('review queue upsert', () => {
       pinId: 'pin-2',
     }));
 
-    expect(result).toHaveLength(2);
-    expect(result[1].pinId).toBe('pin-2');
+    assert.equal(result.length, 2);
+    assert.equal(result[1].pinId, 'pin-2');
   });
 });
