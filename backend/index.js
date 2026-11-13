@@ -627,7 +627,7 @@ app.post("/projects", requireAuth, async (req, res) => {
     let website_url = optionalString(req.body && req.body.website_url, { max: 2048 });
     if (website_url) website_url = validateUrl(website_url);
     const niche = optionalString(req.body && req.body.niche, { max: 120 }) || "";
-    const language = optionalString(req.body && req.body.language, { max: 10 }) || "en";
+    const language = resolveProjectLanguage(optionalString(req.body && req.body.language, { max: 10 }));
     const goal = optionalString(req.body && req.body.goal, { max: 500 }) || "";
     const tone = optionalString(req.body && req.body.tone, { max: 500 }) || "";
 
