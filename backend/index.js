@@ -526,13 +526,20 @@ app.patch("/me/onboarding", requireAuth, async (req, res) => {
       .from("users")
       .update(upd)
       .eq("id", req.userId)
-      .select("id, email, onboarded, tariff_plan")
+      .select("id, email, onboarded, tariff_plan, preferred_language")
       .single();
 
     if (error) {
       logError("index.event_017");
       throw httpError(500, "Не удалось сохранить онбординг. Проверьте, что миграция 004 применена в Supabase.");
     }
+
+    // New projects inherit the language chosen during registration so the
+    // first AI workflow does not silently switch international users to Russian.
+    const supportedProjectLanguages = ["en", "ru", "es", "pt", "de", "fr", "zh"];
+    const projectLanguage = supportedProjectLanguages.includes(data.preferred_language)
+      ? data.preferred_language
+      : "ru";
 
     // Первая запись проекта: user_id, website_url, goal = комментарий о продукте
     const { data: existing, error: lookupError } = await supabase
@@ -547,7 +554,7 @@ app.patch("/me/onboarding", requireAuth, async (req, res) => {
         user_id: req.userId,
         website_url: normalizedWebsiteUrl,
         goal: productComment,
-        language: "ru",
+        language: projectLanguage,
       });
       if (projError) {
         // Онбординг уже сохранён — проект можно создать позже из кабинета.
