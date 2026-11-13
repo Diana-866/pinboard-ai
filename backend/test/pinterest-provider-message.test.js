@@ -15,6 +15,10 @@ test("provider messages redact bearer credentials and token-like fields", () => 
   assert.match(message, /\[redacted\]/);
   const standaloneBearer = sanitizePinterestProviderMessage("request failed with Bearer standalone-secret");
   assert.equal(standaloneBearer.includes("standalone-secret"), false);
+  const jsonCredentials = sanitizePinterestProviderMessage('{"access_token":"json-access-secret","refresh_token":"json-refresh-secret","client_secret":"json-client-secret"}');
+  assert.equal(jsonCredentials.includes("json-access-secret"), false);
+  assert.equal(jsonCredentials.includes("json-refresh-secret"), false);
+  assert.equal(jsonCredentials.includes("json-client-secret"), false);
 });
 
 test("provider message extraction supports known Pinterest error fields", () => {
