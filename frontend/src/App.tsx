@@ -13,8 +13,8 @@ import { NotificationProvider, useNotifications } from './context/NotificationCo
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
-import { FloatingStrategistBot } from './components/bot/FloatingStrategistBot';
-import { AdminPanel } from './components/admin/AdminPanel';
+const FloatingStrategistBot = React.lazy(() => import('./components/bot/FloatingStrategistBot').then((module) => ({ default: module.FloatingStrategistBot })));
+const AdminPanel = React.lazy(() => import('./components/admin/AdminPanel').then((module) => ({ default: module.AdminPanel })));
 import { PrivacyPolicyModal } from './components/auth/PrivacyPolicyModal';
 const DashboardView = React.lazy(() => import('./components/dashboard/DashboardView').then((module) => ({ default: module.DashboardView })));
 const PinGenerator = React.lazy(() => import('./components/pins/PinGenerator').then((module) => ({ default: module.PinGenerator })));
@@ -25,7 +25,7 @@ const BoardsManager = React.lazy(() => import('./components/boards/BoardsManager
 const AnalyticsView = React.lazy(() => import('./components/analytics/AnalyticsView').then((module) => ({ default: module.AnalyticsView })));
 const PricingView = React.lazy(() => import('./components/pricing/PricingView').then((module) => ({ default: module.PricingView })));
 const SettingsView = React.lazy(() => import('./components/settings/SettingsView').then((module) => ({ default: module.SettingsView })));
-import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
+const OnboardingWizard = React.lazy(() => import('./components/onboarding/OnboardingWizard').then((module) => ({ default: module.OnboardingWizard })));
 import { LockedSection } from './components/common/LockedSection';
 const ManualApprovalDesk = React.lazy(() => import('./components/review/ManualApprovalDesk').then((module) => ({ default: module.ManualApprovalDesk })));
 import type { PendingReviewPin } from './components/review/ManualApprovalDesk';
@@ -855,7 +855,9 @@ const MainApp: React.FC = () => {
   }
   return (
     <>
-      <AdminPanel onBackToApp={handleBackToPublicSite} />
+      <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center">Загрузка панели…</div>}>
+        <AdminPanel onBackToApp={handleBackToPublicSite} />
+      </React.Suspense>
       <PrivacyPolicyModal isOpen={isPrivacyModalOpen} onClose={closePrivacyModal} />
     </>
   );
@@ -865,7 +867,9 @@ const MainApp: React.FC = () => {
   if (needsOnboarding) {
     return (
       <>
-        <OnboardingWizard />
+        <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center">Загрузка…</div>}>
+          <OnboardingWizard />
+        </React.Suspense>
         <PrivacyPolicyModal isOpen={isPrivacyModalOpen} onClose={closePrivacyModal} />
       </>
     );
@@ -1029,6 +1033,7 @@ const MainApp: React.FC = () => {
       </div>
 
       {/* Floating AI Strategist Bot (Bottom Right - User Requested) */}
+      <React.Suspense fallback={null}>
       <FloatingStrategistBot
         onNavigateTab={(tab) => {
           setActiveTab(tab);
@@ -1044,6 +1049,7 @@ const MainApp: React.FC = () => {
           pendingCount,
         }}
       />
+      </React.Suspense>
 
       {/* Real-time Toast Queue Notification */}
       {toast && (
