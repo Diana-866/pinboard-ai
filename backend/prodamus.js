@@ -16,114 +16,14 @@ function isConfigured() {
   return !!(process.env.PRODAMUS_SHOP_ID && process.env.PRODAMUS_SECRET);
 }
 
-/** Демо-режим Prodamus: платежи виртуальные, реальные деньги не списываются */
-function isDemo() {
-  const v = String(process.env.PRODAMUS_DEMO || "").trim().toLowerCase();
-  return v === "1" || v === "true";
-}
-
-/** Оффлайн-режим: без сети до Prodamus (локальные тесты, CI) — ссылка собирается locally */
-function isOffline() {
-  return String(process.env.PRODAMUS_OFFLINE || "").trim() === "1";
-}
-
-function baseUrl() {
-  const configuredUrl = String(process.env.PRODAMUS_URL || "").trim();
-  const shopId = String(process.env.PRODAMUS_SHOP_ID || "pinposy").trim();
-  const value = configuredUrl || `https://${shopId}.payform.ru/`;
-  return value.replace(/\/?$/, "/"); // всегда завершаем слэшем
-}
-
 /**
- * Каноническая строка параметров для подписи Prodamus:
- * ключи сортируются по алфавиту, вложенные объекты/массивы сериализуются в JSON,
- * параметры соединяются через `&` в виде key=value.
- */
-function normalizeSignatureValue(value) {
-  if (Array.isArray(value)) return value.map(normalizeSignatureValue);
-  if (value && typeof value === "object") {
-    const normalized = Object.create(null);
-    for (const key of Object.keys(value).sort()) {
-      normalized[key] = normalizeSignatureValue(value[key]);
-    }
-    return normalized;
-  }
-  return value === undefined || value === null ? "" : String(value);
-}
-
-function canonicalString(params) {
-  const payload = Object.create(null);
-  for (const key of Object.keys(params || {}).sort()) {
-    if (key === "Sign" || key === "sign") continue;
-    payload[key] = normalizeSignatureValue(params[key]);
-  }
-  // Prodamus требует рекурсивную сортировку ключей и экранирование символа "/".
-  return JSON.stringify(payload).replace(/\//g, "\\/");
-}
-
-/**
- * Prodamus expects nested form fields (products[0][name]), not JSON.stringify
- * or URLSearchParams' default "[object Object]" conversion.
- * Signature calculation stays on the original nested payload.
- */
-function appendFormField(form, key, value) {
-  if (Array.isArray(value)) {
-    value.forEach((item, index) => appendFormField(form, `${key}[${index}]`, item));
-    return;
-  }
-  if (value && typeof value === "object") {
-    for (const childKey of Object.keys(value).sort()) {
-      appendFormField(form, `${key}[${childKey}]`, value[childKey]);
-    }
-    return;
-  }
-  form.append(key, value === undefined || value === null ? "" : String(value));
-}
-
-function toFormEncoded(params) {
-  const form = new URLSearchParams();
-  for (const key of Object.keys(params || {}).sort()) {
-    appendFormField(form, key, params[key]);
-  }
-  return form.toString();
-}
-
-/**
- * Подпись исходящего запроса: HMAC-SHA256 от canonical-строки, hex.
- * Prodamus ожидает её в параметре signature тела запроса; заголовок Sign
- * используется для обратных вебхуков.
- */
-function signPayload(params) {
-  const secret = process.env.PRODAMUS_SECRET;
-  if (!secret) throw httpError(500, "PRODAMUS_SECRET не задан");
-  return crypto
-    .createHmac("sha256", secret)
-    .update(canonicalString(params), "utf8")
-    .digest("hex");
-}
-
-/** Сравнение подписей без утечки по времени (хешируем до фикс. длины) */
-function safeEqual(a, b) {
-  const ha = crypto.createHash("sha256").update(String(a || "")).digest("hex");
-  const hb = crypto.createHash("sha256").update(String(b || "")).digest("hex");
-  return crypto.timingSafeEqual(Buffer.from(ha), Buffer.from(hb));
-}
-
-/**
- * Проверка подписи входящего вебхука.
- * Подпись приходит в заголовке `Sign` (base64 или hex от HMAC-SHA256).
- * Возвращает { ok, reason }.
- */
-/**
- * Demo payments must not grant real plans or credits.
- *
- * `demo_mode` is attached when a payment link is created, so while the backend
- * itself runs in demo mode every callback it receives belongs to a demo payment
- * form. Testing that flow locally is legitimate; activating a paid plan from it
- * on a production deployment is not.
+ * Simulated payment modes must never be used by a production deployment.
+ * This covers provider demo_mode links and locally fabricated offline checkout
+ * URLs; neither represents a confirmed real-money payment.
  */
 function isDemoWebhookBlocked() {
-  return isDemo() && String(process.env.NODE_ENV || "").trim().toLowerCase() === "production";
+  const production = String(process.env.NODE_ENV || "").trim().toLowerCase() === "production";
+  return production && (isDemo() || isOffline());
 }
 
 function verifyWebhook(body, headers) {
@@ -278,7 +178,7 @@ async function createPaymentLink({
   urlSuccess,
 }) {
   if (isDemoWebhookBlocked()) {
-    throw httpError(503, "Демо-оплата отключена в production. Настройте реальные платежи Prodamus.");
+    throw httpError(503, "Тестовый режим оплаты отключён в production. Настройте реальные платежи Prodamus.");
   }
   if (!orderId) throw httpError(500, "Не удалось создать платёж: нет order_id");
   const price = formatAmount(amount);
