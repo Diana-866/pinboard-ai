@@ -71,6 +71,19 @@ export function releaseSettledCreditPurchaseKey(
   return true;
 }
 
+export function releaseRememberedCreditPurchaseKey(
+  scope: string,
+  settledOrderId: string | null | undefined,
+): boolean {
+  let expectedOrderId: string | null = null;
+  try {
+    expectedOrderId = window.localStorage.getItem(`pinposy:payment-order:${scope}`);
+  } catch {
+    return false;
+  }
+  return releaseSettledCreditPurchaseKey(scope, expectedOrderId, settledOrderId);
+}
+
 
 export interface PaymentIntent {
   ok: boolean;
