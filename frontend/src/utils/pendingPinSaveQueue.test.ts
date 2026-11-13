@@ -43,3 +43,48 @@ test('different pins can save independently', async () => {
   await Promise.all([first, second]);
   assert.deepEqual(calls.sort(), ['pin-1', 'pin-2']);
 });
+
+
+test('a queued save runs after an earlier in-flight save fails', async () => {
+  const queue = new Map<string, Promise<unknown>>();
+  const failure = new Error('first write failed');
+  let rejectFirst!: (error: Error) => void;
+  const calls: string[] = [];
+
+  const first = enqueuePinSave(queue, 'pin-1', () => new Promise<void>((_resolve, reject) => {
+    calls.push('first-started');
+    rejectFirst = reject;
+  }));
+  const second = enqueuePinSave(queue, 'pin-1', async () => {
+    calls.push('second-started');
+    return 'saved';
+  });
+
+  assert.deepEqual(calls, ['first-started']);
+  rejectFirst(failure);
+  await assert.rejects(first, failure);
+  assert.equal(await second, 'saved');
+  assert.deepEqual(calls, ['first-started', 'second-started']);
+  assert.equal(queue.has('pin-1'), false);
+});
+
+test('different pins start saving concurrently while requests are pending', async () => {
+  const queue = new Map<string, Promise<unknown>>();
+  const calls: string[] = [];
+  let finishFirst!: () => void;
+  let finishSecond!: () => void;
+
+  const first = enqueuePinSave(queue, 'pin-1', () => new Promise<void>((resolve) => {
+    calls.push('pin-1-started');
+    finishFirst = resolve;
+  }));
+  const second = enqueuePinSave(queue, 'pin-2', () => new Promise<void>((resolve) => {
+    calls.push('pin-2-started');
+    finishSecond = resolve;
+  }));
+
+  assert.deepEqual(calls, ['pin-1-started', 'pin-2-started']);
+  finishFirst();
+  finishSecond();
+  await Promise.all([first, second]);
+});
