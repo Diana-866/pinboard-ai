@@ -1,3 +1,4 @@
+import { getTopicRequiredMessage, normalizeGenerationTopic } from '../../utils/generationTopic';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Calendar as CalendarIcon,
@@ -311,12 +312,18 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
       time: safeTime,
       boardId: boards[0]?.id || '',
     });
-    setSlotTopic('Minimalist Scandinavian styling and warm beige palette');
+    setSlotTopic('');
   };
 
   const handleConfirmSlotGenerate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!slotModalData) return;
+
+    const currentTopic = normalizeGenerationTopic(slotTopic);
+    if (!currentTopic) {
+      window.alert(getTopicRequiredMessage(language));
+      return;
+    }
 
     const selectedBoard = boards.find((board) => board.id === slotModalData.boardId);
     if (!selectedBoard) {
@@ -328,7 +335,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
       return;
     }
 
-    onGoToGenerator(slotTopic, slotModalData.date, slotModalData.time, selectedBoard.id);
+    onGoToGenerator(currentTopic, slotModalData.date, slotModalData.time, selectedBoard.id);
     setSlotModalData(null);
   };
 

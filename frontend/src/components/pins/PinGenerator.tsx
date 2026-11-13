@@ -46,6 +46,7 @@ import {
 } from '../../types/pinGeneration';
 import { PinCanvas, PinCanvasData, ASPECT_RATIO_SPECS } from './PinCanvas';
 import { useAuth } from '../../context/AuthContext';
+import { getTopicRequiredMessage, normalizeGenerationTopic } from '../../utils/generationTopic';
 
 interface PinGeneratorProps {
   boards: BoardItem[];
@@ -91,7 +92,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
   const [pinCount, setPinCount] = useState<number>(5);
   const [topic, setTopic] = useState(
-    initialTopic || 'Minimalist Scandinavian living room styling tips and cozy decor ideas'
+    initialTopic || ''
   );
 
   // User requested: "Планирование (Scheduling)" - Опубликовать сразу / В умную очередь / Выбрать дату и время
@@ -512,12 +513,15 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   };
 
   const handleGenerate = async () => {
+    const currentTopic = normalizeGenerationTopic(topic);
+    if (!currentTopic) {
+      window.alert(getTopicRequiredMessage(language));
+      return;
+    }
     if (generationInFlightRef.current) return;
     generationInFlightRef.current = true;
     setIsGenerating(true);
     setScheduledSuccess(false);
-
-    const currentTopic = topic.trim() || 'Aesthetic Minimalist Inspiration';
     let requestFingerprint = '';
     try {
       const selectedBoard = boards.find((b) => b.id === selectedBoardId);
