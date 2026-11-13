@@ -17,6 +17,7 @@ test("review queue reads every page and bounds reconciliation requests", () => {
   assert.match(route, /pinIds\.slice\(index \* 200, \(index \+ 1\) \* 200\)/);
   assert.match(route, /reconciled\.staleIds\.slice\(offset, offset \+ 200\)/);
   assert.match(route, /\.eq\("user_id", userId\)/);
+  assert.match(route, /select\("id,status,title,description,image_url,board_id,boards\(id,title,projects\(user_id\)\)"\)/);
 });
 
 test("review queue excludes pins with active or uncertain persisted schedules", () => {

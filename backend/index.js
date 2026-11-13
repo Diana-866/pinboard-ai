@@ -824,7 +824,7 @@ async function getBoardWithOwnerCheck(boardId, userId) {
 async function getPinWithOwnerCheck(pinId, userId) {
   const { data: pin, error } = await supabase
     .from("pins")
-    .select("*, boards(id, title, description, projects(user_id, niche, tone))")
+    .select("*, boards(id, title, description, projects(user_id, niche, tone, website_url))")
     .eq("id", pinId)
     .single();
   if (error || !pin) throw httpError(404, "Пин не найден");
@@ -1268,7 +1268,7 @@ app.get("/review-queue", requireAuth, async (req, res) => {
       const pinResults = await Promise.all(pinIdChunks.map((ids) =>
         supabase
           .from("pins")
-          .select("id,status,boards(id,projects(user_id))")
+          .select("id,status,title,description,image_url,board_id,boards(id,title,projects(user_id))")
           .in("id", ids)
       ));
       const pinsError = pinResults.find((result) => result.error)?.error;

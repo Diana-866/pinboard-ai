@@ -48,6 +48,46 @@ test("uses the persisted pin_id when present and falls back to legacy payload pi
   assert.deepEqual(result.staleIds, []);
 });
 
+test("uses the current saved pin creative and never resurrects a missing image", () => {
+  const result = reconcileReviewQueueRows(
+    [{
+      id: "queue-1",
+      pin_id: "pin-1",
+      payload: {
+        id: "queue-1",
+        pinId: "pin-1",
+        title: "Stale title",
+        description: "Stale description",
+        imageUrl: "https://cdn.example/stale.png",
+        boardId: "board-old",
+        boardName: "Old board",
+      },
+    }],
+    new Map([["pin-1", {
+      id: "pin-1",
+      status: "pending",
+      title: "Current title",
+      description: "Current description",
+      image_url: null,
+      board_id: "board-current",
+      boards: { id: "board-current", title: "Current board", projects: { user_id: "user-1" } },
+    }]]),
+    "user-1",
+  );
+
+  assert.deepEqual(result.active, [{
+    id: "queue-1",
+    pinId: "pin-1",
+    pinStatus: "pending",
+    title: "Current title",
+    description: "Current description",
+    imageUrl: "",
+    boardId: "board-current",
+    boardName: "Current board",
+  }]);
+  assert.deepEqual(result.staleIds, []);
+});
+
 test("removes queue entries for pins with a persisted active or uncertain schedule", () => {
   const result = reconcileReviewQueueRows(
     [row("scheduled", "pin-1"), row("still-pending", "pin-2")],
