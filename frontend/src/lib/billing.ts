@@ -4,6 +4,7 @@ import { apiRequest, ApiError } from './api';
 export type PayablePlan = 'analytics' | 'start' | 'pro' | 'agency';
 
 const paymentIdempotencyKeys = new Map<string, string>();
+const paymentOrderIds = new Map<string, string>();
 
 function getPaymentIdempotencyKey(scope: string): string {
   const storageKey = `pinposy:payment-idempotency:${scope}`;
@@ -40,6 +41,7 @@ function releaseFailedPaymentIdempotencyKey(scope: string, error: unknown): void
 export function releasePaymentIdempotencyKey(scope: string): void {
   const storageKey = `pinposy:payment-idempotency:${scope}`;
   paymentIdempotencyKeys.delete(storageKey);
+  paymentOrderIds.delete(scope);
   try {
     window.localStorage.removeItem(storageKey);
     window.localStorage.removeItem(`pinposy:payment-order:${scope}`);
@@ -49,6 +51,7 @@ export function releasePaymentIdempotencyKey(scope: string): void {
 }
 
 function rememberPaymentOrderId(scope: string, orderId: string): void {
+  paymentOrderIds.set(scope, orderId);
   try {
     window.localStorage.setItem(`pinposy:payment-order:${scope}`, orderId);
   } catch {
@@ -75,11 +78,13 @@ export function releaseRememberedPaymentKey(
   scope: string,
   settledOrderId: string | null | undefined,
 ): boolean {
-  let expectedOrderId: string | null = null;
-  try {
-    expectedOrderId = window.localStorage.getItem(`pinposy:payment-order:${scope}`);
-  } catch {
-    return false;
+  let expectedOrderId: string | null = paymentOrderIds.get(scope) || null;
+  if (!expectedOrderId) {
+    try {
+      expectedOrderId = window.localStorage.getItem(`pinposy:payment-order:${scope}`);
+    } catch {
+      return false;
+    }
   }
   return releaseSettledCreditPurchaseKey(scope, expectedOrderId, settledOrderId);
 }
