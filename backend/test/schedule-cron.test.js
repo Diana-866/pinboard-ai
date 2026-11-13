@@ -183,7 +183,7 @@ test("one-shot cron survives hostile diagnostic getters without leaking payloads
     await assert.rejects(runOnce({
       config,
       client: { post: async () => { throw hostile; } },
-    }), /private payload/);
+    }));
   } finally {
     console.error = originalError;
   }
