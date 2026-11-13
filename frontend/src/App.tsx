@@ -70,6 +70,17 @@ const MainApp: React.FC = () => {
   const [prefilledDate, setPrefilledDate] = useState<string>('');
   const [prefilledTime, setPrefilledTime] = useState<string>('');
   const [prefilledBoardId, setPrefilledBoardId] = useState<string>('');
+
+  // Calendar context is a one-shot handoff to the generator. Clear it only after
+  // leaving that section so opening the generator later cannot reuse an old slot.
+  React.useEffect(() => {
+    if (activeTab !== 'generator') {
+      setPrefilledTopic('');
+      setPrefilledDate('');
+      setPrefilledTime('');
+      setPrefilledBoardId('');
+    }
+  }, [activeTab]);
   const [isBotOpen, setIsBotOpen] = useState<boolean>(false);
 
   const { toast, clearToast } = useNotifications();
