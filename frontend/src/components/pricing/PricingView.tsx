@@ -26,6 +26,7 @@ import { payAndRedirect, PayablePlan, SubscriptionRow, buyCreditsAndRedirect, Cr
 import { apiRequest } from '../../lib/api';
 import { isTerminalCreditPurchaseStatus, isTerminalSubscriptionPaymentStatus } from '../../utils/paymentTerminalStatus';
 import { isCurrentBillingOwner } from '../../utils/billingOwner';
+import { shouldRefreshCreditBalance } from '../../utils/creditBalanceSync';
 
 export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initialPlanId = null }) => {
   const { t, language } = useI18n();
@@ -156,9 +157,15 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
     }
     let active = true;
     apiRequest('/billing/credit-purchases')
-      .then((res: any) => {
-        if (active && isCurrentBillingOwner(billingOwnerIdRef.current, user.id)) {
-          setPurchases(Array.isArray(res?.purchases) ? res.purchases : []);
+      .then(async (res: any) => {
+        if (!active || !isCurrentBillingOwner(billingOwnerIdRef.current, user.id)) return;
+        setPurchases(Array.isArray(res?.purchases) ? res.purchases : []);
+
+        // The webhook can finish before the customer returns from Prodamus.
+        // In that case the initial history is already "success", so no pending
+        // order exists to start polling; reconcile the profile from the ledger now.
+        if (shouldRefreshCreditBalance(res?.balance, user?.credits_balance)) {
+          await refreshUser();
         }
       })
       .catch(() => {});
