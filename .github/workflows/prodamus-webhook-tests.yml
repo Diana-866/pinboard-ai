@@ -5,7 +5,6 @@ on:
     branches:
       - fix/prodamus-webhook-format
       - fix/atomic-payment-fulfillment
-      - 'integrate/**'
   pull_request:
     branches:
       - main
