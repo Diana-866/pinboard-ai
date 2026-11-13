@@ -57,7 +57,7 @@ npm run dev
 powershell -ExecutionPolicy Bypass -File .\scripts\verify.ps1
 ```
 
-Он выполняет backend syntax/tests и frontend lint/tests/production build. Для backend без lock-файла зависимости устанавливаются через `npm install --no-package-lock`; frontend использует `npm ci` при наличии `package-lock.json`.
+Он выполняет backend syntax/tests и frontend lint/tests/production build. Если в каталоге есть `package-lock.json`, зависимости устанавливаются воспроизводимо через `npm ci`; если lock-файла нет, используется `npm install --no-package-lock`.
 Для шага с миграциями нужен локальный PostgreSQL (`psql`) и файл
 `db/supabase-stub.sql` — он создаёт роли Supabase и `auth.uid()`.
 
