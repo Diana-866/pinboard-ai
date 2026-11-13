@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
 import { useAuth } from '../../context/AuthContext';
-import { payAndRedirect, PayablePlan, SubscriptionRow, buyCreditsAndRedirect, CreditPurchaseRow, releasePaymentIdempotencyKey, releaseSettledCreditPurchaseKey } from '../../lib/billing';
+import { payAndRedirect, PayablePlan, SubscriptionRow, buyCreditsAndRedirect, CreditPurchaseRow, releasePaymentIdempotencyKey, releaseRememberedCreditPurchaseKey } from '../../lib/billing';
 import { apiRequest } from '../../lib/api';
 import { isTerminalCreditPurchaseStatus, isTerminalSubscriptionPaymentStatus } from '../../utils/paymentTerminalStatus';
 import { isCurrentBillingOwner } from '../../utils/billingOwner';
@@ -167,14 +167,10 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
         // an older success must never unlock a newer pending checkout.
         for (const row of initialPurchases) {
           if (isTerminalCreditPurchaseStatus(row.status)) {
-            const scope = `credits:${row.package_id}:rub`;
-            let expectedOrderId: string | null = null;
-            try {
-              expectedOrderId = window.localStorage.getItem(`pinposy:payment-order:${scope}`);
-            } catch {
-              expectedOrderId = null;
-            }
-            releaseSettledCreditPurchaseKey(scope, expectedOrderId, row.provider_payment_id);
+            releaseRememberedCreditPurchaseKey(
+              `credits:${row.package_id}:rub`,
+              row.provider_payment_id,
+            );
           }
         }
 
@@ -263,7 +259,11 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
           releasePaymentIdempotencyKey(`subscription:${row.plan}:${row.currency || 'rub'}`);
         }
         for (const row of settledPurchases) {
-          releasePaymentIdempotencyKey(`credits:${row.package_id}:rub`);
+          // A stale terminal event for an older order must not unlock a newer checkout.
+          releaseRememberedCreditPurchaseKey(
+            `credits:${row.package_id}:rub`,
+            row.provider_payment_id,
+          );
         }
 
         setHistory(nextHistory);
