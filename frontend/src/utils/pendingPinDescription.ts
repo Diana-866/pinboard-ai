@@ -5,6 +5,7 @@ export interface PendingPinDescription {
 }
 
 const STORAGE_PREFIX = 'pinposy.pending-pin-description.v1';
+const MAX_DESCRIPTION_LENGTH = 500;
 
 function getDefaultStorage(): Storage | undefined {
   try {
@@ -28,6 +29,7 @@ export function readPendingPinDescription(
     if (!raw) return null;
     const value = JSON.parse(raw) as Partial<PendingPinDescription>;
     if (value.pinId !== pinId || typeof value.description !== 'string' ||
+        value.description.length > MAX_DESCRIPTION_LENGTH ||
         typeof value.updatedAt !== 'number' || !Number.isFinite(value.updatedAt)) return null;
     return { pinId, description: value.description, updatedAt: value.updatedAt };
   } catch {
@@ -45,7 +47,7 @@ export function writePendingPinDescription(
   try {
     storage.setItem(storageKey(boardId, pinId), JSON.stringify({
       pinId,
-      description,
+      description: description.slice(0, MAX_DESCRIPTION_LENGTH),
       updatedAt: Date.now(),
     } satisfies PendingPinDescription));
     return true;
