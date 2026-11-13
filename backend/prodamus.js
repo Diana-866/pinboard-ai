@@ -334,6 +334,14 @@ async function createPaymentLink({
     throw httpError(502, "Платёжный сервис не отвечает — попробуйте позже");
   }
 
+  // A non-2xx provider response is not a successful checkout, even if an
+  // intermediary or error payload happens to contain a URL-shaped field.
+  const status = Number(res && res.status);
+  if (!Number.isInteger(status) || status < 200 || status >= 300) {
+    logError("prodamus.event_001");
+    throw httpError(502, "Prodamus не подтвердил создание платёжной ссылки. Попробуйте позже.");
+  }
+
   const data = res.data && typeof res.data === "object" ? res.data : null;
   const url =
     (data && (data.link || data.url || (data.data && (data.data.link || data.data.url)))) ||
