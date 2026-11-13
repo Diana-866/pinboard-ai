@@ -2,6 +2,7 @@ const test = require("node:test");
 require("./helpers/env");
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
+const axios = require("axios");
 
 const { parseMultipartFields } = require("../prodamusWebhookBody");
 const prodamus = require("../prodamus");
@@ -701,6 +702,40 @@ test("includes a per-request webhook URL only when Prodamus SYS is configured", 
     assert.equal(params.get("sys"), "pinposy_custom");
     assert.equal(params.get("urlNotification"), "https://api.pinposy.com/billing/webhook");
   } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+
+test("does not accept a checkout URL from a non-success Prodamus response", async () => {
+  const previous = {
+    PRODAMUS_SECRET: process.env.PRODAMUS_SECRET,
+    PRODAMUS_OFFLINE: process.env.PRODAMUS_OFFLINE,
+    PRODAMUS_URL: process.env.PRODAMUS_URL,
+  };
+  const originalPost = axios.post;
+  try {
+    process.env.PRODAMUS_SECRET = "shop-secret-test";
+    process.env.PRODAMUS_OFFLINE = "0";
+    process.env.PRODAMUS_URL = "https://pinposy.payform.ru/";
+    axios.post = async () => ({
+      status: 503,
+      data: { link: "https://pinposy.payform.ru/pay/possibly-not-created" },
+    });
+
+    await assert.rejects(
+      prodamus.createPaymentLink({
+        orderId: "pp-start-error-response",
+        amount: 1990,
+        description: "PinPosy / Старт",
+      }),
+      (error) => error.httpStatus === 502 && /не подтвердил создание/.test(error.message)
+    );
+  } finally {
+    axios.post = originalPost;
     for (const [key, value] of Object.entries(previous)) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
