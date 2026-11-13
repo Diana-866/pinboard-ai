@@ -277,6 +277,9 @@ async function createPaymentLink({
   urlNotification,
   urlSuccess,
 }) {
+  if (isDemoWebhookBlocked()) {
+    throw httpError(503, "Демо-оплата отключена в production. Настройте реальные платежи Prodamus.");
+  }
   if (!orderId) throw httpError(500, "Не удалось создать платёж: нет order_id");
   const price = formatAmount(amount);
   const sys = String(process.env.PRODAMUS_SYS || "").trim();
