@@ -1,4 +1,5 @@
 const { logError, logWarning, logInfo } = require("./safeLogger");
+const { sanitizePinterestProviderMessage } = require("./pinterestProviderMessage");
 // Pinterest API v5: OAuth 2.0 (вход через Pinterest) и публикация пинов.
 // Документация:
 //   авторизация: https://developers.pinterest.com/docs/getting-started/set-up-authentication-and-authorization/
@@ -159,11 +160,9 @@ async function callPinterest(method, path, { token, body } = {}) {
   }
 }
 
-/** Текст ошибки Pinterest без утечки токенов. */
+/** Extract a bounded, redacted message from an untrusted Pinterest response. */
 function pinterestMessage(data, fallback) {
-  if (!data) return fallback;
-  if (typeof data === "string") return data.slice(0, 300);
-  return String(data.message || data.error_description || data.error || fallback).slice(0, 300);
+  return sanitizePinterestProviderMessage(data, fallback);
 }
 
 // ---------- хранилище ----------
