@@ -5,6 +5,7 @@ on:
     branches:
       - fix/prodamus-webhook-format
       - fix/atomic-payment-fulfillment
+      - 'integrate/**'
   pull_request:
     branches:
       - main
@@ -15,10 +16,12 @@ permissions:
 
 jobs:
   backend-tests:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows, X64]
     defaults:
       run:
+        shell: cmd
         working-directory: backend
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
