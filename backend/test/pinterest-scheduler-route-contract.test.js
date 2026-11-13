@@ -34,7 +34,7 @@ test("direct publish uncertainty exposes a status check without issuing a second
   assert.match(button, /\/pins\/\$\{encodeURIComponent\(checkingPinId\)\}\/publish-status\?account_id=/);
   assert.match(button, /readConfirmedPinterestPublish\(result, checkingBoardId\)/);
   assert.match(button, /onClick=\{handleCheckStatus\}/);
-  assert.match(button, /Повторная отправка остаётся заблокированной/);
+  assert.match(button, /повторная отправка остаётся заблокированной/i);
 });
 
 test("Pinterest scheduler worker URL is registered by the backend router", () => {
@@ -132,7 +132,7 @@ test("schedule creation persists and reconciles the resolved project destination
   assert.ok(route.includes("snapshotDestinationUrl = normalizePinterestDestinationUrl(snapshotPin.boards.projects.website_url)"));
   // Duplicate-request recovery must compare the same timezone that was persisted.
   const duplicateCheck = route.slice(route.indexOf("isSamePinScheduleRequest(existing"));
-  assert.match(duplicateCheck, /scheduledAt,[\\s\\S]*?timezone,[\\s\\S]*?destinationUrl: snapshotDestinationUrl/);
+  assert.match(duplicateCheck, /scheduledAt,[\s\S]*?timezone,[\s\S]*?destinationUrl: snapshotDestinationUrl/);
   assert.ok(route.includes("destination_url: snapshotDestinationUrl"));
   assert.ok(route.includes("isSamePinScheduleRequest(existing"));
 });
@@ -190,14 +190,15 @@ test("in-flight board and schedule reads cannot publish data after an account sw
     ["loadBoards", "Never show a previous user's schedule"],
     ["loadSchedule", "Тарифные «замочки»"],
   ]) {
-    const start = app.indexOf(`async function ${name}()`);
-    const end = app.indexOf(nextMarker, start);
-    assert.notEqual(start, -1, `${name} exists`);
-    assert.ok(end > start, `${name} has a bounded loader`);
-    const loader = app.slice(start, end);
-    assert.match(loader, /const isCurrentRequest = \(\) => !cancelled && requestOwnerId === \(user\?\.id \|\| ''\) && requestGeneration === userDataRequestGenerationRef\.current/);
-    assert.match(loader, /if \(isCurrentRequest\(\)\) set/);
-    assert.match(loader, /if \(isCurrentRequest\(\)\) \{/);
+    const functionStart = app.indexOf(`async function ${name}()`);
+    const effectStart = app.lastIndexOf("React.useEffect(() => {", functionStart);
+    const end = app.indexOf(nextMarker, functionStart);
+    assert.notEqual(functionStart, -1, `${name} exists`);
+    assert.ok(effectStart >= 0 && end > functionStart, `${name} effect has a bounded source section`);
+    const loader = app.slice(effectStart, end);
+    assert.match(loader, /const isCurrentRequest = \\(\\) => !cancelled && requestOwnerId === \\(user\\?\\.id \\|\\| ''\\) && requestGeneration === userDataRequestGenerationRef\\.current/);
+    assert.match(loader, /if \\(isCurrentRequest\\(\\)\\) set/);
+    assert.match(loader, /if \\(isCurrentRequest\\(\\)\\) \\{/);
   }
 });
 
