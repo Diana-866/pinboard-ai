@@ -20,6 +20,9 @@ permissions:
 jobs:
   frontend:
     runs-on: [self-hosted, Windows, X64]
+    defaults:
+      run:
+        shell: cmd
     timeout-minutes: 15
     steps:
       - name: Checkout
