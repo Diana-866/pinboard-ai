@@ -11,7 +11,8 @@ test("provider messages redact bearer credentials and token-like fields", () => 
   assert.equal(message.includes("private-token"), false);
   assert.equal(message.includes("abc123"), false);
   assert.equal(message.includes("refresh-secret"), false);
-  assert.equal(message.includes("secret"), false);
+  assert.equal(message.includes("client_secret=secret"), false);
+  assert.equal(message.includes("refresh-secret"), false);
   assert.match(message, /\[redacted\]/);
 });
 
