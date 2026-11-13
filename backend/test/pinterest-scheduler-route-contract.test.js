@@ -195,7 +195,7 @@ test("in-flight board and schedule reads cannot publish data after an account sw
     assert.notEqual(start, -1, `${name} exists`);
     assert.ok(end > start, `${name} has a bounded loader`);
     const loader = app.slice(start, end);
-    assert.match(loader, /requestGeneration === userDataRequestGenerationRef\.current/);
+    assert.match(loader, /const isCurrentRequest = \(\) => !cancelled && requestOwnerId === \(user\?\.id \|\| ''\) && requestGeneration === userDataRequestGenerationRef\.current/);
     assert.match(loader, /if \(isCurrentRequest\(\)\) set/);
     assert.match(loader, /if \(isCurrentRequest\(\)\) \{/);
   }
@@ -228,7 +228,7 @@ test("Pinterest account status cannot restore another user's accounts after a se
 });
 
 test("calendar detail state is remounted when the authenticated owner changes", () => {
-  const app = read(path.join("..", "..", "frontend", "src", "App.tsx"));
+  const app = read(path.join("..", "frontend", "src", "App.tsx"));
   const calendarStart = app.indexOf("<PublishingCalendar");
   assert.notEqual(calendarStart, -1, "calendar is rendered by the authenticated app");
   const calendar = app.slice(calendarStart, calendarStart + 500);
@@ -240,7 +240,7 @@ test("calendar detail state is remounted when the authenticated owner changes", 
 });
 
 test("board edit and create dialogs are scoped to the authenticated owner", () => {
-  const app = read(path.join("..", "..", "frontend", "src", "App.tsx"));
+  const app = read(path.join("..", "frontend", "src", "App.tsx"));
   const boardsStart = app.indexOf("<BoardsManager");
   assert.notEqual(boardsStart, -1, "board manager is rendered by the authenticated app");
   const boards = app.slice(boardsStart, boardsStart + 400);
@@ -249,7 +249,7 @@ test("board edit and create dialogs are scoped to the authenticated owner", () =
 });
 
 test("review editor is remounted for each authenticated owner", () => {
-  const app = read(path.join("..", "..", "frontend", "src", "App.tsx"));
+  const app = read(path.join("..", "frontend", "src", "App.tsx"));
   const reviewStart = app.indexOf("<ManualApprovalDesk");
   assert.notEqual(reviewStart, -1, "review desk is rendered by the authenticated app");
   const review = app.slice(reviewStart, reviewStart + 450);
@@ -258,7 +258,7 @@ test("review editor is remounted for each authenticated owner", () => {
 });
 
 test("review approval validates the backend schedule window before mutating pin state", () => {
-  const app = read(path.join("..", "..", "frontend", "src", "App.tsx"));
+  const app = read(path.join("..", "frontend", "src", "App.tsx"));
   const approval = app.slice(app.indexOf("const handleSchedulePin"), app.indexOf("const handleReconcileLegacySchedule"));
   const validation = approval.indexOf("validateScheduleInstant(localDateTime)");
   const boardPreflight = approval.indexOf("Выберите доску Pinterest для публикации.");
