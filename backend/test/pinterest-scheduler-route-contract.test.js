@@ -197,8 +197,8 @@ test("in-flight board and schedule reads cannot publish data after an account sw
     assert.ok(effectStart >= 0 && end > functionStart, `${name} effect has a bounded source section`);
     const loader = app.slice(effectStart, end);
     assert.match(loader, /const isCurrentRequest = \(\) => !cancelled && requestOwnerId === \(user\?\.id \|\| ''\) && requestGeneration === userDataRequestGenerationRef\.current/);
-    assert.match(loader, /if \\(isCurrentRequest\\(\\)\\) set/);
-    assert.match(loader, /if \\(isCurrentRequest\\(\\)\\) \\{/);
+    assert.match(loader, /if \(isCurrentRequest\(\)\) set/);
+    assert.match(loader, /if \(isCurrentRequest\(\)\) \{/);
   }
 });
 
