@@ -48,6 +48,7 @@ import { PinCanvas, PinCanvasData, ASPECT_RATIO_SPECS } from './PinCanvas';
 import { useAuth } from '../../context/AuthContext';
 import { getTopicRequiredMessage, normalizeGenerationTopic } from '../../utils/generationTopic';
 import { resolveGeneratorBoardId } from '../../utils/generatorBoardSelection';
+import { resolveReviewQueueDescription } from '../../utils/reviewQueueDescription';
 
 interface PinGeneratorProps {
   boards: BoardItem[];
@@ -1734,7 +1735,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                         id: `review-${currentPin.id}`,
                         pinId: currentPin.id,
                         title,
-                        description: currentPin.description,
+                        description: resolveReviewQueueDescription(currentPin.description, descriptionToFlush?.description),
                         boardName: board.name,
                         boardId: board.id,
                         imageUrl: currentPin.imageUrl,
