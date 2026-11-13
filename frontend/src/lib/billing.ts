@@ -71,7 +71,7 @@ export function releaseSettledCreditPurchaseKey(
   return true;
 }
 
-export function releaseRememberedCreditPurchaseKey(
+export function releaseRememberedPaymentKey(
   scope: string,
   settledOrderId: string | null | undefined,
 ): boolean {
@@ -82,6 +82,13 @@ export function releaseRememberedCreditPurchaseKey(
     return false;
   }
   return releaseSettledCreditPurchaseKey(scope, expectedOrderId, settledOrderId);
+}
+
+export function releaseRememberedCreditPurchaseKey(
+  scope: string,
+  settledOrderId: string | null | undefined,
+): boolean {
+  return releaseRememberedPaymentKey(scope, settledOrderId);
 }
 
 
@@ -121,6 +128,7 @@ export async function startPayment(
   if (!data?.payment_url) {
     throw new Error('Сервер не вернул ссылку на оплату. Попробуйте ещё раз или напишите в поддержку.');
   }
+  if (data.order_id) rememberPaymentOrderId(scope, data.order_id);
   // Keep the key while the checkout is open. If the browser fails to navigate
   // or the user reloads the page, retrying must reuse the same provider invoice.
   // The key is cleared only after the backend reports settled/terminal status.
