@@ -47,6 +47,7 @@ import {
 import { PinCanvas, PinCanvasData, ASPECT_RATIO_SPECS } from './PinCanvas';
 import { useAuth } from '../../context/AuthContext';
 import { getTopicRequiredMessage, normalizeGenerationTopic } from '../../utils/generationTopic';
+import { resolveGeneratorBoardId } from '../../utils/generatorBoardSelection';
 
 interface PinGeneratorProps {
   boards: BoardItem[];
@@ -243,21 +244,16 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
   useEffect(() => {
     // A generation request is bound to the board captured when it starts.
-    // Do not let topic recommendations move the editor to another board while
-    // its response is in flight, or generated pins could appear under the wrong board.
+    // Do not move the editor while its response is in flight.
     if (generationInFlightRef.current) return;
-    // An explicit board selected in the calendar takes precedence over topic-based recommendations.
-    if (!initialBoardId && recommendedBoard) {
-      setSelectedBoardId(recommendedBoard.id);
-    }
-  }, [recommendedBoard, initialBoardId]);
-
-  useEffect(() => {
-    if (generationInFlightRef.current) return;
-    if (initialBoardId && boards.some((board) => board.id === initialBoardId)) {
-      setSelectedBoardId(initialBoardId);
-    }
-  }, [initialBoardId, boards]);
+    const availableBoardIds = boards.map((board) => board.id);
+    const nextBoardId = resolveGeneratorBoardId(
+      initialBoardId,
+      recommendedBoard?.id,
+      availableBoardIds,
+    );
+    setSelectedBoardId(nextBoardId);
+  }, [recommendedBoard, initialBoardId, boards]);
 
   const [tone, setTone] = useState<string>('inspirational');
   const [destinationUrl, setDestinationUrl] = useState('');
