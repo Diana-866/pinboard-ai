@@ -241,18 +241,20 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   }, [topic, boards]);
 
   const [selectedBoardId, setSelectedBoardId] = useState<string>(initialBoardId || recommendedBoard?.id || boards[0]?.id || '');
+  const boardManuallySelectedRef = React.useRef(false);
 
   useEffect(() => {
     // A generation request is bound to the board captured when it starts.
     // Do not move the editor while its response is in flight.
     if (generationInFlightRef.current) return;
     const availableBoardIds = boards.map((board) => board.id);
-    const nextBoardId = resolveGeneratorBoardId(
+    setSelectedBoardId((currentBoardId) => resolveGeneratorBoardId(
       initialBoardId,
       recommendedBoard?.id,
       availableBoardIds,
-    );
-    setSelectedBoardId(nextBoardId);
+      currentBoardId,
+      boardManuallySelectedRef.current,
+    ));
   }, [recommendedBoard, initialBoardId, boards]);
 
   const [tone, setTone] = useState<string>('inspirational');
@@ -1266,7 +1268,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
               <select
                 value={selectedBoardId}
-                onChange={(e) => setSelectedBoardId(e.target.value)}
+                onChange={(e) => {
+                  boardManuallySelectedRef.current = true;
+                  setSelectedBoardId(e.target.value);
+                }}
                 disabled={isGenerating}
                 className="w-full px-3 py-2 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-60 disabled:cursor-not-allowed"
               >
