@@ -79,7 +79,7 @@ if ($NodeVersion -lt [version]"22.12.0") {
 $Backend = Join-Path $Root "backend"
 $Frontend = Join-Path $Root "frontend"
 
-if (-not (Ensure-Dependencies -Directory $Backend -HasLockFile $false)) {
+if (-not (Ensure-Dependencies -Directory $Backend -HasLockFile $true)) {
     $Failed = $true
 } else {
     if (-not (Invoke-Step -Name "Backend syntax check" -WorkingDirectory $Backend -Command "node" -Arguments @("--check", "index.js"))) {
