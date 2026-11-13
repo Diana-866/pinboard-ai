@@ -1,3 +1,4 @@
+import { isMatchingCreditPurchaseOrder } from '../utils/creditPurchaseOrderMatch';
 import { apiRequest, ApiError } from './api';
 
 export type PayablePlan = 'analytics' | 'start' | 'pro' | 'agency';
@@ -59,7 +60,7 @@ export function releaseSettledCreditPurchaseKey(
   expectedOrderId: string | null | undefined,
   settledOrderId: string | null | undefined,
 ): boolean {
-  if (!expectedOrderId || !settledOrderId || expectedOrderId !== settledOrderId) return false;
+  if (!isMatchingCreditPurchaseOrder(expectedOrderId, settledOrderId)) return false;
   releasePaymentIdempotencyKey(scope);
   try {
     window.localStorage.removeItem(`pinposy:payment-order:${scope}`);
