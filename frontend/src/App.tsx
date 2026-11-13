@@ -16,21 +16,19 @@ import { Sidebar } from './components/layout/Sidebar';
 import { FloatingStrategistBot } from './components/bot/FloatingStrategistBot';
 import { AdminPanel } from './components/admin/AdminPanel';
 import { PrivacyPolicyModal } from './components/auth/PrivacyPolicyModal';
-import { DashboardView } from './components/dashboard/DashboardView';
-import { PinGenerator } from './components/pins/PinGenerator';
-import { KeywordExplorer } from './components/keywords/KeywordExplorer';
-import { PublishingCalendar } from './components/calendar/PublishingCalendar';
+const DashboardView = React.lazy(() => import('./components/dashboard/DashboardView').then((module) => ({ default: module.DashboardView })));
+const PinGenerator = React.lazy(() => import('./components/pins/PinGenerator').then((module) => ({ default: module.PinGenerator })));
+const KeywordExplorer = React.lazy(() => import('./components/keywords/KeywordExplorer').then((module) => ({ default: module.KeywordExplorer })));
+const PublishingCalendar = React.lazy(() => import('./components/calendar/PublishingCalendar').then((module) => ({ default: module.PublishingCalendar })));
 import { parsePersistedScheduleStatus } from './utils/scheduleStatus';
-import { BoardsManager } from './components/boards/BoardsManager';
-import { AnalyticsView } from './components/analytics/AnalyticsView';
-import { PricingView } from './components/pricing/PricingView';
-import { SettingsView } from './components/settings/SettingsView';
+const BoardsManager = React.lazy(() => import('./components/boards/BoardsManager').then((module) => ({ default: module.BoardsManager })));
+const AnalyticsView = React.lazy(() => import('./components/analytics/AnalyticsView').then((module) => ({ default: module.AnalyticsView })));
+const PricingView = React.lazy(() => import('./components/pricing/PricingView').then((module) => ({ default: module.PricingView })));
+const SettingsView = React.lazy(() => import('./components/settings/SettingsView').then((module) => ({ default: module.SettingsView })));
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { LockedSection } from './components/common/LockedSection';
-import {
-  ManualApprovalDesk,
-  PendingReviewPin,
-} from './components/review/ManualApprovalDesk';
+const ManualApprovalDesk = React.lazy(() => import('./components/review/ManualApprovalDesk').then((module) => ({ default: module.ManualApprovalDesk })));
+import type { PendingReviewPin } from './components/review/ManualApprovalDesk';
 import {
   BoardItem,
   ScheduledPinItem,
@@ -912,6 +910,7 @@ const MainApp: React.FC = () => {
           {/* Баннер «Подтвердите email» — виден, пока users.email_verified=false (миграция 005) */}
           <EmailVerifyBanner />
           <LockedSection locked={isSectionLocked} onGoToPricing={() => setActiveTab('pricing')}>
+          <React.Suspense fallback={<div className="py-12 text-center text-secondary-theme">Загрузка раздела…</div>}>
           {activeTab === 'dashboard' && (
             <DashboardView
               boards={boards}
@@ -1024,6 +1023,7 @@ const MainApp: React.FC = () => {
               onPinterestStatusChange={handlePinterestStatusChange}
             />
           )}
+          </React.Suspense>
           </LockedSection>
         </main>
       </div>
