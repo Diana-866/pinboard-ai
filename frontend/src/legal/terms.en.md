@@ -1,8 +1,8 @@
 # PinPosy Terms of Service
 
-Last updated: November 5, 2026
+Last updated: November 14, 2026
 
-These Terms govern your use of PinPosy ("the Service"). By creating an account or using the Service, you agree to these Terms. Service URL: https://pinposy.com.
+These Terms govern your use of PinPosy (the "Service"). By creating an account or using the Service, you agree to these Terms. Service URL: https://pinposy.com.
 
 ## 1. Operator
 
@@ -10,67 +10,86 @@ The Service is operated by Diana Aleksandrovna Bannova, a self-employed individu
 
 ## 2. What the Service Does
 
-PinPosy is an AI-assisted tool that helps you analyze your website, discover board and pin ideas, generate images and descriptions, build a publishing plan, and — if you connect your Pinterest account and grant the relevant permissions — publish content you have approved to your own Pinterest account through the official Pinterest API. Every pin is published only after your manual approval.
+PinPosy is an AI-assisted tool that helps users analyze websites, discover board and pin ideas, generate images and descriptions, build publishing plans, and — if a user connects a Pinterest account and grants the relevant permissions — publish user-approved content to that account through the official Pinterest API. Users are responsible for reviewing and approving content before publication unless the interface expressly states otherwise.
 
 ## 3. Accounts
 
 - You must be at least 18 years old to use the Service.
-- You are responsible for keeping your password confidential and for all activity under your account.
-- Provide accurate information when creating your account and projects.
+- You are responsible for protecting your authentication credentials and activity under your account, except to the extent caused by the Operator.
+- You must provide accurate information and promptly report suspected unauthorized access.
 
 ## 4. Credits, Subscriptions, and Billing
 
-- The Service is offered through subscription plans and/or one-time credit packs, as described on the Pricing page.
-- Credits included in a subscription are refreshed each billing cycle and **do not carry over**. Credits purchased as packs **do not expire**.
-- Generation consumes subscription credits first, then pack credits.
-- Payments are processed by a third-party payment provider. We never receive or store your full card details.
-- Credits already used are non-refundable, except where required by law. If you were charged in error, the Service is unavailable, or paid access was not provided, contact **support@pinposy.com** with your payment ID. Once a refund is approved, we will submit a refund request to Prodamus. The time it takes for the funds to reach you depends on the payment provider and your bank and may take up to 30 business days.
-- Prices and plans may change; changes never apply retroactively to a period you have already paid for.
+- The Service may be offered through subscriptions and/or one-time credit packs, as described on the Pricing page.
+- Subscription credits renew each billing cycle. Carry-over and expiration rules for one-time packs are shown before purchase.
+- Payments are processed by a third-party payment provider. The Operator does not receive or store full payment card details.
+- Refunds, cancellation rights, and payment remedies are handled in accordance with mandatory applicable law. For payment questions, contact **support@pinposy.com** with your payment identifier. The time for funds to reach you may also depend on the payment provider and your bank.
+- Prices and terms for future purchases may change. Changes do not apply retroactively to an already-paid period except as permitted by law.
 
 ## 5. High-Demand Periods
 
-During periods of unusually high demand, content generation may take up to 24–48 hours instead of the typical few minutes. Your account access remains available. We will notify you in the interface when a request is queued and when it is complete.
+During periods of high demand, processing, generation, and background operations may take longer than usual. Any displayed estimate is not a guaranteed service deadline unless expressly identified as such. Where reasonably possible, the Operator will notify users of material delays through the interface or email.
 
 ## 6. Acceptable Use
 
-You agree not to use the Service to:
+You must not use the Service to:
+- create or publish unlawful content, infringe third-party rights, or violate Pinterest policies;
+- interfere with, overload, circumvent restrictions on, or gain unauthorized access to the Service;
+- extract Service data through automated means outside normal features;
+- resell or transfer access without the Operator's consent.
 
-- create or publish illegal, infringing, hateful, or sexually explicit content, or content that violates Pinterest's policies or your local law;
-- interfere with, overload, or gain unauthorized access to the Service's systems;
-- extract data from the Service using automated means beyond its normal features;
-- resell or sublicense access to the Service without our written permission.
+The Operator may take proportionate protective measures, including temporarily restricting access where there are reasonable indications of abuse or a security threat. Such measures do not waive rights granted by law.
 
-We may suspend or terminate accounts that violate this section.
+## 7. Content
 
-## 7. Your Content
+- You retain rights to your website materials and information you submit. You grant the Operator a limited right to process them as necessary to provide the Service.
+- You are responsible for having the rights and legal grounds to upload or submit materials for processing.
+- Use of generated outputs may be subject to third-party rights and platform rules. You are responsible for reviewing outputs before use or publication.
 
-- You retain ownership of your website materials and any data you enter. You grant us a limited license to process it solely to provide the Service to you.
-- Content generated by the Service for your account (pin images, titles, descriptions, boards) is yours to use, publish, and edit as you see fit, subject to Pinterest's policies when published to Pinterest.
+## 8. Third-Party Platforms and Integrations
 
-## 8. Your Pinterest Account
+Certain features rely on independent third-party platforms and providers, including Pinterest, AI, payment, email, cloud, and infrastructure providers. Their services are governed by their own terms and policies.
 
-By connecting a Pinterest account you remain subject to Pinterest's own terms and policies. We are not responsible for actions taken by Pinterest regarding your account (suspension, API access changes, content removal) — these are outside our control. You may disconnect your account at any time, in Pinterest's settings or in the Service.
+The Operator does not control those organizations' internal infrastructure and cannot guarantee that their APIs, prices, availability, rules, decisions, or processing times will remain unchanged. API changes, integration suspensions, platform decisions affecting a user's account, or provider outages may make some features temporarily or permanently unavailable. Where reasonably possible, the Operator will notify users of material changes and take reasonable steps to restore affected features.
 
-## 9. Service Availability
+This section does not release the Operator from duties imposed by law in relation to its own conduct, its selection and use of providers, personal-data processing, payments, or the quality of the Service it provides.
 
-The Service is provided "as is" and "as available." We do not guarantee uninterrupted or error-free operation. We may modify, suspend, or discontinue features, making reasonable efforts to notify you of material changes.
+## 9. Availability, Technical Interruptions, and Data
 
-## 10. Limitation of Liability
+The Service depends on networks, data centers, DNS, cloud infrastructure, databases, file storage, communication links, external APIs, and other technical components. Planned or emergency interruptions, delays, partial feature restrictions, unavailability, or restoration from backups may therefore occur.
 
-To the maximum extent permitted by law, we are not liable for indirect or consequential damages, including loss of revenue, data, or Pinterest account standing. Our total liability for any claim is limited to the amount you paid us in the three months preceding the claim. Nothing in these Terms limits liability that cannot be limited under applicable law.
+The Operator does not promise uninterrupted or error-free availability unless a separate agreement expressly provides a service level (SLA). Where reasonably possible, planned maintenance will be announced in advance. In an incident, the Operator will take reasonable steps to diagnose, restore, and mitigate the impact.
 
-## 11. Termination
+The Operator uses organizational and technical safeguards and backup measures proportionate to the nature of the Service and available resources. Backups do not guarantee that data loss is impossible. Users are encouraged to retain their own copies of important source materials and periodically export data made available to them.
 
-You may stop using the Service and request account deletion at any time (contact below). We may suspend or terminate access for violation of these Terms, with notice where reasonably possible.
+## 9.1. Force Majeure
+
+A party is excused from liability for a failure to perform only to the extent and for the period that performance is objectively prevented by a force-majeure event meeting the requirements of applicable law. Depending on the facts, examples may include armed conflict, terrorist acts, emergencies, natural disasters, major data-center damage, mandatory government acts, or widespread disruption of network infrastructure.
+
+A cyberattack, provider outage, equipment failure, or lack of funds does not automatically constitute force majeure. The event must be assessed under the applicable legal tests, including extraordinary and unavoidable character and causation. A party relying on force majeure must act in good faith, notify the other party where reasonably possible, and take reasonable steps to mitigate consequences. Obligations that remain capable of performance continue.
+
+## 10. Liability
+
+Each party is liable for breach of its obligations in accordance with applicable law and these Terms.
+
+To the extent permitted by law, the Operator is not liable for losses caused exclusively by an independent third-party platform or provider, Pinterest decisions, the user's own actions, or a force-majeure event, where the Operator has not breached its obligations or acted culpably and the required causal link is absent. The Operator does not guarantee commercial results, reach, views, sales, or continued access to third-party platforms.
+
+To the maximum extent permitted by law, the Operator is not liable for indirect or consequential loss or loss of profit, except where mandatory law provides otherwise. **Nothing in these Terms excludes or limits consumer rights or the Operator's liability where such exclusion or limitation is prohibited by law**, including liability for intentional breach, personal injury, mandatory refunds, or duties imposed on a personal-data operator.
+
+No pre-agreed liability cap applies to the extent it would reduce mandatory consumer rights or conflict with applicable law.
+
+## 11. Termination and Account Deletion
+
+You may stop using the Service and request account deletion through available features or by contacting **support@pinposy.com**. Deletion is performed within technically necessary periods and subject to legal retention duties for certain records. The Operator may temporarily restrict access in response to a security threat or breach of these Terms, subject to applicable law.
 
 ## 12. Changes to These Terms
 
-We may update these Terms — for example, when adding features. The current date is shown at the top. Material changes will be announced in the interface or by email.
+The Operator may update these Terms when the Service or applicable law changes. A new version applies from the date stated in it. Where reasonably possible, material changes will be announced in the interface or by email. Separate consent will be requested where required by law.
 
-## 13. Governing Law
+## 13. Governing Law and Disputes
 
-These Terms are governed by the laws of the Russian Federation, except for mandatory consumer-protection rules of your country of residence that cannot be waived.
+These Terms are governed by the laws of the Russian Federation, taking into account mandatory rules applicable to the user. Nothing in these Terms restricts a consumer's right to bring a claim before a court or authority under mandatory jurisdiction and consumer-protection rules.
 
 ## 14. Contact
 
-Questions about these Terms: **support@pinposy.com**
+For questions about the Service, payments, or these Terms: **support@pinposy.com**.
