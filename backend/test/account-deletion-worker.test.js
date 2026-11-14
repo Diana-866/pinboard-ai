@@ -14,6 +14,7 @@ function createReadClient({ account = { id: USER_ID, account_status: "deletion_p
   return {
     supabaseUrl: "https://project.supabase.co",
     rpcCalls: [],
+    fromCalls: [],
     async rpc(name, args) {
       this.rpcCalls.push({ name, args });
       if (name === "get_account_deletion_retained_record_counts") {
@@ -28,6 +29,7 @@ function createReadClient({ account = { id: USER_ID, account_status: "deletion_p
       return { data: null, error: null };
     },
     from(table) {
+      this.fromCalls.push(table);
       const query = {
         filters: [],
         select() { return this; },
@@ -78,6 +80,8 @@ test("preflight inventories every exported user-owned section without loading ro
     name: "get_account_deletion_retained_record_counts",
     args: { p_user_id: USER_ID },
   }]);
+  assert.equal(client.fromCalls.includes("pinterest_oauth_connection_state"), false);
+  assert.equal(client.fromCalls.includes("provider_refund_reconciliation_audit"), false);
 });
 
 test("preflight paginates projects and chunks board identifiers beyond the API row cap", async () => {
