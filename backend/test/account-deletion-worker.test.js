@@ -87,6 +87,12 @@ test("preflight inventories every exported user-owned section without loading ro
 test("preflight paginates projects and chunks board identifiers beyond the API row cap", async () => {
   const ranges = [];
   const client = {
+    async rpc(name) {
+      if (name === "get_account_deletion_retained_record_counts") {
+        return { data: { pinterest_oauth_connection_state: 0, provider_refund_reconciliation_audit: 0 }, error: null };
+      }
+      throw new Error("unexpected RPC: " + name);
+    },
     from(table) {
       const query = {
         filters: [],
@@ -136,6 +142,9 @@ test("worker claims and finalizes only through fenced RPCs", async () => {
   const client = {
     ...createReadClient(),
     async rpc(name, args) {
+      if (name === "get_account_deletion_retained_record_counts") {
+        return { data: { pinterest_oauth_connection_state: 0, provider_refund_reconciliation_audit: 0 }, error: null };
+      }
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
         return { data: [{ job_id: "job-1", user_id: USER_ID, step_key: "preflight", claim_token: "claim-1" }], error: null };
@@ -170,6 +179,9 @@ test("worker never marks preflight complete after losing the inventory claim", a
   const client = {
     ...createReadClient(),
     async rpc(name, args) {
+      if (name === "get_account_deletion_retained_record_counts") {
+        return { data: { pinterest_oauth_connection_state: 0, provider_refund_reconciliation_audit: 0 }, error: null };
+      }
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
         return { data: [{ job_id: "job-lost", user_id: USER_ID, step_key: "preflight", claim_token: "claim-lost" }], error: null };
@@ -190,6 +202,9 @@ test("worker persists only a successful bounded inventory before finalizing", as
   const client = {
     ...createReadClient(),
     async rpc(name, args) {
+      if (name === "get_account_deletion_retained_record_counts") {
+        return { data: { pinterest_oauth_connection_state: 0, provider_refund_reconciliation_audit: 0 }, error: null };
+      }
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
         return { data: [{ job_id: "job-inventory", user_id: USER_ID, step_key: "preflight", claim_token: "claim-inventory" }], error: null };
@@ -217,6 +232,9 @@ test("worker schedules retry when inventory is incomplete", async () => {
   const client = {
     ...createReadClient({ failTable: "credit_transactions" }),
     async rpc(name, args) {
+      if (name === "get_account_deletion_retained_record_counts") {
+        return { data: { pinterest_oauth_connection_state: 0, provider_refund_reconciliation_audit: 0 }, error: null };
+      }
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
         return { data: [{ job_id: "job-2", user_id: USER_ID, step_key: "preflight", claim_token: "claim-2" }], error: null };
@@ -244,6 +262,9 @@ test("worker retries and does not revoke credentials when Storage manifest persi
   const client = {
     ...createReadClient(),
     async rpc(name, args) {
+      if (name === "get_account_deletion_retained_record_counts") {
+        return { data: { pinterest_oauth_connection_state: 0, provider_refund_reconciliation_audit: 0 }, error: null };
+      }
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
         return { data: [{ job_id: "job-manifest-failed", user_id: USER_ID, step_key: "preflight", claim_token: "claim-manifest-failed" }], error: null };
@@ -269,6 +290,9 @@ test("worker executes the separately claimed content-erasure stage", async () =>
   const calls = [];
   const client = {
     async rpc(name, args) {
+      if (name === "get_account_deletion_retained_record_counts") {
+        return { data: { pinterest_oauth_connection_state: 0, provider_refund_reconciliation_audit: 0 }, error: null };
+      }
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
         return { data: [{
@@ -308,6 +332,9 @@ test("worker retries content erasure unless the RPC explicitly confirms retained
   const calls = [];
   const client = {
     async rpc(name, args) {
+      if (name === "get_account_deletion_retained_record_counts") {
+        return { data: { pinterest_oauth_connection_state: 0, provider_refund_reconciliation_audit: 0 }, error: null };
+      }
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
         return { data: [{
@@ -338,6 +365,9 @@ test("worker removes only manifested Storage objects and confirms lifecycle comp
   let listCalls = 0;
   const client = {
     async rpc(name, args) {
+      if (name === "get_account_deletion_retained_record_counts") {
+        return { data: { pinterest_oauth_connection_state: 0, provider_refund_reconciliation_audit: 0 }, error: null };
+      }
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
         return { data: [{
@@ -395,6 +425,9 @@ test("worker schedules a fast retry when more Storage manifest batches remain", 
   }));
   const client = {
     async rpc(name, args) {
+      if (name === "get_account_deletion_retained_record_counts") {
+        return { data: { pinterest_oauth_connection_state: 0, provider_refund_reconciliation_audit: 0 }, error: null };
+      }
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
         return { data: [{
@@ -437,6 +470,9 @@ test("worker refuses unsafe Storage manifest paths without deleting objects", as
   const removedObjects = [];
   const client = {
     async rpc(name, args) {
+      if (name === "get_account_deletion_retained_record_counts") {
+        return { data: { pinterest_oauth_connection_state: 0, provider_refund_reconciliation_audit: 0 }, error: null };
+      }
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
         return { data: [{
@@ -474,6 +510,9 @@ test("worker finalizes only through the fenced tombstone RPC", async () => {
   const calls = [];
   const client = {
     async rpc(name, args) {
+      if (name === "get_account_deletion_retained_record_counts") {
+        return { data: { pinterest_oauth_connection_state: 0, provider_refund_reconciliation_audit: 0 }, error: null };
+      }
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
         return { data: [{
