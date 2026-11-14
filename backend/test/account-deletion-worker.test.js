@@ -13,6 +13,20 @@ const USER_ID = "11111111-1111-4111-8111-111111111111";
 function createReadClient({ account = { id: USER_ID, account_status: "deletion_pending" }, failTable = null } = {}) {
   return {
     supabaseUrl: "https://project.supabase.co",
+    rpcCalls: [],
+    async rpc(name, args) {
+      this.rpcCalls.push({ name, args });
+      if (name === "get_account_deletion_retained_record_counts") {
+        return {
+          data: {
+            pinterest_oauth_connection_state: 0,
+            provider_refund_reconciliation_audit: 0,
+          },
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    },
     from(table) {
       const query = {
         filters: [],
@@ -50,13 +64,20 @@ test("preflight refuses an account that is not fenced for deletion", async () =>
 });
 
 test("preflight inventories every exported user-owned section without loading row contents", async () => {
-  const result = await inspectAccountForDeletion(createReadClient(), USER_ID);
+  const client = createReadClient();
+  const result = await inspectAccountForDeletion(client, USER_ID);
   assert.equal(result.ok, true);
   assert.equal(result.sectionsChecked, 22);
   assert.equal(Object.keys(result.counts).length, result.sectionsChecked);
   assert.equal(result.counts.projects, 1);
   assert.equal(result.counts.boards, 1);
   assert.equal(result.counts.pins, 0);
+  assert.equal(result.counts.pinterest_oauth_connection_state, 0);
+  assert.equal(result.counts.provider_refund_reconciliation_audit, 0);
+  assert.deepEqual(client.rpcCalls, [{
+    name: "get_account_deletion_retained_record_counts",
+    args: { p_user_id: USER_ID },
+  }]);
 });
 
 test("preflight paginates projects and chunks board identifiers beyond the API row cap", async () => {
