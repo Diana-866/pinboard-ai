@@ -534,3 +534,22 @@ test("worker finalizes only through the fenced tombstone RPC", async () => {
   assert.equal(calls.some((call) => call.name === "finish_account_deletion_job"), false);
 });
 
+test("preflight fails closed when retained-journal RPC counts are missing or unsafe", async () => {
+  const malformedResults = [
+    null,
+    {},
+    { pinterest_oauth_connection_state: 0 },
+    { pinterest_oauth_connection_state: "0", provider_refund_reconciliation_audit: 0 },
+    { pinterest_oauth_connection_state: -1, provider_refund_reconciliation_audit: 0 },
+    { pinterest_oauth_connection_state: 0, provider_refund_reconciliation_audit: Number.MAX_SAFE_INTEGER + 1 },
+  ];
+
+  for (const retainedCounts of malformedResults) {
+    const client = createReadClient();
+    client.rpc = async () => ({ data: retainedCounts, error: null });
+    await assert.rejects(
+      inspectAccountForDeletion(client, USER_ID),
+      (error) => error.code === "invalid_retained_inventory_count"
+    );
+  }
+});
