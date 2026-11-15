@@ -85,6 +85,15 @@ if (-not (Ensure-Dependencies -Directory $Backend -HasLockFile $true)) {
     if (-not (Invoke-Step -Name "Backend syntax check" -WorkingDirectory $Backend -Command "node" -Arguments @("--check", "index.js"))) {
         $Failed = $true
     }
+    if (-not (Invoke-Step -Name "Backend analyze.js syntax check" -WorkingDirectory $Backend -Command "node" -Arguments @("--check", "analyze.js"))) {
+        $Failed = $true
+    }
+    if (-not (Invoke-Step -Name "Backend boards.js syntax check" -WorkingDirectory $Backend -Command "node" -Arguments @("--check", "boards.js"))) {
+        $Failed = $true
+    }
+    if (-not (Invoke-Step -Name "Backend textOutputValidation.js syntax check" -WorkingDirectory $Backend -Command "node" -Arguments @("--check", "textOutputValidation.js"))) {
+        $Failed = $true
+    }
     if (-not (Invoke-Step -Name "Backend tests" -WorkingDirectory $Backend -Command "npm.cmd" -Arguments @("test"))) {
         $Failed = $true
     }
