@@ -23,10 +23,9 @@ permissions:
 
 jobs:
   frontend:
-    runs-on: [self-hosted, Windows, X64]
+    runs-on: ubuntu-latest
     defaults:
       run:
-        shell: cmd
         working-directory: frontend
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -39,10 +38,9 @@ jobs:
       - run: npm run build
 
   backend:
-    runs-on: [self-hosted, Windows, X64]
+    runs-on: ubuntu-latest
     defaults:
       run:
-        shell: cmd
         working-directory: backend
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
