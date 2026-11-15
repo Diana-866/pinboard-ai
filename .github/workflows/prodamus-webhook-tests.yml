@@ -15,10 +15,9 @@ permissions:
 
 jobs:
   backend-tests:
-    runs-on: [self-hosted, Windows, X64]
+    runs-on: ubuntu-latest
     defaults:
       run:
-        shell: cmd
         working-directory: backend
     timeout-minutes: 15
     steps:
