@@ -32,6 +32,7 @@ const supabase = require("./supabase");
 const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
 const { httpError } = require("./validate");
 const { getPinterestTokenExpiresAt } = require("./pinterestOAuth");
+const { isValidSchedulerSecret } = require("./schedulerAuth");
 const { buildScheduleWorkerFailureState, hasCompleteScheduleClaimIdentity, hasMatchingScheduleAttemptIdentity, isScheduleClaimUpdateConfirmed, resolvePublishedReservation, resolvePinScheduleSnapshot, normalizePinterestDestinationUrl, isPinterestPublishOutcomeUnknown, matchesConfirmedPublicationLedger, persistPublishFailureJournal, persistKnownRemotePublishOutcome, createScheduleClaimHeartbeat, isScheduleClaimLostError } = require("./pinterestSchedule");
 const {
   createBrowserBinding,
@@ -1181,13 +1182,10 @@ function registerRoutes(app, deps) {
 
   // Внутренний worker. Вызывается внешним cron только с отдельным секретом.
   app.post("/internal/pinterest/schedule/run", pinterestWorkerLimiter, async (req, res) => {
-    const expected = Buffer.from(String(process.env.PINPOSY_SCHEDULER_SECRET || ""));
-    const provided = Buffer.from(String(req.get("x-pinposy-scheduler-secret") || ""));
-    if (
-      expected.length < 32 ||
-      provided.length !== expected.length ||
-      !crypto.timingSafeEqual(expected, provided)
-    ) {
+    if (!isValidSchedulerSecret(
+      process.env.PINPOSY_SCHEDULER_SECRET,
+      req.get("x-pinposy-scheduler-secret")
+    )) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
