@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mergeRestoredReviewQueue } from './reviewQueueHydration';
+import { getReviewQueueRestoreView, mergeRestoredReviewQueue, requireReviewQueueRows } from './reviewQueueHydration';
 
 test('restores untouched server rows and preserves local edits made during hydration', () => {
   const rows = mergeRestoredReviewQueue(
@@ -31,4 +31,41 @@ test('does not duplicate rows when local and server versions share an ID', () =>
     new Set(['same']),
   );
   assert.deepEqual(rows, [{ id: 'same', title: 'local' }]);
+});
+
+
+test('shows loading rather than an empty queue while initial restore is pending', () => {
+  assert.equal(getReviewQueueRestoreView({ isLoading: true, hasError: false, hasCurrentPin: false }), 'loading');
+});
+
+test('shows a retryable error rather than an empty queue when restore fails', () => {
+  assert.equal(getReviewQueueRestoreView({ isLoading: false, hasError: true, hasCurrentPin: false }), 'error');
+});
+
+test('keeps an existing card visible during background refreshes and errors', () => {
+  assert.equal(getReviewQueueRestoreView({ isLoading: true, hasError: false, hasCurrentPin: true }), 'ready');
+  assert.equal(getReviewQueueRestoreView({ isLoading: false, hasError: true, hasCurrentPin: true }), 'ready');
+});
+
+test('shows completion only after a successful empty restore', () => {
+  assert.equal(getReviewQueueRestoreView({ isLoading: false, hasError: false, hasCurrentPin: false }), 'ready');
+});
+
+
+test('accepts a genuinely empty server queue', () => {
+  assert.deepEqual(requireReviewQueueRows([]), []);
+});
+
+test('rejects malformed server responses instead of treating them as an empty queue', () => {
+  assert.throws(() => requireReviewQueueRows({ items: [] }), /must be an array/);
+  assert.throws(() => requireReviewQueueRows(null), /must be an array/);
+  assert.throws(() => requireReviewQueueRows(undefined), /must be an array/);
+});
+
+test('rejects malformed rows inside an otherwise valid response array', () => {
+  assert.throws(() => requireReviewQueueRows([null]), /row at index 0 is malformed/);
+  assert.throws(() => requireReviewQueueRows([{}]), /row at index 0 is malformed/);
+  assert.throws(() => requireReviewQueueRows([{ id: '   ' }]), /row at index 0 is malformed/);
+  assert.throws(() => requireReviewQueueRows(['not-a-row']), /row at index 0 is malformed/);
+  assert.deepEqual(requireReviewQueueRows([{ id: 'pin-1' }]), [{ id: 'pin-1' }]);
 });

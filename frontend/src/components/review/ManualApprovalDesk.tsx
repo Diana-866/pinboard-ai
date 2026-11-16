@@ -25,6 +25,7 @@ import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { applyCurrentReviewEdits } from '../../utils/reviewApproval';
 import { createGenerationIdempotencyKey } from '../../utils/generationRetry';
+import { getReviewQueueRestoreView } from '../../utils/reviewQueueHydration';
 
 export interface PendingReviewPin {
   id: string;
@@ -50,6 +51,9 @@ export interface PendingReviewPin {
 export interface ManualApprovalDeskProps {
   boards: BoardItem[];
   pendingPins?: PendingReviewPin[];
+  queueLoading?: boolean;
+  queueLoadError?: boolean;
+  onRetryQueueLoad?: () => void;
   onUpdatePendingPins?: (updater: (prev: PendingReviewPin[]) => PendingReviewPin[]) => void | Promise<void>;
   onApprovePin: (pin: ScheduledPinItem) => void;
   onGoToCalendar?: () => void;
@@ -287,6 +291,9 @@ export const INITIAL_QUEUE_PINS: PendingReviewPin[] = [
 export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   boards,
   pendingPins,
+  queueLoading = false,
+  queueLoadError = false,
+  onRetryQueueLoad,
   onUpdatePendingPins,
   onApprovePin,
   onGoToCalendar,
@@ -589,16 +596,6 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     }
   };
 
-  const handleResetQueue = async () => {
-    try {
-      await updateQueue(() => []);
-      setApprovedCount(0);
-      setRejectedCount(0);
-    } catch (error) {
-      window.alert(error instanceof Error ? error.message : 'Не удалось очистить очередь. Попробуйте ещё раз.');
-    }
-  };
-
   // Touch / Mouse Drag Swiping
   const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -680,6 +677,39 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     }
   };
 
+  // Do not mistake an unfinished or failed server restore for an empty queue.
+  const queueRestoreView = getReviewQueueRestoreView({
+    isLoading: queueLoading,
+    hasError: queueLoadError,
+    hasCurrentPin: Boolean(currentPin),
+  });
+
+  if (queueRestoreView === 'loading') {
+    return (
+      <div className="custom-card p-8 md:p-12 text-center space-y-4 max-w-xl mx-auto my-8 border border-subtle" role="status" aria-live="polite">
+        <RefreshCw className="w-8 h-8 mx-auto text-accent animate-spin" />
+        <h2 className="text-xl font-bold text-primary-theme font-heading">{t.review.queueLoading}</h2>
+        <p className="text-sm text-secondary-theme">{t.review.queueLoadingDesc}</p>
+      </div>
+    );
+  }
+
+  if (queueRestoreView === 'error') {
+    return (
+      <div className="custom-card p-8 md:p-12 text-center space-y-4 max-w-xl mx-auto my-8 border border-subtle" role="alert" aria-live="assertive">
+        <AlertCircle className="w-8 h-8 mx-auto text-red-500" />
+        <h2 className="text-xl font-bold text-primary-theme font-heading">{t.review.queueLoadError}</h2>
+        <p className="text-sm text-secondary-theme">{t.review.queueLoadErrorDesc}</p>
+        {onRetryQueueLoad && (
+          <button type="button" onClick={onRetryQueueLoad} className="accent-btn px-6 py-2.5 text-sm cursor-pointer inline-flex items-center justify-center gap-2">
+            <RefreshCw className="w-4 h-4" />
+            {t.review.retryQueueLoad}
+          </button>
+        )}
+      </div>
+    );
+  }
+
   // Completed State Screen
   if (!currentPin) {
     return (
@@ -690,10 +720,12 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
         <div className="space-y-2">
           <h2 className="text-2xl font-bold text-primary-theme font-heading">
-            {t.review.allReviewed}
+            {approvedCount + rejectedCount > 0 ? t.review.allReviewed : t.review.emptyQueue}
           </h2>
           <p className="text-sm text-secondary-theme max-w-md mx-auto leading-relaxed">
-            {t.review.allReviewedDesc} {t.review.approvedCount}: <b>{approvedCount}</b>, {t.review.rejectedCount}: <b>{rejectedCount}</b>.
+            {approvedCount + rejectedCount > 0
+              ? <>{t.review.allReviewedDesc} {t.review.approvedCount}: <b>{approvedCount}</b>, {t.review.rejectedCount}: <b>{rejectedCount}</b>.</>
+              : t.review.emptyQueueDesc}
           </p>
         </div>
 
@@ -717,14 +749,6 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
             </button>
           )}
 
-          <button
-            onClick={handleResetQueue}
-            className="px-4 py-2.5 text-xs text-secondary-theme hover:text-primary-theme hover:bg-subtle rounded-xl border border-subtle cursor-pointer transition-colors flex items-center justify-center gap-1.5"
-            title="Восстановить исходные 15 пинов для повторной проверки"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Сбросить очередь (15 пинов)</span>
-          </button>
         </div>
       </div>
     );
@@ -758,7 +782,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
             </span>
           </div>
           <p className="text-xs text-muted-theme mt-1">
-            Очередь для Botanica Nordic (@botanica_nordic): подтвердите сгенерированные AI пины или отклоните неподходящие.
+            {t.review.subtitle}
           </p>
         </div>
 
