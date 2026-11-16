@@ -455,3 +455,14 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
       Select-Object ProcessId, ParentProcessId, Name, ExecutablePath
   ```
   Это read-only запрос метаданных процесса. Не выводить полную командную строку и не менять существующий data directory.
+
+
+- 2026-11-16 — пользователь выполнил read-only запрос `Get-CimInstance Win32_Process -Filter "ProcessId=5632" | Select-Object ProcessId, ParentProcessId, Name, ExecutablePath`. Результат: PID `5632`, ParentProcessId `4336`, Name `postgres.exe`; поле `ExecutablePath` пустое (не возвращено WMI для этого процесса). В совокупности с предыдущими результатами: Windows service `postgresql-x64-18` работает от `NT AUTHORITY\\NetworkService`, его ImagePath запускает `X:\\Program Files\\PostgreSQL\\18\\bin\\pg_ctl.exe` с data directory `X:\\Program Files\\PostgreSQL\\18\\data`; TCP listener 5432 принадлежит PID 5632, процесс называется `postgres.exe`. Это достаточно сильно связывает listener с локальным PostgreSQL service, но ExecutablePath для PID напрямую не подтверждён. Не установлены пароль/права роли `Alekc`, и не требуется их сбрасывать для тестового replay. Принято безопасное направление: вместо вмешательства в существующий кластер (его роли, пароли, pg_hba.conf, данные) подготовить отдельный временный PostgreSQL cluster в новом каталоге, на отдельном loopback-only порту; использовать его только для миграционного replay, затем штатно остановить и удалить только созданный временный cluster. Перед подготовкой проверить наличие штатных бинарников PostgreSQL 18 `initdb.exe` и `pg_ctl.exe` и доступность каталога/диска. Конкретные команды и параметры изоляции будут выданы после проверки версий; нельзя выполнять initdb в существующем каталоге `X:\\Program Files\\PostgreSQL\\18\\data`. Атрибуция: диагностическую команду выполнил пользователь; анализ и запись решения выполнил assistant. Никакие файлы приложения, SQL, роли, пароли, настройки существующего PostgreSQL, существующие базы и production не менялись; migration replay не запускался.
+- **Следующий шаг:** проверить версии инструментов без запуска сервера и без изменения данных:
+  ```powershell
+  & 'X:\\Program Files\\PostgreSQL\\18\\bin\\initdb.exe' --version
+  & 'X:\\Program Files\\PostgreSQL\\18\\bin\\pg_ctl.exe' --version
+  Test-Path 'X:\\Program Files\\PostgreSQL\\18\\bin\\postgres.exe'
+  Get-PSDrive X | Select-Object Name, Free, Used
+  ```
+  Затем подготовить отдельный disposable cluster в отдельном каталоге и на отдельном порту, с прослушиванием только `127.0.0.1`, не используя существующую службу и data directory.
