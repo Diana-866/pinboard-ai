@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Pencil } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
-import { BoardItem } from '../../data/mockData';
+import type { BoardItem } from '../../data/mockData';
 
 interface BoardsManagerProps {
   boards: BoardItem[];
