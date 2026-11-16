@@ -496,6 +496,7 @@ export const zh: TranslationSchema = {
     deleteAccountDone: "已收到您的删除申请，账户访问已停用。您的数据尚未删除。",
     requestFailed: "无法完成请求，请重试。",
     emailVerifyTitle: '请验证您的电子邮箱',
+    emailVerifySentTo: '— 账户邮箱：{email}',
     emailVerifyResent: '验证邮件已重新发送。请检查收件箱和垃圾邮件文件夹。',
     emailVerifyResend: '重新发送邮件',
     emailVerifySending: '正在发送…',
