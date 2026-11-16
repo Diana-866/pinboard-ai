@@ -47,6 +47,7 @@ const MODEL_PRICES = {
 const MARKUP = 1.5;
 const ASPECT_RATIOS = ["2:3", "9:16", "4:5", "3:4", "1:1"];
 
+const { fetchAllPages } = require("./fetchAllPages");
 const { assertJwtSecret } = require("./startupConfig");
 // Authentication cannot work without a strong signing key. Fail startup rather
 // than reporting a healthy API that cannot issue or verify user sessions.
@@ -642,11 +643,13 @@ app.post("/projects", requireAuth, async (req, res) => {
 
 app.get("/projects", requireAuth, async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const data = await fetchAllPages((from, to) => supabase
       .from("projects")
       .select("*")
-      .eq("user_id", req.userId);
-    if (error) throw error;
+      .eq("user_id", req.userId)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to));
     res.json(sortProjectsForProvisioning(data).map(serializeProjectForClient));
   } catch (e) {
     handleError(res, e);
@@ -797,16 +800,17 @@ app.get("/projects/:id/boards", requireAuth, async (req, res) => {
       .single();
     if (fetchError || !project) throw httpError(404, "Проект не найден");
 
-    const { data, error } = await supabase
+    const data = await fetchAllPages((from, to) => supabase
       .from("boards")
       .select("*")
       .eq("project_id", req.params.id)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to));
 
-    if (error) throw error;
     // Keep legacy board-list responses aligned with the newer /boards API:
     // internal create-request fingerprints/keys are never part of the client contract.
-    res.json((data || []).map(serializeBoardForClient));
+    res.json(data.map(serializeBoardForClient));
   } catch (e) {
     handleError(res, e);
   }
@@ -1467,27 +1471,36 @@ app.patch("/boards/:id", requireAuth, async (req, res) => {
 
 app.get("/boards", requireAuth, async (req, res) => {
   try {
-    const { data: projects, error: projectsError } = await supabase
+    const projects = await fetchAllPages((from, to) => supabase
       .from("projects")
       .select("id")
-      .eq("user_id", req.userId);
-
-    if (projectsError) throw projectsError;
-
-    const projectIds = (projects || []).map((p) => p.id);
+      .eq("user_id", req.userId)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to));
+    const projectIds = projects.map((p) => p.id);
     if (projectIds.length === 0) return res.json([]);
 
-    const { data, error } = await supabase
-      .from("boards")
-      .select("*, projects(niche, website_url)")
-      .in("project_id", projectIds)
-      .order("created_at", { ascending: false });
+    // Keep the PostgREST IN clause and response size bounded while fetching
+    // every board, rather than silently truncating at the server row cap.
+    const boards = [];
+    for (let offset = 0; offset < projectIds.length; offset += 100) {
+      const projectIdBatch = projectIds.slice(offset, offset + 100);
+      const batch = await fetchAllPages((from, to) => supabase
+        .from("boards")
+        .select("*, projects(niche, website_url)")
+        .in("project_id", projectIdBatch)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to), { maxRows: Math.max(1, 10000 - boards.length) });
+      boards.push(...batch);
+      if (boards.length >= 10000 && offset + 100 < projectIds.length) {
+        throw httpError(413, "Слишком много досок для одного списка. Уменьшите объём данных.");
+      }
+    }
 
-    if (error) throw error;
-
-    // Fetch exact counts without downloading pin rows or relying on Supabase's
-    // default row cap. Keep the small per-board count requests bounded.
-    const boards = data || [];
+    // Fetch exact counts without downloading pin rows. Concurrent requests
+    // are bounded to small batches to avoid overloading PostgREST.
     const pinCounts = new Map();
     for (let offset = 0; offset < boards.length; offset += 5) {
       const batch = boards.slice(offset, offset + 5);
