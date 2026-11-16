@@ -73,3 +73,19 @@
 ## Next
 
 Continue the full `backend/index.js` route-by-route review and reconcile the remaining route groups with handlers, tests and SQL. The route inventory is complete, but this audit package does not claim that every handler in the 3,096-line entrypoint has been read line by line. Keep the full backend audit open; do not mark runtime tests as passed.
+
+
+## Follow-up after the baseline review — atomic pin status/publication fencing
+
+A separate race was found while reviewing the pin status transition: the HTTP handler's publication-history preflight and the subsequent `pins.status` UPDATE were separate requests. A schedule insertion or provider publication reservation could win between them.
+
+The race was closed in `main`:
+- `db/migrations/148_atomic_pin_publication_status_fencing.sql` adds a BEFORE UPDATE trigger that blocks rejection when a pin has active/uncertain schedules, any publication attempt, or a publication ledger row.
+- The migration adds a BEFORE INSERT trigger for `pin_schedules` that locks the owning pin and requires the same owner plus `status='approved'`.
+- `begin_pinterest_publish_v2` now locks in account → pin order and only creates a provider attempt while the pin remains approved.
+- `begin_scheduled_pinterest_publish` now uses account → pin → schedule order, matching the schedule-insert/status lock order and avoiding a pin/schedule lock inversion.
+- `backend/pinterest.js` maps the database `pin_not_approved` result to HTTP 409.
+- Added `backend/test/pin-status-publication-fencing.test.js` and `backend/test/pin-status-publication-fencing.integration.sql`; the SQL test covers rejection with active schedule/history, schedule creation after rejection, provider reservation after rejection, and rejection after a publication attempt is reserved.
+- `.github/workflows/atomic-payment-integration.yml` now applies migrations 146–148 in sequence and runs both new tests.
+
+**Verification:** GitHub Actions runs `43896658532` (atomic integration) and `43896658463` (persisted boards) failed before any job step was created; rerun of the previous run also failed/queued without steps. No Node/PostgreSQL test result exists yet. Vercel status on HEAD `44b8f4f1` is `build-rate-limit`. The migration has not been applied to PIN_TRIAL or production.
