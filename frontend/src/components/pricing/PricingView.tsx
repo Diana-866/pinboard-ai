@@ -188,20 +188,8 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
     return () => { active = false; };
   }, [user?.id, user?.credits_balance, purchasesReloadToken, language]);
 
-  // Prodamus redirects back before its webhook is guaranteed to finish. While a
-  // purchase is pending, briefly refresh its status so the balance/history
-  // updates without requiring the user to reload the page.
-  const hasPendingPurchases = purchases.some((purchase) => purchase.status === 'pending');
-  useEffect(() => {
-    if (!user?.id || !hasPendingPurchases) return;
-    let attempts = 0;
-    const timer = window.setInterval(() => {
-      attempts += 1;
-      setPurchasesReloadToken((value) => value + 1);
-      if (attempts >= 6) window.clearInterval(timer);
-    }, 10_000);
-    return () => window.clearInterval(timer);
-  }, [user?.id, hasPendingPurchases]);
+  // Pending subscription and credit payments are refreshed together by the
+  // unified polling effect below, avoiding a second overlapping timer.
 
   useEffect(() => {
     if (!user?.id) {
