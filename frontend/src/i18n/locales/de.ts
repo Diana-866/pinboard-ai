@@ -685,7 +685,7 @@ export const de: TranslationSchema = {
     floatingButton: 'Pinterest KI-Stratege',
     title: 'PinPosy KI-Stratege',
     subtitle: 'Antwortet aus deinen Kontodaten',
-    statusBadge: 'Online',
+    statusBadge: "Demo-Modus",
     disclaimerPeak: 'Dieser Assistent zeigt, wo welche Funktion liegt, und nennt deine aktuellen Kontozahlen. Pinterest-Statistiken kann er nicht sehen — Apps erhalten diesen Zugriff noch nicht.',
     welcomeMessage: 'Hallo! Ich zeige dir, was gerade in deinem Konto steckt, und wo die passende Funktion liegt. Frag einfach in eigenen Worten.',
     quickQuestion1: 'Wo finde ich die Pin-Statistiken?',
