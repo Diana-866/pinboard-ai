@@ -74,6 +74,8 @@
 
 - **Последняя проверка после FE-23 (2026-11-16, main HEAD `9f411b51c451043ad76748db9ee3ba6736c83fb3`):** run `43936215441` (Persisted boards integration checks) jobs `133541370353` (frontend) и `133541370620` (backend), а также run `43936215453` (Atomic payment fulfillment integration) job `133541370957` (postgres-atomicity) завершились `failure` до runner; все три имеют `runner_id: 0`, `steps: []`. Ни тесты, ни typecheck, ни build, ни SQL replay не запускались. Vercel status текущего HEAD — `failure`, `Deployment rate limited — retry in 24 hours`, target `build-rate-limit`; это platform quota, не source build failure. UA-002 остаётся открытым до проверки владельцем GitHub billing/Actions permissions и Vercel quota.
 
+- **Повторная проверка после FE-23 locale contract updates (2026-11-16, code HEAD `9f411b51c451043ad76748db9ee3ba6736c83fb3`):** runs `43936194510` (frontend `133541299073`, backend `133541299919`), `43936194498` (postgres-atomicity `133541298707`), `43936203945` (backend `133541330744`, frontend `133541331112`), `43936204010` (postgres-atomicity `133541330743`), `43936215441` (frontend `133541370353`, backend `133541370620`) and `43936215453` (postgres-atomicity `133541370957`) all completed `failure` in 1–2 seconds with `runner_id: 0`, empty runner name and zero steps. No test/typecheck/build/SQL command started. Vercel status for `9f411b51c451043ad76748db9ee3ba6736c83fb3` is `failure`, target `build-rate-limit`; no build success or deployment confirmed. Проверка через GitHub API; owner billing/Actions settings remain outstanding. UA-002 remains open.
+
 ## UA-003 — подтвердить production account-deletion worker и точность privacy disclosures
 
 - **Статус:** [ ] Ожидает проверки владельцем production-инфраструктуры.
