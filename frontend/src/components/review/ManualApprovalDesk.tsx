@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
-import { apiRequest } from '../../lib/api';
+import { apiRequest, apiUpload } from '../../lib/api';
 import { applyCurrentReviewEdits } from '../../utils/reviewApproval';
 import { createGenerationIdempotencyKey } from '../../utils/generationRetry';
 
@@ -851,16 +851,10 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                     }
                     const fd = new FormData();
                     fd.append('image', file);
-                    const API = (import.meta as any).env?.VITE_API_URL || 'https://pinboard-ai-backend.onrender.com';
-                    const response = await fetch(API + '/pins/' + encodeURIComponent(currentPin.pinId) + '/image', {
-                      method: 'POST',
-                      headers: { Authorization: 'Bearer ' + localStorage.getItem('token') },
-                      body: fd,
-                    });
-                    if (!response.ok) {
-                      throw new Error('Не удалось сохранить изображение на сервере. Попробуйте ещё раз.');
-                    }
-                    const savedPin = await response.json();
+                    const savedPin = await apiUpload(
+                      `/pins/${encodeURIComponent(currentPin.pinId)}/image`,
+                      fd,
+                    );
                     if (typeof savedPin.image_url !== 'string' || !savedPin.image_url) {
                       throw new Error('Сервер не вернул постоянную ссылку на изображение.');
                     }

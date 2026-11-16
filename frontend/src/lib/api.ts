@@ -57,3 +57,43 @@ export async function apiRequest(path: string, options: RequestInit = {}) {
 
   return data;
 }
+
+
+/**
+ * Upload multipart form data without setting Content-Type manually: the browser
+ * must add the boundary. Keep auth/error handling consistent with apiRequest.
+ */
+export async function apiUpload(path: string, body: FormData) {
+  const token = readAuthToken();
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body,
+    });
+  } catch {
+    throw new ApiError("Сервер не отвечает. Возможно, он просыпается после простоя — подождите минуту и попробуйте снова.", 0);
+  }
+
+  let data: any = null;
+  try {
+    data = await res.json();
+  } catch {
+    if (!res.ok) throw new ApiError("Сервер вернул некорректный ответ. Попробуйте позже.", res.status);
+  }
+
+  if (!res.ok) {
+    // Match apiRequest: invalid credentials on login/register are form errors,
+    // not expired sessions, and must not clear the token or force navigation.
+    const isAuthAttempt = path === "/login" || path === "/register";
+    if (res.status === 401 && !isAuthAttempt && typeof window !== "undefined") {
+      clearAuthToken();
+      if (!window.location.pathname.startsWith("/login")) {
+        window.location.href = "/login";
+      }
+    }
+    throw new ApiError(data?.error || "Не удалось загрузить файл. Попробуйте ещё раз.", res.status, data);
+  }
+  return data;
+}
