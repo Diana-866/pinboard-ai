@@ -105,3 +105,12 @@ All `/admin/*` handlers in this entrypoint use `requireAuth` and `requireAdmin`;
 - The atomic integration workflow applies the migration tail 146, 147, 148 and invokes the pin-publication status regression tests plus the account-deletion publication-fence SQL contract.
 - GitHub Actions still failed before job steps; no test execution result is available. Vercel build-rate-limit remains an external deployment blocker.
 - Next: finish line-by-line review of the remaining `index.js` handlers and all remaining backend modules; resolve AI spend policy, generated-board idempotency and pagination before broad public acquisition. Then audit frontend and execute tests on a working runner.
+
+
+## Follow-up hardening after the route-map baseline
+
+- `backend/tariffSelfSelect.js` now fails closed: tariff self-selection is enabled only when `NODE_ENV` is explicitly `development` or `test` and `ALLOW_TARIFF_SELF_SELECT=1`. An unset/unknown/staging `NODE_ENV` can no longer accidentally enable paid-plan self-selection. Regression test: `backend/test/tariff-self-select.test.js`.
+- Admin mailbox inputs are now bounded and validated in `backend/mailInputValidation.js`: inbox page size 1–100, numeric IMAP UID only, support recipient email validation, subject <=200 characters without CR/LF, body <=20,000 characters. `mail.js` uses the validated values; `index.js` no longer coerces arbitrary JSON objects into strings before service validation. Regression test: `backend/test/mail-input-validation.test.js`.
+- These tests are included in `.github/workflows/atomic-payment-integration.yml`.
+
+**CI evidence after the follow-up:** runs `43897777843` (postgres-atomicity) and `43897777966` (backend/frontend) all failed with `steps: null`; no runner steps were created and no tests ran. This is not a test assertion failure. No production environment or mail credentials were read or changed.
