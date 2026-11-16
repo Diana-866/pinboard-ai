@@ -334,6 +334,19 @@ async function createPaymentLink({
     throw httpError(502, "Платёжный сервис не отвечает — попробуйте позже");
   }
 
+  // Axios is configured to resolve every HTTP status so we can control the
+  // provider error mapping. Never accept a checkout URL from a non-2xx response:
+  // an upstream error page/body is not proof that an order was created.
+  if (!res || !Number.isInteger(res.status) || res.status < 200 || res.status >= 300) {
+    logError("prodamus.event_003");
+    const error = httpError(502, "Prodamus не подтвердил создание счёта — попробуйте позже");
+    // A provider 4xx response is an explicit rejection. A 5xx/redirect or a
+    // missing/invalid status can still hide a committed invoice, so retain the
+    // conservative unknown-outcome fence for those cases.
+    error.providerRejected = Number.isInteger(res && res.status) && res.status >= 400 && res.status < 500;
+    throw error;
+  }
+
   const data = res.data && typeof res.data === "object" ? res.data : null;
   const url =
     (data && (data.link || data.url || (data.data && (data.data.link || data.data.url)))) ||
