@@ -234,6 +234,8 @@ export interface TranslationSchema {
     brandingText: string;
     templateStyle: string;
     exportImageBtn: string;
+    exportFailed: string;
+    copyFailed: string;
     pushToCalendarBtn: string;
     savedToCalendar: string;
     batchGeneratedNotice: string;
