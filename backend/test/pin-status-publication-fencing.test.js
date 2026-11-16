@@ -34,6 +34,11 @@ test("manual and scheduled publication reserve account then approved pin before 
   assert.ok(scheduled.indexOf("for update of p") < scheduled.indexOf("public\.pin_schedules"));
 });
 
+test("scheduled publication keeps the account-deletion fence from migration 128", () => {
+  const scheduled = migration.slice(migration.indexOf("create or replace function public.begin_scheduled_pinterest_publish"));
+  assert.match(scheduled, /from public\.users u[\s\S]*?u\.account_status <> 'active'[\s\S]*?scheduled publication is blocked/);
+});
+
 test("publication handler maps a database pin-status fence to HTTP 409", () => {
   assert.match(pinterest, /reservationStatus === "pin_not_approved"[\s\S]*?httpError\(409/);
 });
