@@ -39,10 +39,10 @@ The canonical baseline explicitly says those TEXT IDs and numeric amounts are re
 - Static migration-script regression test is added.
 - `bash -n scripts/verify.sh`: PASS.
 - `node --test backend/test/verify-script-migration-chain.test.js`: 4/4 PASS on a scratch copy.
-- Full PostgreSQL replay was NOT run because `psql` is unavailable in this environment.
-- GitHub Actions continues to fail before job steps (`steps: null`); no CI PostgreSQL migration test ran.
+- A clean disposable PostgreSQL 18.6 replay was run successfully on 2026-11-16: Supabase test stubs, canonical baseline `001_baseline.sql`, and all active migrations `010–148` applied in order; verify script reported PASS and successfully dropped its disposable database. This validates fresh-install migration replay, not SQL integration behavior.
+- GitHub Actions previously failed before job steps (`runner_id=0`, empty `steps`); no claim is made that CI itself passed. Local disposable replay provides the independent migration-chain runtime result.
 - No production/PIN_TRIAL DB, secrets or external services were accessed or modified.
 
 ## Next required verification
 
-Run a clean disposable PostgreSQL replay from baseline through 148, then run all SQL integration tests. Before any future change to archived 009, export and review the exact preflight candidate rows and confirm a restorable backup. Never run 009 as part of normal setup.
+Run all SQL integration tests in a separate disposable database using the exact fixture and ordered migration/test sequence from `.github/workflows/atomic-payment-integration.yml`. The canonical fresh-install replay is independently confirmed. Before any future change to archived 009, export and review the exact preflight candidate rows and confirm a restorable backup. Never run 009 as part of normal setup.
