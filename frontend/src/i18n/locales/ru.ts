@@ -97,6 +97,9 @@ export const ru: TranslationSchema = {
     useNameInitial: "2. Поставить стильную букву (инициал):",
     useInitialAvatar: "Использовать букву имени («{letter}»)",
     choosePresetAvatar: "3. Или выбрать готовую аватарку:",
+    avatarUploadInvalidType: "Выберите изображение PNG, JPEG, WebP или GIF.",
+    avatarUploadTooLarge: "Размер изображения не должен превышать 1 МБ.",
+    avatarUploadFailed: "Не удалось сохранить аватар в этом браузере. Освободите место в хранилище и попробуйте снова."
   },
 
   dashboard: {
