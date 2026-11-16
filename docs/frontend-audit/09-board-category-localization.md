@@ -190,3 +190,20 @@ The login password visibility toggle was removed from the tab order with `tabInd
 Commits: accessibility control `dedd6a5e3b89aedca279d025a5a918627434212a`; schema `a8ef1bd12f51e4144b1fcd63e45183b3682190da`; EN `1cbc44b75a659b98ab046ca1020187977dbc8edb`; RU `876d4cecb5c227eec5d44b69f7421123a8e23e0e`; ES `1e03027c70d897b8bc7f7c48373cfe89e95e5f0e`; PT `0dd4a0e2e75a998831344837a50d5a369599fc68`; DE `3c90a14873916cb562270d751039f883cb04922e`; FR `a8772ae0ff0f78156119c56fda525d302c820324`; ZH `3fd399924cacba5523fc2beb032bf60c05db79f7`; Login typed-label correction `d30768512b154a002b35d179734faded81c6b62f`.
 
 All eight changed files were re-fetched from `main`; four targeted assertions passed for schema, all locales, typed label usage, keyboard reachability and pressed/controls semantics. No typecheck or keyboard/screen-reader runtime test was run. Package 09 remains open.
+
+
+## Additional authentication form accessibility corrections
+
+### FE-17 — password visibility controls were removed from keyboard navigation
+
+The Login and Register password visibility buttons had `tabIndex={-1}`, preventing keyboard-only users from reaching them. Both controls are now in the normal tab order and expose a localized accessible name, `aria-controls="password"`, and `aria-pressed`. Added `frontend/src/utils/authPasswordToggleAccessibility.test.ts`; its assertion accepts the shared or page-level localized show/hide copy used by the respective pages.
+
+Commits: Login `dedd6a5e3b89aedca279d025a5a918627434212a` (subsequent localization refactor on main retains the accessibility attributes); Register `a5e457083cbd47b2d89dc2eaefb7be746641efd3`; test `f81ba4f165c74db1e4a2b792783234b53e6f340f`; selector correction `133e67741c92000364ddde6ba83f24e319e47b71`; shared-copy assertion update `0c542bbd53c319738b67ede5b6b1d742340f20d7`.
+
+### FE-18 — registration password mismatch was not programmatically associated with its field
+
+When the confirmation password differed from the original, the page displayed a visual message but did not expose invalid state or associate the message with the input. The confirmation input now sets conditional `aria-invalid` and `aria-describedby`; the localized mismatch message has a stable ID and `role="alert"`. Added `frontend/src/utils/registrationPasswordValidationAccessibility.test.ts`.
+
+Commits: Register `8a17b7b7a21d2ce2d2829da469d6d0cfeadefb2a`; regression test `16efca6a07295f70d82e506ade18041433b0afdd`.
+
+**Readback:** both current page files, both regression tests and `frontend/package.json` were fetched again from `main`. Seven targeted static assertions passed, covering keyboard reachability, accessible name/state/control association, invalid-state/description semantics, alert announcement, localized message and inclusion in the existing test glob. Neither regression test was executed. No typecheck, full frontend suite, browser keyboard or screen-reader run was performed. These are source-level corrections only; package 09 and release readiness remain open.
