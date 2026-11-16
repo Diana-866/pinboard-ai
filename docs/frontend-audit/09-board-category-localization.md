@@ -297,3 +297,20 @@ Commits: generator type keys ba1461d43c6bccbab389e671cd8b2a23addf9e4b; PinGenera
 Readback: PinGenerator, TranslationSchema, reviewQueueCopy.test.ts and all seven locale files were fetched from main. Fourteen targeted static assertions passed: all 15 generator fields exist in the schema and each locale; all 12 action bindings exist in PinGenerator; no Russian scheduling/validation fallback literals remain; the locale test checks all keys and the {time} placeholder. Test source was inspected but not executed; no TypeScript check, full test suite, build, browser or screen-reader run was performed.
 
 **Correction to earlier open notes:** the active ManualApprovalDesk is now fully localized across seven locales (FE-19/FE-23), and PinGenerator's saved-pin, recovery, validation, scheduling and review action copy is now localized (FE-22/FE-24). These two cross-locale subitems are resolved at source level. Package 09 remains open for broader remaining user-facing flow and accessibility review; no runtime gate is implied.
+
+## FE-25 — plan-locked section overlay was Russian-only
+
+The active LockedSection wrapper is rendered around the authenticated app's main content. Its lock title, explanation and pricing CTA were hard-coded in Russian, so users in EN/ES/PT/DE/FR/ZH received Russian copy despite the app's seven supported locales. The overlay also lacked a programmatically labelled region/live announcement.
+
+**Fix on main:**
+- Added a typed lockedSection translation group with title, description and viewPlans.
+- Added complete copy in EN/RU/ES/PT/DE/FR/ZH. The explanation distinguishes plan-gated areas from Analytics, which remains available under the current plan.
+- Replaced the three Russian literals in LockedSection.tsx with the typed dictionary.
+- Added a labelled section with aria-labelledby and aria-live=polite; retained the native pricing button and existing navigation callback.
+- Added frontend/src/utils/lockedSectionLocalization.test.ts to enforce the schema contract, non-empty values in all seven locales, typed component bindings and accessible region semantics.
+
+**Commits:** schema 87fb24e55e062b693fcc4927ec5154a4d398f7fa; locale commits EN e9e991d0ee5ced93349e66d25281b1efea797fd8, RU 23d3927c250db981be470cffcb7806574272f58d, ES 1e2d8ce20b233bc1453be4ef8ccc26328c1d1c4a, PT 0ebae927e22fa7da3ed090cb8fdb68b6261ce8e6, DE b47fd8cb2b81a6b25445448312b4340eebaa688c, FR 1076123542a096fb3ad1d108515a28c989309ecf, ZH b0e503087c98acd00ae7518a6db23770a16b6545; component a65a7f459f692f1c8ae239588fdebad2b60a9293; regression test cebbe9ca537dd51349876f4e757db1f0efbc12fe.
+
+**Readback / checks:** all ten changed source/test files were fetched again from current main. Twelve targeted source assertions passed: typed schema, three component bindings, labelled live region, absence of former Russian UI strings, all three non-empty translation values in each of seven locales, and regression-test coverage. The regression test source was inspected but NOT executed. Latest Actions runs for the test commit, 43940229730 (postgres-atomicity job 133555483026) and 43940229160 (backend 133555481123, frontend 133555481704), failed before runner allocation: all jobs report runner_id=0, empty runner name and zero steps. No frontend test, typecheck, build, SQL replay or backend test started. No browser, keyboard-only or screen-reader run was performed.
+
+This closes only the source-level localization/accessibility issue in the plan-locked overlay. Package 09 remains open for the remaining active screens and full frontend/runtime checks. No backend, database, production data, payment, Pinterest account or deployment setting changed.
