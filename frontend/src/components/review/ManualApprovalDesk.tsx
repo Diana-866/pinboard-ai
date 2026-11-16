@@ -293,7 +293,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       return;
     }
     if (!selectedPinterestAccountId || !selectedPinterestBoardId) {
-      window.alert('Сначала подключите Pinterest и выберите настоящую доску Pinterest для публикации.');
+      window.alert(t.review.connectPinterestFirst);
       return;
     }
 
