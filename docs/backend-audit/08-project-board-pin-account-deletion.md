@@ -84,6 +84,7 @@ The race was closed in `main`:
 - The migration adds a BEFORE INSERT trigger for `pin_schedules` that locks the owning pin and requires the same owner plus `status='approved'`.
 - `begin_pinterest_publish_v2` now locks in account → pin order and only creates a provider attempt while the pin remains approved.
 - `begin_scheduled_pinterest_publish` now uses account → pin → schedule order, matching the schedule-insert/status lock order and avoiding a pin/schedule lock inversion.
+- During review, the replacement initially omitted the existing `users.account_status <> 'active'` guard from migration 128. Restored it in migration 148 and added a static regression assertion; the existing account-deletion publication-fence SQL integration test is now documented to run after the full chain through 148.
 - `backend/pinterest.js` maps the database `pin_not_approved` result to HTTP 409.
 - Added `backend/test/pin-status-publication-fencing.test.js` and `backend/test/pin-status-publication-fencing.integration.sql`; the SQL test covers rejection with active schedule/history, schedule creation after rejection, provider reservation after rejection, and rejection after a publication attempt is reserved.
 - `.github/workflows/atomic-payment-integration.yml` now applies migrations 146–148 in sequence and runs both new tests.
