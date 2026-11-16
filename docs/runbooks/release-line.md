@@ -1,49 +1,34 @@
 # Какая ветка — рабочая (release line)
 
-Состояние на 2026-11-11.
+**Актуальность:** 2026-11-16. Этот документ заменяет устаревшее описание от 2026-11-11.
 
-## Коротко
+## Текущая release line
 
-Деплоить нужно из **`feat/persisted-boards-api`**. В `main` лежит устаревший
-снимок, из которого продукт не собирается и не запускается.
+Рабочая ветка проекта — **main**. На момент сверки HEAD:
+e667feb0e97aad72f7af25911ae2e99d02956dc4.
 
-| Ветка | Вершина | Что внутри |
+| Ветка / объект | Состояние при сверке | Решение |
 |---|---|---|
-| `feat/persisted-boards-api` | `b2f695a9` и новее | актуальный продукт: воркер публикаций, планировщик, 126 миграций, 878 файлов, ~500 тестов бэкенда |
-| `main` | `1ce173c9` | снимок «шаг 01»: hardening базы (`001_base_schema.sql`, `009_hardening.sql`) и HANDOFF, без остального продукта |
+| main | актуальная release line; содержит backend/frontend, миграции 001 + 010–148 и текущие проверки | продолжать разработку здесь |
+| feat/persisted-boards-api | вершина b2f695a9bc1b74330864b04a88ea05b3aec6b541, старый снимок feature work | не использовать как deployment/release source |
+| PR #90 | Draft/open: Windows self-hosted verification workflow; нет подтверждения доступного matching runner | не merge до отдельной проверки и review |
 
-Ветки разошлись на 3694 коммита от общего предка `85ea1058`.
+**Не выполняй** команды из старой версии этого документа: git reset --hard feat/persisted-boards-api, git push --force-with-lease origin main или любой другой history rewrite. Они могут отбросить текущий продукт и накопленные изменения.
 
-## Почему нельзя просто смержить
+## Что проверено
 
-`main` содержит два файла миграций, которых нет в рабочей ветке
-(`001_base_schema.sql`, `009_hardening.sql`), а рабочая ветка содержит 126 своих
-миграций с другой нумерацией и другим baseline. Прямой merge даст гибридную
-схему: часть таблиц из одного baseline, часть из другого. Это ломает разворот
-базы с нуля — а именно он сейчас проверяется в `scripts/verify.sh --migrations`.
+- На main находится канонический migration baseline 001_baseline.sql и непрерывная активная последовательность 010–148 (139 файлов); migration 009 архивирована.
+- scripts/verify.sh и scripts/verify.ps1 проверяют migration chain на disposable DB. Отдельный scripts/verify-integration.ps1 выполняет upgrade fixture и 46 SQL integration tests на выделенной локальной PostgreSQL.
+- Последние GitHub Actions runs, доступные на момент сверки, завершались до первого шага: job без назначенного runner (runner_id=0, steps=[]). Это не PASS и не доказательство дефекта приложения.
+- Vercel status на HEAD e667feb сообщал Deployment rate limited — retry in 24 hours; deployment/build не подтверждён.
+- PR #90 остаётся draft/open; сам по себе он не является выполненной проверкой.
 
-## Рекомендуемый порядок
+## Release gates (не обходить)
 
-1. Убедиться, что рабочая ветка зелёная: `./scripts/verify.sh --migrations`
-   (бэкенд-тесты, фронтенд, разворот всех миграций на чистой базе).
-2. Перевести `main` на рабочую ветку **без сохранения старых файлов**:
-   ```bash
-   # быстрый и предсказуемый вариант: main указывает на ту же вершину
-   git checkout main
-   git reset --hard feat/persisted-boards-api
-   git push --force-with-lease origin main
-   ```
-   Старые файлы `001_base_schema.sql` и `009_hardening.sql` при этом исчезают —
-   их содержание уже покрыто миграциями рабочей ветки (RLS, FK cascade,
-   привилегии). Восстановить их можно из истории `main` до этого коммита.
-3. После перевода `main`: включить защиту ветки и требовать зелёный
-   `scripts/verify.sh` (или вернуть GitHub Actions — сейчас они не запускаются
-   из-за блокировки раннеров по оплате).
+1. Закрыть UA-004: выполнить SQL integration runner на выделенном Windows PostgreSQL 18.6 и проверить успешный cleanup.
+2. Только после SQL PASS подготовить отдельную disposable DB и выполнить девять Bash concurrency tests по инструкции, которую будет подготовлено отдельно (UA-005).
+3. Затем выполнить backend Node suite и frontend lint/typecheck/tests/build в порядке docs/PROJECT_STATE.md.
+4. Проверить актуальные deployment statuses, конфигурацию и миграционный state.
+5. Выполнить staging smoke / restore rehearsal, review открытых PR и только после этого отдельно согласовать production rollout.
 
-## Альтернатива, если историю `main` нужно сохранить
-
-Не мержить `main` в рабочую ветку, а:
-1. перенести `009_hardening.sql` в рабочую ветку отдельной миграцией
-   `NNN_carry_over_hardening.sql` (проверив, что не дублирует существующую);
-2. затем fast-forward `main` на рабочую ветку.
-Это дороже по времени, но сохраняет оба набора файлов.
+До прохождения gates не объявлять продукт production-ready и не применять миграции к production. Все статусы и результаты фиксировать в docs/PROJECT_STATE.md.

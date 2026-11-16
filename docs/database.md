@@ -24,7 +24,7 @@ SQL Editor → New query → вставить файл целиком → **Run*
 
 1. `db/migrations/000_check_schema.sql` — необязательная read-only диагностика; она ничего не создаёт и на пустой базе ожидаемо покажет отсутствующие объекты.
 2. `db/migrations/001_baseline.sql` — единая базовая схема: все 10 базовых таблиц, их базовые колонки, индексы, RLS/политики и `adjust_credits_balance`. Заменяет прежнюю цепочку `001_base_schema.sql` + `002–008`.
-3. Затем последовательно примени файлы `db/migrations/010_*.sql` … `db/migrations/128_*.sql` в числовом порядке. Миграция 009 исключена и архивирована: она меняла `user_id TEXT` на UUID и удаляла некорректные/осиротевшие строки. Не запускай её.
+3. Затем последовательно примени файлы `db/migrations/010_*.sql` … `db/migrations/148_*.sql` в числовом порядке. Миграция 009 исключена и архивирована: она меняла `user_id TEXT` на UUID и удаляла некорректные/осиротевшие строки. Не запускай её.
 
 Файлы применяются по одному в Supabase SQL Editor. Эта инструкция описывает сборку схемы на пустой базе; она не является разрешением запускать миграции на рабочей Supabase базе. Для production сначала нужен backup, staging-прогон всей цепочки и отдельное подтверждение владельца.
 
@@ -37,18 +37,20 @@ SQL Editor → New query → вставить файл целиком → **Run*
 | `db/archive/001_base_schema.sql` | Архивная копия старой базовой миграции. Не запускать в новой установке и не применять вместе с `001_baseline.sql`. |
 | `db/archive/009_hardening.sql` | Архивная версия миграции с преобразованием TEXT → UUID и очисткой строк. Не запускать. Для безопасной установки используется TEXT-контракт из baseline. |
 
-## Последующие миграции 010–128
+## Последующие миграции 010–148
 
-После `001_baseline.sql` нужно последовательно применить файлы `db/migrations/010_*.sql` … `128_*.sql` в порядке номеров. Не запускай старые `002–008`: их базовые объекты уже включены в baseline. Не запускай `009_hardening.sql`: он перенесён в `db/archive/` из-за преобразования `user_id` и удаления данных. Последующие миграции добавляют ограничения и атомарные операции платежей/кредитов, auth recovery, Pinterest OAuth/publication lifecycle, журналирование, административные операции и дополнительные проверки безопасности.
+Активная цепочка в main непрерывна: 010–148, ровно 139 файлов. scripts/verify.sh --migrations и scripts/verify.ps1 -Migrations сверяют этот диапазон перед созданием собственной disposable DB; отдельный SQL integration upgrade runner проверяет fixture и ordered manifest. Эти инструменты не подключаются к production и не подтверждают, что production уже обновлена.
 
-Текущая ветка содержит цепочку миграций вплоть до 128. Отдельные миграции feature-ветки могут требовать согласованного backend/frontend rollout; наличие файла не означает, что его можно без проверки применять к production. Для auth recovery особенно важны:
+После `001_baseline.sql` нужно последовательно применить файлы `db/migrations/010_*.sql` … `148_*.sql` в порядке номеров. Не запускай старые `002–008`: их базовые объекты уже включены в baseline. Не запускай `009_hardening.sql`: он перенесён в `db/archive/` из-за преобразования `user_id` и удаления данных. Последующие миграции добавляют ограничения и атомарные операции платежей/кредитов, auth recovery, Pinterest OAuth/publication lifecycle, журналирование, административные операции и дополнительные проверки безопасности.
+
+Текущая ветка main содержит активную цепочку миграций 010–148 (139 файлов) после baseline 001; migration 009 архивирована и не входит в неё. Отдельные миграции feature-ветки могут требовать согласованного backend/frontend rollout; наличие файла не означает, что его можно без проверки применять к production. Для auth recovery особенно важны:
 - `020_atomic_password_reset.sql` — атомарный выпуск/погашение reset-токена;
 - `021_atomic_email_verification.sql` и `022_atomic_email_verification_issuance.sql` — атомарное подтверждение email и выпуск verification-ссылок с cooldown;
 - `023_revoke_sessions_after_password_reset.sql` — добавляет `users.token_version` и увеличивает его в той же транзакции, что меняет пароль и погашает reset-токен;
 - `024_password_reset_email_cooldown.sql` и `025_drop_legacy_password_reset_overload.sql` — per-account cooldown и удаление старой трёхпараметрической RPC-сигнатуры, обходившей cooldown;
 - `055_auth_token_version.sql` — идемпотентно закрепляет колонку, DEFAULT 0, NOT NULL и CHECK >= 0 для baseline/схем, где колонка ещё не была создана.
 
-Не путать наличие колонки с наличием RPC: функции auth recovery определяются миграциями 020–025. Применять всю цепочку по порядку; 055 не заменяет миграции 020–025. Миграции 034–083 из feature branch не следует применять к production без отдельного согласованного rollout, резервной копии и проверки на staging.
+Не путать наличие колонки с наличием RPC: функции auth recovery определяются миграциями 020–025. Применять всю цепочку по порядку; 055 не заменяет миграции 020–025. Миграции 034–148 входят в main, но их наличие не означает, что они применены к production. Не запускай их на production без отдельного согласованного rollout, резервной копии и проверки на staging.
 
 Жизненный цикл аккаунта (приватность/self-service):
 - `127_account_lifecycle.sql` — самообслуживание аккаунта. Добавляет `users.account_status` (DEFAULT `active`, CHECK `active|deletion_pending|deleted`) и `users.deletion_requested_at`, создаёт таблицу `account_deletion_requests` (RLS без клиентских грантов, доступ только для `service_role`) и SECURITY DEFINER RPC `request_account_deletion(uuid, text)` с захардкоженным `search_path=pg_catalog,public`. RPC принимает запрос на удаление и **ограничивается блокировкой доступа**: инкрементирует `token_version` (аннулируя все активные JWT) и ставит `account_status='deletion_pending'`. Строки НЕ удаляются — физическая очистка данных вынесена в отдельный контролируемый этап.
@@ -81,7 +83,11 @@ Pinterest multi-account rollout:
 - `019_prevent_late_subscription_downgrade.sql` защищает текущий тариф от запоздавшего вебхука.
 - `030_transactional_email_outbox.sql` зависит от `subscriptions` и `users.preferred_language`; заменяет `activate_paid_subscription`, чтобы событие письма записывалось атомарно с активацией тарифа, и создаёт служебные RPC для очереди.
 
-Миграции 030–083 находятся в feature branch и **не применялись** к рабочей Supabase базе. Не запускай их в production отдельно от согласованного rollout backend/frontend-кода: сначала резервная копия, проверка всей цепочки на отдельной базе и явное подтверждение владельца проекта.
+Миграции 010–148 находятся в текущем main; это не означает, что они уже применены к production Supabase. Не применяй их к рабочей базе только потому, что они есть в Git: сначала резервная копия, проверка точного текущего production schema/migration state, полный прогон на отдельной disposable/staging базе, согласованный backend/frontend rollout и явное подтверждение владельца. Для новой пустой базы используй только baseline 001 и активную цепочку 010–148; 002–008 и 009 не запускать.
+
+## Поздние миграции 129–148
+
+После account lifecycle/publication fence (127–128) цепочка продолжает укреплять удаление аккаунта и связанные жизненные циклы: 129–134 добавляют повторную аутентификацию, durable queue/preflight, отключение Pinterest с lock-order правилами и Storage manifest; 135–145 усиливают безопасное удаление изображений, проверку источника Storage, batch retry, ожидание неопределённых provider/financial outcomes и completion guards; 146 закрепляет reassignment доски на immutable snapshot; 147 добавляет retry batch Storage cleanup; 148 атомарно связывает статус пина и publication fencing. Точные контракты смотри в SQL файлах соответствующих миграций и в docs/backend-audit/13-sql-migration-static-review.md.
 
 ## Как проверить, что всё применилось
 
@@ -97,13 +103,13 @@ Pinterest multi-account rollout:
    where table_schema='public' and table_name='users'
    order by ordinal_position;
    ```
-   Ожидается: `id, email, password_hash, credits_balance, subscription_tier, is_admin, created_at, name, surname, onboarded, tariff_plan, email_verified, tariff_period_end, token_version, preferred_language, account_status, deletion_requested_at`.
+   Это контрольный список основных колонок, а не полный контракт всех таблиц и не замена сравнению со схемой текущего commit. Более поздние миграции могут добавлять дополнительные поля; при расхождении сначала сверь активную цепочку и 000_check_schema.sql, не удаляй неизвестные колонки.
 
 ## Восстановление базы с нуля (полный сценарий)
 
 1. Создай отдельный проект Supabase для проверки. Не очищай рабочую базу ради теста.
 2. Примени `001_baseline.sql`.
-3. Примени миграции `010–128` по порядку, пропуская архивную `009_hardening.sql`.
+3. Примени миграции `010–148` по порядку, пропуская архивную `009_hardening.sql`.
 4. Запусти `000_check_schema.sql` — после полной цепочки раздел 4 должен вернуть 0 строк.
 5. Проверь RPC и таблицы по контрольным запросам ниже.
 5. Настройки проекта Supabase, которые НЕ живут в миграциях и их надо вернуть руками:
@@ -112,10 +118,9 @@ Pinterest multi-account rollout:
    - строки подключения / сервисный ключ — в панели Render (переменные `SUPABASE_URL`,
      `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`).
 
-## Откат одной миграции вручную
+## Исторические rollback-примеры (ТОЛЬКО disposable DB)
 
-Миграции не содержат down-скриптов (опасно их запускать автоматом). Откат делается руками
-в SQL Editor. Полезные команды:
+**Не выполняй приведённые DROP/ALTER команды на production, staging с данными или рабочей базе.** Это destructive-примеры удаления базовых объектов для локальной пустой тестовой схемы, а не безопасный rollback миграций. В миграциях нет универсальных down-скриптов; восстановление production выполняется из проверенной резервной копии по отдельному согласованному runbook.
 
 ```sql
 -- откатить 008
@@ -190,12 +195,12 @@ drop table if exists users;
    (service_role, bypassrls).
 
 
-### Миграции 121–122 (feature branch)
+### Миграции 121–122 (активная цепочка main)
 
 - `121_atomic_pin_generation_text_plan.sql` — атомарная запись факта использования текста и нормализованного плана генерации пинов.
 - `122_pinterest_scheduler_health_monitor.sql` — singleton-метаданные запусков Pinterest scheduler и RPC для фиксации начала/завершения.
 
-Номера уникальны. Не применяй эти миграции к production только потому, что они присутствуют в репозитории: сначала staging, проверка согласованного backend commit и отдельное подтверждение владельца. Для существующей рабочей БД нужен отдельный delta-план.
+Эти миграции входят в активную цепочку main 010–148. Их наличие в Git не доказывает, что они применены к production; перед любым production rollout необходимы staging replay, проверка согласованного backend commit, backup и отдельное подтверждение владельца. Для существующей рабочей БД нужен отдельный delta-план.
 
 
 ### Миграция 123 — fencing завершения heartbeat
