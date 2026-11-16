@@ -424,6 +424,7 @@ export const ru: TranslationSchema = {
     currentBoardSuffix: " (текущая)",
     replacementBoardSaving: "Проверяем и сохраняем…",
     replacementBoardResume: "Сменить доску и возобновить",
+    replacementBoardResumeDescription: "Пин и его настройки сохранятся. После проверки новой доски расписание будет поставлено в очередь заново. Это доступно только если предыдущая попытка публикации безопасно завершилась.",
     retrying: "Повторяем…",
     cancelling: "Отменяем…",
   },
