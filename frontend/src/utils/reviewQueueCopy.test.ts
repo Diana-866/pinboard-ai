@@ -43,8 +43,8 @@ test('review queue and saved-pin status copy exists in every supported locale', 
       assert.equal(typeof value, 'string', locale);
       assert.ok(value.trim().length > 0, locale);
     }
-    assert.match(copy.review.queueCountTemplate, /\\{count\\}/, locale);
-    assert.match(copy.review.bulkSchedulePartialTemplate, /\\{saved\\}/, locale);
-    assert.match(copy.review.bulkSchedulePartialTemplate, /\\{total\\}/, locale);
+    assert.match(copy.review.queueCountTemplate, /\{count\}/, locale);
+    assert.match(copy.review.bulkSchedulePartialTemplate, /\{saved\}/, locale);
+    assert.match(copy.review.bulkSchedulePartialTemplate, /\{total\}/, locale);
   }
 });
