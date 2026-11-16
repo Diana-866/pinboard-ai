@@ -217,3 +217,8 @@
 ### UA-001 — PostgreSQL 18 server identity and loopback isolation verified (2026-11-16)
 
 Пользователь выполнил read-only проверки временного кластера. `pg_ctl status` сообщил PID `15220` и executable `X:/Program Files/PostgreSQL/18/bin/postgres.exe`, data directory `X:/PinPosy-verify-pg18`, параметры `-h 127.0.0.1 -p 55439 -c listen_addresses=127.0.0.1`. `Get-NetTCPConnection` показал listener `127.0.0.1:55439`, PID 15220. PG18 `psql.exe` read-only запрос вернул: database `postgres`, user `pinposy_verify_admin`, server address `127.0.0.1`, port `55439`, data directory `X:/PinPosy-verify-pg18`, server encoding `WIN1251`, version `PostgreSQL 18.6`. Пароль вводился локально, в переписке не раскрывался. Подтверждено, что временный сервер слушает только loopback. Миграции не выполнялись и тестовая БД не создавалась. Перед следующим этапом нужно сверить локальный checkout с main, проверить хэш скрипта и корректно выставить PG18 `psql` в PATH плюс `PGUSER=pinposy_verify_admin` только в текущем PowerShell-сеансе (verify.ps1 не задаёт `-U` явно).
+
+
+### UA-001 — локальная ветка отстаёт от GitHub main (2026-11-16)
+
+Пользователь выполнил `git fetch origin`. Получено: локальный HEAD `0d393d34a0fbccf24dc46eefe5bf69281db965c5`, `origin/main` `ab5ab3e83f3f2bef68b6715b92d37a68cefc0320`, статус `main...origin/main [behind 420]`; `git status --short --branch` не показал незакоммиченных изменений. Хэш локального `scripts/verify.ps1` равен `6614843edaafd4924c90c679a0f9fe232e59a0f0` и совпадает с проверенным GitHub-файлом. Локальная ветка в целом устарела на 420 коммитов. Рекомендован следующий шаг: fast-forward only pull, без merge commit и без reset. Никаких миграций или тестов не запускалось.
