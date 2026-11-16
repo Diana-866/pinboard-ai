@@ -10,7 +10,7 @@ const script = fs.readFileSync(path.join(scriptsDirectory, "verify.sh"), "utf8")
 const windowsScript = fs.readFileSync(path.join(scriptsDirectory, "verify.ps1"), "utf8");
 
 test("Linux replay creates a unique disposable database without pre-dropping a name", () => {
-  assert.match(script, /MIGRATION_DB_NAME="pinposy_verify_\$\{BASHPID:-\$\}_\$suffix"/);
+  assert.match(script, /MIGRATION_DB_NAME="pinposy_verify_\$\{BASHPID:-\$\$\}_\$suffix"/);
   assert.match(script, /od -An -N4 -tx1 \/dev\/urandom/);
   assert.match(script, /CREATE DATABASE \\"\$MIGRATION_DB_NAME\\"/);
   assert.doesNotMatch(script, /DROP DATABASE IF EXISTS/);
