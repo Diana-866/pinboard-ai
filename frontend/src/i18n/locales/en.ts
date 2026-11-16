@@ -218,6 +218,12 @@ export const en: TranslationSchema = {
     copyFailed: 'Could not copy the pin details. Check your browser clipboard permissions.',
     pushToCalendarBtn: 'Schedule to Calendar',
     savedToCalendar: 'Pin scheduled successfully to calendar!',
+    savedPinsLoading: 'Loading saved pins for this board…',
+    savedPinsRetry: 'Retry loading',
+    savedPinsLoadError: 'Could not load saved pins. Check your connection and try again.',
+    addToReviewBtn: 'Send pin for manual review',
+    addToReviewSaving: 'Adding to review queue…',
+    addToReviewSuccess: 'Pin sent for review',
     batchGeneratedNotice: 'Batch of high-converting pins generated with distinct algorithmic angles.',
   },
 
@@ -585,6 +591,8 @@ export const en: TranslationSchema = {
 
   review: {
     title: 'Review Generated Pins',
+    queueDescription: 'Review your saved pins and approve or reject them before scheduling.',
+    queueCountTemplate: '{count} in queue',
     subtitle: 'Swipe right to approve to publishing queue, or swipe left to reject.',
     approveBtn: 'Approve',
     rejectBtn: 'Reject',
