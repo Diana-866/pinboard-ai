@@ -200,3 +200,24 @@ test("does not release a retry when the idempotency failure RPC cannot be confir
   ]);
   failingRpc = null;
 });
+
+
+test("a definitive provider 4xx rejection closes an unsent credit purchase and releases its retry key", async () => {
+  calls.length = 0;
+  paymentRow = { id: "credit-purchase-uuid", status: "pending" };
+  cleanupFails = false;
+  failingRpc = null;
+  nextResult = { data: true, error: null };
+
+  const outcome = await handlePaymentProviderFailure(
+    "user-1",
+    "provider-credit-rejected-key-001",
+    "credit_purchases",
+    "credit-purchase-uuid",
+    Object.assign(new Error("provider rejected checkout"), { providerRejected: true, code: "PROVIDER_422" })
+  );
+
+  assert.equal(outcome, "failed");
+  assert.equal(paymentRow.status, "denied");
+  assert.deepEqual(calls.map((call) => call.name), ["fail_payment_creation_request"]);
+});
