@@ -101,7 +101,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           onClick={onMobileMenuToggle}
           className="md:hidden p-2 rounded-lg text-secondary-theme hover:bg-subtle transition-colors"
-          aria-label="Open navigation menu"
+          aria-label={t.nav.openNavigationMenu}
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
