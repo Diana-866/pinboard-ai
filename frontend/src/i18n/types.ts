@@ -81,6 +81,7 @@ export interface TranslationSchema {
   // Navigation
   nav: {
     dashboard: string;
+    openNavigationMenu: string;
     pinGenerator: string;
     reviewPins: string;
     keywordResearch: string;
