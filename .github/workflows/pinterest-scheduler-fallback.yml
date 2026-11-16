@@ -30,7 +30,7 @@ jobs:
           if (!rawUrl || !secret) {
             throw new Error('Configure PINPOSY_BACKEND_URL and PINPOSY_SCHEDULER_SECRET in repository Actions secrets.');
           }
-          if (secret.length < 32 || secret.trim() !== secret || /\\s/.test(secret)) {
+          if (secret.length < 32 || secret.trim() !== secret || /\s/.test(secret)) {
             throw new Error('PINPOSY_SCHEDULER_SECRET must be at least 32 characters without whitespace.');
           }
           let parsed;
