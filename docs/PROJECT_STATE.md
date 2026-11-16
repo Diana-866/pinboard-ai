@@ -91,7 +91,7 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 
 Эти наблюдения получены при выборочном просмотре файлов на исходном commit; они не являются полным аудитом:
 - `frontend/src/components/analytics/AnalyticsView.tsx` показывает недоступность аналитических данных.
-- `frontend/src/components/admin/AdminPanel.tsx` использует mock-данные для части админского интерфейса.
+- Историческое замечание об admin mock data уточнено после проверки: текущий `AdminPanel.tsx` не импортирует `adminMockData.ts`/`ADMIN_USERS`/`ADMIN_TRANSACTIONS`, скрывает неподключённые разделы и явно предупреждает об отсутствии демонстрационных пользователей/фиктивных платежей. Восемь активных admin screen modules проверены отдельно; ни один из них не импортирует этот seed. Сам `frontend/src/data/adminMockData.ts` оставлен: полноценный repo-wide reference scan пока не подтверждён, поэтому удалять файл преждевременно.
 - `frontend/src/lib/api.ts` содержит fallback на Render URL.
 - `backend/supabase.js` использует Supabase SDK; переход на обычный PostgreSQL потребует адаптации слоя доступа, а не только смены connection string.
 - `backend/storage.js` и публичный bucket `pin-images` требуют проверки правил доступа и модели приватности.
@@ -748,3 +748,10 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - В adminMockData.ts есть статические демонстрационные записи. Ни один из восьми проверенных активных admin screen modules не импортирует adminMockData/ADMIN_USERS; AdminPanel явно предупреждает, что неподтверждённые user/statistics/tax screens скрыты и демонстрационные пользователи/фиктивные платежи не отображаются. Admin subscriptions/billing exception views используют apiRequest endpoints.
 - Файл seed не удалялся: проверка ограничена активным admin component set и не доказывает отсутствие импорта во всём репозитории. Требуется полный reference scan перед удалением.
 - Результат и границы внесены в docs/frontend-audit/07-admin-account-privacy-legal.md. Production данные, платежи и admin mutations не затрагивались.
+
+### Уточнение устаревшего замечания об admin mock data (2026-11-16)
+
+- Перед записью повторно сверены текущий `main` (`da04cf8f8bbdaebfed840c6aa0ad7a07f5a92fd6`), `docs/PROJECT_STATE.md`, `docs/USER_ACTIONS.md`, `AdminPanel.tsx` и активный admin component set.
+- Обнаружено, что раздел 3 паспорта сохранял устаревшее предварительное наблюдение «AdminPanel использует mock-данные». Текущий AdminPanel не импортирует `adminMockData.ts`/`ADMIN_USERS`/`ADMIN_TRANSACTIONS`, явно скрывает неподключённые разделы и сообщает, что демонстрационные пользователи и фиктивные платежи не показываются. Восемь активных admin screen modules были проверены отдельно; прямых импортов demo seed в них нет. Подробности ранее внесены в `docs/frontend-audit/07-admin-account-privacy-legal.md`.
+- Попытка глобального поиска по GitHub code search не дала достаточного доказательства полного отсутствия ссылок (ответ API помечен `incomplete_results`). Поэтому seed-файл не удалялся, а глобальный аудит и чекбокс полного file-by-file review остаются открытыми.
+- Исправлено только устаревшее утверждение в разделе 3 настоящего паспорта. Runtime tests, frontend build, backend suite и SQL integration suite не запускались; никаких runtime чекбоксов не закрыто. Production, PIN_TRIAL, платежи и Pinterest не затронуты.
