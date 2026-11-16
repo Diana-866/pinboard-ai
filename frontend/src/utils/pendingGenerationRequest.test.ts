@@ -217,3 +217,32 @@ test('merges session fallback, deduplicates identities, and ignores malformed en
     clearPendingGenerationRequest();
   }
 });
+
+
+test('generation recovery identities are isolated by authenticated owner', async () => {
+  const storage = memoryStorage();
+  const { writePendingGenerationRequestForOwner, readPendingGenerationRequestForOwner,
+    listPendingGenerationRequestsForOwner, clearPendingGenerationRequestForOwner } =
+    await import('./pendingGenerationRequest');
+  const fingerprint = createGenerationFingerprint('same request on two accounts');
+  writePendingGenerationRequestForOwner('user-a', fingerprint, 'stable-key-owner-a-0001', storage);
+  writePendingGenerationRequestForOwner('user-b', fingerprint, 'stable-key-owner-b-0001', storage);
+
+  assert.equal(readPendingGenerationRequestForOwner('user-a', fingerprint, storage)?.idempotencyKey, 'stable-key-owner-a-0001');
+  assert.equal(readPendingGenerationRequestForOwner('user-b', fingerprint, storage)?.idempotencyKey, 'stable-key-owner-b-0001');
+  assert.equal(listPendingGenerationRequestsForOwner('user-a', storage).length, 1);
+  assert.equal(listPendingGenerationRequestsForOwner('user-b', storage).length, 1);
+  clearPendingGenerationRequestForOwner('user-a', fingerprint, storage);
+  assert.equal(readPendingGenerationRequestForOwner('user-a', fingerprint, storage), null);
+  assert.equal(readPendingGenerationRequestForOwner('user-b', fingerprint, storage)?.idempotencyKey, 'stable-key-owner-b-0001');
+});
+
+test('account-scoped recovery does not import legacy unowned generation keys', async () => {
+  const storage = memoryStorage();
+  const { listPendingGenerationRequestsForOwner } = await import('./pendingGenerationRequest');
+  const fingerprint = createGenerationFingerprint('legacy unowned request');
+  storage.setItem(`pinposy_generation_request_v2:${fingerprint}`, JSON.stringify({
+    fingerprint, idempotencyKey: 'stable-key-legacy-owner-0001',
+  }));
+  assert.deepEqual(listPendingGenerationRequestsForOwner('user-new', storage), []);
+});
