@@ -348,3 +348,10 @@ UA-004 по локальному запуску остаётся обязате�
 - На момент проверки ассистент не имеет доступа к пользовательскому Windows checkout/PowerShell/кластеру, поэтому не может выполнить этот шаг самостоятельно. SQL integration suite, 9 Bash concurrency scripts и backend Node suite остаются НЕ ЗАПУЩЕНЫ в этой сессии.
 - HEAD до документационной записи: `946e062ab49bf0dfaa5876176c2d55bb383b6ed5`. Для него GitHub Actions run отсутствует, поскольку commit меняет только docs и workflow `paths-ignore` исключает `docs/**`; отсутствие run не является результатом тестов.
 - Vercel status на этом HEAD: `failure`, `Deployment rate limited — retry in 24 hours`, target `build-rate-limit`, timestamp `2026-11-16T20:34:53Z`. Это rate-limit до подтверждённой сборки, а не build error. Не менять тариф/настройки без решения владельца.
+
+### Повтор CI attempt 2 — hosted runner снова не выполнил шаги (2026-11-16)
+
+- В диагностических целях повторно запущены failed jobs из runs `43950729248` (postgres-atomicity) и `43950729228` (backend + frontend), attempt 2. Source SHA: `43dfdcc3b89f4a852bd065495f2dfd781ade737a` (кодовый HEAD; docs-only commits позже).
+- Результат: все три jobs снова `failure` до первого шага (`steps: null`; postgres steps endpoint вернул `[]`). Загрузка postgres logs завершилась `BlobNotFound`, то есть диагностического runner log GitHub не предоставил. Ни PowerShell parser, ни Node contract test, ни SQL suite, ни backend/frontend tests/build не выполнялись.
+- Это внешний hosted-runner/pre-step blocker, не ошибка тестов PinPosy. Не выдавать failure за runtime defect или PASS. Локальный UA-004 остаётся NEXT и выполняется только на отдельном PostgreSQL 18.6 согласно инструкции выше.
+- Никакие production resources, базы, платежи, Pinterest credentials или Vercel settings не менялись.
