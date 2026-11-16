@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { getDefaultTimezone, localDateTimeToDate, formatInstantInTimezone } from './utils/timezone';
 import { apiRequest } from './lib/api';
+import { hasStoredAuthToken } from './lib/authStorage';
 import { buildPinterestPinUrl } from './utils/pinterestPinUrl';
 import { ThemeProvider } from './theme/themeContext';
 import { I18nProvider, useI18n } from './i18n/i18nContext';
@@ -1093,8 +1094,8 @@ const MainApp: React.FC = () => {
 
 
 function RequireAuth({ children }: { children: React.ReactElement }) {
-  const token = localStorage.getItem('token');
-  if (!token) return <Navigate to="/login" replace />;
+  // Browser storage can throw in privacy-restricted contexts; fail closed without crashing the route tree.
+  if (!hasStoredAuthToken()) return <Navigate to="/login" replace />;
   return children;
 }
 
