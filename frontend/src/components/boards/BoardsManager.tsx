@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Pencil } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
 import type { BoardItem } from '../../data/mockData';
+import { resolveBoardCategoryLabel } from '../../utils/boardCategoryLabel';
 
 interface BoardsManagerProps {
   boards: BoardItem[];
@@ -167,7 +168,14 @@ export const BoardsManager: React.FC<BoardsManagerProps> = ({
               />
               <div className="flex-1 min-w-0 space-y-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-theme">
-                  {board.category}
+                  {resolveBoardCategoryLabel(board.category, {
+                    categoryHomeDecor: t.boards.categoryHomeDecor,
+                    categoryRecipes: t.boards.categoryRecipes,
+                    categoryWellness: t.boards.categoryWellness,
+                    categoryTravel: t.boards.categoryTravel,
+                    categoryDigitalProducts: t.boards.categoryDigitalProducts,
+                    categoryFashion: t.boards.categoryFashion,
+                  })}
                 </span>
                 <h3 className="text-base font-bold text-primary-theme line-clamp-1 font-heading">
                   {board.name}
