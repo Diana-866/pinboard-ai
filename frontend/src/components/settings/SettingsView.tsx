@@ -14,6 +14,7 @@ import { useI18n } from '../../i18n/i18nContext';
 import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../lib/api';
 import { isAccountOperationCurrent } from '../../utils/accountOperationFence';
+import { isCompleteAccountExport } from '../../utils/accountExportCompleteness';
 import {
   getDefaultTimezone,
   saveUserTimezone,
@@ -49,6 +50,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing, onPin
   // --- Данные и аккаунт: экспорт и удаление ---
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [exportWarning, setExportWarning] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -71,6 +73,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing, onPin
     }
     setExporting(false);
     setExportError(null);
+    setExportWarning(null);
     setDeleteOpen(false);
     setDeletePassword('');
     setDeleting(false);
@@ -84,9 +87,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing, onPin
     const requestId = ++exportRequestIdRef.current;
     setExporting(true);
     setExportError(null);
+    setExportWarning(null);
     try {
       const data = await apiRequest('/account/export');
       if (!isAccountOperationCurrent(settingsOwnerIdRef.current, requestOwnerId, exportRequestIdRef.current, requestId)) return;
+      if (!isCompleteAccountExport(data)) setExportWarning(t.settings.exportPartialWarning);
       downloadJsonFile(buildAccountExportFilename(requestOwnerId, new Date()), data);
     } catch (error) {
       if (isAccountOperationCurrent(settingsOwnerIdRef.current, requestOwnerId, exportRequestIdRef.current, requestId)) {
@@ -341,6 +346,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing, onPin
               {exporting ? t.common.loading : t.settings.downloadData}
             </button>
             {exportError && <span className="text-xs text-red-500">{exportError}</span>}
+            {exportWarning && <span role="status" aria-live="polite" className="text-xs text-amber-700 dark:text-amber-300">{exportWarning}</span>}
           </div>
 
           <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/5 space-y-3">
