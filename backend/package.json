@@ -6,6 +6,7 @@
     "start": "node index.js",
     "test": "node --test",
     "worker": "node scheduleWorker.js",
+    "worker:once": "node scheduleWorker.js --once",
     "worker:account-deletion": "node accountDeletionWorker.js"
   },
   "dependencies": {
