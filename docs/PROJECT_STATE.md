@@ -149,7 +149,7 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 ### Этап 1 — воспроизводимость проверок
 - [ ] Проверить Node/npm версии и scripts обоих package.json.
 - [ ] Исправить verify script, если он запускает неканонические SQL.
-- [ ] Запустить backend unit/integration tests.
+- [!] Запуск backend unit/integration tests: GitHub Actions jobs падают до шагов выполнения; конкретный checkout regression workflow run #10 attempt 2 без шагов. Исполнение тестов не подтверждено; требуется работоспособный runner.
 - [ ] Запустить frontend typecheck/lint/tests/build.
 - [ ] Запустить migration chain на чистой тестовой PostgreSQL.
 - [ ] Проверить CI и deploy pipeline.
@@ -251,10 +251,10 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 
 ## 7. Текущая следующая задача
 
-**NEXT: завершить проверку checkout fix из пакета 03: получить результат GitHub Actions workflow `Prodamus checkout and webhook regression tests` для последнего `main`, устранить реальные тестовые ошибки (не путать с runner failures до шагов), затем повторно проверить статус Vercel.** После этого продолжить backend file-by-file аудит оставшихся модулей, полного `backend/index.js`, тестов и SQL. PR #88 не объединять: его checkout fix адресно перенесён в main, PR основан на старом SHA. Не запускать реальные платежи и не менять production.
+**NEXT: проверка checkout fix заблокирована GitHub Actions runner: workflow `Prodamus checkout and webhook regression tests` (run #10, attempt 2) завершился failure до шагов job; Node tests не запускались. Повторно перезапускать тот же job без изменения runner нецелесообразно. Сначала восстановить исполняемый CI runner (или получить реальный успешный запуск), затем исправить возможные тестовые ошибки и проверить Vercel. Пока CI заблокирован, можно продолжать только статический аудит следующих backend-модулей; не помечать тесты пройденными. PR #88 не объединять: его checkout fix адресно перенесён в main, PR основан на старом SHA. Не запускать реальные платежи и не менять production.
 
 ## 8. Журнал изменений паспорта
 - 2026-11-16 — создан первоначальный паспорт на основе дерева репозитория и выборочного чтения файлов на commit `1914c5c5`. Полный аудит не завершён.
 - 2026-11-16 — по прямому разрешению пользователя правило работы только через PR заменено на работу непосредственно в `main`; добавлен первый отчёт backend-аудита. Полный backend-аудит не завершён.
 - 2026-11-16 — добавлен пакет 02: просмотрены auth/account lifecycle-модули, их маршруты, 12+ тестовых/контрактных файлов и auth SQL migrations; зафиксирован startup/readiness gap при отсутствии `JWT_SECRET`. Node/PostgreSQL tests не запускались; production не изменялся. Отчёт: `docs/backend-audit/02-auth-account-lifecycle.md`.
-- 2026-11-16 — пакет 03: проверены billing/credits/Prodamus, админские финансовые операции, webhook, тестовые контракты и SQL migrations. Исправлен дефект принятия checkout URL из HTTP non-2xx; 4xx release теперь требует подтверждённого закрытия pending row и RPC, прочие ошибки остаются unknown. Добавлены regression tests и CI workflow на push/PR. GitHub Actions jobs падали до шагов; regression workflow rerun queued, tests пока НЕ подтверждены; Vercel build-rate-limit. PR #88 не объединён; патч перенесён адресно в main. Отчёт: `docs/backend-audit/03-billing-credits-prodamus.md`.
+- 2026-11-16 — пакет 03: проверены billing/credits/Prodamus, админские финансовые операции, webhook, тестовые контракты и SQL migrations. Исправлен дефект принятия checkout URL из HTTP non-2xx; 4xx release теперь требует подтверждённого закрытия pending row и RPC, прочие ошибки остаются unknown. Добавлены regression tests и CI workflow на push/PR. GitHub Actions checkout regression run #10 attempt 2 завершился failure до шагов; Node tests НЕ запускались. Vercel status = build-rate-limit. PR #88 не объединён; патч перенесён адресно в main. Отчёт: `docs/backend-audit/03-billing-credits-prodamus.md`.
