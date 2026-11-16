@@ -149,13 +149,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
         setReplacementBoardId(items.find((board: { id: string; name: string }) => board.id !== selectedPin.pinterestBoardId)?.id || '');
         if (!items.length) {
           setReplacementBoardsError(
-            language === 'ru' ? 'Pinterest не вернул доступные доски для этого аккаунта.' :
-            language === 'de' ? 'Pinterest hat keine verfügbaren Boards für dieses Konto zurückgegeben.' :
-            language === 'es' ? 'Pinterest no devolvió tableros disponibles para esta cuenta.' :
-            language === 'fr' ? 'Pinterest n’a renvoyé aucun tableau disponible pour ce compte.' :
-            language === 'pt' ? 'O Pinterest não retornou pastas disponíveis para esta conta.' :
-            language === 'zh' ? 'Pinterest 未返回此账户的可用画板。' :
-            'Pinterest returned no available boards for this account.'
+            t.calendar.replacementBoardsEmpty
           );
         }
       } catch (error) {
@@ -163,8 +157,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
         setReplacementBoards([]);
         setReplacementBoardId('');
         setReplacementBoardsError(
-          error instanceof Error ? error.message :
-          (language === 'ru' ? 'Не удалось загрузить доски Pinterest.' : 'Could not load Pinterest boards.')
+          error instanceof Error ? error.message : t.calendar.replacementBoardsLoadError
         );
       } finally {
         if (active) setReplacementBoardsLoading(false);
@@ -300,9 +293,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
       safeTime = resolveScheduleSlotTime(dateStr, userTimezone, timeStr);
     } catch {
       window.alert(
-        language === 'ru'
-          ? 'На выбранную дату больше нет доступного времени. Выберите сегодняшнюю или будущую дату.'
-          : 'No future time is available on this date. Choose today or a future date.'
+        t.calendar.noFutureSlot
       );
       return;
     }
@@ -321,18 +312,14 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
 
     const topic = getExplicitGenerationTopic(slotTopic);
     if (!topic) {
-      window.alert(language === 'ru'
-        ? 'Введите тему пина, чтобы перейти к генерации.'
-        : 'Enter a pin topic before continuing to generation.');
+      window.alert(t.calendar.slotTopicRequired);
       return;
     }
 
     const selectedBoard = boards.find((board) => board.id === slotModalData.boardId);
     if (!selectedBoard) {
       window.alert(
-        language === 'ru'
-          ? 'Сначала создайте доску PinPosy или выберите доступную доску.'
-          : 'Create a PinPosy board first or select an available board.'
+        t.calendar.slotBoardRequired
       );
       return;
     }
@@ -372,7 +359,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
     <div className="space-y-6 max-w-7xl mx-auto pb-10">
       {scheduleLoading && (
         <div role="status" aria-live="polite" className="rounded-xl border border-accent/30 bg-subtle p-3 text-xs text-secondary-theme">
-          Загружаем сохранённое расписание…
+          {t.calendar.scheduleLoading}
         </div>
       )}
       {scheduleLoadError && (
@@ -385,7 +372,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
               disabled={scheduleLoading}
               className="shrink-0 rounded-lg border border-amber-500/40 px-3 py-2 text-xs font-semibold text-primary-theme hover:bg-amber-500/10"
             >
-              Загрузить снова
+              {t.calendar.scheduleRetry}
             </button>
           )}
         </div>
@@ -825,7 +812,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
             ))
           ) : (
             <div className="p-8 text-center text-xs text-muted-theme">
-              {scheduleLoading ? 'Загружаем расписание…' : scheduleLoadError ? 'Расписание временно недоступно. Повторите загрузку.' : t.calendar.emptyQueue}
+              {scheduleLoading ? t.calendar.scheduleLoading : scheduleLoadError ? t.calendar.scheduleLoadUnavailable : t.calendar.emptyQueue}
             </div>
           )}
         </div>
@@ -986,28 +973,10 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
             {selectedPin.status === 'failed' && selectedPin.failureReason === 'board_unavailable' && (
               <div role="alert" className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-3 space-y-1.5">
                 <p className="text-xs font-semibold text-primary-theme">
-                  {language === 'ru' ? 'Доска Pinterest недоступна' :
-                   language === 'de' ? 'Pinterest-Board nicht verfügbar' :
-                   language === 'es' ? 'Tablero de Pinterest no disponible' :
-                   language === 'fr' ? 'Tableau Pinterest indisponible' :
-                   language === 'pt' ? 'Pasta do Pinterest indisponível' :
-                   language === 'zh' ? 'Pinterest 画板不可用' :
-                   'Pinterest board unavailable'}
+                  {t.calendar.boardUnavailableTitle}
                 </p>
                 <p className="text-xs leading-relaxed text-secondary-theme">
-                  {language === 'ru'
-                    ? 'Доска была удалена или доступ к ней потерян. PinPosy не будет повторять публикацию на этой доске. Выберите доступную доску и создайте новое расписание для этого пина.'
-                    : language === 'de'
-                    ? 'Das Board wurde gelöscht oder der Zugriff ist verloren gegangen. PinPosy wiederholt die Veröffentlichung dort nicht. Wählen Sie ein verfügbares Board und planen Sie diesen Pin erneut.'
-                    : language === 'es'
-                    ? 'El tablero se eliminó o ya no tienes acceso. PinPosy no volverá a publicar allí. Elige un tablero disponible y programa este pin de nuevo.'
-                    : language === 'fr'
-                    ? 'Le tableau a été supprimé ou vous n’y avez plus accès. PinPosy ne réessaiera pas sur ce tableau. Choisissez un tableau disponible et reprogrammez cette épingle.'
-                    : language === 'pt'
-                    ? 'A pasta foi excluída ou o acesso foi perdido. O PinPosy não tentará publicar nela novamente. Escolha uma pasta disponível e agende este Pin outra vez.'
-                    : language === 'zh'
-                    ? '该画板已被删除或您已失去访问权限。PinPosy 不会在此画板上重试。请选择可用画板并重新安排此 Pin。'
-                    : 'The board was deleted or access was lost. PinPosy will not retry this publication there. Choose an available board and schedule this Pin again.'}
+                  {t.calendar.boardUnavailableDescription}
                 </p>
               </div>
             )}
@@ -1015,35 +984,18 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
             {selectedPin.status === 'failed' && selectedPin.failureReason === 'board_unavailable' && !!selectedPin.pinterestAccountId && onChangeFailedScheduleBoard && (
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
                 <p className="text-xs font-semibold text-primary-theme">
-                  {language === 'ru' ? 'Выбрать другую доску' :
-                   language === 'de' ? 'Anderes Board auswählen' :
-                   language === 'es' ? 'Elegir otro tablero' :
-                   language === 'fr' ? 'Choisir un autre tableau' :
-                   language === 'pt' ? 'Escolher outra pasta' :
-                   language === 'zh' ? '选择其他画板' : 'Choose another board'}
+                  {t.calendar.chooseReplacementBoardTitle}
                 </p>
                 <p className="text-xs leading-relaxed text-secondary-theme">
-                  {language === 'ru'
-                    ? 'Пин и его настройки сохранятся. После проверки новой доски расписание будет поставлено в очередь заново. Это доступно только если предыдущая попытка публикации безопасно завершилась.'
-                    : language === 'de'
-                    ? 'Pin und Einstellungen bleiben erhalten. Nach Prüfung des neuen Boards wird der Beitrag erneut eingeplant. Dies ist nur möglich, wenn der vorherige Veröffentlichungsversuch nachweislich sicher beendet wurde.'
-                    : language === 'es'
-                    ? 'El Pin y su configuración se conservarán. Tras verificar el nuevo tablero, se volverá a poner en cola. Solo es posible si el intento anterior terminó de forma segura.'
-                    : language === 'fr'
-                    ? 'L’épingle et ses paramètres seront conservés. Après vérification du nouveau tableau, la publication sera remise en file. Cela n’est possible que si la tentative précédente s’est terminée sans ambiguïté.'
-                    : language === 'pt'
-                    ? 'O Pin e suas configurações serão mantidos. Após verificar a nova pasta, a publicação voltará à fila. Isso só é possível se a tentativa anterior terminou com segurança.'
-                    : language === 'zh'
-                    ? 'Pin 及其设置将保留。验证新画板后，发布任务将重新排队。仅当上一次发布尝试已确认安全结束时才可执行。'
-                    : 'The Pin and its settings will be preserved. After the new board is verified, the schedule will be queued again. This is only available when the previous attempt is confirmed safe.'}
+                  {t.calendar.replacementBoardResume}
                 </p>
                 {replacementBoardsLoading ? (
-                  <p className="text-xs text-secondary-theme">{language === 'ru' ? 'Загружаем доски…' : 'Loading boards…'}</p>
+                  <p className="text-xs text-secondary-theme">{t.calendar.replacementBoardLoading}</p>
                 ) : replacementBoards.length > 0 ? (
                   <>
                     {replacementBoards.every((board) => board.id === selectedPin.pinterestBoardId) && (
                       <p className="text-xs text-secondary-theme">
-                        {language === 'ru' ? 'У этого аккаунта пока нет другой доступной доски.' : 'This account has no other available board.'}
+                        {t.calendar.replacementBoardNoneAvailable}
                       </p>
                     )}
                     <select
@@ -1052,11 +1004,11 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                       className="w-full rounded-lg border border-subtle bg-app-input px-3 py-2 text-xs text-primary-theme"
                     >
                       <option value="">
-                        {language === 'ru' ? 'Выберите доступную доску' : 'Select an available board'}
+                        {t.calendar.replacementBoardSelectPlaceholder}
                       </option>
                       {replacementBoards.map((board) => (
                         <option key={board.id} value={board.id} disabled={board.id === selectedPin.pinterestBoardId}>
-                          {board.name}{board.id === selectedPin.pinterestBoardId ? (language === 'ru' ? ' (текущая)' : ' (current)') : ''}
+                          {board.name}{board.id === selectedPin.pinterestBoardId ? t.calendar.currentBoardSuffix : ''}
                         </option>
                       ))}
                     </select>
@@ -1073,9 +1025,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                       })}
                       className="accent-btn px-3 py-2 rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {busyScheduleAction === `change-board:${selectedPin.id}`
-                        ? (language === 'ru' ? 'Проверяем и сохраняем…' : 'Verifying and saving…')
-                        : (language === 'ru' ? 'Сменить доску и возобновить' : 'Change board and resume')}
+                      {busyScheduleAction === `change-board:${selectedPin.id}` ? t.calendar.replacementBoardSaving : t.calendar.replacementBoardResume}
                     </button>
                   </>
                 ) : (
@@ -1157,7 +1107,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                   })}
                   className="px-4 py-1.5 rounded-xl text-xs font-semibold text-accent-ghost cursor-pointer hover:bg-accent/10 border border-accent/30 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {busyScheduleAction === `retry:${selectedPin.id}` ? 'Повторяем…' : t.calendar.retryFailedPin}
+                  {busyScheduleAction === `retry:${selectedPin.id}` ? t.calendar.retrying : t.calendar.retryFailedPin}
                 </button>
               )}
               {selectedPin.status === 'scheduled' && onCancelSchedule && (
@@ -1178,7 +1128,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                   }}
                   className="px-4 py-1.5 rounded-xl text-xs font-semibold text-red-600 dark:text-red-400 cursor-pointer hover:bg-red-500/10 border border-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {busyScheduleAction === `cancel:${selectedPin.id}` ? 'Отменяем…' : t.calendar.cancelScheduledPin}
+                  {busyScheduleAction === `cancel:${selectedPin.id}` ? t.calendar.cancelling : t.calendar.cancelScheduledPin}
                 </button>
               )}
               <button
