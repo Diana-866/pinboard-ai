@@ -132,6 +132,9 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
   // Billing history is private to the authenticated account. Clear it before
   // painting a newly selected account, and fence responses from the old owner.
   const [purchases, setPurchases] = useState<CreditPurchaseRow[]>([]);
+  const [purchasesLoading, setPurchasesLoading] = useState(false);
+  const [purchasesError, setPurchasesError] = useState<string | null>(null);
+  const [purchasesReloadToken, setPurchasesReloadToken] = useState(0);
   const billingOwnerIdRef = useRef<string | undefined>(user?.id);
 
   useLayoutEffect(() => {
@@ -139,6 +142,8 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
     billingOwnerIdRef.current = user?.id;
     setHistory([]);
     setPurchases([]);
+    setPurchasesError(null);
+    setPurchasesLoading(false);
     setTariffEnd(null);
   }, [user?.id]);
 
@@ -152,18 +157,36 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
   useEffect(() => {
     if (!user?.id) {
       setPurchases([]);
+      setPurchasesError(null);
+      setPurchasesLoading(false);
       return;
     }
     let active = true;
+    setPurchasesLoading(true);
+    setPurchasesError(null);
     apiRequest('/billing/credit-purchases')
       .then((res: any) => {
+        if (!Array.isArray(res?.purchases)) {
+          throw new Error('Invalid credit purchase history response');
+        }
         if (active && isCurrentBillingOwner(billingOwnerIdRef.current, user.id)) {
-          setPurchases(Array.isArray(res?.purchases) ? res.purchases : []);
+          setPurchases(res.purchases);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (active && isCurrentBillingOwner(billingOwnerIdRef.current, user.id)) {
+          setPurchasesError(language === 'ru'
+            ? 'Не удалось загрузить историю покупок. Проверьте соединение и повторите попытку.'
+            : 'Could not load purchase history. Check your connection and try again.');
+        }
+      })
+      .finally(() => {
+        if (active && isCurrentBillingOwner(billingOwnerIdRef.current, user.id)) {
+          setPurchasesLoading(false);
+        }
+      });
     return () => { active = false; };
-  }, [user?.id, user?.credits_balance]);
+  }, [user?.id, user?.credits_balance, purchasesReloadToken, language]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -865,12 +888,37 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
           </div>
 
           {/* История покупок кредитов (credit_purchases, миграция 007) */}
-          {purchases.length > 0 && (
-            <div className="custom-card p-5 rounded-2xl space-y-3">
+          <div className="custom-card p-5 rounded-2xl space-y-3">
               <h4 className="text-xs font-bold text-primary-theme uppercase tracking-wider flex items-center gap-2">
                 <ReceiptText className="w-4 h-4 text-accent-ghost" />
                 <span>{t.purchases?.purchasesHistoryTitle || 'История покупок кредитов'}</span>
               </h4>
+              {purchasesLoading && (
+                <p className="text-xs text-secondary-theme" role="status">
+                  {language === 'ru' ? 'Загружаем историю покупок…' : 'Loading purchase history…'}
+                </p>
+              )}
+              {purchasesError && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2" role="alert">
+                  <p className="text-xs text-red-600 dark:text-red-400">{purchasesError}</p>
+                  <button
+                    type="button"
+                    onClick={() => setPurchasesReloadToken((value) => value + 1)}
+                    disabled={purchasesLoading}
+                    className="text-xs font-semibold underline underline-offset-2 disabled:opacity-50"
+                  >
+                    {language === 'ru' ? 'Повторить' : 'Retry'}
+                  </button>
+                </div>
+              )}
+              {!purchasesLoading && !purchasesError && purchases.length === 0 && (
+                <p className="text-xs text-secondary-theme">
+                  {language === 'ru'
+                    ? 'Покупок пока нет. Оплаченные пакеты появятся здесь после подтверждения платежа.'
+                    : 'No purchases yet. Paid credit packs will appear here after payment confirmation.'}
+                </p>
+              )}
+              {purchases.length > 0 && (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[560px] text-left text-xs">
                   <thead>
@@ -923,6 +971,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
                   </tbody>
                 </table>
               </div>
+              )}
               <p className="text-[11px] text-muted-theme flex items-center gap-1.5">
                 <History className="w-3.5 h-3.5" />
                 {t.purchases?.neverBurn || 'Кредиты из оплаченных пакетов зачислены на баланс и не сгорают.'}
@@ -935,7 +984,6 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
                 </p>
               )}
             </div>
-          )}
         </div>
       )}
 
