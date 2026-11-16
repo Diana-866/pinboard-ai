@@ -384,6 +384,13 @@ export interface TranslationSchema {
     cancelScheduledPin: string;
     retryFailedPin: string;
     cancelScheduledPinConfirm: string;
+    legacyScheduleAccountMissingTitle: string;
+    legacyScheduleChooseAccount: string;
+    legacyScheduleOnlyAccount: string;
+    legacyScheduleNoAccount: string;
+    legacyScheduleRestoreAccount: string;
+    legacyScheduleChecking: string;
+    retryManualHint: string;
     autoTimeMoscowTemplate: string;
   };
 
