@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useI18n } from '../i18n/i18nContext';
+import { resolveLegalLanguage } from '../utils/legalLanguage';
 import { Link, useNavigate } from 'react-router-dom';
 
 type Lang = 'ru' | 'en';
@@ -83,7 +85,11 @@ interface LegalPageProps {
 }
 
 export const LegalPage: React.FC<LegalPageProps> = ({ ru, en }) => {
-  const [lang, setLang] = useState<Lang>('ru');
+  const { language } = useI18n();
+  const [lang, setLang] = useState<Lang>(() => resolveLegalLanguage(language));
+  useEffect(() => {
+    setLang(resolveLegalLanguage(language));
+  }, [language]);
   const navigate = useNavigate();
 
   const back = () => {
@@ -96,7 +102,7 @@ export const LegalPage: React.FC<LegalPageProps> = ({ ru, en }) => {
       <div className="max-w-3xl mx-auto bg-surface border border-subtle rounded-2xl p-6 md:p-12">
         <div className="flex items-center justify-between mb-6">
           <Link to="/" onClick={(e) => { e.preventDefault(); back(); }} className="text-sm text-accent">
-            ← Назад
+            {lang === 'ru' ? '← Назад' : '← Back'}
           </Link>
           <div className="flex items-center gap-1 text-sm font-extrabold">
             <button
