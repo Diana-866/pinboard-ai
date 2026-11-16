@@ -446,3 +446,12 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
   Get-Process -Name postgres -ErrorAction SilentlyContinue | Select-Object Id, Path
   ```
   Перед отправкой результата проверить, что в нём нет секретов; если ImagePath содержит параметры подключения/пароли (маловероятно), замаскировать их. Не изменять реестр или конфигурацию и не запускать migration replay до выяснения безопасного доступа к отдельной временной БД.
+
+
+- 2026-11-16 — пользователь выполнил read-only проверку конфигурации службы и владельца TCP listener. Значение реестра `HKLM:\\SYSTEM\\CurrentControlSet\\Services\\postgresql-x64-18` для `ImagePath`: `"X:\\Program Files\\PostgreSQL\\18\\bin\\pg_ctl.exe" runservice -N "postgresql-x64-18" -D "X:\\Program Files\\PostgreSQL\\18\\data" -w`. Это достоверно определяет data directory данного Windows service: `X:\\Program Files\\PostgreSQL\\18\\data`. `Get-NetTCPConnection` подтвердил listener на `::` и `0.0.0.0`, порт 5432, оба сокета принадлежат PID 5632. `Get-Process -Name postgres | Select-Object Id, Path` вывел PID 4908, 5632, 5648, 5984, 5996, 6000, 6060, 6160, 6168, 6180, но поле Path оказалось пустым; поэтому сопоставление PID 5632 с конкретным executable пока не подтверждено напрямую, хотя PID совпадает с владельцем listener и служба PostgreSQL 18 настроена на указанный data directory. Парольная аутентификация роли `Alekc` по-прежнему не решена; права CREATEDB не подтверждены. Replay не запускался. Следующий шаг — запросить только метаданные Win32 процесса PID 5632 (`ProcessId`, `ParentProcessId`, `ExecutablePath`, `Name`) без полного CommandLine, чтобы не раскрывать возможные аргументы/секреты; после этого определить безопасный способ доступа к локальному экземпляру или отдельному disposable instance. Атрибуция: диагностику выполнил пользователь; assistant интерпретировал и документировал. Код, SQL, настройки PostgreSQL, роли, пароли, базы данных и production не менялись.
+- **Следующий шаг:** выполнить:
+  ```powershell
+  Get-CimInstance Win32_Process -Filter "ProcessId=5632" |
+      Select-Object ProcessId, ParentProcessId, Name, ExecutablePath
+  ```
+  Это read-only запрос метаданных процесса. Не выводить полную командную строку и не менять существующий data directory.
