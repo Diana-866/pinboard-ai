@@ -39,6 +39,10 @@ Until a dedicated, tested refund workflow is implemented:
 - Do not change a user's tariff or period end without checking for newer successful payments and preserving any later entitlement.
 - If a refund is partial, record the refunded amount separately; the current schema does not track partial refund totals.
 
+## Important distinction: GPTunnel provider refunds vs Prodamus customer refunds
+
+The repository also contains migrations 072–073 and administrative actions for reconciling whether a GPTunnel generation/regeneration provider charge was refunded. Those records protect generation credit reservations and are not Prodamus customer-payment refund records. They do not implement a Prodamus refund webhook, customer refund ledger, partial-refund accounting, or automatic subscription/credit entitlement reversal. Do not use those GPTunnel reconciliation tools to process a Prodamus customer refund.
+
 ## Sources
 
 - Prodamus: [How refunds work](https://help.prodamus.ru/payform/vozvraty-platezhei/kak-v-prodamus-ustroeny-vozvraty-platezhei-klientam)

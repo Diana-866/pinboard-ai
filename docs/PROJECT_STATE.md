@@ -882,3 +882,11 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - Реально выполнен `bash -n` для точного содержимого `backend/test/run-disposable-concurrency-suite.sh` в Bash 5.2.37: PASS. PostgreSQL binaries отсутствуют в среде проверки; DB clone, nine runtime scripts и PostgreSQL cleanup не запускались.
 - Новый main commit автоматически вызвал Actions runs `43955465209` (postgres-atomicity) и `43955465181` (frontend/backend). Jobs API: у всех job `runner_id=0`, `steps=[]`; ни Bash parser step, ни Node contract test, ни SQL suite не выполнялись. Это тот же pre-run allocation blocker, не результат тестов PinPosy.
 - UA-004 остаётся единственным ближайшим owner action в `docs/USER_ACTIONS.md`; других действий владельца до его результата не добавлено. Production, PIN_TRIAL, Prodamus, Pinterest и deployment settings не затрагивались.
+
+
+### Уточнение refund runbooks и Vercel deployment evidence (2026-11-16)
+
+- Перепроверены migrations 072–073, `backend/adminProviderRefundActions.js`, `backend/prodamus.js`, `backend/billing.js`, тесты provider-refund и Prodamus webhook, а также runbooks AUD-388 и Prodamus refunds.
+- Исправлена терминологическая неоднозначность: migrations 072–073 и admin provider-refund actions относятся к GPTunnel generation/regeneration provider charges, а не к возвратам платежей клиентов через Prodamus. Prodamus refunds остаются ручным внешним процессом; соответствующие runbooks теперь прямо запрещают смешивать эти два контура.
+- Проверен GitHub commit status для code commit `d7f018b11088c1729478ceb0d5512ab2d9e444f7`: Vercel = SUCCESS, deployment completed. Это подтверждает deploy конкретного code commit, но не заменяет backend CI, SQL integration, staging/E2E и live payment/Pinterest validation. Два Actions runs `43955465209` и `43955465181` по-прежнему завершились до первого шага (`runner_id=0`, `steps=[]`).
+- Только документационные уточнения и status verification; production database, payment/refund operations и provider settings не затрагивались.

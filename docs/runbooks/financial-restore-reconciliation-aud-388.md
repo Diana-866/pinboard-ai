@@ -22,7 +22,7 @@
 - Для успешных credit purchases проверить фактическое зачисление и settlement checkout request.
 - Для подписок сверить paid order, `period_start`, `period_end`, тариф и текущий entitlement пользователя.
 - Все unknown/ambiguous checkout rows оставить fenced до получения provider evidence; не создавать повторный счёт и не начислять вручную только по отсутствию webhook.
-- Refunds сопоставить с immutable refund reconciliation audit и исходной provider transaction.
+- GPTunnel generation/regeneration provider refunds сопоставить с immutable `provider_refund_reconciliation_audit` и исходной provider transaction. Prodamus customer refunds проверять отдельно по внешнему refund receipt/support case; migrations 072–073 не являются Prodamus refund ledger.
 
 ## 4. Протокол
 
