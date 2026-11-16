@@ -265,6 +265,21 @@ export interface TranslationSchema {
     recoveryOpenSavedPins: string;
     recoveryBoardUnavailable: string;
     recoveryDismiss: string;
+    recoveryCheckingShort: string;
+    recoveryNoCreditsNotice: string;
+    recoveryUnconfirmed: string;
+    topicRequired: string;
+    errorSaveFormat: string;
+    errorSaveDescriptionBeforeSchedule: string;
+    errorDestinationBoardChanged: string;
+    errorCreateInternalBoard: string;
+    errorSelectedTimeAdjustedTemplate: string;
+    errorDateTimeUnavailable: string;
+    errorSaveReviewDescription: string;
+    errorAddToReview: string;
+    schedulingSaving: string;
+    reviewQueueReason: string;
+    untitledPin: string;
 
   };
 
