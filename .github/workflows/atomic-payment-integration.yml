@@ -62,6 +62,8 @@ jobs:
         run: node --test backend/test/admin-subscription-limit.test.js
       - name: Test bounded PostgREST pagination
         run: node --test backend/test/fetch-all-pages.test.js
+      - name: Test canonical local migration replay script
+        run: node --test backend/test/verify-script-migration-chain.test.js
       - name: Test cleanup of unsent payment records
         run: node --test backend/test/payment-record-cleanup.test.js
       - name: Test checkout settlement helper
