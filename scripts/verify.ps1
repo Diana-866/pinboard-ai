@@ -1,7 +1,9 @@
 param(
     [switch]$SkipInstall,
     [switch]$Migrations,
-    [switch]$MigrationsOnly
+    [switch]$MigrationsOnly,
+    [ValidateRange(1, 65535)]
+    [int]$PostgresPort = 5432
 )
 
 $ErrorActionPreference = "Stop"
@@ -99,27 +101,27 @@ function Invoke-MigrationReplay {
     try {
         Write-Host ""
         Write-Host "> Create disposable PostgreSQL database: $database" -ForegroundColor Cyan
-        & $psql -X -h 127.0.0.1 -v ON_ERROR_STOP=1 -d postgres -c "CREATE DATABASE $database"
+        & $psql -X -h 127.0.0.1 -p $PostgresPort -v ON_ERROR_STOP=1 -d postgres -c "CREATE DATABASE $database"
         if ($LASTEXITCODE -ne 0) {
             throw "Could not create the disposable database. Check that PostgreSQL is running and the current role can create databases."
         }
         $databaseCreated = $true
 
         Write-Host "> Apply Supabase test stubs" -ForegroundColor Cyan
-        & $psql -X -h 127.0.0.1 -v ON_ERROR_STOP=1 -d $database -f $stub
+        & $psql -X -h 127.0.0.1 -p $PostgresPort -v ON_ERROR_STOP=1 -d $database -f $stub
         if ($LASTEXITCODE -ne 0) {
             throw "Supabase test stubs failed."
         }
 
         Write-Host "> Apply canonical baseline: 001_baseline.sql" -ForegroundColor Cyan
-        & $psql -X -h 127.0.0.1 -v ON_ERROR_STOP=1 -d $database -f $baseline
+        & $psql -X -h 127.0.0.1 -p $PostgresPort -v ON_ERROR_STOP=1 -d $database -f $baseline
         if ($LASTEXITCODE -ne 0) {
             throw "Canonical baseline failed: 001_baseline.sql"
         }
 
         foreach ($migration in $activeMigrations) {
             Write-Host "  Applying $($migration.Name)"
-            & $psql -X -h 127.0.0.1 -v ON_ERROR_STOP=1 -d $database -f $migration.FullName
+            & $psql -X -h 127.0.0.1 -p $PostgresPort -v ON_ERROR_STOP=1 -d $database -f $migration.FullName
             if ($LASTEXITCODE -ne 0) {
                 throw "Migration failed: $($migration.Name)"
             }
@@ -133,11 +135,11 @@ function Invoke-MigrationReplay {
     finally {
         if ($databaseCreated) {
             Write-Host "> Drop disposable PostgreSQL database: $database" -ForegroundColor Cyan
-            & $psql -X -h 127.0.0.1 -v ON_ERROR_STOP=1 -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$database' AND pid <> pg_backend_pid();"
+            & $psql -X -h 127.0.0.1 -p $PostgresPort -v ON_ERROR_STOP=1 -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$database' AND pid <> pg_backend_pid();"
             if ($LASTEXITCODE -ne 0) {
                 Write-Host "WARNING: Could not terminate remaining connections to $database." -ForegroundColor Yellow
             }
-            & $psql -X -h 127.0.0.1 -v ON_ERROR_STOP=1 -d postgres -c "DROP DATABASE IF EXISTS $database"
+            & $psql -X -h 127.0.0.1 -p $PostgresPort -v ON_ERROR_STOP=1 -d postgres -c "DROP DATABASE IF EXISTS $database"
             if ($LASTEXITCODE -ne 0) {
                 Write-Host "WARNING: Failed to remove disposable database $database; remove it manually after checking its name." -ForegroundColor Yellow
                 $replaySucceeded = $false
