@@ -32,6 +32,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
   const { user, refreshUser } = useAuth();
   // Реальная оплата: создаём платёж на бэкенде и уводим на страницу Prodamus
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [payingPackId, setPayingPackId] = useState<string | null>(null);
   // One checkout at a time across plans and credit packs: prevents rapid cross-clicks
   // from creating multiple independent provider invoices for one user action.
   const checkoutInProgressRef = useRef(false);
@@ -329,7 +330,6 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
   const totalBalance = user?.credits_balance ?? 0;
 
   // Покупка пакета: создаём платёж на бэкенде и уводим на страницу Prodamus
-  const [payingPackId, setPayingPackId] = useState<string | null>(null);
   const checkoutBusy = payingId !== null || payingPackId !== null;
 
   // 4 Subscription Plans based on exact user specification
