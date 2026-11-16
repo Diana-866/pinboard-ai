@@ -1,5 +1,5 @@
 -- Atomic pin status/publication fencing regression test.
--- Run after the full migration chain, including 141_atomic_pin_publication_status_fencing.sql.
+-- Run after the full migration chain, including 148_atomic_pin_publication_status_fencing.sql.
 begin;
 
 do $body$
