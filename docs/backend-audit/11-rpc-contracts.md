@@ -39,12 +39,12 @@ This pass extended `backend/test/pin-status-publication-fencing.integration.sql`
 
 - No full backend suite or PostgreSQL integration SQL was executed.
 - No clean PostgreSQL replay of 001 + 010–148 was executed; psql is not installed in the available execution environment.
-- This is not a complete function-by-function audit of every migration or RPC.
+- This does not audit every SQL function that is never called by backend code, nor replace the separate migration-wide DDL/RLS/trigger review.
 - Latest observed GitHub Actions jobs failed before their first step and did not provide logs; Vercel reports build-rate-limit.
 
 ## Next
 
-Continue the remaining backend modules and dynamic RPC calls, then audit migrations 010–148 file-by-file: DDL, functions, triggers, RLS, grants, indexes and integration tests. Do not mark the SQL/RPC audit complete until runtime verification succeeds on disposable PostgreSQL.
+All backend direct RPC call sites and dynamic dispatchers have now been statically reconciled. Next, run a clean disposable PostgreSQL replay of 001 + 010–148 and all SQL integration tests. Never apply the fresh-install baseline/full chain over an existing production database.
 
 
 ## Follow-up: pin generation and regeneration RPC contracts
@@ -161,7 +161,7 @@ The inspected image lifecycle RPCs are service_role-only. Their limits are valid
 
 ### Administrative reconciliation and account deletion
 
-- The four dynamic provider-refund RPC wrappers in `adminProviderRefundActions.js` map to the generation/regeneration refund reconciliation and finalization functions introduced in migrations 073/077 and the operator-action journal in 078; the wrapper's `p_operator_user_id` plus action payload match.
+- The four dynamic provider-refund RPC wrappers in `adminProviderRefundActions.js` are `admin_reconcile_pin_generation_provider_refund(uuid,bigint,integer,boolean,text,text,uuid)`, `admin_reconcile_pin_regeneration_provider_refund(uuid,bigint,boolean,text,text,uuid)`, `admin_finalize_reconciled_pin_generation_failure(uuid,bigint,uuid)` and `admin_finalize_reconciled_pin_regeneration_failure(uuid,bigint,uuid)`. The current service wrappers and `p_operator_user_id`/action payload match migration 078; these wrappers delegate to the lower-level 073/077 workflow functions.
 - Pinterest unknown-publication reconciliation `admin_reconcile_pinterest_unknown_publication` matches migration 082.
 - Pinterest schedule inventory `admin_list_pinterest_schedule_inventory` matches migration 084.
 - Account lifecycle/deletion worker calls (`request_account_deletion`, claim/finish, preflight inventory, content erasure, Pinterest disconnect and Storage-manifest RPCs) match the latest definitions in migrations 127–147; account request uses the three-argument token-version fence introduced in 129/130.
