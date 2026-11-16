@@ -9,6 +9,7 @@ import {
   Send,
   ShieldCheck,
   Wallet,
+  type LucideIcon,
 } from 'lucide-react';
 import { PinPosyLogo } from '../common/PinPosyLogo';
 import { useAuth } from '../../context/AuthContext';
@@ -33,7 +34,7 @@ type AdminTab =
   | 'mail'
   | 'email_outbox';
 
-const TABS: Array<{ id: AdminTab; label: string; icon: React.ElementType<{ className?: string }> }> = [
+const TABS: Array<{ id: AdminTab; label: string; icon: LucideIcon }> = [
   { id: 'subscriptions', label: 'Подписки', icon: Receipt },
   { id: 'payment_creation_requests', label: 'Платёжные заявки', icon: CreditCard },
   { id: 'billing_exceptions', label: 'Ошибки биллинга', icon: AlertTriangle },
