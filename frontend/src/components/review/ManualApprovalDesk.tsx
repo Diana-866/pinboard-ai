@@ -25,6 +25,7 @@ import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { applyCurrentReviewEdits } from '../../utils/reviewApproval';
 import { createGenerationIdempotencyKey } from '../../utils/generationRetry';
+import { useAuth } from '../../context/AuthContext';
 
 export interface PendingReviewPin {
   id: string;
@@ -293,6 +294,8 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   onGoToDashboard,
 }) => {
   const { t, formatDate } = useI18n();
+  const { user } = useAuth();
+  const userId = user?.id || '';
 
   const [internalQueue, setInternalQueue] = useState<PendingReviewPin[]>([]);
   const queue = pendingPins ?? internalQueue;
@@ -305,6 +308,16 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
   const [approvedCount, setApprovedCount] = useState(0);
   const [rejectedCount, setRejectedCount] = useState(0);
+
+  // Progress and any fallback queue state are scoped to the authenticated user.
+  // Do not carry one person's review totals into the next signed-in session.
+  useEffect(() => {
+    setApprovedCount(0);
+    setRejectedCount(0);
+    setInternalQueue([]);
+    setBulkApprovalProgress(null);
+  }, [userId]);
+
   const totalInitial = Math.max(1, queue.length + approvedCount + rejectedCount);
 
   // Active pin in focus
@@ -341,25 +354,48 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
   useEffect(() => {
     let active = true;
+    // The review desk can remain mounted while AuthContext changes users.
+    // Clear the previous owner's Pinterest selection before loading the new one.
+    setPinterestAccounts([]);
+    setSelectedPinterestAccountId('');
+    setPinterestBoards([]);
+    setSelectedPinterestBoardId('');
+    setPinterestBoardsLoaded(false);
+    setPinterestBoardsError(false);
+    if (!userId) {
+      setPinterestBoardsLoaded(true);
+      return () => { active = false; };
+    }
+
     apiRequest('/integrations/pinterest/status')
       .then((data) => {
         if (!active) return;
-        const rows = Array.isArray(data?.accounts) ? data.accounts : [];
+        const rows = Array.isArray(data?.accounts)
+          ? data.accounts.filter((account: any) => account && typeof account.id === 'string' && account.id.trim())
+          : [];
         setPinterestAccounts(rows);
         if (rows.length === 1) setSelectedPinterestAccountId(rows[0].id);
       })
       .catch(() => {
-        if (active) setPinterestBoardsError(true);
+        if (active) {
+          setPinterestAccounts([]);
+          setSelectedPinterestAccountId('');
+          setPinterestBoardsError(true);
+          setPinterestBoardsLoaded(true);
+        }
       });
     return () => { active = false; };
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     let active = true;
+    // Never leave the previous account's boards selectable while the next
+    // account is loading. This also closes the window where approval could
+    // submit an old board ID together with a newly selected account ID.
+    setPinterestBoards([]);
+    setSelectedPinterestBoardId('');
     setPinterestBoardsError(false);
     if (!selectedPinterestAccountId) {
-      setPinterestBoards([]);
-      setSelectedPinterestBoardId('');
       setPinterestBoardsLoaded(true);
       return () => { active = false; };
     }
@@ -367,20 +403,22 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     apiRequest(`/integrations/pinterest/boards?account_id=${encodeURIComponent(selectedPinterestAccountId)}`)
       .then((data) => {
         if (!active) return;
-        const rows = Array.isArray(data?.boards) ? data.boards : [];
+        const rows = Array.isArray(data?.boards)
+          ? data.boards.filter((board: any) => board && typeof board.id === 'string' && board.id.trim())
+          : [];
         setPinterestBoards(rows);
-        if (!rows.some((board: { id: string }) => board.id === selectedPinterestBoardId)) {
-          setSelectedPinterestBoardId(rows[0]?.id || '');
-        }
+        setSelectedPinterestBoardId(rows[0]?.id || '');
         setPinterestBoardsLoaded(true);
       })
       .catch(() => {
         if (!active) return;
+        setPinterestBoards([]);
+        setSelectedPinterestBoardId('');
         setPinterestBoardsError(true);
         setPinterestBoardsLoaded(true);
       });
     return () => { active = false; };
-  }, [selectedPinterestAccountId]);
+  }, [selectedPinterestAccountId, userId]);
 
   // Sync state whenever the active top card changes
   useEffect(() => {
@@ -557,15 +595,20 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       // API transitions and a Pinterest board verification; firing the whole
       // queue concurrently can trigger rate limits and make bulk approval flaky.
       const successfulIds = new Set<string>();
+      const failedItems: Array<{ title: string; reason: string }> = [];
       setBulkApprovalProgress({ completed: 0, total: scheduledItems.length });
       for (let index = 0; index < scheduledItems.length; index += 1) {
         try {
           await onApprovePin(scheduledItems[index]);
           successfulIds.add(queueSnapshot[index].id);
-        } catch {
+        } catch (error) {
           // Keep this card in the review queue and continue with the rest.
-          // A partial failure must not discard successful approvals or stop
-          // independent cards from being processed.
+          // Preserve the actual server reason so the user can fix the failed
+          // item instead of seeing an unexplained partial-success count.
+          failedItems.push({
+            title: String(scheduledItems[index].title || 'Без названия').slice(0, 80),
+            reason: error instanceof Error ? error.message : 'Неизвестная ошибка',
+          });
         } finally {
           setBulkApprovalProgress({ completed: index + 1, total: scheduledItems.length });
         }
@@ -580,7 +623,16 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         }
       }
       if (successfulIds.size !== scheduledItems.length) {
-        window.alert(`В расписание добавлено: ${successfulIds.size} из ${scheduledItems.length}. Неудачные карточки остались в очереди.`);
+        const details = failedItems.slice(0, 3)
+          .map((item) => `• ${item.title}: ${item.reason}`)
+          .join('\n');
+        const remaining = failedItems.length > 3
+          ? `\nИ ещё ошибок: ${failedItems.length - 3}.`
+          : '';
+        window.alert(
+          `В расписание добавлено: ${successfulIds.size} из ${scheduledItems.length}. Неудачные карточки остались в очереди.` +
+          (details ? `\n\nПричины:\n${details}${remaining}` : '')
+        );
       }
     } finally {
       setBulkApprovalProgress(null);
