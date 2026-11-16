@@ -46,3 +46,33 @@ test('rejects snapshots without an authenticated owner', () => {
     false,
   );
 });
+
+
+test('calendar mutations capture and recheck the initiating account session', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const { fileURLToPath } = await import('node:url');
+  const { dirname, resolve } = await import('node:path');
+  const appPath = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'App.tsx');
+  const source = await readFile(appPath, 'utf8');
+  const handlers = [
+    'handleSchedulePin',
+    'handleReconcileLegacySchedule',
+    'handleChangeFailedScheduleBoard',
+    'handleRetryScheduledPin',
+    'handleCancelScheduledPin',
+  ];
+
+  for (const name of handlers) {
+    const start = source.indexOf(`const ${name} = async`);
+    assert.notEqual(start, -1, `${name} must exist`);
+    const nextHandler = source.indexOf('\n  const handle', start + 1);
+    const body = source.slice(start, nextHandler === -1 ? source.length : nextHandler);
+    assert.match(body, /const ownerSnapshot =/, `${name} must snapshot its initiating session`);
+    assert.match(body, /assertCurrentOwner\(\);/, `${name} must reject stale sessions`);
+    assert.match(
+      body,
+      /assertCurrentOwner\(\);[\s\S]{0,6000}setScheduledPins\(/,
+      `${name} must recheck ownership before mutating calendar state`,
+    );
+  }
+});
