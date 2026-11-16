@@ -901,3 +901,12 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - В текущей среде доступны GitHub API и изолированный Linux runtime, но нет доступа к пользовательскому Windows checkout `X:\\!PROGECT\\pinboard-ai`, PowerShell, локальному PostgreSQL-кластеру `X:\\PinPosy-verify-pg18` или его скрытому паролю. Поэтому UA-004 нельзя выполнить удалённо безопасным способом. Не запускались SQL integration, Bash concurrency, backend/frontend runtime suites; PASS не присваивается. Production, PIN_TRIAL, PID 5632, временный кластер и внешние сервисы не затрагивались.
 - Combined commit status для HEAD `4de5190...`: Vercel `failure`, target `build-rate-limit`; это rate-limit, не результат сборки. Деплой текущего HEAD не подтверждён.
 - В этом контрольном пункте код и чекбоксы этапов не менялись: доказательств для закрытия gate нет. Единственное действие владельца остаётся UA-004 в `docs/USER_ACTIONS.md`; новых действий владельца не добавлено.
+
+
+### Повторный запуск GitHub Actions для диагностики runner (2026-11-17)
+
+- Перед действием повторно сверены main HEAD, раздел 7 паспорта, USER_ACTIONS и workflow `.github/workflows/atomic-payment-integration.yml`. NEXT остаётся UA-004: локальный SQL integration runner; его нельзя заменить hosted CI.
+- Для диагностики инфраструктурного сбоя повторно запущены failed jobs в runs `43955465209` (Atomic payment fulfillment integration) и `43955465181` (Persisted boards integration checks). GitHub подтвердил принятие обоих rerun (attempt 2).
+- Повторные jobs `133614855913`, `133614861296`, `133614861648` завершились failure; jobs API не предоставил steps (null), runner/log metadata отсутствуют. Получение job logs вернуло BlobNotFound для всех трёх jobs. Поэтому причина остаётся НЕ УСТАНОВЛЕНА; нельзя утверждать, что тесты запускались или что обнаружена ошибка приложения.
+- Rerun не изменял исходный код, workflow, базы данных или внешние сервисы. Не было оснований менять код наугад. Hosted Actions blocker остаётся отдельным от локального SQL gate.
+- Чекбоксы SQL/Bash/backend runtime этапов не закрыты. UA-004 остаётся следующим обязательным действием владельца; после его фактического результата продолжить строго по порядку.
