@@ -143,7 +143,7 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - [~] Проверены пять GitHub Actions workflows, три verification scripts, package scripts и все девять Bash concurrency harnesses; выявлен и исправлен опасный implicit DB target/общие временные файлы в Bash harnesses. Добавлены общий guard, contract test и CI bash -n step; specialized workflows с unpinned Actions приведены к SHA pinning. Инвентаризация и оставшиеся вопросы — `docs/backend-audit/15-verification-workflow-and-concurrency-review.md`; runtime проверки ещё не выполнены, аудит всех остальных test/config files продолжается.
 - [~] Выполнена targeted contradiction review; исправлены четыре критичных устаревших документа (docs/launch-steps.md, docs/runbooks/release-line.md, docs/database.md, docs/pinterest/multi-account-architecture.md). Отчёт docs/audits/2026-11-16-documentation-contradiction-review.md. Это не полный построчный аудит всех docs; он продолжается.
 - [~] Создан полный metadata file-by-file register `docs/DOCUMENTATION_REGISTER.md` для всех 400 файлов docs/ с path, blob SHA и категорией проверки; выявлены коллизии номеров AUD. Это инвентаризация, а не завершённый content review: построчная проверка и reconciliation статусов документов продолжаются.
-- [ ] Пересмотреть все открытые PR и ветки, классифицировать: принять / исправить / закрыть / отложить.
+- [~] Сверены все 55 открытых PR и 100 веток относительно main; для каждого PR зафиксированы ahead/behind, draft и рекомендация FIX/REBASE, CLOSE CANDIDATE или DEFER в docs/audits/2026-11-16-open-pr-and-branch-review.md. Ни один PR не был слит/закрыт, ветки не удалялись: все PR diverged, безопасного merge без rebase и текущих проверок нет. Перед закрытием close candidates требуется сверка уникальных файлов/тестов.
 - [ ] Подготовить окончательный технический baseline и приоритеты.
 
 ### Этап 1 — воспроизводимость проверок
@@ -849,3 +849,11 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - Проверены дополнительные AUD-372, AUD-391, AUD-392, AUD-393, AUD-394 и AUD-397 schema review runbooks по текущим миграциям 127–148 и backend worker/routes.
 - Эти документы всё ещё помечали account deletion/auth/financial/generation/Pinterest fencing как «design only» и содержали большие unchecked future-state списки, хотя соответствующая реализация уже присутствует в main. Добавлены historical/superseded banners; старые чекбоксы оставлены как исторический снимок, а не переписаны в PASS.
 - Никаких production migrations, account deletions, provider calls или worker jobs не запускалось. Остальные runbooks остаются в очереди content review по register.
+
+
+### Сверка открытых PR и веток (2026-11-16)
+
+- На HEAD 8d7d1f3edbc4b96966fc72f05c669a94ef140c82 получены 100 веток (page 2 пуст) и 55 открытых PR. У каждого PR выполнен GitHub compare по head SHA к main: все diverged/stale; behind от 7 до 4720 commits. PR #7 и #4 имеют 0 commits ahead относительно текущего main, но на устаревших target branches.
+- Для каждого PR зафиксированы ahead/behind, draft и рекомендация. Потенциально важные операционные/test PR выделены для узкого FIX/REBASE; устаревшие/дублирующие snapshots помечены CLOSE CANDIDATE; dependency PR вынесены в отдельную compatibility review.
+- Ничего не merge/close/delete автоматически. Main не переписывался. Подробный реестр всех 100 веток и 55 PR: docs/audits/2026-11-16-open-pr-and-branch-review.md.
+- Инвентаризация веток не означает, что все orphan branches содержат уникальную работу; до удаления нужен отдельный content-level diff.
