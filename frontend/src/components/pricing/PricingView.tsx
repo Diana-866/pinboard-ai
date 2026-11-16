@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
 import { useAuth } from '../../context/AuthContext';
-import { payAndRedirect, PayablePlan, SubscriptionRow, buyCreditsAndRedirect, CreditPurchaseRow, releasePaymentIdempotencyKey } from '../../lib/billing';
+import { startPayment, PayablePlan, SubscriptionRow, startCreditsPurchase, CreditPurchaseRow, releasePaymentIdempotencyKey } from '../../lib/billing';
 import { apiRequest } from '../../lib/api';
 import { isTerminalCreditPurchaseStatus, isTerminalSubscriptionPaymentStatus } from '../../utils/paymentTerminalStatus';
 import { isCurrentBillingOwner } from '../../utils/billingOwner';
@@ -140,6 +140,12 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
   useLayoutEffect(() => {
     if (billingOwnerIdRef.current === user?.id) return;
     billingOwnerIdRef.current = user?.id;
+    // A checkout started by the previous owner must not lock or redirect the
+    // newly authenticated account when its network response eventually arrives.
+    checkoutInProgressRef.current = false;
+    setPayingId(null);
+    setPayingPackId(null);
+    setPayError(null);
     setHistory([]);
     setPurchases([]);
     setPurchasesError(null);
@@ -297,13 +303,17 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
   }, [user?.id, pendingPaymentKey]);
 
   const handlePay = async (planId: string) => {
-    if (checkoutInProgressRef.current) return;
+    const requestOwnerId = user?.id;
+    if (!requestOwnerId || checkoutInProgressRef.current) return;
     checkoutInProgressRef.current = true;
     setPayError(null);
     setPayingId(planId);
     try {
-      await payAndRedirect(planId as PayablePlan, currency);
+      const intent = await startPayment(planId as PayablePlan, currency);
+      if (!isCurrentBillingOwner(requestOwnerId, billingOwnerIdRef.current)) return;
+      window.location.href = intent.payment_url;
     } catch (e: any) {
+      if (!isCurrentBillingOwner(requestOwnerId, billingOwnerIdRef.current)) return;
       checkoutInProgressRef.current = false;
       setPayError(e?.message || t.pricing.paymentError || 'Не удалось создать платёж');
       setPayingId(null);
@@ -447,13 +457,17 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
   // Реальная покупка пакета кредитов: POST /billing/credits → оплата Prodamus.
   // После оплаты вебхук зачисляет кредиты на баланс (пакеты не сгорают).
   const handleBuyCredits = async (packId: string) => {
-    if (checkoutInProgressRef.current) return;
+    const requestOwnerId = user?.id;
+    if (!requestOwnerId || checkoutInProgressRef.current) return;
     checkoutInProgressRef.current = true;
     setPayError(null);
     setPayingPackId(packId);
     try {
-      await buyCreditsAndRedirect(packId);
+      const intent = await startCreditsPurchase(packId);
+      if (!isCurrentBillingOwner(requestOwnerId, billingOwnerIdRef.current)) return;
+      window.location.href = intent.payment_url;
     } catch (e: any) {
+      if (!isCurrentBillingOwner(requestOwnerId, billingOwnerIdRef.current)) return;
       checkoutInProgressRef.current = false;
       setPayError(e?.message || t.pricing.paymentError || 'Не удалось создать платёж');
       setPayingPackId(null);
