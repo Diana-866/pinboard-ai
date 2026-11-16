@@ -219,3 +219,20 @@ Migration 122 создаёт таблицу мониторинга и RPC. Migra
 **Rollout:** миграции 122–123 уже находятся в `main`, но их применение к production Supabase не подтверждено. До запуска worker/cron требуются staging-прогон точной последовательности миграций и backend на одном commit, Node/PostgreSQL integration tests, проверка секретов и отдельное подтверждение владельца. В production должен работать только один способ пробуждения очереди — отдельный worker ИЛИ внешний cron.
 
 Статусы admin health: `not_seen`, `running`, `healthy`, `failed`, `stale`. Heartbeat подтверждает вызов endpoint, но не доступность Pinterest API и не заменяет сверку `scheduled/publishing/unknown`.
+
+
+## Render Cron Blueprint
+
+В корне репозитория добавлен `render.yaml` с отдельным сервисом `pinposy-pinterest-scheduler`:
+
+- частота — один раз в минуту (UTC);
+- команда — `npm run cron:schedule` из каталога `backend/`;
+- compute — минимальный план `0.5c-512mb`;
+- `PINPOSY_BACKEND_URL` уже указывает на текущий backend Render;
+- `PINPOSY_SCHEDULER_SECRET` объявлен как `sync: false`: Render запросит значение при создании сервиса, секрет не хранится в Git.
+
+**Подключение:** после слияния PR открой Render Dashboard → Blueprints → New Blueprint Instance, выбери репозиторий и ветку `main`, проверь план и расписание, затем введи тот же `PINPOSY_SCHEDULER_SECRET`, который будет установлен в backend. Создание Blueprint добавит платный Cron Job; перед подтверждением проверь стоимость в Dashboard. В документации Render указана минимальная плата $1/месяц за Cron Job, дальнейшая стоимость зависит от фактического времени выполнения.
+
+Не запускай одновременно этот Cron Job и `npm run worker`/другой внешний cron. Render гарантирует не более одного активного запуска одного Cron Job; если запуск ещё выполняется в момент следующего слота, следующий слот откладывается.
+
+**Не включать публикации до rollout-проверки:** миграции 122–123 должны быть применены к целевой БД, backend должен быть развернут с тем же кодом, секрет должен совпадать на backend и Cron Job, а тестовый прогон должен подтвердить heartbeat. Добавление `render.yaml` само по себе ничего не развертывает и не запускает.
