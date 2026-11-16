@@ -137,7 +137,7 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - [x] Получить дерево репозитория на исходном commit.
 - [x] Зафиксировать исходный SHA и ветку.
 - [x] Выборочно открыть ключевые frontend/backend/SQL файлы.
-- [~] Проведены шесть ограниченных пакетов backend-аудита: core, auth/account lifecycle, billing/credits/Prodamus, GPTunnel/Pinterest admin recovery, Pinterest OAuth/account lifecycle и scheduler/worker; отчёты `docs/backend-audit/01-core-modules.md`–`06-pinterest-scheduler-worker.md`. Остальные модули, маршруты и тесты не проверены.
+- [~] Проведены семь ограниченных пакетов backend-аудита: core, auth/account lifecycle, billing/credits/Prodamus, GPTunnel/Pinterest admin recovery, Pinterest OAuth/account lifecycle, scheduler/worker и image storage lifecycle; отчёты `docs/backend-audit/01-core-modules.md`–`07-image-storage-lifecycle.md`. Остальные модули, маршруты и тесты не проверены.
 - [ ] Построчно проанализировать все исходники frontend.
 - [ ] Проанализировать все миграции и SQL-тесты.
 - [ ] Проанализировать тесты, скрипты, workflow и конфигурации.
@@ -251,7 +251,7 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 
 ## 7. Текущая следующая задача
 
-**NEXT: продолжить статический backend-аудит с Storage/image lifecycle, projects/boards/pins/resource ownership и полным `backend/index.js`, сверяя каждый модуль с его тестами и SQL. Отдельный блокер остаётся открытым: GitHub Actions checkout regression workflow run #10 attempt 2 завершился failure до шагов, Node tests не запускались; требуется работоспособный runner и реальный запуск, затем повторно проверить Vercel (сейчас build-rate-limit). Не помечать тесты пройденными. PR #88 не объединять: checkout fix адресно перенесён в main, PR основан на старом SHA. Не запускать реальные платежи и не менять production.
+**NEXT: продолжить статический backend-аудит с projects/boards/pins/resource ownership, account deletion и полным `backend/index.js`, сверяя каждый модуль с его тестами и SQL. Отдельный блокер остаётся открытым: GitHub Actions checkout regression workflow run #10 attempt 2 завершился failure до шагов, Node tests не запускались; требуется работоспособный runner и реальный запуск, затем повторно проверить Vercel (сейчас build-rate-limit). Не помечать тесты пройденными. PR #88 не объединять: checkout fix адресно перенесён в main, PR основан на старом SHA. Не запускать реальные платежи и не менять production.
 
 ## 8. Журнал изменений паспорта
 - 2026-11-16 — создан первоначальный паспорт на основе дерева репозитория и выборочного чтения файлов на commit `1914c5c5`. Полный аудит не завершён.
@@ -261,3 +261,4 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - 2026-11-16 — пакет 04: проверены GPTunnel AI, website analysis SSRF controls, keyword/output validation, Pinterest admin inventory и positive-only reconciliation, связанные routes/tests и SQL migrations. В коде не подтверждён критический дефект; зафиксирована требующая продуктового решения зона тарификации legacy text routes (analysis/keywords/boards), не объявленная дефектом без утверждённой модели цен. Runtime tests и production интеграции не запускались. Отчёт: `docs/backend-audit/04-gptunnel-pinterest-admin.md`.
 - 2026-11-16 — пакет 05: проверены Pinterest OAuth/account routes, browser binding, token refresh lease/uncertainty fencing, account record encryption migration, pagination, related tests and SQL. В проверенном пакете не подтверждён критический дефект; staging OAuth и PostgreSQL tests не запускались. Отчёт: `docs/backend-audit/05-pinterest-oauth-account.md`.
 - 2026-11-16 — пакет 06: проверены scheduler/worker/cron, full internal scheduler route, heartbeat, claim fencing, completion monitor and remote-ID recovery contracts. В статически просмотренном пакете критический дефект не подтверждён; runtime and PostgreSQL race tests не запускались из-за CI runner blocker; production scheduler не менялся. Отчёт: `docs/backend-audit/06-pinterest-scheduler-worker.md`.
+- 2026-11-16 — пакет 07: проверены Storage/image upload/rehost/delete, SSRF protections, compare-and-swap, image lifecycle fencing, quarantine, replay retention and queue SQL contracts. Критический дефект в просмотренном пакете не подтверждён; production Storage и реальные файлы не менялись, runtime tests не запускались из-за CI runner blocker. Отчёт: `docs/backend-audit/07-image-storage-lifecycle.md`.
