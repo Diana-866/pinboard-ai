@@ -83,6 +83,16 @@ export function isPersistedScheduleCancellationResponse(
     row.status === 'cancelled';
 }
 
+function normalizeExpectedDestination(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 export interface PersistedScheduleRequestExpectation {
   pinId: string;
   scheduledAt: string;
@@ -104,6 +114,10 @@ export function findPersistedScheduleRequest(
   if (!isValidPersistedScheduleList(rows)) return null;
   const expectedTime = Date.parse(expected.scheduledAt);
   if (!Number.isFinite(expectedTime)) return null;
+  const expectedDestination = expected.destinationUrl === undefined
+    ? undefined
+    : normalizeExpectedDestination(expected.destinationUrl);
+  if (expected.destinationUrl !== undefined && expectedDestination === null) return null;
 
   const matches = rows.filter((row): row is Record<string, any> =>
     !!row &&
@@ -118,7 +132,7 @@ export function findPersistedScheduleRequest(
     (!expected.pinterestAccountId ||
       String(row.pinterest_account_id || '') === expected.pinterestAccountId) &&
     (expected.timezone === undefined || String(row.timezone || '') === expected.timezone) &&
-    (expected.destinationUrl === undefined || String(row.destination_url || '') === expected.destinationUrl) &&
+    (expectedDestination === undefined || String(row.destination_url || '') === expectedDestination) &&
     expected.statuses.includes(String(row.status || ''))
   );
   return matches.length === 1 ? matches[0] : null;
