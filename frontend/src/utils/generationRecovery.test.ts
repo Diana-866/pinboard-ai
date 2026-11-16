@@ -54,3 +54,10 @@ test('stops polling when all generations are terminal or absent', () => {
   assert.equal(shouldPollGenerationRecovery([{ status: 'expired' }]), false);
   assert.equal(shouldPollGenerationRecovery([]), false);
 });
+
+
+test('pauses automatic polling after an authentication failure but keeps recoverable requests available', () => {
+  const unresolved = [{ status: 'processing' }];
+  assert.equal(shouldPollGenerationRecovery(unresolved, true), false);
+  assert.equal(shouldPollGenerationRecovery(unresolved, false), true);
+});
