@@ -1,5 +1,8 @@
 # AUD-393 — generation and provider spend fencing during account deletion
 
+**Historical design checklist (superseded 2026-11-16).** Generation/deletion spend fencing has since been implemented in the mainline migration chain (including migrations 142–144) and backend generation/provider recovery code. The unchecked items below are not a current implementation checklist. Verify exact current behavior in code/tests; do not use this document to apply schema changes.
+
+
 **Status:** design-only runbook. Do not execute against production.
 
 ## Preconditions

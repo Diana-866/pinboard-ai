@@ -842,3 +842,10 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - В четырёх account-deletion design/runbooks оставались ложные утверждения, что endpoint/worker/schema ещё только проектируются. Добавлены заметные historical/superseded banners; proposal SQL AUD-397 прямо запрещён к исполнению и помечен superseded реализованной цепочкой 127–148.
 - Pinterest scheduler runbook уточнён: migrations 122–123 входят в mainline 010–148, но это не подтверждает их применение к production; production scheduler включать только после SQL/staging gates и явного approval.
 - Проверка кода подтвердила наличие backend/accountDeletionWorker.js, durable queue migration 130, content-erasure stage 137 и tombstone finalization 138. Runtime worker и destructive workflow не запускались.
+
+
+### Расширенная сверка исторических account-deletion design runbooks (2026-11-16)
+
+- Проверены дополнительные AUD-372, AUD-391, AUD-392, AUD-393, AUD-394 и AUD-397 schema review runbooks по текущим миграциям 127–148 и backend worker/routes.
+- Эти документы всё ещё помечали account deletion/auth/financial/generation/Pinterest fencing как «design only» и содержали большие unchecked future-state списки, хотя соответствующая реализация уже присутствует в main. Добавлены historical/superseded banners; старые чекбоксы оставлены как исторический снимок, а не переписаны в PASS.
+- Никаких production migrations, account deletions, provider calls или worker jobs не запускалось. Остальные runbooks остаются в очереди content review по register.

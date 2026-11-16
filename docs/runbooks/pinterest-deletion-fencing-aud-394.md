@@ -1,5 +1,8 @@
 # AUD-394 — Pinterest account deletion fencing
 
+**Historical design checklist (superseded 2026-11-16).** Pinterest/deletion fencing has since been implemented in the mainline migration chain (127–148) and Pinterest account/scheduler worker code. The unchecked items below are not a current implementation checklist. Current runtime behavior and release gates must be checked against main, integration tests and docs/PROJECT_STATE.md.
+
+
 **Status:** design-only runbook. Do not execute against production.
 
 ## Preconditions

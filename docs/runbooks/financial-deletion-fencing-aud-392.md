@@ -1,5 +1,8 @@
 # AUD-392 — financial settlement fencing during account deletion
 
+**Historical design checklist (superseded 2026-11-16).** Financial/deletion fencing has since been implemented in the mainline migration chain (including migrations 142–144) and associated backend/provider receipt flows. The unchecked items below are not a current implementation checklist. Use current code and tests; live Prodamus reconciliation and production migration state remain separate verification tasks.
+
+
 **Status:** design-only runbook. Do not execute against production.
 
 ## Preconditions

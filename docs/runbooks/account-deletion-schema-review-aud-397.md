@@ -1,5 +1,8 @@
 # AUD-397 — schema review and staging checklist
 
+**Historical proposal checklist (superseded 2026-11-16).** The account lifecycle schema is implemented in main through migrations 127–148. The preflight sequence below refers to the earlier AUD-397 proposal and is not a current migration plan. Do not apply the companion proposal SQL; compare current production schema separately before any approved rollout.
+
+
 **Proposal only. Never run the companion SQL against production.**
 
 ## Preflight

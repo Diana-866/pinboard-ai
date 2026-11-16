@@ -1,5 +1,8 @@
 # AUD-391 — authentication and recovery gates runbook
 
+**Historical design checklist (superseded 2026-11-16).** Authentication/deletion gates have since been implemented in the mainline migrations and backend auth/account lifecycle code. The unchecked items below describe the earlier design snapshot, not current implementation status. Use docs/PROJECT_STATE.md and current source/tests for status; production rollout still requires separate verification and approval.
+
+
 **Purpose:** implementation and validation checklist for the account lifecycle design in AUD-390.  
 **Status:** design only. Do not execute against production.
 

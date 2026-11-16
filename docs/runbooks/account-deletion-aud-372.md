@@ -1,5 +1,8 @@
 # Account deletion — safe operator procedure (AUD-372)
 
+**Historical design snapshot (superseded 2026-11-16).** Main now contains account lifecycle/deletion implementation across migrations 127–148, account deletion routes and backend/accountDeletionWorker.js. The statement below that no end-to-end workflow exists is stale. This file is retained as design history; do not use its future-state checklist as current execution instructions. Current behavior and gates must be read from numbered migrations, backend code, integration tests and docs/PROJECT_STATE.md.
+
+
 **Status:** design/runbook only. There is currently no end-to-end account deletion workflow. Do not claim an account can be deleted automatically or within a fixed deadline.
 
 ## Before implementation or processing a manual request
