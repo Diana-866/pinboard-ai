@@ -65,7 +65,7 @@ export const EmailVerifyBanner: React.FC = () => {
         <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
           {t.settings.emailVerifyTitle}
           {user.email ? (
-            <span className="font-normal text-secondary-theme"> — письмо отправлено на {user.email}</span>
+            <span className="font-normal text-secondary-theme"> {t.settings.emailVerifySentTo.replace('{email}', user.email)}</span>
           ) : null}
         </p>
         {resent && (
