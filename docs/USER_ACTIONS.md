@@ -49,6 +49,8 @@
 
 - **Повторная проверка после package-09 onboarding fixes (2026-11-16, code commit `4d1d7785c453783ec512e45bab911d99ebec91dc`):** run `43934717765` (Persisted boards integration checks) jobs `133536188888` (backend) и `133536189382` (frontend) завершились `failure` с `runner_id: 0`, `steps: []`; run `43934717604` (Atomic payment fulfillment integration) job `133536188154` (postgres-atomicity) также завершился `failure` с `runner_id: 0`, `steps: []`. Ни тесты, ни typecheck/build, ни SQL replay не запускались. Vercel status для code commit — `failure`, описание `Deployment rate limited — retry in 24 hours`, target `build-rate-limit`; это deployment quota blocker, не результат сборки. Проверка выполнена ассистентом через GitHub API. UA-002 остаётся открытым до проверки владельцем GitHub billing/Actions settings.
 
+- **Повторная проверка на актуальном main (2026-11-16, HEAD `9c13296c2b085613131dfd91fc2af7133b0e4b17`):** runs `43934727147` (Persisted boards integration checks) и `43934727130` (Atomic payment fulfillment integration) завершились `failure` до запуска runner. Jobs `133536221831` (frontend), `133536222301` (backend) и `133536219993` (postgres-atomicity) имеют `runner_id: 0`, `steps: []`; ни один тест, typecheck, build или SQL replay не выполнялся. Vercel combined status для HEAD также `failure`, target `build-rate-limit`, build log отсутствует. Результат получен ассистентом через GitHub API; проверка аккаунтных Actions budgets/permissions остаётся задачей владельца.
+
 ## UA-003 — подтвердить production account-deletion worker и точность privacy disclosures
 
 - **Статус:** [ ] Ожидает проверки владельцем production-инфраструктуры.
