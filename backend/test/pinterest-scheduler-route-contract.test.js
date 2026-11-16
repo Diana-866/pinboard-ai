@@ -7,6 +7,36 @@ const path = require("node:path");
 
 const read = (file) => fs.readFileSync(path.join(__dirname, "..", file), "utf8");
 
+test("direct Pinterest publish recovery is read-only and confirms only an exact publication ledger row", () => {
+  const pinterest = read("pinterest.js");
+  const start = pinterest.indexOf('app.get("/pins/:id/publish-status"');
+  const end = pinterest.indexOf('app.post(\n    "/pins/:id/publish"', start);
+  assert.notEqual(start, -1, "authenticated publish-status route exists");
+  assert.ok(end > start, "publish-status route is bounded before the publish POST route");
+  const route = pinterest.slice(start, end);
+  assert.match(route, /requireAuth/);
+  assert.match(route, /getPinWithOwner\(req\.params\.id, req\.userId\)/);
+  assert.match(route, /\.eq\("user_id", String\(req\.userId\)\)/);
+  assert.match(route, /\.eq\("pin_id", req\.params\.id\)/);
+  assert.match(route, /\.eq\("pinterest_account_id", accountId\)/);
+  assert.match(route, /publication\.pinterest_pin_id/);
+  assert.match(route, /status: "published"/);
+  assert.match(route, /status: "not_found"/);
+  assert.doesNotMatch(route, /\.rpc\(|callPinterest\(|\.update\(/);
+});
+
+test("direct publish uncertainty exposes a status check without issuing a second publish POST", () => {
+  const button = fs.readFileSync(
+    path.join(__dirname, "..", "..", "frontend", "src", "components", "pins", "PublishPinButton.tsx"),
+    "utf8"
+  );
+  assert.match(button, /const handleCheckStatus = async/);
+  assert.match(button, /\/pins\/\$\{encodeURIComponent\(checkingPinId\)\}\/publish-status\?account_id=/);
+  assert.match(button, /readConfirmedPinterestPublish\(result, checkingBoardId\)/);
+  assert.match(button, /onClick=\{handleCheckStatus\}/);
+  assert.match(button, /повторная отправка остаётся заблокированной/i);
+});
+
 test("Pinterest scheduler worker URL is registered by the backend router", () => {
   const worker = read("scheduleWorker.js");
   const index = read("index.js");
@@ -95,8 +125,152 @@ test("schedule creation persists and reconciles the resolved project destination
   const end = source.indexOf('app.post("/schedule/:id/change-board"', start);
   assert.notEqual(end, -1, "pin schedule route boundary must exist");
   const route = source.slice(start, end);
+  assert.match(source, /projects\(user_id, niche, tone, website_url\)/);
 
-  assert.ok(route.includes("const snapshotDestinationUrl = destinationUrl || snapshotPin.boards?.projects?.website_url || null"));
+  assert.ok(route.includes("let snapshotDestinationUrl = destinationUrl"));
+  assert.ok(route.includes("if (!snapshotDestinationUrl && snapshotPin.boards?.projects?.website_url)"));
+  assert.ok(route.includes("snapshotDestinationUrl = normalizePinterestDestinationUrl(snapshotPin.boards.projects.website_url)"));
+  // Duplicate-request recovery must compare the same timezone that was persisted.
+  const duplicateCheck = route.slice(route.indexOf("isSamePinScheduleRequest(existing"));
+  assert.match(duplicateCheck, /scheduledAt,[\s\S]*?timezone,[\s\S]*?destinationUrl: snapshotDestinationUrl/);
   assert.ok(route.includes("destination_url: snapshotDestinationUrl"));
-  assert.ok(route.includes('String(existing.destination_url || "") === String(snapshotDestinationUrl || "")'));
+  assert.ok(route.includes("isSamePinScheduleRequest(existing"));
+});
+
+test("calendar retry and cancellation stay fenced to the initiating authenticated owner", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "..", "frontend", "src", "App.tsx"), "utf8");
+  for (const [name, nextHandler] of [
+    ["handleRetryScheduledPin", "handleCancelScheduledPin"],
+    ["handleCancelScheduledPin", "handleAddBoard"],
+  ]) {
+    const start = app.indexOf(`const ${name} = async`);
+    const end = app.indexOf(`const ${nextHandler} =`, start);
+    assert.notEqual(start, -1, `${name} exists`);
+    assert.ok(end > start, `${name} has a bounded handler body`);
+    const handler = app.slice(start, end);
+    assert.match(handler, /userId: pendingReviewUserIdRef\.current/);
+    assert.match(handler, /generation: pendingReviewOwnerGenerationRef\.current/);
+    assert.match(handler, /isReviewQueueOwnerCurrent\(ownerSnapshot/);
+    assert.match(handler, /assertScheduleOwner\(\);[\s\S]*?await apiRequest/);
+    assert.match(handler, /await apiRequest[\s\S]*?assertScheduleOwner\(\)/);
+  }
+});
+
+test("legacy schedule account recovery and board reassignment are fenced to their initiating owner", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "..", "frontend", "src", "App.tsx"), "utf8");
+  for (const [name, nextName] of [
+    ["handleReconcileLegacySchedule", "handleChangeFailedScheduleBoard"],
+    ["handleChangeFailedScheduleBoard", "handleRetryScheduledPin"],
+  ]) {
+    const start = app.indexOf(`const ${name} = async`);
+    const end = app.indexOf(`const ${nextName} =`, start);
+    assert.notEqual(start, -1, `${name} exists`);
+    assert.ok(end > start, `${name} has a bounded handler body`);
+    const handler = app.slice(start, end);
+    assert.match(handler, /userId: pendingReviewUserIdRef\.current/);
+    assert.match(handler, /generation: pendingReviewOwnerGenerationRef\.current/);
+    assert.match(handler, /isReviewQueueOwnerCurrent\(scheduleOwnerSnapshot/);
+    assert.match(handler, /catch \(originalError\) \{\s*assertScheduleOwner\(\)/);
+    assert.match(handler, /await apiRequest\('\/schedule'\);\s*assertScheduleOwner\(\)/);
+    assert.match(handler, /setScheduledPins\(\(prev\)/);
+    assert.ok(handler.lastIndexOf("assertScheduleOwner();", handler.indexOf("setScheduledPins")) >= 0);
+  }
+});
+
+test("in-flight board and schedule reads cannot publish data after an account switch", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "..", "frontend", "src", "App.tsx"), "utf8");
+  assert.match(app, /userDataRequestGenerationRef\.current \+= 1/);
+  const identityLayoutEffect = app.slice(
+    app.indexOf("React.useLayoutEffect(() => {", app.indexOf("scheduleUserIdRef")),
+    app.indexOf("}, [user?.id]);", app.indexOf("scheduleUserIdRef")) + "}, [user?.id]);".length
+  );
+  assert.match(identityLayoutEffect, /setBoards\(\[\]\)/);
+  assert.match(identityLayoutEffect, /setScheduledPins\(\[\]\)/);
+  for (const [name, nextMarker] of [
+    ["loadBoards", "Never show a previous user's schedule"],
+    ["loadSchedule", "Тарифные «замочки»"],
+  ]) {
+    const functionStart = app.indexOf(`async function ${name}()`);
+    const effectStart = app.lastIndexOf("React.useEffect(() => {", functionStart);
+    const end = app.indexOf(nextMarker, functionStart);
+    assert.notEqual(functionStart, -1, `${name} exists`);
+    assert.ok(effectStart >= 0 && end > functionStart, `${name} effect has a bounded source section`);
+    const loader = app.slice(effectStart, end);
+    assert.match(loader, /const isCurrentRequest = \(\) => !cancelled && requestOwnerId === \(user\?\.id \|\| ''\) && requestGeneration === userDataRequestGenerationRef\.current/);
+    assert.match(loader, /if \(isCurrentRequest\(\)\) set/);
+    assert.match(loader, /if \(isCurrentRequest\(\)\) \{|if \(!isCurrentRequest\(\)\) return;/);
+  }
+});
+
+test("Pinterest account status cannot restore another user's accounts after a session switch", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "..", "frontend", "src", "App.tsx"), "utf8");
+  assert.match(app, /<SettingsView\s+key=\{user\?\.id \|\| 'anonymous'\}/);
+  const callbackStart = app.indexOf("const handlePinterestStatusChange");
+  const callbackEnd = app.indexOf("React.useEffect(() => {", callbackStart);
+  assert.ok(callbackEnd > callbackStart);
+  const callback = app.slice(callbackStart, callbackEnd);
+  assert.match(callback, /callbackOwnerId !== scheduleUserIdRef\.current/);
+  assert.match(callback, /\}, \[user\?\.id\]\);/);
+  const identityStart = app.indexOf("const scheduleUserIdRef");
+  const identityEnd = app.indexOf("}, [user?.id]);", identityStart) + "}, [user?.id]);".length;
+  const identityEffect = app.slice(identityStart, identityEnd);
+  assert.match(identityEffect, /setAccounts\(\[\]\)/);
+  assert.match(identityEffect, /setActiveAccountId\(''\)/);
+  assert.match(identityEffect, /setMaxAccounts\(0\)/);
+
+  const effectStart = app.indexOf("const requestOwnerId = user?.id || '';", identityEnd);
+  const effectEnd = app.indexOf("const handleUpdatePendingPins", effectStart);
+  assert.notEqual(effectStart, -1);
+  assert.ok(effectEnd > effectStart);
+  const statusEffect = app.slice(effectStart, effectEnd);
+  assert.match(statusEffect, /requestOwnerId === \(user\?\.id \|\| ''\)/);
+  assert.match(statusEffect, /requestGeneration === userDataRequestGenerationRef\.current/);
+  assert.match(statusEffect, /if \(!isCurrentRequest\(\)\) return/);
+});
+
+test("calendar detail state is remounted when the authenticated owner changes", () => {
+  const app = read(path.join("..", "frontend", "src", "App.tsx"));
+  const calendarStart = app.indexOf("<PublishingCalendar");
+  assert.notEqual(calendarStart, -1, "calendar is rendered by the authenticated app");
+  const calendar = app.slice(calendarStart, calendarStart + 500);
+  assert.match(calendar, /key=\{user\?\.id \|\| 'anonymous'\}/);
+  // PublishingCalendar owns the selected schedule modal and account-specific
+  // replacement-board state. A user key forces React to discard that private
+  // state before another account can see the calendar.
+  assert.match(calendar, /scheduledPins=\{scheduledPins\}/);
+});
+
+test("board edit and create dialogs are scoped to the authenticated owner", () => {
+  const app = read(path.join("..", "frontend", "src", "App.tsx"));
+  const boardsStart = app.indexOf("<BoardsManager");
+  assert.notEqual(boardsStart, -1, "board manager is rendered by the authenticated app");
+  const boards = app.slice(boardsStart, boardsStart + 400);
+  assert.match(boards, /key=\{user\?\.id \|\| 'anonymous'\}/);
+  assert.match(boards, /boards=\{boards\}/);
+});
+
+test("review editor is remounted for each authenticated owner", () => {
+  const app = read(path.join("..", "frontend", "src", "App.tsx"));
+  const reviewStart = app.indexOf("<ManualApprovalDesk");
+  assert.notEqual(reviewStart, -1, "review desk is rendered by the authenticated app");
+  const review = app.slice(reviewStart, reviewStart + 450);
+  assert.match(review, /key=\{user\?\.id \|\| 'anonymous'\}/);
+  assert.match(review, /pendingPins=\{pendingReviewPins\}/);
+});
+
+test("review approval validates the backend schedule window before mutating pin state", () => {
+  const app = read(path.join("..", "frontend", "src", "App.tsx"));
+  const approval = app.slice(app.indexOf("const handleSchedulePin"), app.indexOf("const handleReconcileLegacySchedule"));
+  const validation = approval.indexOf("validateScheduleInstant(localDateTime)");
+  const boardPreflight = approval.indexOf("Выберите доску Pinterest для публикации.");
+  const imagePreflight = approval.indexOf("У пина нет сохранённого изображения.");
+  const creativeUpdate = approval.indexOf('apiRequest(`/pins/${encodeURIComponent(pin.pinId)}`');
+  const approvalMutation = approval.indexOf('body: JSON.stringify({ status: \'approved\' })');
+  assert.notEqual(validation, -1, "schedule window is validated before approval");
+  assert.notEqual(boardPreflight, -1, "Pinterest destination is required before approval");
+  assert.notEqual(imagePreflight, -1, "a durable saved image is required before approval");
+  assert.ok(creativeUpdate > boardPreflight, "creative fields are not changed before Pinterest destination validation");
+  assert.ok(creativeUpdate > imagePreflight, "creative fields are not changed before saved-image validation");
+  assert.ok(creativeUpdate > validation, "creative fields are not changed before schedule validation");
+  assert.ok(approvalMutation > validation, "pin status is not approved before schedule validation");
 });

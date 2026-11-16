@@ -88,12 +88,15 @@ export interface PersistedScheduleRequestExpectation {
   scheduledAt: string;
   pinterestBoardId: string;
   pinterestAccountId?: string;
+  timezone?: string;
+  destinationUrl?: string | null;
   statuses: readonly string[];
 }
 
 /**
  * Reconciles a lost schedule-creation response against one exact active row.
- * A loose pin-ID match is not enough: time, destination and state must agree.
+ * A loose pin-ID match is not enough: time, destination (when known), timezone
+ * and state must agree.
  */
 export function findPersistedScheduleRequest(
   rows: unknown,
@@ -115,6 +118,9 @@ export function findPersistedScheduleRequest(
     String(row.pinterest_board_id || '') === expected.pinterestBoardId &&
     (!expected.pinterestAccountId ||
       String(row.pinterest_account_id || '') === expected.pinterestAccountId) &&
+    (expected.timezone === undefined || String(row.timezone || '') === expected.timezone) &&
+    (!Object.prototype.hasOwnProperty.call(expected, 'destinationUrl') ||
+      String(row.destination_url || '') === String(expected.destinationUrl || '')) &&
     expected.statuses.includes(String(row.status || ''))
   );
   return matches.length === 1 ? matches[0] : null;

@@ -113,14 +113,31 @@ async function inspectAccountForDeletion(client, userId) {
     // are inventoried but retained for payment and provider-cost evidence.
     "pinterest_publish_attempts",
     "pinterest_token_refresh_leases",
-    "pinterest_oauth_connection_state",
     "pinterest_account_refresh_leases",
     "pin_generation_credit_reservations",
     "pin_generation_text_usage",
-    "provider_refund_reconciliation_audit",
   ]) {
     counts[table] = await countOwnedRows(client, table, userId);
   }
+
+  // These two journals intentionally revoke direct service_role table access.
+  // Count them through a narrowly scoped SECURITY DEFINER RPC instead of
+  // weakening their table ACLs for the deletion worker.
+  const { data: retainedCounts, error: retainedCountsError } = await client.rpc(
+    "get_account_deletion_retained_record_counts",
+    { p_user_id: userId }
+  );
+  if (retainedCountsError) throw retainedCountsError;
+  for (const table of ["pinterest_oauth_connection_state", "provider_refund_reconciliation_audit"]) {
+    const count = retainedCounts && retainedCounts[table];
+    if (!Number.isSafeInteger(count) || count < 0) {
+      const error = new Error("invalid retained account-deletion inventory count");
+      error.code = "invalid_retained_inventory_count";
+      throw error;
+    }
+    counts[table] = count;
+  }
+
   counts.email_outbox = await countOwnedEmailOutboxRows(client, userId);
 
   const projectRows = await fetchAllRows(

@@ -15,6 +15,35 @@ permissions:
   contents: read
 
 jobs:
+  backend-regression:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install backend dependencies
+        run: npm install --no-package-lock --prefix backend
+      - name: Test Pinterest account request retry policy
+        run: node --test backend/test/pinterest-account-request.test.js
+      - name: Test Pinterest board pagination
+        run: node --test backend/test/pinterest-boards-pagination.test.js
+      - name: Test pin image upload validation, errors, and rate-limit keys
+        run: node --test backend/test/image-upload-validation.test.js backend/test/image-upload-errors.test.js backend/test/pin-image-rate-limit-key.test.js
+      - name: Test account deletion preflight worker
+        run: node --test backend/test/account-deletion-worker.test.js
+      - name: Test managed pin image lifecycle
+        run: node --test backend/test/pin-image-lifecycle.test.js
+      - name: Test concurrent pin image replacement guard
+        run: node --test backend/test/pin-image-compare-and-swap.test.js
+      - name: Test cleanup of unsent payment records
+        run: node --test backend/test/payment-record-cleanup.test.js
+      - name: Test checkout settlement helper
+        run: node --test backend/test/payment-creation-settlement.test.js
+
   postgres-atomicity:
     runs-on: ubuntu-latest
     services:
@@ -34,24 +63,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Install backend dependencies
-        run: npm ci --prefix backend
-      - name: Test Pinterest account request retry policy
-        run: node --test backend/test/pinterest-account-request.test.js
-      - name: Test Pinterest board pagination
-        run: node --test backend/test/pinterest-boards-pagination.test.js
-      - name: Test pin image upload validation, errors, and rate-limit keys
-        run: node --test backend/test/image-upload-validation.test.js backend/test/image-upload-errors.test.js backend/test/pin-image-rate-limit-key.test.js
-      - name: Test account deletion preflight worker
-        run: node --test backend/test/account-deletion-worker.test.js
-      - name: Test managed pin image lifecycle
-        run: node --test backend/test/pin-image-lifecycle.test.js
-      - name: Test concurrent pin image replacement guard
-        run: node --test backend/test/pin-image-compare-and-swap.test.js
-      - name: Test cleanup of unsent payment records
-        run: node --test backend/test/payment-record-cleanup.test.js
-      - name: Test checkout settlement helper
-        run: node --test backend/test/payment-creation-settlement.test.js
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update
@@ -340,6 +351,13 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/143_account_deletion_wait_for_financial_outcomes.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/144_account_deletion_stage_completion_guards.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/145_pin_image_lifecycle_guard_review_and_board_references.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/146_pinterest_board_reassignment_uses_immutable_snapshot.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/147_account_deletion_storage_batch_retry.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/148_account_deletion_retained_record_inventory.sql
+      - name: Verify retained account deletion inventory is owner-scoped
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/account-deletion-retained-record-counts.integration.sql
       - name: Verify Pinterest credentials are disconnected for deletion-pending accounts
         env:
           PGPASSWORD: postgres

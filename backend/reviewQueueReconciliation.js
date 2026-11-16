@@ -18,7 +18,23 @@ function reconcileReviewQueueRows(queueRows, pinsById, userId, scheduledPinIds =
       continue;
     }
 
-    active.push({ ...row.payload, id: row.id, pinId: String(pin.id), pinStatus: pin.status || "pending" });
+    // Keep scheduling/review-only metadata from the queue payload, but always
+    // render the current creative from the owned pin row. This prevents a
+    // regenerated/replaced image or edited description from reverting to the
+    // stale snapshot captured when the item first entered the queue.
+    active.push({
+      ...row.payload,
+      id: row.id,
+      pinId: String(pin.id),
+      pinStatus: pin.status || "pending",
+      title: typeof pin.title === "string" ? pin.title : row.payload.title,
+      description: typeof pin.description === "string" ? pin.description : row.payload.description,
+      imageUrl: typeof pin.image_url === "string" ? pin.image_url : "",
+      boardId: pin.board_id ? String(pin.board_id) : row.payload.boardId,
+      boardName: pin.boards && typeof pin.boards.title === "string"
+        ? pin.boards.title
+        : row.payload.boardName,
+    });
   }
 
   return { active, staleIds };

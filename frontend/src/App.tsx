@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { getDefaultTimezone, localDateTimeToDate, formatInstantInTimezone } from './utils/timezone';
+import { getDefaultTimezone, localDateTimeToDate, formatInstantInTimezone, validateScheduleInstant } from './utils/timezone';
 import { apiRequest } from './lib/api';
 import { buildPinterestPinUrl } from './utils/pinterestPinUrl';
 import { ThemeProvider } from './theme/themeContext';
@@ -41,6 +41,7 @@ import { getOrCreateProject } from './utils/projectProvisioning';
 import { validatePersistedScheduleRows } from './utils/persistedSchedule';
 import { mergeRestoredReviewQueue } from './utils/reviewQueueHydration';
 import { isReviewQueueOwnerCurrent } from './utils/reviewQueueOwnerFence';
+import { mergeReviewQueuePin, upsertReviewQueuePin } from './utils/reviewQueueUpsert';
 import { findPersistedScheduleMutation, findPersistedScheduleRequest, isPersistedScheduleMutationResponse, isScheduleAbsentFromActiveList, isPersistedScheduleCancellationResponse } from './utils/scheduleMutationReconciliation';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -82,24 +83,32 @@ const MainApp: React.FC = () => {
   // Schedule rows belong to the authenticated user. Clear the previous account's
   // calendar immediately on identity change, without clearing it on ordinary reloads.
   const scheduleUserIdRef = React.useRef(user?.id || '');
+  const userDataRequestGenerationRef = React.useRef(0);
   React.useLayoutEffect(() => {
     const nextUserId = user?.id || '';
     if (scheduleUserIdRef.current !== nextUserId) {
       scheduleUserIdRef.current = nextUserId;
+      // Invalidate in-flight reads synchronously before the next account paints.
+      userDataRequestGenerationRef.current += 1;
       setScheduledPins([]);
       setScheduleLoadError('');
+      // Clear account-scoped boards in the same layout phase, before paint.
+      setBoards([]);
+      setBoardsLoadError('');
+      setBoardsLoading(Boolean(nextUserId));
+      // Pinterest connections and plan limits are also account-scoped.
+      setAccounts([]);
+      setActiveAccountId('');
+      setMaxAccounts(0);
     }
-  }, [user?.id]);
-  // Never expose the previous account's boards after an account switch.
-  React.useEffect(() => {
-    setBoards([]);
-    setBoardsLoadError('');
-    setBoardsLoading(Boolean(user?.id));
   }, [user?.id]);
 
   // Доски загружаются из API, а не из демонстрационного массива браузера.
   React.useEffect(() => {
     let cancelled = false;
+    const requestOwnerId = user?.id || '';
+    const requestGeneration = userDataRequestGenerationRef.current;
+    const isCurrentRequest = () => !cancelled && requestOwnerId === (user?.id || '') && requestGeneration === userDataRequestGenerationRef.current;
     async function loadBoards() {
       if (!user?.id) {
         setBoardsLoading(false);
@@ -110,14 +119,14 @@ const MainApp: React.FC = () => {
       try {
         const rows = await apiRequest('/boards');
         const mapped = mapPersistedBoards(rows, t.boards.loadErrorFallback);
-        if (!cancelled) setBoards(mapped);
+        if (isCurrentRequest()) setBoards(mapped);
       } catch (error) {
         console.error('[boards] Не удалось загрузить доски:', error);
-        if (!cancelled) {
+        if (isCurrentRequest()) {
           setBoardsLoadError(error instanceof Error ? error.message : t.boards.loadErrorFallback);
         }
       } finally {
-        if (!cancelled) setBoardsLoading(false);
+        if (isCurrentRequest()) setBoardsLoading(false);
       }
     }
     loadBoards();
@@ -164,6 +173,9 @@ const MainApp: React.FC = () => {
   // Расписание загружается из БД; демонстрационные публикации не показываем.
   React.useEffect(() => {
     let cancelled = false;
+    const requestOwnerId = user?.id || '';
+    const requestGeneration = userDataRequestGenerationRef.current;
+    const isCurrentRequest = () => !cancelled && requestOwnerId === (user?.id || '') && requestGeneration === userDataRequestGenerationRef.current;
     async function loadSchedule() {
       if (!user?.id) {
         setScheduledPins([]);
@@ -175,7 +187,7 @@ const MainApp: React.FC = () => {
       setScheduleLoadError('');
       try {
         const response = await apiRequest('/schedule');
-        if (cancelled) return;
+        if (!isCurrentRequest()) return;
         const rows = validatePersistedScheduleRows(response);
         const mapped: ScheduledPinItem[] = rows.map((row: any) => {
           const date = new Date(row.scheduled_at);
@@ -203,12 +215,12 @@ const MainApp: React.FC = () => {
             isOptimalSlot: false,
           };
         });
-        setScheduledPins(mapped);
+        if (isCurrentRequest()) setScheduledPins(mapped);
       } catch (error) {
         console.error('[schedule] Не удалось загрузить расписание:', error);
-        if (!cancelled) setScheduleLoadError('Не удалось загрузить расписание. Проверьте соединение и попробуйте ещё раз. Существующие публикации не удалены.');
+        if (isCurrentRequest()) setScheduleLoadError('Не удалось загрузить расписание. Проверьте соединение и попробуйте ещё раз. Существующие публикации не удалены.');
       } finally {
-        if (!cancelled) setScheduleLoading(false);
+        if (isCurrentRequest()) setScheduleLoading(false);
       }
     }
     loadSchedule();
@@ -361,6 +373,10 @@ const MainApp: React.FC = () => {
   }, [user?.id]);
 
   const handlePinterestStatusChange = React.useCallback((status: { configured: boolean; account_limit?: number | null; accounts?: Array<{ id: string; username?: string | null; pinterest_user_id?: string | null; needs_reauth?: boolean }> }) => {
+    // Settings may finish a request after its component was replaced by a
+    // different signed-in user. Ignore callbacks captured by the old owner.
+    const callbackOwnerId = user?.id || '';
+    if (callbackOwnerId !== scheduleUserIdRef.current) return;
     const rows = Array.isArray(status.accounts) ? status.accounts : [];
     const mapped: PinterestAccount[] = rows.map((account, index) => ({
       id: String(account.id),
@@ -384,7 +400,7 @@ const MainApp: React.FC = () => {
     setMaxAccounts(status.configured === false
       ? 0
       : status.account_limit == null ? 99 : Math.max(0, Number(status.account_limit) || 0));
-  }, []);
+  }, [user?.id]);
 
   React.useEffect(() => {
     // Remove demo account/review data left by older client builds.
@@ -395,24 +411,22 @@ const MainApp: React.FC = () => {
   // Pinterest accounts and plan limits come from the server, never from demo/local state.
   React.useEffect(() => {
     let active = true;
-    // Clear the previous session immediately so another signed-in user never
-    // sees stale Pinterest profiles or the previous user's plan limit.
-    setAccounts([]);
-    setActiveAccountId('');
-    setMaxAccounts(0);
+    const requestOwnerId = user?.id || '';
+    const requestGeneration = userDataRequestGenerationRef.current;
+    const isCurrentRequest = () => active
+      && requestOwnerId === (user?.id || '')
+      && requestGeneration === userDataRequestGenerationRef.current;
 
-    if (!user?.id) {
-      return () => { active = false; };
-    }
+    if (!requestOwnerId) return () => { active = false; };
 
     apiRequest('/integrations/pinterest/status')
       .then((data) => {
-        if (!active) return;
+        if (!isCurrentRequest()) return;
         handlePinterestStatusChange(data);
       })
       .catch((error) => {
         console.error('[pinterest] Не удалось загрузить подключённые аккаунты:', error);
-        if (active) {
+        if (isCurrentRequest()) {
           setAccounts([]);
           setActiveAccountId('');
           setMaxAccounts(0);
@@ -491,9 +505,35 @@ const MainApp: React.FC = () => {
   const pendingCount = pendingReviewPins.length;
 
   const handleSchedulePin = async (pin: ScheduledPinItem) => {
+    // A schedule operation must stay attached to the authenticated session
+    // that initiated it. In particular, never publish an old user's result
+    // into the newly signed-in user's calendar after an account switch.
+    const scheduleOwnerSnapshot = {
+      userId: pendingReviewUserIdRef.current,
+      generation: pendingReviewOwnerGenerationRef.current,
+    };
+    const assertScheduleOwner = () => {
+      if (!isReviewQueueOwnerCurrent(scheduleOwnerSnapshot, {
+        userId: pendingReviewUserIdRef.current,
+        generation: pendingReviewOwnerGenerationRef.current,
+      })) {
+        throw new Error('Сессия пользователя изменилась. Обновите страницу и проверьте расписание.');
+      }
+    };
+    assertScheduleOwner();
     if (!pin.pinId) {
       window.alert('Не найден ID сохранённого пина. Сначала сохраните пин в генераторе.');
       return;
+    }
+    // Fail before changing the pin's creative fields or status. The schedule
+    // endpoint requires an actual Pinterest board ID, not the app's local board ID.
+    if (!String(pin.pinterestBoardId || '').trim()) {
+      throw new Error('Выберите доску Pinterest для публикации.');
+    }
+    // The backend refuses to schedule a saved pin without a durable image URL.
+    // Catch that before persisting edits or changing its approval status.
+    if (!String(pin.imageUrl || '').trim()) {
+      throw new Error('У пина нет сохранённого изображения. Вернитесь в генератор и сохраните изображение перед публикацией.');
     }
     const timezone = getDefaultTimezone();
     let localDateTime: Date;
@@ -503,6 +543,8 @@ const MainApp: React.FC = () => {
       window.alert('Проверьте дату и время публикации.');
       return;
     }
+    // Match the backend's accepted time window before changing the pin's title or status.
+    validateScheduleInstant(localDateTime);
     // Approval from the review desk is a real persisted transition, not just
     // a local queue animation. Persist edited creative fields before freezing
     // the immutable schedule snapshot.
@@ -517,6 +559,7 @@ const MainApp: React.FC = () => {
       method: 'PATCH',
       body: JSON.stringify(creativePatch),
     });
+    assertScheduleOwner();
     if (!updatedPin || updatedPin.id !== pin.pinId ||
         updatedPin.title !== approvedTitle ||
         (approvedDescription !== undefined && updatedPin.description !== approvedDescription)) {
@@ -526,6 +569,7 @@ const MainApp: React.FC = () => {
       method: 'POST',
       body: JSON.stringify({ status: 'approved' }),
     });
+    assertScheduleOwner();
     if (!approvedPin || approvedPin.id !== pin.pinId || approvedPin.status !== 'approved') {
       throw new Error('Сервер не подтвердил одобрение пина.');
     }
@@ -541,31 +585,41 @@ const MainApp: React.FC = () => {
     const expectedRequest = {
       pinId: pin.pinId,
       scheduledAt: localDateTime.toISOString(),
+      timezone,
+      ...(pin.destinationUrl ? { destinationUrl: pin.destinationUrl } : {}),
       pinterestBoardId: String(pin.pinterestBoardId || ''),
       pinterestAccountId: pin.pinterestAccountId || undefined,
-      statuses: ['scheduled', 'publishing', 'failed', 'unknown'],
+      statuses: ['scheduled', 'publishing', 'published', 'failed', 'unknown'],
     };
     try {
       const response = await apiRequest(`/pins/${encodeURIComponent(pin.pinId)}/schedule`, {
         method: 'POST',
         body: JSON.stringify(schedulePayload),
       });
+      assertScheduleOwner();
       // A 2xx response is not enough: only accept the exact persisted row that
       // the calendar would later load. Malformed success responses are ambiguous.
       saved = findPersistedScheduleRequest([response], expectedRequest);
       if (!saved) throw new Error('Сервер не подтвердил сохранение расписания.');
     } catch (originalError) {
+      // Do not issue a reconciliation GET with a different user's session.
+      assertScheduleOwner();
       // The server may have committed the schedule even when the response was
       // lost or malformed. Reconcile against the persisted list before surfacing
       // the original error; never infer success from a loose pin-ID match alone.
       try {
         const rows = await apiRequest('/schedule');
+        assertScheduleOwner();
         saved = findPersistedScheduleRequest(rows, expectedRequest);
         if (!saved) throw originalError;
       } catch {
+        // Preserve the session-change error if ownership changed while the
+        // reconciliation request itself was in flight.
+        assertScheduleOwner();
         throw originalError;
       }
     }
+    assertScheduleOwner();
     const date = formatInstantInTimezone(new Date(saved.scheduled_at), timezone);
     const persisted: ScheduledPinItem = {
       ...pin,
@@ -587,7 +641,20 @@ const MainApp: React.FC = () => {
   };
 
   const handleReconcileLegacySchedule = async (pin: ScheduledPinItem, accountId: string) => {
+    const scheduleOwnerSnapshot = {
+      userId: pendingReviewUserIdRef.current,
+      generation: pendingReviewOwnerGenerationRef.current,
+    };
+    const assertScheduleOwner = () => {
+      if (!isReviewQueueOwnerCurrent(scheduleOwnerSnapshot, {
+        userId: pendingReviewUserIdRef.current,
+        generation: pendingReviewOwnerGenerationRef.current,
+      })) {
+        throw new Error('Сессия пользователя изменилась. Обновите страницу и проверьте расписание.');
+      }
+    };
     try {
+      assertScheduleOwner();
       const expected = {
         scheduleId: pin.id,
         statuses: ['scheduled', 'failed', 'publishing', 'unknown'],
@@ -600,23 +667,29 @@ const MainApp: React.FC = () => {
           method: 'POST',
           body: JSON.stringify({ pinterest_account_id: accountId }),
         });
+        assertScheduleOwner();
         if (!isPersistedScheduleMutationResponse(response, expected)) {
           throw new Error('Сервер не подтвердил привязку аккаунта к этому расписанию.');
         }
         saved = response;
       } catch (originalError) {
+        assertScheduleOwner();
         // Account reconciliation is an atomic DB transition. If its response
         // is lost, accept only the exact schedule/account/board from GET.
         try {
           const rows = await apiRequest('/schedule');
+          assertScheduleOwner();
           saved = findPersistedScheduleMutation(rows, expected);
           if (!saved) throw originalError;
         } catch {
+          assertScheduleOwner();
           throw originalError;
         }
       }
 
+      assertScheduleOwner();
       const account = accounts.find((item) => item.id === saved.pinterest_account_id);
+      assertScheduleOwner();
       setScheduledPins((prev) => prev.map((item) => item.id === pin.id ? {
         ...item,
         status: parsePersistedScheduleStatus(saved.status),
@@ -640,7 +713,20 @@ const MainApp: React.FC = () => {
     pinterestBoardId: string,
     boardName: string
   ) => {
+    const scheduleOwnerSnapshot = {
+      userId: pendingReviewUserIdRef.current,
+      generation: pendingReviewOwnerGenerationRef.current,
+    };
+    const assertScheduleOwner = () => {
+      if (!isReviewQueueOwnerCurrent(scheduleOwnerSnapshot, {
+        userId: pendingReviewUserIdRef.current,
+        generation: pendingReviewOwnerGenerationRef.current,
+      })) {
+        throw new Error('Сессия пользователя изменилась. Обновите страницу и проверьте расписание.');
+      }
+    };
     try {
+      assertScheduleOwner();
       let saved: any;
       const expected = {
         scheduleId: pin.id,
@@ -653,23 +739,29 @@ const MainApp: React.FC = () => {
           method: 'POST',
           body: JSON.stringify({ pinterest_board_id: pinterestBoardId }),
         });
+        assertScheduleOwner();
         if (!isPersistedScheduleMutationResponse(response, expected)) {
           throw new Error('Сервер не подтвердил новое состояние публикации.');
         }
         saved = response;
       } catch (originalError) {
+        assertScheduleOwner();
         // A lost or malformed 2xx response is ambiguous. Reconcile only against
         // this exact schedule, target board, account and queued state.
         try {
           const rows = await apiRequest('/schedule');
+          assertScheduleOwner();
           saved = findPersistedScheduleMutation(rows, expected);
           if (!saved) throw originalError;
         } catch {
+          assertScheduleOwner();
           throw originalError;
         }
       }
 
+      assertScheduleOwner();
       const date = formatInstantInTimezone(new Date(saved.scheduled_at), getDefaultTimezone());
+      assertScheduleOwner();
       setScheduledPins((prev) => prev.map((item) => item.id === pin.id ? {
         ...item,
         scheduledDate: date.date,
@@ -692,7 +784,20 @@ const MainApp: React.FC = () => {
   };
 
   const handleRetryScheduledPin = async (pin: ScheduledPinItem) => {
+    const ownerSnapshot = {
+      userId: pendingReviewUserIdRef.current,
+      generation: pendingReviewOwnerGenerationRef.current,
+    };
+    const assertScheduleOwner = () => {
+      if (!isReviewQueueOwnerCurrent(ownerSnapshot, {
+        userId: pendingReviewUserIdRef.current,
+        generation: pendingReviewOwnerGenerationRef.current,
+      })) {
+        throw new Error('Сессия пользователя изменилась. Обновите страницу и проверьте расписание.');
+      }
+    };
     try {
+      assertScheduleOwner();
       let saved: any;
       const expected = {
         scheduleId: pin.id,
@@ -704,22 +809,28 @@ const MainApp: React.FC = () => {
         const response = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/retry`, {
           method: 'POST',
         });
+        assertScheduleOwner();
         if (!isPersistedScheduleMutationResponse(response, expected)) {
           throw new Error('Сервер не подтвердил новое состояние публикации.');
         }
         saved = response;
       } catch (originalError) {
+        // Never reconcile a request under a different signed-in user's session.
+        assertScheduleOwner();
         // A lost or malformed 2xx response is ambiguous too. Accept only the
         // exact schedule after it is visibly back in the queue on the same destination.
         try {
           const rows = await apiRequest('/schedule');
+          assertScheduleOwner();
           saved = findPersistedScheduleMutation(rows, expected);
           if (!saved) throw originalError;
         } catch {
+          assertScheduleOwner();
           throw originalError;
         }
       }
 
+      assertScheduleOwner();
       const date = formatInstantInTimezone(new Date(saved.scheduled_at), getDefaultTimezone());
       setScheduledPins((prev) => prev.map((item) => item.id === pin.id ? {
         ...item,
@@ -744,10 +855,24 @@ const MainApp: React.FC = () => {
   };
 
   const handleCancelScheduledPin = async (pin: ScheduledPinItem) => {
+    const ownerSnapshot = {
+      userId: pendingReviewUserIdRef.current,
+      generation: pendingReviewOwnerGenerationRef.current,
+    };
+    const assertScheduleOwner = () => {
+      if (!isReviewQueueOwnerCurrent(ownerSnapshot, {
+        userId: pendingReviewUserIdRef.current,
+        generation: pendingReviewOwnerGenerationRef.current,
+      })) {
+        throw new Error('Сессия пользователя изменилась. Обновите страницу и проверьте расписание.');
+      }
+    };
     try {
+      assertScheduleOwner();
       const response = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/cancel`, {
         method: 'POST',
       });
+      assertScheduleOwner();
       if (!isPersistedScheduleCancellationResponse(response, pin.id)) {
         throw new Error('Сервер не подтвердил отмену именно этой публикации. Проверяем сохранённое расписание.');
       }
@@ -756,11 +881,14 @@ const MainApp: React.FC = () => {
       // GET /schedule intentionally omits cancelled rows. A valid list without
       // this previously visible schedule confirms that cancellation committed
       // even if the POST response was lost. Any malformed/failed read is inconclusive.
+      assertScheduleOwner();
       try {
         const rows = await apiRequest('/schedule');
+        assertScheduleOwner();
         if (!isScheduleAbsentFromActiveList(rows, pin.id)) throw originalError;
         setScheduledPins((prev) => prev.filter((item) => item.id !== pin.id));
       } catch {
+        assertScheduleOwner();
         console.error('[schedule] Не удалось подтвердить отмену публикации:', originalError);
         window.alert(originalError instanceof Error ? originalError.message : 'Не удалось отменить публикацию');
         throw originalError;
@@ -926,6 +1054,7 @@ const MainApp: React.FC = () => {
 
           {activeTab === 'review' && (
             <ManualApprovalDesk
+              key={user?.id || 'anonymous'}
               boards={boards}
               pendingPins={pendingReviewPins}
               onUpdatePendingPins={handleUpdatePendingPins}
@@ -957,19 +1086,18 @@ const MainApp: React.FC = () => {
                   throw new Error('Сессия пользователя изменилась. Обновите страницу и повторите попытку.');
                 }
                 const existing = pendingReviewPinsRef.current.find((item) => item.pinId === pin.pinId);
-                if (existing) {
-                  setActiveTab('review');
-                  return;
-                }
-                await apiRequest(`/review-queue/${encodeURIComponent(pin.id)}`, {
+                // Re-adding an already queued pin refreshes its creative snapshot
+                // while preserving the stable queue-row ID for idempotent writes.
+                const queuePin = mergeReviewQueuePin(existing, pin);
+                await apiRequest(`/review-queue/${encodeURIComponent(queuePin.id)}`, {
                   method: 'PUT',
-                  body: JSON.stringify({ pin }),
+                  body: JSON.stringify({ pin: queuePin }),
                 });
                 if (!isCurrentOwner()) {
                   throw new Error('Сессия пользователя изменилась во время сохранения.');
                 }
-                if (reviewQueueHydratingRef.current) reviewQueueTouchedIdsRef.current.add(pin.id);
-                const next = [...pendingReviewPinsRef.current, pin];
+                if (reviewQueueHydratingRef.current) reviewQueueTouchedIdsRef.current.add(queuePin.id);
+                const next = upsertReviewQueuePin(pendingReviewPinsRef.current, queuePin);
                 pendingReviewPinsRef.current = next;
                 setPendingReviewPins(next);
                 setActiveTab('review');
@@ -986,6 +1114,7 @@ const MainApp: React.FC = () => {
 
           {activeTab === 'calendar' && (
             <PublishingCalendar
+              key={user?.id || 'anonymous'}
               scheduledPins={scheduledPins}
               scheduleLoadError={scheduleLoadError}
               scheduleLoading={scheduleLoading}
@@ -1005,6 +1134,7 @@ const MainApp: React.FC = () => {
 
           {activeTab === 'boards' && (
             <BoardsManager
+              key={user?.id || 'anonymous'}
               boards={boards}
               loadError={boardsLoadError}
               isLoading={boardsLoading}
@@ -1020,6 +1150,7 @@ const MainApp: React.FC = () => {
 
           {activeTab === 'settings' && (
             <SettingsView
+              key={user?.id || 'anonymous'}
               onGoToPricing={() => setActiveTab('pricing')}
               onPinterestStatusChange={handlePinterestStatusChange}
             />

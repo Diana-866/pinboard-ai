@@ -31,7 +31,8 @@ import { shouldFlushPendingPinDescription } from '../../utils/pendingPinDescript
 import { clearPendingGenerationRequest, createGenerationFingerprint, listPendingGenerationRequests, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
 import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
 import { requireGeneratedPinsArray } from '../../utils/generatedPinsResponse';
-import { isExpiredGenerationRecoveryError } from '../../utils/generationRecovery';
+import { isDefinitiveGenerationRecoveryStatus, isExpiredGenerationRecoveryError } from '../../utils/generationRecovery';
+import { clearPendingGenerationContext, readPendingGenerationContext, writePendingGenerationContext } from '../../utils/pendingGenerationContext';
 import { isCurrentBillingOwner } from '../../utils/billingOwner';
 import { rollbackPinAspectRatioIfUnchanged } from '../../utils/pinAspectRatio';
 import { resolvePinterestDestination } from '../../utils/pinterestDestination';
@@ -239,12 +240,16 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   }, [topic, boards]);
 
   const [selectedBoardId, setSelectedBoardId] = useState<string>(initialBoardId || recommendedBoard?.id || boards[0]?.id || '');
+  // Preserve the board restored from an interrupted generation against the
+  // topic recommendation and initial-board effects until the user edits it.
+  const restoredGenerationBoardRef = React.useRef<string | null>(null);
 
   useEffect(() => {
     // A generation request is bound to the board captured when it starts.
     // Do not let topic recommendations move the editor to another board while
     // its response is in flight, or generated pins could appear under the wrong board.
     if (generationInFlightRef.current) return;
+    if (restoredGenerationBoardRef.current) return;
     // An explicit board selected in the calendar takes precedence over topic-based recommendations.
     if (!initialBoardId && recommendedBoard) {
       setSelectedBoardId(recommendedBoard.id);
@@ -253,6 +258,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
   useEffect(() => {
     if (generationInFlightRef.current) return;
+    if (restoredGenerationBoardRef.current) return;
     if (initialBoardId && boards.some((board) => board.id === initialBoardId)) {
       setSelectedBoardId(initialBoardId);
     }
@@ -276,6 +282,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const descriptionSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingDescriptionSaveRef = React.useRef<{ boardId: string; pinId: string; description: string; revision: number } | null>(null);
   const descriptionSaveRevisionRef = React.useRef(0);
+  // Async saves and board loads must remain bound to the account that started them.
+  const pinEditorOwnerIdRef = React.useRef(userId);
+  pinEditorOwnerIdRef.current = userId;
   // Async saves may finish after the user switches boards. Keep the latest
   // board identity synchronously available to completion handlers.
   const descriptionSaveBoardIdRef = React.useRef(selectedBoardId);
@@ -311,6 +320,13 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     generationRecoveryOwnerIdRef.current = userId;
     setRecoverableGenerations([]);
     setIsCheckingRecoveries(false);
+    // Remove the previous owner's pins before the browser paints the new account.
+    setGeneratedPins([]);
+    setActivePinIndex(0);
+    setDescriptionSavePinId(null);
+    setDescriptionSaveState('idle');
+    setSavedPinsLoadError('');
+    setIsLoadingSavedPins(false);
   }, [userId]);
 
   // Look up saved generation identities after login/reload. This is read-only:
@@ -469,6 +485,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       }
       const pendingDescription = pendingDescriptionSaveRef.current;
       pendingDescriptionSaveRef.current = null;
+      // Never flush a previous account's draft with the newly active account's
+      // credentials after an auth switch. The local recovery copy remains intact.
+      if (pinEditorOwnerIdRef.current !== userId) return;
       if (pendingDescription) {
         const request = enqueuePinSave(
           pendingPinSavesRef.current,
@@ -490,7 +509,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         });
       }
     };
-  }, [selectedBoardId, selectedBoardName, savedPinsReloadAttempt]);
+  }, [selectedBoardId, selectedBoardName, savedPinsReloadAttempt, userId]);
 
   // Quick preset topic suggestions
   const topicPresets = [
@@ -547,14 +566,35 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         mixed_ratios: targetRatios,
       };
       requestFingerprint = createGenerationFingerprint(JSON.stringify({ boardId: selectedBoard.id, ...requestBody }));
-      const storedRequest = readPendingGenerationRequest(requestFingerprint);
-      if (storedRequest?.fingerprint !== requestFingerprint || !storedRequest.idempotencyKey) {
+      const recoveredRequest = recoverableGenerations.find((item) => item.key === requestFingerprint);
+      if (recoveredRequest && isDefinitiveGenerationRecoveryStatus(recoveredRequest.status)) {
+        // The read-only recovery endpoint has already confirmed that the old
+        // request cannot produce another result. Start a new attempt directly
+        // instead of making the user submit the known-failed key once more.
         generationKeyRef.current = createGenerationIdempotencyKey();
         writePendingGenerationRequest(requestFingerprint, generationKeyRef.current);
+        setRecoverableGenerations((current) => current.filter((item) => item.key !== requestFingerprint));
       } else {
-        // Restore the durable request identity after a remount or page reload.
-        generationKeyRef.current = storedRequest.idempotencyKey;
+        const storedRequest = readPendingGenerationRequest(requestFingerprint);
+        if (storedRequest?.fingerprint !== requestFingerprint || !storedRequest.idempotencyKey) {
+          generationKeyRef.current = createGenerationIdempotencyKey();
+          writePendingGenerationRequest(requestFingerprint, generationKeyRef.current);
+        } else {
+          // Restore the durable request identity after a remount or page reload.
+          generationKeyRef.current = storedRequest.idempotencyKey;
+        }
       }
+      writePendingGenerationContext(requestFingerprint, {
+        ownerId: userId,
+        boardId: selectedBoard.id,
+        topic: currentTopic,
+        tone,
+        contentLanguage: aiContentLanguage || 'en',
+        count: pinCount,
+        aspectMode,
+        selectedSingleRatio,
+        randomizerRatios: { ...randomizerRatios },
+      });
       const rows = await apiRequest(`/boards/${encodeURIComponent(selectedBoard.id)}/pins/generate`, {
         method: 'POST',
         headers: { 'Idempotency-Key': generationKeyRef.current || '' },
@@ -589,6 +629,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       onPinsChanged?.();
       generationKeyRef.current = null;
       clearPendingGenerationRequest(requestFingerprint);
+      clearPendingGenerationContext(requestFingerprint);
     } catch (err) {
       // The server only emits generation_request_failed after a definitive failure.
       // Rotate the key then; unknown/in-progress outcomes must keep their original key.
@@ -995,6 +1036,37 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     <p className="text-xs font-semibold text-primary-theme">{label}</p>
                     {board && <p className="text-[11px] text-muted-theme">{board.name}</p>}
                   </div>
+                  {readPendingGenerationContext(item.key, userId) && (
+                    <div className="flex flex-col items-start gap-1">
+                      <button
+                        type="button"
+                        disabled={isGenerating || isCheckingRecoveries || !board}
+                        onClick={() => {
+                          const saved = readPendingGenerationContext(item.key, userId);
+                          // Never restore a deleted or unavailable board as the active
+                          // target: that would make the next generation fail or land elsewhere.
+                          if (!saved || !boards.some((candidate) => candidate.id === saved.boardId)) return;
+                          restoredGenerationBoardRef.current = saved.boardId;
+                          setSelectedBoardId(saved.boardId);
+                          setTopic(saved.topic);
+                          setTone(saved.tone);
+                          setAiContentLanguage(saved.contentLanguage);
+                          setPinCount(saved.count);
+                          setAspectMode(saved.aspectMode);
+                          setSelectedSingleRatio(saved.selectedSingleRatio);
+                          setRandomizerRatios({ ...saved.randomizerRatios });
+                        }}
+                        className="px-3 py-2 rounded-lg border border-subtle text-xs font-semibold text-secondary-theme hover:bg-subtle disabled:opacity-50"
+                      >
+                        {language === 'ru' ? 'Восстановить настройки' : 'Restore settings'}
+                      </button>
+                      {!board && (
+                        <span className="text-[11px] text-muted-theme">
+                          {language === 'ru' ? 'Сначала восстановите или создайте исходную доску' : 'Restore or recreate the original board first'}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {item.status === 'completed' && item.pinCount > 0 && board && (
                     <button
                       type="button"
@@ -1020,6 +1092,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                       type="button"
                       onClick={() => {
                         clearPendingGenerationRequest(item.key);
+                        clearPendingGenerationContext(item.key);
                         setRecoverableGenerations((current) => current.filter((entry) => entry.key !== item.key));
                       }}
                       className="px-3 py-2 rounded-lg border border-subtle text-xs font-semibold text-secondary-theme hover:bg-subtle"
@@ -1046,7 +1119,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               </label>
               <textarea
                 value={topic}
-                onChange={(e) => setTopic(e.target.value)}
+                onChange={(e) => {
+                  restoredGenerationBoardRef.current = null;
+                  setTopic(e.target.value);
+                }}
                 placeholder={t.generator.topicPlaceholder}
                 rows={2}
                 className="w-full px-3.5 py-2.5 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme placeholder:text-muted-theme focus:outline-none focus:ring-2 focus:ring-accent"
@@ -1058,7 +1134,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => setTopic(preset)}
+                    onClick={() => {
+                      restoredGenerationBoardRef.current = null;
+                      setTopic(preset);
+                    }}
                     className="text-[11px] px-2 py-1 rounded-md bg-subtle hover:bg-surface border border-subtle text-secondary-theme hover:text-primary-theme transition-colors truncate max-w-full text-left cursor-pointer"
                   >
                     {preset.slice(0, 48)}...
@@ -1266,7 +1345,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
               <select
                 value={selectedBoardId}
-                onChange={(e) => setSelectedBoardId(e.target.value)}
+                onChange={(e) => {
+                  restoredGenerationBoardRef.current = null;
+                  setSelectedBoardId(e.target.value);
+                }}
                 disabled={isGenerating}
                 className="w-full px-3 py-2 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-60 disabled:cursor-not-allowed"
               >
@@ -1725,11 +1807,15 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                       const pendingSave = pendingPinSavesRef.current.get(currentPin.id);
                       if (pendingSave) await pendingSave;
                       const title = resolvePinTitleSelection(pinTitleSelectionRef.current, currentPin.id, currentPin.selectedTitle);
+                      // The textarea state captured by this render may be stale after
+                      // the awaited PATCH. Prefer the exact draft just confirmed by
+                      // savePinDescription so the review queue receives the latest text.
+                      const reviewDescription = descriptionToFlush?.description ?? currentPin.description;
                       await onAddToReview({
                         id: `review-${currentPin.id}`,
                         pinId: currentPin.id,
                         title,
-                        description: currentPin.description,
+                        description: reviewDescription,
                         boardName: board.name,
                         boardId: board.id,
                         imageUrl: currentPin.imageUrl,

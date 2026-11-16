@@ -121,3 +121,18 @@ Questions about this policy and data processing: **support@pinposy.com**
 - We collect the categories listed in Section 2 solely for the purposes in Section 3.
 - We do not sell or share personal information for monetary or other consideration.
 - You have the right to know, delete, and correct your personal information; exercising these rights will not result in discrimination.
+
+
+## 13. Third-Party Providers and Processing Responsibilities
+
+Certain Service features rely on independent infrastructure and software providers. Depending on the feature, they may receive technical data, account data, user prompts, files, or information necessary to process payments, send email, generate content, or store data. Transfers are limited to what is necessary for the relevant feature.
+
+Such providers are independently responsible for their own platforms and processing to the extent of their contractual and legal duties. Their own policies and terms may apply to use of their services. However, engaging a provider **does not release the PinPosy Operator from duties imposed on it as a personal-data operator**, including determining a lawful basis, informing users, ensuring lawful transfers, organizing data protection, and handling data-subject requests.
+
+The Operator uses reasonable organizational and technical safeguards but cannot promise absolute protection against every attack, emergency, error, third-party action, or infrastructure failure. In the event of an incident, the Operator will act in accordance with applicable law and take reasonable steps to mitigate its effects.
+
+## 14. Important Information About Data-Storage Locations
+
+The Service uses third-party cloud and infrastructure platforms. Actual countries of storage and processing may differ by provider and feature; current information is listed in Section 4 and will be updated when the infrastructure changes.
+
+For users subject to Russian personal-data law, requirements may apply to the initial recording, systematization, accumulation, storage, updating, and retrieval of Russian citizens' personal data using databases located in the Russian Federation, as well as to cross-border transfers. The Operator must determine the applicable requirements and organize processing in accordance with the law. This statement of legal duties does not itself certify that every provider or data flow has already undergone an independent legal review. User consent alone does not displace mandatory legal requirements.

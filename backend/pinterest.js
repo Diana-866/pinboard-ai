@@ -1104,6 +1104,63 @@ function registerRoutes(app, deps) {
     }
   });
 
+  // Read-only recovery for a direct publish whose browser response was lost.
+  // A success is reported only when the exact owner/pin/account/board exists in
+  // the durable publication ledger; an attempt row alone is never proof.
+  app.get("/pins/:id/publish-status", requireAuth, pinterestReadLimiter, async (req, res) => {
+    try {
+      const accountId = String(req.query.account_id || "").trim();
+      if (!accountId) throw httpError(400, "account_id обязателен");
+      await getPinWithOwner(req.params.id, req.userId);
+
+      const [attemptLookup, publicationLookup] = await Promise.all([
+        supabase
+          .from("pinterest_publish_attempts")
+          .select("status,pinterest_board_id,pinterest_pin_id")
+          .eq("user_id", String(req.userId))
+          .eq("pin_id", req.params.id)
+          .eq("pinterest_account_id", accountId)
+          .maybeSingle(),
+        supabase
+          .from("pinterest_publications")
+          .select("user_id,pin_id,pinterest_account_id,pinterest_board_id,pinterest_pin_id")
+          .eq("user_id", String(req.userId))
+          .eq("pin_id", req.params.id)
+          .eq("pinterest_account_id", accountId)
+          .maybeSingle(),
+      ]);
+      if (attemptLookup.error || publicationLookup.error) {
+        throw httpError(503, "Не удалось проверить результат публикации Pinterest");
+      }
+
+      const attempt = attemptLookup.data;
+      const publication = publicationLookup.data;
+      if (
+        publication &&
+        publication.user_id === String(req.userId) &&
+        String(publication.pin_id) === String(req.params.id) &&
+        String(publication.pinterest_account_id) === accountId &&
+        String(publication.pinterest_pin_id || "").trim() &&
+        String(publication.pinterest_board_id || "").trim()
+      ) {
+        return res.json({
+          ok: true,
+          status: "published",
+          pinterest_pin_id: String(publication.pinterest_pin_id),
+          board_id: String(publication.pinterest_board_id),
+        });
+      }
+
+      if (!attempt) return res.json({ ok: true, status: "not_found" });
+      const status = ["processing", "failed", "unknown"].includes(attempt.status)
+        ? attempt.status
+        : "unknown";
+      return res.json({ ok: true, status });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
   // Публикация одобренного пина (нужен тариф с генерацией — как у остальных роутов)
   app.post(
     "/pins/:id/publish",

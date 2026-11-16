@@ -20,6 +20,8 @@ const persisted = {
   pin_id: 'pin-1',
   status: 'scheduled',
   scheduled_at: '2026-11-09T18:00:00.000Z',
+  timezone: 'Europe/Moscow',
+  destination_url: 'https://example.com/article',
   pinterest_board_id: 'board-new',
   pinterest_account_id: 'account-1',
 };
@@ -107,13 +109,29 @@ test('does not treat malformed or incomplete schedule lists as cancellation', ()
 });
 
 
+test('accepts a schedule that the worker published before the create response was reconciled', () => {
+  const expectedRequest = {
+    pinId: 'pin-1',
+    scheduledAt: persisted.scheduled_at,
+    timezone: 'Europe/Moscow',
+    destinationUrl: 'https://example.com/article',
+    pinterestBoardId: 'board-new',
+    pinterestAccountId: 'account-1',
+    statuses: ['scheduled', 'publishing', 'published', 'failed', 'unknown'],
+  };
+  const published = { ...persisted, status: 'published' };
+  assert.deepEqual(findPersistedScheduleRequest([published], expectedRequest), published);
+});
+
 test('reconciles a lost schedule-create response only against one exact active row', () => {
   const expectedRequest = {
     pinId: 'pin-1',
     scheduledAt: persisted.scheduled_at,
+    timezone: 'Europe/Moscow',
+    destinationUrl: 'https://example.com/article',
     pinterestBoardId: 'board-new',
     pinterestAccountId: 'account-1',
-    statuses: ['scheduled', 'publishing', 'failed', 'unknown'],
+    statuses: ['scheduled', 'publishing', 'published', 'failed', 'unknown'],
   };
   assert.deepEqual(findPersistedScheduleRequest([persisted], expectedRequest), persisted);
   assert.deepEqual(
@@ -126,9 +144,11 @@ test('does not reconcile schedule creation against a different time, destination
   const expectedRequest = {
     pinId: 'pin-1',
     scheduledAt: persisted.scheduled_at,
+    timezone: 'Europe/Moscow',
+    destinationUrl: 'https://example.com/article',
     pinterestBoardId: 'board-new',
     pinterestAccountId: 'account-1',
-    statuses: ['scheduled', 'publishing', 'failed', 'unknown'],
+    statuses: ['scheduled', 'publishing', 'published', 'failed', 'unknown'],
   };
   for (const row of [
     { ...persisted, scheduled_at: '2026-11-09T18:15:00.000Z' },
@@ -143,4 +163,33 @@ test('does not reconcile schedule creation against a different time, destination
   assert.equal(findPersistedScheduleRequest([persisted, persisted], expectedRequest), null);
   assert.equal(findPersistedScheduleRequest([null, persisted], expectedRequest), null);
   assert.equal(findPersistedScheduleRequest({ data: [persisted] }, expectedRequest), null);
+});
+
+test('does not reconcile a lost create response against a different timezone or destination', () => {
+  const expectedRequest = {
+    pinId: 'pin-1',
+    scheduledAt: persisted.scheduled_at,
+    timezone: 'Europe/Moscow',
+    destinationUrl: 'https://example.com/article',
+    pinterestBoardId: 'board-new',
+    pinterestAccountId: 'account-1',
+    statuses: ['scheduled', 'publishing', 'published', 'failed', 'unknown'],
+  };
+  assert.equal(findPersistedScheduleRequest([{ ...persisted, timezone: 'UTC' }], expectedRequest), null);
+  assert.equal(findPersistedScheduleRequest([{ ...persisted, destination_url: 'https://example.com/other' }], expectedRequest), null);
+});
+
+test('allows destination fallback reconciliation only when the client did not know the resolved URL', () => {
+  const expectedRequest = {
+    pinId: 'pin-1',
+    scheduledAt: persisted.scheduled_at,
+    timezone: 'Europe/Moscow',
+    pinterestBoardId: 'board-new',
+    pinterestAccountId: 'account-1',
+    statuses: ['scheduled', 'publishing', 'published', 'failed', 'unknown'],
+  };
+  assert.deepEqual(findPersistedScheduleRequest([{ ...persisted, destination_url: 'https://project.example/' }], expectedRequest), {
+    ...persisted,
+    destination_url: 'https://project.example/',
+  });
 });

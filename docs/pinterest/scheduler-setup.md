@@ -54,11 +54,11 @@ openssl rand -base64 32
 
 > **Не включать production cron по этому документу в отрыве от согласованного релиза.** Старые выборочные диапазоны миграций ниже больше не являются достаточным списком для текущей версии worker.
 
-Ветка содержит последовательность миграций вплоть до `123`. После миграций `063–120` менялись журнал генерации и перегенерации, резервирование кредитов, публикационные попытки, восстановление расписаний, хранение изображений, платёжные операции и ручная очередь проверки. Поэтому нельзя считать, что для актуального backend достаточно выборочно применить только `015–017`, `026–028`, `031–052` и `056–062`: более поздние миграции изменяют и дополняют те же SQL-контракты, которые использует worker.
+Ветка содержит миграции вплоть до `148`; перед staging сверяй фактический список файлов `db/migrations` на выбранном commit и применяй все доступные миграции в каноническом порядке. После миграций `063–120` менялись журнал генерации и перегенерации, резервирование кредитов, публикационные попытки, восстановление расписаний, хранение изображений, платёжные операции и ручная очередь проверки. Поэтому нельзя считать, что для актуального backend достаточно выборочно применить только `015–017`, `026–028`, `031–052` и `056–062`: более поздние миграции изменяют и дополняют те же SQL-контракты, которые использует worker.
 
 **Безопасный порядок подготовки:**
 
-1. Для новой пустой тестовой БД используй только канонический порядок из [инструкции по базе данных](../database.md): `001_baseline.sql`, затем все доступные миграции `010–123` строго по номеру, по одному файлу.
+1. Для новой пустой тестовой БД используй только канонический порядок из [инструкции по базе данных](../database.md): `001_baseline.sql`, затем все доступные миграции `010–148` строго по номеру, по одному файлу.
 2. Для существующей БД не запускай baseline и не применяй весь диапазон вслепую. Сначала сделай резервную копию, read-only снимок схемы и список уже применённых миграций; затем проверь точный delta-набор на отдельной staging-копии.
 3. Проведи PostgreSQL integration tests и backend regression tests на том же commit, который планируется развернуть. Убедись, что backend, SQL-функции и worker относятся к одному согласованному релизу.
 4. До включения cron настрой мониторинг возраста просроченных `scheduled`, зависших `publishing`, записей `unknown` и heartbeat самого cron. Один только HTTP-ответ worker не заменяет сверку очереди и журнала попыток.
@@ -81,7 +81,27 @@ npm run worker
 
 Worker сам обращается к защищённому endpoint каждые 30 секунд по умолчанию, отправляет только `limit: 1`, не допускает перекрывающихся запросов и корректно завершает работу при SIGTERM/SIGINT. Интервал можно задать через `PINPOSY_SCHEDULER_INTERVAL_MS`. Не запускай worker внутри нескольких реплик backend: для него нужен один выделенный процесс; защита claim в БД остаётся последним барьером от конкурентной публикации.
 
-**Вариант B — внешний cron / scheduler-провайдер.**
+**Вариант B — Render Cron Job (экономный запуск без постоянно работающего worker).**
+
+В репозитории есть одноразовая команда `npm run cron:schedule`. Она делает ровно один запрос к защищённому backend endpoint, пишет только безопасное событие в лог и завершает процесс. Это подходит для Render Cron Job: не запускай в cron постоянный процесс `npm run worker`, потому что cron-команда должна завершаться.
+
+Настройка после слияния кода в выбранную production-ветку:
+
+1. В Render создай **New → Cron Job** и выбери репозиторий PinPosy.
+2. Укажи Branch: согласованная production-ветка; Root Directory: `backend`.
+3. Build Command: `npm ci`.
+4. Command: `npm run cron:schedule`.
+5. Schedule: `* * * * *` (один запуск в минуту; один вызов обрабатывает максимум одну запись).
+6. Добавь только две переменные:
+   - `PINPOSY_BACKEND_URL=https://pinboard-ai-backend.onrender.com` (или актуальный backend origin);
+   - `PINPOSY_SCHEDULER_SECRET` — то же случайное значение длиной не менее 32 символов, которое задано в backend.
+7. Сначала используй **Trigger Run** вручную на staging и проверь успешный запуск, heartbeat и изменение тестовой записи. Не направляй cron на production до применения миграций и отдельного подтверждения владельца.
+
+Render гарантирует не более одного одновременно активного запуска конкретной cron job; если предыдущий запуск ещё работает, следующий откладывается. При этом PostgreSQL claim/fencing остаётся обязательной защитой. Не создавай одновременно Render Cron Job и постоянный worker/другой cron.
+
+Минимальный тариф Render Cron Job — $1 в месяц; вычисления тарифицируются отдельно по фактическому времени работы. Это не бесплатный сервис, но короткий запуск раз в минуту может быть дешевле постоянно работающего Background Worker. Перед созданием проверь актуальную сумму в Render Dashboard.
+
+**Вариант C — внешний cron / scheduler-провайдер.**
 
 Если отдельный worker-процесс не используется, внешний scheduler может вызывать endpoint по HTTPS примерно раз в минуту:
 
@@ -92,7 +112,7 @@ Worker сам обращается к защищённому endpoint кажды
 
 Backend в любом случае принудительно обрабатывает не более одной записи за запрос; переданный лимит не управляет размером claim.
 
-**Не включай одновременно вариант A и вариант B.** Это создаст лишние параллельные пробуждения очереди и усложнит диагностику, хотя атомарные claim и fencing должны предотвращать двойное получение одной записи.
+**Используй ровно один вариант: A, B или C.** Не запускай одновременно постоянный worker, Render Cron Job и внешний cron. Это создаст лишние параллельные пробуждения очереди и усложнит диагностику, хотя атомарные claim и fencing должны предотвращать двойное получение одной записи.
 
 При таймауте сначала проверь `pin_schedules` и `pinterest_publish_attempts`, а не отправляй публикацию повторно вручную. Записи `unknown` нельзя автоматически переводить в `scheduled`: их нужно сверить в Pinterest и восстановить только по подтверждённым данным.
 
@@ -172,7 +192,7 @@ PostgreSQL integration test проверяет:
 ## Важные ограничения
 
 - Этот endpoint пока не настроен в production и не вызывается внешним cron.
-- Миграции 015, 016 и 017 пока не применены к рабочей базе.
+- Фактическое состояние production-базы по миграциям не подтверждено. Не считай отсутствие отметки в этой инструкции доказательством, что миграция не применена или применена; перед rollout сверяй `supabase_migrations.schema_migrations` и фактические объекты БД с миграциями нужного commit.
 - Шифрование Pinterest access/refresh tokens уже реализовано в backend. До подключения реальных пользователей необходимо задать `PINTEREST_TOKEN_ENCRYPTION_KEY` в настройках backend и сохранить его резервную копию в отдельном защищённом месте; старые plaintext-токены будут перешифрованы при первом чтении после установки ключа.
 - До публичного запуска также необходимо проверить Pinterest Standard Access и провести тестовую публикацию на отдельной доске.
 - Статус `unknown` нельзя автоматически переводить в `scheduled`: сначала нужно проверить, появился ли пин в Pinterest.
@@ -184,7 +204,7 @@ PostgreSQL integration test проверяет:
 Список досок Pinterest загружается с cursor pagination: до 8 страниц по 250 записей (лимит Pinterest — 2 000 досок). Если API вернёт продолжение за пределами этого лимита, backend сообщает об ошибке вместо того, чтобы молча показать неполный список.
 
 
-## Heartbeat планировщика — подключён в backend, требует миграций 122–123
+## Heartbeat и восстановление Scheduler — миграции 122–123, 125–126
 
 Внутренний endpoint `POST /internal/pinterest/schedule/run` находится в `backend/pinterest.js` и регистрируется из `backend/index.js` через `registerRoutes()`. Отдельный процесс `backend/scheduleWorker.js` обращается к нему каждые 30 секунд по умолчанию.
 
@@ -196,8 +216,56 @@ Endpoint:
 - продлевает claim, проверяет тариф и вызывает существующий `publishPin()`;
 - сохраняет агрегированные счётчики без публикационных идентификаторов и секретов.
 
-Migration 122 создаёт таблицу мониторинга и RPC. Migration 123 делает завершённый запуск терминальным: повторное завершение не может перезаписать уже сохранённый результат, а UUID старого запуска не может завершить новый.
+Migration 122 создаёт таблицу мониторинга и RPC. Migration 123 делает завершённый запуск терминальным: повторное завершение не может перезаписать уже сохранённый результат, а UUID старого запуска не может завершить новый. Для текущего route также нужны миграции 125–126: 125 сохраняет восстановление известного remote ID, а 126 ограничивает reconciliation только расписаниями с подтверждаемой идентичностью и допустимым состоянием. Не проверяй готовность Scheduler только по наличию объектов из 122–123.
 
-**Rollout:** миграции 122–123 находятся только в feature branch и не применялись к production Supabase. До запуска worker/cron требуются staging-прогон точной последовательности миграций и backend на одном commit, Node/PostgreSQL integration tests, проверка секретов и отдельное подтверждение владельца. В production должен работать только один способ пробуждения очереди — отдельный worker ИЛИ внешний cron.
+**Rollout:** миграции 122–126 находятся только в feature branch и не применялись к production Supabase. До запуска worker/cron требуются staging-прогон полной последовательности миграций до 126 (а для текущего полного backend — всей цепочки до 147) и backend на одном commit, Node/PostgreSQL integration tests, проверка секретов и отдельное подтверждение владельца. В production должен работать только один способ пробуждения очереди — отдельный worker ИЛИ внешний cron.
 
 Статусы admin health: `not_seen`, `running`, `healthy`, `failed`, `stale`. Heartbeat подтверждает вызов endpoint, но не доступность Pinterest API и не заменяет сверку `scheduled/publishing/unknown`.
+
+## Read-only database preflight (before staging or production)
+
+Run this query in Supabase SQL Editor against the database used by the target backend. It does not modify data. Every row must report `present`; otherwise do not start the scheduler. It checks the scheduler monitor and the database routines used by the current backend route.
+
+```sql
+with required_tables(name) as (
+  values
+    ('pinterest_scheduler_monitor'),
+    ('pin_schedules'),
+    ('pinterest_publish_attempts')
+),
+required_functions(name) as (
+  values
+    ('begin_pinterest_scheduler_run'),
+    ('complete_pinterest_scheduler_run'),
+    ('reconcile_confirmed_pinterest_schedule_successes'),
+    ('claim_due_pin_schedules'),
+    ('renew_pin_schedule_claim'),
+    ('complete_pinterest_publish_v2')
+),
+checks as (
+  select 'table'::text as object_type, name,
+         exists (
+           select 1
+           from pg_catalog.pg_class c
+           join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+           where n.nspname = 'public' and c.relname = required_tables.name
+             and c.relkind in ('r', 'p')
+         ) as present
+  from required_tables
+  union all
+  select 'function', name,
+         exists (
+           select 1
+           from pg_catalog.pg_proc p
+           join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'public' and p.proname = required_functions.name
+         )
+  from required_functions
+)
+select object_type, name,
+       case when present then 'present' else 'MISSING' end as status
+from checks
+order by object_type, name;
+```
+
+This is a presence check, not proof that every historical migration was applied in order or that the live schema matches every function signature. If anything is missing, compare the database with the numbered migrations in `db/migrations` and apply the missing migrations in order after a backup. Do not paste the entire migration directory into SQL Editor as one unreviewed batch. After the preflight, use a dedicated staging Pinterest account and a test board for the first end-to-end publication.
