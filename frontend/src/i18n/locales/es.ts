@@ -424,6 +424,7 @@ export const es: TranslationSchema = {
     currentBoardSuffix: " (actual)",
     replacementBoardSaving: "Verificando y guardando…",
     replacementBoardResume: "Cambiar de tablero y reanudar",
+    replacementBoardResumeDescription: "El Pin y su configuración se conservarán. Tras verificar el nuevo tablero, se volverá a poner en cola. Solo es posible si el intento anterior terminó de forma segura.",
     retrying: "Reintentando…",
     cancelling: "Cancelando…",
   },
