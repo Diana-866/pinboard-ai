@@ -69,11 +69,18 @@ test("Windows replay uses a uniquely named disposable database", () => {
   assert.match(windowsScript, /DROP DATABASE IF EXISTS \$database/);
 });
 
+test("Windows replay captures psql output without corrupting its boolean result", () => {
+  assert.match(windowsScript, /function Invoke-LocalPsql[\s\S]*& \$Executable @Arguments \| Out-Host[\s\S]*return \$LASTEXITCODE/);
+  assert.equal((windowsScript.match(/Invoke-LocalPsql -Executable \$psql -Arguments/g) || []).length, 6);
+  assert.match(windowsScript, /\$psqlExitCode = Invoke-LocalPsql/);
+  assert.match(windowsScript, /if \(\$psqlExitCode -ne 0\)/);
+});
+
 test("Windows migration replay pins every psql connection to explicit loopback host and port", () => {
   assert.match(windowsScript, /\[ValidateRange\(1, 65535\)\][\s\S]*\[int\]\$PostgresPort = 5432/);
-  const psqlCalls = windowsScript.match(/& \$psql[^\r\n]*/g) || [];
+  const psqlCalls = windowsScript.match(/Invoke-LocalPsql -Executable \$psql -Arguments @\(([^\r\n]*)/g) || [];
   assert.equal(psqlCalls.length, 6);
-  assert.ok(psqlCalls.every((call) => /-h 127\.0\.0\.1 -p \$PostgresPort/.test(call)));
+  assert.ok(psqlCalls.every((call) => /"127\.0\.0\.1".*"\$PostgresPort"/.test(call)));
 });
 
 test("Windows replay applies stubs, canonical baseline, then exactly 139 active migrations", () => {
