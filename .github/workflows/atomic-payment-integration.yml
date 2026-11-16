@@ -58,6 +58,8 @@ jobs:
         run: node --test backend/test/tariff-self-select.test.js
       - name: Test bounded admin mailbox inputs
         run: node --test backend/test/mail-input-validation.test.js
+      - name: Test bounded PostgREST pagination
+        run: node --test backend/test/fetch-all-pages.test.js
       - name: Test cleanup of unsent payment records
         run: node --test backend/test/payment-record-cleanup.test.js
       - name: Test checkout settlement helper
