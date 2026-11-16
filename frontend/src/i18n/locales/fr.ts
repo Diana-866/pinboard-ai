@@ -218,6 +218,12 @@ export const fr: TranslationSchema = {
     copyFailed: 'Impossible de copier les détails de l’épingle. Vérifiez les autorisations du presse-papiers de votre navigateur.',
     pushToCalendarBtn: 'Programmer dans le calendrier',
     savedToCalendar: 'Épingle programmée avec succès dans le calendrier !',
+    savedPinsLoading: "Chargement des épingles enregistrées pour ce tableau…",
+    savedPinsRetry: "Réessayer le chargement",
+    savedPinsLoadError: "Impossible de charger les épingles enregistrées. Vérifiez votre connexion et réessayez.",
+    addToReviewBtn: "Envoyer l’épingle pour examen manuel",
+    addToReviewSaving: "Ajout à la file de vérification…",
+    addToReviewSuccess: "Épingle envoyée pour vérification",
     batchGeneratedNotice: 'Lot d’épingles à fort impact généré sous plusieurs angles éditoriaux.',
   },
 
@@ -585,6 +591,8 @@ export const fr: TranslationSchema = {
 
   review: {
     title: 'Validation des Épingles Générées',
+    queueDescription: "Vérifiez vos épingles enregistrées et approuvez-les ou refusez-les avant leur programmation.",
+    queueCountTemplate: "{count} dans la file",
     subtitle: 'Glissez vers la droite pour approuver dans le calendrier, vers la gauche pour rejeter.',
     approveBtn: 'Approuver (→)',
     rejectBtn: 'Rejeter (←)',
