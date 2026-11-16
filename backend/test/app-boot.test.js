@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { spawn } = require("node:child_process");
+const { spawn, spawnSync } = require("node:child_process");
 const path = require("node:path");
 const net = require("node:net");
 
@@ -55,7 +55,7 @@ test("the production entry point boots and answers unauthenticated probes", asyn
       PORT: String(port),
       SUPABASE_URL: "https://boot-test.supabase.co",
       SUPABASE_SERVICE_ROLE_KEY: "boot-test-key",
-      JWT_SECRET: "boot-test-secret",
+      JWT_SECRET: "pinposy-boot-test-secret-with-at-least-32-bytes",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -80,4 +80,25 @@ test("the production entry point boots and answers unauthenticated probes", asyn
   assert.equal((await root.text()).trim(), "OK");
 
   assert.doesNotMatch(output, /uncaught_exception|unhandled_rejection/);
+});
+
+
+test("the API refuses to boot without a strong JWT signing secret", () => {
+  const result = spawnSync(process.execPath, [path.join(__dirname, "..", "index.js")], {
+    cwd: path.join(__dirname, ".."),
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+      PORT: "0",
+      SUPABASE_URL: "https://boot-test.supabase.co",
+      SUPABASE_SERVICE_ROLE_KEY: "boot-test-key",
+      JWT_SECRET: "too-short",
+    },
+    encoding: "utf8",
+    timeout: 5_000,
+  });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr || "", /JWT_SECRET must be configured with at least 32 bytes/);
+  assert.doesNotMatch(result.stdout || "", /server listening/);
 });
