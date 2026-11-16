@@ -737,6 +737,12 @@ export const de: TranslationSchema = {
     reviewQueueSyncErrorMessage: 'Die Warteschlange konnte nicht geladen oder gespeichert werden. Prüfen Sie Ihre Verbindung und aktualisieren Sie die Seite.',
   },
 
+  lockedSection: {
+    title: "Dieser Bereich ist gesperrt",
+    description: "Wähle einen Tarif, um Pin-Generierung, Boards und Planung freizuschalten. Analysen bleiben in deinem aktuellen Tarif verfügbar.",
+    viewPlans: "Tarife ansehen",
+  },
+
   terms: {
     peakLoadTitle: 'Betriebshinweis bei hoher Auslastung & SLA',
     peakLoadNotice: 'In Zeiten hoher Nachfrage (z. B. in den ersten Tagen nach öffentlichen Ankündigungen des Dienstes) kann die Pin-Generierung mehr Zeit als gewöhnlich in Anspruch nehmen – bis zu 24–48 Stunden statt weniger Minuten. Der Kontozugang, der KI-Strategie-Chatassistent und alle Analysetools bleiben unmittelbar nach der Buchung verfügbar. Wir benachrichtigen Sie direkt in der Benutzeroberfläche, wenn Ihre Anfrage aufgrund hoher Auslastung in die Warteschlange eingereiht wird.',
