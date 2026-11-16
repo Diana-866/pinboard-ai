@@ -424,6 +424,7 @@ export const en: TranslationSchema = {
     currentBoardSuffix: " (current)",
     replacementBoardSaving: "Verifying and saving…",
     replacementBoardResume: "Change board and resume",
+    replacementBoardResumeDescription: "The Pin and its settings will be preserved. After the new board is verified, the schedule will be queued again. This is only available when the previous attempt is confirmed safe.",
     retrying: "Retrying…",
     cancelling: "Cancelling…",
   },
