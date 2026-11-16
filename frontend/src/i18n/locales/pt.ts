@@ -495,6 +495,13 @@ export const pt: TranslationSchema = {
     deleteAccountConfirm: "Solicitar exclusão",
     deleteAccountDone: "Recebemos seu pedido de exclusão e o acesso foi desativado. Seus dados ainda não foram excluídos.",
     requestFailed: "Não foi possível concluir o pedido. Tente novamente.",
+    emailVerifyTitle: 'Verifique seu e-mail',
+    emailVerifyResent: 'Enviamos o e-mail de verificação novamente. Confira sua caixa de entrada e a pasta de spam.',
+    emailVerifyResend: 'Reenviar e-mail',
+    emailVerifySending: 'Enviando…',
+    emailVerifyDismiss: 'Ocultar',
+    emailVerifyThrottled: 'Um e-mail de verificação foi enviado recentemente. Tente novamente mais tarde.',
+    emailVerifySendError: 'Não foi possível enviar o e-mail de verificação. Tente novamente mais tarde.',
   },
 
   pricing: {
@@ -641,6 +648,10 @@ export const pt: TranslationSchema = {
     strategistPrompt: "Precisa de ajuda para entender suas análises?",
     askStrategist: "Perguntar ao estrategista de IA →",
     strategistTitle: "Abrir o estrategista de IA do PinPosy",
+    justNow: 'Agora mesmo',
+    taskCompletedTitle: 'Tarefa concluída',
+    reviewQueueSyncErrorTitle: 'Falha ao sincronizar a fila',
+    reviewQueueSyncErrorMessage: 'Não foi possível carregar ou salvar a fila. Verifique a conexão e atualize a página para sincronizar novamente.',
   },
 
   terms: {
