@@ -60,6 +60,7 @@ export const zh: TranslationSchema = {
 
   nav: {
     dashboard: '仪表盘',
+    openNavigationMenu: '打开导航菜单',
     pinGenerator: 'Pin 图钉生成器',
     keywordResearch: '关键词探索器',
     competitorAudit: '竞品洞察审计',
