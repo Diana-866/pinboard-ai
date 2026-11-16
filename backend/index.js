@@ -1494,7 +1494,7 @@ app.get("/boards", requireAuth, async (req, res) => {
         .order("id", { ascending: false })
         .range(from, to), { maxRows: Math.max(1, 10000 - boards.length) });
       boards.push(...batch);
-      if (boards.length >= 10000 && offset + 100 < projectIds.length) {
+      if (boards.length > 10000) {
         throw httpError(413, "Слишком много досок для одного списка. Уменьшите объём данных.");
       }
     }
