@@ -530,6 +530,13 @@ export interface TranslationSchema {
     deleteAccountConfirm: string;
     deleteAccountDone: string;
     requestFailed: string;
+    emailVerifyTitle: string;
+    emailVerifyResent: string;
+    emailVerifyResend: string;
+    emailVerifySending: string;
+    emailVerifyDismiss: string;
+    emailVerifyThrottled: string;
+    emailVerifySendError: string;
   };
 
   // Pricing & Credits
@@ -684,6 +691,10 @@ export interface TranslationSchema {
     strategistPrompt: string;
     askStrategist: string;
     strategistTitle: string;
+    justNow: string;
+    taskCompletedTitle: string;
+    reviewQueueSyncErrorTitle: string;
+    reviewQueueSyncErrorMessage: string;
   };
 
   // Terms & Peak Load Policy
