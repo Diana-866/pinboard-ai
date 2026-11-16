@@ -2320,13 +2320,17 @@ app.post("/pins/:id/schedule", requireAuth, pinterestScheduleLimiter, requireTar
       .single();
     if (error && error.code === "23505") {
       // The partial unique index allows only one active/uncertain schedule per
-      // pin. A client may lose the 201 response after the insert committed and
+      // Pinterest account + pin. A client may lose the 201 response after the insert committed and
       // retry the same request; return the existing row only for an exact match.
       const { data: existing, error: existingError } = await supabase
         .from("pin_schedules")
         .select("*, pins(id, board_id, title, description, image_url, boards(id, title))")
         .eq("user_id", String(req.userId))
         .eq("pin_id", pin.id)
+        // The database uniqueness boundary is account + pin. Match that
+        // exact identity here as well; other connected accounts may have
+        // their own valid active schedule for the same creative.
+        .eq("pinterest_account_id", selectedAccount.id)
         .in("status", ["scheduled", "publishing", "published", "unknown"])
         .maybeSingle();
       if (existingError) throw existingError;

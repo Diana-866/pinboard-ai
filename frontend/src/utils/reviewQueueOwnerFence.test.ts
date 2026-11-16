@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isReviewQueueOwnerCurrent } from './reviewQueueOwnerFence';
+import { isReviewQueueItemCurrent, isReviewQueueOwnerCurrent } from './reviewQueueOwnerFence';
 
 test('accepts work owned by the current authenticated session', () => {
   const snapshot = { userId: 'user-a', generation: 4 };
@@ -45,4 +45,12 @@ test('rejects snapshots without an authenticated owner', () => {
     ),
     false,
   );
+});
+
+
+test('rejects stale edits when the active review card changes', () => {
+  assert.equal(isReviewQueueItemCurrent({ id: 'row-a', pinId: 'pin-a' }, { id: 'row-a', pinId: 'pin-a' }), true);
+  assert.equal(isReviewQueueItemCurrent({ id: 'row-a', pinId: 'pin-a' }, { id: 'row-b', pinId: 'pin-b' }), false);
+  assert.equal(isReviewQueueItemCurrent({ id: 'row-a', pinId: 'pin-a' }, { id: 'row-a', pinId: 'pin-b' }), false);
+  assert.equal(isReviewQueueItemCurrent({ id: 'row-a', pinId: '' }, null), false);
 });

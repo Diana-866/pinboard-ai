@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   Sparkles,
   Check,
@@ -21,10 +21,12 @@ import {
   CornerDownRight,
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
+import { useAuth } from '../../context/AuthContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { applyCurrentReviewEdits } from '../../utils/reviewApproval';
 import { createGenerationIdempotencyKey } from '../../utils/generationRetry';
+import { isReviewQueueItemCurrent, isReviewQueueOwnerCurrent, type ReviewQueueOwnerSnapshot } from '../../utils/reviewQueueOwnerFence';
 
 export interface PendingReviewPin {
   id: string;
@@ -293,6 +295,33 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   onGoToDashboard,
 }) => {
   const { t, formatDate } = useI18n();
+  const { user } = useAuth();
+  const ownerId = user?.id || '';
+  const ownerGenerationRef = useRef(0);
+  const ownerIdRef = useRef(ownerId);
+  const isOwnerCurrent = (snapshot: ReviewQueueOwnerSnapshot) => isReviewQueueOwnerCurrent(snapshot, {
+    userId: ownerIdRef.current,
+    generation: ownerGenerationRef.current,
+  });
+  const captureOwner = (): ReviewQueueOwnerSnapshot => ({ userId: ownerId, generation: ownerGenerationRef.current });
+
+  useLayoutEffect(() => {
+    ownerGenerationRef.current += 1;
+    ownerIdRef.current = ownerId;
+    setPinterestAccounts([]);
+    setSelectedPinterestAccountId('');
+    setPinterestBoards([]);
+    setSelectedPinterestBoardId('');
+    setPinterestBoardsLoaded(false);
+    setPinterestBoardsError(false);
+    decisionInFlightRef.current = false;
+    setIsDecisionInFlight(false);
+    setBulkApprovalProgress(null);
+    regenerationAttemptRef.current = null;
+    regenerationRequestRef.current += 1;
+    setIsRegenerating(false);
+    setRegenStatusMessage('');
+  }, [ownerId]);
 
   const [internalQueue, setInternalQueue] = useState<PendingReviewPin[]>([]);
   const queue = pendingPins ?? internalQueue;
@@ -309,6 +338,21 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
   // Active pin in focus
   const currentPin = queue[0];
+
+  const currentReviewItemRef = useRef<{ id: string; pinId: string } | null>(null);
+  const regenerationRequestRef = useRef(0);
+  const isCurrentReviewItem = (id: string, pinId: string | undefined, owner: ReviewQueueOwnerSnapshot) => {
+    const active = currentReviewItemRef.current;
+    return isOwnerCurrent(owner) && isReviewQueueItemCurrent({ id, pinId: pinId || '' }, active);
+  };
+
+  useLayoutEffect(() => {
+    currentReviewItemRef.current = currentPin ? { id: currentPin.id, pinId: currentPin.pinId || '' } : null;
+    regenerationAttemptRef.current = null;
+    regenerationRequestRef.current += 1;
+    setIsRegenerating(false);
+    setRegenStatusMessage('');
+  }, [currentPin?.id, currentPin?.pinId]);
 
   // Inline editable fields for the current pin
   const [editTitle, setEditTitle] = useState('');
@@ -341,21 +385,24 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
   useEffect(() => {
     let active = true;
+    const ownerSnapshot = captureOwner();
+    if (!ownerSnapshot.userId) return () => { active = false; };
     apiRequest('/integrations/pinterest/status')
       .then((data) => {
-        if (!active) return;
-        const rows = Array.isArray(data?.accounts) ? data.accounts : [];
+        if (!active || !isOwnerCurrent(ownerSnapshot)) return;
+        const rows = Array.isArray(data?.accounts) ? data.accounts.filter((row: any) => row && typeof row.id === 'string' && row.id.trim()) : [];
         setPinterestAccounts(rows);
         if (rows.length === 1) setSelectedPinterestAccountId(rows[0].id);
       })
       .catch(() => {
-        if (active) setPinterestBoardsError(true);
+        if (active && isOwnerCurrent(ownerSnapshot)) setPinterestBoardsError(true);
       });
     return () => { active = false; };
-  }, []);
+  }, [ownerId]);
 
   useEffect(() => {
     let active = true;
+    const ownerSnapshot = captureOwner();
     setPinterestBoardsError(false);
     if (!selectedPinterestAccountId) {
       setPinterestBoards([]);
@@ -366,8 +413,8 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     setPinterestBoardsLoaded(false);
     apiRequest(`/integrations/pinterest/boards?account_id=${encodeURIComponent(selectedPinterestAccountId)}`)
       .then((data) => {
-        if (!active) return;
-        const rows = Array.isArray(data?.boards) ? data.boards : [];
+        if (!active || !isOwnerCurrent(ownerSnapshot)) return;
+        const rows = Array.isArray(data?.boards) ? data.boards.filter((row: any) => row && typeof row.id === 'string' && row.id.trim()) : [];
         setPinterestBoards(rows);
         if (!rows.some((board: { id: string }) => board.id === selectedPinterestBoardId)) {
           setSelectedPinterestBoardId(rows[0]?.id || '');
@@ -375,12 +422,12 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         setPinterestBoardsLoaded(true);
       })
       .catch(() => {
-        if (!active) return;
+        if (!active || !isOwnerCurrent(ownerSnapshot)) return;
         setPinterestBoardsError(true);
         setPinterestBoardsLoaded(true);
       });
     return () => { active = false; };
-  }, [selectedPinterestAccountId]);
+  }, [selectedPinterestAccountId, ownerId]);
 
   // Sync state whenever the active top card changes
   useEffect(() => {
@@ -430,46 +477,65 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       return;
     }
 
+    const targetPin = currentPin;
+    const ownerSnapshot = captureOwner();
+    if (!isCurrentReviewItem(targetPin.id, targetPin.pinId, ownerSnapshot)) return;
     decisionInFlightRef.current = true;
     setIsDecisionInFlight(true);
     setSwipeDirection('right');
     setTimeout(async () => {
+      if (!isCurrentReviewItem(targetPin.id, targetPin.pinId, ownerSnapshot)) {
+        if (isOwnerCurrent(ownerSnapshot)) {
+          decisionInFlightRef.current = false;
+          setIsDecisionInFlight(false);
+          setSwipeDirection(null);
+        }
+        return;
+      }
       let scheduleWasPersisted = false;
       try {
         const selectedBoard = boards.find((b) => b.id === editBoardId) || boards[0];
         const scheduledItem: ScheduledPinItem = {
           id: `pin-${Date.now()}`,
-          pinId: currentPin.pinId!,
+          pinId: targetPin.pinId!,
           title: editTitle,
           description: editDesc,
           boardId: editBoardId,
-          boardName: selectedBoard?.name || currentPin.boardName,
-          imageUrl: currentPin.imageUrl,
+          boardName: selectedBoard?.name || targetPin.boardName,
+          imageUrl: targetPin.imageUrl,
           scheduledDate: editDate,
           scheduledTime: editTime,
           status: 'scheduled',
           isOptimalSlot: true,
-          destinationUrl: currentPin.destinationUrl,
-          accountHandle: currentPin.accountHandle,
+          destinationUrl: targetPin.destinationUrl,
+          accountHandle: targetPin.accountHandle,
           pinterestBoardId: selectedPinterestBoardId,
           pinterestAccountId: selectedPinterestAccountId,
         };
 
         await onApprovePin(scheduledItem);
         scheduleWasPersisted = true;
-        await updateQueue((prev) => prev.filter((pin) => pin.id !== currentPin.id));
+        if (!isCurrentReviewItem(targetPin.id, targetPin.pinId, ownerSnapshot)) return;
+        await updateQueue((prev) => {
+          if (!isCurrentReviewItem(targetPin.id, targetPin.pinId, ownerSnapshot)) return prev;
+          return prev.filter((pin) => pin.id !== targetPin.id || pin.pinId !== targetPin.pinId);
+        });
+        if (!isOwnerCurrent(ownerSnapshot)) return;
         setApprovedCount((c) => c + 1);
       } catch (error) {
+        if (!isOwnerCurrent(ownerSnapshot)) return;
         if (scheduleWasPersisted) {
           window.alert('Пин уже сохранён в календаре, но не удалось убрать его из очереди проверки. Не одобряйте его повторно: обновите страницу и проверьте календарь.');
         } else {
           window.alert(error instanceof Error ? error.message : 'Не удалось добавить пин в расписание. Карточка осталась в очереди.');
         }
       } finally {
-        setSwipeDirection(null);
-        setDragOffset(0);
-        decisionInFlightRef.current = false;
-        setIsDecisionInFlight(false);
+        if (isOwnerCurrent(ownerSnapshot)) {
+          setSwipeDirection(null);
+          setDragOffset(0);
+          decisionInFlightRef.current = false;
+          setIsDecisionInFlight(false);
+        }
       }
     }, 220);
   };
@@ -477,33 +543,52 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   const handleReject = () => {
     if (!currentPin || decisionInFlightRef.current) return;
 
+    const targetPin = currentPin;
+    const ownerSnapshot = captureOwner();
+    if (!isCurrentReviewItem(targetPin.id, targetPin.pinId, ownerSnapshot)) return;
     decisionInFlightRef.current = true;
     setIsDecisionInFlight(true);
     setSwipeDirection('left');
     setTimeout(async () => {
+      if (!isCurrentReviewItem(targetPin.id, targetPin.pinId, ownerSnapshot)) {
+        if (isOwnerCurrent(ownerSnapshot)) {
+          decisionInFlightRef.current = false;
+          setIsDecisionInFlight(false);
+          setSwipeDirection(null);
+        }
+        return;
+      }
       let pinWasRejected = false;
       try {
         // Persist the decision on the saved pin before removing its review item.
         // Demo cards have no server pin ID and remain local-only.
-        if (currentPin.pinId) {
-          await apiRequest(`/pins/${encodeURIComponent(currentPin.pinId)}/status`, {
+        if (targetPin.pinId) {
+          await apiRequest(`/pins/${encodeURIComponent(targetPin.pinId)}/status`, {
             method: 'POST',
             body: JSON.stringify({ status: 'rejected' }),
           });
           pinWasRejected = true;
         }
-        await updateQueue((prev) => prev.filter((pin) => pin.id !== currentPin.id));
+        if (!isCurrentReviewItem(targetPin.id, targetPin.pinId, ownerSnapshot)) return;
+        await updateQueue((prev) => {
+          if (!isCurrentReviewItem(targetPin.id, targetPin.pinId, ownerSnapshot)) return prev;
+          return prev.filter((pin) => pin.id !== targetPin.id || pin.pinId !== targetPin.pinId);
+        });
+        if (!isOwnerCurrent(ownerSnapshot)) return;
         setRejectedCount((c) => c + 1);
       } catch (error) {
+        if (!isOwnerCurrent(ownerSnapshot)) return;
         const message = error instanceof Error ? error.message : 'Не удалось сохранить отклонение.';
         window.alert(pinWasRejected
           ? `Пин отклонён, но не удалось убрать карточку из очереди проверки. Обновите страницу и повторите удаление карточки. ${message}`
           : `${message} Карточка осталась в очереди.`);
       } finally {
-        setSwipeDirection(null);
-        setDragOffset(0);
-        decisionInFlightRef.current = false;
-        setIsDecisionInFlight(false);
+        if (isOwnerCurrent(ownerSnapshot)) {
+          setSwipeDirection(null);
+          setDragOffset(0);
+          decisionInFlightRef.current = false;
+          setIsDecisionInFlight(false);
+        }
       }
     }, 220);
   };
@@ -521,6 +606,8 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       return;
     }
 
+    const ownerSnapshot = captureOwner();
+    if (!isOwnerCurrent(ownerSnapshot)) return;
     decisionInFlightRef.current = true;
     setIsDecisionInFlight(true);
     try {
@@ -559,33 +646,42 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
       const successfulIds = new Set<string>();
       setBulkApprovalProgress({ completed: 0, total: scheduledItems.length });
       for (let index = 0; index < scheduledItems.length; index += 1) {
+        if (!isOwnerCurrent(ownerSnapshot)) return;
         try {
           await onApprovePin(scheduledItems[index]);
+          if (!isOwnerCurrent(ownerSnapshot)) return;
           successfulIds.add(queueSnapshot[index].id);
         } catch {
           // Keep this card in the review queue and continue with the rest.
           // A partial failure must not discard successful approvals or stop
           // independent cards from being processed.
         } finally {
-          setBulkApprovalProgress({ completed: index + 1, total: scheduledItems.length });
+          if (isOwnerCurrent(ownerSnapshot)) {
+            setBulkApprovalProgress({ completed: index + 1, total: scheduledItems.length });
+          }
         }
       }
+      if (!isOwnerCurrent(ownerSnapshot)) return;
       if (successfulIds.size > 0) {
         try {
           await updateQueue((prev) => prev.filter((pin) => !successfulIds.has(pin.id)));
+          if (!isOwnerCurrent(ownerSnapshot)) return;
           setApprovedCount((count) => count + successfulIds.size);
         } catch {
+          if (!isOwnerCurrent(ownerSnapshot)) return;
           window.alert(`В календаре уже сохранено ${successfulIds.size} пинов, но очередь проверки не обновилась. Не одобряйте эти карточки повторно: обновите страницу и проверьте календарь.`);
           return;
         }
       }
-      if (successfulIds.size !== scheduledItems.length) {
+      if (isOwnerCurrent(ownerSnapshot) && successfulIds.size !== scheduledItems.length) {
         window.alert(`В расписание добавлено: ${successfulIds.size} из ${scheduledItems.length}. Неудачные карточки остались в очереди.`);
       }
     } finally {
-      setBulkApprovalProgress(null);
-      decisionInFlightRef.current = false;
-      setIsDecisionInFlight(false);
+      if (isOwnerCurrent(ownerSnapshot)) {
+        setBulkApprovalProgress(null);
+        decisionInFlightRef.current = false;
+        setIsDecisionInFlight(false);
+      }
     }
   };
 
@@ -629,7 +725,10 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     e.preventDefault();
     const instruction = regenComment.trim();
     if (!instruction || !currentPin || isRegenerating) return;
-    if (!currentPin.pinId) {
+    const targetPin = currentPin;
+    const ownerSnapshot = captureOwner();
+    const targetPinId = targetPin.pinId;
+    if (!targetPinId || !isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot)) {
       window.alert('Нельзя заменить изображение: исходный пин ещё не сохранён на сервере.');
       return;
     }
@@ -637,23 +736,25 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     const existingAttempt = regenerationAttemptRef.current;
     let attempt: { pinId: string; instruction: string; key: string };
     try {
-      attempt = existingAttempt && existingAttempt.pinId === currentPin.pinId && existingAttempt.instruction === instruction
+      attempt = existingAttempt && existingAttempt.pinId === targetPinId && existingAttempt.instruction === instruction
         ? existingAttempt
-        : { pinId: currentPin.pinId, instruction, key: createGenerationIdempotencyKey() };
+        : { pinId: targetPinId, instruction, key: createGenerationIdempotencyKey() };
     } catch (error) {
       setRegenStatusMessage(error instanceof Error ? error.message : 'Не удалось создать безопасный ключ запроса.');
       return;
     }
     regenerationAttemptRef.current = attempt;
+    const regenerationRequestId = ++regenerationRequestRef.current;
     setIsRegenerating(true);
     setRegenStatusMessage('Отправляем запрос на перегенерацию…');
 
     try {
-      const savedPin = await apiRequest(`/pins/${encodeURIComponent(currentPin.pinId)}/regenerate`, {
+      const savedPin = await apiRequest(`/pins/${encodeURIComponent(targetPinId)}/regenerate`, {
         method: 'POST',
         headers: { 'Idempotency-Key': attempt.key },
         body: JSON.stringify({ instruction }),
       });
+      if (!isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot) || regenerationRequestRef.current !== regenerationRequestId) return;
       if (savedPin?.status === 'processing' || savedPin?.code === 'regeneration_pending') {
         setRegenStatusMessage('Генерация ещё выполняется. Нажмите кнопку ещё раз через несколько секунд — запрос продолжится с тем же ключом без повторного списания.');
         return;
@@ -662,13 +763,18 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         throw new Error('Сервер не подтвердил сохранение нового изображения. Повторите проверку с тем же запросом.');
       }
 
-      const updatedPin = { ...currentPin, imageUrl: savedPin.image_url, aspectRatio: '2:3' };
-      await updateQueue((prev) => prev.map((pin) => pin.id === currentPin.id ? updatedPin : pin));
+      const updatedPin = { ...targetPin, imageUrl: savedPin.image_url, aspectRatio: '2:3' };
+      await updateQueue((prev) => {
+        if (!isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot) || regenerationRequestRef.current !== regenerationRequestId) return prev;
+        return prev.map((pin) => pin.id === targetPin.id && pin.pinId === targetPinId ? updatedPin : pin);
+      });
+      if (!isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot) || regenerationRequestRef.current !== regenerationRequestId) return;
       regenerationAttemptRef.current = null;
       setRegenStatusMessage('Новое изображение сохранено и привязано к исходной карточке.');
       setShowRegenBox(false);
       setRegenComment('');
     } catch (error: any) {
+      if (!isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot) || regenerationRequestRef.current !== regenerationRequestId) return;
       const code = error?.data?.code;
       if (code === 'regeneration_in_progress' || code === 'regeneration_pending') {
         setRegenStatusMessage('Генерация ещё выполняется. Нажмите кнопку повторно через несколько секунд; используется тот же запрос.');
@@ -676,7 +782,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         setRegenStatusMessage(error instanceof Error ? error.message : 'Не удалось перегенерировать изображение. Повторите попытку.');
       }
     } finally {
-      setIsRegenerating(false);
+      if (isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot) && regenerationRequestRef.current === regenerationRequestId) setIsRegenerating(false);
     }
   };
 
@@ -843,16 +949,20 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                 accept="image/png,image/jpeg,image/webp"
                 className="hidden"
                 onChange={async (e) => {
-                  const file = e.target.files?.[0];
+                  const file = e.currentTarget.files?.[0];
+                  const input = e.currentTarget;
+                  const targetPin = currentPin;
+                  const ownerSnapshot = captureOwner();
+                  const targetPinId = targetPin.pinId;
                   if (!file) return;
                   try {
-                    if (!currentPin.pinId) {
+                    if (!targetPinId || !isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot)) {
                       throw new Error('Сначала сохраните пин в генераторе — только сохранённому пину можно заменить изображение.');
                     }
                     const fd = new FormData();
                     fd.append('image', file);
                     const API = (import.meta as any).env?.VITE_API_URL || 'https://pinboard-ai-backend.onrender.com';
-                    const response = await fetch(API + '/pins/' + encodeURIComponent(currentPin.pinId) + '/image', {
+                    const response = await fetch(API + '/pins/' + encodeURIComponent(targetPinId) + '/image', {
                       method: 'POST',
                       headers: { Authorization: 'Bearer ' + localStorage.getItem('token') },
                       body: fd,
@@ -861,17 +971,20 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                       throw new Error('Не удалось сохранить изображение на сервере. Попробуйте ещё раз.');
                     }
                     const savedPin = await response.json();
+                    if (!isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot)) return;
                     if (typeof savedPin.image_url !== 'string' || !savedPin.image_url) {
                       throw new Error('Сервер не вернул постоянную ссылку на изображение.');
                     }
 
-                    await updateQueue((prev) =>
-                      prev.map((p) => (p.id === currentPin.id ? { ...p, imageUrl: savedPin.image_url } : p))
-                    );
+                    await updateQueue((prev) => {
+                      if (!isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot)) return prev;
+                      return prev.map((p) => (p.id === targetPin.id && p.pinId === targetPinId ? { ...p, imageUrl: savedPin.image_url } : p));
+                    });
+                    if (!isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot)) return;
                   } catch (error) {
-                    window.alert(error instanceof Error ? error.message : 'Не удалось обновить изображение.');
+                    if (isCurrentReviewItem(targetPin.id, targetPinId, ownerSnapshot)) window.alert(error instanceof Error ? error.message : 'Не удалось обновить изображение.');
                   } finally {
-                    e.target.value = '';
+                    input.value = '';
                   }
                 }}
               />
