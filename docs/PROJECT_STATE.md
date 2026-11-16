@@ -137,7 +137,7 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - [x] Получить дерево репозитория на исходном commit.
 - [x] Зафиксировать исходный SHA и ветку.
 - [x] Выборочно открыть ключевые frontend/backend/SQL файлы.
-- [~] Проведены два ограниченных пакета backend-аудита: 8 core-модулей и 7 auth/account lifecycle-модулей; отчёты `docs/backend-audit/01-core-modules.md` и `docs/backend-audit/02-auth-account-lifecycle.md`. Остальные модули, маршруты и тесты не проверены.
+- [~] Проведены три ограниченных пакета backend-аудита: 8 core-модулей, 7 auth/account lifecycle-модулей и 11 billing/credits/Prodamus-модулей; отчёты `docs/backend-audit/01-core-modules.md`, `docs/backend-audit/02-auth-account-lifecycle.md`, `docs/backend-audit/03-billing-credits-prodamus.md`. Остальные модули, маршруты и тесты не проверены.
 - [ ] Построчно проанализировать все исходники frontend.
 - [ ] Проанализировать все миграции и SQL-тесты.
 - [ ] Проанализировать тесты, скрипты, workflow и конфигурации.
@@ -181,7 +181,7 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - [ ] Проверить ledger и атомарное изменение баланса.
 - [ ] Проверить резервирование/возврат кредитов при ошибках.
 - [ ] Проверить тарифы и ограничения.
-- [ ] Проверить Prodamus signature и webhook.
+- [~] Проверить Prodamus signature и webhook: статически проверены signature, amount/currency, duplicate callbacks и checkout idempotency; исправлено принятие checkout URL из не-2xx ответа. Regression CI запущен, результат ожидается; staging webhook/платёж НЕ проверен.
 - [ ] Проверить повторные и некорректные вебхуки.
 - [ ] Проверить соответствие заказа, суммы, валюты и пользователя.
 - [ ] Провести контролируемый тестовый платёж.
@@ -251,9 +251,10 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 
 ## 7. Текущая следующая задача
 
-**NEXT: продолжить аудит billing/credits/Prodamus-модулей (`billing.js`, `creditsBilling.js`, `credits.js`, `creditPacks.js`, `prodamus.js`, `prodamusWebhookBody.js`, финансовые admin-модули) и соответствующих тестов/миграций.** После этого продолжить оставшиеся backend-модули, полный `backend/index.js` и тесты. Перед началом повторно проверить HEAD, PR и паспорт. Не запускать реальные платежи и не менять production. По результатам создать/обновить реестр backend-файлов и список подтверждённых дефектов.
+**NEXT: завершить проверку checkout fix из пакета 03: получить результат GitHub Actions workflow `Prodamus checkout and webhook regression tests` для последнего `main`, устранить реальные тестовые ошибки (не путать с runner failures до шагов), затем повторно проверить статус Vercel.** После этого продолжить backend file-by-file аудит оставшихся модулей, полного `backend/index.js`, тестов и SQL. PR #88 не объединять: его checkout fix адресно перенесён в main, PR основан на старом SHA. Не запускать реальные платежи и не менять production.
 
 ## 8. Журнал изменений паспорта
 - 2026-11-16 — создан первоначальный паспорт на основе дерева репозитория и выборочного чтения файлов на commit `1914c5c5`. Полный аудит не завершён.
 - 2026-11-16 — по прямому разрешению пользователя правило работы только через PR заменено на работу непосредственно в `main`; добавлен первый отчёт backend-аудита. Полный backend-аудит не завершён.
 - 2026-11-16 — добавлен пакет 02: просмотрены auth/account lifecycle-модули, их маршруты, 12+ тестовых/контрактных файлов и auth SQL migrations; зафиксирован startup/readiness gap при отсутствии `JWT_SECRET`. Node/PostgreSQL tests не запускались; production не изменялся. Отчёт: `docs/backend-audit/02-auth-account-lifecycle.md`.
+- 2026-11-16 — пакет 03: проверены billing/credits/Prodamus, админские финансовые операции, webhook, тестовые контракты и SQL migrations. Исправлен дефект принятия checkout URL из HTTP non-2xx; 4xx release теперь требует подтверждённого закрытия pending row и RPC, прочие ошибки остаются unknown. Добавлены regression tests и CI workflow на push/PR. GitHub Actions jobs падали до шагов; regression workflow rerun queued, tests пока НЕ подтверждены; Vercel build-rate-limit. PR #88 не объединён; патч перенесён адресно в main. Отчёт: `docs/backend-audit/03-billing-credits-prodamus.md`.
