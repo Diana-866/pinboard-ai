@@ -485,6 +485,7 @@ export const zh: TranslationSchema = {
     dataSection: "数据与账户",
     dataSectionDesc: "下载您的数据副本，或申请删除您的账户。",
     downloadData: "下载我的数据",
+    exportPartialWarning: '文件已下载，但部分数据分区无法读取。请检查 JSON 中的 degradedSections 字段，并稍后重新导出。',
     deleteAccount: "删除账户",
     deleteAccountWarning: "此操作将安排删除您的账户，并立即在所有设备上退出登录。此操作不可撤销。",
     deleteAccountPasswordLabel: "使用密码确认",
