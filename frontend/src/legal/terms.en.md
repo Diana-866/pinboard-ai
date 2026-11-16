@@ -61,7 +61,7 @@ To the maximum extent permitted by law, we are not liable for indirect or conseq
 
 ## 11. Termination
 
-You may stop using the Service and request account deletion at any time (contact below). We may suspend or terminate access for violation of these Terms, with notice where reasonably possible.
+You may request account deletion at any time through **Settings → Data & Account** after re-entering your password. If you cannot use this feature, contact us using the details below. The request immediately restricts access to the account; physical data deletion is handled separately under the Privacy Policy. We may suspend or terminate access for violation of these Terms, with notice where reasonably possible.
 
 ## 12. Changes to These Terms
 
