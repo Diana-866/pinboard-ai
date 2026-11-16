@@ -79,3 +79,22 @@ A second focused review of `OnboardingWizard` found two user-visible issues:
 **Commits:** locale copy `ea43db939ac33b84b56501e39d910b9285557109`; onboarding component `949f87cebcc29d20d2bc53c1453820a892ba64d0`; regression test `3fea0bfb3b9dc8b0ff24380344aef310136e2cc2`.
 
 The component, copy module and test were re-fetched from `main`; ten targeted static assertions passed, including all seven locale dictionaries, accessible labels/descriptions, alert semantics, plan pressed state and test discovery. The test source was inspected but **not executed**. No typecheck, frontend test suite, build, browser or screen-reader test was run. Package 09 and the full frontend audit remain open.
+
+
+## Supplemental email verification localization and notification owner isolation (FE-11 / FE-12)
+
+### FE-11 — verification banner contained a Russian-only email label
+
+A readback of the owner-fenced email verification banner found one remaining hardcoded Russian fragment beside the account email address. Added `emailVerifySentTo` to the translation schema and all seven locale dictionaries, and replaced the literal with the localized template. The banner continues to fence resend responses by authenticated owner/request generation.
+
+Commits: schema `af74e1721da58d1228edd6ca7fb79661160edab7`; EN `ed5d8e15798d9f3272b8ad67761f9896300c0f27`; RU `8ee54e9d838757f4f828fb00e10f3b71603da1a1`; ES `069a79f43a68b19d5b492f49b1fcba17a7dedbc1`; PT `1fafd010c7fb6114b9ca353b4168e53db5fa4b4c`; DE `1560b64805a65672ed8d1e6f257e5d9e53bd5e9b`; FR `37f5c5f4c6c7d4eb1a21c11be909c25ef7c6f4b0`; ZH `300636b94d96396da4687415e6a15f8fa985fa17`; component `63b1758fef698bcda2efe722fba73984d606f10a`.
+
+### FE-12 — notification history owner isolation verified on current main
+
+The notification storage helper and context were re-read together. `NotificationContext` loads and saves under `pinposy_notifications:<encoded-owner-id>`, tags in-memory notifications/toasts with the owner, clears stale state when the account changes, and retires the old global `pinposy_notifications` key instead of attributing old history to the next account. The helper rejects missing owner IDs and tests cover separate keys for separate owners.
+
+Existing implementation/test commits: `14e9b46518bfcb7582e4b04ab590df77f4f94b67` (helper), `614b08149ec4c3afa763a0d17de33770b9d625af` (tests), and `b9582025d1830bb2424bb0b381c12bedfbe0f2f7` (owner-fenced/localized email verification banner base).
+
+All 12 related files were fetched again from current `main`; nine targeted static assertions passed for locale key coverage, removal of the hardcoded Russian fragment, owner-fenced resend, owner-scoped notification load/save, legacy-key retirement and owner-key tests. Regression test sources were inspected but not executed. No typecheck, frontend suite, browser locale/account-switch test or live resend request was run.
+
+Package 09 remains open: these fixes cover confirmed cross-locale and account-isolation findings, not the full set of user-facing flows or accessibility requirements.
