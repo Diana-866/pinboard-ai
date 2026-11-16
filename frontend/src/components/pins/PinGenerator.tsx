@@ -32,7 +32,7 @@ import { shouldFlushPendingPinDescription } from '../../utils/pendingPinDescript
 import { clearPendingGenerationRequestForOwner, createGenerationFingerprint, listPendingGenerationRequestsForOwner, readPendingGenerationRequestForOwner, writePendingGenerationRequestForOwner } from '../../utils/pendingGenerationRequest';
 import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
 import { requireGeneratedPinsArray } from '../../utils/generatedPinsResponse';
-import { isExpiredGenerationRecoveryError, shouldPollGenerationRecovery } from '../../utils/generationRecovery';
+import { buildUnknownGenerationRecoveryEntries, isExpiredGenerationRecoveryError, shouldPollGenerationRecovery } from '../../utils/generationRecovery';
 import { isCurrentBillingOwner } from '../../utils/billingOwner';
 import { rollbackPinAspectRatioIfUnchanged } from '../../utils/pinAspectRatio';
 import { resolvePinterestDestination } from '../../utils/pinterestDestination';
@@ -368,12 +368,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             continue;
           }
           if (error?.status === 401) {
-            // Stop the polling loop when the session expires. Keep persisted
-            // idempotency identities untouched; they can be checked after re-login.
+            // A first lookup after reload can be unauthorized before any rows
+            // have reached state. Keep every local identity visible as unknown
+            // instead of hiding the recovery panel; never delete or rotate keys.
+            const unresolved = buildUnknownGenerationRecoveryEntries(identities);
             if (active && isCurrentBillingOwner(generationRecoveryOwnerIdRef.current, ownerId)) {
-              // Keep the recovery panel and local idempotency keys available.
-              // Pause background requests until the user has re-authenticated
-              // and explicitly asks to check again.
+              setRecoverableGenerations([...found, ...unresolved]);
               setRecoveryAuthPaused(true);
             }
             return;
