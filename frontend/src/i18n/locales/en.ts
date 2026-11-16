@@ -211,6 +211,8 @@ export const en: TranslationSchema = {
     brandingText: 'Brand Watermark or URL',
     templateStyle: 'Visual Layout Preset',
     exportImageBtn: 'Download Pin Image (PNG)',
+    exportFailed: 'Export failed. The image may not allow canvas export. Try another image or download it from its source.',
+    copyFailed: 'Could not copy the pin details. Check your browser clipboard permissions.',
     pushToCalendarBtn: 'Schedule to Calendar',
     savedToCalendar: 'Pin scheduled successfully to calendar!',
     batchGeneratedNotice: 'Batch of high-converting pins generated with distinct algorithmic angles.',
