@@ -120,3 +120,15 @@ The English policy already disclosed that pin images live in a public object-sto
 ### Supplemental readback
 
 After these changes, 13 static assertions passed across Settings, account operation helper/tests, export completeness helper/tests, RU/EN privacy policies and all seven locale files. Ten more passed across account lifecycle, worker gate, backend account routes, admin middleware and account/admin authorization tests. Total: 23 static assertions. The 22 admin route declarations in `backend/index.js` all include `requireAuth, requireAdmin`; `requireAdmin` checks the authenticated user in the database and fails closed. No frontend test, typecheck, build, browser account-switch test, worker run, production export/deletion, backend runtime or SQL test was executed.
+
+## Supplemental legal-language correction (2026-11-16)
+
+A follow-up readback found that the in-product privacy modal always rendered the Russian policy and that the public LegalPage always initialized to Russian, even when the application language was English or another supported locale.
+
+**Fix on main:** added `resolveLegalLanguage` (Russian UI → RU legal document; all other/unknown UI languages → EN, because legal documents are currently published only in RU/EN). The privacy modal now selects the matching policy and localizes its heading/close label. Public privacy/terms pages initialize from the current UI language, update if that language changes while the page is open, and localize the back label. Added regression coverage for RU, EN, ES, PT, DE, FR, ZH and missing/unknown locale fallback.
+
+**Files:** `frontend/src/components/auth/PrivacyPolicyModal.tsx`, `frontend/src/pages/LegalPage.tsx`, `frontend/src/utils/legalLanguage.ts`, `frontend/src/utils/legalLanguage.test.ts`.
+
+**Commits:** modal `db5682787995f05e361b7285d332f56fe0ff641a`; LegalPage `b16187d59b29586c99a223d0f830a23d87e16cbb`; helper `33cdccbf81466a060617cbceabfbf87fd2e77981`; test `6b684d6d335f78b5c904bfbcd57924392b7e161b`.
+
+All four files were fetched again from main; the helper and test contents were read back. Static assertions confirmed that the modal and page use the resolver, non-Russian locales fall back to English, and the test covers every currently supported non-Russian UI locale. The test was not executed; the frontend test script includes `src/utils/*.test.ts`, but GitHub Actions has not provisioned a runner. This is a supplemental correction to completed package 07, not a new package.
