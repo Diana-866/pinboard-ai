@@ -181,3 +181,13 @@ All `/admin/*` handlers in this entrypoint use `requireAuth` and `requireAdmin`;
 - Added a regression test to `backend/test/admin-stats.test.js` for overflow behavior; the existing tests continue to assert multi-page aggregation.
 - Commits: `31a2cfc0` (service fix), `9ab2a3bb` (test).
 - Static verification: service and test were re-fetched from `main`; runtime Node tests were NOT executed. The 100,000-row ceiling is a deliberate operational guard, not a claim that dashboard aggregation is suitable for unbounded scale; a future SQL aggregate/RPC is preferable as data grows.
+
+
+## Follow-up: fence project-site analysis against URL changes (2026-11-16)
+
+- `POST /projects/:id/analyze` reads the owner-scoped project and calls the external AI/site-analysis service before writing the result.
+- Previously, the final UPDATE filtered only by project ID and owner. If the user changed `website_url` while analysis was running, the old site's niche/summary could be written onto the newly selected URL.
+- The UPDATE now also compares `website_url` to the exact value that was analyzed. It uses `maybeSingle()` and returns HTTP 409 when the compare-and-swap matches no row, asking the user to retry analysis for the current URL.
+- Added `backend/test/project-analysis-url-fencing.test.js` to assert owner-scoped URL compare-and-swap and conflict handling.
+- Commits: `8c68f450` (route fix), `db3da312` (regression contract).
+- Verification: route and test re-fetched from `main`; runtime Node test was NOT executed because GitHub Actions runners have not started jobs. No production data or services were touched.
