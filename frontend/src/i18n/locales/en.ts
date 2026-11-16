@@ -495,6 +495,13 @@ export const en: TranslationSchema = {
     deleteAccountConfirm: "Request deletion",
     deleteAccountDone: "Your deletion request has been received and access is disabled. Your data has not yet been deleted.",
     requestFailed: "Could not complete the request. Please try again.",
+    emailVerifyTitle: 'Verify your email',
+    emailVerifyResent: 'We sent the verification email again. Check your inbox and spam folder.',
+    emailVerifyResend: 'Resend email',
+    emailVerifySending: 'Sending…',
+    emailVerifyDismiss: 'Dismiss',
+    emailVerifyThrottled: 'A verification email was sent recently. Try again later.',
+    emailVerifySendError: 'Could not send the verification email. Please try again later.',
   },
 
   pricing: {
@@ -641,6 +648,10 @@ export const en: TranslationSchema = {
     strategistPrompt: "Need help understanding your analytics?",
     askStrategist: "Ask AI Strategist →",
     strategistTitle: "Open PinPosy AI Strategist",
+    justNow: 'Just now',
+    taskCompletedTitle: 'Task completed',
+    reviewQueueSyncErrorTitle: 'Review queue sync failed',
+    reviewQueueSyncErrorMessage: 'The queue could not be loaded or saved. Check your connection and refresh the page to sync again.',
   },
 
   terms: {
