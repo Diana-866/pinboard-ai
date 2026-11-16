@@ -694,10 +694,17 @@ app.post("/projects/:id/analyze", requireAuth, aiLimiter, async (req, res) => {
       })
       .eq("id", req.params.id)
       .eq("user_id", req.userId)
+      // Compare-and-swap the analyzed URL: if the owner changed the project
+      // website while the AI request was running, never attach stale analysis
+      // to the new URL.
+      .eq("website_url", project.website_url)
       .select()
-      .single();
+      .maybeSingle();
 
     if (updateError) throw updateError;
+    if (!updated) {
+      throw httpError(409, "URL сайта изменился во время анализа. Запустите анализ ещё раз.");
+    }
 
     // Keep the owner identifier private in the analyzed-project response too.
     res.json(serializeProjectForClient(updated));
