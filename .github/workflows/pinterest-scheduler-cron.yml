@@ -12,17 +12,7 @@ on:
       - "backend/test/pinterest-scheduler-route-contract.test.js"
       - "backend/package.json"
       - ".github/workflows/pinterest-scheduler-cron.yml"
-  push:
-    branches: [feat/pinterest-one-shot-cron-runner]
-    paths:
-      - "backend/scheduleCron.js"
-      - "backend/scheduleResponse.js"
-      - "backend/scheduleWorker.js"
-      - "backend/pinterest.js"
-      - "backend/test/*schedule*.test.js"
-      - "backend/test/pinterest-scheduler-route-contract.test.js"
-      - "backend/package.json"
-      - ".github/workflows/pinterest-scheduler-cron.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
