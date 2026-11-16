@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet(55439)][int]$PostgresPort = 55439
+    [ValidateSet('55439')][int]$PostgresPort = 55439
 )
 $PsqlPath = 'X:\Program Files\PostgreSQL\18\bin\psql.exe'
 $ExpectedDataDirectory = 'X:\PinPosy-verify-pg18'
@@ -86,6 +86,11 @@ try {
 
     $sqlTests = @(Get-Content -LiteralPath $manifestPath | ForEach-Object { $_.Trim() } | Where-Object { $_ -and -not $_.StartsWith('#') })
     if ($sqlTests.Count -ne 46 -or ($sqlTests | Select-Object -Unique).Count -ne 46) { throw "Expected 46 unique SQL integration tests; found $($sqlTests.Count)." }
+    foreach ($test in $sqlTests) {
+        if ([IO.Path]::GetFileName($test) -ne $test -or -not $test.EndsWith('.sql',[StringComparison]::OrdinalIgnoreCase)) {
+            throw "Unsafe SQL test manifest entry: $test"
+        }
+    }
     $sqlPaths = @($fixturePath,$deletionCheckPath,$refreshCheckPath) + @($sqlTests | ForEach-Object { Join-Path $repoRoot "backend/test/$_" })
     foreach ($path in $sqlPaths) {
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing SQL file: $path" }
