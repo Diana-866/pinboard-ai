@@ -139,7 +139,7 @@ export const AdminSubscriptions: React.FC = () => {
             {rows.length === 0 && !loading && (
               <tr>
                 <td colSpan={7} className="py-8 px-3 text-center text-muted-theme">
-                  Платежей ещё не было. Создайте демо-платёж из раздела «Тарифы» в кабинете.
+                  Платежей пока нет.
                 </td>
               </tr>
             )}
