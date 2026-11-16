@@ -339,7 +339,12 @@ async function createPaymentLink({
   // an upstream error page/body is not proof that an order was created.
   if (!res || !Number.isInteger(res.status) || res.status < 200 || res.status >= 300) {
     logError("prodamus.event_003");
-    throw httpError(502, "Prodamus не подтвердил создание счёта — попробуйте позже");
+    const error = httpError(502, "Prodamus не подтвердил создание счёта — попробуйте позже");
+    // A provider 4xx response is an explicit rejection. A 5xx/redirect or a
+    // missing/invalid status can still hide a committed invoice, so retain the
+    // conservative unknown-outcome fence for those cases.
+    error.providerRejected = Number.isInteger(res && res.status) && res.status >= 400 && res.status < 500;
+    throw error;
   }
 
   const data = res.data && typeof res.data === "object" ? res.data : null;
