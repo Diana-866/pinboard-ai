@@ -133,3 +133,6 @@ All `/admin/*` handlers in this entrypoint use `requireAuth` and `requireAdmin`;
 - Added `backend/test/schedule-route-pagination-contract.test.js` to guard the route's use of the bounded pager. The existing `backend/test/fetch-all-pages.test.js` covers exact-cap and overflow behavior.
 - Commits: `b52a537a` (route fix), `1aafeaaa` (regression contract).
 - Static source verification: the route now calls `fetchAllPages` and supplies `.range(from, to)`; test source and route were re-fetched from main. Runtime Node tests were NOT executed; Vercel check remains `build-rate-limit`. No production database, scheduler, or deployment was touched.
+
+
+- `backend/billing.js:listAllSubscriptions` now clamps admin subscription inventory page size to 1–500; regression test `backend/test/admin-subscription-limit.test.js` and CI step added.
