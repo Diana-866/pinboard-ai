@@ -15,6 +15,14 @@ Last updated: 2026-11-16
 - [!] These are subsystem migration tables, not evidence of the user's application SQL migration history. The result does not establish whether application migrations `001–028` or later files were applied.
 - [ ] Inspect user/application schemas and compare their objects with the repository's expected schema.
 
+## Application schema inventory (user-provided, 2026-11-16)
+
+
+- [x] Queried application tables in non-system schemas.
+- [x] Found the PinPosy application tables in `public` (including users, projects, boards, pins, credits, billing, Pinterest, queues, and account-deletion objects); `vault.secrets` is also present.
+- [!] No application table with a name matching `%migration%` appeared in the prior inventory; the custom application migration ledger has therefore not been identified. The table inventory alone does not prove which migration files ran.
+- [ ] Capture the live column definitions for all `public` tables and compare them with the canonical migration chain.
+
 ## Safety rules
 
 - This record concerns the test database `PIN_TRIAL`, not production.
@@ -24,4 +32,4 @@ Last updated: 2026-11-16
 
 ## Next action
 
-Run a read-only inventory of tables in application schemas (especially `public`) and any custom migration ledger. Compare the resulting objects with the current canonical migration chain before deciding which migrations, if any, remain to be applied.
+Run a read-only inventory of column definitions for all `public` tables. Then compare live columns, constraints, indexes, and functions with the canonical migration chain before deciding which migrations, if any, remain to be applied.
