@@ -98,3 +98,20 @@ Existing implementation/test commits: `14e9b46518bfcb7582e4b04ab590df77f4f94b67`
 All 12 related files were fetched again from current `main`; nine targeted static assertions passed for locale key coverage, removal of the hardcoded Russian fragment, owner-fenced resend, owner-scoped notification load/save, legacy-key retirement and owner-key tests. Regression test sources were inspected but not executed. No typecheck, frontend suite, browser locale/account-switch test or live resend request was run.
 
 Package 09 remains open: these fixes cover confirmed cross-locale and account-isolation findings, not the full set of user-facing flows or accessibility requirements.
+
+
+## Additional pass — accessible authentication error feedback
+
+A focused review of the public authentication lifecycle found that error messages on registration, login, forgot-password, reset-password, verification-email resend and email verification were rendered visually but not consistently announced to assistive technology.
+
+**Fix on main:** added `role="alert"` to the error message containers in:
+- `frontend/src/pages/Register.tsx`
+- `frontend/src/pages/Login.tsx`
+- `frontend/src/pages/ForgotPassword.tsx`
+- `frontend/src/pages/ResetPassword.tsx`
+- `frontend/src/pages/CheckEmail.tsx`
+- `frontend/src/pages/VerifyEmail.tsx`
+
+**Commits:** `41dca2b53243c782879bfecc7347d1374ea8ce79`, `760513e8527ca6dac652cd636b16b2c269504f23`, `4ee0aa1954a54b08497d9b038ea94e15099bdc0b`, `8ce691456ec0661f80b03ff018f3f4c17df3e3f7`, `3457433123fd0c9462f2becf19a391552f60129c`, `e7ef6fb0e56671a286ba74988d26410161161ed7`.
+
+All six files were fetched again from `main`; six targeted static assertions confirmed alert semantics. No automated test, typecheck, browser or screen-reader run was executed. This improves announcement semantics only; it does not establish complete WCAG conformance or runtime correctness. Package 09 remains open.
