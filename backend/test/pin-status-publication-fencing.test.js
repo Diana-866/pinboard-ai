@@ -29,7 +29,6 @@ test("manual and scheduled publication reserve account then approved pin before 
   );
   const scheduled = migration.slice(migration.indexOf("create or replace function public.begin_scheduled_pinterest_publish"));
   assert.ok(begin.indexOf("pinterest_accounts") < begin.indexOf("for update of p"));
-  assert.ok(begin.indexOf("pinterest_accounts") < begin.indexOf("for update of p"));
   assert.match(begin, /v_pin_status is distinct from 'approved'[\s\S]*?pin_not_approved/);
   assert.ok(scheduled.indexOf("pinterest_accounts") < scheduled.indexOf("for update of p"));
   assert.ok(scheduled.indexOf("for update of p") < scheduled.indexOf("public\.pin_schedules"));
