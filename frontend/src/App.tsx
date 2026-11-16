@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { getDefaultTimezone, localDateTimeToDate, formatInstantInTimezone } from './utils/timezone';
 import { apiRequest } from './lib/api';
 import { hasStoredAuthToken } from './lib/authStorage';
+import { getAuthCopy } from './i18n/authCopy';
 import { buildPinterestPinUrl } from './utils/pinterestPinUrl';
 import { ThemeProvider } from './theme/themeContext';
 import { I18nProvider, useI18n } from './i18n/i18nContext';
@@ -1094,8 +1095,21 @@ const MainApp: React.FC = () => {
 
 
 function RequireAuth({ children }: { children: React.ReactElement }) {
+  const { user, isAuthReady } = useAuth();
+  const { language } = useI18n();
+  const t = getAuthCopy(language);
   // Browser storage can throw in privacy-restricted contexts; fail closed without crashing the route tree.
   if (!hasStoredAuthToken()) return <Navigate to="/login" replace />;
+  // Do not mount account screens until the initial /me request has settled.
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-page text-secondary-theme" role="status" aria-live="polite">
+        {t.sessionLoading}
+      </div>
+    );
+  }
+  // A stored token is not proof of a hydrated account. Never render the app shell without a user profile.
+  if (!user) return <Navigate to="/login" replace />;
   return children;
 }
 
