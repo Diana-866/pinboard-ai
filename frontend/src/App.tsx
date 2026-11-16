@@ -8,6 +8,7 @@ import { getDefaultTimezone, localDateTimeToDate, formatInstantInTimezone } from
 import { apiRequest } from './lib/api';
 import { hasStoredAuthToken } from './lib/authStorage';
 import { getAuthCopy } from './i18n/authCopy';
+import { getProtectedRouteState } from './utils/protectedRouteState';
 import { buildPinterestPinUrl } from './utils/pinterestPinUrl';
 import { ThemeProvider } from './theme/themeContext';
 import { I18nProvider, useI18n } from './i18n/i18nContext';
@@ -1099,9 +1100,10 @@ function RequireAuth({ children }: { children: React.ReactElement }) {
   const { language } = useI18n();
   const t = getAuthCopy(language);
   // Browser storage can throw in privacy-restricted contexts; fail closed without crashing the route tree.
-  if (!hasStoredAuthToken()) return <Navigate to="/login" replace />;
+  const routeState = getProtectedRouteState(hasStoredAuthToken(), isAuthReady, !!user);
+  if (routeState === 'redirect') return <Navigate to="/login" replace />;
   // Do not mount account screens until the initial /me request has settled.
-  if (!isAuthReady) {
+  if (routeState === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-page text-secondary-theme" role="status" aria-live="polite">
         {t.sessionLoading}
