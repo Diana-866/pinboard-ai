@@ -45,3 +45,42 @@ This pass extended `backend/test/pin-status-publication-fencing.integration.sql`
 ## Next
 
 Continue the remaining backend modules and dynamic RPC calls, then audit migrations 010–148 file-by-file: DDL, functions, triggers, RLS, grants, indexes and integration tests. Do not mark the SQL/RPC audit complete until runtime verification succeeds on disposable PostgreSQL.
+
+
+## Follow-up: pin generation and regeneration RPC contracts
+
+The API call sites in `backend/index.js` were cross-checked against the latest function definitions in migrations 046, 053–054, 063–069, 105 and 121. No name/argument-count mismatch was found in the inspected paths.
+
+| RPC | Latest definition | Args | API use |
+|---|---:|---:|---|
+| `begin_pin_generation_request` | 105 | 4 | board, idempotency key, fingerprint |
+| `reserve_pin_generation_credits` | 054 | 3 | user, key, amount |
+| `get_pin_generation_plan` | 067 | 2 | user, key |
+| `record_pin_generation_text_usage` | 069 | 7 | usage fallback when text output is invalid or cost is missing |
+| `record_pin_generation_text_plan` | 121 | 8 | valid text result: atomically writes usage + normalized task plan |
+| `record_pin_generation_task_quote` | 067 | 8 | per-task provider quote |
+| `resize_pin_generation_credit_reservation` | 065 | 4 | exact quote/settlement amount |
+| `record_pin_generation_provider_outcome` | 064 | 11 | per-task provider result/refund/error facts |
+| `update_pin_generation_task` | 046 | 10 | task state and provider/storage identifiers |
+| `complete_pin_generation_request` | 054 | 6 | terminal journal + pin insert + credit settlement |
+| `fail_pin_generation_request` | 046 | 5 | definitive/ambiguous failure fencing |
+| `begin_pin_regeneration_request` | 105 | 7 | pin, key, fingerprint, model, prompt, estimate |
+| `update_pin_regeneration_request` | 053 | 9 | claim-fenced processing/unknown/failed state |
+| `record_pin_regeneration_quote` | 068 | 8 | exact quote and user-credit amount |
+| `reserve_pin_regeneration_credits` | 066 | 3 | user, key, claim token |
+| `record_pin_regeneration_provider_outcome` | 063 | 9 | provider result/refund/error facts |
+| `resize_pin_regeneration_credit_reservation` | 068 | 4 | actual settlement amount |
+| `complete_pin_regeneration_request` | 066 | 4 | claim-fenced image update and settlement |
+
+The two text-accounting callbacks are mutually exclusive in `backend/pins.js`: invalid/cost-missing text output calls `record_pin_generation_text_usage`; valid parsed output calls `record_pin_generation_text_plan`, whose SQL body calls `record_pin_generation_text_usage` and `save_pin_generation_plan` in one transaction. This avoids a duplicate unique-key insert while retaining provider spend when output cannot become a plan.
+
+Related SQL integration tests present:
+- `pin-generation-credit-reservations.integration.sql`
+- `pin-generation-provider-quotes.integration.sql`
+- `pin-generation-text-usage.integration.sql`
+- `pin-generation-completion-guard.integration.sql`
+- `pin-regeneration-journal.integration.sql`
+- `pin-regeneration-exact-quote.integration.sql`
+- `legacy-regeneration-reservation-guard.integration.sql`
+
+Pin-image lifecycle RPCs remain covered by `docs/backend-audit/07-image-storage-lifecycle.md`; their call sites use dynamic fallback/retry helpers, so real PostgreSQL execution is still required to prove current deployment schema and overload resolution.
