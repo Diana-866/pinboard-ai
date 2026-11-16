@@ -2,13 +2,11 @@
 #
 # One command that answers "does this repository still work?".
 #
-# GitHub Actions cannot run on this account right now (the runners are blocked by
-# a billing/spending limit), so this script is the gate that replaces CI: it runs
-# exactly what the workflow would run, plus the migration replay, and stops at the
-# first failure with a readable summary.
+# GitHub Actions jobs currently fail before their first step. This script is a
+# local verification fallback; it does not replace a successful hosted CI run.
 #
 #   ./scripts/verify.sh              # backend + frontend
-#   ./scripts/verify.sh --migrations # also replay db/migrations on a local PG
+#   ./scripts/verify.sh --migrations # replay 001_baseline.sql and migrations >=010 on local PG
 #
 set -uo pipefail
 
@@ -59,12 +57,22 @@ migration_replay() {
     echo "psql not found — migration replay cannot be verified. Install PostgreSQL client/server and rerun ./scripts/verify.sh --migrations."
     return 1
   fi
-  local db="pinposy_verify_$$"
+  local db="pinposy_verify_$"
   local psql_cmd=(psql -q -v ON_ERROR_STOP=1)
   if [ "$(id -u)" = "0" ]; then
-    :
-  else
+    if command -v runuser >/dev/null 2>&1; then
+      psql_cmd=(runuser -u postgres -- "${psql_cmd[@]}")
+    elif command -v sudo >/dev/null 2>&1; then
+      psql_cmd=(sudo -u postgres "${psql_cmd[@]}")
+    else
+      echo "need runuser or sudo to connect as the local postgres OS user"
+      return 1
+    fi
+  elif [ "$(id -un)" != "postgres" ] && command -v sudo >/dev/null 2>&1; then
     psql_cmd=(sudo -u postgres "${psql_cmd[@]}")
+  elif [ "$(id -un)" != "postgres" ]; then
+    echo "need sudo to connect as the local postgres OS user"
+    return 1
   fi
 
   # Postgres runs as its own user and cannot traverse a private home directory,
@@ -79,15 +87,42 @@ migration_replay() {
   chmod -R a+rX "$scratch"
 
   "${psql_cmd[@]}" -c "drop database if exists ${db}" -c "create database ${db}" >/dev/null || return 1
-  "${psql_cmd[@]}" -d "$db" -f "$scratch/supabase-stub.sql" >/dev/null || return 1
   local failed=0
-  for migration in "$scratch"/migrations/*.sql; do
-    if ! "${psql_cmd[@]}" -d "$db" -f "$migration" >/dev/null 2>&1; then
-      echo "migration failed: $(basename "$migration")"
+  if ! "${psql_cmd[@]}" -d "$db" -f "$scratch/supabase-stub.sql" >/dev/null; then
+    echo "Supabase test stubs failed"
+    failed=1
+  fi
+
+  local baseline="$scratch/migrations/001_baseline.sql"
+  if [ "$failed" -eq 0 ]; then
+    if [ ! -f "$baseline" ]; then
+      echo "canonical baseline missing: 001_baseline.sql"
       failed=1
-      break
+    elif ! "${psql_cmd[@]}" -d "$db" -f "$baseline" >/dev/null 2>&1; then
+      echo "migration failed: 001_baseline.sql"
+      failed=1
     fi
-  done
+  fi
+
+  # 000_check_schema.sql is diagnostic only; 002-008 are historical pre-baseline
+  # migrations; 009 is archived/preflight-only. Replay only the canonical baseline
+  # followed by the current numbered migration chain starting at 010.
+  if [ "$failed" -eq 0 ]; then
+    for migration in "$scratch"/migrations/[0-9][0-9][0-9]_*.sql; do
+      local base prefix
+      base="$(basename "$migration")"
+      prefix="${base%%_*}"
+      if [[ ! "$prefix" =~ ^[0-9]{3}$ ]] || ((10#$prefix < 10)); then
+        continue
+      fi
+      echo "  Applying $base"
+      if ! "${psql_cmd[@]}" -d "$db" -f "$migration" >/dev/null 2>&1; then
+        echo "migration failed: $base"
+        failed=1
+        break
+      fi
+    done
+  fi
   "${psql_cmd[@]}" -c "drop database if exists ${db}" >/dev/null 2>&1
   return $failed
 }
