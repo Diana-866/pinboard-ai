@@ -58,9 +58,9 @@
 
 ## Подтверждённые замечания
 
-1. **Startup/readiness gap:** `backend/index.js` только пишет warning при отсутствии `JWT_SECRET`, но не останавливает запуск. `/health` при этом отвечает `{ok:true}`; вход не сможет подписать JWT, а защищённые запросы будут отвергаться. Это подтверждённый дефект конфигурационной готовности, но не доказательство, что production env сейчас отсутствует. Требуется отдельная проверка startup config и readiness.
+1. **Startup/readiness gap — исправлен в follow-up:** `backend/startupConfig.js` теперь требует JWT_SECRET длиной не менее 32 UTF-8 bytes, а `backend/index.js` завершает запуск при missing/weak secret. Ранее это было подтверждённой проблемой: процесс мог стартовать и отвечать `/health {ok:true}`, хотя сессии не работали. Runtime boot test добавлен, но пока не исполнен из-за GitHub Actions runner failures. Перед deployment проверить случайный production secret >=32 bytes.
 2. Не найдено подтверждённого обхода авторизации или утечки credential material в просмотренных auth/account lifecycle модулях.
-3. Полный аудит `mail.js` admin routes, всех вызывающих мест, всех 150 файлов backend/test и всех миграций не выполнен.
+3. Mailbox route inputs дополнительно ограничены в пакете 09 (limit/UID/recipient/subject/body); реальное IMAP/SMTP поведение и все 150 файлов backend/test по-прежнему не прошли полный runtime audit.
 
 ## Проверки исполнения
 
