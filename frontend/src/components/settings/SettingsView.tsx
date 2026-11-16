@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import {
   Palette,
   Globe,
@@ -54,21 +54,54 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing, onPin
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteDone, setDeleteDone] = useState(false);
 
+  const settingsOwnerIdRef = useRef(user?.id);
+  const exportRequestIdRef = useRef(0);
+  const deletionRequestIdRef = useRef(0);
+  const deletionLogoutTimerRef = useRef<number | null>(null);
+
+  useLayoutEffect(() => {
+    if (settingsOwnerIdRef.current === user?.id) return;
+    settingsOwnerIdRef.current = user?.id;
+    exportRequestIdRef.current += 1;
+    deletionRequestIdRef.current += 1;
+    if (deletionLogoutTimerRef.current !== null) {
+      window.clearTimeout(deletionLogoutTimerRef.current);
+      deletionLogoutTimerRef.current = null;
+    }
+    setExporting(false);
+    setExportError(null);
+    setDeleteOpen(false);
+    setDeletePassword('');
+    setDeleting(false);
+    setDeleteError(null);
+    setDeleteDone(false);
+  }, [user?.id]);
+
   async function handleDownload() {
+    const requestOwnerId = user?.id;
+    if (!requestOwnerId) return;
+    const requestId = ++exportRequestIdRef.current;
     setExporting(true);
     setExportError(null);
     try {
       const data = await apiRequest('/account/export');
-      downloadJsonFile(buildAccountExportFilename(String(user?.id || ''), new Date()), data);
+      if (settingsOwnerIdRef.current !== requestOwnerId || exportRequestIdRef.current !== requestId) return;
+      downloadJsonFile(buildAccountExportFilename(requestOwnerId, new Date()), data);
     } catch (error) {
-      setExportError(error instanceof Error ? error.message : t.settings.requestFailed);
+      if (settingsOwnerIdRef.current === requestOwnerId && exportRequestIdRef.current === requestId) {
+        setExportError(error instanceof Error ? error.message : t.settings.requestFailed);
+      }
     } finally {
-      setExporting(false);
+      if (settingsOwnerIdRef.current === requestOwnerId && exportRequestIdRef.current === requestId) {
+        setExporting(false);
+      }
     }
   }
 
   async function handleDeleteRequest() {
-    if (!deletePassword) return;
+    const requestOwnerId = user?.id;
+    if (!requestOwnerId || !deletePassword) return;
+    const requestId = ++deletionRequestIdRef.current;
     setDeleting(true);
     setDeleteError(null);
     try {
@@ -76,16 +109,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing, onPin
         method: 'POST',
         body: JSON.stringify({ password: deletePassword }),
       });
+      if (settingsOwnerIdRef.current !== requestOwnerId || deletionRequestIdRef.current !== requestId) return;
       const receipt = parseDeletionReceipt(data);
       if (!receipt) throw new Error(t.settings.requestFailed);
       setDeleteDone(true);
       setDeletePassword('');
-      // Доступ уже закрыт на сервере — завершаем локальную сессию.
-      setTimeout(() => logout(), 4000);
+      // Do not let a delayed deletion response log out a different account.
+      if (deletionLogoutTimerRef.current !== null) window.clearTimeout(deletionLogoutTimerRef.current);
+      deletionLogoutTimerRef.current = window.setTimeout(() => {
+        if (settingsOwnerIdRef.current === requestOwnerId && deletionRequestIdRef.current === requestId) {
+          logout();
+        }
+        deletionLogoutTimerRef.current = null;
+      }, 4000);
     } catch (error) {
-      setDeleteError(error instanceof Error ? error.message : t.settings.requestFailed);
+      if (settingsOwnerIdRef.current === requestOwnerId && deletionRequestIdRef.current === requestId) {
+        setDeleteError(error instanceof Error ? error.message : t.settings.requestFailed);
+      }
     } finally {
-      setDeleting(false);
+      if (settingsOwnerIdRef.current === requestOwnerId && deletionRequestIdRef.current === requestId) {
+        setDeleting(false);
+      }
     }
   }
 
