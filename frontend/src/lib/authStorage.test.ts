@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { clearAuthToken, readAuthToken, readLocalStorageValue, writeAuthToken } from "./authStorage";
+import { clearAuthToken, hasStoredAuthToken, readAuthToken, readLocalStorageValue, writeAuthToken } from "./authStorage";
 
 function withWindow(value: unknown, run: () => void) {
   const previous = Object.getOwnPropertyDescriptor(globalThis, "window");
