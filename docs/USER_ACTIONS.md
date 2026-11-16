@@ -222,3 +222,8 @@
 ### UA-001 — локальная ветка отстаёт от GitHub main (2026-11-16)
 
 Пользователь выполнил `git fetch origin`. Получено: локальный HEAD `0d393d34a0fbccf24dc46eefe5bf69281db965c5`, `origin/main` `ab5ab3e83f3f2bef68b6715b92d37a68cefc0320`, статус `main...origin/main [behind 420]`; `git status --short --branch` не показал незакоммиченных изменений. Хэш локального `scripts/verify.ps1` равен `6614843edaafd4924c90c679a0f9fe232e59a0f0` и совпадает с проверенным GitHub-файлом. Локальная ветка в целом устарела на 420 коммитов. Рекомендован следующий шаг: fast-forward only pull, без merge commit и без reset. Никаких миграций или тестов не запускалось.
+
+
+### UA-001 — fast-forward sync локального main завершён (2026-11-16)
+
+Пользователь выполнил `git pull --ff-only origin main`; операция прошла успешно. Локальная ветка обновлена с `0d393d34a0fbccf24dc46eefe5bf69281db965c5` до `ba6caa67ad9903b964172e9d0ce2d5609be0bbd0`, fast-forward затронул 90 файлов (4221 insertions, 705 deletions). После операции `git status --short --branch` вывел `## main...origin/main` (чисто), `git rev-parse HEAD` — `ba6caa67ad9903b964172e9d0ce2d5609be0bbd0`. Локальный checkout синхронизирован с origin/main. Никакие тесты и миграции не запускались. Следующий шаг — контролируемый migration-only replay на временном PG18 cluster (127.0.0.1:55439), без frontend/backend проверок.
