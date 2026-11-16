@@ -47,6 +47,11 @@ const MODEL_PRICES = {
 const MARKUP = 1.5;
 const ASPECT_RATIOS = ["2:3", "9:16", "4:5", "3:4", "1:1"];
 
+const { assertJwtSecret } = require("./startupConfig");
+// Authentication cannot work without a strong signing key. Fail startup rather
+// than reporting a healthy API that cannot issue or verify user sessions.
+assertJwtSecret(process.env);
+
 const app = express();
 app.set("trust proxy", 1); // за прокси (Render/nginx) реальный IP клиента — иначе лимиты бьют по всем сразу (B3)
 // Generate a server-owned request ID; never trust a client-supplied correlation header.
@@ -230,9 +235,6 @@ const imageUpload = multer({
   },
 });
 
-if (!process.env.JWT_SECRET) {
-  logWarning("index.event_021");
-}
 if (!process.env.GPTUNNEL_API_KEY) {
   logWarning("index.event_020");
 }
