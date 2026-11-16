@@ -1,4 +1,6 @@
 import React from 'react';
+import { useI18n } from '../../i18n/i18nContext';
+import { resolveLegalLanguage } from '../../utils/legalLanguage';
 import { renderMarkdown } from '../../pages/LegalPage';
 import policyRu from '../../legal/privacy-policy.ru.md?raw';
 import policyEn from '../../legal/privacy-policy.en.md?raw';
@@ -9,6 +11,8 @@ interface PrivacyPolicyModalProps {
 }
 
 export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, onClose }) => {
+  const { language } = useI18n();
+  const isRussian = resolveLegalLanguage(language) === 'ru';
   if (!isOpen) return null;
 
   return (
@@ -18,16 +22,16 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, 
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-primary-theme">Политика конфиденциальности</h2>
+          <h2 className="text-lg font-semibold text-primary-theme">{isRussian ? 'Политика конфиденциальности' : 'Privacy Policy'}</h2>
           <button
             onClick={onClose}
             className="rounded-lg px-3 py-1 text-sm text-secondary-theme hover:text-primary-theme"
-            aria-label="Закрыть"
+            aria-label={isRussian ? 'Закрыть' : 'Close'}
           >
             ✕
           </button>
         </div>
-        {renderMarkdown(policyRu)}
+        {renderMarkdown(isRussian ? policyRu : policyEn)}
       </div>
     </div>
   );
