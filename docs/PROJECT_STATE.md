@@ -730,3 +730,12 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - Документация `docs/frontend-audit/01-auth-shell-api.md` дополнена finding FE-29. Также исправлена устаревшая формулировка FE-01 о Login: последующий FE-02 уже устранил безусловную навигацию после неуспешного refreshUser().
 - Статическая readback проверка подтвердила импорт в тесте и export в helper. Сам тест, полный frontend suite, TypeScript check и production build НЕ запускались; Actions jobs на текущем окружении не доходят до runner allocation, локальный Windows checkout недоступен.
 - Чекбоксы runtime/frontend readiness не закрыты. Production, PIN_TRIAL, платежи, Pinterest и deploy settings не затронуты.
+
+### FE-30 — доступность ошибок поиска ключевых слов (2026-11-16)
+
+- Перед изменением повторно сверены актуальные main, docs/PROJECT_STATE.md, docs/frontend-audit/09-board-category-localization.md, frontend/src/components/keywords/KeywordExplorer.tsx и frontend/package.json. Проверенный HEAD перед кодовыми изменениями: 6a93e77492bd29670d96d3d592b560eb66d285ee.
+- В KeywordExplorer ошибка API отображалась визуально, но контейнер не имел role=alert/live-region семантики. Исправлено добавлением role=alert без изменения запроса, очистки устаревших результатов или текста.
+- Добавлен frontend/src/utils/keywordExplorerAccessibility.test.ts: проверяет alert semantics, удаление устаревших результатов при ошибке и доступную метку поля поиска. Тест попадает в существующий glob src/utils/*.test.ts.
+- Commits: компонент 7dac0fe025b0349fe01ceb3f257de55bd31464ce; regression test ca6b7231413bb5636a3af43de92ea4f9b3e01db8.
+- Статическая readback проверка подтвердила role=alert и наличие тестовых assertions. Тест, полный frontend suite, TypeScript check и build НЕ запускались; browser/screen-reader verification также не выполнялась.
+- Обновлён docs/frontend-audit/09-board-category-localization.md. Никакие runtime readiness чекбоксы не закрыты. Backend, БД, production, платежи, Pinterest и deployment не затронуты.
