@@ -172,3 +172,12 @@ All `/admin/*` handlers in this entrypoint use `requireAuth` and `requireAdmin`;
 - Added backend/test/board-pins-pagination-contract.test.js to guard owner-check-before-fetch and bounded paging.
 - Commits: e96eb1d9 (route), b22a0f18 (test), 7dfbdb06 (report).
 - Latest GitHub Actions runs 43899467019/43899467236 failed; jobs have no executed steps. New runs 43899474201/43899474181 were queued at the last check.
+
+
+## Follow-up: bound admin dashboard statistics scans (2026-11-16)
+
+- The service-level pass found `backend/admin.js:getStats` used a second unbounded pagination loop for the complete `users` and `credit_transactions` tables. Although the endpoint is admin-only, a sufficiently large ledger could grow process memory without a ceiling.
+- Replaced the local loop with shared `fetchAllPages`, retaining 500-row pages and complete aggregation through 100,000 rows per table. If a table exceeds that ceiling, the request fails explicitly with HTTP 413 rather than silently returning incomplete statistics or continuing without bound.
+- Added a regression test to `backend/test/admin-stats.test.js` for overflow behavior; the existing tests continue to assert multi-page aggregation.
+- Commits: `31a2cfc0` (service fix), `9ab2a3bb` (test).
+- Static verification: service and test were re-fetched from `main`; runtime Node tests were NOT executed. The 100,000-row ceiling is a deliberate operational guard, not a claim that dashboard aggregation is suitable for unbounded scale; a future SQL aggregate/RPC is preferable as data grows.
