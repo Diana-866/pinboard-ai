@@ -231,3 +231,29 @@ Two additional active-frontend changes were found on `main` and verified against
 - **FE-21 — dashboard board-card keyboard access:** clickable board summary cards in `DashboardView.tsx` are native `button type="button"` elements, retain the board navigation action, and expose a visible `focus-visible` ring. A source regression test asserts native button semantics, keyboard focus styling and absence of the former clickable-div pattern. Commits: implementation `f08d53d1c4eb55037de70c173e9cb8111406b49a`; test `08469db66364690928ac2cfc36e1f0678ff2aa3f`.
 
 **Readback / checks:** re-fetched the active `App.tsx`, `DashboardView.tsx` and `dashboardAccessibility.test.ts` from `main`. Targeted source assertions confirmed the owner key, native button, retained navigation callback, focus-visible style and regression-test coverage. The frontend test command, TypeScript check, build, browser keyboard test and screen-reader test were **not executed**. These source-level checks do not close the DB/runtime gate or certify full WCAG conformance. No production data, backend, DB, payment, Pinterest account or deployment settings were changed.
+
+## Supplemental cross-account safety, review queue copy and dashboard accessibility (2026-11-16)
+
+### FE-19 — stale profile refresh could overwrite a different authenticated session
+
+AuthContext.refreshUser() now captures both a monotonically increasing request ID and the token used for that request. It applies /me and preferred-language responses only while both still match; logout invalidates in-flight refreshes. The authenticated app shell is keyed by user.id, clearing all view-local state when a different account signs in. OnboardingWizard also fences completion/error/finish callbacks by the owner ID captured when the action began.
+
+Commits: AuthContext 6af7f1941eb0c9b7bce361ed08934a3a77f6b991; helper 5d76384c48a3f26f3964f137ea6e6a9383fa219f; helper tests ca3c13c878634daa23769655e83b7a8e155e901b; app shell 760da8ef138151eb7ad7f8f20c0df319dca14aa7; onboarding owner fence a0cf45638d8013101e13ee926fb9f6b009a12e7c.
+
+### FE-20 — review queue exposed a fictional account and a dead reset action
+
+Removed the unused 15-pin demo queue containing the fictional @botanica_nordic account and removed the “restore 15 pins” action whose handler only cleared the local queue. The review header now uses a neutral localized description and localized queue count. Saved-pin loading/error/retry copy and the manual-review submission button idle/saving/success states in PinGenerator.tsx now use the typed locale dictionary.
+
+Commits: review queue cleanup 81b414b0460c7c6bd43cc163bccc341dd92c66f1; locale commits EN 2d0197be25d8467618bb51c51348074033eb3e9b, RU 746038f2ce59054b84b89e1c96103a7e5334d7df, ES dc6a1e0f3f58199a23069a43588c19b4bd25d42d, PT df993b59c4dd27bd07c8c31218f979d4141b1881, DE 3c89697a2b31a812dd5cf125b3833ecb2d0979b9, FR 4880446bb041a190b2503db0bf7cbe647a97ca1f, ZH 0554f273ff03658674d4ccbbaf7e1c2c0324d8cd; generator component a9f6a4629a06458a02f91cca1f9ddb4e8cfef2f2; locale regression test f480510f80d31a5735369e188114b4b53f01aedf.
+
+### FE-21 — dashboard board cards were mouse-only click targets
+
+Converted dashboard board rows from clickable div elements to native button type=button controls, with visible keyboard focus styling and phrasing-only child elements. Added a static accessibility regression test.
+
+Commits: component f08d53d1c4eb55037de70c173e9cb8111406b49a; test 08469db66364690928ac2cfc36e1f0678ff2aa3f.
+
+### Readback and remaining work
+
+All relevant changed files were fetched again from main. Twenty-two targeted static assertions passed across auth refresh fencing, app remount, onboarding owner checks, review/demo removal, all seven locale dictionaries, generator statuses and dashboard button semantics. The new tests are included by the existing src/utils/*.test.ts frontend test glob but were not executed. No TypeScript check, frontend suite, production build, browser multi-account test, keyboard-only run or screen-reader test was performed.
+
+Still open: the active manual-review desk still has Russian-only control labels and fallback alerts/status messages; the generator still contains other Russian-only errors/statuses outside the saved-pin/review subset. Continue the cross-locale pass before closing package 09. No backend, database, production data, payments, Pinterest account or deployment setting changed.
