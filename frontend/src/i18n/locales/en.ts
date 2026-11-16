@@ -38,6 +38,8 @@ export const en: TranslationSchema = {
     copy: 'Copy',
     copied: 'Copied!',
     close: 'Close',
+    show: 'Show',
+    hide: 'Hide',
     refresh: 'Refresh',
     status: 'Status',
     actions: 'Actions',
