@@ -246,3 +246,39 @@ test('account-scoped recovery does not import legacy unowned generation keys', a
   }));
   assert.deepEqual(listPendingGenerationRequestsForOwner('user-new', storage), []);
 });
+
+
+test('account recovery falls back to session storage when local storage is blocked', async () => {
+  clearPendingGenerationRequest();
+  const sessionStorage = memoryStorage();
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    get() {
+      return {
+        get localStorage() { throw new Error('SecurityError'); },
+        sessionStorage,
+      };
+    },
+  });
+  const {
+    writePendingGenerationRequestForOwner,
+    readPendingGenerationRequestForOwner,
+    listPendingGenerationRequestsForOwner,
+    clearPendingGenerationRequestForOwner,
+  } = await import('./pendingGenerationRequest');
+  const fingerprint = createGenerationFingerprint('owner-session-fallback');
+  try {
+    assert.equal(writePendingGenerationRequestForOwner('user-session', fingerprint, 'stable-key-session-owner-0001'), true);
+    assert.deepEqual(readPendingGenerationRequestForOwner('user-session', fingerprint), {
+      fingerprint, idempotencyKey: 'stable-key-session-owner-0001',
+    });
+    assert.equal(listPendingGenerationRequestsForOwner('user-session').length, 1);
+    clearPendingGenerationRequestForOwner('user-session', fingerprint);
+    assert.equal(listPendingGenerationRequestsForOwner('user-session').length, 0);
+  } finally {
+    if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow);
+    else Reflect.deleteProperty(globalThis, 'window');
+    clearPendingGenerationRequest();
+  }
+});
