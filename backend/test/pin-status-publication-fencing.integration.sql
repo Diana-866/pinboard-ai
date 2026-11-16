@@ -12,6 +12,7 @@ declare
   v_result jsonb;
   v_status text;
   v_schedule_id uuid;
+  v_claimed_schedule public.pin_schedules%rowtype;
 begin
   insert into public.users(id, email, tariff_plan, token_version, is_admin)
   values (v_user_id, v_user_id::text || '@pin-status-fence-test.invalid', 'start', 0, false);
@@ -99,7 +100,41 @@ begin
     null;
   end;
 
+  -- The scheduled path must validate the live claim and apply the same
+  -- approved-pin fence before reserving a provider publication attempt.
   delete from public.pinterest_publish_attempts where pin_id = v_pin_id;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status
+  ) values (
+    v_user_id::text, v_pin_id, v_account_id, now() - interval '1 minute',
+    'UTC', 'remote-board', 'scheduled'
+  ) returning id into v_schedule_id;
+
+  select * into v_claimed_schedule
+    from public.claim_due_pin_schedules(1)
+   where id = v_schedule_id;
+  if v_claimed_schedule.id is null or v_claimed_schedule.claim_token is null then
+    raise exception 'due schedule was not claimed with a durable token';
+  end if;
+
+  v_result := public.begin_scheduled_pinterest_publish(
+    v_user_id::text, v_schedule_id, v_claimed_schedule.claim_token,
+    v_pin_id, v_account_id, 'remote-board'
+  );
+  if v_result ->> 'status' <> 'started' then
+    raise exception 'scheduled approved pin could not reserve publication: %', v_result;
+  end if;
+
+  begin
+    update public.pins set status = 'rejected' where id = v_pin_id;
+    raise exception 'pin rejection unexpectedly passed a scheduled publication';
+  exception when sqlstate '55000' then
+    null;
+  end;
+
+  delete from public.pinterest_publish_attempts where pin_id = v_pin_id;
+  delete from public.pin_schedules where id = v_schedule_id;
   delete from public.pinterest_accounts where id = v_account_id;
   delete from public.pins where id = v_pin_id;
   delete from public.boards where id = v_board_id;
