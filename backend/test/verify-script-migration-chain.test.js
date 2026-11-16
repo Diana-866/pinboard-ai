@@ -40,7 +40,7 @@ test("Linux migrations-only mode skips backend and frontend commands", () => {
 });
 
 test("local migration replay starts from the canonical baseline", () => {
-  assert.match(script, /canonical baseline: 001_baseline\.sql|canonical baseline missing: 001_baseline\.sql/);
+  assert.match(script, /canonical baseline or Supabase test stubs are missing/);
   assert.match(script, /local baseline="\$scratch\/migrations\/001_baseline\.sql"/);
 });
 
