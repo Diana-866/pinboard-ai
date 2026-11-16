@@ -30,6 +30,21 @@ Last updated: 2026-11-16
 - [x] Recorded observations for later migration comparison: `auth_tokens.user_id`, `credit_purchases.user_id`, and `credit_transactions.user_id` are `text`; `account_deletion_requests.user_id` is `uuid`; `boards.created_at` and `credit_transactions.created_at` are `timestamp without time zone`.
 - [ ] Receive the remaining rows, then compare complete live columns against the canonical migrations.
 
+## Column inventory — continuation 2 (user-provided, 2026-11-16)
+
+- [x] Received the next alphabetic segment, from `gptunnel_provider_cost_ledger` through `pin_image_object_lifecycle`.
+- [x] Recorded observed structures for provider-cost accounting, payment creation idempotency, generation credit reservations, generation requests/tasks/text usage, and image-object lifecycle tracking.
+- [!] This segment is still partial: the query output ends at `pin_image_object_lifecycle`; later alphabetic tables remain to be collected.
+- [ ] Continue the read-only column inventory after `pin_image_object_lifecycle`.
+
+## Development activity log
+
+- **2026-11-16 — PIN_TRIAL inventory, step 1:** Queried `information_schema.tables` for migration-named tables and Supabase migration schemas. Purpose: locate an application migration ledger without changing the database. Result: only Supabase subsystem tables were found; no application migration ledger was identified.
+- **2026-11-16 — PIN_TRIAL inventory, step 2:** Queried non-system base tables. Purpose: identify the application schemas and objects present. Result: PinPosy tables were found in `public`, plus `vault.secrets`; this did not establish which migration files ran.
+- **2026-11-16 — PIN_TRIAL inventory, step 3:** Queried `information_schema.columns` for `public` tables. Purpose: capture live column names, order, types, nullability, and defaults for comparison with canonical migrations. Result: first user-supplied segment covered `account_deletion_events` through `email_outbox`.
+- **2026-11-16 — PIN_TRIAL inventory, step 4:** Continued the same read-only column query after `email_outbox`. Purpose: collect the remaining column metadata in manageable chunks. Result: second user-supplied segment covered `gptunnel_provider_cost_ledger` through `pin_image_object_lifecycle`; output remains incomplete.
+- **Documentation policy:** Record each inspection action, its purpose, observed result, and next step here before asking the user to perform the next database inspection. Do not claim a query was executed by the assistant when it was run by the user. Do not record unverified assumptions as database facts.
+
 ## Safety rules
 
 - This record concerns the test database `PIN_TRIAL`, not production.
@@ -39,4 +54,4 @@ Last updated: 2026-11-16
 
 ## Next action
 
-Complete the read-only column inventory (the first supplied segment ends at `email_outbox`), then compare live columns, constraints, indexes, and functions with the canonical migration chain before deciding which migrations, if any, remain to be applied.
+Continue the read-only column inventory after `pin_image_object_lifecycle`; once all columns are captured, compare live columns, constraints, indexes, and functions with the canonical migration chain before deciding which migrations, if any, remain to be applied.
