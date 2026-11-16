@@ -174,9 +174,13 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   // Desktop Keyboard Hotkeys: Left Arrow = Reject, Right Arrow = Approve
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger hotkeys if user is editing in an input or textarea
-      const target = e.target as HTMLElement;
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
+      const target = e.target as HTMLElement | null;
+      if (!target || e.repeat || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      // Review shortcuts must never steal arrow keys from editable or interactive controls.
+      if (
+        target.isContentEditable ||
+        target.closest('input, textarea, select, button, a, [role="button"], [role="textbox"], [contenteditable="true"]')
+      ) return;
 
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
@@ -493,7 +497,13 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   const opacityStampReject = Math.min(1, Math.max(0, -dragOffset / 70));
 
   return (
-    <div className="space-y-5 max-w-5xl mx-auto pb-10">
+    <div
+      role="region"
+      aria-label={t.review.title}
+      aria-keyshortcuts="ArrowLeft ArrowRight"
+      tabIndex={0}
+      className="space-y-5 max-w-5xl mx-auto pb-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+    >
       {/* Top Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-subtle pb-4">
         <div>
