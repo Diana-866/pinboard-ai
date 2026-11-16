@@ -75,6 +75,8 @@ test('runner refuses unsafe targets and documents the unexecuted Bash concurrenc
   assert.match(runner, /GetFileName\(\$test\) -ne \$test/);
   assert.match(runner, /candidateDatabase\.Length -ne 31/);
   assert.match(runner, /candidateDatabase\.StartsWith\('pinposy_sqlint_'\)/);
+  assert.match(runner, /System\.StringComparison\]::OrdinalIgnoreCase/);
+  assert.match(runner, /still exists after DROP DATABASE/);
   assert.match(runner, /finally\s*\{/);
   assert.match(runner, /pg_terminate_backend\(pid\).*DROP DATABASE/s);
   assert.match(runner, /NOT RUN: nine Bash concurrency scripts/);
