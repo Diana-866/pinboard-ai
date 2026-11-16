@@ -2000,23 +2000,16 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
 // только после успешного ответа Pinterest от отдельного worker.
 app.get("/schedule", requireAuth, async (req, res) => {
   try {
-    // PostgREST applies a per-request row cap. Page through the complete
-    // user's schedule so older/future publications are never silently omitted.
-    const pageSize = 500;
-    const rows = [];
-    for (let offset = 0; ; offset += pageSize) {
-      const { data: page, error } = await supabase
-        .from("pin_schedules")
-        .select("*, pins(id, board_id, title, description, image_url, status, boards(id, title))")
-        .eq("user_id", String(req.userId))
-        .order("scheduled_at", { ascending: true })
-        .order("id", { ascending: true })
-        .range(offset, offset + pageSize - 1);
-      if (error) throw error;
-      const batch = page || [];
-      rows.push(...batch);
-      if (batch.length < pageSize) break;
-    }
+    // Use the shared bounded pager: every schedule is loaded up to the
+    // explicit 10,000-row ceiling, and larger accounts receive HTTP 413
+    // instead of an unbounded loop and memory growth.
+    const rows = await fetchAllPages((from, to) => supabase
+      .from("pin_schedules")
+      .select("*, pins(id, board_id, title, description, image_url, status, boards(id, title))")
+      .eq("user_id", String(req.userId))
+      .order("scheduled_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to));
 
     const failedRows = rows.filter((row) => row.status === "failed");
     if (!failedRows.length) {
