@@ -1,0 +1,16 @@
+services:
+  # One-shot publisher: one due Pinterest schedule per minute.
+  # The backend remains the source of truth; this job only wakes its queue.
+  - type: cron
+    name: pinposy-pinterest-scheduler
+    runtime: node
+    rootDir: backend
+    plan: 0.5c-512mb
+    schedule: "* * * * *"
+    buildCommand: npm ci
+    startCommand: npm run cron:schedule
+    envVars:
+      - key: PINPOSY_BACKEND_URL
+        value: https://pinboard-ai-backend.onrender.com
+      - key: PINPOSY_SCHEDULER_SECRET
+        sync: false
