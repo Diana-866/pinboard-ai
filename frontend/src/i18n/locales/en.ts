@@ -737,6 +737,12 @@ export const en: TranslationSchema = {
     reviewQueueSyncErrorMessage: 'The queue could not be loaded or saved. Check your connection and refresh the page to sync again.',
   },
 
+  lockedSection: {
+    title: "This section is locked",
+    description: "Choose a plan to unlock pin generation, boards and scheduling. Analytics remains available on your current plan.",
+    viewPlans: "View plans",
+  },
+
   terms: {
     peakLoadTitle: 'Peak Load Operational Notice & SLA',
     peakLoadNotice: 'During periods of high demand (such as the initial days following public announcements), pin generation requests may experience processing times up to 24–48 hours instead of a few minutes. Account access, the AI strategist chat assistant, and all analytics intelligence tools remain immediately accessible upon subscription. You will receive an in-app notification whenever a request enters the queue due to peak traffic.',
