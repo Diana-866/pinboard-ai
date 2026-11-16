@@ -45,6 +45,18 @@ Last updated: 2026-11-16
 - **2026-11-16 — PIN_TRIAL inventory, step 4:** Continued the same read-only column query after `email_outbox`. Purpose: collect the remaining column metadata in manageable chunks. Result: second user-supplied segment covered `gptunnel_provider_cost_ledger` through `pin_image_object_lifecycle`; output remains incomplete.
 - **Documentation policy:** Record each inspection action, its purpose, observed result, and next step here before asking the user to perform the next database inspection. Do not claim a query was executed by the assistant when it was run by the user. Do not record unverified assumptions as database facts.
 
+## Column inventory — continuation 3 (user-provided, 2026-11-16)
+
+- [x] Received the next alphabetic segment, from `pin_image_retention_queue` through the first three columns of `pinterest_oauth_connection_state`.
+- [x] Recorded the observed queue and workflow structures for image retention, pin regeneration, pin review, scheduling, Pinterest account refresh leases, and Pinterest account OAuth state.
+- [!] This segment is incomplete: the output ends at `pinterest_oauth_connection_state.current_attempt_id`; remaining columns in that table and later tables have not yet been supplied.
+- [ ] Continue the read-only column inventory after `pinterest_oauth_connection_state`.
+
+## Development activity log — continuation
+
+- **2026-11-16 — PIN_TRIAL inventory, step 5:** Received the next user-run read-only `information_schema.columns` result, beginning after `pin_image_object_lifecycle`. Purpose: continue capturing the full live schema in alphabetic chunks without querying application row data or modifying the database. Result: columns for `pin_image_retention_queue`, `pin_regeneration_requests`, `pin_review_queue`, `pin_schedules`, `pins`, `pinterest_account_refresh_leases`, and `pinterest_accounts` were supplied; `pinterest_oauth_connection_state` was only partially supplied. Next: request the remaining table columns and later tables.
+- **Documentation rule reaffirmed by user:** Maintain a chronological, auditable record of actions, reasons, results, decisions, and next steps so the complete development sequence can later be reconstructed. For every subsequent work unit, update the relevant project documentation with the actual action and outcome. Attribute user-run SQL execution accurately; do not imply the assistant executed it.
+
 ## Safety rules
 
 - This record concerns the test database `PIN_TRIAL`, not production.
@@ -54,4 +66,4 @@ Last updated: 2026-11-16
 
 ## Next action
 
-Continue the read-only column inventory after `pin_image_object_lifecycle`; once all columns are captured, compare live columns, constraints, indexes, and functions with the canonical migration chain before deciding which migrations, if any, remain to be applied.
+Continue the read-only column inventory after `pinterest_oauth_connection_state`; once all columns are captured, compare live columns, constraints, indexes, and functions with the canonical migration chain before deciding which migrations, if any, remain to be applied.
