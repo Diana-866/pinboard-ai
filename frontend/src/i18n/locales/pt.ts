@@ -737,6 +737,12 @@ export const pt: TranslationSchema = {
     reviewQueueSyncErrorMessage: 'Não foi possível carregar ou salvar a fila. Verifique a conexão e atualize a página para sincronizar novamente.',
   },
 
+  lockedSection: {
+    title: "Esta seção está bloqueada",
+    description: "Escolha um plano para liberar a geração de pins, os painéis e o agendamento. A análise continua disponível no seu plano atual.",
+    viewPlans: "Ver planos",
+  },
+
   terms: {
     peakLoadTitle: 'Aviso Operacional de Alta Demanda e SLA',
     peakLoadNotice: 'Em períodos de alta demanda (como nos primeiros dias após lançamentos públicos do serviço), a geração de pins pode levar mais tempo que o habitual — até 24 a 48 horas em vez de poucos minutos. O acesso à sua conta, o assistente de chat e as ferramentas analíticas permanecem imediatamente disponíveis após a confirmação. Notificaremos você na interface se sua solicitação entrar na fila por motivo de sobrecarga.',
