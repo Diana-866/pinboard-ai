@@ -251,6 +251,16 @@ begin
     raise exception 'schedule claim token is required' using errcode='40001';
   end if;
 
+  -- Preserve the account-deletion fence from migration 128. The scheduler is
+  -- an external service and cannot rely on the user's JWT being revoked.
+  if exists (
+    select 1 from public.users u
+     where u.id::text = p_user_id
+       and u.account_status <> 'active'
+  ) then
+    raise exception 'PinPosy account is deleting; scheduled publication is blocked' using errcode='42501';
+  end if;
+
   -- Match disconnect lock order, then lock pin before schedule to avoid
   -- pin/schedule deadlocks with the schedule-insert and status triggers.
   perform 1
