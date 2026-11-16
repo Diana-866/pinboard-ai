@@ -113,6 +113,30 @@ test("a definitive provider 4xx rejection closes the unsent order and releases t
   assert.deepEqual(calls.map((call) => call.name), ["fail_payment_creation_request"]);
 });
 
+test("keeps the checkout fenced when the failure RPC returns false without a database error", async () => {
+  calls.length = 0;
+  paymentRow = { id: "subscription-uuid", status: "pending" };
+  cleanupFails = false;
+  failingRpc = null;
+  nextResult = { data: false, error: null };
+
+  const outcome = await handlePaymentProviderFailure(
+    "user-1",
+    "provider-release-false-key-001",
+    "subscriptions",
+    "subscription-uuid",
+    Object.assign(new Error("provider rejected checkout"), { providerRejected: true })
+  );
+
+  assert.equal(outcome, "unknown");
+  assert.equal(paymentRow.status, "denied");
+  assert.deepEqual(calls.map((call) => call.name), [
+    "fail_payment_creation_request",
+    "mark_payment_creation_unknown",
+  ]);
+  nextResult = { data: true, error: null };
+});
+
 test("an ambiguous provider outcome remains fenced against duplicate invoice creation", async () => {
   calls.length = 0;
   paymentRow = { id: "subscription-uuid", status: "pending" };
