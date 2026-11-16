@@ -218,6 +218,12 @@ export const de: TranslationSchema = {
     copyFailed: 'Die Pin-Details konnten nicht kopiert werden. Prüfen Sie die Zwischenablage-Berechtigungen Ihres Browsers.',
     pushToCalendarBtn: 'Im Kalender einplanen',
     savedToCalendar: 'Pin erfolgreich im Veröffentlichungskalender eingeplant!',
+    savedPinsLoading: "Gespeicherte Pins für dieses Board werden geladen…",
+    savedPinsRetry: "Erneut laden",
+    savedPinsLoadError: "Gespeicherte Pins konnten nicht geladen werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+    addToReviewBtn: "Pin zur manuellen Prüfung senden",
+    addToReviewSaving: "Wird zur Prüfliste hinzugefügt…",
+    addToReviewSuccess: "Pin zur Prüfung gesendet",
     batchGeneratedNotice: 'Ein Batch aus Pins wurde mit unterschiedlichen thematischen Blickwinkeln erstellt.',
   },
 
@@ -585,6 +591,8 @@ export const de: TranslationSchema = {
 
   review: {
     title: 'Freigabe generierter Pins',
+    queueDescription: "Prüfen Sie Ihre gespeicherten Pins und genehmigen oder lehnen Sie sie vor der Planung ab.",
+    queueCountTemplate: "{count} in der Warteschlange",
     subtitle: 'Nach rechts wischen zum Freigeben in den Planer, nach links zum Verwerfen.',
     approveBtn: 'Freigeben (→)',
     rejectBtn: 'Verwerfen (←)',
