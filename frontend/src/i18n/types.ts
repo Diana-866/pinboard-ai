@@ -58,6 +58,8 @@ export interface TranslationSchema {
     copy: string;
     copied: string;
     close: string;
+    show: string;
+    hide: string;
     refresh: string;
     status: string;
     actions: string;
