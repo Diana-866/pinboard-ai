@@ -1,4 +1,4 @@
--- Run in disposable PostgreSQL after migrations 127-128.
+-- Run in disposable PostgreSQL after the full migration chain through 148.
 -- A confirmed account deletion must cancel the account's future publications and
 -- block further processing of its scheduled tasks. The Pinterest worker is
 -- driven by an external cron and never authenticates as the user, so the fence
