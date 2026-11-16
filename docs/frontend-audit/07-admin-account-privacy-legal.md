@@ -132,3 +132,12 @@ A follow-up readback found that the in-product privacy modal always rendered the
 **Commits:** modal `db5682787995f05e361b7285d332f56fe0ff641a`; LegalPage `b16187d59b29586c99a223d0f830a23d87e16cbb`; helper `33cdccbf81466a060617cbceabfbf87fd2e77981`; test `6b684d6d335f78b5c904bfbcd57924392b7e161b`.
 
 All four files were fetched again from main; the helper and test contents were read back. Static assertions confirmed that the modal and page use the resolver, non-Russian locales fall back to English, and the test covers every currently supported non-Russian UI locale. The test was not executed; the frontend test script includes `src/utils/*.test.ts`, but GitHub Actions has not provisioned a runner. This is a supplemental correction to completed package 07, not a new package.
+
+
+## Supplemental admin data-source review — demo seed isolation
+
+Reviewed `frontend/src/data/adminMockData.ts` and the active admin surface: `AdminPanel.tsx`, `AdminSubscriptions.tsx`, `AdminBillingExceptions.tsx`, `AdminFinancialOperations.tsx`, `AdminPaymentCreationRequests.tsx`, `AdminPinterestSchedules.tsx`, `AdminMail.tsx`, and `AdminEmailOutbox.tsx`.
+
+The seed module contains static illustrative user/transaction records, but none of the eight active admin screen modules fetched in this pass imports `adminMockData` or `ADMIN_USERS`. `AdminPanel` explicitly warns that unverified user/statistics/tax views are hidden and that demo users/fake payments are not shown. The active payment/subscription/exception views use `apiRequest` endpoints rather than the static seed.
+
+**Boundary:** this is a focused check of the active admin component set, not a repository-wide import-graph proof. The unused seed file is intentionally retained pending a full reference scan; it was not deleted. No user records, payment records, admin actions or production data were accessed.
