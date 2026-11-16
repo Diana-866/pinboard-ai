@@ -496,6 +496,7 @@ export const ru: TranslationSchema = {
     deleteAccountDone: "Запрос на удаление принят, доступ к аккаунту закрыт. Фактическое удаление данных ещё не выполнено.",
     requestFailed: "Не удалось выполнить запрос. Попробуйте ещё раз.",
     emailVerifyTitle: 'Подтвердите email',
+    emailVerifySentTo: '— адрес аккаунта: {email}',
     emailVerifyResent: 'Письмо отправлено ещё раз. Проверьте почту и папку «Спам».',
     emailVerifyResend: 'Отправить письмо снова',
     emailVerifySending: 'Отправляем…',
