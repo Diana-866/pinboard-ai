@@ -21,7 +21,7 @@ import {
   CornerDownRight,
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
-import { BoardItem, ScheduledPinItem } from '../../data/mockData';
+import type { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { applyCurrentReviewEdits } from '../../utils/reviewApproval';
 import { createGenerationIdempotencyKey } from '../../utils/generationRetry';
