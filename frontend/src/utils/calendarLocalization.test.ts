@@ -29,6 +29,7 @@ test('calendar recovery, loading and retry copy exists in every supported locale
       copy.calendar.replacementBoardSelectPlaceholder,
       copy.calendar.currentBoardSuffix,
       copy.calendar.replacementBoardSaving,
+      copy.calendar.replacementBoardResumeDescription,
       copy.calendar.replacementBoardResume,
       copy.calendar.retrying,
       copy.calendar.cancelling,
