@@ -57,7 +57,7 @@ migration_replay() {
     echo "psql not found — migration replay cannot be verified. Install PostgreSQL client/server and rerun ./scripts/verify.sh --migrations."
     return 1
   fi
-  local db="pinposy_verify_$"
+  local db="pinposy_verify_$$"
   local psql_cmd=(psql -q -v ON_ERROR_STOP=1)
   if [ "$(id -u)" = "0" ]; then
     if command -v runuser >/dev/null 2>&1; then
