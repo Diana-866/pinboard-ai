@@ -72,3 +72,15 @@
 ## Следующий шаг
 
 Продолжить аудит billing/credits/Prodamus: `billing.js`, `creditsBilling.js`, `credits.js`, `creditPacks.js`, `prodamus.js`, `prodamusWebhookBody.js`, финансовые admin-модули и соответствующие тесты/миграции. Не запускать реальные платежи и не менять production.
+
+
+## Follow-up — startup JWT configuration gate
+
+The previously recorded readiness defect is now addressed in `main`:
+- New `backend/startupConfig.js` rejects a missing or weak JWT signing secret (minimum 32 UTF-8 bytes).
+- `backend/index.js` validates this before creating/listening on the API server; it no longer logs a warning and continues in a state where authentication cannot work.
+- `backend/test/startup-config.test.js` covers missing, weak and byte-length cases.
+- `backend/test/app-boot.test.js` now uses a 32+ byte test secret and checks that a short secret prevents process startup.
+- `.github/workflows/atomic-payment-integration.yml` runs the startup tests.
+
+The health endpoint remains a liveness probe, not a database/provider readiness check. Runtime verification is pending because GitHub Actions jobs continue to fail before job steps are created. Production environment variables were not read or changed. Before deployment, verify that the production `JWT_SECRET` is a random value of at least 32 bytes.
