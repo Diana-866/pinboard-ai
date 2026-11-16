@@ -714,6 +714,9 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
       board_id: existingPublication.pinterest_board_id,
     };
   }
+  if (reservationStatus === "pin_not_approved") {
+    throw httpError(409, "Пин больше не одобрен для публикации. Проверьте его статус перед повтором.");
+  }
   if (reservationStatus === "processing") {
     throw httpError(409, "Публикация уже выполняется. Не запускайте её повторно.");
   }
