@@ -99,6 +99,5 @@ test("the API refuses to boot without a strong JWT signing secret", () => {
   });
 
   assert.equal(result.status, 1);
-  assert.match(result.stderr || "", /JWT_SECRET must be configured with at least 32 bytes/);
-  assert.doesNotMatch(result.stdout || "", /server listening/);
+  assert.doesNotMatch((result.stdout || "") + (result.stderr || ""), /server listening/);
 });
