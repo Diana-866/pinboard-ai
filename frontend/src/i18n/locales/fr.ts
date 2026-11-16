@@ -495,6 +495,13 @@ export const fr: TranslationSchema = {
     deleteAccountConfirm: "Demander la suppression",
     deleteAccountDone: "Votre demande de suppression a été reçue et l’accès est désactivé. Vos données n’ont pas encore été supprimées.",
     requestFailed: "Impossible de terminer la demande. Veuillez réessayer.",
+    emailVerifyTitle: 'Vérifiez votre adresse e-mail',
+    emailVerifyResent: 'L’e-mail de vérification a été renvoyé. Vérifiez votre boîte de réception et les courriers indésirables.',
+    emailVerifyResend: 'Renvoyer l’e-mail',
+    emailVerifySending: 'Envoi…',
+    emailVerifyDismiss: 'Masquer',
+    emailVerifyThrottled: 'Un e-mail de vérification a déjà été envoyé récemment. Réessayez plus tard.',
+    emailVerifySendError: 'Impossible d’envoyer l’e-mail de vérification. Veuillez réessayer plus tard.',
   },
 
   pricing: {
@@ -641,6 +648,10 @@ export const fr: TranslationSchema = {
     strategistPrompt: "Besoin d’aide pour comprendre vos statistiques ?",
     askStrategist: "Demander à l’IA stratège →",
     strategistTitle: "Ouvrir l’IA stratège de PinPosy",
+    justNow: 'À l’instant',
+    taskCompletedTitle: 'Tâche terminée',
+    reviewQueueSyncErrorTitle: 'Échec de synchronisation de la file',
+    reviewQueueSyncErrorMessage: 'Impossible de charger ou d’enregistrer la file. Vérifiez votre connexion et actualisez la page pour réessayer.',
   },
 
   terms: {
