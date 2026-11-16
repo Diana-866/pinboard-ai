@@ -358,6 +358,13 @@ export const ru: TranslationSchema = {
     cancelScheduledPin: 'Отменить публикацию',
     cancelScheduledPinConfirm: 'Отменить эту запланированную публикацию? Она не будет отправлена в Pinterest.',
     retryFailedPin: "Повторить публикацию",
+    legacyScheduleAccountMissingTitle: "У старого расписания не указан Pinterest-аккаунт.",
+    legacyScheduleChooseAccount: "Выберите аккаунт",
+    legacyScheduleOnlyAccount: "Будет проверен единственный подключённый аккаунт: {account}.",
+    legacyScheduleNoAccount: "Сначала подключите Pinterest-аккаунт в настройках.",
+    legacyScheduleRestoreAccount: "Проверить аккаунт и восстановить расписание",
+    legacyScheduleChecking: "Проверяем…",
+    retryManualHint: "Это задание не возобновляется автоматически после переподключения Pinterest. Нажмите «Повторить», чтобы снова поставить его в очередь.",
     autoTimeMoscowTemplate: "в {time} {timezone} ({moscowTime} МСК на сервере)",
   },
 
