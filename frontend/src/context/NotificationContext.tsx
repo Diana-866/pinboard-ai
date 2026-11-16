@@ -1,4 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useAuth } from './AuthContext';
+import { useI18n } from '../i18n/i18nContext';
+import { buildNotificationStorageKey } from '../utils/notificationStorageKey';
 
 export type TaskStatus = 'queued' | 'in_progress' | 'ready';
 export type NotificationType = 'generation' | 'bot' | 'analytics' | 'competitor';
@@ -35,51 +38,124 @@ interface NotificationContextType {
   clearToast: () => void;
 }
 
+interface NotificationState {
+  ownerId: string | null;
+  items: NotificationItem[];
+}
+
+interface ToastState {
+  ownerId: string | null;
+  value: { title: string; message: string; type?: string } | null;
+}
+
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
+function isStoredNotification(value: unknown): value is NotificationItem {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const item = value as Record<string, unknown>;
+  return typeof item.id === 'string' &&
+    typeof item.title === 'string' &&
+    typeof item.message === 'string' &&
+    typeof item.timestamp === 'string' &&
+    (item.status === 'queued' || item.status === 'in_progress' || item.status === 'ready') &&
+    (item.type === 'generation' || item.type === 'bot' || item.type === 'analytics' || item.type === 'competitor') &&
+    typeof item.isRead === 'boolean';
+}
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('pinposy_notifications');
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch {
-      // ignore
-    }
-    // No seeded feed: notifications describe things that actually happened in this
-    // account. Demo entries here used to invent a scheduled batch and a top-up.
-    return [];
+  const { user } = useAuth();
+  const { t } = useI18n();
+  const userId = user?.id || null;
+
+  const [notificationState, setNotificationState] = useState<NotificationState>({
+    ownerId: null,
+    items: [],
   });
+  const [toastState, setToastState] = useState<ToastState>({ ownerId: null, value: null });
+  const activeOwnerIdRef = useRef<string | null>(userId);
+  const previousOwnerIdRef = useRef<string | null>(userId);
+  const ownerGenerationRef = useRef(0);
+  activeOwnerIdRef.current = userId;
 
-  const [toast, setToast] = useState<{ title: string; message: string; type?: string } | null>(null);
+  const notifications = notificationState.ownerId === userId ? notificationState.items : [];
+  const toast = toastState.ownerId === userId ? toastState.value : null;
 
-  // The review queue can fail during initial hydration or a persisted edit.
-  // Surface that failure globally so users are not left with a silently stale queue.
+  const setNotifications = (updater: React.SetStateAction<NotificationItem[]>) => {
+    const ownerId = userId;
+    if (!ownerId) return;
+    setNotificationState((previous) => {
+      const current = previous.ownerId === ownerId ? previous.items : [];
+      const next = typeof updater === 'function'
+        ? (updater as (items: NotificationItem[]) => NotificationItem[])(current)
+        : updater;
+      return { ownerId, items: next };
+    });
+  };
+
+  const setToastForCurrentOwner = (value: ToastState['value']) => {
+    setToastState({ ownerId: userId, value });
+  };
+
+  useLayoutEffect(() => {
+    if (previousOwnerIdRef.current === userId) return;
+    previousOwnerIdRef.current = userId;
+    ownerGenerationRef.current += 1;
+    setToastState({ ownerId: userId, value: null });
+  }, [userId]);
+
   useEffect(() => {
+    if (!userId) {
+      setNotificationState({ ownerId: null, items: [] });
+      return;
+    }
+
+    let saved: NotificationItem[] = [];
+    try {
+      const raw = localStorage.getItem(buildNotificationStorageKey(userId));
+      if (raw) {
+        const parsed: unknown = JSON.parse(raw);
+        if (Array.isArray(parsed)) saved = parsed.filter(isStoredNotification);
+      }
+      // Retire the old global key so pre-upgrade notifications cannot be
+      // attributed to whichever account happens to sign in first.
+      localStorage.removeItem('pinposy_notifications');
+    } catch {
+      saved = [];
+    }
+    setNotificationState({ ownerId: userId, items: saved });
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId || notificationState.ownerId !== userId) return;
+    try {
+      localStorage.setItem(buildNotificationStorageKey(userId), JSON.stringify(notificationState.items));
+    } catch {
+      // Notification history is best-effort; the in-memory feed remains usable.
+    }
+  }, [notificationState, userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const ownerId = userId;
+    const generation = ownerGenerationRef.current;
     const handleReviewQueueError = () => {
-      setToast({
-        title: 'Не удалось синхронизировать очередь',
-        message: 'Не удалось загрузить или сохранить очередь. Проверьте соединение и обновите страницу, чтобы повторить синхронизацию.',
-        type: 'error',
+      if (activeOwnerIdRef.current !== ownerId || ownerGenerationRef.current !== generation) return;
+      setToastState({
+        ownerId,
+        value: {
+          title: t.notifications.reviewQueueSyncErrorTitle,
+          message: t.notifications.reviewQueueSyncErrorMessage,
+          type: 'error',
+        },
       });
     };
 
     window.addEventListener('pinposy:review-queue-error', handleReviewQueueError);
     return () => window.removeEventListener('pinposy:review-queue-error', handleReviewQueueError);
-  }, []);
+  }, [userId, t.notifications.reviewQueueSyncErrorTitle, t.notifications.reviewQueueSyncErrorMessage]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('pinposy_notifications', JSON.stringify(notifications));
-    } catch {
-      // ignore
-    }
-  }, [notifications]);
-
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
-  const activeQueueCount = notifications.filter((n) => n.status === 'queued' || n.status === 'in_progress').length;
+  const unreadCount = notifications.filter((item) => !item.isRead).length;
+  const activeQueueCount = notifications.filter((item) => item.status === 'queued' || item.status === 'in_progress').length;
 
   const enqueueTask = ({
     title,
@@ -98,56 +174,62 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     completionTitle?: string;
     completionMessage?: string;
   }): string => {
-    const id = `task-${Date.now()}`;
+    const ownerId = userId;
+    if (!ownerId) return '';
+    const generation = ownerGenerationRef.current;
+    const id = `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const newTask: NotificationItem = {
       id,
       title,
       message,
-      timestamp: 'Только что',
+      timestamp: t.notifications.justNow,
       status: 'queued',
       type,
       isRead: false,
       actionTab,
     };
 
-    setNotifications((prev) => [newTask, ...prev]);
-    setToast({
-      title: 'Добавлено в очередь',
-      message: `${title}: запрос поставлен в Smart Queue.`,
+    setNotifications((previous) => [newTask, ...previous]);
+    setToastForCurrentOwner({
+      title: t.notifications.title,
+      message: `${title}: ${t.notifications.statusQueued}`,
       type: 'info',
     });
 
-    // Step 1: Transition to in_progress
     setTimeout(() => {
-      setNotifications((prev) =>
-        prev.map((item) =>
+      if (activeOwnerIdRef.current !== ownerId || ownerGenerationRef.current !== generation) return;
+      setNotifications((previous) =>
+        previous.map((item) =>
           item.id === id
-            ? { ...item, status: 'in_progress', message: 'Генерация контента и расчет SEO-индекса...' }
+            ? { ...item, status: 'in_progress', message: t.notifications.statusInProgress }
             : item
         )
       );
     }, Math.min(2000, durationMs * 0.4));
 
-    // Step 2: Transition to ready
     setTimeout(() => {
-      setNotifications((prev) =>
-        prev.map((item) =>
+      if (activeOwnerIdRef.current !== ownerId || ownerGenerationRef.current !== generation) return;
+      setNotifications((previous) =>
+        previous.map((item) =>
           item.id === id
             ? {
                 ...item,
                 status: 'ready',
-                title: completionTitle || `${title} — Готово!`,
-                message: completionMessage || 'Результаты успешно созданы и готовы к работе.',
-                timestamp: 'Только что',
+                title: completionTitle || `${title} — ${t.notifications.statusReady}`,
+                message: completionMessage || t.notifications.allTasksSynced,
+                timestamp: t.notifications.justNow,
                 isRead: false,
               }
             : item
         )
       );
-      setToast({
-        title: completionTitle || 'Генерация завершена!',
-        message: completionMessage || 'Пины готовы. Нажмите на колокольчик, чтобы просмотреть.',
-        type: 'success',
+      setToastState({
+        ownerId,
+        value: {
+          title: completionTitle || t.notifications.taskCompletedTitle,
+          message: completionMessage || t.notifications.allTasksSynced,
+          type: 'success',
+        },
       });
     }, durationMs);
 
@@ -155,20 +237,18 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const markAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
-    );
+    setNotifications((previous) => previous.map((item) => (item.id === id ? { ...item, isRead: true } : item)));
   };
 
   const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    setNotifications((previous) => previous.map((item) => ({ ...item, isRead: true })));
   };
 
   const removeNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    setNotifications((previous) => previous.filter((item) => item.id !== id));
   };
 
-  const clearToast = () => setToast(null);
+  const clearToast = () => setToastForCurrentOwner(null);
 
   return (
     <NotificationContext.Provider
