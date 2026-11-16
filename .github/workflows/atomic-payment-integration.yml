@@ -50,6 +50,8 @@ jobs:
         run: node --test backend/test/pin-image-compare-and-swap.test.js
       - name: Test atomic pin publication status fencing
         run: node --test backend/test/pin-status-publication-fencing.test.js backend/test/pin-status-guard.test.js
+      - name: Test fail-fast API startup configuration
+        run: node --test backend/test/startup-config.test.js backend/test/app-boot.test.js
       - name: Test cleanup of unsent payment records
         run: node --test backend/test/payment-record-cleanup.test.js
       - name: Test checkout settlement helper
