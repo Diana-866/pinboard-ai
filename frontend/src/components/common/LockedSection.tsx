@@ -1,5 +1,6 @@
 import React from 'react';
 import { Lock } from 'lucide-react';
+import { useI18n } from '../../i18n/i18nContext';
 
 interface LockedSectionProps {
   /** true — показать замочек вместо контента (тариф не start/pro/agency) */
@@ -23,6 +24,7 @@ const SkeletonCard: React.FC = () => (
  * показывают этот оверлей вместо контента (миграция 004_onboarding.sql).
  */
 export const LockedSection: React.FC<LockedSectionProps> = ({ locked, onGoToPricing, children }) => {
+  const { t } = useI18n();
   if (!locked) return <>{children}</>;
 
   return (
@@ -42,7 +44,7 @@ export const LockedSection: React.FC<LockedSectionProps> = ({ locked, onGoToPric
       </div>
 
       {/* Оверлей-замочек */}
-      <div className="absolute inset-0 z-30 flex items-center justify-center p-4">
+      <section className="absolute inset-0 z-30 flex items-center justify-center p-4" aria-labelledby="locked-section-title" aria-live="polite">
         <div className="w-full max-w-sm rounded-3xl border border-subtle bg-surface p-8 text-center shadow-2xl font-outfit">
           <div
             className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl"
@@ -50,20 +52,19 @@ export const LockedSection: React.FC<LockedSectionProps> = ({ locked, onGoToPric
           >
             <Lock className="h-6 w-6" style={{ color: '#B96B7C' }} />
           </div>
-          <h3 className="font-heading text-lg font-bold text-primary-theme">Раздел пока под замком</h3>
+          <h3 id="locked-section-title" className="font-heading text-lg font-bold text-primary-theme">{t.lockedSection.title}</h3>
           <p className="mt-2 text-sm text-secondary-theme">
-            Сейчас открыт только раздел «Аналитика». Выберите тариф — и генерация пинов, доски
-            и планировщик откроются сразу.
+            {t.lockedSection.description}
           </p>
           <button
             type="button"
             onClick={onGoToPricing}
             className="wizard-cta mt-5 w-full rounded-2xl py-3 text-sm font-bold"
           >
-            Перейти к тарифам
+            {t.lockedSection.viewPlans}
           </button>
         </div>
-      </div>
+      </section>
     </div>
   );
 };
