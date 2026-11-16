@@ -434,6 +434,25 @@ export interface TranslationSchema {
     legacyScheduleChecking: string;
     retryManualHint: string;
     autoTimeMoscowTemplate: string;
+    replacementBoardsEmpty: string;
+    replacementBoardsLoadError: string;
+    noFutureSlot: string;
+    slotTopicRequired: string;
+    slotBoardRequired: string;
+    scheduleLoading: string;
+    scheduleRetry: string;
+    scheduleLoadUnavailable: string;
+    boardUnavailableTitle: string;
+    boardUnavailableDescription: string;
+    chooseReplacementBoardTitle: string;
+    replacementBoardLoading: string;
+    replacementBoardNoneAvailable: string;
+    replacementBoardSelectPlaceholder: string;
+    currentBoardSuffix: string;
+    replacementBoardSaving: string;
+    replacementBoardResume: string;
+    retrying: string;
+    cancelling: string;
   };
 
   // Boards
