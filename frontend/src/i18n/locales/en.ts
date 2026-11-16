@@ -496,6 +496,7 @@ export const en: TranslationSchema = {
     deleteAccountDone: "Your deletion request has been received and access is disabled. Your data has not yet been deleted.",
     requestFailed: "Could not complete the request. Please try again.",
     emailVerifyTitle: 'Verify your email',
+    emailVerifySentTo: '— account email: {email}',
     emailVerifyResent: 'We sent the verification email again. Check your inbox and spam folder.',
     emailVerifyResend: 'Resend email',
     emailVerifySending: 'Sending…',
