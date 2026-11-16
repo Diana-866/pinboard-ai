@@ -21,7 +21,7 @@ docs/      — документы для заявки Pinterest API и сопр�
 | Бэкенд | Render | VPS/контейнер в РФ (Docker) |
 | База данных | Supabase (PostgreSQL) | managed PostgreSQL в РФ |
 | AI | GPTunnel (gptunnel.ru) | без изменений |
-| Платежи | — (план: Prodamus) | Prodamus |
+| Платежи | Prodamus (интеграция в коде; live readiness не подтверждён) | Prodamus |
 
 ## Локальная разработка
 
@@ -41,8 +41,7 @@ npm run dev
 
 ## Проверка перед деплоем
 
-GitHub Actions на аккаунте не запускаются (раннеры заблокированы лимитом оплаты),
-поэтому проверка идёт одной командой локально:
+Последние доступные GitHub Actions runs завершались до первого шага (runner_id=0, steps пусты); это не результат тестов приложения. До появления исполняемого runner проверки выполняются локально:
 
 ```bash
 ./scripts/verify.sh              # бэкенд: node --check + тесты; фронтенд: tsc + тесты + сборка

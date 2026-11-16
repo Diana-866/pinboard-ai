@@ -8,7 +8,7 @@
 
 ## How to interpret this register
 
-This is a complete path/blob inventory for the source tree at the recorded HEAD, not a claim that all 399 documents have been read line-by-line. Each row records the exact repository path, Git blob SHA, and review category/status. The content-level review remains open for rows marked inventory-only or historical. A file under audits/ is evidence of a past investigation, not proof that its finding is still open or fixed on current main. A proposal SQL file is not an applied migration. Runbooks must be checked against current code, actual provider configuration and owner approval before execution.
+This is a complete path/blob inventory for the source tree at the recorded HEAD, not a claim that all 400 documents have been read line-by-line. Each row records the exact repository path, Git blob SHA, and review category/status. The content-level review remains open for rows marked inventory-only or historical. A file under audits/ is evidence of a past investigation, not proof that its finding is still open or fixed on current main. A proposal SQL file is not an applied migration. Runbooks must be checked against current code, actual provider configuration and owner approval before execution.
 
 Current execution status and release gates live in docs/PROJECT_STATE.md; owner tasks live in docs/USER_ACTIONS.md.
 
