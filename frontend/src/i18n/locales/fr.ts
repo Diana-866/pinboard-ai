@@ -685,7 +685,7 @@ export const fr: TranslationSchema = {
     floatingButton: 'Stratège IA Pinterest',
     title: 'Stratège IA PinPosy',
     subtitle: 'Répond à partir des données de votre compte',
-    statusBadge: 'En ligne',
+    statusBadge: "Mode démo",
     disclaimerPeak: 'Cet assistant indique où se trouve chaque fonction et affiche vos chiffres actuels. Il ne voit pas les statistiques Pinterest : les applications n\'ont pas encore cet accès.',
     welcomeMessage: 'Bonjour ! Je peux montrer ce que contient votre compte et vous indiquer la bonne section. Posez la question avec vos mots.',
     quickQuestion1: 'Où consulter les statistiques de mes épingles ?',
