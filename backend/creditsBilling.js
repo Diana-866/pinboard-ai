@@ -17,7 +17,7 @@ const { persistWebhookException } = require("./billingWebhookAudit");
 const { httpError, validateEnum } = require("./validate");
 const { CREDIT_PACKS, normalizePackId, packAmount } = require("./creditPacks");
 const { createPaymentOrderId } = require("./paymentOrderId");
-const { beginPaymentCreation, attachPaymentCreationOrder, denyUnsentPaymentRecord, completePaymentCreation, settlePaymentCreationRequest, markPaymentCreationUnknown, failPaymentCreation } = require("./paymentCreationIdempotency");
+const { beginPaymentCreation, attachPaymentCreationOrder, denyUnsentPaymentRecord, completePaymentCreation, settlePaymentCreationRequest, markPaymentCreationUnknown, failPaymentCreation, handlePaymentProviderFailure } = require("./paymentCreationIdempotency");
 
 // Префикс order_id покупок кредитов: по нему общий вебхук /billing/webhook
 // различает подписки (pp-…) и пакеты кредитов (ppc-…).
@@ -141,7 +141,7 @@ async function createCreditsPayment(userId, body, idempotencyKey) {
       urlSuccess: `${frontendBase()}/app?payment=success`,
     });
   } catch (error) {
-    await markPaymentCreationUnknown(userId, idempotencyKey, error);
+    await handlePaymentProviderFailure(userId, idempotencyKey, "credit_purchases", purchase.id, error);
     logError("creditsBilling.event_004");
     throw error;
   }
