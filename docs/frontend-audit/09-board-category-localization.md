@@ -363,3 +363,16 @@ A review of the active header notification dropdown found that each notification
 **CI / deploy status:** combined status on test commit `854b6d42cfae712838934c4ec533dd008f705efb` reports Vercel `failure` with target `build-rate-limit`; this is a deployment quota status, not a build log. The existing open PR #90 remains unmerged and does not supply a verified runner result. No test/build/SQL command is claimed as executed.
 
 This closes only the notification-center keyboard-accessibility source finding. Package 09 and the full frontend audit remain open. Mandatory clean PostgreSQL replay, SQL integration and backend runtime gates remain open. No backend, database, production data, payment, Pinterest account or deployment setting changed.
+
+
+## FE-30 — keyword search errors now announce to assistive technology
+
+`KeywordExplorer` already cleared stale keyword rows when the API request failed and rendered a visible error panel, but the panel had no alert/live-region semantics. A screen-reader user could therefore miss a failed keyword request even though sighted users saw the red message.
+
+**Fix on main:** added `role="alert"` to the existing error panel without changing request behavior, error copy or stale-result clearing. Added `frontend/src/utils/keywordExplorerAccessibility.test.ts` to guard the alert semantics, stale-row clearing and accessible input label.
+
+**Commits:** component `7dac0fe025b0349fe01ceb3f257de55bd31464ce`; regression test `ca6b7231413bb5636a3af43de92ea4f9b3e01db8`.
+
+**Static readback:** fetched the component and test from current main and confirmed the alert role and test assertions. The test was NOT executed; no frontend test suite, TypeScript check, production build or browser/screen-reader run was performed.
+
+Package 09 and full frontend/runtime readiness remain open. No backend, database, production data, payment, Pinterest account or deployment setting changed.
