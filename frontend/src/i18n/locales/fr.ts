@@ -737,6 +737,12 @@ export const fr: TranslationSchema = {
     reviewQueueSyncErrorMessage: 'Impossible de charger ou d’enregistrer la file. Vérifiez votre connexion et actualisez la page pour réessayer.',
   },
 
+  lockedSection: {
+    title: "Cette section est verrouillée",
+    description: "Choisissez une offre pour débloquer la création d’épingles, les tableaux et la planification. Les analyses restent disponibles avec votre offre actuelle.",
+    viewPlans: "Voir les offres",
+  },
+
   terms: {
     peakLoadTitle: 'Avis opérationnel de forte charge & SLA',
     peakLoadNotice: 'En période de forte demande (par exemple durant les premiers jours suivant les annonces publiques du service), le traitement des demandes de génération d’épingles peut requérir jusqu’à 24 à 48 heures au lieu de quelques minutes. L’accès au compte, le chat avec l’assistant stratège et tous les outils d’analyse restent disponibles immédiatement après le paiement. Vous serez notifié dans l’interface dès qu’une demande entre en file d’attente pour cause de forte charge.',
