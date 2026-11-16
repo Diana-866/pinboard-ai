@@ -152,12 +152,12 @@ export const Login: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? t.hide : t.show}
+                aria-label={showPassword ? t.common.hide : t.common.show}
                 aria-controls="password"
                 aria-pressed={showPassword}
                 className="absolute inset-y-0 right-3 text-xs font-medium text-secondary-theme hover:text-primary-theme"
               >
-                {showPassword ? t.hide : t.show}
+                {showPassword ? t.common.hide : t.common.show}
               </button>
             </div>
           </div>
