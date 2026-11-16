@@ -2854,9 +2854,8 @@ app.get("/admin/mail/:uid", requireAuth, requireAdmin, async (req, res) => {
 
 app.post("/admin/mail/reply", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
   try {
-    const to = String((req.body && req.body.to) || "").trim();
-    const subject = String((req.body && req.body.subject) || "").trim();
-    const text = String((req.body && req.body.text) || "").trim();
+    const body = req.body && !Array.isArray(req.body) ? req.body : {};
+    const { to, subject, text } = body;
     if (!to || !subject || !text) throw httpError(422, "Нужны поля to, subject, text");
     const result = await mail.replyToMessage(to, subject, text);
     res.json(result);
