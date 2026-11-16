@@ -162,13 +162,10 @@ test('reconciles a lost create response only when explicit timezone and destinat
     destination_url: 'https://example.com/article',
   };
   assert.deepEqual(findPersistedScheduleRequest([exact], expectedRequest), exact);
-  assert.deepEqual(findPersistedScheduleRequest([{
-    ...exact,
-    destination_url: 'HTTPS://EXAMPLE.COM/article',
-  }], expectedRequest), {
-    ...exact,
-    destination_url: 'HTTPS://EXAMPLE.COM/article',
-  });
+  assert.deepEqual(findPersistedScheduleRequest([exact], {
+    ...expectedRequest,
+    destinationUrl: 'HTTPS://EXAMPLE.COM/article',
+  }), exact);
   assert.equal(findPersistedScheduleRequest([{ ...exact, timezone: 'UTC' }], expectedRequest), null);
   assert.equal(findPersistedScheduleRequest([{ ...exact, destination_url: 'https://other.example/' }], expectedRequest), null);
   assert.equal(findPersistedScheduleRequest([{ ...exact, destination_url: null }], expectedRequest), null);
