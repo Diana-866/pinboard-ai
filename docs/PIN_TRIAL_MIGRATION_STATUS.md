@@ -111,6 +111,19 @@ Last updated: 2026-11-16
 - **2026-11-16 — Constraint inventory milestone:** Combined both supplied result segments: 170 rows across 34 tables, consisting of 33 PRIMARY KEY, 22 FOREIGN KEY, 16 UNIQUE, and 99 CHECK constraints. The original 35-table inventory includes `gptunnel_provider_cost_ledger`, for which the supplied `pg_constraint` query returned no rows. Record this as no constraints returned by that catalog query, not as proof that the table has no indexes or other supporting objects.
 - **Next action rationale:** Query indexes separately. Indexes may enforce uniqueness or support query paths without appearing as standalone constraint rows; inspect definitions and predicates before comparing against canonical migrations.
 
+## Index inventory — continuation 1 (user-provided, 2026-11-16)
+
+- [x] Received the next read-only `pg_indexes` result for schema `public`.
+- [x] Recorded the supplied index definitions in the conversation context, covering alphabetically from `account_deletion_events` through the first returned index for `subscriptions` (`idx_subscriptions_period_end`).
+- [!] This is a partial index inventory: the supplied output stops in the middle of the `subscriptions` table and does not include the remaining subscription indexes or later tables such as `users`. Do not treat it as a complete index inventory.
+- [!] Index names and definitions have been received, but no migration-by-migration comparison, query-plan analysis, redundancy assessment, or performance conclusion has been performed.
+- [ ] Continue the same read-only index query from the remaining `subscriptions` rows onward, then verify coverage against all 35 inventoried `public` application tables.
+
+## Development activity log — continuation
+
+- **2026-11-16 — PIN_TRIAL inventory, step 10:** Received the user's next read-only `pg_indexes` query result for `schemaname = 'public'`, ordered by table and index name. Purpose: inventory index definitions separately from constraints, including partial and unique indexes, before comparing the live database with canonical migrations. Result: the supplied segment starts at `account_deletion_events` and ends at `subscriptions.idx_subscriptions_period_end`; it therefore cuts off during the `subscriptions` table. The segment includes primary-key/unique indexes and ordinary/partial indexes across the represented tables. No claim is made that all expected indexes are present, and no index redundancy or performance conclusion has yet been established. Attribution: the user ran the SQL and supplied its output; the assistant recorded the observed range and did not query the database directly.
+- **Next action rationale:** Continue from the remaining `subscriptions` indexes and subsequent table names. This avoids repeating the supplied portion and is necessary before any complete index comparison. Keep the query read-only; do not create, drop, or rebuild indexes during inventory.
+
 ## Safety rules
 
 - This record concerns the test database `PIN_TRIAL`, not production.
@@ -120,4 +133,4 @@ Last updated: 2026-11-16
 
 ## Next action
 
-Retrieve the remaining columns of `pinterest_oauth_connection_state`, verify column coverage for every listed `public` table, then compare live columns, constraints, indexes, and functions with the canonical migration chain before deciding which migrations, if any, remain to be applied.
+Continue the partial `pg_indexes` inventory from the remaining `subscriptions` rows through the later tables (including `users`); then inspect functions and compare the collected live schema objects with the canonical migration chain before deciding which migrations, if any, remain to be applied.
