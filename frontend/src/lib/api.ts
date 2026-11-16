@@ -1,4 +1,5 @@
-import { clearAuthToken, readAuthToken } from "./authStorage";
+import { clearAuthToken, readAuthToken, readLocalStorageValue } from "./authStorage";
+import { getApiFallbackMessage } from "./apiErrorMessages";
 
 const API_URL = (import.meta as any).env?.VITE_API_URL || "https://pinboard-ai-backend.onrender.com";
 
@@ -29,14 +30,14 @@ export async function apiRequest(path: string, options: RequestInit = {}) {
     });
   } catch {
     // обрыв сети / сервер спит — понятное сообщение вместо краша res.json() (E9)
-    throw new ApiError("Сервер не отвечает. Возможно, он просыпается после простоя — подождите минуту и попробуйте снова.", 0);
+    throw new ApiError(getApiFallbackMessage("network", readLocalStorageValue("pinposy_lang")), 0);
   }
 
   let data: any = null;
   try {
     data = await res.json();
   } catch {
-    if (!res.ok) throw new ApiError("Сервер вернул некорректный ответ. Попробуйте позже.", res.status);
+    if (!res.ok) throw new ApiError(getApiFallbackMessage("invalidResponse", readLocalStorageValue("pinposy_lang")), res.status);
     data = null;
   }
 
@@ -52,7 +53,7 @@ export async function apiRequest(path: string, options: RequestInit = {}) {
         window.location.href = "/login";
       }
     }
-    throw new ApiError(data?.error || "Произошла ошибка. Попробуйте ещё раз.", res.status, data);
+    throw new ApiError(data?.error || getApiFallbackMessage("generic", readLocalStorageValue("pinposy_lang")), res.status, data);
   }
 
   return data;
