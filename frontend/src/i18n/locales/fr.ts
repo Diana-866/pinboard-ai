@@ -211,6 +211,8 @@ export const fr: TranslationSchema = {
     brandingText: 'Filigrane ou URL de la marque',
     templateStyle: 'Style de mise en page',
     exportImageBtn: 'Télécharger l’image (PNG)',
+    exportFailed: 'Impossible d’exporter l’image. La source peut bloquer l’exportation via canvas. Essayez une autre image ou téléchargez-la depuis sa source.',
+    copyFailed: 'Impossible de copier les détails de l’épingle. Vérifiez les autorisations du presse-papiers de votre navigateur.',
     pushToCalendarBtn: 'Programmer dans le calendrier',
     savedToCalendar: 'Épingle programmée avec succès dans le calendrier !',
     batchGeneratedNotice: 'Lot d’épingles à fort impact généré sous plusieurs angles éditoriaux.',
