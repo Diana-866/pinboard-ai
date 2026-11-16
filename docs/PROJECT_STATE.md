@@ -873,3 +873,12 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - Workflow больше не запускает concurrency scripts в `pinposy_test`; после SQL integration suite вызывает новый runner отдельным шагом. Добавлен static contract test для workflow, списка 9 scripts, clone source, database prefix, opt-in и cleanup.
 - AUD-401 синхронизирован с цепочкой 001 + 010–148, PostgreSQL 16 CI vs owner-side PostgreSQL 18.6, payment idempotency migrations 116–118 и статусом AUD-400 как proposal.
 - Только статические проверки при подготовке; bash -n, Node contract test, PostgreSQL runtime suite и Actions не запускались. Production/Supabase не затрагивались.
+
+
+### Статическая проверка изоляции concurrency suite и CI повторно (2026-11-16)
+
+- После commit `d7f018b11088c1729478ceb0d5512ab2d9e444f7` повторно получены все 9 concurrency scripts, shared guard, новый runner, contract test и workflow с main.
+- Выполнено 11/11 независимых source-level assertions: runner присутствует ровно один раз; прямых запусков 9 scripts из общей fixture нет; все 9 scripts перечислены в runner; уникальный DB suffix, explicit opt-in, template clone, cleanup trap, loopback и actual DB/server guard подтверждены; contract test содержит новый сценарий.
+- Реально выполнен `bash -n` для точного содержимого `backend/test/run-disposable-concurrency-suite.sh` в Bash 5.2.37: PASS. PostgreSQL binaries отсутствуют в среде проверки; DB clone, nine runtime scripts и PostgreSQL cleanup не запускались.
+- Новый main commit автоматически вызвал Actions runs `43955465209` (postgres-atomicity) и `43955465181` (frontend/backend). Jobs API: у всех job `runner_id=0`, `steps=[]`; ни Bash parser step, ни Node contract test, ни SQL suite не выполнялись. Это тот же pre-run allocation blocker, не результат тестов PinPosy.
+- UA-004 остаётся единственным ближайшим owner action в `docs/USER_ACTIONS.md`; других действий владельца до его результата не добавлено. Production, PIN_TRIAL, Prodamus, Pinterest и deployment settings не затрагивались.
