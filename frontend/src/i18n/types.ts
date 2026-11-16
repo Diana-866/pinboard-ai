@@ -118,6 +118,9 @@ export interface TranslationSchema {
     useNameInitial: string;
     useInitialAvatar: string;
     choosePresetAvatar: string;
+    avatarUploadInvalidType: string;
+    avatarUploadTooLarge: string;
+    avatarUploadFailed: string;
   };
 
   // Dashboard
