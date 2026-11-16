@@ -35,7 +35,7 @@ permissions:
 
 jobs:
   scheduler-unit:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows, X64]
     defaults:
       run:
         working-directory: backend
@@ -48,7 +48,7 @@ jobs:
         with:
           node-version: 22
       - name: Install backend dependencies
-        run: npm install --no-package-lock
+        run: npm ci
       - name: Test scheduler response contract
         run: node --test test/schedule-response.test.js
       - name: Test one-shot cron runner
