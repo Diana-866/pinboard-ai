@@ -72,11 +72,27 @@ test('review queue and saved-pin status copy exists in every supported locale', 
       copy.generator.addToReviewBtn,
       copy.generator.addToReviewSaving,
       copy.generator.addToReviewSuccess,
+      copy.generator.recoveryCheckingShort,
+      copy.generator.recoveryNoCreditsNotice,
+      copy.generator.recoveryUnconfirmed,
+      copy.generator.topicRequired,
+      copy.generator.errorSaveFormat,
+      copy.generator.errorSaveDescriptionBeforeSchedule,
+      copy.generator.errorDestinationBoardChanged,
+      copy.generator.errorCreateInternalBoard,
+      copy.generator.errorSelectedTimeAdjustedTemplate,
+      copy.generator.errorDateTimeUnavailable,
+      copy.generator.errorSaveReviewDescription,
+      copy.generator.reviewQueueReason,
+      copy.generator.errorAddToReview,
+      copy.generator.schedulingSaving,
+      copy.generator.untitledPin,
     ]) {
       assert.equal(typeof value, 'string', locale);
       assert.ok(value.trim().length > 0, locale);
     }
     assert.match(copy.review.queueCountTemplate, /\{count\}/, locale);
+    assert.match(copy.generator.errorSelectedTimeAdjustedTemplate, /\{time\}/, locale);
     assert.match(copy.review.bulkSchedulePartialTemplate, /\{saved\}/, locale);
     assert.match(copy.review.bulkSchedulePartialTemplate, /\{total\}/, locale);
   }
