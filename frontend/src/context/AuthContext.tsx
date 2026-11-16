@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { apiRequest, ApiError } from "../lib/api";
 import { clearAuthToken, readAuthToken, readLocalStorageValue } from "../lib/authStorage";
 import { clearUserScopedStorage } from "../lib/userScopedStorage";
+import { isCurrentAuthRefresh } from "../utils/authRefreshFence";
 
 export interface User {
   id: string;
@@ -77,15 +78,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [activeViewMode, setActiveViewMode] = useState<"client" | "admin">("client");
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const refreshRequestIdRef = useRef(0);
 
   async function refreshUser() {
+    const requestId = ++refreshRequestIdRef.current;
     const token = readAuthToken();
     if (!token) {
       setUser(null);
       return false;
     }
+    const snapshot = { requestId, token };
+    const isLatestRequest = () => requestId === refreshRequestIdRef.current;
+    const isCurrentSession = () => isCurrentAuthRefresh(snapshot, refreshRequestIdRef.current, readAuthToken());
     try {
       const data = await apiRequest("/me");
+      if (!isCurrentSession()) return false;
       // Different account on this browser: drop the previous user's queue, drafts
       // and preferences before the new profile is applied. Device-level language
       // and theme are preserved by the sweep.
@@ -94,8 +101,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (localLanguage && ["en", "ru", "es", "pt", "de", "fr", "zh"].includes(localLanguage) && localLanguage !== data.preferred_language) {
         try {
           await apiRequest("/me", { method: "PATCH", body: JSON.stringify({ preferred_language: localLanguage }) });
+          if (!isCurrentSession()) return false;
           data.preferred_language = localLanguage;
         } catch (error) {
+          if (!isLatestRequest()) return false;
+          const currentToken = readAuthToken();
+          if (currentToken && currentToken !== token) return false;
+          if (error instanceof ApiError && error.status === 401) {
+            clearAuthToken();
+            setUser(null);
+            return false;
+          }
+          if (!currentToken) {
+            setUser(null);
+            return false;
+          }
           console.warn("[auth] Could not sync saved interface language:", error);
         }
       }
@@ -105,6 +125,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch {
         avatar = undefined;
       }
+      if (!isCurrentSession()) return false;
       setUser({
         ...data,
         plan: data.subscription_tier || "free",
@@ -114,10 +135,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       return true;
     } catch (e) {
-      // A transient network/5xx failure must not destroy a still-valid local
-      // session. apiRequest already clears and redirects on protected-route 401.
+      // A late response from an old token must never replace the current account.
+      if (!isLatestRequest()) return false;
+      const currentToken = readAuthToken();
+      if (currentToken && currentToken !== token) return false;
       if (e instanceof ApiError && e.status === 401) {
         clearAuthToken();
+        setUser(null);
+      } else if (!currentToken) {
         setUser(null);
       } else {
         console.warn("[auth] Could not refresh the current user; keeping the session for retry:", e);
@@ -135,6 +160,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   function logout() {
+    refreshRequestIdRef.current += 1;
     clearAuthToken();
     // Sign-out on a shared browser must not leave the queue, drafted descriptions,
     // uploaded photos or notification history behind for the next person.
