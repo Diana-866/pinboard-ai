@@ -67,13 +67,13 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - Важные модули, обнаруженные при выборочной проверке: `backend/supabase.js`, `backend/storage.js`, `backend/pinterest.js`, `backend/pinterestSchedule.js`, `backend/scheduleWorker.js`, `backend/scheduleCron.js`, `backend/accountDeletionWorker.js`, `backend/prodamus.js`, `backend/tariff.js`, `backend/creditPacks.js`.
 - Backend использует `@supabase/supabase-js`; `pg` в просмотренном package.json не обнаружен.
 - [~] Построчная проверка backend-файлов, маршрутов, middleware, сервисов и фоновых задач продолжается; полный backend-аудит не завершён.
-- [ ] Составить карту API endpoint → handler → сервис → таблицы/внешние API.
-- [ ] Проверить авторизацию, ownership, валидацию, rate limits, ошибки и транзакции.
+- [x] Составить карту API endpoint → handler → сервис → таблицы/внешние API: `docs/backend-audit/09-index-api-map.md` (73 прямых Express routes, dynamic admin routes и Pinterest module routes).
+- [~] Проверить авторизацию, ownership, валидацию, rate limits, ошибки и транзакции: high-risk route groups cross-checked; full handler/service/migration review continues.
 - [ ] Запустить полный актуальный backend test suite.
 
 ### База данных
 - SQL находится в `db/`, включая `db/migrations/`, архив и тестовые сценарии.
-- В каталоге миграций обнаружено 147 файлов; это число файлов, не утверждение о применённой схеме.
+- В каталоге миграций обнаружено 148 файлов; это число файлов, не утверждение о применённой схеме.
 - Выявлена каноническая baseline-миграция `001_baseline.sql`; файлы `002–008` помечены как исторические, `009` требует отдельной проверки и не должен автоматически применяться.
 - [ ] Проверить каждую миграцию и порядок применения.
 - [ ] Проверить все функции, триггеры, RLS policies, индексы и ограничения.
@@ -137,7 +137,7 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - [x] Получить дерево репозитория на исходном commit.
 - [x] Зафиксировать исходный SHA и ветку.
 - [x] Выборочно открыть ключевые frontend/backend/SQL файлы.
-- [~] Проведены восемь ограниченных пакетов backend-аудита: core, auth/account lifecycle, billing/credits/Prodamus, GPTunnel/Pinterest admin recovery, Pinterest OAuth/account lifecycle, scheduler/worker, image storage lifecycle и project/board/pin/account deletion; отчёты `docs/backend-audit/01-core-modules.md`–`08-project-board-pin-account-deletion.md`. Остальные модули, маршруты и тесты не проверены.
+- [~] Проведены десять пакетов backend-аудита: core, auth/account lifecycle, billing/credits/Prodamus, GPTunnel/Pinterest admin recovery, Pinterest OAuth/account lifecycle, scheduler/worker, image storage lifecycle, project/board/pin/account deletion, API route map и platform primitives; отчёты `docs/backend-audit/01-core-modules.md`–`10-platform-primitives.md`. Полный backend/frontend/migration audit ещё не завершён.
 - [ ] Построчно проанализировать все исходники frontend.
 - [ ] Проанализировать все миграции и SQL-тесты.
 - [ ] Проанализировать тесты, скрипты, workflow и конфигурации.
@@ -251,7 +251,7 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 
 ## 7. Текущая следующая задача
 
-**NEXT: продолжить построчный аудит оставшихся handler-блоков `backend/index.js` и сверить API-карту с фактическими сервисами, SQL/RPC и тестами. Дополнительно `GET /schedule`, `GET /review-queue` и `GET /boards/:id/pins` переведены на общий bounded pager (500/page, cap 10k, HTTP 413 при overflow); для всех трёх добавлены route contract tests, runtime tests не запускались. API-карта 73 маршрутов уже создана в `docs/backend-audit/09-index-api-map.md`, но полный построчный аудит entrypoint не закрыт. Зафиксированы продуктовые риски: AI analysis/keywords без тарификации/резерва кредитов, boards/generate без idempotency key и process-local rate limits. Project/board lists также читаются внутренними страницами до 10 000 строк без тихого PostgREST truncation; клиентская cursor pagination остаётся будущим улучшением. Отдельный блокер: GitHub Actions ранее завершались до создания job steps; Node/PostgreSQL tests не запускались; нужен работоспособный runner и реальный запуск. Vercel: последнее наблюдаемое состояние build-rate-limit. Не помечать тесты пройденными. Удаление аккаунта закрыто feature gate и требует staging-валидации перед включением. PR #88 не объединять: checkout fix адресно перенесён в main, PR основан на старом SHA. Не запускать реальные платежи и не менять production.**
+**NEXT: продолжить построчную сверку оставшихся handler-блоков `backend/index.js` и сервисов, затем закончить file-by-file backend audit и полный migration chain. API inventory завершён: 73 прямых Express routes, динамические admin refund routes и Pinterest module routes отражены в `docs/backend-audit/09-index-api-map.md`; high-risk route groups уже cross-checked, но все helper branches/DB RPC still need final reconciliation. `GET /projects`, `GET /boards`, `GET /projects/:id/boards`, `GET /schedule`, `GET /review-queue` и `GET /boards/:id/pins` используют bounded pager (500/page, cap 10k, HTTP 413 при overflow); review queue reconciliation ограничена пятью параллельными lookup-запросами. Остаточные продуктовые риски: AI analysis/keywords без утверждённой тарификации/резерва кредитов; `boards/generate` без durable idempotency key; Pinterest rate limiter process-local; клиентская cursor pagination ещё не реализована. Затем полностью проверить frontend (mock/demo data, real API paths, build/typecheck), migration chain на disposable PostgreSQL и staging E2E. GitHub Actions runs `43899467019`/`43899467236` failed без выполненных шагов; новые runs `43899474201`/`43899474181` были queued. Node/PostgreSQL tests и frontend build не подтверждены. Vercel: `build-rate-limit`. Не помечать тесты пройденными. Удаление аккаунта закрыто feature gate и требует staging-валидации перед включением. PR #88 не объединять: checkout fix адресно перенесён в main, PR основан на старом SHA. Не запускать реальные платежи и не менять production.**
 
 PinPosy — единый паспорт проекта и план работ
 
@@ -532,3 +532,7 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - 2026-11-16 — follow-up backend `GET /review-queue`: обнаружена и устранена неограниченная offset-пагинация; route использует общий `fetchAllPages` (500 строк/страница, максимум 10 000, HTTP 413 при overflow), owner filter и стабильный порядок сохранены, stale cleanup остаётся chunked по 200. Добавлен `backend/test/review-queue-pagination-contract.test.js`. Commits: `e965a3a4`, `2bebc508`. Код и тест повторно прочитаны из GitHub; workflow run для test commit не вернулся, Node tests не запускались. Production не затронут. Полный аудит продолжается.
 
 - 2026-11-16 — follow-up backend `GET /boards/:id/pins`: устранена неограниченная offset-пагинация; после обязательной owner-проверки используется общий `fetchAllPages` (500 строк/страница, максимум 10 000, HTTP 413 при overflow), сохранены фильтр по board и стабильный порядок. Добавлен `backend/test/board-pins-pagination-contract.test.js`, проверяющий owner-check и bounded pager. Commits: `e96eb1d9`, `b22a0f18`. Код и тест повторно прочитаны из GitHub; runtime Node tests не запускались, production не затронут. Полный аудит `backend/index.js` продолжается.
+
+- 2026-11-16 — пакет 10: reviewed platform primitives (dbErrors, email locales, fatal handlers, Pinterest rate limit, safeLogger, Supabase config, tariff) and tests; report docs/backend-audit/10-platform-primitives.md.
+- 2026-11-16 — route inventory complete: 73 direct routes + dynamic admin/Pinterest routes mapped in report 09. High-risk handler groups cross-checked; full backend helper/migration audit remains in progress.
+- 2026-11-16 — GET /boards/:id/pins now uses owner-checked bounded pagination (500/page, cap 10k, 413 overflow); contract test added. CI runs 43899467019/43899467236 failed without steps; runs 43899474201/43899474181 queued at last check. No runtime test result.
