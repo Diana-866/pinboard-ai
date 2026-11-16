@@ -218,6 +218,12 @@ export const zh: TranslationSchema = {
     copyFailed: '无法复制 Pin 详情。请检查浏览器的剪贴板权限。',
     pushToCalendarBtn: '推送到发布日历',
     savedToCalendar: '已成功将 Pin 排入发布日历！',
+    savedPinsLoading: "正在加载此画板已保存的 Pin…",
+    savedPinsRetry: "重试加载",
+    savedPinsLoadError: "无法加载已保存的 Pin。请检查网络连接后重试。",
+    addToReviewBtn: "提交 Pin 进行人工审核",
+    addToReviewSaving: "正在加入审核队列…",
+    addToReviewSuccess: "Pin 已提交审核",
     batchGeneratedNotice: '已生成针对不同算法角度的高转化 Pin。',
   },
 
@@ -585,6 +591,8 @@ export const zh: TranslationSchema = {
 
   review: {
     title: '审核新生成的 Pin',
+    queueDescription: "请检查已保存的 Pin，并在安排发布前批准或拒绝它们。",
+    queueCountTemplate: "队列中有 {count} 个",
     subtitle: '右滑（或点击批准）加入发布队列，左滑（或点击拒绝）舍弃该 Pin。',
     approveBtn: '批准排期 (→)',
     rejectBtn: '舍弃忽略 (←)',
