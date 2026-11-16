@@ -9,8 +9,34 @@ const scriptsDirectory = path.join(__dirname, "..", "..", "scripts");
 const script = fs.readFileSync(path.join(scriptsDirectory, "verify.sh"), "utf8");
 const windowsScript = fs.readFileSync(path.join(scriptsDirectory, "verify.ps1"), "utf8");
 
-test("scratch database name is unique per process", () => {
-  assert.match(script, /local db="pinposy_verify_\$\$"/);
+test("Linux replay creates a unique disposable database without pre-dropping a name", () => {
+  assert.match(script, /MIGRATION_DB_NAME="pinposy_verify_\$\{BASHPID:-\$\}_\$suffix"/);
+  assert.match(script, /od -An -N4 -tx1 \/dev\/urandom/);
+  assert.match(script, /CREATE DATABASE \\"\$MIGRATION_DB_NAME\\"/);
+  assert.doesNotMatch(script, /DROP DATABASE IF EXISTS/);
+  assert.ok(script.indexOf("CREATE DATABASE") < script.indexOf("MIGRATION_DB_CREATED=1"));
+});
+
+test("Linux replay only drops the database it successfully created", () => {
+  assert.match(script, /if \(\(MIGRATION_DB_CREATED\)\); then[\s\S]*DROP DATABASE/);
+  assert.match(script, /MIGRATION_DB_CREATED=0/);
+});
+
+test("Linux replay uses an explicit local socket and port, not inherited PGHOST or PGPORT", () => {
+  assert.match(script, /psql -X -q -h \/var\/run\/postgresql -p "\$POSTGRES_PORT"/);
+  assert.match(script, /--postgres-port/);
+  assert.match(script, /POSTGRES_PORT=5432/);
+});
+
+test("Linux replay rejects incomplete or out-of-range migration sequences", () => {
+  assert.match(script, /version=10; version<=148/);
+  assert.match(script, /active_migrations\[@\].*139/s);
+  assert.match(script, /actual_sequence.*expected_sequence/s);
+});
+
+test("Linux migrations-only mode skips backend and frontend commands", () => {
+  assert.match(script, /--migrations-only/);
+  assert.match(script, /if \(\(MIGRATIONS_ONLY == 0\)\); then[\s\S]*backend_checks[\s\S]*frontend_checks/);
 });
 
 test("local migration replay starts from the canonical baseline", () => {
