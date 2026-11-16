@@ -64,7 +64,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
   onGoToGenerator,
   onOpenReview,
   accounts = [],
-  pendingCount = 15,
+  pendingCount = 0,
 }) => {
   const { t, formatDate, formatNumber, language } = useI18n();
 
