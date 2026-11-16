@@ -57,6 +57,18 @@ Last updated: 2026-11-16
 - **2026-11-16 — PIN_TRIAL inventory, step 5:** Received the next user-run read-only `information_schema.columns` result, beginning after `pin_image_object_lifecycle`. Purpose: continue capturing the full live schema in alphabetic chunks without querying application row data or modifying the database. Result: columns for `pin_image_retention_queue`, `pin_regeneration_requests`, `pin_review_queue`, `pin_schedules`, `pins`, `pinterest_account_refresh_leases`, and `pinterest_accounts` were supplied; `pinterest_oauth_connection_state` was only partially supplied. Next: request the remaining table columns and later tables.
 - **Documentation rule reaffirmed by user:** Maintain a chronological, auditable record of actions, reasons, results, decisions, and next steps so the complete development sequence can later be reconstructed. For every subsequent work unit, update the relevant project documentation with the actual action and outcome. Attribute user-run SQL execution accurately; do not imply the assistant executed it.
 
+## Column inventory — continuation 4 (user-provided, 2026-11-16)
+
+- [x] Received the next alphabetic segment, from `pinterest_operator_reconciliations` through `users`.
+- [x] Captured the supplied columns for Pinterest operator reconciliation, publications, publish attempts, scheduler monitoring, token-refresh leases, projects, provider-refund operator actions/audit, subscriptions, and users.
+- [!] Important completeness gap: the prior segment included only the first three columns of `pinterest_oauth_connection_state`; this query used `table_name > 'pinterest_oauth_connection_state'` and therefore skipped the remaining columns of that table. Do not mark the full column inventory complete yet.
+- [ ] Query the remaining columns of `pinterest_oauth_connection_state` explicitly, then verify that every table in the earlier table inventory has a complete column listing.
+
+## Development activity log — continuation
+
+- **2026-11-16 — PIN_TRIAL inventory, step 6:** Received the user-run read-only `information_schema.columns` query for table names alphabetically after `pinterest_oauth_connection_state`. Purpose: continue the schema inventory without reading application records or changing database objects. Result: supplied definitions for `pinterest_operator_reconciliations`, `pinterest_publications`, `pinterest_publish_attempts`, `pinterest_scheduler_monitor`, `pinterest_token_refresh_leases`, `projects`, `provider_refund_operator_actions`, `provider_refund_reconciliation_audit`, `subscriptions`, and `users`. The query boundary excluded the rest of `pinterest_oauth_connection_state`, so the overall inventory remains incomplete.
+- **Next action rationale:** Retrieve only the missing columns from `pinterest_oauth_connection_state`; this closes a known gap without asking the user to repeat the full inventory.
+
 ## Safety rules
 
 - This record concerns the test database `PIN_TRIAL`, not production.
@@ -66,4 +78,4 @@ Last updated: 2026-11-16
 
 ## Next action
 
-Continue the read-only column inventory after `pinterest_oauth_connection_state`; once all columns are captured, compare live columns, constraints, indexes, and functions with the canonical migration chain before deciding which migrations, if any, remain to be applied.
+Retrieve the remaining columns of `pinterest_oauth_connection_state`, verify column coverage for every listed `public` table, then compare live columns, constraints, indexes, and functions with the canonical migration chain before deciding which migrations, if any, remain to be applied.
