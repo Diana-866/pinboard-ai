@@ -18,6 +18,6 @@ test('generation recovery copy exists in every supported locale', () => {
       assert.equal(typeof value, 'string', locale + ':' + key);
       assert.ok(value.trim().length > 0, locale + ':' + key);
     }
-    assert.match(copy.generator.recoveryCompletedTemplate, /\\{count\\}/, locale);
+    assert.match(copy.generator.recoveryCompletedTemplate, /\{count\}/, locale);
   }
 });
