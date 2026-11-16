@@ -773,3 +773,11 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - Все три jobs завершились `failure` до первого шага: `steps: null` в job metadata, а для postgres job отдельный endpoint шагов вернул пустой список. Download logs для postgres job вернул Azure `BlobNotFound`. Следовательно hosted runner не выполнил ни одного шага; тесты и сборка снова НЕ запускались. Повтор не выявил дефект приложения и не является PASS.
 - Локальный UA-004 остаётся обязательным NEXT: пользовательский изолированный PostgreSQL 18.6 на `127.0.0.1:55439`, затем 46 SQL integration files. Не переходить к 9 Bash concurrency scripts и backend suite, пока этот SQL gate не пройден или формально не изменён владельцем.
 - Production/PIN_TRIAL, локальные кластеры, секреты, deployment settings и платежи не затрагивались.
+
+### Повторная проверка NEXT и оценка Windows self-hosted CI PR (2026-11-16)
+
+- Перед работой сверены актуальные `main`, `PROJECT_STATE.md`, `USER_ACTIONS.md`, runner и package scripts. Проверяемый HEAD: `51cc8ca14acb08f19243c1f0256b5407766156c6`.
+- Обязательный NEXT не изменился: UA-004 — локальный `scripts/verify-integration.ps1` на выделенном PostgreSQL 18.6; SQL suite ещё не подтверждён. Из доступной среды нельзя управлять пользовательским Windows PowerShell/кластером, поэтому этот gate не запускался и остаётся за владельцем.
+- Дополнительно проверен открытый PR #90 `ci: run backend and frontend checks on Windows self-hosted runner`: PR draft, mergeable state `unknown`, job использует `runs-on: [self-hosted, Windows, X64]`; в описании прямо указано, что он ожидает matching self-hosted runner. Workflow не создаёт hosted fallback и не подтверждает выполнение тестов. Не объединять его автоматически: это не решает локальный SQL gate и может создать ожидающие/неисполняемые jobs при отсутствии runner.
+- GitHub Actions для текущего HEAD `51cc8ca...` не имеет runs. Vercel status: `failure`, `Deployment rate limited — retry in 24 hours` (обновлено `2026-11-16T20:36:58Z`); build/deploy не подтверждены.
+- Никакие тестовые чекбоксы не закрыты. Код, БД, production, настройки CI/Vercel и PR не изменялись.
