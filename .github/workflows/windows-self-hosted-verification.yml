@@ -17,8 +17,8 @@ on:
       - ".github/workflows/windows-self-hosted-verification.yml"
   workflow_dispatch:
     inputs:
-      migrations:
-        description: "Also replay migrations on a disposable PostgreSQL database bound to localhost (requires psql and a running local server)"
+      migrations_only:
+        description: "Run only the disposable PostgreSQL migration replay on localhost (requires psql and a running local test server)"
         required: false
         default: false
         type: boolean
@@ -48,10 +48,10 @@ jobs:
             backend/package-lock.json
             frontend/package-lock.json
       - name: Run backend and frontend verification
-        if: ${{ !inputs.migrations }}
+        if: ${{ !inputs.migrations_only }}
         shell: powershell
         run: .\scripts\verify.ps1
-      - name: Run backend, frontend, and PostgreSQL migration replay
-        if: ${{ inputs.migrations }}
+      - name: Run only PostgreSQL migration replay
+        if: ${{ inputs.migrations_only }}
         shell: powershell
-        run: .\scripts\verify.ps1 -Migrations
+        run: .\scripts\verify.ps1 -MigrationsOnly
