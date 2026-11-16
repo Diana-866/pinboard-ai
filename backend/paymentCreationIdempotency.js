@@ -142,7 +142,7 @@ async function markPaymentCreationUnknown(userId, idempotencyKey, error) {
 async function failPaymentCreation(userId, idempotencyKey, error) {
   const rawCode = String(error && (error.code || error.name) || "payment_creation_failed");
   const errorCode = /^[A-Za-z0-9_-]{1,64}$/.test(rawCode) ? rawCode : "payment_creation_failed";
-  const { error: updateError } = await supabase.rpc("fail_payment_creation_request", {
+  const { data, error: updateError } = await supabase.rpc("fail_payment_creation_request", {
     p_user_id: String(userId),
     p_idempotency_key: idempotencyKey,
     p_error_code: errorCode,
