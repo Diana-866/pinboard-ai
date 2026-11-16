@@ -38,6 +38,15 @@ test("fetchAllRows reads beyond the Supabase response cap", async () => {
   ]);
 });
 
+test("fetchAllRows fails explicitly when the admin stats row ceiling is exceeded", async () => {
+  const db = pagedDb({ users: [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }] });
+
+  await assert.rejects(
+    fetchAllRows(db, "users", "id", 2, 3),
+    (error) => error && error.httpStatus === 413
+  );
+});
+
 test("monthKey groups ISO timestamps by UTC month and ignores invalid dates", () => {
   assert.equal(monthKey("2026-03-01T00:30:00+03:00"), "2026-02");
   assert.equal(monthKey("not-a-date"), null);
