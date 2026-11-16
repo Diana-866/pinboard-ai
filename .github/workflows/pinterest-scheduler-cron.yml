@@ -11,6 +11,8 @@ on:
       - "backend/test/*schedule*.test.js"
       - "backend/test/pinterest-scheduler-route-contract.test.js"
       - "backend/package.json"
+      - "render.yaml"
+      - "backend/test/render-cron-contract.test.js"
       - ".github/workflows/pinterest-scheduler-cron.yml"
   workflow_dispatch:
 
@@ -39,3 +41,5 @@ jobs:
         run: node --test test/schedule-worker.test.js
       - name: Test backend scheduler route contract
         run: node --test test/pinterest-scheduler-route-contract.test.js
+      - name: Test Render Cron Blueprint contract
+        run: node --test test/render-cron-contract.test.js
