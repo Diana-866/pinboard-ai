@@ -19,7 +19,9 @@ test("Pinterest scheduler worker URL is registered by the backend router", () =>
 test("internal scheduler route preserves auth, claim fencing, publish journal and heartbeat", () => {
   const pinterest = read("pinterest.js");
   assert.match(pinterest, /x-pinposy-scheduler-secret/);
-  assert.match(pinterest, /crypto\.timingSafeEqual\(expected, provided\)/);
+  const schedulerAuth = read("schedulerAuth.js");
+  assert.match(pinterest, /isValidSchedulerSecret/);
+  assert.match(schedulerAuth, /crypto\.timingSafeEqual\(expected, provided\)/);
   assert.match(pinterest, /begin_pinterest_scheduler_run/);
   assert.match(pinterest, /complete_pinterest_scheduler_run/);
   assert.match(pinterest, /claim_due_pin_schedules/);
