@@ -73,7 +73,7 @@
 ## CI / build evidence
 
 Для commit `9adc5133ee9e4f38500028558330774836441973`:
-- Новый workflow запустился на push, завершился failure до появления шагов job. Повторный запуск failed jobs принят GitHub и находится в queued на момент проверки; Node tests пока НЕ подтверждены.
+- Новый workflow запустился на push и завершился failure до появления шагов job. Повторный запуск (run attempt 2) также завершился failure без шагов. Job steps пусты, логи выполнения недоступны; это runner/setup failure до исполнения команд, а не результат Node tests. Node tests пока НЕ подтверждены.
 - Другие backend/PostgreSQL workflow также завершились failure до шагов; это не доказывает падение самих тестов.
 - Vercel status = failure, target указывает `build-rate-limit`; frontend build не подтверждён.
 - Нельзя заявлять, что unit или integration tests прошли.
