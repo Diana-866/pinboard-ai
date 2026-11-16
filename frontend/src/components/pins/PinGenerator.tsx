@@ -303,6 +303,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   }>>([]);
   const [isCheckingRecoveries, setIsCheckingRecoveries] = useState(false);
   const [recoveryCheckAttempt, setRecoveryCheckAttempt] = useState(0);
+  const [recoveryAuthPaused, setRecoveryAuthPaused] = useState(false);
   const generationRecoveryOwnerIdRef = React.useRef(userId);
 
   // Recovery metadata is account-scoped. Clear the previous account's rows
@@ -311,6 +312,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     generationRecoveryOwnerIdRef.current = userId;
     setRecoverableGenerations([]);
     setIsCheckingRecoveries(false);
+    setRecoveryAuthPaused(false);
   }, [userId]);
 
   // Look up saved generation identities after login/reload. This is read-only:
@@ -369,7 +371,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             // Stop the polling loop when the session expires. Keep persisted
             // idempotency identities untouched; they can be checked after re-login.
             if (active && isCurrentBillingOwner(generationRecoveryOwnerIdRef.current, ownerId)) {
-              setRecoverableGenerations([]);
+              // Keep the recovery panel and local idempotency keys available.
+              // Pause background requests until the user has re-authenticated
+              // and explicitly asks to check again.
+              setRecoveryAuthPaused(true);
             }
             return;
           }
@@ -396,12 +401,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   // Keep checking only unresolved generation requests while this editor is open.
   // This is a read-only status lookup: it never resubmits provider work or charges credits.
   React.useEffect(() => {
-    if (!shouldPollGenerationRecovery(recoverableGenerations) || isCheckingRecoveries || !userId) return;
+    if (!shouldPollGenerationRecovery(recoverableGenerations, recoveryAuthPaused) || isCheckingRecoveries || !userId) return;
     const timer = window.setTimeout(() => {
       setRecoveryCheckAttempt((attempt) => attempt + 1);
     }, 10_000);
     return () => window.clearTimeout(timer);
-  }, [recoverableGenerations, isCheckingRecoveries, userId]);
+  }, [recoverableGenerations, isCheckingRecoveries, recoveryAuthPaused, userId]);
 
   // A count refresh replaces the boards array but must not reset the active pin editor.
   const selectedBoardName = boards.find((board) => board.id === selectedBoardId)?.name || '';
@@ -980,7 +985,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             </div>
             <button
               type="button"
-              onClick={() => setRecoveryCheckAttempt((attempt) => attempt + 1)}
+              onClick={() => {
+                setRecoveryAuthPaused(false);
+                setRecoveryCheckAttempt((attempt) => attempt + 1);
+              }}
               disabled={isCheckingRecoveries}
               className="shrink-0 px-3 py-2 rounded-lg border border-subtle text-xs font-semibold text-secondary-theme hover:text-primary-theme disabled:opacity-50 disabled:cursor-not-allowed"
             >
