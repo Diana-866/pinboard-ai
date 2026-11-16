@@ -519,12 +519,19 @@ async function listUserSubscriptions(userId, limit = 20) {
 }
 
 // Список подписок для админки: подписки + email пользователей одним проходом
+function normalizeAdminSubscriptionLimit(value) {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed)) return 100;
+  return Math.min(500, Math.max(1, parsed));
+}
+
 async function listAllSubscriptions(limit = 100) {
+  const safeLimit = normalizeAdminSubscriptionLimit(limit);
   const { data, error } = await supabase
     .from("subscriptions")
     .select("id, user_id, plan, status, amount, currency, period_start, period_end, created_at, provider_payment_id")
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .limit(safeLimit);
   if (error) throw httpError(500, "Не удалось получить подписки — примените миграцию 006");
 
   const rows = data || [];
@@ -562,6 +569,7 @@ module.exports = {
   handleWebhook,
   listUserSubscriptions,
   listAllSubscriptions,
+  normalizeAdminSubscriptionLimit,
   dispatchPendingSubscriptionEmails,
   getEmailOutboxHealth,
 };
