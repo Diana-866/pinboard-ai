@@ -2,7 +2,7 @@
 
 **Repository:** Diana-866/pinboard-ai  
 **Branch:** main  
-**Source HEAD:** 86276fa689115d7247f0b59131a77d9c0b5c56f8  
+**Source HEAD:** 909e4c73c88f9d93d98dd9c8ba46df54f2d406a5  
 **Inventory refreshed:** 2026-11-16  
 **Scope:** all documentation files under docs/ (Markdown and SQL), excluding this register itself.
 
@@ -21,7 +21,7 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 3 | `docs/MASTER_REQUIREMENTS.md` | `0891fc83d68de51acb298d1ad4da4f733a0499aa` | Reviewed/reconciled 2026-11-16; see audit reports |
 | 4 | `docs/PIN_TRIAL_MIGRATION_STATUS.md` | `2e0f66ccfa1ab9aeb71f80d299a5c4465e347d9e` | Owner-provided DB evidence; incomplete inventory |
 | 5 | `docs/PRODUCTION_READINESS_AUDIT.md` | `777ce34d539b3264b10554aa2cd731d436f080e2` | Reviewed/reconciled 2026-11-16; see audit reports |
-| 6 | `docs/PROJECT_STATE.md` | `18d8a50113cc752ddd2b3b96865fc529ee011837` | Current operational source of truth |
+| 6 | `docs/PROJECT_STATE.md` | `659e95ed8c0194e1e79f74a2fb4863f5a9776861` | Current operational source of truth |
 | 7 | `docs/USER_ACTIONS.md` | `ea6bafaa4e2b2e2440fa6962307fedf2d18b46ff` | Current operational source of truth |
 | 8 | `docs/architecture/pin-image-deletion-claim-protocol.md` | `0957b13bae0632ce8e34a5675b4a06f6ef8477a4` | Inventory only; content review pending |
 | 9 | `docs/audits/2026-11-16-account-deletion-runbook-reconciliation.md` | `4d1fa6f8e78162abbb29a3487a776c2b1c3cf319` | Historical audit/evidence; applicability must be checked against current main/tests |
@@ -400,7 +400,7 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 382 | `docs/runbooks/cross-domain-lock-order-remediation-aud-399.md` | `c8923e550c0ca654bb17e15ee8ce752e0cbf10aa` | Operational runbook; code/environment/approval review required |
 | 383 | `docs/runbooks/financial-balance-reconciliation-aud-373.md` | `d2ec4c4f55b9f8f6414402646144c3828cee859c` | Operational runbook; code/environment/approval review required |
 | 384 | `docs/runbooks/financial-deletion-fencing-aud-392.md` | `0f0e526ea26848cd586d4c2573154bb4ee0b4ef1` | Operational runbook; code/environment/approval review required |
-| 385 | `docs/runbooks/financial-restore-reconciliation-aud-388.md` | `c8913e32407ec0d2ed96590611c1ad2370592444` | Operational runbook; code/environment/approval review required |
+| 385 | `docs/runbooks/financial-restore-reconciliation-aud-388.md` | `40bee7aa1695edf0190310bf70b60b48c0434c0a` | Operational runbook; code/environment/approval review required |
 | 386 | `docs/runbooks/frontend-auth-and-api-recovery-aud-378.md` | `b2d08ee3a5e8d075a86db0b7a224ceea9efbad17` | Operational runbook; code/environment/approval review required |
 | 387 | `docs/runbooks/generation-deletion-fencing-aud-393.md` | `cbd45b15da4e527179e1d772be60a78498d657ac` | Operational runbook; code/environment/approval review required |
 | 388 | `docs/runbooks/gptunnel-generation-recovery-aud-377.md` | `69e850e153af708fab38587456d0bef4b78cba68` | Operational runbook; code/environment/approval review required |
@@ -416,7 +416,7 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 398 | `docs/runbooks/pinterest-scheduler-operations-aud-386.md` | `18b02f92a935f92e07321afe6be9f01543315e39` | Operational runbook; code/environment/approval review required |
 | 399 | `docs/runbooks/prodamus-deletion-race-aud-401.md` | `822ef2d4856617e3dfc4428954b7d393ebb556dc` | Operational runbook; code/environment/approval review required |
 | 400 | `docs/runbooks/prodamus-receipt-entitlement-aud-400.md` | `2fe426d7cea8fbaa1f0c64852830689464b3fcf1` | Operational runbook; code/environment/approval review required |
-| 401 | `docs/runbooks/prodamus-refunds.md` | `f5802348cd94bd28f19341da60c34a1f62cc3350` | Operational runbook; code/environment/approval review required |
+| 401 | `docs/runbooks/prodamus-refunds.md` | `cd16fe41c735f0325f6a206d859c79c9482fa65a` | Operational runbook; code/environment/approval review required |
 | 402 | `docs/runbooks/public-pin-image-handling-aud-375.md` | `170db484f694b13c3fad66334611e73211787edc` | Operational runbook; code/environment/approval review required |
 | 403 | `docs/runbooks/release-line.md` | `ca56773268024b6c851b61600be5a8b16373a4de` | Operational runbook; code/environment/approval review required |
 | 404 | `docs/storage-lifecycle.md` | `870605f72ea42835d9784120ba0b4ed6d6bb6c69` | Inventory only; content review pending |
