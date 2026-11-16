@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # One command that answers "does this repository still work?".
-# GitHub Actions jobs have recently failed before their first step.
+# GitHub Actions jobs currently fail before their first step.
 #
 #   ./scripts/verify.sh
 #   ./scripts/verify.sh --migrations
@@ -45,7 +45,7 @@ while (($#)); do
       shift
       ;;
     --postgres-port)
-      if (($# < 2)) || [[ ! "$2" =~ ^[0-9]+$ ]]; then
+      if (($# < 2)) || [[ ! "$2" =~ ^[0-9]{1,5}$ ]]; then
         echo "--postgres-port requires an integer from 1 to 65535." >&2
         exit 2
       fi
