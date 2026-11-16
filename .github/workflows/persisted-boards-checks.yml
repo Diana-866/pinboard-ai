@@ -12,11 +12,17 @@ on:
       - 'fix/**'
       - 'feat/**'
       - 'chore/**'
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
   pull_request:
     branches:
       - main
       - feat/persisted-boards-api
       - fix/atomic-payment-fulfillment
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
 
 permissions:
   contents: read
