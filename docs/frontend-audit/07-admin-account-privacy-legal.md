@@ -80,3 +80,43 @@ Existing `accountDataExport.test.ts` was inspected but **not executed**. No fron
 - Mandatory disposable PostgreSQL replay, SQL integration and backend runtime gates remain blocked by UA-001/UA-002.
 
 No production account, user data, financial balance, payment provider, admin operation, database or deployment configuration was changed.
+
+
+## Supplemental hardening — account operations, partial export and public image disclosure
+
+A second source pass on the same package extended the initial review without creating a second report file.
+
+### FE-08 — account export/deletion operations fenced by owner and request generation
+
+`SettingsView` now captures the authenticated owner and request generation for account export and deletion. A delayed export response cannot download a previous user's data after account switching; stale catch/finally handlers cannot change the new user's settings state. Deletion completion, error state and delayed logout are fenced by the same owner/request identity, and switching users cancels the old logout timer.
+
+Added `frontend/src/utils/accountOperationFence.ts` and tests covering same owner, changed owner, superseded request and missing identity.
+
+### FE-09 — partial account exports now produce an explicit warning
+
+Backend `buildAccountExport()` can return a JSON file with `degradedSections` when one or more database sections are unreadable. `SettingsView` previously downloaded such a file without telling the user it was incomplete. Added `isCompleteAccountExport()` and tests; the UI still downloads the file but now displays an accessible localized warning if the export envelope is malformed, a required section is missing, or `degradedSections` is non-empty. Added `exportPartialWarning` in all seven supported locales.
+
+### Public image visibility disclosed in Russian
+
+The English policy already disclosed that pin images live in a public object-storage bucket and that anyone with the public URL can view them. Backend `pinImageLifecycle.js` requires the `pin-images` bucket to be public for Pinterest-compatible image URLs. Added the matching Russian disclosure, including warning not to upload confidential/private content and noting that deleting the PinPosy reference cannot recall downloaded, cached or third-party copies. No storage access setting was changed.
+
+### Deletion worker production gate — owner confirmation required
+
+`ACCOUNT_DELETION_WORKER_ENABLED=true` is an explicit opt-in. `backend/index.js` starts the embedded worker only when enabled; production otherwise logs `account_deletion_worker.disabled_in_production`. The deletion request service fails closed with 503 while the worker is disabled. The privacy policy promises deletion within 30 days, but the assistant cannot inspect production environment variables or worker logs. Added UA-003 to `docs/USER_ACTIONS.md` to require owner confirmation of the production flag, startup/batch logs, staging deletion proof, actual subprocessors/regions, public image storage behavior and legal operator/payment details. Do not enable the worker in production without staging validation.
+
+### Additional commits
+
+- `90f76a1949fccb6070fe5aa161af6ac9b07e00e5` — account export/deletion owner fencing in Settings.
+- `3fbb10d404329790a8aaa8651d0aec6539258f53` — account operation fence helper.
+- `f528453643d2e0227a7ec0a2f1264200307c6170` — account operation fence tests.
+- `4935297e40b55de313ae7f0d1d4ab0c027196e17` — Settings uses tested owner fence.
+- `129c6e45a432e87c449615f7de2c8c7d1d736928` — account export completeness helper.
+- `e532cf60fb182ec604f362168bccdda643e97899` — export completeness tests.
+- `7ee28c0ac680972dfe0fcab8bcc1df95f2acc48e` and locale commits `5cb84619e5405f06ec24ca5526c0e677ffb42e95`, `11a56053b8758eb017bc9b08f487ea2f8f1e69f5`, `47f73973192ce0f230133b833fdc7d1cd936b2d4`, `448955863cdea7bcb28c75de2bbfa4b33f5eb31d`, `b7a666c7659769597ab9854ab8adb50edc7a457b`, `a92589e7396e3ac4e894b19e76c7667333f0eea6`, `bfbf38c26c3b5bd1431e0dc6542f012a2baafbd2` — partial export warning translations.
+- `075b73d23b908a9c758bc69f4b7f0dc8f66ae41c` — show incomplete export warning.
+- `0cd90e941deecd487f9a086037d10569eee222c5` — Russian public-image visibility disclosure.
+- `67b52e2b02cf02f693f7db90b2ff57331e235ee6` — UA-003 owner action.
+
+### Supplemental readback
+
+After these changes, 13 static assertions passed across Settings, account operation helper/tests, export completeness helper/tests, RU/EN privacy policies and all seven locale files. Ten more passed across account lifecycle, worker gate, backend account routes, admin middleware and account/admin authorization tests. Total: 23 static assertions. The 22 admin route declarations in `backend/index.js` all include `requireAuth, requireAdmin`; `requireAdmin` checks the authenticated user in the database and fails closed. No frontend test, typecheck, build, browser account-switch test, worker run, production export/deletion, backend runtime or SQL test was executed.
