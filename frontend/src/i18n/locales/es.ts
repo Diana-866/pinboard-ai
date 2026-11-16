@@ -495,6 +495,13 @@ export const es: TranslationSchema = {
     deleteAccountConfirm: "Solicitar eliminación",
     deleteAccountDone: "Hemos recibido tu solicitud de eliminación y el acceso está desactivado. Tus datos aún no se han eliminado.",
     requestFailed: "No se pudo completar la solicitud. Inténtalo de nuevo.",
+    emailVerifyTitle: 'Verifica tu correo electrónico',
+    emailVerifyResent: 'Hemos enviado el correo de verificación de nuevo. Revisa tu bandeja de entrada y la carpeta de spam.',
+    emailVerifyResend: 'Volver a enviar el correo',
+    emailVerifySending: 'Enviando…',
+    emailVerifyDismiss: 'Ocultar',
+    emailVerifyThrottled: 'Ya se envió un correo de verificación hace poco. Inténtalo más tarde.',
+    emailVerifySendError: 'No se pudo enviar el correo de verificación. Inténtalo más tarde.',
   },
 
   pricing: {
@@ -641,6 +648,10 @@ export const es: TranslationSchema = {
     strategistPrompt: "¿Necesitas ayuda para entender tus analíticas?",
     askStrategist: "Preguntar al estratega de IA →",
     strategistTitle: "Abrir el estratega de IA de PinPosy",
+    justNow: 'Ahora mismo',
+    taskCompletedTitle: 'Tarea completada',
+    reviewQueueSyncErrorTitle: 'Error al sincronizar la cola',
+    reviewQueueSyncErrorMessage: 'No se pudo cargar o guardar la cola. Comprueba la conexión y actualiza la página para volver a sincronizar.',
   },
 
   terms: {
