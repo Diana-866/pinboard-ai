@@ -685,7 +685,7 @@ export const es: TranslationSchema = {
     floatingButton: 'Estratega IA Pinterest',
     title: 'Estratega IA PinPosy',
     subtitle: 'Responde con los datos de tu cuenta',
-    statusBadge: 'En línea',
+    statusBadge: "Modo demo",
     disclaimerPeak: 'Este asistente indica dónde está cada sección y muestra tus cifras actuales. No ve las analíticas de Pinterest: las aplicaciones aún no tienen ese acceso.',
     welcomeMessage: '¡Hola! Puedo mostrarte lo que hay ahora en tu cuenta y decirte en qué sección está cada cosa. Pregunta con tus palabras.',
     quickQuestion1: '¿Dónde puedo ver las estadísticas de mis pines?',
