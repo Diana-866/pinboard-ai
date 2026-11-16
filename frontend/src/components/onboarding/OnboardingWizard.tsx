@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ArrowRight, ArrowLeft, Check, Sparkles, Rocket, PartyPopper, CreditCard } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -26,6 +26,8 @@ type Step = 1 | 2 | 3;
 
 export const OnboardingWizard: React.FC = () => {
   const { refreshUser, user } = useAuth();
+  const ownerIdRef = useRef(user?.id || '');
+  ownerIdRef.current = user?.id || '';
   const { language } = useI18n();
   const t = getOnboardingCopy(language);
   const [planPrices, setPlanPrices] = useState<Record<PlanId, { rub: number; usd: number }> | null>(null);
@@ -78,6 +80,8 @@ export const OnboardingWizard: React.FC = () => {
 
   /** Persist onboarding details and refresh the authenticated user. */
   async function completeOnboarding(intent: 'later' | 'pay') {
+    const requestOwnerId = ownerIdRef.current;
+    if (!requestOwnerId) return;
     setError('');
     setSaving(true);
     try {
@@ -102,18 +106,24 @@ export const OnboardingWizard: React.FC = () => {
           productComment: productComment.trim() || '',
         }),
       });
+      if (ownerIdRef.current !== requestOwnerId) return;
       // Keep the wizard mounted until its completion screen is acknowledged.
       // Refreshing here would flip App.needsOnboarding and unmount this component.
       setDone(intent);
     } catch (e: any) {
-      setError(t.saveError);
-      setSaving(false);
+      if (ownerIdRef.current === requestOwnerId) {
+        setError(t.saveError);
+        setSaving(false);
+      }
     }
   }
 
   const finishOnboarding = async (tab: 'dashboard' | 'pricing') => {
+    const requestOwnerId = ownerIdRef.current;
+    if (!requestOwnerId) return;
     setError('');
     const refreshed = await refreshUser();
+    if (ownerIdRef.current !== requestOwnerId) return;
     if (!refreshed) {
       setError(t.profileRefreshError);
       return;
