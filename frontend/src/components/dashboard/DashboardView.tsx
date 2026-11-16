@@ -152,26 +152,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <div className="space-y-2.5">
             {boards.length > 0 ? boards.slice(0, 4).map((board) => (
-              <div
+              <button
                 key={board.id}
+                type="button"
                 onClick={() => onNavigateTab('boards')}
-                className="p-3 rounded-xl border border-subtle hover:border-strong transition-colors flex items-center justify-between gap-3 cursor-pointer bg-subtle"
+                className="w-full text-left p-3 rounded-xl border border-subtle hover:border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-colors flex items-center justify-between gap-3 bg-subtle"
               >
-                <div className="min-w-0">
-                  <h4 className="text-xs font-bold text-primary-theme truncate">
+                <span className="min-w-0 block">
+                  <span className="block text-xs font-bold text-primary-theme truncate">
                     {board.name}
-                  </h4>
-                  <p className="text-[11px] text-muted-theme mt-0.5">
+                  </span>
+                  <span className="block text-[11px] text-muted-theme mt-0.5">
                     {t.dashboard.boardMetricsUnavailable}
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className="font-mono text-xs font-bold text-primary-theme">
+                  </span>
+                </span>
+                <span className="text-right shrink-0 block">
+                  <span className="block font-mono text-xs font-bold text-primary-theme">
                     —
                   </span>
-                  <span className="text-[10px] text-muted-theme block">{t.dashboard.boardMetricsUnavailable}</span>
-                </div>
-              </div>
+                  <span className="block text-[10px] text-muted-theme">{t.dashboard.boardMetricsUnavailable}</span>
+                </span>
+              </button>
             )) : (
               <p className="py-6 text-center text-xs text-muted-theme">{t.dashboard.emptyBoards}</p>
             )}
