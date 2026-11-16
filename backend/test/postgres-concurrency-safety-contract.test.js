@@ -42,3 +42,20 @@ test('all nine concurrency scripts use the shared target guard and isolated clea
     assert.doesNotMatch(script, /\/tmp\/(?!pinposy-concurrency\.)/, filename);
   }
 });
+
+
+test('CI workflow routes concurrency tests through a unique disposable clone', () => {
+  const workflow = read('.github/workflows/atomic-payment-integration.yml');
+  const runner = read('backend/test/run-disposable-concurrency-suite.sh');
+  assert.ok(workflow.includes('bash backend/test/run-disposable-concurrency-suite.sh'));
+  for (const filename of scripts) {
+    assert.equal(workflow.includes('bash backend/test/' + filename), false, filename);
+    assert.equal(runner.includes(filename), true, filename);
+  }
+  assert.ok(runner.includes('pinposy_verify_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}'));
+  assert.ok(runner.includes('PINPOSY_ALLOW_DISPOSABLE_DB_TESTS=1'));
+  assert.ok(runner.includes('-T pinposy_test'));
+  assert.ok(runner.includes('dropdb --if-exists --force'));
+  assert.ok(runner.includes('trap cleanup EXIT'));
+  assert.ok(runner.includes('127.0.0.1|localhost|::1'));
+});

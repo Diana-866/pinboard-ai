@@ -863,3 +863,13 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 
 - После добавления отчёта PR/branch review обновлён docs/DOCUMENTATION_REGISTER.md: 403 файлов, текущие Git blob SHA, source HEAD b39f09c6c0b8c74e68b445f81b497945c2eb6fc7; 40 повторяющихся AUD IDs остаются зафиксированными без rename.
 - Отдельно зафиксировано: PR review — 55 открытых PR и 100 веток, ни один PR не принят/закрыт автоматически; см. docs/audits/2026-11-16-open-pr-and-branch-review.md.
+
+
+### Исправление CI concurrency harness: отдельная disposable-копия (2026-11-16)
+
+- Перед изменением повторно проверены main HEAD 31b94158b4687227fe483908c222e66abe92fd25, паспорт, USER_ACTIONS, workflow `.github/workflows/atomic-payment-integration.yml`, общий guard и все девять concurrency scripts.
+- Найдено несоответствие: девять scripts требуют `PGDATABASE=pinposy_verify_<suffix>` и `PINPOSY_ALLOW_DISPOSABLE_DB_TESTS=1`, но workflow запускал их напрямую в общей CI fixture `pinposy_test` без этих параметров. Следовательно, scripts отказались бы запускаться после hardening; runtime они не запускались из-за runner allocation blocker.
+- Добавлен `backend/test/run-disposable-concurrency-suite.sh`: валидирует loopback и GitHub run identity, создаёт уникальную БД `pinposy_verify_<run>_<attempt>` как clone подготовленной `pinposy_test`, отказывается использовать существующую БД, включает explicit opt-in, запускает все 9 scripts последовательно и удаляет только собственный clone в EXIT trap.
+- Workflow больше не запускает concurrency scripts в `pinposy_test`; после SQL integration suite вызывает новый runner отдельным шагом. Добавлен static contract test для workflow, списка 9 scripts, clone source, database prefix, opt-in и cleanup.
+- AUD-401 синхронизирован с цепочкой 001 + 010–148, PostgreSQL 16 CI vs owner-side PostgreSQL 18.6, payment idempotency migrations 116–118 и статусом AUD-400 как proposal.
+- Только статические проверки при подготовке; bash -n, Node contract test, PostgreSQL runtime suite и Actions не запускались. Production/Supabase не затрагивались.

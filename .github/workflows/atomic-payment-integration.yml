@@ -516,9 +516,6 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-regeneration-exact-quote.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-generation-text-usage.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/auth-recovery.integration.sql
-          bash backend/test/auth-recovery-concurrency.sh
-          bash backend/test/password-reset-issuance-concurrency.sh
-          bash backend/test/email-verification-concurrency.sh
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-sensitive-table-privileges.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/security-definer-search-paths.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/billing-webhook-audit-privileges.integration.sql
@@ -540,10 +537,11 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/admin-pinterest-inventory.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-failed-board-reassignment.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-failed-schedule-retry-identity.integration.sql
-          bash backend/test/subscription-concurrency.sh
-          bash backend/test/credit-concurrency.sh
-          bash backend/test/generation-concurrency.sh
-          bash backend/test/pinterest-oauth-concurrency.sh
-          bash backend/test/pinterest-publication-concurrency.sh
-          bash backend/test/pinterest-schedule-claim-concurrency.sh
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-regeneration-journal.integration.sql
+      - name: Run isolated PostgreSQL concurrency suite
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: bash backend/test/run-disposable-concurrency-suite.sh
