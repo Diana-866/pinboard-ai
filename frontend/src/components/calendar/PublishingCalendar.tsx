@@ -1090,7 +1090,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
             {selectedPin.status === 'failed' && !selectedPin.pinterestAccountId && onReconcileLegacySchedule && (
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
                 <p className="text-xs font-semibold text-primary-theme">
-                  У старого расписания не указан Pinterest-аккаунт.
+                  {t.calendar.legacyScheduleAccountMissingTitle}
                 </p>
                 {accounts.length > 1 ? (
                   <select
@@ -1098,18 +1098,18 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                     onChange={(event) => setLegacyAccountId(event.target.value)}
                     className="w-full rounded-lg border border-subtle bg-app-input px-3 py-2 text-xs text-primary-theme"
                   >
-                    <option value="">Выберите аккаунт</option>
+                    <option value="">{t.calendar.legacyScheduleChooseAccount}</option>
                     {accounts.map((account) => (
                       <option key={account.id} value={account.id}>{account.handle || account.name}</option>
                     ))}
                   </select>
                 ) : accounts.length === 1 ? (
                   <p className="text-xs text-secondary-theme">
-                    Будет проверен единственный подключённый аккаунт: {accounts[0].handle || accounts[0].name}.
+                    {t.calendar.legacyScheduleOnlyAccount.replace('{account}', accounts[0].handle || accounts[0].name)}
                   </p>
                 ) : (
                   <p className="text-xs text-secondary-theme">
-                    Сначала подключите Pinterest-аккаунт в настройках.
+                    {t.calendar.legacyScheduleNoAccount}
                   </p>
                 )}
                 <button
@@ -1126,7 +1126,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                   })}
                   className="accent-btn px-3 py-2 rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {busyScheduleAction === `reconcile:${selectedPin.id}` ? 'Проверяем…' : 'Проверить аккаунт и восстановить расписание'}
+                  {busyScheduleAction === `reconcile:${selectedPin.id}` ? t.calendar.legacyScheduleChecking : t.calendar.legacyScheduleRestoreAccount}
                 </button>
               </div>
             )}
@@ -1139,7 +1139,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-subtle">
               {selectedPin.status === 'failed' && selectedPin.retryable === true && !!selectedPin.pinterestAccountId && onRetrySchedule && (
               <p className="text-[11px] text-secondary-theme">
-                Это задание не возобновляется автоматически после переподключения Pinterest. Нажмите «Повторить», чтобы снова поставить его в очередь.
+                {t.calendar.retryManualHint}
               </p>
             )}
             {selectedPin.status === 'failed' && selectedPin.retryable === true && !!selectedPin.pinterestAccountId && onRetrySchedule && (
