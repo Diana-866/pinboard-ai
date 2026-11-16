@@ -131,7 +131,7 @@ try {
     }
 
     $candidateDatabase = 'pinposy_sqlint_' + ([Guid]::NewGuid().ToString('N')).Substring(0,16)
-    if (-not $candidateDatabase.StartsWith('pinposy_sqlint_') -or $candidateDatabase.Length -ne 32) { throw 'Generated database identifier failed validation.' }
+    if (-not $candidateDatabase.StartsWith('pinposy_sqlint_') -or $candidateDatabase.Length -ne 31) { throw 'Generated database identifier failed validation.' }
     $exists = Get-PsqlValue -Database 'postgres' -Sql "SELECT count(*) FROM pg_database WHERE datname = '$candidateDatabase';"
     if ($exists -ne '0') { throw 'Generated disposable database already exists; refusing to touch it.' }
     Write-Host "Creating disposable database $candidateDatabase."
