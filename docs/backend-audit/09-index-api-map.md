@@ -163,3 +163,12 @@ All `/admin/*` handlers in this entrypoint use `requireAuth` and `requireAdmin`;
 - Added `backend/test/board-pins-pagination-contract.test.js` to assert the owner check remains before data access and the handler uses the shared bounded pager. The shared helper's exact-cap/overflow behavior is already covered by `backend/test/fetch-all-pages.test.js`.
 - Commits: `e96eb1d9` (route fix), `b22a0f18` (regression contract).
 - Static verification: route and test were re-fetched from `main`; runtime Node tests were NOT executed. No production database or service was touched.
+
+
+## Follow-up: bounded board-pin listing
+
+- GET /boards/:id/pins previously returned a single PostgREST query result, which could silently truncate a board with more than the default API row cap.
+- It now verifies board ownership first, then uses fetchAllPages with stable created_at,id ordering, 500-row pages and a 10,000-row cap (HTTP 413 on overflow).
+- Added backend/test/board-pins-pagination-contract.test.js to guard owner-check-before-fetch and bounded paging.
+- Commits: e96eb1d9 (route), b22a0f18 (test), 7dfbdb06 (report).
+- Latest GitHub Actions runs 43899467019/43899467236 failed; jobs have no executed steps. New runs 43899474201/43899474181 were queued at the last check.
