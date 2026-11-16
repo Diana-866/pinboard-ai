@@ -11,7 +11,7 @@ const script = fs.readFileSync(
 );
 
 test("scratch database name is unique per process", () => {
-  assert.match(script, /local db="pinposy_verify_\\$\\$"/);
+  assert.match(script, /local db="pinposy_verify_\$\$"/);
 });
 
 test("local migration replay starts from the canonical baseline", () => {
