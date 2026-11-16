@@ -68,6 +68,8 @@ test('runner refuses unsafe targets and documents the unexecuted Bash concurrenc
   assert.match(runner, /current_setting\('data_directory'\)/);
   assert.match(runner, /current_setting\('server_version_num'\)/);
   assert.match(runner, /PGCLIENTENCODING = 'UTF8'/);
+  assert.match(runner, /candidateDatabase\.Length -ne 31/);
+  assert.match(runner, /candidateDatabase\.StartsWith\('pinposy_sqlint_'\)/);
   assert.match(runner, /finally\s*\{/);
   assert.match(runner, /pg_terminate_backend\(pid\).*DROP DATABASE/s);
   assert.match(runner, /NOT RUN: nine Bash concurrency scripts/);
