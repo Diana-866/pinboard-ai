@@ -145,3 +145,12 @@ All `/admin/*` handlers in this entrypoint use `requireAuth` and `requireAdmin`;
 - Added `backend/test/review-queue-pagination-contract.test.js` to guard the route against reintroducing the unbounded loop; the shared helper's exact-cap/overflow behavior is covered by `backend/test/fetch-all-pages.test.js`.
 - Commits: `e965a3a4` (route fix), `2bebc508` (regression contract).
 - Static verification: re-fetched the route and test from `main`; route uses `fetchAllPages` and `.range(from, to)`. No workflow run was returned for the test commit; Node tests were NOT executed and no production data/service was touched.
+
+
+## Follow-up: bounded review-queue reconciliation concurrency
+
+- `GET /review-queue` already used 200-ID chunks, but launched every pin and schedule lookup chunk in one unbounded `Promise.all`. At the 10,000-row cap this could create up to 50 concurrent requests per lookup group.
+- Changed both lookup groups to batches of at most five concurrent requests; stale-row cleanup remains sequential in chunks of 200.
+- Updated `backend/test/review-queue-pagination-contract.test.js` to assert the bounded batch loops and prevent reverting to one unbounded `Promise.all`.
+- Commits: `54b4a12f`, `cb7725d9`, `cb1feec3`.
+- Static source verification only. Latest workflow runs `43899297092` and `43899297123` have `steps: null`; no unit/integration/build steps executed.
