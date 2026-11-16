@@ -685,7 +685,7 @@ export const en: TranslationSchema = {
     floatingButton: 'Pinterest AI Strategist',
     title: 'PinPosy AI Strategist',
     subtitle: 'Answers from your account data',
-    statusBadge: 'Online',
+    statusBadge: "Demo",
     disclaimerPeak: 'This assistant tells you where things are and shows your current account numbers. It cannot see Pinterest analytics — apps are not given that access yet.',
     welcomeMessage: 'Hi! I can show what is in your account right now and point you to the right section. Just ask in your own words.',
     quickQuestion1: 'Where can I find pin analytics?',
