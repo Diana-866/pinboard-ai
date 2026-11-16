@@ -63,6 +63,9 @@
 
 - **Повторная проверка после обновления паспорта проекта (2026-11-16, HEAD `9c0c863617d4c965594223a5ab6bd767ba1f75dd`):** runs `43935408594` (Atomic payment fulfillment integration) job `133538587572` (postgres-atomicity), и `43935408658` (Persisted boards integration checks) jobs `133538587582` (frontend), `133538587982` (backend) завершились `failure` с `runner_id: 0`, `steps: []`. Это повторное pre-runner failure; никакие тесты/build/SQL не исполнялись. UA-002 остаётся открытым до проверки настроек GitHub account billing и Actions permissions владельцем.
 
+
+- **Повторная проверка после package-09 auth form fixes (2026-11-16):** актуальный `main` HEAD на момент чтения — `dd0425b157067b42ec7ca1451025bc70358f0f1f`. Runs `43935515983` (Persisted boards integration checks) jobs `133538642111` (frontend) и `133538642490` (backend), а также `43935516070` (Atomic payment fulfillment integration) job `133538642235` (postgres-atomicity) завершились `failure`; все три jobs имеют `runner_id: 0`, `steps: []`. Следовательно, frontend/backend tests, typecheck, build и SQL replay не запускались. Vercel status текущего HEAD — `failure`, `Deployment rate limited — retry in 24 hours`, target `build-rate-limit`; это лимит платформы, не ошибка сборки. UA-002 остаётся открытым; требуется проверка владельцем GitHub billing/Actions permissions и Vercel quota.
+
 ## UA-003 — подтвердить production account-deletion worker и точность privacy disclosures
 
 - **Статус:** [ ] Ожидает проверки владельцем production-инфраструктуры.
