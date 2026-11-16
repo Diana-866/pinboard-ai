@@ -43,6 +43,12 @@ test("Windows replay uses a uniquely named disposable database", () => {
   assert.match(windowsScript, /DROP DATABASE IF EXISTS \$database/);
 });
 
+test("Windows migration replay pins every psql connection to loopback", () => {
+  const psqlCalls = windowsScript.match(/& \$psql[^\\r\\n]*/g) || [];
+  assert.equal(psqlCalls.length, 4);
+  assert.ok(psqlCalls.every((call) => /-h 127\\.0\\.0\\.1/.test(call)));
+});
+
 test("Windows replay applies stubs, canonical baseline, then exactly 139 active migrations", () => {
   assert.match(windowsScript, /db\/supabase-stub\.sql/);
   assert.match(windowsScript, /001_baseline\.sql/);
