@@ -138,3 +138,36 @@ A focused keyboard-accessibility review of the login and registration pages foun
 **Commits:** Login `dedd6a5e3b89aedca279d025a5a918627434212a`; Register `a5e457083cbd47b2d89dc2eaefb7be746641efd3`; regression test `f81ba4f165c74db1e4a2b792783234b53e6f340f`, corrected selector `133e67741c92000364ddde6ba83f24e319e47b71`.
 
 The two pages, regression test and package script were re-fetched from current `main`. Five targeted static assertions passed for keyboard tab order, accessible label, control association, pressed state and inclusion in the existing test glob. The regression test source was inspected but **not executed**; no typecheck, full frontend test suite, browser keyboard test or screen-reader test was run. Package 09 and the full frontend audit remain open. No backend, database, production data, payment, Pinterest account or deployment configuration changed.
+
+
+## Supplemental notification isolation, email verification and review keyboard accessibility
+
+### FE-14 — persisted notifications were shared between authenticated users
+
+`NotificationContext` previously read/wrote one browser-local `pinposy_notifications` key without an owner identity. The notification provider was also outside `AuthProvider`, so it could not scope history to the signed-in account. A second user signing in in the same browser could see the previous user's notification titles/messages.
+
+**Fix on main:** moved `NotificationProvider` inside `AuthProvider`; it now reads/writes `pinposy_notifications:<encoded-owner-id>`, validates persisted notification records before rendering, hides state whose owner differs from the current user, and retires the old unscoped key. Delayed task timers and review-queue error events are fenced by owner ID and an owner-generation counter, so an A→B→A switch cannot apply an old timer to the new session. Notification error copy and task timestamps now use locale dictionaries.
+
+Added `notificationStorageKey.ts` and tests for stable per-owner keys, isolation between users and rejection of empty owners.
+
+### FE-15 — email verification banner was partially Russian-only and success was not announced
+
+The banner's heading, resend control, destination label and errors now use localized settings copy across all seven locales. It owner/request-fences resend responses, announces success through `role=status`/`aria-live`, announces errors with `role=alert`, and marks both controls as buttons with explicit type.
+
+### FE-16 — review keyboard shortcuts could steal arrows from interactive controls
+
+The review desk's global arrow shortcuts previously ignored only input/textarea/select. They could intercept arrows while a button/link/contenteditable control was focused and repeated keydown could trigger multiple decisions. The desk now ignores repeated and modified key events and skips editable/interactive targets. The review area exposes a labeled region, visible keyboard focus and `aria-keyshortcuts="ArrowLeft ArrowRight"`.
+
+### Commits from this supplemental pass
+
+- `7978223558d02ae9b554c0e3bde59e4c406b8975` — email verification and notification i18n schema.
+- `22ded8f4cb615efdf607f52b2c7a89c33acc632b`, `710cbd8f7bb3cf8c6f2c67505e27ab04c86f1d57`, `2e7e21f037054f852e924e50f23abbe79f5be3b5`, `461f840446e6c360f79ff39f0a23a4a7852734f4`, `1716a1e981241a1344b5d18e8c2736348da7b670`, `31161f41a15589ebd0960a1c25f6f40f2b28dd4d`, `894e11411294a21fc644ab2932c530da575fb975` — seven locale dictionaries.
+- `b9582025d1830bb2424bb0b381c12bedfbe0f2f7` — email verification resend owner fence and localized messages; `d785f2a1aabbc4d73de8c26f3741064d7f1a875d` — accessible success/dismiss behavior.
+- `14e9b46518bfcb7582e4b04ab590df77f4f94b67` — owner-scoped notification key helper; `614b08149ec4c3afa763a0d17de33770b9d625af` — helper tests; `dad3aaa2da4f2c05fd70fda0cde41402d3dc90ba` — notification provider owner isolation/localized messages; `0f364e07a724296bac8d381d5788e7afab9d1658` — provider nesting under AuthProvider.
+- `119587c602bba7fb5b322e5378cb40d0c30ca74e` — review keyboard shortcut focus guard and accessible region.
+
+### Supplemental readback
+
+After changes, 16 static assertions passed across NotificationContext, owner key helper/tests, App provider order, EmailVerifyBanner, ManualApprovalDesk and translation schema. Seven locale files were re-fetched; all seven contain every new email-verification and notification key. No frontend test, typecheck, build, browser multi-user notification test, keyboard-only test or screen-reader test was executed.
+
+**Still open:** active `ManualApprovalDesk` contains numerous hard-coded Russian control labels and fallback alerts/status messages. Demo pin text is sample content; actual action/error UI should be localized in a later focused pass. Legacy `AuthModal.tsx` and `SwipeReviewModal.tsx` were not changed because current `App.tsx` does not render them. Package 09 and the complete frontend audit remain open.
