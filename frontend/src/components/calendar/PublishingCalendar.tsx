@@ -22,6 +22,7 @@ import { useI18n } from '../../i18n/i18nContext';
 import { BoardItem, ScheduledPinItem, PinterestAccount } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { getScheduleRetryReasonMessage } from '../../utils/scheduleRetryReason';
+import { getExplicitGenerationTopic } from '../../utils/generationTopic';
 import { resolveLatestSelectedSchedulePin } from '../../utils/resolveLatestSelectedSchedulePin';
 import {
   addCalendarDaysInTimezone,
@@ -311,12 +312,20 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
       time: safeTime,
       boardId: boards[0]?.id || '',
     });
-    setSlotTopic('Minimalist Scandinavian styling and warm beige palette');
+    setSlotTopic('');
   };
 
   const handleConfirmSlotGenerate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!slotModalData) return;
+
+    const topic = getExplicitGenerationTopic(slotTopic);
+    if (!topic) {
+      window.alert(language === 'ru'
+        ? 'Введите тему пина, чтобы перейти к генерации.'
+        : 'Enter a pin topic before continuing to generation.');
+      return;
+    }
 
     const selectedBoard = boards.find((board) => board.id === slotModalData.boardId);
     if (!selectedBoard) {
@@ -328,7 +337,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
       return;
     }
 
-    onGoToGenerator(slotTopic, slotModalData.date, slotModalData.time, selectedBoard.id);
+    onGoToGenerator(topic, slotModalData.date, slotModalData.time, selectedBoard.id);
     setSlotModalData(null);
   };
 

@@ -22,6 +22,7 @@ import { AI_CONTENT_LANGUAGES, useI18n } from '../../i18n/i18nContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
+import { getExplicitGenerationTopic } from '../../utils/generationTopic';
 import { addCalendarDaysInTimezone, formatInstantInTimezone, getDefaultTimezone, resolveScheduleSlotTime } from '../../utils/timezone';
 import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure } from '../../utils/generationRetry';
 import { clearPendingPinDescriptionIfMatches, readPendingPinDescription, writePendingPinDescription } from '../../utils/pendingPinDescription';
@@ -91,7 +92,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
   const [pinCount, setPinCount] = useState<number>(5);
   const [topic, setTopic] = useState(
-    initialTopic || 'Minimalist Scandinavian living room styling tips and cozy decor ideas'
+    initialTopic || ''
   );
 
   // User requested: "Планирование (Scheduling)" - Опубликовать сразу / В умную очередь / Выбрать дату и время
@@ -184,9 +185,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   }, [initialDate, initialTime]);
 
   useEffect(() => {
-    if (initialTopic) {
-      setTopic(initialTopic);
-    }
+    // Clear a previous board's topic when navigation returns without a new topic.
+    setTopic(initialTopic || '');
   }, [initialTopic]);
 
   // Aspect ratio mode: single uniform format or mix/randomizer
@@ -512,12 +512,18 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   };
 
   const handleGenerate = async () => {
+    const currentTopic = getExplicitGenerationTopic(topic);
+    if (!currentTopic) {
+      window.alert(language === 'ru'
+        ? 'Введите тему пина или выберите одну из предложенных идей.'
+        : 'Enter a pin topic or choose one of the suggested ideas.');
+      return;
+    }
     if (generationInFlightRef.current) return;
     generationInFlightRef.current = true;
     setIsGenerating(true);
     setScheduledSuccess(false);
 
-    const currentTopic = topic.trim() || 'Aesthetic Minimalist Inspiration';
     let requestFingerprint = '';
     try {
       const selectedBoard = boards.find((b) => b.id === selectedBoardId);
