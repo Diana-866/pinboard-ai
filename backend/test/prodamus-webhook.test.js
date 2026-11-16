@@ -2,6 +2,7 @@ const test = require("node:test");
 require("./helpers/env");
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
+const axios = require("axios");
 
 const { parseMultipartFields } = require("../prodamusWebhookBody");
 const prodamus = require("../prodamus");
@@ -702,6 +703,104 @@ test("includes a per-request webhook URL only when Prodamus SYS is configured", 
     assert.equal(params.get("urlNotification"), "https://api.pinposy.com/billing/webhook");
   } finally {
     for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+
+test("rejects a checkout URL carried by a non-success Prodamus HTTP response", async () => {
+  const previous = {
+    PRODAMUS_SECRET: process.env.PRODAMUS_SECRET,
+    PRODAMUS_OFFLINE: process.env.PRODAMUS_OFFLINE,
+    PRODAMUS_URL: process.env.PRODAMUS_URL,
+    post: axios.post,
+  };
+  try {
+    process.env.PRODAMUS_SECRET = "shop-secret-test";
+    delete process.env.PRODAMUS_OFFLINE;
+    process.env.PRODAMUS_URL = "https://example.payform.ru/";
+    axios.post = async () => ({
+      status: 503,
+      data: { link: "https://example.payform.ru/pay?id=unconfirmed" },
+    });
+
+    await assert.rejects(
+      prodamus.createPaymentLink({
+        orderId: "pp-start-http-503",
+        amount: 1990,
+        description: "PinPosy / Старт",
+      }),
+      (error) => error.httpStatus === 502 && /не подтвердил создание счёта/.test(error.message)
+    );
+  } finally {
+    axios.post = previous.post;
+    for (const [key, value] of Object.entries(previous)) {
+      if (key === "post") continue;
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+test("marks an explicit Prodamus 4xx response as a definitive rejection", async () => {
+  const previous = {
+    PRODAMUS_SECRET: process.env.PRODAMUS_SECRET,
+    PRODAMUS_OFFLINE: process.env.PRODAMUS_OFFLINE,
+    PRODAMUS_URL: process.env.PRODAMUS_URL,
+    post: axios.post,
+  };
+  try {
+    process.env.PRODAMUS_SECRET = "shop-secret-test";
+    delete process.env.PRODAMUS_OFFLINE;
+    process.env.PRODAMUS_URL = "https://example.payform.ru/";
+    axios.post = async () => ({ status: 422, data: { error: "invalid request" } });
+
+    await assert.rejects(
+      prodamus.createPaymentLink({
+        orderId: "pp-start-http-422",
+        amount: 1990,
+        description: "PinPosy / Старт",
+      }),
+      (error) => error.httpStatus === 502 && error.providerRejected === true
+    );
+  } finally {
+    axios.post = previous.post;
+    for (const [key, value] of Object.entries(previous)) {
+      if (key === "post") continue;
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+test("accepts a valid checkout URL from a successful Prodamus HTTP response", async () => {
+  const previous = {
+    PRODAMUS_SECRET: process.env.PRODAMUS_SECRET,
+    PRODAMUS_OFFLINE: process.env.PRODAMUS_OFFLINE,
+    PRODAMUS_URL: process.env.PRODAMUS_URL,
+    post: axios.post,
+  };
+  try {
+    process.env.PRODAMUS_SECRET = "shop-secret-test";
+    delete process.env.PRODAMUS_OFFLINE;
+    process.env.PRODAMUS_URL = "https://example.payform.ru/";
+    axios.post = async () => ({
+      status: 201,
+      data: { link: "https://example.payform.ru/pay?id=created" },
+    });
+
+    const result = await prodamus.createPaymentLink({
+      orderId: "pp-start-http-201",
+      amount: 1990,
+      description: "PinPosy / Старт",
+    });
+    assert.equal(result.url, "https://example.payform.ru/pay?id=created");
+  } finally {
+    axios.post = previous.post;
+    for (const [key, value] of Object.entries(previous)) {
+      if (key === "post") continue;
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
     }
