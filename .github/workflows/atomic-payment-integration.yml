@@ -76,6 +76,8 @@ jobs:
         run: node --test backend/test/fetch-all-pages.test.js
       - name: Test canonical local migration replay script
         run: node --test backend/test/verify-script-migration-chain.test.js
+      - name: Test PostgreSQL integration runner contract
+        run: node --test backend/test/postgres-integration-runner-contract.test.js
       - name: Test cleanup of unsent payment records
         run: node --test backend/test/payment-record-cleanup.test.js
       - name: Test checkout settlement helper
