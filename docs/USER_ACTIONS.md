@@ -355,3 +355,10 @@ UA-004 по локальному запуску остаётся обязате�
 - Результат: все три jobs снова `failure` до первого шага (`steps: null`; postgres steps endpoint вернул `[]`). Загрузка postgres logs завершилась `BlobNotFound`, то есть диагностического runner log GitHub не предоставил. Ни PowerShell parser, ни Node contract test, ни SQL suite, ни backend/frontend tests/build не выполнялись.
 - Это внешний hosted-runner/pre-step blocker, не ошибка тестов PinPosy. Не выдавать failure за runtime defect или PASS. Локальный UA-004 остаётся NEXT и выполняется только на отдельном PostgreSQL 18.6 согласно инструкции выше.
 - Никакие production resources, базы, платежи, Pinterest credentials или Vercel settings не менялись.
+
+### Повторная проверка UA-004 и решение по PR #90 (2026-11-16)
+
+- UA-004 остаётся обязательным локальным действием владельца: fast-forward sync `main`, затем `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1 -PostgresPort 55439` на заранее созданном отдельном PostgreSQL 18.6. Пароль вводить только в скрытый prompt; присылать вывод без секрета. Не использовать production/PIN_TRIAL, существующий кластер или PID 5632.
+- Рассмотрен PR #90 (`ci: run backend and frontend checks on Windows self-hosted runner`): draft, `mergeable_state=unknown`, requires `[self-hosted, Windows, X64]`. Он не запускает job без подходящего self-hosted runner и не заменяет UA-004. Оставлен открытым и не объединён до подтверждения наличия и безопасности runner.
+- Для текущего main HEAD `51cc8ca14acb08f19243c1f0256b5407766156c6` Actions run отсутствует; Vercel продолжает сообщать `Deployment rate limited — retry in 24 hours` (20:36:58Z). Это не результат сборки.
+- Никаких локальных/production ресурсов и настроек не меняли; фактические SQL, backend/frontend тесты и build не запускались.
