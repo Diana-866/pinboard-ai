@@ -211,6 +211,8 @@ export const de: TranslationSchema = {
     brandingText: 'Marken-Wasserzeichen oder URL',
     templateStyle: 'Layout-Voreinstellung',
     exportImageBtn: 'Pin-Bild herunterladen (PNG)',
+    exportFailed: 'Das Bild konnte nicht exportiert werden. Die Quelle erlaubt möglicherweise keinen Canvas-Export. Versuchen Sie ein anderes Bild oder laden Sie es direkt von der Quelle herunter.',
+    copyFailed: 'Die Pin-Details konnten nicht kopiert werden. Prüfen Sie die Zwischenablage-Berechtigungen Ihres Browsers.',
     pushToCalendarBtn: 'Im Kalender einplanen',
     savedToCalendar: 'Pin erfolgreich im Veröffentlichungskalender eingeplant!',
     batchGeneratedNotice: 'Ein Batch aus Pins wurde mit unterschiedlichen thematischen Blickwinkeln erstellt.',
