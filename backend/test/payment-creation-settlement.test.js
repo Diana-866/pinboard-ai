@@ -3,6 +3,8 @@ const assert = require("node:assert/strict");
 
 const calls = [];
 let nextResult = { data: true, error: null };
+let paymentRow = { id: "subscription-uuid", status: "pending" };
+let cleanupFails = false;
 const supabasePath = require.resolve("../supabase");
 require.cache[supabasePath] = {
   id: supabasePath,
@@ -13,10 +15,32 @@ require.cache[supabasePath] = {
       calls.push({ name, args });
       return Promise.resolve(nextResult);
     },
+    from(table) {
+      assert.ok(["subscriptions", "credit_purchases"].includes(table));
+      const filters = [];
+      let updateValues;
+      const query = {
+        update(values) { updateValues = values; return this; },
+        eq(column, value) { filters.push([column, value]); return this; },
+        select() { return this; },
+        async maybeSingle() {
+          if (cleanupFails) return { data: null, error: { message: "cleanup database unavailable" } };
+          const matches = filters.every(([column, value]) => paymentRow[column] === value);
+          if (!matches) return { data: null, error: null };
+          Object.assign(paymentRow, updateValues);
+          return { data: { id: paymentRow.id }, error: null };
+        },
+      };
+      return query;
+    },
   },
 };
 
-const { settlePaymentCreationRequest, beginPaymentCreation } = require("../paymentCreationIdempotency");
+const {
+  settlePaymentCreationRequest,
+  beginPaymentCreation,
+  handlePaymentProviderFailure,
+} = require("../paymentCreationIdempotency");
 
 test("settles only the exact provider order, kind and local payment record", async () => {
   calls.length = 0;
@@ -65,4 +89,63 @@ test("does not replay an already settled checkout as a new invoice", async () =>
     beginPaymentCreation("user-1", "settled-checkout-key-001", "credits", "pack_100", "rub"),
     (error) => error.httpStatus === 409 && error.details?.code === "payment_already_settled"
   );
+});
+
+
+test("a definitive provider 4xx rejection closes the unsent order and releases the idempotency request", async () => {
+  calls.length = 0;
+  paymentRow = { id: "subscription-uuid", status: "pending" };
+  cleanupFails = false;
+  nextResult = { data: true, error: null };
+
+  const outcome = await handlePaymentProviderFailure(
+    "user-1",
+    "provider-rejected-key-001",
+    "subscriptions",
+    "subscription-uuid",
+    Object.assign(new Error("provider rejected checkout"), { providerRejected: true, code: "PROVIDER_422" })
+  );
+
+  assert.equal(outcome, "failed");
+  assert.equal(paymentRow.status, "denied");
+  assert.deepEqual(calls.map((call) => call.name), ["fail_payment_creation_request"]);
+});
+
+test("an ambiguous provider outcome remains fenced against duplicate invoice creation", async () => {
+  calls.length = 0;
+  paymentRow = { id: "subscription-uuid", status: "pending" };
+  cleanupFails = false;
+  nextResult = { data: true, error: null };
+
+  const outcome = await handlePaymentProviderFailure(
+    "user-1",
+    "provider-timeout-key-001",
+    "subscriptions",
+    "subscription-uuid",
+    new Error("socket timeout")
+  );
+
+  assert.equal(outcome, "unknown");
+  assert.equal(paymentRow.status, "pending");
+  assert.deepEqual(calls.map((call) => call.name), ["mark_payment_creation_unknown"]);
+});
+
+test("a failed cleanup after provider rejection remains unknown instead of allowing a duplicate invoice", async () => {
+  calls.length = 0;
+  paymentRow = { id: "subscription-uuid", status: "pending" };
+  cleanupFails = true;
+  nextResult = { data: true, error: null };
+
+  const outcome = await handlePaymentProviderFailure(
+    "user-1",
+    "provider-cleanup-key-001",
+    "subscriptions",
+    "subscription-uuid",
+    Object.assign(new Error("provider rejected checkout"), { providerRejected: true })
+  );
+
+  assert.equal(outcome, "unknown");
+  assert.equal(paymentRow.status, "pending");
+  assert.deepEqual(calls.map((call) => call.name), ["mark_payment_creation_unknown"]);
+  cleanupFails = false;
 });
