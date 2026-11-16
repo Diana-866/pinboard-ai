@@ -15,5 +15,9 @@ test("GET /review-queue uses the shared bounded pager", () => {
   const handler = source.slice(start, end);
   assert.match(handler, /fetchAllPages\(/);
   assert.match(handler, /\.range\(from, to\)/);
-  assert.doesNotMatch(handler, /for\s*\(\s*let offset\s*=\s*0\s*;\s*;\s*offset\s*\+=/);
+  assert.match(handler, /for\s*\(let offset = 0; offset < pinIdChunks\.length; offset \+= 5\)/);
+  assert.match(handler, /pinResults\.push\(\.\.\.batchResults\)/);
+  assert.match(handler, /scheduleResults\.push\(\.\.\.batchResults\)/);
+  assert.doesNotMatch(handler, /Promise\.all\(pinIdChunks\.map/);
+  assert.doesNotMatch(handler, /Promise\.all\(pinIdChunks\.map/);
 });
