@@ -496,6 +496,7 @@ export const de: TranslationSchema = {
     deleteAccountDone: "Ihr Löschantrag ist eingegangen und der Zugriff wurde gesperrt. Ihre Daten wurden noch nicht gelöscht.",
     requestFailed: "Anfrage konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
     emailVerifyTitle: 'Bestätigen Sie Ihre E-Mail-Adresse',
+    emailVerifySentTo: '— Konto-E-Mail: {email}',
     emailVerifyResent: 'Wir haben die Bestätigungs-E-Mail erneut gesendet. Prüfen Sie Ihren Posteingang und Spam-Ordner.',
     emailVerifyResend: 'E-Mail erneut senden',
     emailVerifySending: 'Wird gesendet…',
