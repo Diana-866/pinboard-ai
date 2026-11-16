@@ -616,13 +616,13 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       // Refresh board-card counts only after the server has confirmed all generated pins.
       onPinsChanged?.();
       generationKeyRef.current = null;
-      clearPendingGenerationRequest(requestFingerprint);
+      clearPendingGenerationRequestForOwner(userId, requestFingerprint);
     } catch (err) {
       // The server only emits generation_request_failed after a definitive failure.
       // Rotate the key then; unknown/in-progress outcomes must keep their original key.
       if (isDefinitiveGenerationFailure(err)) {
         generationKeyRef.current = createGenerationIdempotencyKey();
-        if (requestFingerprint) writePendingGenerationRequest(requestFingerprint, generationKeyRef.current);
+        if (requestFingerprint) writePendingGenerationRequestForOwner(userId, requestFingerprint, generationKeyRef.current);
       }
       console.error('Error generating pins:', err);
       window.alert(err instanceof Error ? err.message : t.generator.errorGeneratePins);
