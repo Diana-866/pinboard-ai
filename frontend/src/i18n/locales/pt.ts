@@ -496,6 +496,7 @@ export const pt: TranslationSchema = {
     deleteAccountDone: "Recebemos seu pedido de exclusão e o acesso foi desativado. Seus dados ainda não foram excluídos.",
     requestFailed: "Não foi possível concluir o pedido. Tente novamente.",
     emailVerifyTitle: 'Verifique seu e-mail',
+    emailVerifySentTo: '— e-mail da conta: {email}',
     emailVerifyResent: 'Enviamos o e-mail de verificação novamente. Confira sua caixa de entrada e a pasta de spam.',
     emailVerifyResend: 'Reenviar e-mail',
     emailVerifySending: 'Enviando…',
