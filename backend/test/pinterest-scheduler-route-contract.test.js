@@ -95,8 +95,14 @@ test("schedule creation persists and reconciles the resolved project destination
   const end = source.indexOf('app.post("/schedule/:id/change-board"', start);
   assert.notEqual(end, -1, "pin schedule route boundary must exist");
   const route = source.slice(start, end);
+  assert.match(source, /projects\(user_id, niche, tone, website_url\)/);
 
-  assert.ok(route.includes("const snapshotDestinationUrl = destinationUrl || snapshotPin.boards?.projects?.website_url || null"));
+  assert.ok(route.includes("let snapshotDestinationUrl = destinationUrl"));
+  assert.ok(route.includes("if (!snapshotDestinationUrl && snapshotPin.boards?.projects?.website_url)"));
+  assert.ok(route.includes("snapshotDestinationUrl = normalizePinterestDestinationUrl(snapshotPin.boards.projects.website_url)"));
+  // Duplicate-request recovery must compare the same timezone that was persisted.
+  const duplicateCheck = route.slice(route.indexOf("isSamePinScheduleRequest(existing"));
+  assert.match(duplicateCheck, /scheduledAt,[\s\S]*?timezone,[\s\S]*?destinationUrl: snapshotDestinationUrl/);
   assert.ok(route.includes("destination_url: snapshotDestinationUrl"));
-  assert.ok(route.includes('String(existing.destination_url || "") === String(snapshotDestinationUrl || "")'));
+  assert.ok(route.includes("isSamePinScheduleRequest(existing"));
 });

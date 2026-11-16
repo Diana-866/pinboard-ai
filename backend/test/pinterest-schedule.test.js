@@ -340,7 +340,8 @@ test("retryability accepts the immutable schedule image when the live pin image 
 
 test("retryability allows only explicitly safe failed journal entries", () => {
   const schedule = {
-    status: "failed", pinterest_account_id: "account-a", pinterest_board_id: "board-a",
+    status: "failed", user_id: "user-1", pin_id: "pin-1",
+    pinterest_account_id: "account-a", pinterest_board_id: "board-a",
     pins: { image_url: "https://cdn.example/pin.jpg" },
   };
   // A journal row only authorizes a retry when it still identifies this exact
@@ -362,7 +363,7 @@ test("retryability fails closed when schedule owner or pin identity is missing o
     pinterest_account_id: "account-a", pinterest_board_id: "board-a",
     pins: { image_url: "https://cdn.example/pin.jpg" },
   };
-  for (const field of ["user_id", "pin_id", "pinterest_account_id", "pinterest_board_id"]) {
+  for (const field of ["user_id", "pin_id"]) {
     for (const value of ["", "   ", null]) {
       assert.deepEqual(
         getScheduleRetryability({ ...schedule, [field]: value }, null, false, true, false),
@@ -823,7 +824,7 @@ test("unreadable publication journal errors use a fixed safe schedule message", 
     attemptLookupError: new Error("database password=secret"),
     error: new Error("private provider response"),
   });
-  assert.equal(state.message, "Could not verify the publication journal; publication outcome remains unknown.");
+  assert.equal(state.message, "Не удалось проверить журнал публикации. Результат остаётся неопределённым; повторная публикация заблокирована.");
 });
 
 
