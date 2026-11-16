@@ -1543,21 +1543,15 @@ app.get("/boards/:id", requireAuth, async (req, res) => {
 app.get("/boards/:id/pins", requireAuth, async (req, res) => {
   try {
     await getBoardWithOwnerCheck(req.params.id, req.userId);
-    const pageSize = 500;
-    const pins = [];
-    for (let from = 0; ; from += pageSize) {
-      const { data, error } = await supabase
-        .from("pins")
-        .select("*")
-        .eq("board_id", req.params.id)
-        .order("created_at", { ascending: true })
-        .order("id", { ascending: true })
-        .range(from, from + pageSize - 1);
-      if (error) throw error;
-      const page = Array.isArray(data) ? data : [];
-      pins.push(...page);
-      if (page.length < pageSize) break;
-    }
+    // Bound the full-board response just like other collection endpoints:
+    // oversized boards fail explicitly instead of growing memory without limit.
+    const pins = await fetchAllPages((from, to) => supabase
+      .from("pins")
+      .select("*")
+      .eq("board_id", req.params.id)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to));
     res.json(pins);
   } catch (e) {
     handleError(res, e);
