@@ -36,3 +36,21 @@ test('does not classify transient, unauthorized, or unrelated errors as expired'
   assert.equal(isExpiredGenerationRecoveryError(null), false);
   assert.equal(isExpiredGenerationRecoveryError(new Error('network failure')), false);
 });
+
+import { shouldPollGenerationRecovery } from './generationRecovery';
+
+test('polls while at least one generation is processing or unresolved', () => {
+  assert.equal(shouldPollGenerationRecovery([{ status: 'processing' }]), true);
+  assert.equal(shouldPollGenerationRecovery([{ status: 'unknown' }]), true);
+  assert.equal(shouldPollGenerationRecovery([
+    { status: 'completed' },
+    { status: 'processing' },
+  ]), true);
+});
+
+test('stops polling when all generations are terminal or absent', () => {
+  assert.equal(shouldPollGenerationRecovery([{ status: 'completed' }]), false);
+  assert.equal(shouldPollGenerationRecovery([{ status: 'failed' }]), false);
+  assert.equal(shouldPollGenerationRecovery([{ status: 'expired' }]), false);
+  assert.equal(shouldPollGenerationRecovery([]), false);
+});
