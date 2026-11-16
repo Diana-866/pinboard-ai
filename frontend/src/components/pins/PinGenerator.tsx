@@ -1002,7 +1002,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             <p className="text-xs rounded-lg border border-subtle bg-subtle p-3 text-secondary-theme" role="status">
               {language === 'ru'
                 ? 'Сессия истекла или сервер отклонил авторизацию. Войдите в аккаунт снова, затем нажмите «Проверить снова». Запросы восстановления сохранены.'
-                : 'Your session may have expired or authorization was rejected. Sign in again, then select “Check again”. Your recovery requests are محفوظ.'}
+                : 'Your session may have expired or authorization was rejected. Sign in again, then select “Check again”. Your recovery requests are preserved.'}
             </p>
           )}
           <p className="text-xs text-secondary-theme">
