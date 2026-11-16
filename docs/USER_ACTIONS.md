@@ -291,3 +291,22 @@
 - This pass was inspection only. No SQL was executed, no database was created/changed, no application code was changed, and no production/PIN_TRIAL/existing PostgreSQL cluster was accessed. The temporary cluster `X:/PinPosy-verify-pg18` on `127.0.0.1:55439` remains as previously directed.
 - Decision: do not point the canonical migration replay script at this fixture and do not run SQL files individually. Next implementation task is a dedicated Windows PowerShell disposable integration runner that reproduces the workflow fixture, migration order (including the migration-039 grant precondition), both inline DO checks, and exact ordered SQL file list; it must validate loopback/server/data-directory identity before creating a uniquely named database and drop only that database in a finally block. The 9 bash concurrency scripts require a separate explicit Bash-runtime compatibility check and must not be silently counted as executed by the SQL runner.
 - Verification status: migration replay gate remains PASS; CI integration suite remains NOT RUN. No integration-runner implementation or test result is claimed in this entry.
+
+
+### UA-004 — запуск подготовленного SQL integration runner на временном PostgreSQL (2026-11-16)
+
+**Статус: ожидает владельца; до его возвращения никаких действий не требуется.**
+
+Причина: GitHub Actions integration workflow использует отдельный legacy/upgrade fixture, не покрытый уже успешно пройденным fresh-install migration replay. Ассистент подготовил локальный runner и вынес из workflow fixture, две inline SQL assertions и ordered manifest из 46 SQL integration tests. Runner добавлен в main: `scripts/verify-integration.ps1`.
+
+Когда владелец вернётся к ПК, выполнить из корня `X:\!PROGECT\pinboard-ai`:
+
+1. Проверить, что текущая ветка — `main`, а рабочее дерево чистое. Если есть незакоммиченные изменения, остановиться и сообщить об этом; не делать reset/stash/clean.
+2. Выполнить fast-forward sync: `git pull --ff-only origin main`.
+3. Запустить: `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1 -PostgresPort 55439`.
+4. Когда скрипт попросит пароль роли `pinposy_verify_admin`, ввести его непосредственно в скрытый prompt. Пароль, переменные окружения с паролем и секреты не копировать в чат.
+5. Передать ассистенту полный текстовый вывод команды, включая итоговые PASS/ошибку и сообщения cleanup. Не присылать пароль.
+
+Безопасность runner: перед созданием БД проверяет чистый local main == origin/main, единственный listener `127.0.0.1:55439`, процесс `postgres.exe`, точный data directory `X:\PinPosy-verify-pg18`, PostgreSQL 18.6, server encoding WIN1251 и роль `pinposy_verify_admin`. Клиентская кодировка UTF8. Создаёт уникальную disposable DB `pinposy_sqlint_<suffix>`, применяет CI upgrade fixture, миграции 010–148 с grants precondition перед 039, две inline checks и 46 SQL tests; finally удаляет только собственную БД и роли, созданные этим runner. Если preflight не совпадает, runner должен завершиться до создания тестовой БД.
+
+Не выполнять runner на production, PIN_TRIAL или существующем PostgreSQL cluster/PID 5632. Не останавливать и не удалять временный кластер `X:\PinPosy-verify-pg18` без отдельного согласования. Девять Bash concurrency scripts этим runner не выполняются и будут отдельным следующим этапом после SQL suite. PowerShell parser/runtime и SQL integration suite ещё не запускались; не считать runner PASS до получения фактического вывода.
