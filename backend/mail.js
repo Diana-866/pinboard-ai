@@ -74,7 +74,7 @@ async function listInbox(limit = 30) {
       let total = Number(client.mailbox && client.mailbox.exists);
       if (!Number.isSafeInteger(total) || total < 0) {
         total = 0;
-        for await (const msg of client.fetch({ all: true }, { uid: true }, { uid: true })) {
+        for await (const msg of client.fetch({ all: true }, { envelope: true, flags: true }, { uid: true })) {
           total++;
         }
       }
