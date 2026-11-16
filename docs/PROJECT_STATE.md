@@ -857,3 +857,9 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - Для каждого PR зафиксированы ahead/behind, draft и рекомендация. Потенциально важные операционные/test PR выделены для узкого FIX/REBASE; устаревшие/дублирующие snapshots помечены CLOSE CANDIDATE; dependency PR вынесены в отдельную compatibility review.
 - Ничего не merge/close/delete автоматически. Main не переписывался. Подробный реестр всех 100 веток и 55 PR: docs/audits/2026-11-16-open-pr-and-branch-review.md.
 - Инвентаризация веток не означает, что все orphan branches содержат уникальную работу; до удаления нужен отдельный content-level diff.
+
+
+### Обновление documentation register и сверка release inventory (2026-11-16)
+
+- После добавления отчёта PR/branch review обновлён docs/DOCUMENTATION_REGISTER.md: 403 файлов, текущие Git blob SHA, source HEAD b39f09c6c0b8c74e68b445f81b497945c2eb6fc7; 40 повторяющихся AUD IDs остаются зафиксированными без rename.
+- Отдельно зафиксировано: PR review — 55 открытых PR и 100 веток, ни один PR не принят/закрыт автоматически; см. docs/audits/2026-11-16-open-pr-and-branch-review.md.
