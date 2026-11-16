@@ -2,6 +2,10 @@
 
 Этот файл — очередь конкретных действий, которые нельзя выполнить из GitHub/текущей среды ассистента. После получения результата ассистент обязан сверить его с актуальным `main`, отметить задачу выполненной/заблокированной и записать результат в `docs/PROJECT_STATE.md`.
 
+- **Повторная проверка обязательного PostgreSQL gate (2026-11-16, main docs HEAD 2f838cdd082e79fed8b63e01845d5291e8a9875d):** после документационного commit GitHub запустил runs `43936400253` (backend `133542018499`, frontend `133542018960`) и `43936400260` (postgres-atomicity `133542018246`); следующий HEAD от текущей проверки запустил `43936487681` (backend `133542325408`, frontend `133542325882`) и `43936487679` (postgres-atomicity `133542325836`). Все шесть jobs завершились через 1–2 секунды с `failure`, `runner_id: 0`, пустым `runner_name`, `steps: 0`. Ни одна команда checkout/test/typecheck/build/SQL replay не стартовала. Это runner allocation failure, а не результат тестирования кода.
+- **Windows fallback:** PR #90 `ci: run backend and frontend checks on Windows self-hosted runner` повторно прочитан: он остаётся `open` и `draft`, содержит workflow с `runs-on: [self-hosted, Windows, X64]` и manual `migrations_only` input; PR не объединялся. Наличие подключённого Windows runner не подтверждено. Нужна проверка в GitHub Actions → Runners: runner должен быть online/idle и иметь labels `self-hosted`, `Windows`, `X64`; затем владелец должен запустить workflow на актуальном `main` с `migrations_only=true`. Запускать только на loopback PostgreSQL test instance, не production. Если runner отсутствует/offline — выполнить локально `powershell -ExecutionPolicy Bypass -File .\scripts\verify.ps1 -MigrationsOnly` из корня свежего checkout `main`, сохранив полный stdout/stderr/exit code без секретов.
+- **Vercel:** combined status на текущем `main` docs HEAD `2f838cdd082e79fed8b63e01845d5291e8a9875d` — `failure`, target `build-rate-limit`; это quota, не build result. Ранее успешный deployment другого application commit не подтверждает текущую версию.
+
 ## UA-001 — проверить бинарники PostgreSQL 18 и свободное место
 
 - **Статус:** [ ] Ожидает выполнения пользователем.
