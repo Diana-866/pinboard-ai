@@ -10,6 +10,7 @@ const migration = fs.readFileSync(
   "utf8"
 );
 const pinterest = fs.readFileSync(path.join(__dirname, "..", "pinterest.js"), "utf8");
+const integration = fs.readFileSync(path.join(__dirname, "pin-status-publication-fencing.integration.sql"), "utf8");
 
 test("pin rejection is fenced by a database trigger under the pin row lock", () => {
   assert.match(migration, /before update of status on public\.pins[\s\S]*?guard_pin_rejection_from_publication/);
@@ -41,4 +42,10 @@ test("scheduled publication keeps the account-deletion fence from migration 128"
 
 test("publication handler maps a database pin-status fence to HTTP 409", () => {
   assert.match(pinterest, /reservationStatus === "pin_not_approved"[\s\S]*?httpError\(409/);
+});
+
+test("SQL integration test exercises scheduled publication with the live claim token", () => {
+  assert.match(integration, /claim_due_pin_schedules\(1\)/);
+  assert.match(integration, /begin_scheduled_pinterest_publish\([\s\S]*?v_claimed_schedule\.claim_token/);
+  assert.match(integration, /v_claimed_schedule\.id is null or v_claimed_schedule\.claim_token is null/);
 });
