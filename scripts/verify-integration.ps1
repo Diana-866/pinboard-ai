@@ -87,7 +87,7 @@ try {
     $sqlTests = @(Get-Content -LiteralPath $manifestPath | ForEach-Object { $_.Trim() } | Where-Object { $_ -and -not $_.StartsWith('#') })
     if ($sqlTests.Count -ne 46 -or ($sqlTests | Select-Object -Unique).Count -ne 46) { throw "Expected 46 unique SQL integration tests; found $($sqlTests.Count)." }
     foreach ($test in $sqlTests) {
-        if ([IO.Path]::GetFileName($test) -ne $test -or -not $test.EndsWith('.sql',[StringComparison]::OrdinalIgnoreCase)) {
+        if ([IO.Path]::GetFileName($test) -ne $test -or -not $test.EndsWith('.sql',[System.StringComparison]::OrdinalIgnoreCase)) {
             throw "Unsafe SQL test manifest entry: $test"
         }
     }
@@ -175,6 +175,9 @@ finally {
             Write-Host "Cleaning up only disposable database $createdDatabase."
             Invoke-Psql -Database 'postgres' -PsqlArguments @('-c',"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$createdDatabase' AND pid <> pg_backend_pid();")
             Invoke-Psql -Database 'postgres' -PsqlArguments @('-c',('DROP DATABASE "' + $createdDatabase + '";'))
+            if ((Get-PsqlValue -Database 'postgres' -Sql "SELECT count(*) FROM pg_database WHERE datname = '$createdDatabase';") -ne '0') {
+                throw "Disposable database '$createdDatabase' still exists after DROP DATABASE."
+            }
             Write-Host "Removed disposable database $createdDatabase."
         } catch { $cleanupFailure = $_; Write-Warning "Database cleanup failed for '$createdDatabase': $_" }
     }
