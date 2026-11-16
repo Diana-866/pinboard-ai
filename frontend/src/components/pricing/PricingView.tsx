@@ -268,10 +268,10 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
         // Release only keys whose own pending order has reached a terminal
         // provider-confirmed state. Do not clear keys for unrelated old history.
         for (const row of settledSubscriptions) {
-          releasePaymentIdempotencyKey(`subscription:${row.plan}:${row.currency || 'rub'}`);
+          releasePaymentIdempotencyKey(`subscription:${row.plan}:${row.currency || 'rub'}`, user.id);
         }
         for (const row of settledPurchases) {
-          releasePaymentIdempotencyKey(`credits:${row.package_id}:rub`);
+          releasePaymentIdempotencyKey(`credits:${row.package_id}:rub`, user.id);
         }
 
         setHistory(nextHistory);
@@ -309,7 +309,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
     setPayError(null);
     setPayingId(planId);
     try {
-      const intent = await startPayment(planId as PayablePlan, currency);
+      const intent = await startPayment(planId as PayablePlan, requestOwnerId, currency);
       if (!isCurrentBillingOwner(requestOwnerId, billingOwnerIdRef.current)) return;
       window.location.href = intent.payment_url;
     } catch (e: any) {
@@ -463,7 +463,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
     setPayError(null);
     setPayingPackId(packId);
     try {
-      const intent = await startCreditsPurchase(packId);
+      const intent = await startCreditsPurchase(packId, requestOwnerId);
       if (!isCurrentBillingOwner(requestOwnerId, billingOwnerIdRef.current)) return;
       window.location.href = intent.payment_url;
     } catch (e: any) {
