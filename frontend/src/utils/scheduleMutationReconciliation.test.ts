@@ -144,3 +144,42 @@ test('does not reconcile schedule creation against a different time, destination
   assert.equal(findPersistedScheduleRequest([null, persisted], expectedRequest), null);
   assert.equal(findPersistedScheduleRequest({ data: [persisted] }, expectedRequest), null);
 });
+
+
+test('reconciles a lost create response only when explicit timezone and destination also match', () => {
+  const expectedRequest = {
+    pinId: 'pin-1',
+    scheduledAt: persisted.scheduled_at,
+    pinterestBoardId: 'board-new',
+    pinterestAccountId: 'account-1',
+    timezone: 'Europe/Moscow',
+    destinationUrl: 'https://example.com/article',
+    statuses: ['scheduled', 'publishing', 'failed', 'unknown'],
+  };
+  const exact = {
+    ...persisted,
+    timezone: 'Europe/Moscow',
+    destination_url: 'https://example.com/article',
+  };
+  assert.deepEqual(findPersistedScheduleRequest([exact], expectedRequest), exact);
+  assert.equal(findPersistedScheduleRequest([{ ...exact, timezone: 'UTC' }], expectedRequest), null);
+  assert.equal(findPersistedScheduleRequest([{ ...exact, destination_url: 'https://other.example/' }], expectedRequest), null);
+  assert.equal(findPersistedScheduleRequest([{ ...exact, destination_url: null }], expectedRequest), null);
+});
+
+test('allows project website fallback when no explicit destination was requested', () => {
+  const expectedRequest = {
+    pinId: 'pin-1',
+    scheduledAt: persisted.scheduled_at,
+    pinterestBoardId: 'board-new',
+    pinterestAccountId: 'account-1',
+    timezone: 'Europe/Moscow',
+    statuses: ['scheduled', 'publishing', 'failed', 'unknown'],
+  };
+  const withProjectFallback = {
+    ...persisted,
+    timezone: 'Europe/Moscow',
+    destination_url: 'https://project.example/',
+  };
+  assert.deepEqual(findPersistedScheduleRequest([withProjectFallback], expectedRequest), withProjectFallback);
+});
