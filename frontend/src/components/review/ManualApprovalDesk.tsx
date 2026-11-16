@@ -198,11 +198,11 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   const handleApprove = () => {
     if (!currentPin || decisionInFlightRef.current) return;
     if (!currentPin.pinId) {
-      window.alert('Эта карточка — демонстрационный пример, а не сохранённый пин. Сначала создайте и сохраните пин в генераторе — только после этого его можно добавить в расписание.');
+      window.alert(t.review.demoPinCannotSchedule);
       return;
     }
     if (!selectedPinterestAccountId || !selectedPinterestBoardId) {
-      window.alert('Сначала подключите Pinterest и выберите настоящую доску Pinterest для публикации.');
+      window.alert(t.review.connectPinterestFirst);
       return;
     }
 
@@ -237,9 +237,9 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         setApprovedCount((c) => c + 1);
       } catch (error) {
         if (scheduleWasPersisted) {
-          window.alert('Пин уже сохранён в календаре, но не удалось убрать его из очереди проверки. Не одобряйте его повторно: обновите страницу и проверьте календарь.');
+          window.alert(t.review.savedPinQueueSyncError);
         } else {
-          window.alert(error instanceof Error ? error.message : 'Не удалось добавить пин в расписание. Карточка осталась в очереди.');
+          window.alert(error instanceof Error ? error.message : t.review.scheduleCreateError);
         }
       } finally {
         setSwipeDirection(null);
@@ -271,10 +271,10 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         await updateQueue((prev) => prev.filter((pin) => pin.id !== currentPin.id));
         setRejectedCount((c) => c + 1);
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Не удалось сохранить отклонение.';
+        const message = error instanceof Error ? error.message : t.review.rejectSaveError;
         window.alert(pinWasRejected
-          ? `Пин отклонён, но не удалось убрать карточку из очереди проверки. Обновите страницу и повторите удаление карточки. ${message}`
-          : `${message} Карточка осталась в очереди.`);
+          ? `${t.review.rejectQueueSyncError} ${message}`
+          : `${message} ${t.review.rejectSaveError}`);
       } finally {
         setSwipeDirection(null);
         setDragOffset(0);
@@ -289,7 +289,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     // alone leaves a rapid double-click window and can create duplicate schedules.
     if (decisionInFlightRef.current || !queue.length) return;
     if (queue.some((pin) => !pin.pinId)) {
-      window.alert('В очереди есть демонстрационные карточки без сохранённых пинов. Создайте и сохраните реальные пины в генераторе, прежде чем добавлять их в расписание.');
+      window.alert(t.review.bulkDemoQueueCannotSchedule);
       return;
     }
     if (!selectedPinterestAccountId || !selectedPinterestBoardId) {
@@ -351,12 +351,12 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
           await updateQueue((prev) => prev.filter((pin) => !successfulIds.has(pin.id)));
           setApprovedCount((count) => count + successfulIds.size);
         } catch {
-          window.alert(`В календаре уже сохранено ${successfulIds.size} пинов, но очередь проверки не обновилась. Не одобряйте эти карточки повторно: обновите страницу и проверьте календарь.`);
+          window.alert(t.review.bulkQueueSyncError);
           return;
         }
       }
       if (successfulIds.size !== scheduledItems.length) {
-        window.alert(`В расписание добавлено: ${successfulIds.size} из ${scheduledItems.length}. Неудачные карточки остались в очереди.`);
+        window.alert(t.review.bulkSchedulePartialTemplate.replace('{saved}', String(successfulIds.size)).replace('{total}', String(scheduledItems.length)));
       }
     } finally {
       setBulkApprovalProgress(null);
@@ -398,7 +398,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     const instruction = regenComment.trim();
     if (!instruction || !currentPin || isRegenerating) return;
     if (!currentPin.pinId) {
-      window.alert('Нельзя заменить изображение: исходный пин ещё не сохранён на сервере.');
+      window.alert(t.review.imageReplaceRequiresSavedPin);
       return;
     }
 
@@ -409,12 +409,12 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         ? existingAttempt
         : { pinId: currentPin.pinId, instruction, key: createGenerationIdempotencyKey() };
     } catch (error) {
-      setRegenStatusMessage(error instanceof Error ? error.message : 'Не удалось создать безопасный ключ запроса.');
+      setRegenStatusMessage(error instanceof Error ? error.message : t.review.regenerationKeyError);
       return;
     }
     regenerationAttemptRef.current = attempt;
     setIsRegenerating(true);
-    setRegenStatusMessage('Отправляем запрос на перегенерацию…');
+    setRegenStatusMessage(t.review.regenerationSending);
 
     try {
       const savedPin = await apiRequest(`/pins/${encodeURIComponent(currentPin.pinId)}/regenerate`, {
@@ -423,25 +423,25 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
         body: JSON.stringify({ instruction }),
       });
       if (savedPin?.status === 'processing' || savedPin?.code === 'regeneration_pending') {
-        setRegenStatusMessage('Генерация ещё выполняется. Нажмите кнопку ещё раз через несколько секунд — запрос продолжится с тем же ключом без повторного списания.');
+        setRegenStatusMessage(t.review.regenerationPending);
         return;
       }
       if (typeof savedPin?.image_url !== 'string' || !savedPin.image_url.trim()) {
-        throw new Error('Сервер не подтвердил сохранение нового изображения. Повторите проверку с тем же запросом.');
+        throw new Error(t.review.regenerationUnconfirmed);
       }
 
       const updatedPin = { ...currentPin, imageUrl: savedPin.image_url, aspectRatio: '2:3' };
       await updateQueue((prev) => prev.map((pin) => pin.id === currentPin.id ? updatedPin : pin));
       regenerationAttemptRef.current = null;
-      setRegenStatusMessage('Новое изображение сохранено и привязано к исходной карточке.');
+      setRegenStatusMessage(t.review.regenerationSaved);
       setShowRegenBox(false);
       setRegenComment('');
     } catch (error: any) {
       const code = error?.data?.code;
       if (code === 'regeneration_in_progress' || code === 'regeneration_pending') {
-        setRegenStatusMessage('Генерация ещё выполняется. Нажмите кнопку повторно через несколько секунд; используется тот же запрос.');
+        setRegenStatusMessage(t.review.regenerationRetry);
       } else {
-        setRegenStatusMessage(error instanceof Error ? error.message : 'Не удалось перегенерировать изображение. Повторите попытку.');
+        setRegenStatusMessage(error instanceof Error ? error.message : t.review.regenerationFailed);
       }
     } finally {
       setIsRegenerating(false);
@@ -636,7 +636,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                       prev.map((p) => (p.id === currentPin.id ? { ...p, imageUrl: savedPin.image_url } : p))
                     );
                   } catch (error) {
-                    window.alert(error instanceof Error ? error.message : 'Не удалось обновить изображение.');
+                    window.alert(error instanceof Error ? error.message : t.review.imageReplaceFailed);
                   } finally {
                     e.target.value = '';
                   }
