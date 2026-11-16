@@ -343,3 +343,23 @@ A focused review of the active PublishingCalendar.tsx found user-facing messages
 **Readback / static checks:** re-fetched the component, schema, test, package script and all seven locale files from main. Eight targeted source assertions passed: all 20 schema keys exist; all seven dictionaries define every key; the regression test covers all keys; the existing test glob discovers it; the component uses every typed key; previous language ternaries are absent; live-region semantics remain; recovery explanation and action label are distinct. These are source assertions only. The test was NOT executed; no TypeScript check, frontend suite, production build, browser, keyboard-only or screen-reader test was run.
 
 **CI result:** runs 43941368139 (backend job 133559434540, frontend job 133559435212) and 43941368158 (postgres-atomicity job 133559434715) failed before runner assignment. All three jobs report runner_id=0, empty runner name and zero steps. No workflow command started; this is not a test result. Mandatory disposable PostgreSQL replay and backend/frontend runtime gates remain blocked. Package 09 remains open; no runtime/release checkbox is advanced. No backend, database, production, payment, Pinterest account or deployment setting changed.
+
+
+## FE-28 — notification center entries were not keyboard operable
+
+A review of the active header notification dropdown found that each notification was rendered as a clickable `div` with no semantic role, tab stop, or keyboard activation. Mouse users could mark a notification as read and navigate to its result, but keyboard-only users could not reach or activate those entries. The bell also did not expose whether its panel was expanded or identify the controlled panel to assistive technology.
+
+**Fix on main:**
+- Added a shared `handleNotificationActivate` action so pointer and keyboard activation follow the same mark-as-read/navigation behavior.
+- Added `role="button"` and `tabIndex={0}` to notification entries; Enter and Space now activate the item, with Space default scrolling prevented.
+- Added a visible keyboard focus ring.
+- Added `aria-expanded` and `aria-controls` to the notification bell, and labelled the open notification panel as a region.
+- Added `frontend/src/utils/notificationKeyboardAccessibility.test.ts` with three focused source-contract tests. The existing `frontend/package.json` test glob includes `src/utils/*.test.ts`.
+
+**Commits:** Header `a62663b87fa841a087bf807d89647964f8a741fa`; regression test `854b6d42cfae712838934c4ec533dd008f705efb`.
+
+**Readback / static checks:** fetched the updated Header, test and package.json again from current main. Eleven targeted static assertions passed: notification role, Enter/Space handlers, prevented Space scrolling, shared activation path, visible focus styling, expanded state, controlled labelled region, three test cases and test-glob inclusion. The regression test was NOT executed. No TypeScript check, full frontend suite, production build, browser keyboard or screen-reader run occurred.
+
+**CI / deploy status:** combined status on test commit `854b6d42cfae712838934c4ec533dd008f705efb` reports Vercel `failure` with target `build-rate-limit`; this is a deployment quota status, not a build log. The existing open PR #90 remains unmerged and does not supply a verified runner result. No test/build/SQL command is claimed as executed.
+
+This closes only the notification-center keyboard-accessibility source finding. Package 09 and the full frontend audit remain open. Mandatory clean PostgreSQL replay, SQL integration and backend runtime gates remain open. No backend, database, production data, payment, Pinterest account or deployment setting changed.
