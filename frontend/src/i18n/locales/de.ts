@@ -495,6 +495,13 @@ export const de: TranslationSchema = {
     deleteAccountConfirm: "Löschung beantragen",
     deleteAccountDone: "Ihr Löschantrag ist eingegangen und der Zugriff wurde gesperrt. Ihre Daten wurden noch nicht gelöscht.",
     requestFailed: "Anfrage konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
+    emailVerifyTitle: 'Bestätigen Sie Ihre E-Mail-Adresse',
+    emailVerifyResent: 'Wir haben die Bestätigungs-E-Mail erneut gesendet. Prüfen Sie Ihren Posteingang und Spam-Ordner.',
+    emailVerifyResend: 'E-Mail erneut senden',
+    emailVerifySending: 'Wird gesendet…',
+    emailVerifyDismiss: 'Ausblenden',
+    emailVerifyThrottled: 'Vor Kurzem wurde bereits eine Bestätigungs-E-Mail gesendet. Versuchen Sie es später erneut.',
+    emailVerifySendError: 'Die Bestätigungs-E-Mail konnte nicht gesendet werden. Bitte versuchen Sie es später erneut.',
   },
 
   pricing: {
@@ -641,6 +648,10 @@ export const de: TranslationSchema = {
     strategistPrompt: "Benötigen Sie Hilfe beim Verständnis Ihrer Analysen?",
     askStrategist: "KI-Strategen fragen →",
     strategistTitle: "PinPosy-KI-Strategen öffnen",
+    justNow: 'Gerade eben',
+    taskCompletedTitle: 'Aufgabe abgeschlossen',
+    reviewQueueSyncErrorTitle: 'Warteschlange konnte nicht synchronisiert werden',
+    reviewQueueSyncErrorMessage: 'Die Warteschlange konnte nicht geladen oder gespeichert werden. Prüfen Sie Ihre Verbindung und aktualisieren Sie die Seite.',
   },
 
   terms: {
