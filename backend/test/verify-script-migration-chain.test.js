@@ -10,6 +10,10 @@ const script = fs.readFileSync(
   "utf8"
 );
 
+test("scratch database name is unique per process", () => {
+  assert.match(script, /local db="pinposy_verify_\\$\\$"/);
+});
+
 test("local migration replay starts from the canonical baseline", () => {
   assert.match(script, /canonical baseline: 001_baseline\.sql|canonical baseline missing: 001_baseline\.sql/);
   assert.match(script, /local baseline="\$scratch\/migrations\/001_baseline\.sql"/);
