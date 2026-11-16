@@ -468,3 +468,17 @@ export const resolveScheduleSlotTime = (
 
   throw new Error('No future schedule slot remains on this date');
 };
+
+export const validateScheduleInstant = (instant: Date, now: Date = new Date()): void => {
+  const scheduledAt = instant.getTime();
+  const currentTime = now.getTime();
+  if (!Number.isFinite(scheduledAt) || !Number.isFinite(currentTime)) {
+    throw new Error('Укажите корректные дату и время публикации');
+  }
+  if (scheduledAt < currentTime - 10 * 60 * 1000) {
+    throw new Error('Время публикации не может быть в прошлом');
+  }
+  if (scheduledAt > currentTime + 366 * 24 * 60 * 60 * 1000) {
+    throw new Error('Нельзя планировать публикацию более чем на год вперёд');
+  }
+};
