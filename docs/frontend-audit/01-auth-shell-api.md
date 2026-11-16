@@ -53,10 +53,23 @@ All six static assertions passed. Blob SHAs at readback:
 
 1. The JWT remains in localStorage. A same-origin XSS can steal it; migrating to HttpOnly cookies requires coordinated backend, CORS and CSRF design and is not safe as a frontend-only change.
 2. `VITE_API_URL` is public build-time configuration and controls where the bearer token is sent. Production deployment configuration must be constrained to the intended HTTPS API origin; no allow-list was added because preview policy needs explicit design.
-3. `AuthContext.refreshUser()` returns a boolean, but Login currently navigates to `/app` after awaiting it without checking the result. A transient `/me` failure can leave the browser at the app route while the in-memory user is still null; this deserves a focused UX/state test and correction before release.
+3. The login hydration navigation defect described in FE-02 was corrected: Login now checks the `refreshUser()` result and stays on the sign-in page with localized feedback when profile hydration fails. A browser-level retry/recovery experience and transient `/me` failure test remain useful follow-up work.
 4. The frontend has many other components and utilities not reviewed in this package. Full source-by-source review remains open.
 5. No TypeScript check, frontend unit tests, production build, browser test, live backend, or deployed configuration was run/inspected in this environment.
 
 ## Next
 
 Continue the frontend source audit in small documented packages, prioritizing the login/session hydration edge above and then the user-facing project/board/pin, generation, calendar/scheduling, Pinterest account, billing, admin and legal/consent surfaces. Separately, complete the required clean disposable PostgreSQL replay and runtime test gates; static review cannot replace them.
+
+
+## FE-29 — auth storage route-guard regression test had a missing import
+
+During a fresh source read of `frontend/src/lib/authStorage.test.ts`, the final test called `hasStoredAuthToken()` but the module import omitted that named export. The helper is exported by `authStorage.ts`, so the test would fail at runtime with `ReferenceError` when that test case executes. This was a test-source defect, not evidence of a production authentication failure.
+
+**Fix on main:** added `hasStoredAuthToken` to the named import in `authStorage.test.ts`. No production code or authentication behavior changed.
+
+**Commit:** `d4c65ad9ad3e7ed192a41fcc0b0eb9e75df53f98`.
+
+**Static readback:** fetched the updated test and helper from current main; confirmed the test imports the symbol and `authStorage.ts` exports it. This is a source-level consistency check only. The test, complete frontend suite, TypeScript check and build were NOT executed because GitHub Actions jobs are failing before runner allocation and the user's Windows checkout is not available in this environment.
+
+**Remaining:** retain the frontend test/runtime/build gates as open. No production, database, payment, Pinterest or deployment configuration was changed.
