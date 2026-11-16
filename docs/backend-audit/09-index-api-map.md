@@ -154,3 +154,12 @@ All `/admin/*` handlers in this entrypoint use `requireAuth` and `requireAdmin`;
 - Updated `backend/test/review-queue-pagination-contract.test.js` to assert the bounded batch loops and prevent reverting to one unbounded `Promise.all`.
 - Commits: `54b4a12f`, `cb7725d9`, `cb1feec3`.
 - Static source verification only. Latest workflow runs `43899297092` and `43899297123` have `steps: null`; no unit/integration/build steps executed.
+
+
+## Follow-up: bound the board-pins collection (2026-11-16)
+
+- Continued line-by-line inspection found that `GET /boards/:id/pins` had a bespoke unbounded offset loop. A large board could cause unlimited PostgREST requests and unbounded response-memory growth even though project/board lists and the calendar/review queue already had explicit caps.
+- Kept the authenticated board ownership check, stable `created_at, id` order and full-list response contract, but replaced the loop with shared `fetchAllPages`: 500 rows per page, 10,000-row maximum, HTTP 413 on overflow.
+- Added `backend/test/board-pins-pagination-contract.test.js` to assert the owner check remains before data access and the handler uses the shared bounded pager. The shared helper's exact-cap/overflow behavior is already covered by `backend/test/fetch-all-pages.test.js`.
+- Commits: `e96eb1d9` (route fix), `b22a0f18` (regression contract).
+- Static verification: route and test were re-fetched from `main`; runtime Node tests were NOT executed. No production database or service was touched.
