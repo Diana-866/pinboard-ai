@@ -33,7 +33,7 @@ test("worker claims only one row per run to protect the fixed stale-claim lease"
   assert.deepEqual(calls[0][1], { limit: 1 });
   assert.equal(calls[0][2].headers["x-pinposy-scheduler-secret"], "secret-value");
   assert.equal(calls[0][2].maxRedirects, 0, "scheduler secret must never be forwarded across redirects");
-  assert.equal(logs[0][1].scheduled, 2, "worker logs the number of safely rescheduled rows");
+  assert.equal(logs[0][1].scheduled, 1, "worker logs the number of safely rescheduled rows");
   assert.equal(JSON.stringify(logs).includes("secret-value"), false);
 });
 
