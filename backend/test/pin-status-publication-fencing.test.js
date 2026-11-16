@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const migration = fs.readFileSync(
-  path.join(__dirname, "..", "..", "db", "migrations", "146_atomic_pin_publication_status_fencing.sql"),
+  path.join(__dirname, "..", "..", "db", "migrations", "148_atomic_pin_publication_status_fencing.sql"),
   "utf8"
 );
 const pinterest = fs.readFileSync(path.join(__dirname, "..", "pinterest.js"), "utf8");
