@@ -124,3 +124,17 @@ A focused pass over the login and registration forms found that the email field 
 Commits: Login `c59619ecf9eeb9efbae1a6e6ef41f9be38ef1e65`; Register `34599433cc6faed3c978325a62f56d68a34661b8`.
 
 Both changed pages were re-fetched from `main`; static assertions confirmed each email input uses `t.email` and neither page retains the hard-coded English label. No browser, keyboard-only or screen-reader test was run. Package 09 remains open.
+
+
+## Supplemental authentication keyboard accessibility (FE-14)
+
+A focused keyboard-accessibility review of the login and registration pages found that both password visibility controls set `tabIndex={-1}`. This removed a useful form control from normal keyboard navigation, so keyboard-only users could not toggle password visibility.
+
+**Fix on main:**
+- Removed the negative tab index from both controls so they participate in normal tab order.
+- Added a localized `aria-label` using the existing show/hide copy, `aria-controls="password"` to associate the control with its input, and `aria-pressed` to expose the current visibility state.
+- Added `frontend/src/utils/authPasswordToggleAccessibility.test.ts`, a source-contract regression test for both pages. The existing `frontend/package.json` test glob already includes `src/utils/*.test.ts`.
+
+**Commits:** Login `dedd6a5e3b89aedca279d025a5a918627434212a`; Register `a5e457083cbd47b2d89dc2eaefb7be746641efd3`; regression test `f81ba4f165c74db1e4a2b792783234b53e6f340f`, corrected selector `133e67741c92000364ddde6ba83f24e319e47b71`.
+
+The two pages, regression test and package script were re-fetched from current `main`. Five targeted static assertions passed for keyboard tab order, accessible label, control association, pressed state and inclusion in the existing test glob. The regression test source was inspected but **not executed**; no typecheck, full frontend test suite, browser keyboard test or screen-reader test was run. Package 09 and the full frontend audit remain open. No backend, database, production data, payment, Pinterest account or deployment configuration changed.
