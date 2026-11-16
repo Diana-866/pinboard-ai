@@ -88,6 +88,8 @@ export interface PersistedScheduleRequestExpectation {
   scheduledAt: string;
   pinterestBoardId: string;
   pinterestAccountId?: string;
+  timezone?: string;
+  destinationUrl?: string;
   statuses: readonly string[];
 }
 
@@ -115,6 +117,8 @@ export function findPersistedScheduleRequest(
     String(row.pinterest_board_id || '') === expected.pinterestBoardId &&
     (!expected.pinterestAccountId ||
       String(row.pinterest_account_id || '') === expected.pinterestAccountId) &&
+    (expected.timezone === undefined || String(row.timezone || '') === expected.timezone) &&
+    (expected.destinationUrl === undefined || String(row.destination_url || '') === expected.destinationUrl) &&
     expected.statuses.includes(String(row.status || ''))
   );
   return matches.length === 1 ? matches[0] : null;
