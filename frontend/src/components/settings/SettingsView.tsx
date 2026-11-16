@@ -13,6 +13,7 @@ import { useTheme } from '../../theme/themeContext';
 import { useI18n } from '../../i18n/i18nContext';
 import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../lib/api';
+import { isAccountOperationCurrent } from '../../utils/accountOperationFence';
 import {
   getDefaultTimezone,
   saveUserTimezone,
@@ -85,10 +86,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing, onPin
     setExportError(null);
     try {
       const data = await apiRequest('/account/export');
-      if (settingsOwnerIdRef.current !== requestOwnerId || exportRequestIdRef.current !== requestId) return;
+      if (!isAccountOperationCurrent(settingsOwnerIdRef.current, requestOwnerId, exportRequestIdRef.current, requestId)) return;
       downloadJsonFile(buildAccountExportFilename(requestOwnerId, new Date()), data);
     } catch (error) {
-      if (settingsOwnerIdRef.current === requestOwnerId && exportRequestIdRef.current === requestId) {
+      if (isAccountOperationCurrent(settingsOwnerIdRef.current, requestOwnerId, exportRequestIdRef.current, requestId)) {
         setExportError(error instanceof Error ? error.message : t.settings.requestFailed);
       }
     } finally {
@@ -109,7 +110,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing, onPin
         method: 'POST',
         body: JSON.stringify({ password: deletePassword }),
       });
-      if (settingsOwnerIdRef.current !== requestOwnerId || deletionRequestIdRef.current !== requestId) return;
+      if (!isAccountOperationCurrent(settingsOwnerIdRef.current, requestOwnerId, deletionRequestIdRef.current, requestId)) return;
       const receipt = parseDeletionReceipt(data);
       if (!receipt) throw new Error(t.settings.requestFailed);
       setDeleteDone(true);
@@ -117,7 +118,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing, onPin
       // Do not let a delayed deletion response log out a different account.
       if (deletionLogoutTimerRef.current !== null) window.clearTimeout(deletionLogoutTimerRef.current);
       deletionLogoutTimerRef.current = window.setTimeout(() => {
-        if (settingsOwnerIdRef.current === requestOwnerId && deletionRequestIdRef.current === requestId) {
+        if (isAccountOperationCurrent(settingsOwnerIdRef.current, requestOwnerId, deletionRequestIdRef.current, requestId)) {
           logout();
         }
         deletionLogoutTimerRef.current = null;
