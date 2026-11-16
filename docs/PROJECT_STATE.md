@@ -142,7 +142,7 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - [~] Миграции 001 + 010–148 уже статически рассмотрены в `docs/backend-audit/13-sql-migration-static-review.md`, а чистый replay PASS отмечен отдельно. Для SQL integration дополнительно инвентаризированы все 46 файлов ordered manifest: их назначение, заявленные migration prerequisites и домены покрытия сгруппированы в `docs/backend-audit/14-sql-integration-test-inventory.md`. Эта инвентаризация не объявляет построчную проверку всех SQL assertions завершённой и не заменяет runtime suite; SQL gate остаётся открытым.
 - [~] Проверены пять GitHub Actions workflows, три verification scripts, package scripts и все девять Bash concurrency harnesses; выявлен и исправлен опасный implicit DB target/общие временные файлы в Bash harnesses. Добавлены общий guard, contract test и CI bash -n step; specialized workflows с unpinned Actions приведены к SHA pinning. Инвентаризация и оставшиеся вопросы — `docs/backend-audit/15-verification-workflow-and-concurrency-review.md`; runtime проверки ещё не выполнены, аудит всех остальных test/config files продолжается.
 - [~] Выполнена targeted contradiction review; исправлены четыре критичных устаревших документа (docs/launch-steps.md, docs/runbooks/release-line.md, docs/database.md, docs/pinterest/multi-account-architecture.md). Отчёт docs/audits/2026-11-16-documentation-contradiction-review.md. Это не полный построчный аудит всех docs; он продолжается.
-- [ ] Составить полный file-by-file реестр.
+- [~] Создан полный metadata file-by-file register `docs/DOCUMENTATION_REGISTER.md` для всех 400 файлов docs/ с path, blob SHA и категорией проверки; выявлены коллизии номеров AUD. Это инвентаризация, а не завершённый content review: построчная проверка и reconciliation статусов документов продолжаются.
 - [ ] Пересмотреть все открытые PR и ветки, классифицировать: принять / исправить / закрыть / отложить.
 - [ ] Подготовить окончательный технический baseline и приоритеты.
 
@@ -827,3 +827,10 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - Обновлены шапки и статусные оговорки этих документов: PROJECT_STATE.md теперь явно главный актуальный operational passport; MASTER_REQUIREMENTS оставлен как product scope catalogue, LAUNCH_CONTROL и PRODUCTION_READINESS_AUDIT помечены как исторические snapshots; платежная справка отделяет код в main от применения миграций/включения реальных платежей; DNS/email instructions запрещают считать описанную конфигурацию подтверждённой.
 - По backend/.env.example и коду проверены имена PRODAMUS_SHOP_ID, PRODAMUS_SECRET, PRODAMUS_SECRET_WEBHOOK, PRODAMUS_SYS, PRODAMUS_URL, PRODAMUS_DEMO, PRODAMUS_OFFLINE, PUBLIC_BACKEND_URL и MAIL_SMTP_*; legacy root test/billing-flow.js существует, а backend/test/billing-flow.js — нет.
 - Эти правки документируют границы знаний; live provider settings, DNS, mailboxes, Supabase production migration state и payment mode в этой сессии не запрашивались и не менялись.
+
+
+### File-by-file inventory документации (2026-11-16)
+
+- На HEAD 483ec9954a6cd59379b566a48f23da58b454bbf8 получено дерево docs/: 400 файлов (399 Markdown, 1 SQL). Создан docs/DOCUMENTATION_REGISTER.md с точным путём, Git blob SHA, категорией и текущим review status каждого файла.
+- В filenames обнаружены повторяющиеся audit IDs (40 уникальных ID с несколькими файлами); список зафиксирован в register. Ничего не переименовывалось и не удалялось, чтобы не ломать исторические ссылки.
+- Важно: register — metadata inventory, не доказательство чтения всех 399 документов. Следующий шаг — содержательный review по группам, начиная с operational runbooks, proposals и оставшихся root/provider docs.
