@@ -14,7 +14,7 @@ begin
   if new.status = 'rejected' and old.status is distinct from new.status then
     if exists (
       select 1 from public.pin_schedules s
-       where s.user_id = (select pr.user_id::text
+       where s.user_id::text = (select pr.user_id::text
                             from public.boards b
                             join public.projects pr on pr.id = b.project_id
                            where b.id = old.board_id)
@@ -23,14 +23,14 @@ begin
     ) or exists (
       select 1 from public.pinterest_publish_attempts a
        where a.pin_id = old.id
-         and a.user_id = (select pr.user_id::text
+         and a.user_id::text = (select pr.user_id::text
                             from public.boards b
                             join public.projects pr on pr.id = b.project_id
                            where b.id = old.board_id)
     ) or exists (
       select 1 from public.pinterest_publications p
        where p.pin_id = old.id
-         and p.user_id = (select pr.user_id::text
+         and p.user_id::text = (select pr.user_id::text
                             from public.boards b
                             join public.projects pr on pr.id = b.project_id
                            where b.id = old.board_id)
