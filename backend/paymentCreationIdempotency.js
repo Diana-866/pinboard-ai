@@ -142,13 +142,43 @@ async function markPaymentCreationUnknown(userId, idempotencyKey, error) {
 async function failPaymentCreation(userId, idempotencyKey, error) {
   const rawCode = String(error && (error.code || error.name) || "payment_creation_failed");
   const errorCode = /^[A-Za-z0-9_-]{1,64}$/.test(rawCode) ? rawCode : "payment_creation_failed";
-  const { error: updateError } = await supabase.rpc("fail_payment_creation_request", {
+  const { data, error: updateError } = await supabase.rpc("fail_payment_creation_request", {
     p_user_id: String(userId),
     p_idempotency_key: idempotencyKey,
     p_error_code: errorCode,
   });
   if (updateError) {
     logError("payment_idempotency.event_001", "[payment-idempotency] не удалось зафиксировать отказ создания:", updateError.message);
+    return false;
+  }
+  // The SQL RPC returns false when the request was no longer in "creating".
+  // A successful transport alone is not proof that the retry fence was released.
+  return data === true;
+}
+
+/**
+ * Resolve a failed provider request without risking duplicate invoices.
+ * Only an explicit provider 4xx rejection permits local cleanup and retry.
+ * Network errors, 5xx responses and cleanup failures remain unknown.
+ */
+async function handlePaymentProviderFailure(userId, idempotencyKey, table, recordId, error) {
+  if (!error || error.providerRejected !== true) {
+    await markPaymentCreationUnknown(userId, idempotencyKey, error);
+    return "unknown";
+  }
+
+  try {
+    await denyUnsentPaymentRecord(table, recordId);
+    const requestReleased = await failPaymentCreation(userId, idempotencyKey, error);
+    if (!requestReleased) {
+      await markPaymentCreationUnknown(userId, idempotencyKey, error);
+      return "unknown";
+    }
+    return "failed";
+  } catch (cleanupError) {
+    logError("payment_idempotency.event_002", "[payment-idempotency] не удалось безопасно закрыть отклонённый заказ:", cleanupError.message);
+    await markPaymentCreationUnknown(userId, idempotencyKey, cleanupError);
+    return "unknown";
   }
 }
 
@@ -159,6 +189,7 @@ module.exports = {
   attachPaymentCreationOrder,
   markPaymentCreationUnknown,
   failPaymentCreation,
+  handlePaymentProviderFailure,
   denyUnsentPaymentRecord,
   paymentRequestFingerprint,
 };
