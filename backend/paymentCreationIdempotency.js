@@ -142,7 +142,7 @@ async function markPaymentCreationUnknown(userId, idempotencyKey, error) {
 async function failPaymentCreation(userId, idempotencyKey, error) {
   const rawCode = String(error && (error.code || error.name) || "payment_creation_failed");
   const errorCode = /^[A-Za-z0-9_-]{1,64}$/.test(rawCode) ? rawCode : "payment_creation_failed";
-  const { error: updateError } = await supabase.rpc("fail_payment_creation_request", {
+  const { data, error: updateError } = await supabase.rpc("fail_payment_creation_request", {
     p_user_id: String(userId),
     p_idempotency_key: idempotencyKey,
     p_error_code: errorCode,
@@ -151,7 +151,9 @@ async function failPaymentCreation(userId, idempotencyKey, error) {
     logError("payment_idempotency.event_001", "[payment-idempotency] не удалось зафиксировать отказ создания:", updateError.message);
     return false;
   }
-  return true;
+  // The SQL RPC returns false when the request was no longer in "creating".
+  // A successful transport alone is not proof that the retry fence was released.
+  return data === true;
 }
 
 /**
