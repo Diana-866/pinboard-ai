@@ -61,3 +61,16 @@ test('pauses automatic polling after an authentication failure but keeps recover
   assert.equal(shouldPollGenerationRecovery(unresolved, true), false);
   assert.equal(shouldPollGenerationRecovery(unresolved, false), true);
 });
+
+import { buildUnknownGenerationRecoveryEntries } from './generationRecovery';
+
+test('keeps all local recovery identities visible when status checks return 401', () => {
+  const identities = [
+    { fingerprint: 'request-a' },
+    { fingerprint: 'request-b' },
+  ];
+  assert.deepEqual(buildUnknownGenerationRecoveryEntries(identities), [
+    { key: 'request-a', status: 'unknown', boardId: '', pinCount: 0 },
+    { key: 'request-b', status: 'unknown', boardId: '', pinCount: 0 },
+  ]);
+});
