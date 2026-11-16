@@ -171,3 +171,11 @@ The review desk's global arrow shortcuts previously ignored only input/textarea/
 After changes, 16 static assertions passed across NotificationContext, owner key helper/tests, App provider order, EmailVerifyBanner, ManualApprovalDesk and translation schema. Seven locale files were re-fetched; all seven contain every new email-verification and notification key. No frontend test, typecheck, build, browser multi-user notification test, keyboard-only test or screen-reader test was executed.
 
 **Still open:** active `ManualApprovalDesk` contains numerous hard-coded Russian control labels and fallback alerts/status messages. Demo pin text is sample content; actual action/error UI should be localized in a later focused pass. Legacy `AuthModal.tsx` and `SwipeReviewModal.tsx` were not changed because current `App.tsx` does not render them. Package 09 and the complete frontend audit remain open.
+
+## Additional pass — localized mobile navigation accessibility label
+
+The mobile navigation toggle in `Header.tsx` used the hard-coded English accessible name `Open navigation menu`. Added `nav.openNavigationMenu` to the typed translation schema and all seven locale dictionaries (EN/RU/ES/PT/DE/FR/ZH), then switched the button to `t.nav.openNavigationMenu`.
+
+**Commits:** translation schema `<SCHEMA_COMMIT>`; EN locale `<EN_COMMIT>`; RU `f61e9a2177721aabe6aa7cef3462af1d2acf6732`; ES `a3e72f7138a477eb03d5a927999723374bf54757`; PT `17ff73840ae4802cfb96c21f046b67ad0c582d2a`; DE `b7c7986b6c9cbcd8272b6a0003c975b9b9481d2d`; FR `a295b3d2c0542b578a56abba9bca471de024a8d4`; ZH `baa124172b8dff04271d89e52d56de8376947a3c`; component `6d17e4208f46ae4fbc56f33f26018326bb18d1cd`.
+
+The schema, all seven locale files and `Header.tsx` were re-fetched from `main`; all eight declarations and the component binding were confirmed. No test, typecheck, build or browser/screen-reader run was executed. Package 09 remains open.
