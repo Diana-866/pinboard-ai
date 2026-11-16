@@ -3,6 +3,12 @@
 const DEFAULT_STALE_AFTER_MS = 3 * 60 * 1000;
 const DEFAULT_RUNNING_TIMEOUT_MS = 20 * 60 * 1000;
 
+function normalizeCounter(value) {
+  if (typeof value === "string" && value.trim() === "") return 0;
+  const numeric = typeof value === "number" || typeof value === "string" ? Number(value) : NaN;
+  return Number.isSafeInteger(numeric) && numeric >= 0 ? numeric : 0;
+}
+
 function summarizePinterestSchedulerHealth(row, now = Date.now(), staleAfterMs = DEFAULT_STALE_AFTER_MS) {
   if (!row || row.status === "never" || !row.last_started_at) {
     return {
@@ -34,11 +40,11 @@ function summarizePinterestSchedulerHealth(row, now = Date.now(), staleAfterMs =
     last_completed_at: row.last_completed_at || null,
     last_run_status: row.status,
     counts: {
-      claimed: Number(row.claimed) || 0,
-      published: Number(row.published) || 0,
-      failed: Number(row.failed) || 0,
-      scheduled: Number(row.scheduled) || 0,
-      unknown: Number(row.unknown) || 0,
+      claimed: normalizeCounter(row.claimed),
+      published: normalizeCounter(row.published),
+      failed: normalizeCounter(row.failed),
+      scheduled: normalizeCounter(row.scheduled),
+      unknown: normalizeCounter(row.unknown),
     },
     last_error_code: row.last_error_code || null,
   };
