@@ -121,7 +121,7 @@ export const VerifyEmail: React.FC = () => {
           <>
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 text-2xl text-red-600 dark:text-red-400">✕</div>
             <h1 className="text-2xl font-semibold tracking-tight text-primary-theme">{t.verifyErrorTitle}</h1>
-            <div className="mt-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+            <div role="alert" className="mt-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
               {errorMessage}
             </div>
             <p className="mt-4 text-sm text-secondary-theme">
