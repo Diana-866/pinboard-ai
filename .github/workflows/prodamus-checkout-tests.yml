@@ -1,6 +1,16 @@
 name: Prodamus checkout and webhook regression tests
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/prodamus.js"
+      - "backend/billing.js"
+      - "backend/creditsBilling.js"
+      - "backend/paymentCreationIdempotency.js"
+      - "backend/test/prodamus-webhook.test.js"
+      - "backend/test/payment-creation-settlement.test.js"
+      - ".github/workflows/prodamus-checkout-tests.yml"
   pull_request:
     branches: [main]
     paths:
