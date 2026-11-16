@@ -819,3 +819,11 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - Проверены текущий main, feature branch feat/persisted-boards-api (старый HEAD b2f695a9...), PR #90 (draft/open), workflow run 43953283169 (runner_id=0, steps пусты), Vercel rate-limit status и календарный компонент.
 - Подробная таблица противоречий и remaining scope: docs/audits/2026-11-16-documentation-contradiction-review.md.
 - Отмечен только частичный прогресс [~]: полный аудит всех документов и file-by-file register ещё не выполнены. Production migrations/providers/DNS/payment/Pinterest settings не менялись.
+
+
+### Синхронизация корневых планов и operational guides (2026-11-16)
+
+- Выявлены дополнительные устаревшие источники статуса: LAUNCH_CONTROL и MASTER_REQUIREMENTS указывали feature branch как рабочую; PRODUCTION_READINESS_AUDIT продолжал называть старый PR #4 единственным объектом аудита; payments guide утверждал, что миграции 029/030 остались только в feature branch; domain/email guides не отделяли target configuration от проверенной live configuration.
+- Обновлены шапки и статусные оговорки этих документов: PROJECT_STATE.md теперь явно главный актуальный operational passport; MASTER_REQUIREMENTS оставлен как product scope catalogue, LAUNCH_CONTROL и PRODUCTION_READINESS_AUDIT помечены как исторические snapshots; платежная справка отделяет код в main от применения миграций/включения реальных платежей; DNS/email instructions запрещают считать описанную конфигурацию подтверждённой.
+- По backend/.env.example и коду проверены имена PRODAMUS_SHOP_ID, PRODAMUS_SECRET, PRODAMUS_SECRET_WEBHOOK, PRODAMUS_SYS, PRODAMUS_URL, PRODAMUS_DEMO, PRODAMUS_OFFLINE, PUBLIC_BACKEND_URL и MAIL_SMTP_*; legacy root test/billing-flow.js существует, а backend/test/billing-flow.js — нет.
+- Эти правки документируют границы знаний; live provider settings, DNS, mailboxes, Supabase production migration state и payment mode в этой сессии не запрашивались и не менялись.
