@@ -148,13 +148,15 @@ export const Register: React.FC = () => {
               placeholder={t.confirmPlaceholder}
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
+              aria-invalid={!!confirm && confirm !== password}
+              aria-describedby={confirm && confirm !== password ? "confirm-password-error" : undefined}
               className={`w-full rounded-xl border bg-page px-4 py-3 text-sm text-primary-theme outline-none transition focus:border-accent ${
                 confirm && confirm !== password ? 'border-red-400' : 'border-subtle'
               }`}
               required
             />
             {confirm && confirm !== password && (
-              <p className="mt-1 text-[11px] text-red-500">{t.passwordMismatch}</p>
+              <p id="confirm-password-error" role="alert" className="mt-1 text-[11px] text-red-500">{t.passwordMismatch}</p>
             )}
           </div>
         </div>
