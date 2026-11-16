@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, AlertCircle, Link2, Loader2, RefreshCw, Unlink } from 'lucide-react';
 import { apiRequest, ApiError } from '../../lib/api';
 import { useI18n } from '../../i18n/i18nContext';
+import { useAuth } from '../../context/AuthContext';
 import { reconcileDisconnectedPinterestAccount } from './pinterestAccountState';
 
 interface PinterestAccount {
@@ -36,6 +37,8 @@ interface PinterestCardProps {
 
 export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged }) => {
   const { t } = useI18n();
+  const { user } = useAuth();
+  const userId = user?.id || '';
   const [status, setStatus] = useState<PinterestStatus | null>(null);
   const [accounts, setAccounts] = useState<PinterestAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
@@ -43,14 +46,17 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
   const [boardsLoading, setBoardsLoading] = useState(false);
   const [boardsError, setBoardsError] = useState<string | null>(null);
   const boardsRequestId = useRef(0);
+  const statusRequestId = useRef(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const loadStatus = async (): Promise<boolean> => {
+    const requestId = ++statusRequestId.current;
     try {
       const data = await apiRequest('/integrations/pinterest/status');
+      if (requestId !== statusRequestId.current) return false;
       const nextAccounts: PinterestAccount[] = Array.isArray(data?.accounts)
         ? data.accounts
         : data?.connected
@@ -66,11 +72,12 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
       );
       return true;
     } catch (e) {
+      if (requestId !== statusRequestId.current) return false;
       const err = e as ApiError;
       setError(err?.message || t.settings.pinterestConnectError);
       return false;
     } finally {
-      setLoading(false);
+      if (requestId === statusRequestId.current) setLoading(false);
     }
   };
 
@@ -115,8 +122,34 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
       url.search = params.toString();
       window.history.replaceState({}, '', url.toString());
     }
-    loadStatus();
   }, []);
+
+  useEffect(() => {
+    // Invalidate all requests and clear account-specific UI before loading a
+    // different authenticated user's Pinterest connections.
+    statusRequestId.current += 1;
+    boardsRequestId.current += 1;
+    setStatus(null);
+    setAccounts([]);
+    setSelectedAccountId(null);
+    setBoards([]);
+    setBoardsError(null);
+    setBoardsLoading(false);
+    setError(null);
+    setLoading(Boolean(userId));
+    if (!userId) {
+      setLoading(false);
+      return () => {
+        statusRequestId.current += 1;
+        boardsRequestId.current += 1;
+      };
+    }
+    void loadStatus();
+    return () => {
+      statusRequestId.current += 1;
+      boardsRequestId.current += 1;
+    };
+  }, [userId]);
 
   useEffect(() => {
     loadBoards(selectedAccountId);
