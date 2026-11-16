@@ -386,6 +386,19 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     return () => { active = false; };
   }, [recoveryCheckAttempt, userId]);
 
+  // Keep checking only unresolved generation requests while this editor is open.
+  // This is a read-only status lookup: it never resubmits provider work or charges credits.
+  React.useEffect(() => {
+    const hasUnresolvedRequest = recoverableGenerations.some((item) =>
+      item.status === 'processing' || item.status === 'unknown'
+    );
+    if (!hasUnresolvedRequest || isCheckingRecoveries || !userId) return;
+    const timer = window.setTimeout(() => {
+      setRecoveryCheckAttempt((attempt) => attempt + 1);
+    }, 10_000);
+    return () => window.clearTimeout(timer);
+  }, [recoverableGenerations, isCheckingRecoveries, userId]);
+
   // A count refresh replaces the boards array but must not reset the active pin editor.
   const selectedBoardName = boards.find((board) => board.id === selectedBoardId)?.name || '';
 
