@@ -136,3 +136,12 @@ All `/admin/*` handlers in this entrypoint use `requireAuth` and `requireAdmin`;
 
 
 - `backend/billing.js:listAllSubscriptions` now clamps admin subscription inventory page size to 1–500; regression test `backend/test/admin-subscription-limit.test.js` and CI step added.
+
+
+## Follow-up: bound the manual review queue (2026-11-16)
+
+- The line-by-line pass found that `GET /review-queue` also used an unbounded offset loop. This is separate from the calendar fix: a sufficiently large review backlog could keep issuing PostgREST requests and accumulating rows in memory indefinitely.
+- Replaced the route's bespoke loop with the shared `fetchAllPages` helper. It preserves owner filtering and stable `created_at, id` ordering, pages at 500 rows, accepts exactly 10,000 rows, and returns HTTP 413 when more rows exist. Existing stale-row cleanup remains chunked in groups of 200.
+- Added `backend/test/review-queue-pagination-contract.test.js` to guard the route against reintroducing the unbounded loop; the shared helper's exact-cap/overflow behavior is covered by `backend/test/fetch-all-pages.test.js`.
+- Commits: `e965a3a4` (route fix), `2bebc508` (regression contract).
+- Static verification: re-fetched the route and test from `main`; route uses `fetchAllPages` and `.range(from, to)`. No workflow run was returned for the test commit; Node tests were NOT executed and no production data/service was touched.
