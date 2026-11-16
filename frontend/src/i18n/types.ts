@@ -531,6 +531,7 @@ export interface TranslationSchema {
     deleteAccountDone: string;
     requestFailed: string;
     emailVerifyTitle: string;
+    emailVerifySentTo: string;
     emailVerifyResent: string;
     emailVerifyResend: string;
     emailVerifySending: string;
