@@ -23,6 +23,13 @@ Last updated: 2026-11-16
 - [!] No application table with a name matching `%migration%` appeared in the prior inventory; the custom application migration ledger has therefore not been identified. The table inventory alone does not prove which migration files ran.
 - [ ] Capture the live column definitions for all `public` tables and compare them with the canonical migration chain.
 
+## Column inventory (user-provided, 2026-11-16; partial)
+
+- [x] Received the first segment of the `information_schema.columns` inventory, covering tables from `account_deletion_events` through `email_outbox` (15 listed columns for `email_outbox`).
+- [!] The supplied result currently ends at `email_outbox`; it is not yet a complete inventory of all `public` table columns.
+- [x] Recorded observations for later migration comparison: `auth_tokens.user_id`, `credit_purchases.user_id`, and `credit_transactions.user_id` are `text`; `account_deletion_requests.user_id` is `uuid`; `boards.created_at` and `credit_transactions.created_at` are `timestamp without time zone`.
+- [ ] Receive the remaining rows, then compare complete live columns against the canonical migrations.
+
 ## Safety rules
 
 - This record concerns the test database `PIN_TRIAL`, not production.
@@ -32,4 +39,4 @@ Last updated: 2026-11-16
 
 ## Next action
 
-Run a read-only inventory of column definitions for all `public` tables. Then compare live columns, constraints, indexes, and functions with the canonical migration chain before deciding which migrations, if any, remain to be applied.
+Complete the read-only column inventory (the first supplied segment ends at `email_outbox`), then compare live columns, constraints, indexes, and functions with the canonical migration chain before deciding which migrations, if any, remain to be applied.
