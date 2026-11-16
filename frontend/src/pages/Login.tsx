@@ -37,7 +37,11 @@ export const Login: React.FC = () => {
       if (!writeAuthToken(data.token)) {
         throw new Error("Браузер не разрешил сохранить сессию. Разрешите хранилище сайта и войдите снова.");
       }
-      await refreshUser();
+      const sessionReady = await refreshUser();
+      if (!sessionReady) {
+        setError(t.sessionLoadError);
+        return;
+      }
       navigate('/app');
     } catch (err: any) {
       const message = err?.message || t.loginError;
