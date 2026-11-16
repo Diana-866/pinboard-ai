@@ -1,6 +1,7 @@
 param(
     [switch]$SkipInstall,
-    [switch]$Migrations
+    [switch]$Migrations,
+    [switch]$MigrationsOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -145,64 +146,66 @@ function Invoke-MigrationReplay {
     return $replaySucceeded
 }
 
-if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-    throw "Node.js is required. Install Node.js 22.12 or newer and rerun this script."
-}
-if (-not (Get-Command npm.cmd -ErrorAction SilentlyContinue)) {
-    throw "npm.cmd is required. Repair the Node.js installation and rerun this script."
+if (-not $MigrationsOnly) {
+    if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+        throw "Node.js is required. Install Node.js 22.12 or newer and rerun this script."
+    }
+    if (-not (Get-Command npm.cmd -ErrorAction SilentlyContinue)) {
+        throw "npm.cmd is required. Repair the Node.js installation and rerun this script."
+    }
+
+    $NodeVersionText = & node -p "process.versions.node"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to determine the installed Node.js version."
+    }
+    try {
+        $NodeVersion = [version]$NodeVersionText
+    } catch {
+        throw "Unable to parse the installed Node.js version: $NodeVersionText"
+    }
+    if ($NodeVersion -lt [version]"22.12.0") {
+        throw "Node.js 22.12 or newer is required. Installed version: $NodeVersionText"
+    }
+
+    $Backend = Join-Path $Root "backend"
+    $Frontend = Join-Path $Root "frontend"
+
+    if (-not (Ensure-Dependencies -Directory $Backend -HasLockFile $true)) {
+        $Failed = $true
+    } else {
+        if (-not (Invoke-Step -Name "Backend syntax check" -WorkingDirectory $Backend -Command "node" -Arguments @("--check", "index.js"))) {
+            $Failed = $true
+        }
+        if (-not (Invoke-Step -Name "Backend analyze.js syntax check" -WorkingDirectory $Backend -Command "node" -Arguments @("--check", "analyze.js"))) {
+            $Failed = $true
+        }
+        if (-not (Invoke-Step -Name "Backend boards.js syntax check" -WorkingDirectory $Backend -Command "node" -Arguments @("--check", "boards.js"))) {
+            $Failed = $true
+        }
+        if (-not (Invoke-Step -Name "Backend textOutputValidation.js syntax check" -WorkingDirectory $Backend -Command "node" -Arguments @("--check", "textOutputValidation.js"))) {
+            $Failed = $true
+        }
+        if (-not (Invoke-Step -Name "Backend tests" -WorkingDirectory $Backend -Command "npm.cmd" -Arguments @("test"))) {
+            $Failed = $true
+        }
+    }
+
+    if (-not (Ensure-Dependencies -Directory $Frontend -HasLockFile $true)) {
+        $Failed = $true
+    } else {
+        if (-not (Invoke-Step -Name "Frontend type-check" -WorkingDirectory $Frontend -Command "npm.cmd" -Arguments @("run", "lint"))) {
+            $Failed = $true
+        }
+        if (-not (Invoke-Step -Name "Frontend tests" -WorkingDirectory $Frontend -Command "npm.cmd" -Arguments @("test"))) {
+            $Failed = $true
+        }
+        if (-not (Invoke-Step -Name "Frontend production build" -WorkingDirectory $Frontend -Command "npm.cmd" -Arguments @("run", "build"))) {
+            $Failed = $true
+        }
+    }
 }
 
-$NodeVersionText = & node -p "process.versions.node"
-if ($LASTEXITCODE -ne 0) {
-    throw "Unable to determine the installed Node.js version."
-}
-try {
-    $NodeVersion = [version]$NodeVersionText
-} catch {
-    throw "Unable to parse the installed Node.js version: $NodeVersionText"
-}
-if ($NodeVersion -lt [version]"22.12.0") {
-    throw "Node.js 22.12 or newer is required. Installed version: $NodeVersionText"
-}
-
-$Backend = Join-Path $Root "backend"
-$Frontend = Join-Path $Root "frontend"
-
-if (-not (Ensure-Dependencies -Directory $Backend -HasLockFile $true)) {
-    $Failed = $true
-} else {
-    if (-not (Invoke-Step -Name "Backend syntax check" -WorkingDirectory $Backend -Command "node" -Arguments @("--check", "index.js"))) {
-        $Failed = $true
-    }
-    if (-not (Invoke-Step -Name "Backend analyze.js syntax check" -WorkingDirectory $Backend -Command "node" -Arguments @("--check", "analyze.js"))) {
-        $Failed = $true
-    }
-    if (-not (Invoke-Step -Name "Backend boards.js syntax check" -WorkingDirectory $Backend -Command "node" -Arguments @("--check", "boards.js"))) {
-        $Failed = $true
-    }
-    if (-not (Invoke-Step -Name "Backend textOutputValidation.js syntax check" -WorkingDirectory $Backend -Command "node" -Arguments @("--check", "textOutputValidation.js"))) {
-        $Failed = $true
-    }
-    if (-not (Invoke-Step -Name "Backend tests" -WorkingDirectory $Backend -Command "npm.cmd" -Arguments @("test"))) {
-        $Failed = $true
-    }
-}
-
-if (-not (Ensure-Dependencies -Directory $Frontend -HasLockFile $true)) {
-    $Failed = $true
-} else {
-    if (-not (Invoke-Step -Name "Frontend type-check" -WorkingDirectory $Frontend -Command "npm.cmd" -Arguments @("run", "lint"))) {
-        $Failed = $true
-    }
-    if (-not (Invoke-Step -Name "Frontend tests" -WorkingDirectory $Frontend -Command "npm.cmd" -Arguments @("test"))) {
-        $Failed = $true
-    }
-    if (-not (Invoke-Step -Name "Frontend production build" -WorkingDirectory $Frontend -Command "npm.cmd" -Arguments @("run", "build"))) {
-        $Failed = $true
-    }
-}
-
-if ($Migrations) {
+if ($Migrations -or $MigrationsOnly) {
     $migrationResult = Invoke-MigrationReplay
     if ($migrationResult) {
         $Summary.Add("PASS  PostgreSQL migration replay (001 + 010-148)")
