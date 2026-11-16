@@ -57,3 +57,25 @@ A separate source pass across onboarding, dashboard, header, sidebar and profile
 All twelve relevant files were re-fetched from current `main`; ten targeted static assertions passed for locale coverage, MIME/size validation, FileReader error handling, persist-before-state behavior and accessible error feedback. The new avatar helper tests were inspected but **not executed**. No typecheck, frontend suite, build or browser file-upload test was run. The 1 MiB limit reduces localStorage pressure but does not replace runtime testing across browsers and storage quotas.
 
 This is an additional package-09 finding; package 09 and the full frontend audit remain open.
+
+
+## Additional pass — onboarding accessibility and localized fallback states
+
+A second focused review of `OnboardingWizard` found two user-visible issues:
+
+- The website URL input and product description textarea had placeholders but no programmatic accessible names or associated descriptions.
+- The selected plan card was visually highlighted without exposing its selected state to assistive technology.
+- Inline onboarding errors were not announced in the main wizard state.
+- Three fallback messages were hard-coded as Russian for RU and English for every other language: profile-refresh failure, unavailable plan price and loading state. This left ES/PT/DE/FR/ZH untranslated.
+
+**Fix on main:**
+- Associated the website field and product textarea with their translated step headings and explanatory text using `aria-labelledby` and `aria-describedby`.
+- Added `role="alert"` to the main wizard error feedback.
+- Added `aria-pressed` to each selectable plan card.
+- Added `profileRefreshError`, `priceUnavailable` and `priceLoading` to all seven onboarding locale dictionaries and replaced the hard-coded RU/EN conditionals.
+- Added `frontend/src/utils/onboardingCopy.test.ts` to verify all three messages exist for EN/RU/ES/PT/DE/FR/ZH and EN, and that non-English price fallback strings are not silently English.
+- The existing frontend test command already includes `src/utils/*.test.ts`; no test script change was required.
+
+**Commits:** locale copy `ea43db939ac33b84b56501e39d910b9285557109`; onboarding component `949f87cebcc29d20d2bc53c1453820a892ba64d0`; regression test `3fea0bfb3b9dc8b0ff24380344aef310136e2cc2`.
+
+The component, copy module and test were re-fetched from `main`; ten targeted static assertions passed, including all seven locale dictionaries, accessible labels/descriptions, alert semantics, plan pressed state and test discovery. The test source was inspected but **not executed**. No typecheck, frontend test suite, build, browser or screen-reader test was run. Package 09 and the full frontend audit remain open.
