@@ -1,0 +1,75 @@
+name: Pinterest scheduled publication fallback
+
+on:
+  schedule:
+    # Low-cost fallback for deployments without a dedicated background worker.
+    # GitHub may delay scheduled events; this is not a precision-time scheduler.
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pinterest-scheduled-publication-fallback
+  cancel-in-progress: false
+
+jobs:
+  publish-due:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Process due Pinterest publications
+        env:
+          PINPOSY_BACKEND_URL: ${{ secrets.PINPOSY_BACKEND_URL }}
+          PINPOSY_SCHEDULER_SECRET: ${{ secrets.PINPOSY_SCHEDULER_SECRET }}
+        run: |
+          node --input-type=module <<'NODE'
+          const rawUrl = String(process.env.PINPOSY_BACKEND_URL || '').trim();
+          const secret = String(process.env.PINPOSY_SCHEDULER_SECRET || '');
+          if (!rawUrl || !secret) {
+            throw new Error('Configure PINPOSY_BACKEND_URL and PINPOSY_SCHEDULER_SECRET in repository Actions secrets.');
+          }
+          if (secret.length < 32 || secret.trim() !== secret || /\\s/.test(secret)) {
+            throw new Error('PINPOSY_SCHEDULER_SECRET must be at least 32 characters without whitespace.');
+          }
+          let parsed;
+          try { parsed = new URL(rawUrl); } catch { throw new Error('PINPOSY_BACKEND_URL is invalid.'); }
+          if (parsed.protocol !== 'https:' || parsed.username || parsed.password ||
+              parsed.search || parsed.hash || (parsed.pathname && parsed.pathname !== '/')) {
+            throw new Error('PINPOSY_BACKEND_URL must be an HTTPS origin without credentials, path, query or fragment.');
+          }
+
+          const totals = { runs: 0, claimed: 0, published: 0, failed: 0, scheduled: 0, unknown: 0 };
+          // The backend claims exactly one row per request. Drain a bounded
+          // backlog in one runner invocation; the durable DB remains the queue.
+          for (let index = 0; index < 10; index += 1) {
+            const response = await fetch(new URL('/internal/pinterest/schedule/run', parsed.origin), {
+              method: 'POST',
+              redirect: 'error',
+              headers: {
+                'content-type': 'application/json',
+                'x-pinposy-scheduler-secret': secret,
+              },
+              body: JSON.stringify({ limit: 1 }),
+              signal: AbortSignal.timeout(120_000),
+            });
+            if (!response.ok) {
+              throw new Error(`Pinterest scheduler endpoint returned HTTP ${response.status}.`);
+            }
+            const data = await response.json();
+            if (!data || data.ok !== true || !Number.isSafeInteger(data.claimed) || data.claimed < 0) {
+              throw new Error('Pinterest scheduler returned an invalid response.');
+            }
+            totals.runs += 1;
+            for (const key of ['claimed', 'published', 'failed', 'scheduled', 'unknown']) {
+              const value = Number(data[key] || 0);
+              if (!Number.isSafeInteger(value) || value < 0) {
+                throw new Error('Pinterest scheduler returned invalid counters.');
+              }
+              totals[key] += value;
+            }
+            if (data.claimed === 0) break;
+          }
+          console.log(JSON.stringify(totals));
+          NODE
