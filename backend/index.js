@@ -1263,12 +1263,16 @@ app.get("/review-queue", requireAuth, async (req, res) => {
       const pinIdChunks = Array.from({ length: Math.ceil(pinIds.length / 200) }, (_, index) =>
         pinIds.slice(index * 200, (index + 1) * 200)
       );
-      const pinResults = await Promise.all(pinIdChunks.map((ids) =>
-        supabase
-          .from("pins")
-          .select("id,status,boards(id,projects(user_id))")
-          .in("id", ids)
-      ));
+      const pinResults = [];
+      for (let offset = 0; offset < pinIdChunks.length; offset += 5) {
+        const batchResults = await Promise.all(pinIdChunks.slice(offset, offset + 5).map((ids) =>
+          supabase
+            .from("pins")
+            .select("id,status,boards(id,projects(user_id))")
+            .in("id", ids)
+        ));
+        pinResults.push(...batchResults);
+      }
       const pinsError = pinResults.find((result) => result.error)?.error;
       if (pinsError) throw pinsError;
       for (const result of pinResults) {
@@ -1278,14 +1282,18 @@ app.get("/review-queue", requireAuth, async (req, res) => {
       // A queue row can survive if scheduling succeeded but the follow-up
       // queue deletion failed. Reconcile against persisted schedules so a
       // refresh cannot offer the same pin for approval a second time.
-      const scheduleResults = await Promise.all(pinIdChunks.map((ids) =>
-        supabase
-          .from("pin_schedules")
-          .select("pin_id")
-          .eq("user_id", userId)
-          .in("pin_id", ids)
-          .in("status", ["scheduled", "publishing", "published", "unknown"])
-      ));
+      const scheduleResults = [];
+      for (let offset = 0; offset < pinIdChunks.length; offset += 5) {
+        const batchResults = await Promise.all(pinIdChunks.slice(offset, offset + 5).map((ids) =>
+          supabase
+            .from("pin_schedules")
+            .select("pin_id")
+            .eq("user_id", userId)
+            .in("pin_id", ids)
+            .in("status", ["scheduled", "publishing", "published", "unknown"])
+        ));
+        scheduleResults.push(...batchResults);
+      }
       const schedulesError = scheduleResults.find((result) => result.error)?.error;
       if (schedulesError) throw schedulesError;
       for (const result of scheduleResults) {
