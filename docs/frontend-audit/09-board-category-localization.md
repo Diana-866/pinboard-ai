@@ -115,3 +115,12 @@ A focused review of the public authentication lifecycle found that error message
 **Commits:** `41dca2b53243c782879bfecc7347d1374ea8ce79`, `760513e8527ca6dac652cd636b16b2c269504f23`, `4ee0aa1954a54b08497d9b038ea94e15099bdc0b`, `8ce691456ec0661f80b03ff018f3f4c17df3e3f7`, `3457433123fd0c9462f2becf19a391552f60129c`, `e7ef6fb0e56671a286ba74988d26410161161ed7`.
 
 All six files were fetched again from `main`; six targeted static assertions confirmed alert semantics. No automated test, typecheck, browser or screen-reader run was executed. This improves announcement semantics only; it does not establish complete WCAG conformance or runtime correctness. Package 09 remains open.
+
+
+## Supplemental authentication form localization (FE-13)
+
+A focused pass over the login and registration forms found that the email field label was hard-coded as English `Email`, even though the shared translation schema already provides `t.email` and the password/reset forms use translated labels. Replaced both labels with `t.email` so the existing seven locale dictionaries supply the visible label. Existing login, registration, forgot-password and reset-password error blocks expose `role=alert`; their email/password inputs are associated with labels.
+
+Commits: Login `c59619ecf9eeb9efbae1a6e6ef41f9be38ef1e65`; Register `34599433cc6faed3c978325a62f56d68a34661b8`.
+
+Both changed pages were re-fetched from `main`; static assertions confirmed each email input uses `t.email` and neither page retains the hard-coded English label. No browser, keyboard-only or screen-reader test was run. Package 09 remains open.
