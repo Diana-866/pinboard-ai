@@ -362,3 +362,12 @@ UA-004 по локальному запуску остаётся обязате�
 - Рассмотрен PR #90 (`ci: run backend and frontend checks on Windows self-hosted runner`): draft, `mergeable_state=unknown`, requires `[self-hosted, Windows, X64]`. Он не запускает job без подходящего self-hosted runner и не заменяет UA-004. Оставлен открытым и не объединён до подтверждения наличия и безопасности runner.
 - Для текущего main HEAD `51cc8ca14acb08f19243c1f0256b5407766156c6` Actions run отсутствует; Vercel продолжает сообщать `Deployment rate limited — retry in 24 hours` (20:36:58Z). Это не результат сборки.
 - Никаких локальных/production ресурсов и настроек не меняли; фактические SQL, backend/frontend тесты и build не запускались.
+
+### UA-004 — повторная сверка инструкции и доступности среды (2026-11-16)
+
+- Перед этой записью проверены текущий `main` и `scripts/verify-integration.ps1`; runner не запускался, поскольку пользовательский Windows checkout/PowerShell и изолированный PostgreSQL cluster не доступны ассистенту.
+- Требуемое действие остаётся прежним: в `X:\!PROGECT\pinboard-ai` убедиться в clean `main`, выполнить `git pull --ff-only origin main`, затем `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1 -PostgresPort 55439`. Ввести пароль `pinposy_verify_admin` только в скрытый локальный prompt. Передать полный stdout/stderr без пароля и иных секретов.
+- Не использовать production, `PIN_TRIAL`, существующий PostgreSQL cluster или PID 5632; не удалять временный кластер `X:\PinPosy-verify-pg18`. При несовпадении preflight остановиться и прислать ошибку, не обходить защиту.
+- После SQL suite и подтверждённого cleanup следующий этап — отдельно проверить Bash runtime и выполнить 9 concurrency scripts; затем backend Node suite. Не запускать их заранее.
+- Для `main` HEAD `75e3ca335e3aedcc808ec8953c09201ddf0b96b1` GitHub Actions runs отсутствуют; Vercel rate limit всё ещё блокирует подтверждение deployment. PR #90 остаётся draft и не является заменой локального gate.
+- Никакие секреты, production-сервисы и локальные ресурсы не менялись.
