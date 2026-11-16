@@ -49,3 +49,8 @@ export function clearAuthToken(): void {
     // Clearing a token is best-effort when browser storage is unavailable.
   }
 }
+
+/** Safe predicate for route guards: blocked browser storage means no local session. */
+export function hasStoredAuthToken(): boolean {
+  return readAuthToken() !== null;
+}
