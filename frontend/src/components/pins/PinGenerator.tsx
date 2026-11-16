@@ -32,7 +32,7 @@ import { shouldFlushPendingPinDescription } from '../../utils/pendingPinDescript
 import { clearPendingGenerationRequest, createGenerationFingerprint, listPendingGenerationRequests, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
 import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
 import { requireGeneratedPinsArray } from '../../utils/generatedPinsResponse';
-import { isExpiredGenerationRecoveryError } from '../../utils/generationRecovery';
+import { isExpiredGenerationRecoveryError, shouldPollGenerationRecovery } from '../../utils/generationRecovery';
 import { isCurrentBillingOwner } from '../../utils/billingOwner';
 import { rollbackPinAspectRatioIfUnchanged } from '../../utils/pinAspectRatio';
 import { resolvePinterestDestination } from '../../utils/pinterestDestination';
@@ -389,10 +389,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   // Keep checking only unresolved generation requests while this editor is open.
   // This is a read-only status lookup: it never resubmits provider work or charges credits.
   React.useEffect(() => {
-    const hasUnresolvedRequest = recoverableGenerations.some((item) =>
-      item.status === 'processing' || item.status === 'unknown'
-    );
-    if (!hasUnresolvedRequest || isCheckingRecoveries || !userId) return;
+    if (!shouldPollGenerationRecovery(recoverableGenerations) || isCheckingRecoveries || !userId) return;
     const timer = window.setTimeout(() => {
       setRecoveryCheckAttempt((attempt) => attempt + 1);
     }, 10_000);
