@@ -341,3 +341,10 @@ UA-004 по локальному запуску остаётся обязате�
 - Vercel сообщает `failure`: `Deployment rate limited — retry in 24 hours` (target `build-rate-limit`). Это ограничение частоты deployment, а не результат сборки; build не подтверждён ни успешным, ни неуспешным.
 - Для этого документационного HEAD GitHub Actions run не создан. Следующий контроль статуса выполнять после окна ограничения; не инициировать платный upgrade и не менять deployment settings без решения владельца.
 - UA-004 по SQL integration runner остаётся отдельным обязательным локальным действием владельца и не заменяется Vercel status.
+
+### Повторная проверка UA-004 и Vercel для main HEAD 946e062 (2026-11-16)
+
+- Повторно подтверждено: UA-004 требует локального fast-forward sync и запуска `scripts/verify-integration.ps1 -PostgresPort 55439` на изолированном PostgreSQL 18.6. Пароль — только в скрытом PowerShell prompt; полный вывод передать без секрета. Не использовать production/PIN_TRIAL, PID 5632 и не удалять временный кластер.
+- На момент проверки ассистент не имеет доступа к пользовательскому Windows checkout/PowerShell/кластеру, поэтому не может выполнить этот шаг самостоятельно. SQL integration suite, 9 Bash concurrency scripts и backend Node suite остаются НЕ ЗАПУЩЕНЫ в этой сессии.
+- HEAD до документационной записи: `946e062ab49bf0dfaa5876176c2d55bb383b6ed5`. Для него GitHub Actions run отсутствует, поскольку commit меняет только docs и workflow `paths-ignore` исключает `docs/**`; отсутствие run не является результатом тестов.
+- Vercel status на этом HEAD: `failure`, `Deployment rate limited — retry in 24 hours`, target `build-rate-limit`, timestamp `2026-11-16T20:34:53Z`. Это rate-limit до подтверждённой сборки, а не build error. Не менять тариф/настройки без решения владельца.
