@@ -33,7 +33,7 @@ type AdminTab =
   | 'mail'
   | 'email_outbox';
 
-const TABS: Array<{ id: AdminTab; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+const TABS: Array<{ id: AdminTab; label: string; icon: React.ElementType<{ className?: string }> }> = [
   { id: 'subscriptions', label: 'Подписки', icon: Receipt },
   { id: 'payment_creation_requests', label: 'Платёжные заявки', icon: CreditCard },
   { id: 'billing_exceptions', label: 'Ошибки биллинга', icon: AlertTriangle },
