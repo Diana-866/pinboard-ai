@@ -744,6 +744,37 @@ test("rejects a checkout URL carried by a non-success Prodamus HTTP response", a
   }
 });
 
+test("marks an explicit Prodamus 4xx response as a definitive rejection", async () => {
+  const previous = {
+    PRODAMUS_SECRET: process.env.PRODAMUS_SECRET,
+    PRODAMUS_OFFLINE: process.env.PRODAMUS_OFFLINE,
+    PRODAMUS_URL: process.env.PRODAMUS_URL,
+    post: axios.post,
+  };
+  try {
+    process.env.PRODAMUS_SECRET = "shop-secret-test";
+    delete process.env.PRODAMUS_OFFLINE;
+    process.env.PRODAMUS_URL = "https://example.payform.ru/";
+    axios.post = async () => ({ status: 422, data: { error: "invalid request" } });
+
+    await assert.rejects(
+      prodamus.createPaymentLink({
+        orderId: "pp-start-http-422",
+        amount: 1990,
+        description: "PinPosy / Старт",
+      }),
+      (error) => error.httpStatus === 502 && error.providerRejected === true
+    );
+  } finally {
+    axios.post = previous.post;
+    for (const [key, value] of Object.entries(previous)) {
+      if (key === "post") continue;
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
 test("accepts a valid checkout URL from a successful Prodamus HTTP response", async () => {
   const previous = {
     PRODAMUS_SECRET: process.env.PRODAMUS_SECRET,
