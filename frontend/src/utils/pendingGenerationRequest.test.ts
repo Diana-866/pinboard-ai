@@ -217,3 +217,68 @@ test('merges session fallback, deduplicates identities, and ignores malformed en
     clearPendingGenerationRequest();
   }
 });
+
+
+test('generation recovery identities are isolated by authenticated owner', async () => {
+  const storage = memoryStorage();
+  const { writePendingGenerationRequestForOwner, readPendingGenerationRequestForOwner,
+    listPendingGenerationRequestsForOwner, clearPendingGenerationRequestForOwner } =
+    await import('./pendingGenerationRequest');
+  const fingerprint = createGenerationFingerprint('same request on two accounts');
+  writePendingGenerationRequestForOwner('user-a', fingerprint, 'stable-key-owner-a-0001', storage);
+  writePendingGenerationRequestForOwner('user-b', fingerprint, 'stable-key-owner-b-0001', storage);
+
+  assert.equal(readPendingGenerationRequestForOwner('user-a', fingerprint, storage)?.idempotencyKey, 'stable-key-owner-a-0001');
+  assert.equal(readPendingGenerationRequestForOwner('user-b', fingerprint, storage)?.idempotencyKey, 'stable-key-owner-b-0001');
+  assert.equal(listPendingGenerationRequestsForOwner('user-a', storage).length, 1);
+  assert.equal(listPendingGenerationRequestsForOwner('user-b', storage).length, 1);
+  clearPendingGenerationRequestForOwner('user-a', fingerprint, storage);
+  assert.equal(readPendingGenerationRequestForOwner('user-a', fingerprint, storage), null);
+  assert.equal(readPendingGenerationRequestForOwner('user-b', fingerprint, storage)?.idempotencyKey, 'stable-key-owner-b-0001');
+});
+
+test('account-scoped recovery does not import legacy unowned generation keys', async () => {
+  const storage = memoryStorage();
+  const { listPendingGenerationRequestsForOwner } = await import('./pendingGenerationRequest');
+  const fingerprint = createGenerationFingerprint('legacy unowned request');
+  storage.setItem(`pinposy_generation_request_v2:${fingerprint}`, JSON.stringify({
+    fingerprint, idempotencyKey: 'stable-key-legacy-owner-0001',
+  }));
+  assert.deepEqual(listPendingGenerationRequestsForOwner('user-new', storage), []);
+});
+
+
+test('account recovery falls back to session storage when local storage is blocked', async () => {
+  clearPendingGenerationRequest();
+  const sessionStorage = memoryStorage();
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    get() {
+      return {
+        get localStorage() { throw new Error('SecurityError'); },
+        sessionStorage,
+      };
+    },
+  });
+  const {
+    writePendingGenerationRequestForOwner,
+    readPendingGenerationRequestForOwner,
+    listPendingGenerationRequestsForOwner,
+    clearPendingGenerationRequestForOwner,
+  } = await import('./pendingGenerationRequest');
+  const fingerprint = createGenerationFingerprint('owner-session-fallback');
+  try {
+    assert.equal(writePendingGenerationRequestForOwner('user-session', fingerprint, 'stable-key-session-owner-0001'), true);
+    assert.deepEqual(readPendingGenerationRequestForOwner('user-session', fingerprint), {
+      fingerprint, idempotencyKey: 'stable-key-session-owner-0001',
+    });
+    assert.equal(listPendingGenerationRequestsForOwner('user-session').length, 1);
+    clearPendingGenerationRequestForOwner('user-session', fingerprint);
+    assert.equal(listPendingGenerationRequestsForOwner('user-session').length, 0);
+  } finally {
+    if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow);
+    else Reflect.deleteProperty(globalThis, 'window');
+    clearPendingGenerationRequest();
+  }
+});

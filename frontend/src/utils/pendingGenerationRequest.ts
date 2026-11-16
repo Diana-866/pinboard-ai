@@ -37,7 +37,7 @@ function getDefaultStorage(): StorageLike | undefined {
   }
 }
 
-function getLegacySessionStorage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | undefined {
+function getLegacySessionStorage(): StorageLike | undefined {
   try {
     return typeof window !== 'undefined' ? window.sessionStorage : undefined;
   } catch {
@@ -226,5 +226,116 @@ export function clearPendingGenerationRequest(
         try { target.removeItem(key); } catch { /* Best-effort scoped cleanup. */ }
       }
     }
+  }
+}
+
+
+/*
+ * Account-scoped v3 records. v2 records were not tied to an authenticated
+ * owner, so they are deliberately not imported into an account: doing so
+ * after an account switch could expose another user's idempotency key.
+ */
+const OWNER_REQUEST_KEY_PREFIX = 'pinposy_generation_request_v3:';
+
+function ownerStoragePrefix(ownerId: string): string {
+  return OWNER_REQUEST_KEY_PREFIX + createGenerationFingerprint(ownerId).slice(4) + ':';
+}
+
+function ownerMemoryKey(ownerId: string, fingerprint: string): string {
+  return ownerStoragePrefix(ownerId) + fingerprint;
+}
+
+function ownerStorageKey(ownerId: string, fingerprint: string): string {
+  return ownerMemoryKey(ownerId, fingerprint);
+}
+
+export function readPendingGenerationRequestForOwner(
+  ownerId: string,
+  fingerprint: string,
+  storage: Pick<Storage, 'getItem' | 'setItem'> | undefined = getDefaultStorage(),
+): PendingGenerationRequest | null {
+  if (!ownerId) return null;
+  const normalized = normalizeFingerprint(fingerprint);
+  if (!FINGERPRINT_PATTERN.test(normalized)) return null;
+  const memoryKey = ownerMemoryKey(ownerId, normalized);
+  const cached = inMemoryRequests.get(memoryKey);
+  if (cached) return { ...cached };
+  const key = ownerStorageKey(ownerId, normalized);
+  for (const target of [storage, getLegacySessionStorage()]) {
+    try {
+      const saved = parseRequest(target?.getItem(key) || null);
+      if (saved?.fingerprint !== normalized) continue;
+      inMemoryRequests.set(memoryKey, saved);
+      return { ...saved };
+    } catch {
+      // Try the tab-scoped fallback if persistent storage is unavailable.
+    }
+  }
+  return null;
+}
+
+export function writePendingGenerationRequestForOwner(
+  ownerId: string,
+  fingerprint: string,
+  idempotencyKey: string,
+  storage: Pick<Storage, 'setItem'> | undefined = getDefaultStorage(),
+): boolean {
+  if (!ownerId) return false;
+  const normalized = normalizeFingerprint(fingerprint);
+  if (!FINGERPRINT_PATTERN.test(normalized) || !IDEMPOTENCY_KEY_PATTERN.test(idempotencyKey)) return false;
+  const request = { fingerprint: normalized, idempotencyKey };
+  inMemoryRequests.set(ownerMemoryKey(ownerId, normalized), request);
+  const key = ownerStorageKey(ownerId, normalized);
+  for (const target of [storage, getLegacySessionStorage()]) {
+    try {
+      if (!target) continue;
+      target.setItem(key, JSON.stringify(request));
+      return true;
+    } catch {
+      // Fall back to tab-scoped storage when persistent storage is blocked.
+    }
+  }
+  return false;
+}
+
+export function listPendingGenerationRequestsForOwner(
+  ownerId: string,
+  storage: StorageLike | undefined = getDefaultStorage(),
+): PendingGenerationRequest[] {
+  if (!ownerId) return [];
+  const prefix = ownerStoragePrefix(ownerId);
+  const found = new Map<string, PendingGenerationRequest>();
+  for (const [key, request] of inMemoryRequests.entries()) {
+    if (key.startsWith(prefix)) found.set(request.fingerprint, { ...request });
+  }
+  for (const target of [storage, getLegacySessionStorage()]) {
+    if (!target || typeof target.length !== 'number' || typeof target.key !== 'function') continue;
+    try {
+      for (let index = 0; index < (target.length || 0); index += 1) {
+        const key = target.key?.(index);
+        if (!key?.startsWith(prefix)) continue;
+        const request = parseRequest(target.getItem(key));
+        if (request?.fingerprint === key.slice(prefix.length)) {
+          found.set(request.fingerprint, request);
+        }
+      }
+    } catch {
+      // Keep identities from other storage targets and in-memory cache.
+    }
+  }
+  return Array.from(found.values(), (request) => ({ ...request }));
+}
+
+export function clearPendingGenerationRequestForOwner(
+  ownerId: string,
+  fingerprint: string,
+  storage: Pick<Storage, 'removeItem'> | undefined = getDefaultStorage(),
+): void {
+  if (!ownerId) return;
+  const normalized = normalizeFingerprint(fingerprint);
+  inMemoryRequests.delete(ownerMemoryKey(ownerId, normalized));
+  const key = ownerStorageKey(ownerId, normalized);
+  for (const target of [storage, getLegacySessionStorage()]) {
+    try { target?.removeItem(key); } catch { /* Best effort */ }
   }
 }

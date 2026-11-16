@@ -7,7 +7,8 @@
     "test": "node --test",
     "worker": "node scheduleWorker.js",
     "worker:account-deletion": "node accountDeletionWorker.js",
-    "cron:schedule": "node scheduleCron.js"
+    "cron:schedule": "node scheduleCron.js",
+    "worker:once": "node scheduleCron.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

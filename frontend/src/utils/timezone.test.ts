@@ -9,6 +9,7 @@ import {
   localDateTimeToDate,
   saveUserTimezone,
   resolveScheduleSlotTime,
+  validateScheduleInstant,
 } from './timezone';
 
 function withMockStorage(run: (values: Map<string, string>) => void) {
@@ -145,4 +146,12 @@ test('calendar quick-add rejects past dates and dates with no remaining future s
 test('calendar quick-add skips nonexistent daylight-saving wall-clock times', () => {
   const now = new Date('2026-03-28T12:00:00.000Z');
   assert.equal(resolveScheduleSlotTime('2026-03-29', 'Europe/London', '01:30', now), '02:00');
+});
+
+test('schedule instant validation rejects invalid, stale, and excessively distant times', () => {
+  const now = new Date('2026-11-16T12:00:00.000Z');
+  assert.doesNotThrow(() => validateScheduleInstant(new Date('2026-11-16T12:15:00.000Z'), now));
+  assert.throws(() => validateScheduleInstant(new Date(Number.NaN), now), /корректные дату и время/i);
+  assert.throws(() => validateScheduleInstant(new Date('2026-11-16T11:40:00.000Z'), now), /прошлом/i);
+  assert.throws(() => validateScheduleInstant(new Date('2027-11-18T12:00:00.000Z'), now), /год/i);
 });

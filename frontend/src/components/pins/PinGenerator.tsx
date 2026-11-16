@@ -29,10 +29,10 @@ import { clearPendingPinDescriptionIfMatches, readPendingPinDescription, writePe
 import { enqueuePinSave } from '../../utils/pendingPinSaveQueue';
 import { isCurrentPinDescriptionSave } from '../../utils/pinDescriptionSaveGuard';
 import { shouldFlushPendingPinDescription } from '../../utils/pendingPinDescriptionSwitch';
-import { clearPendingGenerationRequest, createGenerationFingerprint, listPendingGenerationRequests, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
+import { clearPendingGenerationRequestForOwner, createGenerationFingerprint, listPendingGenerationRequestsForOwner, readPendingGenerationRequestForOwner, writePendingGenerationRequestForOwner } from '../../utils/pendingGenerationRequest';
 import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
 import { requireGeneratedPinsArray } from '../../utils/generatedPinsResponse';
-import { isExpiredGenerationRecoveryError } from '../../utils/generationRecovery';
+import { buildUnknownGenerationRecoveryEntries, isExpiredGenerationRecoveryError, shouldPollGenerationRecovery } from '../../utils/generationRecovery';
 import { isCurrentBillingOwner } from '../../utils/billingOwner';
 import { rollbackPinAspectRatioIfUnchanged } from '../../utils/pinAspectRatio';
 import { resolvePinterestDestination } from '../../utils/pinterestDestination';
@@ -303,6 +303,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   }>>([]);
   const [isCheckingRecoveries, setIsCheckingRecoveries] = useState(false);
   const [recoveryCheckAttempt, setRecoveryCheckAttempt] = useState(0);
+  const [recoveryAuthPaused, setRecoveryAuthPaused] = useState(false);
   const generationRecoveryOwnerIdRef = React.useRef(userId);
 
   // Recovery metadata is account-scoped. Clear the previous account's rows
@@ -311,6 +312,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     generationRecoveryOwnerIdRef.current = userId;
     setRecoverableGenerations([]);
     setIsCheckingRecoveries(false);
+    setRecoveryAuthPaused(false);
   }, [userId]);
 
   // Look up saved generation identities after login/reload. This is read-only:
@@ -326,7 +328,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       return () => { active = false; };
     }
 
-    const identities = listPendingGenerationRequests().slice(-10).reverse();
+    const identities = listPendingGenerationRequestsForOwner(ownerId).slice(-10).reverse();
     if (!identities.length) {
       setRecoverableGenerations([]);
       return () => { active = false; };
@@ -365,7 +367,18 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             found.push({ key: identity.fingerprint, status: 'expired', boardId: '', pinCount: 0 });
             continue;
           }
-          if (error?.status === 401) return;
+          if (error?.status === 401) {
+            // A first lookup after reload can be unauthorized before any rows
+            // have reached state. Keep every local identity visible as unknown
+            // instead of hiding the recovery panel; never delete or rotate keys.
+            const currentIndex = identities.indexOf(identity);
+            const unresolved = buildUnknownGenerationRecoveryEntries(identities, currentIndex);
+            if (active && isCurrentBillingOwner(generationRecoveryOwnerIdRef.current, ownerId)) {
+              setRecoverableGenerations([...found, ...unresolved]);
+              setRecoveryAuthPaused(true);
+            }
+            return;
+          }
           // A temporary network/5xx failure is not evidence that the request
           // disappeared. Keep it visible as uncertain so users can retry the
           // read-only status check instead of seeing the recovery entry vanish.
@@ -385,6 +398,16 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     });
     return () => { active = false; };
   }, [recoveryCheckAttempt, userId]);
+
+  // Keep checking only unresolved generation requests while this editor is open.
+  // This is a read-only status lookup: it never resubmits provider work or charges credits.
+  React.useEffect(() => {
+    if (!shouldPollGenerationRecovery(recoverableGenerations, recoveryAuthPaused) || isCheckingRecoveries || !userId) return;
+    const timer = window.setTimeout(() => {
+      setRecoveryCheckAttempt((attempt) => attempt + 1);
+    }, 10_000);
+    return () => window.clearTimeout(timer);
+  }, [recoverableGenerations, isCheckingRecoveries, recoveryAuthPaused, userId]);
 
   // A count refresh replaces the boards array but must not reset the active pin editor.
   const selectedBoardName = boards.find((board) => board.id === selectedBoardId)?.name || '';
@@ -553,10 +576,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         mixed_ratios: targetRatios,
       };
       requestFingerprint = createGenerationFingerprint(JSON.stringify({ boardId: selectedBoard.id, ...requestBody }));
-      const storedRequest = readPendingGenerationRequest(requestFingerprint);
+      const storedRequest = readPendingGenerationRequestForOwner(userId, requestFingerprint);
       if (storedRequest?.fingerprint !== requestFingerprint || !storedRequest.idempotencyKey) {
         generationKeyRef.current = createGenerationIdempotencyKey();
-        writePendingGenerationRequest(requestFingerprint, generationKeyRef.current);
+        writePendingGenerationRequestForOwner(userId, requestFingerprint, generationKeyRef.current);
       } else {
         // Restore the durable request identity after a remount or page reload.
         generationKeyRef.current = storedRequest.idempotencyKey;
@@ -594,13 +617,13 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       // Refresh board-card counts only after the server has confirmed all generated pins.
       onPinsChanged?.();
       generationKeyRef.current = null;
-      clearPendingGenerationRequest(requestFingerprint);
+      clearPendingGenerationRequestForOwner(userId, requestFingerprint);
     } catch (err) {
       // The server only emits generation_request_failed after a definitive failure.
       // Rotate the key then; unknown/in-progress outcomes must keep their original key.
       if (isDefinitiveGenerationFailure(err)) {
         generationKeyRef.current = createGenerationIdempotencyKey();
-        if (requestFingerprint) writePendingGenerationRequest(requestFingerprint, generationKeyRef.current);
+        if (requestFingerprint) writePendingGenerationRequestForOwner(userId, requestFingerprint, generationKeyRef.current);
       }
       console.error('Error generating pins:', err);
       window.alert(err instanceof Error ? err.message : t.generator.errorGeneratePins);
@@ -963,7 +986,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             </div>
             <button
               type="button"
-              onClick={() => setRecoveryCheckAttempt((attempt) => attempt + 1)}
+              onClick={() => {
+                setRecoveryAuthPaused(false);
+                setRecoveryCheckAttempt((attempt) => attempt + 1);
+              }}
               disabled={isCheckingRecoveries}
               className="shrink-0 px-3 py-2 rounded-lg border border-subtle text-xs font-semibold text-secondary-theme hover:text-primary-theme disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -972,6 +998,13 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                 : (language === 'ru' ? 'Проверить снова' : 'Check again')}
             </button>
           </div>
+          {recoveryAuthPaused && (
+            <p className="text-xs rounded-lg border border-subtle bg-subtle p-3 text-secondary-theme" role="status">
+              {language === 'ru'
+                ? 'Сессия истекла или сервер отклонил авторизацию. Войдите в аккаунт снова, затем нажмите «Проверить снова». Запросы восстановления сохранены.'
+                : 'Your session may have expired or authorization was rejected. Sign in again, then select “Check again”. Your recovery requests are preserved.'}
+            </p>
+          )}
           <p className="text-xs text-secondary-theme">
             {language === 'ru' ? 'Проверка не запускает генерацию и не списывает кредиты.' :
               language === 'es' ? 'La comprobación no genera contenido ni consume créditos.' :
@@ -1025,7 +1058,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        clearPendingGenerationRequest(item.key);
+                        clearPendingGenerationRequestForOwner(userId, item.key);
                         setRecoverableGenerations((current) => current.filter((entry) => entry.key !== item.key));
                       }}
                       className="px-3 py-2 rounded-lg border border-subtle text-xs font-semibold text-secondary-theme hover:bg-subtle"

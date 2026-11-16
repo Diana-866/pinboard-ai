@@ -8,6 +8,8 @@ on:
       - "backend/scheduleResponse.js"
       - "backend/scheduleWorker.js"
       - "backend/pinterest.js"
+      - "backend/schedulerAuth.js"
+      - "backend/test/scheduler-auth.test.js"
       - "backend/test/*schedule*.test.js"
       - "backend/test/pinterest-scheduler-route-contract.test.js"
       - "backend/package.json"
@@ -39,3 +41,5 @@ jobs:
         run: node --test test/schedule-worker.test.js
       - name: Test backend scheduler route contract
         run: node --test test/pinterest-scheduler-route-contract.test.js
+      - name: Test scheduler secret authentication
+        run: node --test test/scheduler-auth.test.js
