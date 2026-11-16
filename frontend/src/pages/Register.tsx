@@ -85,7 +85,7 @@ export const Register: React.FC = () => {
 
         <div className="space-y-3">
           <div>
-            <label htmlFor="email" className="mb-1 block text-xs font-medium text-secondary-theme">Email</label>
+            <label htmlFor="email" className="mb-1 block text-xs font-medium text-secondary-theme">{t.email}</label>
             <input
               id="email"
               type="email"
