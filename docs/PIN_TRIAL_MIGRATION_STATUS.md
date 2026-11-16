@@ -83,6 +83,19 @@ Last updated: 2026-11-16
 - **2026-11-16 — Column inventory milestone:** The supplied column-result segments now cover all 35 application tables in the previously recorded `public` table inventory. This is a metadata-coverage milestone only; no conclusion is made about which migrations ran or whether the live schema is migration-equivalent.
 - **Next action rationale:** Inspect constraints before comparing the live schema to canonical migrations. Primary/foreign keys and unique/check constraints reveal structural relationships and invariants that column metadata alone cannot show. Keep this phase read-only and avoid querying application row contents.
 
+## Constraint inventory — continuation 1 (user-provided file, 2026-11-16)
+
+- [x] Received the first portion of the read-only `pg_constraint` inventory for schema `public`.
+- [x] Parsed 100 constraint rows across 18 tables, from `account_deletion_events` through `pin_regeneration_requests`.
+- [x] Observed constraint types in this supplied portion: 17 primary keys, 10 foreign keys, 12 unique constraints, and 61 check constraints.
+- [!] The supplied text file ends after the fourth listed constraint for `pin_regeneration_requests`; it does not contain the remaining alphabetic tables. This is a partial result and must not be treated as a complete constraint inventory.
+- [ ] Obtain the remaining constraints for tables alphabetically after `pin_regeneration_requests`, then verify coverage against the complete list of 35 `public` application tables.
+
+## Development activity log — continuation
+
+- **2026-11-16 — PIN_TRIAL inventory, step 8:** Received the user's uploaded text file containing the output of the read-only `pg_constraint` query. Purpose: inventory primary keys, foreign keys, unique constraints, and check constraints without modifying the test database or reading application row data. Result: 100 rows across 18 tables (`account_deletion_events` through `pin_regeneration_requests`): 17 PRIMARY KEY, 10 FOREIGN KEY, 12 UNIQUE, and 61 CHECK rows. The file ends at `pin_regeneration_requests_quote_valid`, so later tables are not represented in this supplied portion. Attribution: the user supplied the query output; the assistant inspected the uploaded text file, but did not execute SQL against the database.
+- **Next action rationale:** Continue from the first table after `pin_regeneration_requests` to avoid repeating already supplied rows. Do not begin index comparison until the full constraint inventory is received and its table coverage checked.
+
 ## Safety rules
 
 - This record concerns the test database `PIN_TRIAL`, not production.
