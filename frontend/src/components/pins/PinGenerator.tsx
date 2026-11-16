@@ -939,26 +939,16 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       {isCheckingRecoveries && (
         <div className="custom-card p-3 rounded-xl text-xs text-secondary-theme flex items-center gap-2" role="status">
           <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-          {language === 'ru' ? 'Проверяем, можно ли восстановить прошлые генерации…' :
-            language === 'es' ? 'Comprobando generaciones anteriores…' :
-            language === 'de' ? 'Frühere Generierungen werden geprüft…' :
-            language === 'fr' ? 'Vérification des générations précédentes…' :
-            language === 'pt' ? 'Verificando gerações anteriores…' :
-            language === 'zh' ? '正在检查之前的生成记录…' : 'Checking previous generations…'}
+          {t.generator.recoveryChecking}
         </div>
       )}
       {recoverableGenerations.length > 0 && (
-        <section className="custom-card p-4 rounded-xl space-y-3" aria-label="Generation recovery">
+        <section className="custom-card p-4 rounded-xl space-y-3" aria-label={t.generator.recoveryTitle}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <RefreshCw className="w-4 h-4 text-accent-ghost shrink-0" />
               <h2 className="text-sm font-bold text-primary-theme">
-                {language === 'ru' ? 'Восстановление генераций' :
-                  language === 'es' ? 'Recuperar generaciones' :
-                  language === 'de' ? 'Generierungen wiederherstellen' :
-                  language === 'fr' ? 'Récupérer les générations' :
-                  language === 'pt' ? 'Recuperar gerações' :
-                  language === 'zh' ? '恢复之前的生成' : 'Recover previous generations'}
+                {t.generator.recoveryTitle}
               </h2>
             </div>
             <button
@@ -967,34 +957,26 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               disabled={isCheckingRecoveries}
               className="shrink-0 px-3 py-2 rounded-lg border border-subtle text-xs font-semibold text-secondary-theme hover:text-primary-theme disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isCheckingRecoveries
-                ? (language === 'ru' ? 'Проверяем…' : 'Checking…')
-                : (language === 'ru' ? 'Проверить снова' : 'Check again')}
+              {isCheckingRecoveries ? t.generator.recoveryCheckingButton : t.generator.recoveryCheckAgain}
             </button>
           </div>
           <p className="text-xs text-secondary-theme">
-            {language === 'ru' ? 'Проверка не запускает генерацию и не списывает кредиты.' :
-              language === 'es' ? 'La comprobación no genera contenido ni consume créditos.' :
-              language === 'de' ? 'Die Prüfung startet keine Generierung und verbraucht keine Credits.' :
-              language === 'fr' ? 'La vérification ne lance aucune génération et ne dépense aucun crédit.' :
-              language === 'pt' ? 'A verificação não inicia uma geração nem gasta créditos.' :
-              language === 'zh' ? '检查不会重新生成内容，也不会扣除积分。' :
-              'Checking does not start a new generation or spend credits.'}
+            {t.generator.recoveryDescription}
           </p>
           <div className="space-y-2">
             {recoverableGenerations.map((item) => {
               const board = boards.find((candidate) => candidate.id === item.boardId);
               const label = item.status === 'completed'
-                ? (language === 'ru' ? `Готово: ${item.pinCount} пин(ов)` : `Completed: ${item.pinCount} pin(s)`)
+                ? t.generator.recoveryCompletedTemplate.replace('{count}', String(item.pinCount))
                 : item.status === 'processing'
-                  ? (language === 'ru' ? 'Генерация ещё выполняется' : 'Generation is still processing')
+                  ? t.generator.recoveryProcessing
                   : item.status === 'failed'
-                    ? (language === 'ru' ? 'Предыдущая генерация завершилась ошибкой' : 'Previous generation failed')
+                    ? t.generator.recoveryFailed
                     : item.status === 'not_found'
-                    ? (language === 'ru' ? 'Запрос не найден на сервере — ключ сохранён' : 'Request not found on server — recovery key kept')
+                    ? t.generator.recoveryNotFound
                     : item.status === 'expired'
-                      ? (language === 'ru' ? 'Срок восстановления истёк — можно убрать запись' : 'Recovery period expired — entry can be dismissed')
-                      : (language === 'ru' ? 'Результат пока не подтверждён' : 'Result is not confirmed yet');
+                      ? t.generator.recoveryExpired
+                      : t.generator.recoveryUnknown;
               return (
                 <div key={item.key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg bg-subtle border border-subtle">
                   <div className="min-w-0">
@@ -1013,12 +995,12 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                       }}
                       className="px-3 py-2 rounded-lg accent-btn text-xs font-semibold"
                     >
-                      {language === 'ru' ? 'Открыть готовые пины' : 'Open saved pins'}
+                      {t.generator.recoveryOpenSavedPins}
                     </button>
                   )}
                   {item.status === 'completed' && !board && (
                     <span className="text-[11px] text-muted-theme">
-                      {language === 'ru' ? 'Доска недоступна в текущем списке' : 'Board is unavailable'}
+                      {t.generator.recoveryBoardUnavailable}
                     </span>
                   )}
                   {item.status === 'expired' && (
@@ -1030,7 +1012,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                       }}
                       className="px-3 py-2 rounded-lg border border-subtle text-xs font-semibold text-secondary-theme hover:bg-subtle"
                     >
-                      {language === 'ru' ? 'Убрать запись' : 'Dismiss'}
+                      {t.generator.recoveryDismiss}
                     </button>
                   )}
                 </div>

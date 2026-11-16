@@ -251,6 +251,21 @@ export interface TranslationSchema {
     addToReviewBtn: string;
     addToReviewSaving: string;
     addToReviewSuccess: string;
+    recoveryChecking: string;
+    recoveryTitle: string;
+    recoveryCheckAgain: string;
+    recoveryCheckingButton: string;
+    recoveryDescription: string;
+    recoveryCompletedTemplate: string;
+    recoveryProcessing: string;
+    recoveryFailed: string;
+    recoveryNotFound: string;
+    recoveryExpired: string;
+    recoveryUnknown: string;
+    recoveryOpenSavedPins: string;
+    recoveryBoardUnavailable: string;
+    recoveryDismiss: string;
+
   };
 
   // Keyword Explorer
