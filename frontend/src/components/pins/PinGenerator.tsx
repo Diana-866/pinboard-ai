@@ -29,7 +29,7 @@ import { clearPendingPinDescriptionIfMatches, readPendingPinDescription, writePe
 import { enqueuePinSave } from '../../utils/pendingPinSaveQueue';
 import { isCurrentPinDescriptionSave } from '../../utils/pinDescriptionSaveGuard';
 import { shouldFlushPendingPinDescription } from '../../utils/pendingPinDescriptionSwitch';
-import { clearPendingGenerationRequest, createGenerationFingerprint, listPendingGenerationRequests, readPendingGenerationRequest, writePendingGenerationRequest } from '../../utils/pendingGenerationRequest';
+import { clearPendingGenerationRequestForOwner, createGenerationFingerprint, listPendingGenerationRequestsForOwner, readPendingGenerationRequestForOwner, writePendingGenerationRequestForOwner } from '../../utils/pendingGenerationRequest';
 import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
 import { requireGeneratedPinsArray } from '../../utils/generatedPinsResponse';
 import { isExpiredGenerationRecoveryError, shouldPollGenerationRecovery } from '../../utils/generationRecovery';
@@ -328,7 +328,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       return () => { active = false; };
     }
 
-    const identities = listPendingGenerationRequests().slice(-10).reverse();
+    const identities = listPendingGenerationRequestsForOwner(ownerId).slice(-10).reverse();
     if (!identities.length) {
       setRecoverableGenerations([]);
       return () => { active = false; };
@@ -575,10 +575,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         mixed_ratios: targetRatios,
       };
       requestFingerprint = createGenerationFingerprint(JSON.stringify({ boardId: selectedBoard.id, ...requestBody }));
-      const storedRequest = readPendingGenerationRequest(requestFingerprint);
+      const storedRequest = readPendingGenerationRequestForOwner(userId, requestFingerprint);
       if (storedRequest?.fingerprint !== requestFingerprint || !storedRequest.idempotencyKey) {
         generationKeyRef.current = createGenerationIdempotencyKey();
-        writePendingGenerationRequest(requestFingerprint, generationKeyRef.current);
+        writePendingGenerationRequestForOwner(userId, requestFingerprint, generationKeyRef.current);
       } else {
         // Restore the durable request identity after a remount or page reload.
         generationKeyRef.current = storedRequest.idempotencyKey;
@@ -1050,7 +1050,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        clearPendingGenerationRequest(item.key);
+                        clearPendingGenerationRequestForOwner(userId, item.key);
                         setRecoverableGenerations((current) => current.filter((entry) => entry.key !== item.key));
                       }}
                       className="px-3 py-2 rounded-lg border border-subtle text-xs font-semibold text-secondary-theme hover:bg-subtle"
