@@ -31,9 +31,16 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+  backend-regression:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Install backend dependencies
         run: npm ci --prefix backend
       - name: Test Pinterest account request retry policy
@@ -52,6 +59,23 @@ jobs:
         run: node --test backend/test/payment-record-cleanup.test.js
       - name: Test checkout settlement helper
         run: node --test backend/test/payment-creation-settlement.test.js
+
+  postgres-atomicity:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pinposy_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d pinposy_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update
