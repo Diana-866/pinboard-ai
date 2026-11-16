@@ -207,3 +207,17 @@ When the confirmation password differed from the original, the page displayed a 
 Commits: Register `8a17b7b7a21d2ce2d2829da469d6d0cfeadefb2a`; regression test `16efca6a07295f70d82e506ade18041433b0afdd`.
 
 **Readback:** both current page files, both regression tests and `frontend/package.json` were fetched again from `main`. Seven targeted static assertions passed, covering keyboard reachability, accessible name/state/control association, invalid-state/description semantics, alert announcement, localized message and inclusion in the existing test glob. Neither regression test was executed. No typecheck, full frontend suite, browser keyboard or screen-reader run was performed. These are source-level corrections only; package 09 and release readiness remain open.
+
+
+## Supplemental review-queue error and regeneration localization (FE-19)
+
+The active `ManualApprovalDesk.tsx` still displayed hard-coded Russian guard messages, approval/rejection failures, bulk scheduling outcomes and AI regeneration status to users in other interface languages. The component already had typed review-copy entries for these messages in EN/RU/ES/PT/DE/FR, but the Chinese locale's `review` object lacked the corresponding entries.
+
+**Fix on main:**
+- Replaced the targeted hard-coded Russian guard, persistence, bulk outcome, image-replacement and regeneration error/status messages with existing `t.review.*` translations.
+- Added the 18 required review messages to the Chinese locale so no supported locale renders `undefined`.
+- Extended `reviewQueueCopy.test.ts` to require every used review message in all seven locales and to validate the `{count}`, `{saved}` and `{total}` placeholders. Corrected the placeholder regexes so they match literal braces rather than escaped backslashes.
+
+**Commits:** component `c176890ba5f2db2eb39ebb26b4ad55f7b5e8fa40`, remaining Pinterest guard `50a74e7e426e28cf83d1d96fb381ed7be9f3f7db`, Chinese locale `e9bd1d2ee8f6e63bc7685223f2024a7fe69c28a6`, test expansion `a1d461a9d244e56b732aef0f2f72f06742123513`, placeholder assertion correction `0fe1c50a57b112e48bd4e1d4f22bd434e0fe6181`.
+
+**Readback:** active review component, regression test and all seven locale files were fetched again from `main`. Eleven targeted static assertions passed: all 18 keys are referenced in the component, present in each locale and covered by the test; the three dynamic placeholders are checked; targeted Russian error/status literals are removed. The test source was inspected but **not executed**. No typecheck, full frontend suite, browser, keyboard or screen-reader test was run. Other Russian hard-coded review-screen labels and explanatory text remain a separate follow-up; this pass covers action guards, errors and regeneration status only. Package 09 and release readiness remain open.
