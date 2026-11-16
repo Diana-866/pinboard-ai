@@ -38,6 +38,8 @@ export const ru: TranslationSchema = {
     copy: 'Копировать',
     copied: 'Скопировано!',
     close: 'Закрыть',
+    show: 'Показать',
+    hide: 'Скрыть',
     refresh: 'Обновить',
     status: 'Статус',
     actions: 'Действия',
