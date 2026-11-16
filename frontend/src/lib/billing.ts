@@ -1,11 +1,12 @@
+import { buildPaymentIdempotencyStorageKey } from '../utils/paymentIdempotencyStorageKey';
 import { apiRequest, ApiError } from './api';
 
 export type PayablePlan = 'analytics' | 'start' | 'pro' | 'agency';
 
 const paymentIdempotencyKeys = new Map<string, string>();
 
-function getPaymentIdempotencyKey(scope: string): string {
-  const storageKey = `pinposy:payment-idempotency:${scope}`;
+function getPaymentIdempotencyKey(scope: string, ownerId: string): string {
+  const storageKey = buildPaymentIdempotencyStorageKey(ownerId, scope);
   try {
     const saved = window.localStorage.getItem(storageKey);
     if (saved && /^[A-Za-z0-9_-]{16,128}$/.test(saved)) return saved;
@@ -25,19 +26,19 @@ function getPaymentIdempotencyKey(scope: string): string {
   }
 }
 
-function releaseFailedPaymentIdempotencyKey(scope: string, error: unknown): void {
+function releaseFailedPaymentIdempotencyKey(scope: string, ownerId: string, error: unknown): void {
   // The server marks requests failed only before calling Prodamus. Unlike an
   // unknown provider outcome, this state is safe to retry with a fresh key.
   if (
     error instanceof ApiError &&
     ['payment_request_not_reusable', 'payment_already_settled'].includes(String(error.data?.code || ''))
   ) {
-    releasePaymentIdempotencyKey(scope);
+    releasePaymentIdempotencyKey(scope, ownerId);
   }
 }
 
-export function releasePaymentIdempotencyKey(scope: string): void {
-  const storageKey = `pinposy:payment-idempotency:${scope}`;
+export function releasePaymentIdempotencyKey(scope: string, ownerId: string): void {
+  const storageKey = buildPaymentIdempotencyStorageKey(ownerId, scope);
   paymentIdempotencyKeys.delete(storageKey);
   try {
     window.localStorage.removeItem(storageKey);
@@ -64,10 +65,11 @@ export interface PaymentIntent {
  */
 export async function startPayment(
   plan: PayablePlan,
+  ownerId: string,
   currency: 'rub' | 'usd' = 'rub'
 ): Promise<PaymentIntent> {
   const scope = `subscription:${plan}:${currency}`;
-  const idempotencyKey = getPaymentIdempotencyKey(scope);
+  const idempotencyKey = getPaymentIdempotencyKey(scope, ownerId);
   let data: PaymentIntent;
   try {
     data = await apiRequest('/billing/create-payment', {
@@ -76,7 +78,7 @@ export async function startPayment(
       body: JSON.stringify({ plan, currency }),
     });
   } catch (error) {
-    releaseFailedPaymentIdempotencyKey(scope, error);
+    releaseFailedPaymentIdempotencyKey(scope, ownerId, error);
     throw error;
   }
   if (!data?.payment_url) {
@@ -89,8 +91,8 @@ export async function startPayment(
 }
 
 /** Платёж + немедленный переход к оплате */
-export async function payAndRedirect(plan: PayablePlan, currency: 'rub' | 'usd' = 'rub') {
-  const data = await startPayment(plan, currency);
+export async function payAndRedirect(plan: PayablePlan, ownerId: string, currency: 'rub' | 'usd' = 'rub') {
+  const data = await startPayment(plan, ownerId, currency);
   window.location.href = data.payment_url;
   return data;
 }
@@ -151,9 +153,9 @@ export async function fetchCreditPacks(): Promise<CreditPack[]> {
 }
 
 /** Покупка пакета: POST /billing/credits { package_id } → pending-покупка + ссылка Prodamus */
-export async function startCreditsPurchase(packageId: string): Promise<CreditsPaymentIntent> {
+export async function startCreditsPurchase(packageId: string, ownerId: string): Promise<CreditsPaymentIntent> {
   const scope = `credits:${packageId}:rub`;
-  const idempotencyKey = getPaymentIdempotencyKey(scope);
+  const idempotencyKey = getPaymentIdempotencyKey(scope, ownerId);
   let data: CreditsPaymentIntent;
   try {
     data = await apiRequest('/billing/credits', {
@@ -162,7 +164,7 @@ export async function startCreditsPurchase(packageId: string): Promise<CreditsPa
       body: JSON.stringify({ package_id: packageId }),
     });
   } catch (error) {
-    releaseFailedPaymentIdempotencyKey(scope, error);
+    releaseFailedPaymentIdempotencyKey(scope, ownerId, error);
     throw error;
   }
   if (!data?.payment_url) {
@@ -175,8 +177,8 @@ export async function startCreditsPurchase(packageId: string): Promise<CreditsPa
 }
 
 /** Покупка пакета + немедленный переход к оплате */
-export async function buyCreditsAndRedirect(packageId: string) {
-  const data = await startCreditsPurchase(packageId);
+export async function buyCreditsAndRedirect(packageId: string, ownerId: string) {
+  const data = await startCreditsPurchase(packageId, ownerId);
   window.location.href = data.payment_url;
   return data;
 }
