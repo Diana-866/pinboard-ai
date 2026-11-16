@@ -152,6 +152,28 @@ async function failPaymentCreation(userId, idempotencyKey, error) {
   }
 }
 
+/**
+ * Resolve a failed provider request without risking duplicate invoices.
+ * Only an explicit provider 4xx rejection permits local cleanup and retry.
+ * Network errors, 5xx responses and cleanup failures remain unknown.
+ */
+async function handlePaymentProviderFailure(userId, idempotencyKey, table, recordId, error) {
+  if (!error || error.providerRejected !== true) {
+    await markPaymentCreationUnknown(userId, idempotencyKey, error);
+    return "unknown";
+  }
+
+  try {
+    await denyUnsentPaymentRecord(table, recordId);
+    await failPaymentCreation(userId, idempotencyKey, error);
+    return "failed";
+  } catch (cleanupError) {
+    logError("payment_idempotency.event_002", "[payment-idempotency] не удалось безопасно закрыть отклонённый заказ:", cleanupError.message);
+    await markPaymentCreationUnknown(userId, idempotencyKey, cleanupError);
+    return "unknown";
+  }
+}
+
 module.exports = {
   beginPaymentCreation,
   completePaymentCreation,
@@ -159,6 +181,7 @@ module.exports = {
   attachPaymentCreationOrder,
   markPaymentCreationUnknown,
   failPaymentCreation,
+  handlePaymentProviderFailure,
   denyUnsentPaymentRecord,
   paymentRequestFingerprint,
 };
