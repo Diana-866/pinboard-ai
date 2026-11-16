@@ -1,24 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${PGHOST:=localhost}"
-: "${PGPORT:=5432}"
-: "${PGUSER:=postgres}"
-: "${PGDATABASE:=pinposy_test}"
-export PGHOST PGPORT PGUSER PGDATABASE
+source "$(dirname "${BASH_SOURCE[0]}")/lib/assert-disposable-postgres.sh"
 
-psql_base=(psql -X -v ON_ERROR_STOP=1 -q)
 USER_ID="$("${psql_base[@]}" -At -c "insert into public.users(email, credits_balance, tariff_plan) values ('subscription-concurrency-' || gen_random_uuid() || '@example.invalid', 0, 'none') returning id")"
 OLDER_ID="$("${psql_base[@]}" -At -c "insert into public.subscriptions(user_id, plan, status, provider_payment_id, amount, currency, created_at) values ('$USER_ID', 'start', 'pending', 'ci-concurrent-old-' || gen_random_uuid(), 1990, 'rub', now() - interval '2 minutes') returning id")"
 NEWER_ID="$("${psql_base[@]}" -At -c "insert into public.subscriptions(user_id, plan, status, provider_payment_id, amount, currency, created_at) values ('$USER_ID', 'pro', 'pending', 'ci-concurrent-new-' || gen_random_uuid(), 4990, 'rub', now() - interval '1 minute') returning id")"
 
 cleanup() {
+  stop_test_children
   "${psql_base[@]}" -c "delete from public.email_outbox where subscription_id in (select id from public.subscriptions where user_id = '$USER_ID'); delete from public.subscriptions where user_id = '$USER_ID'; delete from public.users where id = '$USER_ID';" >/dev/null 2>&1 || true
+  cleanup_test_tmp_dir
 }
 trap cleanup EXIT
 
 # Hold the user row lock until both independent webhook transactions are waiting.
-PGAPPNAME=subscription-concurrency-locker "${psql_base[@]}" -c "begin; select id from public.users where id = '$USER_ID' for update; select pg_sleep(8); commit;" >/tmp/subscription-locker.log 2>&1 &
+PGAPPNAME=subscription-concurrency-locker "${psql_base[@]}" -c "begin; select id from public.users where id = '$USER_ID' for update; select pg_sleep(8); commit;" >${TEST_TMP_DIR}/subscription-locker.log 2>&1 &
 LOCK_PID=$!
 
 locked=0
@@ -35,9 +32,9 @@ fi
 
 # Start both webhook transactions while the user row is locked. Then wait
 # until PostgreSQL confirms that both are blocked on that exact lock.
-PGAPPNAME=subscription-webhook-older "${psql_base[@]}" -c "select public.activate_paid_subscription('$OLDER_ID', now())" >/tmp/subscription-older.log 2>&1 &
+PGAPPNAME=subscription-webhook-older "${psql_base[@]}" -c "select public.activate_paid_subscription('$OLDER_ID', now())" >${TEST_TMP_DIR}/subscription-older.log 2>&1 &
 OLDER_PID=$!
-PGAPPNAME=subscription-webhook-newer "${psql_base[@]}" -c "select public.activate_paid_subscription('$NEWER_ID', now())" >/tmp/subscription-newer.log 2>&1 &
+PGAPPNAME=subscription-webhook-newer "${psql_base[@]}" -c "select public.activate_paid_subscription('$NEWER_ID', now())" >${TEST_TMP_DIR}/subscription-newer.log 2>&1 &
 NEWER_PID=$!
 
 waiters=0

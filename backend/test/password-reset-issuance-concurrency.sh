@@ -1,23 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${PGHOST:=localhost}"
-: "${PGPORT:=5432}"
-: "${PGUSER:=postgres}"
-: "${PGDATABASE:=pinposy_test}"
-export PGHOST PGPORT PGUSER PGDATABASE
-psql_base=(psql -X -v ON_ERROR_STOP=1 -q)
+source "$(dirname "${BASH_SOURCE[0]}")/lib/assert-disposable-postgres.sh"
 
 USER_ID="$("${psql_base[@]}" -At -c "insert into public.users(email, password_hash, email_verified) values ('password-reset-issue-race-' || gen_random_uuid() || '@example.invalid', 'old-hash', true) returning id")"
 HASH_ONE="$(openssl rand -hex 32)"
 HASH_TWO="$(openssl rand -hex 32)"
 cleanup() {
+  stop_test_children
   "${psql_base[@]}" -c "delete from public.auth_tokens where user_id = '$USER_ID'; delete from public.users where id = '$USER_ID';" >/dev/null 2>&1 || true
-  rm -f /tmp/password-reset-issue-race-*.log
+  rm -f ${TEST_TMP_DIR}/password-reset-issue-race-*.log
+  cleanup_test_tmp_dir
 }
 trap cleanup EXIT
 
-PGAPPNAME=password-reset-issue-locker "${psql_base[@]}" -c "begin; select id from public.users where id = '$USER_ID' for update; select pg_sleep(5); commit;" >/tmp/password-reset-issue-race-locker.log 2>&1 &
+PGAPPNAME=password-reset-issue-locker "${psql_base[@]}" -c "begin; select id from public.users where id = '$USER_ID' for update; select pg_sleep(5); commit;" >${TEST_TMP_DIR}/password-reset-issue-race-locker.log 2>&1 &
 LOCK_PID=$!
 for _ in $(seq 1 80); do
   active="$("${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name = 'password-reset-issue-locker' and position('pg_sleep' in query) > 0")"
@@ -30,9 +27,9 @@ if [[ "$active" != "1" ]]; then
   exit 1
 fi
 
-PGAPPNAME=password-reset-issuer-one "${psql_base[@]}" -At -c "select public.issue_password_reset_token('$USER_ID', '$HASH_ONE', now() + interval '1 hour', 300)" >/tmp/password-reset-issue-race-one.log 2>&1 &
+PGAPPNAME=password-reset-issuer-one "${psql_base[@]}" -At -c "select public.issue_password_reset_token('$USER_ID', '$HASH_ONE', now() + interval '1 hour', 300)" >${TEST_TMP_DIR}/password-reset-issue-race-one.log 2>&1 &
 ONE_PID=$!
-PGAPPNAME=password-reset-issuer-two "${psql_base[@]}" -At -c "select public.issue_password_reset_token('$USER_ID', '$HASH_TWO', now() + interval '1 hour', 300)" >/tmp/password-reset-issue-race-two.log 2>&1 &
+PGAPPNAME=password-reset-issuer-two "${psql_base[@]}" -At -c "select public.issue_password_reset_token('$USER_ID', '$HASH_TWO', now() + interval '1 hour', 300)" >${TEST_TMP_DIR}/password-reset-issue-race-two.log 2>&1 &
 TWO_PID=$!
 
 waiters=0
@@ -50,8 +47,8 @@ wait "$LOCK_PID"
 wait "$ONE_PID"
 wait "$TWO_PID"
 
-RESULT_ONE="$(tr -d '[:space:]' </tmp/password-reset-issue-race-one.log)"
-RESULT_TWO="$(tr -d '[:space:]' </tmp/password-reset-issue-race-two.log)"
+RESULT_ONE="$(tr -d '[:space:]' <${TEST_TMP_DIR}/password-reset-issue-race-one.log)"
+RESULT_TWO="$(tr -d '[:space:]' <${TEST_TMP_DIR}/password-reset-issue-race-two.log)"
 SUCCESS_COUNT=0
 [[ "$RESULT_ONE" == "t" ]] && SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
 [[ "$RESULT_TWO" == "t" ]] && SUCCESS_COUNT=$((SUCCESS_COUNT + 1))

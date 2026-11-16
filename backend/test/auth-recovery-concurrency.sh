@@ -1,18 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${PGHOST:=localhost}"
-: "${PGPORT:=5432}"
-: "${PGUSER:=postgres}"
-: "${PGDATABASE:=pinposy_test}"
-export PGHOST PGPORT PGUSER PGDATABASE
+source "$(dirname "${BASH_SOURCE[0]}")/lib/assert-disposable-postgres.sh"
 
-psql_base=(psql -X -v ON_ERROR_STOP=1 -q)
 USER_ID="$("${psql_base[@]}" -At -c "insert into public.users(email, password_hash, email_verified) values ('auth-recovery-race-' || gen_random_uuid() || '@example.invalid', 'old-hash', false) returning id")"
 TOKEN_HASH="$(printf '%064d' 0 | tr '0' 'a')"
 
 cleanup() {
+  stop_test_children
   "${psql_base[@]}" -c "delete from public.auth_tokens where user_id = '$USER_ID'; delete from public.users where id = '$USER_ID';" >/dev/null 2>&1 || true
+  cleanup_test_tmp_dir
 }
 trap cleanup EXIT
 
@@ -20,7 +17,7 @@ trap cleanup EXIT
 
 # Hold the user row so both independent consumers read the candidate token,
 # then queue behind the same user lock before either may consume it.
-PGAPPNAME=auth-reset-race-locker "${psql_base[@]}" -c "begin; select id from public.users where id = '$USER_ID' for update; select pg_sleep(6); commit;" >/tmp/auth-reset-race-locker.log 2>&1 &
+PGAPPNAME=auth-reset-race-locker "${psql_base[@]}" -c "begin; select id from public.users where id = '$USER_ID' for update; select pg_sleep(6); commit;" >${TEST_TMP_DIR}/auth-reset-race-locker.log 2>&1 &
 LOCK_PID=$!
 
 locked=0
@@ -35,9 +32,9 @@ if [[ "$locked" != "1" ]]; then
   exit 1
 fi
 
-PGAPPNAME=auth-reset-consumer-one "${psql_base[@]}" -At -c "select public.consume_password_reset_token('$TOKEN_HASH', repeat('x', 60))" >/tmp/auth-reset-consumer-one.log 2>&1 &
+PGAPPNAME=auth-reset-consumer-one "${psql_base[@]}" -At -c "select public.consume_password_reset_token('$TOKEN_HASH', repeat('x', 60))" >${TEST_TMP_DIR}/auth-reset-consumer-one.log 2>&1 &
 ONE_PID=$!
-PGAPPNAME=auth-reset-consumer-two "${psql_base[@]}" -At -c "select public.consume_password_reset_token('$TOKEN_HASH', repeat('y', 60))" >/tmp/auth-reset-consumer-two.log 2>&1 &
+PGAPPNAME=auth-reset-consumer-two "${psql_base[@]}" -At -c "select public.consume_password_reset_token('$TOKEN_HASH', repeat('y', 60))" >${TEST_TMP_DIR}/auth-reset-consumer-two.log 2>&1 &
 TWO_PID=$!
 
 waiters=0
@@ -56,8 +53,8 @@ wait "$ONE_PID"
 wait "$TWO_PID"
 wait "$LOCK_PID"
 
-RESULT_ONE="$(tr -d '[:space:]' </tmp/auth-reset-consumer-one.log)"
-RESULT_TWO="$(tr -d '[:space:]' </tmp/auth-reset-consumer-two.log)"
+RESULT_ONE="$(tr -d '[:space:]' <${TEST_TMP_DIR}/auth-reset-consumer-one.log)"
+RESULT_TWO="$(tr -d '[:space:]' <${TEST_TMP_DIR}/auth-reset-consumer-two.log)"
 SUCCESS_COUNT=0
 [[ "$RESULT_ONE" == "t" ]] && SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
 [[ "$RESULT_TWO" == "t" ]] && SUCCESS_COUNT=$((SUCCESS_COUNT + 1))

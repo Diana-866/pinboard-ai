@@ -1,20 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${PGHOST:=localhost}"
-: "${PGPORT:=5432}"
-: "${PGUSER:=postgres}"
-: "${PGDATABASE:=pinposy_test}"
-export PGHOST PGPORT PGUSER PGDATABASE
+source "$(dirname "${BASH_SOURCE[0]}")/lib/assert-disposable-postgres.sh"
 
-psql_base=(psql -X -v ON_ERROR_STOP=1 -q)
 USER_ID="$("${psql_base[@]}" -At -c "insert into public.users(email, password_hash, email_verified) values ('email-verify-race-' || gen_random_uuid() || '@example.invalid', 'test-hash', false) returning id")"
 ISSUE_HASH_ONE="$(openssl rand -hex 32)"
 ISSUE_HASH_TWO="$(openssl rand -hex 32)"
 
 cleanup() {
+  stop_test_children
   "${psql_base[@]}" -c "delete from public.auth_tokens where user_id = '$USER_ID'; delete from public.users where id = '$USER_ID';" >/dev/null 2>&1 || true
-  rm -f /tmp/email-verify-race-*.log
+  rm -f ${TEST_TMP_DIR}/email-verify-race-*.log
+  cleanup_test_tmp_dir
 }
 trap cleanup EXIT
 
@@ -32,7 +29,7 @@ wait_for_two_lock_waiters() {
 
 start_user_lock() {
   local app="$1"
-  PGAPPNAME="$app" "${psql_base[@]}" -c "begin; select id from public.users where id = '$USER_ID' for update; select pg_sleep(4); commit;" >"/tmp/email-verify-race-$app.log" 2>&1 &
+  PGAPPNAME="$app" "${psql_base[@]}" -c "begin; select id from public.users where id = '$USER_ID' for update; select pg_sleep(4); commit;" >"${TEST_TMP_DIR}/email-verify-race-$app.log" 2>&1 &
   LOCK_PID=$!
   for _ in $(seq 1 80); do
     local active
@@ -48,17 +45,17 @@ start_user_lock() {
 # Two independent issuers queue behind the same account lock. Only the first
 # may issue a token; the second must observe its creation and respect cooldown.
 start_user_lock "email-verify-issue-locker"
-PGAPPNAME=email-verify-issuer-one "${psql_base[@]}" -At -c "select public.issue_email_verification_token('$USER_ID', '$ISSUE_HASH_ONE', now() + interval '24 hours', 300)" >/tmp/email-verify-race-issuer-one.log 2>&1 &
+PGAPPNAME=email-verify-issuer-one "${psql_base[@]}" -At -c "select public.issue_email_verification_token('$USER_ID', '$ISSUE_HASH_ONE', now() + interval '24 hours', 300)" >${TEST_TMP_DIR}/email-verify-race-issuer-one.log 2>&1 &
 ONE_PID=$!
-PGAPPNAME=email-verify-issuer-two "${psql_base[@]}" -At -c "select public.issue_email_verification_token('$USER_ID', '$ISSUE_HASH_TWO', now() + interval '24 hours', 300)" >/tmp/email-verify-race-issuer-two.log 2>&1 &
+PGAPPNAME=email-verify-issuer-two "${psql_base[@]}" -At -c "select public.issue_email_verification_token('$USER_ID', '$ISSUE_HASH_TWO', now() + interval '24 hours', 300)" >${TEST_TMP_DIR}/email-verify-race-issuer-two.log 2>&1 &
 TWO_PID=$!
 wait_for_two_lock_waiters "email-verify-issuer-one" "email-verify-issuer-two"
 wait "$LOCK_PID"
 wait "$ONE_PID"
 wait "$TWO_PID"
 
-ISSUE_ONE="$(tr -d '[:space:]' </tmp/email-verify-race-issuer-one.log)"
-ISSUE_TWO="$(tr -d '[:space:]' </tmp/email-verify-race-issuer-two.log)"
+ISSUE_ONE="$(tr -d '[:space:]' <${TEST_TMP_DIR}/email-verify-race-issuer-one.log)"
+ISSUE_TWO="$(tr -d '[:space:]' <${TEST_TMP_DIR}/email-verify-race-issuer-two.log)"
 ISSUE_SUCCESS=0
 [[ "$ISSUE_ONE" == "t" ]] && ISSUE_SUCCESS=$((ISSUE_SUCCESS + 1))
 [[ "$ISSUE_TWO" == "t" ]] && ISSUE_SUCCESS=$((ISSUE_SUCCESS + 1))
@@ -78,17 +75,17 @@ fi
 LIVE_HASH="$ISSUE_HASH_ONE"
 [[ "$ISSUE_TWO" == "t" ]] && LIVE_HASH="$ISSUE_HASH_TWO"
 start_user_lock "email-verify-consume-locker"
-PGAPPNAME=email-verify-consumer-one "${psql_base[@]}" -At -c "select public.consume_email_verification_token('$LIVE_HASH')" >/tmp/email-verify-race-consumer-one.log 2>&1 &
+PGAPPNAME=email-verify-consumer-one "${psql_base[@]}" -At -c "select public.consume_email_verification_token('$LIVE_HASH')" >${TEST_TMP_DIR}/email-verify-race-consumer-one.log 2>&1 &
 ONE_PID=$!
-PGAPPNAME=email-verify-consumer-two "${psql_base[@]}" -At -c "select public.consume_email_verification_token('$LIVE_HASH')" >/tmp/email-verify-race-consumer-two.log 2>&1 &
+PGAPPNAME=email-verify-consumer-two "${psql_base[@]}" -At -c "select public.consume_email_verification_token('$LIVE_HASH')" >${TEST_TMP_DIR}/email-verify-race-consumer-two.log 2>&1 &
 TWO_PID=$!
 wait_for_two_lock_waiters "email-verify-consumer-one" "email-verify-consumer-two"
 wait "$LOCK_PID"
 wait "$ONE_PID"
 wait "$TWO_PID"
 
-CONSUME_ONE="$(tr -d '[:space:]' </tmp/email-verify-race-consumer-one.log)"
-CONSUME_TWO="$(tr -d '[:space:]' </tmp/email-verify-race-consumer-two.log)"
+CONSUME_ONE="$(tr -d '[:space:]' <${TEST_TMP_DIR}/email-verify-race-consumer-one.log)"
+CONSUME_TWO="$(tr -d '[:space:]' <${TEST_TMP_DIR}/email-verify-race-consumer-two.log)"
 if [[ "$CONSUME_ONE" != "t" || "$CONSUME_TWO" != "t" ]]; then
   echo "Expected both serialized verification clicks to return idempotent success; got '$CONSUME_ONE' and '$CONSUME_TWO'"
   exit 1

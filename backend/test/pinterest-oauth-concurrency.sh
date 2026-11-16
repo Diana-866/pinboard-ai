@@ -1,19 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${PGHOST:=localhost}"
-: "${PGPORT:=5432}"
-: "${PGUSER:=postgres}"
-: "${PGDATABASE:=pinposy_test}"
-export PGHOST PGPORT PGUSER PGDATABASE
+source "$(dirname "${BASH_SOURCE[0]}")/lib/assert-disposable-postgres.sh"
 
-psql_base=(psql -X -v ON_ERROR_STOP=1 -q)
 USER_ID="$("${psql_base[@]}" -At -c "insert into public.users(email, tariff_plan) values ('pinterest-oauth-race-' || gen_random_uuid() || '@example.invalid', 'start') returning id")"
 ATTEMPT_ID="$("${psql_base[@]}" -At -c "select gen_random_uuid()")"
 EXTERNAL_ID="oauth-race-$USER_ID"
 
 cleanup() {
+  stop_test_children
   "${psql_base[@]}" -c "delete from public.pinterest_accounts where user_id = '$USER_ID'; delete from public.pinterest_oauth_connection_state where user_id = '$USER_ID'; delete from public.users where id = '$USER_ID';" >/dev/null 2>&1 || true
+  cleanup_test_tmp_dir
 }
 trap cleanup EXIT
 
@@ -26,7 +23,7 @@ GENERATION="$("${psql_base[@]}" -At -c "select public.begin_pinterest_oauth_atte
 
 # Hold the shared OAuth state row so callback and disconnect become real,
 # independent concurrent contenders instead of merely sequential replays.
-PGAPPNAME=pinterest-oauth-race-locker "${psql_base[@]}" -c "begin; select user_id from public.pinterest_oauth_connection_state where user_id = '$USER_ID' for update; select pg_sleep(6); commit;" >/tmp/pinterest-oauth-race-locker.log 2>&1 &
+PGAPPNAME=pinterest-oauth-race-locker "${psql_base[@]}" -c "begin; select user_id from public.pinterest_oauth_connection_state where user_id = '$USER_ID' for update; select pg_sleep(6); commit;" >${TEST_TMP_DIR}/pinterest-oauth-race-locker.log 2>&1 &
 LOCK_PID=$!
 
 locked=0
@@ -41,9 +38,9 @@ if [[ "$locked" != "1" ]]; then
   exit 1
 fi
 
-PGAPPNAME=pinterest-oauth-race-callback "${psql_base[@]}" -At -c "select public.commit_pinterest_oauth_attempt_v2('$USER_ID', '$ATTEMPT_ID', $GENERATION, 0, '$EXTERNAL_ID', 'oauth_race_reconnected', 'access-after', 'refresh-after', 'boards:read,pins:write', now() + interval '1 hour')" >/tmp/pinterest-oauth-race-callback.log 2>&1 &
+PGAPPNAME=pinterest-oauth-race-callback "${psql_base[@]}" -At -c "select public.commit_pinterest_oauth_attempt_v2('$USER_ID', '$ATTEMPT_ID', $GENERATION, 0, '$EXTERNAL_ID', 'oauth_race_reconnected', 'access-after', 'refresh-after', 'boards:read,pins:write', now() + interval '1 hour')" >${TEST_TMP_DIR}/pinterest-oauth-race-callback.log 2>&1 &
 CALLBACK_PID=$!
-PGAPPNAME=pinterest-oauth-race-disconnect "${psql_base[@]}" -At -c "select public.disconnect_pinterest_account_v2('$USER_ID', (select id from public.pinterest_accounts where user_id = '$USER_ID' and pinterest_user_id = '$EXTERNAL_ID'))" >/tmp/pinterest-oauth-race-disconnect.log 2>&1 &
+PGAPPNAME=pinterest-oauth-race-disconnect "${psql_base[@]}" -At -c "select public.disconnect_pinterest_account_v2('$USER_ID', (select id from public.pinterest_accounts where user_id = '$USER_ID' and pinterest_user_id = '$EXTERNAL_ID'))" >${TEST_TMP_DIR}/pinterest-oauth-race-disconnect.log 2>&1 &
 DISCONNECT_PID=$!
 
 waiters=0
@@ -62,10 +59,10 @@ wait "$CALLBACK_PID"
 wait "$DISCONNECT_PID"
 wait "$LOCK_PID"
 
-DISCONNECT_RESULT="$(tr -d '[:space:]' </tmp/pinterest-oauth-race-disconnect.log)"
+DISCONNECT_RESULT="$(tr -d '[:space:]' <${TEST_TMP_DIR}/pinterest-oauth-race-disconnect.log)"
 if [[ "$DISCONNECT_RESULT" != "t" ]]; then
   echo "Expected disconnect to win eventually and return true; got: $DISCONNECT_RESULT"
-  cat /tmp/pinterest-oauth-race-callback.log
+  cat ${TEST_TMP_DIR}/pinterest-oauth-race-callback.log
   exit 1
 fi
 

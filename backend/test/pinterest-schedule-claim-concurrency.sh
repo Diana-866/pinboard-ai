@@ -1,13 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${PGHOST:=localhost}"
-: "${PGPORT:=5432}"
-: "${PGUSER:=postgres}"
-: "${PGDATABASE:=pinposy_test}"
-export PGHOST PGPORT PGUSER PGDATABASE
+source "$(dirname "${BASH_SOURCE[0]}")/lib/assert-disposable-postgres.sh"
 
-psql_base=(psql -X -v ON_ERROR_STOP=1 -q)
 USER_ID="$("${psql_base[@]}" -At -c "insert into public.users(email, tariff_plan, token_version, is_admin) values ('pinterest-claim-race-' || gen_random_uuid() || '@example.invalid', 'start', 0, true) returning id")"
 PROJECT_ID="$("${psql_base[@]}" -At -c "insert into public.projects(user_id, niche) values ('$USER_ID', 'Pinterest claim concurrency') returning id")"
 BOARD_ID="$("${psql_base[@]}" -At -c "insert into public.boards(project_id, title) values ('$PROJECT_ID', 'Pinterest claim concurrency') returning id")"
@@ -18,13 +13,15 @@ SCHEDULE_ONE="$("${psql_base[@]}" -At -c "insert into public.pin_schedules(user_
 SCHEDULE_TWO="$("${psql_base[@]}" -At -c "insert into public.pin_schedules(user_id, pin_id, pinterest_account_id, scheduled_at, timezone, pinterest_board_id, status, updated_at) values ('$USER_ID', '$PIN_TWO', '$ACCOUNT_ID', now() - interval '1 hour', 'UTC', 'remote-board-two', 'scheduled', now() - interval '1 hour') returning id")"
 
 cleanup() {
+  stop_test_children
   "${psql_base[@]}" -c "delete from public.pinterest_publications where pin_id in ('$PIN_ONE', '$PIN_TWO'); delete from public.pinterest_publish_attempts where pin_id in ('$PIN_ONE', '$PIN_TWO'); delete from public.pin_schedules where id in ('$SCHEDULE_ONE', '$SCHEDULE_TWO'); delete from public.pins where id in ('$PIN_ONE', '$PIN_TWO'); delete from public.pinterest_accounts where id = '$ACCOUNT_ID'; delete from public.boards where id = '$BOARD_ID'; delete from public.projects where id = '$PROJECT_ID'; delete from public.users where id = '$USER_ID';" >/dev/null 2>&1 || true
+  cleanup_test_tmp_dir
 }
 trap cleanup EXIT
 
 # Hold the first due row. Concurrent workers must skip it and may claim the
 # second row only once; neither may steal the locked row or duplicate its peer.
-PGAPPNAME=pinterest-claim-race-locker "${psql_base[@]}" -c "begin; select id from public.pin_schedules where id = '$SCHEDULE_ONE' for update; select pg_sleep(5); commit;" >/tmp/pinterest-claim-race-locker.log 2>&1 &
+PGAPPNAME=pinterest-claim-race-locker "${psql_base[@]}" -c "begin; select id from public.pin_schedules where id = '$SCHEDULE_ONE' for update; select pg_sleep(5); commit;" >${TEST_TMP_DIR}/pinterest-claim-race-locker.log 2>&1 &
 LOCK_PID=$!
 
 locked=0
@@ -39,15 +36,15 @@ if [[ "$locked" != "1" ]]; then
   exit 1
 fi
 
-PGAPPNAME=pinterest-claim-race-worker-a "${psql_base[@]}" -At -c "select id from public.claim_due_pin_schedules(1)" >/tmp/pinterest-claim-race-worker-a.log 2>&1 &
+PGAPPNAME=pinterest-claim-race-worker-a "${psql_base[@]}" -At -c "select id from public.claim_due_pin_schedules(1)" >${TEST_TMP_DIR}/pinterest-claim-race-worker-a.log 2>&1 &
 WORKER_A_PID=$!
-PGAPPNAME=pinterest-claim-race-worker-b "${psql_base[@]}" -At -c "select id from public.claim_due_pin_schedules(1)" >/tmp/pinterest-claim-race-worker-b.log 2>&1 &
+PGAPPNAME=pinterest-claim-race-worker-b "${psql_base[@]}" -At -c "select id from public.claim_due_pin_schedules(1)" >${TEST_TMP_DIR}/pinterest-claim-race-worker-b.log 2>&1 &
 WORKER_B_PID=$!
 
 wait "$WORKER_A_PID"
 wait "$WORKER_B_PID"
-CLAIM_A="$(tr -d '[:space:]' </tmp/pinterest-claim-race-worker-a.log)"
-CLAIM_B="$(tr -d '[:space:]' </tmp/pinterest-claim-race-worker-b.log)"
+CLAIM_A="$(tr -d '[:space:]' <${TEST_TMP_DIR}/pinterest-claim-race-worker-a.log)"
+CLAIM_B="$(tr -d '[:space:]' <${TEST_TMP_DIR}/pinterest-claim-race-worker-b.log)"
 
 if [[ "$CLAIM_A" == "$SCHEDULE_TWO" && -z "$CLAIM_B" ]]; then
   :

@@ -1,23 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${PGHOST:=localhost}"
-: "${PGPORT:=5432}"
-: "${PGUSER:=postgres}"
-: "${PGDATABASE:=pinposy_test}"
-export PGHOST PGPORT PGUSER PGDATABASE
+source "$(dirname "${BASH_SOURCE[0]}")/lib/assert-disposable-postgres.sh"
 
-psql_base=(psql -X -v ON_ERROR_STOP=1 -q)
 USER_ID="$("${psql_base[@]}" -At -c "insert into public.users(email, credits_balance, tariff_plan) values ('credit-concurrency-' || gen_random_uuid() || '@example.invalid', 5, 'none') returning id")"
 PURCHASE_ID="$("${psql_base[@]}" -At -c "insert into public.credit_purchases(user_id, package_id, pack_title, credits, status, provider_payment_id, amount, currency) values ('$USER_ID', 'pack_100', 'CI concurrent credit test', 100, 'pending', 'ci-credit-concurrent-' || gen_random_uuid(), 190, 'rub') returning id")"
 
 cleanup() {
+  stop_test_children
   "${psql_base[@]}" -c "delete from public.credit_transactions where purchase_id = '$PURCHASE_ID'; delete from public.credit_purchases where id = '$PURCHASE_ID'; delete from public.users where id = '$USER_ID';" >/dev/null 2>&1 || true
+  cleanup_test_tmp_dir
 }
 trap cleanup EXIT
 
 # Hold the purchase row so both independent credit RPC calls contend on the same row.
-PGAPPNAME=credit-concurrency-locker "${psql_base[@]}" -c "begin; select id from public.credit_purchases where id = '$PURCHASE_ID' for update; select pg_sleep(8); commit;" >/tmp/credit-locker.log 2>&1 &
+PGAPPNAME=credit-concurrency-locker "${psql_base[@]}" -c "begin; select id from public.credit_purchases where id = '$PURCHASE_ID' for update; select pg_sleep(8); commit;" >${TEST_TMP_DIR}/credit-locker.log 2>&1 &
 LOCK_PID=$!
 
 locked=0
@@ -34,9 +31,9 @@ fi
 
 # Start both webhook transactions while the purchase row is locked.
 # They must be running before we poll pg_stat_activity for lock waiters.
-PGAPPNAME=credit-webhook-one "${psql_base[@]}" -c "select public.credit_paid_purchase('$PURCHASE_ID', now(), 'parallel webhook one')" >/tmp/credit-one.log 2>&1 &
+PGAPPNAME=credit-webhook-one "${psql_base[@]}" -c "select public.credit_paid_purchase('$PURCHASE_ID', now(), 'parallel webhook one')" >${TEST_TMP_DIR}/credit-one.log 2>&1 &
 ONE_PID=$!
-PGAPPNAME=credit-webhook-two "${psql_base[@]}" -c "select public.credit_paid_purchase('$PURCHASE_ID', now(), 'parallel webhook two')" >/tmp/credit-two.log 2>&1 &
+PGAPPNAME=credit-webhook-two "${psql_base[@]}" -c "select public.credit_paid_purchase('$PURCHASE_ID', now(), 'parallel webhook two')" >${TEST_TMP_DIR}/credit-two.log 2>&1 &
 TWO_PID=$!
 
 # Do not release the lock until both webhook sessions are actually blocked on it.

@@ -1,13 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${PGHOST:=localhost}"
-: "${PGPORT:=5432}"
-: "${PGUSER:=postgres}"
-: "${PGDATABASE:=pinposy_test}"
-export PGHOST PGPORT PGUSER PGDATABASE
+source "$(dirname "${BASH_SOURCE[0]}")/lib/assert-disposable-postgres.sh"
 
-psql_base=(psql -X -v ON_ERROR_STOP=1 -q)
 USER_ID="$("${psql_base[@]}" -At -c "insert into public.users(email, tariff_plan, token_version, is_admin) values ('pinterest-publication-race-' || gen_random_uuid() || '@example.invalid', 'start', 0, true) returning id")"
 PROJECT_ID="$("${psql_base[@]}" -At -c "insert into public.projects(user_id, niche) values ('$USER_ID', 'Pinterest publication race') returning id")"
 BOARD_ID="$("${psql_base[@]}" -At -c "insert into public.boards(project_id, title) values ('$PROJECT_ID', 'Pinterest publication race') returning id")"
@@ -23,10 +18,12 @@ RECOVERY_SCHEDULE_ID="$("${psql_base[@]}" -At -c "insert into public.pin_schedul
 RECOVERY_REMOTE_PIN_ID="remote-pin-recovery-race-$RECOVERY_PIN_ID"
 
 cleanup() {
+  stop_test_children
   # The receipt ledger is deliberately append-only in production. This test
   # runs as the disposable CI database owner, so disable only its mutation
   # trigger long enough to remove this isolated fixture and then restore it.
   "${psql_base[@]}" -c "alter table public.pinterest_operator_reconciliations disable trigger pinterest_operator_reconciliations_no_mutation; delete from public.pinterest_operator_reconciliations where schedule_id in ('$SCHEDULE_ID', '$RECOVERY_SCHEDULE_ID'); alter table public.pinterest_operator_reconciliations enable trigger pinterest_operator_reconciliations_no_mutation; delete from public.pinterest_publications where pin_id in ('$PIN_ID', '$RECOVERY_PIN_ID'); delete from public.pinterest_publish_attempts where pin_id in ('$PIN_ID', '$RECOVERY_PIN_ID'); delete from public.pin_schedules where id in ('$SCHEDULE_ID', '$RECOVERY_SCHEDULE_ID'); delete from public.pins where id in ('$PIN_ID', '$RECOVERY_PIN_ID'); delete from public.pinterest_accounts where id = '$ACCOUNT_ID'; delete from public.boards where id = '$BOARD_ID'; delete from public.projects where id = '$PROJECT_ID'; delete from public.users where id = '$USER_ID';" >/dev/null 2>&1 || true
+  cleanup_test_tmp_dir
 }
 trap cleanup EXIT
 
@@ -35,7 +32,7 @@ trap cleanup EXIT
 
 # Hold the shared account lock so the worker completion and operator
 # reconciliation become real concurrent contenders on the same lock boundary.
-PGAPPNAME=pinterest-publication-race-locker "${psql_base[@]}" -c "begin; select id from public.pinterest_accounts where id = '$ACCOUNT_ID' for update; select pg_sleep(6); commit;" >/tmp/pinterest-publication-race-locker.log 2>&1 &
+PGAPPNAME=pinterest-publication-race-locker "${psql_base[@]}" -c "begin; select id from public.pinterest_accounts where id = '$ACCOUNT_ID' for update; select pg_sleep(6); commit;" >${TEST_TMP_DIR}/pinterest-publication-race-locker.log 2>&1 &
 LOCK_PID=$!
 
 locked=0
@@ -50,9 +47,9 @@ if [[ "$locked" != "1" ]]; then
   exit 1
 fi
 
-PGAPPNAME=pinterest-publication-race-completion "${psql_base[@]}" -At -c "select public.complete_pinterest_publish_v2('$USER_ID', '$PIN_ID', '$ACCOUNT_ID', '$REMOTE_PIN_ID', 'remote-board-race')" >/tmp/pinterest-publication-race-completion.log 2>&1 &
+PGAPPNAME=pinterest-publication-race-completion "${psql_base[@]}" -At -c "select public.complete_pinterest_publish_v2('$USER_ID', '$PIN_ID', '$ACCOUNT_ID', '$REMOTE_PIN_ID', 'remote-board-race')" >${TEST_TMP_DIR}/pinterest-publication-race-completion.log 2>&1 &
 COMPLETION_PID=$!
-PGAPPNAME=pinterest-publication-race-reconciliation "${psql_base[@]}" -At -c "select public.admin_reconcile_pinterest_unknown_publication('$USER_ID', '$SCHEDULE_ID', '$REMOTE_PIN_ID', 'remote-board-race', 'pinterest_dashboard', 'concurrency-test-$ACTION_ID', '$ACTION_ID')" >/tmp/pinterest-publication-race-reconciliation.log 2>&1 &
+PGAPPNAME=pinterest-publication-race-reconciliation "${psql_base[@]}" -At -c "select public.admin_reconcile_pinterest_unknown_publication('$USER_ID', '$SCHEDULE_ID', '$REMOTE_PIN_ID', 'remote-board-race', 'pinterest_dashboard', 'concurrency-test-$ACTION_ID', '$ACTION_ID')" >${TEST_TMP_DIR}/pinterest-publication-race-reconciliation.log 2>&1 &
 RECONCILIATION_PID=$!
 
 waiters=0
@@ -113,7 +110,7 @@ echo "Concurrent Pinterest worker completion/operator reconciliation passed for 
 # Race a late worker success against stale-claim recovery. The blocker holds
 # the schedule row while both operations start; after release, either order
 # must converge to the same published remote identity without a retry.
-PGAPPNAME=pinterest-stale-recovery-race-locker "${psql_base[@]}" -c "begin; select id from public.pin_schedules where id = '$RECOVERY_SCHEDULE_ID' for update; select pg_sleep(6); commit;" >/tmp/pinterest-stale-recovery-race-locker.log 2>&1 &
+PGAPPNAME=pinterest-stale-recovery-race-locker "${psql_base[@]}" -c "begin; select id from public.pin_schedules where id = '$RECOVERY_SCHEDULE_ID' for update; select pg_sleep(6); commit;" >${TEST_TMP_DIR}/pinterest-stale-recovery-race-locker.log 2>&1 &
 RECOVERY_LOCK_PID=$!
 
 recovery_locked=0
@@ -128,9 +125,9 @@ if [[ "$recovery_locked" != "1" ]]; then
   exit 1
 fi
 
-PGAPPNAME=pinterest-stale-recovery-race-completion "${psql_base[@]}" -At -c "select public.complete_pinterest_publish_v2('$USER_ID', '$RECOVERY_PIN_ID', '$ACCOUNT_ID', '$RECOVERY_REMOTE_PIN_ID', 'remote-board-recovery-race')" >/tmp/pinterest-stale-recovery-race-completion.log 2>&1 &
+PGAPPNAME=pinterest-stale-recovery-race-completion "${psql_base[@]}" -At -c "select public.complete_pinterest_publish_v2('$USER_ID', '$RECOVERY_PIN_ID', '$ACCOUNT_ID', '$RECOVERY_REMOTE_PIN_ID', 'remote-board-recovery-race')" >${TEST_TMP_DIR}/pinterest-stale-recovery-race-completion.log 2>&1 &
 LATE_COMPLETION_PID=$!
-PGAPPNAME=pinterest-stale-recovery-race-recovery "${psql_base[@]}" -At -c "select count(*) from public.claim_due_pin_schedules(10)" >/tmp/pinterest-stale-recovery-race-recovery.log 2>&1 &
+PGAPPNAME=pinterest-stale-recovery-race-recovery "${psql_base[@]}" -At -c "select count(*) from public.claim_due_pin_schedules(10)" >${TEST_TMP_DIR}/pinterest-stale-recovery-race-recovery.log 2>&1 &
 STALE_RECOVERY_PID=$!
 
 recovery_waiters=0
