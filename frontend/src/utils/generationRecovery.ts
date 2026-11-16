@@ -8,6 +8,8 @@ export function isExpiredGenerationRecoveryError(error: unknown): boolean {
 /** Poll only while the server reports work that can still resolve. */
 export function shouldPollGenerationRecovery(
   requests: ReadonlyArray<{ status: string }>,
+  pausedForAuthentication = false,
 ): boolean {
+  if (pausedForAuthentication) return false;
   return requests.some((request) => request.status === 'processing' || request.status === 'unknown');
 }
