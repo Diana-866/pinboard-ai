@@ -43,7 +43,7 @@ function Assert-PsqlTarget {
     if ($null -eq $process -or $process.Name -ne 'postgres.exe') { throw 'Safety stop: listener is not postgres.exe.' }
     $command = ([string]$process.CommandLine).Replace('\','/').ToLowerInvariant()
     $expected = $ExpectedDataDirectory.Replace('\','/').TrimEnd('/').ToLowerInvariant()
-    if (-not $command.Contains($expected) -or $command -notmatch '(?i)-h\s+127\.0\.0\.1' -or
+    if ($command -notmatch ('(?i)-D\s+"?' + [regex]::Escape($expected) + '"?(\s|$)') -or $command -notmatch '(?i)-h\s+127\.0\.0\.1' -or
         $command -notmatch ('(?i)-p\s+' + [regex]::Escape([string]$PostgresPort))) {
         throw 'Safety stop: server process does not match the approved loopback-only temporary cluster.'
     }
@@ -96,6 +96,7 @@ try {
     foreach ($migration in $migrations) { [void]$encoding.GetBytes([IO.File]::ReadAllText($migration.FullName,[Text.Encoding]::UTF8)) }
 
     $securePassword = Read-Host 'Введите пароль временной роли pinposy_verify_admin (ввод скрыт)' -AsSecureString
+    if ($securePassword.Length -eq 0) { throw 'A non-empty temporary PostgreSQL password is required.' }
     $passwordPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
     $env:PGPASSWORD = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPointer)
     $env:PGHOST = $hostAddress
