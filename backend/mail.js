@@ -9,6 +9,7 @@ const { logWarning, logError } = require("./safeLogger");
 // MAIL_USER/MAIL_PASS остаются fallback только для IMAP/ответов поддержки; транзакционная почта требует отдельные MAIL_SMTP_*.
 
 const { httpError } = require("./validate");
+const { normalizeInboxLimit, normalizeImapUid, normalizeSupportReply } = require("./mailInputValidation");
 
 function getImapAuth() {
   return {
@@ -50,6 +51,7 @@ function transactionalMailConfigured() {
 }
 
 async function listInbox(limit = 30) {
+  const safeLimit = normalizeInboxLimit(limit);
   if (!mailConfigured()) {
     throw httpError(503, "Почта не настроена: задайте MAIL_IMAP_HOST, MAIL_IMAP_USER и MAIL_IMAP_PASS на сервере");
   }
@@ -67,16 +69,17 @@ async function listInbox(limit = 30) {
     const lock = await client.getMailboxLock("INBOX");
     const messages = [];
     try {
-      // Последние `limit` писем: собираем uid'ы и читаем с конца
-      let count = 0;
-      for await (const msg of client.fetch({ all: true }, { envelope: true, flags: true }, { uid: true })) {
-        count++;
+      // Bound the requested page. ImapFlow exposes mailbox.exists after the lock;
+      // retain a compatibility fallback for servers without that metadata.
+      let total = Number(client.mailbox && client.mailbox.exists);
+      if (!Number.isSafeInteger(total) || total < 0) {
+        total = 0;
+        for await (const msg of client.fetch({ all: true }, { uid: true }, { uid: true })) {
+          total++;
+        }
       }
-      const total = count;
-      const startUid = Math.max(1, total - limit + 1);
-      let idx = 0;
+      const startUid = Math.max(1, total - safeLimit + 1);
       for await (const msg of client.fetch({ seq: `${startUid}:*` }, { envelope: true, flags: true }, { uid: true })) {
-        idx++;
         messages.push({
           uid: msg.uid,
           from: msg.envelope?.from?.map((a) => `${a.name || ""} <${a.address || ""}>`).join(", ") || "",
@@ -85,7 +88,6 @@ async function listInbox(limit = 30) {
           seen: (msg.flags || []).has ? (msg.flags).has("\\Seen") : false,
         });
       }
-      void total;
     } finally {
       lock.release();
     }
@@ -97,6 +99,7 @@ async function listInbox(limit = 30) {
 }
 
 async function fetchMessageBody(uid) {
+  const safeUid = normalizeImapUid(uid);
   if (!mailConfigured()) {
     throw httpError(503, "Почта не настроена: задайте MAIL_IMAP_HOST, MAIL_IMAP_USER и MAIL_IMAP_PASS на сервере");
   }
@@ -112,7 +115,7 @@ async function fetchMessageBody(uid) {
   try {
     const lock = await client.getMailboxLock("INBOX");
     try {
-      const msg = await client.fetchOne(String(uid), { bodyStructure: true, source: true }, { uid: true });
+      const msg = await client.fetchOne(safeUid, { bodyStructure: true, source: true }, { uid: true });
       if (!msg) throw httpError(404, "Письмо не найдено");
       let body = "";
       const walk = (node) => {
@@ -125,7 +128,7 @@ async function fetchMessageBody(uid) {
       };
       walk(msg.bodyStructure);
       if (!body && msg.source) body = msg.source.toString("utf8").replace(/<[^>]+>/g, " ").slice(0, 8000);
-      return { uid: Number(uid), body: body.slice(0, 8000) };
+      return { uid: Number(safeUid), body: body.slice(0, 8000) };
     } finally {
       lock.release();
     }
@@ -135,6 +138,7 @@ async function fetchMessageBody(uid) {
 }
 
 async function replyToMessage(to, subject, text) {
+  const reply = normalizeSupportReply(to, subject, text);
   const config = getReplySmtpConfig();
   if (!config.host || !config.auth.user || !config.auth.pass) {
     throw httpError(503, "SMTP ответов поддержки не настроен: задайте MAIL_REPLY_SMTP_HOST, MAIL_REPLY_SMTP_USER и MAIL_REPLY_SMTP_PASS");
@@ -150,9 +154,9 @@ async function replyToMessage(to, subject, text) {
 
   await transporter.sendMail({
     from: config.from,
-    to,
-    subject: subject.startsWith("Re:") ? subject : `Re: ${subject}`,
-    text,
+    to: reply.to,
+    subject: reply.subject.startsWith("Re:") ? reply.subject : `Re: ${reply.subject}`,
+    text: reply.text,
   });
   return { ok: true };
 }
