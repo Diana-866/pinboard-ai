@@ -56,234 +56,6 @@ export interface ManualApprovalDeskProps {
   onGoToDashboard?: () => void;
 }
 
-export const INITIAL_QUEUE_PINS: PendingReviewPin[] = [
-  {
-    id: 'rev-1',
-    title: '7 правил теплого минимализма в скандинавской гостиной',
-    description: 'Как создать уютное и просторное пространство без визуального шума. Практические советы по выбору текстиля, деревянных текстур и мягкого рассеянного света. #сканди #гостиная #минимализм #интерьер',
-    boardName: 'Scandinavian Living & Cozy Interiors',
-    boardId: 'b-1',
-    imageUrl: '/src/assets/images/pin_home_decor_1790670043705.jpg',
-    aspectRatio: '2:3',
-    reason: 'Запрос "теплый сканди минимализм" вырос на 42% в категории Home Decor. Ваша доска удерживает топ-1 по охватам.',
-    trendMetric: '+42% рост поискового спроса',
-    scheduledDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-    scheduledTime: '20:15',
-    destinationUrl: 'https://pinposy.com/blog/warm-minimalist-living',
-    accountHandle: '@botanica_nordic',
-  },
-  {
-    id: 'rev-2',
-    title: 'Матча латте на овсяном молоке: 3 секрета идеальной пенки',
-    description: 'Пошаговый рецепт густой сливочной пенки дома за 3 минуты. Правильная температура воды и взбивание бамбуковым венчиком. #матча #латте #рецепты #напитки',
-    boardName: 'Artisanal Drinks & Matcha Rituals',
-    boardId: 'b-2',
-    imageUrl: '/src/assets/images/pin_matcha_latte_1790670057380.jpg',
-    aspectRatio: '2:3',
-    reason: 'Аудитория активно ищет "как взбить матча без комков" в утренние часы. Конкуренты фиксируют CTR 7.8% на этом формате.',
-    trendMetric: '+38% сохранений в категории напитков',
-    scheduledDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-    scheduledTime: '21:30',
-    destinationUrl: 'https://pinposy.com/recipes/iced-matcha-cloud',
-    accountHandle: '@botanica_nordic',
-  },
-  {
-    id: 'rev-3',
-    title: 'Утренний протокол: восстановление барьера кожи и стеклянное сияние',
-    description: 'Чек-лист нанесения сыворотки с церамидами и увлажняющего крема. Никакого шелушения и жирного блеска под макияжем. #уходзакожей #бьюти #косметика #стекляннаякожа',
-    boardName: 'Clean Skincare & Luxury Shelfies',
-    boardId: 'b-3',
-    imageUrl: '/src/assets/images/pin_skincare_routine_1790670067721.jpg',
-    aspectRatio: '9:16',
-    reason: 'Тема барьера кожи входит в топ-3 мировых трендов красоты Pinterest. Формат 9:16 получает в 2.4 раза больше показов.',
-    trendMetric: '+51% охват в Smart Feed',
-    scheduledDate: new Date(Date.now() + 172800000).toISOString().split('T')[0],
-    scheduledTime: '19:45',
-    destinationUrl: 'https://pinposy.com/skincare/am-barrier-repair',
-    accountHandle: '@botanica_nordic',
-  },
-  {
-    id: 'rev-4',
-    title: 'Амальфитанское побережье: 5 скрытых видовых террас в Позитано',
-    description: 'Локации для фото на закате без очередей и толп туристов. Сохраняйте в закладки для идеального путешествия по Италии! #амальфи #италия #путешествия #позитано',
-    boardName: 'European Escapes & Amalfi Dreamscapes',
-    boardId: 'b-4',
-    imageUrl: '/src/assets/images/pin_travel_amalfi_1790670078173.jpg',
-    aspectRatio: '2:3',
-    reason: 'Сезонный пик планирования отпусков в Южной Европе. Лучшее время для публикации — вечерний прайм-тайм.',
-    trendMetric: 'Высокий сезонный интерес',
-    scheduledDate: new Date(Date.now() + 172800000).toISOString().split('T')[0],
-    scheduledTime: '20:30',
-    destinationUrl: 'https://pinposy.com/travel/amalfi-secret-viewpoints',
-    accountHandle: '@botanica_nordic',
-  },
-  {
-    id: 'rev-5',
-    title: 'Организация гардеробной в стиле Japandi: порядок навсегда',
-    description: 'Система хранения вещей из натурального ротанга и светлого дуба. Как избавиться от хаоса за 1 выходной день. #гардероб #хранение #порядок #интерьер',
-    boardName: 'Scandinavian Living & Cozy Interiors',
-    boardId: 'b-1',
-    imageUrl: '/src/assets/images/pin_home_decor_1790670043705.jpg',
-    aspectRatio: '2:3',
-    reason: 'Пользователи активно ищут японский минимализм в организации пространства.',
-    trendMetric: '+29% виральность тем порядка',
-    scheduledDate: new Date(Date.now() + 259200000).toISOString().split('T')[0],
-    scheduledTime: '21:00',
-    destinationUrl: 'https://pinposy.com/blog/japandi-closet-storage',
-    accountHandle: '@botanica_nordic',
-  },
-  {
-    id: 'rev-6',
-    title: 'Айс-матча с кокосовыми сливками: рецепт трендового напитка',
-    description: 'Освежающий слоистый айс-латте с нежной кокосовой пеной и органической церемониальной матча. #айсматча #напитки #рецепты #эстетика',
-    boardName: 'Artisanal Drinks & Matcha Rituals',
-    boardId: 'b-2',
-    imageUrl: '/src/assets/images/pin_matcha_latte_1790670057380.jpg',
-    aspectRatio: '9:16',
-    reason: 'Формат слоистых напитков набирает на 64% больше сохранений в Pinterest видео и каруселях.',
-    trendMetric: '+64% сохранения в категории напитков',
-    scheduledDate: new Date(Date.now() + 259200000).toISOString().split('T')[0],
-    scheduledTime: '15:30',
-    destinationUrl: 'https://pinposy.com/recipes/coconut-cloud-matcha',
-    accountHandle: '@botanica_nordic',
-  },
-  {
-    id: 'rev-7',
-    title: 'Керамика ручной работы в интерьере: эстетика несовершенства Wabi-Sabi',
-    description: 'Как фактурные вазы и посуда ручной лепки преображают минималистичные полки и журнальные столики. #керамика #вабисаби #декор #уют',
-    boardName: 'Scandinavian Living & Cozy Interiors',
-    boardId: 'b-1',
-    imageUrl: '/src/assets/images/pin_home_decor_1790670043705.jpg',
-    aspectRatio: '2:3',
-    reason: 'Запрос "wabi sabi pottery aesthetic" вырос на 47% за последние 30 дней.',
-    trendMetric: '+47% рост спроса в декоре',
-    scheduledDate: new Date(Date.now() + 345600000).toISOString().split('T')[0],
-    scheduledTime: '18:15',
-    destinationUrl: 'https://pinposy.com/decor/wabi-sabi-ceramics',
-    accountHandle: '@botanica_nordic',
-  },
-  {
-    id: 'rev-8',
-    title: 'Вечерний уход за кожей: пептиды, ретинол и восстанавливающий крем',
-    description: 'Пошаговый ритуал ночного обновления без раздражения. Сочетание активных ингредиентов для упругости кожи. #ночнойуход #ретинол #пептиды #красота',
-    boardName: 'Clean Skincare & Luxury Shelfies',
-    boardId: 'b-3',
-    imageUrl: '/src/assets/images/pin_skincare_routine_1790670067721.jpg',
-    aspectRatio: '2:3',
-    reason: 'Аудитория ищет безопасные схемы ввода ретинола в осенне-зимний период.',
-    trendMetric: '+36% вовлеченность аудитории',
-    scheduledDate: new Date(Date.now() + 345600000).toISOString().split('T')[0],
-    scheduledTime: '21:45',
-    destinationUrl: 'https://pinposy.com/skincare/pm-retinol-routine',
-    accountHandle: '@botanica_nordic',
-  },
-  {
-    id: 'rev-9',
-    title: 'Капри и Анакапри: однодневный маршрут на винтажном кабриолете',
-    description: 'Голубой грот, сады Августа и тайные смотровые площадки с видом на скалы Фаральони. #капри #италия #путешествия #европа',
-    boardName: 'European Escapes & Amalfi Dreamscapes',
-    boardId: 'b-4',
-    imageUrl: '/src/assets/images/pin_travel_amalfi_1790670078173.jpg',
-    aspectRatio: '2:3',
-    reason: 'Маршруты по островам Италии показывают высокий CTR в сегменте travel.',
-    trendMetric: '+55% кликабельность пинов',
-    scheduledDate: new Date(Date.now() + 432000000).toISOString().split('T')[0],
-    scheduledTime: '14:20',
-    destinationUrl: 'https://pinposy.com/travel/capri-day-guide',
-    accountHandle: '@botanica_nordic',
-  },
-  {
-    id: 'rev-10',
-    title: 'Световые сценарии для спальни: теплый свет 2700К и бра',
-    description: 'Гид по расстановке торшеров, скрытой подсветки кровати и акцентных светильников для глубокого релакса. #освещение #спальня #скандиинтерьер #уют',
-    boardName: 'Scandinavian Living & Cozy Interiors',
-    boardId: 'b-1',
-    imageUrl: '/src/assets/images/pin_home_decor_1790670043705.jpg',
-    aspectRatio: '2:3',
-    reason: 'Сезонное повышение интереса к уюту и освещению спальни в осенний период.',
-    trendMetric: '+40% сезонный тренд',
-    scheduledDate: new Date(Date.now() + 432000000).toISOString().split('T')[0],
-    scheduledTime: '20:45',
-    destinationUrl: 'https://pinposy.com/decor/bedroom-lighting-guide',
-    accountHandle: '@botanica_nordic',
-  },
-  {
-    id: 'rev-11',
-    title: 'Холодный чай матча с юдзу и мятой: японский домашний лимонад',
-    description: 'Бодрящий безалкогольный коктейль с цитрусовым соком юдзу, свежей мятой и газированной водой. #юдзу #матча #лимонад #рецепты',
-    boardName: 'Artisanal Drinks & Matcha Rituals',
-    boardId: 'b-2',
-    imageUrl: '/src/assets/images/pin_matcha_latte_1790670057380.jpg',
-    aspectRatio: '2:3',
-    reason: 'Тренд на безалкогольные авторские напитки растет на 44% год к году.',
-    trendMetric: '+44% годовой рост',
-    scheduledDate: new Date(Date.now() + 518400000).toISOString().split('T')[0],
-    scheduledTime: '13:00',
-    destinationUrl: 'https://pinposy.com/recipes/yuzu-matcha-spritz',
-    accountHandle: '@botanica_nordic',
-  },
-  {
-    id: 'rev-12',
-    title: 'Массаж Гуаша для четкого овала лица: техника 5 минут утром',
-    description: 'Схема движений по массажным линиям с использованием натурального розового кварца и масла сквалана. #гуаша #массажлица #лимфодренаж #бьюти',
-    boardName: 'Clean Skincare & Luxury Shelfies',
-    boardId: 'b-3',
-    imageUrl: '/src/assets/images/pin_skincare_routine_1790670067721.jpg',
-    aspectRatio: '9:16',
-    reason: 'Видео-инструкции по массажу лица удерживают среднее время просмотра более 8 секунд.',
-    trendMetric: '+58% сохранения в закладки',
-    scheduledDate: new Date(Date.now() + 518400000).toISOString().split('T')[0],
-    scheduledTime: '09:15',
-    destinationUrl: 'https://pinposy.com/skincare/guasha-morning-guide',
-    accountHandle: '@botanica_nordic',
-  },
-  {
-    id: 'rev-13',
-    title: 'Текстиль из натурального льна: постельное белье и шторы',
-    description: 'Почему вареный лен идеален для спальни: терморегуляция, тактильный комфорт и естественная легкая помятость. #лен #текстиль #постельноебелье #сканди',
-    boardName: 'Scandinavian Living & Cozy Interiors',
-    boardId: 'b-1',
-    imageUrl: '/src/assets/images/pin_home_decor_1790670043705.jpg',
-    aspectRatio: '2:3',
-    reason: 'Высокая конверсия по целевым поисковым запросам в нише качественного текстиля.',
-    trendMetric: '+31% коммерческий интерес',
-    scheduledDate: new Date(Date.now() + 604800000).toISOString().split('T')[0],
-    scheduledTime: '19:30',
-    destinationUrl: 'https://pinposy.com/decor/washed-linen-bedroom',
-    accountHandle: '@botanica_nordic',
-  },
-  {
-    id: 'rev-14',
-    title: 'Равелло: сады виллы Руфоло над облаками Средиземноморья',
-    description: 'Самое романтичное место Амальфитаны: террасы с пиниями и панорама Салернского залива. #равелло #амальфи #вилларуфоло #италия',
-    boardName: 'European Escapes & Amalfi Dreamscapes',
-    boardId: 'b-4',
-    imageUrl: '/src/assets/images/pin_travel_amalfi_1790670078173.jpg',
-    aspectRatio: '2:3',
-    reason: 'Локация лидирует в подборках «лучшие виды Италии для свадеб и путешествий».',
-    trendMetric: '+49% вирусный охват',
-    scheduledDate: new Date(Date.now() + 604800000).toISOString().split('T')[0],
-    scheduledTime: '17:45',
-    destinationUrl: 'https://pinposy.com/travel/ravello-villa-rufolo',
-    accountHandle: '@botanica_nordic',
-  },
-  {
-    id: 'rev-15',
-    title: 'Ароматы для дома: диффузоры с кедром, инжиром и амброй',
-    description: 'Как подобрать селективный аромат для прихожей, гостиной и ванной комнаты. Создаем уютную атмосферу с первой секунды. #ароматыдлядома #диффузор #уют #интерьер',
-    boardName: 'Scandinavian Living & Cozy Interiors',
-    boardId: 'b-1',
-    imageUrl: '/src/assets/images/pin_home_decor_1790670043705.jpg',
-    aspectRatio: '2:3',
-    reason: 'Темы ароматерапии и диффузоров показывают высокий Save Rate в сезон уюта.',
-    trendMetric: '+37% рост сохранений',
-    scheduledDate: new Date(Date.now() + 691200000).toISOString().split('T')[0],
-    scheduledTime: '21:15',
-    destinationUrl: 'https://pinposy.com/decor/home-fragrance-rituals',
-    accountHandle: '@botanica_nordic',
-  },
-];
-
 export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
   boards,
   pendingPins,
@@ -589,15 +361,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
     }
   };
 
-  const handleResetQueue = async () => {
-    try {
-      await updateQueue(() => []);
-      setApprovedCount(0);
-      setRejectedCount(0);
-    } catch (error) {
-      window.alert(error instanceof Error ? error.message : 'Не удалось очистить очередь. Попробуйте ещё раз.');
-    }
-  };
+
 
   // Touch / Mouse Drag Swiping
   const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
@@ -717,14 +481,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
             </button>
           )}
 
-          <button
-            onClick={handleResetQueue}
-            className="px-4 py-2.5 text-xs text-secondary-theme hover:text-primary-theme hover:bg-subtle rounded-xl border border-subtle cursor-pointer transition-colors flex items-center justify-center gap-1.5"
-            title="Восстановить исходные 15 пинов для повторной проверки"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Сбросить очередь (15 пинов)</span>
-          </button>
+
         </div>
       </div>
     );
@@ -754,11 +511,11 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
               {t.review.title}
             </h1>
             <span className="px-3 py-0.5 rounded-full text-xs font-bold font-mono accent-btn text-white">
-              {queue.length} в очереди
+              {t.review.queueCountTemplate.replace('{count}', String(queue.length))}
             </span>
           </div>
           <p className="text-xs text-muted-theme mt-1">
-            Очередь для Botanica Nordic (@botanica_nordic): подтвердите сгенерированные AI пины или отклоните неподходящие.
+            {t.review.queueDescription}
           </p>
         </div>
 
