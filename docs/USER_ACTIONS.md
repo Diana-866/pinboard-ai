@@ -379,3 +379,10 @@ UA-004 по локальному запуску остаётся обязате�
 Во время проверки обнаружено, что прежние девять Bash concurrency scripts по умолчанию подключались к `localhost:5432/pinposy_test` и использовали общие временные файлы. Этот риск исправлен: scripts теперь отказываются работать без явного `PINPOSY_ALLOW_DISPOSABLE_DB_TESTS=1`, loopback PostgreSQL target и имени отдельной БД `pinposy_verify_<suffix>`; они проверяют фактическую БД/адрес сервера и используют изолированный temp directory.
 
 **Не запускай девять scripts вручную и не пытайся обойти новый guard.** Сначала должен быть успешно завершён UA-004 (SQL integration runner). После получения его полного вывода ассистент подготовит отдельный проверенный disposable-DB setup/runner для Bash concurrency suite и только затем даст точную команду владельцу. Не использовать `pinposy_test`, production, PIN_TRIAL или любую общую БД.
+
+
+### Контрольная точка автономной работы (2026-11-17)
+
+- Проверен актуальный main; последний исходный code/docs HEAD перед записью контрольной точки: `4de5190e3a16b101ee19528110263bc354925744`. В `docs/PROJECT_STATE.md` записано, что NEXT остаётся UA-004 и почему его нельзя выполнить из удалённой среды ассистента.
+- **Ничего нового от владельца не требуется сверх UA-004.** Когда владелец вернётся: в PowerShell из `X:\\!PROGECT\\pinboard-ai` проверить clean `main`, выполнить `git pull --ff-only origin main`, затем `powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1 -PostgresPort 55439`. Ввести пароль только в скрытый локальный prompt; передать полный stdout/stderr/exit code без пароля и иных секретов.
+- При любом отказе preflight остановиться и передать точный вывод; не обходить guard. Не использовать production, PIN_TRIAL, существующий кластер/PID 5632 и не удалять временный кластер `X:\\PinPosy-verify-pg18`. После успешного прогона ассистент проверит фактический результат и cleanup, затем выдаст следующий отдельный шаг по Bash concurrency suite.
