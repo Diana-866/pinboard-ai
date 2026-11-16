@@ -365,7 +365,14 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             found.push({ key: identity.fingerprint, status: 'expired', boardId: '', pinCount: 0 });
             continue;
           }
-          if (error?.status === 401) return;
+          if (error?.status === 401) {
+            // Stop the polling loop when the session expires. Keep persisted
+            // idempotency identities untouched; they can be checked after re-login.
+            if (active && isCurrentBillingOwner(generationRecoveryOwnerIdRef.current, ownerId)) {
+              setRecoverableGenerations([]);
+            }
+            return;
+          }
           // A temporary network/5xx failure is not evidence that the request
           // disappeared. Keep it visible as uncertain so users can retry the
           // read-only status check instead of seeing the recovery entry vanish.
