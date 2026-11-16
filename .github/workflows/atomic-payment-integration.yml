@@ -52,6 +52,8 @@ jobs:
         run: node --test backend/test/pin-status-publication-fencing.test.js backend/test/pin-status-guard.test.js
       - name: Test fail-fast API startup configuration
         run: node --test backend/test/startup-config.test.js backend/test/app-boot.test.js
+      - name: Test canonical database migration numbering
+        run: node --test backend/test/db-migration-chain.test.js
       - name: Test production tariff self-selection guard
         run: node --test backend/test/tariff-self-select.test.js
       - name: Test bounded admin mailbox inputs
