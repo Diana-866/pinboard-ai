@@ -413,7 +413,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         // A malformed/empty HTTP payload is not the same as a board with zero
         // pins. Never turn an unexpected API response into a silent empty state.
         const restored = requireSavedPinsArray(rows).map((row: any) => {
-          const title = String(row.title || 'Без названия');
+          const title = String(row.title || t.generator.untitledPin);
           const ratio = ALL_ASPECT_RATIOS.some((item) => item.id === row.aspect_ratio)
             ? row.aspect_ratio as SupportedAspectRatio
             : '2:3';
@@ -514,9 +514,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const handleGenerate = async () => {
     const currentTopic = getExplicitGenerationTopic(topic);
     if (!currentTopic) {
-      window.alert(language === 'ru'
-        ? 'Введите тему пина или выберите одну из предложенных идей.'
-        : 'Enter a pin topic or choose one of the suggested ideas.');
+      window.alert(t.generator.topicRequired);
       return;
     }
     if (generationInFlightRef.current) return;
@@ -647,7 +645,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         rollbackPinAspectRatioIfUnchanged(previous, pinId, newRatio, confirmedRatio)
       );
       console.error('[pins] Не удалось сохранить формат:', error);
-      window.alert(error instanceof Error ? error.message : 'Не удалось сохранить формат изображения. Попробуйте ещё раз.');
+      window.alert(error instanceof Error ? error.message : t.generator.errorSaveFormat);
     } finally {
       // An earlier request must not clear the saving state while a newer queued
       // ratio PATCH for the same pin is still pending.
@@ -784,7 +782,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
           revision,
         );
         if (!saved) {
-          window.alert('Не удалось сохранить последнее описание. Исправьте соединение и повторите сохранение перед планированием.');
+          window.alert(t.generator.errorSaveDescriptionBeforeSchedule);
           return;
         }
       }
@@ -809,13 +807,13 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         pinterestBoardsAccountId,
       );
       if (!pinterestDestination) {
-        window.alert('Доска назначения больше не связана с выбранным Pinterest-аккаунтом. Дождитесь загрузки досок и выберите доску заново.');
+        window.alert(t.generator.errorDestinationBoardChanged);
         return;
       }
   
       const board = boards.find((b) => b.id === selectedBoardId) || boards[0];
       if (!board) {
-        window.alert('Сначала создайте внутреннюю доску PinPosy для этого пина.');
+        window.alert(t.generator.errorCreateInternalBoard);
         return;
       }
   
@@ -848,19 +846,11 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
           );
           if (safeTime !== scheduledTime) {
             setCustomScheduleTime(safeTime);
-            window.alert(
-              language === 'ru'
-                ? `Выбранное время уже прошло или недоступно. Обновили время на ${safeTime}. Проверьте его и нажмите «Запланировать» ещё раз.`
-                : `The selected time has passed or is unavailable. Updated it to ${safeTime}. Review the time and schedule again.`
-            );
+            window.alert(t.generator.errorSelectedTimeAdjustedTemplate.replace('{time}', safeTime));
             return;
           }
         } catch {
-          window.alert(
-            language === 'ru'
-              ? 'Выбранная дата или время уже недоступны. Выберите будущую дату и повторите планирование.'
-              : 'The selected date or time is no longer available. Choose a future date and try scheduling again.'
-          );
+          window.alert(t.generator.errorDateTimeUnavailable);
           return;
         }
       }
@@ -1707,7 +1697,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                           revision,
                         );
                         if (!saved) {
-                          throw new Error('Не удалось сохранить последнее описание. Исправьте соединение и повторите отправку на проверку.');
+                          throw new Error(t.generator.errorSaveReviewDescription);
                         }
                       }
                       const pendingSave = pendingPinSavesRef.current.get(currentPin.id);
@@ -1722,7 +1712,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                         boardId: board.id,
                         imageUrl: currentPin.imageUrl,
                         aspectRatio: currentPin.aspectRatio,
-                        reason: 'Создано в генераторе и ожидает ручной проверки',
+                        reason: t.generator.reviewQueueReason,
                         trendMetric: '',
                         scheduledDate: customScheduleDate,
                         scheduledTime: customScheduleTime,
@@ -1732,7 +1722,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                       });
                       setReviewQueueSuccess(true);
                     } catch (error) {
-                      window.alert(error instanceof Error ? error.message : 'Не удалось сохранить пин в очереди проверки.');
+                      window.alert(error instanceof Error ? error.message : t.generator.errorAddToReview);
                     } finally {
                       setIsAddingToReview(false);
                     }
@@ -1752,7 +1742,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   className="w-full sm:flex-1 accent-btn py-2.5 px-4 rounded-xl text-xs md:text-sm font-semibold flex items-center justify-center gap-2 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Calendar className="w-4 h-4" />
-                  <span>{isSchedulingPin ? 'Сохраняем в календарь…' : t.generator.pushToCalendarBtn}</span>
+                  <span>{isSchedulingPin ? t.generator.schedulingSaving : t.generator.pushToCalendarBtn}</span>
                 </button>
 
                 <button
