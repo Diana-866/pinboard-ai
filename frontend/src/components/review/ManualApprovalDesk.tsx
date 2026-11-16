@@ -472,7 +472,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
               className="accent-btn px-6 py-2.5 text-sm cursor-pointer shadow-sm w-full sm:w-auto flex items-center justify-center gap-1.5"
             >
               <Calendar className="w-4 h-4" />
-              <span>Вернуться в календарь</span>
+              <span>{t.review.finishBtn}</span>
             </button>
           )}
 
@@ -481,7 +481,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
               onClick={onGoToDashboard}
               className="secondary-btn px-5 py-2.5 text-sm cursor-pointer w-full sm:w-auto"
             >
-              В дашборд
+              {t.nav.dashboard}
             </button>
           )}
 
@@ -512,7 +512,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
               <button
                 onClick={onGoToCalendar}
                 className="p-1.5 rounded-lg border border-subtle bg-subtle hover:bg-surface text-secondary-theme hover:text-primary-theme cursor-pointer transition-colors mr-1"
-                title="Вернуться в календарь публикаций"
+                title={t.review.finishBtn}
               >
                 <ArrowLeft className="w-4 h-4" />
               </button>
@@ -536,17 +536,17 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
               onClick={handleApproveAll}
               disabled={isDecisionInFlight}
               className="px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1.5 transition-colors"
-              title="Утвердить все пины из очереди в расписание публикаций"
+              title={t.review.approveAllTitle}
             >
               <Check className="w-3.5 h-3.5" />
               <span>{bulkApprovalProgress
-                ? `Добавляем ${bulkApprovalProgress.completed} из ${bulkApprovalProgress.total}…`
-                : isDecisionInFlight ? 'Сохраняем…' : `Одобрить все (${queue.length})`}</span>
+                ? t.review.bulkAddingTemplate.replace('{completed}', String(bulkApprovalProgress.completed)).replace('{total}', String(bulkApprovalProgress.total))
+                : isDecisionInFlight ? t.review.savingDecision : t.review.approveAllTemplate.replace('{count}', String(queue.length))}</span>
             </button>
           )}
 
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-subtle bg-subtle font-mono">
-            <span className="text-secondary-theme">Прогресс:</span>
+            <span className="text-secondary-theme">{t.review.progress}</span>
             <span className="font-bold text-primary-theme">
               {totalInitial - queue.length + 1} / {totalInitial}
             </span>
@@ -602,9 +602,9 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
             {/* Своя картинка пина: заменяет временную сгенерированную на постоянную загрузку */}
             <label
               className="absolute bottom-3 right-3 z-10 rounded-xl bg-black/60 text-white text-[10px] font-bold px-3 py-2 cursor-pointer hover:bg-black/80 transition-colors"
-              title="Загрузить свою картинку — она сохранится навсегда"
+              title={t.review.uploadOwnImageTitle}
             >
-              ⬆ Своё фото
+              ⬆ {t.review.uploadOwnImageButton}
               <input
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
@@ -614,7 +614,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                   if (!file) return;
                   try {
                     if (!currentPin.pinId) {
-                      throw new Error('Сначала сохраните пин в генераторе — только сохранённому пину можно заменить изображение.');
+                      throw new Error(t.review.imageReplaceRequiresSavedPin);
                     }
                     const fd = new FormData();
                     fd.append('image', file);
@@ -625,11 +625,11 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                       body: fd,
                     });
                     if (!response.ok) {
-                      throw new Error('Не удалось сохранить изображение на сервере. Попробуйте ещё раз.');
+                      throw new Error(t.review.imageReplaceFailed);
                     }
                     const savedPin = await response.json();
                     if (typeof savedPin.image_url !== 'string' || !savedPin.image_url) {
-                      throw new Error('Сервер не вернул постоянную ссылку на изображение.');
+                      throw new Error(t.review.imageReplaceFailed);
                     }
 
                     await updateQueue((prev) =>
@@ -696,7 +696,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
               <div className="flex items-center justify-between text-xs">
                 <label className="font-bold text-primary-theme flex items-center gap-1.5">
                   <Edit3 className="w-3.5 h-3.5 text-muted-theme" />
-                  <span>Заголовок пина (кликните для редактирования):</span>
+                  <span>{t.review.pinTitleField}</span>
                 </label>
                 <span className="text-[11px] font-mono text-muted-theme">
                   {editTitle.length} / 100
@@ -715,7 +715,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
               <div className="flex items-center justify-between text-xs">
                 <label className="font-bold text-primary-theme flex items-center gap-1.5">
                   <Edit3 className="w-3.5 h-3.5 text-muted-theme" />
-                  <span>Описание и теги (SEO):</span>
+                  <span>{t.review.pinDescriptionField}</span>
                 </label>
                 <span className="text-[11px] font-mono text-muted-theme">
                   {editDesc.length} / 500
@@ -733,7 +733,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
               <div>
                 <label className="font-bold text-primary-theme block mb-1">
-                  Внутренняя доска PinPosy:
+                  {t.review.internalBoardField}
                 </label>
                 <select
                   value={editBoardId}
@@ -750,7 +750,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
 
               <div>
                 <label className="font-bold text-primary-theme block mb-1">
-                  Дата и время публикации:
+                  {t.review.scheduleDateTimeField}
                 </label>
                 <div className="flex items-center gap-2">
                   <input
@@ -791,7 +791,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                   </>
                 )}
                 <label className="font-bold text-primary-theme block mb-1">
-                  Доска назначения в Pinterest:
+                  {t.review.pinterestBoardField}
                 </label>
                 <select
                   value={selectedPinterestBoardId}
@@ -799,16 +799,16 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                   disabled={!pinterestBoardsLoaded || pinterestBoards.length === 0}
                   className="w-full px-3 py-2 bg-app-input border border-subtle rounded-xl text-primary-theme font-medium focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-60"
                 >
-                  <option value="">{!pinterestBoardsLoaded ? 'Загружаем доски Pinterest…' : pinterestBoards.length ? 'Выберите доску Pinterest' : 'Нет доступных досок Pinterest'}</option>
+                  <option value="">{!pinterestBoardsLoaded ? t.review.loadingPinterestBoards : pinterestBoards.length ? t.review.selectPinterestBoard : t.review.noPinterestBoards}</option>
                   {pinterestBoards.map((board) => (
                     <option key={board.id} value={board.id}>{board.name}</option>
                   ))}
                 </select>
                 {pinterestBoardsError && (
-                  <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">Не удалось загрузить доски. Проверьте подключение Pinterest и обновите страницу.</p>
+                  <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">{t.review.pinterestBoardsLoadError}</p>
                 )}
                 {pinterestBoardsLoaded && !pinterestBoardsError && pinterestBoards.length === 0 && (
-                  <p className="mt-1 text-[11px] text-secondary-theme">Подключите Pinterest в настройках, чтобы добавлять публикации в расписание.</p>
+                  <p className="mt-1 text-[11px] text-secondary-theme">{t.review.connectPinterestSettings}</p>
                 )}
               </div>
             </div>
@@ -822,27 +822,27 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                   className="secondary-btn px-3.5 py-2 text-xs flex items-center gap-1.5 cursor-pointer text-primary-theme"
                 >
                   <RefreshCw className="w-3.5 h-3.5 text-accent-ghost" />
-                  <span>Заменить изображение через AI</span>
+                  <span>{t.review.replaceImageWithAI}</span>
                 </button>
               ) : (
                 <form onSubmit={handleRegenerate} className="p-3 rounded-xl bg-subtle border border-subtle space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-bold text-primary-theme">
-                      Что изменить в новом варианте:
+                      {t.review.regenerationInstructionLabel}
                     </span>
                     <button
                       type="button"
                       onClick={() => setShowRegenBox(false)}
                       className="text-[11px] text-muted-theme hover:text-primary-theme cursor-pointer"
                     >
-                      ✕ Отмена
+                      ✕ {t.common.cancel}
                     </button>
                   </div>
                   <input
                     type="text"
                     required
                     maxLength={300}
-                    placeholder="Например: затемни фон, сохрани композицию, добавь акцент на заголовок..."
+                    placeholder={t.review.regenerationInstructionPlaceholder}
                     value={regenComment}
                     onChange={(e) => {
                       setRegenComment(e.target.value);
@@ -862,7 +862,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                     className="accent-btn px-4 py-1.5 text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-60 shadow-xs"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} />
-                    <span>{isRegenerating ? 'Перегенерируем…' : 'Сгенерировать и заменить изображение'}</span>
+                    <span>{isRegenerating ? t.review.regenerationSending : t.review.regenerateAndReplace}</span>
                   </button>
                 </form>
               )}
@@ -880,7 +880,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
               <div className="w-7 h-7 rounded-full bg-subtle group-hover:bg-rose-500 group-hover:text-white flex items-center justify-center transition-colors">
                 <X className="w-4 h-4 stroke-[2.5]" />
               </div>
-              <span>Отклонить</span>
+              <span>{t.review.rejectBtn}</span>
               <span className="hidden md:inline text-[11px] font-mono text-muted-theme group-hover:text-rose-600 font-normal">
                 [ ⬅️ ]
               </span>
@@ -895,7 +895,7 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
               <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
                 <Check className="w-4 h-4 stroke-[3]" />
               </div>
-              <span>{isDecisionInFlight ? 'Сохраняем решение…' : currentPin?.pinStatus === 'approved' ? 'Повторить планирование' : 'Одобрить и запланировать'}</span>
+              <span>{isDecisionInFlight ? t.review.savingDecision : currentPin?.pinStatus === 'approved' ? t.review.repeatScheduling : t.review.approveAndSchedule}</span>
               <span className="hidden md:inline text-[11px] font-mono text-white/80 font-normal">
                 [ ➡️ ]
               </span>
