@@ -962,3 +962,11 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - Важное обновление статуса: combined status текущего HEAD `2b47f643730054bc02360dcae2b2ef51091a96c4` теперь показывает Vercel `success` с deployment URL `https://vercel.com/diana-f25e/pinboard-ai/EKjmWLJ1vxMPYQEHyGbSjxVo3m`. Это подтверждает успешный Vercel deployment для данного HEAD, но само по себе не подтверждает SQL/backend runtime, staging/E2E или реальные платежи/Pinterest. Ранее зафиксированный build-rate-limit относится к другому HEAD и не является текущим статусом.
 - В доступном списке последних GitHub Actions runs новых workflow runs для текущего HEAD нет; старые failure runs относятся к предыдущим SHA и их logs недоступны, поэтому их нельзя интерпретировать как текущий runtime test result. PR #90 остаётся open/Draft; merge не выполнялся.
 - UA-004 уже подробно описан в `docs/USER_ACTIONS.md`; новых действий владельца не добавлено. Код, миграции, workflows, production, PIN_TRIAL, PostgreSQL clusters, платежи, Pinterest credentials и deployment settings не менялись. Чекбоксы не закрывались; NEXT без изменений.
+
+
+### Повторная проверка статусов после контрольной точки (2026-11-17, HEAD 470609b)
+
+- Повторно сверены main, паспорт, UA-004, runner, contract test, workflow, список Actions runs и PR #90. SHA runner/contract/workflow без изменений; новых результатов от владельца по UA-004 нет.
+- Combined status для HEAD `470609b53ed9566d216ee15fd9bcf407f66176d4` при этой проверке показывает Vercel `failure`, target `build-rate-limit` (upgrade to Pro). Это изменившийся/текущий status check; предыдущая запись о Vercel success относилась к моменту более ранней проверки того же HEAD. Статус check не является тестовым результатом. Нужна отдельная проверка Vercel deployment dashboard/лимита владельцем; тарифы и настройки не менялись.
+- Последние видимые GitHub Actions runs всё ещё относятся к предыдущим SHA; для текущего HEAD новых проверочных runs нет. Старые job logs недоступны. PR #90 остаётся open/Draft.
+- Gate и порядок не изменены: сначала UA-004 (локальный SQL runner, полный обезличенный вывод и подтверждение cleanup), затем отдельный Bash concurrency runner/tests, затем backend runtime suite. Ни один последующий этап не запускался. Production, PIN_TRIAL, базы, секреты, платежи и Pinterest не затрагивались.
