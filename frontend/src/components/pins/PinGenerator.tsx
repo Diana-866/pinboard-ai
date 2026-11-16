@@ -65,13 +65,12 @@ const ALL_ASPECT_RATIOS: {
   label: string;
   res: string;
   name: string;
-  desc: string;
 }[] = [
-  { id: '2:3', label: '2:3', res: '1000 × 1500 px', name: 'Standard Pin', desc: 'Основной формат поиска' },
-  { id: '9:16', label: '9:16', res: '1080 × 1920 px', name: 'Idea / Story', desc: 'Полноэкранный вертикал' },
-  { id: '3:4', label: '3:4', res: '1080 × 1440 px', name: 'Editorial', desc: 'Интерьеры и гайды' },
-  { id: '4:5', label: '4:5', res: '1080 × 1350 px', name: 'Portrait', desc: 'Социальный портрет' },
-  { id: '1:1', label: '1:1', res: '1080 × 1080 px', name: 'Square', desc: 'Квадрат / Карусель' },
+  { id: '2:3', label: '2:3', res: '1000 × 1500 px', name: 'Standard Pin' },
+  { id: '9:16', label: '9:16', res: '1080 × 1920 px', name: 'Idea / Story' },
+  { id: '3:4', label: '3:4', res: '1080 × 1440 px', name: 'Editorial' },
+  { id: '4:5', label: '4:5', res: '1080 × 1350 px', name: 'Portrait' },
+  { id: '1:1', label: '1:1', res: '1080 × 1080 px', name: 'Square' },
 ];
 
 export const PinGenerator: React.FC<PinGeneratorProps> = ({
