@@ -496,6 +496,7 @@ export const fr: TranslationSchema = {
     deleteAccountDone: "Votre demande de suppression a été reçue et l’accès est désactivé. Vos données n’ont pas encore été supprimées.",
     requestFailed: "Impossible de terminer la demande. Veuillez réessayer.",
     emailVerifyTitle: 'Vérifiez votre adresse e-mail',
+    emailVerifySentTo: '— adresse du compte : {email}',
     emailVerifyResent: 'L’e-mail de vérification a été renvoyé. Vérifiez votre boîte de réception et les courriers indésirables.',
     emailVerifyResend: 'Renvoyer l’e-mail',
     emailVerifySending: 'Envoi…',
