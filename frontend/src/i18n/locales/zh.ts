@@ -97,6 +97,9 @@ export const zh: TranslationSchema = {
     useNameInitial: "2. 使用个性化首字母：",
     useInitialAvatar: "使用姓名首字母（“{letter}”）",
     choosePresetAvatar: "3. 或选择预设头像：",
+    avatarUploadInvalidType: "请选择 PNG、JPEG、WebP 或 GIF 图片。",
+    avatarUploadTooLarge: "图片大小不能超过 1 MB。",
+    avatarUploadFailed: "无法在此浏览器中保存头像。请释放存储空间后重试。"
   },
 
   dashboard: {
