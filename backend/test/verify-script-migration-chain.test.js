@@ -27,7 +27,14 @@ test("local migration replay skips diagnostic and historical migrations below 01
 
 test("Windows verification exposes an explicit PostgreSQL replay option", () => {
   assert.match(windowsScript, /\[switch\]\$Migrations/);
-  assert.match(windowsScript, /if \(\$Migrations\)/);
+  assert.match(windowsScript, /\[switch\]\$MigrationsOnly/);
+  assert.match(windowsScript, /if \(\$Migrations -or \$MigrationsOnly\)/);
+});
+
+test("Windows migrations-only mode does not require Node.js or npm", () => {
+  assert.match(windowsScript, /if \(-not \$MigrationsOnly\) \{/);
+  assert.match(windowsScript, /if \(-not \$MigrationsOnly\) \{[\s\S]*Get-Command node/);
+  assert.match(windowsScript, /if \(-not \$MigrationsOnly\) \{[\s\S]*Get-Command npm\.cmd/);
 });
 
 test("Windows replay uses a uniquely named disposable database", () => {
