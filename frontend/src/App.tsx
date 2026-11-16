@@ -1129,6 +1129,12 @@ const MainApp: React.FC = () => {
 };
 
 
+function UserScopedMainApp() {
+  const { user } = useAuth();
+  // Reset all view-local state when the authenticated identity changes.
+  return <MainApp key={user?.id || 'anonymous'} />;
+}
+
 function RequireAuth({ children }: { children: React.ReactElement }) {
   const { user, isAuthReady } = useAuth();
   const { language } = useI18n();
@@ -1171,7 +1177,7 @@ export default function App() {
               path="/app/*"
               element={
                 <RequireAuth>
-                  <MainApp />
+                  <UserScopedMainApp />
                 </RequireAuth>
               }
             />
