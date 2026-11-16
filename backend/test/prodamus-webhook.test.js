@@ -775,6 +775,71 @@ test("marks an explicit Prodamus 4xx response as a definitive rejection", async 
   }
 });
 
+test("keeps redirect responses ambiguous and never trusts their checkout URLs", async () => {
+  const previous = {
+    PRODAMUS_SECRET: process.env.PRODAMUS_SECRET,
+    PRODAMUS_OFFLINE: process.env.PRODAMUS_OFFLINE,
+    PRODAMUS_URL: process.env.PRODAMUS_URL,
+    post: axios.post,
+  };
+  try {
+    process.env.PRODAMUS_SECRET = "shop-secret-test";
+    delete process.env.PRODAMUS_OFFLINE;
+    process.env.PRODAMUS_URL = "https://example.payform.ru/";
+    for (const status of [301, 302, 307, 399]) {
+      axios.post = async () => ({
+        status,
+        data: { link: "https://example.payform.ru/pay?id=redirect-unconfirmed" },
+      });
+      await assert.rejects(
+        prodamus.createPaymentLink({
+          orderId: `pp-start-redirect-${status}`,
+          amount: 1990,
+          description: "PinPosy / Старт",
+        }),
+        (error) => error.httpStatus === 502 && error.providerRejected === false
+      );
+    }
+  } finally {
+    axios.post = previous.post;
+    for (const [key, value] of Object.entries(previous)) {
+      if (key === "post") continue;
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+test("keeps network failures ambiguous rather than releasing payment retry", async () => {
+  const previous = {
+    PRODAMUS_SECRET: process.env.PRODAMUS_SECRET,
+    PRODAMUS_OFFLINE: process.env.PRODAMUS_OFFLINE,
+    PRODAMUS_URL: process.env.PRODAMUS_URL,
+    post: axios.post,
+  };
+  try {
+    process.env.PRODAMUS_SECRET = "shop-secret-test";
+    delete process.env.PRODAMUS_OFFLINE;
+    process.env.PRODAMUS_URL = "https://example.payform.ru/";
+    axios.post = async () => { throw new Error("socket hang up"); };
+    await assert.rejects(
+      prodamus.createPaymentLink({
+        orderId: "pp-start-network-unknown",
+        amount: 1990,
+        description: "PinPosy / Старт",
+      }),
+      (error) => error.httpStatus === 502 && error.providerRejected !== true
+    );
+  } finally {
+    axios.post = previous.post;
+    for (const [key, value] of Object.entries(previous)) {
+      if (key === "post") continue;
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
 test("accepts a valid checkout URL from a successful Prodamus HTTP response", async () => {
   const previous = {
     PRODAMUS_SECRET: process.env.PRODAMUS_SECRET,
