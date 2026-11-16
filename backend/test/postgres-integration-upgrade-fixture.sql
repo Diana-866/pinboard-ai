@@ -1,7 +1,4 @@
 -- CI upgrade-compatibility fixture. Cluster roles are provisioned by verify-integration.ps1.
-create role anon nologin;
-create role authenticated nologin;
-create role service_role nologin bypassrls;
 create table public.users (
   id uuid primary key default gen_random_uuid(),
   email text not null,
