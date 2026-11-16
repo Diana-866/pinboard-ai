@@ -371,3 +371,11 @@ UA-004 по локальному запуску остаётся обязате�
 - После SQL suite и подтверждённого cleanup следующий этап — отдельно проверить Bash runtime и выполнить 9 concurrency scripts; затем backend Node suite. Не запускать их заранее.
 - Для `main` HEAD `75e3ca335e3aedcc808ec8953c09201ddf0b96b1` GitHub Actions runs отсутствуют; Vercel rate limit всё ещё блокирует подтверждение deployment. PR #90 остаётся draft и не является заменой локального gate.
 - Никакие секреты, production-сервисы и локальные ресурсы не менялись.
+
+### UA-005 — Bash concurrency suite (отложено до закрытия UA-004)
+
+**Статус: отложено; сейчас никаких действий от владельца не требуется.**
+
+Во время проверки обнаружено, что прежние девять Bash concurrency scripts по умолчанию подключались к `localhost:5432/pinposy_test` и использовали общие временные файлы. Этот риск исправлен: scripts теперь отказываются работать без явного `PINPOSY_ALLOW_DISPOSABLE_DB_TESTS=1`, loopback PostgreSQL target и имени отдельной БД `pinposy_verify_<suffix>`; они проверяют фактическую БД/адрес сервера и используют изолированный temp directory.
+
+**Не запускай девять scripts вручную и не пытайся обойти новый guard.** Сначала должен быть успешно завершён UA-004 (SQL integration runner). После получения его полного вывода ассистент подготовит отдельный проверенный disposable-DB setup/runner для Bash concurrency suite и только затем даст точную команду владельцу. Не использовать `pinposy_test`, production, PIN_TRIAL или любую общую БД.
