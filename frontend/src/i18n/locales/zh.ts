@@ -211,6 +211,8 @@ export const zh: TranslationSchema = {
     brandingText: '品牌水印或网站域名',
     templateStyle: '排版模板样式',
     exportImageBtn: '下载 Pin 图片 (PNG)',
+    exportFailed: '无法导出图片。图片来源可能禁止通过 canvas 导出。请尝试其他图片或从原始来源下载。',
+    copyFailed: '无法复制 Pin 详情。请检查浏览器的剪贴板权限。',
     pushToCalendarBtn: '推送到发布日历',
     savedToCalendar: '已成功将 Pin 排入发布日历！',
     batchGeneratedNotice: '已生成针对不同算法角度的高转化 Pin。',
