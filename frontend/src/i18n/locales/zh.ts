@@ -495,6 +495,13 @@ export const zh: TranslationSchema = {
     deleteAccountConfirm: "申请删除",
     deleteAccountDone: "已收到您的删除申请，账户访问已停用。您的数据尚未删除。",
     requestFailed: "无法完成请求，请重试。",
+    emailVerifyTitle: '请验证您的电子邮箱',
+    emailVerifyResent: '验证邮件已重新发送。请检查收件箱和垃圾邮件文件夹。',
+    emailVerifyResend: '重新发送邮件',
+    emailVerifySending: '正在发送…',
+    emailVerifyDismiss: '隐藏',
+    emailVerifyThrottled: '最近已发送过验证邮件，请稍后再试。',
+    emailVerifySendError: '无法发送验证邮件，请稍后重试。',
   },
 
   pricing: {
@@ -641,6 +648,10 @@ export const zh: TranslationSchema = {
     strategistPrompt: "需要帮助解读数据分析吗？",
     askStrategist: "咨询 AI 策略助手 →",
     strategistTitle: "打开 PinPosy AI 策略助手",
+    justNow: '刚刚',
+    taskCompletedTitle: '任务已完成',
+    reviewQueueSyncErrorTitle: '队列同步失败',
+    reviewQueueSyncErrorMessage: '无法加载或保存队列。请检查网络连接并刷新页面以重新同步。',
   },
 
   terms: {
