@@ -485,6 +485,7 @@ export const ru: TranslationSchema = {
     dataSection: "Данные и аккаунт",
     dataSectionDesc: "Скачайте копию своих данных или запросите удаление аккаунта.",
     downloadData: "Скачать мои данные",
+    exportPartialWarning: 'Файл скачан, но часть разделов не удалось прочитать. Проверьте поле degradedSections в JSON и запросите новый экспорт позже.',
     deleteAccount: "Удалить аккаунт",
     deleteAccountWarning: "Запрос удаления аккаунта немедленно завершит все сеансы на всех устройствах. Действие необратимо.",
     deleteAccountPasswordLabel: "Подтвердите паролем",
