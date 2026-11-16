@@ -85,10 +85,13 @@ const MainApp: React.FC = () => {
   // Schedule rows belong to the authenticated user. Clear the previous account's
   // calendar immediately on identity change, without clearing it on ordinary reloads.
   const scheduleUserIdRef = React.useRef(user?.id || '');
+  // A -> B -> A must not make an old async operation for A look current again.
+  const scheduleOwnerGenerationRef = React.useRef(0);
   React.useLayoutEffect(() => {
     const nextUserId = user?.id || '';
     if (scheduleUserIdRef.current !== nextUserId) {
       scheduleUserIdRef.current = nextUserId;
+      scheduleOwnerGenerationRef.current += 1;
       setScheduledPins([]);
       setScheduleLoadError('');
     }
@@ -499,6 +502,19 @@ const MainApp: React.FC = () => {
   const pendingCount = pendingReviewPins.length;
 
   const handleSchedulePin = async (pin: ScheduledPinItem) => {
+    // A multi-request approval flow must remain bound to the account that
+    // initiated it. apiRequest reads the current token for each request, so
+    // stop between steps if the user changes accounts mid-flight.
+    const ownerId = user?.id || '';
+    const ownerGeneration = scheduleOwnerGenerationRef.current;
+    const isOwnerCurrent = () => isReviewQueueOwnerCurrent(
+      { userId: ownerId, generation: ownerGeneration },
+      { userId: scheduleUserIdRef.current, generation: scheduleOwnerGenerationRef.current },
+    );
+    const assertOwnerCurrent = () => {
+      if (!isOwnerCurrent()) throw new Error('Аккаунт изменился. Повторите действие в текущем аккаунте.');
+    };
+    assertOwnerCurrent();
     if (!pin.pinId) {
       window.alert('Не найден ID сохранённого пина. Сначала сохраните пин в генераторе.');
       return;
@@ -521,19 +537,23 @@ const MainApp: React.FC = () => {
       : undefined;
     const creativePatch: Record<string, string> = { title: approvedTitle };
     if (approvedDescription !== undefined) creativePatch.description = approvedDescription;
+    assertOwnerCurrent();
     const updatedPin = await apiRequest(`/pins/${encodeURIComponent(pin.pinId)}`, {
       method: 'PATCH',
       body: JSON.stringify(creativePatch),
     });
+    assertOwnerCurrent();
     if (!updatedPin || updatedPin.id !== pin.pinId ||
         updatedPin.title !== approvedTitle ||
         (approvedDescription !== undefined && updatedPin.description !== approvedDescription)) {
       throw new Error('Сервер не подтвердил сохранение изменений пина.');
     }
+    assertOwnerCurrent();
     const approvedPin = await apiRequest(`/pins/${encodeURIComponent(pin.pinId)}/status`, {
       method: 'POST',
       body: JSON.stringify({ status: 'approved' }),
     });
+    assertOwnerCurrent();
     if (!approvedPin || approvedPin.id !== pin.pinId || approvedPin.status !== 'approved') {
       throw new Error('Сервер не подтвердил одобрение пина.');
     }
@@ -554,26 +574,32 @@ const MainApp: React.FC = () => {
       statuses: ['scheduled', 'publishing', 'failed', 'unknown'],
     };
     try {
+      assertOwnerCurrent();
       const response = await apiRequest(`/pins/${encodeURIComponent(pin.pinId)}/schedule`, {
         method: 'POST',
         body: JSON.stringify(schedulePayload),
       });
+      assertOwnerCurrent();
       // A 2xx response is not enough: only accept the exact persisted row that
       // the calendar would later load. Malformed success responses are ambiguous.
       saved = findPersistedScheduleRequest([response], expectedRequest);
       if (!saved) throw new Error('Сервер не подтвердил сохранение расписания.');
     } catch (originalError) {
+      // Never reconcile a previous account's request with the newly active account.
+      assertOwnerCurrent();
       // The server may have committed the schedule even when the response was
       // lost or malformed. Reconcile against the persisted list before surfacing
       // the original error; never infer success from a loose pin-ID match alone.
       try {
         const rows = await apiRequest('/schedule');
+        assertOwnerCurrent();
         saved = findPersistedScheduleRequest(rows, expectedRequest);
         if (!saved) throw originalError;
       } catch {
         throw originalError;
       }
     }
+    assertOwnerCurrent();
     const date = formatInstantInTimezone(new Date(saved.scheduled_at), timezone);
     const persisted: ScheduledPinItem = {
       ...pin,
