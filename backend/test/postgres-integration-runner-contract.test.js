@@ -43,7 +43,7 @@ test('upgrade fixture stays byte-for-byte aligned with CI legacy schema setup', 
 test('both extracted inline assertions stay aligned with CI workflow', () => {
   const blocks = extractInlineDoBlocks();
   assert.equal(blocks.length, 2);
-  const deletion = read('backend/test/postgres-integration-pinterest-deletion-check.sql');
+  const deletion = read('backend/test/postgres-integration-pinterest-deletion-check.sql')
     .split(/\r?\n/).filter((line) => !line.startsWith('-- CI inline assertion:')).join('\n').trimEnd();
   const refresh = read('backend/test/postgres-integration-refresh-fence-check.sql')
     .split(/\r?\n/).filter((line) => !line.startsWith('-- CI inline assertion:')).join('\n').trimEnd();
