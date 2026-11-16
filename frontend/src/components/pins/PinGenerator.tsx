@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { AI_CONTENT_LANGUAGES, useI18n } from '../../i18n/i18nContext';
 import { useNotifications } from '../../context/NotificationContext';
-import { BoardItem, ScheduledPinItem } from '../../data/mockData';
+import type { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { getExplicitGenerationTopic } from '../../utils/generationTopic';
 import { addCalendarDaysInTimezone, formatInstantInTimezone, getDefaultTimezone, resolveScheduleSlotTime } from '../../utils/timezone';
