@@ -19,5 +19,5 @@ test("GET /review-queue uses the shared bounded pager", () => {
   assert.match(handler, /pinResults\.push\(\.\.\.batchResults\)/);
   assert.match(handler, /scheduleResults\.push\(\.\.\.batchResults\)/);
   assert.doesNotMatch(handler, /Promise\.all\(pinIdChunks\.map/);
-  assert.doesNotMatch(handler, /Promise\.all\(pinIdChunks\.map/);
+  assert.doesNotMatch(handler, /Promise\.all\(scheduleResults\.map/);
 });
