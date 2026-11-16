@@ -485,6 +485,7 @@ export const de: TranslationSchema = {
     dataSection: "Daten & Konto",
     dataSectionDesc: "Laden Sie eine Kopie Ihrer Daten herunter oder beantragen Sie die Löschung Ihres Kontos.",
     downloadData: "Meine Daten herunterladen",
+    exportPartialWarning: 'Die Datei wurde heruntergeladen, aber einige Bereiche konnten nicht gelesen werden. Prüfen Sie das Feld degradedSections in der JSON-Datei und fordern Sie später einen neuen Export an.',
     deleteAccount: "Konto löschen",
     deleteAccountWarning: "Dies plant die Löschung Ihres Kontos und meldet Sie sofort auf allen Geräten ab. Dies kann nicht rückgängig gemacht werden.",
     deleteAccountPasswordLabel: "Mit Passwort bestätigen",
