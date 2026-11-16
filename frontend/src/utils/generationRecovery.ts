@@ -17,8 +17,9 @@ export function shouldPollGenerationRecovery(
 /** Keep every locally stored request visible when a status lookup is blocked by an expired session. */
 export function buildUnknownGenerationRecoveryEntries(
   identities: ReadonlyArray<{ fingerprint: string }>,
+  startIndex = 0,
 ): Array<{ key: string; status: 'unknown'; boardId: string; pinCount: number }> {
-  return identities.map((identity) => ({
+  return identities.slice(Math.max(0, startIndex)).map((identity) => ({
     key: identity.fingerprint,
     status: 'unknown',
     boardId: '',
