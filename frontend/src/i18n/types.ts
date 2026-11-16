@@ -450,6 +450,7 @@ export interface TranslationSchema {
     replacementBoardSelectPlaceholder: string;
     currentBoardSuffix: string;
     replacementBoardSaving: string;
+    replacementBoardResumeDescription: string;
     replacementBoardResume: string;
     retrying: string;
     cancelling: string;
