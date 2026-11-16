@@ -10,7 +10,7 @@ const mail = require("./mail");
 const { getEmailCopy, getPlanTitle, getLocale } = require("./email-locales");
 const prodamus = require("./prodamus");
 const { createPaymentOrderId } = require("./paymentOrderId");
-const { beginPaymentCreation, attachPaymentCreationOrder, denyUnsentPaymentRecord, completePaymentCreation, settlePaymentCreationRequest, markPaymentCreationUnknown, failPaymentCreation } = require("./paymentCreationIdempotency");
+const { beginPaymentCreation, attachPaymentCreationOrder, denyUnsentPaymentRecord, completePaymentCreation, settlePaymentCreationRequest, markPaymentCreationUnknown, failPaymentCreation, handlePaymentProviderFailure } = require("./paymentCreationIdempotency");
 const { persistWebhookException } = require("./billingWebhookAudit");
 const { httpError, validateEnum } = require("./validate");
 const { normalizePlan } = require("./tariff");
@@ -155,7 +155,7 @@ async function createPayment(userId, body, idempotencyKey) {
       urlSuccess: `${frontendBase()}/app?payment=success`,
     });
   } catch (error) {
-    await markPaymentCreationUnknown(userId, idempotencyKey, error);
+    await handlePaymentProviderFailure(userId, idempotencyKey, "subscriptions", sub.id, error);
     logError("billing.event_004");
     throw error;
   }
