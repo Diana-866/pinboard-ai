@@ -5,6 +5,7 @@ const calls = [];
 let nextResult = { data: true, error: null };
 let paymentRow = { id: "subscription-uuid", status: "pending" };
 let cleanupFails = false;
+let failingRpc = null;
 const supabasePath = require.resolve("../supabase");
 require.cache[supabasePath] = {
   id: supabasePath,
@@ -13,6 +14,7 @@ require.cache[supabasePath] = {
   exports: {
     rpc(name, args) {
       calls.push({ name, args });
+      if (name === failingRpc) return Promise.resolve({ data: null, error: { message: "simulated RPC failure" } });
       return Promise.resolve(nextResult);
     },
     from(table) {
@@ -148,4 +150,29 @@ test("a failed cleanup after provider rejection remains unknown instead of allow
   assert.equal(paymentRow.status, "pending");
   assert.deepEqual(calls.map((call) => call.name), ["mark_payment_creation_unknown"]);
   cleanupFails = false;
+});
+
+
+test("does not release a retry when the idempotency failure RPC cannot be confirmed", async () => {
+  calls.length = 0;
+  paymentRow = { id: "subscription-uuid", status: "pending" };
+  cleanupFails = false;
+  failingRpc = "fail_payment_creation_request";
+  nextResult = { data: true, error: null };
+
+  const outcome = await handlePaymentProviderFailure(
+    "user-1",
+    "provider-release-failure-key",
+    "subscriptions",
+    "subscription-uuid",
+    Object.assign(new Error("provider rejected checkout"), { providerRejected: true })
+  );
+
+  assert.equal(outcome, "unknown");
+  assert.equal(paymentRow.status, "denied");
+  assert.deepEqual(calls.map((call) => call.name), [
+    "fail_payment_creation_request",
+    "mark_payment_creation_unknown",
+  ]);
+  failingRpc = null;
 });
