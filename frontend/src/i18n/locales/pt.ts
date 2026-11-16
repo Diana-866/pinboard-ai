@@ -211,6 +211,8 @@ export const pt: TranslationSchema = {
     brandingText: 'Marca d’água ou URL da Marca',
     templateStyle: 'Modelo Visual Predefinido',
     exportImageBtn: 'Baixar Imagem do Pin (PNG)',
+    exportFailed: 'Não foi possível exportar a imagem. A origem pode não permitir a exportação pelo canvas. Tente outra imagem ou baixe-a da origem.',
+    copyFailed: 'Não foi possível copiar os dados do pin. Verifique as permissões da área de transferência do navegador.',
     pushToCalendarBtn: 'Agendar no Calendário',
     savedToCalendar: 'Pin agendado com sucesso no calendário!',
     batchGeneratedNotice: 'Lote de pins gerado com diferentes ângulos do algoritmo.',
