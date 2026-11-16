@@ -114,3 +114,13 @@ All `/admin/*` handlers in this entrypoint use `requireAuth` and `requireAdmin`;
 - These tests are included in `.github/workflows/atomic-payment-integration.yml`.
 
 **CI evidence after the follow-up:** runs `43897777843` (postgres-atomicity) and `43897777966` (backend/frontend) all failed with `steps: null`; no runner steps were created and no tests ran. This is not a test assertion failure. No production environment or mail credentials were read or changed.
+
+
+## Follow-up hardening after the route-map baseline (continued)
+
+- `backend/tariffSelfSelect.js` fails closed unless `NODE_ENV` is explicitly `development` or `test` and `ALLOW_TARIFF_SELF_SELECT=1`; missing/unknown/staging environment names cannot enable paid-plan self-selection. Test: `backend/test/tariff-self-select.test.js`.
+- Admin mailbox reads/replies are bounded: inbox limit 1–100, numeric IMAP UID only, recipient validated as email, subject <=200 chars without CR/LF, body <=20,000 chars. The route preserves raw JSON types so the service can reject objects rather than coercing them into strings. Tests: `backend/test/mail-input-validation.test.js`.
+- Project and board list queries now use `fetchAllPages` with stable ordering, 500-row pages and a 10,000-row hard cap. `GET /boards` fetches project IDs and board rows in bounded batches, restores global newest-first ordering and calculates pin counts in small concurrent batches. Test: `backend/test/fetch-all-pages.test.js`. This removes silent PostgREST row-cap truncation; client-facing cursor pagination remains a future improvement for very large accounts.
+- Added startup fail-fast and regression tests described in package 02; the API will not start with a missing/weak JWT signing secret.
+
+**Runtime verification remains blocked:** latest runs `43897851250` and `43897851139` were rerun; atomic integration again failed before steps, and persisted boards was queued at the last observation. Earlier runs `43897777843`/`43897777966` had `steps: null`. No tests are claimed as passed.
