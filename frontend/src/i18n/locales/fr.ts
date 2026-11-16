@@ -424,6 +424,7 @@ export const fr: TranslationSchema = {
     currentBoardSuffix: " (actuel)",
     replacementBoardSaving: "Vérification et enregistrement…",
     replacementBoardResume: "Changer de tableau et reprendre",
+    replacementBoardResumeDescription: "L’épingle et ses paramètres seront conservés. Après vérification du nouveau tableau, la publication sera remise en file. Cela n’est possible que si la tentative précédente s’est terminée sans ambiguïté.",
     retrying: "Nouvelle tentative…",
     cancelling: "Annulation…",
   },
