@@ -5,6 +5,7 @@ import { resolvePublishBoardId } from '../../utils/publishBoardSelection';
 import { readConfirmedPinterestPublish } from '../../utils/pinterestPublishResponse';
 import { isAmbiguousPinterestPublishStatus } from '../../utils/pinterestPublishOutcome';
 import { buildPinterestPinUrl } from '../../utils/pinterestPinUrl';
+import { useAuth } from '../../context/AuthContext';
 
 interface PinterestAccount {
   id: string;
@@ -24,6 +25,10 @@ interface PublishPinButtonProps {
 
 /** Publishes to the explicitly selected Pinterest identity and board. */
 export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, boardId, className }) => {
+  const { user } = useAuth();
+  const userId = user?.id || '';
+  const publishOwnerIdRef = useRef(userId);
+  publishOwnerIdRef.current = userId;
   const [accounts, setAccounts] = useState<PinterestAccount[]>([]);
   const [accountId, setAccountId] = useState('');
   const [boards, setBoards] = useState<PinterestBoard[]>([]);
@@ -38,11 +43,31 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
 
   useEffect(() => {
     let active = true;
-    setAccountsLoading(true);
+    // This control may stay mounted while the authenticated account changes.
+    // Clear the previous owner's Pinterest identities before loading the new one.
+    setAccounts([]);
+    setAccountId('');
+    setBoards([]);
+    setSelectedBoard('');
+    setAccountsLoading(Boolean(userId));
+    setBoardsLoading(false);
+    setBusy(false);
+    setDone(null);
+    setUncertain(false);
+    setError(null);
+    publishLockRef.current = false;
+
+    if (!userId) {
+      setAccountsLoading(false);
+      return () => { active = false; };
+    }
+
     apiRequest('/integrations/pinterest/status')
       .then((data) => {
         if (!active) return;
-        const list: PinterestAccount[] = Array.isArray(data?.accounts) ? data.accounts : [];
+        const list: PinterestAccount[] = Array.isArray(data?.accounts)
+          ? data.accounts.filter((account: any) => account && typeof account.id === 'string' && account.id.trim())
+          : [];
         setAccounts(list);
         setAccountId(list.length === 1 ? list[0].id : '');
       })
@@ -53,11 +78,11 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
         if (active) setAccountsLoading(false);
       });
     return () => { active = false; };
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     let active = true;
-    if (!accountId) {
+    if (!userId || !accountId) {
       setBoards([]);
       setSelectedBoard('');
       setBoardsLoading(false);
@@ -93,7 +118,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
         if (active) setBoardsLoading(false);
       });
     return () => { active = false; };
-  }, [accountId, boardId]);
+  }, [accountId, boardId, userId]);
 
   const handleAccountChange = (nextAccountId: string) => {
     // Clear synchronously so a rapid click cannot publish to the old account's board.
@@ -106,6 +131,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
 
   const handlePublish = async () => {
     if (publishLockRef.current || accountsLoading || boardsLoading || !accountId || !selectedBoard) return;
+    const requestOwnerId = userId;
     publishLockRef.current = true;
     setError(null);
     setBusy(true);
@@ -114,6 +140,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
         method: 'POST',
         body: JSON.stringify({ board_id: selectedBoard, account_id: accountId }),
       });
+      if (publishOwnerIdRef.current !== requestOwnerId) return;
       const confirmed = readConfirmedPinterestPublish(data, selectedBoard);
       if (!confirmed) {
         // The remote POST may have succeeded even though its response was
@@ -123,6 +150,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
       }
       setDone(confirmed.pinId);
     } catch (e) {
+      if (publishOwnerIdRef.current !== requestOwnerId) return;
       const err = e as ApiError;
       // A lost connection or server-side failure after POST /pins is ambiguous:
       // Pinterest may have created the pin even though the browser got no reply.
@@ -133,8 +161,10 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
         setError(err?.message || 'Не удалось опубликовать пин');
       }
     } finally {
-      publishLockRef.current = false;
-      setBusy(false);
+      if (publishOwnerIdRef.current === requestOwnerId) {
+        publishLockRef.current = false;
+        setBusy(false);
+      }
     }
   };
 
@@ -176,6 +206,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
       {accounts.length > 1 && (
         <select
           value={accountId}
+          disabled={busy}
           onChange={(e) => handleAccountChange(e.target.value)}
           className="w-full text-[11px] rounded-lg border border-subtle bg-surface px-2 py-1.5 text-primary-theme"
         >
