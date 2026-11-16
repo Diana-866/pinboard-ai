@@ -1,5 +1,6 @@
 param(
-    [switch]$SkipInstall
+    [switch]$SkipInstall,
+    [switch]$Migrations
 )
 
 $ErrorActionPreference = "Stop"
@@ -56,6 +57,94 @@ function Ensure-Dependencies {
     return (Invoke-Step -Name "Install dependencies: $(Split-Path $Directory -Leaf)" -WorkingDirectory $Directory -Command "npm.cmd" -Arguments @("install", "--no-package-lock", "--no-audit", "--no-fund"))
 }
 
+function Invoke-MigrationReplay {
+    $psqlCommand = Get-Command psql -ErrorAction SilentlyContinue
+    if (-not $psqlCommand) {
+        Write-Host "psql was not found. Install PostgreSQL client tools and ensure a local PostgreSQL server is running." -ForegroundColor Red
+        return $false
+    }
+
+    $migrationsDirectory = Join-Path $Root "db/migrations"
+    $stub = Join-Path $Root "db/supabase-stub.sql"
+    $baseline = Join-Path $migrationsDirectory "001_baseline.sql"
+    foreach ($requiredFile in @($stub, $baseline)) {
+        if (-not (Test-Path $requiredFile -PathType Leaf)) {
+            Write-Host "Required migration replay file is missing: $requiredFile" -ForegroundColor Red
+            return $false
+        }
+    }
+
+    $activeMigrations = @(
+        Get-ChildItem -Path $migrationsDirectory -Filter "???_*.sql" -File |
+            Where-Object {
+                $prefix = $_.Name.Substring(0, 3)
+                $prefix -match '^[0-9]{3}$' -and [int]$prefix -ge 10
+            } |
+            Sort-Object Name
+    )
+
+    if ($activeMigrations.Count -ne 139) {
+        Write-Host "Expected 139 active migrations (010-148), found $($activeMigrations.Count). Refusing an incomplete replay." -ForegroundColor Red
+        return $false
+    }
+
+    $database = "pinposy_verify_$PID$([guid]::NewGuid().ToString('N').Substring(0, 8))"
+    $psql = $psqlCommand.Source
+    $databaseCreated = $false
+    $replaySucceeded = $false
+
+    try {
+        Write-Host ""
+        Write-Host "> Create disposable PostgreSQL database: $database" -ForegroundColor Cyan
+        & $psql -X -v ON_ERROR_STOP=1 -d postgres -c "CREATE DATABASE $database"
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not create the disposable database. Check that PostgreSQL is running and the current role can create databases."
+        }
+        $databaseCreated = $true
+
+        Write-Host "> Apply Supabase test stubs" -ForegroundColor Cyan
+        & $psql -X -v ON_ERROR_STOP=1 -d $database -f $stub
+        if ($LASTEXITCODE -ne 0) {
+            throw "Supabase test stubs failed."
+        }
+
+        Write-Host "> Apply canonical baseline: 001_baseline.sql" -ForegroundColor Cyan
+        & $psql -X -v ON_ERROR_STOP=1 -d $database -f $baseline
+        if ($LASTEXITCODE -ne 0) {
+            throw "Canonical baseline failed: 001_baseline.sql"
+        }
+
+        foreach ($migration in $activeMigrations) {
+            Write-Host "  Applying $($migration.Name)"
+            & $psql -X -v ON_ERROR_STOP=1 -d $database -f $migration.FullName
+            if ($LASTEXITCODE -ne 0) {
+                throw "Migration failed: $($migration.Name)"
+            }
+        }
+
+        $replaySucceeded = $true
+    }
+    catch {
+        Write-Host $_.Exception.Message -ForegroundColor Red
+    }
+    finally {
+        if ($databaseCreated) {
+            Write-Host "> Drop disposable PostgreSQL database: $database" -ForegroundColor Cyan
+            & $psql -X -v ON_ERROR_STOP=1 -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$database' AND pid <> pg_backend_pid();"
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "WARNING: Could not terminate remaining connections to $database." -ForegroundColor Yellow
+            }
+            & $psql -X -v ON_ERROR_STOP=1 -d postgres -c "DROP DATABASE IF EXISTS $database"
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "WARNING: Failed to remove disposable database $database; remove it manually after checking its name." -ForegroundColor Yellow
+                $replaySucceeded = $false
+            }
+        }
+    }
+
+    return $replaySucceeded
+}
+
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
     throw "Node.js is required. Install Node.js 22.12 or newer and rerun this script."
 }
@@ -109,6 +198,16 @@ if (-not (Ensure-Dependencies -Directory $Frontend -HasLockFile $true)) {
         $Failed = $true
     }
     if (-not (Invoke-Step -Name "Frontend production build" -WorkingDirectory $Frontend -Command "npm.cmd" -Arguments @("run", "build"))) {
+        $Failed = $true
+    }
+}
+
+if ($Migrations) {
+    $migrationResult = Invoke-MigrationReplay
+    if ($migrationResult) {
+        $Summary.Add("PASS  PostgreSQL migration replay (001 + 010-148)")
+    } else {
+        $Summary.Add("FAIL  PostgreSQL migration replay (001 + 010-148)")
         $Failed = $true
     }
 }
