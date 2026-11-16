@@ -333,3 +333,11 @@ UA-004 по локальному запуску остаётся обязате�
 После этих изменений GitHub Actions runs `43950729248` (job `133592183546`, postgres-atomicity) и `43950729228` (jobs `133592183976` backend, `133592184569` frontend) снова завершились failure до шагов: `steps: null`, `logs_url: null`. Следовательно contract Node test и PowerShell parser CI step не выполнялись. Vercel status остаётся failure с target `build-rate-limit`, без build log. Это не тестовый результат приложения.
 
 **Действие владельца не изменилось:** из чистого checkout на ветке main выполнить `git pull --ff-only origin main`, затем `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1 -PostgresPort 55439`. Runner сам остановится до создания БД, если target не совпадает. Пароль вводить только в скрытый prompt; прислать полный вывод без пароля. Не трогать production, PIN_TRIAL, PID 5632 и не удалять временный кластер.
+
+
+### Актуальная проверка Vercel после документационного commit (2026-11-16)
+
+- Проверен commit status для текущего `main` HEAD `37d6ea4e4b595a8555e0cc9eabb22e8b08d5d9c2` после исправления stale admin observation.
+- Vercel сообщает `failure`: `Deployment rate limited — retry in 24 hours` (target `build-rate-limit`). Это ограничение частоты deployment, а не результат сборки; build не подтверждён ни успешным, ни неуспешным.
+- Для этого документационного HEAD GitHub Actions run не создан. Следующий контроль статуса выполнять после окна ограничения; не инициировать платный upgrade и не менять deployment settings без решения владельца.
+- UA-004 по SQL integration runner остаётся отдельным обязательным локальным действием владельца и не заменяется Vercel status.
