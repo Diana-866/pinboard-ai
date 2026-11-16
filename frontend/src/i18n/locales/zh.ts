@@ -738,6 +738,12 @@ export const zh: TranslationSchema = {
     reviewQueueSyncErrorMessage: '无法加载或保存队列。请检查网络连接并刷新页面以重新同步。',
   },
 
+  lockedSection: {
+    title: "此部分已锁定",
+    description: "选择套餐即可解锁 Pin 生成、画板和排期功能。当前套餐仍可使用数据分析。",
+    viewPlans: "查看套餐",
+  },
+
   terms: {
     peakLoadTitle: '高峰负载运营说明与服务等级协议 (SLA)',
     peakLoadNotice: '在系统访问与生成高峰期（例如平台公开宣布活动后数日内），Pin 生成任务的处理时间可能延长至 24–48 小时（常规情况下仅需数分钟）。账户权限、AI 策略咨询助理以及所有数据分析工具在订阅后立即生效可用。若您的任务因高峰负载进入排期队列，系统将第一时间在界面向您发送通知提醒。',
