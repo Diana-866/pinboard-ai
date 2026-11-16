@@ -31,7 +31,7 @@ import {
   ManualApprovalDesk,
   PendingReviewPin,
 } from './components/review/ManualApprovalDesk';
-import {
+import type {
   BoardItem,
   ScheduledPinItem,
   PinterestAccount,
