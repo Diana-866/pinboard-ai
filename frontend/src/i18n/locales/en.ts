@@ -485,6 +485,7 @@ export const en: TranslationSchema = {
     dataSection: "Data & account",
     dataSectionDesc: "Download a copy of your data or request deletion of your account.",
     downloadData: "Download my data",
+    exportPartialWarning: 'The file was downloaded, but some sections could not be read. Check the degradedSections field in the JSON and request a new export later.',
     deleteAccount: "Delete account",
     deleteAccountWarning: "This schedules deletion of your account and immediately signs you out of every device. This cannot be undone.",
     deleteAccountPasswordLabel: "Confirm with your password",
