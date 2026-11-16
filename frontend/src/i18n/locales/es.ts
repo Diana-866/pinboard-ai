@@ -218,6 +218,12 @@ export const es: TranslationSchema = {
     copyFailed: 'No se pudieron copiar los datos del pin. Comprueba los permisos del portapapeles del navegador.',
     pushToCalendarBtn: 'Programar en el Calendario',
     savedToCalendar: '¡Pin programado exitosamente en el calendario!',
+    savedPinsLoading: "Cargando los pines guardados de este tablero…",
+    savedPinsRetry: "Reintentar carga",
+    savedPinsLoadError: "No se pudieron cargar los pines guardados. Comprueba tu conexión e inténtalo de nuevo.",
+    addToReviewBtn: "Enviar pin para revisión manual",
+    addToReviewSaving: "Añadiendo a la cola de revisión…",
+    addToReviewSuccess: "Pin enviado para revisión",
     batchGeneratedNotice: 'Lote de pines generado con diferentes ángulos algorítmicos.',
   },
 
@@ -585,6 +591,8 @@ export const es: TranslationSchema = {
 
   review: {
     title: 'Aprobación de Pines Generados',
+    queueDescription: "Revisa tus pines guardados y aprueba o rechaza cada uno antes de programarlo.",
+    queueCountTemplate: "{count} en cola",
     subtitle: 'Deslice a la derecha para aprobar en la cola, o a la izquierda para descartar.',
     approveBtn: 'Aprobar (→)',
     rejectBtn: 'Rechazar (←)',
