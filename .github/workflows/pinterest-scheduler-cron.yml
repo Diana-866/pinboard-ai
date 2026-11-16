@@ -1,0 +1,41 @@
+name: Pinterest one-shot scheduler checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/scheduleCron.js"
+      - "backend/scheduleResponse.js"
+      - "backend/scheduleWorker.js"
+      - "backend/pinterest.js"
+      - "backend/test/*schedule*.test.js"
+      - "backend/test/pinterest-scheduler-route-contract.test.js"
+      - "backend/package.json"
+      - ".github/workflows/pinterest-scheduler-cron.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scheduler:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install backend dependencies
+        run: npm ci
+      - name: Test scheduler response contract
+        run: node --test test/schedule-response.test.js
+      - name: Test one-shot Cron runner
+        run: node --test test/schedule-cron.test.js
+      - name: Test persistent worker lifecycle
+        run: node --test test/schedule-worker.test.js
+      - name: Test backend scheduler route contract
+        run: node --test test/pinterest-scheduler-route-contract.test.js
