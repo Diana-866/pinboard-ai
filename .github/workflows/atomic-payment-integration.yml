@@ -78,6 +78,10 @@ jobs:
         run: node --test backend/test/verify-script-migration-chain.test.js
       - name: Test PostgreSQL integration runner contract
         run: node --test backend/test/postgres-integration-runner-contract.test.js
+      - name: Validate disposable PostgreSQL concurrency harness safety
+        run: |
+          bash -n backend/test/lib/assert-disposable-postgres.sh backend/test/*-concurrency.sh
+          node --test backend/test/postgres-concurrency-safety-contract.test.js
       - name: Parse Windows PostgreSQL integration runner
         shell: pwsh
         run: |
