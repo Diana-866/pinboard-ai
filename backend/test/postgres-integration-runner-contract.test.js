@@ -68,10 +68,11 @@ test('runner refuses unsafe targets and documents the unexecuted Bash concurrenc
   assert.match(runner, /current_setting\('data_directory'\)/);
   assert.match(runner, /current_setting\('server_version_num'\)/);
   assert.match(runner, /PGCLIENTENCODING = 'UTF8'/);
-  assert.ok(runner.includes('[ValidateSet(55439)][int]$PostgresPort = 55439'));
+  assert.ok(runner.includes('[ValidateSet('55439')][int]$PostgresPort = 55439'));
   assert.ok(runner.includes("$ExpectedDataDirectory = 'X:\\PinPosy-verify-pg18'"));
   assert.ok(runner.includes("$DatabaseUser = 'pinposy_verify_admin'"));
   assert.ok(runner.includes("$PsqlPath = 'X:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe'"));
+  assert.match(runner, /GetFileName\(\$test\) -ne \$test/);
   assert.match(runner, /candidateDatabase\.Length -ne 31/);
   assert.match(runner, /candidateDatabase\.StartsWith\('pinposy_sqlint_'\)/);
   assert.match(runner, /finally\s*\{/);
