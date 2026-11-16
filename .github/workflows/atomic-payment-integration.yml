@@ -78,6 +78,16 @@ jobs:
         run: node --test backend/test/verify-script-migration-chain.test.js
       - name: Test PostgreSQL integration runner contract
         run: node --test backend/test/postgres-integration-runner-contract.test.js
+      - name: Parse Windows PostgreSQL integration runner
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'scripts/verify-integration.ps1'), [ref]$tokens, [ref]$parseErrors) | Out-Null
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Host $_.Message }
+            exit 1
+          }
       - name: Test cleanup of unsent payment records
         run: node --test backend/test/payment-record-cleanup.test.js
       - name: Test checkout settlement helper
