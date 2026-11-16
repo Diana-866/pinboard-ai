@@ -77,8 +77,8 @@ try {
 
     $identitySql = "SELECT coalesce(inet_server_addr()::text, '') || '|' || inet_server_port() || '|' || current_setting('data_directory') || '|' || current_setting('server_encoding') || '|' || current_user || '|' || current_setting('server_version_num');"
     $identity = Get-PsqlValue -Database 'postgres' -Sql $identitySql
-    $expectedPrefix = $hostAddress + '|' + $PostgresPort + '|' + $ExpectedDataDirectory.Replace('\','/') + '|WIN1251|' + $DatabaseUser + '|180'
-    if (-not $identity.StartsWith($expectedPrefix)) { throw "Safety stop: PostgreSQL identity mismatch. Received: $identity" }
+    $expectedIdentity = $hostAddress + '|' + $PostgresPort + '|' + $ExpectedDataDirectory.Replace('\','/') + '|WIN1251|' + $DatabaseUser + '|180006'
+    if ($identity -ne $expectedIdentity) { throw "Safety stop: PostgreSQL identity mismatch. Received: $identity" }
     Write-Host "Verified PostgreSQL identity: $identity"
 
     $roleRows = Get-PsqlValue -Database 'postgres' -Sql "SELECT rolname || '|' || rolsuper::text || '|' || rolcanlogin::text || '|' || rolbypassrls::text FROM pg_roles WHERE rolname IN ('anon','authenticated','service_role') ORDER BY rolname;"
@@ -126,12 +126,56 @@ try {
     }
     foreach ($migration in $migrations) { [void]$encoding.GetBytes([IO.File]::ReadAllText($migration.FullName, [Text.Encoding]::UTF8)) }
 
-    $createdDatabase = 'pinposy_sqlint_' + ([Guid]::NewGuid().ToString('N')).Substring(0, 16)
-    if ($createdDatabase -notmatch '^pinposy_sqlint_[a-f0-9]{16}$') { throw 'Internal database-name validation failed.' }
-    $exists = Get-PsqlValue -Database 'postgres' -Sql "SELECT count(*) FROM pg_database WHERE datname = '$createdDatabase';"
-    if ($exists -ne '0') { throw 'Safety stop: generated disposable database already exists.' }
-    Write-Host "Creating disposable database $createdDatabase."
-    Invoke-Psql -Database 'postgres' -PsqlArguments @('-c', ('CREATE DATABASE "' + $createdDatabase + '";'))
+    $candidateDatabase = 'pinposy_sqlint_' + ([Guid]::NewGuid().ToString('N')).Substring(0, 16)
+    if ($candidateDatabase -notmatch '^pinposy_sqlint_[a-f0-9]{16}
+
+    Write-Host 'Applying CI legacy/upgrade fixture.'
+    Invoke-Psql -Database $createdDatabase -PsqlArguments @('-f', $fixturePath)
+    Write-Host 'Applying migrations 010-148 in numeric order.'
+    foreach ($migration in $migrations) {
+        if ($migration.Name.StartsWith('039_')) {
+            Invoke-Psql -Database $createdDatabase -PsqlArguments @('-c', 'GRANT ALL ON public.pinterest_accounts, public.pinterest_publications TO anon, authenticated;')
+        }
+        Invoke-Psql -Database $createdDatabase -PsqlArguments @('-f', $migration.FullName)
+    }
+    Write-Host 'Running both inline CI assertions.'
+    Invoke-Psql -Database $createdDatabase -PsqlArguments @('-f', $deletionCheckPath)
+    Invoke-Psql -Database $createdDatabase -PsqlArguments @('-f', $refreshCheckPath)
+    Write-Host "Running $($sqlTests.Count) ordered SQL integration tests."
+    $index = 0
+    foreach ($test in $sqlTests) {
+        $index++
+        Write-Host "[$index/$($sqlTests.Count)] $test"
+        Invoke-Psql -Database $createdDatabase -PsqlArguments @('-f', (Join-Path $repoRoot "backend/test/$test"))
+    }
+    Write-Host 'PASS: upgrade fixture, migrations 010-148, two inline assertions and 46 SQL integration tests.'
+    Write-Host 'NOT RUN: 9 Bash concurrency scripts; they require a separately validated Bash runtime.'
+}
+catch { $failure = $_ }
+finally {
+    if ($null -ne $createdDatabase) {
+        try {
+            Write-Host "Cleaning up only disposable database $createdDatabase."
+            Invoke-Psql -Database 'postgres' -PsqlArguments @('-c', "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$createdDatabase' AND pid <> pg_backend_pid();")
+            Invoke-Psql -Database 'postgres' -PsqlArguments @('-c', ('DROP DATABASE "' + $createdDatabase + '";'))
+            Write-Host "Removed disposable database $createdDatabase."
+        } catch { Write-Warning "Could not automatically remove disposable database '$createdDatabase': $_" }
+    }
+    foreach ($roleName in $createdRoles) {
+        try { Invoke-Psql -Database 'postgres' -PsqlArguments @('-c', "DROP ROLE $roleName;") }
+        catch { Write-Warning "Could not remove temporary role '$roleName': $_" }
+    }
+    foreach ($name in $environmentNames) { [Environment]::SetEnvironmentVariable($name, $oldEnvironment[$name], 'Process') }
+    if ($passwordPointer -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPointer) }
+    if ($null -ne $securePassword) { $securePassword.Dispose() }
+}
+if ($null -ne $failure) { Write-Error "PostgreSQL integration runner failed: $failure"; exit 1 }
+) { throw 'Internal database-name validation failed.' }
+    $exists = Get-PsqlValue -Database 'postgres' -Sql "SELECT count(*) FROM pg_database WHERE datname = '$candidateDatabase';"
+    if ($exists -ne '0') { throw 'Safety stop: generated disposable database name already exists.' }
+    Write-Host "Creating disposable database $candidateDatabase."
+    Invoke-Psql -Database 'postgres' -PsqlArguments @('-c', ('CREATE DATABASE "' + $candidateDatabase + '";'))
+    $createdDatabase = $candidateDatabase
     if ((Get-PsqlValue -Database 'postgres' -Sql "SELECT count(*) FROM pg_database WHERE datname = '$createdDatabase';") -ne '1') {
         throw 'Disposable database creation could not be confirmed.'
     }
