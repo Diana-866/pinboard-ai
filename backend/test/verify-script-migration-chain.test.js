@@ -46,7 +46,7 @@ test("local migration replay starts from the canonical baseline", () => {
 
 test("local migration replay skips diagnostic and historical migrations below 010", () => {
   assert.match(script, /prefix="\$\{base%%_\*\}"/);
-  assert.match(script, /10#\$prefix < 10/);
+  assert.match(script, /10#\$prefix >= 10/);
   assert.doesNotMatch(script, /for migration in "\$scratch"\/migrations\/\*\.sql/);
   assert.doesNotMatch(script, /db\/archive/);
 });
