@@ -43,3 +43,21 @@
 - **Атрибуция:** эту проверку runs/jobs выполнил ассистент через GitHub API; account billing/settings не видны из API и должны быть проверены владельцем аккаунта в UI.
 - **Повторная проверка после billing fixes (2026-11-16):** runs `43932071627` (frontend/backend) и `43932071691` (postgres-atomicity) также завершились без запуска шагов. Jobs `133526852206` (backend), `133526852641` (frontend) и `133526852798` (postgres-atomicity) имеют `runner_id: 0`, `steps: []`. Дополнительные runs для audit commit `d55f4f9f7063853ac90dc9902ca1ad920985023d` также завершились `failure`; никаких test/build/SQL steps не выполнялось.
 - **Vercel:** combined status для code commit `6b17db6fa8a0f0e850f79278eb02acaa31699f73` остаётся `failure`, target `build-rate-limit`; это не лог сборки и не подтверждение ошибки исходного кода.
+
+## UA-003 — подтвердить production account-deletion worker и точность privacy disclosures
+
+- **Статус:** [ ] Ожидает проверки владельцем production-инфраструктуры.
+- **Приоритет:** до публичного запуска. В privacy policy заявлено удаление персональных данных и OAuth-токенов в течение 30 дней, но код принимает запрос на удаление только если worker включён.
+- **Что установлено по коду:** `backend/accountDeletionWorkerGate.js` включает pipeline только при `ACCOUNT_DELETION_WORKER_ENABLED=true`. `backend/index.js` запускает embedded worker только при этом opt-in и пишет `account_deletion_worker.disabled_in_production`, если в production флаг выключен. `POST /account/deletion-request` в таком случае возвращает 503 (fail closed); при включённом worker требуется повторный пароль, RPC увеличивает `token_version` и закрывает сессии, а отдельный worker выполняет этапы инвентаризации/отзыва Pinterest/удаления/финализации. Production env и логи ассистенту недоступны.
+- **Что проверить в Render production (только чтение):**
+  1. Есть ли `ACCOUNT_DELETION_WORKER_ENABLED=true` в environment backend service. Не присылай значение других переменных и секреты.
+  2. В свежих deploy/runtime logs присутствует ли `account_deletion_worker.enabled`, а не `account_deletion_worker.disabled_in_production`.
+  3. Есть ли регулярные `account_deletion_worker.batch_completed` и нет ли повторяющихся ошибок/застрявших deletion jobs. Не создавай тестовое удаление реального аккаунта.
+  4. Подтверди, что реально можно выполнить полный цикл удаления в staging/test account и соблюсти 30-дневный срок. Если worker ещё не готов, не включай его в production вслепую; сначала staging validation, затем согласовать корректировку политики с юристом.
+- **Privacy policy / инфраструктура:**
+  5. Подтверди, что bucket `pin-images` действительно public и что Pinterest-compatible image URLs требуют такой доступности. Русская политика синхронизирована с уже существующим английским disclosure о публичных URL изображений (commit `0cd90e941deecd487f9a086037d10569eee222c5`).
+  6. Сверь фактические subprocessors и регионы обработки данных с обеими privacy policy: GPTunnel, Render, Supabase, Pinterest, Prodamus и почтовый провайдер. Если provider/region изменился, нужно обновить RU/EN policy до запуска пользователей.
+  7. Проверь точность публичных реквизитов оператора, статуса самозанятого, INN и `support@pinposy.com`, а также условий возврата/сроков оплаты. Не присылай сюда документы или платёжные данные.
+- **Передать ассистенту:** только статус флага worker (включён/выключен), наличие worker startup/batch log, подтверждение staging deletion cycle, актуальные провайдеры/регионы и перечень нужных правок policy. Не отправляй секреты, токены, пароли, полные банковские данные или персональные документы.
+- **Ограничения:** не менять production environment, не включать worker, не выполнять удаление реального аккаунта и не менять юридические условия без отдельного согласования.
+- **Следующий шаг после результата:** сопоставить production конфигурацию с deletion SLA, подтвердить staging proof и при необходимости подготовить согласованные RU/EN legal changes. Затем повторить account lifecycle checks на disposable test account.
