@@ -97,6 +97,9 @@ export const es: TranslationSchema = {
     useNameInitial: "2. Usa una inicial con estilo:",
     useInitialAvatar: "Usar la inicial del nombre (“{letter}”)",
     choosePresetAvatar: "3. O elige un avatar prediseñado:",
+    avatarUploadInvalidType: "Elige una imagen PNG, JPEG, WebP o GIF.",
+    avatarUploadTooLarge: "La imagen debe ocupar 1 MB o menos.",
+    avatarUploadFailed: "No se pudo guardar el avatar en este navegador. Libera espacio e inténtalo de nuevo."
   },
 
   dashboard: {
