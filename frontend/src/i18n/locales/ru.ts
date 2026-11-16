@@ -495,6 +495,13 @@ export const ru: TranslationSchema = {
     deleteAccountConfirm: "Запросить удаление",
     deleteAccountDone: "Запрос на удаление принят, доступ к аккаунту закрыт. Фактическое удаление данных ещё не выполнено.",
     requestFailed: "Не удалось выполнить запрос. Попробуйте ещё раз.",
+    emailVerifyTitle: 'Подтвердите email',
+    emailVerifyResent: 'Письмо отправлено ещё раз. Проверьте почту и папку «Спам».',
+    emailVerifyResend: 'Отправить письмо снова',
+    emailVerifySending: 'Отправляем…',
+    emailVerifyDismiss: 'Скрыть',
+    emailVerifyThrottled: 'Письмо уже отправлялось недавно. Попробуйте позже.',
+    emailVerifySendError: 'Не удалось отправить письмо для подтверждения email. Попробуйте позже.',
   },
 
   pricing: {
@@ -641,6 +648,10 @@ export const ru: TranslationSchema = {
     strategistPrompt: "Нужен разбор аналитики?",
     askStrategist: "Спросить ИИ-стратега →",
     strategistTitle: "Открыть ИИ-стратега PinPosy",
+    justNow: 'Только что',
+    taskCompletedTitle: 'Задача выполнена',
+    reviewQueueSyncErrorTitle: 'Не удалось синхронизировать очередь',
+    reviewQueueSyncErrorMessage: 'Не удалось загрузить или сохранить очередь. Проверьте соединение и обновите страницу, чтобы повторить синхронизацию.',
   },
 
   terms: {
