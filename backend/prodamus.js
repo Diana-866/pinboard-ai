@@ -334,6 +334,14 @@ async function createPaymentLink({
     throw httpError(502, "Платёжный сервис не отвечает — попробуйте позже");
   }
 
+  // Axios is configured to resolve every HTTP status so we can control the
+  // provider error mapping. Never accept a checkout URL from a non-2xx response:
+  // an upstream error page/body is not proof that an order was created.
+  if (!res || !Number.isInteger(res.status) || res.status < 200 || res.status >= 300) {
+    logError("prodamus.event_003");
+    throw httpError(502, "Prodamus не подтвердил создание счёта — попробуйте позже");
+  }
+
   const data = res.data && typeof res.data === "object" ? res.data : null;
   const url =
     (data && (data.link || data.url || (data.data && (data.data.link || data.data.url)))) ||
