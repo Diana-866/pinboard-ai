@@ -737,6 +737,12 @@ export const es: TranslationSchema = {
     reviewQueueSyncErrorMessage: 'No se pudo cargar o guardar la cola. Comprueba la conexión y actualiza la página para volver a sincronizar.',
   },
 
+  lockedSection: {
+    title: "Esta sección está bloqueada",
+    description: "Elige un plan para desbloquear la generación de pines, los tableros y la programación. La analítica sigue disponible con tu plan actual.",
+    viewPlans: "Ver planes",
+  },
+
   terms: {
     peakLoadTitle: 'Aviso Operativo por Alta Demanda y SLA',
     peakLoadNotice: 'En periodos de alta demanda (por ejemplo, en los primeros días tras anuncios públicos del servicio), la generación de pines puede demorarse más de lo habitual: hasta 24–48 horas en lugar de unos pocos minutos. El acceso a su cuenta, el chat con el asistente de estrategia y las herramientas analíticas permanecen disponibles de forma inmediata tras el pago. Le notificaremos en la interfaz si su solicitud ingresa en la cola por alta demanda.',
