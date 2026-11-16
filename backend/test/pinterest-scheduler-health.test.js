@@ -42,3 +42,24 @@ test("scheduler health reports a recent failed run without exposing arbitrary da
   assert.equal(JSON.stringify(health).includes("must-not-appear"), false);
   assert.equal("secret" in health, false);
 });
+
+test("scheduler health normalizes invalid counters to safe non-negative integers", () => {
+  const health = summarizePinterestSchedulerHealth({
+    status: "succeeded",
+    last_started_at: "2026-11-11T11:59:30.000Z",
+    last_completed_at: "2026-11-11T11:59:31.000Z",
+    claimed: -1,
+    published: "2",
+    failed: "not-a-number",
+    scheduled: Number.POSITIVE_INFINITY,
+    unknown: Number.MAX_SAFE_INTEGER + 1,
+  }, Date.parse("2026-11-11T12:00:00.000Z"));
+
+  assert.deepEqual(health.counts, {
+    claimed: 0,
+    published: 2,
+    failed: 0,
+    scheduled: 0,
+    unknown: 0,
+  });
+});
