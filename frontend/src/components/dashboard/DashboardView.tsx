@@ -1,7 +1,7 @@
 import React from 'react';
 import { Layers, ChevronRight, Plus, Globe, Clock, Sparkles } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
-import { BoardItem, ScheduledPinItem, PinterestAccount } from '../../data/mockData';
+import type { BoardItem, ScheduledPinItem, PinterestAccount } from '../../data/mockData';
 
 interface DashboardViewProps {
   boards: BoardItem[];
