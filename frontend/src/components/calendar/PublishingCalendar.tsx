@@ -987,7 +987,7 @@ export const PublishingCalendar: React.FC<PublishingCalendarProps> = ({
                   {t.calendar.chooseReplacementBoardTitle}
                 </p>
                 <p className="text-xs leading-relaxed text-secondary-theme">
-                  {t.calendar.replacementBoardResume}
+                  {t.calendar.replacementBoardResumeDescription}
                 </p>
                 {replacementBoardsLoading ? (
                   <p className="text-xs text-secondary-theme">{t.calendar.replacementBoardLoading}</p>
