@@ -69,7 +69,7 @@ export const EmailVerifyBanner: React.FC = () => {
           ) : null}
         </p>
         {resent && (
-          <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
+          <p role="status" aria-live="polite" className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
             {t.settings.emailVerifyResent}
           </p>
         )}
@@ -87,6 +87,7 @@ export const EmailVerifyBanner: React.FC = () => {
           {loading ? t.settings.emailVerifySending : t.settings.emailVerifyResend}
         </button>
         <button
+          type="button"
           onClick={() => setDismissed(true)}
           className="text-muted-theme hover:text-primary-theme p-1 rounded-md transition-colors"
           aria-label={t.settings.emailVerifyDismiss}
