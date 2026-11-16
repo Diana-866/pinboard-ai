@@ -1,6 +1,6 @@
 # AUD-396 — account deletion workflow implementation and staging runbook
 
-**Status:** design/runbook only. Do not execute against production.
+**Historical status (superseded 2026-11-16):** the deletion pipeline is now implemented in main (migrations 127–148, account deletion routes and dedicated worker). This earlier AUD-396 workflow remains design history, not a current runbook. Its proposed schema/state machine must not be applied or recreated; inspect current migrations and worker before any staging rehearsal. Do not execute against production.
 
 ## A. Before implementation
 

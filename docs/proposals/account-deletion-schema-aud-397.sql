@@ -1,4 +1,6 @@
--- AUD-397 PROPOSAL ONLY — NOT A NUMBERED PRODUCTION MIGRATION.
+-- AUD-397 HISTORICAL PROPOSAL ONLY — NOT A NUMBERED MIGRATION.
+-- Superseded by the implemented account lifecycle chain in migrations 127–148 on main.
+-- Do not execute this file; review current numbered migrations before proposing any delta.
 -- Review against the deployed Supabase catalog and test on disposable PostgreSQL first.
 -- Additive schema only: no existing rows are deleted or rewritten.
 begin;

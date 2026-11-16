@@ -834,3 +834,11 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - На HEAD 483ec9954a6cd59379b566a48f23da58b454bbf8 получено дерево docs/: 400 файлов (399 Markdown, 1 SQL). Создан docs/DOCUMENTATION_REGISTER.md с точным путём, Git blob SHA, категорией и текущим review status каждого файла.
 - В filenames обнаружены повторяющиеся audit IDs (40 уникальных ID с несколькими файлами); список зафиксирован в register. Ничего не переименовывалось и не удалялось, чтобы не ломать исторические ссылки.
 - Важно: register — metadata inventory, не доказательство чтения всех 399 документов. Следующий шаг — содержательный review по группам, начиная с operational runbooks, proposals и оставшихся root/provider docs.
+
+
+### Сверка runbooks account deletion и Pinterest scheduler (2026-11-16)
+
+- Проверены AUD-389, AUD-395, AUD-396, AUD-397 proposal, AUD-398 и AUD-386 runbook по фактическому main-коду и migrations 127–148.
+- В четырёх account-deletion design/runbooks оставались ложные утверждения, что endpoint/worker/schema ещё только проектируются. Добавлены заметные historical/superseded banners; proposal SQL AUD-397 прямо запрещён к исполнению и помечен superseded реализованной цепочкой 127–148.
+- Pinterest scheduler runbook уточнён: migrations 122–123 входят в mainline 010–148, но это не подтверждает их применение к production; production scheduler включать только после SQL/staging gates и явного approval.
+- Проверка кода подтвердила наличие backend/accountDeletionWorker.js, durable queue migration 130, content-erasure stage 137 и tombstone finalization 138. Runtime worker и destructive workflow не запускались.

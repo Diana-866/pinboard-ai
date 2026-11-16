@@ -19,6 +19,8 @@
 
 ## Safety
 
+- Migrations 122–123 are part of the active main migration chain 010–148. Their presence in Git does not prove they have been applied to production; verify the actual deployed schema and the exact backend commit first.
+- Do not enable production scheduling until the SQL integration gate, staging worker tests and explicit owner approval have passed.
 - Never enable dedicated worker and external cron together.
 - Never change unknown to scheduled manually.
 - Never delete/rotate claim tokens or publication attempts by hand.

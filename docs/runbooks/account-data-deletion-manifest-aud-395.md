@@ -1,6 +1,6 @@
 # AUD-395 — account data inventory and deletion manifest
 
-**Status:** design-only runbook. Do not execute against production.
+**Historical design-only snapshot (superseded 2026-11-16).** The implementation now exists in main across migrations 127–148 and backend/accountDeletionWorker.js. The ownership inventory and retention questions remain useful review prompts, but the proposed state machine/order below is not an executable current runbook. Do not apply this document's proposed schema or run destructive steps against production.
 
 ## Preconditions
 

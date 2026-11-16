@@ -1,6 +1,6 @@
 # AUD-398 — RPC design and concurrency test runbook
 
-**Design review only. No SQL or API deployment is authorized.**
+**Historical design review (superseded 2026-11-16).** Main now contains the account-deletion RPC/worker implementation and migrations 127–148. The proposed contracts below are not the current schema/API specification and must not be applied as SQL or used as an implementation checklist. Compare any open question against current migrations, backend routes/worker and integration tests. No production operation is authorized by this document.**
 
 ## Before implementation
 - [ ] Reconcile exact deployed schema and confirm AUD-397 proposal has not been applied.

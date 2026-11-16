@@ -1,6 +1,6 @@
 # PinPosy — account deletion: implementation and operator safety gates (AUD-389)
 
-**Current state:** design/runbook only. No self-service deletion endpoint or end-to-end deletion worker exists.
+**Historical status (superseded 2026-11-16):** the statement below that no self-service endpoint or end-to-end worker exists is no longer true on main. The current implementation is represented by migrations 127–148, backend account-deletion routes and backend/accountDeletionWorker.js. This document is retained as historical design context; its future-state checklists are not a current implementation plan or an executable production runbook. Use current code, docs/PROJECT_STATE.md and the current deletion runbooks after checking their migration prerequisites.
 
 ## Before accepting a deletion request
 
