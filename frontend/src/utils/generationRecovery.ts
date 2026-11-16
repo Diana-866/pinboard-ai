@@ -13,3 +13,15 @@ export function shouldPollGenerationRecovery(
   if (pausedForAuthentication) return false;
   return requests.some((request) => request.status === 'processing' || request.status === 'unknown');
 }
+
+/** Keep every locally stored request visible when a status lookup is blocked by an expired session. */
+export function buildUnknownGenerationRecoveryEntries(
+  identities: ReadonlyArray<{ fingerprint: string }>,
+): Array<{ key: string; status: 'unknown'; boardId: string; pinCount: number }> {
+  return identities.map((identity) => ({
+    key: identity.fingerprint,
+    status: 'unknown',
+    boardId: '',
+    pinCount: 0,
+  }));
+}
