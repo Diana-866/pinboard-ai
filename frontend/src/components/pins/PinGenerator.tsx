@@ -451,7 +451,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         console.error('[pins] Не удалось восстановить сохранённые пины:', error);
         if (active) {
           setGeneratedPins([]);
-          setSavedPinsLoadError('Не удалось загрузить сохранённые пины. Проверьте соединение и попробуйте ещё раз.');
+          setSavedPinsLoadError(t.generator.savedPinsLoadError);
         }
       })
       .finally(() => {
@@ -1456,7 +1456,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
           {isLoadingSavedPins && (
             <div className="custom-card p-4 rounded-xl text-sm text-secondary-theme flex items-center gap-2" role="status">
               <RefreshCw className="w-4 h-4 animate-spin" />
-              <span>Загружаем сохранённые пины этой доски…</span>
+              <span>{t.generator.savedPinsLoading}</span>
             </div>
           )}
           {savedPinsLoadError && (
@@ -1468,7 +1468,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                 disabled={isLoadingSavedPins}
                 className="px-4 py-2 rounded-lg border border-current font-semibold disabled:opacity-50"
               >
-                Повторить загрузку
+                {t.generator.savedPinsRetry}
               </button>
             </div>
           )}
@@ -1758,7 +1758,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   disabled={!currentPin.id || !currentPin.imageUrl || !boards.some((item) => item.id === selectedBoardId) || isAddingToReview}
                   className="w-full py-2.5 px-4 rounded-xl text-xs md:text-sm font-semibold border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
                 >
-                  {isAddingToReview ? 'Сохраняем в очереди…' : reviewQueueSuccess ? 'Пин отправлен на проверку' : 'Отправить пин на ручную проверку'}
+                  {isAddingToReview ? t.generator.addToReviewSaving : reviewQueueSuccess ? t.generator.addToReviewSuccess : t.generator.addToReviewBtn}
                 </button>
               )}
 
