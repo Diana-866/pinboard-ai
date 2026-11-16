@@ -124,3 +124,12 @@ All `/admin/*` handlers in this entrypoint use `requireAuth` and `requireAdmin`;
 - Added startup fail-fast and regression tests described in package 02; the API will not start with a missing/weak JWT signing secret.
 
 **Runtime verification remains blocked:** latest runs `43897851250` and `43897851139` were rerun; atomic integration again failed before steps, and persisted boards was queued at the last observation. Earlier runs `43897777843`/`43897777966` had `steps: null`. No tests are claimed as passed.
+
+
+## Follow-up: bound the calendar list (2026-11-16)
+
+- A further review of the live `GET /schedule` handler found that it paged through all rows with an unbounded offset loop. Unlike project/board lists, this path had no explicit maximum and could grow memory/request time without limit for a large account.
+- Replaced the loop with the shared `fetchAllPages` helper. It preserves stable ordering and owner filtering, reads pages of 500, accepts exactly 10,000 rows, and returns HTTP 413 when an additional row exists rather than silently truncating or continuing indefinitely.
+- Added `backend/test/schedule-route-pagination-contract.test.js` to guard the route's use of the bounded pager. The existing `backend/test/fetch-all-pages.test.js` covers exact-cap and overflow behavior.
+- Commits: `b52a537a` (route fix), `1aafeaaa` (regression contract).
+- Static source verification: the route now calls `fetchAllPages` and supplies `.range(from, to)`; test source and route were re-fetched from main. Runtime Node tests were NOT executed; Vercel check remains `build-rate-limit`. No production database, scheduler, or deployment was touched.
