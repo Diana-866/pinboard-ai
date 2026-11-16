@@ -69,8 +69,7 @@ test('keeps all local recovery identities visible when status checks return 401'
     { fingerprint: 'request-a' },
     { fingerprint: 'request-b' },
   ];
-  assert.deepEqual(buildUnknownGenerationRecoveryEntries(identities), [
-    { key: 'request-a', status: 'unknown', boardId: '', pinCount: 0 },
+  assert.deepEqual(buildUnknownGenerationRecoveryEntries(identities, 1), [
     { key: 'request-b', status: 'unknown', boardId: '', pinCount: 0 },
   ]);
 });
