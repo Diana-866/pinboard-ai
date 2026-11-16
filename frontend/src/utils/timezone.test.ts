@@ -151,7 +151,7 @@ test('calendar quick-add skips nonexistent daylight-saving wall-clock times', ()
 test('schedule instant validation rejects invalid, stale, and excessively distant times', () => {
   const now = new Date('2026-11-16T12:00:00.000Z');
   assert.doesNotThrow(() => validateScheduleInstant(new Date('2026-11-16T12:15:00.000Z'), now));
-  assert.throws(() => validateScheduleInstant(new Date(Number.NaN), now), /correct date and time/i);
-  assert.throws(() => validateScheduleInstant(new Date('2026-11-16T11:40:00.000Z'), now), /past/i);
-  assert.throws(() => validateScheduleInstant(new Date('2027-11-18T12:00:00.000Z'), now), /year/i);
+  assert.throws(() => validateScheduleInstant(new Date(Number.NaN), now), /корректные дату и время/i);
+  assert.throws(() => validateScheduleInstant(new Date('2026-11-16T11:40:00.000Z'), now), /прошлом/i);
+  assert.throws(() => validateScheduleInstant(new Date('2027-11-18T12:00:00.000Z'), now), /год/i);
 });
