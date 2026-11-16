@@ -98,31 +98,41 @@ function Invoke-MigrationReplay {
     $databaseCreated = $false
     $replaySucceeded = $false
 
+    function Invoke-LocalPsql {
+        param(
+            [string]$Executable,
+            [string[]]$Arguments
+        )
+
+        & $Executable @Arguments | Out-Host
+        return $LASTEXITCODE
+    }
+
     try {
         Write-Host ""
         Write-Host "> Create disposable PostgreSQL database: $database" -ForegroundColor Cyan
-        & $psql -X -h 127.0.0.1 -p $PostgresPort -v ON_ERROR_STOP=1 -d postgres -c "CREATE DATABASE $database"
-        if ($LASTEXITCODE -ne 0) {
+        $psqlExitCode = Invoke-LocalPsql -Executable $psql -Arguments @("-X", "-h", "127.0.0.1", "-p", "$PostgresPort", "-v", "ON_ERROR_STOP=1", "-d", "postgres", "-c", "CREATE DATABASE $database")
+        if ($psqlExitCode -ne 0) {
             throw "Could not create the disposable database. Check that PostgreSQL is running and the current role can create databases."
         }
         $databaseCreated = $true
 
         Write-Host "> Apply Supabase test stubs" -ForegroundColor Cyan
-        & $psql -X -h 127.0.0.1 -p $PostgresPort -v ON_ERROR_STOP=1 -d $database -f $stub
-        if ($LASTEXITCODE -ne 0) {
+        $psqlExitCode = Invoke-LocalPsql -Executable $psql -Arguments @("-X", "-h", "127.0.0.1", "-p", "$PostgresPort", "-v", "ON_ERROR_STOP=1", "-d", $database, "-f", $stub)
+        if ($psqlExitCode -ne 0) {
             throw "Supabase test stubs failed."
         }
 
         Write-Host "> Apply canonical baseline: 001_baseline.sql" -ForegroundColor Cyan
-        & $psql -X -h 127.0.0.1 -p $PostgresPort -v ON_ERROR_STOP=1 -d $database -f $baseline
-        if ($LASTEXITCODE -ne 0) {
+        $psqlExitCode = Invoke-LocalPsql -Executable $psql -Arguments @("-X", "-h", "127.0.0.1", "-p", "$PostgresPort", "-v", "ON_ERROR_STOP=1", "-d", $database, "-f", $baseline)
+        if ($psqlExitCode -ne 0) {
             throw "Canonical baseline failed: 001_baseline.sql"
         }
 
         foreach ($migration in $activeMigrations) {
             Write-Host "  Applying $($migration.Name)"
-            & $psql -X -h 127.0.0.1 -p $PostgresPort -v ON_ERROR_STOP=1 -d $database -f $migration.FullName
-            if ($LASTEXITCODE -ne 0) {
+            $psqlExitCode = Invoke-LocalPsql -Executable $psql -Arguments @("-X", "-h", "127.0.0.1", "-p", "$PostgresPort", "-v", "ON_ERROR_STOP=1", "-d", $database, "-f", $migration.FullName)
+            if ($psqlExitCode -ne 0) {
                 throw "Migration failed: $($migration.Name)"
             }
         }
@@ -135,12 +145,12 @@ function Invoke-MigrationReplay {
     finally {
         if ($databaseCreated) {
             Write-Host "> Drop disposable PostgreSQL database: $database" -ForegroundColor Cyan
-            & $psql -X -h 127.0.0.1 -p $PostgresPort -v ON_ERROR_STOP=1 -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$database' AND pid <> pg_backend_pid();"
-            if ($LASTEXITCODE -ne 0) {
+            $psqlExitCode = Invoke-LocalPsql -Executable $psql -Arguments @("-X", "-h", "127.0.0.1", "-p", "$PostgresPort", "-v", "ON_ERROR_STOP=1", "-d", "postgres", "-c", "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$database' AND pid <> pg_backend_pid();")
+            if ($psqlExitCode -ne 0) {
                 Write-Host "WARNING: Could not terminate remaining connections to $database." -ForegroundColor Yellow
             }
-            & $psql -X -h 127.0.0.1 -p $PostgresPort -v ON_ERROR_STOP=1 -d postgres -c "DROP DATABASE IF EXISTS $database"
-            if ($LASTEXITCODE -ne 0) {
+            $psqlExitCode = Invoke-LocalPsql -Executable $psql -Arguments @("-X", "-h", "127.0.0.1", "-p", "$PostgresPort", "-v", "ON_ERROR_STOP=1", "-d", "postgres", "-c", "DROP DATABASE IF EXISTS $database")
+            if ($psqlExitCode -ne 0) {
                 Write-Host "WARNING: Failed to remove disposable database $database; remove it manually after checking its name." -ForegroundColor Yellow
                 $replaySucceeded = $false
             }
