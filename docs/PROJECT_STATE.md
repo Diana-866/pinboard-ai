@@ -757,3 +757,11 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - Исправлено только устаревшее утверждение в разделе 3 настоящего паспорта. Runtime tests, frontend build, backend suite и SQL integration suite не запускались; никаких runtime чекбоксов не закрыто. Production, PIN_TRIAL, платежи и Pinterest не затронуты.
 
 - 2026-11-16 — после documentation commit `37d6ea4e4b595a8555e0cc9eabb22e8b08d5d9c2` повторно проверен commit status: Vercel `failure`, описание `Deployment rate limited — retry in 24 hours`, target `build-rate-limit`. Это rate-limit до подтверждённого build, не ошибка исходников и не успешная сборка. На этот documentation HEAD GitHub Actions run не создан. Детали записаны в `docs/USER_ACTIONS.md`; не инициировать upgrade/смену deployment settings без решения владельца.
+
+### Повторная проверка обязательного NEXT и deployment status (2026-11-16)
+
+- Перед проверкой повторно прочитаны текущие `docs/PROJECT_STATE.md`, `docs/USER_ACTIONS.md`, `scripts/verify-integration.ps1`, `.github/workflows/atomic-payment-integration.yml` и package scripts. Текущий `main` до этой записи: `946e062ab49bf0dfaa5876176c2d55bb383b6ed5`.
+- NEXT не меняется: сначала владелец запускает UA-004 integration runner локально на отдельном PostgreSQL 18.6; только после фактического PASS SQL integration suite переходить к девяти Bash concurrency scripts и backend Node suite. У ассистента нет доступа к Windows checkout, PowerShell и пользовательскому локальному кластеру; запуск на production/PIN_TRIAL или существующем PID 5632 запрещён.
+- Для HEAD `946e062ab49bf0dfaa5876176c2d55bb383b6ed5` GitHub Actions workflow run не создан (commit docs-only; workflow paths-ignore исключает `docs/**`). Это не PASS и не FAIL тестов.
+- Vercel commit status на том же HEAD: `failure`, `Deployment rate limited — retry in 24 hours`, target `build-rate-limit` (updated `2026-11-16T20:34:53Z`). Deployment/build этого HEAD не подтверждён; платный upgrade не предпринимался.
+- UA-004 остаётся открытым и подробно сохранён в `docs/USER_ACTIONS.md`. Никакие тестовые чекбоксы не изменены; приложение, БД, production, платежи и Pinterest не затрагивались.
