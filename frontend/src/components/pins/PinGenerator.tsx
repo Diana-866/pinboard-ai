@@ -371,7 +371,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             // A first lookup after reload can be unauthorized before any rows
             // have reached state. Keep every local identity visible as unknown
             // instead of hiding the recovery panel; never delete or rotate keys.
-            const unresolved = buildUnknownGenerationRecoveryEntries(identities);
+            const currentIndex = identities.indexOf(identity);
+            const unresolved = buildUnknownGenerationRecoveryEntries(identities, currentIndex);
             if (active && isCurrentBillingOwner(generationRecoveryOwnerIdRef.current, ownerId)) {
               setRecoverableGenerations([...found, ...unresolved]);
               setRecoveryAuthPaused(true);
