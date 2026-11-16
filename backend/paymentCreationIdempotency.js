@@ -149,7 +149,9 @@ async function failPaymentCreation(userId, idempotencyKey, error) {
   });
   if (updateError) {
     logError("payment_idempotency.event_001", "[payment-idempotency] не удалось зафиксировать отказ создания:", updateError.message);
+    return false;
   }
+  return true;
 }
 
 /**
@@ -165,7 +167,11 @@ async function handlePaymentProviderFailure(userId, idempotencyKey, table, recor
 
   try {
     await denyUnsentPaymentRecord(table, recordId);
-    await failPaymentCreation(userId, idempotencyKey, error);
+    const requestReleased = await failPaymentCreation(userId, idempotencyKey, error);
+    if (!requestReleased) {
+      await markPaymentCreationUnknown(userId, idempotencyKey, error);
+      return "unknown";
+    }
     return "failed";
   } catch (cleanupError) {
     logError("payment_idempotency.event_002", "[payment-idempotency] не удалось безопасно закрыть отклонённый заказ:", cleanupError.message);
