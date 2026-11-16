@@ -60,6 +60,7 @@ export const en: TranslationSchema = {
 
   nav: {
     dashboard: 'Dashboard',
+    openNavigationMenu: 'Open navigation menu',
     pinGenerator: 'Pin Generator',
     keywordResearch: 'Keyword Explorer',
     competitorAudit: 'Competitor Audit',
