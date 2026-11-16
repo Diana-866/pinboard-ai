@@ -221,3 +221,13 @@ The active `ManualApprovalDesk.tsx` still displayed hard-coded Russian guard mes
 **Commits:** component `c176890ba5f2db2eb39ebb26b4ad55f7b5e8fa40`, remaining Pinterest guard `50a74e7e426e28cf83d1d96fb381ed7be9f3f7db`, Chinese locale `e9bd1d2ee8f6e63bc7685223f2024a7fe69c28a6`, test expansion `a1d461a9d244e56b732aef0f2f72f06742123513`, placeholder assertion correction `0fe1c50a57b112e48bd4e1d4f22bd434e0fe6181`.
 
 **Readback:** active review component, regression test and all seven locale files were fetched again from `main`. Eleven targeted static assertions passed: all 18 keys are referenced in the component, present in each locale and covered by the test; the three dynamic placeholders are checked; targeted Russian error/status literals are removed. The test source was inspected but **not executed**. No typecheck, full frontend suite, browser, keyboard or screen-reader test was run. Other Russian hard-coded review-screen labels and explanatory text remain a separate follow-up; this pass covers action guards, errors and regeneration status only. Package 09 and release readiness remain open.
+
+
+## Supplemental account isolation and dashboard keyboard access (FE-20 / FE-21)
+
+Two additional active-frontend changes were found on `main` and verified against their current source files:
+
+- **FE-20 — review desk account isolation:** `App.tsx` now keys the active `ManualApprovalDesk` by `user?.id || 'anonymous'`. Switching authenticated owners therefore remounts the review desk and resets its component-local decision/edit/selection state rather than carrying it into the next account. Commit: `173eb0dc607eacd5369dbb7836b66339610caf16`.
+- **FE-21 — dashboard board-card keyboard access:** clickable board summary cards in `DashboardView.tsx` are native `button type="button"` elements, retain the board navigation action, and expose a visible `focus-visible` ring. A source regression test asserts native button semantics, keyboard focus styling and absence of the former clickable-div pattern. Commits: implementation `f08d53d1c4eb55037de70c173e9cb8111406b49a`; test `08469db66364690928ac2cfc36e1f0678ff2aa3f`.
+
+**Readback / checks:** re-fetched the active `App.tsx`, `DashboardView.tsx` and `dashboardAccessibility.test.ts` from `main`. Targeted source assertions confirmed the owner key, native button, retained navigation callback, focus-visible style and regression-test coverage. The frontend test command, TypeScript check, build, browser keyboard test and screen-reader test were **not executed**. These source-level checks do not close the DB/runtime gate or certify full WCAG conformance. No production data, backend, DB, payment, Pinterest account or deployment settings were changed.
