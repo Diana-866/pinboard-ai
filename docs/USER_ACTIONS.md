@@ -310,3 +310,11 @@
 Безопасность runner: перед созданием БД проверяет чистый local main == origin/main, единственный listener `127.0.0.1:55439`, процесс `postgres.exe`, точный data directory `X:\PinPosy-verify-pg18`, PostgreSQL 18.6, server encoding WIN1251 и роль `pinposy_verify_admin`. Клиентская кодировка UTF8. Создаёт уникальную disposable DB `pinposy_sqlint_<suffix>`, применяет CI upgrade fixture, миграции 010–148 с grants precondition перед 039, две inline checks и 46 SQL tests; finally удаляет только собственную БД и роли, созданные этим runner. Если preflight не совпадает, runner должен завершиться до создания тестовой БД.
 
 Не выполнять runner на production, PIN_TRIAL или существующем PostgreSQL cluster/PID 5632. Не останавливать и не удалять временный кластер `X:\PinPosy-verify-pg18` без отдельного согласования. Девять Bash concurrency scripts этим runner не выполняются и будут отдельным следующим этапом после SQL suite. PowerShell parser/runtime и SQL integration suite ещё не запускались; не считать runner PASS до получения фактического вывода.
+
+
+### UA-004 — автономная повторная сверка перед локальным запуском (2026-11-16)
+
+- Ассистент повторно сверил актуальный GitHub main (b2a60ef25e574a1ed80f99f5e2a8abb77f543696), docs/PROJECT_STATE.md, runner scripts/verify-integration.ps1, contract test и CI workflow.
+- Подтверждено: обязательный следующий шаг не изменился — владелец должен запустить runner на своём Windows ПК и временном PostgreSQL 18.6 (127.0.0.1:55439, X:/PinPosy-verify-pg18). Ассистент не имеет доступа к этому локальному процессу/PowerShell и не может достоверно выполнить этот шаг самостоятельно.
+- Во время этой сверки не запускались SQL/тесты, не создавались БД, не изменялись код и production. Не присылать пароль/секреты в чат.
+- После возвращения владельца: выполнить ранее приведённые в этом разделе UA-004 команды и прислать полный вывод. Только после проверки результата закрывать SQL integration gate и переходить к отдельной оценке Bash concurrency scripts.
