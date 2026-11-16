@@ -42,3 +42,12 @@ The old wildcard therefore attempted to replay legacy schema changes after the b
 ## Следующий шаг
 
 Run the corrected local verification on a machine with Node/npm and PostgreSQL, or restore GitHub Actions runner availability. Confirm a clean replay from `001_baseline.sql` through migration `148`, then run the full backend/frontend suites. Do not mark migration validation passed until actual output is recorded.
+
+
+## Additional local static verification
+
+A scratch copy of the current script and regression test was checked locally:
+- `bash -n scripts/verify.sh`: PASS.
+- `node --test backend/test/verify-script-migration-chain.test.js`: 4/4 PASS.
+- This does **not** execute PostgreSQL. Full migration replay remains NOT RUN because `psql` is unavailable in the environment.
+- Latest GitHub Actions runs `43900630253` (postgres-atomicity) and `43900630322` (backend/frontend) both failed with `steps: null`; no CI commands ran.
