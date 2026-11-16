@@ -115,9 +115,7 @@ export const OnboardingWizard: React.FC = () => {
     setError('');
     const refreshed = await refreshUser();
     if (!refreshed) {
-      setError(language === 'ru'
-        ? 'Данные сохранены, но не удалось обновить профиль. Проверьте соединение и нажмите ещё раз.'
-        : 'Your details were saved, but the profile could not be refreshed. Check your connection and try again.');
+      setError(t.profileRefreshError);
       return;
     }
     // A successful refresh marks onboarding complete in App and unmounts this
@@ -231,7 +229,7 @@ export const OnboardingWizard: React.FC = () => {
           </div>
 
           {error && (
-            <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm text-red-600">
+            <div role="alert" className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm text-red-600">
               {error}
             </div>
           )}
@@ -240,16 +238,19 @@ export const OnboardingWizard: React.FC = () => {
           {step === 1 && (
             <div>
               <h2
+                id="onboarding-link-title"
                 className="text-2xl font-bold tracking-tight text-primary-theme"
                 style={{ fontFamily: "'Outfit', sans-serif" }}
               >
                 {t.linkTitle}
               </h2>
-              <p className="mt-2 text-sm text-secondary-theme">
+              <p id="onboarding-link-description" className="mt-2 text-sm text-secondary-theme">
                 {t.linkBody}
               </p>
               <input
                 type="url"
+                aria-labelledby="onboarding-link-title"
+                aria-describedby="onboarding-link-description"
                 value={websiteUrl}
                 onChange={(e) => setWebsiteUrl(e.target.value)}
                 placeholder={t.linkPlaceholder}
@@ -271,15 +272,18 @@ export const OnboardingWizard: React.FC = () => {
           {step === 2 && (
             <div>
               <h2
+                id="onboarding-about-title"
                 className="text-2xl font-bold tracking-tight text-primary-theme"
                 style={{ fontFamily: "'Outfit', sans-serif" }}
               >
                 {t.aboutTitle}
               </h2>
-              <p className="mt-2 text-sm text-secondary-theme">
+              <p id="onboarding-about-description" className="mt-2 text-sm text-secondary-theme">
                 {t.aboutBody}
               </p>
               <textarea
+                aria-labelledby="onboarding-about-title"
+                aria-describedby="onboarding-about-description"
                 value={productComment}
                 onChange={(e) => setProductComment(e.target.value.slice(0, 2000))}
                 placeholder={t.aboutPlaceholder}
@@ -331,6 +335,7 @@ export const OnboardingWizard: React.FC = () => {
                     <button
                       key={plan.id}
                       type="button"
+                      aria-pressed={isSelected}
                       onClick={() => setSelectedPlan(plan.id)}
                       className={`w-full rounded-2xl border p-4 text-left transition-all cursor-pointer ${
                         isSelected || plan.highlight
@@ -381,7 +386,7 @@ export const OnboardingWizard: React.FC = () => {
                             className="text-xl font-extrabold"
                             style={{ color: ROSE, fontFamily: "'Outfit', sans-serif" }}
                           >
-                            {plan.price || (planPricesError ? (language === 'ru' ? 'Цена недоступна' : 'Price unavailable') : (language === 'ru' ? 'Загрузка…' : 'Loading…'))}
+                            {plan.price || (planPricesError ? t.priceUnavailable : t.priceLoading)}
                           </div>
                           <div className="text-[11px] text-muted-theme">{t.perMonth}</div>
                         </div>
