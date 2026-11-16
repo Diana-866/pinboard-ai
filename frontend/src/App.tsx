@@ -606,6 +606,8 @@ const MainApp: React.FC = () => {
   };
 
   const handleReconcileLegacySchedule = async (pin: ScheduledPinItem, accountId: string) => {
+    const requestOwnerId = String(user?.id || '');
+    if (!isCurrentScheduleOwner(requestOwnerId)) return;
     try {
       const expected = {
         scheduleId: pin.id,
@@ -619,15 +621,18 @@ const MainApp: React.FC = () => {
           method: 'POST',
           body: JSON.stringify({ pinterest_account_id: accountId }),
         });
+        if (!isCurrentScheduleOwner(requestOwnerId)) return;
         if (!isPersistedScheduleMutationResponse(response, expected)) {
           throw new Error('Сервер не подтвердил привязку аккаунта к этому расписанию.');
         }
         saved = response;
       } catch (originalError) {
+        if (!isCurrentScheduleOwner(requestOwnerId)) return;
         // Account reconciliation is an atomic DB transition. If its response
         // is lost, accept only the exact schedule/account/board from GET.
         try {
           const rows = await apiRequest('/schedule');
+          if (!isCurrentScheduleOwner(requestOwnerId)) return;
           saved = findPersistedScheduleMutation(rows, expected);
           if (!saved) throw originalError;
         } catch {
@@ -648,6 +653,7 @@ const MainApp: React.FC = () => {
       } : item));
       setScheduleReloadToken((value) => value + 1);
     } catch (error) {
+      if (!isCurrentScheduleOwner(requestOwnerId)) return;
       console.error('[schedule] Не удалось восстановить старое расписание:', error);
       window.alert(error instanceof Error ? error.message : 'Не удалось восстановить расписание');
       throw error;
@@ -659,6 +665,8 @@ const MainApp: React.FC = () => {
     pinterestBoardId: string,
     boardName: string
   ) => {
+    const requestOwnerId = String(user?.id || '');
+    if (!isCurrentScheduleOwner(requestOwnerId)) return;
     try {
       let saved: any;
       const expected = {
@@ -672,15 +680,18 @@ const MainApp: React.FC = () => {
           method: 'POST',
           body: JSON.stringify({ pinterest_board_id: pinterestBoardId }),
         });
+        if (!isCurrentScheduleOwner(requestOwnerId)) return;
         if (!isPersistedScheduleMutationResponse(response, expected)) {
           throw new Error('Сервер не подтвердил новое состояние публикации.');
         }
         saved = response;
       } catch (originalError) {
+        if (!isCurrentScheduleOwner(requestOwnerId)) return;
         // A lost or malformed 2xx response is ambiguous. Reconcile only against
         // this exact schedule, target board, account and queued state.
         try {
           const rows = await apiRequest('/schedule');
+          if (!isCurrentScheduleOwner(requestOwnerId)) return;
           saved = findPersistedScheduleMutation(rows, expected);
           if (!saved) throw originalError;
         } catch {
@@ -704,6 +715,7 @@ const MainApp: React.FC = () => {
       // retry metadata and worker state after the atomic board-change RPC.
       setScheduleReloadToken((value) => value + 1);
     } catch (error) {
+      if (!isCurrentScheduleOwner(requestOwnerId)) return;
       console.error('[schedule] Не удалось сменить Pinterest-доску:', error);
       window.alert(error instanceof Error ? error.message : 'Не удалось сменить доску Pinterest');
       throw error;
@@ -711,6 +723,8 @@ const MainApp: React.FC = () => {
   };
 
   const handleRetryScheduledPin = async (pin: ScheduledPinItem) => {
+    const requestOwnerId = String(user?.id || '');
+    if (!isCurrentScheduleOwner(requestOwnerId)) return;
     try {
       let saved: any;
       const expected = {
@@ -723,15 +737,18 @@ const MainApp: React.FC = () => {
         const response = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/retry`, {
           method: 'POST',
         });
+        if (!isCurrentScheduleOwner(requestOwnerId)) return;
         if (!isPersistedScheduleMutationResponse(response, expected)) {
           throw new Error('Сервер не подтвердил новое состояние публикации.');
         }
         saved = response;
       } catch (originalError) {
+        if (!isCurrentScheduleOwner(requestOwnerId)) return;
         // A lost or malformed 2xx response is ambiguous too. Accept only the
         // exact schedule after it is visibly back in the queue on the same destination.
         try {
           const rows = await apiRequest('/schedule');
+          if (!isCurrentScheduleOwner(requestOwnerId)) return;
           saved = findPersistedScheduleMutation(rows, expected);
           if (!saved) throw originalError;
         } catch {
@@ -756,6 +773,7 @@ const MainApp: React.FC = () => {
       } : item));
       setScheduleReloadToken((value) => value + 1);
     } catch (error) {
+      if (!isCurrentScheduleOwner(requestOwnerId)) return;
       console.error('[schedule] Не удалось повторить публикацию:', error);
       window.alert(error instanceof Error ? error.message : 'Не удалось повторить публикацию');
       throw error;
@@ -763,23 +781,29 @@ const MainApp: React.FC = () => {
   };
 
   const handleCancelScheduledPin = async (pin: ScheduledPinItem) => {
+    const requestOwnerId = String(user?.id || '');
+    if (!isCurrentScheduleOwner(requestOwnerId)) return;
     try {
       const response = await apiRequest(`/schedule/${encodeURIComponent(pin.id)}/cancel`, {
         method: 'POST',
       });
+      if (!isCurrentScheduleOwner(requestOwnerId)) return;
       if (!isPersistedScheduleCancellationResponse(response, pin.id)) {
         throw new Error('Сервер не подтвердил отмену именно этой публикации. Проверяем сохранённое расписание.');
       }
       setScheduledPins((prev) => prev.filter((item) => item.id !== pin.id));
     } catch (originalError) {
+      if (!isCurrentScheduleOwner(requestOwnerId)) return;
       // GET /schedule intentionally omits cancelled rows. A valid list without
       // this previously visible schedule confirms that cancellation committed
       // even if the POST response was lost. Any malformed/failed read is inconclusive.
       try {
         const rows = await apiRequest('/schedule');
+        if (!isCurrentScheduleOwner(requestOwnerId)) return;
         if (!isScheduleAbsentFromActiveList(rows, pin.id)) throw originalError;
         setScheduledPins((prev) => prev.filter((item) => item.id !== pin.id));
       } catch {
+        if (!isCurrentScheduleOwner(requestOwnerId)) return;
         console.error('[schedule] Не удалось подтвердить отмену публикации:', originalError);
         window.alert(originalError instanceof Error ? originalError.message : 'Не удалось отменить публикацию');
         throw originalError;
@@ -1005,6 +1029,7 @@ const MainApp: React.FC = () => {
 
           {activeTab === 'calendar' && (
             <PublishingCalendar
+              key={user?.id || 'anonymous'}
               scheduledPins={scheduledPins}
               scheduleLoadError={scheduleLoadError}
               scheduleLoading={scheduleLoading}
