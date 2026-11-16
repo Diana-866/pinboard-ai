@@ -39,6 +39,7 @@ export const PinCanvas: React.FC<PinCanvasProps> = ({
 }) => {
   const { t } = useI18n();
   const [copied, setCopied] = React.useState(false);
+  const [actionError, setActionError] = React.useState('');
   const containerRef = useRef<HTMLDivElement>(null);
 
   const ratio = (data.aspectRatio || '2:3') as SupportedAspectRatio;
@@ -61,64 +62,70 @@ export const PinCanvas: React.FC<PinCanvasProps> = ({
   };
 
   const handleDownload = () => {
+    setActionError('');
     const { width, height } = spec;
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!ctx) {
+      setActionError(t.generator.exportFailed);
+      return;
+    }
 
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
-      // Draw background image
-      ctx.drawImage(img, 0, 0, width, height);
+      try {
+        // Cross-origin images without compatible CORS headers taint the canvas.
+        // Catch SecurityError so a failed download does not break the editor.
+        ctx.drawImage(img, 0, 0, width, height);
 
-      // Dark overlay scrim
-      const gradient = ctx.createLinearGradient(0, 0, 0, height);
-      gradient.addColorStop(0, 'rgba(0,0,0,0.15)');
-      gradient.addColorStop(0.5, 'rgba(0,0,0,0.3)');
-      gradient.addColorStop(1, 'rgba(0,0,0,0.88)');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, width, height);
+        const gradient = ctx.createLinearGradient(0, 0, 0, height);
+        gradient.addColorStop(0, 'rgba(0,0,0,0.15)');
+        gradient.addColorStop(0.5, 'rgba(0,0,0,0.3)');
+        gradient.addColorStop(1, 'rgba(0,0,0,0.88)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
 
-      // Text box
-      ctx.fillStyle = '#FFFFFF';
-      ctx.textAlign = 'center';
+        const isSquare = ratio === '1:1';
+        const headlineY = isSquare ? height - 200 : height - 250;
+        const subheadlineY = isSquare ? height - 130 : height - 170;
+        const brandY = isSquare ? height - 40 : height - 60;
+        ctx.font = `bold ${isSquare ? '42px' : '48px'} "Manrope", "Plus Jakarta Sans", sans-serif`;
+        ctx.fillText(data.headline || 'Minimalist Aesthetic Guide', width / 2, headlineY, width - 120);
+        ctx.font = `${isSquare ? '24px' : '28px'} "Plus Jakarta Sans", sans-serif`;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+        ctx.fillText(data.subheadline || 'Essential Tips & Ideas', width / 2, subheadlineY, width - 140);
+        ctx.font = '600 22px "Plus Jakarta Sans", sans-serif';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.fillText(data.brandText || 'pinposy.com', width / 2, brandY);
 
-      const isSquare = ratio === '1:1';
-      const headlineY = isSquare ? height - 200 : height - 250;
-      const subheadlineY = isSquare ? height - 130 : height - 170;
-      const brandY = isSquare ? height - 40 : height - 60;
-
-      // Headline
-      ctx.font = `bold ${isSquare ? '42px' : '48px'} "Manrope", "Plus Jakarta Sans", sans-serif`;
-      ctx.fillText(data.headline || 'Minimalist Aesthetic Guide', width / 2, headlineY, width - 120);
-
-      // Subheadline
-      ctx.font = `${isSquare ? '24px' : '28px'} "Plus Jakarta Sans", sans-serif`;
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
-      ctx.fillText(data.subheadline || 'Essential Tips & Ideas', width / 2, subheadlineY, width - 140);
-
-      // Brand URL
-      ctx.font = '600 22px "Plus Jakarta Sans", sans-serif';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-      ctx.fillText(data.brandText || 'pinposy.com', width / 2, brandY);
-
-      const a = document.createElement('a');
-      a.download = `pinposy-${ratio.replace(':', 'x')}-${spec.width}x${spec.height}-${Date.now()}.png`;
-      a.href = canvas.toDataURL('image/png');
-      a.click();
-
-      if (onExport) onExport();
+        const a = document.createElement('a');
+        a.download = `pinposy-${ratio.replace(':', 'x')}-${spec.width}x${spec.height}-${Date.now()}.png`;
+        a.href = canvas.toDataURL('image/png');
+        a.click();
+        if (onExport) onExport();
+      } catch {
+        setActionError(t.generator.exportFailed);
+      }
     };
+    img.onerror = () => setActionError(t.generator.exportFailed);
     img.src = data.imageUrl;
   };
 
-  const copyMetadata = () => {
-    navigator.clipboard.writeText(`${data.headline}\n${data.subheadline}\n${data.destinationUrl || ''}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const copyMetadata = async () => {
+    setActionError('');
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(`${data.headline}\n${data.subheadline}\n${data.destinationUrl || ''}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setActionError(t.generator.copyFailed);
+    }
   };
 
   return (
@@ -223,6 +230,12 @@ export const PinCanvas: React.FC<PinCanvasProps> = ({
           )}
         </div>
       </div>
+
+      {actionError && (
+        <p className="mt-2 text-xs text-red-600 dark:text-red-400" role="status" aria-live="polite">
+          {actionError}
+        </p>
+      )}
 
       {/* Pin Canvas Actions */}
       <div className="mt-3 flex items-center gap-2">
