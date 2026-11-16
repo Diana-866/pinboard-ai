@@ -87,3 +87,17 @@ Added this new evidence to UA-002 in `docs/USER_ACTIONS.md` (commit `ed42d6aff10
 - Mandatory NEXT in `docs/PROJECT_STATE.md`: clean disposable PostgreSQL replay of `001_baseline.sql` + active migrations `010–148`, SQL integration suite and backend runtime suite. UA-001 (PostgreSQL binaries/disk check) and UA-002 (GitHub Actions runner/billing/settings check) remain pending in `docs/USER_ACTIONS.md`.
 
 No production data, live schedule, Pinterest account, payment provider or deployed configuration was changed.
+
+
+## Follow-up: localized schedule recovery copy (2026-11-16)
+
+A supplemental review after the package was already recorded complete found several user-facing Russian-only strings in the legacy schedule-account recovery and manual retry guidance. This did not change scheduling state or server contracts, but it made the recovery UI inconsistent for the other supported interface languages.
+
+**Fix on main:** moved the legacy-account title, account selector placeholder, single-account explanation, no-account guidance, reconcile action labels, and manual retry explanation into `TranslationSchema` and all seven supported locales (en, ru, es, pt, de, fr, zh). The single-account message interpolates the actual connected account handle/name. No scheduling mutation behavior changed.
+
+**Files changed:** `frontend/src/components/calendar/PublishingCalendar.tsx`, `frontend/src/i18n/types.ts`, and `frontend/src/i18n/locales/{en,ru,es,pt,de,fr,zh}.ts`.
+
+**Commits:**
+- en `524d01dbdf3cc37d77e788b5e8b8fa7d09f37a27`; ru `80c44dac5cb904bf7682ecb1013af7171f51574e`; es `0bc94edd4f495c482e6f9c04752b6f5a3f5137e6`; pt `1663aa2ce0d99840e8ed6e63d22a47161a5ba5c6`; de `1351a10e770304cc4d44bc28f0275678339e70e6`; fr `1b36c2c30094fdcff5b29eff35b518b37088a4f2`; zh `f6bec75e8df22fbe056a75bbf792d4f9c0f9c75c`; schema `b01f2cc5644a71c621eb6290491fff26096f01bb`; calendar component `83932ff0376174659a5c46ad8dfaf8f46bdf283c`.
+
+All nine changed files were fetched again from `main`; all seven keys were present in the schema, each locale and the component. Eight targeted static assertions passed. No frontend test, typecheck or build was run. The Vercel check for the component commit reports `failure` with target `build-rate-limit`, not a build result.
