@@ -218,6 +218,12 @@ export const pt: TranslationSchema = {
     copyFailed: 'Não foi possível copiar os dados do pin. Verifique as permissões da área de transferência do navegador.',
     pushToCalendarBtn: 'Agendar no Calendário',
     savedToCalendar: 'Pin agendado com sucesso no calendário!',
+    savedPinsLoading: "Carregando os pins salvos deste quadro…",
+    savedPinsRetry: "Tentar carregar novamente",
+    savedPinsLoadError: "Não foi possível carregar os pins salvos. Verifique sua conexão e tente novamente.",
+    addToReviewBtn: "Enviar pin para revisão manual",
+    addToReviewSaving: "Adicionando à fila de revisão…",
+    addToReviewSuccess: "Pin enviado para revisão",
     batchGeneratedNotice: 'Lote de pins gerado com diferentes ângulos do algoritmo.',
   },
 
@@ -585,6 +591,8 @@ export const pt: TranslationSchema = {
 
   review: {
     title: 'Aprovação de Pins Gerados',
+    queueDescription: "Revise seus pins salvos e aprove ou rejeite cada um antes de agendar.",
+    queueCountTemplate: "{count} na fila",
     subtitle: 'Arraste para a direita para aprovar na fila, ou para a esquerda para descartar.',
     approveBtn: 'Aprovar (→)',
     rejectBtn: 'Descartar (←)',
