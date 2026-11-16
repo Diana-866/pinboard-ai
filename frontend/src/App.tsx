@@ -88,6 +88,7 @@ const MainApp: React.FC = () => {
   // Schedule rows belong to the authenticated user. Clear the previous account's
   // calendar immediately on identity change, without clearing it on ordinary reloads.
   const scheduleUserIdRef = React.useRef(user?.id || '');
+  const isCurrentScheduleOwner = (ownerId: string) => Boolean(ownerId) && scheduleUserIdRef.current === ownerId;
   React.useLayoutEffect(() => {
     const nextUserId = user?.id || '';
     if (scheduleUserIdRef.current !== nextUserId) {
@@ -502,6 +503,8 @@ const MainApp: React.FC = () => {
   const pendingCount = pendingReviewPins.length;
 
   const handleSchedulePin = async (pin: ScheduledPinItem) => {
+    const requestOwnerId = String(user?.id || '');
+    if (!isCurrentScheduleOwner(requestOwnerId)) return;
     if (!pin.pinId) {
       window.alert('Не найден ID сохранённого пина. Сначала сохраните пин в генераторе.');
       return;
@@ -528,6 +531,7 @@ const MainApp: React.FC = () => {
       method: 'PATCH',
       body: JSON.stringify(creativePatch),
     });
+    if (!isCurrentScheduleOwner(requestOwnerId)) return;
     if (!updatedPin || updatedPin.id !== pin.pinId ||
         updatedPin.title !== approvedTitle ||
         (approvedDescription !== undefined && updatedPin.description !== approvedDescription)) {
@@ -537,6 +541,7 @@ const MainApp: React.FC = () => {
       method: 'POST',
       body: JSON.stringify({ status: 'approved' }),
     });
+    if (!isCurrentScheduleOwner(requestOwnerId)) return;
     if (!approvedPin || approvedPin.id !== pin.pinId || approvedPin.status !== 'approved') {
       throw new Error('Сервер не подтвердил одобрение пина.');
     }
@@ -561,16 +566,19 @@ const MainApp: React.FC = () => {
         method: 'POST',
         body: JSON.stringify(schedulePayload),
       });
+      if (!isCurrentScheduleOwner(requestOwnerId)) return;
       // A 2xx response is not enough: only accept the exact persisted row that
       // the calendar would later load. Malformed success responses are ambiguous.
       saved = findPersistedScheduleRequest([response], expectedRequest);
       if (!saved) throw new Error('Сервер не подтвердил сохранение расписания.');
     } catch (originalError) {
+      if (!isCurrentScheduleOwner(requestOwnerId)) return;
       // The server may have committed the schedule even when the response was
       // lost or malformed. Reconcile against the persisted list before surfacing
       // the original error; never infer success from a loose pin-ID match alone.
       try {
         const rows = await apiRequest('/schedule');
+        if (!isCurrentScheduleOwner(requestOwnerId)) return;
         saved = findPersistedScheduleRequest(rows, expectedRequest);
         if (!saved) throw originalError;
       } catch {
