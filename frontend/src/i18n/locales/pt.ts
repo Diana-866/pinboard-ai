@@ -358,6 +358,13 @@ export const pt: TranslationSchema = {
     cancelScheduledPin: 'Cancelar publicação agendada',
     cancelScheduledPinConfirm: 'Cancelar esta publicação agendada? Ela não será enviada ao Pinterest.',
     retryFailedPin: "Tentar publicar novamente",
+    legacyScheduleAccountMissingTitle: "Este agendamento antigo não tem uma conta do Pinterest atribuída.",
+    legacyScheduleChooseAccount: "Escolha uma conta",
+    legacyScheduleOnlyAccount: "A única conta conectada será verificada: {account}.",
+    legacyScheduleNoAccount: "Primeiro conecte uma conta do Pinterest em Configurações.",
+    legacyScheduleRestoreAccount: "Verificar conta e restaurar agendamento",
+    legacyScheduleChecking: "Verificando…",
+    retryManualHint: "Este item não será retomado automaticamente após reconectar o Pinterest. Selecione Tentar novamente para colocá-lo na fila.",
     autoTimeMoscowTemplate: "às {time} {timezone} ({moscowTime} MSK no servidor)",
   },
 
