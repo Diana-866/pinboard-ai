@@ -57,6 +57,13 @@ test("Windows replay applies stubs, canonical baseline, then exactly 139 active 
   assert.match(windowsScript, /foreach \(\$migration in \$activeMigrations\)/);
 });
 
+test("Windows replay rejects gaps or out-of-range migrations in the 010-148 chain", () => {
+  assert.match(windowsScript, /10\.\.148/);
+  assert.match(windowsScript, /expectedMigrationSequence/);
+  assert.match(windowsScript, /actualMigrationSequence/);
+  assert.match(windowsScript, /\$actualMigrationSequence -ne \$expectedMigrationSequence/);
+});
+
 test("Windows replay always attempts cleanup after database creation", () => {
   assert.match(windowsScript, /finally \{[\s\S]*DROP DATABASE IF EXISTS \$database/);
 });
