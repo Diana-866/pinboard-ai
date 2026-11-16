@@ -29,6 +29,7 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  isAuthReady: boolean;
   isAdmin: boolean;
   activeViewMode: "client" | "admin";
   setActiveViewMode: (mode: "client" | "admin") => void;
@@ -72,6 +73,7 @@ function clearPreviousUserIfDifferent(userId: string) {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [activeViewMode, setActiveViewMode] = useState<"client" | "admin">("client");
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -125,7 +127,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   useEffect(() => {
-    refreshUser();
+    let active = true;
+    void refreshUser().finally(() => {
+      if (active) setIsAuthReady(true);
+    });
+    return () => { active = false; };
   }, []);
 
   function logout() {
@@ -161,6 +167,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         user,
         isAuthenticated: !!user,
+        isAuthReady,
         isAdmin: !!user?.is_admin,
         activeViewMode,
         setActiveViewMode,
