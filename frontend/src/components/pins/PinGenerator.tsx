@@ -185,9 +185,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   }, [initialDate, initialTime]);
 
   useEffect(() => {
-    if (initialTopic) {
-      setTopic(initialTopic);
-    }
+    // Clear a previous board's topic when navigation returns without a new topic.
+    setTopic(initialTopic || '');
   }, [initialTopic]);
 
   // Aspect ratio mode: single uniform format or mix/randomizer
