@@ -277,3 +277,13 @@ The active `ManualApprovalDesk.tsx` uses 53 distinct `t.review.*` keys. The exis
 The underlying full review-control localization is present in commit `04d97dddec3294e007ac663f593f18beb5264c66`; Chinese review copy was completed in `abce40fa9a0fb682e4a4efe8e822085138d980a7`. Test coverage expansion: `7088c31c21ff194176bb7d5cecab5147bc6e4c9d`.
 
 Readback confirmed all 53 component keys are present in all seven locale dictionaries and all 53 are covered by the test. Ten targeted static assertions passed. The test source was inspected but **not executed**; no typecheck, full suite, browser or screen-reader verification was run. Package 09 remains open.
+
+### FE-22 — generation recovery statuses were not localized consistently
+
+The generation recovery panel previously used mixed inline language branches and RU/EN-only status labels, so users of ES/PT/DE/FR/ZH saw partial English copy. Added 14 typed recovery-copy keys for the section title/accessible label, loading/check actions, explanatory no-credit statement, completion count, five request states, saved-pin navigation, unavailable-board state and dismissal. All seven locale dictionaries now provide the keys. The component uses the typed strings instead of inline language conditions.
+
+Commits: typed schema + PinGenerator + regression test 85624470e798f7d5f0454b555dbb767ce5d3959c; EN 6aab0d0b217830baa181445fa708985123957dde; RU 097fde57271d1720974b30ed71af0923e46b565e; ES d0a7712e322d92c039160301c53c9da5abf1f4e0; PT da5bb32ce17a80bf6cb79f98736ff5faee70f492; DE b0b093385558697c0dcaac5a50e37abc2e89807a; FR 5c2b43d91edcfd619a207a3180636167f87832d9; ZH 00dcfbb6d85064064715570549b0f530a9d1652e.
+
+Readback: 11 files (schema, PinGenerator, test, package script, seven locale dictionaries) were fetched from main. Eighteen targeted static assertions passed, including no inline RU-only conditional in the recovery panel and non-empty translations for every recovery key in all seven locales. The test was not executed; no frontend typecheck/build/browser test was run.
+
+Remaining package-09 work is narrower: other generator scheduling/aspect-ratio/error messages still contain Russian-only or mixed-language copy, and the dashboard's remaining controls/accessibility still need a pass. Package 09 remains open.
