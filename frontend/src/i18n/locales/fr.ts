@@ -358,6 +358,13 @@ export const fr: TranslationSchema = {
     cancelScheduledPin: 'Annuler la publication programmée',
     cancelScheduledPinConfirm: 'Annuler cette publication programmée ? Elle ne sera pas envoyée à Pinterest.',
     retryFailedPin: "Réessayer la publication",
+    legacyScheduleAccountMissingTitle: "Aucun compte Pinterest n’est associé à cette ancienne programmation.",
+    legacyScheduleChooseAccount: "Choisir un compte",
+    legacyScheduleOnlyAccount: "Le seul compte connecté sera vérifié : {account}.",
+    legacyScheduleNoAccount: "Connectez d’abord un compte Pinterest dans les paramètres.",
+    legacyScheduleRestoreAccount: "Vérifier le compte et restaurer la programmation",
+    legacyScheduleChecking: "Vérification…",
+    retryManualHint: "Cet élément ne reprendra pas automatiquement après la reconnexion de Pinterest. Sélectionnez Réessayer pour le remettre dans la file d’attente.",
     autoTimeMoscowTemplate: "à {time} {timezone} ({moscowTime} MSK sur le serveur)",
   },
 
