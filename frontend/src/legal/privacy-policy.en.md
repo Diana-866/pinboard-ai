@@ -76,7 +76,7 @@ Each provider processes data under its own privacy policy.
 
 - Data is stored while your account is active.
 - Upon account deletion, personal data and OAuth tokens are deleted within 30 days. Payment records are retained as required by accounting law.
-- You may request an export of your data by email (see Section 12).
+- You can download the available account-data export yourself in **Settings → Data & Account**. If the export is unavailable or you need help, contact us using the address in Section 12.
 
 ## 7. Your Rights
 
