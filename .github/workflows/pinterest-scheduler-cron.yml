@@ -40,7 +40,7 @@ jobs:
         with:
           node-version: 22
       - name: Install backend dependencies
-        run: npm install --no-package-lock
+        run: npm ci
       - name: Test scheduler response contract
         run: node --test test/schedule-response.test.js
       - name: Test one-shot Cron runner
