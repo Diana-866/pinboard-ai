@@ -998,6 +998,13 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                 : (language === 'ru' ? 'Проверить снова' : 'Check again')}
             </button>
           </div>
+          {recoveryAuthPaused && (
+            <p className="text-xs rounded-lg border border-subtle bg-subtle p-3 text-secondary-theme" role="status">
+              {language === 'ru'
+                ? 'Сессия истекла или сервер отклонил авторизацию. Войдите в аккаунт снова, затем нажмите «Проверить снова». Запросы восстановления сохранены.'
+                : 'Your session may have expired or authorization was rejected. Sign in again, then select “Check again”. Your recovery requests are محفوظ.'}
+            </p>
+          )}
           <p className="text-xs text-secondary-theme">
             {language === 'ru' ? 'Проверка не запускает генерацию и не списывает кредиты.' :
               language === 'es' ? 'La comprobación no genera contenido ni consume créditos.' :
