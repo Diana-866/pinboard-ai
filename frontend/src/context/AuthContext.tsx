@@ -41,7 +41,7 @@ interface AuthContextType {
   closeAuthModal: () => void;
   refreshUser: () => Promise<boolean>;
   logout: () => void;
-  updateUserAvatar: (url: string) => void;
+  updateUserAvatar: (url: string) => boolean;
   updateUser: (patch: Partial<User>) => void;
 }
 
@@ -143,13 +143,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.location.href = "/login";
   }
 
-  function updateUserAvatar(url: string) {
-    setUser((prev) => (prev ? { ...prev, avatar: url } : prev));
+  function updateUserAvatar(url: string): boolean {
     try {
       localStorage.setItem(AVATAR_KEY, url);
     } catch {
-      // localStorage может быть недоступен — не критично
+      return false;
     }
+    setUser((prev) => (prev ? { ...prev, avatar: url } : prev));
+    return true;
   }
 
   function updateUser(patch: Partial<User>) {
