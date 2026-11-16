@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
 # One command that answers "does this repository still work?".
+# GitHub Actions jobs have recently failed before their first step.
 #
 #   ./scripts/verify.sh
 #   ./scripts/verify.sh --migrations
