@@ -96,15 +96,15 @@ Backend в любом случае принудительно обрабатыв
 
 При таймауте сначала проверь `pin_schedules` и `pinterest_publish_attempts`, а не отправляй публикацию повторно вручную. Записи `unknown` нельзя автоматически переводить в `scheduled`: их нужно сверить в Pinterest и восстановить только по подтверждённым данным.
 
-## Heartbeat планировщика — реализация в feature branch, staging validation pending
+## Heartbeat планировщика — реализация в main, staging validation pending
 
-Ветка содержит migration `122_pinterest_scheduler_health_monitor.sql`, helper `backend/pinterestSchedulerHealth.js` и read-only admin endpoint:
+`main` содержит migration `122_pinterest_scheduler_health_monitor.sql`, helper `backend/pinterestSchedulerHealth.js` и read-only admin endpoint:
 
 `GET /admin/operations/pinterest-scheduler`
 
 Внутренний маршрут `POST /internal/pinterest/schedule/run` зарегистрирован в `backend/pinterest.js` через `registerRoutes(app, ...)`, который вызывается из `backend/index.js`. После проверки scheduler secret маршрут вызывает `begin_pinterest_scheduler_run`, выполняет штатный fenced claim/publish flow и фиксирует агрегированный итог через `complete_pinterest_scheduler_run`. Run UUID не позволяет запоздавшему завершению перезаписать запись более нового запуска; begin RPC блокирует перекрывающийся запуск в пределах 20 минут.
 
-**Важно:** наличие кода не означает, что migration уже применена или worker реально работает в production. Migration 122 НЕ применялась к Supabase; runtime tests, SQL integration, lint/build/CI и provider dashboard не проверялись. До production rollout нужны staging-прогон migration 122 и backend tests на одном commit, проверка admin status и отдельное подтверждение владельца.
+**Важно:** наличие кода не означает, что migration уже применена или worker реально работает в production. Применение миграций 122–123 к production Supabase не подтверждено; runtime tests, SQL integration, lint/build/CI и provider dashboard не проверялись. До production rollout нужны staging-прогон migration 122 и backend tests на одном commit, проверка admin status и отдельное подтверждение владельца.
 
 После завершения интеграции ожидаемая модель статусов:
 - `not_seen` — ни одного запуска не зафиксировано;
@@ -114,6 +114,24 @@ Backend в любом случае принудительно обрабатыв
 - `stale` — завершённый запуск старше 3 минут, незавершённый запуск старше 20 минут или timestamp некорректен.
 
 Heartbeat будет подтверждать вызов scheduler endpoint, но не доступность Pinterest API и не отсутствие зависших публикаций. Его нужно сверять с просроченными `scheduled`, зависшими `publishing` и `unknown` записями. Публичный `/health` остаётся только liveness-проверкой API.
+
+## Однократный Cron runner
+
+Для провайдера, который запускает команду по расписанию (например, Cron Job), в backend добавлен отдельный одноразовый entrypoint:
+
+```bash
+npm run cron:schedule
+```
+
+Каждый запуск делает ровно один HTTPS-запрос к `/internal/pinterest/schedule/run`, передаёт секретный заголовок, проверяет структуру ответа и завершает процесс. Запрос не следует за HTTP-редиректами; временные HTTP-агенты закрываются и при успехе, и при ошибке. Ошибка или некорректный ответ завершают процесс с ненулевым exit code, чтобы Cron-провайдер мог отметить запуск как неуспешный.
+
+Переменные окружения Cron Job:
+- `PINPOSY_BACKEND_URL=https://<backend-host>` — только origin backend, без пути;
+- `PINPOSY_SCHEDULER_SECRET` — тот же случайный секрет длиной не менее 32 символов, что задан в backend.
+
+Рекомендуемая частота — раз в минуту, с запретом параллельных запусков на стороне Cron-провайдера. Один вызов обрабатывает максимум одну публикацию. Если очередь пуста, вызов штатно завершается с нулём обработанных записей. Не запускай одновременно `npm run worker` и `npm run cron:schedule`: выбери один способ пробуждения очереди.
+
+Команда и тесты добавлены в PR #78. До прохождения проверок на целевом commit и staging-проверки SQL/публикации не включай production Cron.
 
 ## Проверки перед отправкой
 
@@ -184,7 +202,7 @@ PostgreSQL integration test проверяет:
 Список досок Pinterest загружается с cursor pagination: до 8 страниц по 250 записей (лимит Pinterest — 2 000 досок). Если API вернёт продолжение за пределами этого лимита, backend сообщает об ошибке вместо того, чтобы молча показать неполный список.
 
 
-## Heartbeat планировщика — подключён в backend, требует миграций 122–123
+## Heartbeat планировщика — подключён в backend, требует применения миграций 122–123
 
 Внутренний endpoint `POST /internal/pinterest/schedule/run` находится в `backend/pinterest.js` и регистрируется из `backend/index.js` через `registerRoutes()`. Отдельный процесс `backend/scheduleWorker.js` обращается к нему каждые 30 секунд по умолчанию.
 
@@ -198,6 +216,6 @@ Endpoint:
 
 Migration 122 создаёт таблицу мониторинга и RPC. Migration 123 делает завершённый запуск терминальным: повторное завершение не может перезаписать уже сохранённый результат, а UUID старого запуска не может завершить новый.
 
-**Rollout:** миграции 122–123 находятся только в feature branch и не применялись к production Supabase. До запуска worker/cron требуются staging-прогон точной последовательности миграций и backend на одном commit, Node/PostgreSQL integration tests, проверка секретов и отдельное подтверждение владельца. В production должен работать только один способ пробуждения очереди — отдельный worker ИЛИ внешний cron.
+**Rollout:** миграции 122–123 уже находятся в `main`, но их применение к production Supabase не подтверждено. До запуска worker/cron требуются staging-прогон точной последовательности миграций и backend на одном commit, Node/PostgreSQL integration tests, проверка секретов и отдельное подтверждение владельца. В production должен работать только один способ пробуждения очереди — отдельный worker ИЛИ внешний cron.
 
 Статусы admin health: `not_seen`, `running`, `healthy`, `failed`, `stale`. Heartbeat подтверждает вызов endpoint, но не доступность Pinterest API и не заменяет сверку `scheduled/publishing/unknown`.
