@@ -41,24 +41,18 @@ npm run dev
 
 ## Проверка перед деплоем
 
-GitHub Actions на аккаунте пока не назначает runner для новых запусков, поэтому
-до восстановления CI выполняйте проверки локально:
-
-```bash
-./scripts/verify.sh              # бэкенд: node --check + тесты; фронтенд: tsc + тесты + сборка
-./scripts/verify.sh --migrations # плюс прогон всех миграций на чистой PostgreSQL
-```
-
-На Windows PowerShell используйте нативный сценарий без WSL
-(требуется Node.js 22.12 или новее):
+Пока GitHub Actions не назначает runner для новых запусков, на Windows
+запускайте нативную проверку PowerShell (Node.js 22.12 или новее):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\\scripts\\verify.ps1
+.\\scripts\\verify.ps1
 ```
 
-Оба сценария печатают итог по шагам и завершаются с ненулевым кодом при ошибках.
-Для шага с миграциями в bash-скрипте нужен локальный PostgreSQL (`psql`) и файл
-`db/supabase-stub.sql` — он создаёт роли Supabase и `auth.uid()`.
+Сценарий устанавливает отсутствующие npm-зависимости, выполняет backend syntax
+checks и тесты, затем frontend lint, тесты и production build. Он не подключается
+к production Supabase и не применяет миграции. Проверку SQL-миграций выполняйте
+отдельно на disposable/staging PostgreSQL; локальный PostgreSQL и WSL для
+обычной проверки backend/frontend не требуются.
 
 ## Переменные окружения бэкенда
 
