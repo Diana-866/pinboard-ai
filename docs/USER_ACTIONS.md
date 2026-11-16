@@ -66,6 +66,9 @@
 
 - **Повторная проверка после package-09 auth form fixes (2026-11-16):** актуальный `main` HEAD на момент чтения — `dd0425b157067b42ec7ca1451025bc70358f0f1f`. Runs `43935515983` (Persisted boards integration checks) jobs `133538953685` (frontend) и `133538954674` (backend), а также `43935516070` (Atomic payment fulfillment integration) job `133538954752` (postgres-atomicity) завершились `failure`; все три jobs имеют `runner_id: 0`, `steps: []`. Следовательно, frontend/backend tests, typecheck, build и SQL replay не запускались. Vercel status текущего HEAD — `failure`, `Deployment rate limited — retry in 24 hours`, target `build-rate-limit`; это лимит платформы, не ошибка сборки. UA-002 остаётся открытым; требуется проверка владельцем GitHub billing/Actions permissions и Vercel quota.
 
+
+- **Проверка после FE-19 review localization (2026-11-16):** code/documentation HEAD для workflow run — `c7315a3c086226566e6c7c0f3fced2fb40691954`. Runs `43935942411` (Persisted boards integration checks) jobs `133540420412` (backend) и `133540421082` (frontend), а также `43935942502` (Atomic payment fulfillment integration) job `133540420758` (postgres-atomicity) завершились `failure`; все три jobs имеют `runner_id: 0`, `steps: []`. Runtime tests/typecheck/build/SQL не запускались. Для более позднего документационного HEAD `abce40fa9a0fb682e4a4efe8e822085138d980a7` Vercel commit status пока не вернул запись; последняя явная Vercel запись остаётся rate-limit failure на предыдущем HEAD, а не source build failure. UA-002 остаётся открытым до проверки владельцем GitHub billing/Actions permissions.
+
 ## UA-003 — подтвердить production account-deletion worker и точность privacy disclosures
 
 - **Статус:** [ ] Ожидает проверки владельцем production-инфраструктуры.
