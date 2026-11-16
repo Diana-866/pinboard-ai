@@ -424,6 +424,7 @@ export const de: TranslationSchema = {
     currentBoardSuffix: " (aktuell)",
     replacementBoardSaving: "Wird überprüft und gespeichert…",
     replacementBoardResume: "Board ändern und fortsetzen",
+    replacementBoardResumeDescription: "Pin und Einstellungen bleiben erhalten. Nach Prüfung des neuen Boards wird der Beitrag erneut eingeplant. Dies ist nur möglich, wenn der vorherige Veröffentlichungsversuch nachweislich sicher beendet wurde.",
     retrying: "Wird erneut versucht…",
     cancelling: "Wird abgebrochen…",
   },
