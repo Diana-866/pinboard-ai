@@ -179,3 +179,14 @@ The mobile navigation toggle in `Header.tsx` used the hard-coded English accessi
 **Commits:** translation schema `b2431ac04d144c52392854591166ec5ab3fc6ceb`; EN locale `a3dd8939282c3dccc41d4a6c3fa723fe64383c0d`; RU `f61e9a2177721aabe6aa7cef3462af1d2acf6732`; ES `a3e72f7138a477eb03d5a927999723374bf54757`; PT `17ff73840ae4802cfb96c21f046b67ad0c582d2a`; DE `b7c7986b6c9cbcd8272b6a0003c975b9b9481d2d`; FR `a295b3d2c0542b578a56abba9bca471de024a8d4`; ZH `baa124172b8dff04271d89e52d56de8376947a3c`; component `6d17e4208f46ae4fbc56f33f26018326bb18d1cd`.
 
 The schema, all seven locale files and `Header.tsx` were re-fetched from `main`; all eight declarations and the component binding were confirmed. No test, typecheck, build or browser/screen-reader run was executed. Package 09 remains open.
+
+
+## Supplemental password visibility accessibility and translation typing (FE-14)
+
+The login password visibility toggle was removed from the tab order with `tabIndex={-1}`, so keyboard-only users could not reach it. A concurrent accessibility patch added `aria-label`, `aria-controls` and `aria-pressed`, but referenced `t.hide` / `t.show` even though the typed translation schema exposes no top-level keys with those names.
+
+**Fix on main:** the toggle is now keyboard reachable, exposes its controlled password field and pressed state, and uses `t.common.show` / `t.common.hide`. Added typed `common.show` / `common.hide` keys to the schema and all seven locales.
+
+Commits: accessibility control `dedd6a5e3b89aedca279d025a5a918627434212a`; schema `a8ef1bd12f51e4144b1fcd63e45183b3682190da`; EN `1cbc44b75a659b98ab046ca1020187977dbc8edb`; RU `876d4cecb5c227eec5d44b69f7421123a8e23e0e`; ES `1e03027c70d897b8bc7f7c48373cfe89e95e5f0e`; PT `0dd4a0e2e75a998831344837a50d5a369599fc68`; DE `3c90a14873916cb562270d751039f883cb04922e`; FR `a8772ae0ff0f78156119c56fda525d302c820324`; ZH `3fd399924cacba5523fc2beb032bf60c05db79f7`; Login typed-label correction `d30768512b154a002b35d179734faded81c6b62f`.
+
+All eight changed files were re-fetched from `main`; four targeted assertions passed for schema, all locales, typed label usage, keyboard reachability and pressed/controls semantics. No typecheck or keyboard/screen-reader runtime test was run. Package 09 remains open.
