@@ -137,7 +137,7 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - [x] Получить дерево репозитория на исходном commit.
 - [x] Зафиксировать исходный SHA и ветку.
 - [x] Выборочно открыть ключевые frontend/backend/SQL файлы.
-- [~] Проведены четыре ограниченных пакета backend-аудита: 8 core-модулей, 7 auth/account lifecycle-модулей, 11 billing/credits/Prodamus-модулей и 7 GPTunnel/Pinterest admin recovery-модулей; отчёты `docs/backend-audit/01-core-modules.md`–`04-gptunnel-pinterest-admin.md`. Остальные модули, маршруты и тесты не проверены.
+- [~] Проведены пять ограниченных пакетов backend-аудита: core, auth/account lifecycle, billing/credits/Prodamus, GPTunnel/Pinterest admin recovery и Pinterest OAuth/account lifecycle; отчёты `docs/backend-audit/01-core-modules.md`–`05-pinterest-oauth-account.md`. Остальные модули, маршруты и тесты не проверены.
 - [ ] Построчно проанализировать все исходники frontend.
 - [ ] Проанализировать все миграции и SQL-тесты.
 - [ ] Проанализировать тесты, скрипты, workflow и конфигурации.
@@ -251,7 +251,7 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 
 ## 7. Текущая следующая задача
 
-**NEXT: продолжить статический backend-аудит с Pinterest OAuth/token lifecycle, scheduler/worker, Storage/image lifecycle, projects/boards/pins/resource ownership и полным `backend/index.js`, сверяя каждый модуль с его тестами и SQL. Отдельный блокер остаётся открытым: GitHub Actions checkout regression workflow run #10 attempt 2 завершился failure до шагов, Node tests не запускались; требуется работоспособный runner и реальный запуск, затем повторно проверить Vercel (сейчас build-rate-limit). Не помечать тесты пройденными. PR #88 не объединять: checkout fix адресно перенесён в main, PR основан на старом SHA. Не запускать реальные платежи и не менять production.
+**NEXT: продолжить статический backend-аудит с scheduler/worker, publication lifecycle, Storage/image lifecycle, projects/boards/pins/resource ownership и полным `backend/index.js`, сверяя каждый модуль с его тестами и SQL. Отдельный блокер остаётся открытым: GitHub Actions checkout regression workflow run #10 attempt 2 завершился failure до шагов, Node tests не запускались; требуется работоспособный runner и реальный запуск, затем повторно проверить Vercel (сейчас build-rate-limit). Не помечать тесты пройденными. PR #88 не объединять: checkout fix адресно перенесён в main, PR основан на старом SHA. Не запускать реальные платежи и не менять production.
 
 ## 8. Журнал изменений паспорта
 - 2026-11-16 — создан первоначальный паспорт на основе дерева репозитория и выборочного чтения файлов на commit `1914c5c5`. Полный аудит не завершён.
@@ -259,3 +259,4 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - 2026-11-16 — добавлен пакет 02: просмотрены auth/account lifecycle-модули, их маршруты, 12+ тестовых/контрактных файлов и auth SQL migrations; зафиксирован startup/readiness gap при отсутствии `JWT_SECRET`. Node/PostgreSQL tests не запускались; production не изменялся. Отчёт: `docs/backend-audit/02-auth-account-lifecycle.md`.
 - 2026-11-16 — пакет 03: проверены billing/credits/Prodamus, админские финансовые операции, webhook, тестовые контракты и SQL migrations. Исправлен дефект принятия checkout URL из HTTP non-2xx; 4xx release теперь требует подтверждённого закрытия pending row и RPC, прочие ошибки остаются unknown. Добавлены regression tests и CI workflow на push/PR. GitHub Actions checkout regression run #10 attempt 2 завершился failure до шагов; Node tests НЕ запускались. Vercel status = build-rate-limit. PR #88 не объединён; патч перенесён адресно в main. Отчёт: `docs/backend-audit/03-billing-credits-prodamus.md`.
 - 2026-11-16 — пакет 04: проверены GPTunnel AI, website analysis SSRF controls, keyword/output validation, Pinterest admin inventory и positive-only reconciliation, связанные routes/tests и SQL migrations. В коде не подтверждён критический дефект; зафиксирована требующая продуктового решения зона тарификации legacy text routes (analysis/keywords/boards), не объявленная дефектом без утверждённой модели цен. Runtime tests и production интеграции не запускались. Отчёт: `docs/backend-audit/04-gptunnel-pinterest-admin.md`.
+- 2026-11-16 — пакет 05: проверены Pinterest OAuth/account routes, browser binding, token refresh lease/uncertainty fencing, account record encryption migration, pagination, related tests and SQL. В проверенном пакете не подтверждён критический дефект; staging OAuth и PostgreSQL tests не запускались. Отчёт: `docs/backend-audit/05-pinterest-oauth-account.md`.
