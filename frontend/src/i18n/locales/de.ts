@@ -358,6 +358,13 @@ export const de: TranslationSchema = {
     cancelScheduledPin: 'Geplante Veröffentlichung abbrechen',
     cancelScheduledPinConfirm: 'Diese geplante Veröffentlichung abbrechen? Sie wird nicht an Pinterest gesendet.',
     retryFailedPin: "Erneut versuchen",
+    legacyScheduleAccountMissingTitle: "Diesem älteren Zeitplan ist kein Pinterest-Konto zugeordnet.",
+    legacyScheduleChooseAccount: "Konto auswählen",
+    legacyScheduleOnlyAccount: "Das einzige verbundene Konto wird überprüft: {account}.",
+    legacyScheduleNoAccount: "Verbinden Sie zuerst ein Pinterest-Konto in den Einstellungen.",
+    legacyScheduleRestoreAccount: "Konto prüfen und Zeitplan wiederherstellen",
+    legacyScheduleChecking: "Wird geprüft…",
+    retryManualHint: "Dieser Eintrag wird nach dem erneuten Verbinden von Pinterest nicht automatisch fortgesetzt. Wählen Sie „Erneut versuchen“, um ihn wieder in die Warteschlange zu stellen.",
     autoTimeMoscowTemplate: "um {time} {timezone} ({moscowTime} MSK auf dem Server)",
   },
 
