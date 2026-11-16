@@ -48,6 +48,8 @@ jobs:
         run: node --test backend/test/pin-image-lifecycle.test.js
       - name: Test concurrent pin image replacement guard
         run: node --test backend/test/pin-image-compare-and-swap.test.js
+      - name: Test atomic pin publication status fencing
+        run: node --test backend/test/pin-status-publication-fencing.test.js backend/test/pin-status-guard.test.js
       - name: Test cleanup of unsent payment records
         run: node --test backend/test/payment-record-cleanup.test.js
       - name: Test checkout settlement helper
@@ -340,6 +342,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/143_account_deletion_wait_for_financial_outcomes.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/144_account_deletion_stage_completion_guards.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/145_pin_image_lifecycle_guard_review_and_board_references.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/146_atomic_pin_publication_status_fencing.sql
       - name: Verify Pinterest credentials are disconnected for deletion-pending accounts
         env:
           PGPASSWORD: postgres
@@ -488,6 +491,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-account-publication.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-known-remote-id-recovery.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-publication-board-integrity.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-status-publication-fencing.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-operator-reconciliation.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/admin-pinterest-inventory.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-failed-board-reassignment.integration.sql
