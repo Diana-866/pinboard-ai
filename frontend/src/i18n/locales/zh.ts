@@ -686,7 +686,7 @@ export const zh: TranslationSchema = {
     floatingButton: 'Pinterest AI 策略顾问',
     title: 'PinPosy AI 策略顾问',
     subtitle: '根据你的账户数据回答',
-    statusBadge: '在线',
+    statusBadge: "演示模式",
     disclaimerPeak: '这个助手只告诉你功能在哪里，并显示你当前的账户数字。它看不到 Pinterest 的统计数据——应用目前还拿不到这个权限。',
     welcomeMessage: '你好！我可以显示你账户里的现状，并告诉你功能在哪个页面。用你自己的话提问就好。',
     quickQuestion1: '在哪里查看 Pin 的数据？',
