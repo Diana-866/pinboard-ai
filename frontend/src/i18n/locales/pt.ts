@@ -424,6 +424,7 @@ export const pt: TranslationSchema = {
     currentBoardSuffix: " (atual)",
     replacementBoardSaving: "Verificando e salvando…",
     replacementBoardResume: "Trocar a pasta e retomar",
+    replacementBoardResumeDescription: "O Pin e suas configurações serão mantidos. Após verificar a nova pasta, a publicação voltará à fila. Isso só é possível se a tentativa anterior terminou com segurança.",
     retrying: "Tentando novamente…",
     cancelling: "Cancelando…",
   },
