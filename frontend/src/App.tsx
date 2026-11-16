@@ -44,6 +44,7 @@ import { getOrCreateProject } from './utils/projectProvisioning';
 import { validatePersistedScheduleRows } from './utils/persistedSchedule';
 import { mergeRestoredReviewQueue } from './utils/reviewQueueHydration';
 import { isReviewQueueOwnerCurrent } from './utils/reviewQueueOwnerFence';
+import { isScheduleOwnerCurrent } from './utils/scheduleOwnerFence';
 import { findPersistedScheduleMutation, findPersistedScheduleRequest, isPersistedScheduleMutationResponse, isScheduleAbsentFromActiveList, isPersistedScheduleCancellationResponse } from './utils/scheduleMutationReconciliation';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -88,7 +89,7 @@ const MainApp: React.FC = () => {
   // Schedule rows belong to the authenticated user. Clear the previous account's
   // calendar immediately on identity change, without clearing it on ordinary reloads.
   const scheduleUserIdRef = React.useRef(user?.id || '');
-  const isCurrentScheduleOwner = (ownerId: string) => Boolean(ownerId) && scheduleUserIdRef.current === ownerId;
+  const isCurrentScheduleOwner = (ownerId: string) => isScheduleOwnerCurrent(scheduleUserIdRef.current, ownerId);
   React.useLayoutEffect(() => {
     const nextUserId = user?.id || '';
     if (scheduleUserIdRef.current !== nextUserId) {
