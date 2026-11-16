@@ -38,6 +38,8 @@ export const zh: TranslationSchema = {
     copy: '复制',
     copied: '已复制！',
     close: '关闭',
+    show: '显示',
+    hide: '隐藏',
     refresh: '刷新',
     status: '状态',
     actions: '操作',
