@@ -96,6 +96,21 @@ Last updated: 2026-11-16
 - **2026-11-16 — PIN_TRIAL inventory, step 8:** Received the user's uploaded text file containing the output of the read-only `pg_constraint` query. Purpose: inventory primary keys, foreign keys, unique constraints, and check constraints without modifying the test database or reading application row data. Result: 100 rows across 18 tables (`account_deletion_events` through `pin_regeneration_requests`): 17 PRIMARY KEY, 10 FOREIGN KEY, 12 UNIQUE, and 61 CHECK rows. The file ends at `pin_regeneration_requests_quote_valid`, so later tables are not represented in this supplied portion. Attribution: the user supplied the query output; the assistant inspected the uploaded text file, but did not execute SQL against the database.
 - **Next action rationale:** Continue from the first table after `pin_regeneration_requests` to avoid repeating already supplied rows. Do not begin index comparison until the full constraint inventory is received and its table coverage checked.
 
+## Constraint inventory — completion (user-provided, 2026-11-16)
+
+- [x] Received the remaining read-only `pg_constraint` rows for tables alphabetically after `pin_regeneration_requests`.
+- [x] This continuation contains 70 rows across 16 tables: `pin_review_queue`, `pin_schedules`, `pins`, `pinterest_account_refresh_leases`, `pinterest_accounts`, `pinterest_oauth_connection_state`, `pinterest_operator_reconciliations`, `pinterest_publications`, `pinterest_publish_attempts`, `pinterest_scheduler_monitor`, `pinterest_token_refresh_leases`, `projects`, `provider_refund_operator_actions`, `provider_refund_reconciliation_audit`, `subscriptions`, and `users`.
+- [x] Combined with continuation 1, the supplied query output contains 170 constraint rows across 34 of the 35 inventoried `public` tables: 33 PRIMARY KEY, 22 FOREIGN KEY, 16 UNIQUE, and 99 CHECK constraints.
+- [!] `gptunnel_provider_cost_ledger` is the one inventoried table with no row in the supplied `pg_constraint` output. This indicates no constraints were returned for it by this query; it does not establish whether indexes or other database objects exist.
+- [x] Constraint query coverage is now accounted for across all 35 inventoried application tables: 34 tables with returned constraints and one table with none returned.
+- [ ] Inspect indexes separately, including unique and partial indexes, because index inventory is distinct from the constraint catalog.
+
+## Development activity log — continuation
+
+- **2026-11-16 — PIN_TRIAL inventory, step 9:** Received the user's second uploaded text file containing the remaining read-only `pg_constraint` output. Purpose: complete the constraint inventory after the prior file ended at `pin_regeneration_requests`. Result: 70 rows across 16 tables, from `pin_review_queue` through `users`: 38 CHECK, 16 PRIMARY KEY, 12 FOREIGN KEY, and 4 UNIQUE rows. Attribution: the user supplied the SQL output; the assistant inspected the file and counted the returned rows, but did not execute SQL against the database.
+- **2026-11-16 — Constraint inventory milestone:** Combined both supplied result segments: 170 rows across 34 tables, consisting of 33 PRIMARY KEY, 22 FOREIGN KEY, 16 UNIQUE, and 99 CHECK constraints. The original 35-table inventory includes `gptunnel_provider_cost_ledger`, for which the supplied `pg_constraint` query returned no rows. Record this as no constraints returned by that catalog query, not as proof that the table has no indexes or other supporting objects.
+- **Next action rationale:** Query indexes separately. Indexes may enforce uniqueness or support query paths without appearing as standalone constraint rows; inspect definitions and predicates before comparing against canonical migrations.
+
 ## Safety rules
 
 - This record concerns the test database `PIN_TRIAL`, not production.
