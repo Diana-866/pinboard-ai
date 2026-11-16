@@ -54,6 +54,8 @@ jobs:
         run: node --test backend/test/startup-config.test.js backend/test/app-boot.test.js
       - name: Test production tariff self-selection guard
         run: node --test backend/test/tariff-self-select.test.js
+      - name: Test bounded admin mailbox inputs
+        run: node --test backend/test/mail-input-validation.test.js
       - name: Test cleanup of unsent payment records
         run: node --test backend/test/payment-record-cleanup.test.js
       - name: Test checkout settlement helper
