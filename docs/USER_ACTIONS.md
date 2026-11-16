@@ -227,3 +227,11 @@
 ### UA-001 — fast-forward sync локального main завершён (2026-11-16)
 
 Пользователь выполнил `git pull --ff-only origin main`; операция прошла успешно. Локальная ветка обновлена с `0d393d34a0fbccf24dc46eefe5bf69281db965c5` до `ba6caa67ad9903b964172e9d0ce2d5609be0bbd0`, fast-forward затронул 90 файлов (4221 insertions, 705 deletions). После операции `git status --short --branch` вывел `## main...origin/main` (чисто), `git rev-parse HEAD` — `ba6caa67ad9903b964172e9d0ce2d5609be0bbd0`. Локальный checkout синхронизирован с origin/main. Никакие тесты и миграции не запускались. Следующий шаг — контролируемый migration-only replay на временном PG18 cluster (127.0.0.1:55439), без frontend/backend проверок.
+
+
+## UA-001 — повторить migration replay после исправления 140 (2026-11-16)
+
+- Первый локальный replay на временном PostgreSQL 18.6 достиг migration 140 и завершился с SQL syntax error. Disposable DB `pinposy_verify_13212ccdd0602` успешно удалена самим verify script; временный cluster `X:\\PinPosy-verify-pg18` на `127.0.0.1:55439` оставлен работающим.
+- Исправление migration 140 уже находится в GitHub main: `b2cb16ca75d7723f345ecd270cb77cc72149be51`. В локальном checkout пользователя всё ещё старая версия файла, поэтому повторный запуск до fast-forward sync запрещён.
+- **Единственное необходимое действие владельца:** выполнить `git pull --ff-only origin main` из корня репозитория, затем прислать только вывод `git rev-parse HEAD` и `git hash-object db/migrations/140_account_deletion_review_queue_image_manifest.sql`. Пароли/секреты не присылать. После сверки ассистент подготовит один обновлённый блок повторного replay с проверкой точного HEAD и blob SHA.
+- Не удалять и не переинициализировать временный cluster; не останавливать его без отдельного согласия. Production, PIN_TRIAL и существующий PostgreSQL cluster не трогать.
