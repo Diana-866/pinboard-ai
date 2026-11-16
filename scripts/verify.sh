@@ -72,7 +72,7 @@ migration_replay() {
   local scratch
   scratch="$(mktemp -d)"
   SCRATCH_DIRS+=("$scratch")
-  cp -r "$ROOT/db/migrations" "$ROOT/db/supabase-stub.sql" "$scratch/" 2>/dev/null || {
+  cp -r "$ROOT/db/migrations" "$ROOT/db/supabase-stub.sql" "$ROOT/backend/test/account-deletion-storage-manifest.integration.sql" "$scratch/" 2>/dev/null || {
     echo "missing db/migrations or db/supabase-stub.sql"
     return 1
   }
@@ -82,12 +82,25 @@ migration_replay() {
   "${psql_cmd[@]}" -d "$db" -f "$scratch/supabase-stub.sql" >/dev/null || return 1
   local failed=0
   for migration in "$scratch"/migrations/*.sql; do
+    # Only replay the canonical install chain. 000_check_schema.sql is a
+    # diagnostic, and 002-008 are retained historical files marked legacy.
+    case "$(basename "$migration")" in
+      001_baseline.sql|0[1-9][0-9]_*.sql|1[0-4][0-9]_*.sql) ;;
+      *) continue ;;
+    esac
     if ! "${psql_cmd[@]}" -d "$db" -f "$migration" >/dev/null 2>&1; then
       echo "migration failed: $(basename "$migration")"
       failed=1
       break
     fi
   done
+  if [ "$failed" -eq 0 ]; then
+    echo "▶ account deletion Storage manifest + financial retention integration"
+    if ! "${psql_cmd[@]}" -d "$db" -f "$scratch/account-deletion-storage-manifest.integration.sql"; then
+      echo "account deletion Storage manifest integration test failed"
+      failed=1
+    fi
+  fi
   "${psql_cmd[@]}" -c "drop database if exists ${db}" >/dev/null 2>&1
   return $failed
 }
