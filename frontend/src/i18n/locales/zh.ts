@@ -424,6 +424,7 @@ export const zh: TranslationSchema = {
     currentBoardSuffix: "（当前）",
     replacementBoardSaving: "正在验证并保存…",
     replacementBoardResume: "更换画板并恢复",
+    replacementBoardResumeDescription: "Pin 及其设置将保留。验证新画板后，发布任务将重新排队。仅当上一次发布尝试已确认安全结束时才可执行。",
     retrying: "正在重试…",
     cancelling: "正在取消…",
   },
