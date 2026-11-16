@@ -94,6 +94,14 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
+  const handleNotificationActivate = (item: (typeof notifications)[number]) => {
+    markAsRead(item.id);
+    if (item.actionTab && onNavigateTab) {
+      onNavigateTab(item.actionTab);
+      setNotifDropdownOpen(false);
+    }
+  };
+
   return (
     <header className="h-16 px-4 md:px-6 flex items-center justify-between border-b border-subtle bg-surface sticky top-0 z-30 transition-colors">
       {/* Zone 1 & 2: Breadcrumb / Mobile hamburger */}
@@ -135,6 +143,8 @@ export const Header: React.FC<HeaderProps> = ({
             className="relative p-2 rounded-lg text-secondary-theme hover:text-primary-theme hover:bg-subtle border border-subtle transition-colors cursor-pointer"
             title={t.notifications.bellTitle}
             aria-label={t.notifications.bellTitle}
+            aria-expanded={notifDropdownOpen}
+            aria-controls="notification-center"
           >
             <Bell className="w-4 h-4" />
             {unreadCount > 0 && (
@@ -148,7 +158,12 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           {notifDropdownOpen && (
-            <div className="absolute right-0 mt-1.5 w-[calc(100vw-2rem)] sm:w-96 max-w-sm bg-surface border border-strong rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col max-h-[460px]">
+            <div
+              id="notification-center"
+              role="region"
+              aria-label={t.notifications.title}
+              className="absolute right-0 mt-1.5 w-[calc(100vw-2rem)] sm:w-96 max-w-sm bg-surface border border-strong rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col max-h-[460px]"
+            >
               {/* Header */}
               <div className="p-3.5 border-b border-subtle bg-subtle/50 flex items-center justify-between">
                 <div>
@@ -208,14 +223,16 @@ export const Header: React.FC<HeaderProps> = ({
                     return (
                       <div
                         key={item.id}
-                        onClick={() => {
-                          markAsRead(item.id);
-                          if (item.actionTab && onNavigateTab) {
-                            onNavigateTab(item.actionTab);
-                            setNotifDropdownOpen(false);
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleNotificationActivate(item)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            handleNotificationActivate(item);
                           }
                         }}
-                        className={`p-3 text-xs transition-colors cursor-pointer hover:bg-subtle flex items-start gap-2.5 ${
+                        className={`p-3 text-xs transition-colors cursor-pointer hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent flex items-start gap-2.5 ${
                           !item.isRead ? 'bg-accent/5' : ''
                         }`}
                       >
