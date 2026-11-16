@@ -78,6 +78,9 @@ const MainApp: React.FC = () => {
   const { aiContentLanguage, t } = useI18n();
   const { refreshUser } = useAuth();
  const { activeViewMode, setActiveViewMode, isPrivacyModalOpen, closePrivacyModal, isAdmin, user } = useAuth();
+  // Keep the latest auth refresh callback without restarting checkout-return polling on every render.
+  const refreshUserRef = React.useRef(refreshUser);
+  refreshUserRef.current = refreshUser;
 
   // Schedule rows belong to the authenticated user. Clear the previous account's
   // calendar immediately on identity change, without clearing it on ordinary reloads.
@@ -241,7 +244,7 @@ const MainApp: React.FC = () => {
 
     const timers = [0, 3000, 8000, 15000].map((ms) =>
       window.setTimeout(() => {
-        refreshUser().catch(() => {});
+        refreshUserRef.current().catch(() => {});
       }, ms)
     );
     // Чистим query, чтобы обновление страницы не запускало опрос заново
@@ -249,7 +252,7 @@ const MainApp: React.FC = () => {
     url.searchParams.delete('payment');
     window.history.replaceState({}, '', url.toString());
     return () => timers.forEach((t) => window.clearTimeout(t));
-  }, [refreshUser]);
+  }, []);
 
   // Онбординг: визард показываем, пока пользователь его не прошёл
   const needsOnboarding = !!user && user.onboarded === false;
