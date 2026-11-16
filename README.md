@@ -53,6 +53,14 @@ GitHub Actions на аккаунте не запускаются (раннеры
 Для шага с миграциями нужен локальный PostgreSQL (`psql`) и файл
 `db/supabase-stub.sql` — он создаёт роли Supabase и `auth.uid()`.
 
+На Windows (PowerShell, Node.js 22.12+):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\\scripts\\verify.ps1
+```
+
+PowerShell-сценарий запускает backend syntax/tests и frontend TypeScript/tests/build; зависимости устанавливаются через `npm ci` по lock-файлам. Он не применяет миграции и не обращается к production-сервисам.
+
 ## Переменные окружения бэкенда
 
 Полный список с назначением и признаком обязательности — в
