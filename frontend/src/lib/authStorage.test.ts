@@ -56,3 +56,16 @@ test("rejects empty or non-string tokens", () => {
     assert.equal(readAuthToken(), null);
   });
 });
+
+test("route guard predicate fails closed when storage is blocked", () => {
+  withWindow({ get localStorage() { throw new Error("SecurityError"); } }, () => {
+    assert.equal(hasStoredAuthToken(), false);
+  });
+  const values = new Map([["token", "valid-token"]]);
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => { values.set(key, value); },
+    removeItem: (key: string) => { values.delete(key); },
+  };
+  withWindow({ localStorage: storage }, () => assert.equal(hasStoredAuthToken(), true));
+});
