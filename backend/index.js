@@ -1499,6 +1499,13 @@ app.get("/boards", requireAuth, async (req, res) => {
       }
     }
 
+    // Each project-ID batch is ordered independently; restore the global
+    // newest-first ordering before returning the combined result.
+    boards.sort((a, b) =>
+      String(b.created_at || "").localeCompare(String(a.created_at || "")) ||
+      String(b.id || "").localeCompare(String(a.id || ""))
+    );
+
     // Fetch exact counts without downloading pin rows. Concurrent requests
     // are bounded to small batches to avoid overloading PostgREST.
     const pinCounts = new Map();
