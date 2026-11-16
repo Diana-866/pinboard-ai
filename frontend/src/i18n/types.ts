@@ -773,6 +773,13 @@ export interface TranslationSchema {
     reviewQueueSyncErrorMessage: string;
   };
 
+  // Plan-gated section overlay
+  lockedSection: {
+    title: string;
+    description: string;
+    viewPlans: string;
+  };
+
   // Terms & Peak Load Policy
   terms: {
     peakLoadTitle: string;
