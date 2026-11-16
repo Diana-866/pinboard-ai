@@ -1244,23 +1244,15 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
 app.get("/review-queue", requireAuth, async (req, res) => {
   try {
     const userId = String(req.userId);
-    // Supabase/PostgREST applies a per-request row cap. Page through the
-    // complete queue so large review backlogs are not silently truncated.
-    const pageSize = 500;
-    const rows = [];
-    for (let offset = 0; ; offset += pageSize) {
-      const { data: page, error: queueError } = await supabase
-        .from("pin_review_queue")
-        .select("id,pin_id,payload,created_at,updated_at")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: true })
-        .order("id", { ascending: true })
-        .range(offset, offset + pageSize - 1);
-      if (queueError) throw queueError;
-      const batch = page || [];
-      rows.push(...batch);
-      if (batch.length < pageSize) break;
-    }
+    // Use the shared bounded pager so a very large review backlog cannot
+    // trigger an unbounded query loop or memory growth. Overflow is explicit.
+    const rows = await fetchAllPages((from, to) => supabase
+      .from("pin_review_queue")
+      .select("id,pin_id,payload,created_at,updated_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to));
     const pinIds = [...new Set(rows
       .map((row) => row.pin_id || (row.payload && row.payload.pinId))
       .filter(Boolean)
