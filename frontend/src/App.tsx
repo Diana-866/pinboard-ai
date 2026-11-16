@@ -499,6 +499,23 @@ const MainApp: React.FC = () => {
   const pendingCount = pendingReviewPins.length;
 
   const handleSchedulePin = async (pin: ScheduledPinItem) => {
+    // A schedule operation can span several API requests. Fence every async
+    // continuation to the authenticated session that initiated it, including
+    // A -> B -> A switches where comparing user IDs alone is insufficient.
+    const ownerSnapshot = {
+      userId: pendingReviewUserIdRef.current,
+      generation: pendingReviewOwnerGenerationRef.current,
+    };
+    const isCurrentOwner = () => isReviewQueueOwnerCurrent(ownerSnapshot, {
+      userId: pendingReviewUserIdRef.current,
+      generation: pendingReviewOwnerGenerationRef.current,
+    });
+    const assertCurrentOwner = () => {
+      if (!ownerSnapshot.userId || !isCurrentOwner()) {
+        throw new Error('Сессия пользователя изменилась. Обновите страницу и повторите действие.');
+      }
+    };
+    assertCurrentOwner();
     if (!pin.pinId) {
       window.alert('Не найден ID сохранённого пина. Сначала сохраните пин в генераторе.');
       return;
@@ -525,6 +542,7 @@ const MainApp: React.FC = () => {
       method: 'PATCH',
       body: JSON.stringify(creativePatch),
     });
+    assertCurrentOwner();
     if (!updatedPin || updatedPin.id !== pin.pinId ||
         updatedPin.title !== approvedTitle ||
         (approvedDescription !== undefined && updatedPin.description !== approvedDescription)) {
@@ -534,6 +552,7 @@ const MainApp: React.FC = () => {
       method: 'POST',
       body: JSON.stringify({ status: 'approved' }),
     });
+    assertCurrentOwner();
     if (!approvedPin || approvedPin.id !== pin.pinId || approvedPin.status !== 'approved') {
       throw new Error('Сервер не подтвердил одобрение пина.');
     }
@@ -558,6 +577,7 @@ const MainApp: React.FC = () => {
         method: 'POST',
         body: JSON.stringify(schedulePayload),
       });
+      assertCurrentOwner();
       // A 2xx response is not enough: only accept the exact persisted row that
       // the calendar would later load. Malformed success responses are ambiguous.
       saved = findPersistedScheduleRequest([response], expectedRequest);
@@ -568,12 +588,14 @@ const MainApp: React.FC = () => {
       // the original error; never infer success from a loose pin-ID match alone.
       try {
         const rows = await apiRequest('/schedule');
+        assertCurrentOwner();
         saved = findPersistedScheduleRequest(rows, expectedRequest);
         if (!saved) throw originalError;
       } catch {
         throw originalError;
       }
     }
+    assertCurrentOwner();
     const date = formatInstantInTimezone(new Date(saved.scheduled_at), timezone);
     const persisted: ScheduledPinItem = {
       ...pin,
