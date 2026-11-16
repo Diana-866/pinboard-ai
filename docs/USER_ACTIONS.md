@@ -165,3 +165,18 @@
 
 
 - **Сверка обязательного DB gate 2026-11-16 (main HEAD `e3db7f8523b43594fc55215b351d87d53d1b8240`):** повторно проверены проектный паспорт, scripts, migration-chain test и canonical baseline. Требуемый порядок не изменился: disposable PostgreSQL replay `001_baseline.sql` + ровно 139 migrations `010–148`, затем SQL integration и backend runtime. В assistant environment PostgreSQL binaries/client, Docker/Podman, PowerShell/pwsh и checkout отсутствуют; DNS GitHub не разрешается. Никакие replay/tests/DB commands не запускались. PR #90 остаётся open/draft/unmerged; compare с main теперь `diverged`, 3 commits ahead / 457 behind (ранее было 456); metadata `mergeable=true` не отменяет отставание. Windows job `43908889550` / `133445082390` всё ещё queued, без steps/runner assignment. Текущий main docs HEAD: Actions runs не обнаружены, Vercel status `failure` target `build-rate-limit` (deployment quota, не build result). UA-001/002/003 остаются открытыми. **После возвращения владельца:** выполнить UA-001 четырьмя read-only командами для PostgreSQL 18 binaries и свободного места X:, затем перед созданием отдельного disposable cluster согласовать следующий шаг; проверить UA-002 (Actions billing/policies и Windows runner Online/Idle с labels `self-hosted`, `Windows`, `X64`). Не присылать секреты, пароли или runner registration tokens. Не трогать существующий PostgreSQL cluster, `PIN_TRIAL` или production.
+
+## UA-001 — disposable PostgreSQL 18 replay (обновление 2026-11-16)
+
+**Согласование владельца получено:** разрешён отдельный временный PostgreSQL cluster только в новом каталоге на X:, на отдельном порту, bind только `127.0.0.1`. Существующий кластер (включая работающий ранее обнаруженный процесс `postgres.exe` PID 5632), `PIN_TRIAL` и production не трогать.
+
+**Действие владельца, Step 1 (read-only preflight):**
+- Каталог `X:\\PinPosy-verify-pg18`: свободен (Test-Path = false).
+- TCP port `55439`: свободен (Get-NetTCPConnection -LocalPort 55439 -State Listen не вернул listener).
+- `X:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe`: найден (Test-Path = true).
+- `pg_ctl --version`: PostgreSQL 18.6.
+- Предыдущий preflight: `initdb.exe` и `pg_ctl.exe` версии 18.6, `postgres.exe` найден, X: свободно 167,962,349,568 bytes; работающий postgres PID 5632 не останавливался и не изменялся.
+
+**Что это подтверждает:** можно продолжать подготовку изолированного временного кластера. Это НЕ означает, что кластер создан или миграции выполнены.
+
+**Следующий шаг:** сверить initdb authentication options и создать новый data directory только после повторной проверки отсутствия каталога и доступности порта. Любая команда подключения/создания БД должна использовать явный host `127.0.0.1` и порт `55439`. Не использовать системный/default port 5432. Не запускать `scripts/verify.ps1 -MigrationsOnly` до проверки, что соединение идёт именно к новому disposable cluster и роль/аутентификация корректны.
