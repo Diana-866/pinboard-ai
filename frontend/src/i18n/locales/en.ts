@@ -358,6 +358,13 @@ export const en: TranslationSchema = {
     cancelScheduledPin: 'Cancel scheduled pin',
     cancelScheduledPinConfirm: 'Cancel this scheduled publication? It will not be sent to Pinterest.',
     retryFailedPin: "Retry publication",
+    legacyScheduleAccountMissingTitle: "This older schedule has no Pinterest account assigned.",
+    legacyScheduleChooseAccount: "Choose an account",
+    legacyScheduleOnlyAccount: "The only connected account will be checked: {account}.",
+    legacyScheduleNoAccount: "Connect a Pinterest account in Settings first.",
+    legacyScheduleRestoreAccount: "Verify account and restore schedule",
+    legacyScheduleChecking: "Checking…",
+    retryManualHint: "This item will not resume automatically after reconnecting Pinterest. Select Retry to put it back in the queue.",
     autoTimeMoscowTemplate: "at {time} {timezone} ({moscowTime} MSK on the server)",
   },
 
