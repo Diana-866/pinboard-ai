@@ -149,6 +149,30 @@ async function failPaymentCreation(userId, idempotencyKey, error) {
   });
   if (updateError) {
     logError("payment_idempotency.event_001", "[payment-idempotency] не удалось зафиксировать отказ создания:", updateError.message);
+    return false;
+  }
+  // A successful RPC transport is not proof that the row transitioned.
+  return data === true;
+}
+
+async function handlePaymentProviderFailure(userId, idempotencyKey, table, recordId, error) {
+  if (!error || error.providerRejected !== true) {
+    await markPaymentCreationUnknown(userId, idempotencyKey, error);
+    return "unknown";
+  }
+
+  try {
+    await denyUnsentPaymentRecord(table, recordId);
+    const requestReleased = await failPaymentCreation(userId, idempotencyKey, error);
+    if (!requestReleased) {
+      await markPaymentCreationUnknown(userId, idempotencyKey, error);
+      return "unknown";
+    }
+    return "failed";
+  } catch (cleanupError) {
+    logError("payment_idempotency.event_002", "[payment-idempotency] не удалось безопасно закрыть отклонённый заказ:", cleanupError.message);
+    await markPaymentCreationUnknown(userId, idempotencyKey, cleanupError);
+    return "unknown";
   }
 }
 
@@ -159,6 +183,7 @@ module.exports = {
   attachPaymentCreationOrder,
   markPaymentCreationUnknown,
   failPaymentCreation,
+  handlePaymentProviderFailure,
   denyUnsentPaymentRecord,
   paymentRequestFingerprint,
 };
