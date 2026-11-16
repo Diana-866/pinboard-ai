@@ -59,6 +59,8 @@
 
 - **Проверка после очередных package-09 commits (2026-11-16, HEAD `0c542bbd53c319738b67ede5b6b1d742340f20d7`):** run `43935341632` (Persisted boards integration checks) jobs `133538351601` (backend) и `133538352186` (frontend), а также run `43935341604` (Atomic payment fulfillment integration) job `133538352735` (postgres-atomicity) завершились `failure` с `runner_id: 0`, `steps: []`. Ни одна test/typecheck/build/SQL step не запускалась. Vercel status для HEAD — `failure`, описание `Deployment rate limited — retry in 5 minutes`, target `https://vercel.com/docs/limits#rate-limits`; это rate-limit response, не build log. UA-002 остаётся открытым; после проверки billing/Actions settings владельцем повторить проверку с реальным runner.
 
+- **Последняя проверка после package-09 password-toggle fixes (2026-11-16):** актуальный `main` HEAD `11267635ff05333d1d15754f7e7fa79f20f85964` (документационный commit; последний code HEAD в проверенном CI — `0c542bbd53c319738b67ede5b6b1d742340f20d7`). Runs `43935341632` (frontend/backend) и `43935341604` (postgres-atomicity) завершились `failure` до запуска runner. Jobs `133538351601` (backend), `133538352186` (frontend), `133538352735` (postgres-atomicity) имеют `runner_id: 0`, `steps: []`. Vercel combined status для текущего HEAD — `failure`, target `build-rate-limit`, build log отсутствует. Никакие runtime checks не запускались; owner должен проверить Actions billing/permissions и Vercel quota.
+
 ## UA-003 — подтвердить production account-deletion worker и точность privacy disclosures
 
 - **Статус:** [ ] Ожидает проверки владельцем production-инфраструктуры.
