@@ -24,6 +24,7 @@ import {
 import { useI18n } from '../../i18n/i18nContext';
 import { useAuth } from '../../context/AuthContext';
 import { PinPosyLogo } from '../common/PinPosyLogo';
+import { validateAvatarFile } from '../../utils/avatarUpload';
 import { PinterestAccount } from '../../data/mockData';
 
 interface SidebarProps {
@@ -64,6 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { user, isAuthenticated, logout, updateUserAvatar, openAuthModal } = useAuth();
 
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
+  const [avatarUploadError, setAvatarUploadError] = useState<string | null>(null);
   const [useLetterAvatar, setUseLetterAvatar] = useState<boolean>(() => {
     try {
       return localStorage.getItem('pinposy_use_letter_avatar') === 'true';
@@ -85,27 +87,53 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (uploadEvent) => {
-        const resultUrl = uploadEvent.target?.result as string;
-        if (resultUrl) {
-          updateUserAvatar(resultUrl);
-          setUseLetterAvatar(false);
-          try {
-            localStorage.setItem('pinposy_use_letter_avatar', 'false');
-          } catch {
-            // ignore
-          }
-          setAvatarModalOpen(false);
-        }
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    const validationError = validateAvatarFile(file);
+    if (validationError) {
+      setAvatarUploadError(validationError === 'tooLarge'
+        ? t.nav.avatarUploadTooLarge
+        : t.nav.avatarUploadInvalidType);
+      e.target.value = '';
+      return;
     }
+
+    setAvatarUploadError(null);
+    const reader = new FileReader();
+    reader.onload = (uploadEvent) => {
+      const result = uploadEvent.target?.result;
+      if (typeof result !== 'string' || !result.startsWith('data:image/')) {
+        setAvatarUploadError(t.nav.avatarUploadFailed);
+        return;
+      }
+      if (!updateUserAvatar(result)) {
+        setAvatarUploadError(t.nav.avatarUploadFailed);
+        return;
+      }
+      setUseLetterAvatar(false);
+      try {
+        localStorage.setItem('pinposy_use_letter_avatar', 'false');
+      } catch {
+        // The saved image remains available; this only affects the avatar mode preference.
+      }
+      setAvatarModalOpen(false);
+    };
+    reader.onerror = () => setAvatarUploadError(t.nav.avatarUploadFailed);
+    reader.onabort = () => setAvatarUploadError(t.nav.avatarUploadFailed);
+    try {
+      reader.readAsDataURL(file);
+    } catch {
+      setAvatarUploadError(t.nav.avatarUploadFailed);
+    }
+    e.target.value = '';
   };
 
   const handleSelectPreset = (url: string) => {
-    updateUserAvatar(url);
+    if (!updateUserAvatar(url)) {
+      setAvatarUploadError(t.nav.avatarUploadFailed);
+      return;
+    }
+    setAvatarUploadError(null);
     setUseLetterAvatar(false);
     try {
       localStorage.setItem('pinposy_use_letter_avatar', 'false');
@@ -232,7 +260,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className="relative group shrink-0">
                   <button
                     type="button"
-                    onClick={() => setAvatarModalOpen(true)}
+                    onClick={() => { setAvatarUploadError(null); setAvatarModalOpen(true); }}
                     className="w-10 h-10 rounded-xl overflow-hidden border border-subtle focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer flex items-center justify-center transition-transform hover:scale-105"
                     title={t.nav.avatarClickTitle}
                   >
@@ -473,7 +501,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp,image/gif"
                 onChange={handleFileUpload}
                 className="hidden"
               />
@@ -485,6 +513,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <Upload className="w-3.5 h-3.5 text-accent-ghost" />
                 <span>{t.nav.chooseFile}</span>
               </button>
+              {avatarUploadError && (
+                <p role="alert" aria-live="polite" className="text-xs text-rose-600 dark:text-rose-400">
+                  {avatarUploadError}
+                </p>
+              )}
             </div>
 
             {/* Action 2: Choose Letter Initial Avatar */}
