@@ -1,7 +1,9 @@
 const supabase = require("./supabase");
 const { normalizePlan } = require("./tariff");
+const { fetchAllPages } = require("./fetchAllPages");
 
 const STATS_PAGE_SIZE = 500;
+const STATS_MAX_ROWS = 100000;
 
 function monthKey(dateStr) {
   const d = new Date(dateStr);
@@ -9,18 +11,11 @@ function monthKey(dateStr) {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-async function fetchAllRows(db, table, columns, pageSize = STATS_PAGE_SIZE) {
-  const rows = [];
-  for (let offset = 0; ; offset += pageSize) {
-    const { data, error } = await db
-      .from(table)
-      .select(columns)
-      .range(offset, offset + pageSize - 1);
-    if (error) throw error;
-    const page = data || [];
-    rows.push(...page);
-    if (page.length < pageSize) return rows;
-  }
+async function fetchAllRows(db, table, columns, pageSize = STATS_PAGE_SIZE, maxRows = STATS_MAX_ROWS) {
+  return fetchAllPages((from, to) => db
+    .from(table)
+    .select(columns)
+    .range(from, to), { pageSize, maxRows });
 }
 
 async function requireAdmin(req, res, next) {
