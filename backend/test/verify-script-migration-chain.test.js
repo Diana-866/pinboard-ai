@@ -55,9 +55,11 @@ test("verification fallback does not claim an unverified GitHub billing cause", 
 
 
 test("Windows PostgreSQL replay connects only to loopback", () => {
-  const invocations = windowsScript.match(/& \\$psql[^\\r\\n]*/g) || [];
+  const invocations = windowsScript
+    .split(/\r?\n/)
+    .filter((line) => line.includes("& $psql"));
   assert.ok(invocations.length >= 6, "all create/apply/cleanup psql calls should be visible");
   for (const invocation of invocations) {
-    assert.match(invocation, /-h 127\\.0\\.0\\.1/);
+    assert.ok(invocation.includes("-h 127.0.0.1"), invocation);
   }
 });
