@@ -358,6 +358,13 @@ export const zh: TranslationSchema = {
     cancelScheduledPin: '取消计划发布',
     cancelScheduledPinConfirm: '确定取消这条计划发布吗？该内容将不会发送到 Pinterest。',
     retryFailedPin: "重试发布",
+    legacyScheduleAccountMissingTitle: "此旧日程尚未关联 Pinterest 账号。",
+    legacyScheduleChooseAccount: "选择账号",
+    legacyScheduleOnlyAccount: "将检查唯一已连接的账号：{account}。",
+    legacyScheduleNoAccount: "请先在设置中连接 Pinterest 账号。",
+    legacyScheduleRestoreAccount: "验证账号并恢复日程",
+    legacyScheduleChecking: "正在检查…",
+    retryManualHint: "重新连接 Pinterest 后，此任务不会自动恢复。请选择“重试”以将其重新加入队列。",
     autoTimeMoscowTemplate: "{time} {timezone}（服务器时间 {moscowTime} MSK）",
   },
 
