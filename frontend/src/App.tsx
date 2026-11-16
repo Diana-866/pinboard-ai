@@ -234,6 +234,11 @@ const MainApp: React.FC = () => {
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment') !== 'success') return;
+
+    // Return the customer to billing, where the purchase history can show the
+    // webhook result (and automatically refresh while it is still pending).
+    setActiveTab('pricing');
+
     const timers = [0, 3000, 8000, 15000].map((ms) =>
       window.setTimeout(() => {
         refreshUser().catch(() => {});
