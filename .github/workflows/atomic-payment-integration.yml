@@ -6,10 +6,16 @@ on:
     branches:
       - main
       - fix/atomic-payment-fulfillment
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
   pull_request:
     branches:
       - main
       - fix/atomic-payment-fulfillment
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
 
 permissions:
   contents: read
