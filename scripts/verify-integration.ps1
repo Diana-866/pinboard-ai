@@ -1,10 +1,10 @@
 [CmdletBinding()]
 param(
-    [ValidateRange(1, 65535)][int]$PostgresPort = 55439,
-    [string]$PsqlPath = 'X:\Program Files\PostgreSQL\18\bin\psql.exe',
-    [string]$ExpectedDataDirectory = 'X:\PinPosy-verify-pg18',
-    [string]$DatabaseUser = 'pinposy_verify_admin'
+    [ValidateSet(55439)][int]$PostgresPort = 55439
 )
+$PsqlPath = 'X:\Program Files\PostgreSQL\18\bin\psql.exe'
+$ExpectedDataDirectory = 'X:\PinPosy-verify-pg18'
+$DatabaseUser = 'pinposy_verify_admin'
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
