@@ -242,6 +242,12 @@ export interface TranslationSchema {
     pushToCalendarBtn: string;
     savedToCalendar: string;
     batchGeneratedNotice: string;
+    savedPinsLoading: string;
+    savedPinsRetry: string;
+    savedPinsLoadError: string;
+    addToReviewBtn: string;
+    addToReviewSaving: string;
+    addToReviewSuccess: string;
   };
 
   // Keyword Explorer
@@ -611,6 +617,8 @@ export interface TranslationSchema {
   review: {
     title: string;
     subtitle: string;
+    queueDescription: string;
+    queueCountTemplate: string;
     approveBtn: string;
     rejectBtn: string;
     keyboardTip: string;
