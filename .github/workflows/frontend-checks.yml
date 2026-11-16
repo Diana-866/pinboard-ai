@@ -20,8 +20,6 @@ permissions:
 jobs:
   frontend:
     runs-on: ubuntu-latest
-    defaults:
-      run:
     timeout-minutes: 15
     steps:
       - name: Checkout
