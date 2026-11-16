@@ -69,6 +69,20 @@ Last updated: 2026-11-16
 - **2026-11-16 — PIN_TRIAL inventory, step 6:** Received the user-run read-only `information_schema.columns` query for table names alphabetically after `pinterest_oauth_connection_state`. Purpose: continue the schema inventory without reading application records or changing database objects. Result: supplied definitions for `pinterest_operator_reconciliations`, `pinterest_publications`, `pinterest_publish_attempts`, `pinterest_scheduler_monitor`, `pinterest_token_refresh_leases`, `projects`, `provider_refund_operator_actions`, `provider_refund_reconciliation_audit`, `subscriptions`, and `users`. The query boundary excluded the rest of `pinterest_oauth_connection_state`, so the overall inventory remains incomplete.
 - **Next action rationale:** Retrieve only the missing columns from `pinterest_oauth_connection_state`; this closes a known gap without asking the user to repeat the full inventory.
 
+## Column inventory — completion (user-provided, 2026-11-16)
+
+- [x] Received the missing columns 4–6 of `public.pinterest_oauth_connection_state` from the user's read-only query restricted to `ordinal_position > 3`.
+- [x] Recorded the returned definitions: `token_version bigint NULL`; `attempt_expires_at timestamp with time zone NULL`; `updated_at timestamp with time zone NOT NULL DEFAULT now()`.
+- [x] Closed the previously documented column-inventory gap: the supplied segments now cover the full alphabetic range of the 35 application tables listed in the `public` table inventory, including all six columns of `pinterest_oauth_connection_state`.
+- [!] Completeness here means that column metadata was supplied for all inventoried tables; it does not establish migration execution history or prove that the live schema matches repository migrations.
+- [ ] Inspect table constraints (primary keys, foreign keys, unique constraints, check constraints) using read-only catalog queries.
+
+## Development activity log — continuation
+
+- **2026-11-16 — PIN_TRIAL inventory, step 7:** Received the user's read-only query result for `public.pinterest_oauth_connection_state` columns with `ordinal_position > 3`. Purpose: close the explicit gap left by the earlier query that returned only the first three columns. Result: columns 4–6 are `token_version bigint NULL`, `attempt_expires_at timestamptz NULL`, and `updated_at timestamptz NOT NULL DEFAULT now()`. Attribution: the user executed the SQL and supplied the output; no database query was executed by the assistant.
+- **2026-11-16 — Column inventory milestone:** The supplied column-result segments now cover all 35 application tables in the previously recorded `public` table inventory. This is a metadata-coverage milestone only; no conclusion is made about which migrations ran or whether the live schema is migration-equivalent.
+- **Next action rationale:** Inspect constraints before comparing the live schema to canonical migrations. Primary/foreign keys and unique/check constraints reveal structural relationships and invariants that column metadata alone cannot show. Keep this phase read-only and avoid querying application row contents.
+
 ## Safety rules
 
 - This record concerns the test database `PIN_TRIAL`, not production.
