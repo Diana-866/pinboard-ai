@@ -765,3 +765,11 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - Для HEAD `946e062ab49bf0dfaa5876176c2d55bb383b6ed5` GitHub Actions workflow run не создан (commit docs-only; workflow paths-ignore исключает `docs/**`). Это не PASS и не FAIL тестов.
 - Vercel commit status на том же HEAD: `failure`, `Deployment rate limited — retry in 24 hours`, target `build-rate-limit` (updated `2026-11-16T20:34:53Z`). Deployment/build этого HEAD не подтверждён; платный upgrade не предпринимался.
 - UA-004 остаётся открытым и подробно сохранён в `docs/USER_ACTIONS.md`. Никакие тестовые чекбоксы не изменены; приложение, БД, production, платежи и Pinterest не затрагивались.
+
+### Повторный запуск GitHub Actions для диагностики runner blocker (2026-11-16)
+
+- Перед действием повторно сверены `main`, `docs/PROJECT_STATE.md` и `docs/USER_ACTIONS.md`. Текущий HEAD: `f089c8ae47a7a4016603b70533ae3a5fb584a0b8`; исходный код совпадает с source commit `43dfdcc3b89f4a852bd065495f2dfd781ade737a`, последующие изменения — документационные.
+- Для диагностического повтора повторно запущены только ранее failed jobs: `postgres-atomicity` в run `43950729248` и `backend`/`frontend` в run `43950729228` (attempt 2). Это повторное выполнение CI на исходном source SHA `43dfdcc...`, а не проверка документационного HEAD и не замена локального UA-004.
+- Все три jobs завершились `failure` до первого шага: `steps: null` в job metadata, а для postgres job отдельный endpoint шагов вернул пустой список. Download logs для postgres job вернул Azure `BlobNotFound`. Следовательно hosted runner не выполнил ни одного шага; тесты и сборка снова НЕ запускались. Повтор не выявил дефект приложения и не является PASS.
+- Локальный UA-004 остаётся обязательным NEXT: пользовательский изолированный PostgreSQL 18.6 на `127.0.0.1:55439`, затем 46 SQL integration files. Не переходить к 9 Bash concurrency scripts и backend suite, пока этот SQL gate не пройден или формально не изменён владельцем.
+- Production/PIN_TRIAL, локальные кластеры, секреты, deployment settings и платежи не затрагивались.
