@@ -1,5 +1,5 @@
 -- Durable account-deletion Storage manifest integration test.
--- Run after migrations 127-145 in the disposable PostgreSQL database.
+-- Run after migrations 127-147 in the disposable PostgreSQL database.
 begin;
 do $$
 declare
@@ -381,17 +381,47 @@ $$;
 rollback;
 
 
--- Successful bounded Storage batches must not inherit the exponential retry delay.
-do $$
+begin;
+
+-- Successful bounded Storage batches must be retried promptly in real job state,
+-- while the normal exponential backoff remains reserved for actual failures.
+do $batch$
 declare
-  v_definition text;
+  v_user uuid := gen_random_uuid();
+  v_request uuid := gen_random_uuid();
+  v_job uuid := gen_random_uuid();
+  v_claim uuid := gen_random_uuid();
+  v_before timestamptz;
+  v_after timestamptz;
+  v_status text;
 begin
-  v_definition := pg_get_functiondef(
-    'public.finish_account_deletion_job(uuid,uuid,text,text)'::regprocedure
+  insert into public.users(id,email,password_hash,token_version,account_status)
+  values(v_user,'storage-batch-retry-'||v_user||'@example.invalid','unused',1,'deletion_pending');
+  insert into public.account_deletion_requests(id,user_id,state,confirmation_method,token_version)
+  values(v_request,v_user,'pending','password_reauth',1);
+  insert into public.account_deletion_jobs(
+    id,request_id,step_key,status,claim_token,lease_expires_at,attempts
+  ) values (
+    v_job,v_request,'erase_content','running',v_claim,
+    clock_timestamp()+interval '5 minutes',3
   );
-  if position('storage_manifest_batch_remaining' in v_definition) = 0
-     or position('then 5' in v_definition) = 0 then
-    raise exception 'Storage manifest batch retry fast path is missing';
+
+  v_before := clock_timestamp();
+  if public.finish_account_deletion_job(
+    v_job,v_claim,'retry','storage_manifest_batch_remaining'
+  ) is distinct from true then
+    raise exception 'active Storage batch claim was not accepted for retry';
+  end if;
+
+  select status,next_attempt_at into v_status,v_after
+    from public.account_deletion_jobs where id=v_job;
+  if v_status <> 'retry_wait'
+     or v_after < v_before + interval '4 seconds'
+     or v_after > v_before + interval '7 seconds' then
+    raise exception 'remaining Storage batch was not scheduled promptly: status %, next attempt %',
+      v_status,v_after;
   end if;
 end;
-$$;
+$batch$;
+
+rollback;
