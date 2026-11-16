@@ -514,6 +514,7 @@ export interface TranslationSchema {
     dataSection: string;
     dataSectionDesc: string;
     downloadData: string;
+    exportPartialWarning: string;
     deleteAccount: string;
     deleteAccountWarning: string;
     deleteAccountPasswordLabel: string;
