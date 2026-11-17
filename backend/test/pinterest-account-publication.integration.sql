@@ -123,7 +123,7 @@ begin
 
   -- Legacy history without an account mapping must not be guessed or retried.
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
-  values (v_board, 'https://cdn.example.invalid/legacy.png', 'Legacy pin', '', 'pending', 'flux-schnell', 0)
+  values (v_board, 'https://cdn.example.invalid/legacy.png', 'Legacy pin', '', 'approved', 'flux-schnell', 0)
   returning id into v_legacy_pin;
   insert into public.pinterest_publish_attempts(
     user_id, pin_id, pinterest_board_id, status
@@ -132,7 +132,7 @@ begin
   );
   v_result := public.begin_pinterest_publish_v2(v_user::text, v_legacy_pin, v_account_a, 'board-a');
   if v_result->>'status' <> 'unknown' then
-    raise exception 'unmapped legacy publication history was allowed to retry: %', v_result;
+    raise exception 'legacy publication history did not reach the manual-reconciliation fence: %', v_result;
   end if;
 
   -- A legacy schedule with a publish journal must not be assigned to a new identity.
