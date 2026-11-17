@@ -1364,3 +1364,16 @@ Owner evidence: synchronized clean main at `2bc539c7ce8d8f801ef1149f51dc18c9cd67
 | `docs/DOCUMENTATION_REGISTER.md` | Registered this continuation report and handoff |
 
 Observed main HEAD: `5b82dc7bdf3912c75b15f309d8e16ea8c7799a30`. Latest source/test commit: `0fd17599f4598559872965f07d5b01d2fadb19e2`. Owner SQL evidence remains tests 1–37 PASS, test 38 FAIL, tests 39–46 NOT RUN, cleanup PASS. Latest fixture/contract changes remain NOT RUNTIME-VERIFIED. Targeted source inspection of the remaining eight tests found no additional defect sufficiently established for a safe code change. Vercel combined status reports `failure` / `build-rate-limit`; no deployment success is claimed. Assistant did not run local tests, CI, PowerShell, Bash, psql or PostgreSQL and did not access any database or credentials.
+
+
+### 2026-11-17 — Prodamus CI regression coverage repair
+
+| Path | Purpose / evidence |
+|---|---|
+| `docs/audits/2026-11-17-prodamus-ci-regression-coverage-repair.md` | Full chronology of Prodamus CI test coverage gap, workflow/test changes, assistant-authored regex defect and correction, Actions run status, missing log limitation and next verification gate |
+| `docs/PROJECT_STATE.md` | Records Prodamus workflow/test changes and explicitly leaves CI runtime unverified |
+| `docs/USER_ACTIONS.md` | UA-036: inspect latest rerun logs if still failing; retains separate PostgreSQL UA-035 |
+| `.github/workflows/prodamus-checkout-tests.yml` | Push/PR filters and Node command now include ambiguous checkout and billing security contract tests |
+| `backend/test/billing-security-contract.test.js` | Adds source-contract regression check for both path filters and complete workflow invocation; uses literal string assertions |
+
+Commits: `f5594d0c401d90af49c6baf6f9e29af3710c8369`, `48ab7033ec661b798bf423f394ae281440c33784`, `4b2f315f00f16109f9616e033ce8636fccea3c3b`, `7e26add59e4d4bee36780713b1a973988249d613`, `75ad3fdd0e7988d4a56fe464341c475ca0edf079`. The regex issue in the initial source-contract test was assistant-authored and corrected in the last commit. Corrected Prodamus Actions run `44171126761` was re-queued; no PASS evidence yet. Job logs unavailable through the current API (404 BlobNotFound); exact run failure cause unknown. Vercel status on corrected HEAD SUCCESS. No runtime test command was executed locally and no real payment/database/external API action occurred.
