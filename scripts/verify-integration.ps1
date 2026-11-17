@@ -92,7 +92,7 @@ try {
     $migrations = @(Get-ChildItem -LiteralPath $migrationDirectory -Filter '*.sql' -File |
         Where-Object { $_.Name -match '^(\d{3})_' -and [int]$Matches[1] -ge 10 -and [int]$Matches[1] -le 152 } |
         Sort-Object { [int]($_.Name.Substring(0,3)) })
-    if ($migrations.Count -ne 143) { throw "Expected 142 active migrations 010-151; found $($migrations.Count)." }
+    if ($migrations.Count -ne 143) { throw "Expected 143 active migrations 010-152; found $($migrations.Count)." }
     for ($i = 0; $i -lt 143; $i++) {
         if ([int]$migrations[$i].Name.Substring(0,3) -ne ($i + 10)) { throw "Migration sequence gap at prefix $($i + 10)." }
     }
