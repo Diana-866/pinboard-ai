@@ -917,7 +917,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integra
   - standalone blob `bf9aad94a6b4381777586a97a88f3dc6eab373a6`, commit `b22ed9e255fe799fd3be91caf36b5c71f03a1387`;
   - CI workflow blob `ad8d456eed5829c7aba0c8b9bfea314516b3e9d4`, commit `0724225a5ad324ba2eb9107ddaf202745d8761a4`.
 - Добавлен contract test для обеих каскадных связей: blob `cb9af9c67b1b1bbbc2073279a9fc7e3d0aa2491d`, commit `07e5a4a87350ba80f49adb4f3ba8bc1fbbf9c4cc`.
-- Regex проверки `cover_url` исправлен на `\\s+`: final contract blob `4584ef39860d443284cdb3e10f4534ffcc18b761`, commit `2a350c1f63cd481834ac7f5f0db50fcb271a640e`. Теперь в contract suite **18** тестов по source inspection; после исправления они ещё не запускались.
+- Regex проверки `cover_url` исправлен на `\s+`: final contract blob `4584ef39860d443284cdb3e10f4534ffcc18b761`, commit `2a350c1f63cd481834ac7f5f0db50fcb271a640e`. Теперь в contract suite **18** тестов по source inspection; после исправления они ещё не запускались.
 - Audit: `docs/audits/2026-11-17-postgres-integration-storage-manifest-project-board-cascade-fixture.md`, commit `16939715fb0ede28ce5d0b6ba1efb19aefe68e45`.
 
 **Действия assistant**
