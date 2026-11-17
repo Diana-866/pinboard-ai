@@ -163,3 +163,14 @@ This test reads and validates source/manifest contracts; it does not execute Pos
 Assistant action in this turn: fetched the current runner, contract test, project state, owner action log, audit and documentation register from GitHub `main`; verified the current source blob IDs; then appended this owner evidence and its limits to the project journal, UA-004 and this audit. No source code was changed by the assistant, and no local files, PostgreSQL processes/databases, production/PIN_TRIAL, or secrets were touched.
 
 Next gate: run the PowerShell Parser API check against the current pulled revision. Only if it passes, invoke the guarded integration runner and capture the complete output, including diagnostic records and cleanup confirmation. Do not report the SQL integration gate as passed until the fixture, all 139 migrations, two inline assertions, all 46 SQL tests and disposable database cleanup have completed successfully.
+
+
+## 12. Owner retest — PowerShell Parser API passes (2026-11-17)
+
+The owner ran the parser API against the local `scripts/verify-integration.ps1` after the previous transcript showed the Node source-contract suite passing 10/10. The command set `$ErrorActionPreference = 'Stop'`, initialized token/error references, called `[System.Management.Automation.Language.Parser]::ParseFile` on the resolved runner path, and would have formatted parser errors and thrown if `$errors.Count -gt 0`. The observed output was **`PASS: PowerShell parser`**, so the parser reported no syntax errors.
+
+This is a syntax-only check. It does not execute the runner or prove that its runtime guards, PostgreSQL connectivity, migration replay, inline assertions, 46 SQL integration tests or cleanup succeed. No database was created or changed in this owner transcript. The SQL integration gate remains open.
+
+Assistant procedure for this update: fetched the latest versions of the project state, owner action log, audit, documentation register, runner and Node contract test from GitHub `main`; checked the current runner/test blob SHAs against the previously documented source versions; then appended the owner evidence and its limits to the three chronological documents. No source-code change or PostgreSQL action was performed by the assistant. The documentation register is updated separately with the resulting document blob SHAs and commits.
+
+Next: owner runs the guarded integration runner on clean synchronized `main`, then supplies the complete output. Preserve all safety checks and cleanup confirmation. Do not claim SQL integration PASS unless all required stages complete and the disposable database is confirmed absent.
