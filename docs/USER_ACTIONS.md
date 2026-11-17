@@ -715,3 +715,18 @@ Cleanup is confirmed: runner terminated DB sessions, ran `DROP DATABASE`, and pr
 Assistant read-only investigation fetched and inspected: runner blob `74c128b4c6933b8b5aba888e4abeb01200df2ab6`; migration 018 blob `4f524034d8504c3111e376fb91b30e65a8b86884`; upgrade fixture blob `49a817c5e238eda201b8821a9c052585f36e0217`; ordered SQL manifest blob `aa773d020841f6925b4f63f4a6d96fb95cf4e3a6`; baseline migration blob `105a13cfba4746206191dcf2bd68d5514912f08c`. Fixture creates a fresh users table without preferred_language; migration 018 adds the column, drops any old named check constraint, adds the check, and creates an index. The runner diagnostic already checks direct constraints, target-named constraints across relations, and same-named pg_class relations, but the owner transcript shows none of the target name. This does not yet explain psql's nonzero exit.
 
 **Next:** improve diagnostic fidelity (unambiguous UTF-8 error capture and exact SQLSTATE/statement) and add narrow catalog inspection around each statement in migration 018. Re-run only through the guarded disposable-db runner. No production/PIN_TRIAL or persistent verification data may be touched.
+
+
+### UA-010 — runner diagnostics patch published; owner verification pending (2026-11-17)
+
+After recording UA-009, assistant re-fetched current source and identified that the runner has global `$ErrorActionPreference = 'Stop'` while invoking native `psql.exe` with stderr redirected into the PowerShell pipeline. Owner's previous failure surfaced a NOTICE with SQLSTATE 00000 as the exception and omitted the runner's own `psql failed (exit N)` wrapper. Diagnosis: Windows PowerShell 5.1 likely promoted the native stderr record to a terminating error before `$LASTEXITCODE` was read. The garbled Cyrillic additionally indicated incorrect native-output decoding despite PostgreSQL client encoding UTF8. This is not proof of an SQL defect in migration 018.
+
+Assistant changed `scripts/verify-integration.ps1` so `Invoke-Psql` saves the prior error preference and console output encoding, temporarily uses `Continue` and UTF-8 output decoding, captures merged native output and `$LASTEXITCODE`, then restores both settings in `finally`. Existing nonzero exit-code handling and all safety/cleanup guards remain in place.
+- Runner commit `b5b43c86213209e1cacefd8807fce188439dc11d`, blob `d1137519b254f31a8d669405d355956b1fb23ddf`.
+
+Assistant added two source-contract tests to `backend/test/postgres-integration-runner-contract.test.js`: scoped stderr handling/exit-code capture/restoration, and scoped UTF-8 decoding/restoration.
+- Test commit `e24511b5219315928baefb3563ef959c16cc86ec`, blob `088c23d854c9be56320b2728f1e4cbe6b107f8a5`.
+
+Assistant re-fetched both changed files and verified their blob hashes, expected source strings, and 12 total `test(...)` declarations. These are read-only source checks, NOT executed tests. Assistant did not execute Node, Windows PowerShell, psql or PostgreSQL and did not access local workstation, production/PIN_TRIAL or secrets. The previous disposable DB cleanup remains confirmed; no DB exists from this assistant work.
+
+**Owner verification required after all assistant docs commits:** clean fast-forward local main; run `node --test backend/test/postgres-integration-runner-contract.test.js`; optionally run the PowerShell parser check; then run the guarded `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1`. Password only through hidden prompt. Report full output. If migration 018 still errors, its actual UTF-8 server ERROR and SQLSTATE must be diagnosed before any migration change. SQL integration remains NOT PASSED.
