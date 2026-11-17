@@ -1845,3 +1845,18 @@ Assistant inspected `scripts/verify-integration.ps1`: `Assert-RepositoryState` r
 **Next owner action:** fast-forward local main to latest origin/main with `git pull --ff-only origin main`; verify clean worktree and `HEAD == origin/main`; then follow UA-034's ordered Node, Parser and guarded PostgreSQL gates. Do not reset/rebase/clean, bypass guards or run SQL manually. Preserve PID 15220, port 55439 and `X:\\PinPosy-verify-pg18`; do not use production/`PIN_TRIAL` or disclose secrets.
 
 Detailed evidence, exact four commit SHAs, runner control-flow analysis and limitations: `docs/audits/2026-11-17-postgres-runner-sync-guard-stop.md`. Assistant actions in this turn: compared GitHub commits, fetched the three project docs and audit, inspected the runner source, and published this audit plus the state/action/register updates. No local commands, database connections, SQL changes or production operations were performed.
+
+
+### 2026-11-17 — PostgreSQL runner stopped at empty temporary-role password
+
+Owner evidence after synchronization to `9206d83076c4ea59c0d66be15482bf58d7217226`: pre/post `git status --short` were empty; `git pull --ff-only origin main` fast-forwarded `30e1ac9f..9206d830`; local HEAD and origin/main matched exactly. The three Node contract/migration/replay-chain test files then reported **45/45 pass, 0 fail, 0 cancelled, 0 skipped, 0 todo** (112.0986 ms).
+
+The owner ran the guarded PostgreSQL runner. It verified clean synchronized main and the approved local listener (PID 15220, data directory `X:\\PinPosy-verify-pg18`), then reached the hidden password prompt for temporary role `pinposy_verify_admin`. It stopped with `A non-empty temporary PostgreSQL password is required.`
+
+Assistant re-fetched runner source (blob `483ef0211e23a50ea50d1c80b9d47ce4140c09b3`) and confirmed the empty SecureString check occurs before PGPASSWORD setup and before any psql call. Thus this attempt made no PostgreSQL connection, created no temporary role or disposable database, ran no migrations/inline assertions/SQL tests, and had no disposable DB cleanup to perform. This is an input/precondition stop, not a PostgreSQL authentication error or SQL test result. Do not claim the SQL assertion fix is runtime-verified. Historical SQL run remains FAIL at test 34/46; tests 35–46 remain unverified after the fix.
+
+Next owner action: rerun the same guarded command only when a non-empty password for the approved local temporary verification role is available; enter it only in the hidden prompt and never share it. If the credential is unknown, stop and resolve it locally without weakening guards or targeting production/`PIN_TRIAL`. Preserve PID 15220 and `X:\\PinPosy-verify-pg18`. A valid completion still requires fixture, 147 migrations 010–156, two inline assertions, 46/46 SQL tests and confirmed disposable DB cleanup. Nine Bash concurrency scripts remain separate and unverified.
+
+Detailed evidence and exact stop boundary: `docs/audits/2026-11-17-postgres-runner-empty-temporary-password-stop.md`.
+
+Assistant actions in this follow-up: read the owner transcript; fetched current runner, project state, owner actions, register and prior sync-stop audit from GitHub; inspected password validation and psql/database creation order; created the audit and updated these records. Assistant did not execute local shell/Node/PowerShell/psql/PostgreSQL/Bash/CI, did not access credentials or databases, and did not change application source, migrations, tests, runner or CI.
