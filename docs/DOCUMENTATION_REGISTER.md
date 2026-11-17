@@ -2,7 +2,7 @@
 
 **Repository:** Diana-866/pinboard-ai  
 **Branch:** main  
-**Source HEAD:** 617bfd3e0ab51e4ad85faf24ba872f4538abe7dc  
+**Source HEAD (before this register refresh):** 3f295261051e9fd65d8b1e770bc7997ec0cc404e  
 **Inventory refreshed:** 2026-11-17  
 **Scope:** all documentation files under docs/ (Markdown and SQL), excluding this register itself.
 
@@ -21,8 +21,8 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 3 | `docs/MASTER_REQUIREMENTS.md` | `0891fc83d68de51acb298d1ad4da4f733a0499aa` | Reviewed/reconciled 2026-11-16; see audit reports |
 | 4 | `docs/PIN_TRIAL_MIGRATION_STATUS.md` | `2e0f66ccfa1ab9aeb71f80d299a5c4465e347d9e` | Owner-provided DB evidence; incomplete inventory |
 | 5 | `docs/PRODUCTION_READINESS_AUDIT.md` | `777ce34d539b3264b10554aa2cd731d436f080e2` | Reviewed/reconciled 2026-11-16; see audit reports |
-| 6 | `docs/PROJECT_STATE.md` | `df498f1d05e762e1b09bf6d8769e1afb4d78e9d4` | Current operational source of truth; records migration replay PASS and SQL integration block at migration 018 |
-| 7 | `docs/USER_ACTIONS.md` | `0978a368961e7ced19fde4950ce749b2126ab24c` | Owner actions; records identity guard PASS, migration 018 failure, confirmed disposable DB cleanup and next diagnostic |
+| 6 | `docs/PROJECT_STATE.md` | `10f79fbfd51fdc454049f16950722ef74678f1e7` | Current operational source of truth; records PostgreSQL test 20/46 failure, additive migration 151 and pending owner gates |
+| 7 | `docs/USER_ACTIONS.md` | `90934cfebad40d7db6955a545e7e8aa429433209` | Owner actions; UA-014: Node/Parser/guarded PostgreSQL rerun gates for migration 151 |
 | 8 | `docs/architecture/pin-image-deletion-claim-protocol.md` | `0957b13bae0632ce8e34a5675b4a06f6ef8477a4` | Inventory only; content review pending |
 | 9 | `docs/audits/2026-11-16-account-deletion-runbook-reconciliation.md` | `4d1fa6f8e78162abbb29a3487a776c2b1c3cf319` | Historical audit/evidence; applicability must be checked against current main/tests |
 | 10 | `docs/audits/2026-11-16-ci-concurrency-harness-isolation-fix.md` | `dc050c2c7d0aa1415a5585e6820b1a2e8772fbd9` | Historical audit/evidence; applicability must be checked against current main/tests |
@@ -855,3 +855,22 @@ Owner evidence: clean synchronized checkout at `6d982d1414490ed210502f834018a1a1
 Owner runtime evidence: at clean synchronized commit `4df18de1fbc8ae98b3d316d945cce7f973b244de`, fixture, 140 migrations 010–149, both CI inline assertions and SQL tests 1–18/46 passed; test 19/46 failed on `claim_token=NULL` against NOT NULL. Tests 20–46 did not run. Disposable DB `pinposy_sqlint_e44cc1cd1e6d4d57` cleanup confirmed. SQL integration remains **NOT PASSED**.
 
 Assistant source review proved migration 053's `claim_token UUID NOT NULL` conflicts with the regeneration finalizer in migration 077. Historical migration 077 was restored to its original blob; the correction is additive migration 150. The SQL test now checks token preservation. Runner, CI, canonical migration tests and Linux/Windows replay scripts were advanced to 141 contiguous migrations 010–150. Final source files were re-fetched from GitHub and their blob SHAs and key invariants checked. Assistant did not run Node, PowerShell, psql or PostgreSQL. New migration and runner chain are not runtime-verified; owner must pass Node and Parser gates before the next guarded SQL run.
+
+
+### 2026-11-17 — PostgreSQL integration test 20/46: provider-refund regex repetition bound
+
+| Path | Final blob SHA | Commit / reason |
+|---|---|---|
+| `db/migrations/151_fix_provider_refund_evidence_regex_repetition_limit.sql` | `a70eebbe02281beeb0a1b3f4936d99446d085a14` | `41b8044e4c4fab39a0ecbeae0723f256429392f3`; atomic additive migration replaces PostgreSQL-invalid `{7,499}` with `{7,}` in the CHECK constraint and internal function |
+| `backend/test/postgres-integration-runner-contract.test.js` | `8305aec1d2210e41473e96f9fb81cca997ec765b` | `093ccd1a9a2c76b0d7201a2940886623006ee88d`; fix baseline-column dynamic RegExp escaping, assert 010–151 chain and migration 151 contract |
+| `backend/test/verify-script-migration-chain.test.js` | `60b92f9551a2d099b7ed35c9a527e9d1be6c9bfc` | `3f295261051e9fd65d8b1e770bc7997ec0cc404e`; correct Linux/Windows replay expectations to 142 migrations |
+| `backend/test/db-migration-chain.test.js` | `16148b18bc776e8a1bfc94d12d3417cadcb17ac5` | `d1621c4d51eacb9f6c0e31efd7f1aa4551008c57`; canonical migration chain includes 151 |
+| `scripts/verify.sh` | `207d66d8458249e29fbbd38fb3ab0f3fcb1cb53b` | `845cee551cc8a03cd7f8f276f1771bd20d378048`; Linux disposable replay validates contiguous 010–151 |
+| `scripts/verify.ps1` | `f131835223c6234ec22fe30260446461450953cb` | `9946716945a5badcb92071aa042989b50be94efb`; Windows local replay validates 010–151 and updated summary labels |
+| `scripts/verify-integration.ps1` | `d73755f52245c5565a0232c5385d1a40ee3423c9` | `786046f060581302f3699ec6c8b2607ab835248e`; guarded PostgreSQL runner requires/applies 142 migrations 010–151 |
+| `.github/workflows/atomic-payment-integration.yml` | `044e26d65462e5a23840634ea3961498c1afe061` | `061a1148947c1770172812d6a1d3b5d2829de438`; CI applies migration 151 after migration 150 |
+| `docs/audits/2026-11-17-postgres-integration-test-20-provider-refund-regex-repetition-limit.md` | `bf01e50a9923e31088843a88375e042b86b141b4` | `eb795e5929392d84b364097c7197442b76b9a92a`; owner transcript, root cause, exact changes, checks, limitations and next gates |
+| `docs/PROJECT_STATE.md` | `10f79fbfd51fdc454049f16950722ef74678f1e7` | `4befd4ef79bd2b42154e072cdfbf209615768f17`; chronological test-20 incident and current gate |
+| `docs/USER_ACTIONS.md` | `90934cfebad40d7db6955a545e7e8aa429433209` | `2ae1f3b76ea1c62ab627a7c360fbe13026c23f88`; UA-014 owner synchronization and ordered rerun gates |
+
+Owner runtime evidence: Node suite 37/39 PASS, 2 contract failures; PowerShell Parser 0 syntax errors; guarded SQL runner applied 141 migrations 010–150 and passed inline assertions plus SQL tests 1–19/46, then test 20 failed with PostgreSQL invalid repetition count. Disposable DB cleanup succeeded. Historical migration 078 was not changed. Assistant published additive migration 151 and corrected the contract/replay source files; assistant did not run Node, PowerShell, psql or PostgreSQL. The new migration and updated tests/scripts are not runtime-verified. SQL integration remains **NOT PASSED**; tests 21–46 have not run.
