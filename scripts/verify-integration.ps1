@@ -110,7 +110,7 @@ try {
     $env:PGCLIENTENCODING = 'UTF8'
     $env:PGCONNECT_TIMEOUT = '5'
 
-    $identitySql = "SELECT coalesce(inet_server_addr()::text, '') || '|' || inet_server_port() || '|' || current_setting('data_directory') || '|' || current_setting('server_encoding') || '|' || current_user || '|' || current_setting('server_version_num');"
+    $identitySql = "SELECT coalesce(host(inet_server_addr()), '') || '|' || inet_server_port() || '|' || current_setting('data_directory') || '|' || current_setting('server_encoding') || '|' || current_user || '|' || current_setting('server_version_num');"
     $identity = Get-PsqlValue -Database 'postgres' -Sql $identitySql
     $expectedIdentity = $hostAddress + '|' + $PostgresPort + '|' + $ExpectedDataDirectory.Replace('\','/') + '|WIN1251|' + $DatabaseUser + '|180006'
     if ($identity -ne $expectedIdentity) { throw "PostgreSQL identity mismatch; received: $identity" }
