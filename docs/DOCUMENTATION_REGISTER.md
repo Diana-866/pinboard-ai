@@ -1104,3 +1104,6 @@ PR #91 links the correction branch to review: https://github.com/Diana-866/pinbo
 
 | `docs/PROJECT_STATE.md` | `d9b99fc4ab1341f37f5e5d4ca8ecdd6a7bed2df7` | `5fcb5bb4a5235404e9abe2268ff36a37d19f4ad1`; current CI snapshot, regex fix and PR #91 status |
 | `docs/USER_ACTIONS.md` | `6127b30cf6c153bb6757849631144aa68c2792a2` | `022a13b68367c5336dd41e71fcf58ffa8ce4b022`; UA-028 with PR #91 and owner-side verification gates |
+
+| `docs/PROJECT_STATE.md` | `84f8f38c867297c625fc7021eba63112984e0324` | `6594f21fbbfeb921dea940ce54924941ff9fea87`; refresh PR #91 head, mergeability and latest Vercel status |
+| `docs/USER_ACTIONS.md` | `5af48b76eaef7e5493635d264da06be07885f238` | `223df67c70949ffff5b54848ef6474501ad4dd22`; refresh latest CI state for UA-028 |
