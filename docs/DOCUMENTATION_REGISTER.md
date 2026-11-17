@@ -634,3 +634,15 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 
 
 - Follow-up documentation count correction: contract test has **13** top-level `test(...)` declarations (counted from source lines), not 14. Audit blob `c8cd969e38b23de0e8f1cd059078e0713f10be31`, commit `1f01069382dcf17b8328a7c74b9b8b4ad32c2632`; project state blob `8e5940e649c407792e23a84d5cad06f513039418`, commit `032c750daa0aa341f0c8c64785f6ccd35a67fa07`; owner actions blob `6965846b3d8c87668bdbb2a75f135b55062ea51c`, commit `787efdc38a503f01f6455319e6a42da862c99123`.
+
+
+### 2026-11-17 owner integration run — schedule cancellation SQL type mismatch
+
+- Owner evidence: synchronized checkout at `5617a53095249ce45aafe4bdad17ad39781b668e`; Node runner contract suite 13/13 PASS; guarded runner applied fixture, migrations 010–149 and two inline assertions, then SQL tests 1/46 and 2/46 passed; test 3/46 failed with `text = uuid`. Disposable DB `pinposy_sqlint_004e2422a382484b` cleanup was confirmed. Tests 4–46 did not run; SQL integration NOT PASSED.
+- Root cause source evidence: migration 015 declares `pin_schedules.user_id text`; cancellation race test compared it to UUID variable without cast in two UPDATE predicates.
+- Corrected SQL test: blob `adb8b7669052021ce2537b5a2985786bab13a4d7`, commit `c0db3c5e5f4cc2ead97443693b78bdd79622be53`.
+- Added contract test for both casts: blob `ba228cbaef5ea83ff7d9c22221b3921f8087f4dd`, commit `de1d765e53e30e0617ec7994f1e22bdeaff4e025`.
+- Added incident audit `docs/audits/2026-11-17-postgres-integration-schedule-user-id-type-mismatch.md`, commit `0c3b54e62b269f9e47e0be37b7de8a8abea0d2fa`.
+- Updated `docs/PROJECT_STATE.md`: blob `e2bc4c765825ef6b73469b47d566c5512d4eae62`, commit `c6726d6677253b4db2cbf99a85aed908f07d0a22`.
+- Updated `docs/USER_ACTIONS.md`: blob `9ea7871ff54b1b69d2ccf0a38fcb4ad340fe6d19`, commit `cad69c38d381dc731329283e54bffce67c3f99fd`.
+- Assistant source inspection and GitHub file updates only; no local Node/PowerShell/psql/PostgreSQL execution. Contract assertion and SQL test fix await owner runtime verification.
