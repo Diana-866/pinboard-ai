@@ -288,6 +288,20 @@ begin
   insert into public.projects(user_id, niche) values (v_user, 'test') returning id into v_project;
   insert into public.boards(project_id) values (v_project) returning id into v_board;
 
+  -- The reservation race fixture below assumes exactly 100 credits:
+  -- one 60-credit reservation must leave only 40 available to a distinct key.
+  -- Use the normal atomic ledger RPC rather than mutating the balance directly.
+  v_balance := public.adjust_credits_balance_and_log(
+    v_user::text, -40, 'usage', 'generation reservation fixture baseline'
+  );
+  if v_balance <> 100 then
+    raise exception 'reservation fixture must start at 100 credits, got %', v_balance;
+  end if;
+  select count(*) into v_count from public.credit_transactions where user_id = v_user::text;
+  if v_count <> 5 then
+    raise exception 'reservation fixture adjustment must add the fifth ledger entry, got %', v_count;
+  end if;
+
   -- Distinct generation keys cannot reserve the same credits concurrently.
   insert into public.pin_generation_requests(user_id,board_id,idempotency_key,status,request_fingerprint)
   values(v_user::text,v_board,'reservation-test-key-0001','processing',repeat('1',64));
