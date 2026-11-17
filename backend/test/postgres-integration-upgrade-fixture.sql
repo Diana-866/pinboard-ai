@@ -27,7 +27,7 @@ create table public.projects (
 );
 create table public.boards (
   id uuid primary key default gen_random_uuid(),
-  project_id uuid not null references public.projects(id),
+  project_id uuid not null references public.projects(id) on delete cascade,
   title text,
   description text,
   status text,
@@ -35,7 +35,7 @@ create table public.boards (
 );
 create table public.pins (
   id uuid primary key default gen_random_uuid(),
-  board_id uuid not null references public.boards(id),
+  board_id uuid not null references public.boards(id) on delete cascade,
   image_url text,
   title text,
   description text,
