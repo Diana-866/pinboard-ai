@@ -192,7 +192,7 @@ test('upgrade fixture preserves every canonical baseline column except fields in
   const baseline = read('db/migrations/001_baseline.sql');
   const columns = (source, table) => {
     const definition = new RegExp(
-      'create table(?: if not exists)? public\\.' + table + ' \\(([\\s\\S]*?)\\n\\);',
+      'create table(?: if not exists)? public\\.' + table + ' \\(([\s\S]*?)\\n\\);',
       'i'
     ).exec(source);
     assert.ok(definition, 'table ' + table + ' must exist');
@@ -244,6 +244,6 @@ test('provider refund regeneration finalizer preserves NOT NULL claim token', ()
   assert.notEqual(start, -1);
   const regenerationFinalizer = migration.slice(start);
   assert.match(schema, /claim_token uuid not null default gen_random_uuid\(\)/i);
-  assert.match(regenerationFinalizer, /set status='failed',[\\s\\S]*?error_code='provider_refund_reconciled'/i);
-  assert.doesNotMatch(regenerationFinalizer, /claim_token\\s*=\\s*null/i);
+  assert.match(regenerationFinalizer, /set status='failed',[\s\S]*?error_code='provider_refund_reconciled'/i);
+  assert.doesNotMatch(regenerationFinalizer, /claim_token\s*=\s*null/i);
 });
