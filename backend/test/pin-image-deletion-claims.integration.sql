@@ -355,7 +355,7 @@ begin
   insert into public.users(id, email) values (v_user_id, v_user_id::text || '@pin-image-schedule-test.invalid');
   insert into public.projects(id, user_id) values (v_project_id, v_user_id);
   insert into public.boards(id, project_id) values (v_board_id, v_project_id);
-  insert into public.pins(id, board_id) values (v_pin_id, v_board_id);
+  insert into public.pins(id, board_id, status) values (v_pin_id, v_board_id, 'approved');
 
   insert into public.pin_schedules(user_id, pin_id, scheduled_at, snapshot_image_url)
   values (v_user_id::text, v_pin_id, now() + interval '1 day', v_schedule_url);
