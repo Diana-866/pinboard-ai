@@ -490,3 +490,8 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 - Migration 018 collision owner transcript and static investigation recorded in `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`; latest audit blob `ee0b19a86883ef6bbd909198e0252938af030eee`.
 
 - Owner retest on `2ced4164` showed no matching constraint rows immediately before migration 018 despite the duplicate-constraint error; expanded catalog/verbose error diagnostics are committed but untested. SQL integration remains blocked; 46 SQL tests NOT RUN.
+
+
+- `scripts/verify-integration.ps1` — fixed read-only pre-018 diagnostic concatenation by casting PostgreSQL catalog `contype` and `relkind` fields to text; source change not yet runtime-tested.
+- `backend/test/postgres-integration-runner-contract.test.js` — added assertion for explicit catalog-field casts; not yet executed.
+- Owner retest at `d48fdde9`: diagnostic query itself failed with `text || "char"` before migration 018; disposable DB cleanup confirmed; inline assertions and 46 SQL tests NOT RUN. Full sequence recorded in project journal, UA-004 and audit section 9.
