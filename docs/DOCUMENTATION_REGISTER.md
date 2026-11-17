@@ -1315,3 +1315,16 @@ Owner evidence: Node 46/46 passed before the latest contract assertion; fixture,
 | `docs/USER_ACTIONS.md` | `bc58ac921ef9c8de8d2c0ed23ea4ae654f72b983` | UA-034 updated: next step is guarded PostgreSQL rerun after pulling docs commit |
 
 Evidence: owner reported clean synchronized `main` at `d266f57da57f8219e5e1f42616111b32ad76d748` and Node 47/47 PASS. SQL integration remains NOT PASSED; previous run stopped at SQL test 38/46. The latest fixture correction is not yet runtime-verified. Next gate is the guarded PostgreSQL runner after syncing these documentation commits.
+
+
+### 2026-11-17 — PostgreSQL test 38 follow-up: primary publication fixture still pending
+
+| Path | Blob SHA / commit | Purpose |
+|---|---|---|
+| docs/audits/2026-11-17-postgres-integration-test-38-pinterest-legacy-history-fixture.md | blob e2b7cc83c0c6e7e6bb2c24635822ada022f11fa3; commit 144e5190ebfacc66258a1da0f6e44b8aaecdb9a9 | Added second owner-run transcript, primary-vs-legacy fixture diagnosis, exact correction, verification limits, assistant action log and no-write documentation-wrapper SyntaxError |
+| backend/test/pinterest-account-publication.integration.sql | blob 5b1f9f98662c9f2903b4edb983bb3b34f0aa3b09; commit 2b9b6a266c37b22086678acb994c09ce56af5b82 | Primary multi-account v_pin fixture changed from pending to approved to satisfy migration 148 before first publication |
+| backend/test/postgres-integration-runner-contract.test.js | blob 1ee73760a8bbeeaa42152b61f2139c371c8d677f; commit a1b5cbccf74c0a85dcf7c7d22de00d47e84fa3e2 | Existing Node contract test now asserts both primary and legacy fixture pins are approved and migration 148 guard order; no new test case |
+| docs/PROJECT_STATE.md | blob 1430a804b9d79d548e332d811ae86da5611e300a; commit 48522385fecfcb71bfe0a942ce5738343bc24b25 | Chronological owner runtime evidence, source diagnosis, exact source changes, assistant actions and verification boundary |
+| docs/USER_ACTIONS.md | blob 303f771c2f5f796111a245a20ce809bd85a216fe; commit fd7123792ab0c78783810fc357889fc29848699c | UA-034 updated with owner run, next synchronization, Node 47/47 preflight and guarded PostgreSQL runner instructions |
+
+Owner evidence: synchronized clean main at ce3bcc98ec09d6acfff726b7bd71265c70832791; upgrade fixture, 147 migrations and both inline assertions passed; SQL tests 1–37 passed; test 38 failed at first publication because the primary v_pin fixture remained pending; tests 39–46 not run; disposable DB cleanup passed. The prior legacy-history fixture correction was correct but incomplete because it did not change the separate primary fixture. Assistant changed only test fixture and its existing Node contract; no production code or migration changed. New changes are NOT RUNTIME-VERIFIED. Expected Node suite remains 47 tests; prior 47/47 predates the strengthened assertion. SQL integration remains NOT PASSED. Next: owner pulls the full docs batch, reruns Node 47/47, then guarded PostgreSQL runner. Nine Bash concurrency scripts remain unverified.
