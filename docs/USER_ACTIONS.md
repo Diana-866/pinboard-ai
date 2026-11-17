@@ -421,3 +421,27 @@ The owner-reported run did not reach PostgreSQL setup or SQL execution. The Powe
 4. Enter the password only in the hidden local prompt. Return the full output, process exit code, and cleanup confirmation without passwords, tokens, or environment values.
 
 If parser check fails, stop and send its full output; do not run the integration runner. If runner preflight fails, do not bypass it. Never use production, PIN_TRIAL, existing PostgreSQL service/PID 5632, or delete the temporary cluster. Bash concurrency tests remain blocked until SQL integration PASS and disposable database cleanup are both confirmed.
+
+
+### UA-004 — owner parser check passed; run guarded SQL integration runner (2026-11-17)
+
+**Статус: следующий шаг владельца. Parser-only check пройден; SQL runner ещё не запускался.**
+
+Владелец подтвердил:
+- `git pull --ff-only origin main` обновил локальную ветку с `e187ce33` до `28b50f44`.
+- PowerShell Parser check выполнен дважды; оба раза выведено `PASS: PowerShell parser`, ошибок разбора нет.
+
+Теперь выполнить из корня репозитория в PowerShell:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1 -PostgresPort 55439
+```
+
+- Пароль роли `pinposy_verify_admin` вводить только в скрытом локальном prompt. Не копировать пароль, токены или значения переменных окружения в чат.
+- Передать полный stdout/stderr, exit code и явное сообщение о cleanup disposable DB.
+- Если preflight сообщает о несовпадении ветки, listener, PID, data directory, версии PostgreSQL, кодировок или роли — остановиться и прислать точный текст ошибки. Не обходить guard и не исправлять состояние кластера самостоятельно.
+- Не запускать на production/PIN_TRIAL; не останавливать существующий PostgreSQL/PID 5632; не удалять временный кластер `X:\\PinPosy-verify-pg18`.
+
+**Что означает текущий PASS:** подтверждён только синтаксический разбор PowerShell-файла. Он не подтверждает запуск runner, соединение с PostgreSQL, миграции, 46 SQL tests или cleanup.
+
+После получения результата ассистент сверит число выполненных тестов, exit code и cleanup. Только при подтверждённых SQL integration PASS и cleanup можно перейти к отдельной подготовке Bash concurrency suite. До этого UA-005 и backend runtime suite заблокированы.
