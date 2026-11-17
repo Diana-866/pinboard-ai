@@ -526,3 +526,13 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 - Updated owner action log blob: `9877a7c40832a11d8c399377484b454e897cd782`; commit `60b44756632af4c0f370fb1ebd7918631eb86df2`.
 - Updated PowerShell audit blob: `79259954dbcc9173abeae9a809aa13ee65304d58`; commit `2c796056ae507e518cfe831470cc6ed4aef27b8c`.
 - The three documents record the transcript, exact results, assistant retrieval/documentation actions, scope limits and next gate. SQL integration remains NOT PASSED pending a fresh parser check and full guarded run.
+
+
+### 2026-11-17 owner PowerShell Parser API retest — PASS
+
+- Owner ran `System.Management.Automation.Language.Parser::ParseFile` on `scripts/verify-integration.ps1`; observed output: `PASS: PowerShell parser`. This is syntax-only and does not execute the integration runner or SQL tests.
+- Source files checked from current GitHub `main`: runner blob `74c128b4c6933b8b5aba888e4abeb01200df2ab6`; Node contract test blob `902a0d700a1b145d7e48ad5f0cc856c5bd6f99a1` (owner previously reported 10/10 Node contract checks passing).
+- Updated `docs/PROJECT_STATE.md`: blob `211af8e6f65cdfa5c9e6c26d9fb6c66a2eac7c2f`, commit `5723804046062bfffb9e15dcefb8e974ef88a28f`.
+- Updated `docs/USER_ACTIONS.md`: blob `5dd62234e6e7cda721dd9ac9d32532a35d59e4c6`, commit `3fd024e2f58aaf71be3f936aa4bf53b4d2ccd778`.
+- Updated audit `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`: blob `e59353eb22ef58dc2eff1dd278b522d730193baf`, commit `fcb3414b40d2787d973583b5d0908bf80fa45cd9`.
+- All three chronological documents record the owner transcript, why this check was performed, exact result, what it does not prove, assistant retrieval/documentation actions, and next step. SQL integration remains NOT PASSED pending a full guarded run and confirmed cleanup.
