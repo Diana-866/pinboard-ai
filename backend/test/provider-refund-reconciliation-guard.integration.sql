@@ -37,7 +37,18 @@ begin
     v_user::text,v_key,v_claim,1,'refund_unknown_multi','failed',1.10,null,500,'UPSTREAM_ERROR',null
   );
   begin
-    perform public.complete_pin_generation_request(v_user::text,v_board,v_key,v_claim,'[]'::jsonb,1);
+    perform public.complete_pin_generation_request(
+      v_user::text,v_board,v_key,v_claim,
+      jsonb_build_array(jsonb_build_object(
+        'image_url','https://storage.example.invalid/unexpected-completion.png',
+        'title','unexpected completion',
+        'description','',
+        'model_used','flux-schnell',
+        'aspect_ratio','2:3',
+        'credits_cost',1
+      )),
+      1
+    );
     raise exception 'multi-pin completion accepted an unreconciled provider refund';
   exception when others then
     if sqlerrm not like '%provider refund reconciliation is incomplete%' then raise; end if;
