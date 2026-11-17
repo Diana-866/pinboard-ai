@@ -589,3 +589,14 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 - Updated `docs/USER_ACTIONS.md`: blob `450ce57b14b16274628425ceec77676ba9b8d586`, commit `f6c987c6ed8c3517574bdd407e3401201b89a36e`.
 - Updated audit `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`: blob `4eccd5a7a562d5f65769346a11a9c8cce80df358`, commit `e2318da231a6f783ea82d9e3803009e3d45ec70b`.
 - Next step: improve diagnostic fidelity to preserve exact psql ERROR/SQLSTATE and inspect catalog state around each migration 018 statement, then rerun only via guarded disposable DB. SQL integration remains NOT PASSED.
+
+
+### 2026-11-17 — psql native stderr and UTF-8 diagnostics patch
+
+- Diagnosis: with script-wide `$ErrorActionPreference = 'Stop'`, Windows PowerShell 5.1 may promote native `psql.exe` stderr NOTICE records to terminating PowerShell errors before `$LASTEXITCODE` is inspected. Owner's previous exception surfaced SQLSTATE 00000 NOTICE instead of the runner's `psql failed (exit N)` wrapper; garbled Cyrillic indicated output decoding mismatch. This is a high-confidence runner diagnosis pending guarded runtime verification, not proof of a migration 018 SQL defect.
+- Runner updated to temporarily set error preference Continue and Console.OutputEncoding UTF-8 for the psql invocation, capture merged output and native exit code, then restore both settings in finally. Runner commit `b5b43c86213209e1cacefd8807fce188439dc11d`; blob `d1137519b254f31a8d669405d355956b1fb23ddf`.
+- Added two Node contract tests for stderr/exit-code/restoration and UTF-8/restoration. Test commit `e24511b5219315928baefb3563ef959c16cc86ec`; blob `088c23d854c9be56320b2728f1e4cbe6b107f8a5`. Source inspection confirms 12 test declarations; tests have NOT been executed.
+- Updated `docs/PROJECT_STATE.md`: blob `19961060f7cf3cb57d03fd67d1c64115c269f140`, commit `b188384f4f8937089520eb57d368c97461d363f2`.
+- Updated `docs/USER_ACTIONS.md`: blob `86f4269af47e9255000508c79c61e4a3a82c432b`, commit `cac6ebf1f4c8615e9dcfa9d761f1afe852570765`.
+- Updated audit `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`: blob `907ca3901be6bb28b5dd974949ee5f491a701fbb`, commit `cbe06c671877548e19b95b64e5fff11f3df678cb`.
+- Next: owner must pull after all docs commits, execute `node --test backend/test/postgres-integration-runner-contract.test.js`, run PowerShell parser check, then guarded disposable integration runner. SQL integration remains NOT PASSED.
