@@ -649,3 +649,15 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 
 
 - Follow-up exact documentation blobs after adding the 14-test source count: audit `888291577fa128a3b87aa698ab2679b7cb0768f8` (commit `e438ff1f65154cc5cee8597964ffa4f3598bd970`); project state `33976e5228fd09a543d763a50fff2df7f6a6b009` (commit `34183bf6ce292a135f7239d0a7dd88f7019abddc`); owner actions `eef47a29ffb78e36c8fda15a3d1e9a73f33e51f5` (commit `ed47292dc4ccdae789920c5c33c93357ee7a3832`).
+
+
+### 2026-11-17 — account-deletion re-auth integration test FK cleanup
+
+- Owner evidence: checkout synchronized at `8ebae45ed1dd141b8ca08a0104c8127041ea2a62`; Node contract suite 14/14 PASS; guarded runner applied fixture, 140 migrations 010–149 and two inline assertions; SQL tests 1–5/46 PASS; test 6/46 failed with FK RESTRICT `account_deletion_jobs_request_id_fkey` during manual deletion of the request. Disposable DB `pinposy_sqlint_88f6d6f8b1654c23` cleanup confirmed; tests 7–46 not run; SQL integration NOT PASSED.
+- Root cause: migration 130's accepted-request RPC inserts durable job and append-only event rows referencing request; RESTRICT FK and immutable-event trigger make the old manual DELETE cleanup invalid.
+- Updated `backend/test/account-deletion-reauth-version.integration.sql` to wrap the test in BEGIN/ROLLBACK and remove manual DELETEs: blob `90486cf3499f54f36a4bda50f88f326f52e5bf0a`, commit `61e508df37ed1a3ff6c0c6c57622dfa65b6c1b26`.
+- Added contract test for rollback isolation/no direct cleanup deletes: blob `3801da4c55a12aa7668eb940f3ab1cbd753bab2c`, commit `2860d0df79c2eb0d7bef7a727171a45b79202402`.
+- Audit `docs/audits/2026-11-17-postgres-integration-reauth-test-fk-cleanup.md`, created in commit `44d405bdc13f5a08c9dc8797796cdf98767c6c66`.
+- Updated `docs/PROJECT_STATE.md`: blob `adaced82120adbb94b27b03318552152c1345954`, commit `9430f116c9ed2ff4f96c2ef904e2fe669c05e869`.
+- Updated `docs/USER_ACTIONS.md`: blob `d1c524d3275acbe2f18aee3bea3a0823e2ca48a5`, commit `1a71a0742d7155d464b888cba1e9f5df83e704b3`.
+- Assistant used GitHub source inspection and updates only; no local test execution. Current contract suite has 15 test declarations by source inspection, not runtime verification. Owner must pull, run contract suite, then guarded runner; PASS requires all 46 SQL tests and confirmed cleanup.
