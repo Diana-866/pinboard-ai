@@ -2384,7 +2384,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 
 ## UA-033 — Повторить PostgreSQL integration после исправления approval fixture в test 34
 
-**Статус:** синхронизация выполнена и подтверждена; ожидаются Node и PowerShell Parser gates.
+**Статус:** синхронизация выполнена; Node 45/45 и PowerShell Parser 0 ошибок подтверждены; ожидается guarded PostgreSQL runner.
 
 **Основание:** на clean main `60251392b65f4a44941c0b1f24950e72b6cf23e6` Node tests прошли **45/45**, PowerShell Parser — **0 syntax errors**; runner применил fixture, 147 миграций 010–156 и две CI inline assertions. SQL tests 1–33 прошли; test 34 завершился ошибкой `first Pinterest publish reservation must start`. Disposable DB `pinposy_sqlint_164fb8a1f4684d95` удалена; tests 35–46 не запускались.
 
@@ -2440,3 +2440,30 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 **Подтверждение синхронизации владельцем (2026-11-17):** исходное и итоговое `git status --short` пусты; `git pull --ff-only origin main` прошёл fast-forward; `HEAD` = `origin/main` = `ff1ea965d644008d7fcd1160516042b288a4690a`. Повторная синхронизация не требуется, если локальная ветка не изменится.
 
 **Следующее действие:** выполнить разделы 2 и 3 выше (Node 45/45, затем PowerShell Parser 0 ошибок). Полный guarded runner — только после обоих PASS. Результаты этих двух gates после последнего SQL fixture изменения пока не предоставлены; до их получения fixture остаётся NOT RUNTIME-VERIFIED.
+
+
+**Результаты повторных предварительных gates (2026-11-17):**
+- Node contract/migration/replay-chain: **45 tests, 45 pass, 0 fail, 0 skipped**.
+- PowerShell Parser: **0 syntax errors**.
+- Оба результата получены после approval-fixture изменения и синхронизации до `948df3b9c9590fd78e6beb1690dcd3785e91d54f`.
+
+### 5. Следующий шаг — guarded PostgreSQL integration runner
+
+Теперь, и только теперь, можно выполнить из `X:\\!PROGECT\\pinboard-ai`:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+```
+
+Условия успешного завершения:
+- upgrade fixture применён;
+- применены **147 migrations 010–156**;
+- прошли **2 CI inline assertions**;
+- все **46/46 ordered SQL integration tests** прошли;
+- runner подтвердил cleanup disposable database.
+
+Остановиться при первой ошибке и передать полный вывод, включая итог cleanup. Не запускать вручную отдельные SQL-файлы в другой БД и не обходить runner guards.
+
+**Безопасность:** сохранить PostgreSQL listener PID 15220, port 55439 и data directory `X:\\PinPosy-verify-pg18`. Не останавливать/перенастраивать сервер, не использовать production/`PIN_TRIAL`, не присылать пароли, токены или `.env`.
+
+**Текущий статус:** Node 45/45 PASS и Parser 0 ошибок подтверждены после fixture change; guarded PostgreSQL runtime ещё не выполнен. Девять Bash concurrency scripts остаются отдельным непроверенным этапом.
