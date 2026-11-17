@@ -2106,7 +2106,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 
 ## UA-028 — verify migration 156 contract regex correction
 
-**Статус:** ожидает локальной проверки владельцем; source-only correction опубликована в branch `fix/migration-156-contract-regex` (commit `71573a738d71f514af742f18e40a62f556f71bd6`).
+**Статус:** ожидает локальной проверки владельцем; source-only correction опубликована в branch `fix/migration-156-contract-regex` (commit `71573a738d71f514af742f18e40a62f556f71bd6`), Draft PR [#91](https://github.com/Diana-866/pinboard-ai/pull/91). GitHub показывает clean merge state; PR не объединён. Vercel preview status Success, но Actions/Node/SQL tests не подтверждены.
 
 **Что исправлено:** четыре over-escaped regex literals в migration-156 contract test. Focused JavaScript probe: старые matcher'ы 0/4, исправленные 4/4. Полный Node test suite ещё не запускался.
 
