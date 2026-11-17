@@ -2102,3 +2102,56 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 **Безопасность:** сохранить listener PID 15220, порт 55439, каталог `X:\\PinPosy-verify-pg18`. Не останавливать и не перенастраивать сервер, не обходить guards, не использовать production/`PIN_TRIAL`, не отправлять пароли/токены/`.env`.
 
 **Текущий статус:** SQL integration **FAIL 27/46** (test 28); tests 29–46 не запускались. Migration 156, Node contract и изменённые replay scripts пока не runtime-verified. Девять Bash concurrency scripts остаются отдельным непроверенным этапом.
+
+
+## UA-028 — verify migration 156 contract regex correction
+
+**Статус:** ожидает локальной проверки владельцем; source-only correction опубликована в branch `fix/migration-156-contract-regex` (commit `71573a738d71f514af742f18e40a62f556f71bd6`), Draft PR [#91](https://github.com/Diana-866/pinboard-ai/pull/91). GitHub показывает clean merge state; PR не объединён. Vercel preview status Success, но Actions/Node/SQL tests не подтверждены.
+
+**Что исправлено:** четыре over-escaped regex literals в migration-156 contract test. Focused JavaScript probe: старые matcher'ы 0/4, исправленные 4/4. Полный Node test suite ещё не запускался.
+
+### 1. Проверить ветку и рабочее дерево
+
+Из PowerShell в `X:\\!PROGECT\\pinboard-ai`:
+
+```powershell
+git status --short
+git fetch origin
+git switch --track origin/fix/migration-156-contract-regex
+```
+
+Если локальная ветка уже существует, использовать `git switch fix/migration-156-contract-regex`. Не переключаться при незакоммиченных изменениях; сначала сохранить свою работу. Не делать reset, clean или force push.
+
+### 2. Node contract gate
+
+```powershell
+node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+```
+
+Требуется все тесты PASS (в проектном плане ожидается 45). При любом FAIL остановиться и прислать полный вывод. Не переходить к PostgreSQL runner.
+
+### 3. PowerShell Parser gate
+
+```powershell
+$tokens = $null
+$errors = $null
+[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path .\\scripts\\verify-integration.ps1), [ref]$tokens, [ref]$errors) | Out-Null
+if ($errors.Count -gt 0) { $errors | Format-List *; exit 1 }
+"PowerShell Parser PASS: 0 syntax errors"
+```
+
+Требуется 0 syntax errors.
+
+### 4. Guarded PostgreSQL integration — только после двух PASS
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+```
+
+Требуется fixture, 147 migrations 010–156, обе CI inline assertions, 46/46 ordered SQL tests и подтверждённый cleanup disposable DB. Остановиться при первой ошибке.
+
+**Безопасность:** сохранить listener PID 15220, port 55439 и `X:\\PinPosy-verify-pg18`. Не обходить guards, не использовать production/`PIN_TRIAL`, не останавливать и не перенастраивать постоянный PostgreSQL cluster, не отправлять credentials или .env.
+
+**Важно:** WSL не нужен для этого native Windows PostgreSQL gate. Не тратить время на восстановление WSL ради запуска `verify-integration.ps1`. Девять Bash concurrency scripts остаются отдельной проверкой.
+
+**Последний CI poll:** PR #91 head `05148bd192338138c4e49769e6e3a6d35b179151`, 9 commits ahead / 0 behind main. GitHub mergeability пока `unknown`. Vercel status сейчас failure из-за `build-rate-limit`; Actions runs для этого head отсутствуют. Предыдущий Vercel Success относился к старому head и не является актуальным результатом.
