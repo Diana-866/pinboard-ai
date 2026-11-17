@@ -25,24 +25,18 @@ This is a source-encoding compatibility defect. The exact Windows PowerShell ver
 
 ## 4. Verification status and limitations
 
-- The owner's parser output is the only executed Windows runtime evidence so far; it demonstrates the previous no-BOM version did not parse.
-- The updated runner and contract test were inspected from GitHub after editing. The Node contract test and Windows PowerShell parser were **not executed** in this assistant environment; no PASS is claimed.
+- Initial owner output showed that the no-BOM version did not parse. After the BOM correction was pulled, the owner ran the PowerShell Parser API against `scripts/verify-integration.ps1` twice; both runs returned `PASS: PowerShell parser` with no parser errors.
+- This is owner-reported syntax-validation evidence only. It does not execute the script or validate PostgreSQL preflight, disposable DB creation, migration replay, inline assertions, SQL tests, or cleanup. The runner runtime, SQL suite and Node contract test remain **NOT RUN**; no SQL PASS is claimed.
 - No PostgreSQL connection, test database, migration, SQL test, Bash concurrency test, backend runtime test, production resource, PIN_TRIAL resource, existing PostgreSQL process/PID 5632, or temporary cluster was accessed or changed by this correction.
 - GitHub Actions runner allocation/log availability remains a separate constraint and does not substitute for local validation.
 
 ## 5. Required next action
 
-After the owner fast-forwards to the latest `main`, first run the PowerShell parser-only check below. It must complete without output/errors before the integration runner is invoked:
+Owner has now fast-forwarded to `main` and confirmed the parser-only check twice (`PASS: PowerShell parser`). Do not repeat that check unless the script changes. The next action is to execute the guarded integration runner:
 
-```powershell
-$tokens = $null
-$errors = $null
-[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path .\\scripts\\verify-integration.ps1), [ref]$tokens, [ref]$errors) | Out-Null
-if ($errors.Count -gt 0) { $errors | Format-List; throw 'PowerShell parser check failed.' }
-'PASS: PowerShell parser'
-```
 
-Only after parser PASS, run the existing guarded runner:
+
+Run the existing guarded runner now that parser PASS is confirmed:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1 -PostgresPort 55439
@@ -51,3 +45,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integrati
 Enter the temporary role password only in its hidden local prompt. Return the complete output, exit code, and cleanup result without passwords or secrets. If preflight rejects the cluster, stop and report the exact message; do not bypass checks. Do not use production, PIN_TRIAL, the existing PostgreSQL service/PID 5632, or delete the temporary cluster.
 
 Only after confirmed SQL integration PASS **and** disposable database cleanup may the separately gated Bash concurrency suite be prepared and run, followed by backend runtime verification.
+
+
+## 6. Owner parser validation follow-up (2026-11-17)
+
+The owner pulled `main` from `e187ce33` to `28b50f44` and ran the PowerShell Parser API twice against `scripts/verify-integration.ps1`. Both invocations returned `PASS: PowerShell parser` and no parser errors. This confirms that the UTF-8 BOM correction resolves the reported parse failure in the owner's PowerShell environment.
+
+The parser API only parses the file; it does not execute its statements. PostgreSQL preflight, database creation, migrations 010–148, the two inline assertions, all 46 SQL integration files and finally cleanup remain unverified. SQL integration status remains **NOT RUN** until the guarded runner completes and its output/exit code/cleanup are reviewed.
+
+Next owner command: `powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1 -PostgresPort 55439`. The role password must be entered only in the hidden local prompt. If preflight fails, stop and report the exact message; do not bypass it. Never touch production, PIN_TRIAL, existing PostgreSQL PID 5632 or delete the temporary cluster. Bash concurrency and backend runtime suites remain blocked until SQL PASS plus cleanup confirmation.
