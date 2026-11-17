@@ -180,11 +180,11 @@ test('durable account deletion queue test expects the Storage manifest guard add
   assert.ok(stageGuards.indexOf("raise exception 'account deletion Storage manifest is required';") < stageGuards.indexOf('update public.account_deletion_jobs'));
 });
 
-test('CI migration list remains the complete contiguous 010-153 chain', () => {
+test('CI migration list remains the complete contiguous 010-154 chain', () => {
   const prefixes = [...workflow.matchAll(/db\/migrations\/(\d{3})_[A-Za-z0-9._-]+\.sql/g)]
     .map((match) => Number(match[1]));
-  assert.equal(prefixes.length, 144);
-  assert.deepEqual(prefixes, Array.from({ length: 144 }, (_, index) => index + 10));
+  assert.equal(prefixes.length, 145);
+  assert.deepEqual(prefixes, Array.from({ length: 145 }, (_, index) => index + 10));
 });
 
 test('upgrade fixture preserves every canonical baseline column except fields introduced by later migrations', () => {
@@ -263,6 +263,13 @@ test('migration 153 permanently quarantines expired external image deletion clai
   assert.match(migration, /if v_state = 'deleting' then[\s\S]*?if v_claim_expires_at > now\(\)[\s\S]*?state = 'quarantined'[\s\S]*?reason', 'path_quarantined'/i);
   assert.match(migration, /pin_generation_requests[\s\S]*?boards[\s\S]*?pin_review_queue/i);
   assert.doesNotMatch(migration, /retry the[\s\S]*?Storage removal/i);
+});
+
+test('migration 154 preserves deleted image path tombstones and migration 145 reference inventory', () => {
+  const migration = read('db/migrations/154_restore_permanent_tombstone_guard_for_deleted_pin_image_uploads.sql');
+  assert.match(migration, /if v_state = 'quarantined'[\\s\\S]*?reason', 'path_quarantined'[\\s\\S]*?if v_state = 'deleted'[\\s\\S]*?reason', 'already_deleted'/i);
+  assert.match(migration, /pin_generation_requests[\\s\\S]*?boards[\\s\\S]*?pin_review_queue/i);
+  assert.match(migration, /revoke all on function public\\.begin_pin_image_upload\\(text,text,integer\\)[\\s\\S]*?from public, anon, authenticated, service_role/i);
 });
 
 test('migration 152 revokes direct execution of the regeneration reservation trigger function', () => {
