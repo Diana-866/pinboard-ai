@@ -732,11 +732,11 @@ Assistant actions for this review: fetched current GitHub baseline, migrations 1
 
 ## 2026-11-17 — schema-contract review and fixture timestamp alignment
 
-| 406 | `docs/audits/2026-11-17-postgres-upgrade-fixture-timestamp-contract.md` | `49ade0bd52aa74de4b49f4835c7973b81e40650b` | `98ccaa252937c043c83694c680359c9554803b6e`; static schema-contract review, timestamp fixture corrections and verification limits |
+| 406 | `docs/audits/2026-11-17-postgres-upgrade-fixture-timestamp-contract.md` | `80fb5cee760c0abee2c6087f2c7b61ced826e74c` | `9f4928b5b274985a63990f07e13c62e978e2b414`; static schema-contract review, timestamp fixture corrections, migration-023 assertion follow-up and verification limits |
 | 407 | `backend/test/postgres-integration-upgrade-fixture.sql` | `0d1236b722193fb18e4bbd2d0bd258c018d4cd77` | `dd518aed667e5a7657617e4c40cbdcd9e0e04b77`; aligned legacy timestamp types with canonical baseline |
 | 408 | `.github/workflows/atomic-payment-integration.yml` | `b8bee6bba38d25afdaaa015f8027c4aefd722346` | `a09dfea5051c563b5bad3509adf928ff21463720`; kept CI inline upgrade fixture aligned with standalone fixture |
-| 409 | `backend/test/postgres-integration-runner-contract.test.js` | `3242ba970ab898fb14971cbabab7fe6293b2af95` | `3bee9ba503e7709bee51e7826988750be2ece04e`; asserts auth_tokens.created_at timestamptz |
+| 409 | `backend/test/postgres-integration-runner-contract.test.js` | `daceb31d99230b409c487cc39d10dc3ee1ef7102` | `565e8775d5af05f486f8cc1ac75f15edba74aa35`; asserts auth_tokens.created_at timestamptz and migration-023 token_version introduction |
 | 410 | `docs/PROJECT_STATE.md` | `72f95b790693103ee86341bf8c40f2d191c7eb9a` | `ad08033e39e982d2fdcb12e63dfc32eddb3559a3`; records schema-contract review, changes, evidence and runtime limits |
 | 411 | `docs/USER_ACTIONS.md` | `c2141b0bd6e852ae32d0aeb2b304555dfea75512` | `808b069944c972cd9a53c3b93e7ce112c7b9d9a9`; adds UA-005 for Node and guarded SQL verification |
 
-| 412 | `docs/PROJECT_STATE.md` | `e3931185c2dce2a80ba7846ef16e10f89bf8ba13` | `3ad67d3f22dd352c67ab4b3f1b38b4f6b1318a71`; records final source-level verification, current main HEAD, Vercel build-rate-limit status and pending runtime gate |
+| 412 | `docs/PROJECT_STATE.md` | `ff49594c143b8f23011356fe6f15ba9c2d19f3dd` | `252ddef022086fb2d7fed82d6c2fabdd26384417`; records final source-level verification, current main HEAD, Vercel build-rate-limit status, pending runtime gate and migration-023 assertion follow-up |
