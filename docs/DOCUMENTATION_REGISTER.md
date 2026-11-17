@@ -1223,3 +1223,14 @@ Diagnosis evidence: migration 029 grants INSERT to service_role; migration 042 e
 | `docs/USER_ACTIONS.md` | `fd011eae9828c1903436113f62fdbdca806b8c1e`; update UA-034 with completed sync and remaining ordered preflight gates |
 
 Owner evidence: pre/post `git status --short` empty; fast-forward `1b855857..3e186f14`; local HEAD = origin/main = `3e186f149bbda21235c1389ca5ce16de7619cd61`. This is synchronization evidence only. Node 45-test gate, PowerShell Parser gate and guarded PostgreSQL integration remain outstanding; source fix is not runtime-verified.
+
+
+### 2026-11-17 — Node preflight PASS after billing webhook privilege assertion fix
+
+| Path | Commit / reason |
+|---|---|
+| `docs/PROJECT_STATE.md` | `222b93658101e34907982f566a807872bfe991e2`; record owner synchronization and exact Node TAP result |
+| `docs/USER_ACTIONS.md` | `98565d45a8721d602f7f89cd8f882a30ba2db39d`; advance UA-034 to PowerShell Parser gate |
+| `docs/audits/2026-11-17-postgres-test-34-billing-webhook-audit-privilege-assertion-fix.md` | `4026649b2f3501b6487a86c6cbf82c67ac25bfa3`; append owner preflight evidence and remaining runtime limitations |
+
+Owner transcript: clean sync to `45fb5f300b1cd334ad8128a76f5d694f52389861`; Node TAP **45/45 pass, 0 fail, 0 cancelled, 0 skipped, 0 todo**. PowerShell Parser and guarded PostgreSQL integration are still outstanding; no 46/46 SQL result is claimed.
