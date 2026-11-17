@@ -774,3 +774,14 @@ The two GitHub Actions workflows were rerun once (attempt 2) on 565e877.... Both
 | `docs/USER_ACTIONS.md` | `2d82b17e85039c2c2870bba013da0790681b4f79` | UA-007: owner synchronization and repeat Node gate; runner remains blocked until full Node PASS |
 
 Owner evidence: clean synchronized checkout at `72bafc7a1a0e1921e4155eacc6d38df610f39780`; Node suite 19 PASS / 1 FAIL (20 total). The failing comparison retained the same header comment in CI expected but removed it from standalone actual. Only the contract assertion was changed. Assistant published the correction and audit through GitHub; it did not execute Node/PowerShell/PostgreSQL. The rerun is pending; SQL integration remains NOT PASSED.
+
+
+### 2026-11-17 — Node PostgreSQL runner contract gate: owner runtime PASS
+
+| Path | Blob SHA | Commit / reason |
+|---|---|---|
+| `docs/audits/2026-11-17-postgres-integration-node-contract-20-pass.md` | pending final fetch verification | `deb944f51a065bb0c2a6e7e4a7a4b282e402a67d`; owner transcript, 20/20 Node PASS, exact next Parser gate and safety limits |
+| `docs/PROJECT_STATE.md` | `bccae420bd1cc6958ede39297f49ba59daba9b75` | `027227b3a78447f0ad39ee59d0dc9aae0090cacf`; records synchronized owner checkout and 20/20 runtime result |
+| `docs/USER_ACTIONS.md` | `610cd65e26a232ac4150e5af79cfb6ae5db5b9f6` | `a2cf68841a6aba499b9ceb30a6160fa08576bde6`; UA-008 Parser API check, next guarded runner gate and STOP rules |
+
+Owner evidence: clean checkout synchronized at `9beca59b21c1f41e4155eacc6d38df610f39780`; `node --test backend/test/postgres-integration-runner-contract.test.js` returned 20 PASS / 0 FAIL. Node contract gate is now closed. PowerShell Parser API check remains pending; SQL integration remains **NOT PASSED**. Assistant did not execute local Node, PowerShell, psql or PostgreSQL; it inspected GitHub sources and updated documentation only. No production database, migrations, runner target or persistent verification cluster was modified.
