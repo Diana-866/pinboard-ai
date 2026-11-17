@@ -240,3 +240,16 @@ Pre-018 catalog output listed only the expected six constraints directly on `pub
 Cleanup was successful and explicit: session termination, `DROP DATABASE`, then `Removed disposable database pinposy_sqlint_318fd598c73448c5`. No permanent database or production/PIN_TRIAL resource was touched.
 
 Assistant retrieved and inspected runner, migration 018, fixture, baseline and SQL manifest; recorded exact blob SHAs in project state/action log/register. No source changes or database operations were performed by assistant. Next action is a minimal diagnostic improvement to preserve exact psql error encoding/SQLSTATE and inspect catalogs at each migration 018 statement, then another guarded disposable run. SQL integration remains NOT PASSED.
+
+
+## 18. Runner patch for native psql stderr and UTF-8 diagnostics (2026-11-17)
+
+The previous owner run reached migration 018, then the PowerShell exception text showed the expected `DROP CONSTRAINT IF EXISTS` NOTICE (SQLSTATE 00000) instead of the runner's own nonzero-exit wrapper. Source review found global `$ErrorActionPreference = 'Stop'` and a direct native `psql.exe` invocation. Likely explanation: Windows PowerShell 5.1 treats native stderr output as a terminating PowerShell error before the code reads `$LASTEXITCODE`. The Cyrillic mojibake also suggests native output decoding was not aligned with PostgreSQL's UTF-8 client output. This diagnosis remains to be verified by a new guarded run; it does not establish that migration 018 SQL is defective.
+
+Assistant updated `Invoke-Psql` to scope `$ErrorActionPreference = 'Continue'` and `[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)` around the native invocation, merge/capture output, read `$LASTEXITCODE` immediately, and restore both original settings in `finally`. The existing exit-code check, target guards and disposable-database cleanup are unchanged.
+
+Runner commit `b5b43c86213209e1cacefd8807fce188439dc11d`; blob `d1137519b254f31a8d669405d355956b1fb23ddf`.
+
+Two contract tests were added for scoped stderr handling/exit-code capture/restoration and scoped UTF-8 decoding/restoration. Test commit `e24511b5219315928baefb3563ef959c16cc86ec`; blob `088c23d854c9be56320b2728f1e4cbe6b107f8a5`. Assistant re-fetched both files and confirmed source text and 12 test declarations. No test execution or PowerShell/PostgreSQL runtime was available to assistant; do not claim PASS.
+
+Next: owner synchronizes after all documentation commits, runs `node --test backend/test/postgres-integration-runner-contract.test.js`, runs the PowerShell parser check, and invokes the guarded integration runner. New output should reveal the true psql exit code and UTF-8 ERROR if one exists. Only then diagnose migration 018. SQL integration remains NOT PASSED.
