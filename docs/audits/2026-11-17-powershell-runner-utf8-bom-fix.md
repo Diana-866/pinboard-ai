@@ -150,3 +150,16 @@ The owner then ran the PowerShell Parser API check; it returned `PASS: PowerShel
 Assistant inspected the current test, runner and documentation on GitHub `main`. Changed only the stale expected diagnostic wording in `backend/test/postgres-integration-runner-contract.test.js` to match the current runner log. Commit: `a4472b204bf6c66f02c0adb8c9d1db79579c47ea`; resulting test-file blob: `902a0d700a1b145d7e48ad5f0cc856c5bd6f99a1`. This source edit has not yet been executed by the assistant or owner. The previous 9/10 result remains the only observed execution result; do not report the contract suite as passing until rerun.
 
 Documentation updated to preserve the owner transcript, exact pass/fail counts, reason for failure, parser result, scope of what did not run, and assistant's source edit. No PostgreSQL instance, database, migration, fixture, production service, secret, or owner local file was touched by the assistant.
+
+
+## 11. Owner retest — Node source-contract suite passes (2026-11-17)
+
+The owner fast-forwarded the local checkout from `844514ab` to `7f0084ca` with `git pull --ff-only origin main`. The transcript shows an empty `git status --short` before the pull. Five files changed in the fast-forward: the Node contract test and four documentation files (49 insertions, one deletion).
+
+The owner executed `node --test .\\backend\\test\\postgres-integration-runner-contract.test.js`. Result: **10 tests, 10 passed, 0 failed**. The output confirms all ten contract checks passed, including the corrected assertion for the expanded pre-migration-018 diagnostic heading, explicit casts of PostgreSQL catalog `contype` and `relkind`, fixture and inline-check parity, the ordered 46-file SQL manifest, Windows PowerShell BOM, identity normalization, safety guards, verbose diagnostics and the contiguous 010–148 migration chain.
+
+This test reads and validates source/manifest contracts; it does not execute PostgreSQL. The supplied transcript contains no PowerShell Parser API run for this newly pulled revision and no invocation of `scripts/verify-integration.ps1`. Accordingly, no new temporary database was created, no migration or inline assertion was executed, and the 46 SQL integration tests remain NOT RUN in this turn. The earlier parser PASS is historical evidence for its earlier revision only.
+
+Assistant action in this turn: fetched the current runner, contract test, project state, owner action log, audit and documentation register from GitHub `main`; verified the current source blob IDs; then appended this owner evidence and its limits to the project journal, UA-004 and this audit. No source code was changed by the assistant, and no local files, PostgreSQL processes/databases, production/PIN_TRIAL, or secrets were touched.
+
+Next gate: run the PowerShell Parser API check against the current pulled revision. Only if it passes, invoke the guarded integration runner and capture the complete output, including diagnostic records and cleanup confirmation. Do not report the SQL integration gate as passed until the fixture, all 139 migrations, two inline assertions, all 46 SQL tests and disposable database cleanup have completed successfully.
