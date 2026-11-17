@@ -150,12 +150,30 @@ begin
     raise exception 'OAuth callback from a revoked session was accepted';
   end if;
 
-  -- A failed/stale callback consumes no current credentials and cannot be replayed.
+  -- Password reset invalidates this pending callback, but does not disconnect
+  -- a Pinterest account that was connected before the password reset.
+  if v_committed->>'ok' <> 'false'
+     or v_committed->>'reason' <> 'stale_session' then
+    raise exception 'OAuth callback from a revoked session was not rejected as stale_session: %', v_committed;
+  end if;
+
   select count(*) into v_count from public.pinterest_accounts
    where user_id = v_user::text
-     and disconnected_at is null and access_token is not null;
-  if v_count <> 0 then
-    raise exception 'stale OAuth callback left active credentials after token-version change';
+     and pinterest_user_id = 'pinterest-user-current'
+     and username = 'reconnected_user'
+     and access_token = 'enc:reconnected-access'
+     and refresh_token = 'enc:reconnected-refresh'
+     and disconnected_at is null;
+  if v_count <> 1 then
+    raise exception 'password-reset stale callback changed the existing Pinterest credentials';
+  end if;
+
+  if exists (
+    select 1 from public.pinterest_accounts
+     where user_id = v_user::text
+       and pinterest_user_id = 'pinterest-user-old-session'
+  ) then
+    raise exception 'password-reset stale callback created an old-session Pinterest account';
   end if;
 
   -- RPCs must not be executable by untrusted API roles.
