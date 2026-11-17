@@ -967,3 +967,41 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 - Не вносить следующие fixture/code fixes до согласования системного плана schema-contract inventory.
 - Пока не требуется выполнять новые команды на компьютере. Сначала владелец рассматривает анализ.
 - Сохранить PID 15220 и `X:\\PinPosy-verify-pg18`; не трогать production/PIN_TRIAL; пароль вводить только в скрытый prompt.
+
+
+## UA-005 — проверить обновлённый schema-contract gate после синхронизации main (2026-11-17)
+
+**Почему требуется:** assistant исправил два расхождения timestamp types в тестовых fixtures и добавил source-contract assertion. Runtime execution недоступен из среды assistant: нет доступа к пользовательскому Windows checkout, PowerShell и локальному PostgreSQL verification cluster. Нельзя объявить тесты PASS только по чтению исходников.
+
+**Сначала — синхронизация и Node gate**
+1. В корне локального checkout выполнить:
+   ```powershell
+   git status --short
+   git pull --ff-only origin main
+   git rev-parse HEAD
+   git rev-parse origin/main
+   git status --short
+   ```
+2. Продолжать только если worktree чистый и `HEAD` совпадает с `origin/main`. На момент записи ожидаемый latest commit: `ad08033e39e982d2fdcb12e63dfc32eddb3559a3` (перед запуском сверить фактический main; документационные commits могут изменить HEAD).
+3. Запустить:
+   ```powershell
+   node --test backend/test/postgres-integration-runner-contract.test.js
+   ```
+4. Ожидается 21 test declaration по source inspection. Передать полный stdout/stderr и exit code. Если хотя бы один тест FAIL — **СТОП**: SQL runner не запускать, сначала сохранить точный вывод и сообщить assistant.
+
+**Только если Node suite полностью PASS**
+1. Выполнить PowerShell Parser API check для `scripts/verify-integration.ps1` (без запуска скрипта) и передать результат.
+2. Запустить guarded runner только в ранее разрешённом disposable PostgreSQL 18.6:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1 -PostgresPort 55439
+   ```
+3. Runner обязан самостоятельно подтвердить clean synchronized main, loopback-only endpoint, listener PID 15220, data directory `X:\\PinPosy-verify-pg18` и точную server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`. Пароль вводить только в hidden prompt; не отправлять его assistant.
+4. Передать полный лог без секретов. SQL gate считается пройденным только при PASS fixture, всех 140 migrations 010–149, двух inline assertions, всех 46 SQL tests и подтверждённом удалении только disposable DB.
+
+**Запрещено**
+- Не запускать SQL runner при failed/неполном Node suite.
+- Не использовать production, PIN_TRIAL или существующую БД; не останавливать PID 15220 и не удалять persistent verification cluster.
+- Не присылать пароли, токены, .env или другие секреты.
+- Не запускать Bash concurrency suite и backend runtime suite до полного SQL PASS и cleanup.
+
+**Статус:** [ ] Ожидает владельца. После получения вывода assistant обязан перепроверить актуальный main, записать фактический результат и обновить статус в PROJECT_STATE.md.
