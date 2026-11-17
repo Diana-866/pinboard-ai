@@ -17,7 +17,7 @@ Commit владельца: `c92cb6d402686abbca583ecb8871e7b2f9c1fc8f`
 - `git status --short` — пустой вывод до pull.
 - `git pull --ff-only origin main` завершился fast-forward с `758eba5e` до `c92cb6d4`.
 - `git rev-parse HEAD` и `git rev-parse origin/main` совпали: `c92cb6d402686abbca583ecb8871e7b2f9c1fc8f`.
-- Node contract suite: **18 тестов, 17 PASS, 1 FAIL**. Падает тест проверки project→board и board→pin cascade foreign keys. Ожидаемое регулярное выражение содержит `\\\\s` в regex literal; оно ищет буквальную последовательность backslash+s, а не whitespace. Исходный SQL содержит обычные пробелы.
+- Node contract suite: **18 тестов, 17 PASS, 1 FAIL**. Падает тест проверки project→board и board→pin cascade foreign keys. В regex literal перед `s` записано двойное экранирование, поэтому шаблон ищет буквальную обратную косую черту и букву `s`, а не whitespace. Исходный SQL содержит обычные пробелы.
 - Несмотря на неуспешный contract gate, владелец запустил guarded PostgreSQL runner. Это отклонение от записанного порядка: runner разрешено запускать только после PASS всех contract tests. Сам runner сохранил собственные safety guards.
 - Runner подтвердил чистый checkout на `c92cb6d4`, listener PID 15220, data directory `X:\\PinPosy-verify-pg18`, скрытый ввод пароля и server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
 - Disposable DB: `pinposy_sqlint_bb8532df036144f0`.
@@ -66,7 +66,7 @@ Commit владельца: `c92cb6d402686abbca583ecb8871e7b2f9c1fc8f`
 
 ### 3.3. Contract test тоже содержит дефект
 
-В файле `backend/test/postgres-integration-runner-contract.test.js` строка cascade assertion использует regex вида `/project_id\\\\s+uuid.../`. В JavaScript regex literal это означает поиск буквального `\\s`, а не пробельных символов. Правильная regex-форма — `/project_id\\s+uuid.../`.
+В файле `backend/test/postgres-integration-runner-contract.test.js` строка cascade assertion использует двойное экранирование перед `s` в regex literal. Поэтому regex ищет буквальную последовательность backslash+s, а не пробельные символы. Правильный шаблон должен использовать один escape перед `s`.
 
 Это не ошибка SQL fixture и не ошибка production FK; это ошибка самой проверки контракта. Из-за неё contract gate справедливо завершился FAIL.
 
