@@ -267,7 +267,7 @@ test('migration 153 permanently quarantines expired external image deletion clai
 
 test('migration 154 preserves deleted image path tombstones and migration 145 reference inventory', () => {
   const migration = read('db/migrations/154_restore_permanent_tombstone_guard_for_deleted_pin_image_uploads.sql');
-  assert.match(migration, /if v_state = 'quarantined'[\\s\\S]*?reason', 'path_quarantined'[\\s\\S]*?if v_state = 'deleted'[\\s\\S]*?reason', 'already_deleted'/i);
+  assert.match(migration, /if v_state = 'quarantined'[\s\S]*?reason', 'path_quarantined'[\s\S]*?if v_state = 'deleted'[\s\S]*?reason', 'already_deleted'/i);
   assert.match(migration, /pin_generation_requests[\\s\\S]*?boards[\\s\\S]*?pin_review_queue/i);
   assert.match(migration, /revoke all on function public\\.begin_pin_image_upload\\(text,text,integer\\)[\\s\\S]*?from public, anon, authenticated, service_role/i);
 });
