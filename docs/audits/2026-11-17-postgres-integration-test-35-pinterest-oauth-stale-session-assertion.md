@@ -77,3 +77,7 @@ No production application code, database migration, fixture, CI workflow, runner
 8. This audit and the three project documentation updates record the owner evidence, source reasoning, exact edits, SHAs, verification limits and next action.
 
 No local filesystem or shell was available to the assistant; no local tests or database commands were executed.
+
+## Additional assistant tooling note
+
+During preparation of the GitHub edits, the first orchestration attempt stopped with a JavaScript `SyntaxError`: a literal multi-line SQL block was passed to `String.match`, which interpreted it as a regular expression. This happened before any GitHub write call; no repository file was changed by that failed attempt. The edit was retried using literal `indexOf` matching with an exact-single-occurrence guard, after which the SQL test and Node contract commits were published successfully. This failed preparation attempt is recorded to preserve the assistant action history.
