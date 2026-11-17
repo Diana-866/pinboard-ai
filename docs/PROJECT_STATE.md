@@ -1593,3 +1593,15 @@ This section records the exact owner-provided PowerShell procedure. Treat it as 
 - Combined gates: Node contract suite **42/42 PASS** and PowerShell Parser **0 syntax errors**.
 - Detailed evidence: `docs/audits/2026-11-17-postgres-node-contract-dynamic-regexp-capture-group.md` (latest audit blob `5ad74e1be436daec60453eeb95c880b902529104`).
 - The guarded PostgreSQL integration runner is now the next authorized owner step. PostgreSQL integration remains **NOT PASSED / NOT YET VERIFIED** until full runner output confirms fixture, 144 migrations 010–153, two CI inline assertions, all 46 SQL tests and disposable DB cleanup.
+
+
+### 2026-11-17 — PostgreSQL integration test 28: inconsistent parent generation fixture corrected
+
+- Owner's guarded runner on `edf883e604140a864560b11b1181c672590f8f04`: fixture applied; 144 migrations 010–153 applied; both CI inline assertions passed; SQL tests 1–27 passed.
+- SQL test 28 `pin-image-deletion-claims.integration.sql` failed at the parent request completion update with `completed pins do not match successful generation tasks`.
+- Cleanup succeeded: runner terminated no other sessions, dropped only disposable DB `pinposy_sqlint_954a7251fb504472`, and confirmed its removal. Tests 29–46 were not run.
+- Diagnosis: test fixture inserted one failed task (and zero successful tasks) with a durable storage URL, but incorrectly marked its parent request completed while leaving nullable `pins` as NULL. Migration 071 correctly requires a JSON array matching the count of successful tasks on completion.
+- Assistant changed only the SQL fixture: parent is now terminally failed with `error_code='provider_task_failed'`, consistent with its failed task. This preserves the intended test that task-journal storage URLs remain deletion references for terminal parent requests. No production SQL or migrations changed.
+- Source commit `c58b877c1d51713c6b0d102206d8d4439ec4123e`; source blob `1df7078c31ba2992d526c0993802f3819b59df80`.
+- Detailed audit: `docs/audits/2026-11-17-postgres-integration-test-28-parent-generation-terminal-state-fixture.md` (blob `44437db99bb398867a141ee670e2c9b944ea34da`).
+- Assistant did not execute local tests or database commands. The fixture correction is not runtime-verified. Prior Node 42/42 and Parser PASS predate this SQL-only change. PostgreSQL integration remains **FAIL 27/46** pending rerun; next owner gate is Node 42/42, then guarded runner. Parser script was not changed, so the prior Parser PASS remains applicable.
