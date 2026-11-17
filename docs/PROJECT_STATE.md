@@ -1995,3 +1995,14 @@ Verification boundary and next step:
 - Latest fixture and Node contract edits are NOT RUNTIME-VERIFIED. Owner must pull the complete documentation batch, confirm clean synchronized main, rerun the three-file Node command and require 47/47 PASS, then rerun the guarded PostgreSQL runner.
 - Overall SQL integration remains NOT PASSED until all 46/46 SQL tests and disposable DB cleanup pass. Tests 39–46 have not yet been reached in the latest owner run.
 - Nine Bash concurrency scripts remain a separate unverified gate. Preserve listener PID 15220, port 55439 and `X:\PinPosy-verify-pg18`; never target production/`PIN_TRIAL` or bypass runner guards.
+
+
+### 2026-11-17 — Development continuation: reconcile current main and review remaining SQL tests
+
+- Observed GitHub `main` HEAD: `5b82dc7bdf3912c75b15f309d8e16ea8c7799a30` (documentation-register update). Latest source/test change: `0fd17599f4598559872965f07d5b01d2fadb19e2`; no newer source fix was found in the recent commit history.
+- Re-fetched the controlling project documents, test-38 SQL fixture, Node source-contract test, SQL manifest, SQL test inventory and incident report. The latest owner evidence remains: SQL tests 1–37 PASS, test 38 FAIL, tests 39–46 NOT RUN, disposable database cleanup PASS. The nine approved-fixture corrections and strengthened Node contract remain NOT RUNTIME-VERIFIED; the earlier 47/47 result predates the latest contract extension.
+- Performed targeted source-level inspection of the remaining eight SQL integration files: known remote ID recovery, publication board integrity, pin-status fencing, operator reconciliation, admin inventory, failed-board reassignment, failed-schedule retry identity and regeneration journal. This was not a complete line-by-line review or execution; no additional defect was established, so no speculative source/test/migration change was made.
+- Current combined status for the observed HEAD reports Vercel `failure` with target `build-rate-limit`. Treat this as a quota/rate-limit blocker, not a proven source build failure; deployment is not confirmed.
+- Detailed action log, exact blob SHAs, scope and verification boundary: `docs/audits/2026-11-17-development-continuation-sql-gate.md`.
+- Assistant did not run local Node/PowerShell/Bash/psql/PostgreSQL, did not access credentials or databases, and did not modify application source, tests, migrations, workflows, production data or external services.
+- **Next gate:** owner synchronizes clean local `main`, runs the three-file Node preflight (require 47/47), then the guarded `scripts/verify-integration.ps1` runner using only the previously approved local PostgreSQL cluster. SQL PASS requires 46/46 and confirmed cleanup. Nine Bash concurrency scripts remain blocked behind SQL PASS.
