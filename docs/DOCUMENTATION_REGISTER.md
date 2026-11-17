@@ -21,8 +21,8 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 3 | `docs/MASTER_REQUIREMENTS.md` | `0891fc83d68de51acb298d1ad4da4f733a0499aa` | Reviewed/reconciled 2026-11-16; see audit reports |
 | 4 | `docs/PIN_TRIAL_MIGRATION_STATUS.md` | `2e0f66ccfa1ab9aeb71f80d299a5c4465e347d9e` | Owner-provided DB evidence; incomplete inventory |
 | 5 | `docs/PRODUCTION_READINESS_AUDIT.md` | `777ce34d539b3264b10554aa2cd731d436f080e2` | Reviewed/reconciled 2026-11-16; see audit reports |
-| 6 | `docs/PROJECT_STATE.md` | `ac1682a540ddc207c1416cbc8dc7df08af7613c4` | Current operational source of truth; mandatory development activity journal rule added |
-| 7 | `docs/USER_ACTIONS.md` | `a3c49bd536dc05b12905cbd7762ab1109d37257d` | Current operational source of truth |
+| 6 | `docs/PROJECT_STATE.md` | `1dfc7be41c7263158d83ef3f7738480e4be75928` | Current operational source of truth; mandatory development activity journal rule added |
+| 7 | `docs/USER_ACTIONS.md` | `956b8801e6be3d092574638b9036566325d86636` | Current operational source of truth |
 | 8 | `docs/architecture/pin-image-deletion-claim-protocol.md` | `0957b13bae0632ce8e34a5675b4a06f6ef8477a4` | Inventory only; content review pending |
 | 9 | `docs/audits/2026-11-16-account-deletion-runbook-reconciliation.md` | `4d1fa6f8e78162abbb29a3487a776c2b1c3cf319` | Historical audit/evidence; applicability must be checked against current main/tests |
 | 10 | `docs/audits/2026-11-16-ci-concurrency-harness-isolation-fix.md` | `dc050c2c7d0aa1415a5585e6820b1a2e8772fbd9` | Historical audit/evidence; applicability must be checked against current main/tests |
@@ -420,7 +420,7 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 402 | `docs/runbooks/public-pin-image-handling-aud-375.md` | `170db484f694b13c3fad66334611e73211787edc` | Operational runbook; code/environment/approval review required |
 | 403 | `docs/runbooks/release-line.md` | `ca56773268024b6c851b61600be5a8b16373a4de` | Operational runbook; code/environment/approval review required |
 | 404 | `docs/storage-lifecycle.md` | `870605f72ea42835d9784120ba0b4ed6d6bb6c69` | Inventory only; content review pending |
-| 405 | `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md` | `d522abed5dc14ca5d34a2fd26568f30de74068c0` | Execution evidence and remediation record; parser retest PASS, SQL runner runtime pending |
+| 405 | `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md` | `994093a3189c70f7e2b71740a604ef585da9d9f4` | Execution evidence and remediation record; parser retest PASS, SQL runner runtime pending |
 
 ## Inventory findings
 
@@ -479,3 +479,6 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 4. Historical AUD reports: retain evidence and add current resolution pointers.
 5. Proposals: compare with migrations now in main; label implemented, superseded or still proposed.
 6. Refresh blob SHAs after documentation edits; do not mark inventory as content review.
+
+- `scripts/verify-integration.ps1` — guarded PostgreSQL SQL integration runner; identity check now normalizes `inet_server_addr()` via `host(...)`; blob `05787d0f8067d3412ed10e06856e7b1cdfce1c6d`.
+- `backend/test/postgres-integration-runner-contract.test.js` — contract test includes inet/CIDR identity normalization assertion; blob `ce331fba2e06bb63473cfedf1c586003606b09c4`.
