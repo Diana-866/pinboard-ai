@@ -1408,3 +1408,15 @@ This section records the exact owner-provided PowerShell procedure. Treat it as 
 - Следующий шаг владельца после синхронизации всех документационных commits — повторить Node contract suite и прислать полный вывод/exit code. См. UA-007.
 
 - Post-publication source re-fetch: audit blob `571aa58c2a115b8392ee7100ba55ba49e4829539`; contract blob `03fc5d1973fcbc376367755009f310475e7cde44`; exact top-level declaration count is **20** (`^test(` line matches). PROJECT_STATE, USER_ACTIONS and DOCUMENTATION_REGISTER were fetched again and confirmed to contain this incident/next gate. This is source-level verification only; the corrected Node suite has not yet been rerun.
+
+
+### 2026-11-17 — Node PostgreSQL runner contract gate: 20/20 PASS
+
+- Владелец синхронизировал локальный checkout: чистый worktree до/после pull; fast-forward `72bafc7a → 9beca59b`; `HEAD` = `origin/main` = `9beca59b21c1f41c330bc7df03abb3189866766e`.
+- Владелец выполнил `node --test backend/test/postgres-integration-runner-contract.test.js`: **20 tests, 20 pass, 0 fail, 0 skipped, 0 todo**. Это закрывает Node contract gate по фактическому owner transcript.
+- Ранее исправленный parity assertion больше не падает; все runner contract assertions прошли.
+- Создан audit `docs/audits/2026-11-17-postgres-integration-node-contract-20-pass.md`, commit `deb944f51a065bb0c2a6e7e4a7a4b282e402a67d`.
+- Assistant повторно проверил GitHub PROJECT_STATE, USER_ACTIONS, DOCUMENTATION_REGISTER, guarded runner и предыдущий audit; установил следующий шаг из gate-последовательности. Ассистент не запускал локальные Node/PowerShell/psql/PostgreSQL команды; Node PASS предоставлен владельцем.
+- **Текущий статус:** Node contract gate PASS. PowerShell Parser API check ещё НЕ ВЫПОЛНЕН. PostgreSQL SQL integration остаётся **NOT PASSED**; guarded runner ещё не запускался после текущего Node PASS.
+- Следующий шаг владельца записан в UA-008: выполнить только PowerShell Parser API check для `scripts/verify-integration.ps1`. При Parser FAIL — STOP, runner не запускать. Только после Parser PASS и повторной проверки чистого synchronized main допускается guarded runner на утверждённом disposable PostgreSQL 18.6.
+- Production/PIN_TRIAL, PID 15220, `X:\\PinPosy-verify-pg18`, migrations и live databases не затрагивались.
