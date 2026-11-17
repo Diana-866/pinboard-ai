@@ -1305,3 +1305,13 @@ Owner evidence: clean synchronization at `68d32f33a6760b27577cbe15716f0c61c97984
 | `docs/USER_ACTIONS.md` | blob `e85bbb7435ef53a5dca9d25a89501dd466298ec5`; commit `4c1e7413b967dc7a8a47ab923c9d2afc7b32e7e5` | UA-034 updated to Node 47/47 gate followed by guarded PostgreSQL rerun |
 
 Owner evidence: Node 46/46 passed before the latest contract assertion; fixture, migrations 010–156 and both inline assertions passed; SQL tests 1–37 passed; test 38 failed because its legacy fixture pin was pending and migration 148 returned `pin_not_approved` before evaluating unmapped history; tests 39–46 were not run; disposable DB cleanup passed. The SQL and Node corrections are test-only and NOT RUNTIME-VERIFIED. Expected next Node gate is 47/47. Overall SQL integration remains NOT PASSED. Assistant did not run local commands or access a database/credentials.
+
+### 2026-11-17 — Owner Node preflight evidence
+
+| Path | Blob SHA | Purpose |
+|---|---|---|
+| `docs/audits/2026-11-17-postgres-integration-test-38-pinterest-legacy-history-fixture.md` | `8b9e129b13ed09badc831a237cc8285bcc2c8add` | Extended with owner-provided Node 47/47 result and explicit verification boundary |
+| `docs/PROJECT_STATE.md` | `794dd2f0ee5594a7f7759ae714664f1c06dfe0b6` | Chronological project state updated with clean sync and Node 47/47 evidence |
+| `docs/USER_ACTIONS.md` | `bc58ac921ef9c8de8d2c0ed23ea4ae654f72b983` | UA-034 updated: next step is guarded PostgreSQL rerun after pulling docs commit |
+
+Evidence: owner reported clean synchronized `main` at `d266f57da57f8219e5e1f42616111b32ad76d748` and Node 47/47 PASS. SQL integration remains NOT PASSED; previous run stopped at SQL test 38/46. The latest fixture correction is not yet runtime-verified. Next gate is the guarded PostgreSQL runner after syncing these documentation commits.
