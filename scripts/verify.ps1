@@ -86,10 +86,10 @@ function Invoke-MigrationReplay {
             Sort-Object Name
     )
 
-    $expectedMigrationSequence = (10..151 | ForEach-Object { "{0:D3}" -f $_ }) -join ","
+    $expectedMigrationSequence = (10..152 | ForEach-Object { "{0:D3}" -f $_ }) -join ","
     $actualMigrationSequence = ($activeMigrations | ForEach-Object { $_.Name.Substring(0, 3) }) -join ","
-    if ($activeMigrations.Count -ne 142 -or $actualMigrationSequence -ne $expectedMigrationSequence) {
-        Write-Host "Expected the exact contiguous migration sequence 010-151 (142 files); found $($activeMigrations.Count) files with sequence: $actualMigrationSequence. Refusing an incomplete or unexpected replay." -ForegroundColor Red
+    if ($activeMigrations.Count -ne 143 -or $actualMigrationSequence -ne $expectedMigrationSequence) {
+        Write-Host "Expected the exact contiguous migration sequence 010-152 (143 files); found $($activeMigrations.Count) files with sequence: $actualMigrationSequence. Refusing an incomplete or unexpected replay." -ForegroundColor Red
         return $false
     }
 
