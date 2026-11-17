@@ -456,6 +456,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration
 
 ### UA-004 follow-up — PostgreSQL identity guard CIDR mismatch (2026-11-17)
 
+**Важно:** это отдельный SQL integration runner, а не уже пройденный migration replay. 2026-11-16 `scripts/verify.ps1` успешно выполнил `001_baseline.sql` + 139 миграций `010–148` на disposable PostgreSQL 18.6; результат `MIGRATION REPLAY PASSED`, временная БД удалена. Этот успешный результат сохраняет статус PASS.
+
 **Статус: runner остановился на identity guard; SQL fixture и тесты не запускались.**
 
 Владелец сообщил, что:
