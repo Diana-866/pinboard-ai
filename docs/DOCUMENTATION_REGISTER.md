@@ -828,7 +828,7 @@ Owner runtime evidence: clean synchronized checkout at `0d31c813e39e420e26c5ebee
 | Path | Blob SHA | Commit / reason |
 |---|---|---|
 | `docs/audits/2026-11-17-postgres-integration-node-contract-after-test18-fix-pass.md` | `9f758b061d4e770c379ad6e6faaff1c9d030dd19` | `dea86db006aff98fde94d21f2bf55a1e04d665d6`; owner transcript, clean synchronized HEAD, Node 20/20 PASS, verification limits and next guarded SQL gate |
-| `docs/PROJECT_STATE.md` | cf9c78c21eb000e1deeff9b3b052158b61554b34 | 1c850d27c0bb884f40d892c072273cccd1126d41; chronological record of owner Node 20/20 PASS after test-18 test-only correction |
+| `docs/PROJECT_STATE.md` | `f7f191885aaa9d6af0d78e6a89a65e0c0fa9583c` | `180d80fc9b1a52a4f7e5271353cde9cffd3eb428`; chronological record of owner Node 20/20 PASS after test-18 test-only correction |
 | `docs/USER_ACTIONS.md` | 4ae132e3bb840a752cba317284d852eee4d3ef0b | 6dbfa3ca9f0dc2ed60b16cb226205e653f813e0e; UA-012: guarded PostgreSQL rerun instructions and stop/SQL-PASS criteria |
 
 Owner evidence: clean synchronized checkout at `6d982d1414490ed210502f834018a1a1a6d9d8a2`; Node contract suite returned 20 PASS / 0 FAIL. The PowerShell Parser API gate had previously returned 0 syntax errors and the runner source has not changed since that check. PostgreSQL SQL integration remains **NOT PASSED**: test 18 correction and tests 19–46 still require guarded runtime execution. Assistant did not execute local Node/PowerShell/psql/PostgreSQL.
