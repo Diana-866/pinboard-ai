@@ -75,3 +75,23 @@ This is owner-executed local Node evidence, not assistant-executed verification 
 ### Next gate
 
 The Node gate is now **PASS**. The owner may proceed to the PowerShell Parser API check and must require zero syntax errors. Only after Parser PASS may the guarded PostgreSQL integration runner run. PostgreSQL integration remains **NOT PASSED / NOT YET RUN** after this Node gate; SQL PASS still requires fixture, 144 migrations 010–153, two CI inline assertions, all 46 SQL tests and confirmed disposable DB cleanup.
+
+
+## 7. Owner rerun result — PowerShell Parser PASS
+
+After the documentation commit was pulled, the owner reported:
+- `git pull --ff-only origin main` advanced local main from `6512dc8a` to `73a1aef18eaee621783b879aa97ae1527ec9ba5a`.
+- Local HEAD and origin/main both equal `73a1aef18eaee621783b879aa97ae1527ec9ba5a`; both worktree status checks were empty.
+- The exact `System.Management.Automation.Language.Parser]::ParseFile` check for `scripts/verify-integration.ps1` completed and printed `PowerShell Parser PASS: 0 syntax errors`.
+
+This is owner-provided local Parser evidence. The assistant did not execute PowerShell or any local command. Together with the previously recorded 42/42 Node PASS, both pre-run gates are now **PASS**.
+
+### Next owner action
+
+The guarded PostgreSQL integration runner is now authorized:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+```
+
+Do not bypass runner safeguards or change the protected PostgreSQL process/port/data directory. Stop at the first failure and preserve complete output, including cleanup. A complete SQL PASS requires fixture, 144 migrations 010–153, two CI inline assertions, all 46 ordered SQL tests and confirmed disposable database cleanup. Until that evidence is supplied, PostgreSQL integration remains **NOT PASSED / NOT YET VERIFIED**.
