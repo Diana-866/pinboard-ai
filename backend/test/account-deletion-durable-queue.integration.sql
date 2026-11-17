@@ -49,12 +49,12 @@ begin
   v_finished := public.finish_account_deletion_job(v_job_id,gen_random_uuid(),'succeeded',null);
   if v_finished then raise exception 'stale worker token unexpectedly finalized job'; end if;
 
-  -- Successful preflight requires a persisted inventory under this claim.
+  -- Completion is first blocked by the later Storage-manifest prerequisite; inventory is also required before the marker can be recorded.
   begin
     perform public.finish_account_deletion_job(v_job_id,v_claim,'succeeded',null);
     raise exception 'preflight completed without an inventory';
   exception when raise_exception then
-    if sqlerrm <> 'account deletion preflight inventory is required' then raise; end if;
+    if sqlerrm <> 'account deletion Storage manifest is required' then raise; end if;
   end;
 
   if not public.record_account_deletion_preflight(
