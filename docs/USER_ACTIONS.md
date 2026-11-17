@@ -938,3 +938,32 @@ node --test backend/test/postgres-integration-runner-contract.test.js
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
 ```
 Пароль — только в скрытом prompt. Не запускать runner при падении Node suite. Не останавливать PID 15220, не удалять `X:\\PinPosy-verify-pg18`, не трогать production/PIN_TRIAL. SQL integration не считать пройденным, пока не пройдут все 46 тестов и cleanup.
+
+
+## UA — 2026-11-17: владелец остановил разработку для системного разбора SQL integration gate
+
+**Синхронизация и contract suite**
+- Владелец выполнил fast-forward pull с `758eba5e` до `c92cb6d4`.
+- `git rev-parse HEAD` и `git rev-parse origin/main` совпали: `c92cb6d402686abbca583ecb8871e7b2f9c1fc8f`.
+- Node suite: **18 tests, 17 pass, 1 fail**. Падает cascade contract assertion: в regex literal перед `s` двойное экранирование; это defect проверки, а не SQL FK.
+
+**Guarded SQL runner — фактический owner transcript**
+- Runner подтвердил clean main, PID 15220, data directory `X:\\PinPosy-verify-pg18`, hidden password prompt и server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+- Disposable DB: `pinposy_sqlint_bb8532df036144f0`.
+- Fixture PASS; migrations **010–149 (140)** PASS; оба inline assertions PASS; SQL tests **1–7/46 PASS**.
+- Test 8/46 `account-deletion-storage-manifest.integration.sql` failed inside `finalize_account_deletion(uuid,uuid)`: `users.subscription_tier` missing.
+- Cleanup confirmed: 0 sessions, DROP DATABASE, `Removed disposable database pinposy_sqlint_bb8532df036144f0`. Tests 9–46 не запускались; SQL integration **NOT PASSED**.
+- Важно: runner был запущен при результате Node suite 17/18. Это нарушило ранее записанное условие запуска только после PASS contract suite. Не повторять; guarded runner сохранил собственные safety checks и disposable cleanup.
+
+**Read-only source analysis**
+- Baseline `001_baseline.sql` содержит `subscription_tier`, `name`, `surname`, `onboarded`; standalone и CI fixtures не содержат эти четыре поля.
+- Migration 138 использует все четыре поля в одном UPDATE. Поэтому исправление только `subscription_tier` может просто открыть следующую ошибку по `name`, `surname` или `onboarded`.
+- Это повторяющийся класс fixture mismatch после `is_admin`, `boards.cover_url` и cascade FKs. Требуется предварительная сверка schema contract для всех критических сценариев, а не точечные догадки по очередной первой ошибке.
+- Assistant fetched baseline, migrations 127/137/138, standalone fixture, CI workflow, test 8, contract test and current docs. Assistant only inspected GitHub source; no local Node/PowerShell/psql/PostgreSQL execution.
+- Создан audit: `docs/audits/2026-11-17-postgres-integration-stop-and-review.md`. В рамках остановки не менялись application code, migrations, fixtures, CI workflow, SQL tests или DB; обновляется только документация.
+
+**⛔ ТЕКУЩИЙ СТАТУС: ПАУЗА**
+- Не запускать повторно `scripts/verify-integration.ps1`, пока Node contract suite не будет полностью PASS.
+- Не вносить следующие fixture/code fixes до согласования системного плана schema-contract inventory.
+- Пока не требуется выполнять новые команды на компьютере. Сначала владелец рассматривает анализ.
+- Сохранить PID 15220 и `X:\\PinPosy-verify-pg18`; не трогать production/PIN_TRIAL; пароль вводить только в скрытый prompt.
