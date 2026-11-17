@@ -900,3 +900,41 @@ node --test backend/test/postgres-integration-runner-contract.test.js
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
 ```
 Пароль — только в скрытом prompt. Не останавливать PID 15220, не удалять `X:\\PinPosy-verify-pg18`, не трогать production/PIN_TRIAL. Прислать полный вывод и подтверждение cleanup. SQL integration не считать пройденным, пока не пройдут все 46 тестов.
+
+
+## UA — SQL integration 2026-11-17: upgrade fixture omitted cascade FKs
+
+**Результат владельца**
+- Синхронизация: локальный `HEAD` = `origin/main` = `758eba5efdceb4f76c99b9d0077301e7c3fe58d8`, worktree чистый.
+- Node contract: **16 PASS / 1 FAIL из 17**. Единственный сбой — проверка `cover_url`: в SQL fixture записано `cover_url   text`, а regex требовал один пробел. Это ошибка проверки, не отсутствие поля.
+- Несмотря на падение Node suite, runner был запущен. Fixture PASS, 140 миграций 010–149 PASS, две inline assertions PASS, SQL tests 1–7/46 PASS.
+- Тест 8/46 `account-deletion-storage-manifest.integration.sql` упал на FK `boards_project_id_fkey`: удаление проекта блокировалось существующей board. Тесты 9–46 не запускались.
+- Disposable DB `pinposy_sqlint_a28d8185bc44448f` удалена: 0 сессий, DROP DATABASE и явное сообщение runner об удалении. SQL integration **NOT PASSED**.
+
+**Диагностика и исправление**
+- Migration 137 удаляет проект и рассчитывает на каскадное удаление дочерних boards и pins. В canonical baseline заданы `boards.project_id REFERENCES projects(id) ON DELETE CASCADE` и `pins.board_id REFERENCES boards(id) ON DELETE CASCADE`. Оба cascade отсутствовали в CI и standalone upgrade fixtures. Ошибка — расхождение тестовой схемы с baseline; production функцию и FK не ослабляли.
+- Исправлены оба fixture:
+  - standalone blob `bf9aad94a6b4381777586a97a88f3dc6eab373a6`, commit `b22ed9e255fe799fd3be91caf36b5c71f03a1387`;
+  - CI workflow blob `ad8d456eed5829c7aba0c8b9bfea314516b3e9d4`, commit `0724225a5ad324ba2eb9107ddaf202745d8761a4`.
+- Добавлен contract test для обеих каскадных связей: blob `cb9af9c67b1b1bbbc2073279a9fc7e3d0aa2491d`, commit `07e5a4a87350ba80f49adb4f3ba8bc1fbbf9c4cc`.
+- Regex проверки `cover_url` исправлен на `\\s+`: final contract blob `4584ef39860d443284cdb3e10f4534ffcc18b761`, commit `2a350c1f63cd481834ac7f5f0db50fcb271a640e`. Теперь в contract suite **18** тестов по source inspection; после исправления они ещё не запускались.
+- Audit: `docs/audits/2026-11-17-postgres-integration-storage-manifest-project-board-cascade-fixture.md`, commit `16939715fb0ede28ce5d0b6ba1efb19aefe68e45`.
+
+**Действия assistant**
+- Прочитаны transcript владельца, migration 137, canonical baseline, оба fixture, failing SQL test, contract test и документация.
+- Сопоставлены порядок удаления и FK-правила; исправлены только CI/standalone fixture и contract assertions; production migration не менялась.
+- Создан audit, обновлены PROJECT_STATE, USER_ACTIONS и DOCUMENTATION_REGISTER. Assistant использовал GitHub source reads/writes; локально Node, PowerShell, psql и PostgreSQL не запускал.
+
+**⚠️ Следующие действия владельца после публикации всех документов**
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+node --test backend/test/postgres-integration-runner-contract.test.js
+```
+Если worktree чистый, HEAD = origin/main и все **18** contract tests PASS:
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+```
+Пароль — только в скрытом prompt. Не запускать runner при падении Node suite. Не останавливать PID 15220, не удалять `X:\\PinPosy-verify-pg18`, не трогать production/PIN_TRIAL. SQL integration не считать пройденным, пока не пройдут все 46 тестов и cleanup.
