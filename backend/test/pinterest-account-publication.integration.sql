@@ -110,7 +110,7 @@ begin
   insert into public.projects(user_id, niche) values (v_user, 'multi-account-ci') returning id into v_project;
   insert into public.boards(project_id, title) values (v_project, 'multi-account-ci') returning id into v_board;
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
-  values (v_board, 'https://cdn.example.invalid/multi-account.png', 'Multi account', '', 'pending', 'flux-schnell', 0)
+  values (v_board, 'https://cdn.example.invalid/multi-account.png', 'Multi account', '', 'approved', 'flux-schnell', 0)
   returning id into v_pin;
 
   insert into public.pinterest_accounts(user_id, pinterest_user_id, username, access_token)
