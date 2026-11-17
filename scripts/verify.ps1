@@ -224,7 +224,7 @@ if ($Migrations -or $MigrationsOnly) {
     if ($migrationResult) {
         $Summary.Add("PASS  PostgreSQL migration replay (001 + 010-154)")
     } else {
-        $Summary.Add("FAIL  PostgreSQL migration replay (001 + 010-153)")
+        $Summary.Add("FAIL  PostgreSQL migration replay (001 + 010-154)")
         $Failed = $true
     }
 }
