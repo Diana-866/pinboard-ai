@@ -294,3 +294,12 @@ test('migration 152 revokes direct execution of the regeneration reservation tri
   assert.match(migration, /revoke all on function public\.release_failed_pin_regeneration_reservation\(\)/i);
   assert.match(migration, /from public, anon, authenticated, service_role/i);
 });
+
+test('Pinterest OAuth password-reset assertion preserves existing credentials while rejecting stale callback', () => {
+  const oauthTest = read('backend/test/pinterest-oauth.integration.sql');
+  assert.match(oauthTest, /v_committed->>'reason'\s*<>\s*'stale_session'/);
+  assert.match(oauthTest, /pinterest_user_id = 'pinterest-user-current'[\s\S]*?username = 'reconnected_user'[\s\S]*?access_token = 'enc:reconnected-access'[\s\S]*?refresh_token = 'enc:reconnected-refresh'[\s\S]*?disconnected_at is null/);
+  assert.match(oauthTest, /pinterest_user_id = 'pinterest-user-old-session'/);
+  assert.match(oauthTest, /password-reset stale callback created an old-session Pinterest account/);
+  assert.doesNotMatch(oauthTest, /stale OAuth callback left active credentials after token-version change/);
+});
