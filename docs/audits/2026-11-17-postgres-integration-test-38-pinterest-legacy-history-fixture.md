@@ -101,3 +101,63 @@ Owner synchronized local `main` from `62b2a859c8516fe98b174072d3642018d2dff419` 
 - This is owner-reported local Node evidence. It does not execute SQL, the PowerShell runner, PostgreSQL integration tests, Bash concurrency tests or CI.
 
 Next gate: synchronize the documentation-only commit(s) that record this result, confirm clean `main` and matching HEAD/origin, then run the guarded `scripts/verify-integration.ps1` command. Stop at the first SQL error and preserve full output/cleanup evidence. SQL suite still has not passed: previous run stopped at test 38/46; tests 39–46 were not run. The corrected test-38 SQL fixture remains unverified at runtime until this next guarded run. Do not claim 46/46 SQL PASS from the 47/47 Node result.
+
+
+## Follow-up owner run — test 38 stopped at an earlier publication fixture (2026-11-17)
+
+### Owner-provided execution evidence
+
+The owner synchronized the local checkout to documentation snapshot ce3bcc98ec09d6acfff726b7bd71265c70832791:
+- git pull --ff-only origin main fast-forwarded from d266f57d to ce3bcc98ec09d6acfff726b7bd71265c70832791.
+- HEAD and origin/main both equalled ce3bcc98ec09d6acfff726b7bd71265c70832791; git status --short was empty before and after.
+- The guarded runner verified clean synchronized main, PostgreSQL listener PID 15220, data directory X:\PinPosy-verify-pg18, and server identity 127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006.
+- The owner entered the temporary role password only at the hidden local prompt. No password was shared or recorded.
+- Disposable DB: pinposy_sqlint_bd50f191982f4df6.
+- CI upgrade fixture passed; all 147 migrations 010–156 passed; both inline assertions passed.
+- SQL tests 1–37/46 passed. Test 38/46, pinterest-account-publication.integration.sql, failed at line 895 with: first account publication did not start: {"status": "pin_not_approved"}.
+- Tests 39–46 were not run.
+- Cleanup passed: runner terminated remaining sessions (0 reported), dropped only the disposable DB, and printed Removed disposable database pinposy_sqlint_bd50f191982f4df6.
+- Overall SQL integration remains NOT PASSED.
+
+### Follow-up source diagnosis
+
+The previous correction changed the distinct v_legacy_pin fixture from pending to approved so the legacy-history assertion could pass the approval guard. However, the same SQL test also creates the primary v_pin fixture at lines 112–114 with status pending, then immediately calls begin_pinterest_publish_v2 at line 202 and expects started.
+
+Migration 148's active begin_pinterest_publish_v2 function locks and reads the pin, then returns pin_not_approved unless its status is approved, before it reaches the publication-history checks. Thus the owner-observed failure is the expected result for the primary fixture. The earlier approved legacy fixture correction was valid but incomplete: it did not change this separate primary pin.
+
+This is a test-fixture defect exposed by the migration-148 invariant, not a reason to weaken the production approval guard. No production defect is established by this run.
+
+### Published follow-up correction
+
+1. backend/test/pinterest-account-publication.integration.sql:
+   - changed only the primary v_pin fixture for the multi-account publication scenario from pending to approved;
+   - the unique multi-account.png fixture row now satisfies the approval precondition.
+   - Commit: 2b9b6a266c37b22086678acb994c09ce56af5b82.
+   - Blob: 5b1f9f98662c9f2903b4edb983bb3b34f0aa3b09.
+
+2. backend/test/postgres-integration-runner-contract.test.js:
+   - strengthened the existing source-contract test (no new test case/count) to assert that both the primary multi-account fixture and legacy-history fixture are approved;
+   - renamed the contract test to cover the approved-pin precondition for publication fixtures and retained the migration-148 assertion that the approval guard precedes the legacy-history fence.
+   - Commit: a1b5cbccf74c0a85dcf7c7d22de00d47e84fa3e2.
+   - Blob: 1ee73760a8bbeeaa42152b61f2139c371c8d677f.
+
+No production application code, migration, runner, CI workflow, live database or production resource was changed.
+
+### Assistant action log for this follow-up
+
+1. Read the complete owner-provided synchronization and guarded-runner transcript; recorded the exact SHAs, database identity, migration/test counts, first fatal error, unrun tests and successful disposable-database cleanup.
+2. Fetched the current SQL test, Node source-contract test, migration 148, project state, owner action log, documentation register and existing test-38 audit from GitHub at the then-current main.
+3. Inspected the primary fixture creation and first publication call, plus migration 148's active function body. Distinguished v_pin from the already-corrected v_legacy_pin and identified the remaining pending status.
+4. Updated only the two test files listed above. Both edits used exact-single-occurrence checks before the GitHub write; no local source files or local database were accessed.
+5. The first attempt to prepare this audit update ended with a JavaScript SyntaxError in the documentation-writing wrapper before any GitHub write. No repository change resulted from that attempt; the update was retried with a literal-safe payload.
+6. This audit and the project state, owner action log and documentation register are being updated to record the follow-up evidence and correction.
+
+The assistant did not execute local Node, PowerShell, psql, PostgreSQL, Bash or CI commands; did not access credentials or any database; and did not modify production code or migrations.
+
+### Verification status and next owner gate
+
+- Owner run: fixture PASS; 147/147 migrations PASS; 2/2 inline assertions PASS; SQL tests 1–37 PASS; test 38 FAIL at the primary pin approval precondition; tests 39–46 NOT RUN; disposable DB cleanup PASS.
+- The newly corrected primary fixture and strengthened Node contract assertion are NOT RUNTIME-VERIFIED.
+- The prior owner Node 47/47 result applies to the earlier source snapshot, before this follow-up Node assertion was strengthened. The expected suite count remains 47 because the existing test case was extended, but a fresh run is required.
+- After the documentation batch is published and pulled, owner must run the prescribed three-file Node command and require 47/47 PASS. Only then rerun the guarded PostgreSQL runner. Stop on the first SQL error and preserve the entire output including cleanup.
+- SQL integration PASS still requires all 46/46 SQL tests and confirmed cleanup. Nine Bash concurrency scripts remain a separate unverified gate.
