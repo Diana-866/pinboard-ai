@@ -168,7 +168,6 @@ begin
   update public.pin_regeneration_requests
      set status='failed',
          error_code='provider_refund_reconciled',
-         claim_token=null,
          updated_at=clock_timestamp()
    where id=v_request.id;
 
