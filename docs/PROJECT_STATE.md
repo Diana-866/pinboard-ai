@@ -1740,3 +1740,16 @@ Assistant fetched the current project state, owner actions, documentation regist
 Source blob: `fce98ac3665f92b6126d2164439295d7c29c0e31`; source commit: `29b393ece2738f94b5ecb9ac5a74663f8581d66e`. Detailed incident: `docs/audits/2026-11-17-postgres-test-34-pinterest-publication-approval-fixture.md`.
 
 The corrected fixture is **NOT RUNTIME-VERIFIED**. The 45/45 Node and 0-error Parser evidence predates this source change and must be repeated. Assistant did not run Node, PowerShell, psql, PostgreSQL, Bash or CI. Next owner gates: sync latest main; Node contract tests 45/45; PowerShell Parser 0 errors; guarded runner requiring 147 migrations 010–156, two inline assertions, 46/46 SQL tests and confirmed disposable DB cleanup. Preserve PID 15220, port 55439 and `X:\\PinPosy-verify-pg18`; do not bypass guards or use production/`PIN_TRIAL`. Nine Bash concurrency scripts remain separate and unverified.
+
+
+### 2026-11-17 — Подтверждена синхронизация после исправления approval fixture (test 34)
+
+Владелец выполнил локально из `X:\\!PROGECT\\pinboard-ai`:
+- Перед pull `git status --short` был пуст.
+- `git pull --ff-only origin main` завершился fast-forward с `60251392` на `ff1ea965`; получены test fixture и четыре документационных изменения.
+- `git rev-parse HEAD` и `git rev-parse origin/main` оба вернули полный SHA `ff1ea965d644008d7fcd1160516042b288a4690a`.
+- Финальный `git status --short` пуст.
+
+Это подтверждает, что локальная рабочая копия чистая и синхронизирована с GitHub main на коммите `ff1ea965d644008d7fcd1160516042b288a4690a`. Это только подтверждение синхронизации, не тестовый результат: после approval-fixture исправления Node suite, PowerShell Parser и PostgreSQL runner ещё не запускались/не представлены. Следующий порядок: Node contract/migration/replay-chain gate (45/45), затем PowerShell Parser (0 ошибок), и только после обоих PASS — guarded PostgreSQL runner (147 migrations 010–156, 2 CI assertions, 46/46 SQL tests, cleanup disposable DB). Девять Bash concurrency scripts остаются отдельным непроверенным этапом.
+
+Ассистент проверил актуальные GitHub-документы и SQL fixture перед фиксацией полученного evidence; не запускал локальные команды и не менял тесты/миграции/приложение. Подробная запись синхронизации и оставшихся gates добавлена в audit test 34 и UA-033.
