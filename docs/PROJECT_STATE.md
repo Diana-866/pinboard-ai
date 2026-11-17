@@ -2018,3 +2018,10 @@ Verification boundary and next step:
 - Detailed chronology and exact evidence: `docs/audits/2026-11-17-prodamus-ci-regression-coverage-repair.md`.
 - No local npm/node runtime, production payment, live webhook, production DB, Pinterest API or external service was used. The PostgreSQL integration blocker is unchanged: last owner evidence tests 1–37 PASS, test 38 FAIL, tests 39–46 NOT RUN, disposable DB cleanup PASS.
 - **Next:** wait for/retrieve the rerun of Prodamus job 44171126761 and require a successful four-file Node job with inspectable logs; separately resolve the documented local PostgreSQL test-38 gate. No payment launch is approved yet.
+
+
+### Verification update — Prodamus CI rerun outcome (2026-11-17)
+
+The failed-job rerun for workflow run `44171126761` completed as **FAILURE** on attempt 2 (`updated_at: 2026-11-17T20:37:10Z`; run URL: https://github.com/Diana-866/pinboard-ai/actions/runs/44171126761). The latest job ID is `134350415751`; the Jobs API returned `logs_url: null` and `steps: null`. The log-download endpoint had already returned HTTP 404 `BlobNotFound`. Therefore there is still no reliable step-level evidence to identify the failure cause. Do not call this a successful test run, and do not repeat reruns without logs or a specific hypothesis. Owner should inspect the run UI and supply the failed job's log. The corrected test source and workflow are published, but runtime verification remains BLOCKED/FAILED.
+
+The combined status for the later documentation HEAD `a201002b668d7a9c962979cbf43307526273c8de` currently reports Vercel `failure` with target `build-rate-limit`; deployment remains unconfirmed. This is separate from the GitHub Actions failure.
