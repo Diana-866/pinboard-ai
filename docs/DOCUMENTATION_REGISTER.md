@@ -2,7 +2,7 @@
 
 **Repository:** Diana-866/pinboard-ai  
 **Branch:** main  
-**Source HEAD:** b3739d4575585e5422e40c1fc5b1198e5cdf9c92  
+**Source HEAD:** fb0c34a5429e1296d80b0c1ab60ad7e36c59223b  
 **Inventory refreshed:** 2026-11-17  
 **Scope:** all documentation files under docs/ (Markdown and SQL), excluding this register itself.
 
@@ -481,4 +481,6 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 6. Refresh blob SHAs after documentation edits; do not mark inventory as content review.
 
 - `scripts/verify-integration.ps1` — guarded PostgreSQL SQL integration runner; identity check now normalizes `inet_server_addr()` via `host(...)`; blob `05787d0f8067d3412ed10e06856e7b1cdfce1c6d`.
-- `backend/test/postgres-integration-runner-contract.test.js` — contract test includes inet/CIDR identity normalization assertion; blob `ce331fba2e06bb63473cfedf1c586003606b09c4`.
+- `backend/test/postgres-integration-runner-contract.test.js` — contract test includes inet/CIDR identity normalization assertion; blob `4316f2c19767e8bf6ed06cb5e291130ecc152d38`.
+
+- Latest verification note: successful migration replay (`001_baseline.sql` + `010–148`, 139 migrations) remains PASS; separate SQL integration runner stopped at identity guard before its own disposable DB, fixture, assertions or 46 SQL tests. See `docs/PROJECT_STATE.md` and `docs/USER_ACTIONS.md`.
