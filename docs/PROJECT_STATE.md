@@ -1889,3 +1889,28 @@ Assistant actions: read owner transcript; fetched current runner and three docs;
 - **Current runtime status:** fixture PASS; migrations 010–156 PASS; two inline assertions PASS; SQL tests 1–34 PASS; test 35 FAIL; tests 36–46 NOT RUN; disposable DB cleanup PASS. The SQL test correction and new Node contract assertion are **NOT RUNTIME-VERIFIED**. Earlier Node 45/45 and PowerShell Parser 0-error results predate the new Node assertion; runner source is unchanged.
 - **Next owner gate:** synchronize after this documentation batch, then run the three-file Node command in UA-034 and require **46/46 PASS**. Only after Node PASS rerun the guarded PostgreSQL runner. SQL integration PASS requires all 46/46 tests and confirmed disposable DB cleanup. Nine Bash concurrency scripts remain a separate unverified gate. Preserve PID 15220 / port 55439 / `X:\\PinPosy-verify-pg18`; never touch production/`PIN_TRIAL` or disclose credentials.
 - Дополнительная запись о действиях ассистента: первая попытка подготовить GitHub edits завершилась JavaScript `SyntaxError`, потому что literal SQL block был передан в `String.match` как регулярное выражение. Ошибка произошла до GitHub write calls и не изменила репозиторий; повторная попытка использовала literal `indexOf` и exact-single-occurrence guard. Деталь внесена в incident audit.
+
+### 2026-11-17 — PostgreSQL integration test 38/46: legacy publication-history fixture corrected
+
+Owner-provided guarded runner transcript after the previous synchronization and Node gate:
+- Runner verified clean synchronized `main` at `62b2a859c8516fe98b174072d3642018d2dff419`.
+- PostgreSQL identity: listener PID 15220; data directory `X:\\PinPosy-verify-pg18`; `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`. Password was entered locally at the hidden prompt and was not shared.
+- Disposable DB `pinposy_sqlint_eb01275b9a8246a4`: upgrade fixture PASS; 147 migrations 010–156 PASS; both inline assertions PASS; SQL tests 1–37 PASS.
+- Test 35 `pinterest-oauth.integration.sql` passed after its earlier test-only correction. Test 38 `pinterest-account-publication.integration.sql` failed at line 895 with `unmapped legacy publication history was allowed to retry: {"status": "pin_not_approved"}`. Tests 39–46 were NOT RUN.
+- Cleanup PASS: no remaining sessions reported, `DROP DATABASE` completed, and explicit removal of the disposable database was confirmed. Overall SQL integration remains NOT PASSED.
+- The owner had separately run the three-file Node gate against the prior snapshot: 46/46 PASS. That result predates the new test-38 Node source-contract assertion and must not be represented as verification of the new assertion.
+
+Source diagnosis:
+- The test's legacy fixture inserted `v_legacy_pin` with status `pending`, then called `begin_pinterest_publish_v2` and expected the unmapped legacy-history branch to return `unknown`.
+- Active function definition in migration 148 checks the pin's status first and returns `pin_not_approved` before inspecting legacy history. Migrations 149–156 were inspected; none redefines this function.
+- Therefore the observed response is the expected early guard, not evidence that publication retry was permitted. The test did not reach the behavior it intended to assert.
+- Corrected only the SQL test fixture: changed the legacy pin to `approved` and clarified the failure message. Commit `49ffed74ec6b16d2f875a99b0f300445d860592c`, blob `5179ca814d7cbe84a45569d3ae8494de959ae43d`.
+- Added a Node source-contract test to ensure the fixture remains approved and reaches the later legacy-history guard. Commit `2b2b14407cb7cfba68375d19aba298a015a4d2a8`, blob `818a136572644af87ec6b2cfb08dcba909df6430`.
+- No production application code, migration, CI workflow, fixture schema, runner, live DB or production resource was changed.
+
+Assistant actions: read the complete owner transcript; re-fetched the current project docs and test sources from GitHub; reviewed migration 148 and migrations 149–156; traced the function's guard order; changed the SQL test and Node source-contract test; created `docs/audits/2026-11-17-postgres-integration-test-38-pinterest-legacy-history-fixture.md`; updated this journal, UA-034 and the documentation register. The assistant did not execute local Node, PowerShell, psql, PostgreSQL, Bash or CI, and did not access credentials or databases.
+
+Verification boundary:
+- Owner evidence: Node 46/46 PASS on the pre-correction source snapshot; fixture PASS; migrations 010–156 PASS; inline assertions 2/2 PASS; SQL tests 1–37 PASS; SQL test 38 FAIL; tests 39–46 NOT RUN; disposable DB cleanup PASS.
+- The new SQL fixture correction and Node contract assertion are NOT RUNTIME-VERIFIED. Expected Node gate count is now 47/47; rerun it after synchronization.
+- Next: owner synchronizes latest main and runs the three-file Node gate; require 47/47 PASS before another guarded PostgreSQL run. Full SQL PASS still requires all 46/46 SQL tests and confirmed cleanup. Nine Bash concurrency scripts remain a separate unverified gate.
