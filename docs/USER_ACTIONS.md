@@ -1296,3 +1296,39 @@ SQL integration PASS — только если fixture, все 140 migrations 01
 - Не запускать Bash concurrency/backend runtime suites до полного SQL PASS и cleanup.
 
 **Статус:** Node contract 20/20 PASS (предыдущий owner transcript; после изменения test 18 требуется повторный gate); PowerShell Parser 0 errors PASS (предыдущий owner transcript); PostgreSQL SQL integration **NOT PASSED**.
+
+
+## UA-012 — повторный guarded PostgreSQL integration run после Node PASS (2026-11-17)
+
+### Зафиксированный prerequisite
+- Владелец синхронизировал clean main на `6d982d1414490ed210502f834018a1a1a6d9d8a2`: HEAD = origin/main; worktree чистый.
+- После test-only correction для test 18 владелец повторил `node --test backend/test/postgres-integration-runner-contract.test.js`: **20/20 PASS**, 0 failures, 0 skipped.
+- Предыдущий PowerShell Parser API check для неизменённого runner: PASS, 0 syntax errors.
+- Предыдущий PostgreSQL run остановился на test 18/46; tests 19–46 не запускались. SQL integration **NOT PASSED**. Исправленный test 18 ещё не runtime-проверен.
+
+### Следующее действие владельца
+Сначала получить все документационные commits и проверить чистый synchronized main:
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Продолжать только при branch `main`, пустом worktree и равенстве HEAD/origin/main. Затем выполнить без изменения параметров:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+```
+
+Пароль временной роли вводить только в hidden prompt. Не отправлять пароль, токены или `.env`. Передать полный вывод и exit code без секретов.
+
+### STOP и критерий PASS
+- При любом safety guard failure или первой SQL ошибке — **СТОП**; сохранить полный лог, включая cleanup, и передать его. Не обходить guards.
+- SQL integration PASS разрешён только если подтверждены upgrade fixture, все 140 migrations 010–149, обе CI inline assertions, все 46 SQL tests и успешный cleanup disposable DB.
+- Если тест N упадёт, тесты N+1–46 считаются не выполненными.
+- Не использовать production/PIN_TRIAL; не останавливать PID 15220; не изменять и не удалять `X:\PinPosy-verify-pg18`; не запускать Bash concurrency/backend runtime suites до полного SQL PASS и cleanup.
+
+**Статус:** Node contract 20/20 PASS; PowerShell Parser 0 syntax errors PASS; PostgreSQL SQL integration **NOT PASSED**, ожидает повторного guarded owner run.
