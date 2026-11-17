@@ -629,3 +629,5 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 - Runner contract test blob: `ff9fdd0b166093cbb78c6dd9426cb3d98fcbb239` (commit `7a9a53f9bae5fdce29d4941295e17ce8b802985a`); adds an explicit baseline-column assertion and retains workflow/fixture equality.
 - Incident audit: `docs/audits/2026-11-17-postgres-integration-fixture-is-admin-missing.md`, created in commit `918f0bbf97d51514f1ed74b5785c4bbebdfc7210`.
 - Runtime verification of the fixture correction is pending owner execution; SQL integration remains NOT PASSED.
+
+- Follow-up corrected contract-test regex blob: `54c0ba51ce8a3ac2e5a6b677be6a3b6950a1448c`, commit `89d5fd4baf14f790141fe1cb244a6f282d68e004`. Workflow/fixture equality was checked by source extraction; runtime tests remain pending.
