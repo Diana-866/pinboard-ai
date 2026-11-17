@@ -994,3 +994,15 @@ Owner evidence: clean local checkout at `6512dc8aa4ae882e8be91877185a262787b02f8
 | `docs/USER_ACTIONS.md` | `4a74d7b13b37e941dab03e8a993a004a0ddadbc7` | `9f3a8c228f2d0c5459bb651aca7ac74bab342fd4`; UA-022 guarded PostgreSQL runner instructions |
 
 Owner evidence: clean local sync at `73a1aef18eaee621783b879aa97ae1527ec9ba5a`, HEAD equals origin/main; PowerShell Parser API printed `PowerShell Parser PASS: 0 syntax errors`. Combined with Node 42/42 PASS, both pre-run gates pass. Assistant did not execute local PowerShell, Node, psql, PostgreSQL or CI. Guarded SQL runner is now authorized but has not yet run; PostgreSQL integration remains **NOT PASSED / NOT YET VERIFIED** pending full evidence of fixture, 144 migrations 010–153, two CI inline assertions, 46 SQL tests and cleanup.
+
+
+### 2026-11-17 — PostgreSQL test 28 parent generation fixture correction
+
+| Path | Final blob SHA | Commit / reason |
+|---|---|---|
+| `backend/test/pin-image-deletion-claims.integration.sql` | `1df7078c31ba2992d526c0993802f3819b59df80` | `c58b877c1d51713c6b0d102206d8d4439ec4123e`; align parent request terminal status with its failed task journal |
+| `docs/audits/2026-11-17-postgres-integration-test-28-parent-generation-terminal-state-fixture.md` | `44437db99bb398867a141ee670e2c9b944ea34da` | `93c65ebc654707fb4c92e4cb7872e0d98955e798`; record runner output, diagnosis, cleanup and bounded fixture-only correction |
+| `docs/PROJECT_STATE.md` | `ad59d017191e82cbd8c1eea0e1d64472b3bafbca` | `05f4f3ce50988388f70046f9e152783c511505b2`; chronological test 28 failure and follow-up |
+| `docs/USER_ACTIONS.md` | `6420e4200eade554ed88b23bd3833733ac6f2995` | `6a3db5cad93c7436dcf17ac4834817209c3875df`; UA-023 ordered rerun instructions |
+
+Owner evidence: 144 migrations 010–153 and two CI assertions passed; SQL tests 1–27 passed; test 28 failed because the fixture marked a parent completed despite its only task being failed and nullable `pins` remaining NULL. Disposable DB cleanup succeeded; tests 29–46 were not run. Assistant changed only the SQL fixture, making the parent terminally failed to match its task. No production SQL or migrations changed. Assistant did not execute local commands. Previous Node 42/42 and Parser 0-error gates predate this SQL fixture-only edit; Node must be rerun before guarded SQL runner. PostgreSQL integration remains **FAIL 27/46** until a complete rerun proves otherwise.
