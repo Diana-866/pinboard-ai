@@ -50,12 +50,12 @@ test('upgrade fixture includes the canonical users.is_admin baseline column', ()
 test('upgrade fixture includes the canonical boards.cover_url baseline column', () => {
   const fixture = read('backend/test/postgres-integration-upgrade-fixture.sql');
   const baseline = read('db/migrations/001_baseline.sql');
-  const boardsTable = fixture.match(/create table public\\.boards \\(([\\s\\S]*?)\\n\\);/i);
-  const canonicalBoardsTable = baseline.match(/create table if not exists public\\.boards \\(([\\s\\S]*?)\\n\\);/i);
+  const boardsTable = fixture.split('create table public.boards (')[1]?.split('\\n);')[0];
+  const canonicalBoardsTable = baseline.split('create table if not exists public.boards (')[1]?.split('\\n);')[0];
   assert.ok(boardsTable, 'upgrade fixture boards table must exist');
   assert.ok(canonicalBoardsTable, 'canonical baseline boards table must exist');
-  assert.match(boardsTable[1], /cover_url text/i);
-  assert.match(canonicalBoardsTable[1], /cover_url text/i);
+  assert.match(boardsTable, /cover_url text/i);
+  assert.match(canonicalBoardsTable, /cover_url text/i);
 });
 
 test('both extracted inline assertions stay aligned with CI workflow', () => {
