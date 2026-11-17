@@ -1026,3 +1026,11 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - Последующая safety-корректировка UA-004: поскольку после подтверждённого владельцем pull ассистент добавил новые commits документации, перед runner обязательно требуется ещё один clean-tree check и fast-forward pull, иначе runner preflight справедливо остановится на отставшем локальном `main`. Инструкция обновлена в `docs/USER_ACTIONS.md`, commit `1973f0554e275e5cac689583345bd500a89ce988`, blob `a3c49bd536dc05b12905cbd7762ab1109d37257d`.
 
 - Та же корректировка синхронизации отражена в incident audit: commit `077cff5bd2cd12c7c24ae1af315ed26ab1f1be45`, blob `d522abed5dc14ca5d34a2fd26568f30de74068c0`. Причина: assistant commits документации появились после owner pull, поэтому локальный checkout нужно обновить до runner preflight.
+
+### Documentation journal — local sync prerequisite (2026-11-17)
+
+- Updated `docs/USER_ACTIONS.md` to require a clean-tree check and another `git pull --ff-only origin main` before the runner, because the assistant's documentation commits were created after the owner's parser-check pull. Commit `1973f0554e275e5cac689583345bd500a89ce988`, blob `a3c49bd536dc05b12905cbd7762ab1109d37257d`.
+- Updated this passport to make the new prerequisite explicit in NEXT. Commit `37522b3122e7e3675b2c9f58bb7bceb724f6e386`, blob `631a58470f3a92f631a09af8de3e2539ea754af2`.
+- Updated the UTF-8 incident audit with the same required sync and stop conditions. Commit `077cff5bd2cd12c7c24ae1af315ed26ab1f1be45`, blob `d522abed5dc14ca5d34a2fd26568f30de74068c0`.
+- Added this documentation sequence to the project journal (commit `a48580b95b2ec136a52ec5eb12302e5c628ec0ac`, blob `0e59315fe5e25d8f9874030b9eff3c23a817f837`) and refreshed the documentation register in commit `bddfc32ea45f76dedd0ce2254128336fc42c937c`, blob `c0c33782afa8dcfb3a52dd5a3fd10ab4912a4017`.
+- GitHub fetch verified the updated instruction files. No runner/SQL execution was performed; next step remains the owner's clean sync followed by guarded UA-004 execution.
