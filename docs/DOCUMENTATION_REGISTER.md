@@ -2,7 +2,7 @@
 
 **Repository:** Diana-866/pinboard-ai  
 **Branch:** main  
-**Latest source fix commit (runtime verification pending):** 5cf3b1c2b589ba73205e823ec30f28b9193a1c60  
+**Latest source fix commit (runtime verification pending):** 2b2b14407cb7cfba68375d19aba298a015a4d2a8  
 **Inventory refreshed:** 2026-11-17  
 **Scope:** all documentation files under docs/ (Markdown and SQL), excluding this register itself.
 
@@ -21,8 +21,8 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 3 | `docs/MASTER_REQUIREMENTS.md` | `0891fc83d68de51acb298d1ad4da4f733a0499aa` | Reviewed/reconciled 2026-11-16; see audit reports |
 | 4 | `docs/PIN_TRIAL_MIGRATION_STATUS.md` | `2e0f66ccfa1ab9aeb71f80d299a5c4465e347d9e` | Owner-provided DB evidence; incomplete inventory |
 | 5 | `docs/PRODUCTION_READINESS_AUDIT.md` | `777ce34d539b3264b10554aa2cd731d436f080e2` | Reviewed/reconciled 2026-11-16; see audit reports |
-| 6 | `docs/PROJECT_STATE.md` | `aa51bac150670f66e7162e3a8b944af75b232d22` | Current operational source of truth; chronological record through approved-pin fixture correction; SQL integration NOT PASSED |
-| 7 | `docs/USER_ACTIONS.md` | `ad083f99cf351156a0b13989e31fcb8d2c8587b5` | Owner actions; UA-017: Node, Parser and guarded PostgreSQL rerun gates after approved-pin fixture correction |
+| 6 | `docs/PROJECT_STATE.md` | `e58dc4cd2961218c45349cd0ae82d12e206a084e` | Current operational source of truth; records test 38 fixture diagnosis and latest SQL integration status: NOT PASSED |
+| 7 | `docs/USER_ACTIONS.md` | `e85bbb7435ef53a5dca9d25a89501dd466298ec5` | Owner actions; UA-034: sync, Node 47/47 preflight, then guarded PostgreSQL rerun |
 | 8 | `docs/architecture/pin-image-deletion-claim-protocol.md` | `0957b13bae0632ce8e34a5675b4a06f6ef8477a4` | Inventory only; content review pending |
 | 9 | `docs/audits/2026-11-16-account-deletion-runbook-reconciliation.md` | `4d1fa6f8e78162abbb29a3487a776c2b1c3cf319` | Historical audit/evidence; applicability must be checked against current main/tests |
 | 10 | `docs/audits/2026-11-16-ci-concurrency-harness-isolation-fix.md` | `dc050c2c7d0aa1415a5585e6820b1a2e8772fbd9` | Historical audit/evidence; applicability must be checked against current main/tests |
@@ -224,7 +224,7 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 206 | `docs/audits/AUD-265-regeneration-replay-image-reference-guard.md` | `2ec656a47b4a1a72df65baf9c3108a9969020dcc` | Historical audit/evidence; applicability must be checked against current main/tests |
 | 207 | `docs/audits/AUD-266-replay-expiry-tombstones-and-retention-queue.md` | `0d7e88df28dd9868f93b44e646b6608493aeb592` | Historical audit/evidence; applicability must be checked against current main/tests |
 | 208 | `docs/audits/AUD-268-upload-reservation-replay-reference-guard.md` | `28168ad3be3d4653e3c1d60c9bf76e5be72f8ee3` | Historical audit/evidence; applicability must be checked against current main/tests |
-| 209 | `docs/audits/AUD-269-transactional-expired-replay-reference-retirement.md` | `9833a3355b016bbf6bb4630218d28e45ff0b1ab6` | Historical audit/evidence; applicability must be checked against current main/tests |
+| 209 | `docs/audits/AUD-269-transactional-expired-replay-reference-retirement.md` | `9833a3355b016bbf6bb4630218d28e45ff0b1ab6` | Historical audit/evidence; applicability must be checked against current main/tests |\n| 210 | `docs/audits/2026-11-17-postgres-integration-test-38-pinterest-legacy-history-fixture.md` | `f1da6b17b49aecd6cbaf5a6dc1f0af5679133036` | Current SQL test 38 incident audit; source diagnosis and owner runtime evidence |
 | 210 | `docs/audits/AUD-270-fenced-image-retention-queue-worker.md` | `b07db3b4f01a6c39e21a1e2e1cb030009682a7db` | Historical audit/evidence; applicability must be checked against current main/tests |
 | 211 | `docs/audits/AUD-271-blocked-image-retention-queue-diagnostics.md` | `b0143068e85ebe9fa81f4e1729e3e60f28f0545d` | Historical audit/evidence; applicability must be checked against current main/tests |
 | 212 | `docs/audits/AUD-272-board-creation-retry-feedback.md` | `0548d24406f5d7dddeccaff29f98847895e34a77` | Historical audit/evidence; applicability must be checked against current main/tests |
@@ -1293,3 +1293,15 @@ Owner transcript: local HEAD `9206d83076c4ea59c0d66be15482bf58d7217226`; runner 
 | `docs/USER_ACTIONS.md` | UA-034 owner transcript and next Node 46-test gate followed by guarded PostgreSQL rerun |
 
 Owner evidence: clean synchronization at `68d32f33a6760b27577cbe15716f0c61c97984ef`; fixture PASS; 147 migrations 010–156 PASS; two inline assertions PASS; SQL tests 1–34 PASS; test 35/46 failed; tests 36–46 NOT RUN; disposable DB `pinposy_sqlint_66dec8d3e0aa48e4` cleanup confirmed. Source review found the test expected zero active Pinterest credentials after it had already reconnected an account; migration 032 correctly returns `stale_session` without disconnecting that existing account. The correction is test-only. New Node assertion and SQL test correction are NOT RUNTIME-VERIFIED; expected combined Node count is 46. Overall SQL integration remains NOT PASSED. Assistant used GitHub source reads/edits only and did not execute local tests or database commands.
+
+### 2026-11-17 — PostgreSQL integration test 38/46: legacy publication-history fixture
+
+| Path | Blob SHA / commit | Purpose |
+|---|---|---|
+| `docs/audits/2026-11-17-postgres-integration-test-38-pinterest-legacy-history-fixture.md` | blob `f1da6b17b49aecd6cbaf5a6dc1f0af5679133036`; created by commit `ca6de16ec64946a7f6ad837ba93f772f4b89bb49` | Owner transcript, test 38 failure, source-level diagnosis, correction, verification boundary and assistant action log |
+| `backend/test/pinterest-account-publication.integration.sql` | blob `5179ca814d7cbe84a45569d3ae8494de959ae43d`; commit `49ffed74ec6b16d2f875a99b0f300445d860592c` | Approved legacy fixture pin so the test reaches the migration 148 legacy-history fence |
+| `backend/test/postgres-integration-runner-contract.test.js` | blob `818a136572644af87ec6b2cfb08dcba909df6430`; commit `2b2b14407cb7cfba68375d19aba298a015a4d2a8` | Node source-contract guard for approved fixture and guard order |
+| `docs/PROJECT_STATE.md` | blob `e58dc4cd2961218c45349cd0ae82d12e206a084e`; commit `06d5ff881582f65cd9ed40e4bcfba742c60bea9f` | Chronological owner evidence, diagnosis and current verification status |
+| `docs/USER_ACTIONS.md` | blob `e85bbb7435ef53a5dca9d25a89501dd466298ec5`; commit `4c1e7413b967dc7a8a47ab923c9d2afc7b32e7e5` | UA-034 updated to Node 47/47 gate followed by guarded PostgreSQL rerun |
+
+Owner evidence: Node 46/46 passed before the latest contract assertion; fixture, migrations 010–156 and both inline assertions passed; SQL tests 1–37 passed; test 38 failed because its legacy fixture pin was pending and migration 148 returned `pin_not_approved` before evaluating unmapped history; tests 39–46 were not run; disposable DB cleanup passed. The SQL and Node corrections are test-only and NOT RUNTIME-VERIFIED. Expected next Node gate is 47/47. Overall SQL integration remains NOT PASSED. Assistant did not run local commands or access a database/credentials.
