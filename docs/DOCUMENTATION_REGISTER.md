@@ -577,3 +577,15 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 - Updated `docs/USER_ACTIONS.md`: blob `8b9a411914297ab9d1953b4790dc39f0b32b855c`, commit `a39e11efb0ec36329f838a2dc56504037af5797d`.
 - Updated audit `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`: blob `44eb7367c71e2cc66492b8df5632ad9c94746235`, commit `c2c472365d517777bfc40ca8532458720cd369d9`.
 - Corrective sequence is now explicit: after this documentation commit, owner must fast-forward local main, verify HEAD equals origin/main, then run the guarded script without an intervening assistant commit. Each later assistant commit to main requires a fresh pull before another runner invocation. SQL integration remains NOT PASSED.
+
+
+### 2026-11-17 — integration attempt reached migration 018; disposable DB cleanup confirmed
+
+- Owner local main and origin/main matched at `13166c8cd476a13a787e9584f5b914430f702cc1`. Guarded runner verified temporary server identity, applied fixture and migrations 010–017, then failed during migration 018. No inline assertions or SQL integration tests ran.
+- Disposable DB `pinposy_sqlint_318fd598c73448c5` was explicitly dropped and absence confirmed by runner message `Removed disposable database ...`.
+- Root cause remains unresolved: supplied PowerShell output is mojibake and shows SQLSTATE 00000 NOTICE from `DROP CONSTRAINT IF EXISTS`, not a reliable actual ERROR. Do not treat the NOTICE as the failure or make speculative migration edits.
+- Inspected source blobs: runner `74c128b4c6933b8b5aba888e4abeb01200df2ab6`; migration 018 `4f524034d8504c3111e376fb91b30e65a8b86884`; fixture `49a817c5e238eda201b8821a9c052585f36e0217`; SQL manifest `aa773d020841f6925b4f63f4a6d96fb95cf4e3a6`; baseline `105a13cfba4746206191dcf2bd68d5514912f08c`.
+- Updated `docs/PROJECT_STATE.md`: blob `e6b73e120349295e50e08e3b341c7d4cc88e9b29`, commit `6beaa951ec797c97dd6551b122d550afe505f49c`.
+- Updated `docs/USER_ACTIONS.md`: blob `450ce57b14b16274628425ceec77676ba9b8d586`, commit `f6c987c6ed8c3517574bdd407e3401201b89a36e`.
+- Updated audit `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`: blob `4eccd5a7a562d5f65769346a11a9c8cce80df358`, commit `e2318da231a6f783ea82d9e3803009e3d45ec70b`.
+- Next step: improve diagnostic fidelity to preserve exact psql ERROR/SQLSTATE and inspect catalog state around each migration 018 statement, then rerun only via guarded disposable DB. SQL integration remains NOT PASSED.
