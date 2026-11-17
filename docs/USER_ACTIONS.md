@@ -488,3 +488,14 @@ The owner supplied the complete successful PowerShell transcript for the migrati
 The command executed `scripts/verify.ps1 -MigrationsOnly -PostgresPort 55439`. It created disposable database `pinposy_verify_196929316b56e`, applied Supabase test stubs, `001_baseline.sql`, and all migrations `010–148` (139 migrations), then successfully dropped the disposable database. Explicit terminal evidence: `PASS PostgreSQL migration replay (001 + 010-148)`, `All configured checks passed.`, `MIGRATION REPLAY PASSED`. **This migration replay is PASS and must not be described as unrun.**
 
 This is not the later separate SQL integration runner and does not establish execution of its inline assertions or 46 SQL test files. Maintain separate statuses. Full procedure and safety interpretation are recorded in `docs/PROJECT_STATE.md` under “Canonical local PostgreSQL migration replay procedure”. Do not ask the owner to rerun this already successful replay merely to resolve the separate integration-runner identity-guard issue.
+
+
+### UA-004 follow-up — migration 018 constraint collision (2026-11-17)
+
+**Owner-side result:** after clean fast-forward to `33fdee6f3da62495ed3137ebf06cb04b91c3ffcb`, PowerShell parser returned `PASS`. The guarded runner passed repository/server identity checks, created disposable DB `pinposy_sqlint_389e6a26525c4ee8`, applied the upgrade fixture and reached migration `018_preferred_language.sql`. PostgreSQL reported that `users_preferred_language_check` already exists. The runner then successfully terminated connections, dropped the disposable database and confirmed `Removed disposable database ...`.
+
+**Status:** SQL integration remains blocked at migration 018. The 2 inline assertions and 46 SQL test files were not reached. The independent migration-only replay `001 + 010–148` remains PASS.
+
+**Next diagnostic:** inspect the precise constraint catalog state immediately before migration 018 and capture full `psql` error context. Static review of the current fixture and migrations 010–017 does not show this named constraint being created, while migration 018 explicitly drops it before adding it. Root cause is unresolved; do not remove or weaken the constraint speculatively.
+
+**Safety:** temporary database cleanup is confirmed. Do not stop PID `15220`, alter/reinitialize `X:\\PinPosy-verify-pg18`, touch production/PIN_TRIAL, or bypass runner guards. Node contract test remains unverified unless a separate result is supplied.
