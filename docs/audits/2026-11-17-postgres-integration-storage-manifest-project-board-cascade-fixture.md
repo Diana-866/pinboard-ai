@@ -47,7 +47,7 @@ Migration 137 removes account-owned operational content and then deletes the use
 
 The standalone upgrade fixture and the SQL embedded in the CI workflow omitted both `ON DELETE CASCADE` clauses. Thus the disposable upgrade schema did not reproduce the canonical baseline's dependency behavior. The observed FK error is a fixture/schema mismatch; it is not evidence that the production erasure function should manually bypass referential integrity or that the FK should be weakened.
 
-The same owner run also exposed a contract assertion formatting bug: PostgreSQL fixture alignment uses multiple spaces between `cover_url` and `text`; the assertion assumed one. It must accept SQL whitespace with `\\s+`.
+The same owner run also exposed a contract assertion formatting bug: PostgreSQL fixture alignment uses multiple spaces between `cover_url` and `text`; the assertion assumed one. It must accept SQL whitespace with `\s+`.
 
 ## Changes published
 
@@ -58,7 +58,7 @@ The same owner run also exposed a contract assertion formatting bug: PostgreSQL 
 2. Added a Node contract test requiring the fixture's project-to-board and board-to-pin cascade behavior, so this mismatch is caught before the database suite:
    - blob `cb9af9c67b1b1bbbc2073279a9fc7e3d0aa2491d`, commit `07e5a4a87350ba80f49adb4f3ba8bc1fbbf9c4cc`.
 
-3. Corrected the `cover_url` contract regex from a single literal space to `\\s+`:
+3. Corrected the `cover_url` contract regex from a single literal space to `\s+`:
    - final contract blob `4584ef39860d443284cdb3e10f4534ffcc18b761`, commit `2a350c1f63cd481834ac7f5f0db50fcb271a640e`.
    - The contract source has **18 top-level tests** by source inspection.
 
