@@ -30,7 +30,8 @@ create table public.boards (
   project_id uuid not null references public.projects(id),
   title text,
   description text,
-  status text
+  status text,
+  cover_url text
 );
 create table public.pins (
   id uuid primary key default gen_random_uuid(),
