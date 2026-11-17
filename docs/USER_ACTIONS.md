@@ -1199,3 +1199,48 @@ SQL integration PASS допускается только при успешном
 - Запускать Bash concurrency или backend runtime suites до полного SQL PASS и cleanup.
 
 **Статус:** Node 20/20 [x]; PowerShell Parser 0 errors [x]; PostgreSQL SQL integration [ ] ожидает owner runtime.
+
+## UA-010 — повтор guarded PostgreSQL integration после исправления теста 15/46 (2026-11-17)
+
+### Зафиксированный owner run
+- Владелец запустил guarded runner на чистом synchronized main `d736814d78aa9cefbc9c6367104a98d236123c1b`.
+- Safety guards прошли: listener PID 15220, data directory `X:\\PinPosy-verify-pg18`, server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+- Fixture, 140 migrations 010–149, две inline assertions и SQL tests 1–14/46 прошли.
+- SQL test 15/46 упал на сравнении TEXT `credit_transactions.user_id` с UUID `v_user`. Тесты 16–46 не запускались; SQL integration NOT PASSED.
+- Cleanup: 0 оставшихся сессий; disposable DB `pinposy_sqlint_99741a5f1e5a47e6` удалена и её отсутствие подтверждено.
+
+### Исправление уже опубликовано
+- Только в `backend/test/legacy-regeneration-reservation-guard.integration.sql`: оба ledger-count predicates теперь используют `user_id=v_user::text`, что соответствует canonical baseline и migrations 010/075.
+- Commit: `9f2648d0ac18f1b3e40c59accb68e5274df6985a`.
+- Новый blob: `198a1714ce805e77a39c6e8a4334122b6a5fe09f`.
+- Подробный audit: `docs/audits/2026-11-17-postgres-integration-test-15-text-uuid-mismatch.md`.
+
+### Следующее действие владельца
+Сначала синхронизировать все commits (test fix + audit + state + this action log + register) и убедиться, что checkout чистый:
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Продолжать только если ветка `main`, worktree чистый и HEAD совпадает с origin/main. Затем повторить guarded runner без изменения параметров:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+```
+
+Пароль временной роли вводить только в hidden prompt; не передавать пароль, токены или .env. Передать полный вывод и exit code без секретов. Runner должен снова подтвердить все safety guards и выполнить только случайную disposable DB. При первом failure — STOP, сохранить cleanup output; не обходить guards.
+
+### Критерий закрытия
+SQL integration PASS — только если fixture, все 140 migrations 010–149, обе inline assertions, все 46 SQL tests и cleanup disposable DB успешно подтверждены. Если следующий тест упадёт, tests после него останутся не проверены.
+
+### Запрещено
+- Не использовать production/PIN_TRIAL.
+- Не останавливать PID 15220.
+- Не изменять и не удалять `X:\\PinPosy-verify-pg18`.
+- Не запускать Bash concurrency/backend runtime suites до полного SQL PASS и cleanup.
+
+**Статус:** Node contract 20/20 PASS (owner transcript, prior commit); PowerShell Parser 0 errors (owner transcript, prior commit); PostgreSQL SQL integration **NOT PASSED**, ожидает повторного owner run после test-only fix.
