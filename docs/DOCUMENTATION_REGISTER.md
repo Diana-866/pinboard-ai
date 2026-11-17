@@ -600,3 +600,14 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 - Updated `docs/USER_ACTIONS.md`: blob `86f4269af47e9255000508c79c61e4a3a82c432b`, commit `cac6ebf1f4c8615e9dcfa9d761f1afe852570765`.
 - Updated audit `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`: blob `907ca3901be6bb28b5dd974949ee5f491a701fbb`, commit `cbe06c671877548e19b95b64e5fff11f3df678cb`.
 - Next: owner must pull after all docs commits, execute `node --test backend/test/postgres-integration-runner-contract.test.js`, run PowerShell parser check, then guarded disposable integration runner. SQL integration remains NOT PASSED.
+
+
+### 2026-11-17 owner integration run — first SQL test exposes Pinterest reconciliation defect
+
+- Owner sync: local `HEAD` = `origin/main` = `c047f44cce666e6dbe844cf318a4b314dd60040c`; clean worktree before pull.
+- Node runner contract: 12/12 PASS; PowerShell Parser: PASS.
+- Guarded runner: fixture PASS; migrations 010–148 (139) PASS; both inline assertions PASS; SQL test 1/46 failed at `pinterest-unknown-schedule-reconciliation.integration.sql:110` with `schedule remote pin identity conflict incorrectly promoted schedule`, psql exit 3.
+- Disposable DB `pinposy_sqlint_b39373fd69614fe7` cleanup confirmed by runner's explicit removal message. SQL tests 2–46 NOT RUN; overall SQL integration NOT PASSED.
+- Source blobs inspected: test `20f04be636298e0cdb33ce1725cd2558e4121e9e`; migrations 091 `6da23cf6851e28e8fbecbf4d7a3831008ab9c86b`, 092 `acca458a7c4abb236ea056e18c46c0628355ceb4`, 093 `03d126ad051bd192d32a64d06ac0f5b9e007e895`, 148 `5bdad254de1d4bb19d68bd9618561da55216f9b8`.
+- Static migration 093 appears to contain the expected guard against replacing a pre-existing schedule remote pin ID, but runtime test says the schedule was promoted. Root cause unresolved; next action is to expose actual post-call values and `pg_get_functiondef` in the failing test, then inspect later overrides. No speculative migration edit.
+- New audit: `docs/audits/2026-11-17-pinterest-unknown-schedule-reconciliation-test-failure.md`; created in commit `d0733ff55659b9d54adc2fc6a7df2b5a2084c26f`.
