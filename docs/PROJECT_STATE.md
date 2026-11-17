@@ -1420,3 +1420,15 @@ This section records the exact owner-provided PowerShell procedure. Treat it as 
 - **Текущий статус:** Node contract gate PASS. PowerShell Parser API check ещё НЕ ВЫПОЛНЕН. PostgreSQL SQL integration остаётся **NOT PASSED**; guarded runner ещё не запускался после текущего Node PASS.
 - Следующий шаг владельца записан в UA-008: выполнить только PowerShell Parser API check для `scripts/verify-integration.ps1`. При Parser FAIL — STOP, runner не запускать. Только после Parser PASS и повторной проверки чистого synchronized main допускается guarded runner на утверждённом disposable PostgreSQL 18.6.
 - Production/PIN_TRIAL, PID 15220, `X:\\PinPosy-verify-pg18`, migrations и live databases не затрагивались.
+
+
+### 2026-11-17 — PowerShell Parser API gate: PASS (0 syntax errors)
+
+- Владелец синхронизировал checkout: до/после pull worktree чистый; fast-forward `9beca59b → 3f554999`; `HEAD` = `origin/main` = `3f5549990ce71c2e4ff86a393eabbf1d2776f944`.
+- Владелец выполнил `[System.Management.Automation.Language.Parser]::ParseFile` для `scripts/verify-integration.ps1`; команда вывела `PASS: verify-integration.ps1 parsed successfully; syntax errors: 0`. PowerShell Parser gate закрыт.
+- Parser PASS подтверждает только отсутствие синтаксических ошибок. Runner не запускался; psql/PostgreSQL runtime и SQL integration не проверялись.
+- Перед действиями ассистент повторно fetched PROJECT_STATE, USER_ACTIONS, DOCUMENTATION_REGISTER и актуальный runner. Source review подтвердил, что runner сам проверяет branch main, fetch origin/main, clean worktree, HEAD=origin/main, psql path, loopback listener, postgres.exe command line/data directory и полную server identity; создаёт случайную disposable DB и в finally удаляет только её. Это чтение исходника, не runtime proof.
+- Создан audit `docs/audits/2026-11-17-postgres-integration-powershell-parser-pass.md`, commit `d7c7d529334a418e1246857ec7e6f8c474829c05`.
+- Assistant не запускал PowerShell, psql или PostgreSQL; Parser PASS получен из owner transcript. Никакие application code, migrations, SQL fixtures, runner, production DB или persistent verification cluster не менялись.
+- **Текущий статус:** Node contract 20/20 PASS; PowerShell Parser PASS (0 syntax errors); PostgreSQL SQL integration всё ещё **NOT PASSED**.
+- Следующий шаг владельца записан в UA-009: синхронизировать документационные commits и запустить guarded runner только из чистого synchronized main. При любом safety stop или первом SQL failure — остановиться и передать полный лог без секретов. SQL PASS допустим только после fixture, 140 migrations 010–149, двух inline assertions, всех 46 SQL tests и подтверждённого disposable DB cleanup.
