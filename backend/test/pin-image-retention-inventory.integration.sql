@@ -6,10 +6,10 @@ declare
   v_board_id uuid := gen_random_uuid();
   v_pin_id uuid := gen_random_uuid();
   v_request_id bigint;
-  v_old_path text := 'pins/generation-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.png';
-  v_old_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.png';
-  v_replay_path text := 'pins/generation-ffffffffffffffffffffffffffffffff.png';
-  v_replay_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/pins/generation-ffffffffffffffffffffffffffffffff.png';
+  v_old_path text := 'pins/generation-' || replace(v_user_id::text, '-', '') || '.png';
+  v_old_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/' || v_old_path;
+  v_replay_path text := 'pins/generation-' || replace(v_project_id::text, '-', '') || '.png';
+  v_replay_url text := 'https://project.supabase.co/storage/v1/object/public/pin-images/' || v_replay_path;
   v_count integer;
   v_result record;
 begin
