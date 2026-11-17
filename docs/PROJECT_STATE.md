@@ -1468,3 +1468,16 @@ This section records the exact owner-provided PowerShell procedure. Treat it as 
 - Предыдущий PowerShell Parser API PASS (0 syntax errors) остаётся подтверждённым для текущего runner source, который не менялся после этой проверки. Следующий шаг — guarded PostgreSQL runner на чистом synchronized main по UA-012.
 - Никакие production migrations/code, production/PIN_TRIAL, PID 15220, `X:\PinPosy-verify-pg18` или persistent databases не менялись; секреты не запрашивались.
 
+
+
+### 2026-11-17 — PostgreSQL integration test 19/46: NOT NULL claim-token defect; additive migration 150
+
+- Owner synchronized clean `main` at `4df18de1fbc8ae98b3d316d945cce7f973b244de`. Guarded runner safety checks passed (PID 15220, data directory `X:\\PinPosy-verify-pg18`, verified server identity). Fixture, migrations 010–149 (140 files), two CI inline assertions and SQL tests 1–18/46 passed.
+- SQL test 19/46 `provider-refund-reconciliation-workflow.integration.sql` failed: `finalize_reconciled_pin_regeneration_failure(text,text)` attempted `claim_token=null` against `pin_regeneration_requests.claim_token UUID NOT NULL`. Tests 20–46 did not run. Disposable DB `pinposy_sqlint_e44cc1cd1e6d4d57` cleanup succeeded (0 sessions, DROP DATABASE, explicit removal message). SQL integration remains **NOT PASSED**.
+- Source review compared migration 053's NOT NULL schema with migration 077's two analogous finalizers. The generation journal permits nulling its claim token; the regeneration journal does not. This is a production SQL function defect, not a fixture issue.
+- Historical migration 077 was restored to its original blob (no historical migration rewrite retained). The fix is additive migration 150, which replaces only the regeneration finalizer and preserves the existing non-null token. The integration test now asserts the token remains unchanged after terminal failure.
+- Updated the guarded runner, CI workflow, canonical migration-chain test, PostgreSQL runner contract, and Linux/Windows local replay scripts/contracts to require 141 contiguous migrations 010–150.
+- Detailed audit: `docs/audits/2026-11-17-postgres-integration-test-19-regeneration-claim-token-not-null.md`. It records the complete owner transcript summary, source diagnosis, initial 077 edit and restoration, all changes/SHAs, checks, limitations and next gates.
+- Assistant fetched and inspected current GitHub source and documentation; corrected the migration history approach; published migration 150, regression assertion, runner/CI/replay-chain updates; and re-fetched source files to verify their final blobs and invariants. Assistant did not execute Node, PowerShell, psql or PostgreSQL.
+- Next owner gate: synchronize main; run Node contract + migration-chain + replay-contract tests; run PowerShell Parser API check; only after both PASS, run the guarded PostgreSQL runner. SQL PASS requires 141 migrations 010–150, both inline assertions, all 46 SQL tests and successful cleanup.
+- No production database, persistent verification cluster, PostgreSQL service PID 15220 or `X:\\PinPosy-verify-pg18` was modified. No secret was requested or exposed.
