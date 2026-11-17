@@ -499,3 +499,10 @@ This is not the later separate SQL integration runner and does not establish exe
 **Next diagnostic:** inspect the precise constraint catalog state immediately before migration 018 and capture full `psql` error context. Static review of the current fixture and migrations 010–017 does not show this named constraint being created, while migration 018 explicitly drops it before adding it. Root cause is unresolved; do not remove or weaken the constraint speculatively.
 
 **Safety:** temporary database cleanup is confirmed. Do not stop PID `15220`, alter/reinitialize `X:\\PinPosy-verify-pg18`, touch production/PIN_TRIAL, or bypass runner guards. Node contract test remains unverified unless a separate result is supplied.
+
+
+### UA-004 next owner run — capture migration 018 catalog state (2026-11-17)
+
+The runner now prints each migration filename and, immediately before `018_preferred_language.sql`, executes a read-only query against `pg_constraint` for `users_preferred_language_check`, including schema, table, type and definition. It does not modify the DB. Source commits: runner `2c75a0d5639bfa43629a83d03fcd8d760c78368d`; contract assertion `883c065b97e52010ba99fa3a79d3420e73d56e92`. The Node contract test and updated parser/runner are not yet verified.
+
+**Owner action:** `git status --short` (must be empty), `git pull --ff-only origin main`, rerun the PowerShell Parser API check, then run the guarded integration runner only if parser PASS. Send the complete output from the diagnostic line through failure/cleanup and exit code. Do not rerun migration-only replay. Do not stop PID `15220`, alter/reinitialize the temporary cluster, bypass guards, or touch production/PIN_TRIAL. The previous disposable DB cleanup was confirmed.
