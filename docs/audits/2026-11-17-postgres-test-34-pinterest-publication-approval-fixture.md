@@ -49,3 +49,22 @@
 ## Следующий шаг владельца
 
 Синхронизировать latest main, повторить Node contract gate, PowerShell Parser gate, затем guarded PostgreSQL runner. Требовать 147 миграций 010–156, две CI assertions, 46/46 SQL tests и подтверждённый cleanup disposable DB. Остановиться на первой ошибке. Сохранить существующий защищённый PostgreSQL listener PID 15220, порт 55439 и каталог `X:\\PinPosy-verify-pg18`; не использовать production/`PIN_TRIAL` и не обходить guards. Девять Bash concurrency scripts остаются отдельным непроверенным этапом.
+
+
+## Follow-up — владелец подтвердил синхронизацию
+
+После публикации исправления владелец выполнил из `X:\\!PROGECT\\pinboard-ai`:
+- исходный `git status --short` — пуст;
+- `git pull --ff-only origin main` — успешный fast-forward с `60251392` до `ff1ea965`;
+- `git rev-parse HEAD` = `ff1ea965d644008d7fcd1160516042b288a4690a`;
+- `git rev-parse origin/main` = `ff1ea965d644008d7fcd1160516042b288a4690a`;
+- итоговый `git status --short` — пуст.
+
+**Вывод:** локальная рабочая копия чистая и находится ровно на актуальном `origin/main`. Это подтверждает получение исправленного SQL fixture и документации, но не подтверждает корректность fixture во время выполнения. После изменения fixture ещё нет результатов Node/Parser/PostgreSQL повторного запуска.
+
+Следующие обязательные gates без изменения порядка:
+1. Node contract/migration/replay-chain tests — ожидается 45/45 PASS.
+2. PowerShell Parser для `scripts/verify-integration.ps1` — ожидается 0 syntax errors.
+3. Только если оба gates PASS — guarded PostgreSQL runner: upgrade fixture, 147 migrations 010–156, 2 CI inline assertions, 46/46 ordered SQL tests и подтверждённый cleanup disposable DB.
+
+Ассистент повторно получил с GitHub текущие state, user actions, register, этот audit и SQL fixture; сопоставил предыдущие blob SHA и подтверждённый пользователем commit. Ассистент не выполнял команды на ПК владельца и не запускал Node, PowerShell, psql, PostgreSQL, Bash или CI. Не изменялись SQL fixture, production code, migrations, runner или CI в рамках этого follow-up. Девять Bash concurrency scripts остаются отдельным непроверенным этапом.
