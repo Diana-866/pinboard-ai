@@ -756,3 +756,14 @@ Assistant fetched the failing test and migrations 091, 092, 093 and 148. Test bl
 The test sets schedule remote ID to `remote-already-recorded` while attempt/publication ledger agree on `remote-confirmed-123`; it expects reconciliation to return zero and preserve the schedule as unknown with the original ID. Migration 093 appears to contain that exact guard, but runtime behavior contradicted the static source. Root cause is OPEN. Do not alter expected behavior or migration logic until the effective runtime function is inspected.
 
 Assistant created audit `docs/audits/2026-11-17-pinterest-unknown-schedule-reconciliation-test-failure.md`. Next diagnostic will report the returned count, actual schedule fields and effective function body (`pg_get_functiondef`) when the assertion fails, and inspect later migration overrides. Owner action is not required until the diagnostic patch is committed and published. Do not manually connect to production/PIN_TRIAL or modify the persistent verification cluster.
+
+
+### UA-012 — диагностический вывод при сбое Pinterest reconciliation (2026-11-17)
+
+Assistant получил owner transcript: local main и origin/main были синхронизированы на `c047f44cce666e6dbe844cf318a4b314dd60040c`; `git status --short` пустой; Node contract suite 12/12 PASS; PowerShell Parser PASS. Guarded runner применил fixture, 139 миграций 010–148 и 2 inline assertions, затем SQL test 1/46 `pinterest-unknown-schedule-reconciliation.integration.sql:110` завершился ошибкой `schedule remote pin identity conflict incorrectly promoted schedule` (psql exit 3). Disposable DB `pinposy_sqlint_b39373fd69614fe7` удалена, runner явно подтвердил удаление; tests 2–46 не запускались.
+
+Assistant повторно прочитал тест и migration 093. В migration 093 присутствует guard по remote ID, но runtime результат противоречит статическому чтению. Для следующего безопасного запуска assistant изменил только диагностическую ветку failing test: при нарушении ожидания теперь собираются row count, фактические status/remote ID расписания и тело эффективной функции через `pg_get_functiondef`. Основное ожидаемое поведение теста не изменено.
+
+Изменённый файл: `backend/test/pinterest-unknown-schedule-reconciliation.integration.sql`; blob `95d01cccc1e8ec722b5c101e9a7939cda1b393c0`; commit `aa1eb96daaf4b2d3148f596372850e43b5052b7a`.
+
+Assistant выполнил только GitHub read/update и статическое сравнение файлов; локальные тесты и PostgreSQL не запускались. Владелец должен синхронизировать `main`, затем повторить guarded runner. Ввод пароля только в скрытом prompt. Не обращаться к production/PIN_TRIAL, не останавливать PID 15220 и не удалять `X:\PinPosy-verify-pg18`. SQL integration остаётся NOT PASSED.
