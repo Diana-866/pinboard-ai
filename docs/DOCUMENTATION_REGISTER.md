@@ -1213,3 +1213,13 @@ Owner evidence: local clean main fast-forwarded from `948df3b9` to tested code H
 | `docs/USER_ACTIONS.md` | `e268830c233832d13e93a8f4f7a24ac1cbf55cdf` | `93d869fabf789f11fad8afb20abbd5f84dc6947a`; add UA-034 exact sync, Node, Parser and guarded PostgreSQL rerun steps |
 
 Diagnosis evidence: migration 029 grants INSERT to service_role; migration 042 explicitly grants SELECT for backend-protected administrative reads; focused privilege test expects SELECT+INSERT and denies UPDATE/DELETE; the broad test 34 assertion incorrectly denied SELECT. Only the SQL test assertion changed; no production grants, migrations or app code changed. The source correction is **NOT RUNTIME-VERIFIED**. The previous owner run remains FAIL, with tests 35–46 not run. Next gates are Node 45/45, PowerShell Parser 0 errors, then guarded PostgreSQL runner requiring 46/46 tests and disposable DB cleanup.
+
+
+### 2026-11-17 — owner synchronization evidence for billing webhook privilege assertion fix
+
+| Path | Commit / reason |
+|---|---|
+| `docs/PROJECT_STATE.md` | `2a97c0f2a3354dcb90459007b4b6ffe2b3e49d7a`; record clean fast-forward synchronization evidence and distinguish it from runtime verification |
+| `docs/USER_ACTIONS.md` | `fd011eae9828c1903436113f62fdbdca806b8c1e`; update UA-034 with completed sync and remaining ordered preflight gates |
+
+Owner evidence: pre/post `git status --short` empty; fast-forward `1b855857..3e186f14`; local HEAD = origin/main = `3e186f149bbda21235c1389ca5ce16de7619cd61`. This is synchronization evidence only. Node 45-test gate, PowerShell Parser gate and guarded PostgreSQL integration remain outstanding; source fix is not runtime-verified.
