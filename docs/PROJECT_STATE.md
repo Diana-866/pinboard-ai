@@ -1457,3 +1457,14 @@ This section records the exact owner-provided PowerShell procedure. Treat it as 
 - Production code, migrations, CI fixture/workflow, runner, production/PIN_TRIAL и persistent verification cluster не менялись.
 - **Текущий gate:** Node contract 20/20 PASS (предыдущий owner transcript); PowerShell Parser 0 syntax errors PASS (предыдущий owner transcript); PostgreSQL SQL integration **NOT PASSED**.
 - Следующий шаг: синхронизировать опубликованное изменение и документацию, затем повторить Node contract suite. Только при полном PASS разрешён новый guarded runner по UA-011; при первом SQL failure — STOP и сохранить cleanup output.
+
+
+### 2026-11-17 — повторный Node contract gate после исправления SQL test 18: 20/20 PASS
+
+- Владелец синхронизировал clean checkout: fast-forward `0d31c813 → 6d982d14`; `HEAD` = `origin/main` = `6d982d1414490ed210502f834018a1a1a6d9d8a2`; worktree чистый до и после pull.
+- Владелец повторно выполнил `node --test backend/test/postgres-integration-runner-contract.test.js` после test-only correction test 18. Результат: **20 tests, 20 pass, 0 fail, 0 cancelled, 0 skipped, 0 todo**. Node contract gate PASS на актуальном commit.
+- Это подтверждает runner contract assertions, но не запускает PostgreSQL и не доказывает прохождение SQL test 18. Предыдущий SQL run остановился на test 18/46; tests 19–46 не выполнялись. SQL integration остаётся **NOT PASSED**.
+- Ассистент принял owner transcript, повторно fetched текущие проектные документы и предыдущий incident audit, создал audit `docs/audits/2026-11-17-postgres-integration-node-contract-after-test18-fix-pass.md`, обновил этот паспорт и UA-012, затем обновит register и повторно fetched blobs. Ассистент не запускал локальные Node/PowerShell/psql/PostgreSQL.
+- Предыдущий PowerShell Parser API PASS (0 syntax errors) остаётся подтверждённым для текущего runner source, который не менялся после этой проверки. Следующий шаг — guarded PostgreSQL runner на чистом synchronized main по UA-012.
+- Никакие production migrations/code, production/PIN_TRIAL, PID 15220, `X:\\PinPosy-verify-pg18` или persistent databases не менялись; секреты не запрашивались.
+
