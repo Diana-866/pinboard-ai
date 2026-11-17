@@ -495,3 +495,13 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 - `scripts/verify-integration.ps1` — fixed read-only pre-018 diagnostic concatenation by casting PostgreSQL catalog `contype` and `relkind` fields to text; source change not yet runtime-tested.
 - `backend/test/postgres-integration-runner-contract.test.js` — added assertion for explicit catalog-field casts; not yet executed.
 - Owner retest at `d48fdde9`: diagnostic query itself failed with `text || "char"` before migration 018; disposable DB cleanup confirmed; inline assertions and 46 SQL tests NOT RUN. Full sequence recorded in project journal, UA-004 and audit section 9.
+
+
+### 2026-11-17 follow-up verification of diagnostic type fix
+
+- Current `scripts/verify-integration.ps1` blob: `74c128b4c6933b8b5aba888e4abeb01200df2ab6`; commit: `da8e094521b261ea7e7cef5831077dace38f3160`.
+- Current `backend/test/postgres-integration-runner-contract.test.js` blob after regex-literal correction: `e13642f1f1b89c16308a0cd5905b7e6324ab5d6f`; latest commit: `86030613b17984237576f0974359785a4c4c947d`. The source assertion requires both explicit casts; test execution remains unverified.
+- Current audit `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md` blob: `341b36e21e3a87491328639b20e7f0dff3a66df9`; commit: `a53fbb5475bf45f39805f8e28bbfc76536fef248`.
+- Current `docs/PROJECT_STATE.md` blob: `8f5ee24ecf3e1b00b512aec6e9718bb6ea2ce989`; commit: `3fa1173ba69a45807cb431a8f53461fb301f4959`.
+- Current `docs/USER_ACTIONS.md` blob: `ce3c499ceac7236db4a97544464a8c3dd6ae386d`; commit: `b3b3b75c4af6e6c4afcb58aef1c84f263f1ee117`.
+- The diagnostic query's PostgreSQL internal-char concatenation failure, owner transcript, successful disposable-database cleanup, exact assistant source changes and non-executed checks are recorded in audit section 9, project journal and UA-004.
