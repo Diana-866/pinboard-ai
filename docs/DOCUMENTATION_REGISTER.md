@@ -935,3 +935,16 @@ Owner evidence: Node 40/41 PASS with one baseline RegExp helper failure; PowerSh
 - `docs/USER_ACTIONS.md`: blob `ad083f99cf351156a0b13989e31fcb8d2c8587b5`; added UA-017 with exact owner gate order and safety constraints.
 
 All five paths were re-fetched from GitHub after publication. Static checks confirmed the approved fixture statement is present and the Windows contract contains `10..153` and no longer expects `10..152`. This is source/document verification only; the updated Node and SQL tests have not been executed by the assistant or owner. PostgreSQL integration remains **NOT PASSED** until all 46 tests and cleanup pass.
+
+
+### 2026-11-17 — PostgreSQL integration test 28/46 follow-up: terminal generation task fixture and migration-153 matcher order
+
+| Path | Final blob SHA | Commit / reason |
+|---|---|---|
+| `backend/test/pin-image-deletion-claims.integration.sql` | `01390370c8beb8250e1c1fce6845a7c4b0fe8077` | `b3fe4533d3491507c4c86530bdb377c1d7947c0c`; terminal task fixture explicitly sets `status='failed'` and `provider_outcome_status='failed'` before parent completion |
+| `backend/test/postgres-integration-runner-contract.test.js` | `79b884a2151dc71dec41425a758ff521326a666a` | `4adb47381b2a74d7b878bf1671768f128cda73fc`; matcher now follows actual reference order in migration 153, with correct regex-literal escaping |
+| `docs/audits/2026-11-17-postgres-integration-test-28-terminal-generation-task-journal-and-contract-order.md` | `36cac204f747267ced76e70da6df81ce6d3ce71d` | `5419c7478506332416e6e984aeb83295e2a7418c`; owner evidence, diagnosis, all authoring attempts, source SHAs, limits and next steps |
+| `docs/PROJECT_STATE.md` | `aa19af49c199f56257a8163348f8b03ed5ba5de2` | `b629df8e277c12e85ffb6b499d0f5036cc1ac77b`; chronological test-28 follow-up record |
+| `docs/USER_ACTIONS.md` | `bd8e3a26a79790e12f3f18d48923c16002575838` | `03171708ee19712003b6fadd48811ac4121bc76f`; UA-018 ordered owner sync and rerun gates |
+
+Owner evidence: PowerShell Parser PASS; SQL fixture, 144 migrations 010–153, two CI inline assertions and SQL tests 1–27 PASS; test 28 failed because its generation task remained at default `prepared` while the parent request was set to `completed`. Cleanup succeeded and disposable DB was removed. The supplied Node excerpt showed an incorrect expected reference order; full aggregate Node test counts were not supplied. Assistant corrected the test fixture and matcher, then re-fetched final source and documentation blobs from GitHub. Assistant did not execute Node, PowerShell, psql, PostgreSQL or CI. Updated source is not runtime-verified; SQL integration remains **NOT PASSED**, tests 29–46 remain unexecuted.
