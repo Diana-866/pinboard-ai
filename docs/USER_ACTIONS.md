@@ -834,3 +834,32 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integra
 Пароль — только в скрытом prompt. Прислать полный вывод. Не запускать runner, если Node suite падает или HEAD не совпадает с origin/main. SQL integration пока **NOT PASSED**.
 
 - Follow-up: assistant reviewed its newly added contract assertion before asking owner to run it, caught over-escaped regex patterns, and replaced them with literal `indexOf`/`includes` checks. Final contract blob `4681aa4ab8155a0c5c8b649e35bfdd3085fd8d2f`, commit `ace9c270f8ad789a0135cdbe4c0b1bceac768e4e`. Node suite has **not** been run after this final correction; keep the 15-test execution as the next owner gate.
+
+
+## UA — повтор SQL integration: durable queue Storage manifest guard (2026-11-17)
+
+**Результат владельца**
+- Checkout synchronized at `01a7fd7f8ab60bfc6e380cef01352b6d6ae2f038`; clean worktree; `HEAD` = `origin/main`.
+- Node contract suite: **15/15 PASS**.
+- Guarded runner: fixture PASS; migrations 010–149 (140) PASS; two inline assertions PASS; SQL tests 1–6/46 PASS; test 7/46 `account-deletion-durable-queue.integration.sql` failed with `account deletion Storage manifest is required`.
+- Disposable DB `pinposy_sqlint_ab121efa0ee94999` cleanup confirmed (0 sessions; DROP DATABASE; explicit removed message). Tests 8–46 not run. SQL integration NOT PASSED.
+
+**Исправление**
+- Migration 144 проверяет Storage manifest до обновления статуса job; тест ошибочно ожидал старое сообщение от inventory trigger из migration 131. Marker из migration 137 можно записать только после inventory, поэтому первый guard ожидаемо именно Storage manifest.
+- Исправлен только expected error/comment в `backend/test/account-deletion-durable-queue.integration.sql`: blob `733295e89326d675be7c3e7c4a7dcd71c1dc1022`, commit `24889b82c1b9221fed49716dad25a3a6d02f75e8`.
+- Добавлен Node contract guard: blob `c5dcbf017955d1c125f91ec75c2e4df13a036b4e`, commit `684acac9a226e6a3a442c076a1806ad10fd6b788`.
+- Audit: `docs/audits/2026-11-17-postgres-integration-durable-queue-storage-manifest-guard.md`.
+
+**⚠️ Следующие действия владельца после публикации всех документов**
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+node --test backend/test/postgres-integration-runner-contract.test.js
+```
+Если все **16** contract tests PASS и HEAD совпадает с origin/main, выполнить:
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+```
+Пароль вводить только в скрытом prompt. Не запускать runner при падении Node suite или несовпадении HEAD. Не останавливать PID 15220, не удалять `X:\\PinPosy-verify-pg18`, не трогать production/PIN_TRIAL.
