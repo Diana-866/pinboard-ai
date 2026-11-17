@@ -1628,3 +1628,20 @@ Assistant re-fetched all eight changed source paths and checked their final blob
 - Source commits/blobs: Node contract `ff5be4d4ce9160669b87c5ceb5cd09fc024399cd` / `b0b663b22c336bf72f9317bdb7151f5eb141aa15`; SQL fixture `bd29eb628780cb085e42d7a249802d2f9e10e06c` / `2d2e5b97955a58f1987c856beb1b65906375ddae`. Detailed audit: `docs/audits/2026-11-17-postgres-integration-test-28-upload-finalization-fixture-path-collision-and-migration154-contract-regex.md`, blob `52f241d0abddd2724bc1991107a568a5e4581820`.
 - Assistant re-fetched both source files and audit from GitHub. Static inspection confirmed the corrected regexes and unique AUD-260 paths. Assistant did not execute Node, PowerShell, psql, PostgreSQL or CI. The corrected Node contract and SQL fixture are **NOT RUNTIME-VERIFIED**. PostgreSQL integration remains **FAIL 27/46** pending a complete rerun; tests 29–46 remain unexecuted.
 - Next: owner synchronizes clean main; runs the three Node gate files and requires all tests PASS (expected 43 total); then, because the runner script is unchanged and Parser just passed, runs the guarded PostgreSQL runner. Full SQL PASS requires all 46 tests and confirmed disposable DB cleanup. Preserve PID 15220, port 55439 and `X:\PinPosy-verify-pg18`; no production/`PIN_TRIAL`, no guard bypass, and no secrets in chat.
+
+
+### 2026-11-17 — PostgreSQL test 28: regeneration replay image reference guard regression; migration 155
+
+Owner evidence from local commit `76593cc93d5251eb33020ef2a395dba2ceaa1c66`: Node gate 43/43 PASS; guarded runner applied the fixture, 145 migrations 010–154 and both CI inline assertions; SQL tests 1–27 passed; test 28 failed because deletion claim returned `claimed: true` despite a durable `pin_regeneration_requests.result_pin.image_url` reference. Disposable database cleanup succeeded. Tests 29–46 did not run. SQL integration remains **NOT PASSED (27/46)**.
+
+Read-only source comparison found migration 104 had added the regeneration replay payload reference check, but migration 145 replaced `claim_pin_image_deletion()` without retaining that check. Migration 153 inherited the omission while restoring permanent expired-claim quarantine; migration 154 did not touch the deletion claim function. This is a production SQL migration regression, not a fixture-only issue.
+
+Added migration 155 based on migration 153's latest deletion-claim implementation. It restores the `result_pin ->> 'image_url'` check while preserving the migration-153 quarantine/tombstone behavior and the full migration-145 reference inventory. Historical migrations remain unchanged. The existing SQL regression fixture was retained unchanged.
+
+Also updated the Node migration-155 contract, canonical migration-chain contract, Linux/Windows replay contracts and scripts, guarded Windows integration runner, and CI workflow to apply 146 migrations 010–155.
+
+Assistant actions: fetched current source and documentation from GitHub; compared migrations 104, 145, 153 and 154; inspected the failing SQL fixture; created migration 155; updated static contracts, replay scripts and CI; created a detailed audit; re-fetched changed sources to verify publication. Assistant did not run local Node, PowerShell, psql, PostgreSQL or CI. Source review is not runtime verification.
+
+Next owner gates after clean sync: Node suite (expected 44/44 PASS), PowerShell Parser (0 errors), then guarded PostgreSQL runner. Require 146 migrations 010–155, two inline assertions, all 46 SQL tests and successful disposable DB cleanup. Preserve PID 15220, port 55439 and `X:\\PinPosy-verify-pg18`; no production/`PIN_TRIAL`, no guard bypass, no secrets in chat. Nine Bash concurrency scripts remain unverified.
+
+Detailed audit: `docs/audits/2026-11-17-postgres-test-28-regeneration-replay-image-reference-guard-regression.md`.
