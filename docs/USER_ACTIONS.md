@@ -1332,3 +1332,69 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integra
 - Не использовать production/PIN_TRIAL; не останавливать PID 15220; не изменять и не удалять `X:\PinPosy-verify-pg18`; не запускать Bash concurrency/backend runtime suites до полного SQL PASS и cleanup.
 
 **Статус:** Node contract 20/20 PASS; PowerShell Parser 0 syntax errors PASS; PostgreSQL SQL integration **NOT PASSED**, ожидает повторного guarded owner run.
+
+
+## UA-013 — повторная проверка PostgreSQL после исправления test 19/46 (2026-11-17)
+
+### Зафиксированный owner run
+- Чистый synchronized checkout: `4df18de1fbc8ae98b3d316d945cce7f973b244de`.
+- Guarded runner прошёл safety checks: PID 15220; data directory `X:\\PinPosy-verify-pg18`; server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+- Fixture, 140 migrations 010–149, две inline assertions и SQL tests 1–18/46 прошли; test 19/46 упал из-за попытки установить `pin_regeneration_requests.claim_token=NULL` при ограничении NOT NULL.
+- Tests 20–46 не запускались. Cleanup disposable DB `pinposy_sqlint_e44cc1cd1e6d4d57` подтверждён (0 sessions, DROP DATABASE, explicit removal). SQL integration **NOT PASSED**.
+
+### Опубликованное исправление
+- Историческая migration 077 восстановлена без изменений.
+- Новая additive migration: `db/migrations/150_preserve_regeneration_claim_token_on_refund_finalization.sql`. Она заменяет функцию `finalize_reconciled_pin_regeneration_failure`, не обнуляя обязательный claim token.
+- SQL test 19 дополнен проверкой, что token после финализации совпадает с исходным.
+- Runner, CI, migration-chain test и local Linux/Windows replay scripts/contracts обновлены на contiguous migrations 010–150 (141 files).
+- Подробный аудит: `docs/audits/2026-11-17-postgres-integration-test-19-regeneration-claim-token-not-null.md`.
+
+### Следующие действия владельца — строго по порядку
+
+1. Получить все source и documentation commits и проверить чистый synchronized main:
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Продолжать только если branch `main`, worktree чистый, а HEAD совпадает с origin/main. Сохранить полный hash HEAD.
+
+2. Выполнить Node contract, canonical migration-chain и local replay-contract gates:
+
+```powershell
+node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+```
+
+Ожидается полный PASS; contract suite теперь включает дополнительную проверку migration 150 и chain 010–150. При любом FAIL — **СТОП**, прислать полный вывод; guarded SQL runner не запускать.
+
+3. После Node PASS выполнить PowerShell Parser API check для изменённого guarded runner:
+
+```powershell
+$tokens = $null
+$errors = $null
+[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path .\scripts\verify-integration.ps1), [ref]$tokens, [ref]$errors) | Out-Null
+if ($errors.Count -gt 0) { $errors | Format-List *; exit 1 }
+"PowerShell Parser PASS: 0 syntax errors"
+```
+
+При любой syntax error — **СТОП**, SQL runner не запускать.
+
+4. Только после двух gate PASS выполнить guarded PostgreSQL integration runner:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+```
+
+Пароль временной роли вводить только в скрытом prompt. Не отправлять пароль, токены или `.env`.
+
+### STOP и критерий PASS
+- При первой SQL ошибке остановиться и передать полный вывод, включая cleanup. Тесты после первого упавшего теста считаются невыполненными.
+- SQL integration PASS только при успешном fixture, всех **141 migrations 010–150**, обеих CI inline assertions, всех **46 SQL tests** и подтверждённом cleanup disposable DB.
+- Не обходить runner guards, не менять порт/PID/data directory, не использовать production/PIN_TRIAL, не останавливать PID 15220 и не изменять/удалять `X:\\PinPosy-verify-pg18`.
+- Не запускать Bash concurrency/backend runtime suites до полного SQL PASS и cleanup.
+
+**Текущий статус:** Node 20/20 PASS и Parser 0 errors относятся к предыдущему source state; после добавления migration 150 и обновления runner оба gate требуют повторного owner выполнения. PostgreSQL integration **NOT PASSED**.
