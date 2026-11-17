@@ -138,3 +138,15 @@ The runner's `finally` successfully terminated connections, dropped `pinposy_sql
 Assistant source inspection identified the diagnostic-only type mismatch. Corrected the read-only query by explicitly casting both `c.contype::text` and `cl.relkind::text` before concatenation. No migration, fixture, production database, target guard, or cleanup behavior was changed. Added a Node source-contract assertion requiring both casts. These are source edits only; neither the Node test, PowerShell parser nor integration runner has been executed after this correction. The underlying migration-018 constraint collision remains unresolved pending a successful diagnostic query. Never infer that the constraint is absent from the database based on the failed diagnostic.
 
 Owner-provided evidence: terminal transcript in chat. Assistant actions: fetched current `main` source and docs; identified the two internal-char concatenations; updated runner and contract test; recorded this incident in the audit, project journal, owner-action log and documentation register. No PostgreSQL command was run by the assistant; no password or secret was recorded.
+
+
+
+## 10. Owner retest — contract test caught stale diagnostic wording (2026-11-17)
+
+The owner fast-forwarded local clean `main` from `d48fdde9` to `844514ab` (the transcript shows the remote update ending at `844514ab`). The Node command `node --test .\\backend\\test\\postgres-integration-runner-contract.test.js` executed 10 tests: 9 passed, 1 failed. The sole failure was the contract test requiring the old runner log string `Diagnostic: matching constraints immediately before migration 018`. The current runner had intentionally expanded this log to `Diagnostic: database and public.users constraints immediately before migration 018:`. The output proves a stale test expectation, not a PowerShell runner or PostgreSQL failure. The contract test's other 9 checks passed, including both catalog text casts.
+
+The owner then ran the PowerShell Parser API check; it returned `PASS: PowerShell parser`. The integration runner was **not** run after the diagnostic cast change in this transcript. No new disposable database was created in this retest, no migrations were applied, and no SQL integration assertions/tests ran.
+
+Assistant inspected the current test, runner and documentation on GitHub `main`. Changed only the stale expected diagnostic wording in `backend/test/postgres-integration-runner-contract.test.js` to match the current runner log. Commit: `a4472b204bf6c66f02c0adb8c9d1db79579c47ea`; resulting test-file blob: `902a0d700a1b145d7e48ad5f0cc856c5bd6f99a1`. This source edit has not yet been executed by the assistant or owner. The previous 9/10 result remains the only observed execution result; do not report the contract suite as passing until rerun.
+
+Documentation updated to preserve the owner transcript, exact pass/fail counts, reason for failure, parser result, scope of what did not run, and assistant's source edit. No PostgreSQL instance, database, migration, fixture, production service, secret, or owner local file was touched by the assistant.
