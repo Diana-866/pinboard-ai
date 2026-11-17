@@ -12,7 +12,7 @@
 - **Разрешение владельца получено (2026-11-16):** пользователь явно разрешил создать отдельный временный PostgreSQL 18.6 cluster только в новом каталоге на X:, на отдельном порту и с bind/listen только `127.0.0.1`. Запрещено затрагивать работающий PostgreSQL (в т.ч. PID 5632), его data directory, `PIN_TRIAL` и production. Разрешение распространяется только на создание и проверку disposable cluster; миграционный replay будет отдельным последующим шагом после проверки идентичности кластера и подтверждения безопасного endpoint. Создание кластера ещё не подтверждено.
 
 
-- **Фактический результат от владельца (2026-11-16):** `initdb --version` → PostgreSQL 18.6; `pg_ctl --version` → PostgreSQL 18.6; `Test-Path ...\\postgres.exe` → `True`; свободно на X: `167,962,349,568` байт (примерно 156.4 GiB). Дополнительно пользователь сообщил о работающем процессе `postgres.exe` PID `5632`, ParentProcessId `4336`; этот процесс и существующий data directory не трогались. Предварительные условия для отдельного disposable cluster имеются. Создание кластера и запуск миграций требуют отдельного явного согласия пользователя.
+- **Фактический результат от владельца (2026-11-16):** `initdb --version` → PostgreSQL 18.6; `pg_ctl --version` → PostgreSQL 18.6; `Test-Path ...\postgres.exe` → `True`; свободно на X: `167,962,349,568` байт (примерно 156.4 GiB). Дополнительно пользователь сообщил о работающем процессе `postgres.exe` PID `5632`, ParentProcessId `4336`; этот процесс и существующий data directory не трогались. Предварительные условия для отдельного disposable cluster имеются. Создание кластера и запуск миграций требуют отдельного явного согласия пользователя.
 
 
 - **Статус:** [x] Read-only проверки выполнены; изолированный кластер ещё не создан.
@@ -171,9 +171,9 @@
 **Согласование владельца получено:** разрешён отдельный временный PostgreSQL cluster только в новом каталоге на X:, на отдельном порту, bind только `127.0.0.1`. Существующий кластер (включая работающий ранее обнаруженный процесс `postgres.exe` PID 5632), `PIN_TRIAL` и production не трогать.
 
 **Действие владельца, Step 1 (read-only preflight):**
-- Каталог `X:\\PinPosy-verify-pg18`: свободен (Test-Path = false).
+- Каталог `X:\PinPosy-verify-pg18`: свободен (Test-Path = false).
 - TCP port `55439`: свободен (Get-NetTCPConnection -LocalPort 55439 -State Listen не вернул listener).
-- `X:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe`: найден (Test-Path = true).
+- `X:\Program Files\PostgreSQL\18\bin\psql.exe`: найден (Test-Path = true).
 - `pg_ctl --version`: PostgreSQL 18.6.
 - Предыдущий preflight: `initdb.exe` и `pg_ctl.exe` версии 18.6, `postgres.exe` найден, X: свободно 167,962,349,568 bytes; работающий postgres PID 5632 не останавливался и не изменялся.
 
@@ -184,13 +184,13 @@
 
 ### UA-001 — уточнение PostgreSQL client PATH (2026-11-16)
 
-Владелец прислал результат проверки: `pg_ctl` и `psql` версии 18.6 доступны в `X:\\Program Files\\PostgreSQL\\18\\bin`. Однако системный `Get-Command psql` указывает на PostgreSQL 17: `C:\\Program Files\\PostgreSQL\\17\\bin\\psql.exe`. Для migration replay нельзя полагаться на неявный поиск `psql` в PATH: нужно вызывать бинарник PG18 полным путём (или временно изменить PATH только в текущем окне PowerShell). В сообщении отсутствовал вывод `initdb.exe --help`; параметры auth пока не подтверждены. Каталог и кластер не создавались, сервер не запускался.
+Владелец прислал результат проверки: `pg_ctl` и `psql` версии 18.6 доступны в `X:\Program Files\PostgreSQL\18\bin`. Однако системный `Get-Command psql` указывает на PostgreSQL 17: `C:\Program Files\PostgreSQL\17\bin\psql.exe`. Для migration replay нельзя полагаться на неявный поиск `psql` в PATH: нужно вызывать бинарник PG18 полным путём (или временно изменить PATH только в текущем окне PowerShell). В сообщении отсутствовал вывод `initdb.exe --help`; параметры auth пока не подтверждены. Каталог и кластер не создавались, сервер не запускался.
 
 
 ### UA-001 — initdb options verified (2026-11-16)
 
 Полный вывод `initdb.exe --help` получен. Подтверждены параметры `--auth-host`, `--auth-local`, `-U`, `-W`, `-D`, `-k`. План инициализации отдельного временного кластера:
-- каталог: `X:\\PinPosy-verify-pg18` (проверен как отсутствующий);
+- каталог: `X:\PinPosy-verify-pg18` (проверен как отсутствующий);
 - роль суперпользователя: `pinposy_verify_admin`;
 - TCP и local auth: `scram-sha-256`;
 - пароль вводится интерактивно, не присылается ассистенту и не включается в команду;
@@ -200,7 +200,7 @@
 
 ### UA-001 — PostgreSQL 18 initdb completed (2026-11-16)
 
-Пользователь выполнил инициализацию нового кластера в `X:\\PinPosy-verify-pg18`. Вывод подтверждает успешное завершение (Готово), роль `pinposy_verify_admin`, SCRAM-SHA-256 для TCP/local и включённые data checksums. Пароль вводился интерактивно, в переписке не раскрывался.
+Пользователь выполнил инициализацию нового кластера в `X:\PinPosy-verify-pg18`. Вывод подтверждает успешное завершение (Готово), роль `pinposy_verify_admin`, SCRAM-SHA-256 для TCP/local и включённые data checksums. Пароль вводился интерактивно, в переписке не раскрывался.
 **Обнаруженный нюанс:** Windows выбрал локаль `Russian_Russia.1251`, поэтому initdb создал кластер с encoding `WIN1251`. До запуска сервера требуется read-only проверка, что все SQL-входы для replay (stub, canonical baseline, активные migrations 010–148) совместимы с WIN1251, а также согласовать client encoding. Пока сервер не запускался; порт 55439 не использовался; существующий PID 5632, PIN_TRIAL и production не затронуты. Ничего не удалять и не переинициализировать без отдельного согласия пользователя.
 
 
@@ -211,7 +211,7 @@
 
 ### UA-001 — disposable PostgreSQL 18 server started (2026-11-16)
 
-Пользователь проверил временный data directory `X:\\PinPosy-verify-pg18`: файл `PG_VERSION` содержит `18`; TCP port `55439` был свободен. После этого выполнил запуск через PG18 `pg_ctl.exe` с явными параметрами `-h 127.0.0.1 -p 55439 -c listen_addresses=127.0.0.1`. Фактический вывод: «ожидание запуска сервера.... готово», «сервер запущен»; проверка `$LASTEXITCODE -ne 0` не сработала, значит команда завершилась успешно. Это ещё не независимая проверка listener/процесса/каталога. SQL, миграции и создание тестовой БД не выполнялись. Следующее действие — read-only подтверждение статуса, loopback listener, процесса и параметров сервера через PG18 psql.
+Пользователь проверил временный data directory `X:\PinPosy-verify-pg18`: файл `PG_VERSION` содержит `18`; TCP port `55439` был свободен. После этого выполнил запуск через PG18 `pg_ctl.exe` с явными параметрами `-h 127.0.0.1 -p 55439 -c listen_addresses=127.0.0.1`. Фактический вывод: «ожидание запуска сервера.... готово», «сервер запущен»; проверка `$LASTEXITCODE -ne 0` не сработала, значит команда завершилась успешно. Это ещё не независимая проверка listener/процесса/каталога. SQL, миграции и создание тестовой БД не выполнялись. Следующее действие — read-only подтверждение статуса, loopback listener, процесса и параметров сервера через PG18 psql.
 
 
 ### UA-001 — PostgreSQL 18 server identity and loopback isolation verified (2026-11-16)
@@ -231,7 +231,7 @@
 
 ## UA-001 — повторить migration replay после исправления 140 (2026-11-16)
 
-- Первый локальный replay на временном PostgreSQL 18.6 достиг migration 140 и завершился с SQL syntax error. Disposable DB `pinposy_verify_13212ccdd0602` успешно удалена самим verify script; временный cluster `X:\\PinPosy-verify-pg18` на `127.0.0.1:55439` оставлен работающим.
+- Первый локальный replay на временном PostgreSQL 18.6 достиг migration 140 и завершился с SQL syntax error. Disposable DB `pinposy_verify_13212ccdd0602` успешно удалена самим verify script; временный cluster `X:\PinPosy-verify-pg18` на `127.0.0.1:55439` оставлен работающим.
 - Исправление migration 140 уже находится в GitHub main: `b2cb16ca75d7723f345ecd270cb77cc72149be51`. В локальном checkout пользователя всё ещё старая версия файла, поэтому повторный запуск до fast-forward sync запрещён.
 - **Единственное необходимое действие владельца:** выполнить `git pull --ff-only origin main` из корня репозитория, затем прислать только вывод `git rev-parse HEAD` и `git hash-object db/migrations/140_account_deletion_review_queue_image_manifest.sql`. Пароли/секреты не присылать. После сверки ассистент подготовит один обновлённый блок повторного replay с проверкой точного HEAD и blob SHA.
 - Не удалять и не переинициализировать временный cluster; не останавливать его без отдельного согласия. Production, PIN_TRIAL и существующий PostgreSQL cluster не трогать.
@@ -384,8 +384,8 @@ UA-004 по локальному запуску остаётся обязате�
 ### Контрольная точка автономной работы (2026-11-17)
 
 - Проверен актуальный main; последний исходный code/docs HEAD перед записью контрольной точки: `4de5190e3a16b101ee19528110263bc354925744`. В `docs/PROJECT_STATE.md` записано, что NEXT остаётся UA-004 и почему его нельзя выполнить из удалённой среды ассистента.
-- **Ничего нового от владельца не требуется сверх UA-004.** Когда владелец вернётся: в PowerShell из `X:\\!PROGECT\\pinboard-ai` проверить clean `main`, выполнить `git pull --ff-only origin main`, затем `powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1 -PostgresPort 55439`. Ввести пароль только в скрытый локальный prompt; передать полный stdout/stderr/exit code без пароля и иных секретов.
-- При любом отказе preflight остановиться и передать точный вывод; не обходить guard. Не использовать production, PIN_TRIAL, существующий кластер/PID 5632 и не удалять временный кластер `X:\\PinPosy-verify-pg18`. После успешного прогона ассистент проверит фактический результат и cleanup, затем выдаст следующий отдельный шаг по Bash concurrency suite.
+- **Ничего нового от владельца не требуется сверх UA-004.** Когда владелец вернётся: в PowerShell из `X:\!PROGECT\pinboard-ai` проверить clean `main`, выполнить `git pull --ff-only origin main`, затем `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1 -PostgresPort 55439`. Ввести пароль только в скрытый локальный prompt; передать полный stdout/stderr/exit code без пароля и иных секретов.
+- При любом отказе preflight остановиться и передать точный вывод; не обходить guard. Не использовать production, PIN_TRIAL, существующий кластер/PID 5632 и не удалять временный кластер `X:\PinPosy-verify-pg18`. После успешного прогона ассистент проверит фактический результат и cleanup, затем выдаст следующий отдельный шаг по Bash concurrency suite.
 
 
 ### Диагностика GitHub Actions (2026-11-17) — без нового действия владельца
@@ -407,7 +407,7 @@ The owner-reported run did not reach PostgreSQL setup or SQL execution. The Powe
    ```powershell
    $tokens = $null
    $errors = $null
-   [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path .\\scripts\\verify-integration.ps1), [ref]$tokens, [ref]$errors) | Out-Null
+   [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path .\scripts\verify-integration.ps1), [ref]$tokens, [ref]$errors) | Out-Null
    if ($errors.Count -gt 0) { $errors | Format-List; throw 'PowerShell parser check failed.' }
    'PASS: PowerShell parser'
    ```
@@ -415,7 +415,7 @@ The owner-reported run did not reach PostgreSQL setup or SQL execution. The Powe
 3. Only if the parser prints `PASS: PowerShell parser`, run:
 
    ```powershell
-   powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1 -PostgresPort 55439
+   powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1 -PostgresPort 55439
    ```
 
 4. Enter the password only in the hidden local prompt. Return the full output, process exit code, and cleanup confirmation without passwords, tokens, or environment values.
@@ -447,7 +447,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration
 - Пароль роли `pinposy_verify_admin` вводить только в скрытом локальном prompt. Не копировать пароль, токены или значения переменных окружения в чат.
 - Передать полный stdout/stderr, exit code и явное сообщение о cleanup disposable DB.
 - Если preflight сообщает о несовпадении ветки, listener, PID, data directory, версии PostgreSQL, кодировок или роли — остановиться и прислать точный текст ошибки. Не обходить guard и не исправлять состояние кластера самостоятельно.
-- Не запускать на production/PIN_TRIAL; не останавливать существующий PostgreSQL/PID 5632; не удалять временный кластер `X:\\PinPosy-verify-pg18`.
+- Не запускать на production/PIN_TRIAL; не останавливать существующий PostgreSQL/PID 5632; не удалять временный кластер `X:\PinPosy-verify-pg18`.
 
 **Что означает текущий PASS:** подтверждён только синтаксический разбор PowerShell-файла. Он не подтверждает запуск runner, соединение с PostgreSQL, миграции, 46 SQL tests или cleanup.
 
@@ -462,7 +462,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration
 
 Владелец сообщил, что:
 - локальный checkout был чистым и fast-forward обновлён до `21226c6d`;
-- runner подтвердил clean `main`, PID `15220` и data directory `X:\\PinPosy-verify-pg18`;
+- runner подтвердил clean `main`, PID `15220` и data directory `X:\PinPosy-verify-pg18`;
 - после скрытого ввода пароля runner получил адрес сервера в форме `127.0.0.1/32`, тогда как сравнивал с `127.0.0.1`, и выдал `PostgreSQL identity mismatch`;
 - ошибка возникла на identity query до проверки/создания ролей и до создания disposable DB. По последовательности кода `$createdDatabase` ещё равен `$null`, `$createdRoles` пуст; следовательно runner не запускал fixture, migrations, inline assertions, SQL tests и не имел своей disposable DB для cleanup. Кластер не останавливать и не переинициализировать.
 
@@ -475,7 +475,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration
 1. Выполнить `git status --short`. Если есть изменения — остановиться, ничего не сбрасывать.
 2. При чистом дереве выполнить `git pull --ff-only origin main`.
 3. Повторить parser-only check для изменённого runner. Только при `PASS: PowerShell parser` снова выполнить guarded runner:
-   `powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1 -PostgresPort 55439`.
+   `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1 -PostgresPort 55439`.
 4. Передать полный вывод, exit code и cleanup confirmation без секретов. Если identity guard или любой preflight снова отказывает — остановиться и прислать точный вывод. Не обходить проверки, не редактировать настройки сервера вручную.
 
 До подтверждённых SQL integration PASS и удаления disposable DB Bash concurrency и backend runtime suites остаются заблокированы.
@@ -483,7 +483,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration
 
 ### Canonical migration replay — do not ask the owner to repeat it (2026-11-17)
 
-The owner supplied the complete successful PowerShell transcript for the migration-only replay. It was run from `X:\\!PROGECT\\pinboard-ai` against PostgreSQL 18.6 at `127.0.0.1:55439`, data directory `X:/PinPosy-verify-pg18`, server encoding WIN1251 and client encoding UTF8. The guarded preflight checked branch `main`, clean tree, historical HEAD `ebb1040ac73e600dfdbfc57d8aa765f9713441a2`, SHA-256 object hashes for migration 140 and `scripts/verify.ps1`, PostgreSQL 18 `psql.exe`, and exactly one loopback listener on port 55439. The temporary role password was read as a SecureString, used only in the process environment, and the previous environment values and PATH were restored in `finally`.
+The owner supplied the complete successful PowerShell transcript for the migration-only replay. It was run from `X:\!PROGECT\pinboard-ai` against PostgreSQL 18.6 at `127.0.0.1:55439`, data directory `X:/PinPosy-verify-pg18`, server encoding WIN1251 and client encoding UTF8. The guarded preflight checked branch `main`, clean tree, historical HEAD `ebb1040ac73e600dfdbfc57d8aa765f9713441a2`, SHA-256 object hashes for migration 140 and `scripts/verify.ps1`, PostgreSQL 18 `psql.exe`, and exactly one loopback listener on port 55439. The temporary role password was read as a SecureString, used only in the process environment, and the previous environment values and PATH were restored in `finally`.
 
 The command executed `scripts/verify.ps1 -MigrationsOnly -PostgresPort 55439`. It created disposable database `pinposy_verify_196929316b56e`, applied Supabase test stubs, `001_baseline.sql`, and all migrations `010–148` (139 migrations), then successfully dropped the disposable database. Explicit terminal evidence: `PASS PostgreSQL migration replay (001 + 010-148)`, `All configured checks passed.`, `MIGRATION REPLAY PASSED`. **This migration replay is PASS and must not be described as unrun.**
 
@@ -498,7 +498,7 @@ This is not the later separate SQL integration runner and does not establish exe
 
 **Next diagnostic:** inspect the precise constraint catalog state immediately before migration 018 and capture full `psql` error context. Static review of the current fixture and migrations 010–017 does not show this named constraint being created, while migration 018 explicitly drops it before adding it. Root cause is unresolved; do not remove or weaken the constraint speculatively.
 
-**Safety:** temporary database cleanup is confirmed. Do not stop PID `15220`, alter/reinitialize `X:\\PinPosy-verify-pg18`, touch production/PIN_TRIAL, or bypass runner guards. Node contract test remains unverified unless a separate result is supplied.
+**Safety:** temporary database cleanup is confirmed. Do not stop PID `15220`, alter/reinitialize `X:\PinPosy-verify-pg18`, touch production/PIN_TRIAL, or bypass runner guards. Node contract test remains unverified unless a separate result is supplied.
 
 
 ### UA-004 next owner run — capture migration 018 catalog state (2026-11-17)
@@ -553,7 +553,7 @@ Assistant changed only the stale expected heading in the Node contract test. Com
 Owner transcript:
 - `git status --short` printed no entries before synchronization.
 - `git pull --ff-only origin main` fast-forwarded local `main` from `844514ab` to `7f0084ca`; five files changed, 49 insertions and one deletion.
-- `node --test .\\backend\\test\\postgres-integration-runner-contract.test.js`: **10 passed, 0 failed, 10 total**. All named contract checks in the output passed, including the corrected diagnostic-heading assertion.
+- `node --test .\backend\test\postgres-integration-runner-contract.test.js`: **10 passed, 0 failed, 10 total**. All named contract checks in the output passed, including the corrected diagnostic-heading assertion.
 - The current transcript ends immediately after the Node test output. It does not contain a PowerShell Parser API invocation or a guarded PostgreSQL integration-runner invocation.
 
 Interpretation and boundaries:
@@ -769,9 +769,9 @@ Assistant повторно прочитал тест и migration 093. В migrat
 Assistant выполнил только GitHub read/update и статическое сравнение файлов; локальные тесты и PostgreSQL не запускались. Владелец должен синхронизировать `main`, затем повторить guarded runner. Ввод пароля только в скрытом prompt. Не обращаться к production/PIN_TRIAL, не останавливать PID 15220 и не удалять `X:\PinPosy-verify-pg18`. SQL integration остаётся NOT PASSED.
 
 
-- **SQL integration attempt at main `5d3548a5` (2026-11-17):** owner showed clean status before pull; `git pull --ff-only origin main` fast-forwarded `c047f44c..5d3548a5`; `git rev-parse HEAD` and `git rev-parse origin/main` both returned `5d3548a58eb7e53469cf43893f189403a2c2088b`. The guarded runner verified the approved temporary PostgreSQL target (PID 15220, `X:\\PinPosy-verify-pg18`) and identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`, then created disposable DB `pinposy_sqlint_1b70f80297f04d60`. The CI fixture, all 140 migrations `010–149`, both inline assertions, and SQL tests 1/46 and 2/46 passed. Test 3/46 (`pinterest-schedule-cancellation-race.integration.sql:93`) failed because `users.is_admin` was missing. Runner confirmed cleanup and printed `Removed disposable database pinposy_sqlint_1b70f80297f04d60`. Tests 4–46 did not run; SQL integration NOT PASSED.
+- **SQL integration attempt at main `5d3548a5` (2026-11-17):** owner showed clean status before pull; `git pull --ff-only origin main` fast-forwarded `c047f44c..5d3548a5`; `git rev-parse HEAD` and `git rev-parse origin/main` both returned `5d3548a58eb7e53469cf43893f189403a2c2088b`. The guarded runner verified the approved temporary PostgreSQL target (PID 15220, `X:\PinPosy-verify-pg18`) and identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`, then created disposable DB `pinposy_sqlint_1b70f80297f04d60`. The CI fixture, all 140 migrations `010–149`, both inline assertions, and SQL tests 1/46 and 2/46 passed. Test 3/46 (`pinterest-schedule-cancellation-race.integration.sql:93`) failed because `users.is_admin` was missing. Runner confirmed cleanup and printed `Removed disposable database pinposy_sqlint_1b70f80297f04d60`. Tests 4–46 did not run; SQL integration NOT PASSED.
 - **Root cause and fix:** canonical `db/migrations/001_baseline.sql` defines `users.is_admin boolean default false`, but both the GitHub Actions fixture and standalone upgrade fixture omitted it. The test's insert is valid against the canonical baseline. Assistant added the column to both fixture definitions and added a contract assertion. Source commits: workflow `763f91a0e58a505df9823f37479a08a08856f388`; standalone fixture `698bcb4b07df2b636a4378679dbbc1de55f69ac2`; contract test `7a9a53f9bae5fdce29d4941295e17ce8b802985a`. Full analysis: `docs/audits/2026-11-17-postgres-integration-fixture-is-admin-missing.md` (commit `918f0bbf97d51514f1ed74b5785c4bbebdfc7210`).
-- **Required owner action:** after the assistant finishes the documentation commits, fast-forward only, confirm clean status and equal HEAD/origin/main, then run `node --test backend/test/postgres-integration-runner-contract.test.js`. If it passes, run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1`. Enter the temporary password only at the hidden prompt. Send complete output; do not report PASS unless all 46 SQL tests and cleanup succeed.
+- **Required owner action:** after the assistant finishes the documentation commits, fast-forward only, confirm clean status and equal HEAD/origin/main, then run `node --test backend/test/postgres-integration-runner-contract.test.js`. If it passes, run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1`. Enter the temporary password only at the hidden prompt. Send complete output; do not report PASS unless all 46 SQL tests and cleanup succeed.
 
 
 - **Follow-up source review (2026-11-17):** assistant corrected an over-escaped regex in the new fixture contract assertion. Contract test commit `89d5fd4baf14f790141fe1cb244a6f282d68e004`, blob `54c0ba51ce8a3ac2e5a6b677be6a3b6950a1448c`. Re-fetched workflow/fixture/test and source-level comparison confirmed CI and standalone fixture bodies match exactly after the existing normalization; both contain `is_admin boolean default false`; assertion is present; contract file has 13 test declarations. This is not a test run. Owner must still run Node contract suite before the guarded SQL integration rerun.
@@ -783,7 +783,7 @@ Assistant выполнил только GitHub read/update и статическ
 
 Команды и результаты:
 - `node --test backend/test/postgres-integration-runner-contract.test.js` — **13/13 PASS**, 0 failed.
-- `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1` — runner проверил clean synchronized main, PID 15220, каталог `X:\\PinPosy-verify-pg18`, скрытый ввод пароля и identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+- `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1` — runner проверил clean synchronized main, PID 15220, каталог `X:\PinPosy-verify-pg18`, скрытый ввод пароля и identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
 - Disposable DB: `pinposy_sqlint_004e2422a382484b`.
 - Upgrade fixture, 140 миграций 010–149 и две inline CI assertions — успешно.
 - SQL tests: 1/46 и 2/46 — успешно; 3/46 `pinterest-schedule-cancellation-race.integration.sql`, строка 93 — ошибка `operator does not exist: text = uuid`. Остальные 43 теста не запускались.
@@ -807,7 +807,7 @@ Assistant выполнил только GitHub read/update и статическ
 - `git status --short` — пусто; `git pull --ff-only origin main` обновил `5617a530 → 8ebae45e`; обе команды `git rev-parse HEAD` и `git rev-parse origin/main` вернули `8ebae45ed1dd141b8ca08a0104c8127041ea2a62`.
 - `node --test backend/test/postgres-integration-runner-contract.test.js` — **14 tests, 14 pass, 0 fail**.
 - Запущен `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1`.
-- Runner проверил clean synchronized main, listener PID 15220, каталог `X:\\PinPosy-verify-pg18`, скрытый ввод пароля и identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+- Runner проверил clean synchronized main, listener PID 15220, каталог `X:\PinPosy-verify-pg18`, скрытый ввод пароля и identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
 - Создана disposable DB `pinposy_sqlint_88f6d6f8b1654c23`. Fixture, 140 миграций 010–149, две inline assertions и SQL tests 1–5/46 прошли.
 - Test 6/46 `account-deletion-reauth-version.integration.sql:65` упал с FK RESTRICT `account_deletion_jobs_request_id_fkey` при удалении request. Остальные tests 7–46 не запускались.
 - Runner завершил сессии (0 remaining), выполнил DROP DATABASE и подтвердил `Removed disposable database pinposy_sqlint_88f6d6f8b1654c23`.
@@ -862,7 +862,7 @@ node --test backend/test/postgres-integration-runner-contract.test.js
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
 ```
-Пароль вводить только в скрытом prompt. Не запускать runner при падении Node suite или несовпадении HEAD. Не останавливать PID 15220, не удалять `X:\\PinPosy-verify-pg18`, не трогать production/PIN_TRIAL.
+Пароль вводить только в скрытом prompt. Не запускать runner при падении Node suite или несовпадении HEAD. Не останавливать PID 15220, не удалять `X:\PinPosy-verify-pg18`, не трогать production/PIN_TRIAL.
 
 
 ## UA — SQL integration 2026-11-17: boards.cover_url missing from upgrade fixture
@@ -899,7 +899,7 @@ node --test backend/test/postgres-integration-runner-contract.test.js
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
 ```
-Пароль — только в скрытом prompt. Не останавливать PID 15220, не удалять `X:\\PinPosy-verify-pg18`, не трогать production/PIN_TRIAL. Прислать полный вывод и подтверждение cleanup. SQL integration не считать пройденным, пока не пройдут все 46 тестов.
+Пароль — только в скрытом prompt. Не останавливать PID 15220, не удалять `X:\PinPosy-verify-pg18`, не трогать production/PIN_TRIAL. Прислать полный вывод и подтверждение cleanup. SQL integration не считать пройденным, пока не пройдут все 46 тестов.
 
 
 ## UA — SQL integration 2026-11-17: upgrade fixture omitted cascade FKs
@@ -935,9 +935,9 @@ node --test backend/test/postgres-integration-runner-contract.test.js
 ```
 Если worktree чистый, HEAD = origin/main и все **18** contract tests PASS:
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
 ```
-Пароль — только в скрытом prompt. Не запускать runner при падении Node suite. Не останавливать PID 15220, не удалять `X:\\PinPosy-verify-pg18`, не трогать production/PIN_TRIAL. SQL integration не считать пройденным, пока не пройдут все 46 тестов и cleanup.
+Пароль — только в скрытом prompt. Не запускать runner при падении Node suite. Не останавливать PID 15220, не удалять `X:\PinPosy-verify-pg18`, не трогать production/PIN_TRIAL. SQL integration не считать пройденным, пока не пройдут все 46 тестов и cleanup.
 
 
 ## UA — 2026-11-17: владелец остановил разработку для системного разбора SQL integration gate
@@ -948,7 +948,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 - Node suite: **18 tests, 17 pass, 1 fail**. Падает cascade contract assertion: в regex literal перед `s` двойное экранирование; это defect проверки, а не SQL FK.
 
 **Guarded SQL runner — фактический owner transcript**
-- Runner подтвердил clean main, PID 15220, data directory `X:\\PinPosy-verify-pg18`, hidden password prompt и server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+- Runner подтвердил clean main, PID 15220, data directory `X:\PinPosy-verify-pg18`, hidden password prompt и server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
 - Disposable DB: `pinposy_sqlint_bb8532df036144f0`.
 - Fixture PASS; migrations **010–149 (140)** PASS; оба inline assertions PASS; SQL tests **1–7/46 PASS**.
 - Test 8/46 `account-deletion-storage-manifest.integration.sql` failed inside `finalize_account_deletion(uuid,uuid)`: `users.subscription_tier` missing.
@@ -966,7 +966,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 - Не запускать повторно `scripts/verify-integration.ps1`, пока Node contract suite не будет полностью PASS.
 - Не вносить следующие fixture/code fixes до согласования системного плана schema-contract inventory.
 - Пока не требуется выполнять новые команды на компьютере. Сначала владелец рассматривает анализ.
-- Сохранить PID 15220 и `X:\\PinPosy-verify-pg18`; не трогать production/PIN_TRIAL; пароль вводить только в скрытый prompt.
+- Сохранить PID 15220 и `X:\PinPosy-verify-pg18`; не трогать production/PIN_TRIAL; пароль вводить только в скрытый prompt.
 
 
 ## UA-005 — проверить обновлённый schema-contract gate после синхронизации main (2026-11-17)
@@ -995,7 +995,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
    ```powershell
    powershell -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1 -PostgresPort 55439
    ```
-3. Runner обязан самостоятельно подтвердить clean synchronized main, loopback-only endpoint, listener PID 15220, data directory `X:\\PinPosy-verify-pg18` и точную server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`. Пароль вводить только в hidden prompt; не отправлять его assistant.
+3. Runner обязан самостоятельно подтвердить clean synchronized main, loopback-only endpoint, listener PID 15220, data directory `X:\PinPosy-verify-pg18` и точную server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`. Пароль вводить только в hidden prompt; не отправлять его assistant.
 4. Передать полный лог без секретов. SQL gate считается пройденным только при PASS fixture, всех 140 migrations 010–149, двух inline assertions, всех 46 SQL tests и подтверждённом удалении только disposable DB.
 
 **Запрещено**
@@ -1032,7 +1032,7 @@ node --test backend/test/postgres-integration-runner-contract.test.js
    ```powershell
    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
    ```
-3. Пароль временной роли вводить только в hidden prompt; не отправлять его в чат. Runner должен подтвердить clean synchronized main, loopback-only endpoint, PID 15220, data directory `X:\\PinPosy-verify-pg18` и server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+3. Пароль временной роли вводить только в hidden prompt; не отправлять его в чат. Runner должен подтвердить clean synchronized main, loopback-only endpoint, PID 15220, data directory `X:\PinPosy-verify-pg18` и server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
 4. Передать полный вывод без секретов. SQL gate закрывается только при PASS fixture, 140 migrations 010–149, двух inline assertions, всех 46 SQL tests и подтверждённом cleanup только disposable DB. При первом failure остановиться и сохранить лог.
 
 **Текущие внешние CI ограничения:** GitHub Actions runs `44068607386`, `44068607454`, `44070232846`, `44070232989` имеют FAILURE без доступных steps/logs; причина до запуска job неизвестна. Vercel current status указывает `build-rate-limit`. Эти статусы не заменяют локальный Node/SQL gate.
@@ -1079,7 +1079,7 @@ node --test backend/test/postgres-integration-runner-contract.test.js
 - Затем guarded runner по ранее согласованной инструкции UA-006, только в разрешённом disposable PostgreSQL 18.6 и при подтверждении runner всех safety guards.
 - SQL integration PASS возможен только после успешного fixture, 140 migrations 010–149, двух inline assertions, всех 46 SQL tests и подтверждённого cleanup disposable DB.
 
-**Запрещено:** запускать runner при failed/incomplete Node suite; обращаться к production/PIN_TRIAL; останавливать PID 15220; менять/удалять `X:\\PinPosy-verify-pg18`; передавать секреты в чат.
+**Запрещено:** запускать runner при failed/incomplete Node suite; обращаться к production/PIN_TRIAL; останавливать PID 15220; менять/удалять `X:\PinPosy-verify-pg18`; передавать секреты в чат.
 
 **Статус:** [ ] Ожидает владельца. Документационные commits после contract fix могут продвинуть main; ориентироваться на фактический HEAD, а не заранее заданный SHA.
 
@@ -1134,7 +1134,7 @@ if ($errors.Count -gt 0) {
 ### STOP / запрещено
 - При Parser FAIL runner не запускать.
 - Не использовать production/PIN_TRIAL.
-- Не останавливать PID 15220; не изменять и не удалять `X:\\PinPosy-verify-pg18`.
+- Не останавливать PID 15220; не изменять и не удалять `X:\PinPosy-verify-pg18`.
 - Не присылать пароль, токены, .env или иные секреты.
 - Не запускать Bash concurrency или backend runtime suite до полного SQL PASS и cleanup.
 
@@ -1175,7 +1175,7 @@ Runner должен сам подтвердить:
 - checkout на `main`, успешный `git fetch origin main`, чистый worktree и HEAD = origin/main;
 - psql по ожидаемому пути;
 - ровно один TCP listener на `127.0.0.1:55439`;
-- listener принадлежит `postgres.exe`, command line содержит loopback host, port 55439 и data directory `X:\\PinPosy-verify-pg18`;
+- listener принадлежит `postgres.exe`, command line содержит loopback host, port 55439 и data directory `X:\PinPosy-verify-pg18`;
 - server identity строго `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`;
 - создание новой случайной disposable DB с префиксом `pinposy_sqlint_`; никакая существующая DB не должна переиспользоваться.
 
@@ -1194,7 +1194,7 @@ SQL integration PASS допускается только при успешном
 ### Запрещено
 - Production/PIN_TRIAL.
 - Останавливать PID 15220.
-- Изменять или удалять `X:\\PinPosy-verify-pg18`.
+- Изменять или удалять `X:\PinPosy-verify-pg18`.
 - Передавать пароли, токены, .env и иные секреты.
 - Запускать Bash concurrency или backend runtime suites до полного SQL PASS и cleanup.
 
@@ -1204,7 +1204,7 @@ SQL integration PASS допускается только при успешном
 
 ### Зафиксированный owner run
 - Владелец запустил guarded runner на чистом synchronized main `d736814d78aa9cefbc9c6367104a98d236123c1b`.
-- Safety guards прошли: listener PID 15220, data directory `X:\\PinPosy-verify-pg18`, server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+- Safety guards прошли: listener PID 15220, data directory `X:\PinPosy-verify-pg18`, server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
 - Fixture, 140 migrations 010–149, две inline assertions и SQL tests 1–14/46 прошли.
 - SQL test 15/46 упал на сравнении TEXT `credit_transactions.user_id` с UUID `v_user`. Тесты 16–46 не запускались; SQL integration NOT PASSED.
 - Cleanup: 0 оставшихся сессий; disposable DB `pinposy_sqlint_99741a5f1e5a47e6` удалена и её отсутствие подтверждено.
@@ -1240,7 +1240,7 @@ SQL integration PASS — только если fixture, все 140 migrations 01
 ### Запрещено
 - Не использовать production/PIN_TRIAL.
 - Не останавливать PID 15220.
-- Не изменять и не удалять `X:\\PinPosy-verify-pg18`.
+- Не изменять и не удалять `X:\PinPosy-verify-pg18`.
 - Не запускать Bash concurrency/backend runtime suites до полного SQL PASS и cleanup.
 
 **Статус:** Node contract 20/20 PASS (owner transcript, prior commit); PowerShell Parser 0 errors (owner transcript, prior commit); PostgreSQL SQL integration **NOT PASSED**, ожидает повторного owner run после test-only fix.
@@ -1249,7 +1249,7 @@ SQL integration PASS — только если fixture, все 140 migrations 01
 ## UA-011 — Node gate после исправления входа test 18/46 (2026-11-17)
 
 ### Зафиксированный owner run
-- Владелец синхронизировал clean main до `0d31c813e39e420e26c5ebee0edadea1928df00d`; runner подтвердил PID 15220, `X:\\PinPosy-verify-pg18` и server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+- Владелец синхронизировал clean main до `0d31c813e39e420e26c5ebee0edadea1928df00d`; runner подтвердил PID 15220, `X:\PinPosy-verify-pg18` и server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
 - Fixture, 140 migrations 010–149, две inline assertions и SQL tests 1–17/46 прошли. Test 18/46 упал с `invalid pin count`; tests 19–46 не запускались. SQL integration **NOT PASSED**.
 - Cleanup подтверждён: disposable DB `pinposy_sqlint_ca5527ced768460b` удалена.
 
@@ -1281,7 +1281,7 @@ node --test backend/test/postgres-integration-runner-contract.test.js
 После подтверждённого полного Node PASS и синхронизации актуального main разрешён guarded runner:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
 ```
 
 Не менять параметры и не обходить guards. Пароль вводить только в hidden prompt; не отправлять пароль, токены или `.env`. При первой SQL ошибке — STOP, сохранить полный лог, включая cleanup, и передать его без секретов.
@@ -1291,7 +1291,7 @@ SQL integration PASS — только если fixture, все 140 migrations 01
 
 - Не использовать production/PIN_TRIAL.
 - Не останавливать PID 15220.
-- Не изменять и не удалять `X:\\PinPosy-verify-pg18`.
+- Не изменять и не удалять `X:\PinPosy-verify-pg18`.
 - Не передавать пароли, токены, `.env`.
 - Не запускать Bash concurrency/backend runtime suites до полного SQL PASS и cleanup.
 
