@@ -431,7 +431,14 @@ If parser check fails, stop and send its full output; do not run the integration
 - `git pull --ff-only origin main` обновил локальную ветку с `e187ce33` до `28b50f44`.
 - PowerShell Parser check выполнен дважды; оба раза выведено `PASS: PowerShell parser`, ошибок разбора нет.
 
-Теперь выполнить из корня репозитория в PowerShell:
+После последнего pull ассистент добавил новые записи в документацию и тем самым продвинул `main`. Поэтому сначала убедиться, что локальное дерево чистое, и подтянуть именно эти последние документационные commits:
+
+```powershell
+git status --short
+git pull --ff-only origin main
+```
+
+Если `git status --short` показывает незакоммиченные изменения, остановиться и прислать вывод; не выполнять reset/stash/clean. После успешного fast-forward и только если дерево чистое, выполнить из корня репозитория:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1 -PostgresPort 55439
