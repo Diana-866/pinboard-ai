@@ -546,3 +546,13 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 - Updated `docs/USER_ACTIONS.md`: blob `b36b978b7ce50904b38abda73f19cb7f4c117140`, commit `1927e29f01638664debdb36c66bf3e236603f2ec`.
 - Updated audit `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`: blob `c2383332a5612c992e8d28efe7c27fa8e7d5d35b`, commit `7687f11667a2e56fb86699b1db2eb0b907e7613d`.
 - The chronology includes the owner error transcript, assistant retrieval and source-inspection actions, why the script did not run, security boundaries and process-scoped retry command. Retry: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1`; no persistent policy changes, no secrets in command line/chat. SQL integration remains NOT PASSED.
+
+
+### 2026-11-17 runner blocked by local main synchronization guard
+
+- Owner's process-scoped invocation fetched `origin/main` from `7f0084ca` to `b8d04ffc`, then stopped because local HEAD `7f0084ca8ff0681b56c214c3f7020f9d029c2ef5` differed from origin/main `b8d04ffc9636fb7f4bc506aaf06f9bd6c86241cc`.
+- Runner source blob inspected: `74c128b4c6933b8b5aba888e4abeb01200df2ab6`. Guard order confirms the comparison occurs before secure password prompt and disposable database creation; no PostgreSQL or SQL test stage ran.
+- Updated `docs/PROJECT_STATE.md`: blob `0fdeb823c82722832bb702bf31ca359d4fa2e90c`, commit `ad62012c4e0f21d75957dd99cf64a2c680537a58`.
+- Updated `docs/USER_ACTIONS.md`: blob `b90f530b7957d9f4583786065e18b79c66a34411`, commit `8e7638748e46fe12d8bc2b8b8131eaa8868e204d`.
+- Updated audit `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`: blob `5df7b1df04995c0b6ef8addaf0dfc4a3f53da3b4`, commit `9050a6e0dcd4d5b79a5a2926f69b7b5db80e3e76`.
+- Documentation records both direct and process-scoped invocations, exact Git hashes, assistant source inspection, the reason for the guard, and the safe fast-forward-only next step. SQL integration remains NOT PASSED.
