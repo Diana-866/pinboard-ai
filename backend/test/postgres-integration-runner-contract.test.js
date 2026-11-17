@@ -98,6 +98,12 @@ test('runner logs migration progress and inspects the preferred-language constra
   assert.match(runner, /pg_get_constraintdef\(c\.oid\)/);
 });
 
+
+test('catalog diagnostic casts PostgreSQL internal char fields before text concatenation', () => {
+  assert.match(runner, /c\\.contype::text/);
+  assert.match(runner, /cl\\.relkind::text/);
+});
+
 test('runner emits database and users constraint diagnostics plus verbose SQL errors', () => {
   assert.match(runner, /DATABASE\|' \|\| current_database\(\)/);
   assert.match(runner, /USER_CONSTRAINT\|/);
