@@ -22,10 +22,10 @@ test("historical 002-008 SQL files are visibly excluded from clean installs", ()
   }
 });
 
-test("canonical migration files 001 and 010-155 exist; 009 stays archived", () => {
+test("canonical migration files 001 and 010-156 exist; 009 stays archived", () => {
   assert.ok(fs.existsSync(path.join(migrationsDir, "001_baseline.sql")));
   assert.equal(fs.existsSync(path.join(migrationsDir, "009_hardening.sql")), false);
-  for (let number = 10; number <= 155; number += 1) {
+  for (let number = 10; number <= 156; number += 1) {
     const prefix = String(number).padStart(3, "0") + "_";
     const matches = fs.readdirSync(migrationsDir).filter((file) => file.startsWith(prefix) && file.endsWith(".sql"));
     assert.equal(matches.length, 1, `expected exactly one canonical migration for ${prefix}`);
