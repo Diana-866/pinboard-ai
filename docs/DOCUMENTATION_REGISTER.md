@@ -874,3 +874,22 @@ Assistant source review proved migration 053's `claim_token UUID NOT NULL` confl
 | `docs/USER_ACTIONS.md` | `90934cfebad40d7db6955a545e7e8aa429433209` | `2ae1f3b76ea1c62ab627a7c360fbe13026c23f88`; UA-014 owner synchronization and ordered rerun gates |
 
 Owner runtime evidence: Node suite 37/39 PASS, 2 contract failures; PowerShell Parser 0 syntax errors; guarded SQL runner applied 141 migrations 010–150 and passed inline assertions plus SQL tests 1–19/46, then test 20 failed with PostgreSQL invalid repetition count. Disposable DB cleanup succeeded. Historical migration 078 was not changed. Assistant published additive migration 151 and corrected the contract/replay source files; assistant did not run Node, PowerShell, psql or PostgreSQL. The new migration and updated tests/scripts are not runtime-verified. SQL integration remains **NOT PASSED**; tests 21–46 have not run.
+
+
+### 2026-11-17 — PostgreSQL integration test 26/46: SECURITY DEFINER trigger EXECUTE privilege
+
+| Path | Final blob SHA | Commit / reason |
+|---|---|---|
+| `db/migrations/152_revoke_direct_execution_of_regeneration_reservation_trigger.sql` | `aa8e8ee22df894583b0c6e49f061b06e17fed1b4` | `5ff2f754239a39c8def8f97182f5dbab7cd2a084`; revoke direct EXECUTE from PUBLIC, anon, authenticated and service_role for trigger-only SECURITY DEFINER function |
+| `backend/test/postgres-integration-runner-contract.test.js` | `4173301792b4e16fc326bbea96b14547b7f4c880` | `4f5fa30e39793efb24c1537af02b9f800e8a2054`; add migration-152 privilege contract and CI sequence 010–152 |
+| `backend/test/db-migration-chain.test.js` | `ae73e162c6f417a3800c0577f223da3037a62b90` | `55946197abe78ff2039a04decb6249bd2d645015`; canonical migration range through 152 |
+| `backend/test/verify-script-migration-chain.test.js` | `d0930314eab17a65187bc310dfe75ca42370f222` | `b7bd3bc8e3648988d025cf74b2de354777404fc3`; replay contract expects 143 migrations |
+| `scripts/verify-integration.ps1` | `c514e7ca24ee9294daf78f7ab70af7c4ebe1354d` | `df7008136b5aaf2107daf62abf6da5827d1a9544`; guarded runner checks/applies all 143 migrations 010–152 |
+| `scripts/verify.sh` | `46af45d607febf1b96097bbc743a75452b6f2648` | `fa0d670a2d0f44bb131cc85fe90467aad81ae075`; Linux migration replay range 010–152 |
+| `scripts/verify.ps1` | `516b1137e92d5fde78dc83f655c3a78be9366545` | `88318e164d6c942c3df72e5d8b18cbace6f5e041`; Windows migration replay range 010–152 |
+| `.github/workflows/atomic-payment-integration.yml` | `abda9aa57041e0c20bee89c0e59ebc13c0e3b3e2` | `8b68fe45224e054047f13f16c89312c5010a6b45`; CI applies migration 152 |
+| `docs/audits/2026-11-17-postgres-integration-test-26-security-definer-trigger-execute.md` | `03c8f6f682e17bb78e7fc095eb1ce01aa943f781` | `75422dbf09944655739d45ca2b4ea2fbf6bb0e96`; owner transcript, diagnosis, full action chronology, checks and limits |
+| `docs/PROJECT_STATE.md` | `883ec26dd2cdac0f0d4806ddc1f144cefd15331a` | `c81dc5e4b1efed54847024a2681e3d1125db2a4f`; chronological test-26 incident and pending gates |
+| `docs/USER_ACTIONS.md` | `38cc50c81c7f13c25073c109e22f92f029de4b38` | `87893e97419403f0516c66f8b64818bea53672e6`; UA-015 owner sync, Node, Parser and guarded runner sequence |
+
+Owner evidence: fixture, 142 migrations 010–151, both CI inline assertions and SQL tests 1–25 passed; test 26 failed because the trigger-only SECURITY DEFINER function retained default PUBLIC EXECUTE. Tests 27–46 did not run. Disposable DB cleanup succeeded. Assistant added migration 152 and updated tests, scripts, CI and documentation. Source files were re-fetched and their blob SHAs checked. Assistant did not execute Node, PowerShell, psql or PostgreSQL. Migration 152 and the updated 143-migration chain are not runtime-verified. PostgreSQL integration remains **NOT PASSED**.
