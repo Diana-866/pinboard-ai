@@ -2,7 +2,7 @@
 
 **Repository:** Diana-866/pinboard-ai  
 **Branch:** main  
-**Source HEAD (before this register refresh):** a7758c85fe9647e21b9140a243a2aa645b4338c3  
+**Code HEAD covered by latest owner PostgreSQL run:** 1b855857c4df31b9233819e404bd697591f28acb  
 **Inventory refreshed:** 2026-11-17  
 **Scope:** all documentation files under docs/ (Markdown and SQL), excluding this register itself.
 
@@ -1190,3 +1190,14 @@ Owner evidence: `git pull --ff-only origin main` fast-forwarded local main from 
 | `docs/USER_ACTIONS.md` | `381dc2503c3805fff1efa446277578d770803262` | `90bc3816ad47433536678adc98f36e7c80755da9`; advance UA-033 to guarded PostgreSQL runner |
 
 Owner evidence: after syncing to `948df3b9c9590fd78e6beb1690dcd3785e91d54f`, Node contract/migration/replay-chain command reported 45 tests, 45 pass, 0 fail, 0 skipped; PowerShell Parser reported 0 syntax errors. These gates were rerun after the SQL fixture correction. Guarded PostgreSQL runtime has not yet run; 46/46 SQL test completion and disposable DB cleanup remain outstanding. Nine Bash concurrency scripts remain separate and unverified.
+
+
+### 2026-11-17 — PostgreSQL test 34 billing webhook audit privilege failure
+
+| Path | Final blob SHA | Commit / reason |
+|---|---|---|
+| `docs/audits/2026-11-17-postgres-test-34-billing-webhook-audit-privileges.md` | `2d98e131094edfd6126de6320333785cb9a4b2be` | `26070b0e9888604293add2a8402c8fde216648d0`; preserve full owner-run evidence, first failing assertion, cleanup, uncertainty and next investigation |
+| `docs/PROJECT_STATE.md` | `c2f5e08e2c53d393e1169400dca6a2fd36f47418` | `da0db825f72c58b82d3442e3fdcedf1ecda50b83`; append chronological evidence and mark SQL suite FAIL |
+| `docs/USER_ACTIONS.md` | `a3700c597e03c9da5e5f9c5bf151200146256ff8` | `01521098eb950608c665309cbafad245d5d65b28`; record owner rerun outcome and suspend rerun pending diagnosis |
+
+Owner evidence: local clean main fast-forwarded from `948df3b9` to tested code HEAD `1b855857c4df31b9233819e404bd697591f28acb`; runner applied upgrade fixture and migrations 010–156, passed two inline assertions and SQL tests 1–33, then failed test 34/46 with `billing webhook audit table privileges are too broad or insufficient`. Tests 35–46 did not run. Disposable database `pinposy_sqlint_9f1cf3d0c7f74745` was removed by the runner. Root cause remains undiagnosed; the focused privilege test passed earlier in the same run, so the broader assertion and role/grant model must be compared before changing anything. No production database or persistent PostgreSQL data was touched according to the supplied transcript.
