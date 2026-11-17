@@ -2005,3 +2005,45 @@ Do not bypass guards, change PID 15220 / port 55439 / data directory, touch `X:\
 - **Запреты:** не менять listener PID 15220, порт 55439 и каталог `X:\PinPosy-verify-pg18`; не обходить guards; не использовать production/`PIN_TRIAL`; не присылать пароль, токены или содержимое `.env`.
 - **Текущий статус:** Node contract и SQL fixture исправлены на уровне исходников, но runtime-проверка ещё не выполнена. SQL integration остаётся **FAIL 27/46**; tests 29–46 не запускались.
 - **Подробный аудит:** `docs/audits/2026-11-17-postgres-integration-test-28-upload-finalization-fixture-path-collision-and-migration154-contract-regex.md`.
+
+
+## UA-026 — Verify migration 155 regeneration replay image-reference fix
+
+**Reason:** The owner-provided guarded PostgreSQL run applied migrations 010–154 and passed SQL tests 1–27, but test 28 proved that `claim_pin_image_deletion()` could claim an image still referenced by `pin_regeneration_requests.result_pin.image_url`. Migration 145 had overwritten the earlier guard from migration 104; migration 155 restores it while preserving permanent quarantine.
+
+After synchronizing, run the gates in this exact order:
+
+1. Confirm clean main sync:
+   ```powershell
+   git status --short
+   git pull --ff-only origin main
+   git rev-parse HEAD
+   git rev-parse origin/main
+   git status --short
+   ```
+   Require clean tree and equal HEAD/origin/main.
+2. Run the Node gate:
+   ```powershell
+   node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+   ```
+   Require **44 tests, 44 pass, 0 fail**. Stop on any failure.
+3. Run the PowerShell parser check:
+   ```powershell
+   $tokens = $null
+   $errors = $null
+   [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path .\scripts\verify-integration.ps1), [ref]$tokens, [ref]$errors) | Out-Null
+   if ($errors.Count -gt 0) { $errors | Format-List *; exit 1 }
+   "PowerShell Parser PASS: 0 syntax errors"
+   ```
+   Require 0 syntax errors. Stop on any failure.
+4. Only after gates 1–3 pass, run:
+   ```powershell
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+   ```
+   Require fixture success, **146 migrations 010–155**, both CI inline assertions, all **46 ordered SQL tests**, and confirmed cleanup of the disposable database.
+
+**Safety:** Preserve PostgreSQL listener PID 15220, port 55439 and data directory `X:\\PinPosy-verify-pg18`. Do not stop or reconfigure that server, bypass safety guards, use production/`PIN_TRIAL`, or share passwords, tokens or `.env` contents. Stop at the first failure and provide the complete relevant output.
+
+**Current result:** Previous SQL run is **FAIL 27/46**; test 28 failed, tests 29–46 did not run. Migration 155 and the replay-chain updates are not yet runtime-verified. The nine Bash concurrency scripts remain outside this SQL runner.
+
+**Detailed audit:** `docs/audits/2026-11-17-postgres-test-28-regeneration-replay-image-reference-guard-regression.md`.
