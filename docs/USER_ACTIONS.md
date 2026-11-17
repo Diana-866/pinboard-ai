@@ -2545,3 +2545,12 @@ Owner transcript: pre-pull and post-pull `git status --short` were empty; `git p
 3. Only after both pass, run the guarded PostgreSQL integration command in UA-034. Do not skip gates or run the SQL suite manually.
 
 The source fix remains **NOT RUNTIME-VERIFIED**. Do not infer a passing test suite from the successful Git pull.
+
+
+### UA-034 update — Node contract gate passed (2026-11-17)
+
+Owner evidence after syncing to `45fb5f300b1cd334ad8128a76f5d694f52389861`: the three Node test files completed with TAP summary **45 tests / 45 pass / 0 fail / 0 cancelled / 0 skipped / 0 todo** (108.1713 ms). This gate is now confirmed PASS.
+
+**Next action:** run only the PowerShell Parser gate in UA-034. Expected output: `PowerShell Parser PASS: 0 syntax errors`. If any parser errors occur, stop and send the complete output. Do not run the guarded PostgreSQL integration command until the parser gate also passes.
+
+The SQL assertion correction is still **NOT RUNTIME-VERIFIED**; this Node suite checks contracts and migration/replay-chain expectations, not actual PostgreSQL execution. The earlier SQL run remains failed at test 34/46; a new guarded run must demonstrate all 46 tests and disposable database cleanup.
