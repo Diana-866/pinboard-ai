@@ -1043,3 +1043,36 @@ PinPosy — SaaS для управления Pinterest-маркетингом: �
 - Следствие: первый integration-runner attempt не создавал собственную disposable DB и не запускал повторный migration replay, inline assertions или 46 SQL tests. Это НЕ отменяет и НЕ опровергает предыдущий успешный migration replay через `scripts/verify.ps1`. SQL integration gate остаётся NOT RUN.
 - Исправление identity normalization: `scripts/verify-integration.ps1` теперь использует `host(inet_server_addr())`; commit `a0de3046d924abcedb267076d03e365e6b9b0353`, blob `05787d0f8067d3412ed10e06856e7b1cdfce1c6d`. Добавлен Node contract assertion в `backend/test/postgres-integration-runner-contract.test.js`; commit `4495b4b4dd52b3f82f43859d640bbab571a3466e`, blob `ce331fba2e06bb63473cfedf1c586003606b09c4`.
 - После этого исправления Node contract test, PowerShell parser и integration runner ещё не запускались. Следующее действие владельца описано в `docs/USER_ACTIONS.md`: clean status, fast-forward pull, parser-only PASS, затем guarded runner. Не путать migration replay PASS с ещё не пройденным SQL integration suite.
+
+
+### Canonical local PostgreSQL migration replay procedure — owner transcript (2026-11-16, supplied 2026-11-17)
+
+This section records the exact owner-provided PowerShell procedure. Treat it as authoritative historical evidence for the successful migration-only replay; do not conflate it with `scripts/verify-integration.ps1` or the 46-file SQL integration suite.
+
+**Environment and preflight**
+
+- Run from `X:\\!PROGECT\\pinboard-ai` in Windows PowerShell with `$ErrorActionPreference = 'Stop'`.
+- PostgreSQL binaries: `X:\\Program Files\\PostgreSQL\\18\\bin`; temporarily prepend this directory to the current process `PATH`, preserving the old value for restoration.
+- Preserve the prior process values/presence of `PGUSER`, `PGCLIENTENCODING`, and `PGPASSWORD`; set only for this PowerShell session: `PGUSER=pinposy_verify_admin`, `PGCLIENTENCODING=UTF8`.
+- Assert current branch is `main`, working tree is clean, and historical checked-out HEAD is exactly `ebb1040ac73e600dfdbfc57d8aa765f9713441a2`.
+- Assert migration 140 file hash is `484e589c32940ad9df8ef67de71c43b27fddf76c` and `scripts/verify.ps1` hash is `6614843edaafd4924c90c679a0f9fe232e59a0f0`.
+- Assert selected `psql.exe` is exactly under PostgreSQL 18 bin directory.
+- Inspect TCP listeners on port 55439 and require exactly one listener bound to `127.0.0.1`; stop on any mismatch.
+- Prompt for `pinposy_verify_admin` password with `Read-Host -AsSecureString`; reject empty input. Convert to process-scoped `PGPASSWORD` only for the command, zero the temporary BSTR in a finally block, never print or transmit the password.
+- Query server identity using `psql -h 127.0.0.1 -p 55439 -U pinposy_verify_admin -d postgres` and verify exact prefix: address `127.0.0.1`, port `55439`, data directory `X:/PinPosy-verify-pg18`, server encoding `WIN1251`, client encoding `UTF8`, PostgreSQL `18.6`.
+
+**Actual migration-only execution**
+
+- Invoke a child Windows PowerShell process with `-NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify.ps1 -MigrationsOnly -PostgresPort 55439`.
+- Capture `$LASTEXITCODE`; throw on nonzero. Only print `MIGRATION REPLAY PASSED` on exit code zero.
+- The verified runner created disposable database `pinposy_verify_196929316b56e`, applied Supabase test stubs, canonical baseline `db/migrations/001_baseline.sql`, and every numbered migration from `010` through `148` (139 migrations).
+- The runner then terminated any backend connected to that disposable database and successfully executed `DROP DATABASE`. The transcript shows `DROP DATABASE`, `PASS PostgreSQL migration replay (001 + 010-148)`, `All configured checks passed.`, and final `MIGRATION REPLAY PASSED`.
+- In the outer `finally`, restore the original `PGPASSWORD`, `PGUSER`, `PGCLIENTENCODING` presence/values and original `PATH`; print that temporary environment variables were restored.
+
+**Evidence interpretation / guardrails**
+
+- This owner-supplied transcript proves the migration-only replay completed successfully and disposable database cleanup succeeded. Keep this result as PASS; never rewrite it as “migrations were not run”.
+- It does not prove the separate `scripts/verify-integration.ps1` run completed, nor that its two inline assertions or 46 SQL integration test files ran. Those belong to a separate gate and must be marked independently.
+- Historical HEAD and hashes above identify the exact checkout used for this replay; do not require the current moving `main` HEAD to equal that historical commit when interpreting this evidence.
+- Never stop/reinitialize the PostgreSQL cluster `X:\\PinPosy-verify-pg18`, never touch production or PIN_TRIAL, never bypass any preflight, and never request or store the password in chat.
+- The long console output displayed Cyrillic PostgreSQL NOTICE text as mojibake, but the command continued through all migrations, cleanup and the explicit success summary. Do not infer failure from those display artifacts alone.
