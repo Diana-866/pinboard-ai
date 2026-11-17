@@ -904,3 +904,22 @@ Final static-review follow-up for this incident:
 - `docs/PROJECT_STATE.md`: final blob `a32eacb098e6378b3c74f197b1052ad9f500a8bb`, commit `fc3f696f93d00937d0685752a8745e40678517e8`.
 
 The final source/document blobs above were fetched from GitHub after publication. This remains source verification, not a local runtime test. Node, PowerShell Parser and PostgreSQL integration gates are pending owner execution.
+
+
+### 2026-11-17 — PostgreSQL integration test 28/46: expired image deletion claim quarantine regression
+
+| Path | Final blob SHA | Commit / reason |
+|---|---|---|
+| `db/migrations/153_restore_permanent_quarantine_for_expired_pin_image_deletions.sql` | `92977973a8aaae53aef4767c938db2ed1ba9019e` | `35008b37a40da18153fdc4339abce392c56a8b4e`; additive correction restores permanent quarantine while preserving migration 145's expanded reference inventory |
+| `backend/test/postgres-integration-runner-contract.test.js` | `b35b99d239d3e30edb4ff07cb081fbf5198aac90` | `1e3dc3fe4e79d2ea1db5530bd0c3eef3d0f497f5`; fix dynamic RegExp string escaping and add migration-153 regression contract |
+| `backend/test/db-migration-chain.test.js` | `78af1b6e5fa23f808c62a3d363e487e39d963584` | `9f6cee8a9eb5d7fa870cc452f2132f80f0bd48df`; canonical chain includes 153 |
+| `backend/test/verify-script-migration-chain.test.js` | `379e28b7e32fb28cd81a9802e4a1e867b44dac49` | `543d5c672d4925bcc1b2131b72c995fe80c0907e`; replay contract expects 144 migrations |
+| `scripts/verify-integration.ps1` | `30fd054311526e367109fc413a52b01f6c150291` | `9cd9edff30b2274df98e000347d9fcc025dcee4d`; guarded runner applies 010–153 |
+| `scripts/verify.sh` | `08d6c2ecd30b8427c93c65356f940b6c9737429a` | `75e60fb445d7abe4ed6b794de985e3b5ca650586`; Linux replay applies 010–153 |
+| `scripts/verify.ps1` | `eead6e04356171e6d0e3544baa0b76f502b48ba2` | `92efe57561e4ae176cf75adb5c08387a0482b32e`; Windows replay applies 010–153 |
+| `.github/workflows/atomic-payment-integration.yml` | `37d91fcb409a295237e7adba6782dc9ac57c7863` | `7a64d7255bbe90836d9aa28115612889bb220145`; CI applies migration 153 |
+| `docs/audits/2026-11-17-postgres-integration-test-28-expired-image-delete-quarantine-regression.md` | `0dcdbc8eee3bac98c0af8da79013ef454d04866c` | `d755e4e0a188dc023e728312d0040cffe5ffbc71`; full owner evidence, diagnosis, actions, verification limits and next gates |
+| `docs/PROJECT_STATE.md` | pending final fetch | chronological incident record |
+| `docs/USER_ACTIONS.md` | pending final fetch | UA-016 exact owner synchronization and test gates |
+
+Owner evidence: Node 40/41 PASS with one baseline RegExp helper failure; PowerShell Parser 0 errors; fixture, 143 migrations 010–152 and both inline assertions PASS; SQL tests 1–27 PASS; test 28 failed because migration 145's replacement function reacquired an expired external delete claim. Tests 29–46 did not run. Disposable DB cleanup confirmed. Migration 153 and updated test/replay chain have been source-reviewed from GitHub but not runtime-tested. Assistant did not execute Node, PowerShell, psql or PostgreSQL. SQL integration remains **NOT PASSED**.
