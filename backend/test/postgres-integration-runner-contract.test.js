@@ -40,7 +40,7 @@ test('upgrade fixture stays byte-for-byte aligned with CI legacy schema setup', 
 
 test('upgrade fixture includes the canonical users.is_admin baseline column', () => {
   const fixture = read('backend/test/postgres-integration-upgrade-fixture.sql');
-  const usersTable = fixture.match(/create table public\.users \(([\s\S]*?)\n\);/i);
+  const usersTable = fixture.match(/create table public\.users \(([\\s\\S]*?)\\n\);/i);
   assert.ok(usersTable, 'upgrade fixture users table must exist');
   assert.match(usersTable[1], /is_admin boolean default false/i);
 });
