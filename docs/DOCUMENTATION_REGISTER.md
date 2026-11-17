@@ -1168,3 +1168,14 @@ Publication history: source commit `c7a3097b43b0c3a426c683800bfadef1d0dad9a0` wa
 | `docs/audits/2026-11-17-postgres-test-34-pinterest-publication-approval-fixture.md` | `eaec9d6346f16cef415bd10bcb6ac369164217e6` | `8393658dbba51306b2d9595ecee201c4050d005e`; owner evidence, migration-148 diagnosis, fixture-only correction, checks and limitations |
 | `docs/PROJECT_STATE.md` | `f8867fb746b70c97407fc94e9dfb386c053cd566` | `a13916715b362b43447e338781f1276956467fba`; chronological test-34 approval fixture incident and next verification gate |
 | `docs/USER_ACTIONS.md` | `be5e061c1c0cc8599ebfc89ed9cd9cd042a0311c` | `b47b9ecd91de60f953af71205223ed853d7e6210`; UA-033 owner sync and rerun instructions |
+
+
+### 2026-11-17 — Owner sync confirmation after PostgreSQL test 34 approval fixture
+
+| Path | Final blob SHA | Commit / reason |
+|---|---|---|
+| `docs/PROJECT_STATE.md` | `87c58f59130efedb1c9a54533fd7adba7c3d64f5` | `099848cfbb18b7f2042f49a87fe4db0e731be83f`; record owner-confirmed clean fast-forward and exact synchronized HEAD |
+| `docs/audits/2026-11-17-postgres-test-34-pinterest-publication-approval-fixture.md` | `fd359be9d6ab6b90233ec550bfd6f161c5d5f664` | `624c6c637e5b87150f93cfa8f6725d442ed971d0`; append local sync evidence and explicitly distinguish synchronization from runtime verification |
+| `docs/USER_ACTIONS.md` | `7ea9eee917568892d1e242ba3a386432d19e7142` | `54119ea27dec7d5599857c6a7ac077523c339ca0`; update UA-033: sync completed, Node/Parser gates remain |
+
+Owner evidence: `git pull --ff-only origin main` fast-forwarded local main from `60251392` to `ff1ea965`; `HEAD` and `origin/main` both equal `ff1ea965d644008d7fcd1160516042b288a4690a`; both pre- and post-sync `git status --short` outputs were empty. This proves a clean synchronized working copy only. Node/Parser/PostgreSQL reruns after the approval-fixture change are still outstanding; tests 35–46 and the separate nine Bash concurrency scripts remain unverified.
