@@ -143,14 +143,16 @@ test('schedule cancellation race test compares text user_id with an explicit UUI
 
 test('account deletion re-auth integration test rolls back durable queue and append-only event rows', () => {
   const reauth = read('backend/test/account-deletion-reauth-version.integration.sql');
-  const transactionStart = reauth.indexOf('\\nbegin;');
-  const doBlock = reauth.indexOf('\\ndo $');
+  const transactionStart = reauth.indexOf('begin;');
+  const doBlock = reauth.indexOf('do $$');
   assert.ok(transactionStart >= 0 && transactionStart < doBlock);
   assert.ok(reauth.trimEnd().endsWith('rollback;'));
-  assert.doesNotMatch(reauth, /delete from public\\.account_deletion_(requests|jobs|events)/i);
-  assert.doesNotMatch(reauth, /delete from public\\.users/i);
+  const normalized = reauth.toLowerCase();
+  assert.ok(!normalized.includes('delete from public.account_deletion_requests'));
+  assert.ok(!normalized.includes('delete from public.account_deletion_jobs'));
+  assert.ok(!normalized.includes('delete from public.account_deletion_events'));
+  assert.ok(!normalized.includes('delete from public.users'));
 });
-
 test('CI migration list remains the complete contiguous 010-148 chain', () => {
   const prefixes = [...workflow.matchAll(/db\/migrations\/(\d{3})_[A-Za-z0-9._-]+\.sql/g)]
     .map((match) => Number(match[1]));
