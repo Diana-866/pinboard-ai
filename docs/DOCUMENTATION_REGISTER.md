@@ -713,3 +713,18 @@ Source inspection established that migration 137 relies on canonical cascading r
 | `docs/USER_ACTIONS.md` | `94c9671aec13ed40edadc2997220e6ca04557a32` | `f668b18834c7f0c244eecc6f820cbf9ac23f578f`; owner run transcript summary and next commands |
 
 Final source re-fetch checks: CI and standalone fixture table definitions for projects/boards/pins match after indentation normalization; both cascade FKs are present; cover_url contract regex has one literal regex escape and accepts SQL whitespace; cascade contract assertion is present; contract file has **18** top-level tests by source inspection. Documentation audit, project state and owner action log all contain this incident. These checks inspect GitHub source only; assistant did not run Node, PowerShell, psql or PostgreSQL. The corrected 18-test suite and SQL integration are still awaiting owner execution.
+
+
+### 2026-11-17 — STOP review: PostgreSQL upgrade fixture schema contract
+
+Owner run at synchronized commit `c92cb6d402686abbca583ecb8871e7b2f9c1fc8f`: Node contract suite 17 PASS / 1 FAIL (18 total), due to double-escaped whitespace regex in the cascade assertion. Owner nevertheless ran the guarded SQL runner; fixture, 140 migrations 010–149 and both inline assertions passed; SQL tests 1–7/46 passed; test 8/46 failed because `users.subscription_tier` was absent during `finalize_account_deletion`. Disposable DB `pinposy_sqlint_bb8532df036144f0` cleanup confirmed (0 sessions, DROP DATABASE, explicit removal message). Tests 9–46 did not run; SQL integration remains NOT PASSED.
+
+Read-only source comparison found that canonical baseline `001_baseline.sql` contains `subscription_tier`, `name`, `surname`, `onboarded`; the standalone upgrade fixture and CI inline fixture omit all four; migration 138 updates all four during account finalization. This is a repeated schema-fixture mismatch pattern after earlier omissions of `is_admin`, `boards.cover_url` and cascade FKs. The recommended next step is a complete schema-contract inventory before any further source fix or SQL rerun. The owner run also violated the documented gate order by invoking the SQL runner after the Node suite failed; future runs must wait for full contract PASS.
+
+| Path | Final blob SHA | Commit / reason |
+|---|---|---|
+| `docs/audits/2026-11-17-postgres-integration-stop-and-review.md` | `13fd0937f053d5a25534450e51434ee63f813b7f` | `ba0f779d60bcddfd429520b5688f103ceb9af965`; read-only stop review, owner transcript, source evidence, process assessment and recommended next sequence |
+| `docs/PROJECT_STATE.md` | `9dcbc20473f74500156cf1c4abeee3586576666a` | `db2a71e98abbb7deb47dc185f1e8d726cdb98bca`; append current owner result and mark work PAUSED |
+| `docs/USER_ACTIONS.md` | `b0d4e9c6aa324b9e42b7487829b3f9735c625f19` | `46b0de0b3d2fadd46aa2565d1a0b12a14e07c806`; preserve owner transcript, gate deviation, cleanup and pause instructions |
+
+Assistant actions for this review: fetched current GitHub baseline, migrations 127/137/138, standalone fixture, CI workflow, SQL test 8, contract test and project documents; compared the baseline users columns with fixture columns and finalization UPDATE; reviewed the contract regex and prior gate instructions; created this audit and appended the project state and owner action log. No application code, migration, fixture, CI workflow, SQL test or database was changed. Assistant did not run Node, PowerShell, psql or PostgreSQL. Documentation register was updated last after the other documentation writes. Overall SQL integration remains NOT PASSED and work is PAUSED pending owner review.
