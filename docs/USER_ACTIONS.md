@@ -1338,7 +1338,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integra
 
 ### Зафиксированный owner run
 - Чистый synchronized checkout: `4df18de1fbc8ae98b3d316d945cce7f973b244de`.
-- Guarded runner прошёл safety checks: PID 15220; data directory `X:\\PinPosy-verify-pg18`; server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+- Guarded runner прошёл safety checks: PID 15220; data directory `X:\PinPosy-verify-pg18`; server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
 - Fixture, 140 migrations 010–149, две inline assertions и SQL tests 1–18/46 прошли; test 19/46 упал из-за попытки установить `pin_regeneration_requests.claim_token=NULL` при ограничении NOT NULL.
 - Tests 20–46 не запускались. Cleanup disposable DB `pinposy_sqlint_e44cc1cd1e6d4d57` подтверждён (0 sessions, DROP DATABASE, explicit removal). SQL integration **NOT PASSED**.
 
@@ -1394,7 +1394,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integra
 ### STOP и критерий PASS
 - При первой SQL ошибке остановиться и передать полный вывод, включая cleanup. Тесты после первого упавшего теста считаются невыполненными.
 - SQL integration PASS только при успешном fixture, всех **141 migrations 010–150**, обеих CI inline assertions, всех **46 SQL tests** и подтверждённом cleanup disposable DB.
-- Не обходить runner guards, не менять порт/PID/data directory, не использовать production/PIN_TRIAL, не останавливать PID 15220 и не изменять/удалять `X:\\PinPosy-verify-pg18`.
+- Не обходить runner guards, не менять порт/PID/data directory, не использовать production/PIN_TRIAL, не останавливать PID 15220 и не изменять/удалять `X:\PinPosy-verify-pg18`.
 - Не запускать Bash concurrency/backend runtime suites до полного SQL PASS и cleanup.
 
 **Текущий статус:** Node 20/20 PASS и Parser 0 errors относятся к предыдущему source state; после добавления migration 150 и обновления runner оба gate требуют повторного owner выполнения. PostgreSQL integration **NOT PASSED**.
