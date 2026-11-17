@@ -730,3 +730,29 @@ Assistant added two source-contract tests to `backend/test/postgres-integration-
 Assistant re-fetched both changed files and verified their blob hashes, expected source strings, and 12 total `test(...)` declarations. These are read-only source checks, NOT executed tests. Assistant did not execute Node, Windows PowerShell, psql or PostgreSQL and did not access local workstation, production/PIN_TRIAL or secrets. The previous disposable DB cleanup remains confirmed; no DB exists from this assistant work.
 
 **Owner verification required after all assistant docs commits:** clean fast-forward local main; run `node --test backend/test/postgres-integration-runner-contract.test.js`; optionally run the PowerShell parser check; then run the guarded `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1`. Password only through hidden prompt. Report full output. If migration 018 still errors, its actual UTF-8 server ERROR and SQLSTATE must be diagnosed before any migration change. SQL integration remains NOT PASSED.
+
+
+### UA-011 — integration run passed migrations and inline assertions; SQL test 1/46 failed
+
+Owner transcript summary:
+- `git status --short` was empty.
+- `git pull --ff-only origin main` fast-forwarded `13166c8c..c047f44c`.
+- `git rev-parse HEAD` and `git rev-parse origin/main` both returned `c047f44cce666e6dbe844cf318a4b314dd60040c`.
+- `node --test backend/test/postgres-integration-runner-contract.test.js`: 12 tests, 12 pass, 0 fail.
+- PowerShell Parser API: `PowerShell Parser: PASS`.
+- Guarded runner command: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1`.
+
+Runner confirmed clean synchronized main; approved listener PID 15220 and data directory `X:\PinPosy-verify-pg18`; hidden password prompt; server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+
+Disposable DB `pinposy_sqlint_b39373fd69614fe7` was created. Fixture passed, all 139 migrations 010–148 passed, and both inline assertions passed. The first of 46 SQL tests failed:
+`backend/test/pinterest-unknown-schedule-reconciliation.integration.sql:110`
+`schedule remote pin identity conflict incorrectly promoted schedule`
+psql exit code 3. Remaining 45 SQL tests did not run.
+
+Cleanup confirmed by runner output: session termination, DROP DATABASE, and `Removed disposable database pinposy_sqlint_b39373fd69614fe7`. This is a test failure, not a runner/PowerShell failure. SQL integration remains NOT PASSED.
+
+Assistant fetched the failing test and migrations 091, 092, 093 and 148. Test blob `20f04be636298e0cdb33ce1725cd2558e4121e9e`; migration blobs: 091 `6da23cf6851e28e8fbecbf4d7a3831008ab9c86b`, 092 `acca458a7c4abb236ea056e18c46c0628355ceb4`, 093 `03d126ad051bd192d32a64d06ac0f5b9e007e895`, 148 `5bdad254de1d4bb19d68bd9618561da55216f9b8`.
+
+The test sets schedule remote ID to `remote-already-recorded` while attempt/publication ledger agree on `remote-confirmed-123`; it expects reconciliation to return zero and preserve the schedule as unknown with the original ID. Migration 093 appears to contain that exact guard, but runtime behavior contradicted the static source. Root cause is OPEN. Do not alter expected behavior or migration logic until the effective runtime function is inspected.
+
+Assistant created audit `docs/audits/2026-11-17-pinterest-unknown-schedule-reconciliation-test-failure.md`. Next diagnostic will report the returned count, actual schedule fields and effective function body (`pg_get_functiondef`) when the assertion fails, and inspect later migration overrides. Owner action is not required until the diagnostic patch is committed and published. Do not manually connect to production/PIN_TRIAL or modify the persistent verification cluster.
