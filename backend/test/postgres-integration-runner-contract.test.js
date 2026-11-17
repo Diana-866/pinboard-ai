@@ -58,6 +58,16 @@ test('upgrade fixture includes the canonical boards.cover_url baseline column', 
   assert.match(canonicalBoardsTable, /cover_url text/i);
 });
 
+test('upgrade fixture preserves baseline project-to-board and board-to-pin cascade deletes', () => {
+  const fixture = read('backend/test/postgres-integration-upgrade-fixture.sql');
+  const boardsTable = fixture.split('create table public.boards (')[1]?.split(');')[0];
+  const pinsTable = fixture.split('create table public.pins (')[1]?.split(');')[0];
+  assert.ok(boardsTable, 'upgrade fixture boards table must exist');
+  assert.ok(pinsTable, 'upgrade fixture pins table must exist');
+  assert.match(boardsTable, /project_id\\s+uuid(?:\\s+not null)?\\s+references public\\.projects\\s*\\(id\\)\\s+on delete cascade/i);
+  assert.match(pinsTable, /board_id\\s+uuid(?:\\s+not null)?\\s+references public\\.boards\\s*\\(id\\)\\s+on delete cascade/i);
+});
+
 test('both extracted inline assertions stay aligned with CI workflow', () => {
   const blocks = extractInlineDoBlocks();
   assert.equal(blocks.length, 2);
