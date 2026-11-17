@@ -919,7 +919,7 @@ The final source/document blobs above were fetched from GitHub after publication
 | `scripts/verify.ps1` | `eead6e04356171e6d0e3544baa0b76f502b48ba2` | `92efe57561e4ae176cf75adb5c08387a0482b32e`; Windows replay applies 010–153 |
 | `.github/workflows/atomic-payment-integration.yml` | `37d91fcb409a295237e7adba6782dc9ac57c7863` | `7a64d7255bbe90836d9aa28115612889bb220145`; CI applies migration 153 |
 | `docs/audits/2026-11-17-postgres-integration-test-28-expired-image-delete-quarantine-regression.md` | `0dcdbc8eee3bac98c0af8da79013ef454d04866c` | `d755e4e0a188dc023e728312d0040cffe5ffbc71`; full owner evidence, diagnosis, actions, verification limits and next gates |
-| `docs/PROJECT_STATE.md` | pending final fetch | chronological incident record |
-| `docs/USER_ACTIONS.md` | pending final fetch | UA-016 exact owner synchronization and test gates |
+| `docs/PROJECT_STATE.md` | `471fc588652cdf7b183a62b36b08a784e042bb17` | `4f1de894c15531b2bd18e2191bc5f6590f989c9b`; chronological incident record |
+| `docs/USER_ACTIONS.md` | `134af16420c6f5402b05b62bc4521042a317189e` | `f9b1f8a13b4391441690313b4b86d84c22745ff3`; UA-016 exact owner synchronization and test gates |
 
 Owner evidence: Node 40/41 PASS with one baseline RegExp helper failure; PowerShell Parser 0 errors; fixture, 143 migrations 010–152 and both inline assertions PASS; SQL tests 1–27 PASS; test 28 failed because migration 145's replacement function reacquired an expired external delete claim. Tests 29–46 did not run. Disposable DB cleanup confirmed. Migration 153 and updated test/replay chain have been source-reviewed from GitHub but not runtime-tested. Assistant did not execute Node, PowerShell, psql or PostgreSQL. SQL integration remains **NOT PASSED**.
