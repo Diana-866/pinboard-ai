@@ -30,7 +30,7 @@ test("Linux replay uses an explicit local socket and port, not inherited PGHOST 
 
 test("Linux replay rejects incomplete or out-of-range migration sequences", () => {
   assert.match(script, /version=10; version<=151/);
-  assert.match(script, /active_migrations\[@\].*139/s);
+  assert.match(script, /active_migrations\\[@\\].*142/s);
   assert.match(script, /actual_sequence.*expected_sequence/s);
 });
 
