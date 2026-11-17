@@ -1122,3 +1122,14 @@ This section records the exact owner-provided PowerShell procedure. Treat it as 
 - Owner transcript confirms cleanup of the disposable DB: backend termination, `DROP DATABASE`, absence check and explicit removal message. No evidence of persistent cluster shutdown/reinitialization. Two inline assertions and 46 SQL tests were not reached.
 - Assistant inspected the current runner and changed only the diagnostic concatenations to `c.contype::text` and `cl.relkind::text`; added a Node contract assertion for both casts. No PostgreSQL or local test was run by the assistant. Changes are not yet runtime-verified. The original migration-018 issue remains unresolved.
 - Detailed incident and rationale: `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`, section 9. Follow-up commits/blob SHAs are recorded in the register after all updates complete.
+
+
+
+### Documentation journal — owner contract retest found stale expected log text (2026-11-17)
+
+- Owner pulled `main` from `d48fdde9` to `844514ab`; worktree was clean before pull.
+- Owner ran `node --test .\\backend\\test\\postgres-integration-runner-contract.test.js`: 10 tests total, 9 passed, 1 failed. The sole failure was the source-contract assertion still expecting the former log line `Diagnostic: matching constraints immediately before migration 018`; current runner prints `Diagnostic: database and public.users constraints immediately before migration 018:`. The other 9 checks passed, including both `contype::text` and `relkind::text` assertions.
+- Owner ran the PowerShell Parser API check after the Node test; parser returned PASS.
+- No PostgreSQL integration runner was executed in this owner transcript. No disposable database, migration, inline assertion or SQL test was run in this retest. The earlier SQL integration run's diagnostic query error and cleanup remain separately recorded above.
+- Assistant inspected the live runner, contract test and all project tracking documents on GitHub `main`; changed only the stale contract-test expected string. Commit `a4472b204bf6c66f02c0adb8c9d1db79579c47ea`, test blob `902a0d700a1b145d7e48ad5f0cc856c5bd6f99a1`.
+- The corrected contract test has not yet been executed. Current status: parser PASS from owner; contract test last observed 9/10 due stale assertion; integration gate BLOCKED / not rerun after the diagnostic fix. Next: owner pulls latest main, reruns the Node contract test and parser; only after both pass, rerun guarded PostgreSQL integration runner and capture diagnostic rows.
