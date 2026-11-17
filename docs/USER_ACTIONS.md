@@ -2717,3 +2717,17 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 ```
 
 Enter the temporary-role password only at the hidden prompt. Stop at the first SQL error and send the full output including cleanup. SQL integration PASS requires fixture, 147 migrations 010–156, both inline assertions, all 46/46 SQL tests and confirmed disposable DB cleanup. Preserve PID 15220, port 55439 and `X:\\PinPosy-verify-pg18`; never target production/`PIN_TRIAL`, run SQL manually or disclose credentials. Nine Bash concurrency scripts remain a separate unverified gate.
+
+### UA-034 update — Node preflight passed 47/47 (2026-11-17)
+
+Owner synchronized local `main` to `d266f57da57f8219e5e1f42616111b32ad76d748`; the supplied transcript shows clean worktree before/after and `HEAD == origin/main`. Owner ran the prescribed three-file Node command. Result: **47 tests, 47 pass, 0 fail, 0 cancelled, 0 skipped, 0 todo**; duration 112.4228 ms. The new approved-pin legacy-history source-contract test passed.
+
+This only verifies Node source/migration-chain contracts. It does not verify the SQL fixture at runtime or execute PostgreSQL tests. Previous SQL run stopped at test 38/46; tests 39–46 remain unrun, and SQL integration is NOT PASSED.
+
+**Next owner action after pulling this documentation commit and confirming clean synchronized main:** run the guarded PostgreSQL runner:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+```
+
+Use the existing approved local verification cluster only (listener PID 15220, port 55439, data directory `X:\\PinPosy-verify-pg18`). Enter the temporary-role password only at the hidden prompt; never send it. Do not bypass guards or target production/`PIN_TRIAL`. Stop on first SQL error and send the complete output including cleanup. Full SQL PASS requires fixture, all 147 migrations 010–156, both inline assertions, all 46/46 SQL tests and confirmed disposable DB cleanup. Nine Bash concurrency scripts remain a separate unverified gate.
