@@ -797,3 +797,5 @@ Assistant выполнил только GitHub read/update и статическ
 - Audit: `docs/audits/2026-11-17-postgres-integration-schedule-user-id-type-mismatch.md`.
 
 ⚠️ Следующий шаг после публикации всех документов: `git pull --ff-only origin main`, проверить чистый status и равенство HEAD/origin/main; выполнить Node contract suite; при PASS повторить guarded runner. Вводить пароль только в скрытом prompt. SQL integration пока **NOT PASSED**.
+
+Количество проверок в Node contract-файле теперь 14 (подсчитано по исходнику после добавления проверки двух cast); это не результат запуска. Нужно выполнить тесты локально.
