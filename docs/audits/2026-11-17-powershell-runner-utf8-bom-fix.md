@@ -174,3 +174,21 @@ This is a syntax-only check. It does not execute the runner or prove that its ru
 Assistant procedure for this update: fetched the latest versions of the project state, owner action log, audit, documentation register, runner and Node contract test from GitHub `main`; checked the current runner/test blob SHAs against the previously documented source versions; then appended the owner evidence and its limits to the three chronological documents. No source-code change or PostgreSQL action was performed by the assistant. The documentation register is updated separately with the resulting document blob SHAs and commits.
 
 Next: owner runs the guarded integration runner on clean synchronized `main`, then supplies the complete output. Preserve all safety checks and cleanup confirmation. Do not claim SQL integration PASS unless all required stages complete and the disposable database is confirmed absent.
+
+
+## 13. Runner launch blocked by PowerShell execution policy (2026-11-17)
+
+Owner attempted to launch `.\scripts\verify-integration.ps1` from the project checkout. PowerShell refused to load the file because script execution is disabled by the active execution policy. The reported error category was `PSSecurityException`, fully qualified ID `UnauthorizedAccess`.
+
+The rejection happened before script-body execution. The runner did not reach its hidden secure password prompt, PostgreSQL identity checks, disposable database creation, fixture load, migration chain, inline assertions, 46 SQL integration tests or cleanup. Consequently this attempt did not create a disposable database and is not a failed SQL test run; it is a launch-policy block. The prior 10/10 Node contract test and PowerShell Parser PASS remain source-level checks only.
+
+Assistant diagnosis/actions: retrieved current `main` versions of the runner, Node contract test, project journal, owner action log, audit and documentation register; reviewed the runner's fixed 55439 port, target identity guards, hidden `Read-Host -AsSecureString` password prompt, unique disposable database naming and `finally` cleanup verification; concluded the script body was not reached; and recorded the event in the chronological documents. No code, local machine, PostgreSQL process/database, production/PIN_TRIAL or secret was changed or accessed by the assistant.
+
+Safe retry is limited to a child process and does not persistently alter LocalMachine or CurrentUser policy:
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+```
+
+The runner's internal safety checks remain in force. The temporary role password must be entered only into its hidden prompt and never placed in command arguments or chat. If domain/Group Policy blocks this child-process override, stop and report the exact error; do not alter machine/user policy or bypass runner guards.
+
+The SQL integration gate remains NOT PASSED until the guarded run completes all expected stages and confirms the disposable database is absent after cleanup.
