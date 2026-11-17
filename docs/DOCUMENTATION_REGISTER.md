@@ -1234,3 +1234,14 @@ Owner evidence: pre/post `git status --short` empty; fast-forward `1b855857..3e1
 | `docs/audits/2026-11-17-postgres-test-34-billing-webhook-audit-privilege-assertion-fix.md` | `4026649b2f3501b6487a86c6cbf82c67ac25bfa3`; append owner preflight evidence and remaining runtime limitations |
 
 Owner transcript: clean sync to `45fb5f300b1cd334ad8128a76f5d694f52389861`; Node TAP **45/45 pass, 0 fail, 0 cancelled, 0 skipped, 0 todo**. PowerShell Parser and guarded PostgreSQL integration are still outstanding; no 46/46 SQL result is claimed.
+
+
+### 2026-11-17 — PowerShell Parser preflight PASS; guarded PostgreSQL run next
+
+| Path | Update |
+|---|---|
+| `docs/PROJECT_STATE.md` | Record clean owner sync at `097765bd924cb938103ac4ec779b17af23eacf2c`, PowerShell Parser PASS and remaining runtime limitation |
+| `docs/USER_ACTIONS.md` | Advance UA-034 to the guarded PostgreSQL integration runner; preserve stop conditions |
+| `docs/audits/2026-11-17-postgres-test-34-billing-webhook-audit-privilege-assertion-fix.md` | Append exact owner Parser evidence and clarify that SQL runtime is still unverified |
+
+Owner evidence: clean working tree; `HEAD == origin/main == 097765bd924cb938103ac4ec779b17af23eacf2c`; PowerShell Parser exact output `PowerShell Parser PASS: 0 syntax errors`. Combined with the previously recorded Node **45/45 PASS**, both preflight gates are satisfied. The next action is the guarded runner in UA-034; no 46/46 SQL result is claimed.
