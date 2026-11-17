@@ -75,3 +75,14 @@ Assistant:
 4. Recorded the discrepancy and next evidence-gathering step here and in the project journal/action log/register.
 
 Assistant did not run local PowerShell, Node, psql or PostgreSQL; did not connect to any database; did not modify application source or migrations in this diagnostic pass; did not access production/PIN_TRIAL; and did not handle credentials. The only database execution evidence is the owner's transcript above.
+
+
+## Follow-up: failure-only runtime diagnostics added (2026-11-17)
+
+After the first owner run, assistant re-fetched the failing test and migration 093. Migration 093 statically includes the expected schedule-vs-attempt remote ID predicate, but the disposable runtime database nevertheless failed the conflict assertion. No migration logic was changed because the root cause is unproven.
+
+Assistant updated only the failing test's diagnostic branch. If the remote-ID conflict assertion fails again, it now reads the actual schedule status and remote ID, retains the reconciliation row count, and includes `pg_get_functiondef('public.reconcile_confirmed_pinterest_schedule_successes()'::regprocedure)` in the exception. The assertion's expected values and safety semantics are unchanged.
+
+Updated test blob: `95d01cccc1e8ec722b5c101e9a7939cda1b393c0`; commit: `aa1eb96daaf4b2d3148f596372850e43b5052b7a`.
+
+This patch has not been executed by the assistant. No Node, PowerShell, psql or PostgreSQL runtime was available; no database was created or modified by the assistant. The owner must rerun through the existing guarded disposable-database runner. SQL integration remains NOT PASSED.
