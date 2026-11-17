@@ -1393,3 +1393,16 @@ This section records the exact owner-provided PowerShell procedure. Treat it as 
 - Не запускались Node suite, PowerShell parser/runtime, PostgreSQL replay, 46 SQL integration tests, Bash concurrency, backend/frontend runtime. SQL integration остаётся **NOT PASSED**; никакие runtime checkbox не закрываются.
 - Следующий owner gate и безопасные команды зафиксированы в UA-006 в `docs/USER_ACTIONS.md`. До полного Node PASS SQL runner не запускать.
 - Дополнительная диагностика CI: rerun attempt 2 для `44070232846` и `44070232989` принят, но снова завершился FAILURE без шагов и логов (`steps: null`, `logs_url: null`; jobs `133996278489`, `133996306977`, `133996307323`). Причина pre-step blocker неизвестна; Node/SQL/frontend/backend test execution не подтверждено. Не считать это кодовым test failure.
+
+
+### 2026-11-17 — исправлен fixture parity contract test: асимметричная фильтрация header comment
+
+- Владелец синхронизировал локальный main с GitHub: до pull `git status --short` пустой; fast-forward `c92cb6d4 → 72bafc7a`; `HEAD` = `origin/main` = `72bafc7a1a0e1921e4155eacc6d38df610f39780`; итоговый status чистый.
+- Владелец запустил `node --test backend/test/postgres-integration-runner-contract.test.js`: **19 PASS / 1 FAIL из 20**. Падал только тест parity standalone upgrade fixture и CI heredoc.
+- Assistant повторно прочитал CI workflow, standalone fixture и contract test. Причина: expected сохранял общий комментарий `-- CI upgrade-compatibility fixture. Cluster roles are provisioned by verify-integration.ps1.`, actual удалял его дополнительным фильтром. Это асимметрия assertion, а не доказанное различие SQL schema. Фильтрация cluster role statements на стороне expected сохранена.
+- Исправлен только `backend/test/postgres-integration-runner-contract.test.js`: actual-side comparison теперь сохраняет header comment и нормализует только line endings/trailing whitespace. Production code, migrations, CI workflow, SQL fixture и БД не менялись.
+- Contract test опубликован: commit `e3517cdc717476bdba8e6d1f5f9fa289fb28be8f`, blob `03fc5d1973fcbc376367755009f310475e7cde44`.
+- Создан audit `docs/audits/2026-11-17-postgres-integration-fixture-header-contract-test.md`, commit `07584d1f8c5254fc83164513e2afc9602fc70274`. В нём сохранены owner transcript, root cause, точное изменение, SHA, проверки, ограничения и следующий шаг.
+- Assistant действия: прочитан полный owner transcript; повторно fetched актуальные contract test, standalone fixture, CI workflow и проектные документы; сравнена нормализация expected/actual; внесено и опубликовано одно узкое исправление; создан audit; далее обновляются паспорт, owner action log и register. Assistant не запускал Node, PowerShell, psql или PostgreSQL; локальный Windows checkout недоступен.
+- **Текущий runtime статус:** Node suite после исправления ожидает повторного запуска владельцем; SQL integration остаётся **NOT PASSED**. Не запускать guarded runner до полного Node PASS. Production/PIN_TRIAL и persistent verification cluster не затрагивались.
+- Следующий шаг владельца после синхронизации всех документационных commits — повторить Node contract suite и прислать полный вывод/exit code. См. UA-007.
