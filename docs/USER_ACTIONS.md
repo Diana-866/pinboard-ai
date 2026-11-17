@@ -452,3 +452,28 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration
 **Что означает текущий PASS:** подтверждён только синтаксический разбор PowerShell-файла. Он не подтверждает запуск runner, соединение с PostgreSQL, миграции, 46 SQL tests или cleanup.
 
 После получения результата ассистент сверит число выполненных тестов, exit code и cleanup. Только при подтверждённых SQL integration PASS и cleanup можно перейти к отдельной подготовке Bash concurrency suite. До этого UA-005 и backend runtime suite заблокированы.
+
+
+### UA-004 follow-up — PostgreSQL identity guard CIDR mismatch (2026-11-17)
+
+**Статус: runner остановился на identity guard; SQL fixture и тесты не запускались.**
+
+Владелец сообщил, что:
+- локальный checkout был чистым и fast-forward обновлён до `21226c6d`;
+- runner подтвердил clean `main`, PID `15220` и data directory `X:\\PinPosy-verify-pg18`;
+- после скрытого ввода пароля runner получил адрес сервера в форме `127.0.0.1/32`, тогда как сравнивал с `127.0.0.1`, и выдал `PostgreSQL identity mismatch`;
+- ошибка возникла на identity query до проверки/создания ролей и до создания disposable DB. По последовательности кода `$createdDatabase` ещё равен `$null`, `$createdRoles` пуст; следовательно runner не запускал fixture, migrations, inline assertions, SQL tests и не имел своей disposable DB для cleanup. Кластер не останавливать и не переинициализировать.
+
+**Исправление ассистента:**
+- `scripts/verify-integration.ps1`: заменить текстовое представление `inet_server_addr()::text` на `host(inet_server_addr())`, которое возвращает адрес без CIDR-маски и соответствует ожидаемому `127.0.0.1`. Commit: `a0de3046d924abcedb267076d03e365e6b9b0353`, blob: `05787d0f8067d3412ed10e06856e7b1cdfce1c6d`.
+- `backend/test/postgres-integration-runner-contract.test.js`: добавить контрактную проверку нормализации inet-адреса. Commit: `4495b4b4dd52b3f82f43859d640bbab571a3466e`, blob: `ce331fba2e06bb63473cfedf1c586003606b09c4`.
+- Node contract test, PowerShell parser и повторный runner ещё не выполнялись после этого изменения.
+
+**Следующий шаг владельца:**
+1. Выполнить `git status --short`. Если есть изменения — остановиться, ничего не сбрасывать.
+2. При чистом дереве выполнить `git pull --ff-only origin main`.
+3. Повторить parser-only check для изменённого runner. Только при `PASS: PowerShell parser` снова выполнить guarded runner:
+   `powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1 -PostgresPort 55439`.
+4. Передать полный вывод, exit code и cleanup confirmation без секретов. Если identity guard или любой preflight снова отказывает — остановиться и прислать точный вывод. Не обходить проверки, не редактировать настройки сервера вручную.
+
+До подтверждённых SQL integration PASS и удаления disposable DB Bash concurrency и backend runtime suites остаются заблокированы.
