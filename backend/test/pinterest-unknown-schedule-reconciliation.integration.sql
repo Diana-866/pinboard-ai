@@ -9,6 +9,9 @@ declare
   v_account uuid;
   v_schedule uuid;
   v_reconciled integer;
+  v_actual_status text;
+  v_actual_remote_pin_id text;
+  v_effective_function text;
 begin
   insert into public.users(id,email,token_version)
   values(v_user,'pinterest-unknown-reconcile-'||v_user||'@example.invalid',0);
@@ -90,10 +93,18 @@ begin
      set pinterest_pin_id='remote-already-recorded'
    where id=v_schedule;
   v_reconciled := public.reconcile_confirmed_pinterest_schedule_successes();
+  select status, pinterest_pin_id
+    into v_actual_status, v_actual_remote_pin_id
+    from public.pin_schedules
+   where id=v_schedule;
   if v_reconciled <> 0
-     or (select status from public.pin_schedules where id=v_schedule) <> 'unknown'
-     or (select pinterest_pin_id from public.pin_schedules where id=v_schedule) <> 'remote-already-recorded' then
-    raise exception 'schedule remote pin identity conflict incorrectly promoted schedule';
+     or v_actual_status <> 'unknown'
+     or v_actual_remote_pin_id <> 'remote-already-recorded' then
+    v_effective_function := pg_get_functiondef(
+      'public.reconcile_confirmed_pinterest_schedule_successes()'::regprocedure
+    );
+    raise exception 'schedule remote pin identity conflict incorrectly promoted schedule: reconciled=%, actual_status=%, actual_remote_pin_id=%, effective_function=%',
+      v_reconciled, v_actual_status, v_actual_remote_pin_id, v_effective_function;
   end if;
 
   delete from public.pin_schedules where id=v_schedule;
