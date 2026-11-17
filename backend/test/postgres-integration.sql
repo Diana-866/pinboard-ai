@@ -1,4 +1,4 @@
--- Run only in a disposable PostgreSQL database after the complete ordered migration chain 010–148.
+-- Run only in a disposable PostgreSQL database after the complete ordered migration chain 010–156.
 do $$
 declare
   v_user uuid := gen_random_uuid();
@@ -281,9 +281,9 @@ begin
 
   -- Generic balance adjustment must update balance and ledger in the same RPC.
   v_balance := public.adjust_credits_balance_and_log(v_user::text, -10, 'usage', 'test spend');
-  if v_balance <> 100 then raise exception 'expected adjusted balance 100, got %', v_balance; end if;
+  if v_balance <> 140 then raise exception 'expected adjusted balance 140, got %', v_balance; end if;
   select count(*) into v_count from public.credit_transactions where user_id = v_user::text;
-  if v_count <> 2 then raise exception 'expected two total ledger entries, got %', v_count; end if;
+  if v_count <> 4 then raise exception 'expected four total ledger entries, got %', v_count; end if;
 
   insert into public.projects(user_id, niche) values (v_user, 'test') returning id into v_project;
   insert into public.boards(project_id) values (v_project) returning id into v_board;
