@@ -1082,3 +1082,60 @@ node --test backend/test/postgres-integration-runner-contract.test.js
 **Запрещено:** запускать runner при failed/incomplete Node suite; обращаться к production/PIN_TRIAL; останавливать PID 15220; менять/удалять `X:\\PinPosy-verify-pg18`; передавать секреты в чат.
 
 **Статус:** [ ] Ожидает владельца. Документационные commits после contract fix могут продвинуть main; ориентироваться на фактический HEAD, а не заранее заданный SHA.
+
+
+## UA-008 — следующий gate после Node contract suite 20/20 PASS (2026-11-17)
+
+### Фактический owner результат
+- Checkout до pull был чистым.
+- `git pull --ff-only origin main` fast-forward: `72bafc7a → 9beca59b`.
+- `HEAD` = `origin/main` = `9beca59b21c1f41c330bc7df03abb3189866766e`; итоговый worktree чистый.
+- `node --test backend/test/postgres-integration-runner-contract.test.js`: **20 PASS / 0 FAIL**, 20 tests total, exit code 0.
+- Node contract gate закрыт. SQL integration по-прежнему **NOT PASSED**.
+
+### Следующее действие владельца — PowerShell Parser API check (не запускает runner)
+
+Из корня репозитория выполнить:
+
+```powershell
+$tokens = $null
+$errors = $null
+[System.Management.Automation.Language.Parser]::ParseFile(
+    (Resolve-Path .\scripts\verify-integration.ps1),
+    [ref]$tokens,
+    [ref]$errors
+) | Out-Null
+if ($errors.Count -gt 0) {
+    $errors | Format-List
+    exit 1
+}
+"PASS: verify-integration.ps1 parsed successfully; syntax errors: 0"
+```
+
+Передать полный вывод и exit code. Это синтаксический parse check; он не запускает скрипт, не требует пароля и не подключается к PostgreSQL.
+
+### Только при Parser PASS
+1. Ещё раз проверить чистый checkout и синхронизацию с main:
+   ```powershell
+   git status --short
+   git pull --ff-only origin main
+   git rev-parse HEAD
+   git rev-parse origin/main
+   git status --short
+   ```
+   Продолжать только если worktree чистый и HEAD = origin/main.
+2. Только затем запускать guarded runner согласно UA-006, без изменения параметров/целевого сервера:
+   ```powershell
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+   ```
+3. Пароль временной роли вводить только в hidden prompt; не отправлять его в чат.
+4. Передать полный лог без секретов. SQL PASS — только при успешном fixture, 140 migrations 010–149, двух inline assertions, всех 46 SQL tests и подтверждённом удалении disposable DB.
+
+### STOP / запрещено
+- При Parser FAIL runner не запускать.
+- Не использовать production/PIN_TRIAL.
+- Не останавливать PID 15220; не изменять и не удалять `X:\\PinPosy-verify-pg18`.
+- Не присылать пароль, токены, .env или иные секреты.
+- Не запускать Bash concurrency или backend runtime suite до полного SQL PASS и cleanup.
+
+**Статус:** Node gate [x]; PowerShell Parser gate [ ] ожидает владельца; PostgreSQL SQL integration [ ] NOT PASSED.
