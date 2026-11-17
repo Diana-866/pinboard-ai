@@ -728,3 +728,13 @@ Read-only source comparison found that canonical baseline `001_baseline.sql` con
 | `docs/USER_ACTIONS.md` | `b0d4e9c6aa324b9e42b7487829b3f9735c625f19` | `46b0de0b3d2fadd46aa2565d1a0b12a14e07c806`; preserve owner transcript, gate deviation, cleanup and pause instructions |
 
 Assistant actions for this review: fetched current GitHub baseline, migrations 127/137/138, standalone fixture, CI workflow, SQL test 8, contract test and project documents; compared the baseline users columns with fixture columns and finalization UPDATE; reviewed the contract regex and prior gate instructions; created this audit and appended the project state and owner action log. No application code, migration, fixture, CI workflow, SQL test or database was changed. Assistant did not run Node, PowerShell, psql or PostgreSQL. Documentation register was updated last after the other documentation writes. Overall SQL integration remains NOT PASSED and work is PAUSED pending owner review.
+
+
+## 2026-11-17 — schema-contract review and fixture timestamp alignment
+
+| 406 | `docs/audits/2026-11-17-postgres-upgrade-fixture-timestamp-contract.md` | `49ade0bd52aa74de4b49f4835c7973b81e40650b` | `98ccaa252937c043c83694c680359c9554803b6e`; static schema-contract review, timestamp fixture corrections and verification limits |
+| 407 | `backend/test/postgres-integration-upgrade-fixture.sql` | `0d1236b722193fb18e4bbd2d0bd258c018d4cd77` | `dd518aed667e5a7657617e4c40cbdcd9e0e04b77`; aligned legacy timestamp types with canonical baseline |
+| 408 | `.github/workflows/atomic-payment-integration.yml` | `b8bee6bba38d25afdaaa015f8027c4aefd722346` | `a09dfea5051c563b5bad3509adf928ff21463720`; kept CI inline upgrade fixture aligned with standalone fixture |
+| 409 | `backend/test/postgres-integration-runner-contract.test.js` | `3242ba970ab898fb14971cbabab7fe6293b2af95` | `3bee9ba503e7709bee51e7826988750be2ece04e`; asserts auth_tokens.created_at timestamptz |
+| 410 | `docs/PROJECT_STATE.md` | `72f95b790693103ee86341bf8c40f2d191c7eb9a` | `ad08033e39e982d2fdcb12e63dfc32eddb3559a3`; records schema-contract review, changes, evidence and runtime limits |
+| 411 | `docs/USER_ACTIONS.md` | `c2141b0bd6e852ae32d0aeb2b304555dfea75512` | `808b069944c972cd9a53c3b93e7ce112c7b9d9a9`; adds UA-005 for Node and guarded SQL verification |
