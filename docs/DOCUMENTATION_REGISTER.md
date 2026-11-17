@@ -2,7 +2,7 @@
 
 **Repository:** Diana-866/pinboard-ai  
 **Branch:** main  
-**Source HEAD (before this register refresh):** 192ff131d12e8ecf6f2e5ac73c88ccaed8ff7afa  
+**Source HEAD (before this register refresh):** a7758c85fe9647e21b9140a243a2aa645b4338c3  
 **Inventory refreshed:** 2026-11-17  
 **Scope:** all documentation files under docs/ (Markdown and SQL), excluding this register itself.
 
@@ -21,7 +21,7 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 3 | `docs/MASTER_REQUIREMENTS.md` | `0891fc83d68de51acb298d1ad4da4f733a0499aa` | Reviewed/reconciled 2026-11-16; see audit reports |
 | 4 | `docs/PIN_TRIAL_MIGRATION_STATUS.md` | `2e0f66ccfa1ab9aeb71f80d299a5c4465e347d9e` | Owner-provided DB evidence; incomplete inventory |
 | 5 | `docs/PRODUCTION_READINESS_AUDIT.md` | `777ce34d539b3264b10554aa2cd731d436f080e2` | Reviewed/reconciled 2026-11-16; see audit reports |
-| 6 | `docs/PROJECT_STATE.md` | `852cab05c234fb6b31c9dcd386276680ca75f2f5` | Current operational source of truth; chronological record through approved-pin fixture correction; SQL integration NOT PASSED |
+| 6 | `docs/PROJECT_STATE.md` | `aa51bac150670f66e7162e3a8b944af75b232d22` | Current operational source of truth; chronological record through approved-pin fixture correction; SQL integration NOT PASSED |
 | 7 | `docs/USER_ACTIONS.md` | `ad083f99cf351156a0b13989e31fcb8d2c8587b5` | Owner actions; UA-017: Node, Parser and guarded PostgreSQL rerun gates after approved-pin fixture correction |
 | 8 | `docs/architecture/pin-image-deletion-claim-protocol.md` | `0957b13bae0632ce8e34a5675b4a06f6ef8477a4` | Inventory only; content review pending |
 | 9 | `docs/audits/2026-11-16-account-deletion-runbook-reconciliation.md` | `4d1fa6f8e78162abbb29a3487a776c2b1c3cf319` | Historical audit/evidence; applicability must be checked against current main/tests |
@@ -421,7 +421,7 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 403 | `docs/runbooks/release-line.md` | `ca56773268024b6c851b61600be5a8b16373a4de` | Operational runbook; code/environment/approval review required |
 | 404 | `docs/storage-lifecycle.md` | `870605f72ea42835d9784120ba0b4ed6d6bb6c69` | Inventory only; content review pending |
 | 405 | `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md` | `ba261b16cb5531af089aee7ef5bac54a43a79add` | Execution evidence; includes exact owner-provided migration replay procedure and PASS evidence |
-| 413 | `docs/audits/2026-11-17-postgres-integration-test-28-approved-pin-fixture-and-runner-contract.md` | `75d402bdc8d3c1eb34c3157fe9c7d9efc961bb0b` | Follow-up audit: migration-148 approved-pin fixture requirement, stale 10–152 Node contract, exact owner evidence and rerun gates |
+| 413 | `docs/audits/2026-11-17-postgres-integration-test-28-approved-pin-fixture-and-runner-contract.md` | `69644726ac758451bc1455b9a16f9f2ab319e1e2` | Follow-up audit: migration-148 approved-pin fixture requirement, stale 10–152 Node contract, exact owner evidence and rerun gates |
 
 ## Inventory findings
 
