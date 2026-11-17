@@ -10,7 +10,7 @@ Owner run commit: `0d31c813e39e420e26c5ebee0edadea1928df00d`
 - До pull `git status --short` был пуст.
 - Fast-forward: `d736814d → 0d31c813`.
 - `HEAD` и `origin/main` совпадали: `0d31c813e39e420e26c5ebee0edadea1928df00d`; итоговый worktree чистый.
-- Runner подтвердил PostgreSQL listener PID `15220`, data directory `X:\\PinPosy-verify-pg18` и server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+- Runner подтвердил PostgreSQL listener PID `15220`, data directory `X:\PinPosy-verify-pg18` и server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
 - Создана только disposable DB `pinposy_sqlint_ca5527ced768460b`.
 - Upgrade fixture, 140 migrations `010–149` и обе CI inline assertions завершились без фатальной ошибки.
 - SQL tests `1–17/46` прошли; test `18/46`, `provider-refund-reconciliation-guard.integration.sql`, завершился ошибкой `invalid pin count`.
@@ -86,7 +86,7 @@ SQL integration gate остаётся **NOT PASSED**. Нельзя объявл�
 - Не повторять runner до синхронизации актуального main и выполнения Node contract gate.
 - Не обходить runner safety guards.
 - Не использовать production/PIN_TRIAL.
-- Не останавливать PID 15220 и не изменять/удалять `X:\\PinPosy-verify-pg18`.
+- Не останавливать PID 15220 и не изменять/удалять `X:\PinPosy-verify-pg18`.
 - Не передавать пароль, токены или .env.
 - После Node PASS владелец может выполнить guarded runner только по обновлённым инструкциям UA-011; при первой ошибке остановиться и сохранить полный вывод, включая cleanup.
 - SQL PASS допустим только после fixture, всех 140 migrations, двух inline assertions, всех 46 SQL tests и подтверждённого cleanup disposable DB.
