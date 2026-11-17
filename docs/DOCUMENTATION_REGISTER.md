@@ -972,3 +972,14 @@ Owner evidence: clean synchronized checkout at `0fc877a0aa5dd47d565f77b9873fc4c6
 | `docs/USER_ACTIONS.md` | `997a4904adeae4aecfd24fb0cd11a302682f93e2` | `375fe41f5620a8463ce7d2f85e3b06892a7d7b87`; UA-020 ordered owner rerun steps |
 
 Owner evidence: Node suite reported 42 tests, 41 PASS and 1 FAIL. The sole failure was a malformed dynamic RegExp caused by a missing capture-group opener. Assistant corrected only the Node contract test, then re-fetched the final source and inspected the corrected string. Assistant did not execute Node, PowerShell, psql, PostgreSQL or CI. Corrected Node test is not runtime-verified; Parser and SQL runner remain blocked pending 42/42 Node PASS. PostgreSQL SQL integration remains **NOT PASSED**.
+
+
+### 2026-11-17 — PostgreSQL Node contract gate: owner confirms 42/42 PASS
+
+| Path | Final blob SHA | Commit / reason |
+|---|---|---|
+| `docs/audits/2026-11-17-postgres-node-contract-dynamic-regexp-capture-group.md` | `fa16322881f4427ef9330e7292ee5fe833bca977` | `c3d24748a650d39d25fec6094c2f1c6ce8921520`; append owner-supplied clean sync and 42/42 Node PASS evidence |
+| `docs/PROJECT_STATE.md` | `ae085d9c5cd3acb0d4aa27c1d689a92d06c514bf` | `78c35f24be22c9aeb5572dafb126a6fe67ffeb97`; chronological record of Node gate PASS |
+| `docs/USER_ACTIONS.md` | `4a73391b07b07a9edcf3512b88a091c1c8aa5da7` | `d41553d21b1eef5ec1acaa30cf489325c22f1a12`; UA-021 authorizes PowerShell Parser as next gate |
+
+Owner evidence: clean local checkout at `6512dc8aa4ae882e8be91877185a262787b02f87`, HEAD equal to origin/main. The three Node gate files completed with 42 tests, 42 passed, zero failures/cancellations/skips. Assistant did not execute Node, PowerShell, psql, PostgreSQL or CI. Node gate is **PASS** based on owner output. PowerShell Parser and PostgreSQL integration have not yet run; next step is Parser (0 syntax errors), followed by guarded SQL runner. SQL PASS still requires all 46 SQL tests and confirmed cleanup.
