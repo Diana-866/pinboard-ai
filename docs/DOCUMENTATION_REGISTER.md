@@ -683,5 +683,15 @@ The following files were added or updated after the inventory snapshot above. Th
 - Added column to CI workflow fixture: blob `959399fc34989298ac060bd42a605312d7c86073`, commit `5b91890019f8a2758686946fcf85ce9de9f2eb5e`.
 - Added column to standalone upgrade fixture: blob `e57795b598e16939952f180ac36bc942336d0444`, commit `1783ba84a3d30454445c909459dfc559510128bb`.
 - Added contract assertion and corrected over-escaped regex draft before owner execution. Final contract blob `fe2a1ce4cfb0ca7e06ff0c2b4d087d40943db66a`, commit `91d787eb945d2065a89a98e38ac51679f2461ed4`; follow-up source review corrected the split delimiter before owner execution; 17 top-level tests by source inspection, not yet run.
-- Incident audit `docs/audits/2026-11-17-postgres-integration-storage-manifest-board-cover-fixture.md`, final blob pending verification, initial creation commit `6d2230a98fab683d67e1cecd54cb966e68f02223`.
+- Incident audit `docs/audits/2026-11-17-postgres-integration-storage-manifest-board-cover-fixture.md`, final blob `2456287051f079b1c3cb35f2cd0a5a455f829a79`, initial creation commit `6d2230a98fab683d67e1cecd54cb966e68f02223`.
 - Assistant did GitHub source inspection and edits only; no local test execution. Project state, owner action log and this register were updated after the source commits; re-fetch verification follows.
+
+### Final source/documentation verification snapshot — 2026-11-17
+
+- CI workflow fixture: `.github/workflows/atomic-payment-integration.yml`, blob `959399fc34989298ac060bd42a605312d7c86073`.
+- Standalone upgrade fixture: `backend/test/postgres-integration-upgrade-fixture.sql`, blob `e57795b598e16939952f180ac36bc942336d0444`.
+- Contract test: `backend/test/postgres-integration-runner-contract.test.js`, final blob `fe2a1ce4cfb0ca7e06ff0c2b4d087d40943db66a`, 17 top-level tests by source inspection; not executed by assistant.
+- Incident audit: `docs/audits/2026-11-17-postgres-integration-storage-manifest-board-cover-fixture.md`, blob `2456287051f079b1c3cb35f2cd0a5a455f829a79`.
+- Project state: `docs/PROJECT_STATE.md`, blob `1dd82264d1e0178cc67d102cedb5b77c1727e75a`.
+- Owner action log: `docs/USER_ACTIONS.md`, blob `25f923c24aaa24cb83ab0b5a2abc700ae0bb8b0d`.
+- This register was updated last after re-fetching the source and documentation files. Assistant source verification confirms both fixture definitions include `cover_url text`, the contract assertion uses the corrected SQL table terminator, and the current contract test count is 17. These are GitHub source inspections, not test execution.
