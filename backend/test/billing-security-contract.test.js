@@ -88,10 +88,19 @@ test("Prodamus webhook signatures use HMAC and constant-time comparison", () => 
 
 test("Prodamus CI runs ambiguous checkout and billing security regression coverage", () => {
   const workflow = root(".github/workflows/prodamus-checkout-tests.yml");
-  assert.match(workflow, /"backend\/test\/prodamus-ambiguous-checkout\.test\.js"/);
-  assert.match(workflow, /"backend\/test\/billing-security-contract\.test\.js"/);
+  assert.equal(
+    (workflow.match(/"backend\\/test\\/prodamus-ambiguous-checkout\\.test\\.js"/g) || []).length,
+    2,
+    "push and pull_request path filters must both include ambiguous checkout coverage"
+  );
+  assert.equal(
+    (workflow.match(/"backend\\/test\\/billing-security-contract\\.test\\.js"/g) || []).length,
+    2,
+    "push and pull_request path filters must both include this workflow contract"
+  );
   assert.match(
     workflow,
-    /node --test test\/prodamus-webhook\.test\.js test\/payment-creation-settlement\.test\.js test\/prodamus-ambiguous-checkout\.test\.js test\/billing-security-contract\.test\.js/
+    /node --test test\\/prodamus-webhook\\.test\\.js test\\/payment-creation-settlement\\.test\\.js test\\/prodamus-ambiguous-checkout\\.test\\.js test\\/billing-security-contract\\.test\\.js/
   );
+  assert.doesNotMatch(workflow, /Test checkout idempotency and ambiguous provider failures/);
 });
