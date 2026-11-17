@@ -663,3 +663,14 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 - Assistant used GitHub source inspection and updates only; no local test execution. Current contract suite has 15 test declarations by source inspection, not runtime verification. Owner must pull, run contract suite, then guarded runner; PASS requires all 46 SQL tests and confirmed cleanup.
 
 - Final follow-up source review corrected over-escaped contract-test regexes to literal string/index checks before owner execution: contract blob `4681aa4ab8155a0c5c8b649e35bfdd3085fd8d2f`, commit `ace9c270f8ad789a0135cdbe4c0b1bceac768e4e`. Audit updated: blob `249928f59d15ff901fd38b8dc1f5abfb82bdab7c`, commit `511313d757a440849316919c57b466c241284265`; project state updated: blob `8ecfbe2aea79a28042aeb18880ff89efc53e9b54`, commit `f90f88aa24ea9ae92477b6281918e71c670bb463`; user actions updated: blob `16e71c08da768f21dcfe5f56e896182799adad5b`, commit `8c5f27af1fc2cadad787548720f0d1be22281882`.
+
+
+## Latest documentation delta — 2026-11-17
+
+The following files were added or updated after the inventory snapshot above. These blob IDs are the exact versions published for the durable-queue Storage-manifest investigation:
+
+| Path | Blob SHA | Reason |
+|---|---|---|
+| `docs/audits/2026-11-17-postgres-integration-durable-queue-storage-manifest-guard.md` | `8cd8fbbb9db25e40e8d1a6fc8eb623083099e006` | New incident audit: owner run, source-level root cause, test-only correction, verification limits and next step |
+| `docs/PROJECT_STATE.md` | `eadc404bc351d7460145d93e7ece7547541e89c8` | Current project state and chronological record of the 2026-11-17 owner run and assistant changes |
+| `docs/USER_ACTIONS.md` | `c2d2b94ac5b8510513377e496ac0f461a9dfd8e7` | Owner transcript, safety boundaries and exact next verification commands |
