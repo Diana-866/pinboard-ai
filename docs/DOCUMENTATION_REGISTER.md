@@ -1068,3 +1068,24 @@ Root cause: migration 104 added the regeneration replay payload check; migration
 Migration 155 is additive and starts from migration 153's current claim function, restoring the `result_pin ->> 'image_url'` check while preserving all other reference inventory, permanent expired-claim quarantine, deleted tombstone handling, token fencing and service-role-only execution. Historical migrations and the existing SQL regression fixture were not modified. The migration-155 Node contract and all migration replay/CI counts were advanced to 146 contiguous migrations 010–155.
 
 Assistant actions: fetched the current GitHub source and docs; compared migrations 104, 145, 153 and 154; read the failing test fixture; added migration 155; updated Node/replay contracts, local replay scripts and CI; created the incident audit; appended PROJECT_STATE and UA-026; then fetched the changed files again. Assistant did not execute Node, PowerShell, psql, PostgreSQL or CI. The owner's 43/43 Node PASS and 27/46 SQL result predate migration 155. Updated Node suite is expected to have 44 tests; Parser and SQL replay must be rerun by owner. Require 44/44 Node PASS, Parser 0 errors, then 146 migrations, two CI assertions, 46 SQL tests and cleanup. Nine Bash concurrency scripts remain outside this runner and unverified.
+
+
+### 2026-11-17 — PostgreSQL test 28: upload-reservation regeneration replay-reference regression (migration 156)
+
+| Path | Final blob SHA | Commit / reason |
+|---|---|---|
+| `db/migrations/156_restore_regeneration_replay_image_reference_to_upload_reservation.sql` | `41c41afb34686b970695b2d9f0fc98c5af81af54` | `a7612da04c4b136a073be63f0b2d3ccc5905feaa` |
+| `backend/test/postgres-integration-runner-contract.test.js` | `cf32991a9c59cdc8fb326e20811b3d58e3d57af0` | `42e176a8f834ca59185301893dd09a987172f3f1` |
+| `backend/test/db-migration-chain.test.js` | `b9847a527d3be60c109d4c5ed68cfe699146cd55` | `9bec3818487d3242d9b45f6e3a9f0dc79f51a5cb` |
+| `backend/test/verify-script-migration-chain.test.js` | `700883c900a941608bdcf93cee483505ea5b6936` | `82a26145a99797a437ff4b063f7e903f0ecc5134` |
+| `scripts/verify-integration.ps1` | `483ef0211e23a50ea50d1c80b9d47ce4140c09b3` | `9c51c2c32875873e5fa387938d808b8f2d9510e2` |
+| `scripts/verify.sh` | `97f30af9b7954f43e9b961e1e05dba6b33ec2bb4` | `86bf1a4c48dadfaae7ad8558fea9f86c4e058186` |
+| `scripts/verify.ps1` | `2ce1a056702d712e82c50985cc3a4c1b1ebba3a1` | `04b6969ed7da3c980c6855bd19fd4e2a60e3912f` |
+| `.github/workflows/atomic-payment-integration.yml` | `18732c036fd677cedbc5c35419e2f2aa110a84f3` | `9295b7bd9ec202cb723c396bf39f5d9f061946ad` |
+| `docs/audits/2026-11-17-postgres-test-28-upload-regeneration-replay-reference-regression-migration-156.md` | `fd0c620669d29282ee1cd1c32d3da0c48788a078` | `9ed8b7e70439cb177b614b610a2f7424e1bd8c45` |
+| `docs/PROJECT_STATE.md` | `9759f9652f5793ce1abe00834e1f8d817ccec253` | `16fd01451d8ac955255c7ac6aa95fbd17c8fc47e` |
+| `docs/USER_ACTIONS.md` | `640f978741b0c78aea15433925aeb70411567fc2` | `e717ce549c348bd58bf51f62a837ed9b0350479d` |
+
+Owner evidence: clean main 484a7857e243ab8629b4056bb226b1dfea05806f; fixture and 146 migrations 010–155 applied; two CI inline assertions and SQL tests 1–27 passed; test 28 failed because upload reservation ignored `pin_regeneration_requests.result_pin.image_url`. Disposable database `pinposy_sqlint_d2afcaa5940843eb` was dropped and removal confirmed. Tests 29–46 were not run. Diagnosis: migration 107 introduced the replay payload guard; migration 145 replaced the function without it; migration 154 restored tombstone protection but still omitted the guard. This is a production SQL regression, not a fixture defect.
+
+Migration 156 restores the missing replay payload reference check in `begin_pin_image_upload()`, based on migration 154 and preserving the full current reference inventory, permanent deleted/quarantined path protection, and service-role-only execution. Historical migrations and the regression fixture remain unchanged. The migration chain and all local replay/CI paths now expect 147 contiguous migrations 010–156; CI explicitly applies migration 156. Source files were re-fetched and their final blob SHAs recorded above. Assistant did not run Node, PowerShell, psql, PostgreSQL, Bash or CI. Migration 156 and updated tests/scripts are not runtime-verified; owner must run Node (45 expected tests), Parser (0 syntax errors), then guarded SQL replay requiring all 46 tests and cleanup. Detailed chronology and safety constraints are in the audit and UA-027. Nine Bash concurrency scripts remain outside this runner.
