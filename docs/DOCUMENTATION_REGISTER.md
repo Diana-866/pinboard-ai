@@ -2,7 +2,7 @@
 
 **Repository:** Diana-866/pinboard-ai  
 **Branch:** main  
-**Source HEAD:** a48580b95b2ec136a52ec5eb12302e5c628ec0ac  
+**Source HEAD:** b3739d4575585e5422e40c1fc5b1198e5cdf9c92  
 **Inventory refreshed:** 2026-11-17  
 **Scope:** all documentation files under docs/ (Markdown and SQL), excluding this register itself.
 
@@ -21,7 +21,7 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 3 | `docs/MASTER_REQUIREMENTS.md` | `0891fc83d68de51acb298d1ad4da4f733a0499aa` | Reviewed/reconciled 2026-11-16; see audit reports |
 | 4 | `docs/PIN_TRIAL_MIGRATION_STATUS.md` | `2e0f66ccfa1ab9aeb71f80d299a5c4465e347d9e` | Owner-provided DB evidence; incomplete inventory |
 | 5 | `docs/PRODUCTION_READINESS_AUDIT.md` | `777ce34d539b3264b10554aa2cd731d436f080e2` | Reviewed/reconciled 2026-11-16; see audit reports |
-| 6 | `docs/PROJECT_STATE.md` | `0e59315fe5e25d8f9874030b9eff3c23a817f837` | Current operational source of truth; mandatory development activity journal rule added |
+| 6 | `docs/PROJECT_STATE.md` | `ac1682a540ddc207c1416cbc8dc7df08af7613c4` | Current operational source of truth; mandatory development activity journal rule added |
 | 7 | `docs/USER_ACTIONS.md` | `a3c49bd536dc05b12905cbd7762ab1109d37257d` | Current operational source of truth |
 | 8 | `docs/architecture/pin-image-deletion-claim-protocol.md` | `0957b13bae0632ce8e34a5675b4a06f6ef8477a4` | Inventory only; content review pending |
 | 9 | `docs/audits/2026-11-16-account-deletion-runbook-reconciliation.md` | `4d1fa6f8e78162abbb29a3487a776c2b1c3cf319` | Historical audit/evidence; applicability must be checked against current main/tests |
