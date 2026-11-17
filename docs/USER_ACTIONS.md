@@ -1581,3 +1581,63 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integra
 - При первой SQL ошибке остановиться и прислать полный вывод вместе с cleanup; следующие тесты считать невыполненными.
 - Не обходить guards, не менять порт/PID/data directory, не останавливать PID 15220, не трогать `X:\PinPosy-verify-pg18`, не использовать production/PIN_TRIAL.
 - Не запускать Bash concurrency/backend runtime suites до полного SQL PASS.
+
+
+## UA-017 — rerun after approved-pin fixture correction and Windows chain-contract correction (2026-11-17)
+
+**Статус:** ожидает действий владельца. PostgreSQL SQL integration **NOT PASSED**; тесты 29–46 ещё не запускались.
+
+### Что зафиксировано по последнему запуску
+- Checkout: clean synchronized `main` на `d0155f20da307fc774da18c1ba69e44b19dfcada`.
+- Node contract gate упал на устаревшем matcher: тест ожидал `10..152`, тогда как `scripts/verify.ps1` содержит актуальный диапазон `10..153`.
+- PowerShell Parser API для `scripts/verify-integration.ps1`: PASS, 0 syntax errors.
+- Несмотря на Node FAIL, guarded runner был запущен: fixture, 144 migrations 010–153 и две CI inline assertions прошли; SQL tests 1–27 прошли; test 28 упал при создании schedule snapshot с `only approved pins can be scheduled`. Migration 148 намеренно требует approved pin. Tests 29–46 не запускались.
+- Disposable DB `pinposy_sqlint_87acdec0a62c4574` успешно удалена, 0 оставшихся сессий.
+- Исправления опубликованы: schedule fixture теперь явно создаёт approved pin; Windows replay contract ожидает 10..153. Production SQL и migrations не менялись.
+- Подробности и SHA: `docs/audits/2026-11-17-postgres-integration-test-28-approved-pin-fixture-and-runner-contract.md`.
+
+### Строгая последовательность владельца
+
+1. Сначала синхронизировать GitHub main и подтвердить чистый checkout:
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Продолжать только на чистом `main`, когда HEAD совпадает с origin/main. Передать полный SHA.
+
+2. Выполнить Node gates:
+
+```powershell
+node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+```
+
+Требуется полный PASS. При любом FAIL — **СТОП**, прислать полный вывод; Parser и SQL runner не запускать.
+
+3. Только после Node PASS — PowerShell Parser API:
+
+```powershell
+$tokens = $null
+$errors = $null
+[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path .\\scripts\\verify-integration.ps1), [ref]$tokens, [ref]$errors) | Out-Null
+if ($errors.Count -gt 0) { $errors | Format-List *; exit 1 }
+"PowerShell Parser PASS: 0 syntax errors"
+```
+
+4. Только после обоих PASS — guarded PostgreSQL replay:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+```
+
+Пароль вводить только в скрытом prompt; пароль/токены/.env не присылать.
+
+### Критерий PASS и запреты
+- SQL PASS только если fixture, все 144 migrations 010–153, обе inline assertions, все 46 SQL tests и cleanup disposable DB завершились успешно.
+- При первой ошибке остановиться и прислать полный вывод вместе с cleanup. Последующие тесты считать невыполненными.
+- Не обходить guards, не менять порт/PID/data directory, не останавливать PID 15220, не трогать `X:\\PinPosy-verify-pg18`, не использовать production/PIN_TRIAL.
+- Не запускать Bash concurrency/backend runtime suites до полного SQL PASS.
