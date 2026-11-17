@@ -90,3 +90,14 @@ Preserve local PostgreSQL PID 15220, port 55439 and `X:\\PinPosy-verify-pg18`. N
 7. Created this audit and updated `docs/PROJECT_STATE.md`, `docs/USER_ACTIONS.md` and `docs/DOCUMENTATION_REGISTER.md` to preserve owner evidence, reasoning, exact changes, verification limits and next action.
 
 The assistant did not execute local Node, PowerShell, psql, PostgreSQL, Bash or CI commands. No credentials were accessed. No local or production database was accessed or modified.
+
+### 2026-11-17 — Owner Node preflight after test-38 fixture correction
+
+Owner synchronized local `main` from `62b2a859c8516fe98b174072d3642018d2dff419` to `d266f57da57f8219e5e1f42616111b32ad76d748` using fast-forward. The owner provided evidence that:
+- `git status --short` was empty before and after synchronization.
+- `HEAD` and `origin/main` both equalled `d266f57da57f8219e5e1f42616111b32ad76d748`.
+- The three-file Node preflight command completed with **47 tests, 47 pass, 0 fail, 0 cancelled, 0 skipped, 0 todo** (112.4228 ms).
+- The new contract test, “legacy Pinterest publication fixture reaches the unmapped-history fence with an approved pin”, passed.
+- This is owner-reported local Node evidence. It does not execute SQL, the PowerShell runner, PostgreSQL integration tests, Bash concurrency tests or CI.
+
+Next gate: synchronize the documentation-only commit(s) that record this result, confirm clean `main` and matching HEAD/origin, then run the guarded `scripts/verify-integration.ps1` command. Stop at the first SQL error and preserve full output/cleanup evidence. SQL suite still has not passed: previous run stopped at test 38/46; tests 39–46 were not run. The corrected test-38 SQL fixture remains unverified at runtime until this next guarded run. Do not claim 46/46 SQL PASS from the 47/47 Node result.
