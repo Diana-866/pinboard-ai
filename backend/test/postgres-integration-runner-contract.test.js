@@ -100,8 +100,8 @@ test('runner logs migration progress and inspects the preferred-language constra
 
 
 test('catalog diagnostic casts PostgreSQL internal char fields before text concatenation', () => {
-  assert.match(runner, /c\\.contype::text/);
-  assert.match(runner, /cl\\.relkind::text/);
+  assert.match(runner, /c\.contype::text/);
+  assert.match(runner, /cl\.relkind::text/);
 });
 
 test('runner emits database and users constraint diagnostics plus verbose SQL errors', () => {
