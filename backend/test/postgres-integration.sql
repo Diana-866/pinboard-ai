@@ -932,12 +932,18 @@ begin
   select count(*) into v_count from public.billing_webhook_exceptions
     where event_hash=repeat('a',64);
   if v_count <> 1 then raise exception 'webhook exception audit was not deduplicated'; end if;
-  if has_table_privilege('anon', 'public.billing_webhook_exceptions', 'INSERT')
+  if has_table_privilege('anon', 'public.billing_webhook_exceptions', 'SELECT')
+     or has_table_privilege('authenticated', 'public.billing_webhook_exceptions', 'SELECT')
+     or has_table_privilege('anon', 'public.billing_webhook_exceptions', 'INSERT')
      or has_table_privilege('authenticated', 'public.billing_webhook_exceptions', 'INSERT')
-     or has_table_privilege('service_role', 'public.billing_webhook_exceptions', 'SELECT')
+     or has_table_privilege('anon', 'public.billing_webhook_exceptions', 'UPDATE')
+     or has_table_privilege('authenticated', 'public.billing_webhook_exceptions', 'UPDATE')
+     or has_table_privilege('anon', 'public.billing_webhook_exceptions', 'DELETE')
+     or has_table_privilege('authenticated', 'public.billing_webhook_exceptions', 'DELETE')
+     or not has_table_privilege('service_role', 'public.billing_webhook_exceptions', 'SELECT')
+     or not has_table_privilege('service_role', 'public.billing_webhook_exceptions', 'INSERT')
      or has_table_privilege('service_role', 'public.billing_webhook_exceptions', 'UPDATE')
-     or has_table_privilege('service_role', 'public.billing_webhook_exceptions', 'DELETE')
-     or not has_table_privilege('service_role', 'public.billing_webhook_exceptions', 'INSERT') then
+     or has_table_privilege('service_role', 'public.billing_webhook_exceptions', 'DELETE') then
     raise exception 'billing webhook audit table privileges are too broad or insufficient';
   end if;
 
