@@ -479,3 +479,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration
 4. Передать полный вывод, exit code и cleanup confirmation без секретов. Если identity guard или любой preflight снова отказывает — остановиться и прислать точный вывод. Не обходить проверки, не редактировать настройки сервера вручную.
 
 До подтверждённых SQL integration PASS и удаления disposable DB Bash concurrency и backend runtime suites остаются заблокированы.
+
+
+### Canonical migration replay — do not ask the owner to repeat it (2026-11-17)
+
+The owner supplied the complete successful PowerShell transcript for the migration-only replay. It was run from `X:\\!PROGECT\\pinboard-ai` against PostgreSQL 18.6 at `127.0.0.1:55439`, data directory `X:/PinPosy-verify-pg18`, server encoding WIN1251 and client encoding UTF8. The guarded preflight checked branch `main`, clean tree, historical HEAD `ebb1040ac73e600dfdbfc57d8aa765f9713441a2`, SHA-256 object hashes for migration 140 and `scripts/verify.ps1`, PostgreSQL 18 `psql.exe`, and exactly one loopback listener on port 55439. The temporary role password was read as a SecureString, used only in the process environment, and the previous environment values and PATH were restored in `finally`.
+
+The command executed `scripts/verify.ps1 -MigrationsOnly -PostgresPort 55439`. It created disposable database `pinposy_verify_196929316b56e`, applied Supabase test stubs, `001_baseline.sql`, and all migrations `010–148` (139 migrations), then successfully dropped the disposable database. Explicit terminal evidence: `PASS PostgreSQL migration replay (001 + 010-148)`, `All configured checks passed.`, `MIGRATION REPLAY PASSED`. **This migration replay is PASS and must not be described as unrun.**
+
+This is not the later separate SQL integration runner and does not establish execution of its inline assertions or 46 SQL test files. Maintain separate statuses. Full procedure and safety interpretation are recorded in `docs/PROJECT_STATE.md` under “Canonical local PostgreSQL migration replay procedure”. Do not ask the owner to rerun this already successful replay merely to resolve the separate integration-runner identity-guard issue.
