@@ -821,3 +821,14 @@ Assistant performed GitHub source fetches, compared canonical baseline/migration
 | `docs/USER_ACTIONS.md` | `3d58151a0d741817f4bedba7fb902592467a6ae6` | `21e83dea3642629bd27f044647b47f28fccaddc0`; UA-011: sync, rerun Node contract gate first, then guarded PostgreSQL runner only after PASS |
 
 Owner runtime evidence: clean synchronized checkout at `0d31c813e39e420e26c5ebee0edadea1928df00d`; fixture, 140 migrations 010–149 and two inline assertions passed; SQL tests 1–17/46 passed; test 18 failed with `invalid pin count`; tests 19–46 did not run. Cleanup of disposable DB `pinposy_sqlint_ca5527ced768460b` was confirmed. Root cause was test-only: empty pin array was rejected by the save function before request status update and migration-072 trigger. No production code, migration, CI fixture/workflow, runner or database changed. Assistant performed source fetches/review, one SQL test correction, incident audit, state/action updates and documentation-register update; assistant did not execute local Node/PowerShell/psql/PostgreSQL. The corrected test and tests 19–46 remain runtime-unverified; SQL integration is **NOT PASSED**.
+
+
+### 2026-11-17 — повторный Node contract gate после test 18 correction: owner PASS
+
+| Path | Blob SHA | Commit / reason |
+|---|---|---|
+| `docs/audits/2026-11-17-postgres-integration-node-contract-after-test18-fix-pass.md` | pending post-publication fetch | dea86db006aff98fde94d21f2bf55a1e04d665d6; owner transcript, clean synchronized HEAD, Node 20/20 PASS, verification limits and next guarded SQL gate |
+| `docs/PROJECT_STATE.md` | cf9c78c21eb000e1deeff9b3b052158b61554b34 | 1c850d27c0bb884f40d892c072273cccd1126d41; chronological record of owner Node 20/20 PASS after test-18 test-only correction |
+| `docs/USER_ACTIONS.md` | 4ae132e3bb840a752cba317284d852eee4d3ef0b | 6dbfa3ca9f0dc2ed60b16cb226205e653f813e0e; UA-012: guarded PostgreSQL rerun instructions and stop/SQL-PASS criteria |
+
+Owner evidence: clean synchronized checkout at `6d982d1414490ed210502f834018a1a1a6d9d8a2`; Node contract suite returned 20 PASS / 0 FAIL. The PowerShell Parser API gate had previously returned 0 syntax errors and the runner source has not changed since that check. PostgreSQL SQL integration remains **NOT PASSED**: test 18 correction and tests 19–46 still require guarded runtime execution. Assistant did not execute local Node/PowerShell/psql/PostgreSQL.
