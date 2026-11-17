@@ -1460,3 +1460,63 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integra
 - Не запускать Bash concurrency/backend runtime suites до полного SQL PASS и cleanup.
 
 Подробный incident audit: `docs/audits/2026-11-17-postgres-integration-test-20-provider-refund-regex-repetition-limit.md`.
+
+
+## UA-015 — PostgreSQL integration rerun after test 26/46 privilege fix (2026-11-17)
+
+**Статус:** ожидает действий владельца. PostgreSQL SQL integration **NOT PASSED**.
+
+### Что исправлено
+- На owner run fixture, migrations 010–151 (142 файла), обе inline assertions и SQL tests 1–25 прошли.
+- Test 26/46 `security-definer-search-paths.integration.sql` обнаружил, что SECURITY DEFINER trigger function `release_failed_pin_regeneration_reservation()` доступна anon/authenticated из-за неотозванного default PUBLIC EXECUTE.
+- Добавлена migration 152, которая отзывает EXECUTE у PUBLIC, anon, authenticated и service_role. Historical migration 066 оставлена неизменной.
+- CI, migration-chain tests, Linux/Windows replay scripts и guarded runner обновлены на 143 миграции 010–152.
+- Подробности: `docs/audits/2026-11-17-postgres-integration-test-26-security-definer-trigger-execute.md`.
+
+### Следующие действия — строго по порядку
+
+1. Синхронизировать main и проверить чистое состояние:
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Продолжать только если branch `main`, worktree чистый и HEAD совпадает с origin/main. Запишите новый полный HEAD SHA.
+
+2. Запустить Node gates:
+
+```powershell
+node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+```
+
+Ожидается полный PASS. При любом FAIL остановиться и прислать полный вывод; SQL runner не запускать.
+
+3. После Node PASS выполнить PowerShell Parser API для обновлённого runner:
+
+```powershell
+$tokens = $null
+$errors = $null
+[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path .\scripts\verify-integration.ps1), [ref]$tokens, [ref]$errors) | Out-Null
+if ($errors.Count -gt 0) { $errors | Format-List *; exit 1 }
+"PowerShell Parser PASS: 0 syntax errors"
+```
+
+При ошибке — STOP, SQL runner не запускать.
+
+4. Только после обоих PASS выполнить guarded PostgreSQL runner:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+```
+
+Пароль временной роли вводить только в скрытом prompt; не присылать пароль/токены/.env.
+
+### Критерий SQL PASS и безопасность
+- PASS только если fixture, все **143 migrations 010–152**, обе CI inline assertions, все **46 ordered SQL tests** и cleanup disposable DB успешны.
+- При первой SQL ошибке — STOP и прислать полный вывод вместе с cleanup. Более поздние тесты считаются невыполненными.
+- Не обходить guards, не менять порт/PID/data directory, не останавливать PID 15220, не трогать `X:\PinPosy-verify-pg18`, не использовать production/PIN_TRIAL.
+- Не запускать Bash concurrency/backend runtime suites до полного SQL PASS и cleanup.
