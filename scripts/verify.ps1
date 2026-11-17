@@ -86,10 +86,10 @@ function Invoke-MigrationReplay {
             Sort-Object Name
     )
 
-    $expectedMigrationSequence = (10..153 | ForEach-Object { "{0:D3}" -f $_ }) -join ","
+    $expectedMigrationSequence = (10..154 | ForEach-Object { "{0:D3}" -f $_ }) -join ","
     $actualMigrationSequence = ($activeMigrations | ForEach-Object { $_.Name.Substring(0, 3) }) -join ","
-    if ($activeMigrations.Count -ne 144 -or $actualMigrationSequence -ne $expectedMigrationSequence) {
-        Write-Host "Expected the exact contiguous migration sequence 010-153 (144 files); found $($activeMigrations.Count) files with sequence: $actualMigrationSequence. Refusing an incomplete or unexpected replay." -ForegroundColor Red
+    if ($activeMigrations.Count -ne 145 -or $actualMigrationSequence -ne $expectedMigrationSequence) {
+        Write-Host "Expected the exact contiguous migration sequence 010-154 (145 files); found $($activeMigrations.Count) files with sequence: $actualMigrationSequence. Refusing an incomplete or unexpected replay." -ForegroundColor Red
         return $false
     }
 
@@ -222,7 +222,7 @@ if (-not $MigrationsOnly) {
 if ($Migrations -or $MigrationsOnly) {
     $migrationResult = Invoke-MigrationReplay
     if ($migrationResult) {
-        $Summary.Add("PASS  PostgreSQL migration replay (001 + 010-153)")
+        $Summary.Add("PASS  PostgreSQL migration replay (001 + 010-154)")
     } else {
         $Summary.Add("FAIL  PostgreSQL migration replay (001 + 010-153)")
         $Failed = $true
