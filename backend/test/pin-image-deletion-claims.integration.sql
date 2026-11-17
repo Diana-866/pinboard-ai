@@ -391,10 +391,12 @@ begin
 
   insert into public.pin_generation_tasks(
     generation_request_id, user_id, board_id, task_index,
-    title, prompt, model, aspect_ratio, storage_url
+    title, prompt, model, aspect_ratio, storage_url,
+    status, provider_outcome_status
   ) values (
     v_request_id, v_user_id::text, v_board_id, 1,
-    'Lifecycle test', 'Lifecycle test prompt', 'test-model', '2:3', v_task_url
+    'Lifecycle test', 'Lifecycle test prompt', 'test-model', '2:3', v_task_url,
+    'failed', 'failed'
   );
 
   update public.pin_generation_requests set status = 'completed' where id = v_request_id;
