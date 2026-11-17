@@ -740,3 +740,14 @@ Assistant actions for this review: fetched current GitHub baseline, migrations 1
 | 411 | `docs/USER_ACTIONS.md` | `c2141b0bd6e852ae32d0aeb2b304555dfea75512` | `808b069944c972cd9a53c3b93e7ce112c7b9d9a9`; adds UA-005 for Node and guarded SQL verification |
 
 | 412 | `docs/PROJECT_STATE.md` | `ff49594c143b8f23011356fe6f15ba9c2d19f3dd` | `252ddef022086fb2d7fed82d6c2fabdd26384417`; records final source-level verification, current main HEAD, Vercel build-rate-limit status, pending runtime gate and migration-023 assertion follow-up |
+
+## 2026-11-17 — schema-contract inventory: corrected migration chronology and current runtime gate
+
+| Path | Blob SHA | Commit / reason |
+|---|---|---|
+| `backend/test/postgres-integration-runner-contract.test.js` | `daceb31d99230b409c487cc39d10dc3ee1ef7102` | `565e8775d5af05f486f8cc1ac75f15edba74aa35`; assert token_version first appears in migration 023 and is reasserted in 055; 20 top-level tests |
+| `docs/audits/2026-11-17-postgres-upgrade-fixture-timestamp-contract.md` | `27ef50d870805e7e67b0f8563785592e0465150e` | `20575ae33c5cac24f59cbd06a5c5592c0c5c9d8a`; full 140-migration/46-test source inventory, fixture contract and CI evidence |
+| `docs/PROJECT_STATE.md` | `68e15ff104744678db3f20717d099e22b28b1a53` | `20575ae33c5cac24f59cbd06a5c5592c0c5c9d8a`; corrected schema-contract chronology, CI state and open runtime gate |
+| `docs/USER_ACTIONS.md` | `57253a891ad243501d606c7299d28de793714a71` | `20575ae33c5cac24f59cbd06a5c5592c0c5c9d8a`; UA-006 supersedes stale UA-005 test count and pinned HEAD |
+| `backend/test/postgres-integration-upgrade-fixture.sql` | `0d1236b722193fb18e4bbd2d0bd258c018d4cd77` | `dd518aed667e5a7657617e4c40cbdcd9e0e04b77`; complete legacy baseline columns and aligned timestamps |
+| `.github/workflows/atomic-payment-integration.yml` | `b8bee6bba38d25afdaaa015f8027c4aefd722346` | `a09dfea5051c563b5bad3509adf928ff21463720`; CI fixture parity and complete migrations 010–149 |
