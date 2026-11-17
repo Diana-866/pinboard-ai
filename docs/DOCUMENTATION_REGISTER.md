@@ -674,3 +674,14 @@ The following files were added or updated after the inventory snapshot above. Th
 | `docs/audits/2026-11-17-postgres-integration-durable-queue-storage-manifest-guard.md` | `8cd8fbbb9db25e40e8d1a6fc8eb623083099e006` | New incident audit: owner run, source-level root cause, test-only correction, verification limits and next step |
 | `docs/PROJECT_STATE.md` | `eadc404bc351d7460145d93e7ece7547541e89c8` | Current project state and chronological record of the 2026-11-17 owner run and assistant changes |
 | `docs/USER_ACTIONS.md` | `c2d2b94ac5b8510513377e496ac0f461a9dfd8e7` | Owner transcript, safety boundaries and exact next verification commands |
+
+
+### 2026-11-17 — SQL integration test 8/46: boards.cover_url fixture mismatch
+
+- Owner evidence: synchronized checkout `546492915c1861b834098a1dace2e5c585e847d9`; Node contract suite 16/16 PASS; guarded runner applied fixture, all 140 migrations 010–149 and two inline assertions; SQL tests 1–7/46 PASS; test 8/46 failed because `boards.cover_url` was absent. Disposable DB `pinposy_sqlint_452f781659d544cd` cleanup confirmed; tests 9–46 not run; SQL integration NOT PASSED.
+- Source diagnosis: baseline blob `105a13cfba4746206191dcf2bd68d5514912f08c` contains `boards.cover_url text`; both fixtures omitted it. Migration 141 blob `5726de6afb213dc1757d22bea19f7862efca7579` reads the column when materializing board-cover Storage objects.
+- Added column to CI workflow fixture: blob `959399fc34989298ac060bd42a605312d7c86073`, commit `5b91890019f8a2758686946fcf85ce9de9f2eb5e`.
+- Added column to standalone upgrade fixture: blob `e57795b598e16939952f180ac36bc942336d0444`, commit `1783ba84a3d30454445c909459dfc559510128bb`.
+- Added contract assertion and corrected over-escaped regex draft before owner execution. Final contract blob `d65c73d1ccc992e968e70030d79e32b05768a578`, commit `40ec7a2aa9b5106b6c4a20a96d07eb6aa27e43b9`; 17 top-level tests by source inspection, not yet run.
+- Incident audit `docs/audits/2026-11-17-postgres-integration-storage-manifest-board-cover-fixture.md`, commit `6d2230a98fab683d67e1cecd54cb966e68f02223`.
+- Assistant did GitHub source inspection and edits only; no local test execution. Project state, owner action log and this register were updated after the source commits; re-fetch verification follows.
