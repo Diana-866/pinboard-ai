@@ -1443,3 +1443,17 @@ This section records the exact owner-provided PowerShell procedure. Treat it as 
 - Создан audit `docs/audits/2026-11-17-postgres-integration-test-15-text-uuid-mismatch.md`, blob `c3f22112b3af2ed96c74494244a504608d07f03b`, commit `38db89adce46fc543196d853de7fd55f17adca4c`; в нём сохранены owner transcript, точная причина, источники типов, изменение, cleanup, проверки и ограничения.
 - Assistant не запускал PowerShell, psql или PostgreSQL; runtime evidence принадлежит owner transcript. SQL test correction пока не исполнена повторно.
 - Следующий шаг: владелец синхронизирует новый main, проверяет clean worktree и HEAD=origin/main, затем повторно запускает неизменённый guarded runner. SQL integration остаётся NOT PASSED до успешных 46/46 tests и подтверждённого cleanup.
+
+
+### 2026-11-17 — PostgreSQL integration test 18/46: invalid completion payload masked refund guard
+
+- Владелец синхронизировал clean main с `d736814d` до `0d31c813`; `HEAD=origin/main=0d31c813e39e420e26c5ebee0edadea1928df00d`. Guarded runner подтвердил PID 15220, `X:\\PinPosy-verify-pg18` и точную identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+- Fixture, 140 migrations 010–149 и две inline assertions прошли. SQL tests 1–17/46 прошли. Test 18/46 `provider-refund-reconciliation-guard.integration.sql` упал с `invalid pin count`; tests 19–46 не запускались. SQL integration **NOT PASSED**.
+- Cleanup подтверждён: disposable DB `pinposy_sqlint_ca5527ced768460b` удалена; runner вывел `Removed disposable database ...`.
+- Assistant fetched failing test and migrations 012, 045, 046, 054, 063, 064, 066, 071, 072, 073, 074, 075, 077. Source diagnosis: test пытался вызвать completion с пустым JSON array. Completion function migration 054 сначала вызывает `save_generated_pins_and_charge`; эта функция отвергает пустой массив (`invalid pin count`) до UPDATE request status, поэтому ожидаемый trigger из migration 072 не достигался. Это дефект тестового входа, а не доказанный production defect.
+- Исправлен только `backend/test/provider-refund-reconciliation-guard.integration.sql`: вместо пустого массива передан один валидный pin payload (`image_url`, `title`, `model_used`, `aspect_ratio=2:3`, `credits_cost=1`, amount=1), чтобы пройти input validation и проверить именно refund guard при смене request status. Commit `ea2016eed79de2854785f53d9d77a0d485d57d76`, blob `1ae496bdd596c848d18dc33a8f50e90de7b9cb78`.
+- Создан audit `docs/audits/2026-11-17-postgres-integration-test-18-invalid-pin-count-test-input.md`, commit `f54c93396d1e6da7e6e266570bf6531930cfed52`. В нём сохранены owner transcript, root cause, проверенные migrations, точный diff, cleanup, assistant action log и runtime limitations.
+- Assistant не запускал локальный Node, PowerShell, psql или PostgreSQL; все runtime результаты выше взяты из owner transcript. Исправленный test 18 и tests 19–46 ещё не исполнены.
+- Production code, migrations, CI fixture/workflow, runner, production/PIN_TRIAL и persistent verification cluster не менялись.
+- **Текущий gate:** Node contract 20/20 PASS (предыдущий owner transcript); PowerShell Parser 0 syntax errors PASS (предыдущий owner transcript); PostgreSQL SQL integration **NOT PASSED**.
+- Следующий шаг: синхронизировать опубликованное изменение и документацию, затем повторить Node contract suite. Только при полном PASS разрешён новый guarded runner по UA-011; при первом SQL failure — STOP и сохранить cleanup output.
