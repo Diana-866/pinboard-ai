@@ -2774,3 +2774,6 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 \`\`\`
 
 Use only the approved local verification cluster (PID 15220, port 55439, X:\PinPosy-verify-pg18). Enter the temporary-role password only at the hidden prompt; never send it. Stop at the first SQL error and include all output and cleanup. Do not touch production/PIN_TRIAL, bypass runner guards, or run SQL manually. Full SQL PASS requires all 46/46 SQL tests and confirmed disposable DB cleanup. Nine Bash concurrency scripts remain a separate unverified gate.
+
+
+Assistant documentation note: two JavaScript wrapper SyntaxErrors occurred while preparing this incident's documentation payloads. Both occurred before any GitHub write from the failed attempt; neither changed the repository. Both were retried successfully. See the linked test-38 audit for the full action chronology. These were documentation tooling errors, not owner command failures.
