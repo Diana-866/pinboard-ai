@@ -1520,3 +1520,64 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integra
 - При первой SQL ошибке — STOP и прислать полный вывод вместе с cleanup. Более поздние тесты считаются невыполненными.
 - Не обходить guards, не менять порт/PID/data directory, не останавливать PID 15220, не трогать `X:\PinPosy-verify-pg18`, не использовать production/PIN_TRIAL.
 - Не запускать Bash concurrency/backend runtime suites до полного SQL PASS и cleanup.
+
+
+## UA-016 — rerun PostgreSQL integration after image deletion quarantine fix (2026-11-17)
+
+**Статус:** ожидает действий владельца. PostgreSQL SQL integration **NOT PASSED**.
+
+### Что произошло на предыдущем запуске
+- На clean synchronized HEAD `b9ff75ba8342417a93386a01a09e569b9266a4f5`: Node suite 40/41 PASS; один contract test упал, потому что динамический RegExp helper не извлекал существующую таблицу `users`. PowerShell Parser прошёл: 0 syntax errors.
+- Несмотря на Node FAIL, владелец запустил guarded runner. Fixture, 143 migrations 010–152 и обе inline assertions прошли; SQL tests 1–27/46 PASS; test 28 `pin-image-deletion-claims.integration.sql` упал: expired external delete claim был повторно захвачен с новой 60-секундной lease, а не переведён в permanent quarantine. Tests 29–46 не запускались.
+- Cleanup успешен: 0 sessions, disposable DB удалена, отсутствие подтверждено.
+- Причина production regression: migration 145 расширила image-reference inventory, но переопределением `claim_pin_image_deletion` вернула retry behavior, нарушив quarantine policy migrations 083/104.
+- Исторические migrations не менялись. Добавлена additive migration 153, сохраняющая expanded references и permanent quarantine. Node RegExp helper исправлен. CI, migration chain, Linux/Windows replay scripts и guarded runner обновлены на 144 migrations 010–153.
+- Подробный отчёт: `docs/audits/2026-11-17-postgres-integration-test-28-expired-image-delete-quarantine-regression.md`.
+
+### Следующие действия — строго по порядку
+
+1. Синхронизировать main и проверить чистое состояние:
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Продолжать только если branch `main`, worktree чистый и HEAD совпадает с origin/main. Зафиксировать полный SHA нового HEAD.
+
+2. Запустить Node gates:
+
+```powershell
+node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+```
+
+Ожидается полный PASS. При любом FAIL — **СТОП**, прислать полный вывод; Parser и SQL runner не запускать.
+
+3. Только после Node PASS выполнить PowerShell Parser API:
+
+```powershell
+$tokens = $null
+$errors = $null
+[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path .\scripts\verify-integration.ps1), [ref]$tokens, [ref]$errors) | Out-Null
+if ($errors.Count -gt 0) { $errors | Format-List *; exit 1 }
+"PowerShell Parser PASS: 0 syntax errors"
+```
+
+При syntax error — **СТОП**, SQL runner не запускать.
+
+4. Только после обоих gate PASS выполнить guarded PostgreSQL runner:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+```
+
+Пароль временной роли вводить только в скрытом prompt. Не присылать пароль, токены или `.env`.
+
+### Критерий PASS и безопасность
+- PostgreSQL integration PASS только при успешном fixture, всех **144 migrations 010–153**, обеих CI inline assertions, всех **46 ordered SQL tests** и подтверждённом cleanup disposable DB.
+- При первой SQL ошибке остановиться и прислать полный вывод вместе с cleanup; следующие тесты считать невыполненными.
+- Не обходить guards, не менять порт/PID/data directory, не останавливать PID 15220, не трогать `X:\PinPosy-verify-pg18`, не использовать production/PIN_TRIAL.
+- Не запускать Bash concurrency/backend runtime suites до полного SQL PASS.
