@@ -2868,3 +2868,14 @@ Stop at the first SQL failure. Preserve the complete output, including the clean
 **Afterward:** provide the full Node and runner output (redacting any accidental secrets). If SQL passes, the next project gate is the nine Bash concurrency scripts; do not start them before SQL PASS. If blocked by local environment, record the exact stop and continue only independent tasks.
 
 **Assistant-side review in this continuation:** checked current main/history and the controlling docs; reviewed the remaining eight SQL test sources at a targeted static level; observed Vercel `build-rate-limit`. No runtime commands or database access were performed by the assistant. Full action record: `docs/audits/2026-11-17-development-continuation-sql-gate.md`.
+
+
+### UA-036 — Resolve the Prodamus GitHub Actions run after CI coverage repair (2026-11-17)
+
+**Reason:** Prodamus checkout workflow now includes ambiguous checkout and billing security regression tests in both push/PR path filters and the Node invocation. The source-contract test was corrected, but GitHub Actions run `44171126761` for commit `75ad3fdd0e7988d4a56fe464341c475ca0edf079` initially failed. A failed-job rerun was queued. The available API log download returned 404 `BlobNotFound`, and step details were empty, so the exact cause is not yet known.
+
+**Owner action only if rerun remains failed or logs are unavailable:** open <https://github.com/Diana-866/pinboard-ai/actions/runs/44171126761>, select the latest attempt, inspect the failed `checkout-regressions` job, and download/copy its complete log. Provide the error section and failing step, with secrets redacted. Do not rerun unrelated jobs repeatedly. If the run is green, send the run URL and its four-test summary.
+
+The workflow must execute exactly these four files in its Node command: `test/prodamus-webhook.test.js`, `test/payment-creation-settlement.test.js`, `test/prodamus-ambiguous-checkout.test.js`, `test/billing-security-contract.test.js`. No test should be skipped or weakened.
+
+The separate PostgreSQL integration owner action UA-035 remains open and unchanged: sync clean main, run the three-file Node preflight (47/47 expected), then only on success run the guarded disposable PostgreSQL runner; require 46/46 SQL tests plus cleanup. Do not connect to production or use PIN_TRIAL. These two CI/local gates are independent.
