@@ -1,4 +1,6 @@
 -- Run after canonical migrations 127-129 in the disposable CI database.
+-- The RPC also writes durable queue/event rows; isolate this test with rollback.
+begin;
 -- Covers the password re-authentication/version race and idempotent receipt.
 
 do $$
@@ -58,8 +60,7 @@ begin
     raise exception 'duplicate request incremented token_version twice';
   end if;
 
-  delete from public.account_deletion_requests where user_id in (v_ok,v_stale);
-  delete from public.users where id in (v_ok,v_stale);
   raise notice 'Account deletion re-authentication fencing checks passed';
 end;
 $$;
+rollback;
