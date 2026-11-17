@@ -1370,3 +1370,13 @@ This section records the exact owner-provided PowerShell procedure. Treat it as 
 - **Runtime status:** Node contract suite, PowerShell parser/runtime, PostgreSQL replay, 46 SQL integration tests, Bash concurrency и backend/frontend runtime tests ассистентом не запускались. SQL integration остаётся **NOT PASSED**. Combined Vercel SUCCESS наблюдался только для предыдущего commit `bd0d973...`; он не подтверждает deploy/build новых commits.
 - Production migrations, application code, production/PIN_TRIAL, Supabase, платежи, Pinterest, DNS и пользовательский PostgreSQL cluster не менялись. Секреты не запрашивались и не читались.
 - Чекбоксы runtime этапов не закрывались. Следующий gate — владелец синхронизирует clean main и запускает Node contract suite (21 тест); только при полном PASS разрешён guarded PostgreSQL runner. Подробное задание и стоп-условия записаны в `docs/USER_ACTIONS.md` (UA-005).
+
+
+### 2026-11-17 — итоговая сверка документации и текущего CI статуса
+
+- После фиксации schema-contract отчёта обновлены `docs/PROJECT_STATE.md`, `docs/USER_ACTIONS.md` (UA-005) и `docs/DOCUMENTATION_REGISTER.md`; register commit на момент этой записи: `0422ead84ee6f93ff22508dd0a71d03571479534`.
+- Повторный fetch подтвердил актуальные blobs: fixture `0d1236b722193fb18e4bbd2d0bd258c018d4cd77`, CI workflow `b8bee6bba38d25afdaaa015f8027c4aefd722346`, contract test `3242ba970ab898fb14971cbabab7fe6293b2af95`, PROJECT_STATE `72f95b790693103ee86341bf8c40f2d191c7eb9a`, USER_ACTIONS `c2141b0bd6e852ae32d0aeb2b304555dfea75512`, DOCUMENTATION_REGISTER `601f520a68effcc7dd338a29e6930a4f65278436`.
+- Статические проверки повторно PASS: standalone fixture = CI heredoc после нормализации; оба timestamp types соответствуют baseline; assertion для auth_tokens присутствует; 21 contract test declaration обнаружен; отчёт есть в PROJECT_STATE и DOCUMENTATION_REGISTER; UA-005 есть в USER_ACTIONS.
+- Последний main commit на момент проверки: `0422ead84ee6f93ff22508dd0a71d03571479534`. Combined status этого commit: Vercel FAILURE с target `build-rate-limit`. Это quota/rate-limit indicator, не доказательство ошибки кода и не успешная сборка/деплой. Vercel SUCCESS, наблюдавшийся на более раннем commit `bd0d973...`, не переносится на текущий HEAD.
+- Доступный commit-workflow endpoint вернул пустой список PR-triggered workflow runs для исходного code commit; он не является полным списком push-triggered runs. Node, PowerShell, PostgreSQL, Bash, backend/frontend runtime suites не выполнялись. SQL integration остаётся **NOT PASSED**.
+- Следующее действие владельца — UA-005. До получения фактического Node PASS SQL runner не запускать. Ни один runtime checkbox не закрыт.
