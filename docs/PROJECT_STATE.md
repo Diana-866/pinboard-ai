@@ -1914,3 +1914,14 @@ Verification boundary:
 - Owner evidence: Node 46/46 PASS on the pre-correction source snapshot; fixture PASS; migrations 010–156 PASS; inline assertions 2/2 PASS; SQL tests 1–37 PASS; SQL test 38 FAIL; tests 39–46 NOT RUN; disposable DB cleanup PASS.
 - The new SQL fixture correction and Node contract assertion are NOT RUNTIME-VERIFIED. Expected Node gate count is now 47/47; rerun it after synchronization.
 - Next: owner synchronizes latest main and runs the three-file Node gate; require 47/47 PASS before another guarded PostgreSQL run. Full SQL PASS still requires all 46/46 SQL tests and confirmed cleanup. Nine Bash concurrency scripts remain a separate unverified gate.
+
+### 2026-11-17 — Owner Node preflight after test-38 fixture correction
+
+Owner synchronized local `main` from `62b2a859c8516fe98b174072d3642018d2dff419` to `d266f57da57f8219e5e1f42616111b32ad76d748` using fast-forward. The owner provided evidence that:
+- `git status --short` was empty before and after synchronization.
+- `HEAD` and `origin/main` both equalled `d266f57da57f8219e5e1f42616111b32ad76d748`.
+- The three-file Node preflight command completed with **47 tests, 47 pass, 0 fail, 0 cancelled, 0 skipped, 0 todo** (112.4228 ms).
+- The new contract test, “legacy Pinterest publication fixture reaches the unmapped-history fence with an approved pin”, passed.
+- This is owner-reported local Node evidence. It does not execute SQL, the PowerShell runner, PostgreSQL integration tests, Bash concurrency tests or CI.
+
+Next gate: synchronize the documentation-only commit(s) that record this result, confirm clean `main` and matching HEAD/origin, then run the guarded `scripts/verify-integration.ps1` command. Stop at the first SQL error and preserve full output/cleanup evidence. SQL suite still has not passed: previous run stopped at test 38/46; tests 39–46 were not run. The corrected test-38 SQL fixture remains unverified at runtime until this next guarded run. Do not claim 46/46 SQL PASS from the 47/47 Node result.
