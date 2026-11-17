@@ -536,3 +536,13 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 - Updated `docs/USER_ACTIONS.md`: blob `5dd62234e6e7cda721dd9ac9d32532a35d59e4c6`, commit `3fd024e2f58aaf71be3f936aa4bf53b4d2ccd778`.
 - Updated audit `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`: blob `e59353eb22ef58dc2eff1dd278b522d730193baf`, commit `fcb3414b40d2787d973583b5d0908bf80fa45cd9`.
 - All three chronological documents record the owner transcript, why this check was performed, exact result, what it does not prove, assistant retrieval/documentation actions, and next step. SQL integration remains NOT PASSED pending a full guarded run and confirmed cleanup.
+
+
+### 2026-11-17 runner launch blocked by execution policy
+
+- Owner's direct `.\scripts\verify-integration.ps1` invocation was rejected before script body execution: `PSSecurityException / UnauthorizedAccess`, scripts disabled by system execution policy. No database or SQL test stage was reached.
+- Current source reviewed: runner blob `74c128b4c6933b8b5aba888e4abeb01200df2ab6`; contract test blob `902a0d700a1b145d7e48ad5f0cc856c5bd6f99a1`.
+- Updated `docs/PROJECT_STATE.md`: blob `af6d7c0310f8360770eca142ba4b5441b20a6724`, commit `c436b55ec9c9628dcad065f3d8aa020ef7bef8b0`.
+- Updated `docs/USER_ACTIONS.md`: blob `b36b978b7ce50904b38abda73f19cb7f4c117140`, commit `1927e29f01638664debdb36c66bf3e236603f2ec`.
+- Updated audit `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`: blob `c2383332a5612c992e8d28efe7c27fa8e7d5d35b`, commit `7687f11667a2e56fb86699b1db2eb0b907e7613d`.
+- The chronology includes the owner error transcript, assistant retrieval and source-inspection actions, why the script did not run, security boundaries and process-scoped retry command. Retry: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1`; no persistent policy changes, no secrets in command line/chat. SQL integration remains NOT PASSED.
