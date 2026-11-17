@@ -832,3 +832,5 @@ node --test backend/test/postgres-integration-runner-contract.test.js
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
 ```
 Пароль — только в скрытом prompt. Прислать полный вывод. Не запускать runner, если Node suite падает или HEAD не совпадает с origin/main. SQL integration пока **NOT PASSED**.
+
+- Follow-up: assistant reviewed its newly added contract assertion before asking owner to run it, caught over-escaped regex patterns, and replaced them with literal `indexOf`/`includes` checks. Final contract blob `4681aa4ab8155a0c5c8b649e35bfdd3085fd8d2f`, commit `ace9c270f8ad789a0135cdbe4c0b1bceac768e4e`. Node suite has **not** been run after this final correction; keep the 15-test execution as the next owner gate.
