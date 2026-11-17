@@ -309,6 +309,25 @@ test('Pinterest publication fixtures satisfy the approved-pin precondition befor
   const migration = read('db/migrations/148_atomic_pin_publication_status_fencing.sql');
   assert.match(publicationTest, /multi-account\.png', 'Multi account', '', 'approved', 'flux-schnell', 0\)/i, 'the primary pin is published immediately and must be approved');
   assert.match(publicationTest, /legacy\.png', 'Legacy pin', '', 'approved', 'flux-schnell', 0\)/i, 'the legacy-history pin must pass the approval guard to reach the history fence');
+  const scheduledFixtures = [
+    [/inflight\.png', 'In-flight pin', '', 'approved', 'flux-schnell', 0\)/i, 'in-flight schedule pin must be approved'],
+    [/pre-journal-crash\.png', 'Pre-journal crash', '', 'approved', 'flux-schnell', 0\)/i, 'pre-journal recovery pin must be approved'],
+    [/safe-crash\.png', 'Safe crash', '', 'approved', 'flux-schnell', 0\)/i, 'safe-crash recovery pin must be approved'],
+    [/unsafe-crash\.png', 'Unsafe crash', '', 'approved', 'flux-schnell', 0\)/i, 'unsafe-crash recovery pin must be approved'],
+    [/retry\.png', 'Retry pin', '', 'approved', 'flux-schnell', 0\)/i, 'retry-backoff pin must be approved'],
+    [/manual-retry\.png', 'Manual retry pin', '', 'approved', 'flux-schnell', 0\)/i, 'manual-retry pin must be approved'],
+    [/attempt-retry\.png', 'Attempt retry pin', '', 'approved', 'flux-schnell', 0\)/i, 'attempt-retry pin must be approved'],
+    [/safe-retry\.png', 'Safe retry pin', '', 'approved', 'flux-schnell', 0\)/i, 'safe-retry pin must be approved'],
+    [/disconnect-race\.png', 'Disconnect race', '', 'approved', 'flux-schnell', 0\)/i, 'disconnect-race pin must be approved']
+  ];
+  for (const [fixture, message] of scheduledFixtures) {
+    assert.match(publicationTest, fixture, message);
+  }
+  const scheduleGuardStart = migration.indexOf('create or replace function public.guard_pin_schedule_insert_requires_approved_pin()');
+  assert.notEqual(scheduleGuardStart, -1, 'schedule insert approval guard must exist');
+  const scheduleGuardBody = migration.slice(scheduleGuardStart, migration.indexOf('$function$;', scheduleGuardStart));
+  assert.match(scheduleGuardBody, /if v_status is distinct from 'approved' then[\s\S]*?only approved pins can be scheduled/i);
+  assert.match(migration, /create trigger guard_pin_schedule_insert_requires_approved_pin\s+before insert on public\.pin_schedules/i);
   assert.match(publicationTest, /legacy publication history did not reach the manual-reconciliation fence: %/i);
   const functionStart = migration.indexOf('create or replace function public.begin_pinterest_publish_v2(');
   assert.notEqual(functionStart, -1, 'active publication reservation function must exist');
