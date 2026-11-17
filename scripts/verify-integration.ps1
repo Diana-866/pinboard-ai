@@ -90,10 +90,10 @@ try {
 
     $migrationDirectory = Join-Path $repoRoot 'db/migrations'
     $migrations = @(Get-ChildItem -LiteralPath $migrationDirectory -Filter '*.sql' -File |
-        Where-Object { $_.Name -match '^(\d{3})_' -and [int]$Matches[1] -ge 10 -and [int]$Matches[1] -le 155 } |
+        Where-Object { $_.Name -match '^(\d{3})_' -and [int]$Matches[1] -ge 10 -and [int]$Matches[1] -le 156 } |
         Sort-Object { [int]($_.Name.Substring(0,3)) })
-    if ($migrations.Count -ne 146) { throw "Expected 146 active migrations 010-155; found $($migrations.Count)." }
-    for ($i = 0; $i -lt 146; $i++) {
+    if ($migrations.Count -ne 147) { throw "Expected 146 active migrations 010-156; found $($migrations.Count)." }
+    for ($i = 0; $i -lt 147; $i++) {
         if ([int]$migrations[$i].Name.Substring(0,3) -ne ($i + 10)) { throw "Migration sequence gap at prefix $($i + 10)." }
     }
 
@@ -161,7 +161,7 @@ try {
 
     Write-Host 'Applying CI legacy/upgrade fixture.'
     Invoke-Psql -Database $createdDatabase -PsqlArguments @('-f',$fixturePath)
-    Write-Host 'Applying 146 migrations 010-155.'
+    Write-Host 'Applying 147 migrations 010-156.'
     foreach ($migration in $migrations) {
         if ($migration.Name.StartsWith('039_')) {
             Invoke-Psql -Database $createdDatabase -PsqlArguments @('-c','GRANT ALL ON public.pinterest_accounts, public.pinterest_publications TO anon, authenticated;')
