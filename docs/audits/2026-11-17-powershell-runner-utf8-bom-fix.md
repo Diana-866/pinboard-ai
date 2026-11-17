@@ -253,3 +253,16 @@ Runner commit `b5b43c86213209e1cacefd8807fce188439dc11d`; blob `d1137519b254f31a
 Two contract tests were added for scoped stderr handling/exit-code capture/restoration and scoped UTF-8 decoding/restoration. Test commit `e24511b5219315928baefb3563ef959c16cc86ec`; blob `088c23d854c9be56320b2728f1e4cbe6b107f8a5`. Assistant re-fetched both files and confirmed source text and 12 test declarations. No test execution or PowerShell/PostgreSQL runtime was available to assistant; do not claim PASS.
 
 Next: owner synchronizes after all documentation commits, runs `node --test backend/test/postgres-integration-runner-contract.test.js`, runs the PowerShell parser check, and invokes the guarded integration runner. New output should reveal the true psql exit code and UTF-8 ERROR if one exists. Only then diagnose migration 018. SQL integration remains NOT PASSED.
+
+
+## 19. Owner retest: PowerShell runner now reaches SQL integration tests (2026-11-17)
+
+Owner synchronized local main to `c047f44cce666e6dbe844cf318a4b314dd60040c`. Node runner-contract tests passed **12/12**; Windows PowerShell Parser API reported **PASS**. The guarded runner verified the approved temporary PostgreSQL server identity, applied the fixture, all 139 migrations 010–148, and both inline CI assertions.
+
+It then started the ordered 46 SQL integration tests. Test 1, `pinterest-unknown-schedule-reconciliation.integration.sql`, failed at line 110 with PostgreSQL error `schedule remote pin identity conflict incorrectly promoted schedule` (psql exit 3). The runner cleaned up the disposable DB `pinposy_sqlint_b39373fd69614fe7` and explicitly printed its removal. Tests 2–46 did not run. SQL integration is NOT PASSED.
+
+This demonstrates the earlier PowerShell stderr/exit-code handling patch allowed execution to pass migration 018 and all remaining migrations and reach SQL tests. Some NOTICE context remains mojibake, but the assertion error and psql exit code were captured correctly.
+
+Assistant inspected test blob `20f04be636298e0cdb33ce1725cd2558e4121e9e`, migrations 091, 092, 093 and 148. Migration 093's source contains a remote-ID equality guard in the reconciliation function; migration 148 does not redefine it. The failing test intentionally places `remote-already-recorded` on the schedule while attempt and publication ledger agree on `remote-confirmed-123`. Static source and runtime result therefore disagree. Do not infer a root cause or modify the migration speculatively.
+
+Detailed evidence and next steps are recorded in `docs/audits/2026-11-17-pinterest-unknown-schedule-reconciliation-test-failure.md`. Next diagnostic: add failure-only assertion details showing the reconciliation row count, actual schedule status/remote ID, and effective runtime function definition using `pg_get_functiondef`; inspect effective `claim_due_pin_schedules(integer)` and any later migration overrides. Preserve the existing test expectation and guarded disposable DB boundaries.
