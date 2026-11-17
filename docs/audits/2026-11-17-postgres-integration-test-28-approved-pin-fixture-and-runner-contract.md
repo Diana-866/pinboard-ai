@@ -48,7 +48,7 @@ No production migration, production function, workflow, runner script, database,
 2. Compared the failing SQL statement with migration 148's approved-pin trigger.
 3. Located the schedule-snapshot fixture insertion and changed only its status to `approved`.
 4. Compared the failing Node assertion with current `scripts/verify.ps1` and updated the expected upper bound from 152 to 153.
-5. The first attempt to update the Node assertion used an incorrect exact-match escape string and made no repository change; the assertion was re-fetched and then updated successfully. This failed attempt is retained here for chronology.
+5. The first attempt to update the Node assertion used an incorrect exact-match escape string and made no repository change; the assertion was re-fetched and then updated successfully. During documentation-register editing, an initial helper expression also failed locally before the GitHub update call because of a malformed JavaScript regular-expression literal; no repository write occurred, and the register was then rebuilt using line-based parsing and published. Both failed authoring attempts are retained here for chronology.
 6. Assistant did not execute Node, PowerShell, psql, or PostgreSQL. The updated source files require owner runtime verification.
 7. The full SQL suite remains **NOT PASSED**. Tests 29–46 remain unexecuted.
 
