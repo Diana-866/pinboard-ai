@@ -791,7 +791,7 @@ Owner evidence: clean checkout synchronized at `9beca59b21c1f41c330bc7df03abb318
 
 | Path | Blob SHA | Commit / reason |
 |---|---|---|
-| `docs/audits/2026-11-17-postgres-integration-powershell-parser-pass.md` | pending final fetch | `d7c7d529334a418e1246857ec7e6f8c474829c05`; owner transcript, Parser PASS (0 syntax errors), runner source review and safety boundary |
+| `docs/audits/2026-11-17-postgres-integration-powershell-parser-pass.md` | `e1de9f6f97463ffd406875c233f9d5b66255b567` | `d7c7d529334a418e1246857ec7e6f8c474829c05`; owner transcript, Parser PASS (0 syntax errors), runner source review and safety boundary |
 | `docs/PROJECT_STATE.md` | `bbd8cadae193f03d5081ba4c52ccd9af737c341f` | `79604e6e42bab238718428acd2df8a1943daacda`; records owner Parser PASS and next gate |
 | `docs/USER_ACTIONS.md` | `edcdc3ee2b56b1012a05d0a812962999f3d2429a` | `f93edc19876d6cccb4e7dec4c091d4464f6f0268`; UA-009 guarded runner instructions and stop conditions |
 
