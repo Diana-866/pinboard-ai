@@ -54,8 +54,8 @@ test('upgrade fixture includes the canonical boards.cover_url baseline column', 
   const canonicalBoardsTable = baseline.split('create table if not exists public.boards (')[1]?.split(');')[0];
   assert.ok(boardsTable, 'upgrade fixture boards table must exist');
   assert.ok(canonicalBoardsTable, 'canonical baseline boards table must exist');
-  assert.match(boardsTable, /cover_url\\s+text/i);
-  assert.match(canonicalBoardsTable, /cover_url\\s+text/i);
+  assert.match(boardsTable, /cover_url\s+text/i);
+  assert.match(canonicalBoardsTable, /cover_url\s+text/i);
 });
 
 test('upgrade fixture preserves baseline project-to-board and board-to-pin cascade deletes', () => {
