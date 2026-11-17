@@ -769,7 +769,7 @@ The two GitHub Actions workflows were rerun once (attempt 2) on 565e877.... Both
 | Path | Blob SHA | Commit / reason |
 |---|---|---|
 | `backend/test/postgres-integration-runner-contract.test.js` | `03fc5d1973fcbc376367755009f310475e7cde44` | `e3517cdc717476bdba8e6d1f5f9fa289fb28be8f`; retain shared CI fixture header comment in actual-side comparison; fix 19/20 owner-run false failure |
-| `docs/audits/2026-11-17-postgres-integration-fixture-header-contract-test.md` | new audit | `07584d1f8c5254fc83164513e2afc9602fc70274`; owner transcript, diagnosis, exact change, verification limits and next step |
+| `docs/audits/2026-11-17-postgres-integration-fixture-header-contract-test.md` | `571aa58c2a115b8392ee7100ba55ba49e4829539` | `07584d1f8c5254fc83164513e2afc9602fc70274`; owner transcript, diagnosis, exact change, verification limits and next step |
 | `docs/PROJECT_STATE.md` | appended journal entry | records owner result 19/20, root cause, source commit/blob, audit and pending runtime gate |
 | `docs/USER_ACTIONS.md` | UA-007 appended | owner synchronization and repeat Node gate; runner remains blocked until full Node PASS |
 
