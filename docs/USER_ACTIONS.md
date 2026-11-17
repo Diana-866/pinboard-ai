@@ -2777,3 +2777,50 @@ Use only the approved local verification cluster (PID 15220, port 55439, X:\PinP
 
 
 Assistant documentation note: two JavaScript wrapper SyntaxErrors occurred while preparing this incident's documentation payloads. Both occurred before any GitHub write from the failed attempt; neither changed the repository. Both were retried successfully. See the linked test-38 audit for the full action chronology. These were documentation tooling errors, not owner command failures.
+
+
+### UA-034 update — owner rerun reached migration 148 schedule guard; nine test fixtures corrected (2026-11-17)
+
+Owner-provided transcript:
+- Fast-forward sync from `ce3bcc98ec09d6acfff726b7bd71265c70832791` to `2bc539c7ce8d8f801ef1149f51dc18c9cd67137e`; `HEAD` and `origin/main` matched; worktree clean.
+- Node preflight: 47/47 PASS (113.104 ms). This was run before the newest source-contract extension.
+- Guarded PostgreSQL runner verified the approved local cluster: listener PID 15220, port 55439, data directory `X:\PinPosy-verify-pg18`, identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+- Disposable DB `pinposy_sqlint_826d2469ae4649c6`: upgrade fixture PASS, migrations 010–156 147/147 PASS, inline assertions 2/2 PASS, SQL tests 1–37 PASS; test 38/46 failed on the in-flight schedule insert with `only approved pins can be scheduled`. Tests 39–46 NOT RUN.
+- Cleanup PASS: no remaining sessions, disposable DB dropped and removal confirmed. SQL integration remains NOT PASSED.
+- The accidental SHA-as-command PowerShell error was harmless and did not alter Git state. Password was entered only at the hidden prompt and was not shared.
+
+Diagnosis and assistant-published test-only correction:
+- Migration 148's BEFORE INSERT trigger on `pin_schedules` requires the referenced pin to be approved.
+- Full fixture audit found nine pending pins that are inserted into schedule rows: `v_inflight_pin`, `v_crash_pin`, `v_safe_crash_pin`, `v_unsafe_crash_pin`, `v_retry_pin`, `v_manual_retry_pin`, `v_attempt_retry_pin`, `v_safe_retry_pin`, `v_disconnect_race_pin`.
+- All nine SQL fixture statuses were changed to approved: commit `563648df9d1c9c24674dbac1bd01f9b532ff865f`, blob `a447055478216e3f2cc7333dcf95af4bec2c2632`.
+- Existing Node contract test was extended to assert all nine fixtures and the migration-148 schedule trigger; no new test case was added, so expected suite count remains 47. Commit `0fd17599f4598559872965f07d5b01d2fadb19e2`, blob `61f20c281dd5448f295126ab42da3f9716d5d9fc`.
+- No production code, migrations, runner, CI workflow or live database changed.
+- Full action chronology and exact owner evidence: `docs/audits/2026-11-17-postgres-integration-test-38-pinterest-legacy-history-fixture.md` (latest blob `dbf503101a8d047df7041688173828e9dbffe77e`).
+
+**Next owner action — pull the complete documentation batch and verify clean synchronized main:**
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Then rerun the Node preflight because its existing contract test was extended:
+
+```powershell
+node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+```
+
+Require exactly **47 tests, 47 pass, 0 fail, 0 cancelled, 0 skipped, 0 todo**. This is the expected count, NOT a result yet. If it fails or the count differs, stop and send the complete output; do not run the PostgreSQL runner.
+
+Only after Node 47/47 PASS, run:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+```
+
+Enter the temporary-role password only at the hidden prompt; never send it. Use only the approved local verification cluster (PID 15220, port 55439, `X:\PinPosy-verify-pg18`). Stop at the first SQL error and include the complete transcript and cleanup. Do not target production/`PIN_TRIAL`, bypass guards or run SQL manually.
+
+SQL integration PASS requires the upgrade fixture, all 147 migrations, both inline assertions, all 46/46 SQL tests and confirmed disposable DB cleanup. Nine Bash concurrency scripts remain a separate unverified gate.
