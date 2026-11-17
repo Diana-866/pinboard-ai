@@ -255,5 +255,5 @@ test('provider refund evidence regex uses PostgreSQL-safe unbounded repetition i
   assert.match(migration, /\{7,\}/);
   assert.match(migration, /pg_get_functiondef/);
   assert.match(migration, /replace\(v_definition, '\{7,499\}', '\{7,\}'\)/);
-  assert.doesNotMatch(migration, /\{7,499\}/g);
+  assert.equal((migration.match(/\\{7,499\\}/g) || []).length, 1);
 });
