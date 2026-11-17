@@ -21,8 +21,8 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 3 | `docs/MASTER_REQUIREMENTS.md` | `0891fc83d68de51acb298d1ad4da4f733a0499aa` | Reviewed/reconciled 2026-11-16; see audit reports |
 | 4 | `docs/PIN_TRIAL_MIGRATION_STATUS.md` | `2e0f66ccfa1ab9aeb71f80d299a5c4465e347d9e` | Owner-provided DB evidence; incomplete inventory |
 | 5 | `docs/PRODUCTION_READINESS_AUDIT.md` | `777ce34d539b3264b10554aa2cd731d436f080e2` | Reviewed/reconciled 2026-11-16; see audit reports |
-| 6 | `docs/PROJECT_STATE.md` | `1dfc7be41c7263158d83ef3f7738480e4be75928` | Current operational source of truth; mandatory development activity journal rule added |
-| 7 | `docs/USER_ACTIONS.md` | `b33d4c94f0c1f9d5ebe187913c00b7df6357f887` | Current operational source of truth |
+| 6 | `docs/PROJECT_STATE.md` | `53db3fe142b62c8decf659c7929bbc64c5512e52` | Current operational source of truth; records exact successful PostgreSQL migration replay procedure and separate integration gate |
+| 7 | `docs/USER_ACTIONS.md` | `97bb9c6ec0b6826cdb3aaf19101102a9b6866f82` | Owner actions; explicitly preserves migration replay PASS and separates SQL integration runner |
 | 8 | `docs/architecture/pin-image-deletion-claim-protocol.md` | `0957b13bae0632ce8e34a5675b4a06f6ef8477a4` | Inventory only; content review pending |
 | 9 | `docs/audits/2026-11-16-account-deletion-runbook-reconciliation.md` | `4d1fa6f8e78162abbb29a3487a776c2b1c3cf319` | Historical audit/evidence; applicability must be checked against current main/tests |
 | 10 | `docs/audits/2026-11-16-ci-concurrency-harness-isolation-fix.md` | `dc050c2c7d0aa1415a5585e6820b1a2e8772fbd9` | Historical audit/evidence; applicability must be checked against current main/tests |
@@ -420,7 +420,7 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 402 | `docs/runbooks/public-pin-image-handling-aud-375.md` | `170db484f694b13c3fad66334611e73211787edc` | Operational runbook; code/environment/approval review required |
 | 403 | `docs/runbooks/release-line.md` | `ca56773268024b6c851b61600be5a8b16373a4de` | Operational runbook; code/environment/approval review required |
 | 404 | `docs/storage-lifecycle.md` | `870605f72ea42835d9784120ba0b4ed6d6bb6c69` | Inventory only; content review pending |
-| 405 | `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md` | `994093a3189c70f7e2b71740a604ef585da9d9f4` | Execution evidence and remediation record; parser retest PASS, SQL runner runtime pending |
+| 405 | `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md` | `fe62125932eb1e725930e731a478483347df9d52` | Execution evidence; includes exact owner-provided migration replay procedure and PASS evidence |
 
 ## Inventory findings
 
@@ -484,3 +484,5 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 - `backend/test/postgres-integration-runner-contract.test.js` — contract test includes inet/CIDR identity normalization assertion; blob `4316f2c19767e8bf6ed06cb5e291130ecc152d38`.
 
 - Latest verification note: successful migration replay (`001_baseline.sql` + `010–148`, 139 migrations) remains PASS; separate SQL integration runner stopped at identity guard before its own disposable DB, fixture, assertions or 46 SQL tests. See `docs/PROJECT_STATE.md` and `docs/USER_ACTIONS.md`.
+
+- Owner supplied the complete PowerShell transcript for the successful `verify.ps1 -MigrationsOnly` replay: canonical baseline plus 139 migrations, disposable database cleanup, explicit `MIGRATION REPLAY PASSED`. Full guarded procedure is now recorded in `PROJECT_STATE.md` and the PowerShell audit. Do not conflate it with the separate SQL integration runner / 46 tests.
