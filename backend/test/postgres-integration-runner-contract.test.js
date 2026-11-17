@@ -143,8 +143,10 @@ test('schedule cancellation race test compares text user_id with an explicit UUI
 
 test('account deletion re-auth integration test rolls back durable queue and append-only event rows', () => {
   const reauth = read('backend/test/account-deletion-reauth-version.integration.sql');
-  assert.match(reauth, /^begin;\\s*do \\$/i);
-  assert.match(reauth, /rollback;\\s*$/i);
+  const transactionStart = reauth.indexOf('\\nbegin;');
+  const doBlock = reauth.indexOf('\\ndo $');
+  assert.ok(transactionStart >= 0 && transactionStart < doBlock);
+  assert.ok(reauth.trimEnd().endsWith('rollback;'));
   assert.doesNotMatch(reauth, /delete from public\\.account_deletion_(requests|jobs|events)/i);
   assert.doesNotMatch(reauth, /delete from public\\.users/i);
 });
