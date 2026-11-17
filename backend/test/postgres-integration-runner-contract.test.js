@@ -135,6 +135,12 @@ test('psql native output is decoded as UTF-8 only for the duration of invocation
   assert.match(runner, /\[Console\]::OutputEncoding = \$previousConsoleOutputEncoding/);
 });
 
+test('schedule cancellation race test compares text user_id with an explicit UUID-to-text cast', () => {
+  const cancellation = read('backend/test/pinterest-schedule-cancellation-race.integration.sql');
+  assert.equal((cancellation.match(/user_id=v_user_id::text and status='scheduled'/g) || []).length, 2);
+  assert.doesNotMatch(cancellation, /user_id=v_user_id and status='scheduled'/);
+});
+
 test('CI migration list remains the complete contiguous 010-148 chain', () => {
   const prefixes = [...workflow.matchAll(/db\/migrations\/(\d{3})_[A-Za-z0-9._-]+\.sql/g)]
     .map((match) => Number(match[1]));
