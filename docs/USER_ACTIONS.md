@@ -393,3 +393,31 @@ UA-004 по локальному запуску остаётся обязате�
 - Ассистент повторно запустил failed jobs для runs `43955465209` и `43955465181` (attempt 2), чтобы проверить, был ли сбой временным.
 - Повторные jobs завершились failure; GitHub не предоставил шаги и job logs (BlobNotFound). Причина не установлена; результаты тестов неизвестны.
 - Это не меняет UA-004 и не требует от владельца дополнительных действий. Сначала выполнить UA-004 как записано выше; не запускать Bash suite до успешного SQL integration runner.
+
+
+### UA-004 — follow-up after Windows PowerShell parser failure (2026-11-17)
+
+The owner-reported run did not reach PostgreSQL setup or SQL execution. The PowerShell source had UTF-8 Cyrillic text without a BOM; the runner has now been corrected by adding a UTF-8 BOM (commit `db08fe681ad0727b5296e5f3ea686a6ca4a12378`). A contract assertion requiring the BOM was added in commit `a2f58b2aae9d3f79fdb753506a4ad55ae8337bfe`. Full investigation and rationale: `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`.
+
+**Next steps — do not skip the parser-only check:**
+
+1. Confirm clean `main`, then run `git pull --ff-only origin main`.
+2. In the same PowerShell session, run:
+
+   ```powershell
+   $tokens = $null
+   $errors = $null
+   [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path .\\scripts\\verify-integration.ps1), [ref]$tokens, [ref]$errors) | Out-Null
+   if ($errors.Count -gt 0) { $errors | Format-List; throw 'PowerShell parser check failed.' }
+   'PASS: PowerShell parser'
+   ```
+
+3. Only if the parser prints `PASS: PowerShell parser`, run:
+
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1 -PostgresPort 55439
+   ```
+
+4. Enter the password only in the hidden local prompt. Return the full output, process exit code, and cleanup confirmation without passwords, tokens, or environment values.
+
+If parser check fails, stop and send its full output; do not run the integration runner. If runner preflight fails, do not bypass it. Never use production, PIN_TRIAL, existing PostgreSQL service/PID 5632, or delete the temporary cluster. Bash concurrency tests remain blocked until SQL integration PASS and disposable database cleanup are both confirmed.
