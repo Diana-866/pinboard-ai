@@ -47,3 +47,8 @@ Assistant used GitHub source read/update operations only. It did **not** run Nod
 Only the uniquely named disposable database from the owner's guarded run was touched; its removal was confirmed. Do not stop listener PID 15220, delete `X:\PinPosy-verify-pg18`, touch production/PIN_TRIAL, weaken runner guards, or expose credentials.
 
 Owner must pull the documentation/source commits after they are all published, verify a clean checkout with equal `HEAD` and `origin/main`, run the Node contract suite, then rerun the guarded integration runner. A PASS requires all 46 SQL tests, both inline assertions, all migrations, and confirmed disposable database cleanup.
+
+
+## Follow-up source count
+
+The updated Node contract file now contains 14 top-level test declarations by source inspection (the previous 13 plus the new schedule user-ID type assertion). This is a source count only; the updated Node suite has not been run by the assistant.
