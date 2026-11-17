@@ -1848,3 +1848,47 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 Критерий полного SQL PASS: fixture, 144 миграции 010–153, 2 CI inline assertions, все 46 SQL tests и подтверждённый cleanup disposable DB. При первой SQL ошибке остановись и пришли полный вывод и cleanup.
 
 Не обходить guards, не менять PID 15220 / port 55439 / data directory, не трогать `X:\\PinPosy-verify-pg18`, не использовать production/PIN_TRIAL. Пароли, токены и содержимое `.env` не присылать.
+
+
+## UA-022 — Guarded PostgreSQL integration run after both pre-gates PASS (2026-11-17)
+
+**Статус:** разрешено владельцу выполнить; результат ожидается.
+
+### Предварительные gates — подтверждены владельцем
+
+- Node contract suite: **42/42 PASS**.
+- PowerShell Parser API: **0 syntax errors** for `scripts/verify-integration.ps1`.
+- Последняя синхронизированная точка перед этими документационными изменениями: `73a1aef18eaee621783b879aa97ae1527ec9ba5a`, HEAD = origin/main, worktree clean.
+
+### 1. Синхронизировать актуальную документацию
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Продолжать только при чистом дереве и совпадении HEAD/origin/main.
+
+### 2. Запустить guarded integration runner
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+```
+
+Не запускать параллельные replay/runner процессы. Не обходить проверки безопасности, не менять PID 15220, port 55439 или data directory; не трогать `X:\\PinPosy-verify-pg18`; не использовать production/PIN_TRIAL.
+
+### 3. Передать полный результат
+
+Нужен полный вывод от начала до завершения, включая:
+- создание/проверку disposable fixture и целевой БД;
+- все 144 миграции 010–153;
+- обе CI inline assertions;
+- итог каждого SQL integration test (ожидается 46);
+- итог cleanup и удаление только созданной runner БД.
+
+Если возникнет первая ошибка — остановиться, ничего вручную не чинить и не повторять runner до разбора. Пришли полный вывод ошибки и cleanup. Не присылай пароли, токены или содержимое `.env`.
+
+**Критерий SQL PASS:** все перечисленные этапы завершились успешно, все 46 тестов прошли, cleanup подтверждён. Node/Parser PASS сами по себе не означают PostgreSQL integration PASS.
