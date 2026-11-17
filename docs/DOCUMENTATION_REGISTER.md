@@ -1118,3 +1118,17 @@ The assistant corrected only test code: migration-156 contract regexes now match
 Owner evidence: clean main `b8e8073bd81f510f7648ab9c584584a24f9d40cf`; Node gate 45/45; PowerShell Parser 0 syntax errors; guarded runner applied fixture, 147 migrations 010–156 and two CI inline assertions; SQL tests 1–33 passed; test 34 failed because the test expected 100 credits and 2 ledger rows despite three successful purchases (100, 25, 15) and one -10 adjustment. Correct arithmetic is 140 credits and four ledger rows. Disposable DB `pinposy_sqlint_fb3cc84d67ee46ab` was removed successfully; tests 35–46 did not run.
 
 Only the SQL integration test was changed; production SQL and application code were not changed. The corrected test is not runtime-verified. Assistant did not run Node, PowerShell, psql, PostgreSQL, Bash or CI. Next owner gates: sync latest main; Node tests; Parser; guarded runner requiring 147 migrations, two assertions, 46/46 SQL tests and cleanup. Preserve PID 15220, port 55439 and `X:\\PinPosy-verify-pg18`; no production/`PIN_TRIAL` or guard bypass. Nine Bash concurrency scripts remain outside this runner.
+
+
+### 2026-11-17 — PostgreSQL test 34 follow-up: reservation fixture balance
+
+| Path | Final blob SHA | Commit / reason |
+|---|---|---|
+| `backend/test/postgres-integration.sql` | `1cc9638400d4c1a63960424fab500fbd94335e5b` | `1bf861a6116e2a6d487f0df3cca748a69a0daf6b`; normalize the later reservation fixture to 100 credits through the atomic ledger RPC and assert the fifth ledger row |
+| `docs/audits/2026-11-17-postgres-test-34-generation-reservation-fixture-balance.md` | `98912b1d5e487af1cc120d370689b9e74acf33ce` | `141ab19a4ac2a9439179827e668244c1ff878757`; owner transcript, corrected diagnosis, fixture change, exact SHAs, limits and next gates |
+| `docs/PROJECT_STATE.md` | `9570c2194fd483638e189c8ce9910692a74aa04a` | `b3e074be18839bb8e883248cf73bc32caea8b55a`; chronological follow-up and current SQL verification status |
+| `docs/USER_ACTIONS.md` | `976715e07da973cc8e819a5f2d50ba515ff57c55` | `e45879d74eeeafc26bede325cae9adf5c77352ce`; UA-030 owner synchronization and rerun gates |
+
+Owner evidence: clean local main `0868d0b3f87a45bf1c680c73efd6ca53ccb16eea`; Node 45/45; PowerShell Parser 0 syntax errors; guarded runner applied the fixture, 147 migrations 010–156 and 2 CI assertions; SQL tests 1–33 passed and test 34 failed because its later reservation scenario expected a 100-credit budget although the earlier purchase/adjustment sequence left 140. Disposable DB `pinposy_sqlint_9a31f4922b584047` was removed successfully; tests 35–46 did not run.
+
+The earlier test-34 audit correctly updated the balance and ledger expectations to 140 and 4, but did not account for the downstream reservation test's 100-credit assumption. The follow-up adds a -40 adjustment using `adjust_credits_balance_and_log`, verifies balance 100 and ledger row 5, and leaves production SQL untouched. The new fixture is **NOT RUNTIME-VERIFIED**. Assistant did not run Node, PowerShell, psql, PostgreSQL, Bash or CI. Next gates: synchronize latest main; Node 45/45; PowerShell Parser 0 errors; guarded runner with 147 migrations, 2 inline assertions, 46/46 SQL tests and confirmed disposable DB cleanup. Preserve PID 15220, port 55439 and `X:\\PinPosy-verify-pg18`; no production/`PIN_TRIAL` or guard bypass. Nine Bash concurrency scripts remain separate and unverified.
