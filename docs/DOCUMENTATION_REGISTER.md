@@ -420,7 +420,7 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 402 | `docs/runbooks/public-pin-image-handling-aud-375.md` | `170db484f694b13c3fad66334611e73211787edc` | Operational runbook; code/environment/approval review required |
 | 403 | `docs/runbooks/release-line.md` | `ca56773268024b6c851b61600be5a8b16373a4de` | Operational runbook; code/environment/approval review required |
 | 404 | `docs/storage-lifecycle.md` | `870605f72ea42835d9784120ba0b4ed6d6bb6c69` | Inventory only; content review pending |
-| 405 | `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md` | `fe62125932eb1e725930e731a478483347df9d52` | Execution evidence; includes exact owner-provided migration replay procedure and PASS evidence |
+| 405 | `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md` | `ba261b16cb5531af089aee7ef5bac54a43a79add` | Execution evidence; includes exact owner-provided migration replay procedure and PASS evidence |
 
 ## Inventory findings
 
@@ -487,4 +487,4 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 
 - Owner supplied the complete PowerShell transcript for the successful `verify.ps1 -MigrationsOnly` replay: canonical baseline plus 139 migrations, disposable database cleanup, explicit `MIGRATION REPLAY PASSED`. Full guarded procedure is now recorded in `PROJECT_STATE.md` and the PowerShell audit. Do not conflate it with the separate SQL integration runner / 46 tests.
 
-- Migration 018 collision owner transcript and static investigation recorded in `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`; latest audit blob to be refreshed after commit.
+- Migration 018 collision owner transcript and static investigation recorded in `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`; latest audit blob `ba261b16cb5531af089aee7ef5bac54a43a79add`.
