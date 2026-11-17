@@ -180,11 +180,11 @@ test('durable account deletion queue test expects the Storage manifest guard add
   assert.ok(stageGuards.indexOf("raise exception 'account deletion Storage manifest is required';") < stageGuards.indexOf('update public.account_deletion_jobs'));
 });
 
-test('CI migration list remains the complete contiguous 010-149 chain', () => {
+test('CI migration list remains the complete contiguous 010-150 chain', () => {
   const prefixes = [...workflow.matchAll(/db\/migrations\/(\d{3})_[A-Za-z0-9._-]+\.sql/g)]
     .map((match) => Number(match[1]));
-  assert.equal(prefixes.length, 140);
-  assert.deepEqual(prefixes, Array.from({ length: 140 }, (_, index) => index + 10));
+  assert.equal(prefixes.length, 141);
+  assert.deepEqual(prefixes, Array.from({ length: 141 }, (_, index) => index + 10));
 });
 
 test('upgrade fixture preserves every canonical baseline column except fields introduced by later migrations', () => {
@@ -238,7 +238,7 @@ test('upgrade fixture preserves baseline nullability, defaults, cascades and tim
 
 
 test('provider refund regeneration finalizer preserves NOT NULL claim token', () => {
-  const migration = read('db/migrations/077_finalize_reconciled_provider_failures.sql');
+  const migration = read('db/migrations/150_preserve_regeneration_claim_token_on_refund_finalization.sql');
   const schema = read('db/migrations/053_pin_regeneration_journal.sql');
   const start = migration.indexOf('create or replace function public.finalize_reconciled_pin_regeneration_failure');
   assert.notEqual(start, -1);
