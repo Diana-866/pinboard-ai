@@ -339,15 +339,6 @@ begin
        where user_id=v_user::text and idempotency_key='reservation-test-key-0002') <> 'reserved' then
     raise exception 'unknown provider outcome must retain its credit reservation';
   end if;
-  -- Finish this isolated scenario after proving the reservation fence: a later
-  -- definitive provider failure releases the held amount through the status trigger.
-  update public.pin_generation_requests set status='failed', error_code='provider_reconciled_failure'
-   where user_id=v_user::text and idempotency_key='reservation-test-key-0002' and status='unknown';
-  if (select status from public.pin_generation_credit_reservations
-       where user_id=v_user::text and idempotency_key='reservation-test-key-0002') <> 'released' then
-    raise exception 'reconciled provider failure did not release the generation reservation';
-  end if;
-
   -- A different debit path must not consume credits committed to an unknown
   -- provider task; the user has 100 credits, 60 reserved, and only 40 free.
   begin
@@ -361,6 +352,15 @@ begin
     if sqlerrm='competing debit consumed reserved generation credits' then raise; end if;
     if position('insufficient credits after active generation reservations' in sqlerrm)=0 then raise; end if;
   end;
+
+  -- Finish this isolated scenario after proving the reservation fence: a later
+  -- definitive provider failure releases the held amount through the status trigger.
+  update public.pin_generation_requests set status='failed', error_code='provider_reconciled_failure'
+   where user_id=v_user::text and idempotency_key='reservation-test-key-0002' and status='unknown';
+  if (select status from public.pin_generation_credit_reservations
+       where user_id=v_user::text and idempotency_key='reservation-test-key-0002') <> 'released' then
+    raise exception 'reconciled provider failure did not release the generation reservation';
+  end if;
 
   -- Generated pin rows and the corresponding credit debit must commit together.
   v_result := public.save_generated_pins_and_charge(
