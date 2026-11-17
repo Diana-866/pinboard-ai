@@ -100,3 +100,14 @@ This section records the exact owner-provided PowerShell procedure. Treat it as 
 - Historical HEAD and hashes above identify the exact checkout used for this replay; do not require the current moving `main` HEAD to equal that historical commit when interpreting this evidence.
 - Never stop/reinitialize the PostgreSQL cluster `X:\\PinPosy-verify-pg18`, never touch production or PIN_TRIAL, never bypass any preflight, and never request or store the password in chat.
 - The long console output displayed Cyrillic PostgreSQL NOTICE text as mojibake, but the command continued through all migrations, cleanup and the explicit success summary. Do not infer failure from those display artifacts alone.
+
+
+## 6. Owner retest after identity normalization — migration 018 collision (2026-11-17)
+
+The owner fast-forwarded the clean checkout to `33fdee6f3da62495ed3137ebf06cb04b91c3ffcb`. PowerShell Parser API returned `PASS: PowerShell parser`. The runner then passed its repository guard, PostgreSQL listener/process/data-directory checks and exact identity check (`127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`). This confirms the prior `/32` identity mismatch is resolved in the owner environment.
+
+The runner created `pinposy_sqlint_389e6a26525c4ee8`, applied the upgrade fixture and failed while applying `db/migrations/018_preferred_language.sql`: PostgreSQL reported that `users_preferred_language_check` already exists on `users`. The `finally` cleanup completed: backend termination, `DROP DATABASE`, absence check and explicit `Removed disposable database ...` message. This disposable database is confirmed removed. The persistent PostgreSQL cluster was not reported stopped or reinitialized.
+
+Current-main static inspection found no definition of this constraint in `backend/test/postgres-integration-upgrade-fixture.sql` or migrations `010–017`; migration 018 itself drops the named constraint if present before adding it. Therefore the source of the duplicate is unresolved. Do not assume which statement emitted the error from the mojibake/truncated console rendering; collect full error context and inspect `pg_constraint` immediately before migration 018 in a fresh guarded run. Do not weaken/drop constraints speculatively.
+
+The run did not reach the two inline assertions or the 46 SQL integration tests. SQL integration remains blocked at migration 018. The independent migration-only replay (`001_baseline.sql` + `010–148`) remains PASS. Node contract test execution is not evidenced. Next action: add a read-only diagnostic immediately before migration 018 (or an equivalent isolated reproduction against a new disposable DB), print matching `pg_constraint` rows including relation/schema/definition, then use the resulting evidence to make the smallest fix and add a regression test. Keep all existing target guards and cleanup logic intact.
