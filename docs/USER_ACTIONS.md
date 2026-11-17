@@ -1704,3 +1704,56 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 - При первой SQL ошибке — **СТОП** и прислать полный вывод вместе с cleanup. Более поздние тесты считаются невыполненными.
 - Не обходить guards, не менять порт/PID/data directory, не останавливать PID 15220, не трогать `X:\\PinPosy-verify-pg18`, не использовать production/PIN_TRIAL.
 - Не запускать Bash concurrency/backend runtime suites до полного SQL PASS и cleanup.
+
+
+## UA-019 — повтор Node gates после исправления upgrade-fixture regex и диапазона миграций (2026-11-17)
+
+**Статус:** ожидает действий владельца. Исправленный Node gate ещё не запускался. PostgreSQL SQL integration **NOT PASSED**.
+
+### Последний запуск владельца
+
+- Рабочее дерево было чистым до и после синхронизации; локальный HEAD и origin/main совпадали на `0fc877a0aa5dd47d565f77b9873fc4c62edbf807`.
+- Node suite: **42 теста, 39 PASS, 3 FAIL**.
+- Ошибки: matcher не захватывал существующую таблицу `public.users` из upgrade fixture; migration-list contract ожидал 143 вместо актуальных 144 миграций 010–153; dynamic RegExp выбрасывал `Unmatched ')'`.
+- Исправлен только Node contract: оба прямых users regex matcher приведены к корректному regex escaping, динамический RegExp helper использует корректное escaping JavaScript-строки, диапазон миграций обновлён до 010–153 / 144.
+- Final source commit: `3c2d82bfafef40d16d6ae6c3eb7f4c7d7292e698`; blob: `2f0e54ad47ffd05cfca500568a3f962cb6af6c93`.
+- Audit: `docs/audits/2026-11-17-postgres-node-contract-upgrade-fixture-regex-and-migration-count.md`.
+- Ассистент не запускал Node/PowerShell/psql/PostgreSQL/CI. Parser и SQL runner после текущего Node FAIL не запускались.
+
+### Строгая последовательность владельца
+
+1. Синхронизировать main:
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Продолжать только при clean worktree и полном совпадении HEAD с origin/main. Передать полный SHA.
+
+2. Повторить Node gates:
+
+```powershell
+node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+```
+
+Требуется **42/42 PASS**. При любом FAIL — **СТОП**, прислать полный вывод; Parser и SQL runner не запускать.
+
+3. Только после Node PASS выполнить PowerShell Parser API check из предыдущего UA и получить 0 syntax errors.
+
+4. Только после Node и Parser PASS выполнить:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+```
+
+### Критерий SQL PASS и безопасность
+
+- PASS только при успешных fixture, 144 migrations 010–153, двух CI inline assertions, всех 46 SQL tests и cleanup disposable DB.
+- При первой SQL ошибке остановиться и прислать полный вывод вместе с cleanup; последующие тесты считать невыполненными.
+- Не обходить guards, не менять PID 15220, port 55439 или data directory; не трогать `X:\\PinPosy-verify-pg18`; не использовать production/PIN_TRIAL.
+- Пароль вводить только в скрытом prompt. Не присылать пароль, токены или содержимое `.env`.
+- Не запускать последующие Bash concurrency/backend runtime suites до полного SQL PASS.
