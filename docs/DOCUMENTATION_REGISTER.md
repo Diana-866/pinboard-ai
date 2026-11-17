@@ -646,3 +646,6 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 - Updated `docs/PROJECT_STATE.md`: blob `e2bc4c765825ef6b73469b47d566c5512d4eae62`, commit `c6726d6677253b4db2cbf99a85aed908f07d0a22`.
 - Updated `docs/USER_ACTIONS.md`: blob `9ea7871ff54b1b69d2ccf0a38fcb4ad340fe6d19`, commit `cad69c38d381dc731329283e54bffce67c3f99fd`.
 - Assistant source inspection and GitHub file updates only; no local Node/PowerShell/psql/PostgreSQL execution. Contract assertion and SQL test fix await owner runtime verification.
+
+
+- Follow-up exact documentation blobs after adding the 14-test source count: audit `888291577fa128a3b87aa698ab2679b7cb0768f8` (commit `e438ff1f65154cc5cee8597964ffa4f3598bd970`); project state `33976e5228fd09a543d763a50fff2df7f6a6b009` (commit `34183bf6ce292a135f7239d0a7dd88f7019abddc`); owner actions `eef47a29ffb78e36c8fda15a3d1e9a73f33e51f5` (commit `ed47292dc4ccdae789920c5c33c93357ee7a3832`).
