@@ -31,7 +31,7 @@ begin
 
   select credits_balance into v_balance from public.users where id=v_user;
   select image_url into v_image from public.pins where id=v_pin;
-  select count(*) into v_ledger_count from public.credit_transactions where user_id=v_user;
+  select count(*) into v_ledger_count from public.credit_transactions where user_id=v_user::text;
   if v_balance <> 10 or v_image <> 'https://example.invalid/old.png' or v_ledger_count <> 0 then
     raise exception 'blocked legacy regeneration changed state';
   end if;
@@ -42,7 +42,7 @@ begin
 
   select credits_balance into v_balance from public.users where id=v_user;
   select image_url into v_image from public.pins where id=v_pin;
-  select count(*) into v_ledger_count from public.credit_transactions where user_id=v_user;
+  select count(*) into v_ledger_count from public.credit_transactions where user_id=v_user::text;
   if v_balance <> 6 or v_image <> 'https://example.invalid/new.png' or v_ledger_count <> 1 then
     raise exception 'legacy regeneration after release mismatch';
   end if;
