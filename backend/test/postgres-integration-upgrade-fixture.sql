@@ -6,6 +6,7 @@ create table public.users (
   email_verified boolean not null default false,
   credits_balance integer not null default 0,
   tariff_plan text not null default 'none',
+  is_admin boolean default false,
   tariff_period_end timestamptz
 );
 create table public.auth_tokens (
