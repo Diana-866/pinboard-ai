@@ -960,3 +960,15 @@ Owner evidence: PowerShell Parser PASS; SQL fixture, 144 migrations 010–153, t
 | `docs/USER_ACTIONS.md` | `51568de77eb70247b91a4b1f7c854e6d1c030443` | `268a9378fad00af9bdae0a7676fb307ed4c12623`; UA-019 ordered owner synchronization and rerun gates |
 
 Owner evidence: clean synchronized checkout at `0fc877a0aa5dd47d565f77b9873fc4c62edbf807`; Node suite 42 tests, 39 PASS and 3 FAIL. The three failures were stale/over-escaped test contracts, not confirmed production SQL failures. Assistant corrected only the Node contract test and re-fetched final source and documentation blobs. Assistant did not execute Node, PowerShell, psql, PostgreSQL or CI. Corrected Node suite is not runtime-verified. Parser and SQL runner were not run after the failed Node gate. PostgreSQL SQL integration remains **NOT PASSED**; no SQL tests have been rerun after this source correction.
+
+
+### 2026-11-17 — PostgreSQL Node contract gate: dynamic RegExp capture-group correction
+
+| Path | Final blob SHA | Commit / reason |
+|---|---|---|
+| `backend/test/postgres-integration-runner-contract.test.js` | `2765d21320bf1847efb73cf3453d0d3597289df7` | `c4de3c67537cac08daadfbf6f461304bd4b61889`; add missing capture-group opener to dynamic table-definition RegExp |
+| `docs/audits/2026-11-17-postgres-node-contract-dynamic-regexp-capture-group.md` | `72215c91b03a4bbd2b99012becefbbb12076cf33` | `be553f81c2507c4e302488d53d48d2c908088196`; owner evidence, diagnosis, exact correction and rerun gates |
+| `docs/PROJECT_STATE.md` | `6528b39558cc4e61800e1a608eb7afb40683abe6` | `6f7efe67ae50227f94d2965124d1c28077df2ca3`; chronological Node gate follow-up |
+| `docs/USER_ACTIONS.md` | `997a4904adeae4aecfd24fb0cd11a302682f93e2` | `375fe41f5620a8463ce7d2f85e3b06892a7d7b87`; UA-020 ordered owner rerun steps |
+
+Owner evidence: Node suite reported 42 tests, 41 PASS and 1 FAIL. The sole failure was a malformed dynamic RegExp caused by a missing capture-group opener. Assistant corrected only the Node contract test, then re-fetched the final source and inspected the corrected string. Assistant did not execute Node, PowerShell, psql, PostgreSQL or CI. Corrected Node test is not runtime-verified; Parser and SQL runner remain blocked pending 42/42 Node PASS. PostgreSQL SQL integration remains **NOT PASSED**.
