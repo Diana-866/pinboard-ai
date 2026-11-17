@@ -40,7 +40,7 @@ test('upgrade fixture stays byte-for-byte aligned with CI legacy schema setup', 
 
 test('upgrade fixture includes the canonical users.is_admin baseline column', () => {
   const fixture = read('backend/test/postgres-integration-upgrade-fixture.sql');
-  const usersTable = fixture.match(/create table public\.users \(([\\s\\S]*?)\\n\);/i);
+  const usersTable = fixture.match(/create table public\.users \(([\s\S]*?)\n\);/i);
   assert.ok(usersTable, 'upgrade fixture users table must exist');
   assert.match(usersTable[1], /is_admin boolean default false/i);
 });
@@ -210,7 +210,7 @@ test('upgrade fixture preserves every canonical baseline column except fields in
     );
     assert.deepEqual(missing, table === 'users' ? ['token_version'] : [], table + ' baseline columns');
   }
-  const users = fixture.match(/create table public\.users \(([\\s\\S]*?)\\n\);/i)?.[1] || '';
+  const users = fixture.match(/create table public\.users \(([\s\S]*?)\n\);/i)?.[1] || '';
   assert.doesNotMatch(users, /\btoken_version\b|\baccount_status\b/);
   assert.match(read('db/migrations/023_revoke_sessions_after_password_reset.sql'), /add column if not exists token_version integer not null default 0/i);
   assert.match(read('db/migrations/055_auth_token_version.sql'), /add column if not exists token_version integer/i);
