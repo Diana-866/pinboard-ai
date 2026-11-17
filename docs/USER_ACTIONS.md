@@ -1044,3 +1044,41 @@ node --test backend/test/postgres-integration-runner-contract.test.js
 **Дополнение к UA-006 — повтор CI также не дошёл до шагов**
 - Выполнен один rerun runs `44070232846` и `44070232989` (attempt 2). Новые jobs: `133996278489`, `133996306977`, `133996307323`; все завершились FAILURE с `steps: null`, `logs_url: null`. Test execution не подтверждён, причина неизвестна.
 - При желании восстановить hosted CI отдельно проверьте GitHub Actions runner/usage/settings в интерфейсе GitHub. Это не заменяет локальный Node gate и не требует менять код наугад.
+
+
+## UA-007 — повторный Node contract gate после исправления fixture parity assertion (2026-11-17)
+
+**Предыдущий owner run**
+- Локальный checkout был чистым до pull; fast-forward `c92cb6d4 → 72bafc7a`.
+- `HEAD` = `origin/main` = `72bafc7a1a0e1921e4155eacc6d38df610f39780`; итоговый `git status --short` пуст.
+- `node --test backend/test/postgres-integration-runner-contract.test.js`: **19 PASS / 1 FAIL из 20**. Единственная ошибка — тест сравнения standalone upgrade fixture с CI heredoc: actual-side фильтр удалял общий header comment, expected-side его сохранял.
+
+**Что исправлено ассистентом**
+- Только в `backend/test/postgres-integration-runner-contract.test.js` удалён лишний actual-side фильтр строки `-- CI upgrade-compatibility fixture.`; сравнение сохраняет общий комментарий на обеих сторонах. Исключение cluster role statements из expected сохранено.
+- Contract commit: `e3517cdc717476bdba8e6d1f5f9fa289fb28be8f`; blob `03fc5d1973fcbc376367755009f310475e7cde44`.
+- Audit: `docs/audits/2026-11-17-postgres-integration-fixture-header-contract-test.md`.
+
+**Когда вернёшься к PowerShell — синхронизация**
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+Продолжать только при чистом worktree и равных HEAD/origin/main.
+
+**Повторный Node gate**
+```powershell
+node --test backend/test/postgres-integration-runner-contract.test.js
+```
+Передать полный stdout/stderr и exit code. Ожидается 20 tests по исходнику; PASS подтверждается только фактическим результатом Node с 0 failures. При любом FAIL — STOP, SQL runner не запускать.
+
+**Только после полного Node PASS**
+- Выполнить PowerShell Parser API check.
+- Затем guarded runner по ранее согласованной инструкции UA-006, только в разрешённом disposable PostgreSQL 18.6 и при подтверждении runner всех safety guards.
+- SQL integration PASS возможен только после успешного fixture, 140 migrations 010–149, двух inline assertions, всех 46 SQL tests и подтверждённого cleanup disposable DB.
+
+**Запрещено:** запускать runner при failed/incomplete Node suite; обращаться к production/PIN_TRIAL; останавливать PID 15220; менять/удалять `X:\\PinPosy-verify-pg18`; передавать секреты в чат.
+
+**Статус:** [ ] Ожидает владельца. Документационные commits после contract fix могут продвинуть main; ориентироваться на фактический HEAD, а не заранее заданный SHA.
