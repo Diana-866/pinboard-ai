@@ -16,7 +16,8 @@
 | Файл | Blob SHA | Использование |
 |---|---|---|
 | `db/migrations/001_baseline.sql` | `105a13cfba4746206191dcf2bd68d5514912f08c` | Канонические колонки и типы десяти baseline tables |
-| `db/migrations/055_auth_token_version.sql` | `45735f1c2b18f6a1e7a7d640593f97d5efa29308` | Подтверждает, что `token_version` добавляется миграцией 055 |
+| `db/migrations/023_revoke_sessions_after_password_reset.sql` | `56887896f8650d56d727e59c3c37388e73f7c37` | Первое добавление `users.token_version integer not null default 0` |
+| `db/migrations/055_auth_token_version.sql` | `45735f1c2b18f6a1e7a7d640593f97d5efa29308` | Повторное idempotent добавление/нормализация `token_version` |
 | `db/migrations/127_account_lifecycle.sql` | `4c869aee3e6a3e1ae12dcf5e4fc9f45a4292c7fd` | Подтверждает, что `account_status` добавляется миграцией 127 |
 | `db/migrations/138_account_deletion_finalize_tombstone.sql` | `c99463878dd828f0e7722f27777ffdb3c6e90b23` | Поля, используемые финализацией account deletion |
 | `backend/test/postgres-integration-sql-manifest.txt` | `aa773d020841f6925b4f63f4a6d96fb95cf4e3a6` | Упорядоченный список 46 SQL integration tests |
@@ -27,9 +28,9 @@
 
 ## 3. Что подтвердилось
 
-1. Текущий standalone fixture содержит все baseline column names для десяти таблиц, кроме `users.token_version`. Это исключение намеренное: migration 055 добавляет поле после исходного legacy fixture. `account_status` также отсутствует до миграции 127 и добавляется ею.
+1. Текущий standalone fixture содержит все baseline column names для десяти таблиц, кроме `users.token_version`. Это исключение намеренное: migration 023 впервые добавляет поле после исходного legacy fixture; migration 055 повторно применяет idempotent definition/normalization. `account_status` также отсутствует до миграции 127 и добавляется ею.
 2. Поля `subscription_tier`, `name`, `surname` и `onboarded`, использованные финализацией migration 138, теперь присутствуют в standalone fixture и CI inline fixture.
-3. В новом contract test присутствует сравнение набора baseline columns с fixture и отдельные проверки nullability/default/cascade/timestamp semantics. Всего в файле 21 top-level `test(...)` declaration по source inspection; это не результат запуска.
+3. В новом contract test присутствует сравнение набора baseline columns с fixture и отдельные проверки nullability/default/cascade/timestamp semantics. В файле 20 top-level `test(...)` declarations по подсчёту строк `^test\(`; это source count, не результат запуска.
 4. Standalone fixture и CI heredoc fixture совпадают после удаления документирующей первой строки и нормализации отступов.
 5. Найдены ещё два несовпадения timestamp type, которые не были закрыты предыдущим изменением:
    - `auth_tokens.created_at`: baseline = `timestamptz`, fixture = `timestamp without time zone`;
@@ -52,12 +53,12 @@ Production migrations и application code не менялись.
 
 - оба timestamp-типа после изменения соответствуют baseline;
 - новая assertion присутствует;
-- contract file содержит 21 test declaration;
+- contract file содержит 20 top-level test declarations;
 - standalone fixture и CI inline fixture совпадают после нормализации.
 
 **Не выполнялись:** Node contract suite, PowerShell parser/runtime, PostgreSQL migration replay, 46 SQL integration tests, Bash concurrency suite, backend/frontend runtime tests. Успешность этих проверок не заявляется.
 
-Combined status commit `bd0d973...` до наших трёх изменений показывал Vercel SUCCESS. Это не подтверждает сборку/деплой новых commits `dd518ae`, `a09dfea`, `3bee9ba`. Для последнего commit GitHub Actions workflow runs через доступный PR-filtered endpoint не вернулись; это не доказывает отсутствие всех push-triggered runs.
+Vercel combined status для раннего commit `bd0d973...` показывал SUCCESS, но этот статус не переносится на следующие commits. На текущем main `441cd742caffa6e25cefe27b5edb0de8ace7fe22` и source commit `565e8775d5af05f486f8cc1ac75f15edba74aa35` Vercel возвращает FAILURE с target `build-rate-limit` — quota/rate-limit blocker, не доказанная ошибка кода. Push-triggered GitHub Actions runs: `44068607386` (atomic) и `44068607454` (persisted boards) на `bd0d973...`; `44070232846` (atomic) и `44070232989` (persisted boards) на `565e877...`. Все эти runs завершились FAILURE; для проверенных jobs GitHub API возвращает `steps: null`, `logs_url: null`, downloadable logs отсутствуют. Следовательно, ни один test step не подтверждён как запущенный; причина pre-step failure остаётся неизвестной, эти runs нельзя трактовать как красные результаты Node/SQL tests.
 
 Production, PIN_TRIAL, Supabase, платежи, Pinterest, DNS, локальный PostgreSQL владельца и persistent verification cluster не затрагивались. Секреты не запрашивались и не читались.
 
@@ -70,3 +71,12 @@ Production, PIN_TRIAL, Supabase, платежи, Pinterest, DNS, локальн�
 5. До этого SQL integration остаётся NOT PASSED. Не запускать Bash concurrency suite и backend runtime suite раньше SQL gate; не затрагивать production/PIN_TRIAL.
 
 Этот audit фиксирует системную сверку и исправления fixture. Он не объявляет PinPosy готовым к публичному запуску.
+
+## 7. Дополнительная полная инвентаризация миграций и SQL test sources
+
+- С GitHub `main` получены все 140 active migration files `010–149`. Targeted source scan для всех отсутствовавших baseline columns показал: `users.token_version` добавляется migration 023 и повторно обрабатывается migration 055; `account_status` вводится migration 127 (это post-baseline поле). Ни одна из migrations 010–149 не вводит `subscription_tier`, `name`, `surname`, `onboarded`, `created_at`, `projects.website_url/goal/site_summary/analyzed_at` или `boards.created_at`; поэтому эти поля должны существовать в legacy fixture до upgrade chain.
+- Получены все 46 SQL-файлов из manifest `backend/test/postgres-integration-sql-manifest.txt` (blob `aa773d020841f6925b4f63f4a6d96fb95cf4e3a6`) и выполнен source-level обзор ссылок на таблицы, INSERT/UPDATE и transaction boundaries. Покрытие включает Pinterest schedule/reconciliation/publication/OAuth, account deletion, payments/Prodamus, credits/generation/refunds, privileges/security-definer, image lifecycle/retention, board idempotency и regeneration. Это не runtime execution и не утверждение, что каждый assertion был исполнен.
+- В CI workflow уже есть шаг запуска Node contract suite; workflow migration list теперь содержит ровно 140 contiguous migrations 010–149. Source-level проверки: fixture/CI heredoc equality PASS; baseline column diff — только `users.token_version`; critical defaults/nullability/cascade/timestamp semantics проверены; contract test count — 20 top-level declarations.
+- После коммита `3bee9ba...` дополнительно исправлен contract test: он теперь явно проверяет первое добавление `token_version` в migration 023 и повторное в migration 055. Commit `565e8775d5af05f486f8cc1ac75f15edba74aa35`, contract blob `daceb31d99230b409c487cc39d10dc3ee1ef7102`.
+- GitHub Actions runs `44068607386`, `44068607454`, `44070232846`, `44070232989` завершились FAILURE до видимых шагов; API отдаёт `steps: null`, `logs_url: null`. Это external CI/pre-step blocker с неустановленной причиной, а не доказательство падения самих тестов. Vercel current status — `build-rate-limit`.
+- Ассистент не запускал Node, PowerShell, psql, PostgreSQL или локальный Windows checkout. Никакие runtime PASS не заявляются. SQL integration остаётся NOT PASSED.

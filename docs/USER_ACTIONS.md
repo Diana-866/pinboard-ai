@@ -1005,3 +1005,38 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 - Не запускать Bash concurrency suite и backend runtime suite до полного SQL PASS и cleanup.
 
 **Статус:** [ ] Ожидает владельца. После получения вывода assistant обязан перепроверить актуальный main, записать фактический результат и обновить статус в PROJECT_STATE.md.
+
+## UA-006 — уточнённый schema-contract gate после полной source-инвентаризации (2026-11-17)
+
+UA-006 supersedes the stale expected commit and 21-test count in UA-005. Current contract source has **20 top-level `test(...)` declarations**. `token_version` is first introduced by migration 023 and reasserted by 055.
+
+**Когда вернёшься к компьютеру — сначала синхронизация:**
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+Продолжать только если worktree чистый и `HEAD` совпадает с `origin/main`. Не сверяться с заранее зашитым SHA: `main` может продвинуться дополнительными documentation commits.
+
+**Первый gate — только Node contract suite:**
+```powershell
+node --test backend/test/postgres-integration-runner-contract.test.js
+```
+Передать полный stdout/stderr и exit code. По исходнику ожидается 20 top-level tests; PASS подтверждается только реальным завершением Node с 0 failures. Если хотя бы один FAIL — **СТОП**, SQL runner не запускать.
+
+**Только при полном Node PASS:**
+1. Повторить PowerShell Parser API check для `scripts/verify-integration.ps1`.
+2. Запустить guarded runner на ранее разрешённом disposable PostgreSQL 18.6:
+   ```powershell
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+   ```
+3. Пароль временной роли вводить только в hidden prompt; не отправлять его в чат. Runner должен подтвердить clean synchronized main, loopback-only endpoint, PID 15220, data directory `X:\\PinPosy-verify-pg18` и server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+4. Передать полный вывод без секретов. SQL gate закрывается только при PASS fixture, 140 migrations 010–149, двух inline assertions, всех 46 SQL tests и подтверждённом cleanup только disposable DB. При первом failure остановиться и сохранить лог.
+
+**Текущие внешние CI ограничения:** GitHub Actions runs `44068607386`, `44068607454`, `44070232846`, `44070232989` имеют FAILURE без доступных steps/logs; причина до запуска job неизвестна. Vercel current status указывает `build-rate-limit`. Эти статусы не заменяют локальный Node/SQL gate.
+
+**Запрещено:** production/PIN_TRIAL, изменение/удаление persistent verification cluster, остановка PID 15220, секреты в чате, запуск SQL runner при failed Node suite, запуск Bash/backend runtime suite до полного SQL PASS.
+
+**Статус:** [ ] Ожидает владельца. После получения вывода assistant должен снова проверить актуальный `main`, сохранить фактические результаты и обновить PROJECT_STATE/REGISTER.
