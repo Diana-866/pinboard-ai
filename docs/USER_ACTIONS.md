@@ -2554,3 +2554,16 @@ Owner evidence after syncing to `45fb5f300b1cd334ad8128a76f5d694f52389861`: the 
 **Next action:** run only the PowerShell Parser gate in UA-034. Expected output: `PowerShell Parser PASS: 0 syntax errors`. If any parser errors occur, stop and send the complete output. Do not run the guarded PostgreSQL integration command until the parser gate also passes.
 
 The SQL assertion correction is still **NOT RUNTIME-VERIFIED**; this Node suite checks contracts and migration/replay-chain expectations, not actual PostgreSQL execution. The earlier SQL run remains failed at test 34/46; a new guarded run must demonstrate all 46 tests and disposable database cleanup.
+
+
+### UA-034 evidence update — PowerShell Parser gate passed (2026-11-17)
+
+Owner synced the documentation fast-forward to `097765bd924cb938103ac4ec779b17af23eacf2c`; `git status --short` was empty and `HEAD == origin/main == 097765bd924cb938103ac4ec779b17af23eacf2c`. The PowerShell Parser invocation against `scripts/verify-integration.ps1` completed with exact output: `PowerShell Parser PASS: 0 syntax errors`.
+
+Together with the previously recorded Node gate (**45/45 pass, no failures or skips**), both preflight gates are PASS. **Next owner action:** run the guarded integration runner exactly as specified earlier in UA-034:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+```
+
+Run it only from the clean, synchronized checkout and preserve the complete output. Stop at the first failure and send the full transcript. Do not rerun manually against another database, do not target production or `PIN_TRIAL`, and do not disclose secrets. A passing result must explicitly demonstrate the upgrade fixture, 147 migrations 010–156, both CI inline assertions, all 46/46 ordered SQL integration tests, and successful disposable DB cleanup. Until that evidence exists, the SQL assertion fix is NOT RUNTIME-VERIFIED.
