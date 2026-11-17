@@ -1938,3 +1938,39 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 Send complete output. Expected progression: 144 migrations, 2 inline assertions, all 46 SQL tests, confirmed cleanup. Stop at first error; do not manually modify database or repeat runner before diagnosis.
 
 Do not bypass guards, change PID 15220 / port 55439 / data directory, touch `X:\\PinPosy-verify-pg18`, or use production/PIN_TRIAL. Do not send passwords, tokens, or `.env` contents.
+
+## UA-024 — проверить исправление tombstone для удалённых изображений (migration 154)
+
+- **Статус:** [ ] Ожидает выполнения владельцем.
+- **Причина:** guarded PostgreSQL run на исходном main `7c679f475ceaaf7cdd4d2eb953c97fd84f41c374` прошёл 144 миграции и SQL-тесты 1–27, но тест 28 обнаружил, что `begin_pin_image_upload()` повторно резервирует путь со статусом `deleted`. Причина — migration 145 потеряла постоянную tombstone-проверку из migration 090/098.
+- **Исправление в GitHub:** добавлена migration 154; восстановлен отказ `already_deleted` при сохранении расширенного списка durable references из migration 145. Обновлены contract tests, migration-chain tests, Linux/Windows replay scripts, guarded Windows runner и CI workflow. Исторические миграции и SQL fixture не переписывались.
+- **⚠️ Сначала синхронизация — в PowerShell из `X:\\!PROGECT\\pinboard-ai`:**
+  ```powershell
+  git status --short
+  git pull --ff-only origin main
+  git rev-parse HEAD
+  git rev-parse origin/main
+  git status --short
+  ```
+  HEAD должен совпасть с актуальным `origin/main`, рабочее дерево должно быть чистым.
+- **⚠️ Затем Node contract gate:**
+  ```powershell
+  node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+  ```
+  Ожидается **43/43 PASS**. При любом FAIL остановиться.
+- **⚠️ Затем PowerShell Parser gate:**
+  ```powershell
+  $tokens = $null
+  $errors = $null
+  [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path .\\scripts\\verify-integration.ps1), [ref]$tokens, [ref]$errors) | Out-Null
+  if ($errors.Count -gt 0) { $errors | Format-List *; exit 1 }
+  "PowerShell Parser PASS: 0 syntax errors"
+  ```
+- Только если оба gate прошли, выполнить:
+  ```powershell
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+  ```
+  Полный PASS требует fixture, **145 migrations 010–154**, двух CI assertions, **46/46 SQL tests** и успешного удаления disposable DB.
+- **Запреты:** не менять PostgreSQL listener PID 15220, порт 55439 и каталог `X:\\PinPosy-verify-pg18`; не обходить проверки; не использовать production/PIN_TRIAL; не присылать пароль, токены или содержимое `.env`.
+- **Фактический статус до повторного запуска:** SQL integration **FAIL 27/46**; tests 29–46 не запускались. Node 42/42 и Parser 0-error — предыдущие результаты, полученные до migration 154 и изменённых runner scripts; они не засчитываются для новой версии.
+- **Подробности:** `docs/audits/2026-11-17-postgres-integration-test-28-deleted-image-path-tombstone-regression.md`.
