@@ -68,3 +68,18 @@
 3. Только если оба gates PASS — guarded PostgreSQL runner: upgrade fixture, 147 migrations 010–156, 2 CI inline assertions, 46/46 ordered SQL tests и подтверждённый cleanup disposable DB.
 
 Ассистент повторно получил с GitHub текущие state, user actions, register, этот audit и SQL fixture; сопоставил предыдущие blob SHA и подтверждённый пользователем commit. Ассистент не выполнял команды на ПК владельца и не запускал Node, PowerShell, psql, PostgreSQL, Bash или CI. Не изменялись SQL fixture, production code, migrations, runner или CI в рамках этого follow-up. Девять Bash concurrency scripts остаются отдельным непроверенным этапом.
+
+
+## Follow-up — повторные Node и PowerShell gates PASS
+
+Владелец синхронизировал локальный checkout до документационного commit `948df3b9c9590fd78e6beb1690dcd3785e91d54f` (fast-forward с `ff1ea965`, чистое рабочее дерево), затем после approval-fixture изменения повторил оба предварительных gate:
+
+- Node command: `node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js`.
+- Фактический итог Node: **45 tests; 45 pass; 0 fail; 0 cancelled; 0 skipped; 0 todo**.
+- PowerShell Parser для `scripts/verify-integration.ps1`: **PASS, 0 syntax errors**.
+
+Эти результаты закрывают только предварительные проверки контракта runner/migration chain и синтаксиса PowerShell. Они не подтверждают выполнение SQL fixture в PostgreSQL. Полный guarded PostgreSQL runner после исправления ещё не запускался; test 34 и tests 35–46 остаются runtime-unverified.
+
+Следующий шаг владельца: запустить guarded runner `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1` только после сохранения целевого PostgreSQL listener PID 15220, port 55439 и data directory `X:\\PinPosy-verify-pg18`. Требуемый результат: upgrade fixture applied, 147 migrations 010–156, 2 CI inline assertions, 46/46 ordered SQL tests, disposable DB cleanup confirmed. Остановиться при первой ошибке; не обходить guards, не использовать production/`PIN_TRIAL`, не передавать секреты. Девять Bash concurrency scripts остаются отдельным непроверенным этапом.
+
+Все runtime результаты в этом дополнении взяты из вывода владельца; ассистент не запускал Node, PowerShell, psql или PostgreSQL на его ПК. В рамках follow-up не менялись SQL fixture, migrations, production code, runner или CI.
