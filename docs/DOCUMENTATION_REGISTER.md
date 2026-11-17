@@ -566,3 +566,14 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 - Updated `docs/USER_ACTIONS.md`: blob `d1f522ab22ba7cd16b5ffa2d49c01dde99b2dc3d`, commit `50469b50a89a9f56a38d3242d0ef6b3a88bff30e`.
 - Updated audit `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`: blob `00f5cfb24c2e77a9f8ac7c68def926bf1ec77bb0`, commit `720743a6c9c543b976bff64b6c351d890f088f8f`.
 - Recorded owner transcript, exact Git result, assistant retrieval/source-inspection/documentation steps and next gate. Git synchronization is PASS; SQL integration remains NOT PASSED pending a successful guarded run and confirmed cleanup.
+
+
+### 2026-11-17 second stale-main stop — assistant sequencing mistake recorded
+
+- Owner's runner fetch moved remote from `95b7aa3c` to `a98f8821`; local HEAD remained `95b7aa3cadfdb0b5d213ec65d2d61cf47ffcf990`. The runner correctly stopped at its synchronization guard before password prompt or DB creation.
+- Assistant accountability: documentation commit `a98f8821` was created after the owner's previous pull; assistant then incorrectly instructed an immediate rerun without another pull. This avoidable sequencing error is documented; user followed assistant's instruction.
+- Runner source blob inspected: `74c128b4c6933b8b5aba888e4abeb01200df2ab6`.
+- Updated `docs/PROJECT_STATE.md`: blob `845e33d31cf5ee403ebd1b1a03f3486ba0b16868`, commit `cb872c0ec6ad2f7d738421b57a80d752c5e86675`.
+- Updated `docs/USER_ACTIONS.md`: blob `8b9a411914297ab9d1953b4790dc39f0b32b855c`, commit `a39e11efb0ec36329f838a2dc56504037af5797d`.
+- Updated audit `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`: blob `44eb7367c71e2cc66492b8df5632ad9c94746235`, commit `c2c472365d517777bfc40ca8532458720cd369d9`.
+- Corrective sequence is now explicit: after this documentation commit, owner must fast-forward local main, verify HEAD equals origin/main, then run the guarded script without an intervening assistant commit. Each later assistant commit to main requires a fresh pull before another runner invocation. SQL integration remains NOT PASSED.
