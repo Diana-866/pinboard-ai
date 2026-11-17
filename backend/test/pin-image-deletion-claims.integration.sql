@@ -594,10 +594,10 @@ $body$;
 -- AUD-260: finalization retries acknowledge only the exact token and terminal outcome.
 do $body$
 declare
-  v_upload_path text := 'pins/generation-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.webp';
-  v_failed_upload_path text := 'pins/generation-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.webp';
-  v_delete_path text := 'pins/generation-cccccccccccccccccccccccccccccccc.webp';
-  v_failed_delete_path text := 'pins/generation-dddddddddddddddddddddddddddddddd.webp';
+  v_upload_path text := 'pins/generation-11111111111111111111111111111111.webp';
+  v_failed_upload_path text := 'pins/generation-22222222222222222222222222222222.webp';
+  v_delete_path text := 'pins/generation-33333333333333333333333333333333.webp';
+  v_failed_delete_path text := 'pins/generation-44444444444444444444444444444444.webp';
   v_result jsonb;
   v_token uuid;
 begin
