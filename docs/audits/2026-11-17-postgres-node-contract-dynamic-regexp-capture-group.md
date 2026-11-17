@@ -60,3 +60,18 @@ node --test backend/test/postgres-integration-runner-contract.test.js backend/te
 Require **42/42 PASS**. On any failure, stop and send the complete output. Only after Node PASS may the owner run the PowerShell Parser API check; only after Parser PASS may the guarded PostgreSQL runner be used.
 
 SQL PASS still requires the fixture, 144 migrations 010–153, both CI inline assertions, all 46 ordered SQL tests, and confirmed disposable database cleanup.
+
+
+## 6. Owner rerun result — 42/42 PASS
+
+After syncing, the owner reported:
+- `git pull --ff-only origin main` advanced the local branch to `6512dc8aa4ae882e8be91877185a262787b02f87`.
+- `git rev-parse HEAD` and `git rev-parse origin/main` both returned `6512dc8aa4ae882e8be91877185a262787b02f87`; both `git status --short` outputs were empty.
+- The exact three-file Node command completed with **42 tests, 42 passed, 0 failed, 0 cancelled, 0 skipped** (duration 132.4884 ms).
+- The formerly failing dynamic RegExp baseline-column test now passes. The complete contract, migration-chain and verification-script gates pass.
+
+This is owner-executed local Node evidence, not assistant-executed verification and not CI evidence. The assistant did not run Node or any local command.
+
+### Next gate
+
+The Node gate is now **PASS**. The owner may proceed to the PowerShell Parser API check and must require zero syntax errors. Only after Parser PASS may the guarded PostgreSQL integration runner run. PostgreSQL integration remains **NOT PASSED / NOT YET RUN** after this Node gate; SQL PASS still requires fixture, 144 migrations 010–153, two CI inline assertions, all 46 SQL tests and confirmed disposable DB cleanup.
