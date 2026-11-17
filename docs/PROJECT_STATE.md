@@ -1550,3 +1550,15 @@ This section records the exact owner-provided PowerShell procedure. Treat it as 
 - Detailed chronology, owner evidence, diagnosis, exact commits/blobs, limitations, and next steps: `docs/audits/2026-11-17-postgres-integration-test-28-terminal-generation-task-journal-and-contract-order.md`.
 - Owner proceeded with the guarded SQL runner despite the Node assertion excerpt. Record as gate-order deviation; runner's own clean-checkout and database-target guards passed, with no evidence of bypass.
 - Next: synchronize latest clean main; run Node contract/migration/replay gates and require full PASS; then PowerShell Parser; only after both PASS run guarded PostgreSQL integration. SQL PASS requires all 46 tests and confirmed cleanup. Do not stop PID 15220, change port/data directory, bypass guards, or use production/PIN_TRIAL.
+
+
+### 2026-11-17 — PostgreSQL Node contract gate: upgrade-fixture regex and migration-count corrections
+
+- Owner synchronized cleanly to `0fc877a0aa5dd47d565f77b9873fc4c62edbf807`; local HEAD equaled origin/main. The three Node gate files reported **42 tests: 39 PASS, 3 FAIL**.
+- Failures: users fixture table matcher did not capture an existing `public.users` table; CI migration-chain contract expected 143 entries and still named 010–152 although active chain is 010–153 (144); dynamic RegExp in baseline-column contract threw `Unmatched ')'`.
+- Root cause: two direct regex literals were over-escaped; expected migration count/title were stale; dynamic RegExp source string had incorrect escaping. The upgrade fixture itself contains `public.users` and `is_admin boolean default false`.
+- Assistant changed only `backend/test/postgres-integration-runner-contract.test.js`. Final commit `3c2d82bfafef40d16d6ae6c3eb7f4c7d7292e698`, blob `2f0e54ad47ffd05cfca500568a3f962cb6af6c93`. Intermediate count-only commit `3cb658510bc54dca040239fb15ac85ece3e6d017` was superseded. No production SQL, fixture, CI, runner, or database was changed.
+- Final contract file was re-fetched and statically inspected: direct users matchers now use valid regex-literal escaping; dynamic RegExp helper uses valid JavaScript string escaping; migration contract expects exactly 144 contiguous migrations 010–153.
+- Assistant did not execute Node, PowerShell, psql, PostgreSQL, or CI. The corrected contract is **NOT runtime-verified**. Since Node gate failed, owner correctly did not proceed to Parser or SQL runner. PostgreSQL integration remains **NOT PASSED**; SQL tests 1–46 have not been rerun after the latest fixture correction.
+- Detailed evidence, diagnosis, publication chronology, exact commit/blob and next gates: `docs/audits/2026-11-17-postgres-node-contract-upgrade-fixture-regex-and-migration-count.md` (audit blob `49fbaedd17c2422458b35617b89d129af8d629f6`).
+- Next: owner syncs latest main; reruns the same three Node tests and requires 42/42 PASS; then Parser PASS; only then guarded PostgreSQL replay. SQL PASS still requires all 46 tests and confirmed cleanup.
