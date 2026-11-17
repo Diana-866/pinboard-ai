@@ -141,6 +141,14 @@ test('schedule cancellation race test compares text user_id with an explicit UUI
   assert.doesNotMatch(cancellation, /user_id=v_user_id and status='scheduled'/);
 });
 
+test('account deletion re-auth integration test rolls back durable queue and append-only event rows', () => {
+  const reauth = read('backend/test/account-deletion-reauth-version.integration.sql');
+  assert.match(reauth, /^begin;\\s*do \\$/i);
+  assert.match(reauth, /rollback;\\s*$/i);
+  assert.doesNotMatch(reauth, /delete from public\\.account_deletion_(requests|jobs|events)/i);
+  assert.doesNotMatch(reauth, /delete from public\\.users/i);
+});
+
 test('CI migration list remains the complete contiguous 010-148 chain', () => {
   const prefixes = [...workflow.matchAll(/db\/migrations\/(\d{3})_[A-Za-z0-9._-]+\.sql/g)]
     .map((match) => Number(match[1]));
