@@ -10,6 +10,7 @@ declare
   v_req jsonb;
   v_request_id bigint;
   v_claim uuid;
+  v_final_claim uuid;
   v_key text;
   v_at timestamptz;
   v_status text;
@@ -79,9 +80,13 @@ begin
   select status into v_status from public.pin_generation_credit_reservations
    where user_id=v_user::text and idempotency_key=v_key;
   if v_status<>'released' then raise exception 'reconciled regeneration reservation was not released'; end if;
-  select status into v_status from public.pin_regeneration_requests
+  select status,claim_token into v_status,v_final_claim
+    from public.pin_regeneration_requests
    where user_id=v_user::text and idempotency_key=v_key;
   if v_status<>'failed' then raise exception 'reconciled regeneration request was not finalized'; end if;
+  if v_final_claim is distinct from v_claim then
+    raise exception 'terminal regeneration claim token was not preserved';
+  end if;
 
   select count(*) into v_audit_count from public.provider_refund_reconciliation_audit
    where user_id=v_user::text;
