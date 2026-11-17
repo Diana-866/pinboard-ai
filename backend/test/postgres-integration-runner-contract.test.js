@@ -93,7 +93,7 @@ test('runner refuses unsafe targets and documents the unexecuted Bash concurrenc
 
 test('runner logs migration progress and inspects the preferred-language constraint before migration 018', () => {
   assert.match(runner, /Applying migration /);
-  assert.match(runner, /Diagnostic: matching constraints immediately before migration 018/);
+  assert.match(runner, /Diagnostic: database and public\.users constraints immediately before migration 018:/);
   assert.match(runner, /users_preferred_language_check/);
   assert.match(runner, /pg_get_constraintdef\(c\.oid\)/);
 });
