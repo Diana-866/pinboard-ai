@@ -1076,3 +1076,12 @@ This section records the exact owner-provided PowerShell procedure. Treat it as 
 - Historical HEAD and hashes above identify the exact checkout used for this replay; do not require the current moving `main` HEAD to equal that historical commit when interpreting this evidence.
 - Never stop/reinitialize the PostgreSQL cluster `X:\\PinPosy-verify-pg18`, never touch production or PIN_TRIAL, never bypass any preflight, and never request or store the password in chat.
 - The long console output displayed Cyrillic PostgreSQL NOTICE text as mojibake, but the command continued through all migrations, cleanup and the explicit success summary. Do not infer failure from those display artifacts alone.
+
+
+### Documentation journal — canonical migration replay transcript captured (2026-11-17)
+
+- Owner supplied the full PowerShell transcript proving the successful 2026-11-16 migration-only replay. Added the exact preflight, process-scoped PostgreSQL environment setup, secure password handling, identity checks, child-process invocation, migration range, disposable DB cleanup and evidence interpretation to this passport. Commit `6853ce1cdcd8c6e6d59af4b63252f083161f182d`, blob `53db3fe142b62c8decf659c7929bbc64c5512e52`.
+- Updated `docs/USER_ACTIONS.md` so future work does not ask the owner to repeat the already successful migration replay and explicitly separates its PASS from the pending 46-file SQL integration gate. Commit `6734d4da17ca83da0fda04b055112259f3b6fd31`, blob `97bb9c6ec0b6826cdb3aaf19101102a9b6866f82`.
+- Added the same authoritative procedure and interpretation to `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`. Commit `db9b8d4902cc048c61c185b6d789d7399f0d01ee`, blob `fe62125932eb1e725930e731a478483347df9d52`.
+- Refreshed documentation register blob SHAs and appended the distinction between migration replay PASS and SQL integration NOT RUN. Register commit `19c03025aa3eb7cb33ab5d4f8439132bfa12dd93`, blob `aa6209bdd91a464a6efdecd7ec84d619a7e4880f`.
+- Evidence basis: owner-provided complete terminal transcript. No PostgreSQL process, local file, database, migration, or test was run by the assistant in this documentation update. No secrets were copied into repository documentation.
