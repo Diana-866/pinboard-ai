@@ -546,3 +546,18 @@ Owner transcript:
 Assistant changed only the stale expected heading in the Node contract test. Commit `a4472b204bf6c66f02c0adb8c9d1db79579c47ea`; test blob `902a0d700a1b145d7e48ad5f0cc856c5bd6f99a1`. This correction is not yet test-verified.
 
 **Next owner action:** pull latest clean `main`; rerun the Node contract test and PowerShell Parser API check. If both pass, rerun the guarded integration runner and provide its full output. Do not bypass safety guards or touch production/PIN_TRIAL. The SQL integration gate remains BLOCKED until the runner completes all fixture, 139 migrations, two inline assertions and 46 SQL tests, followed by confirmed disposable DB cleanup.
+
+
+### UA-004 follow-up — corrected Node contract suite passes (2026-11-17)
+
+Owner transcript:
+- `git status --short` printed no entries before synchronization.
+- `git pull --ff-only origin main` fast-forwarded local `main` from `844514ab` to `7f0084ca`; five files changed, 49 insertions and one deletion.
+- `node --test .\\backend\\test\\postgres-integration-runner-contract.test.js`: **10 passed, 0 failed, 10 total**. All named contract checks in the output passed, including the corrected diagnostic-heading assertion.
+- The current transcript ends immediately after the Node test output. It does not contain a PowerShell Parser API invocation or a guarded PostgreSQL integration-runner invocation.
+
+Interpretation and boundaries:
+- The stale expected log string is now confirmed fixed by the passing contract suite.
+- Previous PowerShell Parser API PASS was recorded against an earlier pulled revision; re-run it on current `7f0084ca` before invoking the integration runner.
+- No new disposable database was created and no migrations, inline assertions or SQL integration tests ran in this turn.
+- Next owner action: run the documented PowerShell Parser API check; if PASS, execute the guarded integration runner and send the full output. Keep all safety guards; do not stop PID 15220, alter the temporary PostgreSQL cluster, or touch production/PIN_TRIAL.
