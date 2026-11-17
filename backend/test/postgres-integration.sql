@@ -339,6 +339,14 @@ begin
        where user_id=v_user::text and idempotency_key='reservation-test-key-0002') <> 'reserved' then
     raise exception 'unknown provider outcome must retain its credit reservation';
   end if;
+  -- Finish this isolated scenario after proving the reservation fence: a later
+  -- definitive provider failure releases the held amount through the status trigger.
+  update public.pin_generation_requests set status='failed', error_code='provider_reconciled_failure'
+   where user_id=v_user::text and idempotency_key='reservation-test-key-0002' and status='unknown';
+  if (select status from public.pin_generation_credit_reservations
+       where user_id=v_user::text and idempotency_key='reservation-test-key-0002') <> 'released' then
+    raise exception 'reconciled provider failure did not release the generation reservation';
+  end if;
 
   -- A different debit path must not consume credits committed to an unknown
   -- provider task; the user has 100 credits, 60 reserved, and only 40 free.
@@ -555,6 +563,7 @@ begin
   -- Idempotency: completed generation returns stored pins without charging again.
   v_result := public.begin_pin_generation_request(v_user::text, v_board, 'ci-generation-key-0001', repeat('a',64));
   if v_result->>'status' <> 'started' then raise exception 'first generation request must start'; end if;
+  perform public.reserve_pin_generation_credits(v_user::text, 'ci-generation-key-0001', 5);
   v_result := public.complete_pin_generation_request(
     v_user::text, v_board, 'ci-generation-key-0001',
       (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-key-0001'),
@@ -569,8 +578,8 @@ begin
     raise exception 'duplicate generation charged credits twice';
   end if;
 
-  -- A failed atomic completion must leave the request retryable and must not
-  -- persist pins or debit credits. After funding, the same key completes once.
+  -- An unaffordable generation must fail at reservation time without changing
+  -- the request. After funding, the same key reserves and completes exactly once.
   v_result := public.begin_pin_generation_request(
     v_user::text, v_board, 'ci-generation-atomic-retry-0001', repeat('d',64)
   );
@@ -579,25 +588,23 @@ begin
   end if;
   select credits_balance into v_before from public.users where id=v_user;
   begin
-    perform public.complete_pin_generation_request(
-      v_user::text, v_board, 'ci-generation-atomic-retry-0001',
-      (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-atomic-retry-0001'),
-      '[{"image_url":"https://cdn.example.invalid/atomic-retry.png","title":"Atomic retry","description":"","model_used":"flux-schnell","aspect_ratio":"2:3","credits_cost":76}]'::jsonb,
-      76
-    );
-    raise exception 'expected atomic completion to reject insufficient credits';
+    perform public.reserve_pin_generation_credits(v_user::text, 'ci-generation-atomic-retry-0001', 76);
+    raise exception 'expected generation reservation to reject insufficient credits';
   exception when others then
-    if sqlerrm = 'expected atomic completion to reject insufficient credits' then raise; end if;
-    if sqlerrm not like '%insufficient credits%' then raise; end if;
+    if sqlerrm = 'expected generation reservation to reject insufficient credits' then raise; end if;
+    if sqlerrm not like '%insufficient available credits for generation reservation%' then raise; end if;
   end;
   if (select credits_balance from public.users where id=v_user) <> v_before
      or exists (select 1 from public.pins where board_id=v_board and title='Atomic retry')
+     or exists (select 1 from public.pin_generation_credit_reservations
+          where user_id=v_user::text and idempotency_key='ci-generation-atomic-retry-0001')
      or (select status from public.pin_generation_requests
           where user_id=v_user::text and idempotency_key='ci-generation-atomic-retry-0001') <> 'processing' then
-    raise exception 'failed atomic completion left partial state';
+    raise exception 'failed generation reservation left partial state';
   end if;
 
   perform public.adjust_credits_balance_and_log(v_user::text, 1, 'topup', 'atomic retry test');
+  perform public.reserve_pin_generation_credits(v_user::text, 'ci-generation-atomic-retry-0001', 76);
   v_result := public.complete_pin_generation_request(
     v_user::text, v_board, 'ci-generation-atomic-retry-0001',
     (select claim_token from public.pin_generation_requests where user_id=v_user::text and idempotency_key='ci-generation-atomic-retry-0001'),
