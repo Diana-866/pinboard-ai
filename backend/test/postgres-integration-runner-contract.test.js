@@ -180,11 +180,11 @@ test('durable account deletion queue test expects the Storage manifest guard add
   assert.ok(stageGuards.indexOf("raise exception 'account deletion Storage manifest is required';") < stageGuards.indexOf('update public.account_deletion_jobs'));
 });
 
-test('CI migration list remains the complete contiguous 010-151 chain', () => {
+test('CI migration list remains the complete contiguous 010-152 chain', () => {
   const prefixes = [...workflow.matchAll(/db\/migrations\/(\d{3})_[A-Za-z0-9._-]+\.sql/g)]
     .map((match) => Number(match[1]));
-  assert.equal(prefixes.length, 142);
-  assert.deepEqual(prefixes, Array.from({ length: 142 }, (_, index) => index + 10));
+  assert.equal(prefixes.length, 143);
+  assert.deepEqual(prefixes, Array.from({ length: 143 }, (_, index) => index + 10));
 });
 
 test('upgrade fixture preserves every canonical baseline column except fields introduced by later migrations', () => {
@@ -256,4 +256,10 @@ test('provider refund evidence regex uses PostgreSQL-safe unbounded repetition i
   assert.match(migration, /pg_get_functiondef/);
   assert.match(migration, /replace\(v_definition, '\{7,499\}', '\{7,\}'\)/);
   assert.equal((migration.match(/\{7,499\}/g) || []).length, 1);
+});
+
+test('migration 152 revokes direct execution of the regeneration reservation trigger function', () => {
+  const migration = read('db/migrations/152_revoke_direct_execution_of_regeneration_reservation_trigger.sql');
+  assert.match(migration, /revoke all on function public\\.release_failed_pin_regeneration_reservation\\(\\)/i);
+  assert.match(migration, /from public, anon, authenticated, service_role/i);
 });
