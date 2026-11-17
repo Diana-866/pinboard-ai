@@ -22,8 +22,21 @@ $securePassword = $null
 function Invoke-Psql {
     param([string]$Database, [string[]]$PsqlArguments, [switch]$Capture)
     $arguments = @('-X','-v','ON_ERROR_STOP=1','-h',$hostAddress,'-p',[string]$PostgresPort,'-U',$DatabaseUser,'-d',$Database) + $PsqlArguments
-    $output = @(& $PsqlPath @arguments 2>&1)
-    $exitCode = $LASTEXITCODE
+    # Windows PowerShell 5.1 treats native stderr records as PowerShell errors.
+    # psql legitimately writes NOTICE messages to stderr (for example DROP
+    # CONSTRAINT IF EXISTS); do not let the script-wide Stop preference abort
+    # before the native exit code and complete diagnostic output are captured.
+    $previousErrorActionPreference = $ErrorActionPreference
+    $previousConsoleOutputEncoding = [Console]::OutputEncoding
+    try {
+        $ErrorActionPreference = 'Continue'
+        [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+        $output = @(& $PsqlPath @arguments 2>&1)
+        $exitCode = $LASTEXITCODE
+    } finally {
+        [Console]::OutputEncoding = $previousConsoleOutputEncoding
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
     $rendered = ($output | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
     if (-not $Capture) { foreach ($line in $output) { Write-Host $line } }
     if ($exitCode -ne 0) { throw "psql failed (exit $exitCode), database '$Database': $($rendered.Trim())" }
