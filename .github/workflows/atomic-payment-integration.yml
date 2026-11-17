@@ -404,6 +404,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/151_fix_provider_refund_evidence_regex_repetition_limit.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/152_revoke_direct_execution_of_regeneration_reservation_trigger.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/153_restore_permanent_quarantine_for_expired_pin_image_deletions.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/154_restore_permanent_tombstone_guard_for_deleted_pin_image_uploads.sql
       - name: Verify Pinterest credentials are disconnected for deletion-pending accounts
         env:
           PGPASSWORD: postgres
