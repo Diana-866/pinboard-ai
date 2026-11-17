@@ -785,3 +785,14 @@ Owner evidence: clean synchronized checkout at `72bafc7a1a0e1921e4155eacc6d38df6
 | `docs/USER_ACTIONS.md` | `610cd65e26a232ac4150e5af79cfb6ae5db5b9f6` | `a2cf68841a6aba499b9ceb30a6160fa08576bde6`; UA-008 Parser API check, next guarded runner gate and STOP rules |
 
 Owner evidence: clean checkout synchronized at `9beca59b21c1f41c330bc7df03abb3189866766e`; `node --test backend/test/postgres-integration-runner-contract.test.js` returned 20 PASS / 0 FAIL. Node contract gate is now closed. PowerShell Parser API check remains pending; SQL integration remains **NOT PASSED**. Assistant did not execute local Node, PowerShell, psql or PostgreSQL; it inspected GitHub sources and updated documentation only. No production database, migrations, runner target or persistent verification cluster was modified.
+
+
+### 2026-11-17 — PowerShell Parser API gate: owner PASS
+
+| Path | Blob SHA | Commit / reason |
+|---|---|---|
+| `docs/audits/2026-11-17-postgres-integration-powershell-parser-pass.md` | pending final fetch | `d7c7d529334a418e1246857ec7e6f8c474829c05`; owner transcript, Parser PASS (0 syntax errors), runner source review and safety boundary |
+| `docs/PROJECT_STATE.md` | `bbd8cadae193f03d5081ba4c52ccd9af737c341f` | `79604e6e42bab238718428acd2df8a1943daacda`; records owner Parser PASS and next gate |
+| `docs/USER_ACTIONS.md` | `edcdc3ee2b56b1012a05d0a812962999f3d2429a` | `f93edc19876d6cccb4e7dec4c091d4464f6f0268`; UA-009 guarded runner instructions and stop conditions |
+
+Owner evidence: clean synchronized checkout at `3f5549990ce71c2e4ff86a393eabbf1d2776f944`; Parser API returned `syntax errors: 0`. Node contract remains 20/20 PASS. Parser check does not execute runner or SQL. PostgreSQL SQL integration remains **NOT PASSED**. Assistant reviewed current runner source and project instructions, updated documentation, and did not execute PowerShell/psql/PostgreSQL or modify source/DB.
