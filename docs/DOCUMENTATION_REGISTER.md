@@ -827,7 +827,7 @@ Owner runtime evidence: clean synchronized checkout at `0d31c813e39e420e26c5ebee
 
 | Path | Blob SHA | Commit / reason |
 |---|---|---|
-| `docs/audits/2026-11-17-postgres-integration-node-contract-after-test18-fix-pass.md` | pending post-publication fetch | dea86db006aff98fde94d21f2bf55a1e04d665d6; owner transcript, clean synchronized HEAD, Node 20/20 PASS, verification limits and next guarded SQL gate |
+| `docs/audits/2026-11-17-postgres-integration-node-contract-after-test18-fix-pass.md` | `9f758b061d4e770c379ad6e6faaff1c9d030dd19` | `dea86db006aff98fde94d21f2bf55a1e04d665d6`; owner transcript, clean synchronized HEAD, Node 20/20 PASS, verification limits and next guarded SQL gate |
 | `docs/PROJECT_STATE.md` | cf9c78c21eb000e1deeff9b3b052158b61554b34 | 1c850d27c0bb884f40d892c072273cccd1126d41; chronological record of owner Node 20/20 PASS after test-18 test-only correction |
 | `docs/USER_ACTIONS.md` | 4ae132e3bb840a752cba317284d852eee4d3ef0b | 6dbfa3ca9f0dc2ed60b16cb226205e653f813e0e; UA-012: guarded PostgreSQL rerun instructions and stop/SQL-PASS criteria |
 
