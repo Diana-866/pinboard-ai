@@ -55,7 +55,7 @@ Related source updates:
 | Path | Final blob SHA | Commit |
 |---|---|---|
 | `db/migrations/153_restore_permanent_quarantine_for_expired_pin_image_deletions.sql` | `92977973a8aaae53aef4767c938db2ed1ba9019e` | `35008b37a40da18153fdc4339abce392c56a8b4e` |
-| `backend/test/postgres-integration-runner-contract.test.js` | `b35b99d239d3e30edb4ff07cb081fbf5198aac90` | `1e3dc3fe4e79d2ea1db5530bd0c3eef3d0f497f5` |
+| `backend/test/postgres-integration-runner-contract.test.js` | `fa6e049e08a006828e7b8faba9005a287d9a6789` | `e2e117bba716282ada135673ef6cfd6e89cc9ba4` |
 | `backend/test/db-migration-chain.test.js` | `78af1b6e5fa23f808c62a3d363e487e39d963584` | `9f6cee8a9eb5d7fa870cc452f2132f80f0bd48df` |
 | `backend/test/verify-script-migration-chain.test.js` | `379e28b7e32fb28cd81a9802e4a1e867b44dac49` | `543d5c672d4925bcc1b2131b72c995fe80c0907e` |
 | `scripts/verify-integration.ps1` | `30fd054311526e367109fc413a52b01f6c150291` | `9cd9edff30b2274df98e000347d9fcc025dcee4d` |
@@ -79,3 +79,6 @@ Related source updates:
 3. Run PowerShell Parser API against `scripts/verify-integration.ps1`. Stop on any syntax error.
 4. Only after both gates pass, run the guarded PostgreSQL integration runner.
 5. SQL PASS requires the upgrade fixture, all 144 migrations 010–153, both CI inline assertions, all 46 ordered SQL integration tests, and successful disposable DB cleanup. Stop on the first failure; do not bypass runner guards or use production/PIN_TRIAL.
+
+
+Final static review: the dynamic RegExp helper's source string was rechecked after publication; the complete expression now preserves the escaped character class `([\\s\\S]*?)` and newline matcher. Final test blob/commit above supersede earlier intermediate correction commits. This is source inspection only; owner must rerun Node tests.
