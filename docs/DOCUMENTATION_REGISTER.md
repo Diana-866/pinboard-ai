@@ -1280,3 +1280,16 @@ Owner evidence: local main fast-forwarded from `30e1ac9f` to `9206d830`; clean w
 | `docs/USER_ACTIONS.md` | UA-034 safe fast-forward sequence and next guarded runner action |
 
 Owner transcript: local HEAD `9206d83076c4ea59c0d66be15482bf58d7217226`; runner fetched origin/main `5fa8d042f7e85339565bae9a8f34e8ebe654100d` and stopped at repository synchronization guard. The remote advancement was caused by assistant's preceding documentation-only commits. Source `scripts/verify-integration.ps1` blob `483ef0211e23a50ea50d1c80b9d47ce4140c09b3` confirms the guard precedes listener validation, password prompt, psql, database operations and tests. No PostgreSQL interaction or SQL test occurred. Next: owner fast-forwards, confirms clean worktree and matching SHAs, then reruns guarded runner. Prior Node 45/45 and Parser 0-error gates are from unchanged source; repeat/reassess if code changed. Historical SQL runtime remains FAIL at 34/46; assertion fix NOT RUNTIME-VERIFIED; nine Bash concurrency scripts unverified. Assistant inspected transcript/source/docs and updated records only; no local commands, DB, credentials or source changes.
+
+
+### 2026-11-17 — PostgreSQL integration test 35/46: OAuth stale-session assertion
+
+| Path | Purpose / recorded evidence |
+|---|---|
+| `docs/audits/2026-11-17-postgres-integration-test-35-pinterest-oauth-stale-session-assertion.md` | Full owner run result, exact failure, source diagnosis, correction details, commit/blob SHAs, cleanup, verification limits and assistant action log |
+| `backend/test/pinterest-oauth.integration.sql` | Corrected test 35 assertion: stale callback must return `stale_session`, preserve the already-connected account and must not create an old-session account; commit `4e9434c8eaa72a8ff4053521716b144b2b947396`, blob `440812c1c1c341036d78db39973333cebc1f5b6f` |
+| `backend/test/postgres-integration-runner-contract.test.js` | Added source-contract guard for the corrected OAuth assertion; commit `5b7c354f532e5a5d896edd9ca32934368b24b670`, blob `7abd35fbe62c6db075041fbba3bd76b465057b90` |
+| `docs/PROJECT_STATE.md` | Chronological SQL test 35 evidence, diagnosis, edits, exact runtime status and next gate |
+| `docs/USER_ACTIONS.md` | UA-034 owner transcript and next Node 46-test gate followed by guarded PostgreSQL rerun |
+
+Owner evidence: clean synchronization at `68d32f33a6760b27577cbe15716f0c61c97984ef`; fixture PASS; 147 migrations 010–156 PASS; two inline assertions PASS; SQL tests 1–34 PASS; test 35/46 failed; tests 36–46 NOT RUN; disposable DB `pinposy_sqlint_66dec8d3e0aa48e4` cleanup confirmed. Source review found the test expected zero active Pinterest credentials after it had already reconnected an account; migration 032 correctly returns `stale_session` without disconnecting that existing account. The correction is test-only. New Node assertion and SQL test correction are NOT RUNTIME-VERIFIED; expected combined Node count is 46. Overall SQL integration remains NOT PASSED. Assistant used GitHub source reads/edits only and did not execute local tests or database commands.
