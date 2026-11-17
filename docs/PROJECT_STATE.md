@@ -1605,3 +1605,14 @@ This section records the exact owner-provided PowerShell procedure. Treat it as 
 - Source commit `c58b877c1d51713c6b0d102206d8d4439ec4123e`; source blob `1df7078c31ba2992d526c0993802f3819b59df80`.
 - Detailed audit: `docs/audits/2026-11-17-postgres-integration-test-28-parent-generation-terminal-state-fixture.md` (blob `44437db99bb398867a141ee670e2c9b944ea34da`).
 - Assistant did not execute local tests or database commands. The fixture correction is not runtime-verified. Prior Node 42/42 and Parser PASS predate this SQL-only change. PostgreSQL integration remains **FAIL 27/46** pending rerun; next owner gate is Node 42/42, then guarded runner. Parser script was not changed, so the prior Parser PASS remains applicable.
+
+
+### 2026-11-17 — PostgreSQL test 28/46: deleted image path tombstone regression and additive migration 154
+
+Owner evidence on clean commit `7c679f475ceaaf7cdd4d2eb953c97fd84f41c374`: Node 42/42 PASS; guarded runner applied fixture, 144 migrations 010–153 and both CI assertions; SQL tests 1–27 PASS; test 28 failed with `upload reservation unexpectedly reused a deleted image path`. Disposable DB cleanup succeeded. Tests 29–46 did not run.
+
+Diagnosis: migration 145 replaced `begin_pin_image_upload()` to expand the durable reference inventory but omitted the permanent `deleted` state guard present in migrations 090/098. A deleted lifecycle row therefore fell through to the upload reservation update. This is a production SQL regression, not merely a fixture mismatch.
+
+Published additive migration 154 restoring the `deleted -> already_deleted` guard while preserving migration 145's expanded references. Updated migration contract, canonical chain tests, Linux/Windows replay scripts, guarded Windows runner, and CI workflow. Historical migrations and the existing SQL regression fixture remain unchanged. Final source blobs/commits and full reasoning are recorded in `docs/audits/2026-11-17-postgres-integration-test-28-deleted-image-path-tombstone-regression.md`.
+
+Assistant re-fetched all eight changed source paths and checked their final blob SHAs and static migration-range markers. No Node/PowerShell/psql/PostgreSQL/CI execution was performed by the assistant. Migration 154 is not runtime-verified. Owner must rerun Node (now expected 43/43), PowerShell Parser (0 errors), then the guarded SQL runner. PostgreSQL integration remains **FAIL 27/46**; tests 29–46 remain unexecuted.
