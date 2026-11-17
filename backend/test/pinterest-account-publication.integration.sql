@@ -243,7 +243,7 @@ begin
 
   -- A separate claimed schedule models a worker already in flight.
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
-  values (v_board, 'https://cdn.example.invalid/inflight.png', 'In-flight pin', '', 'pending', 'flux-schnell', 0)
+  values (v_board, 'https://cdn.example.invalid/inflight.png', 'In-flight pin', '', 'approved', 'flux-schnell', 0)
   returning id into v_inflight_pin;
   insert into public.pin_schedules(
     user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
@@ -256,7 +256,7 @@ begin
   -- A stale claim with no attempt journal is safe to requeue, but its old
   -- worker must be fenced before it can reserve an attempt or send a POST.
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
-  values (v_board, 'https://cdn.example.invalid/pre-journal-crash.png', 'Pre-journal crash', '', 'pending', 'flux-schnell', 0)
+  values (v_board, 'https://cdn.example.invalid/pre-journal-crash.png', 'Pre-journal crash', '', 'approved', 'flux-schnell', 0)
   returning id into v_crash_pin;
   v_old_claim_token := gen_random_uuid();
   insert into public.pin_schedules(
@@ -342,7 +342,7 @@ begin
   -- Recovery must preserve a safely journaled rejection if the worker
   -- crashes before it can move the schedule from publishing to scheduled.
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
-  values (v_board, 'https://cdn.example.invalid/safe-crash.png', 'Safe crash', '', 'pending', 'flux-schnell', 0)
+  values (v_board, 'https://cdn.example.invalid/safe-crash.png', 'Safe crash', '', 'approved', 'flux-schnell', 0)
   returning id into v_safe_crash_pin;
   insert into public.pin_schedules(
     user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
@@ -366,7 +366,7 @@ begin
   -- A failed journal without retry_safe is a known terminal rejection, not
   -- an ambiguous remote outcome and must not be converted into unknown.
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
-  values (v_board, 'https://cdn.example.invalid/unsafe-crash.png', 'Unsafe crash', '', 'pending', 'flux-schnell', 0)
+  values (v_board, 'https://cdn.example.invalid/unsafe-crash.png', 'Unsafe crash', '', 'approved', 'flux-schnell', 0)
   returning id into v_unsafe_crash_pin;
   insert into public.pin_schedules(
     user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
@@ -390,7 +390,7 @@ begin
   -- A retry backoff must keep a due schedule out of the worker claim set
   -- until next_attempt_at, then allow it to be claimed normally.
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
-  values (v_board, 'https://cdn.example.invalid/retry.png', 'Retry pin', '', 'pending', 'flux-schnell', 0)
+  values (v_board, 'https://cdn.example.invalid/retry.png', 'Retry pin', '', 'approved', 'flux-schnell', 0)
   returning id into v_retry_pin;
   insert into public.pin_schedules(
     user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
@@ -420,7 +420,7 @@ begin
 
   -- Manual retry is allowed only when the journal proves no publish attempt exists.
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
-  values (v_board, 'https://cdn.example.invalid/manual-retry.png', 'Manual retry pin', '', 'pending', 'flux-schnell', 0)
+  values (v_board, 'https://cdn.example.invalid/manual-retry.png', 'Manual retry pin', '', 'approved', 'flux-schnell', 0)
   returning id into v_manual_retry_pin;
   insert into public.pin_schedules(
     user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
@@ -446,7 +446,7 @@ begin
   -- A failed journal row is still evidence that the remote request may have
   -- started; the manual retry RPC must refuse it.
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
-  values (v_board, 'https://cdn.example.invalid/attempt-retry.png', 'Attempt retry pin', '', 'pending', 'flux-schnell', 0)
+  values (v_board, 'https://cdn.example.invalid/attempt-retry.png', 'Attempt retry pin', '', 'approved', 'flux-schnell', 0)
   returning id into v_attempt_retry_pin;
   insert into public.pin_schedules(
     user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
@@ -478,7 +478,7 @@ begin
   -- A durable failed attempt is retryable only when the failure RPC marked it
   -- as a confirmed pre-create rejection. Manual retry and begin RPC share it.
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
-  values (v_board, 'https://cdn.example.invalid/safe-retry.png', 'Safe retry pin', '', 'pending', 'flux-schnell', 0)
+  values (v_board, 'https://cdn.example.invalid/safe-retry.png', 'Safe retry pin', '', 'approved', 'flux-schnell', 0)
   returning id into v_safe_retry_pin;
   insert into public.pin_schedules(
     user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
@@ -683,7 +683,7 @@ begin
   values (v_user::text, 'account-c-' || v_user, 'account_c', 'enc:temporary')
   returning id into v_account_c;
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
-  values (v_board, 'https://cdn.example.invalid/disconnect-race.png', 'Disconnect race', '', 'pending', 'flux-schnell', 0)
+  values (v_board, 'https://cdn.example.invalid/disconnect-race.png', 'Disconnect race', '', 'approved', 'flux-schnell', 0)
   returning id into v_disconnect_race_pin;
   v_disconnect_race_token := gen_random_uuid();
   insert into public.pin_schedules(
