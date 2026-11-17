@@ -192,3 +192,16 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integra
 The runner's internal safety checks remain in force. The temporary role password must be entered only into its hidden prompt and never placed in command arguments or chat. If domain/Group Policy blocks this child-process override, stop and report the exact error; do not alter machine/user policy or bypass runner guards.
 
 The SQL integration gate remains NOT PASSED until the guarded run completes all expected stages and confirms the disposable database is absent after cleanup.
+
+
+## 14. Owner runner retry — process launch succeeds, synchronization guard stops execution (2026-11-17)
+
+The owner first repeated the direct invocation and received the same execution-policy refusal (`PSSecurityException / UnauthorizedAccess`). The owner then invoked the runner in a child PowerShell process using `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1`. This time the script loaded and fetched the remote branch successfully. Git output showed `7f0084ca..b8d04ffc main -> origin/main`.
+
+The runner then deliberately stopped because local `main` was at `7f0084ca8ff0681b56c214c3f7020f9d029c2ef5`, while fetched `origin/main` was `b8d04ffc9636fb7f4bc506aaf06f9bd6c86241cc`. Exact safety condition: local main must be synchronized with origin/main.
+
+Inspection of current runner blob `74c128b4c6933b8b5aba888e4abeb01200df2ab6` established the order: branch check → fetch origin/main → clean-worktree check → compare HEAD and origin/main → secure password prompt → disposable DB creation. The failure happened at the comparison, before the password prompt and before any PostgreSQL interaction or database creation. No migration, assertion, SQL test or cleanup occurred in this attempt. It is a repository synchronization guard, not a SQL failure.
+
+Assistant procedure: fetched the latest runner and four tracking documents from GitHub main; inspected relevant line ordering and source SHA; recorded both owner invocations and exact commit IDs; updated the chronological docs and register; re-fetched the documents to confirm the recorded update. No local git operation, code edit, DB operation, production/PIN_TRIAL access or secret handling occurred.
+
+Next owner step: run `git status --short`. Only if it is empty, run `git pull --ff-only origin main`; then compare `git rev-parse HEAD` and `git rev-parse origin/main`. If dirty or pull fails, stop and share output; do not reset/force/discard. When the two IDs match, rerun the process-scoped guarded runner. SQL integration is still NOT PASSED.
