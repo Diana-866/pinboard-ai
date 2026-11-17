@@ -531,3 +531,18 @@ Owner's latest transcript confirms:
 Assistant corrected the read-only diagnostic by casting catalog `contype` and `relkind` fields to text and added a source-contract assertion. This is not runtime-verified. Detailed history is in the audit section 9 and project-state journal.
 
 **Next owner action:** pull the newest `main`, verify clean status and PowerShell parser, then rerun the guarded integration runner. Capture all four diagnostic prefixes and the complete error context. Do not bypass guards, alter migrations/fixture manually, stop PID 15220, or touch production/PIN_TRIAL. The separate migration-only replay remains PASS; this SQL integration gate remains blocked.
+
+
+
+### UA-004 follow-up — contract test stale diagnostic message (2026-11-17)
+
+Owner transcript:
+- Fast-forwarded local `main` from `d48fdde9` to `844514ab`.
+- Node contract suite: **9 passed, 1 failed, 10 total**. Failure at the contract test asserting the former diagnostic heading `Diagnostic: matching constraints immediately before migration 018`; the live runner's expanded heading is `Diagnostic: database and public.users constraints immediately before migration 018:`.
+- All other contract assertions passed, including explicit text casts for PostgreSQL catalog `contype` and `relkind`.
+- PowerShell Parser API: **PASS**.
+- This transcript contains no post-fix integration-runner invocation, no new temporary database, no migrations, and no SQL integration tests.
+
+Assistant changed only the stale expected heading in the Node contract test. Commit `a4472b204bf6c66f02c0adb8c9d1db79579c47ea`; test blob `902a0d700a1b145d7e48ad5f0cc856c5bd6f99a1`. This correction is not yet test-verified.
+
+**Next owner action:** pull latest clean `main`; rerun the Node contract test and PowerShell Parser API check. If both pass, rerun the guarded integration runner and provide its full output. Do not bypass safety guards or touch production/PIN_TRIAL. The SQL integration gate remains BLOCKED until the runner completes all fixture, 139 migrations, two inline assertions and 46 SQL tests, followed by confirmed disposable DB cleanup.
