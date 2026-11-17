@@ -73,3 +73,7 @@ After all documentation updates are published, owner should:
 4. Only if all **17** contract tests pass, run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1`.
 
 Enter the temporary role password only at the hidden prompt. Do not stop listener PID 15220, delete `X:\PinPosy-verify-pg18`, touch production/PIN_TRIAL, weaken runner guards, or expose credentials. SQL integration can be marked PASS only after fixture, migrations, both inline assertions, all 46 SQL tests and confirmed disposable database cleanup succeed.
+
+## Follow-up source review — contract extraction correction
+
+Before owner verification, assistant re-fetched the newly added contract assertion and found that its first split delimiter encoded a literal backslash-n rather than the table terminator. The assertion was corrected to split at the literal SQL table terminator `);`, which safely isolates the boards definition without regex escaping. Final contract blob: `fe2a1ce4cfb0ca7e06ff0c2b4d087d40943db66a`, correction commit: `91d787eb945d2065a89a98e38ac51679f2461ed4`. The file still contains 17 top-level tests by source inspection; no test execution was performed by assistant.
