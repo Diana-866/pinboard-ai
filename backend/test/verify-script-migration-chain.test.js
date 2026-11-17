@@ -83,16 +83,16 @@ test("Windows migration replay pins every psql connection to explicit loopback h
   assert.ok(psqlCalls.every((call) => /"127\.0\.0\.1".*"\$PostgresPort"/.test(call)));
 });
 
-test("Windows replay applies stubs, canonical baseline, then exactly 145 active migrations", () => {
+test("Windows replay applies stubs, canonical baseline, then exactly 146 active migrations", () => {
   assert.match(windowsScript, /db\/supabase-stub\.sql/);
   assert.match(windowsScript, /001_baseline\.sql/);
   assert.match(windowsScript, /-ge 10/);
-  assert.match(windowsScript, /-ne 145/);
+  assert.match(windowsScript, /-ne 146/);
   assert.match(windowsScript, /foreach \(\$migration in \$activeMigrations\)/);
 });
 
-test("Windows replay rejects gaps or out-of-range migrations in the 010-154 chain", () => {
-  assert.match(windowsScript, /10\.\.154/);
+test("Windows replay rejects gaps or out-of-range migrations in the 010-155 chain", () => {
+  assert.match(windowsScript, /10\.\.155/);
   assert.match(windowsScript, /expectedMigrationSequence/);
   assert.match(windowsScript, /actualMigrationSequence/);
   assert.match(windowsScript, /\$actualMigrationSequence -ne \$expectedMigrationSequence/);
