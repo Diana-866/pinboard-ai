@@ -91,6 +91,13 @@ test('runner refuses unsafe targets and documents the unexecuted Bash concurrenc
   assert.match(runner, /NOT RUN: nine Bash concurrency scripts/);
 });
 
+test('runner logs migration progress and inspects the preferred-language constraint before migration 018', () => {
+  assert.match(runner, /Applying migration /);
+  assert.match(runner, /Diagnostic: matching constraints immediately before migration 018/);
+  assert.match(runner, /users_preferred_language_check/);
+  assert.match(runner, /pg_get_constraintdef\(c\.oid\)/);
+});
+
 test('CI migration list remains the complete contiguous 010-148 chain', () => {
   const prefixes = [...workflow.matchAll(/db\/migrations\/(\d{3})_[A-Za-z0-9._-]+\.sql/g)]
     .map((match) => Number(match[1]));
