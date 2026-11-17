@@ -1645,3 +1645,16 @@ Assistant actions: fetched current source and documentation from GitHub; compare
 Next owner gates after clean sync: Node suite (expected 44/44 PASS), PowerShell Parser (0 errors), then guarded PostgreSQL runner. Require 146 migrations 010–155, two inline assertions, all 46 SQL tests and successful disposable DB cleanup. Preserve PID 15220, port 55439 and `X:\\PinPosy-verify-pg18`; no production/`PIN_TRIAL`, no guard bypass, no secrets in chat. Nine Bash concurrency scripts remain unverified.
 
 Detailed audit: `docs/audits/2026-11-17-postgres-test-28-regeneration-replay-image-reference-guard-regression.md`.
+
+
+### 2026-11-17 — PostgreSQL test 28: upload reservation regeneration replay-reference regression; migration 156
+
+Owner evidence from guarded runner on clean main `484a7857e243ab8629b4056bb226b1dfea05806f`: fixture applied; 146 migrations 010–155 applied; both CI inline assertions passed; SQL tests 1–27 passed; test 28 failed because `begin_pin_image_upload()` returned `reserved: true` for a path still referenced by `pin_regeneration_requests.result_pin.image_url`. Disposable DB `pinposy_sqlint_d2afcaa5940843eb` was terminated/dropped and removal confirmed. Tests 29–46 did not run. SQL integration remains **NOT PASSED (27/46)**.
+
+Diagnosis: migration 107 introduced the regeneration replay payload reference check in `begin_pin_image_upload()`; migration 145 replaced the function and omitted it; migration 154 restored the permanent deleted-path tombstone guard and board/review inventory but still omitted the regeneration replay reference. The SQL fixture already correctly tests the case where `storage_url` is NULL but `result_pin.image_url` is durable. This is a production SQL regression, not a fixture defect.
+
+Published additive migration 156, based on migration 154's current upload-reservation function, restoring `managed_pin_image_object_path(r.result_pin ->> 'image_url') = p_object_path` while preserving all existing reference inventory, permanent `quarantined`/`deleted` rejection, and service-role-only execution. Historical migrations and SQL fixture were not changed.
+
+Updated migration-156 static contract, canonical chain test, Linux/Windows replay contracts and scripts, guarded Windows runner, and CI workflow. All local replay contracts and runner counts now expect **147 contiguous migrations 010–156**; CI explicitly applies migration 156 after 155. Exact blobs, commits, owner transcript, diagnosis, and limitations are recorded in `docs/audits/2026-11-17-postgres-test-28-upload-regeneration-replay-reference-regression-migration-156.md`.
+
+Assistant fetched all eight source files after publication and checked their exact blob SHAs and key static conditions. Assistant did not execute Node, PowerShell, psql, PostgreSQL, Bash, or CI. Migration 156 and updated tests/scripts are **NOT runtime-verified**. The prior Parser PASS predates the runner-script edits and must be repeated. Next owner gates: clean sync; Node tests (expected 45/45); updated PowerShell Parser (0 errors); only then guarded PostgreSQL runner. Full SQL PASS requires all 46 ordered tests and confirmed disposable DB cleanup. Preserve PID 15220, port 55439, and `X:\\PinPosy-verify-pg18`; no production/`PIN_TRIAL` and no guard bypass. Nine Bash concurrency scripts remain outside this runner.
