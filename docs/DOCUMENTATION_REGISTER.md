@@ -631,3 +631,6 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 - Runtime verification of the fixture correction is pending owner execution; SQL integration remains NOT PASSED.
 
 - Follow-up corrected contract-test regex blob: `54c0ba51ce8a3ac2e5a6b677be6a3b6950a1448c`, commit `89d5fd4baf14f790141fe1cb244a6f282d68e004`. Workflow/fixture equality was checked by source extraction; runtime tests remain pending.
+
+
+- Follow-up documentation count correction: contract test has **13** top-level `test(...)` declarations (counted from source lines), not 14. Audit blob `c8cd969e38b23de0e8f1cd059078e0713f10be31`, commit `1f01069382dcf17b8328a7c74b9b8b4ad32c2632`; project state blob `8e5940e649c407792e23a84d5cad06f513039418`, commit `032c750daa0aa341f0c8c64785f6ccd35a67fa07`; owner actions blob `6965846b3d8c87668bdbb2a75f135b55062ea51c`, commit `787efdc38a503f01f6455319e6a42da862c99123`.
