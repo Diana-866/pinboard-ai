@@ -2824,3 +2824,47 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integra
 Enter the temporary-role password only at the hidden prompt; never send it. Use only the approved local verification cluster (PID 15220, port 55439, `X:\PinPosy-verify-pg18`). Stop at the first SQL error and include the complete transcript and cleanup. Do not target production/`PIN_TRIAL`, bypass guards or run SQL manually.
 
 SQL integration PASS requires the upgrade fixture, all 147 migrations, both inline assertions, all 46/46 SQL tests and confirmed disposable DB cleanup. Nine Bash concurrency scripts remain a separate unverified gate.
+
+
+### UA-035 — Synchronize and verify the latest PostgreSQL test-38 fixture correction (2026-11-17)
+
+**Why this action is required:** GitHub `main` is at `5b82dc7bdf3912c75b15f309d8e16ea8c7799a30`. The latest SQL fixture and Node contract changes are already on main, but neither has been runtime-verified after the final nine-fixture correction. The last owner PostgreSQL run stopped at test 38/46; tests 39–46 remain unexecuted.
+
+**1. Synchronize safely (PowerShell, local project directory):**
+
+```powershell
+git status --short
+```
+
+If the worktree is not clean, STOP and preserve the local changes; do not stash, reset or overwrite them automatically. If clean:
+
+```powershell
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Require HEAD and origin/main to match and the final status to be empty. Expected remote documentation HEAD at the time this action was written: `5b82dc7bdf3912c75b15f309d8e16ea8c7799a30`; a newer fast-forward is acceptable if it is on main and the worktree remains clean.
+
+**2. Run the Node preflight (only after successful sync):**
+
+```powershell
+node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+```
+
+Require exactly **47 tests, 47 pass, 0 fail, 0 cancelled, 0 skipped, 0 todo**. This is the expected count, not a claimed result. If the count differs or any test fails, STOP and provide the complete output; do not start PostgreSQL.
+
+**3. Run the guarded PostgreSQL suite only after Node 47/47 PASS:**
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+```
+
+The runner must revalidate its own safety guards and the previously approved local PostgreSQL cluster (reported earlier as listener PID 15220, port 55439, data directory `X:\PinPosy-verify-pg18`). If the identity differs, stop. Enter a known non-empty temporary-role password only at the runner's hidden prompt. Never send it in chat, paste it into a transcript, or write it to a file. If the password is unavailable, stop; do not try alternatives or touch production/`PIN_TRIAL`.
+
+Stop at the first SQL failure. Preserve the complete output, including the cleanup section. SQL integration is PASS only when the upgrade fixture, 147 migrations 010–156, both inline assertions, all **46/46 SQL tests**, and disposable database cleanup all pass. Tests 39–46 have not yet been reached in the last recorded run. Do not skip tests or weaken guards.
+
+**Afterward:** provide the full Node and runner output (redacting any accidental secrets). If SQL passes, the next project gate is the nine Bash concurrency scripts; do not start them before SQL PASS. If blocked by local environment, record the exact stop and continue only independent tasks.
+
+**Assistant-side review in this continuation:** checked current main/history and the controlling docs; reviewed the remaining eight SQL test sources at a targeted static level; observed Vercel `build-rate-limit`. No runtime commands or database access were performed by the assistant. Full action record: `docs/audits/2026-11-17-development-continuation-sql-gate.md`.
