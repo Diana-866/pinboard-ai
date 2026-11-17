@@ -619,3 +619,13 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 - Updated `docs/USER_ACTIONS.md`: blob `9691d0c097fad7b2ae39e4a8676e61629b40fd32`, commit `9e5905db2a0cf2595da188bf2c64b1c2f4de35ad`.
 - Updated audit `docs/audits/2026-11-17-pinterest-unknown-schedule-reconciliation-test-failure.md`: blob `51387b8125d7bcfcfa843bf54b18332afe57ff1d`, commit `14b130ffbce6011cdd1eb585222ccb3fd9b8ec87`.
 - Assistant performed GitHub source reads/updates only; did not run SQL, Node, PowerShell or PostgreSQL. SQL integration remains NOT PASSED.
+
+
+### 2026-11-17 — PostgreSQL integration fixture correction
+
+- `db/migrations/001_baseline.sql` defines `public.users.is_admin boolean default false`; the CI workflow fixture and `backend/test/postgres-integration-upgrade-fixture.sql` both omitted it. The owner run reached SQL test 3/46 and failed on this fixture/schema mismatch; disposable DB cleanup was confirmed.
+- Workflow blob: `b1e054a50fc7a8ad3c742a2fecc94a41e0d5bf9c` (commit `763f91a0e58a505df9823f37479a08a08856f388`).
+- Standalone upgrade fixture blob: `3cc57549972b13d2d83bd2ec58330eae1d8c527f` (commit `698bcb4b07df2b636a4378679dbbc1de55f69ac2`).
+- Runner contract test blob: `ff9fdd0b166093cbb78c6dd9426cb3d98fcbb239` (commit `7a9a53f9bae5fdce29d4941295e17ce8b802985a`); adds an explicit baseline-column assertion and retains workflow/fixture equality.
+- Incident audit: `docs/audits/2026-11-17-postgres-integration-fixture-is-admin-missing.md`, created in commit `918f0bbf97d51514f1ed74b5785c4bbebdfc7210`.
+- Runtime verification of the fixture correction is pending owner execution; SQL integration remains NOT PASSED.
