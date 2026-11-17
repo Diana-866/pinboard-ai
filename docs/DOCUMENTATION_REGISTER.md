@@ -1179,3 +1179,14 @@ Publication history: source commit `c7a3097b43b0c3a426c683800bfadef1d0dad9a0` wa
 | `docs/USER_ACTIONS.md` | `7ea9eee917568892d1e242ba3a386432d19e7142` | `54119ea27dec7d5599857c6a7ac077523c339ca0`; update UA-033: sync completed, Node/Parser gates remain |
 
 Owner evidence: `git pull --ff-only origin main` fast-forwarded local main from `60251392` to `ff1ea965`; `HEAD` and `origin/main` both equal `ff1ea965d644008d7fcd1160516042b288a4690a`; both pre- and post-sync `git status --short` outputs were empty. This proves a clean synchronized working copy only. Node/Parser/PostgreSQL reruns after the approval-fixture change are still outstanding; tests 35–46 and the separate nine Bash concurrency scripts remain unverified.
+
+
+### 2026-11-17 — PostgreSQL test 34 approval fixture: preflight gates passed
+
+| Path | Final blob SHA | Commit / reason |
+|---|---|---|
+| `docs/PROJECT_STATE.md` | `30efefa406e1689aad226a9e080574acbd70c9a0` | `8473d9ecd1f70a1dd6e75cced822872b73a5a973`; record owner evidence for Node 45/45 and PowerShell Parser 0 errors after fixture correction |
+| `docs/audits/2026-11-17-postgres-test-34-pinterest-publication-approval-fixture.md` | `26f458b8ffacdc7743c4898d4c3fa6d4956a4382` | `007b3d16dca8701c75bba367a721db490b7c82c7`; append exact preflight outputs, next guarded runtime gate and limits |
+| `docs/USER_ACTIONS.md` | `381dc2503c3805fff1efa446277578d770803262` | `90bc3816ad47433536678adc98f36e7c80755da9`; advance UA-033 to guarded PostgreSQL runner |
+
+Owner evidence: after syncing to `948df3b9c9590fd78e6beb1690dcd3785e91d54f`, Node contract/migration/replay-chain command reported 45 tests, 45 pass, 0 fail, 0 skipped; PowerShell Parser reported 0 syntax errors. These gates were rerun after the SQL fixture correction. Guarded PostgreSQL runtime has not yet run; 46/46 SQL test completion and disposable DB cleanup remain outstanding. Nine Bash concurrency scripts remain separate and unverified.
