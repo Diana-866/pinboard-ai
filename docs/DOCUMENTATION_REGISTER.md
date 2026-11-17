@@ -809,3 +809,15 @@ Owner's guarded run confirmed fixture, migrations 010–149, two inline assertio
 | `docs/USER_ACTIONS.md` | `1ad648e9ad296830241162e09004b45cf865dee9` | `902393454ab41667ef5ecca77568ba775a03f2dc`; UA-010 owner rerun instructions and safety constraints |
 
 Assistant performed GitHub source fetches, compared canonical baseline/migration types with the failing test, committed the narrow SQL-test-only correction, created the incident audit, updated project state and owner action log, and is updating this register last. Assistant did not execute local PowerShell, psql or PostgreSQL. The corrected SQL test and remaining 31 SQL tests are not yet runtime-verified.
+
+
+### 2026-11-17 — PostgreSQL integration test 18/46: invalid pin-count test input
+
+| Path | Final blob SHA | Commit / reason |
+|---|---|---|
+| `backend/test/provider-refund-reconciliation-guard.integration.sql` | `1ae496bdd596c848d18dc33a8f50e90de7b9cb78` | `ea2016eed79de2854785f53d9d77a0d485d57d76`; replace empty completion payload with one valid pin so test reaches migration-072 refund guard |
+| `docs/audits/2026-11-17-postgres-integration-test-18-invalid-pin-count-test-input.md` | `d0747716d6fe177b1b6896e22e628b50fb371212` | `55c47764a6015316fc77c50a14f8c6d60474a106`; detailed owner transcript, root cause, source evidence, correction, cleanup and verification limits; normalize Windows path examples |
+| `docs/PROJECT_STATE.md` | `498eb6c16be8f044c5791641c805e2ddfa9a1458` | `0dbd2695e18b24a123c2631fe37dd2953d6bbff0`; chronological test-18 incident and next gate |
+| `docs/USER_ACTIONS.md` | `3d58151a0d741817f4bedba7fb902592467a6ae6` | `21e83dea3642629bd27f044647b47f28fccaddc0`; UA-011: sync, rerun Node contract gate first, then guarded PostgreSQL runner only after PASS |
+
+Owner runtime evidence: clean synchronized checkout at `0d31c813e39e420e26c5ebee0edadea1928df00d`; fixture, 140 migrations 010–149 and two inline assertions passed; SQL tests 1–17/46 passed; test 18 failed with `invalid pin count`; tests 19–46 did not run. Cleanup of disposable DB `pinposy_sqlint_ca5527ced768460b` was confirmed. Root cause was test-only: empty pin array was rejected by the save function before request status update and migration-072 trigger. No production code, migration, CI fixture/workflow, runner or database changed. Assistant performed source fetches/review, one SQL test correction, incident audit, state/action updates and documentation-register update; assistant did not execute local Node/PowerShell/psql/PostgreSQL. The corrected test and tests 19–46 remain runtime-unverified; SQL integration is **NOT PASSED**.
