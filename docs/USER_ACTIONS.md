@@ -2879,3 +2879,8 @@ Stop at the first SQL failure. Preserve the complete output, including the clean
 The workflow must execute exactly these four files in its Node command: `test/prodamus-webhook.test.js`, `test/payment-creation-settlement.test.js`, `test/prodamus-ambiguous-checkout.test.js`, `test/billing-security-contract.test.js`. No test should be skipped or weakened.
 
 The separate PostgreSQL integration owner action UA-035 remains open and unchanged: sync clean main, run the three-file Node preflight (47/47 expected), then only on success run the guarded disposable PostgreSQL runner; require 46/46 SQL tests plus cleanup. Do not connect to production or use PIN_TRIAL. These two CI/local gates are independent.
+
+
+### UA-036 update — Prodamus CI rerun is still failed; logs unavailable (2026-11-17)
+
+The failed-job rerun of <https://github.com/Diana-866/pinboard-ai/actions/runs/44171126761> completed with **FAILURE** on attempt 2. Latest job ID: `134350415751`; GitHub's Jobs API returned no step list or log URL, and log download returned 404 `BlobNotFound`. Exact failing step and cause remain unknown. Do not run another blind retry. Please open the Actions run URL, inspect/download the latest attempt's `checkout-regressions` job log, and provide the failed step and error output with secrets redacted. The workflow and regression-test changes are published but are NOT runtime-verified. Vercel currently reports `build-rate-limit` on the documentation HEAD; do not treat deployment as successful.
