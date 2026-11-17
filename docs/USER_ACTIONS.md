@@ -2467,3 +2467,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 **Безопасность:** сохранить PostgreSQL listener PID 15220, port 55439 и data directory `X:\\PinPosy-verify-pg18`. Не останавливать/перенастраивать сервер, не использовать production/`PIN_TRIAL`, не присылать пароли, токены или `.env`.
 
 **Текущий статус:** Node 45/45 PASS и Parser 0 ошибок подтверждены после fixture change; guarded PostgreSQL runtime ещё не выполнен. Девять Bash concurrency scripts остаются отдельным непроверенным этапом.
+
+
+## UA-033 — обновление результата guarded PostgreSQL rerun (2026-11-17)
+
+**Статус:** запуск выполнен; остановлен на SQL test 34; ожидается расследование ассистента. Повторно запускать полный runner до диагностики не нужно.
+
+**Фактический результат владельца:** локальный `main` fast-forwarded с `948df3b9` на `1b855857c4df31b9233819e404bd697591f28acb`; рабочее дерево чистое. `scripts/verify-integration.ps1` подтвердил clean checkout, disposable PostgreSQL 18.6 PID 15220 на `127.0.0.1:55439`, создал disposable DB `pinposy_sqlint_9f1cf3d0c7f74745`, применил upgrade fixture и 147 migrations 010–156; обе inline assertions прошли. SQL tests 1–33 PASS; test 34/46 FAIL: `billing webhook audit table privileges are too broad or insufficient` в `backend/test/postgres-integration.sql:965` / assertion line 940. Tests 35–46 не запускались. Disposable DB удалена, что подтверждено runner output.
+
+**Что дальше делает ассистент:** исследует assertion, active migration/table grants и focused privilege integration test; не меняет production SQL/privileges до установления причины. Подробности: `docs/audits/2026-11-17-postgres-test-34-billing-webhook-audit-privileges.md`.
+
+**Ограничения владельца:** пока не запускать runner повторно; не останавливать/перенастраивать PID 15220, порт 55439 или `X:\\PinPosy-verify-pg18`; не использовать production/`PIN_TRIAL`; не передавать секреты. После диагноза ассистент даст только необходимые повторные gates и конкретные команды, если они потребуются.
