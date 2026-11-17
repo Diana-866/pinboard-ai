@@ -696,3 +696,22 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integra
 ```
 
 Any later assistant documentation commit advances origin/main again and requires another pull before a subsequent runner invocation. Do not reset, force, or discard local work. SQL integration remains NOT PASSED.
+
+
+### UA-009 — guarded PostgreSQL integration run reached migration 018, then cleaned up
+
+Owner transcript:
+- `git status --short` produced no output.
+- `git pull --ff-only origin main` fast-forwarded `95b7aa3c..13166c8c`.
+- `git rev-parse HEAD` and `git rev-parse origin/main` both returned `13166c8cd476a13a787e9584f5b914430f702cc1`.
+- Ran `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1`.
+
+Runner verified clean synchronized checkout; listener PID 15220, data dir `X:\PinPosy-verify-pg18`; hidden password prompt; server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`. It created disposable DB `pinposy_sqlint_318fd598c73448c5`, applied fixture and migrations 010–017, then failed while applying migration 018. The pre-018 diagnostic listed only the expected NOT NULL and primary-key constraints for public.users and did not print a matching named constraint/relation row.
+
+**Important interpretation:** the visible psql text is garbled. It contains a NOTICE (SQLSTATE 00000) that `users_preferred_language_check` does not exist and is being skipped, corresponding to the intentional `DROP CONSTRAINT IF EXISTS` statement. The supplied transcript does not establish the actual subsequent ERROR or its SQLSTATE. Root cause is therefore OPEN; do not attribute failure to this NOTICE or edit migration 018 without further evidence.
+
+Cleanup is confirmed: runner terminated DB sessions, ran `DROP DATABASE`, and printed `Removed disposable database pinposy_sqlint_318fd598c73448c5`. No inline assertions and no 46 SQL tests ran. SQL integration remains NOT PASSED.
+
+Assistant read-only investigation fetched and inspected: runner blob `74c128b4c6933b8b5aba888e4abeb01200df2ab6`; migration 018 blob `4f524034d8504c3111e376fb91b30e65a8b86884`; upgrade fixture blob `49a817c5e238eda201b8821a9c052585f36e0217`; ordered SQL manifest blob `aa773d020841f6925b4f63f4a6d96fb95cf4e3a6`; baseline migration blob `105a13cfba4746206191dcf2bd68d5514912f08c`. Fixture creates a fresh users table without preferred_language; migration 018 adds the column, drops any old named check constraint, adds the check, and creates an index. The runner diagnostic already checks direct constraints, target-named constraints across relations, and same-named pg_class relations, but the owner transcript shows none of the target name. This does not yet explain psql's nonzero exit.
+
+**Next:** improve diagnostic fidelity (unambiguous UTF-8 error capture and exact SQLSTATE/statement) and add narrow catalog inspection around each statement in migration 018. Re-run only through the guarded disposable-db runner. No production/PIN_TRIAL or persistent verification data may be touched.
