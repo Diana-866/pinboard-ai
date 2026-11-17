@@ -153,6 +153,14 @@ test('account deletion re-auth integration test rolls back durable queue and app
   assert.ok(!normalized.includes('delete from public.account_deletion_events'));
   assert.ok(!normalized.includes('delete from public.users'));
 });
+test('durable account deletion queue test expects the Storage manifest guard added by migration 144', () => {
+  const durableQueue = read('backend/test/account-deletion-durable-queue.integration.sql');
+  const stageGuards = read('db/migrations/144_account_deletion_stage_completion_guards.sql');
+  assert.ok(durableQueue.includes("if sqlerrm <> 'account deletion Storage manifest is required' then raise; end if;"));
+  assert.ok(stageGuards.includes("raise exception 'account deletion Storage manifest is required';"));
+  assert.ok(stageGuards.indexOf("raise exception 'account deletion Storage manifest is required';") < stageGuards.indexOf('update public.account_deletion_jobs'));
+});
+
 test('CI migration list remains the complete contiguous 010-148 chain', () => {
   const prefixes = [...workflow.matchAll(/db\/migrations\/(\d{3})_[A-Za-z0-9._-]+\.sql/g)]
     .map((match) => Number(match[1]));
