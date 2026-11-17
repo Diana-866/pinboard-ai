@@ -322,6 +322,17 @@ begin
     raise exception 'definitive failure did not release generation reservation';
   end if;
   perform public.reserve_pin_generation_credits(v_user::text,'reservation-test-key-0002',60);
+  -- A durable image task proves the provider may have accepted billable work.
+  -- Without a task, migration 088 correctly releases this unused reservation
+  -- when the request becomes unknown (for example, an ambiguous text-plan call).
+  insert into public.pin_generation_tasks(
+    generation_request_id, user_id, board_id, task_index, title, description,
+    prompt, model, aspect_ratio, status
+  )
+  select id, v_user::text, v_board, 1, 'Unknown image task', '',
+         'Image task prompt', 'flux-schnell', '2:3', 'submitting'
+    from public.pin_generation_requests
+   where user_id=v_user::text and idempotency_key='reservation-test-key-0002';
   update public.pin_generation_requests set status='unknown'
    where user_id=v_user::text and idempotency_key='reservation-test-key-0002';
   if (select status from public.pin_generation_credit_reservations
