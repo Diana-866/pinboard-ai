@@ -832,3 +832,26 @@ Owner runtime evidence: clean synchronized checkout at `0d31c813e39e420e26c5ebee
 | `docs/USER_ACTIONS.md` | 4ae132e3bb840a752cba317284d852eee4d3ef0b | 6dbfa3ca9f0dc2ed60b16cb226205e653f813e0e; UA-012: guarded PostgreSQL rerun instructions and stop/SQL-PASS criteria |
 
 Owner evidence: clean synchronized checkout at `6d982d1414490ed210502f834018a1a1a6d9d8a2`; Node contract suite returned 20 PASS / 0 FAIL. The PowerShell Parser API gate had previously returned 0 syntax errors and the runner source has not changed since that check. PostgreSQL SQL integration remains **NOT PASSED**: test 18 correction and tests 19–46 still require guarded runtime execution. Assistant did not execute local Node/PowerShell/psql/PostgreSQL.
+
+
+### 2026-11-17 — PostgreSQL integration test 19/46: regeneration claim token NOT NULL; additive migration 150
+
+| Path | Final blob SHA | Commit / reason |
+|---|---|---|
+| `db/migrations/077_finalize_reconciled_provider_failures.sql` | `d5163b696157e73da1b09a4a98f6cf23da59ab66` | `74e0120e160617ea335795d8570d8f938196c9e5`; restored original historical migration unchanged |
+| `db/migrations/150_preserve_regeneration_claim_token_on_refund_finalization.sql` | `316510e0a4172c986a8b74559b25c03be140e945` | `d68bc21d185e7df957af65b63556033e5214d4f9`; additive correction preserves NOT NULL regeneration claim token |
+| `backend/test/provider-refund-reconciliation-workflow.integration.sql` | `7f10ecebec93f8d6267cfcdb084f34bdcb17dc42` | `c4d39a15478128976dd8d5199df6de26c1703ae6`; assert terminal status and exact claim-token preservation |
+| `backend/test/postgres-integration-runner-contract.test.js` | `4818d080871185306a757e5f89410570bfded391` | `f63807d92524842c1d813a70bb732493808813e2`; assert migration-150 contract and CI sequence 010–150 |
+| `scripts/verify-integration.ps1` | `68e2540c4ac61768d46cc16f717137705a8c0bd6` | `ef4bdb71ff8dc0fc3da05984bb806fa52332c2da`; require/apply 141 migrations 010–150 |
+| `.github/workflows/atomic-payment-integration.yml` | `6f26cce5ebf55d183ee9a36f2fc52bd9c4570aaa` | `804484e7357cc464ec3f52c20a151bc18214330c`; CI applies additive migration 150 |
+| `backend/test/db-migration-chain.test.js` | `ca3fb5c69395fa9094bea0e48dea1bab3b6fe433` | `5f3d16229d1c723d431ec571f0888d5b29bbb2f2`; canonical migration chain now includes 150 |
+| `scripts/verify.sh` | `1495fb011ca7941abf643f26c9bdd673d133d87a` | `2aed03e9db134f04438180d0829a5a671a350440`; Linux local replay validates 010–150 |
+| `scripts/verify.ps1` | `1a1b4aff9978b91ac7732303543789fda73ee6c8` | `91068ce57a9fb5646a33a7fbff67a61460c55e8`; Windows local replay validates 010–150 |
+| `backend/test/verify-script-migration-chain.test.js` | `641b41d918016e0892233340f5c22104a34c907b` | `13578ceea7956e4212b21403debd6a269d4884a9`; update replay contract for 010–150 |
+| `docs/audits/2026-11-17-postgres-integration-test-19-regeneration-claim-token-not-null.md` | `375913efdb8128109905dc0160fdffa95c20cad5` | `6dcc94bfd69fc36a96d209ba461171e35cd14179`; full incident evidence, source diagnosis, actions, correction history and verification limits |
+| `docs/PROJECT_STATE.md` | `4ac40c9b4e8896e08f7b390f6e8cc54d2d8eed1e` | `2e84a3b3670b22c41cf19255bf8166e80c161ab6`; chronological project record |
+| `docs/USER_ACTIONS.md` | `ae2d27b43d187a60e7c27cfac3aea4d8b3a3e5c5` | `bdc44b9b7a7df0aa1f8891e0de4c48259d80476c`; UA-013 owner gates and exact safe rerun commands |
+
+Owner runtime evidence: at clean synchronized commit `4df18de1fbc8ae98b3d316d945cce7f973b244de`, fixture, 140 migrations 010–149, both CI inline assertions and SQL tests 1–18/46 passed; test 19/46 failed on `claim_token=NULL` against NOT NULL. Tests 20–46 did not run. Disposable DB `pinposy_sqlint_e44cc1cd1e6d4d57` cleanup confirmed. SQL integration remains **NOT PASSED**.
+
+Assistant source review proved migration 053's `claim_token UUID NOT NULL` conflicts with the regeneration finalizer in migration 077. Historical migration 077 was restored to its original blob; the correction is additive migration 150. The SQL test now checks token preservation. Runner, CI, canonical migration tests and Linux/Windows replay scripts were advanced to 141 contiguous migrations 010–150. Final source files were re-fetched from GitHub and their blob SHAs and key invariants checked. Assistant did not run Node, PowerShell, psql or PostgreSQL. New migration and runner chain are not runtime-verified; owner must pass Node and Parser gates before the next guarded SQL run.
