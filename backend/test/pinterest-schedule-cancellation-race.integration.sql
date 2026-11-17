@@ -50,7 +50,7 @@ begin
   -- scheduled -> cancelled. A subsequent worker claim must not return it.
   update public.pin_schedules
      set status='cancelled', next_attempt_at=null, updated_at=clock_timestamp()
-   where id=v_schedule_cancel_first and user_id=v_user_id and status='scheduled'
+   where id=v_schedule_cancel_first and user_id=v_user_id::text and status='scheduled'
    returning id into v_cancelled;
   if v_cancelled is distinct from v_schedule_cancel_first then
     raise exception 'cancel-first transition did not win';
@@ -70,7 +70,7 @@ begin
 
   update public.pin_schedules
      set status='cancelled', next_attempt_at=null, updated_at=clock_timestamp()
-   where id=v_schedule_worker_first and user_id=v_user_id and status='scheduled'
+   where id=v_schedule_worker_first and user_id=v_user_id::text and status='scheduled'
    returning id into v_cancelled;
 
   if v_cancelled is not null then
