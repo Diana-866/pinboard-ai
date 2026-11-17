@@ -1286,7 +1286,7 @@ Owner transcript: local HEAD `9206d83076c4ea59c0d66be15482bf58d7217226`; runner 
 
 | Path | Purpose / recorded evidence |
 |---|---|
-| `docs/audits/2026-11-17-postgres-integration-test-35-pinterest-oauth-stale-session-assertion.md` | Full owner run result, exact failure, source diagnosis, correction details, commit/blob SHAs, cleanup, verification limits and assistant action log |
+| `docs/audits/2026-11-17-postgres-integration-test-35-pinterest-oauth-stale-session-assertion.md` | Full owner run result, exact failure, source diagnosis, correction details, commit/blob SHAs, cleanup, verification limits, assistant action log and a failed pre-write edit-preparation attempt (no repository changes) |
 | `backend/test/pinterest-oauth.integration.sql` | Corrected test 35 assertion: stale callback must return `stale_session`, preserve the already-connected account and must not create an old-session account; commit `4e9434c8eaa72a8ff4053521716b144b2b947396`, blob `440812c1c1c341036d78db39973333cebc1f5b6f` |
 | `backend/test/postgres-integration-runner-contract.test.js` | Added source-contract guard for the corrected OAuth assertion; commit `5b7c354f532e5a5d896edd9ca32934368b24b670`, blob `7abd35fbe62c6db075041fbba3bd76b465057b90` |
 | `docs/PROJECT_STATE.md` | Chronological SQL test 35 evidence, diagnosis, edits, exact runtime status and next gate |
