@@ -1352,3 +1352,15 @@ These wrapper errors occurred before any GitHub write from their failed attempts
 | `docs/USER_ACTIONS.md` | blob `e285440b6d181672332b95710a3de7ad194bd17f`; commit `96cbddf581c254985ac6c40fb39c34a85a28fc46` | UA-034 updated with sync, fresh Node 47/47 requirement and guarded PostgreSQL rerun instructions |
 
 Owner evidence: synchronized clean main at `2bc539c7ce8d8f801ef1149f51dc18c9cd67137e`; Node 47/47 passed before the newest contract extension; 147 migrations and both inline assertions passed; SQL tests 1–37 passed; test 38 failed when `v_inflight_pin` (pending) was used for a schedule; tests 39–46 were not run; disposable DB cleanup passed. Source inspection found nine pending schedule-bound fixtures. The nine SQL fixtures and existing Node contract were corrected without changing production code or migrations. New source changes are NOT RUNTIME-VERIFIED. Overall SQL integration remains NOT PASSED; nine Bash concurrency scripts remain unverified.
+
+
+### 2026-11-17 — Development continuation and remaining SQL test source review
+
+| Path | Purpose / evidence |
+|---|---|
+| `docs/audits/2026-11-17-development-continuation-sql-gate.md` | Current main/history reconciliation, exact blob SHAs, source-only review of the remaining eight SQL tests, Vercel status observation, action chronology and verification boundary |
+| `docs/PROJECT_STATE.md` | Appended continuation record; confirms SQL integration is still not passed and records the next owner gate |
+| `docs/USER_ACTIONS.md` | Added UA-035 with safe sync, Node 47/47 preflight, guarded PostgreSQL runner, stop conditions and secret handling |
+| `docs/DOCUMENTATION_REGISTER.md` | Registered this continuation report and handoff |
+
+Observed main HEAD: `5b82dc7bdf3912c75b15f309d8e16ea8c7799a30`. Latest source/test commit: `0fd17599f4598559872965f07d5b01d2fadb19e2`. Owner SQL evidence remains tests 1–37 PASS, test 38 FAIL, tests 39–46 NOT RUN, cleanup PASS. Latest fixture/contract changes remain NOT RUNTIME-VERIFIED. Targeted source inspection of the remaining eight tests found no additional defect sufficiently established for a safe code change. Vercel combined status reports `failure` / `build-rate-limit`; no deployment success is claimed. Assistant did not run local tests, CI, PowerShell, Bash, psql or PostgreSQL and did not access any database or credentials.
