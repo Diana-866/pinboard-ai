@@ -235,3 +235,15 @@ test('upgrade fixture preserves baseline nullability, defaults, cascades and tim
   assert.match(transactions, /created_at timestamp without time zone default now\(\)/i);
   assert.match(authTokens, /created_at timestamptz default now\(\)/i);
 });
+
+
+test('provider refund regeneration finalizer preserves NOT NULL claim token', () => {
+  const migration = read('db/migrations/077_finalize_reconciled_provider_failures.sql');
+  const schema = read('db/migrations/053_pin_regeneration_journal.sql');
+  const start = migration.indexOf('create or replace function public.finalize_reconciled_pin_regeneration_failure');
+  assert.notEqual(start, -1);
+  const regenerationFinalizer = migration.slice(start);
+  assert.match(schema, /claim_token uuid not null default gen_random_uuid\(\)/i);
+  assert.match(regenerationFinalizer, /set status='failed',[\\s\\S]*?error_code='provider_refund_reconciled'/i);
+  assert.doesNotMatch(regenerationFinalizer, /claim_token\\s*=\\s*null/i);
+});
