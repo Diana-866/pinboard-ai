@@ -2531,3 +2531,17 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 **Безопасность:** сохранить PostgreSQL listener PID 15220, порт 55439 и data directory `X:\\PinPosy-verify-pg18`. Не останавливать/перенастраивать сервер, не использовать production/`PIN_TRIAL`, не присылать пароли, токены или `.env`.
 
 Девять Bash concurrency scripts остаются отдельным непроверенным этапом. До получения нового вывода исправление остаётся **NOT RUNTIME-VERIFIED**.
+
+
+### UA-034 update — synchronization completed (2026-11-17)
+
+Owner transcript: pre-pull and post-pull `git status --short` were empty; `git pull --ff-only origin main` fast-forwarded `1b855857..3e186f14`; local HEAD and origin/main both equal `3e186f149bbda21235c1389ca5ce16de7619cd61`. The six-file update was received successfully.
+
+**Completed:** synchronization only.
+
+**Still required, in order:**
+1. Run the Node command in UA-034. Expected: 45 tests, 45 pass, 0 fail, 0 skipped. Stop and send the full output if any expectation differs.
+2. Only after Node passes, run the PowerShell Parser gate in UA-034. Expected: 0 syntax errors.
+3. Only after both pass, run the guarded PostgreSQL integration command in UA-034. Do not skip gates or run the SQL suite manually.
+
+The source fix remains **NOT RUNTIME-VERIFIED**. Do not infer a passing test suite from the successful Git pull.
