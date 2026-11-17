@@ -695,3 +695,21 @@ The following files were added or updated after the inventory snapshot above. Th
 - Project state: `docs/PROJECT_STATE.md`, blob `1dd82264d1e0178cc67d102cedb5b77c1727e75a`.
 - Owner action log: `docs/USER_ACTIONS.md`, blob `25f923c24aaa24cb83ab0b5a2abc700ae0bb8b0d`.
 - This register was updated last after re-fetching the source and documentation files. Assistant source verification confirms both fixture definitions include `cover_url text`, the contract assertion uses the corrected SQL table terminator, and the current contract test count is 17. These are GitHub source inspections, not test execution.
+
+
+### 2026-11-17 — SQL integration test 8/46: upgrade fixture cascade mismatch and contract regex
+
+Owner run at synchronized commit `758eba5efdceb4f76c99b9d0077301e7c3fe58d8`: Node contract suite 16 PASS / 1 FAIL (17 total) because the cover_url assertion assumed a single space; guarded SQL runner was nevertheless run. Fixture, 140 migrations 010–149 and both inline assertions passed; SQL tests 1–7/46 passed; test 8/46 failed because deletion of an owned project was blocked by `boards_project_id_fkey`. Disposable DB `pinposy_sqlint_a28d8185bc44448f` cleanup was confirmed (0 sessions, DROP DATABASE, explicit removal message). SQL integration remains NOT PASSED.
+
+Source inspection established that migration 137 relies on canonical cascading relationships when deleting a project. Both CI and standalone upgrade fixtures lacked `ON DELETE CASCADE` on `boards.project_id` and `pins.board_id`. Corrected both fixtures; normalized table-definition comparison confirms the three relevant table definitions (projects, boards, pins) match between the CI fixture and standalone fixture.
+
+| Path | Final blob SHA | Commit / reason |
+|---|---|---|
+| `backend/test/postgres-integration-upgrade-fixture.sql` | `bf9aad94a6b4381777586a97a88f3dc6eab373a6` | `b22ed9e255fe799fd3be91caf36b5c71f03a1387`; add project→board and board→pin cascade FKs |
+| `.github/workflows/atomic-payment-integration.yml` | `ad8d456eed5829c7aba0c8b9bfea314516b3e9d4` | `0724225a5ad324ba2eb9107ddaf202745d8761a4`; same CI fixture corrections |
+| `backend/test/postgres-integration-runner-contract.test.js` | `9e03e2448dca977c25114185ecd12bd46408e5e7` | `edadd964bcd82246051f4934298038e76e909fb2`; add cascade contract and make cover_url whitespace regex correct |
+| `docs/audits/2026-11-17-postgres-integration-storage-manifest-project-board-cascade-fixture.md` | `e1af66f2fb03338293da17cd371137e91abffc9b` | `9775d4df9ba1990ef305fc92677cd4d0eb43acd7`; incident audit with owner transcript, root cause, exact changes and limits |
+| `docs/PROJECT_STATE.md` | `3d6400fd239faec9d972ee7ab161cd1c8e6573cc` | `089652be17d269278637d6632898f4fbfa9f30dc`; chronological project record |
+| `docs/USER_ACTIONS.md` | `94c9671aec13ed40edadc2997220e6ca04557a32` | `f668b18834c7f0c244eecc6f820cbf9ac23f578f`; owner run transcript summary and next commands |
+
+Final source re-fetch checks: CI and standalone fixture table definitions for projects/boards/pins match after indentation normalization; both cascade FKs are present; cover_url contract regex has one literal regex escape and accepts SQL whitespace; cascade contract assertion is present; contract file has **18** top-level tests by source inspection. Documentation audit, project state and owner action log all contain this incident. These checks inspect GitHub source only; assistant did not run Node, PowerShell, psql or PostgreSQL. The corrected 18-test suite and SQL integration are still awaiting owner execution.
