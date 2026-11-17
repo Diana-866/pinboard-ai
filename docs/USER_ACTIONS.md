@@ -515,3 +515,19 @@ Owner's latest run at `2ced41640849cca5d46d16b200f801327e6ca160` passed identity
 Runner now emits database identity, all constraints on `public.users`, matching named constraints across schemas/tables, and same-named relations; psql migration execution requests verbose error/context and echoes errors. Commits: runner `eb95ccf5126ec833e5f7f55092bef82c173cd48b`; contract source test `5837793afd56968e1f5695177c79361640cea204`. These changes are untested until the owner runs them.
 
 **Next owner action:** sync clean `main`, run parser check, then guarded runner. Send full output of all four diagnostic record types and the verbose PostgreSQL error including SQLSTATE/context. No migration/schema changes until this evidence identifies the collision. Do not stop PID `15220`, alter/reinitialize the cluster, bypass guards, or touch production/PIN_TRIAL.
+
+
+### UA-004 follow-up — expanded catalog diagnostic failed before migration 018 (2026-11-17)
+
+Owner's latest transcript confirms:
+- Clean checkout fast-forwarded from `2ced4164` to `d48fdde95765a5b254e92bc05388af7f32661e8d`.
+- PowerShell Parser API: `PASS: PowerShell parser`.
+- Runner passed repository/server identity guards; listener PID `15220`, data directory `X:/PinPosy-verify-pg18`, identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+- Disposable DB `pinposy_sqlint_f6ff758b193649be` was created; fixture and migrations 010–017 completed.
+- The diagnostic query immediately before migration 018 failed with `operator does not exist: text || "char"`. It returned no diagnostic rows and migration 018 was not invoked during this attempt.
+- The runner successfully terminated DB sessions, dropped the disposable database, checked its absence and printed the removal confirmation.
+- Inline assertions and 46 SQL tests remain NOT RUN. Do not interpret this diagnostic-query error as the original migration-018 duplicate being fixed or reproduced.
+
+Assistant corrected the read-only diagnostic by casting catalog `contype` and `relkind` fields to text and added a source-contract assertion. This is not runtime-verified. Detailed history is in the audit section 9 and project-state journal.
+
+**Next owner action:** pull the newest `main`, verify clean status and PowerShell parser, then rerun the guarded integration runner. Capture all four diagnostic prefixes and the complete error context. Do not bypass guards, alter migrations/fixture manually, stop PID 15220, or touch production/PIN_TRIAL. The separate migration-only replay remains PASS; this SQL integration gate remains blocked.
