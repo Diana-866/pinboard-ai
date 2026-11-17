@@ -1959,3 +1959,39 @@ Detailed record: docs/audits/2026-11-17-postgres-integration-test-38-pinterest-l
 
 
 Documentation authoring chronology note: two assistant-side JavaScript wrapper SyntaxErrors occurred while preparing documentation updates for this incident (one audit payload, then one combined state/owner-action payload). Both happened before any GitHub write from the respective failed attempt and caused no repository change; both were retried successfully. Full details are in the incident audit. These were not project source/test failures.
+
+
+### 2026-11-17 — Owner PostgreSQL rerun: migration 148 schedule-insert guard exposed nine pending test fixtures
+
+Owner-provided local evidence:
+- Local `main` fast-forwarded cleanly from `ce3bcc98ec09d6acfff726b7bd71265c70832791` to `2bc539c7ce8d8f801ef1149f51dc18c9cd67137e`; `HEAD == origin/main`; worktree clean.
+- Owner ran the three-file Node preflight: **47/47 PASS**, 0 failures, 0 skipped, duration 113.104 ms. This run predates the source-contract extension described below.
+- Guarded runner verified PostgreSQL listener PID 15220, port 55439, data directory `X:\PinPosy-verify-pg18`, identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+- Disposable DB `pinposy_sqlint_826d2469ae4649c6`: upgrade fixture PASS; migrations 010–156 (147/147) PASS; inline assertions 2/2 PASS; SQL tests 1–37 PASS.
+- Test 38/46 failed on insertion of the schedule for `v_inflight_pin`: trigger `guard_pin_schedule_insert_requires_approved_pin()` raised `only approved pins can be scheduled`. Tests 39–46 NOT RUN.
+- Cleanup PASS: zero remaining sessions reported, disposable DB dropped, and explicit removal confirmed. SQL integration remains NOT PASSED.
+- The owner also accidentally entered the printed SHA as a PowerShell command; it returned CommandNotFoundException and did not alter repository state.
+
+Diagnosis:
+- Migration 148 adds a BEFORE INSERT trigger to `public.pin_schedules` which locks the source pin and requires status `approved`.
+- The reported statement was the in-flight schedule insert. Its fixture `v_inflight_pin` was still pending.
+- A full audit of the SQL test's pin and schedule insertions found nine scheduled-work fixtures still pending: `v_inflight_pin`, `v_crash_pin`, `v_safe_crash_pin`, `v_unsafe_crash_pin`, `v_retry_pin`, `v_manual_retry_pin`, `v_attempt_retry_pin`, `v_safe_retry_pin` and `v_disconnect_race_pin`.
+- These are already-schedulable scenario fixtures; all nine must be approved before schedule insertion. This is test fixture alignment with the existing production invariant, not a production defect. Do not weaken migration 148.
+
+Assistant source changes published:
+- `backend/test/pinterest-account-publication.integration.sql`: changed the nine schedule-bound fixture statuses from pending to approved. Commit `563648df9d1c9c24674dbac1bd01f9b532ff865f`; blob `a447055478216e3f2cc7333dcf95af4bec2c2632`.
+- `backend/test/postgres-integration-runner-contract.test.js`: extended the existing test (no new test case) to assert all nine fixtures are approved and that migration 148 defines/attaches the BEFORE INSERT schedule guard. Commit `0fd17599f4598559872965f07d5b01d2fadb19e2`; blob `61f20c281dd5448f295126ab42da3f9716d5d9fc`.
+- Detailed incident record: `docs/audits/2026-11-17-postgres-integration-test-38-pinterest-legacy-history-fixture.md`, latest blob `dbf503101a8d047df7041688173828e9dbffe77e`, audit update commit `b2f4823ed1e194708ec4714d302e4d27c60d0903`.
+- No production code, migration, runner, CI workflow, upgrade fixture, local DB or production resource was changed.
+
+Assistant action chronology:
+1. Parsed owner synchronization, Node and guarded-runner transcripts, including exact SHAs, test counts, database identity, first fatal SQL statement, unrun tests and cleanup.
+2. Re-fetched current source and documentation from GitHub; inspected migration 148's schedule trigger and all schedule-bound pin fixtures.
+3. A first exact-substring preparation attempt used an incomplete fixture substring and failed its pre-write occurrence check. No GitHub write occurred; a retry using unique exact suffixes succeeded.
+4. Updated the SQL fixture and existing Node source-contract test, then updated the incident audit. No local commands or database access were performed by the assistant.
+
+Verification boundary and next step:
+- The owner's 47/47 Node result is from the source snapshot before the nine-fixture contract assertions; it does not verify the newest changes. Expected test count remains 47 because an existing test was extended, not a new test added.
+- Latest fixture and Node contract edits are NOT RUNTIME-VERIFIED. Owner must pull the complete documentation batch, confirm clean synchronized main, rerun the three-file Node command and require 47/47 PASS, then rerun the guarded PostgreSQL runner.
+- Overall SQL integration remains NOT PASSED until all 46/46 SQL tests and disposable DB cleanup pass. Tests 39–46 have not yet been reached in the latest owner run.
+- Nine Bash concurrency scripts remain a separate unverified gate. Preserve listener PID 15220, port 55439 and `X:\PinPosy-verify-pg18`; never target production/`PIN_TRIAL` or bypass runner guards.
