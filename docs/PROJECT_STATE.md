@@ -2006,3 +2006,15 @@ Verification boundary and next step:
 - Detailed action log, exact blob SHAs, scope and verification boundary: `docs/audits/2026-11-17-development-continuation-sql-gate.md`.
 - Assistant did not run local Node/PowerShell/Bash/psql/PostgreSQL, did not access credentials or databases, and did not modify application source, tests, migrations, workflows, production data or external services.
 - **Next gate:** owner synchronizes clean local `main`, runs the three-file Node preflight (require 47/47), then the guarded `scripts/verify-integration.ps1` runner using only the previously approved local PostgreSQL cluster. SQL PASS requires 46/46 and confirmed cleanup. Nine Bash concurrency scripts remain blocked behind SQL PASS.
+
+
+### 2026-11-17 — Prodamus CI coverage repair and verification boundary
+
+- Reconciled current `main`, the project passport, owner action log, documentation register, Prodamus workflow, billing security contract test and the other two workflows triggered by main pushes.
+- Confirmed Prodamus workflow omitted `prodamus-ambiguous-checkout.test.js` and `billing-security-contract.test.js` from its test command. Added both to push/PR path filters and Node invocation; commits: `f5594d0c401d90af49c6baf6f9e29af3710c8369`, `4b2f315f00f16109f9616e033ce8636fccea3c3b`. Added source-contract regression test and strengthened it: `48ab7033ec661b798bf423f394ae281440c33784`, `7e26add59e4d4bee36780713b1a973988249d613`.
+- Found and corrected an assistant-authored regex escaping defect in that new test. Replaced regex path matching with literal string occurrence checks and `String.includes`: `75ad3fdd0e7988d4a56fe464341c475ca0edf079`. Inspected the corrected diff and re-fetched workflow/test files; path filters each include both tests, and the job command includes all four test files.
+- GitHub Actions run `44171126761` for corrected HEAD initially failed; failed job logs returned HTTP 404 `BlobNotFound`, and the job-steps wrapper returned no step detail. The run was re-queued; latest observation was QUEUED, not PASS. The exact failure cause remains UNKNOWN. Atomic-payment and persisted-boards runs on the same commits also failed, but logs were unavailable; do not infer their causes.
+- Vercel combined commit status on corrected HEAD is SUCCESS. This does not imply GitHub Actions success or deployment readiness.
+- Detailed chronology and exact evidence: `docs/audits/2026-11-17-prodamus-ci-regression-coverage-repair.md`.
+- No local npm/node runtime, production payment, live webhook, production DB, Pinterest API or external service was used. The PostgreSQL integration blocker is unchanged: last owner evidence tests 1–37 PASS, test 38 FAIL, tests 39–46 NOT RUN, disposable DB cleanup PASS.
+- **Next:** wait for/retrieve the rerun of Prodamus job 44171126761 and require a successful four-file Node job with inspectable logs; separately resolve the documented local PostgreSQL test-38 gate. No payment launch is approved yet.
