@@ -155,11 +155,11 @@ try {
         }
         Write-Host ("Applying migration " + $migration.Name + ".")
         if ($migration.Name -eq '018_preferred_language.sql') {
-            Write-Host 'Diagnostic: matching constraints immediately before migration 018 (schema|table|name|type|definition):'
-            $constraintDiagnostic = "SELECT n.nspname, t.relname, c.conname, c.contype, pg_get_constraintdef(c.oid) FROM pg_constraint c JOIN pg_class t ON t.oid = c.conrelid JOIN pg_namespace n ON n.oid = t.relnamespace WHERE c.conname = 'users_preferred_language_check' ORDER BY n.nspname, t.relname;"
+            Write-Host 'Diagnostic: database and public.users constraints immediately before migration 018:'
+            $constraintDiagnostic = "SELECT 'DATABASE|' || current_database() UNION ALL SELECT 'USER_CONSTRAINT|' || n.nspname || '|' || t.relname || '|' || c.conname || '|' || c.contype || '|' || pg_get_constraintdef(c.oid) FROM pg_constraint c JOIN pg_class t ON t.oid = c.conrelid JOIN pg_namespace n ON n.oid = t.relnamespace WHERE c.conrelid = 'public.users'::regclass UNION ALL SELECT 'NAMED_CONSTRAINT|' || n.nspname || '|' || t.relname || '|' || c.conname || '|' || c.contype || '|' || pg_get_constraintdef(c.oid) FROM pg_constraint c JOIN pg_class t ON t.oid = c.conrelid JOIN pg_namespace n ON n.oid = t.relnamespace WHERE c.conname = 'users_preferred_language_check' UNION ALL SELECT 'NAMED_RELATION|' || n.nspname || '|' || cl.relname || '|' || cl.relkind FROM pg_class cl JOIN pg_namespace n ON n.oid = cl.relnamespace WHERE cl.relname = 'users_preferred_language_check' ORDER BY 1;"
             Invoke-Psql -Database $createdDatabase -PsqlArguments @('-A','-t','-F','|','-c',$constraintDiagnostic)
         }
-        Invoke-Psql -Database $createdDatabase -PsqlArguments @('-f',$migration.FullName)
+        Invoke-Psql -Database $createdDatabase -PsqlArguments @('-v','VERBOSITY=verbose','-v','SHOW_CONTEXT=always','--echo-errors','-f',$migration.FullName)
     }
     Write-Host 'Running two CI inline assertions.'
     Invoke-Psql -Database $createdDatabase -PsqlArguments @('-f',$deletionCheckPath)
