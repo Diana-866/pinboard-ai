@@ -611,3 +611,11 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 - Source blobs inspected: test `20f04be636298e0cdb33ce1725cd2558e4121e9e`; migrations 091 `6da23cf6851e28e8fbecbf4d7a3831008ab9c86b`, 092 `acca458a7c4abb236ea056e18c46c0628355ceb4`, 093 `03d126ad051bd192d32a64d06ac0f5b9e007e895`, 148 `5bdad254de1d4bb19d68bd9618561da55216f9b8`.
 - Static migration 093 appears to contain the expected guard against replacing a pre-existing schedule remote pin ID, but runtime test says the schedule was promoted. Root cause unresolved; next action is to expose actual post-call values and `pg_get_functiondef` in the failing test, then inspect later overrides. No speculative migration edit.
 - New audit: `docs/audits/2026-11-17-pinterest-unknown-schedule-reconciliation-test-failure.md`; created in commit `d0733ff55659b9d54adc2fc6a7df2b5a2084c26f`.
+
+### 2026-11-17 — Pinterest reconciliation runtime diagnostics
+
+- Updated failing SQL test `backend/test/pinterest-unknown-schedule-reconciliation.integration.sql`: blob `95d01cccc1e8ec722b5c101e9a7939cda1b393c0`, commit `aa1eb96daaf4b2d3148f596372850e43b5052b7a`. Failure output now includes reconciliation row count, actual schedule status/remote ID, and effective `pg_get_functiondef()`; expected behavior unchanged. Runtime execution pending.
+- Updated `docs/PROJECT_STATE.md`: blob `7ccc0e744641e70fd2df61038212ce8569fa7f63`, commit `fbbb4ec6f02cf4411a8ce2bff0dfc05aee886545`.
+- Updated `docs/USER_ACTIONS.md`: blob `9691d0c097fad7b2ae39e4a8676e61629b40fd32`, commit `9e5905db2a0cf2595da188bf2c64b1c2f4de35ad`.
+- Updated audit `docs/audits/2026-11-17-pinterest-unknown-schedule-reconciliation-test-failure.md`: blob `51387b8125d7bcfcfa843bf54b18332afe57ff1d`, commit `14b130ffbce6011cdd1eb585222ccb3fd9b8ec87`.
+- Assistant performed GitHub source reads/updates only; did not run SQL, Node, PowerShell or PostgreSQL. SQL integration remains NOT PASSED.
