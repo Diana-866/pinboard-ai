@@ -118,3 +118,10 @@ The run did not reach the two inline assertions or the 46 SQL integration tests.
 To resolve the unexplained duplicate constraint without weakening schema guarantees, the guarded runner now logs each migration filename and executes a read-only `pg_constraint` query immediately before `018_preferred_language.sql`. The query prints schema, table, constraint name/type and `pg_get_constraintdef`. No SQL migration, fixture, target guard, or cleanup behavior was changed. Runner commit `2c75a0d5639bfa43629a83d03fcd8d760c78368d`, blob `4ad7496780efdbdd1996d29dbd5dd31e3f361676`.
 
 A Node source-contract assertion now checks that the progress and diagnostic query remain present. Commit `883c065b97e52010ba99fa3a79d3420e73d56e92`, blob `9dc83eae945470b653907881f09732077837b169`. Neither this test nor the updated parser/runner has been executed yet. The next owner run must capture the catalog result and full error context before any schema change is considered. The prior temporary DB was confirmed dropped; no PostgreSQL instance was accessed during this code/documentation change.
+
+
+## 8. Empty pre-018 catalog result and expanded diagnostics (2026-11-17)
+
+Owner's run of the first diagnostic build showed the header but no rows for `users_preferred_language_check`; immediately afterward migration 018 still failed with a duplicate-constraint message. The disposable DB was successfully removed. This is contradictory evidence, not a basis for speculative schema changes.
+
+The runner now emits a sentinel database row, every constraint attached to `public.users`, any matching named constraint across all schemas/tables, and any same-named relation. Migration 018 is invoked with psql verbose error/context and echo-errors options to expose SQLSTATE and statement context. Runner commit `eb95ccf5126ec833e5f7f55092bef82c173cd48b`, blob `1fe066227a40d1dfef1df55a63babfec9d56403f`. Contract assertion commit `5837793afd56968e1f5695177c79361640cea204`, blob `c7b449c128154d7f0cc87170d6cabab5f0e9c87e`. Not yet owner-executed. Next step is capture complete diagnostics before altering migration or fixture.
