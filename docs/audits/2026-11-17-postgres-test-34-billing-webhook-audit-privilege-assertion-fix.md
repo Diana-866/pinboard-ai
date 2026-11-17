@@ -59,3 +59,8 @@ The exact replacement was guarded in the editing step: the old assertion block h
 ## Safety
 
 Preserve PostgreSQL listener PID 15220, port 55439 and `X:\\PinPosy-verify-pg18`. Do not stop/reconfigure the server, bypass runner guards, use production/`PIN_TRIAL`, or disclose secrets. This investigation used GitHub source reads and a source-only test edit; it did not connect to any database.
+
+
+## 2026-11-17 — owner Node contract gate passed after billing privilege assertion correction
+
+Owner evidence: clean fast-forward sync from `3e186f14` to `45fb5f30`; local HEAD and origin/main both `45fb5f300b1cd334ad8128a76f5d694f52389861`; pre/post working tree clean. Node command covering `postgres-integration-runner-contract.test.js`, `db-migration-chain.test.js` and `verify-script-migration-chain.test.js` completed **45/45 pass, 0 fail, 0 cancelled, 0 skipped, 0 todo**. This confirms only the Node preflight gate. PowerShell Parser and guarded PostgreSQL runtime remain pending; do not mark the SQL assertion fix verified until a guarded run reports 46/46 SQL tests and disposable DB cleanup.
