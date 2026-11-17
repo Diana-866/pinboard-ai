@@ -192,7 +192,7 @@ test('upgrade fixture preserves every canonical baseline column except fields in
   const baseline = read('db/migrations/001_baseline.sql');
   const columns = (source, table) => {
     const definition = new RegExp(
-      'create table(?: if not exists)? public\\.' + table + ' \\([\\s\\S]*?)\\n\\);',
+      'create table(?: if not exists)? public\\.' + table + ' \\(([\\s\\S]*?)\\n\\);',
       'i'
     ).exec(source);
     assert.ok(definition, 'table ' + table + ' must exist');
