@@ -863,3 +863,40 @@ node --test backend/test/postgres-integration-runner-contract.test.js
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
 ```
 Пароль вводить только в скрытом prompt. Не запускать runner при падении Node suite или несовпадении HEAD. Не останавливать PID 15220, не удалять `X:\\PinPosy-verify-pg18`, не трогать production/PIN_TRIAL.
+
+
+## UA — SQL integration 2026-11-17: boards.cover_url missing from upgrade fixture
+
+**Результат владельца**
+- Синхронизация: локальный `HEAD` и `origin/main` = `546492915c1861b834098a1dace2e5c585e847d9`.
+- Node contract suite: **16/16 PASS**.
+- Guarded runner: fixture PASS; 140 миграций 010–149 PASS; две inline assertions PASS; SQL tests 1–7/46 PASS.
+- Тест 8/46 `account-deletion-storage-manifest.integration.sql` упал на строке 380: `column "cover_url" of relation "boards" does not exist`. Тесты 9–46 не запускались.
+- Временная БД `pinposy_sqlint_452f781659d544cd` удалена runner'ом; подтверждены 0 оставшихся сессий, DROP DATABASE и сообщение Removed disposable database. SQL integration пока **NOT PASSED**.
+
+**Диагностика и исправление**
+- В каноническом `db/migrations/001_baseline.sql` поле `public.boards.cover_url text` есть. Его не было в двух upgrade fixtures: standalone SQL и workflow GitHub Actions. Migration 141 использует `boards.cover_url` при сборе board-cover объектов для Storage manifest. Создание PL/pgSQL функции не выявило отсутствие колонки; ошибка проявилась при выполнении теста.
+- Добавлено `cover_url text` в оба fixture, production migration не менялась:
+  - workflow blob `959399fc34989298ac060bd42a605312d7c86073`, commit `5b91890019f8a2758686946fcf85ce9de9f2eb5e`;
+  - standalone fixture blob `e57795b598e16939952f180ac36bc942336d0444`, commit `1783ba84a3d30454445c909459dfc559510128bb`.
+- Добавлен Node contract assertion о наличии `cover_url` в fixture и baseline. Первоначальный regex draft оказался over-escaped; assistant исправил его на split-based extraction до передачи теста владельцу. Final contract blob `d65c73d1ccc992e968e70030d79e32b05768a578`, commit `40ec7a2aa9b5106b6c4a20a96d07eb6aa27e43b9`. Сейчас в файле 17 test declarations по source inspection, новый suite ещё не запускался.
+- Audit: `docs/audits/2026-11-17-postgres-integration-storage-manifest-board-cover-fixture.md`, commit `6d2230a98fab683d67e1cecd54cb966e68f02223`.
+
+**Действия assistant**
+- Прочитаны из GitHub baseline, обе fixture-версии, workflow, failing SQL test, migration 141 и журналы документации; сравнен boards schema и usage cover_url.
+- Обновлены два fixture, добавлен и исправлен contract test, создан audit, обновляются PROJECT_STATE, USER_ACTIONS и DOCUMENTATION_REGISTER.
+- Assistant не запускал Node, PowerShell, psql или PostgreSQL. 16/16 PASS — результат владельца на старом commit, не подтверждение новых изменений.
+
+**⚠️ Следующий шаг после публикации всех документов**
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+node --test backend/test/postgres-integration-runner-contract.test.js
+```
+Если checkout чистый, HEAD = origin/main и все **17** contract tests PASS:
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+```
+Пароль — только в скрытом prompt. Не останавливать PID 15220, не удалять `X:\\PinPosy-verify-pg18`, не трогать production/PIN_TRIAL. Прислать полный вывод и подтверждение cleanup. SQL integration не считать пройденным, пока не пройдут все 46 тестов.
