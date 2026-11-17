@@ -64,3 +64,10 @@ Preserve PostgreSQL listener PID 15220, port 55439 and `X:\\PinPosy-verify-pg18`
 ## 2026-11-17 — owner Node contract gate passed after billing privilege assertion correction
 
 Owner evidence: clean fast-forward sync from `3e186f14` to `45fb5f30`; local HEAD and origin/main both `45fb5f300b1cd334ad8128a76f5d694f52389861`; pre/post working tree clean. Node command covering `postgres-integration-runner-contract.test.js`, `db-migration-chain.test.js` and `verify-script-migration-chain.test.js` completed **45/45 pass, 0 fail, 0 cancelled, 0 skipped, 0 todo**. This confirms only the Node preflight gate. PowerShell Parser and guarded PostgreSQL runtime remain pending; do not mark the SQL assertion fix verified until a guarded run reports 46/46 SQL tests and disposable DB cleanup.
+
+
+## 2026-11-17 — owner PowerShell Parser preflight gate passed
+
+Owner transcript: fast-forward pull of documentation through `097765bd924cb938103ac4ec779b17af23eacf2c`; working tree clean; local `HEAD` and `origin/main` both `097765bd924cb938103ac4ec779b17af23eacf2c`. Parser invocation targeted `scripts/verify-integration.ps1` and returned exact output `PowerShell Parser PASS: 0 syntax errors`.
+
+Preflight status: Node contract/migration-chain tests **45/45 PASS** (recorded above); PowerShell Parser **PASS, 0 syntax errors**. The guarded PostgreSQL integration runner is now the next authorized verification step for the owner. No PostgreSQL runtime test was performed in this step. The original failure at SQL test 34/46 remains the last runtime evidence, and the source assertion fix must not be called runtime-verified until a new run reports 46/46 plus confirmed disposable database cleanup. No production or `PIN_TRIAL` resource was used.
