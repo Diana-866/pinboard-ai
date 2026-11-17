@@ -1139,3 +1139,63 @@ if ($errors.Count -gt 0) {
 - Не запускать Bash concurrency или backend runtime suite до полного SQL PASS и cleanup.
 
 **Статус:** Node gate [x]; PowerShell Parser gate [ ] ожидает владельца; PostgreSQL SQL integration [ ] NOT PASSED.
+
+
+## UA-009 — guarded PostgreSQL integration runner после Node и Parser PASS (2026-11-17)
+
+### Закрытые gates по owner transcript
+- Синхронизация перед Parser check: чистый worktree; fast-forward `9beca59b → 3f554999`; `HEAD` = `origin/main` = `3f5549990ce71c2e4ff86a393eabbf1d2776f944`.
+- Node contract suite: **20/20 PASS** (см. UA-008 и audit Node contract 20-pass).
+- PowerShell Parser API для `scripts/verify-integration.ps1`: **PASS**, сообщение `syntax errors: 0`.
+- Parser gate закрыт. Это не является запуском runner и не доказывает SQL integration PASS.
+
+### Следующее действие владельца
+Сначала синхронизировать документационные commits:
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Продолжать только если до/после pull worktree чистый, ветка `main`, а HEAD совпадает с origin/main.
+
+Только затем запустить:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+```
+
+Runner попросит пароль временной роли через скрытый prompt. Пароль не копировать в чат, лог или документацию.
+
+### Обязательные safety guards runner
+Runner должен сам подтвердить:
+- checkout на `main`, успешный `git fetch origin main`, чистый worktree и HEAD = origin/main;
+- psql по ожидаемому пути;
+- ровно один TCP listener на `127.0.0.1:55439`;
+- listener принадлежит `postgres.exe`, command line содержит loopback host, port 55439 и data directory `X:\\PinPosy-verify-pg18`;
+- server identity строго `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`;
+- создание новой случайной disposable DB с префиксом `pinposy_sqlint_`; никакая существующая DB не должна переиспользоваться.
+
+Если любой guard не проходит — **STOP**, не обходить проверку и не менять порт/путь/сервер. При первом failure во время fixture/migration/assertion/test — runner должен завершиться и выполнить cleanup; сохранить полный вывод, включая результат cleanup.
+
+### Критерии результата
+SQL integration PASS допускается только при успешном:
+1. upgrade fixture;
+2. всех 140 migrations 010–149;
+3. двух inline assertions;
+4. всех 46 SQL integration tests;
+5. cleanup: 0 оставшихся сессий, DROP disposable DB и подтверждение, что DB отсутствует.
+
+После завершения передать полный лог без секретов и exit code. Если ошибка cleanup — отдельно отметить её; не объявлять PASS.
+
+### Запрещено
+- Production/PIN_TRIAL.
+- Останавливать PID 15220.
+- Изменять или удалять `X:\\PinPosy-verify-pg18`.
+- Передавать пароли, токены, .env и иные секреты.
+- Запускать Bash concurrency или backend runtime suites до полного SQL PASS и cleanup.
+
+**Статус:** Node 20/20 [x]; PowerShell Parser 0 errors [x]; PostgreSQL SQL integration [ ] ожидает owner runtime.
