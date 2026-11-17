@@ -1101,3 +1101,6 @@ Migration 156 restores the missing replay payload reference check in `begin_pin_
 Focused JavaScript probe against migration 156: old matchers 0/4, corrected matchers 4/4. The test file and audit were fetched back from GitHub. Full Node, PowerShell, PostgreSQL and SQL integration suites were not run. No main merge or production/database change. PR #90 remains stale (3 ahead / 1001 behind) with its Windows job queued; migration SQL verification should proceed through the existing guarded native Windows runner, not wait for WSL. Owner gates and safety constraints: UA-028.
 
 PR #91 links the correction branch to review: https://github.com/Diana-866/pinboard-ai/pull/91. GitHub reports 5 commits ahead / 0 behind and a clean merge state. Vercel preview completed successfully, but no Actions run exists for the PR head, so the Node, PowerShell and PostgreSQL gates remain pending.
+
+| `docs/PROJECT_STATE.md` | `d9b99fc4ab1341f37f5e5d4ca8ecdd6a7bed2df7` | `5fcb5bb4a5235404e9abe2268ff36a37d19f4ad1`; current CI snapshot, regex fix and PR #91 status |
+| `docs/USER_ACTIONS.md` | `6127b30cf6c153bb6757849631144aa68c2792a2` | `022a13b68367c5336dd41e71fcf58ffa8ce4b022`; UA-028 with PR #91 and owner-side verification gates |
