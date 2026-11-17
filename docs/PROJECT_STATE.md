@@ -1785,3 +1785,20 @@ The corrected fixture is **NOT RUNTIME-VERIFIED**. The 45/45 Node and 0-error Pa
 Создан отдельный отчёт: `docs/audits/2026-11-17-postgres-test-34-billing-webhook-audit-privileges.md`. Следующий шаг ассистента — read-only исследование указанного assertion, миграции, privilege test и актуальных docs на main; затем минимальное обоснованное исправление и документирование до повторного запуска. Девять Bash concurrency scripts остаются отдельным непроверенным этапом.
 
 Ассистент в этой сессии прочитал приложенный лог, повторно получил актуальные `PROJECT_STATE`, `DOCUMENTATION_REGISTER`, `USER_ACTIONS` и создал incident report. Локальные Node/PowerShell/psql/PostgreSQL/Bash/CI команды не запускались; production, `PIN_TRIAL` и постоянная БД не затрагивались. Root cause не установлен, код и миграции не изменялись. Полный transcript — источник evidence; детали, которых в нём нет, не реконструируются.
+
+
+### 2026-11-17 — PostgreSQL test 34: устранено противоречие в privilege assertion
+
+После записи первоначального инцидента ассистент прочитал:
+- `backend/test/postgres-integration.sql`, assertion around lines 940–965;
+- `backend/test/billing-webhook-audit-privileges.integration.sql`;
+- `db/migrations/029_billing_webhook_exceptions.sql`;
+- `db/migrations/042_allow_admin_audit_reads.sql`.
+
+**Установленная причина:** migration 029 grants `INSERT` для `service_role`; migration 042 явно grants `SELECT` той же серверной роли для защищённого backend admin read path. Специализированный тест требует SELECT+INSERT и запрещает UPDATE/DELETE для `service_role`, а все четыре операции запрещены для `anon` и `authenticated`. Inline assertion в общем test 34 ошибочно запрещал `service_role SELECT`, противореча migration 042 и focused test. Это объясняет падение, не требуя изменения production grants.
+
+**Изменение:** только `backend/test/postgres-integration.sql`. Inline assertion теперь проверяет полную матрицу: клиентским ролям запрещены SELECT/INSERT/UPDATE/DELETE; `service_role` обязан иметь SELECT и INSERT, но не UPDATE/DELETE. Перед записью старый блок проверен на точное единственное совпадение. Production SQL, migrations, app code, runner, CI и базы данных не изменялись.
+
+Source commit: `5cf3b1c2b589ba73205e823ec30f28b9193a1c60`; source blob: `405ebc7b556ea051525513439b37582d7904d2e6`. Подробный разбор: `docs/audits/2026-11-17-postgres-test-34-billing-webhook-audit-privilege-assertion-fix.md`; исходный run evidence: `docs/audits/2026-11-17-postgres-test-34-billing-webhook-audit-privileges.md`.
+
+**Проверка:** GitHub подтвердил публикацию source commit. Ассистент не запускал Node, PowerShell Parser, psql, PostgreSQL, Bash или CI. Исправление **NOT RUNTIME-VERIFIED**; первоначальный run остаётся FAIL, tests 35–46 не запускались. Следующий шаг владельца — синхронизировать latest main, повторить Node 45/45 и PowerShell Parser 0 errors, затем guarded runner; требование — 46/46 SQL tests и подтверждённая очистка disposable DB. Девять Bash concurrency scripts остаются отдельным gate.
