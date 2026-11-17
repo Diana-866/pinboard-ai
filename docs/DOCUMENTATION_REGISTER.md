@@ -796,3 +796,16 @@ Owner evidence: clean checkout synchronized at `9beca59b21c1f41c330bc7df03abb318
 | `docs/USER_ACTIONS.md` | `edcdc3ee2b56b1012a05d0a812962999f3d2429a` | `f93edc19876d6cccb4e7dec4c091d4464f6f0268`; UA-009 guarded runner instructions and stop conditions |
 
 Owner evidence: clean synchronized checkout at `3f5549990ce71c2e4ff86a393eabbf1d2776f944`; Parser API returned `syntax errors: 0`. Node contract remains 20/20 PASS. Parser check does not execute runner or SQL. PostgreSQL SQL integration remains **NOT PASSED**. Assistant reviewed current runner source and project instructions, updated documentation, and did not execute PowerShell/psql/PostgreSQL or modify source/DB.
+
+### 2026-11-17 — PostgreSQL integration test 15/46: TEXT/UUID assertion mismatch
+
+Owner's guarded run confirmed fixture, migrations 010–149, two inline assertions and tests 1–14/46 passed. Test 15 failed because two assertions compared TEXT `credit_transactions.user_id` with UUID `v_user`. The canonical baseline and migrations 010/075 define/use this ledger user ID as TEXT. Only the two test predicates were corrected to compare `user_id=v_user::text`; no production code, migration, fixture, workflow, runner or database was changed. The runner cleanup confirmed 0 sessions and removal of disposable DB `pinposy_sqlint_99741a5f1e5a47e6`. SQL integration remains NOT PASSED pending rerun and tests 16–46.
+
+| Path | Blob SHA | Commit / reason |
+|---|---|---|
+| `backend/test/legacy-regeneration-reservation-guard.integration.sql` | `198a1714ce805e77a39c6e8a4334122b6a5fe09f` | `9f2648d0ac18f1b3e40c59accb68e5274df6985a`; cast UUID test variable to TEXT in both ledger assertions |
+| `docs/audits/2026-11-17-postgres-integration-test-15-text-uuid-mismatch.md` | `c3f22112b3af2ed96c74494244a504608d07f03b` | `38db89adce46fc543196d853de7fd55f17adca4c`; owner transcript, source diagnosis, exact correction, cleanup and verification limits |
+| `docs/PROJECT_STATE.md` | `17014b7a20fbe8d5c008bcdb34365efc4df1e2ac` | `53a45e4573d9726f21b855cc32e76fa4ce88c603`; chronological incident record and next step |
+| `docs/USER_ACTIONS.md` | `1ad648e9ad296830241162e09004b45cf865dee9` | `902393454ab41667ef5ecca77568ba775a03f2dc`; UA-010 owner rerun instructions and safety constraints |
+
+Assistant performed GitHub source fetches, compared canonical baseline/migration types with the failing test, committed the narrow SQL-test-only correction, created the incident audit, updated project state and owner action log, and is updating this register last. Assistant did not execute local PowerShell, psql or PostgreSQL. The corrected SQL test and remaining 31 SQL tests are not yet runtime-verified.
