@@ -1258,3 +1258,14 @@ Owner evidence: clean working tree; `HEAD == origin/main == 097765bd924cb938103a
 Evidence: owner runner stopped because local HEAD `097765bd924cb938103ac4ec779b17af23eacf2c` differed from fetched origin/main `30e1ac9f9e5eaf5e79496c1ceda5b7e42a55749d`. GitHub compare shows four commits ahead, zero behind, all documentation-only. Runner source confirms this guard precedes PostgreSQL listener validation, password prompt, psql, role/database creation and SQL execution. No SQL tests ran; no disposable database was created. This is not a PostgreSQL failure or a passing SQL result. PostgreSQL runtime remains NOT RUNTIME-VERIFIED.
 
 Assistant actions: GitHub compare, commit inspection, documentation and runner source reads, audit creation, and updates to project state, owner actions and register. No local shell, Node, PowerShell, psql, PostgreSQL, Bash or CI commands were executed by the assistant; no source, migration or database was changed.
+
+
+### 2026-11-17 — PostgreSQL runner empty temporary-role password stop
+
+| Path | Blob SHA / commit | Purpose |
+|---|---|---|
+| `docs/audits/2026-11-17-postgres-runner-empty-temporary-password-stop.md` | created in this documentation update | Owner transcript, source control-flow proof, exact execution boundary, safe next action and assistant action log |
+| `docs/PROJECT_STATE.md` | updated in this documentation update | Chronological owner evidence and current PostgreSQL runtime status |
+| `docs/USER_ACTIONS.md` | updated in this documentation update | UA-034 password precondition, safe rerun instruction and secret-handling warning |
+
+Owner evidence: local main fast-forwarded from `30e1ac9f` to `9206d830`; clean worktree; HEAD = origin/main = `9206d83076c4ea59c0d66be15482bf58d7217226`; Node suite **45/45 pass**. Runner verified listener PID 15220 / `X:\\PinPosy-verify-pg18`, then rejected an empty hidden password for `pinposy_verify_admin`. Source blob `483ef0211e23a50ea50d1c80b9d47ce4140c09b3` proves the empty-password guard precedes PGPASSWORD setup and all psql calls. No DB connection, role/database creation, migration, inline assertion, SQL test or cleanup occurred. This is a local input stop, not a SQL runtime result. Historical SQL run remains FAIL at 34/46; fix NOT RUNTIME-VERIFIED. Assistant inspected GitHub source/docs and documented the event; no local shell/database/test execution and no secret access. Preserve listener identity; rerun only with a valid non-empty temporary-role password entered locally at the hidden prompt. Nine Bash concurrency scripts remain unverified.
