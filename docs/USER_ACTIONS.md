@@ -1641,3 +1641,66 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 - При первой ошибке остановиться и прислать полный вывод вместе с cleanup. Последующие тесты считать невыполненными.
 - Не обходить guards, не менять порт/PID/data directory, не останавливать PID 15220, не трогать `X:\\PinPosy-verify-pg18`, не использовать production/PIN_TRIAL.
 - Не запускать Bash concurrency/backend runtime suites до полного SQL PASS.
+
+
+## UA-018 — rerun after terminal generation-journal fixture and migration-153 contract correction (2026-11-17)
+
+**Статус:** ожидает действий владельца. PostgreSQL SQL integration **NOT PASSED**; tests 29–46 не запускались.
+
+### Последний запуск владельца
+
+- Local checkout был clean/synchronized на `7662d856aa3b2af8870d8d44686b92331b4bc0da`.
+- PowerShell Parser API: PASS, 0 syntax errors.
+- Node failure excerpt: migration-153 contract проверял порядок `pin_generation_requests → pin_review_queue → boards`, тогда как SQL migration содержит `pin_generation_requests → boards → pin_review_queue`. Полный aggregate summary Node не предоставлен.
+- Guarded runner: fixture, 144 migrations 010–153, обе CI inline assertions и SQL tests 1–27 PASS. Test 28/46 `pin-image-deletion-claims.integration.sql` failed: `generation task journal is not terminal` из migration 071 при попытке завершить parent generation request. Tests 29–46 не запускались.
+- Cleanup: 0 remaining sessions; disposable DB `pinposy_sqlint_98bf42130a244300` удалена и её отсутствие подтверждено.
+- Причина: fixture создавала generation task со status по умолчанию `prepared`, а затем переводила parent request в `completed`. Migration 071 корректно требует terminal task status и соответствующий provider outcome. Production guard ослаблять нельзя.
+- Исправлен только fixture: generation task теперь создаётся с `status='failed'` и `provider_outcome_status='failed'`, при этом `storage_url` остаётся durable image reference. Исправлен Node matcher, чтобы он соответствовал реальному порядку ссылок migration 153.
+- Подробности и SHA: `docs/audits/2026-11-17-postgres-integration-test-28-terminal-generation-task-journal-and-contract-order.md`.
+
+### Строгая последовательность владельца
+
+1. Синхронизировать main и подтвердить clean checkout:
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Продолжать только если branch `main`, worktree чистый и HEAD совпадает с origin/main. Передать полный SHA.
+
+2. Выполнить Node gates:
+
+```powershell
+node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+```
+
+Требуется полный PASS. При любом FAIL — **СТОП**, прислать полный вывод; Parser и SQL runner не запускать.
+
+3. Только после Node PASS выполнить PowerShell Parser API:
+
+```powershell
+$tokens = $null
+$errors = $null
+[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path .\\scripts\\verify-integration.ps1), [ref]$tokens, [ref]$errors) | Out-Null
+if ($errors.Count -gt 0) { $errors | Format-List *; exit 1 }
+"PowerShell Parser PASS: 0 syntax errors"
+```
+
+4. Только после обоих PASS выполнить guarded PostgreSQL runner:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+```
+
+Пароль временной роли вводить только в скрытом prompt; пароль/токены/.env не присылать.
+
+### Критерий SQL PASS и безопасность
+
+- PASS только если fixture, все **144 migrations 010–153**, обе CI inline assertions, все **46 ordered SQL tests** и cleanup disposable DB успешны.
+- При первой SQL ошибке — **СТОП** и прислать полный вывод вместе с cleanup. Более поздние тесты считаются невыполненными.
+- Не обходить guards, не менять порт/PID/data directory, не останавливать PID 15220, не трогать `X:\\PinPosy-verify-pg18`, не использовать production/PIN_TRIAL.
+- Не запускать Bash concurrency/backend runtime suites до полного SQL PASS и cleanup.
