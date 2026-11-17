@@ -260,6 +260,6 @@ test('provider refund evidence regex uses PostgreSQL-safe unbounded repetition i
 
 test('migration 152 revokes direct execution of the regeneration reservation trigger function', () => {
   const migration = read('db/migrations/152_revoke_direct_execution_of_regeneration_reservation_trigger.sql');
-  assert.match(migration, /revoke all on function public\\.release_failed_pin_regeneration_reservation\\(\\)/i);
+  assert.match(migration, /revoke all on function public\.release_failed_pin_regeneration_reservation\(\)/i);
   assert.match(migration, /from public, anon, authenticated, service_role/i);
 });
