@@ -505,3 +505,13 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 - Current `docs/PROJECT_STATE.md` blob: `8f5ee24ecf3e1b00b512aec6e9718bb6ea2ce989`; commit: `3fa1173ba69a45807cb431a8f53461fb301f4959`.
 - Current `docs/USER_ACTIONS.md` blob: `ce3c499ceac7236db4a97544464a8c3dd6ae386d`; commit: `b3b3b75c4af6e6c4afcb58aef1c84f263f1ee117`.
 - The diagnostic query's PostgreSQL internal-char concatenation failure, owner transcript, successful disposable-database cleanup, exact assistant source changes and non-executed checks are recorded in audit section 9, project journal and UA-004.
+
+
+### 2026-11-17 owner contract retest and stale assertion correction
+
+- Owner evidence: Node contract suite at `844514ab` = 9/10 (one stale diagnostic-heading expectation); PowerShell Parser API = PASS. No integration runner was invoked in this retest.
+- Corrected test commit: `a4472b204bf6c66f02c0adb8c9d1db79579c47ea`; current test blob: `902a0d700a1b145d7e48ad5f0cc856c5bd6f99a1`.
+- Current runner blob (unchanged in this action): `74c128b4c6933b8b5aba888e4abeb01200df2ab6`.
+- Current `docs/PROJECT_STATE.md` blob: `2420a185371423e34bf0d6cc8776f0eef96c24f8`; `docs/USER_ACTIONS.md` blob: `a08b2fa6935034448233acde93a66d82655840e2`; audit blob: `fa1a0c3539960eb23eb689e1a5c20e248cdd489e`.
+- Documentation commits: audit `87774a5a71e32df31e5462dc2983de2e3cde5fcf`; project state `25dfa968a426f381c1c044c82692e8dcaca2b397`; owner actions `7482053cda2a3e5a816480a84bb1fc7ba420e427`.
+- Corrected contract test has not yet been run. Integration gate remains blocked and must not be reported as passed.
