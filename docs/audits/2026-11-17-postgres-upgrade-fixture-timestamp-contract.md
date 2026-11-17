@@ -80,3 +80,9 @@ Production, PIN_TRIAL, Supabase, платежи, Pinterest, DNS, локальн�
 - После коммита `3bee9ba...` дополнительно исправлен contract test: он теперь явно проверяет первое добавление `token_version` в migration 023 и повторное в migration 055. Commit `565e8775d5af05f486f8cc1ac75f15edba74aa35`, contract blob `daceb31d99230b409c487cc39d10dc3ee1ef7102`.
 - GitHub Actions runs `44068607386`, `44068607454`, `44070232846`, `44070232989` завершились FAILURE до видимых шагов; API отдаёт `steps: null`, `logs_url: null`. Это external CI/pre-step blocker с неустановленной причиной, а не доказательство падения самих тестов. Vercel current status — `build-rate-limit`.
 - Ассистент не запускал Node, PowerShell, psql, PostgreSQL или локальный Windows checkout. Никакие runtime PASS не заявляются. SQL integration остаётся NOT PASSED.
+
+### GitHub Actions rerun attempt — no steps or logs available (2026-11-17)
+
+- По решению продолжить автономную диагностику выполнен один rerun двух failed workflow runs на source commit `565e8775d5af05f486f8cc1ac75f15edba74aa35`: atomic payment run `44070232846` и persisted boards run `44070232989`. API подтвердил принятие rerun (`success: true`).
+- Attempt 2 обоих runs снова завершился `failure` практически сразу. Новые job IDs: atomic `133996278489`; persisted boards `133996306977` (backend) и `133996307323` (frontend). `fetch_workflow_run_jobs` вернул `steps: null`, `logs_url: null`; скачивание logs не доступно. Поэтому ни Node contract suite, ни SQL/Backend/Frontend test steps не подтверждены как запущенные.
+- Вывод: CI pre-step blocker воспроизводится даже при rerun; его причина неизвестна по доступным данным. Не менять application code ради этого статуса и не считать это результатом тестов. Для восстановления CI может потребоваться отдельная проверка GitHub Actions runner/usage/settings владельцем; локальный Node gate остаётся следующим обязательным шагом.

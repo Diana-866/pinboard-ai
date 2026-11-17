@@ -1040,3 +1040,7 @@ node --test backend/test/postgres-integration-runner-contract.test.js
 **Запрещено:** production/PIN_TRIAL, изменение/удаление persistent verification cluster, остановка PID 15220, секреты в чате, запуск SQL runner при failed Node suite, запуск Bash/backend runtime suite до полного SQL PASS.
 
 **Статус:** [ ] Ожидает владельца. После получения вывода assistant должен снова проверить актуальный `main`, сохранить фактические результаты и обновить PROJECT_STATE/REGISTER.
+
+**Дополнение к UA-006 — повтор CI также не дошёл до шагов**
+- Выполнен один rerun runs `44070232846` и `44070232989` (attempt 2). Новые jobs: `133996278489`, `133996306977`, `133996307323`; все завершились FAILURE с `steps: null`, `logs_url: null`. Test execution не подтверждён, причина неизвестна.
+- При желании восстановить hosted CI отдельно проверьте GitHub Actions runner/usage/settings в интерфейсе GitHub. Это не заменяет локальный Node gate и не требует менять код наугад.
