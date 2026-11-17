@@ -1813,3 +1813,15 @@ Owner-provided PowerShell transcript confirms:
 - post-pull `git status --short` was empty.
 
 This confirms the owner working copy is clean and synchronized to the documented source fix. It does **not** verify the Node contracts, PowerShell parser, or PostgreSQL integration. The previous SQL run remains FAIL at test 34/46; tests 35–46 have not been shown to pass. Next action: run only the Node contract gate in UA-034, inspect its complete output, then proceed to the PowerShell Parser gate only if Node reports 45/45 pass, 0 failures and 0 skipped. Do not start the guarded PostgreSQL runner until both preflight gates pass. No database, production resource, or source file was changed by this owner synchronization.
+
+
+### 2026-11-17 — UA-034: owner sync and Node contract gate PASS
+
+Owner-provided PowerShell transcript confirms:
+- `git pull --ff-only origin main` fast-forwarded `3e186f14..45fb5f30`;
+- pre/post `git status --short` were empty;
+- local `HEAD` and `origin/main` both equal `45fb5f300b1cd334ad8128a76f5d694f52389861`;
+- the three requested Node test files ran successfully;
+- TAP summary: **45 tests, 45 pass, 0 fail, 0 cancelled, 0 skipped, 0 todo** (duration 108.1713 ms).
+
+This verifies the Node contract/migration/replay-chain gate against the synchronized source. It does not verify PowerShell syntax or execute PostgreSQL integration. Next: run the PowerShell Parser gate from UA-034; only if it reports exactly 0 syntax errors may the owner run the guarded PostgreSQL integration command. The earlier PostgreSQL result remains FAIL at test 34/46 until a new guarded run proves 46/46 and confirms disposable database cleanup. Tests 35–46 have not yet been demonstrated passing after the assertion fix. No database or production resource was touched by the Node command.
