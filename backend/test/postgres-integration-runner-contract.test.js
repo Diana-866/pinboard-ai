@@ -98,6 +98,16 @@ test('runner logs migration progress and inspects the preferred-language constra
   assert.match(runner, /pg_get_constraintdef\(c\.oid\)/);
 });
 
+test('runner emits database and users constraint diagnostics plus verbose SQL errors', () => {
+  assert.match(runner, /DATABASE\|' \|\| current_database\(\)/);
+  assert.match(runner, /USER_CONSTRAINT\|/);
+  assert.match(runner, /NAMED_CONSTRAINT\|/);
+  assert.match(runner, /NAMED_RELATION\|/);
+  assert.match(runner, /VERBOSITY=verbose/);
+  assert.match(runner, /SHOW_CONTEXT=always/);
+  assert.match(runner, /--echo-errors/);
+});
+
 test('CI migration list remains the complete contiguous 010-148 chain', () => {
   const prefixes = [...workflow.matchAll(/db\/migrations\/(\d{3})_[A-Za-z0-9._-]+\.sql/g)]
     .map((match) => Number(match[1]));
