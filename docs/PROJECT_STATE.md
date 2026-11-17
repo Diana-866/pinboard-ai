@@ -1466,5 +1466,5 @@ This section records the exact owner-provided PowerShell procedure. Treat it as 
 - Это подтверждает runner contract assertions, но не запускает PostgreSQL и не доказывает прохождение SQL test 18. Предыдущий SQL run остановился на test 18/46; tests 19–46 не выполнялись. SQL integration остаётся **NOT PASSED**.
 - Ассистент принял owner transcript, повторно fetched текущие проектные документы и предыдущий incident audit, создал audit `docs/audits/2026-11-17-postgres-integration-node-contract-after-test18-fix-pass.md`, обновил этот паспорт и UA-012, затем обновит register и повторно fetched blobs. Ассистент не запускал локальные Node/PowerShell/psql/PostgreSQL.
 - Предыдущий PowerShell Parser API PASS (0 syntax errors) остаётся подтверждённым для текущего runner source, который не менялся после этой проверки. Следующий шаг — guarded PostgreSQL runner на чистом synchronized main по UA-012.
-- Никакие production migrations/code, production/PIN_TRIAL, PID 15220, `X:\\PinPosy-verify-pg18` или persistent databases не менялись; секреты не запрашивались.
+- Никакие production migrations/code, production/PIN_TRIAL, PID 15220, `X:\PinPosy-verify-pg18` или persistent databases не менялись; секреты не запрашивались.
 
