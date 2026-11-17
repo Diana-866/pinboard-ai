@@ -1398,3 +1398,65 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integra
 - Не запускать Bash concurrency/backend runtime suites до полного SQL PASS и cleanup.
 
 **Текущий статус:** Node 20/20 PASS и Parser 0 errors относятся к предыдущему source state; после добавления migration 150 и обновления runner оба gate требуют повторного owner выполнения. PostgreSQL integration **NOT PASSED**.
+
+
+## UA-014 — повторная PostgreSQL integration verification после test 20/46 (2026-11-17)
+
+**Статус:** ожидает действий владельца. SQL integration **NOT PASSED**.
+
+### Что произошло
+- На исходном synchronized HEAD `0b56648d04e43c87fb656a59dc1e21411a5b877f` Node suite: 37 PASS / 2 FAIL из 39. Обе ошибки были в contract tests: over-escaped RegExp helper для baseline-column inventory и stale Linux replay expectation (148 / старый count).
+- PowerShell Parser API: 0 syntax errors PASS для прежней версии runner.
+- Guarded SQL runner: fixture, 141 migrations 010–150 и две CI inline assertions PASS; SQL tests 1–19 PASS; test 20/46 упал на `invalid repetition count(s)` в `_admin_record_provider_refund_action`. Tests 21–46 не запускались.
+- Cleanup успешен: 0 sessions, DROP disposable database, explicit removal confirmed.
+- Причина: migration 078 содержит PostgreSQL regex bound `{7,499}` в CHECK constraint и PL/pgSQL validation. PostgreSQL finite repetition upper bound ограничен 255. Добавлена migration 151 с `{7,}`; историческая 078 не изменялась.
+
+### Следующие действия — строго по порядку
+
+1. Синхронизировать main и проверить чистое состояние:
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Продолжать только если branch `main`, worktree чистый и HEAD совпадает с origin/main. Новый source HEAD должен быть зафиксирован в ответе.
+
+2. Запустить Node gates:
+
+```powershell
+node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+```
+
+Ожидаемый результат — полный PASS. При любом FAIL остановиться и прислать полный вывод; SQL runner не запускать.
+
+3. После Node PASS выполнить Parser API для обновлённого runner:
+
+```powershell
+$tokens = $null
+$errors = $null
+[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path .\scripts\verify-integration.ps1), [ref]$tokens, [ref]$errors) | Out-Null
+if ($errors.Count -gt 0) { $errors | Format-List *; exit 1 }
+"PowerShell Parser PASS: 0 syntax errors"
+```
+
+При ошибке — STOP, SQL runner не запускать.
+
+4. Только после обоих PASS выполнить guarded runner:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+```
+
+Пароль временной роли вводить только в скрытом prompt; не присылать пароль/секреты.
+
+### Критерий SQL PASS и безопасность
+- PASS только если fixture, все **142 migrations 010–151**, обе inline assertions, все **46 ordered SQL tests** и cleanup disposable DB успешны.
+- При первой SQL ошибке — STOP и прислать полный вывод вместе с cleanup. Более поздние тесты считаются невыполненными.
+- Не обходить guards, не менять порт/PID/data directory, не останавливать PID 15220, не трогать `X:\PinPosy-verify-pg18`, не использовать production/PIN_TRIAL.
+- Не запускать Bash concurrency/backend runtime suites до полного SQL PASS и cleanup.
+
+Подробный incident audit: `docs/audits/2026-11-17-postgres-integration-test-20-provider-refund-regex-repetition-limit.md`.
