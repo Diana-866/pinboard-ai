@@ -4,10 +4,15 @@ create table public.users (
   email text not null,
   password_hash text,
   email_verified boolean not null default false,
-  credits_balance integer not null default 0,
+  credits_balance integer default 0,
+  subscription_tier text default 'free',
   tariff_plan text not null default 'none',
   is_admin boolean default false,
-  tariff_period_end timestamptz
+  name text,
+  surname text,
+  onboarded boolean not null default false,
+  tariff_period_end timestamptz,
+  created_at timestamp without time zone default now()
 );
 create table public.auth_tokens (
   id uuid primary key default gen_random_uuid(),
@@ -16,26 +21,32 @@ create table public.auth_tokens (
   purpose text not null default 'password_reset',
   expires_at timestamptz not null,
   used_at timestamptz,
-  created_at timestamptz default now()
+  created_at timestamp without time zone default now()
 );
 create table public.projects (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.users(id),
+  user_id uuid references public.users(id),
+  website_url text,
   niche text,
   tone text,
-  language text
+  goal text,
+  language text,
+  site_summary text,
+  analyzed_at timestamp without time zone,
+  created_at timestamp without time zone default now()
 );
 create table public.boards (
   id uuid primary key default gen_random_uuid(),
-  project_id uuid not null references public.projects(id) on delete cascade,
+  project_id uuid references public.projects(id) on delete cascade,
   title text,
   description text,
-  status text,
-  cover_url text
+  status text default 'new',
+  cover_url text,
+  created_at timestamp without time zone default now()
 );
 create table public.pins (
   id uuid primary key default gen_random_uuid(),
-  board_id uuid not null references public.boards(id) on delete cascade,
+  board_id uuid references public.boards(id) on delete cascade,
   image_url text,
   title text,
   description text,

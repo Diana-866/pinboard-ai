@@ -64,8 +64,8 @@ test('upgrade fixture preserves baseline project-to-board and board-to-pin casca
   const pinsTable = fixture.split('create table public.pins (')[1]?.split(');')[0];
   assert.ok(boardsTable, 'upgrade fixture boards table must exist');
   assert.ok(pinsTable, 'upgrade fixture pins table must exist');
-  assert.match(boardsTable, /project_id\\s+uuid(?:\\s+not null)?\\s+references public\\.projects\\s*\\(id\\)\\s+on delete cascade/i);
-  assert.match(pinsTable, /board_id\\s+uuid(?:\\s+not null)?\\s+references public\\.boards\\s*\\(id\\)\\s+on delete cascade/i);
+  assert.match(boardsTable, /project_id\s+uuid(?:\s+not null)?\s+references public\.projects\s*\(id\)\s+on delete cascade/i);
+  assert.match(pinsTable, /board_id\s+uuid(?:\s+not null)?\s+references public\.boards\s*\(id\)\s+on delete cascade/i);
 });
 
 test('both extracted inline assertions stay aligned with CI workflow', () => {
@@ -182,9 +182,55 @@ test('durable account deletion queue test expects the Storage manifest guard add
   assert.ok(stageGuards.indexOf("raise exception 'account deletion Storage manifest is required';") < stageGuards.indexOf('update public.account_deletion_jobs'));
 });
 
-test('CI migration list remains the complete contiguous 010-148 chain', () => {
+test('CI migration list remains the complete contiguous 010-149 chain', () => {
   const prefixes = [...workflow.matchAll(/db\/migrations\/(\d{3})_[A-Za-z0-9._-]+\.sql/g)]
     .map((match) => Number(match[1]));
-  assert.equal(prefixes.length, 139);
-  assert.deepEqual(prefixes, Array.from({ length: 139 }, (_, index) => index + 10));
+  assert.equal(prefixes.length, 140);
+  assert.deepEqual(prefixes, Array.from({ length: 140 }, (_, index) => index + 10));
+});
+
+test('upgrade fixture preserves every canonical baseline column except fields introduced by later migrations', () => {
+  const fixture = read('backend/test/postgres-integration-upgrade-fixture.sql');
+  const baseline = read('db/migrations/001_baseline.sql');
+  const columns = (source, table) => {
+    const definition = new RegExp(
+      'create table(?: if not exists)? public\\.' + table + ' \\(([\\s\\S]*?)\\n\\);',
+      'i'
+    ).exec(source);
+    assert.ok(definition, 'table ' + table + ' must exist');
+    return definition[1].split(/\r?\n/).map((line) =>
+      line.trim().match(/^([a-z_][a-z0-9_]*)\s+/i)?.[1]
+    ).filter(Boolean);
+  };
+  for (const table of [
+    'users', 'projects', 'boards', 'pins', 'credit_transactions',
+    'auth_tokens', 'subscriptions', 'credit_purchases',
+    'pinterest_accounts', 'pinterest_publications'
+  ]) {
+    const missing = columns(baseline, table).filter((column) =>
+      !columns(fixture, table).includes(column)
+    );
+    assert.deepEqual(missing, table === 'users' ? ['token_version'] : [], table + ' baseline columns');
+  }
+  const users = fixture.match(/create table public\.users \(([\s\S]*?)\n\);/i)?.[1] || '';
+  assert.doesNotMatch(users, /\btoken_version\b|\baccount_status\b/);
+  assert.match(read('db/migrations/055_auth_token_version.sql'), /add column if not exists token_version integer/i);
+  assert.match(read('db/migrations/127_account_lifecycle.sql'), /add column if not exists account_status/i);
+});
+
+test('upgrade fixture preserves baseline nullability, defaults, cascades and timestamp types', () => {
+  const fixture = read('backend/test/postgres-integration-upgrade-fixture.sql');
+  const users = fixture.match(/create table public\.users \(([\s\S]*?)\n\);/i)?.[1] || '';
+  const projects = fixture.match(/create table public\.projects \(([\s\S]*?)\n\);/i)?.[1] || '';
+  const boards = fixture.match(/create table public\.boards \(([\s\S]*?)\n\);/i)?.[1] || '';
+  const pins = fixture.match(/create table public\.pins \(([\s\S]*?)\n\);/i)?.[1] || '';
+  const transactions = fixture.match(/create table public\.credit_transactions \(([\s\S]*?)\n\);/i)?.[1] || '';
+  assert.match(users, /credits_balance integer default 0/i);
+  assert.doesNotMatch(users, /credits_balance integer not null/i);
+  assert.match(projects, /user_id uuid references public\.users\(id\)/i);
+  assert.doesNotMatch(projects, /user_id uuid not null/i);
+  assert.match(boards, /project_id uuid references public\.projects\(id\) on delete cascade/i);
+  assert.match(boards, /status text default 'new'/i);
+  assert.match(pins, /board_id uuid references public\.boards\(id\) on delete cascade/i);
+  assert.match(transactions, /created_at timestamp without time zone default now\(\)/i);
 });
