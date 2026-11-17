@@ -1099,3 +1099,5 @@ Migration 156 restores the missing replay payload reference check in `begin_pin_
 | `docs/audits/2026-11-17-migration-156-contract-regex-overescaping.md` | `35bdb41979e420d7dd06d6ac9e4641c1dc0779a1` | `6bc3109efc2d44e29a222a26c64e3ba060acbc1b`; repository/CI snapshot, regex reproduction, WSL/native-runner clarification and verification gates |
 
 Focused JavaScript probe against migration 156: old matchers 0/4, corrected matchers 4/4. The test file and audit were fetched back from GitHub. Full Node, PowerShell, PostgreSQL and SQL integration suites were not run. No main merge or production/database change. PR #90 remains stale (3 ahead / 1001 behind) with its Windows job queued; migration SQL verification should proceed through the existing guarded native Windows runner, not wait for WSL. Owner gates and safety constraints: UA-028.
+
+PR #91 links the correction branch to review: https://github.com/Diana-866/pinboard-ai/pull/91. GitHub reports 5 commits ahead / 0 behind and a clean merge state. Vercel preview completed successfully, but no Actions run exists for the PR head, so the Node, PowerShell and PostgreSQL gates remain pending.
