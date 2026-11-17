@@ -1043,3 +1043,28 @@ Owner runtime evidence before migration 154: Node 42/42 PASS; PowerShell Parser 
 Owner evidence: on main HEAD `21f0bb3c6889ce2cc0830add015d9d5b1c7b7b5d`, PowerShell Parser reported 0 syntax errors; the guarded runner applied the fixture, 145 migrations 010–154 and both CI inline assertions; SQL tests 1–27 passed; test 28 failed in `finalize_pin_image_upload()` because the test fixture reused generation object paths already quarantined or referenced by earlier blocks. Cleanup dropped and confirmed removal of disposable DB `pinposy_sqlint_a1f0fda5a45947bc`. Tests 29–46 did not run. The supplied Node excerpt also exposed over-escaped migration-154 regex matchers; aggregate Node counts were not supplied.
 
 Diagnosis established that lifecycle functions correctly rejected reused paths and the fixture then passed a NULL token to finalization. Assistant changed only test code: four fresh valid 32-hex IDs in AUD-260 and correctly escaped migration-154 contract regexes. No production SQL, migrations, runner, CI, or persistent database changed. Assistant re-fetched both source files and audit from GitHub and statically verified the intended content. Assistant did not execute Node, PowerShell, psql, PostgreSQL or CI. Corrected source is not runtime-verified; SQL integration remains **FAIL 27/46**, tests 29–46 unexecuted. Next owner gate: clean sync, Node contract tests (expected 43 total, all PASS), then guarded PostgreSQL runner; Parser was just confirmed 0 errors and its script is unchanged.
+
+
+### 2026-11-17 — PostgreSQL test 28 regeneration replay image-reference regression (migration 155)
+
+Owner evidence: Node 43/43 PASS at pre-fix commit `76593cc93d5251eb33020ef2a395dba2ceaa1c66`; guarded SQL runner applied 145 migrations 010–154 and both CI inline assertions; SQL tests 1–27 passed; test 28 failed because deletion claim returned `claimed: true` despite `pin_regeneration_requests.result_pin.image_url` referencing the object. Disposable database cleanup succeeded; tests 29–46 did not run. SQL integration remains **NOT PASSED (27/46)**.
+
+Root cause: migration 104 added the regeneration replay payload check; migration 145 replaced `claim_pin_image_deletion()` and omitted it; migration 153 inherited the omission while restoring permanent quarantine. Migration 154 only updates upload reservation behavior. The SQL fixture was already correctly exercising the missing production guard.
+
+| Path | Final blob SHA | Reason |
+|---|---|---|
+| `db/migrations/155_restore_regeneration_replay_image_reference_to_deletion_claim.sql` | `833e9f88e1116a9ddbb5616d86aba5ca5a989e32` | migration 155 restores the regeneration replay payload guard while preserving migration 153 quarantine semantics |
+| `backend/test/postgres-integration-runner-contract.test.js` | `b211d7ed26d2a3d0561e07a6e6de426edd39c9a0` | static migration-155 contract and 146-migration CI chain assertion |
+| `backend/test/db-migration-chain.test.js` | `13771235cb0d072dc7097111d584b1676f2adb90` | canonical migration chain extended through 155 |
+| `backend/test/verify-script-migration-chain.test.js` | `b9be3b8594476277ff52c4391aa3f5959ece4b7f` | Linux and Windows replay contracts expect 146 migrations 010–155 |
+| `scripts/verify-integration.ps1` | `8151d8a89de49b6acf218e41475587516342a207` | guarded Windows PostgreSQL runner applies 146 migrations 010–155 |
+| `scripts/verify.sh` | `7b9ee6c07e09e49df6e1ac238ec079c8b423e79c` | Linux replay sequence extended through migration 155 |
+| `scripts/verify.ps1` | `71bb6c7e27603016272b343b5b8d6185ff58e400` | Windows replay sequence extended through migration 155 |
+| `.github/workflows/atomic-payment-integration.yml` | `2ee2e8da431e118d99a25a108782bf5db8e02945` | CI applies migration 155 after migration 154 |
+| `docs/audits/2026-11-17-postgres-test-28-regeneration-replay-image-reference-guard-regression.md` | `50d145c74007420d787f5a4df1209f592943bd0b` | full owner evidence, root cause, source changes, limits and gates |
+| `docs/PROJECT_STATE.md` | `d7591f4c8e62c33f64ff4a22926211026a2f0388` | chronological project incident and migration-155 status |
+| `docs/USER_ACTIONS.md` | `e6356416872fff2172657f6b828dd5956ff3f57f` | UA-026 owner synchronization and verification steps |
+
+Migration 155 is additive and starts from migration 153's current claim function, restoring the `result_pin ->> 'image_url'` check while preserving all other reference inventory, permanent expired-claim quarantine, deleted tombstone handling, token fencing and service-role-only execution. Historical migrations and the existing SQL regression fixture were not modified. The migration-155 Node contract and all migration replay/CI counts were advanced to 146 contiguous migrations 010–155.
+
+Assistant actions: fetched the current GitHub source and docs; compared migrations 104, 145, 153 and 154; read the failing test fixture; added migration 155; updated Node/replay contracts, local replay scripts and CI; created the incident audit; appended PROJECT_STATE and UA-026; then fetched the changed files again. Assistant did not execute Node, PowerShell, psql, PostgreSQL or CI. The owner's 43/43 Node PASS and 27/46 SQL result predate migration 155. Updated Node suite is expected to have 44 tests; Parser and SQL replay must be rerun by owner. Require 44/44 Node PASS, Parser 0 errors, then 146 migrations, two CI assertions, 46 SQL tests and cleanup. Nine Bash concurrency scripts remain outside this runner and unverified.
