@@ -56,13 +56,13 @@ The adjacent durable queue integration test already establishes the repository's
    - added `ROLLBACK;` after the DO block.
    This preserves the assertions and verifies behavior within one isolated transaction. New blob `90486cf3499f54f36a4bda50f88f326f52e5bf0a`, commit `61e508df37ed1a3ff6c0c6c57622dfa65b6c1b26`.
 
-2. Added a Node source-contract test requiring the transaction wrapper and rollback and rejecting direct cleanup DELETEs against account deletion requests/jobs/events/users. New blob `3801da4c55a12aa7668eb940f3ab1cbd753bab2c`, commit `2860d0df79c2eb0d7bef7a727171a45b79202402`.
+2. Added a Node source-contract test requiring the transaction wrapper and rollback and rejecting direct cleanup DELETEs against account deletion requests/jobs/events/users. Final contract blob `4681aa4ab8155a0c5c8b649e35bfdd3085fd8d2f`, latest correction commit `ace9c270f8ad789a0135cdbe4c0b1bceac768e4e` (initial draft blob `3801da4c55a12aa7668eb940f3ab1cbd753bab2c`, commit `2860d0df79c2eb0d7bef7a727171a45b79202402`; intermediate regex correction blob `cdd4f2ccdb5590e381964460f1180a4f7a747dd3`, commit `ec7f410a80f5ea4fec27781c3280b15aceac4618`).
 
 ## Assistant actions and verification limits
 
 Assistant fetched and inspected the current failing test, migrations 129–131, the durable queue test, the Node contract suite, and current project journals. The root cause is directly supported by migration 130's function body, table foreign keys, immutable-event trigger, and the failing test's cleanup statements.
 
-Assistant changed only the SQL integration test and its Node source-contract test. No production migration, application runtime, permissions, foreign keys, or append-only protections were changed. Assistant did not execute Node, PowerShell, psql, PostgreSQL, or the SQL integration suite; the two new source changes remain runtime-unverified.
+Assistant changed only the SQL integration test and its Node source-contract test. No production migration, application runtime, permissions, foreign keys, or append-only protections were changed. Assistant did not execute Node, PowerShell, psql, PostgreSQL, or the SQL integration suite; the two new source changes remain runtime-unverified. During source re-read, assistant caught over-escaped regexes in the first contract assertion draft; replaced them with literal string/index checks and re-fetched the final source. This correction is documented rather than treating the intermediate draft as final.
 
 ## Next step and safety
 
