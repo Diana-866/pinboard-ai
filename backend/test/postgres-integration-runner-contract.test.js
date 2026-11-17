@@ -192,7 +192,7 @@ test('upgrade fixture preserves every canonical baseline column except fields in
   const baseline = read('db/migrations/001_baseline.sql');
   const columns = (source, table) => {
     const definition = new RegExp(
-      'create table(?: if not exists)? public\\.' + table + ' \\(([\s\S]*?)\\n\\);',
+      'create table(?: if not exists)? public\\.' + table + ' \\(([\\s\\S]*?)\\n\\);',
       'i'
     ).exec(source);
     assert.ok(definition, 'table ' + table + ' must exist');
@@ -256,6 +256,13 @@ test('provider refund evidence regex uses PostgreSQL-safe unbounded repetition i
   assert.match(migration, /pg_get_functiondef/);
   assert.match(migration, /replace\(v_definition, '\{7,499\}', '\{7,\}'\)/);
   assert.equal((migration.match(/\{7,499\}/g) || []).length, 1);
+});
+
+test('migration 153 permanently quarantines expired external image deletion claims', () => {
+  const migration = read('db/migrations/153_restore_permanent_quarantine_for_expired_pin_image_deletions.sql');
+  assert.match(migration, /if v_state = 'deleting' then[\\s\\S]*?if v_claim_expires_at > now\\(\\)[\\s\\S]*?state = 'quarantined'[\\s\\S]*?reason', 'path_quarantined'/i);
+  assert.match(migration, /pin_generation_requests[\\s\\S]*?pin_review_queue[\\s\\S]*?boards/i);
+  assert.doesNotMatch(migration, /retry the[\\s\\S]*?Storage removal/i);
 });
 
 test('migration 152 revokes direct execution of the regeneration reservation trigger function', () => {
