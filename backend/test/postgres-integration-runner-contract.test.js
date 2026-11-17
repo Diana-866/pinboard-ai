@@ -65,8 +65,8 @@ test('runner is UTF-8 BOM encoded for Windows PowerShell 5.1', () => {
 });
 
 test('runner normalizes inet server address before exact identity comparison', () => {
-  assert.match(runner, /host\\(inet_server_addr\\(\\)\\)/);
-  assert.match(runner, /coalesce\\(host\\(inet_server_addr\\(\\)\\), ''\\)/);
+  assert.match(runner, /host\(inet_server_addr\(\)\)/);
+  assert.match(runner, /coalesce\(host\(inet_server_addr\(\)\), ''\)/);
 });
 
 test('runner refuses unsafe targets and documents the unexecuted Bash concurrency suite', () => {
