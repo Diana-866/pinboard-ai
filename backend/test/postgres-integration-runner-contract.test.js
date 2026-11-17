@@ -261,7 +261,7 @@ test('provider refund evidence regex uses PostgreSQL-safe unbounded repetition i
 test('migration 153 permanently quarantines expired external image deletion claims', () => {
   const migration = read('db/migrations/153_restore_permanent_quarantine_for_expired_pin_image_deletions.sql');
   assert.match(migration, /if v_state = 'deleting' then[\s\S]*?if v_claim_expires_at > now\(\)[\s\S]*?state = 'quarantined'[\s\S]*?reason', 'path_quarantined'/i);
-  assert.match(migration, /pin_generation_requests[\\s\\S]*?boards[\\s\\S]*?pin_review_queue/i);
+  assert.match(migration, /pin_generation_requests[\s\S]*?boards[\s\S]*?pin_review_queue/i);
   assert.doesNotMatch(migration, /retry the[\s\S]*?Storage removal/i);
 });
 
