@@ -283,10 +283,10 @@ test('migration 154 preserves deleted image path tombstones and migration 145 re
 
 test('migration 156 restores regeneration replay image references to upload reservations', () => {
   const migration = read('db/migrations/156_restore_regeneration_replay_image_reference_to_upload_reservation.sql');
-  assert.match(migration, /r\\.result_pin ->> 'image_url'[\\s\\S]*?into v_has_reference/i);
-  assert.match(migration, /if v_state = 'quarantined'[\\s\\S]*?path_quarantined[\\s\\S]*?if v_state = 'deleted'[\\s\\S]*?already_deleted/i);
-  assert.match(migration, /pin_generation_requests[\\s\\S]*?boards[\\s\\S]*?pin_review_queue/i);
-  assert.match(migration, /revoke all on function public\\.begin_pin_image_upload\\(text,text,integer\\)[\\s\\S]*?from public, anon, authenticated, service_role/i);
+  assert.match(migration, /r\.result_pin ->> 'image_url'[\s\S]*?into v_has_reference/i);
+  assert.match(migration, /if v_state = 'quarantined'[\s\S]*?path_quarantined[\s\S]*?if v_state = 'deleted'[\s\S]*?already_deleted/i);
+  assert.match(migration, /pin_generation_requests[\s\S]*?boards[\s\S]*?pin_review_queue/i);
+  assert.match(migration, /revoke all on function public\.begin_pin_image_upload\(text,text,integer\)[\s\S]*?from public, anon, authenticated, service_role/i);
 });
 
 test('migration 152 revokes direct execution of the regeneration reservation trigger function', () => {
