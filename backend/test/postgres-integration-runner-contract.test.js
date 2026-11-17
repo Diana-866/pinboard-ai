@@ -225,6 +225,7 @@ test('upgrade fixture preserves baseline nullability, defaults, cascades and tim
   const boards = fixture.match(/create table public\.boards \(([\s\S]*?)\n\);/i)?.[1] || '';
   const pins = fixture.match(/create table public\.pins \(([\s\S]*?)\n\);/i)?.[1] || '';
   const transactions = fixture.match(/create table public\.credit_transactions \(([\s\S]*?)\n\);/i)?.[1] || '';
+  const authTokens = fixture.match(/create table public\.auth_tokens \(([\s\S]*?)\n\);/i)?.[1] || '';
   assert.match(users, /credits_balance integer default 0/i);
   assert.doesNotMatch(users, /credits_balance integer not null/i);
   assert.match(projects, /user_id uuid references public\.users\(id\)/i);
@@ -233,4 +234,5 @@ test('upgrade fixture preserves baseline nullability, defaults, cascades and tim
   assert.match(boards, /status text default 'new'/i);
   assert.match(pins, /board_id uuid references public\.boards\(id\) on delete cascade/i);
   assert.match(transactions, /created_at timestamp without time zone default now\(\)/i);
+  assert.match(authTokens, /created_at timestamptz default now\(\)/i);
 });
