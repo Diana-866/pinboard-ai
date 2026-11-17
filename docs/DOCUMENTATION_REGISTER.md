@@ -751,3 +751,14 @@ Assistant actions for this review: fetched current GitHub baseline, migrations 1
 | `docs/USER_ACTIONS.md` | `57253a891ad243501d606c7299d28de793714a71` | `20575ae33c5cac24f59cbd06a5c5592c0c5c9d8a`; UA-006 supersedes stale UA-005 test count and pinned HEAD |
 | `backend/test/postgres-integration-upgrade-fixture.sql` | `0d1236b722193fb18e4bbd2d0bd258c018d4cd77` | `dd518aed667e5a7657617e4c40cbdcd9e0e04b77`; complete legacy baseline columns and aligned timestamps |
 | `.github/workflows/atomic-payment-integration.yml` | `b8bee6bba38d25afdaaa015f8027c4aefd722346` | `a09dfea5051c563b5bad3509adf928ff21463720`; CI fixture parity and complete migrations 010–149 |
+
+### 2026-11-17 — GitHub Actions rerun pre-step blocker and final documentation update
+
+| Path | Blob SHA | Commit / reason |
+|---|---|---|
+| docs/audits/2026-11-17-postgres-upgrade-fixture-timestamp-contract.md | 67cd7cca096c52cb618810491a2c341926613703 | 72bafc7a1a0e1921e4155eacc6d38df610f39780; records attempt-2 reruns with no steps/logs |
+| docs/PROJECT_STATE.md | 44c92810bd4b859d7810938bc150df3262d36b54 | 72bafc7a1a0e1921e4155eacc6d38df610f39780; current CI blocker and unresolved runtime gate |
+| docs/USER_ACTIONS.md | 021da72468e855b6d9cf34db96b0537b0fc2b1a9 | 72bafc7a1a0e1921e4155eacc6d38df610f39780; adds hosted CI troubleshooting note to UA-006 |
+| backend/test/postgres-integration-runner-contract.test.js | daceb31d99230b409c487cc39d10dc3ee1ef7102 | 565e8775d5af05f486f8cc1ac75f15edba74aa35; 20 top-level declarations; token_version chronology checked against 023 and 055 |
+
+The two GitHub Actions workflows were rerun once (attempt 2) on 565e877.... Both again failed before any visible step; job APIs returned steps: null and logs_url: null. This is an unresolved hosted-CI pre-step blocker, not a test result. Vercel reports build-rate-limit on current commits. Node, PowerShell and PostgreSQL runtime verification remain owner-gated; SQL integration remains NOT PASSED.
