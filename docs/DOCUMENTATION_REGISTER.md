@@ -480,11 +480,13 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 5. Proposals: compare with migrations now in main; label implemented, superseded or still proposed.
 6. Refresh blob SHAs after documentation edits; do not mark inventory as content review.
 
-- `scripts/verify-integration.ps1` — guarded PostgreSQL SQL integration runner; identity check normalizes `inet_server_addr()` via `host(...)`; blob `4ad7496780efdbdd1996d29dbd5dd31e3f361676`; includes per-migration progress and read-only pre-018 constraint catalog diagnostic. Owner retest passed identity guard but stopped at migration 018 constraint collision; disposable DB cleanup confirmed.
-- `backend/test/postgres-integration-runner-contract.test.js` — contract test includes inet/CIDR identity normalization assertion; blob `9dc83eae945470b653907881f09732077837b169`; asserts migration progress and pre-018 diagnostic are present.
+- `scripts/verify-integration.ps1` — guarded PostgreSQL SQL integration runner; identity check normalizes `inet_server_addr()` via `host(...)`; blob `1fe066227a40d1dfef1df55a63babfec9d56403f`; includes per-migration progress, expanded pre-018 catalog diagnostics and verbose SQL errors. Owner retest passed identity guard but stopped at migration 018 constraint collision; disposable DB cleanup confirmed.
+- `backend/test/postgres-integration-runner-contract.test.js` — contract test includes inet/CIDR identity normalization assertion; blob `c7b449c128154d7f0cc87170d6cabab5f0e9c87e`; asserts expanded catalog diagnostics and verbose SQL errors are present.
 
 - Latest verification note: successful migration replay (`001_baseline.sql` + `010–148`, 139 migrations) remains PASS. Separate SQL integration runner passed identity guard, created and cleaned disposable DB, then stopped at `018_preferred_language.sql` because `users_preferred_language_check` already exists. Inline assertions and 46 SQL tests remain NOT RUN. See `docs/PROJECT_STATE.md`, `docs/USER_ACTIONS.md`, and the PowerShell audit.
 
 - Owner supplied the complete PowerShell transcript for the successful `verify.ps1 -MigrationsOnly` replay: canonical baseline plus 139 migrations, disposable database cleanup, explicit `MIGRATION REPLAY PASSED`. Full guarded procedure is now recorded in `PROJECT_STATE.md` and the PowerShell audit. Do not conflate it with the separate SQL integration runner / 46 tests.
 
-- Migration 018 collision owner transcript and static investigation recorded in `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`; latest audit blob `2d9006054733606f8049d665196579044ea4f704`.
+- Migration 018 collision owner transcript and static investigation recorded in `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`; latest audit blob `ee0b19a86883ef6bbd909198e0252938af030eee`.
+
+- Owner retest on `2ced4164` showed no matching constraint rows immediately before migration 018 despite the duplicate-constraint error; expanded catalog/verbose error diagnostics are committed but untested. SQL integration remains blocked; 46 SQL tests NOT RUN.
