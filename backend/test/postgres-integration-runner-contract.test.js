@@ -60,6 +60,10 @@ test('SQL manifest exactly preserves all CI SQL integration tests in order', () 
   for (const filename of actual) assert.ok(fs.existsSync(path.join(root, 'backend/test', filename)), filename);
 });
 
+test('runner is UTF-8 BOM encoded for Windows PowerShell 5.1', () => {
+  assert.ok(runner.startsWith('\uFEFF'), 'PowerShell runner must include a UTF-8 BOM so Windows PowerShell 5.1 decodes Cyrillic prompts correctly');
+});
+
 test('runner refuses unsafe targets and documents the unexecuted Bash concurrency suite', () => {
   assert.match(runner, /git -C \$repoRoot fetch origin main/);
   assert.match(runner, /git -C \$repoRoot status --porcelain/);
