@@ -799,3 +799,36 @@ Assistant выполнил только GitHub read/update и статическ
 ⚠️ Следующий шаг после публикации всех документов: `git pull --ff-only origin main`, проверить чистый status и равенство HEAD/origin/main; выполнить Node contract suite; при PASS повторить guarded runner. Вводить пароль только в скрытом prompt. SQL integration пока **NOT PASSED**.
 
 Количество проверок в Node contract-файле теперь 14 (подсчитано по исходнику после добавления проверки двух cast); это не результат запуска. Нужно выполнить тесты локально.
+
+
+### UA — запуск SQL integration 2026-11-17: FK в тестовой очистке account deletion
+
+**Что выполнено владельцем**
+- `git status --short` — пусто; `git pull --ff-only origin main` обновил `5617a530 → 8ebae45e`; обе команды `git rev-parse HEAD` и `git rev-parse origin/main` вернули `8ebae45ed1dd141b8ca08a0104c8127041ea2a62`.
+- `node --test backend/test/postgres-integration-runner-contract.test.js` — **14 tests, 14 pass, 0 fail**.
+- Запущен `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1`.
+- Runner проверил clean synchronized main, listener PID 15220, каталог `X:\\PinPosy-verify-pg18`, скрытый ввод пароля и identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+- Создана disposable DB `pinposy_sqlint_88f6d6f8b1654c23`. Fixture, 140 миграций 010–149, две inline assertions и SQL tests 1–5/46 прошли.
+- Test 6/46 `account-deletion-reauth-version.integration.sql:65` упал с FK RESTRICT `account_deletion_jobs_request_id_fkey` при удалении request. Остальные tests 7–46 не запускались.
+- Runner завершил сессии (0 remaining), выполнил DROP DATABASE и подтвердил `Removed disposable database pinposy_sqlint_88f6d6f8b1654c23`.
+
+**Причина и изменение**
+- Migration 130 создаёт job и append-only event для принятого deletion request; обе записи ссылаются на request через RESTRICT. Event нельзя удалять из-за immutable trigger. Старый test пытался вручную удалить request, поэтому ломался в очистке.
+- Изменён только SQL test: BEGIN/ROLLBACK вокруг DO block; ручные DELETE удалены. Production migrations не менялись.
+- SQL blob `90486cf3499f54f36a4bda50f88f326f52e5bf0a`, commit `61e508df37ed1a3ff6c0c6c57622dfa65b6c1b26`.
+- Добавлен contract guard: blob `3801da4c55a12aa7668eb940f3ab1cbd753bab2c`, commit `2860d0df79c2eb0d7bef7a727171a45b79202402`.
+- Audit: `docs/audits/2026-11-17-postgres-integration-reauth-test-fk-cleanup.md`.
+
+**⚠️ Следующие действия владельца после публикации всех документов**
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+node --test backend/test/postgres-integration-runner-contract.test.js
+```
+Если все 15 contract tests PASS, выполнить:
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+```
+Пароль — только в скрытом prompt. Прислать полный вывод. Не запускать runner, если Node suite падает или HEAD не совпадает с origin/main. SQL integration пока **NOT PASSED**.
