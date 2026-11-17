@@ -948,3 +948,15 @@ All five paths were re-fetched from GitHub after publication. Static checks conf
 | `docs/USER_ACTIONS.md` | `bd8e3a26a79790e12f3f18d48923c16002575838` | `03171708ee19712003b6fadd48811ac4121bc76f`; UA-018 ordered owner sync and rerun gates |
 
 Owner evidence: PowerShell Parser PASS; SQL fixture, 144 migrations 010–153, two CI inline assertions and SQL tests 1–27 PASS; test 28 failed because its generation task remained at default `prepared` while the parent request was set to `completed`. Cleanup succeeded and disposable DB was removed. The supplied Node excerpt showed an incorrect expected reference order; full aggregate Node test counts were not supplied. Assistant corrected the test fixture and matcher, then re-fetched final source and documentation blobs from GitHub. Assistant did not execute Node, PowerShell, psql, PostgreSQL or CI. Updated source is not runtime-verified; SQL integration remains **NOT PASSED**, tests 29–46 remain unexecuted.
+
+
+### 2026-11-17 — PostgreSQL Node contract gate: upgrade-fixture regex and migration-count corrections
+
+| Path | Final blob SHA | Commit / reason |
+|---|---|---|
+| `backend/test/postgres-integration-runner-contract.test.js` | `2f0e54ad47ffd05cfca500568a3f962cb6af6c93` | `3c2d82bfafef40d16d6ae6c3eb7f4c7d7292e698`; correct users-table regex literals and dynamic RegExp escaping; update CI chain expectation to 144 migrations 010–153 |
+| `docs/audits/2026-11-17-postgres-node-contract-upgrade-fixture-regex-and-migration-count.md` | `49fbaedd17c2422458b35617b89d129af8d629f6` | `980f92ebc2c0fc995d2fac118482e0207eec2d7e`; owner transcript, exact failures, root causes, authoring chronology, source verification and next gates |
+| `docs/PROJECT_STATE.md` | `b371be4987f873fd936e06085d47cf455d5f971a` | `108288b3b283fd589a119934d7091b7108d614d9`; chronological record of Node gate failure and source-only correction |
+| `docs/USER_ACTIONS.md` | `51568de77eb70247b91a4b1f7c854e6d1c030443` | `268a9378fad00af9bdae0a7676fb307ed4c12623`; UA-019 ordered owner synchronization and rerun gates |
+
+Owner evidence: clean synchronized checkout at `0fc877a0aa5dd47d565f77b9873fc4c62edbf807`; Node suite 42 tests, 39 PASS and 3 FAIL. The three failures were stale/over-escaped test contracts, not confirmed production SQL failures. Assistant corrected only the Node contract test and re-fetched final source and documentation blobs. Assistant did not execute Node, PowerShell, psql, PostgreSQL or CI. Corrected Node suite is not runtime-verified. Parser and SQL runner were not run after the failed Node gate. PostgreSQL SQL integration remains **NOT PASSED**; no SQL tests have been rerun after this source correction.
