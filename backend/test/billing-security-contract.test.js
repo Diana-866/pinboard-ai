@@ -84,3 +84,14 @@ test("Prodamus webhook signatures use HMAC and constant-time comparison", () => 
   assert.match(prodamus, /safeEqual\(expectedB64, provided\) \|\| safeEqual\(expectedHex, provided\)/);
   assert.match(prodamus, /PRODAMUS_SECRET_WEBHOOK \|\| process\.env\.PRODAMUS_SECRET/);
 });
+
+
+test("Prodamus CI runs ambiguous checkout and billing security regression coverage", () => {
+  const workflow = root(".github/workflows/prodamus-checkout-tests.yml");
+  assert.match(workflow, /"backend\/test\/prodamus-ambiguous-checkout\.test\.js"/);
+  assert.match(workflow, /"backend\/test\/billing-security-contract\.test\.js"/);
+  assert.match(
+    workflow,
+    /node --test test\/prodamus-webhook\.test\.js test\/payment-creation-settlement\.test\.js test\/prodamus-ambiguous-checkout\.test\.js test\/billing-security-contract\.test\.js/
+  );
+});
