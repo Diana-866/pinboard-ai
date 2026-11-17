@@ -1573,3 +1573,13 @@ This section records the exact owner-provided PowerShell procedure. Treat it as 
 - Assistant did not execute Node, PowerShell, psql, PostgreSQL, or CI. Corrected Node test is **NOT runtime-verified**. Owner did not run Parser or SQL runner after Node failure. PostgreSQL SQL integration remains **NOT PASSED**.
 - Detailed evidence and next steps: `docs/audits/2026-11-17-postgres-node-contract-dynamic-regexp-capture-group.md` (audit blob `72215c91b03a4bbd2b99012becefbbb12076cf33`).
 - Next: owner syncs latest main and reruns the same Node gate, requiring 42/42 PASS; then Parser PASS; only then guarded PostgreSQL runner. SQL PASS requires all 46 SQL tests and confirmed cleanup.
+
+
+### 2026-11-17 — PostgreSQL Node contract gate: owner confirms 42/42 PASS
+
+- Owner synchronized cleanly to `6512dc8aa4ae882e8be91877185a262787b02f87`; local HEAD equals origin/main and working tree is clean.
+- Owner reran `node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js`.
+- Result: **42 tests, 42 PASS, 0 FAIL, 0 cancelled, 0 skipped**. This includes the previously failing baseline-column contract and dynamic RegExp.
+- This is owner-provided local execution evidence. Assistant did not execute Node, PowerShell, psql, PostgreSQL or CI.
+- Detailed run result appended to `docs/audits/2026-11-17-postgres-node-contract-dynamic-regexp-capture-group.md` (new audit blob `fa16322881f4427ef9330e7292ee5fe833bca977`).
+- Next gate: owner runs the PowerShell Parser API check and requires 0 syntax errors. Only then may the guarded PostgreSQL runner execute. PostgreSQL integration remains **NOT PASSED / NOT YET RUN** after this Node PASS; final SQL PASS requires fixture, 144 migrations 010–153, two CI inline assertions, all 46 SQL tests and confirmed disposable database cleanup.
