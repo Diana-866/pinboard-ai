@@ -21,7 +21,7 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 3 | `docs/MASTER_REQUIREMENTS.md` | `0891fc83d68de51acb298d1ad4da4f733a0499aa` | Reviewed/reconciled 2026-11-16; see audit reports |
 | 4 | `docs/PIN_TRIAL_MIGRATION_STATUS.md` | `2e0f66ccfa1ab9aeb71f80d299a5c4465e347d9e` | Owner-provided DB evidence; incomplete inventory |
 | 5 | `docs/PRODUCTION_READINESS_AUDIT.md` | `777ce34d539b3264b10554aa2cd731d436f080e2` | Reviewed/reconciled 2026-11-16; see audit reports |
-| 6 | `docs/PROJECT_STATE.md` | `53db3fe142b62c8decf659c7929bbc64c5512e52` | Current operational source of truth; records exact successful PostgreSQL migration replay procedure and separate integration gate |
+| 6 | `docs/PROJECT_STATE.md` | `a5734c5213a71abf6bf47c3ce577a887119c14b6` | Current operational source of truth; records exact successful PostgreSQL migration replay procedure, evidence and journal |
 | 7 | `docs/USER_ACTIONS.md` | `97bb9c6ec0b6826cdb3aaf19101102a9b6866f82` | Owner actions; explicitly preserves migration replay PASS and separates SQL integration runner |
 | 8 | `docs/architecture/pin-image-deletion-claim-protocol.md` | `0957b13bae0632ce8e34a5675b4a06f6ef8477a4` | Inventory only; content review pending |
 | 9 | `docs/audits/2026-11-16-account-deletion-runbook-reconciliation.md` | `4d1fa6f8e78162abbb29a3487a776c2b1c3cf319` | Historical audit/evidence; applicability must be checked against current main/tests |
