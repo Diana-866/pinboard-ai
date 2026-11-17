@@ -600,3 +600,33 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integra
 Enter the temporary PostgreSQL role password only in the script's hidden prompt. Never pass it as an argument or send it in chat. If a Group Policy still blocks the child process, stop and report the message; do not change LocalMachine/CurrentUser policy or weaken the runner's internal safety checks.
 
 Next: run the process-scoped command above and send complete output. SQL integration remains NOT PASSED until the fixture, 139 migrations, two inline assertions, all 46 SQL tests and disposable DB cleanup are verified.
+
+
+### UA-006 — process-scoped runner starts, then blocks on stale local main (2026-11-17)
+
+Owner supplied this sequence:
+
+1. Direct invocation ` .\scripts\verify-integration.ps1` was rejected by PowerShell execution policy (`PSSecurityException / UnauthorizedAccess`); the script body did not load.
+2. Process-scoped invocation `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1` launched the script. It fetched origin and reported:
+   - `7f0084ca..b8d04ffc main -> origin/main`
+   - `Safety stop: local main (7f0084ca8ff0681b56c214c3f7020f9d029c2ef5) is not synchronized with origin/main (b8d04ffc9636fb7f4bc506aaf06f9bd6c86241cc)`
+   - PowerShell surfaced the runner's deliberate error at line 199.
+
+Interpretation and scope: source inspection of runner blob `74c128b4c6933b8b5aba888e4abeb01200df2ab6` confirms the local-vs-origin comparison happens before the secure password prompt at line 103 and disposable DB creation at line 143. Thus no PostgreSQL connection, database creation, fixture, migration, inline assertion, SQL test or cleanup was reached. The runner stopped safely because the local branch was stale.
+
+Assistant actions: fetched the latest runner and all tracking documents from GitHub `main`; inspected guard order; recorded both owner invocations and exact commit IDs in the project state, action log and audit; updated the documentation register with resulting blob SHAs; re-fetched the updated docs to verify them. No local machine, repository checkout, database or source file was modified by the assistant.
+
+**Next owner action:**
+```powershell
+ git status --short
+ git pull --ff-only origin main
+ git rev-parse HEAD
+ git rev-parse origin/main
+```
+
+Only run the pull if `git status --short` is empty. Expected result after a successful fast-forward: the two `rev-parse` outputs match. If the worktree is dirty or pull fails, stop and send the output; do not reset or discard anything. Then rerun:
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+```
+
+SQL integration remains NOT PASSED; this run did not reach PostgreSQL.
