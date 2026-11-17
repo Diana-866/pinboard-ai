@@ -399,7 +399,10 @@ begin
     'failed', 'failed'
   );
 
-  update public.pin_generation_requests set status = 'completed' where id = v_request_id;
+  -- All journal tasks failed, so the parent request must also be terminally failed.
+  update public.pin_generation_requests
+     set status = 'failed', error_code = 'provider_task_failed'
+   where id = v_request_id;
   v_result := public.claim_pin_image_deletion('pin-images', v_task_path, 60);
   if coalesce((v_result ->> 'claimed')::boolean, false) is not false
      or v_result ->> 'reason' <> 'referenced' then
