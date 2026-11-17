@@ -506,3 +506,12 @@ This is not the later separate SQL integration runner and does not establish exe
 The runner now prints each migration filename and, immediately before `018_preferred_language.sql`, executes a read-only query against `pg_constraint` for `users_preferred_language_check`, including schema, table, type and definition. It does not modify the DB. Source commits: runner `2c75a0d5639bfa43629a83d03fcd8d760c78368d`; contract assertion `883c065b97e52010ba99fa3a79d3420e73d56e92`. The Node contract test and updated parser/runner are not yet verified.
 
 **Owner action:** `git status --short` (must be empty), `git pull --ff-only origin main`, rerun the PowerShell Parser API check, then run the guarded integration runner only if parser PASS. Send the complete output from the diagnostic line through failure/cleanup and exit code. Do not rerun migration-only replay. Do not stop PID `15220`, alter/reinitialize the temporary cluster, bypass guards, or touch production/PIN_TRIAL. The previous disposable DB cleanup was confirmed.
+
+
+### UA-004 follow-up — expanded migration 018 diagnostics (2026-11-17)
+
+Owner's latest run at `2ced41640849cca5d46d16b200f801327e6ca160` passed identity guard and migrations 010–017. The pre-018 named-constraint query printed no rows, but migration 018 still failed claiming `users_preferred_language_check` already exists. Temporary DB `pinposy_sqlint_1a99cf2946b14838` was dropped and removal confirmed. The 2 inline assertions and 46 SQL tests were not reached.
+
+Runner now emits database identity, all constraints on `public.users`, matching named constraints across schemas/tables, and same-named relations; psql migration execution requests verbose error/context and echoes errors. Commits: runner `eb95ccf5126ec833e5f7f55092bef82c173cd48b`; contract source test `5837793afd56968e1f5695177c79361640cea204`. These changes are untested until the owner runs them.
+
+**Next owner action:** sync clean `main`, run parser check, then guarded runner. Send full output of all four diagnostic record types and the verbose PostgreSQL error including SQLSTATE/context. No migration/schema changes until this evidence identifies the collision. Do not stop PID `15220`, alter/reinitialize the cluster, bypass guards, or touch production/PIN_TRIAL.
