@@ -1860,3 +1860,16 @@ Next owner action: rerun the same guarded command only when a non-empty password
 Detailed evidence and exact stop boundary: `docs/audits/2026-11-17-postgres-runner-empty-temporary-password-stop.md`.
 
 Assistant actions in this follow-up: read the owner transcript; fetched current runner, project state, owner actions, register and prior sync-stop audit from GitHub; inspected password validation and psql/database creation order; created the audit and updated these records. Assistant did not execute local shell/Node/PowerShell/psql/PostgreSQL/Bash/CI, did not access credentials or databases, and did not change application source, migrations, tests, runner or CI.
+
+
+### 2026-11-17 — PostgreSQL runner stopped at second synchronization guard
+
+Owner reran the guarded runner while local HEAD remained `9206d83076c4ea59c0d66be15482bf58d7217226`. The runner fetched origin/main at `5fa8d042f7e85339565bae9a8f34e8ebe654100d` and stopped with the expected synchronization safety error. This remote advancement was caused by the assistant's immediately preceding documentation-only commits.
+
+Assistant re-fetched current runner and documentation from GitHub. Runner source confirms the synchronization guard fails before psql path validation, PostgreSQL listener validation, password prompt, psql, role/database creation, migrations, inline assertions or SQL tests. Thus this attempt did not validate the listener, request a password, connect to PostgreSQL, create a database, execute SQL, or require cleanup. This is a second sync stop, not a database or test failure.
+
+Next owner action: use the safe fast-forward sequence in UA-034 to synchronize the documentation-only commits, verify clean status and HEAD=origin/main, then rerun the guarded runner. Previously recorded Node 45/45 and PowerShell Parser 0-error gates were run against the same source snapshot; the intervening commits contain documentation only. If code changes are discovered, re-evaluate those gates first. Preserve safeguards and never disclose the temporary-role password. Historical SQL status remains FAIL at test 34/46; assertion fix remains NOT RUNTIME-VERIFIED; nine Bash concurrency scripts remain unverified.
+
+Detailed audit: `docs/audits/2026-11-17-postgres-runner-second-sync-guard-stop.md`.
+
+Assistant actions: read owner transcript; fetched current runner and three docs; inspected synchronization guard ordering; identified that the assistant's previous documentation commits caused the remote SHA advance; created the audit and updated project state, owner actions and register. Assistant did not execute local Git/PowerShell/Node/psql/PostgreSQL/Bash/CI, did not access credentials or database, and did not change source, migrations, tests, runner or CI.
