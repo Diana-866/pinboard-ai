@@ -2567,3 +2567,28 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integra
 ```
 
 Run it only from the clean, synchronized checkout and preserve the complete output. Stop at the first failure and send the full transcript. Do not rerun manually against another database, do not target production or `PIN_TRIAL`, and do not disclose secrets. A passing result must explicitly demonstrate the upgrade fixture, 147 migrations 010–156, both CI inline assertions, all 46/46 ordered SQL integration tests, and successful disposable DB cleanup. Until that evidence exists, the SQL assertion fix is NOT RUNTIME-VERIFIED.
+
+
+### UA-034 update — guarded runner stopped before PostgreSQL (2026-11-17)
+
+**Status:** synchronization required; do not interpret this as a SQL test result.
+
+Owner ran the guarded integration command. It fetched `origin/main` and stopped because local HEAD was `097765bd924cb938103ac4ec779b17af23eacf2c` while origin/main was `30e1ac9f9e5eaf5e79496c1ceda5b7e42a55749d`. GitHub comparison confirms exactly four commits ahead and zero behind; all four are documentation-only. No code, migrations, tests, runner or CI files changed.
+
+The runner's first guarded operation is `Assert-RepositoryState`; the mismatch occurs before PostgreSQL listener validation, password prompt, psql, role/database creation, migrations or SQL tests. No SQL tests ran and no disposable DB was created. The historical SQL result remains FAIL at test 34/46; the privilege assertion fix remains NOT RUNTIME-VERIFIED.
+
+**Next owner action — PowerShell, from `X:\\!PROGECT\\pinboard-ai`:**
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Require empty status before/after pull and identical HEAD/origin SHA. If pull is not a fast-forward, or the working tree is not clean, stop and send the full output; do not use reset, rebase, clean or force operations.
+
+After synchronization, rerun the Node 45/45 gate and PowerShell Parser 0-error gate in UA-034, then run the guarded integration runner only if both pass. Preserve PID 15220, port 55439 and `X:\\PinPosy-verify-pg18`; do not target production/`PIN_TRIAL`, bypass guards, run SQL manually or disclose secrets. Nine Bash concurrency scripts remain a separate unverified gate.
+
+Detailed record: `docs/audits/2026-11-17-postgres-runner-sync-guard-stop.md`.
