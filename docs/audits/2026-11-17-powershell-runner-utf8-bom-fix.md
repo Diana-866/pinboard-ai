@@ -57,3 +57,14 @@ Assistant documentation commits were added after the owner's reported pull, so t
 
 
 The documentation-only follow-up commits after the owner's parser check mean the owner must fast-forward once more before executing the runner. The runner's clean-main/origin-main preflight requires this; do not attempt the runner from the previous local HEAD. The updated exact steps are in `docs/USER_ACTIONS.md` UA-004.
+
+
+## 7. Owner runner attempt: PostgreSQL inet/CIDR identity mismatch (2026-11-17)
+
+The owner synchronized a clean local checkout to `21226c6d` and ran the guarded runner. It confirmed clean `main`, PostgreSQL listener PID `15220`, and data directory `X:/PinPosy-verify-pg18`; the hidden password prompt was reached. The identity query returned an address rendered as `127.0.0.1/32`, while the script expected `127.0.0.1`. The runner stopped with `PostgreSQL identity mismatch`.
+
+Source-order inspection confirms this check occurs before cluster-role inspection/creation and before generating or creating the disposable database. At failure, `$createdDatabase` is still `$null` and `$createdRoles` is empty. Therefore no fixture, migration, inline assertion or SQL integration test ran, and this attempt had no runner-created database to clean up. The PostgreSQL cluster itself was not stopped or modified by the runner before this guard.
+
+Root cause: PostgreSQL `inet_server_addr()` rendered as text includes its host mask (`/32`); exact comparison against a bare IPv4 host string is too strict. Corrective change: use `host(inet_server_addr())` in the identity query, which normalizes the address to the bare host form. Script commit `a0de3046d924abcedb267076d03e365e6b9b0353`, blob `05787d0f8067d3412ed10e06856e7b1cdfce1c6d`. A Node contract assertion was added to prevent regression: commit `4495b4b4dd52b3f82f43859d640bbab571a3466e`, blob `ce331fba2e06bb63473cfedf1c586003606b09c4`.
+
+Neither the Node contract test nor the modified PowerShell parser/runner has been executed after this correction. The SQL integration gate remains NOT RUN. Owner must fast-forward pull, rerun parser-only validation, and invoke the guarded runner only after parser PASS. If any preflight fails, stop; do not bypass checks or manually alter the cluster. Bash concurrency and backend runtime stages remain blocked.
