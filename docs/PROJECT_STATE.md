@@ -1296,3 +1296,18 @@ This section records the exact owner-provided PowerShell procedure. Treat it as 
 - Current contract suite contains 15 top-level tests by source inspection (14 previous + new rollback guard); this is not an execution result.
 
 - Follow-up source review: assistant noticed over-escaped regular-expression assertions in the initial contract-test draft before owner execution; replaced them with literal `indexOf`/`includes` checks and re-fetched the final source. Final contract blob `4681aa4ab8155a0c5c8b649e35bfdd3085fd8d2f`. This is source inspection only; Node suite remains unexecuted after this change.
+
+
+### 2026-11-17 owner integration run — durable queue test expects outdated preflight error
+
+- Owner synchronized local checkout to `01a7fd7f8ab60bfc6e380cef01352b6d6ae2f038`; `HEAD` = `origin/main`. Worktree was clean before pull.
+- Owner Node runner contract suite: **15/15 PASS**.
+- Guarded PostgreSQL runner verified approved listener PID 15220, data directory `X:\\PinPosy-verify-pg18`, hidden password prompt and server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+- Disposable DB: `pinposy_sqlint_ab121efa0ee94999`. CI fixture, all **140 migrations 010–149**, and both inline CI assertions passed. SQL tests 1–6/46 passed; test 7/46 `account-deletion-durable-queue.integration.sql` failed with `account deletion Storage manifest is required`; tests 8–46 did not run.
+- Cleanup confirmed: 0 sessions remained; runner dropped the disposable DB and printed `Removed disposable database pinposy_sqlint_ab121efa0ee94999`. SQL integration remains **NOT PASSED**.
+- Root cause: migration 144's current `finish_account_deletion_job` checks `storage_manifest_recorded_at` before changing job status. The test's first attempt to mark preflight successful occurs before inventory and Storage-manifest recording, so the function correctly raises `account deletion Storage manifest is required`. The test expected the older migration-131 inventory-trigger error, which cannot fire first because migration 137's manifest marker itself requires a recorded inventory. No production defect established.
+- Changed only the durable queue SQL test expectation/comment: blob `733295e89326d675be7c3e7c4a7dcd71c1dc1022`, commit `24889b82c1b9221fed49716dad25a3a6d02f75e8`.
+- Added a Node source-contract guard for the expected Storage-manifest message and its ordering in migration 144: blob `c5dcbf017955d1c125f91ec75c2e4df13a036b4e`, commit `684acac9a226e6a3a442c076a1806ad10fd6b788`. Contract suite now has 16 test declarations by source inspection; the new version has NOT been executed.
+- Added incident audit `docs/audits/2026-11-17-postgres-integration-durable-queue-storage-manifest-guard.md`, blob `8cd8fbbb9db25e40e8d1a6fc8eb623083099e006`, commit `12debb3f105f70bf881dc437053623546cde8167`.
+- Assistant source reads: durable queue test pre-fix blob `6e85b453df8395529043097db7ce5ea978d5b048`; migration 131 `45aaad97035c7dca0b6a13f8831a78844f20651f`; migration 137 `dab57a684b6a105f7d0d40b0796e61b498c0365b`; migration 144 `f196a9ea2565b0759c5fa324977878cffdd12183`; migration 147 `1c3b6205f5ba22ba868f379bb6f0c7a98dfc2d33`.
+- Assistant did not execute Node, PowerShell, psql or PostgreSQL. Next owner gate: pull after all documentation commits, verify synchronized clean main, run Node contract tests (16 expected), then guarded SQL runner only if all pass. Full SQL integration remains NOT PASSED until all 46 SQL tests and cleanup pass.
