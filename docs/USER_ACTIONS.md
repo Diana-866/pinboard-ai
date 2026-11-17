@@ -879,7 +879,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integra
 - Добавлено `cover_url text` в оба fixture, production migration не менялась:
   - workflow blob `959399fc34989298ac060bd42a605312d7c86073`, commit `5b91890019f8a2758686946fcf85ce9de9f2eb5e`;
   - standalone fixture blob `e57795b598e16939952f180ac36bc942336d0444`, commit `1783ba84a3d30454445c909459dfc559510128bb`.
-- Добавлен Node contract assertion о наличии `cover_url` в fixture и baseline. Первоначальный regex draft оказался over-escaped; assistant исправил его на split-based extraction до передачи теста владельцу. Final contract blob `d65c73d1ccc992e968e70030d79e32b05768a578`, commit `40ec7a2aa9b5106b6c4a20a96d07eb6aa27e43b9`. Сейчас в файле 17 test declarations по source inspection, новый suite ещё не запускался.
+- Добавлен Node contract assertion о наличии `cover_url` в fixture и baseline. Первоначальный regex draft оказался over-escaped; assistant исправил его на split-based extraction до передачи теста владельцу. Final contract blob `fe2a1ce4cfb0ca7e06ff0c2b4d087d40943db66a`, commit `91d787eb945d2065a89a98e38ac51679f2461ed4`. Сейчас в файле 17 test declarations по source inspection, новый suite ещё не запускался.
 - Audit: `docs/audits/2026-11-17-postgres-integration-storage-manifest-board-cover-fixture.md`, commit `6d2230a98fab683d67e1cecd54cb966e68f02223`.
 
 **Действия assistant**
