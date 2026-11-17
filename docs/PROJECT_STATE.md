@@ -1278,3 +1278,19 @@ This section records the exact owner-provided PowerShell procedure. Treat it as 
 - Assistant did GitHub source inspection/updates only; did not execute Node, PowerShell, psql or PostgreSQL. The new contract assertion and SQL correction remain runtime-unverified. Next: after all documentation commits, owner fast-forward pulls, confirms clean synchronized main, runs Node contract suite, then guarded integration runner. Do not declare SQL integration PASS until all 46 tests and cleanup are confirmed.
 
 - Follow-up count: `backend/test/postgres-integration-runner-contract.test.js` now has 14 top-level test declarations by source inspection (13 previous + new schedule user-ID cast guard); assistant did not execute this updated suite.
+
+
+### 2026-11-17 — SQL integration test 6/46: durable account-deletion FK blocked test cleanup
+
+- Owner sync: clean worktree; fast-forwarded `5617a530..8ebae45e`; `HEAD` = `origin/main` = `8ebae45ed1dd141b8ca08a0104c8127041ea2a62`.
+- Owner Node contract suite: **14/14 PASS**.
+- Guarded runner verified the synchronized checkout, PID 15220 / `X:\\PinPosy-verify-pg18`, hidden password prompt and server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+- Disposable DB `pinposy_sqlint_88f6d6f8b1654c23`: fixture PASS; all 140 migrations 010–149 PASS; both inline CI assertions PASS; SQL tests 1–5/46 PASS.
+- Test 6/46 `account-deletion-reauth-version.integration.sql:65` failed with SQLSTATE 23503: DELETE from `account_deletion_requests` violated RESTRICT FK `account_deletion_jobs_request_id_fkey`. Tests 7–46 did not run. Overall SQL integration remains **NOT PASSED**.
+- Cleanup confirmed: runner terminated sessions (0 remaining), executed DROP DATABASE and printed `Removed disposable database pinposy_sqlint_88f6d6f8b1654c23`.
+- Source investigation: migration 130's `request_account_deletion` inserts a durable job and append-only event for each new request. Both reference the request with RESTRICT; event DELETE is also blocked by its immutable trigger. Therefore explicit request deletion is not a valid test cleanup strategy. Existing `account-deletion-durable-queue.integration.sql` uses BEGIN/ROLLBACK isolation.
+- Fixed only the test: added BEGIN before its DO block and ROLLBACK after; removed manual DELETEs. SQL test blob `90486cf3499f54f36a4bda50f88f326f52e5bf0a`, commit `61e508df37ed1a3ff6c0c6c57622dfa65b6c1b26`.
+- Added a Node contract assertion for transaction rollback and absence of destructive cleanup DELETEs. Contract blob `3801da4c55a12aa7668eb940f3ab1cbd753bab2c`, commit `2860d0df79c2eb0d7bef7a727171a45b79202402`.
+- Created audit `docs/audits/2026-11-17-postgres-integration-reauth-test-fk-cleanup.md`, commit `44d405bdc13f5a08c9dc8797796cdf98767c6c66`.
+- Assistant source-inspected and edited GitHub files only; did not execute Node, PowerShell, psql or PostgreSQL. The new SQL isolation and contract assertion are runtime-unverified. After documentation commits, owner must pull, run the contract suite, then guarded integration runner. Do not declare PASS before all 46 tests and cleanup succeed.
+- Current contract suite contains 15 top-level tests by source inspection (14 previous + new rollback guard); this is not an execution result.
