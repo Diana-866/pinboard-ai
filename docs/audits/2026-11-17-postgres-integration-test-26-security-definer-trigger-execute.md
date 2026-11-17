@@ -33,12 +33,12 @@ Tests 27–46 did not run. Cleanup succeeded: zero remaining sessions, disposabl
 | Path | Blob SHA | Commit / purpose |
 |---|---|---|
 | `db/migrations/152_revoke_direct_execution_of_regeneration_reservation_trigger.sql` | `aa8e8ee22df894583b0c6e49f061b06e17fed1b4` | `5ff2f754239a39c8def8f97182f5dbab7cd2a084`; additive privilege revocation |
-| `backend/test/postgres-integration-runner-contract.test.js` | `4173301792b4e16fc326bbea96b14547b7f4c880` | `4f5fa30e39793efb24c1537af02b9f800e8a2054`; static migration-152 contract and CI chain 010–152 (143 migrations) |
+| `backend/test/postgres-integration-runner-contract.test.js` | `0f01bc042d63ba36ee0cf15e18948ff4ad9abaf2` | `ea79fd11a85e127b173f851da2596bd94797ec87`; static migration-152 contract and CI chain 010–152 (143 migrations) |
 | `backend/test/db-migration-chain.test.js` | `ae73e162c6f417a3800c0577f223da3037a62b90` | `55946197abe78ff2039a04decb6249bd2d645015`; canonical migration chain includes 152 |
-| `backend/test/verify-script-migration-chain.test.js` | `d0930314eab17a65187bc310dfe75ca42370f222` | `b7bd3bc8e3648988d025cf74b2de354777404fc3`; Linux/Windows replay contracts expect 143 migrations |
-| `scripts/verify-integration.ps1` | `c514e7ca24ee9294daf78f7ab70af7c4ebe1354d` | `df7008136b5aaf2107daf62abf6da5827d1a9544`; guarded runner applies 010–152 and checks all 143 entries |
+| `backend/test/verify-script-migration-chain.test.js` | `42bb5053baaa55a11992bd28a0f9e6dfa0f0fab8` | `9f8caa5a10524035eb514de64f9f34add60d4b15`; Linux/Windows replay contracts expect 143 migrations |
+| `scripts/verify-integration.ps1` | `018e91af4750e57e21d68aa2d29a73b530d41c68d` | `b7ae6206625cfd1ba63ba1834e89dfc6307224d1`; guarded runner applies 010–152 and checks all 143 entries |
 | `scripts/verify.sh` | `46af45d607febf1b96097bbc743a75452b6f2648` | `fa0d670a2d0f44bb131cc85fe90467aad81ae075`; Linux disposable replay validates 010–152 |
-| `scripts/verify.ps1` | `516b1137e92d5fde78dc83f655c3a78be9366545` | `88318e164d6c942c3df72e5d8b18cbace6f5e041`; Windows disposable replay validates 010–152 |
+| `scripts/verify.ps1` | `ba505a608e19a7bd933cf35d6f7eb17414df3560` | `077369c8ca3c2b2c13d781f3ad17ffb810b5cc58`; Windows disposable replay validates 010–152 |
 | `.github/workflows/atomic-payment-integration.yml` | `abda9aa57041e0c20bee89c0e59ebc13c0e3b3e2` | `8b68fe45224e054047f13f16c89312c5010a6b45`; CI applies migration 152 |
 
 Historical migration 066 and the existing SQL catalog-wide privilege test were not modified. No production database, CI fixture, runner target, or persistent PostgreSQL cluster was changed by the assistant.
@@ -60,3 +60,18 @@ Source-level GitHub verification passed for the published files and the key inva
 Next owner gate: synchronize the latest clean `main`; run the three Node contract/migration test files; run the PowerShell Parser API check on the updated `scripts/verify-integration.ps1`; only if both gates pass, run the guarded PostgreSQL integration runner. SQL integration is PASS only after the fixture, all 143 migrations 010–152, both inline assertions, all 46 SQL tests, and disposable database cleanup succeed. Stop at the first failure and provide the complete output without secrets.
 
 Safety boundary: do not bypass runner guards, change PostgreSQL PID/port/data directory, stop PID 15220, modify or delete `X:\PinPosy-verify-pg18`, use production/PIN_TRIAL, or disclose credentials.
+
+
+## Final static-review correction (same incident)
+
+A second source review after the first publication caught two documentation/contract details before handing the runner back to the owner:
+- The new Node contract assertion's regular-expression literal had been over-escaped. It was corrected to match the literal function signature as intended.
+- The guarded runner's migration-count exception text and the Windows replay summary/test description still mentioned the previous 010–151 range even though the executable bounds had advanced. These diagnostics were corrected to 010–152 / 143 migrations.
+
+Final blobs/commits for the revised files:
+- `backend/test/postgres-integration-runner-contract.test.js`: blob `0f01bc042d63ba36ee0cf15e18948ff4ad9abaf2`, commit `ea79fd11a85e127b173f851da2596bd94797ec87`.
+- `scripts/verify-integration.ps1`: blob `018e91af4750e57e21d68aa2d29a73b530d41c68`, commit `b7ae6206625cfd1ba63ba1834e89dfc6307224d1`.
+- `scripts/verify.ps1`: blob `ba505a608e19a7bd933cf35d6f7eb17414df3560`, commit `077369c8ca3c2b2c13d781f3ad17ffb810b5cc58`.
+- `backend/test/verify-script-migration-chain.test.js`: blob `42bb5053baaa55a11992bd28a0f9e6dfa0f0fab8`, commit `9f8caa5a10524035eb514de64f9f34add60d4b15`.
+
+These are source-review corrections only; Node/Parser/SQL runtime gates remain pending owner execution.
