@@ -2,7 +2,7 @@
 
 **Repository:** Diana-866/pinboard-ai  
 **Branch:** main  
-**Code HEAD covered by latest owner PostgreSQL run:** 1b855857c4df31b9233819e404bd697591f28acb  
+**Latest source fix commit (runtime verification pending):** 5cf3b1c2b589ba73205e823ec30f28b9193a1c60  
 **Inventory refreshed:** 2026-11-17  
 **Scope:** all documentation files under docs/ (Markdown and SQL), excluding this register itself.
 
@@ -1201,3 +1201,15 @@ Owner evidence: after syncing to `948df3b9c9590fd78e6beb1690dcd3785e91d54f`, Nod
 | `docs/USER_ACTIONS.md` | `a3700c597e03c9da5e5f9c5bf151200146256ff8` | `01521098eb950608c665309cbafad245d5d65b28`; record owner rerun outcome and suspend rerun pending diagnosis |
 
 Owner evidence: local clean main fast-forwarded from `948df3b9` to tested code HEAD `1b855857c4df31b9233819e404bd697591f28acb`; runner applied upgrade fixture and migrations 010–156, passed two inline assertions and SQL tests 1–33, then failed test 34/46 with `billing webhook audit table privileges are too broad or insufficient`. Tests 35–46 did not run. Disposable database `pinposy_sqlint_9f1cf3d0c7f74745` was removed by the runner. Root cause remains undiagnosed; the focused privilege test passed earlier in the same run, so the broader assertion and role/grant model must be compared before changing anything. No production database or persistent PostgreSQL data was touched according to the supplied transcript.
+
+
+### 2026-11-17 — PostgreSQL test 34 billing webhook audit privilege assertion correction
+
+| Path | Final blob SHA | Commit / reason |
+|---|---|---|
+| `backend/test/postgres-integration.sql` | `405ebc7b556ea051525513439b37582d7904d2e6` | `5cf3b1c2b589ba73205e823ec30f28b9193a1c60`; align broad assertion with migration 042 and focused test: service_role SELECT+INSERT only; no client access, UPDATE or DELETE |
+| `docs/audits/2026-11-17-postgres-test-34-billing-webhook-audit-privilege-assertion-fix.md` | `eda62d6511a3d52144f5b44c069eae656e01b225` | `6e10fb37ac6e95fdf06c124b629184b32ba9315a`; document diagnosis, exact privilege contract, source-only fix and verification limits |
+| `docs/PROJECT_STATE.md` | `536495357dfa8bddccab6e8690a3479a93b062c9` | `6451fecac118e9591c96fb966ac71f06bbfff048`; append diagnosis, source change, evidence and pending runtime verification |
+| `docs/USER_ACTIONS.md` | `e268830c233832d13e93a8f4f7a24ac1cbf55cdf` | `93d869fabf789f11fad8afb20abbd5f84dc6947a`; add UA-034 exact sync, Node, Parser and guarded PostgreSQL rerun steps |
+
+Diagnosis evidence: migration 029 grants INSERT to service_role; migration 042 explicitly grants SELECT for backend-protected administrative reads; focused privilege test expects SELECT+INSERT and denies UPDATE/DELETE; the broad test 34 assertion incorrectly denied SELECT. Only the SQL test assertion changed; no production grants, migrations or app code changed. The source correction is **NOT RUNTIME-VERIFIED**. The previous owner run remains FAIL, with tests 35–46 not run. Next gates are Node 45/45, PowerShell Parser 0 errors, then guarded PostgreSQL runner requiring 46/46 tests and disposable DB cleanup.
