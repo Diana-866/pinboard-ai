@@ -1006,3 +1006,24 @@ Owner evidence: clean local sync at `73a1aef18eaee621783b879aa97ae1527ec9ba5a`, 
 | `docs/USER_ACTIONS.md` | `6420e4200eade554ed88b23bd3833733ac6f2995` | `6a3db5cad93c7436dcf17ac4834817209c3875df`; UA-023 ordered rerun instructions |
 
 Owner evidence: 144 migrations 010–153 and two CI assertions passed; SQL tests 1–27 passed; test 28 failed because the fixture marked a parent completed despite its only task being failed and nullable `pins` remaining NULL. Disposable DB cleanup succeeded; tests 29–46 were not run. Assistant changed only the SQL fixture, making the parent terminally failed to match its task. No production SQL or migrations changed. Assistant did not execute local commands. Previous Node 42/42 and Parser 0-error gates predate this SQL fixture-only edit; Node must be rerun before guarded SQL runner. PostgreSQL integration remains **FAIL 27/46** until a complete rerun proves otherwise.
+
+
+## 2026-11-17 — PostgreSQL test 28 deleted-image tombstone regression (migration 154)
+
+Source HEAD before this register refresh: `d2f59a8a9329e91286fb911958db77472039d4be`.
+
+| Path | Final blob SHA | Commit / reason |
+|---|---|---|
+| `db/migrations/154_restore_permanent_tombstone_guard_for_deleted_pin_image_uploads.sql` | `23756878c71b015244d68c0d2113a4de01894245` | `f71be50f88067b0dfaeb32c7a6e46277e2ba0a22`; restore permanent `deleted` path guard while preserving migration 145's expanded durable-reference inventory |
+| `backend/test/postgres-integration-runner-contract.test.js` | `ee864877b7e23a7bbb2df036650563516db2058d` | `0e07d7825e37534ef8c4baa8a0afdc251937cf1f`; migration 154 contract and 145-migration CI chain |
+| `backend/test/db-migration-chain.test.js` | `11098dc78c2ebd7c344becb25fb8212e695f1ec0` | `44b7c91d21ff4a0f9902e01fa5db2ca3f5841c4f`; canonical range 010–154 |
+| `backend/test/verify-script-migration-chain.test.js` | `2ad1899ed3b7cb036c14bc5e7370adbd9d0bf849` | `afa4de20f83827f816b1ede022c55d0ce27a16c1`; Linux/Windows replay contracts through 154 |
+| `scripts/verify.sh` | `64bece550c2238194ffb6cdec0ad716a9095c400` | `db3a4d7f3cf97ffc9f72818776cbd9a4ba5d9f7f`; Linux replay requires 145 contiguous migrations |
+| `scripts/verify.ps1` | `58fa1439cd6cfda34e0e45b1d7bb4ecc396f851c` | `60c775e5dab91ee760710d3f9bd9d88616584dc7`; Windows replay requires 145 contiguous migrations |
+| `scripts/verify-integration.ps1` | `23f35d18f16c3c92970d6e65f25a56d920700357` | `edabf7e7a4ee417d8d7f70b9bdb3b7c6ce4d3b71`; guarded PostgreSQL runner applies 010–154 |
+| `.github/workflows/atomic-payment-integration.yml` | `2cd3e1aca4f82fc0fb9edbfe367957f5da31341a` | `ab40127f4398cc97f4b23b088e0988e2a9c2f688`; CI applies migration 154 after 153 |
+| `docs/audits/2026-11-17-postgres-integration-test-28-deleted-image-path-tombstone-regression.md` | `54c4bdd80be2c7f8980c2969d98d7e760f5649a0` | `3de2b103b677408cea83820a11f99a07159e2e3f`; owner transcript, regression diagnosis, exact correction, source SHAs, checks and next gates |
+| `docs/PROJECT_STATE.md` | `7345b8abd5b926ba7145c8c246fb52ec4f040d3d` | `3824c7808b65a49f1d146a32b877c2bdafe34cbf`; chronological test-28 regression and migration-154 status |
+| `docs/USER_ACTIONS.md` | `6fdf3448c5f79f71b130caea3b820b1c7bd882b5` | `d2f59a8a9329e91286fb911958db77472039d4be`; UA-024 owner synchronization, Node/Parser/SQL gates and safety constraints |
+
+Owner runtime evidence before migration 154: Node 42/42 PASS; PowerShell Parser had previously passed 0 syntax errors; guarded PostgreSQL run applied 144 migrations 010–153 and both CI assertions, passed SQL tests 1–27, then failed test 28 because a deleted image path was reused. Disposable DB cleanup succeeded. Assistant added migration 154 and updated contracts/replay/CI/docs, then re-fetched all eight source files and verified final blobs and key static markers. Assistant did not execute local tests, PowerShell, psql, PostgreSQL or CI. The new migration/replay chain is **not runtime-verified**. Owner must rerun Node (43 expected tests), Parser and then guarded SQL runner. SQL integration remains **FAIL 27/46** until all 46 tests and cleanup pass.
