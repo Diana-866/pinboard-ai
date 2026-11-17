@@ -2592,3 +2592,22 @@ Require empty status before/after pull and identical HEAD/origin SHA. If pull is
 After synchronization, rerun the Node 45/45 gate and PowerShell Parser 0-error gate in UA-034, then run the guarded integration runner only if both pass. Preserve PID 15220, port 55439 and `X:\\PinPosy-verify-pg18`; do not target production/`PIN_TRIAL`, bypass guards, run SQL manually or disclose secrets. Nine Bash concurrency scripts remain a separate unverified gate.
 
 Detailed record: `docs/audits/2026-11-17-postgres-runner-sync-guard-stop.md`.
+
+
+### UA-034 update — guarded PostgreSQL runner stopped at empty password (2026-11-17)
+
+Owner confirmed clean synchronization: `git pull --ff-only origin main` fast-forwarded `30e1ac9f..9206d830`; pre/post `git status --short` were empty; local HEAD and origin/main both equal `9206d83076c4ea59c0d66be15482bf58d7217226`. The three Node test files passed **45/45** with 0 failures, cancellations, skips or todos.
+
+The guarded runner then verified the synchronized checkout and local PostgreSQL listener (PID 15220; data directory `X:\\PinPosy-verify-pg18`), but stopped at the hidden prompt with `A non-empty temporary PostgreSQL password is required.`
+
+Source inspection confirms the runner rejects an empty SecureString before setting PGPASSWORD or invoking psql. No database connection, temporary role creation, disposable database creation, migration, inline assertion or SQL test occurred. No disposable DB cleanup was needed. This is not a PostgreSQL authentication failure and not a SQL test result. Historical SQL status remains FAIL at test 34/46; the privilege assertion fix remains NOT RUNTIME-VERIFIED.
+
+**Next owner action:** use the same guarded command only when the non-empty password for the approved local temporary role `pinposy_verify_admin` is available. Enter it only into the hidden local prompt. Never send the password in chat, documentation, command text, Git or logs. If the credential is unknown, stop and resolve it locally; do not weaken runner checks, manually run SQL, or target production/`PIN_TRIAL`.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+```
+
+Preserve listener PID 15220 and `X:\\PinPosy-verify-pg18`. A successful result must show the upgrade fixture, 147 migrations 010–156, two CI inline assertions, 46/46 SQL integration tests and confirmed disposable database cleanup. Stop at the first error. Nine Bash concurrency scripts remain a separate unverified gate.
+
+Detailed incident: `docs/audits/2026-11-17-postgres-runner-empty-temporary-password-stop.md`.
