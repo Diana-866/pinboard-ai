@@ -216,3 +216,16 @@ This confirms local main and origin/main are synchronized and resolves the runne
 Assistant procedure: fetched current runner, Node contract test and four tracking documents from GitHub main; checked runner blob `74c128b4c6933b8b5aba888e4abeb01200df2ab6` and contract test blob `902a0d700a1b145d7e48ad5f0cc856c5bd6f99a1`; reviewed safety-check order; appended this owner transcript and its exact scope to the project state, action log and audit; updated the register; and re-fetched the updated files to verify blob identities. No local Git commands, source edits, PostgreSQL operations, production/PIN_TRIAL access or secret handling were performed by the assistant.
 
 Next: owner reruns the guarded process-scoped PowerShell invocation from the now-synchronized clean checkout. The temporary role password is entered only at the hidden prompt. Capture all output and verify cleanup. SQL integration remains NOT PASSED.
+
+
+## 16. Second stale-main stop — assistant sequencing error (2026-11-17)
+
+Owner ran the process-scoped integration runner. It fetched remote and showed `95b7aa3c..a98f8821 main -> origin/main`, then rejected local HEAD `95b7aa3cadfdb0b5d213ec65d2d61cf47ffcf990` because origin/main was `a98f8821f345677271add7d53a3cbe94840f2f0d`.
+
+The assistant explicitly records responsibility for this avoidable stop. After the owner had synchronized local main to `95b7aa3c`, the assistant committed the documentation update at `a98f8821` and then mistakenly instructed the owner to launch the runner without another pull. The owner followed that instruction. The runner's exact synchronization guard behaved correctly; the failure is in the assistant's action sequencing/instruction, not in the owner's work or PostgreSQL.
+
+Current runner blob inspected: `74c128b4c6933b8b5aba888e4abeb01200df2ab6`. Guard ordering confirms the mismatch check (lines 59–61) precedes the hidden password prompt (line 103) and disposable database creation (line 143). No password was requested; no PostgreSQL connection, database creation, fixture, migration, assertion, SQL test or cleanup occurred.
+
+Assistant actions: retrieved runner and four documentation files from GitHub main; checked guard order and source hash; traced local/remote hashes to the previous assistant documentation commit; documented the user's transcript and assistant accountability; updated the register; and re-fetched documents to verify exact blob identities. No local checkout, database, production/PIN_TRIAL or secret was touched.
+
+Corrected procedure after this documentation update: owner checks `git status --short`; only if clean, performs `git pull --ff-only origin main`; verifies `git rev-parse HEAD` and `git rev-parse origin/main` match; then runs the guarded process-scoped integration command immediately. No assistant commit should occur between that pull and the run. Each subsequent assistant commit to main necessarily advances the remote and requires another pull before the next runner attempt. SQL integration remains NOT PASSED.
