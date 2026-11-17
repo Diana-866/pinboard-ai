@@ -662,3 +662,37 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integra
 ```
 
 Enter the temporary role password only at the hidden prompt. Send the complete output, including final disposable database cleanup confirmation. SQL integration remains NOT PASSED until fixture, 139 migrations, two inline assertions, all 46 SQL integration tests and cleanup have succeeded.
+
+
+### UA-008 — runner rejected because assistant advanced origin/main after owner's sync (2026-11-17)
+
+Owner supplied output from:
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+```
+
+The script fetched remote and showed `95b7aa3c..a98f8821 main -> origin/main`, then stopped with exact mismatch:
+- local main: `95b7aa3cadfdb0b5d213ec65d2d61cf47ffcf990`
+- origin/main: `a98f8821f345677271add7d53a3cbe94840f2f0d`
+
+**Assistant accountability:** the assistant had created documentation commit `a98f8821` after the owner had synchronized local main to `95b7aa3c`, then gave an incorrect next instruction to run the script immediately. The assistant should have instructed another fast-forward pull after its own documentation commit. The user followed the assistant's instruction; this is an assistant sequencing mistake, not an owner mistake.
+
+Inspection of runner blob `74c128b4c6933b8b5aba888e4abeb01200df2ab6` confirms the equality guard at lines 59–61 runs before hidden password prompt (line 103) and disposable DB creation (line 143). No PostgreSQL or SQL test activity occurred.
+
+Assistant actions: fetched current runner and four documentation files; checked source order and exact commit IDs; traced the mismatch to the assistant's immediately preceding documentation commit; appended this incident and accountability statement to project state, action log and audit; updated the documentation register; and verified the resulting docs. No local machine or database operation was performed.
+
+**Corrected owner action — required after this documentation commit:**
+```powershell
+git status --short
+# Continue only if empty:
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+```
+
+When the two hashes match, run the guarded process-scoped integration command immediately, with no intervening assistant commit:
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+```
+
+Any later assistant documentation commit advances origin/main again and requires another pull before a subsequent runner invocation. Do not reset, force, or discard local work. SQL integration remains NOT PASSED.
