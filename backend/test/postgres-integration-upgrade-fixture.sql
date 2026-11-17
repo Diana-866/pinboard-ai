@@ -21,7 +21,7 @@ create table public.auth_tokens (
   purpose text not null default 'password_reset',
   expires_at timestamptz not null,
   used_at timestamptz,
-  created_at timestamp without time zone default now()
+  created_at timestamptz default now()
 );
 create table public.projects (
   id uuid primary key default gen_random_uuid(),
@@ -86,7 +86,7 @@ create table public.credit_transactions (
   amount numeric,
   type text,
   description text,
-  created_at timestamptz default now()
+  created_at timestamp without time zone default now()
 );
 create table public.credit_purchases (
   id uuid primary key default gen_random_uuid(),
