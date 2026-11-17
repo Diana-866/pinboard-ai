@@ -34,9 +34,7 @@ test('upgrade fixture stays byte-for-byte aligned with CI legacy schema setup', 
   const expected = workflowFixture.split(/\r?\n/).filter((line) =>
     !/^create role (anon|authenticated|service_role)\b/i.test(line.trim())
   ).join('\n');
-  const actual = fixture.split(/\r?\n/).filter((line) =>
-    !line.startsWith('-- CI upgrade-compatibility fixture.')
-  ).join('\n').trimEnd();
+  const actual = fixture.split(/\r?\n/).join('\n').trimEnd();
   assert.equal(actual, expected.trimEnd());
 });
 
