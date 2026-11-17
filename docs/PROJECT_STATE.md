@@ -1562,3 +1562,14 @@ This section records the exact owner-provided PowerShell procedure. Treat it as 
 - Assistant did not execute Node, PowerShell, psql, PostgreSQL, or CI. The corrected contract is **NOT runtime-verified**. Since Node gate failed, owner correctly did not proceed to Parser or SQL runner. PostgreSQL integration remains **NOT PASSED**; SQL tests 1–46 have not been rerun after the latest fixture correction.
 - Detailed evidence, diagnosis, publication chronology, exact commit/blob and next gates: `docs/audits/2026-11-17-postgres-node-contract-upgrade-fixture-regex-and-migration-count.md` (audit blob `49fbaedd17c2422458b35617b89d129af8d629f6`).
 - Next: owner syncs latest main; reruns the same three Node tests and requires 42/42 PASS; then Parser PASS; only then guarded PostgreSQL replay. SQL PASS still requires all 46 tests and confirmed cleanup.
+
+
+### 2026-11-17 — PostgreSQL Node contract gate: dynamic RegExp capture-group correction
+
+- Owner reran the three Node gate files. Result: **42 tests, 41 PASS, 1 FAIL**. The sole failure was the baseline-column contract's dynamically constructed RegExp, which threw `Unmatched ')'`. All other tests, including the direct users matcher and 010–153 / 144 migration contract, passed.
+- Diagnosis: dynamic RegExp string escaped the literal SQL opening parenthesis but omitted the opening capture-group parenthesis before `[\\s\\S]*?`, leaving an unmatched closing group delimiter.
+- Assistant changed only the dynamic RegExp string in `backend/test/postgres-integration-runner-contract.test.js` to capture the table definition: `' \\\\(([\\\\s\\\\S]*?)\\\\n\\\\);'`. Commit `c4de3c67537cac08daadfbf6f461304bd4b61889`; blob `2765d21320bf1847efb73cf3453d0d3597289df7`.
+- Final source was re-fetched from GitHub and statically inspected. No production SQL, migrations, fixture, runner, CI, or database was changed.
+- Assistant did not execute Node, PowerShell, psql, PostgreSQL, or CI. Corrected Node test is **NOT runtime-verified**. Owner did not run Parser or SQL runner after Node failure. PostgreSQL SQL integration remains **NOT PASSED**.
+- Detailed evidence and next steps: `docs/audits/2026-11-17-postgres-node-contract-dynamic-regexp-capture-group.md` (audit blob `72215c91b03a4bbd2b99012becefbbb12076cf33`).
+- Next: owner syncs latest main and reruns the same Node gate, requiring 42/42 PASS; then Parser PASS; only then guarded PostgreSQL runner. SQL PASS requires all 46 SQL tests and confirmed cleanup.
