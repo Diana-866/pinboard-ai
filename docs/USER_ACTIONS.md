@@ -2611,3 +2611,30 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integra
 Preserve listener PID 15220 and `X:\\PinPosy-verify-pg18`. A successful result must show the upgrade fixture, 147 migrations 010–156, two CI inline assertions, 46/46 SQL integration tests and confirmed disposable database cleanup. Stop at the first error. Nine Bash concurrency scripts remain a separate unverified gate.
 
 Detailed incident: `docs/audits/2026-11-17-postgres-runner-empty-temporary-password-stop.md`.
+
+
+### UA-034 update — second runner synchronization stop (2026-11-17)
+
+Owner reran the guarded PostgreSQL runner while local HEAD was `9206d83076c4ea59c0d66be15482bf58d7217226`. The runner fetched origin/main at `5fa8d042f7e85339565bae9a8f34e8ebe654100d` and stopped at the repository synchronization guard. The remote had advanced because the assistant had just published documentation-only updates. No PostgreSQL listener validation, password prompt, psql call, DB connection, role/database creation, migration, inline assertion or SQL test occurred in this attempt.
+
+**Next owner action — synchronize only via fast-forward:**
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Require empty status before/after and identical HEAD/origin SHA. If either condition fails, stop and send the complete output. Never use reset, rebase, clean, force or bypass the runner guard.
+
+After successful synchronization, rerun:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+```
+
+Node 45/45 and PowerShell Parser 0-error were previously passed against the same code snapshot; the intervening commits are documentation-only. If any source, migration, test, runner or CI file changed, stop and re-evaluate those gates first. If the runner reaches the hidden password prompt, enter a non-empty password for the approved temporary role only if known; never send it in chat or write it to files/logs. If unknown, stop.
+
+Preserve approved local cluster identity when revalidated: PID 15220, port 55439, `X:\\PinPosy-verify-pg18`. Do not target production/`PIN_TRIAL`, run SQL manually or weaken safety checks. Full incident: `docs/audits/2026-11-17-postgres-runner-second-sync-guard-stop.md`. SQL assertion fix remains NOT RUNTIME-VERIFIED; historical SQL run remains FAIL at test 34/46; nine Bash concurrency scripts remain unverified.
