@@ -2271,3 +2271,58 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 **Безопасность:** сохранить PostgreSQL listener PID 15220, порт 55439 и каталог `X:\\PinPosy-verify-pg18`. Не останавливать/перенастраивать сервер, не обходить guards, не использовать production/`PIN_TRIAL`, не присылать пароли, токены или `.env`.
 
 **Последний подтверждённый статус:** SQL tests 1–33 PASS, test 34 FAIL до фикса; tests 35–46 не запускались. Исправленный SQL fixture опубликован, но ещё не runtime-verified. Девять Bash concurrency scripts остаются отдельным непроверенным этапом.
+
+
+## UA-031 — Повторить PostgreSQL integration после исправления unknown-provider reservation fixture
+
+**Статус:** ожидает владельца.
+
+**Причина:** на чистом main `0c413265da7c6b09c0ed6fd58d68ed8e299a5a8b` Node gate прошёл **45/45**, PowerShell Parser — **0 syntax errors**; guarded runner применил fixture, 147 миграций 010–156 и 2 CI assertions. SQL tests 1–33 прошли; test 34 упал на проверке удержания резерва после неизвестного исхода провайдера. Disposable DB `pinposy_sqlint_9f82b9c7dc774317` удалена; tests 35–46 не запускались.
+
+**Причина и исправление:** migration 088 корректно освобождает резерв при переходе в `unknown`, если durable image-task journal пуст: до записи задачи изображение не могло быть отправлено провайдеру. Тест создавал запрос и резерв вручную, но не создавал task row. Исправлена только `backend/test/postgres-integration.sql`: перед переводом `reservation-test-key-0002` в `unknown` добавляется связанная строка `pin_generation_tasks` со статусом `submitting`, моделирующая возможную отправку billable image task. Production SQL и миграции не менялись. Подробности: `docs/audits/2026-11-17-postgres-test-34-unknown-provider-reservation-task-fixture.md`.
+
+### 1. Синхронизация
+
+В PowerShell из `X:\\!PROGECT\\pinboard-ai`:
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Требуется чистое дерево и HEAD = origin/main.
+
+### 2. Node contract gate
+
+```powershell
+node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+```
+
+Требуется **45 tests, 45 pass, 0 fail**. При любом FAIL остановиться и прислать полный итог.
+
+### 3. PowerShell Parser gate
+
+```powershell
+$tokens = $null
+$errors = $null
+[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path .\\scripts\\verify-integration.ps1), [ref]$tokens, [ref]$errors) | Out-Null
+if ($errors.Count -gt 0) { $errors | Format-List *; exit 1 }
+"PowerShell Parser PASS: 0 syntax errors"
+```
+
+Требуется 0 syntax errors.
+
+### 4. Только после Node и Parser PASS — guarded PostgreSQL runner
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+```
+
+Требуется fixture applied; **147 migrations 010–156**; 2 CI inline assertions; **46/46 ordered SQL tests**; подтверждённое удаление disposable DB. Остановиться на первой ошибке и прислать полный вывод.
+
+**Безопасность:** сохранить PostgreSQL listener PID 15220, порт 55439 и каталог `X:\\PinPosy-verify-pg18`. Не останавливать/перенастраивать сервер, не обходить guards, не использовать production/`PIN_TRIAL`, не присылать пароли, токены или `.env`.
+
+**Последний подтверждённый статус:** SQL tests 1–33 PASS, test 34 FAIL до этого исправления; tests 35–46 не запускались. Исправленный fixture опубликован, но ещё не runtime-verified. Девять Bash concurrency scripts остаются отдельным непроверенным этапом.
