@@ -1027,3 +1027,19 @@ Source HEAD before this register refresh: `d2f59a8a9329e91286fb911958db77472039d
 | `docs/USER_ACTIONS.md` | `6fdf3448c5f79f71b130caea3b820b1c7bd882b5` | `d2f59a8a9329e91286fb911958db77472039d4be`; UA-024 owner synchronization, Node/Parser/SQL gates and safety constraints |
 
 Owner runtime evidence before migration 154: Node 42/42 PASS; PowerShell Parser had previously passed 0 syntax errors; guarded PostgreSQL run applied 144 migrations 010–153 and both CI assertions, passed SQL tests 1–27, then failed test 28 because a deleted image path was reused. Disposable DB cleanup succeeded. Assistant added migration 154 and updated contracts/replay/CI/docs, then re-fetched all eight source files and verified final blobs and key static markers. Assistant did not execute local tests, PowerShell, psql, PostgreSQL or CI. The new migration/replay chain is **not runtime-verified**. Owner must rerun Node (43 expected tests), Parser and then guarded SQL runner. SQL integration remains **FAIL 27/46** until all 46 tests and cleanup pass.
+
+
+
+### 2026-11-17 — PostgreSQL test 28 follow-up: upload finalization fixture path collision and migration-154 contract regex
+
+| Path | Final blob SHA | Commit / reason |
+|---|---|---|
+| `backend/test/postgres-integration-runner-contract.test.js` | `b0b663b22c336bf72f9317bdb7151f5eb141aa15` | `ff5be4d4ce9160669b87c5ceb5cd09fc024399cd`; correct over-escaped migration-154 regex-literal matchers |
+| `backend/test/pin-image-deletion-claims.integration.sql` | `2d2e5b97955a58f1987c856beb1b65906375ddae` | `bd29eb628780cb085e42d7a249802d2f9e10e06c`; isolate AUD-260 with four unique object paths |
+| `docs/audits/2026-11-17-postgres-integration-test-28-upload-finalization-fixture-path-collision-and-migration154-contract-regex.md` | `52f241d0abddd2724bc1991107a568a5e4581820` | `38a464692ebfb8fcbba4a25b902efcb432a70b1f`; owner evidence, both root causes, source-only changes, checks, limitations and next gates |
+| `docs/PROJECT_STATE.md` | `9b1427d71d7c658dddc27652040caf62f83ed517` | `e15125e09d8c948adc046e5fb5141deeab2bc12e`; chronological test-28 follow-up |
+| `docs/USER_ACTIONS.md` | `b2b4a8b27439da98cacbf8697d1fc897ad9ae99e` | `b188c558ab486e7edb20a53468d212ff9ca9ae17`; UA-025 owner synchronization and rerun sequence |
+
+Owner evidence: on main HEAD `21f0bb3c6889ce2cc0830add015d9d5b1c7b7b5d`, PowerShell Parser reported 0 syntax errors; the guarded runner applied the fixture, 145 migrations 010–154 and both CI inline assertions; SQL tests 1–27 passed; test 28 failed in `finalize_pin_image_upload()` because the test fixture reused generation object paths already quarantined or referenced by earlier blocks. Cleanup dropped and confirmed removal of disposable DB `pinposy_sqlint_a1f0fda5a45947bc`. Tests 29–46 did not run. The supplied Node excerpt also exposed over-escaped migration-154 regex matchers; aggregate Node counts were not supplied.
+
+Diagnosis established that lifecycle functions correctly rejected reused paths and the fixture then passed a NULL token to finalization. Assistant changed only test code: four fresh valid 32-hex IDs in AUD-260 and correctly escaped migration-154 contract regexes. No production SQL, migrations, runner, CI, or persistent database changed. Assistant re-fetched both source files and audit from GitHub and statically verified the intended content. Assistant did not execute Node, PowerShell, psql, PostgreSQL or CI. Corrected source is not runtime-verified; SQL integration remains **FAIL 27/46**, tests 29–46 unexecuted. Next owner gate: clean sync, Node contract tests (expected 43 total, all PASS), then guarded PostgreSQL runner; Parser was just confirmed 0 errors and its script is unchanged.
