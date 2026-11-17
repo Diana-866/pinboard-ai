@@ -180,11 +180,11 @@ test('durable account deletion queue test expects the Storage manifest guard add
   assert.ok(stageGuards.indexOf("raise exception 'account deletion Storage manifest is required';") < stageGuards.indexOf('update public.account_deletion_jobs'));
 });
 
-test('CI migration list remains the complete contiguous 010-150 chain', () => {
+test('CI migration list remains the complete contiguous 010-151 chain', () => {
   const prefixes = [...workflow.matchAll(/db\/migrations\/(\d{3})_[A-Za-z0-9._-]+\.sql/g)]
     .map((match) => Number(match[1]));
-  assert.equal(prefixes.length, 141);
-  assert.deepEqual(prefixes, Array.from({ length: 141 }, (_, index) => index + 10));
+  assert.equal(prefixes.length, 142);
+  assert.deepEqual(prefixes, Array.from({ length: 142 }, (_, index) => index + 10));
 });
 
 test('upgrade fixture preserves every canonical baseline column except fields introduced by later migrations', () => {
@@ -246,4 +246,14 @@ test('provider refund regeneration finalizer preserves NOT NULL claim token', ()
   assert.match(schema, /claim_token uuid not null default gen_random_uuid\(\)/i);
   assert.match(regenerationFinalizer, /set status='failed',[\s\S]*?error_code='provider_refund_reconciled'/i);
   assert.doesNotMatch(regenerationFinalizer, /claim_token\s*=\s*null/i);
+});
+
+
+test('provider refund evidence regex uses PostgreSQL-safe unbounded repetition in migration 151', () => {
+  const migration = read('db/migrations/151_fix_provider_refund_evidence_regex_repetition_limit.sql');
+  assert.match(migration, /drop constraint provider_refund_operator_actions_shape_check/i);
+  assert.match(migration, /\{7,\}/);
+  assert.match(migration, /pg_get_functiondef/);
+  assert.match(migration, /replace\(v_definition, '\{7,499\}', '\{7,\}'\)/);
+  assert.doesNotMatch(migration, /\{7,499\}/g);
 });
