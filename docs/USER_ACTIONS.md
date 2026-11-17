@@ -1803,3 +1803,48 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 SQL PASS — fixture, 144 migrations 010–153, 2 CI inline assertions, все 46 SQL tests и подтверждённый cleanup disposable DB. При первой SQL ошибке остановиться и прислать полный вывод и cleanup.
 
 Не обходить guards, не менять PID 15220 / port 55439 / data directory, не трогать `X:\\PinPosy-verify-pg18`, не использовать production/PIN_TRIAL. Пароли, токены и содержимое `.env` не присылать.
+
+
+## UA-021 — PowerShell Parser gate после подтверждённого Node PASS (2026-11-17)
+
+**Статус:** ожидает действий владельца. Node gate **42/42 PASS** подтверждён владельцем; PostgreSQL integration ещё не запускалась после этого PASS.
+
+### Подтверждённый Node результат
+
+- Локальный HEAD = origin/main = `6512dc8aa4ae882e8be91877185a262787b02f87`; рабочее дерево чистое.
+- Node: **42 tests, 42 pass, 0 fail, 0 cancelled, 0 skipped**.
+- Подробности в `docs/audits/2026-11-17-postgres-node-contract-dynamic-regexp-capture-group.md`.
+
+### Следующий шаг — только PowerShell Parser
+
+Синхронизируй документационные изменения:
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Убедись, что рабочее дерево чистое и HEAD совпадает с origin/main. Затем выполни:
+
+```powershell
+$tokens = $null
+$errors = $null
+[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path .\\scripts\\verify-integration.ps1), [ref]$tokens, [ref]$errors) | Out-Null
+if ($errors.Count -gt 0) { $errors | Format-List *; exit 1 }
+"PowerShell Parser PASS: 0 syntax errors"
+```
+
+Требуется **0 syntax errors**. Если Parser вернёт ошибки — **СТОП**, пришли полный вывод; SQL runner не запускай.
+
+Только после Parser PASS разрешён следующий шаг — guarded integration runner:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+```
+
+Критерий полного SQL PASS: fixture, 144 миграции 010–153, 2 CI inline assertions, все 46 SQL tests и подтверждённый cleanup disposable DB. При первой SQL ошибке остановись и пришли полный вывод и cleanup.
+
+Не обходить guards, не менять PID 15220 / port 55439 / data directory, не трогать `X:\\PinPosy-verify-pg18`, не использовать production/PIN_TRIAL. Пароли, токены и содержимое `.env` не присылать.
