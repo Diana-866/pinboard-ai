@@ -1263,3 +1263,16 @@ This section records the exact owner-provided PowerShell procedure. Treat it as 
 
 
 - Follow-up source review found and corrected an over-escaped regex in the newly added Node contract assertion. Corrected contract test commit `89d5fd4baf14f790141fe1cb244a6f282d68e004`, blob `54c0ba51ce8a3ac2e5a6b677be6a3b6950a1448c`. Re-fetched workflow, fixture and contract test; source-level normalization confirmed the workflow fixture and standalone fixture match exactly, both include `is_admin boolean default false`, and the new assertion is present. Contract source contains 13 test declarations. This is source inspection only; Node tests remain unexecuted.
+
+
+### 2026-11-17 — SQL integration reached test 3/46; text/UUID predicate fixed
+
+- Owner synchronized clean local `main` to `5617a53095249ce45aafe4bdad17ad39781b668e`; local HEAD and origin/main matched.
+- Owner Node contract suite: **13/13 PASS**.
+- Guarded PostgreSQL runner verified approved temporary target PID 15220 / `X:\\PinPosy-verify-pg18`, hidden password prompt and exact server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+- Disposable DB `pinposy_sqlint_004e2422a382484b`: fixture PASS; all 140 migrations 010–149 PASS; both inline assertions PASS; SQL tests 1/46 and 2/46 PASS; test 3/46 failed at line 93 with `operator does not exist: text = uuid`. Tests 4–46 did not run. Runner confirmed cleanup and printed `Removed disposable database pinposy_sqlint_004e2422a382484b`. SQL integration NOT PASSED.
+- Source diagnosis: migration 015 declares `pin_schedules.user_id text`; the cancellation-race SQL test declared `v_user_id uuid` and compared these different types in two UPDATE predicates. This is a test predicate defect, not a production migration defect.
+- Corrected both predicates to compare `user_id=v_user_id::text`. SQL test blob `adb8b7669052021ce2537b5a2985786bab13a4d7`, commit `c0db3c5e5f4cc2ead97443693b78bdd79622be53`.
+- Added a Node contract assertion for both explicit casts and absence of the uncast predicate. Contract test blob `ba228cbaef5ea83ff7d9c22221b3921f8087f4dd`, commit `de1d765e53e30e0617ec7994f1e22bdeaff4e025`.
+- Created audit `docs/audits/2026-11-17-postgres-integration-schedule-user-id-type-mismatch.md` (commit `0c3b54e62b269f9e47e0be37b7de8a8abea0d2fa`) with the owner transcript summary, source evidence, root cause, exact changes, safety and verification limits.
+- Assistant did GitHub source inspection/updates only; did not execute Node, PowerShell, psql or PostgreSQL. The new contract assertion and SQL correction remain runtime-unverified. Next: after all documentation commits, owner fast-forward pulls, confirms clean synchronized main, runs Node contract suite, then guarded integration runner. Do not declare SQL integration PASS until all 46 tests and cleanup are confirmed.
