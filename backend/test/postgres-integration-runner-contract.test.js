@@ -114,6 +114,20 @@ test('runner emits database and users constraint diagnostics plus verbose SQL er
   assert.match(runner, /--echo-errors/);
 });
 
+test('psql stderr notices do not abort before the native exit code is captured', () => {
+  assert.match(runner, /\$previousErrorActionPreference = \$ErrorActionPreference/);
+  assert.match(runner, /\$ErrorActionPreference = 'Continue'/);
+  assert.match(runner, /\$output = @\(& \$PsqlPath @arguments 2>&1\)/);
+  assert.match(runner, /\$exitCode = \$LASTEXITCODE/);
+  assert.match(runner, /finally\s*\{\s*\[Console\]::OutputEncoding = \$previousConsoleOutputEncoding\s*\$ErrorActionPreference = \$previousErrorActionPreference/s);
+});
+
+test('psql native output is decoded as UTF-8 only for the duration of invocation', () => {
+  assert.match(runner, /\$previousConsoleOutputEncoding = \[Console\]::OutputEncoding/);
+  assert.match(runner, /\[Console\]::OutputEncoding = \[Text\.UTF8Encoding\]::new\(\$false\)/);
+  assert.match(runner, /\[Console\]::OutputEncoding = \$previousConsoleOutputEncoding/);
+});
+
 test('CI migration list remains the complete contiguous 010-148 chain', () => {
   const prefixes = [...workflow.matchAll(/db\/migrations\/(\d{3})_[A-Za-z0-9._-]+\.sql/g)]
     .map((match) => Number(match[1]));
