@@ -205,3 +205,14 @@ Inspection of current runner blob `74c128b4c6933b8b5aba888e4abeb01200df2ab6` est
 Assistant procedure: fetched the latest runner and four tracking documents from GitHub main; inspected relevant line ordering and source SHA; recorded both owner invocations and exact commit IDs; updated the chronological docs and register; re-fetched the documents to confirm the recorded update. No local git operation, code edit, DB operation, production/PIN_TRIAL access or secret handling occurred.
 
 Next owner step: run `git status --short`. Only if it is empty, run `git pull --ff-only origin main`; then compare `git rev-parse HEAD` and `git rev-parse origin/main`. If dirty or pull fails, stop and share output; do not reset/force/discard. When the two IDs match, rerun the process-scoped guarded runner. SQL integration is still NOT PASSED.
+
+
+## 15. Owner synchronizes local main with origin/main (2026-11-17)
+
+The owner ran `git status --short`; no output was returned, so the worktree was clean. The owner then ran `git pull --ff-only origin main`. Git completed a fast-forward from `7f0084ca` through `b8d04ffc` to `95b7aa3c`, updating four documentation files with 220 insertions and no deletions. The owner verified both `git rev-parse HEAD` and `git rev-parse origin/main`; both returned `95b7aa3cadfdb0b5d213ec65d2d61cf47ffcf990`.
+
+This confirms local main and origin/main are synchronized and resolves the runner's previous stale-checkout safety stop. This is not an integration-test result: no successful runner rerun has yet been reported, and the prior invocation stopped before password prompt/PostgreSQL/database creation.
+
+Assistant procedure: fetched current runner, Node contract test and four tracking documents from GitHub main; checked runner blob `74c128b4c6933b8b5aba888e4abeb01200df2ab6` and contract test blob `902a0d700a1b145d7e48ad5f0cc856c5bd6f99a1`; reviewed safety-check order; appended this owner transcript and its exact scope to the project state, action log and audit; updated the register; and re-fetched the updated files to verify blob identities. No local Git commands, source edits, PostgreSQL operations, production/PIN_TRIAL access or secret handling were performed by the assistant.
+
+Next: owner reruns the guarded process-scoped PowerShell invocation from the now-synchronized clean checkout. The temporary role password is entered only at the hidden prompt. Capture all output and verify cleanup. SQL integration remains NOT PASSED.
