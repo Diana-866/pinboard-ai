@@ -515,3 +515,14 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 - Current `docs/PROJECT_STATE.md` blob: `2420a185371423e34bf0d6cc8776f0eef96c24f8`; `docs/USER_ACTIONS.md` blob: `a08b2fa6935034448233acde93a66d82655840e2`; audit blob: `fa1a0c3539960eb23eb689e1a5c20e248cdd489e`.
 - Documentation commits: audit `87774a5a71e32df31e5462dc2983de2e3cde5fcf`; project state `25dfa968a426f381c1c044c82692e8dcaca2b397`; owner actions `7482053cda2a3e5a816480a84bb1fc7ba420e427`.
 - Corrected contract test has not yet been run. Integration gate remains blocked and must not be reported as passed.
+
+
+### 2026-11-17 owner contract retest — all 10 Node checks pass
+
+- Owner pulled local `main` from `844514ab` to `7f0084ca`; clean status was shown before pull.
+- Owner Node contract test: **10/10 PASS**. This is source-contract validation only; no PostgreSQL runner, migrations, inline assertions or 46 SQL integration tests were executed in this transcript. PowerShell Parser API has not yet been rerun on this revision.
+- Current runner blob: `74c128b4c6933b8b5aba888e4abeb01200df2ab6`; current contract test blob: `902a0d700a1b145d7e48ad5f0cc856c5bd6f99a1`.
+- Updated project state blob: `85c7714d45501c12a9966ec6002845f7c03de52e`; commit `4bd6cc3cd6f2070f5185f7307a1728e2f79a331c`.
+- Updated owner action log blob: `9877a7c40832a11d8c399377484b454e897cd782`; commit `60b44756632af4c0f370fb1ebd7918631eb86df2`.
+- Updated PowerShell audit blob: `79259954dbcc9173abeae9a809aa13ee65304d58`; commit `2c796056ae507e518cfe831470cc6ed4aef27b8c`.
+- The three documents record the transcript, exact results, assistant retrieval/documentation actions, scope limits and next gate. SQL integration remains NOT PASSED pending a fresh parser check and full guarded run.
