@@ -1766,3 +1766,22 @@ The corrected fixture is **NOT RUNTIME-VERIFIED**. The 45/45 Node and 0-error Pa
 Оба предварительных gates после последнего SQL fixture изменения подтверждены. Это не доказывает успешность PostgreSQL runtime integration: guarded runner ещё не запускался после исправления. Следующий шаг — владелец запускает `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1` только с сохранением ограничений UA-033: ожидаются upgrade fixture, 147 migrations 010–156, две CI inline assertions, 46/46 SQL tests и подтверждённый cleanup disposable DB; остановиться на первой ошибке. Сохранить PostgreSQL listener PID 15220, port 55439 и data directory `X:\\PinPosy-verify-pg18`; не обходить guards, не использовать production/`PIN_TRIAL`, не передавать секреты. Девять Bash concurrency scripts остаются отдельным непроверенным этапом.
 
 Ассистент повторно сверил с GitHub текущие project state, audit, owner actions, documentation register, SQL fixture и runner. Ассистент не запускал локальные Node/PowerShell/psql/PostgreSQL/Bash/CI; приведённые PASS — evidence из вывода владельца. В этом follow-up не менялись SQL fixture, migrations, production code, runner или CI. Подробный audit и UA-033 обновлены; register содержит точные blob SHA.
+
+
+### 2026-11-17 — PostgreSQL integration test 34: billing webhook audit privileges
+
+Владелец синхронизировал локальный `main` с GitHub fast-forward: `948df3b9..1b855857`; `git status --short` пуст; проверяемый code HEAD: `1b855857c4df31b9233819e404bd697591f28acb`.
+
+По предоставленному полному выводу `scripts/verify-integration.ps1`:
+- runner подтвердил clean main checkout на указанном SHA и локальный disposable PostgreSQL 18.6 (PID 15220, `127.0.0.1:55439`, data directory `X:\\PinPosy-verify-pg18`);
+- создана временная БД `pinposy_sqlint_9f1cf3d0c7f74745`, применены upgrade fixture и **147 migrations 010–156**;
+- обе CI inline assertions прошли;
+- SQL integration tests 1–33 прошли; test 34/46 остановил suite с `billing webhook audit table privileges are too broad or insufficient` в `backend/test/postgres-integration.sql:965` (PL/pgSQL assertion line 940);
+- tests 35–46 не запускались;
+- runner подтвердил завершение соединений и удаление только disposable DB.
+
+**Итог: SQL integration FAIL.** Нельзя помечать PostgreSQL suite завершённым. Ошибка пока не диагностирована: focused `billing-webhook-audit-privileges.integration.sql` ранее в этом же запуске завершился без ошибки, но это не доказывает ошибочность общей проверки. Необходимо сопоставить assertion 940–965, active table migration/security/grants и focused test. Нельзя ослаблять grants или обходить assertion без доказанной причины.
+
+Создан отдельный отчёт: `docs/audits/2026-11-17-postgres-test-34-billing-webhook-audit-privileges.md`. Следующий шаг ассистента — read-only исследование указанного assertion, миграции, privilege test и актуальных docs на main; затем минимальное обоснованное исправление и документирование до повторного запуска. Девять Bash concurrency scripts остаются отдельным непроверенным этапом.
+
+Ассистент в этой сессии прочитал приложенный лог, повторно получил актуальные `PROJECT_STATE`, `DOCUMENTATION_REGISTER`, `USER_ACTIONS` и создал incident report. Локальные Node/PowerShell/psql/PostgreSQL/Bash/CI команды не запускались; production, `PIN_TRIAL` и постоянная БД не затрагивались. Root cause не установлен, код и миграции не изменялись. Полный transcript — источник evidence; детали, которых в нём нет, не реконструируются.
