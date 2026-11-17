@@ -44,3 +44,10 @@ Next owner sequence after the documentation commits are complete:
 3. If it passes, rerun the guarded process-scoped runner:
    `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1`.
 4. Preserve the full output and verify all 46 SQL tests plus disposable database cleanup before declaring PASS.
+
+
+## Follow-up — contract regex correction and source comparison
+
+During post-edit source inspection, assistant noticed the newly added Node contract assertion's regex had been over-escaped. Corrected the regex so it matches the `create table public.users (...)` block. Contract test commit `89d5fd4baf14f790141fe1cb244a6f282d68e004`; blob `54c0ba51ce8a3ac2e5a6b677be6a3b6950a1448c`.
+
+Assistant re-fetched the current workflow, standalone fixture and contract test from GitHub `main`. A source-level extraction using the same heredoc normalization as the contract test confirmed the standalone fixture exactly matches the CI workflow fixture after excluding the three role declarations and leading comment. Both fixture definitions contain `is_admin boolean default false`; the new contract assertion and corrected regex are present. The contract file has 14 test declarations by source inspection. **The Node test suite has not been executed**; this comparison is not a substitute for running it.
