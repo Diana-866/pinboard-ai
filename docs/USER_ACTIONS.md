@@ -1974,3 +1974,34 @@ Do not bypass guards, change PID 15220 / port 55439 / data directory, touch `X:\
 - **Запреты:** не менять PostgreSQL listener PID 15220, порт 55439 и каталог `X:\\PinPosy-verify-pg18`; не обходить проверки; не использовать production/PIN_TRIAL; не присылать пароль, токены или содержимое `.env`.
 - **Фактический статус до повторного запуска:** SQL integration **FAIL 27/46**; tests 29–46 не запускались. Node 42/42 и Parser 0-error — предыдущие результаты, полученные до migration 154 и изменённых runner scripts; они не засчитываются для новой версии.
 - **Подробности:** `docs/audits/2026-11-17-postgres-integration-test-28-deleted-image-path-tombstone-regression.md`.
+
+
+## UA-025 — повторная проверка test 28: уникальные image paths и migration-154 contract
+
+- **Статус:** [ ] Ожидает выполнения владельцем.
+- **Что исправлено в GitHub:** migration-154 Node contract regex исправлены; SQL fixture AUD-260 теперь использует четыре уникальных 32-символьных hex object IDs. Production SQL и миграции не менялись.
+- **Причина:** предыдущий guarded run на HEAD `21f0bb3c6889ce2cc0830add015d9d5b1c7b7b5d` применил fixture, 145 миграций 010–154 и две CI assertions; SQL tests 1–27 прошли. Test 28 упал с `invalid pin image upload finalization`, потому что AUD-260 повторно использовал пути, уже quarantined или referenced в более ранних блоках. Disposable DB удалена. Node excerpt также выявил over-escaped matcher в contract migration 154. PowerShell Parser в том же сообщении прошёл: 0 syntax errors.
+- **⚠️ Сначала синхронизация — PowerShell из `X:\!PROGECT\pinboard-ai`:**
+  ```powershell
+  git status --short
+  git pull --ff-only origin main
+  git rev-parse HEAD
+  git rev-parse origin/main
+  git status --short
+  ```
+  Требуется чистое дерево и HEAD = origin/main.
+- **⚠️ Затем Node gates:**
+  ```powershell
+  node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+  ```
+  Ожидается **43/43 PASS**. Если фактическое число тестов отличается, ориентироваться на итог Node runner; при любом FAIL остановиться и прислать полный вывод. SQL runner до успешного Node gate не запускать.
+- PowerShell runner не менялся в этом исправлении, а владелец только что подтвердил Parser PASS (0 syntax errors); повторять Parser необязательно для неизменённого файла.
+- **Только после полного Node PASS** выполнить guarded runner:
+  ```powershell
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+  ```
+  Требуемый полный результат: fixture applied; **145 migrations 010–154**; 2 CI inline assertions; **46/46 SQL tests**; успешное удаление disposable DB.
+- Остановиться на первой ошибке и прислать полный вывод. Не запускать runner повторно до разбора.
+- **Запреты:** не менять listener PID 15220, порт 55439 и каталог `X:\PinPosy-verify-pg18`; не обходить guards; не использовать production/`PIN_TRIAL`; не присылать пароль, токены или содержимое `.env`.
+- **Текущий статус:** Node contract и SQL fixture исправлены на уровне исходников, но runtime-проверка ещё не выполнена. SQL integration остаётся **FAIL 27/46**; tests 29–46 не запускались.
+- **Подробный аудит:** `docs/audits/2026-11-17-postgres-integration-test-28-upload-finalization-fixture-path-collision-and-migration154-contract-regex.md`.
