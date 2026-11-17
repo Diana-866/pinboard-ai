@@ -1269,3 +1269,14 @@ Assistant actions: GitHub compare, commit inspection, documentation and runner s
 | `docs/USER_ACTIONS.md` | updated in this documentation update | UA-034 password precondition, safe rerun instruction and secret-handling warning |
 
 Owner evidence: local main fast-forwarded from `30e1ac9f` to `9206d830`; clean worktree; HEAD = origin/main = `9206d83076c4ea59c0d66be15482bf58d7217226`; Node suite **45/45 pass**. Runner verified listener PID 15220 / `X:\\PinPosy-verify-pg18`, then rejected an empty hidden password for `pinposy_verify_admin`. Source blob `483ef0211e23a50ea50d1c80b9d47ce4140c09b3` proves the empty-password guard precedes PGPASSWORD setup and all psql calls. No DB connection, role/database creation, migration, inline assertion, SQL test or cleanup occurred. This is a local input stop, not a SQL runtime result. Historical SQL run remains FAIL at 34/46; fix NOT RUNTIME-VERIFIED. Assistant inspected GitHub source/docs and documented the event; no local shell/database/test execution and no secret access. Preserve listener identity; rerun only with a valid non-empty temporary-role password entered locally at the hidden prompt. Nine Bash concurrency scripts remain unverified.
+
+
+### 2026-11-17 — Second PostgreSQL runner synchronization stop
+
+| Path | Purpose |
+|---|---|
+| `docs/audits/2026-11-17-postgres-runner-second-sync-guard-stop.md` | Owner transcript, exact local/remote SHAs, runner guard proof, impact, safe synchronization steps and assistant action log |
+| `docs/PROJECT_STATE.md` | Chronological project-state entry for the second sync stop |
+| `docs/USER_ACTIONS.md` | UA-034 safe fast-forward sequence and next guarded runner action |
+
+Owner transcript: local HEAD `9206d83076c4ea59c0d66be15482bf58d7217226`; runner fetched origin/main `5fa8d042f7e85339565bae9a8f34e8ebe654100d` and stopped at repository synchronization guard. The remote advancement was caused by assistant's preceding documentation-only commits. Source `scripts/verify-integration.ps1` blob `483ef0211e23a50ea50d1c80b9d47ce4140c09b3` confirms the guard precedes listener validation, password prompt, psql, database operations and tests. No PostgreSQL interaction or SQL test occurred. Next: owner fast-forwards, confirms clean worktree and matching SHAs, then reruns guarded runner. Prior Node 45/45 and Parser 0-error gates are from unchanged source; repeat/reassess if code changed. Historical SQL runtime remains FAIL at 34/46; assertion fix NOT RUNTIME-VERIFIED; nine Bash concurrency scripts unverified. Assistant inspected transcript/source/docs and updated records only; no local commands, DB, credentials or source changes.
