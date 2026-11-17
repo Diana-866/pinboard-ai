@@ -2731,3 +2731,46 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 ```
 
 Use the existing approved local verification cluster only (listener PID 15220, port 55439, data directory `X:\\PinPosy-verify-pg18`). Enter the temporary-role password only at the hidden prompt; never send it. Do not bypass guards or target production/`PIN_TRIAL`. Stop on first SQL error and send the complete output including cleanup. Full SQL PASS requires fixture, all 147 migrations 010–156, both inline assertions, all 46/46 SQL tests and confirmed disposable DB cleanup. Nine Bash concurrency scripts remain a separate unverified gate.
+
+
+### UA-034 update — PostgreSQL test 38 follow-up: primary pin fixture correction (2026-11-17)
+
+Owner-provided run:
+- Local main fast-forwarded cleanly from d266f57da57f8219e5e1f42616111b32ad76d748 to ce3bcc98ec09d6acfff726b7bd71265c70832791; HEAD = origin/main and status clean.
+- Guarded runner verified PostgreSQL listener PID 15220, port 55439, data directory X:\PinPosy-verify-pg18 and identity 127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006. Password entered only at hidden prompt.
+- Disposable DB pinposy_sqlint_bd50f191982f4df6: upgrade fixture PASS; migrations 010–156 (147/147) PASS; inline assertions 2/2 PASS; SQL tests 1–37 PASS; test 38/46 failed at line 895 with first account publication did not start: {"status": "pin_not_approved"}. Tests 39–46 NOT RUN. Cleanup PASS; disposable DB removal confirmed. SQL integration remains NOT PASSED.
+
+Diagnosis: the previously fixed legacy-history fixture is a separate pin. The primary multi-account fixture v_pin was still inserted as pending and immediately published. Migration 148 correctly enforces approved status and returns pin_not_approved. This is a test-fixture issue; do not weaken production approval enforcement.
+
+Assistant published:
+- SQL fixture primary v_pin changed to approved: commit 2b9b6a266c37b22086678acb994c09ce56af5b82, blob 5b1f9f98662c9f2903b4edb983bb3b34f0aa3b09.
+- Existing Node source-contract test strengthened to assert both primary and legacy fixtures are approved and guard ordering remains correct; no additional test case, expected total remains 47: commit a1b5cbccf74c0a85dcf7c7d22de00d47e84fa3e2, blob 1ee73760a8bbeeaa42152b61f2139c371c8d677f.
+- Detailed audit: docs/audits/2026-11-17-postgres-integration-test-38-pinterest-legacy-history-fixture.md.
+
+**Next owner action — after synchronizing the complete documentation batch**
+
+First run and require clean fast-forward synchronization:
+
+\`\`\`powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+\`\`\`
+
+Then rerun the three-file Node preflight because its existing source-contract assertion was strengthened:
+
+\`\`\`powershell
+node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+\`\`\`
+
+Require exactly **47 tests, 47 pass, 0 fail, 0 cancelled, 0 skipped, 0 todo**. This is the expected count, not a result yet. If any failure or count mismatch occurs, stop and send the full output; do not run the PostgreSQL runner.
+
+Only after Node 47/47 PASS, rerun:
+
+\`\`\`powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+\`\`\`
+
+Use only the approved local verification cluster (PID 15220, port 55439, X:\PinPosy-verify-pg18). Enter the temporary-role password only at the hidden prompt; never send it. Stop at the first SQL error and include all output and cleanup. Do not touch production/PIN_TRIAL, bypass runner guards, or run SQL manually. Full SQL PASS requires all 46/46 SQL tests and confirmed disposable DB cleanup. Nine Bash concurrency scripts remain a separate unverified gate.
