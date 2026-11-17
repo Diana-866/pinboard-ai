@@ -1825,3 +1825,10 @@ Owner-provided PowerShell transcript confirms:
 - TAP summary: **45 tests, 45 pass, 0 fail, 0 cancelled, 0 skipped, 0 todo** (duration 108.1713 ms).
 
 This verifies the Node contract/migration/replay-chain gate against the synchronized source. It does not verify PowerShell syntax or execute PostgreSQL integration. Next: run the PowerShell Parser gate from UA-034; only if it reports exactly 0 syntax errors may the owner run the guarded PostgreSQL integration command. The earlier PostgreSQL result remains FAIL at test 34/46 until a new guarded run proves 46/46 and confirms disposable database cleanup. Tests 35–46 have not yet been demonstrated passing after the assertion fix. No database or production resource was touched by the Node command.
+
+
+## 2026-11-17 — PowerShell Parser preflight PASS
+
+Owner transcript after pulling documentation through `097765bd924cb938103ac4ec779b17af23eacf2c`: `git status --short` was empty; local `HEAD` and `origin/main` both equal `097765bd924cb938103ac4ec779b17af23eacf2c`. The owner ran `[System.Management.Automation.Language.Parser]::ParseFile` against `scripts/verify-integration.ps1`; `$errors.Count` was not greater than zero and the exact terminal result was `PowerShell Parser PASS: 0 syntax errors`.
+
+The two preflight gates are now confirmed: Node suite **45/45 pass** (documented above) and PowerShell Parser **0 syntax errors**. This authorizes the owner to proceed to the guarded PostgreSQL integration command in UA-034. It does not itself prove PostgreSQL runtime success. The earlier SQL integration run remains failed at test 34/46; the assertion correction remains NOT RUNTIME-VERIFIED until a fresh run demonstrates all 46/46 tests and confirms disposable database cleanup. No PostgreSQL command was run as part of this Parser check, and no production/PIN_TRIAL resource was touched.
