@@ -92,7 +92,7 @@ test("Windows replay applies stubs, canonical baseline, then exactly 145 active 
 });
 
 test("Windows replay rejects gaps or out-of-range migrations in the 010-154 chain", () => {
-  assert.match(windowsScript, /10\.\.153/);
+  assert.match(windowsScript, /10\.\.154/);
   assert.match(windowsScript, /expectedMigrationSequence/);
   assert.match(windowsScript, /actualMigrationSequence/);
   assert.match(windowsScript, /\$actualMigrationSequence -ne \$expectedMigrationSequence/);
