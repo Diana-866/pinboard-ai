@@ -1892,3 +1892,49 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 Если возникнет первая ошибка — остановиться, ничего вручную не чинить и не повторять runner до разбора. Пришли полный вывод ошибки и cleanup. Не присылай пароли, токены или содержимое `.env`.
 
 **Критерий SQL PASS:** все перечисленные этапы завершились успешно, все 46 тестов прошли, cleanup подтверждён. Node/Parser PASS сами по себе не означают PostgreSQL integration PASS.
+
+
+## UA-023 — Rerun PostgreSQL integration after test 28 fixture correction (2026-11-17)
+
+**Статус:** ожидает владельца. Предыдущий SQL runner: **FAIL 27/46**, но временная БД успешно удалена.
+
+### Предыдущий запуск — факты
+
+- Fixture applied; 144 migrations 010–153 applied; 2 CI inline assertions passed.
+- SQL tests 1–27 passed.
+- Test 28 failed because fixture marked parent generation request `completed` while its only task was `failed` and nullable `pins` remained NULL. Migration 071 correctly rejected the inconsistent completion.
+- Cleanup confirmed: disposable DB `pinposy_sqlint_954a7251fb504472` was dropped and reported removed. Tests 29–46 did not run.
+- Assistant changed only `backend/test/pin-image-deletion-claims.integration.sql`: parent now has terminal `failed` status and `provider_task_failed` error code, consistent with the failed task. No production SQL/migration change.
+- Detailed audit: `docs/audits/2026-11-17-postgres-integration-test-28-parent-generation-terminal-state-fixture.md`.
+
+### 1. Synchronize
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Require clean worktree and HEAD = origin/main.
+
+### 2. Rerun Node contract gates
+
+```powershell
+node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+```
+
+Require **42/42 PASS**. If any failure, stop and send full output; do not run SQL runner.
+
+The PowerShell runner was not changed by this fixture-only correction, so the previously owner-confirmed Parser result (0 syntax errors) remains the current parser evidence.
+
+### 3. Only after Node PASS, rerun guarded PostgreSQL integration
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+```
+
+Send complete output. Expected progression: 144 migrations, 2 inline assertions, all 46 SQL tests, confirmed cleanup. Stop at first error; do not manually modify database or repeat runner before diagnosis.
+
+Do not bypass guards, change PID 15220 / port 55439 / data directory, touch `X:\\PinPosy-verify-pg18`, or use production/PIN_TRIAL. Do not send passwords, tokens, or `.env` contents.
