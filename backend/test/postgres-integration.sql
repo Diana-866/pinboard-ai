@@ -372,6 +372,8 @@ begin
   if (v_result->>'balance')::integer <> 90 then raise exception 'generation debit was not applied'; end if;
   if jsonb_array_length(v_result->'pins') <> 2 then raise exception 'expected two persisted pins'; end if;
   select id into v_pin from public.pins where board_id=v_board order by created_at limit 1;
+  -- Migration 148 requires explicit approval before Pinterest publication or scheduling.
+  update public.pins set status='approved' where id=v_pin;
 
   -- Regeneration updates the image and debit as one transaction.
   v_result := public.update_pin_image_and_charge(
@@ -802,7 +804,7 @@ begin
 
   -- An uncertain external result must remain blocked, never auto-retried.
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
-  values (v_board, 'https://cdn.example.invalid/uncertain.png', 'Uncertain', '', 'pending', 'flux-schnell', 0)
+  values (v_board, 'https://cdn.example.invalid/uncertain.png', 'Uncertain', '', 'approved', 'flux-schnell', 0)
   returning id into v_uncertain_pin;
   v_publish_result := public.begin_pinterest_publish_v2(v_user::text, v_uncertain_pin, v_pinterest_account, 'pinterest-board-ci');
   if v_publish_result->>'status' <> 'started' then raise exception 'uncertain test reservation did not start'; end if;
@@ -815,7 +817,7 @@ begin
   -- A late successful Pinterest response can still reconcile an unknown attempt
   -- without issuing a second remote create request.
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
-  values (v_board, 'https://cdn.example.invalid/late-success.png', 'Late success', '', 'pending', 'flux-schnell', 0)
+  values (v_board, 'https://cdn.example.invalid/late-success.png', 'Late success', '', 'approved', 'flux-schnell', 0)
   returning id into v_late_success_pin;
   v_publish_result := public.begin_pinterest_publish_v2(v_user::text, v_late_success_pin, v_pinterest_account, 'pinterest-board-ci');
   if v_publish_result->>'status' <> 'started' then
@@ -887,7 +889,7 @@ begin
   -- A separate unpublished pin is used for the schedule create/cancel/reschedule
   -- lifecycle: the previously published pin must remain protected by the unique index.
   insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
-  values (v_board, 'https://cdn.example.invalid/schedule-test.png', 'Schedule lifecycle', '', 'pending', 'flux-schnell', 0)
+  values (v_board, 'https://cdn.example.invalid/schedule-test.png', 'Schedule lifecycle', '', 'approved', 'flux-schnell', 0)
   returning id into v_schedule_test_pin;
 
   -- Persistent schedule records remain scheduled until a publisher confirms success.
