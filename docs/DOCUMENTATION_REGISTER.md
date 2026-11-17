@@ -556,3 +556,13 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 - Updated `docs/USER_ACTIONS.md`: blob `b90f530b7957d9f4583786065e18b79c66a34411`, commit `8e7638748e46fe12d8bc2b8b8131eaa8868e204d`.
 - Updated audit `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`: blob `5df7b1df04995c0b6ef8addaf0dfc4a3f53da3b4`, commit `9050a6e0dcd4d5b79a5a2926f69b7b5db80e3e76`.
 - Documentation records both direct and process-scoped invocations, exact Git hashes, assistant source inspection, the reason for the guard, and the safe fast-forward-only next step. SQL integration remains NOT PASSED.
+
+
+### 2026-11-17 owner confirms synchronized checkout
+
+- Owner's `git status --short` was empty; `git pull --ff-only origin main` fast-forwarded local main to `95b7aa3c`; `git rev-parse HEAD` and `git rev-parse origin/main` both returned `95b7aa3cadfdb0b5d213ec65d2d61cf47ffcf990`.
+- Runner source blob inspected: `74c128b4c6933b8b5aba888e4abeb01200df2ab6`; Node contract test blob: `902a0d700a1b145d7e48ad5f0cc856c5bd6f99a1`.
+- Updated `docs/PROJECT_STATE.md`: blob `beb2d57081131d66651042c561512cd071e364e9`, commit `596c06489b73e7d46facecf54cd5ee6aa66f4e84`.
+- Updated `docs/USER_ACTIONS.md`: blob `d1f522ab22ba7cd16b5ffa2d49c01dde99b2dc3d`, commit `50469b50a89a9f56a38d3242d0ef6b3a88bff30e`.
+- Updated audit `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`: blob `00f5cfb24c2e77a9f8ac7c68def926bf1ec77bb0`, commit `720743a6c9c543b976bff64b6c351d890f088f8f`.
+- Recorded owner transcript, exact Git result, assistant retrieval/source-inspection/documentation steps and next gate. Git synchronization is PASS; SQL integration remains NOT PASSED pending a successful guarded run and confirmed cleanup.
