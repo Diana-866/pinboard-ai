@@ -2102,3 +2102,62 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 **Безопасность:** сохранить listener PID 15220, порт 55439, каталог `X:\\PinPosy-verify-pg18`. Не останавливать и не перенастраивать сервер, не обходить guards, не использовать production/`PIN_TRIAL`, не отправлять пароли/токены/`.env`.
 
 **Текущий статус:** SQL integration **FAIL 27/46** (test 28); tests 29–46 не запускались. Migration 156, Node contract и изменённые replay scripts пока не runtime-verified. Девять Bash concurrency scripts остаются отдельным непроверенным этапом.
+
+
+## UA-028 — повторная проверка Node-контракта migration 156 и SQL test 29
+
+**Статус:** ожидает владельца.
+
+**Причина:** guarded run на clean main `5aee55dcf504dbb4e8ece704733681afcb4436f0` применил fixture, 147 миграций 010–156 и обе CI assertions; SQL tests 1–28 прошли. Test 29 упал при первом INSERT pin с `pin image object is not available for new references`. Disposable DB `pinposy_sqlint_ebd8138f1c3143c8` удалена, tests 30–46 не запускались. Одновременно Node contract для migration 156 упал из-за over-escaped regex; общий счётчик Node-тестов в присланном фрагменте отсутствовал. PowerShell Parser прошёл: 0 syntax errors.
+
+**Исправления в GitHub (только тесты):**
+- Node contract migration 156: исправлены четыре regex literals, чтобы они соответствовали реальному SQL и стилю контрактов migrations 154/155.
+- SQL test 29: старый image path строится из UUID тестового пользователя, replay path — из UUID проекта. Это устраняет конфликт с test 28, который использовал прежний фиксированный путь `generation-eeee...eeee.png` и оставлял lifecycle tombstone. Триггер не ослаблялся.
+- Production SQL, миграции, runner и CI не менялись.
+- Подробный аудит: `docs/audits/2026-11-17-postgres-test-29-retention-inventory-path-collision-and-migration156-contract-regex.md`.
+
+### 1. Синхронизация
+
+Из PowerShell в `X:\\!PROGECT\\pinboard-ai`:
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Требуется чистое дерево и HEAD = origin/main.
+
+### 2. Node contract gate
+
+```powershell
+node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+```
+
+Ожидается **45 tests, 45 pass, 0 fail**. Если фактическое количество отличается, пришли полный итог; при любом FAIL остановиться. SQL runner до Node PASS не запускать.
+
+### 3. PowerShell Parser gate
+
+```powershell
+$tokens = $null
+$errors = $null
+[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path .\\scripts\\verify-integration.ps1), [ref]$tokens, [ref]$errors) | Out-Null
+if ($errors.Count -gt 0) { $errors | Format-List *; exit 1 }
+"PowerShell Parser PASS: 0 syntax errors"
+```
+
+Требуется 0 syntax errors.
+
+### 4. Только после Node и Parser PASS — guarded PostgreSQL runner
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+```
+
+Требуется fixture applied; **147 migrations 010–156**; 2 CI inline assertions; **46/46 ordered SQL tests**; подтверждённое удаление disposable DB. Остановиться на первой ошибке и прислать полный вывод.
+
+**Безопасность:** сохранить listener PID 15220, порт 55439 и каталог `X:\\PinPosy-verify-pg18`. Не останавливать/перенастраивать сервер, не обходить guards, не использовать production/`PIN_TRIAL`, не присылать пароли, токены или `.env`.
+
+**Текущий статус:** SQL integration **FAIL 28/46** (test 29); tests 30–46 не запускались. Исправленные Node contract и SQL fixture пока не runtime-verified. Девять Bash concurrency scripts остаются отдельным непроверенным этапом.
