@@ -1753,3 +1753,16 @@ The corrected fixture is **NOT RUNTIME-VERIFIED**. The 45/45 Node and 0-error Pa
 Это подтверждает, что локальная рабочая копия чистая и синхронизирована с GitHub main на коммите `ff1ea965d644008d7fcd1160516042b288a4690a`. Это только подтверждение синхронизации, не тестовый результат: после approval-fixture исправления Node suite, PowerShell Parser и PostgreSQL runner ещё не запускались/не представлены. Следующий порядок: Node contract/migration/replay-chain gate (45/45), затем PowerShell Parser (0 ошибок), и только после обоих PASS — guarded PostgreSQL runner (147 migrations 010–156, 2 CI assertions, 46/46 SQL tests, cleanup disposable DB). Девять Bash concurrency scripts остаются отдельным непроверенным этапом.
 
 Ассистент проверил актуальные GitHub-документы и SQL fixture перед фиксацией полученного evidence; не запускал локальные команды и не менял тесты/миграции/приложение. Подробная запись синхронизации и оставшихся gates добавлена в audit test 34 и UA-033.
+
+
+### 2026-11-17 — PostgreSQL test 34 approval fixture: Node и PowerShell gates повторно пройдены
+
+Владелец подтвердил локальную синхронизацию с документационным commit `948df3b9c9590fd78e6beb1690dcd3785e91d54f`: `git pull --ff-only origin main` прошёл fast-forward с `ff1ea965` на `948df3b9`; рабочее дерево чистое.
+
+После изменения approval fixture (source commit `29b393ece2738f94b5ecb9ac5a74663f8581d66e`, blob `fce98ac3665f92b6126d2164439295d7c29c0e31)) владелец повторно выполнил:
+- `node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js`: **45 tests, 45 pass, 0 fail, 0 skipped**.
+- PowerShell Parser для `scripts/verify-integration.ps1`: **0 syntax errors**.
+
+Оба предварительных gates после последнего SQL fixture изменения подтверждены. Это не доказывает успешность PostgreSQL runtime integration: guarded runner ещё не запускался после исправления. Следующий шаг — владелец запускает `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1` только с сохранением ограничений UA-033: ожидаются upgrade fixture, 147 migrations 010–156, две CI inline assertions, 46/46 SQL tests и подтверждённый cleanup disposable DB; остановиться на первой ошибке. Сохранить PostgreSQL listener PID 15220, port 55439 и data directory `X:\\PinPosy-verify-pg18`; не обходить guards, не использовать production/`PIN_TRIAL`, не передавать секреты. Девять Bash concurrency scripts остаются отдельным непроверенным этапом.
+
+Ассистент повторно сверил с GitHub текущие project state, audit, owner actions, documentation register, SQL fixture и runner. Ассистент не запускал локальные Node/PowerShell/psql/PostgreSQL/Bash/CI; приведённые PASS — evidence из вывода владельца. В этом follow-up не менялись SQL fixture, migrations, production code, runner или CI. Подробный audit и UA-033 обновлены; register содержит точные blob SHA.
