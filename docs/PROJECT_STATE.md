@@ -1956,3 +1956,6 @@ Current verification boundary:
 - SQL integration PASS requires all 46/46 SQL tests and cleanup. Nine Bash concurrency scripts remain a separate unverified gate.
 
 Detailed record: docs/audits/2026-11-17-postgres-integration-test-38-pinterest-legacy-history-fixture.md.
+
+
+Documentation authoring chronology note: two assistant-side JavaScript wrapper SyntaxErrors occurred while preparing documentation updates for this incident (one audit payload, then one combined state/owner-action payload). Both happened before any GitHub write from the respective failed attempt and caused no repository change; both were retried successfully. Full details are in the incident audit. These were not project source/test failures.
