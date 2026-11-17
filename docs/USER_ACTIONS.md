@@ -2638,3 +2638,40 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integra
 Node 45/45 and PowerShell Parser 0-error were previously passed against the same code snapshot; the intervening commits are documentation-only. If any source, migration, test, runner or CI file changed, stop and re-evaluate those gates first. If the runner reaches the hidden password prompt, enter a non-empty password for the approved temporary role only if known; never send it in chat or write it to files/logs. If unknown, stop.
 
 Preserve approved local cluster identity when revalidated: PID 15220, port 55439, `X:\\PinPosy-verify-pg18`. Do not target production/`PIN_TRIAL`, run SQL manually or weaken safety checks. Full incident: `docs/audits/2026-11-17-postgres-runner-second-sync-guard-stop.md`. SQL assertion fix remains NOT RUNTIME-VERIFIED; historical SQL run remains FAIL at test 34/46; nine Bash concurrency scripts remain unverified.
+
+
+### UA-034 update — PostgreSQL test 35/46 exposed an invalid OAuth assertion; test correction published (2026-11-17)
+
+**Owner run evidence**
+- Owner synchronized clean local main from `9206d830` to `68d32f33`; `HEAD = origin/main = 68d32f33a6760b27577cbe15716f0c61c97984ef`; pre/post worktree status empty.
+- Guarded runner verified listener PID 15220, `X:\\PinPosy-verify-pg18`, and exact server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`. Password was entered only at the hidden prompt.
+- Disposable DB `pinposy_sqlint_66dec8d3e0aa48e4`: fixture PASS; migrations 010–156 (**147**) PASS; two inline assertions PASS; SQL tests 1–34/46 PASS; test 35/46 `pinterest-oauth.integration.sql` failed with `stale OAuth callback left active credentials after token-version change`; tests 36–46 NOT RUN.
+- Cleanup PASS: 0 remaining sessions, disposable DB dropped and explicit removal confirmed. Overall SQL integration remains **NOT PASSED**.
+
+**Source finding and published correction**
+- The test first reconnects a Pinterest account, leaving it legitimately active, then simulates password reset by incrementing `users.token_version`.
+- Migration 032 correctly rejects the stale callback with `reason='stale_session'` before changing existing Pinterest account rows.
+- The old test incorrectly required zero active credentials for the whole user, effectively expecting password reset to disconnect the pre-existing Pinterest account.
+- Only the SQL test was changed: it now checks the stale-session rejection, preservation of the reconnected account/credentials, and absence of an old-session account.
+- A Node source-contract assertion was added for this behavior.
+- Audit: `docs/audits/2026-11-17-postgres-integration-test-35-pinterest-oauth-stale-session-assertion.md`.
+
+**Next owner action — after pulling all documentation commits and confirming clean synchronized main**
+
+Run the three-file Node gate:
+
+```powershell
+node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+```
+
+Expected result: **46 tests, 46 pass, 0 fail, 0 skipped, 0 todo**. This is the expected count after adding one contract assertion to the previous 45-test suite; it is not a result yet. If any test fails or the count differs, STOP and send the full output. Do not run the PostgreSQL runner.
+
+The PowerShell Parser previously passed with 0 syntax errors and the runner file has not changed in this correction. If the Node gate passes, run the guarded runner exactly as before:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+```
+
+Enter the temporary-role password only at the hidden prompt; never send it in chat. Stop at the first SQL error and provide the full output including cleanup. SQL integration PASS requires fixture, 147 migrations 010–156, both inline assertions, all 46/46 SQL tests and confirmed disposable database cleanup.
+
+Preserve PID 15220, port 55439 and `X:\\PinPosy-verify-pg18`. Do not touch production/`PIN_TRIAL`, use manual SQL, bypass guards or run the nine Bash concurrency scripts before SQL PASS.
