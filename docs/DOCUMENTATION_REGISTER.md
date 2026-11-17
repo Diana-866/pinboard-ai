@@ -21,8 +21,8 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 3 | `docs/MASTER_REQUIREMENTS.md` | `0891fc83d68de51acb298d1ad4da4f733a0499aa` | Reviewed/reconciled 2026-11-16; see audit reports |
 | 4 | `docs/PIN_TRIAL_MIGRATION_STATUS.md` | `2e0f66ccfa1ab9aeb71f80d299a5c4465e347d9e` | Owner-provided DB evidence; incomplete inventory |
 | 5 | `docs/PRODUCTION_READINESS_AUDIT.md` | `777ce34d539b3264b10554aa2cd731d436f080e2` | Reviewed/reconciled 2026-11-16; see audit reports |
-| 6 | `docs/PROJECT_STATE.md` | `a5734c5213a71abf6bf47c3ce577a887119c14b6` | Current operational source of truth; records exact successful PostgreSQL migration replay procedure, evidence and journal |
-| 7 | `docs/USER_ACTIONS.md` | `97bb9c6ec0b6826cdb3aaf19101102a9b6866f82` | Owner actions; explicitly preserves migration replay PASS and separates SQL integration runner |
+| 6 | `docs/PROJECT_STATE.md` | `e32b651ef8ac151ba9785483cddf5135e881b34c` | Current operational source of truth; records migration replay PASS and SQL integration block at migration 018 |
+| 7 | `docs/USER_ACTIONS.md` | `1563b04a0c45a6b502c645d92cbc88211fcc9d14` | Owner actions; records identity guard PASS, migration 018 failure, confirmed disposable DB cleanup and next diagnostic |
 | 8 | `docs/architecture/pin-image-deletion-claim-protocol.md` | `0957b13bae0632ce8e34a5675b4a06f6ef8477a4` | Inventory only; content review pending |
 | 9 | `docs/audits/2026-11-16-account-deletion-runbook-reconciliation.md` | `4d1fa6f8e78162abbb29a3487a776c2b1c3cf319` | Historical audit/evidence; applicability must be checked against current main/tests |
 | 10 | `docs/audits/2026-11-16-ci-concurrency-harness-isolation-fix.md` | `dc050c2c7d0aa1415a5585e6820b1a2e8772fbd9` | Historical audit/evidence; applicability must be checked against current main/tests |
@@ -480,9 +480,11 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 5. Proposals: compare with migrations now in main; label implemented, superseded or still proposed.
 6. Refresh blob SHAs after documentation edits; do not mark inventory as content review.
 
-- `scripts/verify-integration.ps1` — guarded PostgreSQL SQL integration runner; identity check now normalizes `inet_server_addr()` via `host(...)`; blob `05787d0f8067d3412ed10e06856e7b1cdfce1c6d`.
+- `scripts/verify-integration.ps1` — guarded PostgreSQL SQL integration runner; identity check normalizes `inet_server_addr()` via `host(...)`; blob `05787d0f8067d3412ed10e06856e7b1cdfce1c6d`. Owner retest passed identity guard but stopped at migration 018 constraint collision; disposable DB cleanup confirmed.
 - `backend/test/postgres-integration-runner-contract.test.js` — contract test includes inet/CIDR identity normalization assertion; blob `4316f2c19767e8bf6ed06cb5e291130ecc152d38`.
 
-- Latest verification note: successful migration replay (`001_baseline.sql` + `010–148`, 139 migrations) remains PASS; separate SQL integration runner stopped at identity guard before its own disposable DB, fixture, assertions or 46 SQL tests. See `docs/PROJECT_STATE.md` and `docs/USER_ACTIONS.md`.
+- Latest verification note: successful migration replay (`001_baseline.sql` + `010–148`, 139 migrations) remains PASS. Separate SQL integration runner passed identity guard, created and cleaned disposable DB, then stopped at `018_preferred_language.sql` because `users_preferred_language_check` already exists. Inline assertions and 46 SQL tests remain NOT RUN. See `docs/PROJECT_STATE.md`, `docs/USER_ACTIONS.md`, and the PowerShell audit.
 
 - Owner supplied the complete PowerShell transcript for the successful `verify.ps1 -MigrationsOnly` replay: canonical baseline plus 139 migrations, disposable database cleanup, explicit `MIGRATION REPLAY PASSED`. Full guarded procedure is now recorded in `PROJECT_STATE.md` and the PowerShell audit. Do not conflate it with the separate SQL integration runner / 46 tests.
+
+- Migration 018 collision owner transcript and static investigation recorded in `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md`; latest audit blob to be refreshed after commit.
