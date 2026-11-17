@@ -2,7 +2,7 @@
 
 **Repository:** Diana-866/pinboard-ai  
 **Branch:** main  
-**Source HEAD (before this register refresh):** 3f295261051e9fd65d8b1e770bc7997ec0cc404e  
+**Source HEAD (before this register refresh):** 192ff131d12e8ecf6f2e5ac73c88ccaed8ff7afa  
 **Inventory refreshed:** 2026-11-17  
 **Scope:** all documentation files under docs/ (Markdown and SQL), excluding this register itself.
 
@@ -21,8 +21,8 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 3 | `docs/MASTER_REQUIREMENTS.md` | `0891fc83d68de51acb298d1ad4da4f733a0499aa` | Reviewed/reconciled 2026-11-16; see audit reports |
 | 4 | `docs/PIN_TRIAL_MIGRATION_STATUS.md` | `2e0f66ccfa1ab9aeb71f80d299a5c4465e347d9e` | Owner-provided DB evidence; incomplete inventory |
 | 5 | `docs/PRODUCTION_READINESS_AUDIT.md` | `777ce34d539b3264b10554aa2cd731d436f080e2` | Reviewed/reconciled 2026-11-16; see audit reports |
-| 6 | `docs/PROJECT_STATE.md` | `10f79fbfd51fdc454049f16950722ef74678f1e7` | Current operational source of truth; records PostgreSQL test 20/46 failure, additive migration 151 and pending owner gates |
-| 7 | `docs/USER_ACTIONS.md` | `90934cfebad40d7db6955a545e7e8aa429433209` | Owner actions; UA-014: Node/Parser/guarded PostgreSQL rerun gates for migration 151 |
+| 6 | `docs/PROJECT_STATE.md` | `852cab05c234fb6b31c9dcd386276680ca75f2f5` | Current operational source of truth; chronological record through approved-pin fixture correction; SQL integration NOT PASSED |
+| 7 | `docs/USER_ACTIONS.md` | `ad083f99cf351156a0b13989e31fcb8d2c8587b5` | Owner actions; UA-017: Node, Parser and guarded PostgreSQL rerun gates after approved-pin fixture correction |
 | 8 | `docs/architecture/pin-image-deletion-claim-protocol.md` | `0957b13bae0632ce8e34a5675b4a06f6ef8477a4` | Inventory only; content review pending |
 | 9 | `docs/audits/2026-11-16-account-deletion-runbook-reconciliation.md` | `4d1fa6f8e78162abbb29a3487a776c2b1c3cf319` | Historical audit/evidence; applicability must be checked against current main/tests |
 | 10 | `docs/audits/2026-11-16-ci-concurrency-harness-isolation-fix.md` | `dc050c2c7d0aa1415a5585e6820b1a2e8772fbd9` | Historical audit/evidence; applicability must be checked against current main/tests |
@@ -421,6 +421,7 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 403 | `docs/runbooks/release-line.md` | `ca56773268024b6c851b61600be5a8b16373a4de` | Operational runbook; code/environment/approval review required |
 | 404 | `docs/storage-lifecycle.md` | `870605f72ea42835d9784120ba0b4ed6d6bb6c69` | Inventory only; content review pending |
 | 405 | `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md` | `ba261b16cb5531af089aee7ef5bac54a43a79add` | Execution evidence; includes exact owner-provided migration replay procedure and PASS evidence |
+| 413 | `docs/audits/2026-11-17-postgres-integration-test-28-approved-pin-fixture-and-runner-contract.md` | `75d402bdc8d3c1eb34c3157fe9c7d9efc961bb0b` | Follow-up audit: migration-148 approved-pin fixture requirement, stale 10–152 Node contract, exact owner evidence and rerun gates |
 
 ## Inventory findings
 
@@ -923,3 +924,14 @@ The final source/document blobs above were fetched from GitHub after publication
 | `docs/USER_ACTIONS.md` | `134af16420c6f5402b05b62bc4521042a317189e` | `f9b1f8a13b4391441690313b4b86d84c22745ff3`; UA-016 exact owner synchronization and test gates |
 
 Owner evidence: Node 40/41 PASS with one baseline RegExp helper failure; PowerShell Parser 0 errors; fixture, 143 migrations 010–152 and both inline assertions PASS; SQL tests 1–27 PASS; test 28 failed because migration 145's replacement function reacquired an expired external delete claim. Tests 29–46 did not run. Disposable DB cleanup confirmed. Migration 153 and updated test/replay chain have been source-reviewed from GitHub but not runtime-tested. Assistant did not execute Node, PowerShell, psql or PostgreSQL. SQL integration remains **NOT PASSED**.
+
+
+## Latest source/documentation verification — 2026-11-17
+
+- `backend/test/pin-image-deletion-claims.integration.sql`: blob `2beed365cabe903e1fb8a47a5189e8bfb98a0fb3`, commit `e4f2d72fdfc4fc547b356c46db697dcba8dfee22`; schedule-snapshot fixture explicitly inserts an approved pin, matching migration 148's schedule guard.
+- `backend/test/verify-script-migration-chain.test.js`: blob `d4fa2a7d659a758c61bc8b63b75e624588801e71`, commit `982500d43a81bd3b2a8ba53aa1534b422e103ce7`; Windows replay contract now expects `10..153`.
+- `docs/audits/2026-11-17-postgres-integration-test-28-approved-pin-fixture-and-runner-contract.md`: blob `75d402bdc8d3c1eb34c3157fe9c7d9efc961bb0b`; owner transcript, root causes, exact corrections, failed edit attempt, checks and next gates.
+- `docs/PROJECT_STATE.md`: blob `852cab05c234fb6b31c9dcd386276680ca75f2f5`; appended chronological rerun incident.
+- `docs/USER_ACTIONS.md`: blob `ad083f99cf351156a0b13989e31fcb8d2c8587b5`; added UA-017 with exact owner gate order and safety constraints.
+
+All five paths were re-fetched from GitHub after publication. Static checks confirmed the approved fixture statement is present and the Windows contract contains `10..153` and no longer expects `10..152`. This is source/document verification only; the updated Node and SQL tests have not been executed by the assistant or owner. PostgreSQL integration remains **NOT PASSED** until all 46 tests and cleanup pass.
