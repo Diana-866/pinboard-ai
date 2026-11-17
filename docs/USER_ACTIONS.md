@@ -561,3 +561,19 @@ Interpretation and boundaries:
 - Previous PowerShell Parser API PASS was recorded against an earlier pulled revision; re-run it on current `7f0084ca` before invoking the integration runner.
 - No new disposable database was created and no migrations, inline assertions or SQL integration tests ran in this turn.
 - Next owner action: run the documented PowerShell Parser API check; if PASS, execute the guarded integration runner and send the full output. Keep all safety guards; do not stop PID 15220, alter the temporary PostgreSQL cluster, or touch production/PIN_TRIAL.
+
+
+### UA-004 follow-up — PowerShell Parser PASS on current main (2026-11-17)
+
+Owner transcript and result:
+- Owner ran the PowerShell Parser API against `scripts/verify-integration.ps1` with `$ErrorActionPreference = 'Stop'`, initialized `$tokens` and `$errors`, and called `[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path ...).Path, [ref]$tokens, [ref]$errors)`.
+- The parser error branch did not execute; terminal output: **`PASS: PowerShell parser`**.
+- Together with the immediately preceding owner result of **10/10** Node contract checks, the source-level checks are now green for this revision.
+
+Scope boundary:
+- Parser validation does not execute PowerShell commands in the runner. No PostgreSQL identity guard, disposable database creation, migration, inline assertion, SQL integration test or cleanup occurred in this transcript.
+- The SQL integration gate remains NOT PASSED / NOT YET RE-RUN after the catalog diagnostic cast fix.
+
+Assistant action: fetched current runner, Node contract test and tracking documents from GitHub `main`, checked the source blob identities, and recorded the supplied owner transcript and limits in the project state, owner action log and audit. No source file or database was modified by this documentation update.
+
+**Next owner action:** execute the guarded runner on clean synchronized `main`; provide the full output. Do not stop PID 15220, alter/reinitialize the temporary cluster, bypass guards, or touch production/PIN_TRIAL. Confirm all expected stages and final disposable database absence before marking the SQL integration gate PASS.
