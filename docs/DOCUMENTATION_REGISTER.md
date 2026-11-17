@@ -1328,3 +1328,14 @@ Evidence: owner reported clean synchronized `main` at `d266f57da57f8219e5e1f4261
 | docs/USER_ACTIONS.md | blob 303f771c2f5f796111a245a20ce809bd85a216fe; commit fd7123792ab0c78783810fc357889fc29848699c | UA-034 updated with owner run, next synchronization, Node 47/47 preflight and guarded PostgreSQL runner instructions |
 
 Owner evidence: synchronized clean main at ce3bcc98ec09d6acfff726b7bd71265c70832791; upgrade fixture, 147 migrations and both inline assertions passed; SQL tests 1–37 passed; test 38 failed at first publication because the primary v_pin fixture remained pending; tests 39–46 not run; disposable DB cleanup passed. The prior legacy-history fixture correction was correct but incomplete because it did not change the separate primary fixture. Assistant changed only test fixture and its existing Node contract; no production code or migration changed. New changes are NOT RUNTIME-VERIFIED. Expected Node suite remains 47 tests; prior 47/47 predates the strengthened assertion. SQL integration remains NOT PASSED. Next: owner pulls the full docs batch, reruns Node 47/47, then guarded PostgreSQL runner. Nine Bash concurrency scripts remain unverified.
+
+
+### 2026-11-17 — Documentation authoring chronology completed
+
+| Path | Blob SHA / commit | Purpose |
+|---|---|---|
+| docs/audits/2026-11-17-postgres-integration-test-38-pinterest-legacy-history-fixture.md | blob 14c79d2280a31a1e4bedfb1a9622803f5e51a1f5; commit 4c9a45bf155b755fd53b8e2c2e33a793e9531e58 | Records both assistant-side JavaScript wrapper SyntaxErrors that occurred before GitHub writes, confirms no repository changes from failed attempts, and records successful retries |
+| docs/PROJECT_STATE.md | blob e3be073dd8a5f88962343d84ab898dc2795ff292; commit 23bf8ba6c7195fa7d82fca9c5d1a6f8c82222531 | Adds explicit documentation-authoring chronology note |
+| docs/USER_ACTIONS.md | blob 9eca21ec22b988f7d94da3bf977558c00bf8e9a5; commit 69b0fa7c3fa38e8b2efa757a20ecee05a8a1e96d | Adds assistant documentation note so the owner action record links to the full incident chronology |
+
+These wrapper errors occurred before any GitHub write from their failed attempts; no source, test, documentation, ref or database state was changed by those attempts. Successful documentation updates are recorded above.
