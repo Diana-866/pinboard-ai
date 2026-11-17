@@ -1089,3 +1089,13 @@ Assistant actions: fetched the current GitHub source and docs; compared migratio
 Owner evidence: clean main 484a7857e243ab8629b4056bb226b1dfea05806f; fixture and 146 migrations 010–155 applied; two CI inline assertions and SQL tests 1–27 passed; test 28 failed because upload reservation ignored `pin_regeneration_requests.result_pin.image_url`. Disposable database `pinposy_sqlint_d2afcaa5940843eb` was dropped and removal confirmed. Tests 29–46 were not run. Diagnosis: migration 107 introduced the replay payload guard; migration 145 replaced the function without it; migration 154 restored tombstone protection but still omitted the guard. This is a production SQL regression, not a fixture defect.
 
 Migration 156 restores the missing replay payload reference check in `begin_pin_image_upload()`, based on migration 154 and preserving the full current reference inventory, permanent deleted/quarantined path protection, and service-role-only execution. Historical migrations and the regression fixture remain unchanged. The migration chain and all local replay/CI paths now expect 147 contiguous migrations 010–156; CI explicitly applies migration 156. Source files were re-fetched and their final blob SHAs recorded above. Assistant did not run Node, PowerShell, psql, PostgreSQL, Bash or CI. Migration 156 and updated tests/scripts are not runtime-verified; owner must run Node (45 expected tests), Parser (0 syntax errors), then guarded SQL replay requiring all 46 tests and cleanup. Detailed chronology and safety constraints are in the audit and UA-027. Nine Bash concurrency scripts remain outside this runner.
+
+
+### 2026-11-17 — migration 156 contract regex correction
+
+| Path | Blob SHA | Commit / reason |
+|---|---|---|
+| `backend/test/postgres-integration-runner-contract.test.js` | `a381cd497fc199e5fcba6464c842fd5f5fc664d1` | `71573a738d71f514af742f18e40a62f556f71bd6`; correct four over-escaped migration-156 regex assertions |
+| `docs/audits/2026-11-17-migration-156-contract-regex-overescaping.md` | `35bdb41979e420d7dd06d6ac9e4641c1dc0779a1` | `6bc3109efc2d44e29a222a26c64e3ba060acbc1b`; repository/CI snapshot, regex reproduction, WSL/native-runner clarification and verification gates |
+
+Focused JavaScript probe against migration 156: old matchers 0/4, corrected matchers 4/4. The test file and audit were fetched back from GitHub. Full Node, PowerShell, PostgreSQL and SQL integration suites were not run. No main merge or production/database change. PR #90 remains stale (3 ahead / 1001 behind) with its Windows job queued; migration SQL verification should proceed through the existing guarded native Windows runner, not wait for WSL. Owner gates and safety constraints: UA-028.
