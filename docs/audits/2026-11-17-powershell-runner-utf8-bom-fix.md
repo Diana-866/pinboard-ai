@@ -229,3 +229,14 @@ Current runner blob inspected: `74c128b4c6933b8b5aba888e4abeb01200df2ab6`. Guard
 Assistant actions: retrieved runner and four documentation files from GitHub main; checked guard order and source hash; traced local/remote hashes to the previous assistant documentation commit; documented the user's transcript and assistant accountability; updated the register; and re-fetched documents to verify exact blob identities. No local checkout, database, production/PIN_TRIAL or secret was touched.
 
 Corrected procedure after this documentation update: owner checks `git status --short`; only if clean, performs `git pull --ff-only origin main`; verifies `git rev-parse HEAD` and `git rev-parse origin/main` match; then runs the guarded process-scoped integration command immediately. No assistant commit should occur between that pull and the run. Each subsequent assistant commit to main necessarily advances the remote and requires another pull before the next runner attempt. SQL integration remains NOT PASSED.
+
+
+## 17. Integration run reached migration 018; root cause still unproven (2026-11-17)
+
+Owner synced local main and origin/main to `13166c8cd476a13a787e9584f5b914430f702cc1`, then executed the guarded PowerShell runner. It verified the approved temporary PostgreSQL server identity and created disposable DB `pinposy_sqlint_318fd598c73448c5`. The fixture and migrations 010–017 completed. Migration 018 failed; inline assertions and all 46 SQL tests were not reached.
+
+Pre-018 catalog output listed only the expected six constraints directly on `public.users`; neither a target-named constraint nor relation appeared in the runner's diagnostic output. The psql text supplied by owner is mojibake and visibly includes SQLSTATE 00000 NOTICE for the expected `DROP CONSTRAINT IF EXISTS` behavior. It does not reliably show the actual subsequent server ERROR or SQLSTATE. The NOTICE must not be mistaken for the root cause. Root cause remains unknown.
+
+Cleanup was successful and explicit: session termination, `DROP DATABASE`, then `Removed disposable database pinposy_sqlint_318fd598c73448c5`. No permanent database or production/PIN_TRIAL resource was touched.
+
+Assistant retrieved and inspected runner, migration 018, fixture, baseline and SQL manifest; recorded exact blob SHAs in project state/action log/register. No source changes or database operations were performed by assistant. Next action is a minimal diagnostic improvement to preserve exact psql error encoding/SQLSTATE and inspect catalogs at each migration 018 statement, then another guarded disposable run. SQL integration remains NOT PASSED.
