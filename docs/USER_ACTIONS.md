@@ -2478,3 +2478,56 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 **Что дальше делает ассистент:** исследует assertion, active migration/table grants и focused privilege integration test; не меняет production SQL/privileges до установления причины. Подробности: `docs/audits/2026-11-17-postgres-test-34-billing-webhook-audit-privileges.md`.
 
 **Ограничения владельца:** пока не запускать runner повторно; не останавливать/перенастраивать PID 15220, порт 55439 или `X:\\PinPosy-verify-pg18`; не использовать production/`PIN_TRIAL`; не передавать секреты. После диагноза ассистент даст только необходимые повторные gates и конкретные команды, если они потребуются.
+
+
+## UA-034 — повторить PostgreSQL gates после исправления privilege assertion (2026-11-17)
+
+**Статус:** ожидает владельца; опубликованный source fix пока не проверен runtime.
+
+**Причина:** test 34 содержал противоречие: migration 042 и focused privilege test разрешают `service_role SELECT` для защищённого административного чтения, но inline assertion общего PostgreSQL test 34 ошибочно запрещал SELECT. Исправлен только `backend/test/postgres-integration.sql`; теперь общий тест проверяет тот же полный privilege matrix, что и focused test. Production grants/migrations не менялись.
+
+**Source fix:** commit `5cf3b1c2b589ba73205e823ec30f28b9193a1c60`; blob `405ebc7b556ea051525513439b37582d7904d2e6`. Подробности: `docs/audits/2026-11-17-postgres-test-34-billing-webhook-audit-privilege-assertion-fix.md`.
+
+### 1. Синхронизация (PowerShell, из X:\\!PROGECT\\pinboard-ai)
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Требуется clean tree и HEAD = origin/main. Если pull не fast-forward или дерево не чистое — остановиться и прислать вывод; не использовать reset/rebase/clean.
+
+### 2. Node contract gates
+
+```powershell
+node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+```
+
+Требуется 45 tests, 45 pass, 0 fail, 0 skipped.
+
+### 3. PowerShell Parser gate
+
+```powershell
+$tokens = $null
+$errors = $null
+[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path .\\scripts\\verify-integration.ps1), [ref]$tokens, [ref]$errors) | Out-Null
+if ($errors.Count -gt 0) { $errors | Format-List *; exit 1 }
+"PowerShell Parser PASS: 0 syntax errors"
+```
+
+Требуется 0 syntax errors.
+
+### 4. Guarded PostgreSQL integration — только после обоих PASS
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+```
+
+Требуется fixture applied, 147 migrations 010–156, 2 CI inline assertions, **46/46 ordered SQL tests**, подтверждённый cleanup disposable database. При первой ошибке остановиться и сохранить полный вывод; не запускать тесты вручную в другой БД и не обходить guards.
+
+**Безопасность:** сохранить PostgreSQL listener PID 15220, порт 55439 и data directory `X:\\PinPosy-verify-pg18`. Не останавливать/перенастраивать сервер, не использовать production/`PIN_TRIAL`, не присылать пароли, токены или `.env`.
+
+Девять Bash concurrency scripts остаются отдельным непроверенным этапом. До получения нового вывода исправление остаётся **NOT RUNTIME-VERIFIED**.
