@@ -2,7 +2,7 @@
 
 **Repository:** Diana-866/pinboard-ai  
 **Branch:** main  
-**Latest source fix commit (runtime verification pending):** 2b2b14407cb7cfba68375d19aba298a015a4d2a8  
+**Latest source fix commit (runtime verification pending):** 0fd17599f4598559872965f07d5b01d2fadb19e2  
 **Inventory refreshed:** 2026-11-17  
 **Scope:** all documentation files under docs/ (Markdown and SQL), excluding this register itself.
 
@@ -21,8 +21,8 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 3 | `docs/MASTER_REQUIREMENTS.md` | `0891fc83d68de51acb298d1ad4da4f733a0499aa` | Reviewed/reconciled 2026-11-16; see audit reports |
 | 4 | `docs/PIN_TRIAL_MIGRATION_STATUS.md` | `2e0f66ccfa1ab9aeb71f80d299a5c4465e347d9e` | Owner-provided DB evidence; incomplete inventory |
 | 5 | `docs/PRODUCTION_READINESS_AUDIT.md` | `777ce34d539b3264b10554aa2cd731d436f080e2` | Reviewed/reconciled 2026-11-16; see audit reports |
-| 6 | `docs/PROJECT_STATE.md` | `e58dc4cd2961218c45349cd0ae82d12e206a084e` | Current operational source of truth; records test 38 fixture diagnosis and latest SQL integration status: NOT PASSED |
-| 7 | `docs/USER_ACTIONS.md` | `e85bbb7435ef53a5dca9d25a89501dd466298ec5` | Owner actions; UA-034: sync, Node 47/47 preflight, then guarded PostgreSQL rerun |
+| 6 | `docs/PROJECT_STATE.md` | `a9b480d0dfd9158e4bb0241f554342b996efa388` | Current operational source of truth; records the latest owner run and nine-fixture correction; SQL integration remains NOT PASSED |
+| 7 | `docs/USER_ACTIONS.md` | `e285440b6d181672332b95710a3de7ad194bd17f` | Owner actions; UA-034: sync, rerun Node 47/47, then guarded PostgreSQL rerun |
 | 8 | `docs/architecture/pin-image-deletion-claim-protocol.md` | `0957b13bae0632ce8e34a5675b4a06f6ef8477a4` | Inventory only; content review pending |
 | 9 | `docs/audits/2026-11-16-account-deletion-runbook-reconciliation.md` | `4d1fa6f8e78162abbb29a3487a776c2b1c3cf319` | Historical audit/evidence; applicability must be checked against current main/tests |
 | 10 | `docs/audits/2026-11-16-ci-concurrency-harness-isolation-fix.md` | `dc050c2c7d0aa1415a5585e6820b1a2e8772fbd9` | Historical audit/evidence; applicability must be checked against current main/tests |
@@ -1339,3 +1339,16 @@ Owner evidence: synchronized clean main at ce3bcc98ec09d6acfff726b7bd71265c70832
 | docs/USER_ACTIONS.md | blob 9eca21ec22b988f7d94da3bf977558c00bf8e9a5; commit 69b0fa7c3fa38e8b2efa757a20ecee05a8a1e96d | Adds assistant documentation note so the owner action record links to the full incident chronology |
 
 These wrapper errors occurred before any GitHub write from their failed attempts; no source, test, documentation, ref or database state was changed by those attempts. Successful documentation updates are recorded above.
+
+
+### 2026-11-17 — PostgreSQL test 38: migration 148 schedule-insert approval guard
+
+| Path | Blob SHA / commit | Purpose |
+|---|---|---|
+| `backend/test/pinterest-account-publication.integration.sql` | blob `a447055478216e3f2cc7333dcf95af4bec2c2632`; commit `563648df9d1c9c24674dbac1bd01f9b532ff865f` | Changed nine schedule-bound pin fixtures from pending to approved to satisfy migration 148's existing BEFORE INSERT schedule guard |
+| `backend/test/postgres-integration-runner-contract.test.js` | blob `61f20c281dd5448f295126ab42da3f9716d5d9fc`; commit `0fd17599f4598559872965f07d5b01d2fadb19e2` | Extended existing Node source-contract test for all nine fixtures and the migration-148 schedule trigger; no new test case |
+| `docs/audits/2026-11-17-postgres-integration-test-38-pinterest-legacy-history-fixture.md` | blob `dbf503101a8d047df7041688173828e9dbffe77e`; commit `b2f4823ed1e194708ec4714d302e4d27c60d0903` | Full owner transcript, exact error, complete schedule-fixture inventory, corrections, verification boundary and assistant action chronology |
+| `docs/PROJECT_STATE.md` | blob `a9b480d0dfd9158e4bb0241f554342b996efa388`; commit `810e6b4740d5da655a80421becf2dad3bb34bd61` | Chronological owner evidence, diagnosis, exact source changes and next verification gate |
+| `docs/USER_ACTIONS.md` | blob `e285440b6d181672332b95710a3de7ad194bd17f`; commit `96cbddf581c254985ac6c40fb39c34a85a28fc46` | UA-034 updated with sync, fresh Node 47/47 requirement and guarded PostgreSQL rerun instructions |
+
+Owner evidence: synchronized clean main at `2bc539c7ce8d8f801ef1149f51dc18c9cd67137e`; Node 47/47 passed before the newest contract extension; 147 migrations and both inline assertions passed; SQL tests 1–37 passed; test 38 failed when `v_inflight_pin` (pending) was used for a schedule; tests 39–46 were not run; disposable DB cleanup passed. Source inspection found nine pending schedule-bound fixtures. The nine SQL fixtures and existing Node contract were corrected without changing production code or migrations. New source changes are NOT RUNTIME-VERIFIED. Overall SQL integration remains NOT PASSED; nine Bash concurrency scripts remain unverified.
