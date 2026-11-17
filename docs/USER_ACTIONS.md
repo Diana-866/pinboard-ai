@@ -630,3 +630,35 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integra
 ```
 
 SQL integration remains NOT PASSED; this run did not reach PostgreSQL.
+
+
+### UA-007 — owner fast-forward pull and HEAD/origin synchronization PASS (2026-11-17)
+
+Owner transcript:
+```powershell
+git status --short
+# no output; worktree clean
+
+git pull --ff-only origin main
+# Fast-forward: 7f0084ca..95b7aa3c
+# four documentation files changed, 220 insertions(+), 0 deletions(-)
+
+git rev-parse HEAD
+# 95b7aa3cadfdb0b5d213ec65d2d61cf47ffcf990
+
+git rev-parse origin/main
+# 95b7aa3cadfdb0b5d213ec65d2d61cf47ffcf990
+```
+
+Result: clean worktree before pull; fast-forward-only update succeeded; local HEAD and origin/main resolve to the identical commit `95b7aa3cadfdb0b5d213ec65d2d61cf47ffcf990`. The stale-checkout guard condition is now satisfied according to this owner transcript.
+
+Assistant work: fetched current runner, contract test and four documentation files from GitHub main; checked source blob identities (runner `74c128b4c6933b8b5aba888e4abeb01200df2ab6`, contract test `902a0d700a1b145d7e48ad5f0cc856c5bd6f99a1)); inspected the runner's current safety-check ordering; recorded the owner transcript, exact results and next action in the project journal, this action log and audit; updated the documentation register and re-fetched updated docs to verify their blob SHAs. The assistant did not execute local Git commands, change source code, connect to PostgreSQL, create/drop databases, touch production/PIN_TRIAL or handle secrets.
+
+This is a Git synchronization PASS only. The SQL integration runner has not yet been rerun successfully after the synchronization; no SQL integration result is claimed.
+
+**Next owner action:**
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+```
+
+Enter the temporary role password only at the hidden prompt. Send the complete output, including final disposable database cleanup confirmation. SQL integration remains NOT PASSED until fixture, 139 migrations, two inline assertions, all 46 SQL integration tests and cleanup have succeeded.
