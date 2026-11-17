@@ -2161,3 +2161,58 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 **Безопасность:** сохранить listener PID 15220, порт 55439 и каталог `X:\\PinPosy-verify-pg18`. Не останавливать/перенастраивать сервер, не обходить guards, не использовать production/`PIN_TRIAL`, не присылать пароли, токены или `.env`.
 
 **Текущий статус:** SQL integration **FAIL 28/46** (test 29); tests 30–46 не запускались. Исправленные Node contract и SQL fixture пока не runtime-verified. Девять Bash concurrency scripts остаются отдельным непроверенным этапом.
+
+
+## UA-029 — Повторить PostgreSQL integration после исправления credit-ledger expectations
+
+**Статус:** ожидает владельца.
+
+**Причина:** на clean main `b8e8073bd81f510f7648ab9c584584a24f9d40cf` Node gate прошёл **45/45**, PowerShell Parser — **0 syntax errors**; guarded runner применил fixture, 147 миграций 010–156 и 2 CI assertions. SQL tests 1–33 прошли. Test 34 (`postgres-integration.sql`) выявил устаревшие ожидания: фактический баланс 140 вместо 100. Disposable DB `pinposy_sqlint_fb3cc84d67ee46ab` удалена; tests 35–46 не запускались.
+
+**Исправление в GitHub (только тест):** в `backend/test/postgres-integration.sql` ожидаемый баланс изменён на 140, число ledger rows — с 2 на 4, заголовок migration chain — на 010–156. Арифметика: начальные 10 + покупки 100 + 25 + 15 − расход 10 = 140; три покупки и одна adjustment создают четыре ledger rows. Production SQL не менялся. Подробности: `docs/audits/2026-11-17-postgres-test-34-credit-ledger-expectations.md`.
+
+### 1. Синхронизация
+
+В PowerShell из `X:\\!PROGECT\\pinboard-ai`:
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Требуется чистое дерево и HEAD = origin/main.
+
+### 2. Node contract gate
+
+```powershell
+node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+```
+
+Требуется **45 tests, 45 pass, 0 fail**.
+
+### 3. PowerShell Parser gate
+
+```powershell
+$tokens = $null
+$errors = $null
+[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path .\\scripts\\verify-integration.ps1), [ref]$tokens, [ref]$errors) | Out-Null
+if ($errors.Count -gt 0) { $errors | Format-List *; exit 1 }
+"PowerShell Parser PASS: 0 syntax errors"
+```
+
+Требуется 0 syntax errors.
+
+### 4. Только после Node и Parser PASS — guarded PostgreSQL runner
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+```
+
+Требуется fixture applied; **147 migrations 010–156**; 2 CI inline assertions; **46/46 ordered SQL tests**; подтверждённое удаление disposable DB. Остановиться на первой ошибке и прислать полный вывод.
+
+**Безопасность:** сохранить PostgreSQL listener PID 15220, port 55439 и data directory `X:\\PinPosy-verify-pg18`. Не останавливать/перенастраивать сервер, не обходить guards, не использовать production/`PIN_TRIAL`, не присылать пароли, токены или `.env`.
+
+**Текущий статус:** SQL integration **FAIL 33/46** (test 34); tests 35–46 не запускались. Исправленный SQL test опубликован, но ещё не runtime-verified. Девять Bash concurrency scripts остаются отдельным непроверенным этапом.
