@@ -304,10 +304,11 @@ test('Pinterest OAuth password-reset assertion preserves existing credentials wh
   assert.doesNotMatch(oauthTest, /stale OAuth callback left active credentials after token-version change/);
 });
 
-test('legacy Pinterest publication fixture reaches the unmapped-history fence with an approved pin', () => {
+test('Pinterest publication fixtures satisfy the approved-pin precondition before publication guards', () => {
   const publicationTest = read('backend/test/pinterest-account-publication.integration.sql');
   const migration = read('db/migrations/148_atomic_pin_publication_status_fencing.sql');
-  assert.match(publicationTest, /legacy\.png', 'Legacy pin', '', 'approved', 'flux-schnell', 0\)/i);
+  assert.match(publicationTest, /multi-account\.png', 'Multi account', '', 'approved', 'flux-schnell', 0\)/i, 'the primary pin is published immediately and must be approved');
+  assert.match(publicationTest, /legacy\.png', 'Legacy pin', '', 'approved', 'flux-schnell', 0\)/i, 'the legacy-history pin must pass the approval guard to reach the history fence');
   assert.match(publicationTest, /legacy publication history did not reach the manual-reconciliation fence: %/i);
   const functionStart = migration.indexOf('create or replace function public.begin_pinterest_publish_v2(');
   assert.notEqual(functionStart, -1, 'active publication reservation function must exist');
