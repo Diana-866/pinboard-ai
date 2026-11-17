@@ -2,8 +2,8 @@
 
 **Repository:** Diana-866/pinboard-ai  
 **Branch:** main  
-**Source HEAD:** 909e4c73c88f9d93d98dd9c8ba46df54f2d406a5  
-**Inventory refreshed:** 2026-11-16  
+**Source HEAD:** ee85ed757d36e8fe89e920a9d47860659a08f3f0  
+**Inventory refreshed:** 2026-11-17  
 **Scope:** all documentation files under docs/ (Markdown and SQL), excluding this register itself.
 
 ## Interpretation
@@ -21,8 +21,8 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 3 | `docs/MASTER_REQUIREMENTS.md` | `0891fc83d68de51acb298d1ad4da4f733a0499aa` | Reviewed/reconciled 2026-11-16; see audit reports |
 | 4 | `docs/PIN_TRIAL_MIGRATION_STATUS.md` | `2e0f66ccfa1ab9aeb71f80d299a5c4465e347d9e` | Owner-provided DB evidence; incomplete inventory |
 | 5 | `docs/PRODUCTION_READINESS_AUDIT.md` | `777ce34d539b3264b10554aa2cd731d436f080e2` | Reviewed/reconciled 2026-11-16; see audit reports |
-| 6 | `docs/PROJECT_STATE.md` | `659e95ed8c0194e1e79f74a2fb4863f5a9776861` | Current operational source of truth |
-| 7 | `docs/USER_ACTIONS.md` | `ea6bafaa4e2b2e2440fa6962307fedf2d18b46ff` | Current operational source of truth |
+| 6 | `docs/PROJECT_STATE.md` | `3ca769e0a58f0026ce1b9bf0d936211af808af71` | Current operational source of truth |
+| 7 | `docs/USER_ACTIONS.md` | `4f63433bb8af663ff61c9550cc87bb2b3286bcfd` | Current operational source of truth |
 | 8 | `docs/architecture/pin-image-deletion-claim-protocol.md` | `0957b13bae0632ce8e34a5675b4a06f6ef8477a4` | Inventory only; content review pending |
 | 9 | `docs/audits/2026-11-16-account-deletion-runbook-reconciliation.md` | `4d1fa6f8e78162abbb29a3487a776c2b1c3cf319` | Historical audit/evidence; applicability must be checked against current main/tests |
 | 10 | `docs/audits/2026-11-16-ci-concurrency-harness-isolation-fix.md` | `dc050c2c7d0aa1415a5585e6820b1a2e8772fbd9` | Historical audit/evidence; applicability must be checked against current main/tests |
@@ -420,6 +420,7 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 402 | `docs/runbooks/public-pin-image-handling-aud-375.md` | `170db484f694b13c3fad66334611e73211787edc` | Operational runbook; code/environment/approval review required |
 | 403 | `docs/runbooks/release-line.md` | `ca56773268024b6c851b61600be5a8b16373a4de` | Operational runbook; code/environment/approval review required |
 | 404 | `docs/storage-lifecycle.md` | `870605f72ea42835d9784120ba0b4ed6d6bb6c69` | Inventory only; content review pending |
+| 405 | `docs/audits/2026-11-17-powershell-runner-utf8-bom-fix.md` | `47456dc471aa2d11cc7289d232aae761fc92c0c7` | Execution evidence and remediation record; owner-side parser/runtime retest pending |
 
 ## Inventory findings
 
