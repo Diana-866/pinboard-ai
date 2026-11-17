@@ -2153,3 +2153,5 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 **Безопасность:** сохранить listener PID 15220, port 55439 и `X:\\PinPosy-verify-pg18`. Не обходить guards, не использовать production/`PIN_TRIAL`, не останавливать и не перенастраивать постоянный PostgreSQL cluster, не отправлять credentials или .env.
 
 **Важно:** WSL не нужен для этого native Windows PostgreSQL gate. Не тратить время на восстановление WSL ради запуска `verify-integration.ps1`. Девять Bash concurrency scripts остаются отдельной проверкой.
+
+**Последний CI poll:** PR #91 head `05148bd192338138c4e49769e6e3a6d35b179151`, 9 commits ahead / 0 behind main. GitHub mergeability пока `unknown`. Vercel status сейчас failure из-за `build-rate-limit`; Actions runs для этого head отсутствуют. Предыдущий Vercel Success относился к старому head и не является актуальным результатом.
