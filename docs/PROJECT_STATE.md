@@ -1802,3 +1802,14 @@ The corrected fixture is **NOT RUNTIME-VERIFIED**. The 45/45 Node and 0-error Pa
 Source commit: `5cf3b1c2b589ba73205e823ec30f28b9193a1c60`; source blob: `405ebc7b556ea051525513439b37582d7904d2e6`. Подробный разбор: `docs/audits/2026-11-17-postgres-test-34-billing-webhook-audit-privilege-assertion-fix.md`; исходный run evidence: `docs/audits/2026-11-17-postgres-test-34-billing-webhook-audit-privileges.md`.
 
 **Проверка:** GitHub подтвердил публикацию source commit. Ассистент не запускал Node, PowerShell Parser, psql, PostgreSQL, Bash или CI. Исправление **NOT RUNTIME-VERIFIED**; первоначальный run остаётся FAIL, tests 35–46 не запускались. Следующий шаг владельца — синхронизировать latest main, повторить Node 45/45 и PowerShell Parser 0 errors, затем guarded runner; требование — 46/46 SQL tests и подтверждённая очистка disposable DB. Девять Bash concurrency scripts остаются отдельным gate.
+
+
+### 2026-11-17 — UA-034: owner confirmed clean synchronization to privilege-assertion fix
+
+Owner-provided PowerShell transcript confirms:
+- pre-pull `git status --short` was empty;
+- `git pull --ff-only origin main` completed as a fast-forward from `1b855857` to `3e186f14`, adding the SQL assertion correction and five documentation/audit files (six files total);
+- `git rev-parse HEAD` and `git rev-parse origin/main` both returned `3e186f149bbda21235c1389ca5ce16de7619cd61`;
+- post-pull `git status --short` was empty.
+
+This confirms the owner working copy is clean and synchronized to the documented source fix. It does **not** verify the Node contracts, PowerShell parser, or PostgreSQL integration. The previous SQL run remains FAIL at test 34/46; tests 35–46 have not been shown to pass. Next action: run only the Node contract gate in UA-034, inspect its complete output, then proceed to the PowerShell Parser gate only if Node reports 45/45 pass, 0 failures and 0 skipped. Do not start the guarded PostgreSQL runner until both preflight gates pass. No database, production resource, or source file was changed by this owner synchronization.
