@@ -1244,3 +1244,55 @@ SQL integration PASS — только если fixture, все 140 migrations 01
 - Не запускать Bash concurrency/backend runtime suites до полного SQL PASS и cleanup.
 
 **Статус:** Node contract 20/20 PASS (owner transcript, prior commit); PowerShell Parser 0 errors (owner transcript, prior commit); PostgreSQL SQL integration **NOT PASSED**, ожидает повторного owner run после test-only fix.
+
+
+## UA-011 — Node gate после исправления входа test 18/46 (2026-11-17)
+
+### Зафиксированный owner run
+- Владелец синхронизировал clean main до `0d31c813e39e420e26c5ebee0edadea1928df00d`; runner подтвердил PID 15220, `X:\\PinPosy-verify-pg18` и server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+- Fixture, 140 migrations 010–149, две inline assertions и SQL tests 1–17/46 прошли. Test 18/46 упал с `invalid pin count`; tests 19–46 не запускались. SQL integration **NOT PASSED**.
+- Cleanup подтверждён: disposable DB `pinposy_sqlint_ca5527ced768460b` удалена.
+
+### Опубликованное исправление
+- В `backend/test/provider-refund-reconciliation-guard.integration.sql` completion теперь получает один валидный pin JSON вместо пустого массива. Это позволяет пройти раннюю проверку `save_generated_pins_and_charge` и дойти до trigger guard migration 072, который тест и должен проверять.
+- Commit `ea2016eed79de2854785f53d9d77a0d485d57d76`; blob `1ae496bdd596c848d18dc33a8f50e90de7b9cb78`.
+- Подробный incident audit: `docs/audits/2026-11-17-postgres-integration-test-18-invalid-pin-count-test-input.md`.
+
+### Следующее действие владельца — сначала только Node contract gate
+Синхронизировать все commits (test correction + audit + PROJECT_STATE + UA-011 + register) и проверить clean synchronized main:
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Продолжать только если branch `main`, worktree чистый и `HEAD` совпадает с `origin/main`. Затем выполнить:
+
+```powershell
+node --test backend/test/postgres-integration-runner-contract.test.js
+```
+
+Передать полный вывод и exit code. Если хотя бы один тест FAIL — **СТОП**, guarded PostgreSQL runner не запускать; сохранить вывод и сообщить assistant.
+
+### Только после Node PASS
+После подтверждённого полного Node PASS и синхронизации актуального main разрешён guarded runner:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+```
+
+Не менять параметры и не обходить guards. Пароль вводить только в hidden prompt; не отправлять пароль, токены или `.env`. При первой SQL ошибке — STOP, сохранить полный лог, включая cleanup, и передать его без секретов.
+
+### Критерий закрытия и запреты
+SQL integration PASS — только если fixture, все 140 migrations 010–149, две inline assertions, все 46 SQL tests и cleanup disposable DB успешно подтверждены. При падении тестов после него не запускались.
+
+- Не использовать production/PIN_TRIAL.
+- Не останавливать PID 15220.
+- Не изменять и не удалять `X:\\PinPosy-verify-pg18`.
+- Не передавать пароли, токены, `.env`.
+- Не запускать Bash concurrency/backend runtime suites до полного SQL PASS и cleanup.
+
+**Статус:** Node contract 20/20 PASS (предыдущий owner transcript; после изменения test 18 требуется повторный gate); PowerShell Parser 0 errors PASS (предыдущий owner transcript); PostgreSQL SQL integration **NOT PASSED**.
