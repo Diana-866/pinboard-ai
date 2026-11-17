@@ -153,6 +153,12 @@ try {
         if ($migration.Name.StartsWith('039_')) {
             Invoke-Psql -Database $createdDatabase -PsqlArguments @('-c','GRANT ALL ON public.pinterest_accounts, public.pinterest_publications TO anon, authenticated;')
         }
+        Write-Host ("Applying migration " + $migration.Name + ".")
+        if ($migration.Name -eq '018_preferred_language.sql') {
+            Write-Host 'Diagnostic: matching constraints immediately before migration 018 (schema|table|name|type|definition):'
+            $constraintDiagnostic = "SELECT n.nspname, t.relname, c.conname, c.contype, pg_get_constraintdef(c.oid) FROM pg_constraint c JOIN pg_class t ON t.oid = c.conrelid JOIN pg_namespace n ON n.oid = t.relnamespace WHERE c.conname = 'users_preferred_language_check' ORDER BY n.nspname, t.relname;"
+            Invoke-Psql -Database $createdDatabase -PsqlArguments @('-A','-t','-F','|','-c',$constraintDiagnostic)
+        }
         Invoke-Psql -Database $createdDatabase -PsqlArguments @('-f',$migration.FullName)
     }
     Write-Host 'Running two CI inline assertions.'
