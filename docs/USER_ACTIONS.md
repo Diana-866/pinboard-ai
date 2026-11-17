@@ -577,3 +577,26 @@ Scope boundary:
 Assistant action: fetched current runner, Node contract test and tracking documents from GitHub `main`, checked the source blob identities, and recorded the supplied owner transcript and limits in the project state, owner action log and audit. No source file or database was modified by this documentation update.
 
 **Next owner action:** execute the guarded runner on clean synchronized `main`; provide the full output. Do not stop PID 15220, alter/reinitialize the temporary cluster, bypass guards, or touch production/PIN_TRIAL. Confirm all expected stages and final disposable database absence before marking the SQL integration gate PASS.
+
+
+### UA-005 — integration runner invocation blocked by execution policy (2026-11-17)
+
+Owner transcript:
+```powershell
+PS X:\!PROGECT\pinboard-ai> .\scripts\verify-integration.ps1
+... Невозможно загрузить файл ...\scripts\verify-integration.ps1, так как выполнение сценариев отключено в этой системе ...
+FullyQualifiedErrorId : UnauthorizedAccess
+```
+
+Interpretation: PowerShell rejected the script before loading/executing its body. The hidden password prompt was not reached. No PostgreSQL connection, target identity check, disposable database creation, migrations, inline SQL assertions, SQL integration tests or cleanup occurred. This is an execution-policy launch block, not a PostgreSQL test failure.
+
+Assistant work: retrieved current runner, Node contract test and four documentation files from GitHub `main`; reviewed the runner's fixed port 55439, identity guards, hidden secure password prompt and `finally` cleanup; then recorded this exact incident and its boundary. No source code or database was changed by this documentation update.
+
+Safe retry (process scope only; does not persistently alter machine/user policy):
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+```
+
+Enter the temporary PostgreSQL role password only in the script's hidden prompt. Never pass it as an argument or send it in chat. If a Group Policy still blocks the child process, stop and report the message; do not change LocalMachine/CurrentUser policy or weaken the runner's internal safety checks.
+
+Next: run the process-scoped command above and send complete output. SQL integration remains NOT PASSED until the fixture, 139 migrations, two inline assertions, all 46 SQL tests and disposable DB cleanup are verified.
