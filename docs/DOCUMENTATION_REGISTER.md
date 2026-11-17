@@ -983,3 +983,14 @@ Owner evidence: Node suite reported 42 tests, 41 PASS and 1 FAIL. The sole failu
 | `docs/USER_ACTIONS.md` | `4a73391b07b07a9edcf3512b88a091c1c8aa5da7` | `d41553d21b1eef5ec1acaa30cf489325c22f1a12`; UA-021 authorizes PowerShell Parser as next gate |
 
 Owner evidence: clean local checkout at `6512dc8aa4ae882e8be91877185a262787b02f87`, HEAD equal to origin/main. The three Node gate files completed with 42 tests, 42 passed, zero failures/cancellations/skips. Assistant did not execute Node, PowerShell, psql, PostgreSQL or CI. Node gate is **PASS** based on owner output. PowerShell Parser and PostgreSQL integration have not yet run; next step is Parser (0 syntax errors), followed by guarded SQL runner. SQL PASS still requires all 46 SQL tests and confirmed cleanup.
+
+
+### 2026-11-17 — PowerShell Parser PASS; guarded SQL runner authorized
+
+| Path | Final blob SHA | Commit / reason |
+|---|---|---|
+| `docs/audits/2026-11-17-postgres-node-contract-dynamic-regexp-capture-group.md` | `5ad74e1be436daec60453eeb95c880b902529104` | `22845adf4a56a11fc565471b98ed72d336261527`; owner Parser PASS evidence and authorization of next runner gate |
+| `docs/PROJECT_STATE.md` | `affe8a9c7f4ee0b4d1b1c3354133e1a279c1a206` | `4dd257a1fecb41f59013bc86574491edc626feb5`; chronological Parser PASS and current SQL verification state |
+| `docs/USER_ACTIONS.md` | `4a74d7b13b37e941dab03e8a993a004a0ddadbc7` | `9f3a8c228f2d0c5459bb651aca7ac74bab342fd4`; UA-022 guarded PostgreSQL runner instructions |
+
+Owner evidence: clean local sync at `73a1aef18eaee621783b879aa97ae1527ec9ba5a`, HEAD equals origin/main; PowerShell Parser API printed `PowerShell Parser PASS: 0 syntax errors`. Combined with Node 42/42 PASS, both pre-run gates pass. Assistant did not execute local PowerShell, Node, psql, PostgreSQL or CI. Guarded SQL runner is now authorized but has not yet run; PostgreSQL integration remains **NOT PASSED / NOT YET VERIFIED** pending full evidence of fixture, 144 migrations 010–153, two CI inline assertions, 46 SQL tests and cleanup.
