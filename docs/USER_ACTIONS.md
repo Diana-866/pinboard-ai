@@ -2675,3 +2675,45 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integ
 Enter the temporary-role password only at the hidden prompt; never send it in chat. Stop at the first SQL error and provide the full output including cleanup. SQL integration PASS requires fixture, 147 migrations 010–156, both inline assertions, all 46/46 SQL tests and confirmed disposable database cleanup.
 
 Preserve PID 15220, port 55439 and `X:\\PinPosy-verify-pg18`. Do not touch production/`PIN_TRIAL`, use manual SQL, bypass guards or run the nine Bash concurrency scripts before SQL PASS.
+
+### UA-034 update — PostgreSQL test 38 fixture diagnosis and next gate (2026-11-17)
+
+Owner-provided runner evidence:
+- Guarded runner verified clean synchronized `main` at `62b2a859c8516fe98b174072d3642018d2dff419`.
+- Local PostgreSQL listener PID 15220, data directory `X:\\PinPosy-verify-pg18`, server identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`. Password was entered only at the hidden prompt.
+- Disposable database `pinposy_sqlint_eb01275b9a8246a4`: fixture PASS; 147 migrations 010–156 PASS; two inline assertions PASS; SQL tests 1–37 PASS; test 38/46 failed with `{"status": "pin_not_approved"}`; tests 39–46 NOT RUN.
+- Cleanup PASS: runner dropped only the disposable DB and printed its removal confirmation. Overall SQL integration remains NOT PASSED.
+- The owner separately ran Node **46/46 PASS** before the latest source-contract addition; it does not cover the new assertion.
+
+Source review found the test created its legacy-history pin as `pending`. Migration 148's current `begin_pinterest_publish_v2` checks for `approved` first and returns `pin_not_approved` before evaluating the legacy-history fence. Migrations 149–156 do not redefine this function. Thus the test setup short-circuited its intended assertion; the response does not mean a retry was allowed.
+
+Assistant published test-only changes:
+- `backend/test/pinterest-account-publication.integration.sql`: legacy fixture pin now `approved`; failure message now states that the manual-reconciliation fence was not reached. Commit `49ffed74ec6b16d2f875a99b0f300445d860592c`, blob `5179ca814d7cbe84a45569d3ae8494de959ae43d`.
+- `backend/test/postgres-integration-runner-contract.test.js`: added a source-contract guard for approved fixture status and migration guard order. Commit `2b2b14407cb7cfba68375d19aba298a015a4d2a8`, blob `818a136572644af87ec6b2cfb08dcba909df6430`.
+- Audit: `docs/audits/2026-11-17-postgres-integration-test-38-pinterest-legacy-history-fixture.md`.
+
+**Next owner action — synchronize documentation and source commits, then run the Node gate:**
+
+```powershell
+git status --short
+git pull --ff-only origin main
+git rev-parse HEAD
+git rev-parse origin/main
+git status --short
+```
+
+Require empty status before/after and identical HEAD/origin SHA. Do not use reset, rebase, clean, force or bypass guards. Then run:
+
+```powershell
+node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+```
+
+Expected result is **47 tests, 47 pass, 0 fail, 0 cancelled, 0 skipped, 0 todo**. This is the expected count after adding one contract test; it is not yet an executed result. If the count differs or any test fails, STOP and send the full output. Do not run the PostgreSQL runner.
+
+Only after Node **47/47 PASS**, run:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+```
+
+Enter the temporary-role password only at the hidden prompt. Stop at the first SQL error and send the full output including cleanup. SQL integration PASS requires fixture, 147 migrations 010–156, both inline assertions, all 46/46 SQL tests and confirmed disposable DB cleanup. Preserve PID 15220, port 55439 and `X:\\PinPosy-verify-pg18`; never target production/`PIN_TRIAL`, run SQL manually or disclose credentials. Nine Bash concurrency scripts remain a separate unverified gate.
