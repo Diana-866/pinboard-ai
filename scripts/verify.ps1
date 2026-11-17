@@ -222,9 +222,9 @@ if (-not $MigrationsOnly) {
 if ($Migrations -or $MigrationsOnly) {
     $migrationResult = Invoke-MigrationReplay
     if ($migrationResult) {
-        $Summary.Add("PASS  PostgreSQL migration replay (001 + 010-151)")
+        $Summary.Add("PASS  PostgreSQL migration replay (001 + 010-152)")
     } else {
-        $Summary.Add("FAIL  PostgreSQL migration replay (001 + 010-151)")
+        $Summary.Add("FAIL  PostgreSQL migration replay (001 + 010-152)")
         $Failed = $true
     }
 }
