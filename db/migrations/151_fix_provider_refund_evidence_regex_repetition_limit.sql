@@ -3,6 +3,8 @@
 -- reference length remains capped at 500 characters; use an open upper bound.
 -- Migration 078 is historical and intentionally remains unchanged.
 
+begin;
+
 alter table public.provider_refund_operator_actions
   drop constraint provider_refund_operator_actions_shape_check;
 
@@ -46,3 +48,5 @@ begin
   execute v_corrected;
 end;
 $migration$;
+
+commit;
