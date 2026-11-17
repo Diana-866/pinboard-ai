@@ -775,3 +775,25 @@ Assistant выполнил только GitHub read/update и статическ
 
 
 - **Follow-up source review (2026-11-17):** assistant corrected an over-escaped regex in the new fixture contract assertion. Contract test commit `89d5fd4baf14f790141fe1cb244a6f282d68e004`, blob `54c0ba51ce8a3ac2e5a6b677be6a3b6950a1448c`. Re-fetched workflow/fixture/test and source-level comparison confirmed CI and standalone fixture bodies match exactly after the existing normalization; both contain `is_admin boolean default false`; assertion is present; contract file has 13 test declarations. This is not a test run. Owner must still run Node contract suite before the guarded SQL integration rerun.
+
+
+## 2026-11-17 — очередной запуск SQL integration: ошибка типов в тесте 3/46
+
+Владелец выполнил синхронизацию с `main`: чистый status; `git pull --ff-only origin main` обновил `5d3548a5 → 5617a53095249ce45aafe4bdad17ad39781b668e`; `HEAD` и `origin/main` совпали.
+
+Команды и результаты:
+- `node --test backend/test/postgres-integration-runner-contract.test.js` — **13/13 PASS**, 0 failed.
+- `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1` — runner проверил clean synchronized main, PID 15220, каталог `X:\\PinPosy-verify-pg18`, скрытый ввод пароля и identity `127.0.0.1|55439|X:/PinPosy-verify-pg18|WIN1251|pinposy_verify_admin|180006`.
+- Disposable DB: `pinposy_sqlint_004e2422a382484b`.
+- Upgrade fixture, 140 миграций 010–149 и две inline CI assertions — успешно.
+- SQL tests: 1/46 и 2/46 — успешно; 3/46 `pinterest-schedule-cancellation-race.integration.sql`, строка 93 — ошибка `operator does not exist: text = uuid`. Остальные 43 теста не запускались.
+- Cleanup: runner завершил сессии, выполнил DROP DATABASE и вывел `Removed disposable database pinposy_sqlint_004e2422a382484b`.
+
+Диагноз: `db/migrations/015_persistent_pin_schedule.sql` задаёт `pin_schedules.user_id` как TEXT; SQL test сравнивал его с переменной UUID без cast в двух UPDATE. Исправлено только тестовое сравнение на `v_user_id::text`; production migrations не менялись. Добавлен Node contract guard на оба cast.
+
+Опубликованы:
+- SQL test commit `c0db3c5e5f4cc2ead97443693b78bdd79622be53`, blob `adb8b7669052021ce2537b5a2985786bab13a4d7`.
+- Node contract commit `de1d765e53e30e0617ec7994f1e22bdeaff4e025`, blob `ba228cbaef5ea83ff7d9c22221b3921f8087f4dd`.
+- Audit: `docs/audits/2026-11-17-postgres-integration-schedule-user-id-type-mismatch.md`.
+
+⚠️ Следующий шаг после публикации всех документов: `git pull --ff-only origin main`, проверить чистый status и равенство HEAD/origin/main; выполнить Node contract suite; при PASS повторить guarded runner. Вводить пароль только в скрытом prompt. SQL integration пока **NOT PASSED**.
