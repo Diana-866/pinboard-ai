@@ -1107,3 +1107,6 @@ PR #91 links the correction branch to review: https://github.com/Diana-866/pinbo
 
 | `docs/PROJECT_STATE.md` | `84f8f38c867297c625fc7021eba63112984e0324` | `6594f21fbbfeb921dea940ce54924941ff9fea87`; refresh PR #91 head, mergeability and latest Vercel status |
 | `docs/USER_ACTIONS.md` | `5af48b76eaef7e5493635d264da06be07885f238` | `223df67c70949ffff5b54848ef6474501ad4dd22`; refresh latest CI state for UA-028 |
+
+| `docs/PROJECT_STATE.md` | `84f8f38c867297c625fc7021eba63112984e0324` | `6594f21fbbfeb921dea940ce54924941ff9fea87`; final CI poll records PR #91 head and current rate-limit status |
+| `docs/USER_ACTIONS.md` | `5af48b76eaef7e5493635d264da06be07885f238` | `223df67c70949ffff5b54848ef6474501ad4dd22`; UA-028 refreshed with latest PR #91 CI state |
