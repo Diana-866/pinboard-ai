@@ -214,6 +214,7 @@ test('upgrade fixture preserves every canonical baseline column except fields in
   }
   const users = fixture.match(/create table public\.users \(([\s\S]*?)\n\);/i)?.[1] || '';
   assert.doesNotMatch(users, /\btoken_version\b|\baccount_status\b/);
+  assert.match(read('db/migrations/023_revoke_sessions_after_password_reset.sql'), /add column if not exists token_version integer not null default 0/i);
   assert.match(read('db/migrations/055_auth_token_version.sql'), /add column if not exists token_version integer/i);
   assert.match(read('db/migrations/127_account_lifecycle.sql'), /add column if not exists account_status/i);
 });
