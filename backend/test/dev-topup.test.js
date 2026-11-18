@@ -46,3 +46,29 @@ test("rejects invalid amounts and email addresses", () => {
     email: "not-an-email", amount: 1, adminSecret: env.ADMIN_SECRET,
   }, env));
 });
+
+test("fails closed when NODE_ENV is unset or not an explicit dev/test environment", () => {
+  // A missing NODE_ENV is the realistic staging/container case. Granting free
+  // credits there would be a money-losing fail-open.
+  for (const nodeEnv of [undefined, "", "  ", "staging", "prod", "ProductionX", "development2"]) {
+    const env = { ENABLE_DEV_TOPUP: "true", ADMIN_SECRET: "a".repeat(40) };
+    if (nodeEnv !== undefined) env.NODE_ENV = nodeEnv;
+    assert.throws(
+      () => validateDevTopupRequest({ email: "u@example.com", amount: 100, adminSecret: env.ADMIN_SECRET }, env),
+      /Не найдено/,
+      `NODE_ENV=${String(nodeEnv)} must not enable dev top-ups`
+    );
+  }
+});
+
+test("accepts only the explicit development and test environments", () => {
+  for (const nodeEnv of ["development", "test", " TEST ", "Development"]) {
+    assert.deepEqual(
+      validateDevTopupRequest({
+        email: "u@example.com", amount: 5, adminSecret: "a".repeat(40),
+      }, { NODE_ENV: nodeEnv, ENABLE_DEV_TOPUP: "true", ADMIN_SECRET: "a".repeat(40) }),
+      { email: "u@example.com", amount: 5 },
+      `NODE_ENV=${nodeEnv} is an accepted local environment`
+    );
+  }
+});

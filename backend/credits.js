@@ -13,7 +13,13 @@ async function adjustBalance(userId, amount, type, description) {
     p_type: type,
     p_description: description || null,
   });
-  if (error) throw new Error(error.message || "Не удалось изменить баланс");
+  if (error) {
+    const failure = new Error(error.message || "Не удалось изменить баланс");
+    // Preserve the database error code so callers/logs can tell "insufficient
+    // credits" apart from a transport failure.
+    if (error.code) failure.code = error.code;
+    throw failure;
+  }
   return data;
 }
 

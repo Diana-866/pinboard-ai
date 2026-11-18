@@ -2,7 +2,13 @@ const crypto = require("node:crypto");
 const { httpError, validateInt, validateEmail } = require("./validate");
 
 function validateDevTopupRequest(body, env = process.env) {
-  if (env.NODE_ENV === "production" || env.ENABLE_DEV_TOPUP !== "true") {
+  // Fail closed: a development-only endpoint that grants credit balance must
+  // require an explicitly recognised non-production environment. Relying on
+  // `NODE_ENV !== "production"` keeps the endpoint enabled whenever NODE_ENV is
+  // unset or misspelled (common on staging/containers), which with a copied
+  // ENABLE_DEV_TOPUP flag would hand out free credits.
+  const nodeEnv = String(env.NODE_ENV || "").trim().toLowerCase();
+  if (!["development", "test"].includes(nodeEnv) || env.ENABLE_DEV_TOPUP !== "true") {
     throw httpError(404, "Не найдено");
   }
 

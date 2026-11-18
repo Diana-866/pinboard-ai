@@ -64,11 +64,13 @@ test("administrative authorization is loaded from the database, not request body
   assert.doesNotMatch(admin, /req\.body\.is_admin|req\.body\.role/);
 });
 
-test("dev top-up is disabled in production and requires a server-side 32-character secret", () => {
+test("dev top-up is disabled outside explicit dev/test environments and requires a server-side 32-character secret", () => {
   const route = backend("index.js");
   const guard = backend("devTopup.js");
   assert.match(route, /app\.post\("\/credits\/dev-topup", authLimiter,/);
-  assert.match(guard, /env\.NODE_ENV === "production" \|\| env\.ENABLE_DEV_TOPUP !== "true"/);
+  // Fail closed: an unset or unfamiliar NODE_ENV must not enable free credits.
+  assert.match(guard, /if \(!\["development", "test"\]\.includes\(nodeEnv\) \|\| env\.ENABLE_DEV_TOPUP !== "true"\)/);
+  assert.doesNotMatch(guard, /env\.NODE_ENV === "production" \|\|/);
   assert.match(guard, /configuredSecret\.length < 32/);
   assert.match(guard, /crypto\.timingSafeEqual\(expected, supplied\)/);
 });
