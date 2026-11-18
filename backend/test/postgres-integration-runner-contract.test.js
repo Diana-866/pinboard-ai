@@ -81,7 +81,7 @@ test('SQL manifest exactly preserves all CI SQL integration tests in order', () 
   const expected = [...workflow.matchAll(/-f backend\/test\/([A-Za-z0-9._-]+\.sql)/g)].map((match) => match[1]);
   const actual = read('backend/test/postgres-integration-sql-manifest.txt')
     .split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith('#'));
-  assert.equal(expected.length, 47);
+  assert.equal(expected.length, 48);
   assert.deepEqual(actual, expected);
   for (const filename of actual) assert.ok(fs.existsSync(path.join(root, 'backend/test', filename)), filename);
 });
