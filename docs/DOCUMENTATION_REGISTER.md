@@ -1772,3 +1772,16 @@ Relevant implementation commits: migration 161 `520bd43630ad81f052b8d1a53e517d1c
 | `docs/USER_ACTIONS.md` | Updated with UA-053 | Owner command to execute the worker regression test |
 
 Commits: worker `0e56a02de7839d61733c7e7389fcc7214a510361`; initial test `f9754ccb434852a2a2d474b353fdf9a4eacacf07`; explicit subscription pagination assertion `36e2bec803c12aad0765116f7af266741e270587`. Static review only; Node test runtime NOT VERIFIED. The account deletion worker remains disabled behind its explicit rollout gate.
+
+
+## Prodamus receipt-path hardening follow-up (2026-11-18)
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `db/migrations/161_restrict_granted_decisions_to_atomic_fulfillment.sql` | `039b778b89f8d592eda92a7f199176030a1eeb49` | Explicit NULL local amount rejection in both credits and subscription grant helper branches |
+| `backend/test/postgres-integration-runner-contract.test.js` | `252ab03a5146605a28cb01f465c17d7bf8947f97` | Requires exactly two NULL amount guards and receipt evidence checks; Node runtime NOT VERIFIED |
+| `docs/audits/2026-11-18-prodamus-receipt-webhook-static-review.md` | `6e5db72d16a308ace06e4fa9422192e4bb18da69` | Initial webhook/receipt static review plus follow-up finding, fix and verification boundary |
+| `docs/PROJECT_STATE.md` | `67231f00e81156aa3fffe907e2f40ae20aa60ed7` | Records symmetric guard correction and release status |
+| `docs/USER_ACTIONS.md` | `1a5e2caa4c31f6a00b52c25710e65743564234d8` | UA-054 owner runtime acceptance steps |
+
+Commits: migration `2d3a478d17e4c17995cd2ba407f31b93224a906f`; regression `4c02b2afcd2240f08bb9903e5b9afb3cd7442f27`; audit `e41c98fb9b15a250b514659b5a674d462fdbaaeb`; state `ec9eef8bbe37e04db0449d5a45df4dd79a69902f`; owner action `5d6667897539ebefd916d620f52f1d82c2f6e330`. Source/static inspection only; Node, PostgreSQL, SQL integration and CI runtime remain NOT VERIFIED.
