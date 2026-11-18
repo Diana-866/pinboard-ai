@@ -3274,3 +3274,24 @@ Require 52/52 PASS, zero failures, cancellations, skips or todo. Preserve full o
 Other expected acceptance counts remain 151 migrations (010–160), 49 SQL integration tests and 10 unique concurrency scripts. The four independent payment/deletion race cases are covered in UA-050. Runtime remains NOT VERIFIED until these commands and the isolated PostgreSQL/CI suite visibly execute and pass.
 
 Count report: `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md`, blob `355f09b2374eb773962817ed1860c12435a3cfc5`.
+
+
+### UA-052 — verify migration 161 and atomic-only Prodamus grant decisions (2026-11-18)
+
+**Finding fixed in source:** main contained migration 161, but the canonical Node chain test and Linux/Windows replay runners still stopped at migration 160 (151 files), and the SQL integration workflow needed to apply 161. This could cause the new payment grant hardening to be omitted from local replay or fail the canonical chain check.
+
+Current expected inventory: baseline 001 + **152 active migrations 010–161**, **49** SQL integration tests, **52** Node preflight tests, and **10** disposable concurrency scripts. No SQL manifest entry was added; the existing payment receipt integration SQL was extended with migration-161 assertions.
+
+**Updated source:** migration 161 blob `1565937b13a668af8f894a6e3ee5a8d471c384b4`; Linux runner `5f3d64a9e772d2246276dc83a619d23ea6ee9d68`; Windows migration runner `23bb3f9f0059b8459b662700ff79e64b6e53b058`; Windows SQL runner `d7bc53a65409ea5e2dbc9a4b658768616f52ce8a`; canonical chain test `d2957ada44467ce1aecdef9147140ac4ab48aa4f`; migration script contract `3b7e75e070204262895cae42e36af38b83cca36c`; SQL regression `00fbe5af225daa0c9c81429a608b8e8240f2b5af`; Node runner contract `00ca9a40add8d3f21497d0bb5c5d649620b0b294`.
+
+**Owner runtime sequence (local clean checkout only):**
+1. Run `git status --short`; stop if dirty. If clean, `git pull --ff-only origin main`; verify `git rev-parse HEAD` equals `git rev-parse origin/main`.
+2. Run `node --test backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js backend/test/postgres-integration-runner-contract.test.js`. Require all **52** tests to pass.
+3. Run `bash -n scripts/verify.sh` and `bash -n backend/test/lib/assert-disposable-postgres.sh backend/test/*-concurrency.sh`. If PowerShell is available, parse `scripts/verify.ps1` and `scripts/verify-integration.ps1` with the PowerShell parser.
+4. On a confirmed local disposable PostgreSQL 18.6 instance only, run `scripts/verify.ps1 -MigrationsOnly -PostgresPort 55439` (use the actual isolated test port if different). Require baseline + 010–161 to apply and the runner's own database cleanup to succeed.
+5. Run `scripts/verify-integration.ps1 -PostgresPort 55439` only against the dedicated local test cluster with the expected disposable role/data directory. Require all 152 migrations and all 49 SQL tests to pass, including the new direct-grant denial and private-helper privilege checks. Never target production, Supabase, staging or PIN_TRIAL.
+6. Inspect GitHub Actions atomic-payment run: require visible steps, migration 161 applied after 160, the receipt fulfillment SQL test executed, and actual job PASS. A job failing before runner allocation is not a test result.
+
+**Current status:** source and static contracts updated; Bash/Node/PowerShell/PostgreSQL/SQL/CI runtime remains **NOT VERIFIED**. Keep live payments and first-user invitations blocked until runtime PASS and Prodamus production configuration are independently confirmed.
+
+Detailed report: `docs/audits/2026-11-18-migration161-grant-guard-and-runner-alignment.md`.
