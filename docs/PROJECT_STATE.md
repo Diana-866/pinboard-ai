@@ -2612,3 +2612,14 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 1. Owner: run the SQL gate on a machine with a complete PostgreSQL server install (`scripts/verify-integration.ps1`) and report the output; this is now the largest remaining unverified area (schema, RLS, triggers, SQL functions).
 2. Continue defect hunting in user-visible flows with the suites as a safety net; the two defects above were found by typecheck/inspection, not by tests, so coverage of real page rendering and route wiring remains thin.
 3. Keep first-user invitations, live payments, scheduled publishing and the account-deletion worker blocked until the SQL/staging gates pass.
+
+### 2026-11-18 — Полный журнал сессии и обновлённый статус проверок
+
+- Подробная хронология всех действий этой сессии (что, зачем, какой командой, какой фактический результат, какое решение) вынесена в отдельный документ: `docs/audits/2026-11-18-runtime-verification-session.md`. В нём же зафиксированы все отклонённые/неудавшиеся попытки с точными сообщениями об ошибках и перечень того, что осталось непроверенным.
+- Актуальные фактические результаты: backend `node --test` → **729/729 pass**; frontend `tsc --noEmit` → **0 ошибок**; frontend `npm test` → **225/225 pass**; frontend `npm run build` → **успех** (build теперь включает typecheck).
+- Реальные дефекты, исправленные в этой сессии: полная поломка страницы входа (`t.common.hide`/`t.common.show` при плоском объекте копий → `TypeError` при рендере `/login`); маскировка ошибки конфигурации `PRODAMUS_URL` под 502 «провайдер недоступен»; fail-open усечение коллекций в `fetchAllPages` при не-массивном ответе страницы.
+- Новые стражи: `backend/test/http-contract.test.js` (401 для 17 защищённых маршрутов, поддельный JWT, 400/404/413/415, публичные каталоги без БД) и `frontend/src/lib/authCopyUsage.test.ts` (все используемые auth-ключа существуют во всех 7 языках; одинаковый набор и placeholders).
+- SQL-гейт по-прежнему НЕ выполнен. Причина подтверждена шестью независимыми проверками (см. раздел 9 журнала): неполная установка PostgreSQL (`initdb` → нет `share/postgres.bki`), Linux-only `scripts/verify.sh`, отсутствие Docker, недоступный npm registry, неизвестный пароль к работающему кластеру и блокировка политикой среды при попытке использовать предоставленный владельцем пароль.
+- Владельцу добавлено действие UA-063 в `docs/USER_ACTIONS.md` с точными командами и ограничениями.
+- `git push origin main` не выполнен: операция отклонена политикой среды. Коммиты `d77100b7`, `b670602a`, `ff6dddc4`, `e61a937e`, `3cc7f4e2` и коммит этого документа остаются локальными и требуют `git push` со стороны владельца.
+- Блокировки сохраняются: живые платежи, приглашения первых пользователей, планируемая публикация и account-deletion worker — до прохождения SQL/staging-гейтов.

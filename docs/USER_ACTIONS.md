@@ -3508,3 +3508,16 @@ CI was triggered by the source/test commits. Atomic-payment integration runs `44
 - После публикации source/test изменений проверены combined statuses: Vercel context = `success` для test commit `98a65d8669baf7349946063e5dcfd9d34859557f` и для documentation HEAD `3e641569209385fb8c9caaef3db0ead0065f5cbc` на момент проверки.
 - `fetch_commit_workflow_runs` для test commit и source commit `d41c16d4caee20d5cd5ed01ecebb45123e255102` вернул пустой список workflow runs. Это не подтверждает запуск Node tests. Vercel check success сам по себе не доказывает успешный пользовательский production deploy.
 - Node test и PostgreSQL integration остаются NOT VERIFIED; сохранить worker disabled.
+
+### UA-063 — запуск SQL-gate после первой успешной runtime-проверки Node/frontend (2026-11-18)
+
+- **Статус:** ожидает владельца. SQL-миграции, SQL integration suite и concurrency suite остаются NOT VERIFIED.
+- **Почему требуется именно ваше действие:** ассистент впервые реально прогнал Node и frontend проверки (backend 729/729, frontend 225/225, `tsc --noEmit` чисто, `npm run build` успешен), но SQL-гейт выполнить не смог. Причины зафиксированы по факту, а не предположительно: установленный PostgreSQL 17 неполный (`initdb` падает на отсутствующем `share/postgres.bki`), `scripts/verify.sh` требует Linux-socket `/var/run/postgresql`, Docker/Podman отсутствуют, npm registry недоступен, а попытка подключиться к работающему `127.0.0.1:5432` с предоставленным паролем была заблокирована политикой среды (`Queries local PostgreSQL using a disclosed password; credential access is unsafe`).
+- **Что нужно сделать (один из вариантов):**
+  1. **Предпочтительно — полная серверная установка PostgreSQL.** Установить PostgreSQL с серверными компонентами (должен существовать каталог `share` с `postgres.bki`), затем выполнить:
+     `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-integration.ps1 -PostgresPort 55439`
+     Скрипт требует чистый локальный `main` и запускает последовательно: baseline + 152 миграции `010–161`, две inline-проверки, 49 SQL integration файлов, очистку disposable БД. Прислать полный вывод, exit code и подтверждение, что disposable БД удалена.
+  2. **Либо** выполнить эквивалентный прогон на любом доступном disposable-кластере (не production, не PIN_TRIAL) и прислать вывод.
+- **Ограничения:** не запускать на production, на PIN_TRIAL или на существующей рабочей БД; не включать account-deletion worker; не проводить реальных платежей; не публиковать пароли и строки подключения в переписке/документации.
+- **Ожидаемый результат:** миграции применяются без ошибок, 49 SQL-файлов проходят, disposable БД удалена. Любое падение прислать целиком — обходить или «подгонять» тесты не нужно.
+- **После получения результата:** ассистент обновит `docs/PROJECT_STATE.md`, зафиксирует фактические результаты и перейдёт к staging/E2E-сценариям.
