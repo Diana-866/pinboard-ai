@@ -261,12 +261,13 @@ function signedWebhook(body) {
   return { body, headers: { sign: signature } };
 }
 
-function createPaymentDb({ subscription, purchase, activate, credit, settle, cancel }) {
+function createPaymentDb({ subscription, purchase, activate, credit, settle, cancel, receiptError }) {
   const state = { subscription: structuredClone(subscription), purchase: structuredClone(purchase) };
-  const rpcCalls = { activate: 0, credit: 0, settle: 0, receipt: 0, decision: 0 };
+  const rpcCalls = { activate: 0, credit: 0, settle: 0, receipt: 0, decision: 0, lookups: 0 };
   let receiptDecision = "pending_review";
   const db = {
     from(table) {
+      rpcCalls.lookups++;
       const key = table === "subscriptions" ? "subscription" : "purchase";
       const row = state[key];
       const query = {
@@ -301,6 +302,7 @@ function createPaymentDb({ subscription, purchase, activate, credit, settle, can
     async rpc(name, args) {
       if (name === "record_prodamus_payment_receipt") {
         rpcCalls.receipt++;
+        if (receiptError) return { data: null, error: receiptError };
         return { data: "00000000-0000-4000-8000-000000000158", error: null };
       }
       if (name === "set_prodamus_payment_decision") {
@@ -346,6 +348,46 @@ function createPaymentDb({ subscription, purchase, activate, credit, settle, can
   };
   return db;
 }
+
+test("subscription webhook fails closed when immutable receipt storage fails", async () => {
+  const db = createPaymentDb({
+    subscription: { id: "sub-receipt-fail", provider_payment_id: "pp-sub-receipt-fail", amount: 1990, currency: "rub", status: "pending" },
+    receiptError: { message: "receipt database unavailable" },
+    activate: async () => { throw new Error("fulfillment must not run without a receipt"); },
+    credit: async () => ({ data: 0, error: null }),
+  });
+  const response = createWebhookResponse();
+  await require("../billing").handleWebhook(
+    signedWebhook({ order_id: "pp-sub-receipt-fail", payment_status: "success", sum: "1990.00", currency: "rub" }),
+    response,
+    { supabase: db, dispatchPendingSubscriptionEmails: async () => ({}) }
+  );
+  assert.equal(response.statusCode, 500);
+  assert.equal(response.body.error, "receipt storage failed");
+  assert.equal(db.rpcCalls.receipt, 1);
+  assert.equal(db.rpcCalls.lookups, 0, "order lookup must not happen before durable receipt");
+  assert.equal(db.rpcCalls.activate, 0);
+});
+
+test("credit webhook fails closed when immutable receipt storage fails", async () => {
+  const db = createPaymentDb({
+    purchase: { id: "purchase-receipt-fail", provider_payment_id: "ppc-receipt-fail", amount: 490, currency: "rub", credits: 100, package_id: "pack_100", balance_credited_at: null, status: "pending" },
+    receiptError: { message: "receipt database unavailable" },
+    activate: async () => ({ data: null, error: null }),
+    credit: async () => { throw new Error("fulfillment must not run without a receipt"); },
+  });
+  const response = createWebhookResponse();
+  await require("../creditsBilling").handleCreditsWebhook(
+    signedWebhook({ order_id: "ppc-receipt-fail", payment_status: "success", sum: "490.00", currency: "rub" }),
+    response,
+    { supabase: db }
+  );
+  assert.equal(response.statusCode, 500);
+  assert.equal(response.body.error, "receipt storage failed");
+  assert.equal(db.rpcCalls.receipt, 1);
+  assert.equal(db.rpcCalls.lookups, 0, "order lookup must not happen before durable receipt");
+  assert.equal(db.rpcCalls.credit, 0);
+});
 
 test("subscription webhook concurrent duplicate callbacks activate exactly once", async () => {
   const db = createPaymentDb({
