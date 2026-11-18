@@ -1561,3 +1561,19 @@ Commits: `21b5e3b2bb6edfaab09163f9fefe28bb1d101e25`, `960098479cb1598bf3152556ab
 Relevant commits: `19118c46429148b0b9c8e3fdb3a97b7d29dfa50f`, `2ef950263a9e22bc684f640c7beb4ace0f082aba`, `b590373f687dadc5cb39ddb33c9b99805304b1e1`, `4cfb2be7126110116c9da714722aa0781bd137a4`, `09b12d15d78cb07bab3d3ca95682f88488aed215`, report commit `aee9af9d43796a3a83c3dde4ccbb5cc561535044`.
 
 The atomic-payment workflow already syntax-checks all `*-concurrency.sh` files, runs the concurrency safety contract, and invokes the suite against a unique disposable database clone. Static re-fetch confirmed wiring; Bash syntax, Node contract, PostgreSQL concurrency, migration replay and all SQL tests remain NOT VERIFIED. The new test models the user-row lifecycle fence with an `account_status` update; it does not call the full account-deletion queue RPC/worker and does not yet test subscription fulfillment. See UA-045. No production or external payment resource was accessed.
+
+
+## Supplemental inventory — migration 160 and payment/deletion race verification (2026-11-18)
+
+| Path | Blob SHA | Purpose / verification |
+|---|---|---|
+| `db/migrations/160_prodamus_receipt_local_payment_binding_guard.sql` | `7005ec7ce7a802312bb1376284892309a67fa226` | Binds terminal receipt decisions to local payment kind/id/user; duplicate mismatch callback idempotency |
+| `backend/test/payment-provider-receipt-fulfillment.integration.sql` | `f7fdc7a05bba1bc45f2b4f78652a7365422b4778` | Migration 159/160 receipt, terminal mismatch, duplicate retry and subscription lifecycle assertions |
+| `scripts/verify-integration.ps1` | `a1af92050d64db66f5081c1425e49247ef074173` | Guarded local runner requires 151 migrations 010–160 and 49 SQL tests; reports ten Bash concurrency scripts |
+| `backend/test/postgres-integration-runner-contract.test.js` | `0f4f79af08145f19f64c76541be3de5fd5b88198` | Asserts Windows runner migration/SQL counts and diagnostics |
+| `backend/test/run-disposable-concurrency-suite.sh` | `827a2cd063d64668102bdf36e97e4a73dffba0af` | Runs ten unique concurrency scripts against a disposable database clone |
+| `backend/test/postgres-concurrency-safety-contract.test.js` | `ab84f345305ee793a74e30cb4ad9ff871b62e69c` | Asserts ten unique scripts, disposable guard and both receipt/deletion lock orders |
+| `backend/test/payment-deletion-receipt-race-concurrency.sh` | `0e2da4a83e2b0bda1d9f729868fca3fba04819c5` | Two-session payment-first/deletion-first race; credits path only |
+| `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md` | `a48c9661598991328d988c71c86bdea47985b126` | Updated with migration 160, runner deduplication, exact scope limits and CI evidence |
+
+Current expected counts: 151 migrations (010–160), 49 SQL integration tests, 10 unique Bash concurrency scripts, 51 Node migration preflight tests. Runtime remains NOT VERIFIED. Latest Actions attempts failed before runner allocation. See UA-046.
