@@ -7,6 +7,7 @@ const {
   countOwnedRows,
   createAccountDeletionWorker,
   safeErrorCode,
+  isValidStorageManifestBatch,
 } = require("../accountDeletionWorker");
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
@@ -648,4 +649,62 @@ test("account deletion exact count helper rejects malformed values instead of si
   }
   assert.equal(normalizeExactCount(0, "credit_transactions"), 0);
   assert.equal(normalizeExactCount(42, "credit_transactions"), 42);
+});
+
+
+test("Storage manifest batches must be bounded, path-safe and unique before deletion", () => {
+  const valid = { bucket_id: "pin-images", object_path: "pins/12-0123456789abcdef0123456789abcdef.webp" };
+  assert.equal(isValidStorageManifestBatch([], 100), true);
+  assert.equal(isValidStorageManifestBatch([valid], 100), true);
+  assert.equal(isValidStorageManifestBatch(Array.from({ length: 101 }, (_, i) => ({
+    bucket_id: "pin-images",
+    object_path: `pins/${i + 1}-0123456789abcdef0123456789abcdef.webp`,
+  })), 100), false);
+  assert.equal(isValidStorageManifestBatch([valid, valid], 100), false);
+  assert.equal(isValidStorageManifestBatch([{ ...valid, object_path: "pins/../private.png" }], 100), false);
+  assert.equal(isValidStorageManifestBatch([{ ...valid, bucket_id: "other-bucket" }], 100), false);
+});
+
+test("worker rejects duplicate Storage manifest paths before deleting any object", async () => {
+  const calls = [];
+  const removedObjects = [];
+  const manifestEntry = {
+    bucket_id: "pin-images",
+    object_path: "pins/12-0123456789abcdef0123456789abcdef.webp",
+  };
+  const client = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_account_deletion_jobs") {
+        return { data: [{
+          job_id: "job-storage-duplicate",
+          request_id: "request-job-storage-duplicate",
+          attempts: 1,
+          lease_expires_at: "2026-11-19T00:00:00.000Z",
+          user_id: USER_ID,
+          step_key: "erase_content",
+          claim_token: "claim-storage-duplicate",
+        }], error: null };
+      }
+      if (name === "erase_account_deletion_content") {
+        return { data: { erased: true, financial_records_retained: true }, error: null };
+      }
+      if (name === "list_account_deletion_storage_manifest") {
+        return { data: [manifestEntry, manifestEntry], error: null };
+      }
+      if (name === "finish_account_deletion_job") return { data: true, error: null };
+      throw new Error("unexpected RPC: " + name);
+    },
+  };
+  const worker = createAccountDeletionWorker({
+    client,
+    deleteImageObject: async (args) => { removedObjects.push(args); return true; },
+    logger: { info() {}, error() {} },
+  });
+  const result = await worker.tick();
+  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1 });
+  assert.equal(removedObjects.length, 0, "the whole malformed batch must be rejected before side effects");
+  const finish = calls.find((call) => call.name === "finish_account_deletion_job");
+  assert.equal(finish.args.p_outcome, "retry");
+  assert.equal(finish.args.p_error_code, "invalid_storage_manifest_entry");
 });
