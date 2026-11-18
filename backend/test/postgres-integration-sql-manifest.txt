@@ -46,3 +46,4 @@ admin-pinterest-inventory.integration.sql
 pinterest-failed-board-reassignment.integration.sql
 pinterest-failed-schedule-retry-identity.integration.sql
 pin-regeneration-journal.integration.sql
+payment-provider-receipts.integration.sql
