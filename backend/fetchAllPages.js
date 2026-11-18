@@ -16,7 +16,13 @@ async function fetchAllPages(queryForRange, { pageSize = 500, maxRows = 10000 } 
     const requested = Math.min(pageSize, maxRows - offset);
     const { data, error } = await queryForRange(offset, offset + requested - 1);
     if (error) throw error;
-    const page = Array.isArray(data) ? data : [];
+    // A successful response that is not an array is malformed. Treating it as
+    // an empty page would silently truncate the collection and make an
+    // incomplete list look complete, so fail closed instead.
+    if (!Array.isArray(data)) {
+      throw httpError(502, "Источник данных вернул некорректную страницу. Повторите попытку позже.");
+    }
+    const page = data;
     if (page.length > requested) {
       throw new Error("Paginated query returned more rows than requested");
     }
@@ -27,7 +33,10 @@ async function fetchAllPages(queryForRange, { pageSize = 500, maxRows = 10000 } 
   // Distinguish exactly maxRows from a silently truncated larger result.
   const { data: overflow, error: overflowError } = await queryForRange(maxRows, maxRows);
   if (overflowError) throw overflowError;
-  if (Array.isArray(overflow) && overflow.length > 0) {
+  if (!Array.isArray(overflow)) {
+    throw httpError(502, "Источник данных вернул некорректную страницу. Повторите попытку позже.");
+  }
+  if (overflow.length > 0) {
     throw httpError(413, "Слишком много записей для одного списка. Уменьшите объём данных.");
   }
   return rows;

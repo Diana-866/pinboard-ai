@@ -37,3 +37,26 @@ test("fetchAllPages propagates database errors and rejects invalid settings", as
   await assert.rejects(fetchAllPages(async () => ({ data: [], error: null }), { pageSize: 0 }), /pageSize/);
   await assert.rejects(fetchAllPages(async () => ({ data: [], error: null }), { maxRows: 0 }), /maxRows/);
 });
+
+test("fetchAllPages fails closed on a malformed page instead of truncating the list", async () => {
+  // A successful response without an array payload must never be read as an
+  // empty (complete) page: that would silently return a partial collection.
+  for (const malformed of [null, undefined, {}, "rows", 42]) {
+    await assert.rejects(
+      fetchAllPages(async () => ({ data: malformed, error: null })),
+      (error) => error && error.httpStatus === 502,
+      `malformed page payload: ${JSON.stringify(malformed)}`
+    );
+  }
+
+  // The same rule applies to the dedicated overflow probe after an exact cap.
+  let calls = 0;
+  await assert.rejects(
+    fetchAllPages(async (from, to) => {
+      calls += 1;
+      if (calls === 1) return { data: [0, 1], error: null };
+      return { data: null, error: null };
+    }, { pageSize: 2, maxRows: 2 }),
+    (error) => error && error.httpStatus === 502
+  );
+});
