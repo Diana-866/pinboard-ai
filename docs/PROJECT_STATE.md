@@ -2256,3 +2256,12 @@ The combined status for the later documentation HEAD `a201002b668d7a9c962979cbf4
 - Race script current blob `805a076a23e40e0b7263c5a45bb88035d7c4603b`; safety contract current blob `e315d6cb694465e3ea116c2cf828ef13d8d1f268`; commit `e602d42894db555c6b97ed244bf9834b86bf3303`.
 - Detailed audit current blob `619402188b5bd00dea0a0c31e755fb5f154170e4`. Owner action UA-049 added.
 - Static verification only. Latest atomic workflow run `44315630744`, job `134840855489`, failed before runner allocation (runner_id 0, zero steps). Bash/Node/PostgreSQL runtime remains NOT VERIFIED.
+
+
+### 2026-11-18 — Durable deletion queue assertions added to payment races
+
+- Latest harness verifies the actual deletion acceptance RPC in both payment-first and deletion-first outcomes. In each outcome it now requires exactly one immutable `request_accepted` event and exactly one pending `preflight` job; the earlier version did not assert the durable worker job in both outcomes.
+- Deletion-first case starts credit and subscription fulfillment in separate sessions and waits for both PostgreSQL lock waiters. Both deletion RPC calls pass the migration-130 three-argument signature and exact fixture token version. Token version must transition 0→1 on the user and request rows.
+- Current race script blob `805a076a23e40e0b7263c5a45bb88035d7c4603b`; Node contract blob `e315d6cb694465e3ea116c2cf828ef13d8d1f268`. Commits `ccae989aeb7cbcd4425f16a6896667c9495787ee`, `e602d42894db555c6b97ed244bf9834b86bf3303`.
+- Audit blob `af7c20792eda12fd547b934a93b0479a976505c8`; UA-048 addendum in USER_ACTIONS blob `e25af37aabc1a0f1af208c6f1c43528d2d451d3d`; register blob `21006b4aed1b519bb03f98f3c60bb644781b7370`.
+- Static re-fetch confirms source/contract wiring and exact assertions. Bash syntax, Node contract, PostgreSQL race, 151 migration replay, 49 SQL tests and CI are **NOT RUN**. Latest observed Vercel status remains `failure / build-rate-limit`; no source build or deployment pass is confirmed. The race leaves immutable fixtures in the disposable clone; the outer runner must drop the clone. Live payments and first-user invitations remain blocked.
