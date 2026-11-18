@@ -42,6 +42,17 @@ wait_for_lock_waiter() {
   return 1
 }
 
+wait_for_two_lock_waiters() {
+  local active=0
+  for _ in $(seq 1 100); do
+    active="$("${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name in ('payment-after-deletion-credit', 'payment-after-deletion-subscription') and wait_event_type = 'Lock'")"
+    if [[ "$active" == "2" ]]; then return 0; fi
+    sleep 0.1
+  done
+  echo "Both credit and subscription fulfillment sessions did not wait on the lifecycle row lock (waiters=$active)" >&2
+  return 1
+}
+
 cleanup() {
   stop_test_children
   cleanup_test_tmp_dir
@@ -118,11 +129,14 @@ PGAPPNAME=payment-deletion-deletion-first-locker "${psql_base[@]}" -c "begin; se
 DELETION_LOCK_PID=$!
 wait_for_query "payment-deletion-deletion-first-locker" "pg_sleep"
 
-PGAPPNAME=payment-after-deletion "${psql_base[@]}" -c "begin; select public.credit_paid_purchase_with_receipt('$PURCHASE_ID', now(), 'payment lost deletion race', '$CREDIT_RECEIPT_ID'); select public.activate_paid_subscription_with_receipt('$SUBSCRIPTION_ID', now(), '$SUBSCRIPTION_RECEIPT_ID'); commit;" >"${TEST_TMP_DIR}/deletion-first-payment.log" 2>&1 &
-PAYMENT_PID=$!
-wait_for_lock_waiter "payment-after-deletion"
+PGAPPNAME=payment-after-deletion-credit "${psql_base[@]}" -c "select public.credit_paid_purchase_with_receipt('$PURCHASE_ID', now(), 'payment lost deletion race', '$CREDIT_RECEIPT_ID')" >"${TEST_TMP_DIR}/deletion-first-credit.log" 2>&1 &
+CREDIT_PID=$!
+PGAPPNAME=payment-after-deletion-subscription "${psql_base[@]}" -c "select public.activate_paid_subscription_with_receipt('$SUBSCRIPTION_ID', now(), '$SUBSCRIPTION_RECEIPT_ID')" >"${TEST_TMP_DIR}/deletion-first-subscription.log" 2>&1 &
+SUBSCRIPTION_PID=$!
+wait_for_two_lock_waiters
 wait "$DELETION_LOCK_PID"
-wait "$PAYMENT_PID"
+wait "$CREDIT_PID"
+wait "$SUBSCRIPTION_PID"
 
 "${psql_base[@]}" <<SQL
 do \$\$
