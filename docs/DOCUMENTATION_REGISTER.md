@@ -1859,8 +1859,8 @@ Commits: admin fix `ffdb871971c7e6702737e8c3bfc8828bd75696c9`; admin regression 
 | `backend/accountDeletionWorker.js` | `1df861ccc0f05cc8b787f51c5e111bc07d3660cb` | Rejects non-array paginated inventory pages and both malformed Storage-manifest responses; retry instead of treating null as empty |
 | `backend/test/account-deletion-worker.test.js` | `292c619f9717f862589aecadfa9f9855662b7f9b` | Covers null inventory page, null initial manifest and null remaining-manifest response; runtime NOT VERIFIED |
 | `docs/audits/2026-11-18-account-deletion-preflight-stable-pagination.md` | `d0c94414069590d462a956c701d98c935654f217` | Addendum records the null-to-empty root cause, fail-closed correction and regression evidence |
-| `docs/PROJECT_STATE.md` | `145674491e1c8f628b0e0bdf064388308e137570` | Current operational state includes worker and test source blobs |
-| `docs/USER_ACTIONS.md` | `30412913a9ebc46d87f29a78acd11d5ce2ebbd03` | UA-053 current-source reconciliation and owner-only local test command |
+| `docs/PROJECT_STATE.md` | `a5f0607d53c64e7ce66ed55141168df533050512` | Current operational state includes worker and test source blobs |
+| `docs/USER_ACTIONS.md` | `94d14d522adebb86ca64e286dda8b678f8bf96f1` | UA-053 current-source reconciliation and owner-only local test command |
 
 Implementation commits: `04bb175803eb2524834785d0599e4d37a77ed2e3` and `185d1d8015ee629dbd95a7da0a10de2db835241e`. Source-level verification only; Node runtime, PostgreSQL replay, Storage integration and deletion-worker rollout remain NOT VERIFIED. No real account or Storage object was touched.
 
@@ -1933,3 +1933,14 @@ Commits: worker `68ef687186539530a37623dffaca28a73662970b`; regression `460a54ac
 - Audit `docs/audits/2026-11-18-pinterest-scheduler-claim-response.md`, latest audit commit `d24eebcf73a63285c898360d2552ca7349687328`.
 - Latest recorded code/test commits: route response validation `793bc081efc6a27c442fe0faa41cacccbde49fa0`; scheduler worker contract `68ef687186539530a37623dffaca28a73662970b`; associated regression commits `10f634594a774e963cf02caecfd263546347e094`, `460a54ac3a1da36d728796a5af329fcbd994c941`.
 - Actions runs `44319160489` and `44319160390` failed with no job steps returned; Vercel reports `build-rate-limit` failure on then-current HEAD. Node/PostgreSQL runtime NOT VERIFIED.
+
+
+## Scheduler worker response contract and current platform status — 2026-11-18
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `backend/scheduleWorker.js` | `4eff5a721a8f5668876056109902e57ccb8ae1e5` | Validates the complete backend worker response before resetting retry backoff or logging success |
+| `backend/test/schedule-worker.test.js` | `9757a340c8c2653aa4f71ef42c68a09feea88eb0` | Regression for malformed `ok: true` responses and valid one-item results; runtime NOT VERIFIED |
+| `docs/audits/2026-11-18-pinterest-scheduler-claim-response.md` | `d24eebcf73a63285c898360d2552ca7349687328` | Includes the route claim-payload and worker response-contract reviews |
+
+Current main HEAD before this register update: `2468bccc99762afdc47306ffda0e06b2da846ead`; latest code/test commit: `460a54ac3a1da36d728796a5af329fcbd994c941`. Combined Vercel status is `failure` / `build-rate-limit` on both. Latest recorded atomic Actions run `44318456320` returned no job steps. Deployment and runtime remain NOT VERIFIED. State blob `a5f0607d53c64e7ce66ed55141168df533050512`; owner-action blob `94d14d522adebb86ca64e286dda8b678f8bf96f1`.
