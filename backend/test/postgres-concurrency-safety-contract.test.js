@@ -46,39 +46,41 @@ test('all ten concurrency scripts use the shared target guard and isolated clean
 });
 
 
-test('payment/deletion race test proves both serialized lock orders with receipt-bound fulfillment', () => {
+test('payment/deletion race test proves four isolated lock orders with the real acceptance RPC', () => {
   const script = read('backend/test/payment-deletion-receipt-race-concurrency.sh');
-  assert.match(script, /request_account_deletion/);
-  assert.match(script, /request_account_deletion\([^)]*password_reauth[^)]*TOKEN_VERSION/);
-  assert.equal((script.match(/select public\.request_account_deletion\([^;]*password_reauth[^;]*TOKEN_VERSION/g) || []).length, 2);
-  assert.match(script, /v_event_count <> 1/);
+  assert.match(script, /public\.request_account_deletion/);
+  assert.match(script, /password_reauth', \$TOKEN_VERSION/);
+  assert.equal((script.match(/select public\.request_account_deletion\([^;]*password_reauth[^;]*TOKEN_VERSION/g) || []).length, 4);
+  for (const caseName of [
+    'run_credit_payment_first',
+    'run_credit_deletion_first',
+    'run_subscription_payment_first',
+    'run_subscription_deletion_first',
+  ]) assert.match(script, new RegExp(caseName));
+  assert.match(script, /credit_paid_purchase_with_receipt/);
+  assert.match(script, /activate_paid_subscription_with_receipt/);
   assert.match(script, /account_deletion_jobs/);
-  assert.match(script, /v_job_count <> 1/);
-  assert.match(script, /v_token_version <> 1/);
-  assert.match(script, /v_user\.token_version <> 1/);
-  assert.match(script, /v_request_version <> 1/);
+  assert.match(script, /account_deletion_events/);
   assert.match(script, /request_accepted/);
+  assert.match(script, /v_event_count <> 1/);
+  assert.match(script, /v_job_count <> 1/);
+  assert.match(script, /v_user\.token_version <> 1/);
+  assert.match(script, /v_request_version <> v_user\.token_version/);
+  assert.match(script, /v_user\.credits_balance <> 105/);
+  assert.match(script, /v_user\.credits_balance <> 5/);
+  assert.match(script, /v_ledger_count <> 1/);
+  assert.match(script, /v_ledger_count <> 0/);
+  assert.match(script, /v_sub\.status <> 'success'/);
+  assert.match(script, /v_sub\.status <> 'canceled'/);
+  assert.match(script, /v_user\.tariff_plan <> 'pro'/);
+  assert.match(script, /v_user\.tariff_plan <> 'none'/);
+  assert.match(script, /withheld_account_lifecycle/);
   assert.match(script, /trap cleanup EXIT/);
   assert.match(script, /stop_test_children/);
   assert.match(script, /cleanup_test_tmp_dir/);
   assert.doesNotMatch(script, /delete from public\.account_deletion_requests/i);
-  assert.match(script, /credit_paid_purchase_with_receipt/);
-  assert.match(script, /activate_paid_subscription_with_receipt/);
-  assert.match(script, /payment-first/);
-  assert.match(script, /deletion-first/);
-  assert.match(script, /wait_for_lock_waiter/);
-  assert.match(script, /wait_for_two_lock_waiters/);
-  assert.match(script, /payment-after-deletion-credit/);
-  assert.match(script, /payment-after-deletion-subscription/);
-  assert.match(script, /withheld_account_lifecycle/);
-  assert.match(script, /v_balance <> 105/);
-  assert.match(script, /v_user\.credits_balance <> 5/);
-  assert.match(script, /v_request_version <> v_token_version/);
-  assert.match(script, /v_sub\.status <> 'success'/);
-  assert.match(script, /v_user\.tariff_plan <> 'none'/);
-  assert.match(script, /v_ledger_count <> 1/);
-  assert.match(script, /v_ledger_count <> 0/);
 });
+
 
 test('CI workflow routes concurrency tests through a unique disposable clone', () => {
   const workflow = read('.github/workflows/atomic-payment-integration.yml');
