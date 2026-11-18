@@ -2346,3 +2346,13 @@ The combined status for the later documentation HEAD `a201002b668d7a9c962979cbf4
 - Audit: `docs/audits/2026-11-18-account-deletion-preflight-stable-pagination.md`, commit `5554c125a8e90b6860e3a3215abbad35ef3889b0`. Owner action UA-053; USER_ACTIONS blob `b2ec5ecb75c50a175b2ee5a20c2a555fa0be2577`; register blob `f6fdf365e177099f693e94b25869db19b5ec42c7`.
 - Static re-fetch confirmed the worker orders by ascending `id` before `.range()` and the regression checks all three inventory sources. `node --test backend/test/account-deletion-worker.test.js` was **NOT RUN**; no PostgreSQL, Storage, production account or deletion worker execution was performed. Worker remains disabled behind its explicit rollout gate.
 - Next: execute the owner regression test, then the full Node/PowerShell/PostgreSQL acceptance sequence from UA-052. Keep production deletion disabled until staging rehearsal and all runtime gates pass.
+
+
+## Follow-up hardening — symmetric receipt amount validation (2026-11-18)
+
+- Reviewed the newer mainline changes to migration 161's private Prodamus grant helper. The helper had explicit NULL local-amount rejection for credits, but not subscriptions. Although canonical baseline `subscriptions.amount` is currently `NOT NULL`, the security helper should enforce the same invariant for both entitlement types.
+- Fixed subscription branch to reject `v_payment_amount IS NULL`, matching the credit branch. Migration current blob: `039b778b89f8d592eda92a7f199176030a1eeb49`; commit `2d3a478d17e4c17995cd2ba407f31b93224a906f`.
+- Strengthened `backend/test/postgres-integration-runner-contract.test.js` to require exactly two explicit NULL amount guards, one for credits and one for subscriptions. Test contract blob: `252ab03a5146605a28cb01f465c17d7bf8947f97`; commit `4c02b2afcd2240f08bb9903e5b9afb3cd7442f27`.
+- Re-fetched both files after publication: source contains two guards and the static contract requires a count of two. This is not a Node or SQL runtime PASS. Bash/Node/PostgreSQL/PowerShell/CI remain NOT VERIFIED.
+- Detailed report: `docs/audits/2026-11-18-prodamus-receipt-webhook-static-review.md`, latest update commit `e41c98fb9b15a250b514659b5a674d462fdbaaeb`.
+- No production database, real payment, external account, or deployment was accessed. Next: owner-controlled local execution of the Node contract and disposable PostgreSQL payment regression; continue reviewing other independent launch blockers. Keep first-user invitations and live payments blocked.
