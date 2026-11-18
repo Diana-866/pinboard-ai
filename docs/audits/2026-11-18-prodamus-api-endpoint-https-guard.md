@@ -93,3 +93,12 @@ Source commit: `f89803b544a78ef15fc4d75220225d4f89edb53a`; source blob: `e9290bc
 Added a regression to `backend/test/prodamus-endpoint-security.test.js` that stubs Axios to return 307, verifies the checkout is rejected as ambiguous, and asserts `maxRedirects === 0` on the actual Axios options. Test commit: `facc0c992b122106f72d7adc80e70a0f28b82fff`; final test blob: `1face096b814532e10a608fb4de8a53ec9b4b096`. The existing workflow already includes this test path and executes the file; no workflow edit was required.
 
 Both files were re-fetched from main and the exact diffs inspected. The new regression is **NOT RUNTIME-VERIFIED**; no local Node test was run. Vercel status for test commit `facc0c992b122106f72d7adc80e70a0f28b82fff` was PENDING at last check. No Actions result for this latest commit was available at report time. No production or external service was accessed.
+
+
+## 9. Final status refresh (2026-11-18)
+
+Re-queried the combined commit status for latest code/test commit `facc0c992b122106f72d7adc80e70a0f28b82fff`: Vercel now reports SUCCESS. This supersedes the earlier PENDING observation for the redirect-guard test commit, but it is not proof of a production deployment and does not execute the backend Node suite.
+
+The latest Prodamus test source is still not runtime-verified. The most recent inspectable Actions evidence remains run `44307390644` on the preceding contract-test commit, which failed before exposing any runner step/log; no successful Actions run for `facc0c992b122106f72d7adc80e70a0f28b82fff` was available at this check. Do not infer that tests passed or failed from Vercel status.
+
+Latest repository `main` HEAD after documentation updates is `7944cf5152e98d1000ee556dd09e41c39829437d`; latest code/test commit remains `facc0c992b122106f72d7adc80e70a0f28b82fff`. Production, live payments, external provider accounts and databases remain untouched.
