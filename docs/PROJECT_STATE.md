@@ -2529,3 +2529,14 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - Latest Actions runs after these changes: `44320553737` (atomic payment), `44320553241` (persisted boards), `44320543687` (atomic payment), `44320543564` (persisted boards). All failed and job API returned `steps: null`; no test step execution or source failure is evidenced. Vercel remains `failure / build-rate-limit` on main.
 - Node tests, PostgreSQL integration, full backend suite, frontend build and deployment are NOT VERIFIED. No runtime PASS is claimed. Owner steps UA-058 and UA-059 contain clean-checkout commands.
 - No production DB, SMTP, customer email, live payment, account deletion or Pinterest publishing was performed. Next: owner-run focused Node and disposable PostgreSQL acceptance after CI runner/Vercel quota is restored; continue reviewing remaining queue/RPC consumers. First-user launch remains blocked.
+
+
+### 2026-11-18 — Account deletion claim fixture alignment
+
+- Follow-up inspection found that the strict validator added to `backend/accountDeletionWorker.js` requires the full migration 130 claim row, but 14 pre-existing worker test stubs still returned partial rows. Those tests would fail at the new validation boundary before exercising their intended stage behavior.
+- Updated all 14 valid worker claim fixtures with `request_id`, `attempts: 1`, and parseable `lease_expires_at`. Kept the intentionally incomplete `job-incomplete` malformed-response fixture unchanged.
+- Worker source remains unchanged: blob `2b937219c865352e6b3f4167e9568c732c377a67`. Test blob after re-fetch: `94c7683aba347fb98293a2bb63d2328a4d3404d6`; test commit `33299508fcef9cab4141fec4a8974294e0f53a40`.
+- Added detailed report `docs/audits/2026-11-18-account-deletion-claim-fixture-alignment.md`, created by commit `6bbcca306f65ba4c3fb0f170ef29c5ab535d5d4c`.
+- Static re-fetch/scan: 14 valid fixtures now carry all required added fields; deliberately malformed fixture remains malformed. Runtime Node tests and PostgreSQL integration are NOT VERIFIED.
+- No SQL, production source, worker enablement, production database, account data, Storage objects, payments, or external services were changed/accessed. Account deletion worker remains disabled.
+- Owner acceptance is recorded as UA-060. Continue reviewing remaining RPC consumers; do not claim runtime success or launch readiness.
