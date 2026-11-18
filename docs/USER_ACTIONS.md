@@ -3464,3 +3464,14 @@ After the email outbox source/test commits, Actions runs `44320063124`, `4432006
 ### UA-059 platform status addendum (2026-11-18)
 
 Latest Actions runs after account-deletion claim validation: `44320553737`, `44320553241`, `44320543687`, `44320543564`; all failed and job responses contained `steps: null`. Vercel remains `failure / build-rate-limit`. No Node/PostgreSQL test execution is evidenced. The worker remains disabled. Run UA-058/UA-059 focused tests and disposable SQL tests only after restoring runner/local runtime access; do not retry production actions.
+
+
+### UA-060 — account deletion worker strict-claim fixture alignment (2026-11-18)
+
+- **Статус:** исправление тестовых fixtures опубликовано; Node/PostgreSQL runtime NOT VERIFIED.
+- **Причина:** после добавления строгой проверки claim rows 14 успешных worker stubs всё ещё возвращали неполные объекты. Из-за отсутствия `request_id`, `attempts` и `lease_expires_at` тесты завершались бы на входной валидации, не достигая проверяемых сценариев.
+- **Изменение:** все 14 валидных claim fixtures дополнены тремя обязательными полями. Специально неполный `job-incomplete` в negative regression test оставлен без исправлений.
+- **Файлы:** `backend/accountDeletionWorker.js` blob `2b937219c865352e6b3f4167e9568c732c377a67`; `backend/test/account-deletion-worker.test.js` blob `94c7683aba347fb98293a2bb63d2328a4d3404d6`; migration 130 blob `1dcf7844444b4a70be1be49946d5a4c4265ce40f`.
+- **Коммиты:** test `33299508fcef9cab4141fec4a8974294e0f53a40`; audit `6bbcca306f65ba4c3fb0f170ef29c5ab535d5d4c`.
+- **Проверка владельца:** после clean `git pull --ff-only origin main` выполнить `node --test backend/test/account-deletion-worker.test.js`; сохранить полный вывод и exit code. Затем выполнить только disposable PostgreSQL integration tests для durable account-deletion queue/worker. Не запускать worker против production и не включать его в production.
+- **Ожидаемый результат:** Node test exit code 0; malformed claim payload вызывает только claim RPC; корректные preflight/erase/finalize fixtures проходят strict validator; SQL queue tests проходят на disposable DB. При любом падении приложить полный вывод, ничего не обходить.
