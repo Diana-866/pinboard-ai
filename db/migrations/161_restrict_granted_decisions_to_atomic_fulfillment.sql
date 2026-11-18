@@ -35,10 +35,10 @@ begin
      and p_local_payment_kind not in ('subscription', 'credits') then
     raise exception 'invalid local payment kind';
   end if;
-  if p_local_payment_id is not null and p_local_payment_kind is null then
-    raise exception 'local payment kind is required with local payment id';
+  if p_local_payment_id is not null and (p_local_payment_kind is null or p_user_id is null) then
+    raise exception 'local payment kind and owner are required with local payment id';
   end if;
-  if p_user_id is not null and length(p_user_id) > 200 then
+  if p_user_id is not null and (length(p_user_id) < 1 or length(p_user_id) > 200) then
     raise exception 'invalid decision user id';
   end if;
 
