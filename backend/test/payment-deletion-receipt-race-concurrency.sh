@@ -99,7 +99,7 @@ PGAPPNAME=payment-deletion-deletion-first-locker "${psql_base[@]}" -c "begin; up
 DELETION_LOCK_PID=$!
 wait_for_query "payment-deletion-deletion-first-locker" "pg_sleep"
 
-PGAPPNAME=payment-after-deletion "${psql_base[@]}" "${psql_base[@]}" -c "select public.credit_paid_purchase_with_receipt('$PURCHASE_ID', now(), 'payment lost deletion race', '$RECEIPT_ID')" >"${TEST_TMP_DIR}/deletion-first-payment.log" 2>&1 &
+PGAPPNAME=payment-after-deletion "${psql_base[@]}" -c "select public.credit_paid_purchase_with_receipt('$PURCHASE_ID', now(), 'payment lost deletion race', '$RECEIPT_ID')" >"${TEST_TMP_DIR}/deletion-first-payment.log" 2>&1 &
 PAYMENT_PID=$!
 wait_for_lock_waiter "payment-after-deletion"
 wait "$DELETION_LOCK_PID"
