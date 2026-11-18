@@ -29,9 +29,13 @@ async function countOwnedRows(client, table, userId) {
 // PostgREST applies a default row cap. Explicitly page every identifier query;
 // otherwise a large account could receive a false "complete" inventory.
 async function fetchAllRows(query, pageSize = 1000) {
+  // PostgREST pagination must use a deterministic unique order. Every caller
+  // selects primary-key `id`; without ORDER BY, page boundaries can skip or
+  // duplicate rows and make the deletion preflight inventory incomplete.
+  const orderedQuery = query.order("id", { ascending: true });
   const rows = [];
   for (let offset = 0; ; offset += pageSize) {
-    const { data, error } = await query.range(offset, offset + pageSize - 1);
+    const { data, error } = await orderedQuery.range(offset, offset + pageSize - 1);
     if (error) throw error;
     const page = Array.isArray(data) ? data : [];
     rows.push(...page);
