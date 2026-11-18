@@ -341,6 +341,6 @@ begin
     raise exception 'rejected mismatch decision changed after forbidden grant attempt';
   end if;
 end;
-$;
+$$;
 
 rollback;

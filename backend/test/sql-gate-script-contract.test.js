@@ -67,3 +67,24 @@ test("the grant precondition before migration 039 is preserved", () => {
   assert.match(script, /if \(\$migration\.Number -eq 39\)/);
   assert.match(script, /grant all on public\.pinterest_accounts, public\.pinterest_publications to anon, authenticated/);
 });
+
+test("the static SQL check runs before the password prompt", () => {
+  const preflightIndex = script.indexOf("Static pre-flight");
+  const promptIndex = script.indexOf("Read-Host -AsSecureString");
+  assert.ok(preflightIndex > 0, "the pre-flight section must exist");
+  assert.ok(promptIndex > 0);
+  assert.ok(preflightIndex < promptIndex, "a broken SQL file must be reported without a password");
+  assert.match(script, /scripts\/lib\/sql-lexer\.cjs/);
+});
+
+test("stderr from psql is stringified instead of printed as a RemoteException", () => {
+  assert.doesNotMatch(script, /@\(& \$PsqlPath @arguments 2>&1\)/);
+  assert.match(script, /& \$PsqlPath @arguments 2>&1 \| ForEach-Object \{ "\$_" \}/);
+});
+
+test("-KeepGoing collects every failure instead of hiding them behind the first", () => {
+  assert.match(script, /\[switch\]\$KeepGoing/);
+  assert.match(script, /if \(-not \$KeepGoing\) \{\s*Fail "SQL integration file failed/);
+  assert.match(script, /\$failed\.Add\(\$name\)/);
+  assert.match(script, /SQL integration file\(s\) failed/);
+});

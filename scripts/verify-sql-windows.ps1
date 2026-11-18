@@ -18,8 +18,16 @@
   It does not connect to production, PIN_TRIAL, or any existing application
   database: the disposable database is created fresh for this run.
 
+  Before asking for a password it runs the static SQL checks that need no
+  database (scripts/lib/sql-lexer.cjs), so a file whose dollar-quoted string lost
+  one '$' is reported immediately instead of after a full schema replay.
+
+  With -KeepGoing a failing SQL file does not stop the run: every file is
+  attempted and all failures are listed at the end, so one run reveals the whole
+  picture.
+
 .EXAMPLE
-  pwsh -File scripts/verify-sql-windows.ps1
+  pwsh -File scripts/verify-sql-windows.ps1 -KeepGoing
   pwsh -File scripts/verify-sql-windows.ps1 -PostgresPort 5433 -SkipIntegration
 
 .NOTES
@@ -33,7 +41,8 @@ param(
     [string]$PostgresUser = "postgres",
     [string]$PsqlPath = "psql",
     [switch]$SkipIntegration,
-    [switch]$KeepDatabase
+    [switch]$KeepDatabase,
+    [switch]$KeepGoing
 )
 
 $ErrorActionPreference = "Stop"
@@ -72,7 +81,9 @@ function Invoke-Psql {
     $previousErrorActionPreference = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
     try {
-        $output = @(& $PsqlPath @arguments 2>&1)
+        # Stringify every stderr record: a bare ErrorRecord would print as
+        # 'System.Management.Automation.RemoteException' and hide the psql text.
+        $output = @(& $PsqlPath @arguments 2>&1 | ForEach-Object { "$_" })
         $exitCode = $LASTEXITCODE
     }
     finally {
@@ -82,6 +93,22 @@ function Invoke-Psql {
     if ($exitCode -ne 0 -and -not $AllowFailure) {
         $output | ForEach-Object { Write-Host $_ }
         return $false
+    }
+    return @{ Ok = ($exitCode -eq 0); Output = $output }
+}
+
+function Invoke-Node {
+    param([string[]]$Arguments)
+    $node = Get-Command node -ErrorAction SilentlyContinue
+    if (-not $node) { return @{ Ok = $false; Output = @("node was not found; the static SQL check needs it") } }
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $output = @(& $node.Source @Arguments 2>&1 | ForEach-Object { "$_" })
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
     }
     return @{ Ok = ($exitCode -eq 0); Output = $output }
 }
@@ -105,6 +132,20 @@ function Remove-DisposableDatabase {
 }
 
 try {
+    # psql reports server messages in the console code page, which turns a
+    # readable error into mojibake. Force UTF-8 end to end before anything runs.
+    try {
+        $utf8 = New-Object System.Text.UTF8Encoding($false)
+        [Console]::OutputEncoding = $utf8
+        [Console]::InputEncoding = $utf8
+        $OutputEncoding = $utf8
+        $env:PGCLIENTENCODING = "UTF8"
+        if ($PSVersionTable.PSEdition -eq "Desktop") { [void](chcp 65001) }
+    }
+    catch {
+        Write-Host "WARNING: could not switch the console to UTF-8; psql errors may look garbled." -ForegroundColor Yellow
+    }
+
     Write-Host "PinPosy SQL gate" -ForegroundColor Cyan
     Write-Host "Repository: $Root"
     Write-Host "Server:     ${PostgresHost}:$PostgresPort (must be a local disposable instance)"
@@ -144,6 +185,33 @@ try {
         $expected += 1
     }
     Write-Host "Active migrations: $($migrations.Count) (010..$('{0:d3}' -f ($expected - 1)))"
+
+    # ── Static pre-flight (no database, no password) ─────────────────────────
+    # A file whose dollar-quoted string lost one '$' fails at its last line with
+    # 'unterminated $$'. Discovering that without a password keeps the owner out
+    # of a password prompt for a defect that has nothing to do with the server.
+    $lexer = Join-Path $Root "scripts/lib/sql-lexer.cjs"
+    if (-not (Test-Path $lexer)) { Fail "Missing scripts/lib/sql-lexer.cjs" }
+    $preflight = Invoke-Node -Arguments @(
+        "-e",
+        "const fs=require('fs'),path=require('path');" +
+        "const {findUnbalancedDollarQuotes}=require(process.argv[1]);" +
+        "function walk(d,o=[]){for(const e of fs.readdirSync(d,{withFileTypes:true})){" +
+        "if(e.name==='node_modules'||e.name==='.git')continue;const p=path.join(d,e.name);" +
+        "if(e.isDirectory())walk(p,o);else if(e.name.endsWith('.sql'))o.push(p);}return o;}" +
+        "const files=[...walk('db'),...walk('backend/test')];let bad=0;" +
+        "for(const f of files){const prob=findUnbalancedDollarQuotes(fs.readFileSync(f,'utf8'));" +
+        "if(prob.length){bad++;for(const m of prob)console.log('SQL_STATIC_FAIL '+f+': '+m);}}" +
+        "console.log('SQL_STATIC_CHECKED '+files.length);process.exit(bad?1:0);",
+        $lexer
+    )
+    $preflight.Output | ForEach-Object {
+        if ($_ -match '^SQL_STATIC_FAIL ') { Write-Host $_ -ForegroundColor Red }
+    }
+    if (-not $preflight.Ok) {
+        Fail "SQL files failed the static dollar-quote check above. Fix them before touching a database."
+    }
+    Write-Host "Static SQL check OK ($($preflight.Output | Where-Object { $_ -match '^SQL_STATIC_CHECKED ' } | ForEach-Object { ($_ -split ' ')[1] }) files)." -ForegroundColor Green
 
     # ── Credentials (interactive, never written anywhere) ────────────────────
     $SecurePassword = Read-Host -AsSecureString "Password for PostgreSQL user '$PostgresUser'"
@@ -228,17 +296,30 @@ try {
 
     Write-Host ""
     Write-Host "Running $($ordered.Count) SQL integration files" -ForegroundColor Cyan
+    $failed = [System.Collections.Generic.List[string]]::new()
     foreach ($name in $ordered) {
         $path = Join-Path $Root "backend/test/$name"
         if (-not (Test-Path $path)) { Fail "CI references a missing SQL file: backend/test/$name" }
         Write-Host ("  {0}" -f $name)
         if (-not (Invoke-Psql -Database $DatabaseName -Arguments @("-f", $path)).Ok) {
-            Fail "SQL integration file failed: backend/test/$name"
+            $failed.Add($name)
+            if (-not $KeepGoing) {
+                Fail "SQL integration file failed: backend/test/$name"
+            }
+            Write-Host ("  ^^ FAILED: {0} (continuing because -KeepGoing)" -f $name) -ForegroundColor Red
+            continue
         }
         $TestsRun += 1
     }
 
     Write-Host ""
+    if ($failed.Count -gt 0) {
+        Write-Host "FAIL: $($failed.Count) SQL integration file(s) failed:" -ForegroundColor Red
+        $failed | ForEach-Object { Write-Host "  backend/test/$_" -ForegroundColor Red }
+        Write-Host "Passed: $TestsRun of $($ordered.Count)." -ForegroundColor Yellow
+        exit 1
+    }
+
     Write-Host "PASS: baseline + $Migrated migrations applied; $TestsRun SQL integration files passed." -ForegroundColor Green
 }
 catch {
