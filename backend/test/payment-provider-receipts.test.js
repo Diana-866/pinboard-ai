@@ -68,6 +68,15 @@ test("receipt bounds order, amount and status fields without storing arbitrary p
   assert.equal(receipt.received_currency, null);
 });
 
+test("unsupported explicit currencies never inherit the RUB sum as a foreign-currency amount", () => {
+  const receipt = buildProviderReceipt({
+    paymentKind: "subscription",
+    body: signedEvent({ sum: "1990.00", currency: "gbp", currency_sum: "24.00" }),
+  });
+  assert.equal(receipt.received_amount, null);
+  assert.equal(receipt.received_currency, null);
+});
+
 test("receipt persistence calls the service-only RPC and requires a returned identity", async () => {
   const record = buildProviderReceipt({ paymentKind: "credits", body: signedEvent() });
   const calls = [];
