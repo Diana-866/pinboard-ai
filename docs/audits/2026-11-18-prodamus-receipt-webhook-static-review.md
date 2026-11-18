@@ -35,3 +35,16 @@ The following current-main files were fetched and inspected:
 ## Required next step
 
 The owner-controlled verification already described in UA-052 remains mandatory: execute the 152-migration canonical replay and 49 SQL integration tests on a disposable PostgreSQL database, then the 52 Node preflight tests and ten disposable concurrency scripts. Inspect actual GitHub Actions job steps/logs once runner allocation is available. Keep first-user invitations and live payments blocked until runtime gates and production configuration are independently confirmed.
+
+
+## Follow-up finding and hardening on the newer mainline HEAD
+
+After the initial review, main advanced with receipt-binding and evidence checks in migration 161. Reviewing that follow-up exposed an asymmetry: the private grant helper rejected a missing local credit amount, but the subscription branch did not explicitly reject a NULL local amount before evaluating the amount difference. The canonical baseline currently declares `subscriptions.amount NOT NULL`, so this state is prevented by the present schema; nevertheless, the helper is a security boundary and both payment kinds must enforce the same invariant rather than rely on a distant schema constraint.
+
+Changes published on main:
+
+- `db/migrations/161_restrict_granted_decisions_to_atomic_fulfillment.sql`: added `v_payment_amount is null` to the subscription branch as well as the credit branch. Current blob: `039b778b89f8d592eda92a7f199176030a1eeb49`; commit `2d3a478d17e4c17995cd2ba407f31b93224a906f`.
+- `backend/test/postgres-integration-runner-contract.test.js`: changed the static regression to require exactly two missing-amount guards, one for each payment kind. Current blob: `252ab03a5146605a28cb01f465c17d7bf8947f97`; commit `4c02b2afcd2240f08bb9903e5b9afb3cd7442f27`.
+- This follow-up builds on concurrent mainline fix `b9b3d92257b9b26a8962495044faa197f6101ddf`, which binds the private helper to the exact receipt/payment/user and verifies amount/currency evidence, and `6360f302eb5ef6a93c8c624523f1d5ea07eef852`, which explicitly rejects a missing local credit amount.
+
+Static verification after publication: re-fetched both current files; migration contains exactly two `v_payment_amount is null` guards and the Node contract requires a count of 2. This was a source-level check only. Node test, PostgreSQL replay, SQL integration, and CI runtime remain NOT VERIFIED. No production DB or payment service was used.
