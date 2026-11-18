@@ -195,3 +195,19 @@ The current race script additionally verifies the durable queue contract after t
 Current re-fetched blobs: race script `805a076a23e40e0b7263c5a45bb88035d7c4603b`; Node concurrency contract `e315d6cb694465e3ea116c2cf828ef13d8d1f268`. Refinement commits: `ccae989aeb7cbcd4425f16a6896667c9495787ee` (event/job assertions in both outcomes), `e602d42894db555c6b97ed244bf9834b86bf3303` (Node contract guard).
 
 Static inspection confirms the four core outcomes, two independent deletion-first lock waiters, token-version 0→1, immutable event and pending preflight-job assertions in both outcomes, safe EXIT cleanup and no deletion of durable request/event rows. Bash, Node, PostgreSQL and full CI remain **NOT RUN / NOT VERIFIED**.
+
+
+## Final harness refactor — four isolated, independently asserted race cases (2026-11-18)
+
+The latest implementation refactors the earlier combined cases into four separate test functions, each with its own user, payment fixture, receipt, lock holder and waiter:
+
+1. `run_credit_payment_first`
+2. `run_credit_deletion_first`
+3. `run_subscription_payment_first`
+4. `run_subscription_deletion_first`
+
+This makes failures attributable to one payment type and one lock order, and avoids coupling the credit and subscription paths inside a single transaction. Each case calls the real three-argument deletion acceptance RPC with the exact token version and verifies request state, token version 0→1, one immutable `request_accepted` event and one pending `preflight` job. Credit cases additionally verify balance, ledger, purchase status and receipt decision. Subscription cases verify tariff, paid period, subscription status and receipt decision. Payment-first holds the user lock through fulfillment while deletion waits; deletion-first holds the deletion transaction while the corresponding receipt-bound payment session waits.
+
+Current source blobs after re-fetch: race script `6f1c08950a4a449f5c041aebdf65ca257bd29b4e`; Node contract `91e53359eee7257279e45a6ede7f6d74f86a3ef8`. The Node contract requires all four named cases and exactly four token-version-bound deletion RPC call sites. Refactor commit: `a816f858e302e1d2506e283f3a1d34feacaed77c`; contract alignment commit: `641338e380fb13ce81eef0f8174d7e08f134e5ca`. The test continues to retain append-only fixtures inside the unique disposable clone; the outer runner drops the clone, while the EXIT trap stops child processes and removes temporary files.
+
+Static re-fetch confirms the four case functions, four three-argument RPC calls, per-case durable queue/event assertions, entitlement assertions, cleanup and runner wiring. Bash syntax, Node contract, PostgreSQL execution, full migration replay, SQL suite and CI remain **NOT RUN / NOT VERIFIED**.
