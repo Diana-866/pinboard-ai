@@ -84,6 +84,7 @@ declare
   v_request_state text;
   v_request_version bigint;
   v_event_count integer;
+  v_job_count integer;
   v_sub public.subscriptions%rowtype;
 begin
   select credits_balance, account_status, token_version
@@ -100,11 +101,14 @@ begin
   select count(*) into v_event_count from public.account_deletion_events e
    join public.account_deletion_requests r on r.id = e.request_id
    where r.user_id = '$USER_ID' and e.event_key = 'request_accepted';
+  select count(*) into v_job_count from public.account_deletion_jobs j
+   join public.account_deletion_requests r on r.id = j.request_id
+   where r.user_id = '$USER_ID' and j.step_key = 'preflight' and j.status = 'pending';
   select * into v_sub from public.subscriptions where id = '$SUBSCRIPTION_ID';
 
   if v_balance <> 105 or v_ledger_count <> 1 or v_status <> 'deletion_pending'
      or v_token_version <> 1 or v_request_state <> 'pending'
-     or v_request_version <> 1 or v_request_version <> v_token_version or v_event_count <> 1
+     or v_request_version <> 1 or v_request_version <> v_token_version or v_event_count <> 1 or v_job_count <> 1
      or v_credit_decision <> 'granted'
      or v_subscription_decision <> 'granted'
      or v_sub.status <> 'success' or v_sub.period_end is null then
@@ -150,6 +154,8 @@ declare
   v_subscription_decision text;
   v_request_state text;
   v_request_version bigint;
+  v_event_count integer;
+  v_job_count integer;
   v_user public.users%rowtype;
   v_sub public.subscriptions%rowtype;
 begin
@@ -164,6 +170,12 @@ begin
     from public.payment_entitlement_decisions where receipt_id = '$SUBSCRIPTION_RECEIPT_ID';
   select state, token_version into v_request_state, v_request_version
     from public.account_deletion_requests where user_id = '$USER_ID';
+  select count(*) into v_event_count from public.account_deletion_events e
+   join public.account_deletion_requests r on r.id = e.request_id
+   where r.user_id = '$USER_ID' and e.event_key = 'request_accepted';
+  select count(*) into v_job_count from public.account_deletion_jobs j
+   join public.account_deletion_requests r on r.id = j.request_id
+   where r.user_id = '$USER_ID' and j.step_key = 'preflight' and j.status = 'pending';
   select * into v_sub from public.subscriptions where id = '$SUBSCRIPTION_ID';
 
   if v_user.credits_balance <> 5 or v_ledger_count <> 0
@@ -172,6 +184,7 @@ begin
      or v_sub.period_start is not null or v_sub.period_end is not null
      or v_user.tariff_plan <> 'none' or v_user.tariff_period_end is not null
      or v_request_state <> 'pending' or v_request_version <> v_user.token_version
+     or v_event_count <> 1 or v_job_count <> 1
      or v_credit_decision <> 'withheld_account_lifecycle'
      or v_subscription_decision <> 'withheld_account_lifecycle' then
     raise exception 'deletion-first race was not serialized: balance %, ledger %, status %, purchase %, subscription %, tariff %, request %, credit decision %, subscription decision %',
