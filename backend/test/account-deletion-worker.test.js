@@ -127,7 +127,10 @@ test("worker claims and finalizes only through fenced RPCs", async () => {
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
-        return { data: [{ job_id: "job-1", user_id: USER_ID, claim_token: "claim-1" }], error: null };
+        return { data: [{ job_id: "job-1",
+          request_id: "request-job-1",
+          attempts: 1,
+          lease_expires_at: "2026-11-19T00:00:00.000Z", user_id: USER_ID, claim_token: "claim-1" }], error: null };
       }
       if (name === "record_account_deletion_preflight") return { data: true, error: null };
       if (name === "materialize_account_deletion_storage_manifest") return { data: { recorded: true, inserted: 1, total: 1 }, error: null };
@@ -161,7 +164,10 @@ test("worker never marks preflight complete after losing the inventory claim", a
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
-        return { data: [{ job_id: "job-lost", user_id: USER_ID, claim_token: "claim-lost" }], error: null };
+        return { data: [{ job_id: "job-lost",
+          request_id: "request-job-lost",
+          attempts: 1,
+          lease_expires_at: "2026-11-19T00:00:00.000Z", user_id: USER_ID, claim_token: "claim-lost" }], error: null };
       }
       if (name === "record_account_deletion_preflight") return { data: false, error: null };
       if (name === "finish_account_deletion_job") return { data: true, error: null };
@@ -181,7 +187,10 @@ test("worker persists only a successful bounded inventory before finalizing", as
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
-        return { data: [{ job_id: "job-inventory", user_id: USER_ID, claim_token: "claim-inventory" }], error: null };
+        return { data: [{ job_id: "job-inventory",
+          request_id: "request-job-inventory",
+          attempts: 1,
+          lease_expires_at: "2026-11-19T00:00:00.000Z", user_id: USER_ID, claim_token: "claim-inventory" }], error: null };
       }
       if (name === "record_account_deletion_preflight") return { data: true, error: null };
       if (name === "materialize_account_deletion_storage_manifest") return { data: { recorded: true, inserted: 1, total: 1 }, error: null };
@@ -208,7 +217,10 @@ test("worker schedules retry when inventory is incomplete", async () => {
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
-        return { data: [{ job_id: "job-2", user_id: USER_ID, claim_token: "claim-2" }], error: null };
+        return { data: [{ job_id: "job-2",
+          request_id: "request-job-2",
+          attempts: 1,
+          lease_expires_at: "2026-11-19T00:00:00.000Z", user_id: USER_ID, claim_token: "claim-2" }], error: null };
       }
       if (name === "record_account_deletion_preflight") return { data: true, error: null };
       if (name === "materialize_account_deletion_storage_manifest") return { data: { recorded: true, inserted: 1, total: 1 }, error: null };
@@ -235,7 +247,10 @@ test("worker retries and does not revoke credentials when Storage manifest persi
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
-        return { data: [{ job_id: "job-manifest-failed", user_id: USER_ID, claim_token: "claim-manifest-failed" }], error: null };
+        return { data: [{ job_id: "job-manifest-failed",
+          request_id: "request-job-manifest-failed",
+          attempts: 1,
+          lease_expires_at: "2026-11-19T00:00:00.000Z", user_id: USER_ID, claim_token: "claim-manifest-failed" }], error: null };
       }
       if (name === "record_account_deletion_preflight") return { data: true, error: null };
       if (name === "materialize_account_deletion_storage_manifest") {
@@ -262,6 +277,9 @@ test("worker executes the separately claimed content-erasure stage", async () =>
       if (name === "claim_account_deletion_jobs") {
         return { data: [{
           job_id: "job-erase",
+          request_id: "request-job-erase",
+          attempts: 1,
+          lease_expires_at: "2026-11-19T00:00:00.000Z",
           user_id: USER_ID,
           step_key: "erase_content",
           claim_token: "claim-erase",
@@ -299,6 +317,9 @@ test("worker retries content erasure unless the RPC explicitly confirms retained
       if (name === "claim_account_deletion_jobs") {
         return { data: [{
           job_id: "job-erase-unsafe",
+          request_id: "request-job-erase-unsafe",
+          attempts: 1,
+          lease_expires_at: "2026-11-19T00:00:00.000Z",
           user_id: USER_ID,
           step_key: "erase_content",
           claim_token: "claim-erase-unsafe",
@@ -329,6 +350,9 @@ test("worker removes only manifested Storage objects and confirms lifecycle comp
       if (name === "claim_account_deletion_jobs") {
         return { data: [{
           job_id: "job-storage",
+          request_id: "request-job-storage",
+          attempts: 1,
+          lease_expires_at: "2026-11-19T00:00:00.000Z",
           user_id: USER_ID,
           step_key: "erase_content",
           claim_token: "claim-storage",
@@ -379,7 +403,10 @@ test("worker fails closed when the first Storage manifest response is not an arr
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
-        return { data: [{ job_id: "job-invalid-manifest", user_id: USER_ID, step_key: "erase_content", claim_token: "claim-invalid-manifest" }], error: null };
+        return { data: [{ job_id: "job-invalid-manifest",
+          request_id: "request-job-invalid-manifest",
+          attempts: 1,
+          lease_expires_at: "2026-11-19T00:00:00.000Z", user_id: USER_ID, step_key: "erase_content", claim_token: "claim-invalid-manifest" }], error: null };
       }
       if (name === "erase_account_deletion_content") {
         return { data: { erased: true, financial_records_retained: true }, error: null };
@@ -410,7 +437,10 @@ test("worker fails closed when the remaining Storage manifest check is not an ar
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "claim_account_deletion_jobs") {
-        return { data: [{ job_id: "job-invalid-remaining-manifest", user_id: USER_ID, step_key: "erase_content", claim_token: "claim-invalid-remaining-manifest" }], error: null };
+        return { data: [{ job_id: "job-invalid-remaining-manifest",
+          request_id: "request-job-invalid-remaining-manifest",
+          attempts: 1,
+          lease_expires_at: "2026-11-19T00:00:00.000Z", user_id: USER_ID, step_key: "erase_content", claim_token: "claim-invalid-remaining-manifest" }], error: null };
       }
       if (name === "erase_account_deletion_content") {
         return { data: { erased: true, financial_records_retained: true }, error: null };
@@ -451,6 +481,9 @@ test("worker schedules a fast retry when more Storage manifest batches remain", 
       if (name === "claim_account_deletion_jobs") {
         return { data: [{
           job_id: "job-storage-batches",
+          request_id: "request-job-storage-batches",
+          attempts: 1,
+          lease_expires_at: "2026-11-19T00:00:00.000Z",
           user_id: USER_ID,
           step_key: "erase_content",
           claim_token: "claim-storage-batches",
@@ -493,6 +526,9 @@ test("worker refuses unsafe Storage manifest paths without deleting objects", as
       if (name === "claim_account_deletion_jobs") {
         return { data: [{
           job_id: "job-storage-invalid",
+          request_id: "request-job-storage-invalid",
+          attempts: 1,
+          lease_expires_at: "2026-11-19T00:00:00.000Z",
           user_id: USER_ID,
           step_key: "erase_content",
           claim_token: "claim-storage-invalid",
@@ -530,6 +566,9 @@ test("worker finalizes only through the fenced tombstone RPC", async () => {
       if (name === "claim_account_deletion_jobs") {
         return { data: [{
           job_id: "job-finalize",
+          request_id: "request-job-finalize",
+          attempts: 1,
+          lease_expires_at: "2026-11-19T00:00:00.000Z",
           user_id: USER_ID,
           step_key: "finalize",
           claim_token: "claim-finalize",
@@ -554,7 +593,10 @@ test("account deletion claim accepts only bounded jobs with complete unique leas
   const valid = [{ job_id: "job-1", request_id: "request-1", user_id: USER_ID, step_key: "preflight", claim_token: "claim-1", attempts: 1, lease_expires_at: "2026-11-18T16:00:00.000Z" }];
   assert.equal(isValidDeletionJobBatch([], 1), true);
   assert.equal(isValidDeletionJobBatch(valid, 1), true);
-  for (const malformed of [null, undefined, {}, "not-an-array", [null], [{ ...valid[0], claim_token: "" }], [{ ...valid[0], user_id: null }], [{ ...valid[0], step_key: "unknown" }], [{ ...valid[0], attempts: 0 }], [{ ...valid[0], lease_expires_at: "not-a-date" }], [valid[0], valid[0]], [valid[0], { ...valid[0], job_id: "job-2", claim_token: "claim-2" }]]) {
+  for (const malformed of [null, undefined, {}, "not-an-array", [null], [{ ...valid[0], claim_token: "" }], [{ ...valid[0], user_id: null }], [{ ...valid[0], step_key: "unknown" }], [{ ...valid[0], attempts: 0 }], [{ ...valid[0], lease_expires_at: "not-a-date" }], [valid[0], valid[0]], [valid[0], { ...valid[0], job_id: "job-2",
+          request_id: "request-job-2",
+          attempts: 1,
+          lease_expires_at: "2026-11-19T00:00:00.000Z", claim_token: "claim-2" }]]) {
     assert.equal(isValidDeletionJobBatch(malformed, 1), false);
   }
 });
