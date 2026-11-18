@@ -49,6 +49,18 @@ test("both handlers persist verified provider receipts before any local order lo
   }
 });
 
+test("invalid amount branches do not overwrite terminal receipt decisions", () => {
+  for (const file of ["billing.js", "creditsBilling.js"]) {
+    const source = read(file);
+    const start = source.indexOf("if (!paymentAmount.ok)");
+    const end = source.indexOf("const expected = Number(", start);
+    assert.ok(start >= 0 && end > start, file + " invalid amount branch must exist");
+    const branch = source.slice(start, end);
+    assert.match(branch, /decision: "rejected_mismatch"/);
+    assert.doesNotMatch(branch, /decision: "pending_review"/);
+  }
+});
+
 test("payment fulfillment requires signed amount/currency match and records mismatches", () => {
   const subscription = read("billing.js");
   const credits = read("creditsBilling.js");
