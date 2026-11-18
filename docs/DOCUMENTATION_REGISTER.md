@@ -1668,3 +1668,15 @@ Commits: `ccae989aeb7cbcd4425f16a6896667c9495787ee`, `e602d42894db555c6b97ed244b
 | `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md` | `619402188b5bd00dea0a0c31e755fb5f154170e4` | Documents durable queue assertion and latest pre-runner CI evidence |
 
 Regression commit: `e602d42894db555c6b97ed244bf9834b86bf3303`. Runtime remains NOT VERIFIED. See UA-049.
+
+
+## Current final race harness — four isolated cases (2026-11-18)
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `backend/test/payment-deletion-receipt-race-concurrency.sh` | `6f1c08950a4a449f5c041aebdf65ca257bd29b4e` | Four independent cases: credit/subscription × payment-first/deletion-first; real deletion RPC; per-case token/event/preflight-job and entitlement assertions; NOT RUNTIME-VERIFIED |
+| `backend/test/postgres-concurrency-safety-contract.test.js` | `91e53359eee7257279e45a6ede7f6d74f86a3ef8` | Requires four case functions, four token-bound deletion RPC calls, durable queue/event and cleanup assertions |
+| `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md` | `3610a1f854cec014e0c1372a5fc4e9ce14ff209b` | Records final four-case refactor and runtime boundary |
+| `docs/USER_ACTIONS.md` | `d1d6a633400f58e2e704346c058e267e40c40fb6` | UA-050 owner runtime action |
+
+Refactor commits: `a816f858e302e1d2506e283f3a1d34feacaed77c`, `641338e380fb13ce81eef0f8174d7e08f134e5ca`; audit `28d0811144af18af639de8afba2825de96950707`; owner action `d415325560b0bd4de5b3d4cdd36215b64de806fa`. Static review only; Bash, Node, PostgreSQL and CI remain NOT VERIFIED.
