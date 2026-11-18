@@ -1785,3 +1785,16 @@ Commits: worker `0e56a02de7839d61733c7e7389fcc7214a510361`; initial test `f9754c
 | `docs/USER_ACTIONS.md` | `1a5e2caa4c31f6a00b52c25710e65743564234d8` | UA-054 owner runtime acceptance steps |
 
 Commits: migration `2d3a478d17e4c17995cd2ba407f31b93224a906f`; regression `4c02b2afcd2240f08bb9903e5b9afb3cd7442f27`; audit `e41c98fb9b15a250b514659b5a674d462fdbaaeb`; state `ec9eef8bbe37e04db0449d5a45df4dd79a69902f`; owner action `5d6667897539ebefd916d620f52f1d82c2f6e330`. Source/static inspection only; Node, PostgreSQL, SQL integration and CI runtime remain NOT VERIFIED.
+
+
+### Migration 161 follow-up — exact amount/currency and binding guards (2026-11-18)
+
+| Path | Latest blob SHA | Added evidence |
+|---|---|---|
+| `db/migrations/161_restrict_granted_decisions_to_atomic_fulfillment.sql` | `039b778b89f8d592eda92a7f199176030a1eeb49` | Private helper validates receipt/payment kind, provider order, decision binding, local amount presence, amount tolerance 0.01 and normalized currency for both credit and subscription rows |
+| `backend/test/payment-provider-receipts.integration.sql` | `8007fbfc84ade10d7dbe1b6fc4cdda3b5a7e872d` | Asserts authenticated cannot execute private helper or non-grant decision RPC; direct grant transition rejected |
+| `backend/test/postgres-integration-runner-contract.test.js` | `252ab03a5146605a28cb01f465c17d7bf8947f97` | Requires two local-amount guards and exact amount/currency/identity checks in migration 161 |
+| `docs/audits/2026-11-18-migration161-grant-guard-and-runner-alignment.md` | Updated with follow-up | Records the follow-up commits and latest runtime boundary |
+| `docs/USER_ACTIONS.md` | Updated UA-052 addendum | Latest migration/test blobs and owner runtime gate |
+
+Follow-up commits: `6360f302eb5ef6a93c8c624523f1d5ea07eef852`, `48495387d933fc93000ce0cbce9a5abca0aeb850`, `bcc9e1fe68ee715dd8a244e06f95aedd0e7de1e4`. Static source review only; PostgreSQL/Node/CI runtime remains NOT VERIFIED.
