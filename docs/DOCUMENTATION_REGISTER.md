@@ -1951,3 +1951,10 @@ Current main HEAD before this register update: `2468bccc99762afdc47306ffda0e06b2
 - `backend/test/schedule-worker.test.js` current blob `ca4bf9a3635c1e29bd328ccc38c68d849772e0c0`; commit `ff8549114d407b66bcbca1e8ac40421bde238cfc`. Replaced stale incomplete `ok: true` and multi-row fixtures with complete empty/one-row responses compatible with the server's enforced batch limit. Malformed-response regression cases remain.
 - `docs/audits/2026-11-18-pinterest-scheduler-claim-response.md` current blob `a09bb595bec2708c190df3b16e64bc9cf7b3bd46`; audit commit `df07d8e64173dc8528f7e059115b184aba59098d`.
 - Latest recorded Actions runs `44319401720` and `44319401655` both failed without job steps/logs; Vercel remains `build-rate-limit`. No Node/PostgreSQL runtime PASS is evidenced.
+
+
+### Latest scheduler-worker fixture blob correction (2026-11-18)
+
+- `backend/scheduleWorker.js`: `4eff5a721a8f5668876056109902e57ccb8ae1e5` — enforces the shared full response validator.
+- `backend/test/schedule-worker.test.js`: `ca4bf9a3635c1e29bd328ccc38c68d849772e0c0` — all success stubs now use complete response objects; no incomplete inline `{ok:true}` stubs remain. Commit `ff8549114d407b66bcbca1e8ac40421bde238cfc`.
+- Scheduler audit current blob: `a09bb595bec2708c190df3b16e64bc9cf7b3bd46`; fixture-alignment addendum records this correction. Node runtime remains NOT VERIFIED.
