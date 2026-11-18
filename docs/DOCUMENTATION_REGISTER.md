@@ -1983,3 +1983,15 @@ Commits: source `4bd9145198a643a5878652054cd41ae77cb529a1`; regression `c1fc19af
 - Main HEAD at closeout: `011fa84cb3b09f1f02a3241b32aa3e9be60e5f6e`.
 - Source blob `backend/billing.js`: `3818dedcfbbbac0fa6a1f36b9009328a07d97d67`; regression blob `backend/test/email-outbox.test.js`: `da9438ed59e9d3c3e791a1feee8ffb5ff25f12ad`; audit blob `4b429b4a908d7c772a2c6de31cd657c86a21d19c`.
 - Latest Actions runs `44320063124`, `44320063459`, `44320068909`, `44320069081` ended failure with no steps returned; Vercel `build-rate-limit`. No runtime test or deploy PASS is evidenced.
+
+
+### Account deletion worker claim contract hardening (2026-11-18)
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `backend/accountDeletionWorker.js` | `2b937219c865352e6b3f4167e9568c732c377a67` | Validates bounded claim batch, unique job IDs, full fencing identity, allowed stage, attempts and lease expiry before processing |
+| `backend/test/account-deletion-worker.test.js` | `351c77a749abed04b59aef3684568670ace9d802` | Covers valid empty/single claim and malformed payloads; asserts no stage RPC on malformed response; runtime NOT VERIFIED |
+| `db/migrations/130_account_deletion_durable_queue.sql` | `1dcf7844444b4a70be1be49946d5a4c4265ce40f` | Defines the claim RPC table return contract |
+| `docs/audits/2026-11-18-account-deletion-claim-contract.md` | `9e4f6cd668cb5db50a23b3a658b29b6096f3599e` | Root cause, code/test changes and verification boundary |
+
+Commits: source `2cdf0c9fceca0f80d061de24c8a477daf0cd3cf1`; regression `ffad0d99dace0119afeb0b29d7c20844b675f315`; audit `a765c492764c56232b732cf61eb6bf70f4cced21`. Runtime NOT VERIFIED; worker remains disabled.
