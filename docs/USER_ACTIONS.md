@@ -3295,3 +3295,14 @@ Current expected inventory: baseline 001 + **152 active migrations 010–161**, 
 **Current status:** source and static contracts updated; Bash/Node/PowerShell/PostgreSQL/SQL/CI runtime remains **NOT VERIFIED**. Keep live payments and first-user invitations blocked until runtime PASS and Prodamus production configuration are independently confirmed.
 
 Detailed report: `docs/audits/2026-11-18-migration161-grant-guard-and-runner-alignment.md`.
+
+
+### UA-053 — verify deterministic account-deletion preflight pagination (2026-11-18)
+
+Found and fixed a real inventory correctness defect: the deletion worker paginated subscriptions, projects and boards with PostgREST `.range()` but without `.order()`, despite a comment claiming stable ordering. Unordered page boundaries can omit or duplicate identifiers and undercount the subscription-derived email outbox or board/pin hierarchy in the deletion preflight inventory.
+
+The worker now applies ascending primary-key `id` ordering before every page range. Regression test explicitly requires ordered `subscriptions`, `projects` and `boards` queries.
+
+Current worker blob: `446961d5b9a75c1007d07e76cefef4a548b943b8`; test blob: `5882650d115a31b5b6d472db183d6771e142947e`; audit: `docs/audits/2026-11-18-account-deletion-preflight-stable-pagination.md`.
+
+Owner verification: after clean main sync, run `node --test backend/test/account-deletion-worker.test.js`; require exit 0. Also include this test in the full backend Node suite. Do not run the account-deletion worker against production or real user accounts; it remains behind the explicit rollout gate. Runtime remains NOT VERIFIED.
