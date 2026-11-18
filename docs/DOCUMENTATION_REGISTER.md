@@ -1760,3 +1760,15 @@ Vercel remains failure / build-rate-limit. Latest observed atomic Actions run fa
 | `docs/USER_ACTIONS.md` | Updated with UA-052 | Owner runtime instructions for all 152 migrations and 49 SQL tests |
 
 Relevant implementation commits: migration 161 `520bd43630ad81f052b8d1a53e517d1c7fe010ef`; chain test `541b0cae9ea7ac284305cc9cec62c7ff33a80127`; Linux runner `1c3cf89b827427945ecb62ca265188af509885ca`; Windows runner `c51ba5d931b59d02fd2d3d7c18294979bc271dd0`; migration contract `1f623607e7b02fe3c68bcecd24c7e6bf175aa414`; integration contract `25d3dc99b71b026131431fa74b6bfa83f27bd0e3`; SQL regression `31882a973dd72d7ed3cedb8bf3f2d45c9b495a2f`; Node regression `417cec592382f88b8aaf1f05bb1a36ed2c501b54`. Expected totals now 152 migrations, 49 SQL tests, 52 Node preflight tests and 10 concurrency scripts. Static-only; runtime NOT VERIFIED.
+
+
+## Account-deletion preflight pagination hardening (2026-11-18)
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `backend/accountDeletionWorker.js` | `446961d5b9a75c1007d07e76cefef4a548b943b8` | Orders every PostgREST identifier page by unique `id ASC` before applying range offsets |
+| `backend/test/account-deletion-worker.test.js` | `5882650d115a31b5b6d472db183d6771e142947e` | Requires ordered subscription, project and board pagination; NOT RUNTIME-VERIFIED |
+| `docs/audits/2026-11-18-account-deletion-preflight-stable-pagination.md` | Created in audit commit (see main history) | Root cause, impact, source changes and verification boundary |
+| `docs/USER_ACTIONS.md` | Updated with UA-053 | Owner command to execute the worker regression test |
+
+Commits: worker `0e56a02de7839d61733c7e7389fcc7214a510361`; initial test `f9754ccb434852a2a2d474b353fdf9a4eacacf07`; explicit subscription pagination assertion `36e2bec803c12aad0765116f7af266741e270587`. Static review only; Node test runtime NOT VERIFIED. The account deletion worker remains disabled behind its explicit rollout gate.
