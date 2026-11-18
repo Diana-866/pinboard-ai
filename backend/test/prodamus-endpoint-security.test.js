@@ -68,3 +68,36 @@ test("Prodamus never sends the signed checkout request to an insecure configured
     axios.post = originalPost;
   }
 });
+
+
+test("Prodamus checkout POST disables redirects so signed payloads cannot be forwarded", async () => {
+  const originalPost = axios.post;
+  let requestOptions;
+  axios.post = async (_url, _body, options) => {
+    requestOptions = options;
+    return {
+      status: 307,
+      data: { link: "https://attacker.example.test/collect" },
+    };
+  };
+
+  try {
+    await withEnv({
+      PRODAMUS_SECRET: "unit-test-shop-secret",
+      PRODAMUS_OFFLINE: undefined,
+      PRODAMUS_URL: "https://payments.example.test/api",
+    }, async () => {
+      await assert.rejects(
+        prodamus.createPaymentLink({
+          orderId: "pp-start-redirect-forwarding",
+          amount: 1990,
+          description: "PinPosy / Start",
+        }),
+        (error) => error.httpStatus === 502 && error.providerRejected === false
+      );
+    });
+    assert.equal(requestOptions.maxRedirects, 0, "Axios must return 3xx without forwarding the signed request");
+  } finally {
+    axios.post = originalPost;
+  }
+});
