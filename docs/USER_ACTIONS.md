@@ -3414,3 +3414,8 @@ Latest observed push-triggered runs after scheduler hardening: atomic payment ru
 - Combined status on both commits reports Vercel `failure` / `build-rate-limit`. This is not evidence of a source build/test failure; deployment is not confirmed.
 - Latest recorded atomic Actions run: `44318456320`; no job steps returned. Do not infer a test result or repeatedly rerun while the external runner/limit blocker persists.
 - Run the UA-056 scheduler-focused Node commands and the disposable PostgreSQL scheduler SQL tests only on the clean local environment. Do not run live Pinterest publishing or production cron.
+
+
+### UA-056 addendum — strict response fixtures and latest CI status (2026-11-18)
+
+Mainline commit `ff8549114d407b66bcbca1e8ac40421bde238cfc` aligned legacy worker test fixtures with the strict one-row response contract; current test blob `ca4bf9a3635c1e29bd328ccc38c68d849772e0c0`. Audit updated at commit `df07d8e64173dc8528f7e059115b184aba59098d`. Latest push runs `44319401720` (atomic payment) and `44319401655` (persisted boards) failed without job steps/logs; no test execution is evidenced. Vercel status remains `build-rate-limit`. Do not infer runtime failure or success; run focused Node tests and disposable PostgreSQL suites after runner/plan quota is restored.
