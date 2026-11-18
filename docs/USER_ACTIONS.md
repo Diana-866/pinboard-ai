@@ -3335,3 +3335,16 @@ Older source blob references earlier in UA-052 are historical. Current exact blo
 ### Final status refresh — 2026-11-18
 
 Latest atomic Actions run `44318275401` / job `134850094393` concluded failure, but GitHub returned no job steps; no test execution is evidenced. Latest persisted-boards run `44318275331` also concluded failure. Vercel status on the then-current main HEAD is **pending**, replacing the earlier build-rate-limit failure; pending is not deployment success. Do not claim CI/build/runtime PASS. Current static inventory remains 152 migrations, 49 SQL tests, 52 Node preflight tests and 10 concurrency scripts. Keep payments and first-user invitations blocked until actual runtime gates pass.
+
+
+### UA-055 — verify deterministic admin statistics pagination (2026-11-18)
+
+- **Статус:** [ ] Regression added and published; Node runtime is NOT VERIFIED.
+- **Причина:** admin `users` and `credit_transactions` were paginated by offset without a deterministic order. This can skip/repeat rows and corrupt dashboard totals and credit metrics.
+- **Исправление:** `backend/admin.js` applies unique primary-key `id ASC` before each range. Regression `backend/test/admin-stats-pagination.test.js` verifies three pages per table and ordering on all six requests.
+- **Current blobs:** admin source `87bcb9d9d540a1ec4a0700d01f0f94f04a916faf`; test `7788913a7fa20eab951956661ac3d0b0d496866e`. Commits: `ffdb871971c7e6702737e8c3bfc8828bd75696c9`, `9779a201658a92b0b6b6f9a7b33c3035220768a4`.
+- **Команда:** после clean sync выполнить `node --test backend/test/admin-stats-pagination.test.js`; затем полный backend Node suite. Требовать exit 0; сохранить вывод и Node version.
+
+### UA-053 addendum — invalid Storage manifest RPC response regression (2026-11-18)
+
+Mainline commit `031da170684d9ff5d5b2add436d9b9bcd18e2460` now fails closed if either initial or final Storage-manifest RPC returns a non-array (including null), instead of treating a malformed/null response as an empty manifest. Regression coverage exists in `backend/test/account-deletion-worker.test.js` for both cases. Current worker blob `d01f59307612b700e9873017da32d5c93025c60a`; test blob `5882650d115a31b5b6d472db183d6771e142947e`. Execute `node --test backend/test/account-deletion-worker.test.js` on local test environment only. Do not enable the worker or process real user accounts.
