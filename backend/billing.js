@@ -420,9 +420,10 @@ async function handleWebhook(req, res, dependencies = {}) {
   }
 
   // Подписка, период и тариф пользователя активируются одной транзакцией PostgreSQL.
-  const { data: activation, error: activationError } = await db.rpc("activate_paid_subscription", {
+  const { data: activation, error: activationError } = await db.rpc("activate_paid_subscription_with_receipt", {
     p_subscription_id: sub.id,
     p_paid_at: new Date().toISOString(),
+    p_receipt_id: receiptId,
   });
   if (activationError || !activation) {
     if (activationError && /not active|account lifecycle/i.test(String(activationError.message || ""))) {
@@ -440,14 +441,18 @@ async function handleWebhook(req, res, dependencies = {}) {
     return res.status(500).json({ ok: false, error: "activation failed" });
   }
 
-  try {
-    await setProviderDecision(db, {
-      receiptId, decision: "granted", paymentKind: "subscription",
-      paymentId: sub.id, userId: sub.user_id,
+  if (activation.decision === "withheld_account_lifecycle" ||
+      activation.decision === "rejected_mismatch") {
+    return res.json({
+      ok: true,
+      status: "success",
+      decision: activation.decision,
+      review_required: true,
     });
-  } catch (decisionError) {
-    logError("billing.event_026");
-    return res.status(500).json({ ok: false, error: "decision storage failed" });
+  }
+  if (activation.decision !== "granted") {
+    logError("billing.event_027");
+    return res.status(500).json({ ok: false, error: "invalid fulfillment decision" });
   }
 
   // Close the matching checkout idempotency record only after the atomic
