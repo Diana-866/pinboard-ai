@@ -211,3 +211,21 @@ This makes failures attributable to one payment type and one lock order, and avo
 Current source blobs after re-fetch: race script `6f1c08950a4a449f5c041aebdf65ca257bd29b4e`; Node contract `91e53359eee7257279e45a6ede7f6d74f86a3ef8`. The Node contract requires all four named cases and exactly four token-version-bound deletion RPC call sites. Refactor commit: `a816f858e302e1d2506e283f3a1d34feacaed77c`; contract alignment commit: `641338e380fb13ce81eef0f8174d7e08f134e5ca`. The test continues to retain append-only fixtures inside the unique disposable clone; the outer runner drops the clone, while the EXIT trap stops child processes and removes temporary files.
 
 Static re-fetch confirms the four case functions, four three-argument RPC calls, per-case durable queue/event assertions, entitlement assertions, cleanup and runner wiring. Bash syntax, Node contract, PostgreSQL execution, full migration replay, SQL suite and CI remain **NOT RUN / NOT VERIFIED**.
+
+
+## Latest follow-up — four independent payment/deletion races
+
+The harness has been split into four independent race cases instead of combining credit and subscription RPCs within two larger transactions:
+1. credit payment acquires the user lock before the real deletion acceptance RPC;
+2. the deletion acceptance RPC acquires the user lock before credit fulfillment;
+3. subscription payment acquires the user lock before the real deletion acceptance RPC;
+4. the deletion acceptance RPC acquires the user lock before subscription fulfillment.
+
+Each case creates its own user/payment/receipt fixture, passes the exact token version to `request_account_deletion(uuid,text,bigint)`, waits for the PostgreSQL lock waiter, and verifies one immutable acceptance event, one pending preflight job, token version 0→1 and the expected terminal receipt/entitlement state. The suite no longer relies on a single payment transaction containing both RPCs to represent two distinct payment races.
+
+- Current race script blob: `6f1c08950a4a449f5c041aebdf65ca257bd29b4e`.
+- Current concurrency safety contract blob: `91e53359eee7257279e45a6ede7f6d74f86a3ef8`.
+- Four-case contract commit: `641338e380fb13ce81eef0f8174d7e08f134e5ca`.
+- Durable queue assertions are retained: exactly one pending `preflight` job and one `request_accepted` event in every case.
+
+Latest atomic workflow run `44315808409`, job `134841470669`, failed before runner allocation (`runner_id=0`, empty runner name, zero steps). Latest persisted-boards run `44315808507`, jobs `134841470967` and `134841471629`, also failed before runner allocation. No steps were exposed. Runtime remains **NOT VERIFIED**; do not infer Bash, Node or PostgreSQL execution.
