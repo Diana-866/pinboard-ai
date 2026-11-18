@@ -72,6 +72,9 @@ async function setProviderDecision(supabase, {
   paymentId = null,
   userId = null,
 }) {
+  if (decision === "granted") {
+    throw new TypeError("granted decisions must be recorded by atomic fulfillment RPCs");
+  }
   const { data, error } = await supabase.rpc("set_prodamus_payment_decision", {
     p_receipt_id: receiptId,
     p_decision: decision,
