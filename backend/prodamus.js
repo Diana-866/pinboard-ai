@@ -31,7 +31,25 @@ function baseUrl() {
   const configuredUrl = String(process.env.PRODAMUS_URL || "").trim();
   const shopId = String(process.env.PRODAMUS_SHOP_ID || "pinposy").trim();
   const value = configuredUrl || `https://${shopId}.payform.ru/`;
-  return value.replace(/\/?$/, "/"); // всегда завершаем слэшем
+
+  let paymentUrl;
+  try {
+    paymentUrl = new URL(value);
+  } catch {
+    throw httpError(500, "PRODAMUS_URL must be a valid HTTPS URL");
+  }
+  // The signed request contains a digest derived from the shop secret. Never
+  // send it over cleartext HTTP or to a URL with embedded credentials.
+  if (
+    paymentUrl.protocol !== "https:" ||
+    !paymentUrl.hostname ||
+    paymentUrl.username ||
+    paymentUrl.password
+  ) {
+    throw httpError(500, "PRODAMUS_URL must be a valid HTTPS URL without embedded credentials");
+  }
+  if (!paymentUrl.pathname.endsWith("/")) paymentUrl.pathname += "/";
+  return paymentUrl.toString();
 }
 
 /**
