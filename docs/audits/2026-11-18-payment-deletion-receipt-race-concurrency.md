@@ -142,3 +142,16 @@ Static review confirms the script calls `request_account_deletion`, `credit_paid
 ### Verification boundary
 
 Re-fetched the exact migration 130 definition and confirmed its three-argument signature; re-fetched the updated script and Node contract from `main`, checked both call sites, cleanup trap, absence of destructive deletion and assertion wiring. No Bash syntax execution, Node contract execution, PostgreSQL concurrency execution, full migration replay, SQL integration suite or CI PASS was performed. Runtime remains **NOT VERIFIED**. The test must execute only via the existing unique disposable clone runner; no production or persistent shared database is permitted.
+
+
+## Final follow-up — exact token-version fence and independent concurrent payment waiters (2026-11-18)
+
+Further mainline review tightened the expanded race:
+
+- The accepted deletion request must increment `token_version` from 0 to exactly 1; both the user row and durable request row must contain exactly 1. The Node contract checks these exact assertions rather than merely checking a positive value.
+- In the deletion-first case, credit fulfillment and subscription fulfillment now run in **two independent PostgreSQL sessions** at the same time. The harness waits until both sessions are observed in `wait_event_type = 'Lock'` against the deletion transaction before allowing the deletion transaction to commit. This replaces the earlier sequential-in-one-session check and proves both independent callers are blocked by the lifecycle fence.
+- Current script uses the migration-130 three-argument `request_account_deletion(uuid,text,bigint)` at both call sites, passes the fixture token version, asserts the immutable acceptance event, and keeps the EXIT cleanup trap. No deletion of append-only request/event rows is attempted.
+
+Current source blobs after re-fetch: race script `308214f70ca518016aa6d39b33ce0e2ee466e081`; Node safety contract `12721cfaad66b32eddb68c023d4c426dff4db4a2`; migration 130 `1dcf7844444b4a70be1be49946d5a4c4265ce40f`. Relevant refinement commits: `38206948e01833f097602918583f629c9079ab30` (independent waiters), `95cacfef0f5d931c686b20a63afe2882247b0da3` (exact token version), `c14cb39e8cc25f7c98ab6d3beb61641589b3e3bd` (contract), `8a5653a13923b3756b709eac369aa04cc18aa65b` and `5cd54ee6ef54b7c17ce5ab016528c7a5ab54bee3` (contract alignment), followed by the RPC/cleanup correction commits listed above.
+
+Static re-fetch confirms both three-argument RPC calls, exact token version checks, two distinct lock-waiting application names, two simultaneous waiters, immutable-event assertion, EXIT child/temp cleanup, and absence of destructive deletion. Bash syntax, Node tests, PostgreSQL execution, migration replay, SQL suite and CI remain **NOT RUN / NOT VERIFIED**. No runtime pass is claimed.
