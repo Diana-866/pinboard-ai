@@ -1913,3 +1913,14 @@ Commits: validator `1acc3aa120a5b073afccf3132b0bf4ea9310f924`; unit regression `
 | `docs/USER_ACTIONS.md` | Updated with UA-056 | Owner Node and disposable scheduler SQL commands |
 
 Commits: `1acc3aa120a5b073afccf3132b0bf4ea9310f924`, `fb48f225540f4c2d9fa10251ae9faab4a9bee82c`, `793bc081efc6a27c442fe0faa41cacccbde49fa0`, `10f634594a774e963cf02caecfd263546347e094`. Static inspection only; Node/PostgreSQL/CI runtime NOT VERIFIED.
+
+
+### Scheduler HTTP consumer response validation follow-up (2026-11-18)
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `backend/scheduleWorker.js` | `4eff5a721a8f5668876056109902e57ccb8ae1e5` | Validates complete `ok/claimed/status/results` response before success handling |
+| `backend/test/schedule-worker.test.js` | `9757a340c8c2653aa4f71ef42c68a09feea88eb0` | Rejects incomplete/contradictory success payloads and accepts valid one-item response; runtime NOT VERIFIED |
+| `docs/audits/2026-11-18-pinterest-scheduler-claim-response.md` | audit commit `d24eebcf73a63285c898360d2552ca7349687328` | Includes runner-side validation follow-up |
+
+Commits: worker `68ef687186539530a37623dffaca28a73662970b`; regression `460a54ac3a1da36d728796a5af329fcbd994c941`. Node runtime NOT VERIFIED.
