@@ -3186,3 +3186,12 @@ Updated blobs: race script `005a431480d7ca7a9640d67689815f2aec53233e`; safety co
 5. Continue full acceptance only after 151 migrations, 49 SQL integration tests and the 51 Node preflight tests pass. Never use production, staging, Supabase or PIN_TRIAL.
 
 **Current runtime status:** NOT VERIFIED. Assistant performed source re-fetch/static contract inspection only; Bash, Node, PostgreSQL and full CI were not run. No PASS is claimed.
+
+
+### UA-047 addendum — latest race harness and independent lock-wait verification (2026-11-18)
+
+The latest source supersedes UA-047's prior script/contract blob references. Current race script blob: `308214f70ca518016aa6d39b33ce0e2ee466e081`; current concurrency safety contract blob: `12721cfaad66b32eddb68c023d4c426dff4db4a2`; migration-130 signature source blob: `1dcf7844444b4a70be1be49946d5a4c4265ce40f`; detailed report blob: `905799b006802acd7e19c875467e15ec6ad30786`.
+
+Latest test strengthens the deletion-first case: credit and subscription fulfillment now wait in two separate PostgreSQL sessions simultaneously; the test requires both lock waiters to be observed before the deletion transaction is released. The acceptance request must increment token_version from 0 to exactly 1 on both user and request rows. The EXIT trap stops child processes and cleans temporary files; immutable deletion fixtures remain inside the disposable clone for outer drop.
+
+Run the UA-047 commands only after syncing to latest main. Runtime remains NOT VERIFIED; static inspection is not a substitute for Bash, Node and PostgreSQL execution.
