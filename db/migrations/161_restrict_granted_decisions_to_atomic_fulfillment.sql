@@ -156,7 +156,7 @@ begin
     if not found or v_payment_user_id is distinct from p_user_id
        or v_provider_order_id is distinct from v_receipt.provider_order_id
        or v_payment_status <> 'success' or v_period_end is null
-       or v_receipt.received_amount is null
+       or v_receipt.received_amount is null or v_payment_amount is null
        or abs(v_receipt.received_amount - v_payment_amount) > 0.01
        or coalesce(v_receipt.received_currency, 'rub') <> lower(coalesce(v_payment_currency, 'rub')) then
       raise exception 'subscription entitlement is not committed for this receipt';
