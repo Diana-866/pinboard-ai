@@ -3100,3 +3100,26 @@ Return the complete output and exit code. Do not change or skip assertions to ob
 **Current runtime status:** NOT VERIFIED. The assistant re-fetched the test, runner and contract from main but did not execute Bash, Node or PostgreSQL. Vercel reports `build-rate-limit` on source head `1e85641290ba3c360856aad734d858a3150aed13`; this is not a build or deployment result.
 
 **References:** race test blob `0e2da4a83e2b0bda1d9f729868fca3fba04819c5`; runner blob `827a2cd063d64668102bdf36e97e4a73dffba0af`; contract blob `ab84f345305ee793a74e30cb4ad9ff871b62e69c`; report `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md`.
+
+
+### UA-046 — current migration 160 and ten-script concurrency verification (2026-11-18)
+
+**Superseding inventory:** canonical migrations **151 (010–160)**; ordered SQL integration tests **49 unique**; Bash concurrency scripts **10 unique**; Node migration preflight **51 expected tests**. This supersedes UA-042/UA-044's 150-migration (010–159) acceptance figures; the 49 SQL and 51 Node counts remain unchanged.
+
+**Owner steps (local project directory):**
+1. Run `git status --short`. If dirty, STOP and preserve local changes. If clean, run `git pull --ff-only origin main`, then require `git rev-parse HEAD` = `git rev-parse origin/main` and clean status.
+2. Run the UA-042 Node preflight command; require **51/51 PASS**. Run UA-043's `node --test backend/test/billing-webhook-audit.test.js`; require exit 0.
+3. Run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1`. Require the runner to verify its exact local PostgreSQL 18.6 loopback target and disposable database/role, apply the upgrade fixture, all **151 migrations 010–160**, both inline assertions, all **49/49 SQL tests**, and confirm cleanup. Stop on any failure. Never use production, staging, Supabase or PIN_TRIAL.
+4. Run:
+   ```bash
+   bash -n backend/test/lib/assert-disposable-postgres.sh backend/test/*-concurrency.sh
+   node --test backend/test/postgres-concurrency-safety-contract.test.js
+   ```
+   Require both to exit 0. The actual concurrency execution is wired into `.github/workflows/atomic-payment-integration.yml` and runs against a unique disposable clone. Do not execute the runner against a shared database or fabricate GitHub run identity values locally.
+5. Inspect the current atomic-payment Actions run. PASS requires the migration replay, SQL tests and all **10/10 concurrency scripts** to visibly execute and pass, followed by disposable clone cleanup. If the job fails before runner allocation or has no steps/logs, report runtime UNKNOWN and provide the run/job URL; do not infer a test result or blindly rerun.
+
+**Current runtime status:** NOT VERIFIED. Latest observed atomic run `44314411889` / job `134836635174` and persisted-boards run `44314412188` / jobs `134836636827`, `134836637267` failed with runner_id 0 and no steps. No Node, Bash, PostgreSQL or SQL pass is claimed.
+
+**Scope boundary:** the new payment/deletion race currently models the lifecycle acceptance fence with a direct `users.account_status` update and covers credit fulfillment. It does not invoke the full deletion queue RPC/worker or test subscription races. This remains an engineering task after the runtime suite is demonstrably executable.
+
+**References:** migration 160 blob `7005ec7ce7a802312bb1376284892309a67fa226`; SQL test blob `f7fdc7a05bba1bc45f2b4f78652a7365422b4778`; Windows runner blob `a1af92050d64db66f5081c1425e49247ef074173`; concurrency runner blob `827a2cd063d64668102bdf36e97e4a73dffba0af`; concurrency contract blob `ab84f345305ee793a74e30cb4ad9ff871b62e69c`; detailed report `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md`.
