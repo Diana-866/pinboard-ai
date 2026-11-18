@@ -2474,3 +2474,12 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - GitHub combined status for both current main and latest code/test commit is Vercel `failure`, target `build-rate-limit`. This is a provider build-limit status; it is not evidence that source compilation or tests ran and failed. Deployment is NOT CONFIRMED.
 - Latest recorded atomic Actions run in the project log remains `44318456320` with no job steps returned; no runtime result is evidenced. No repeated retry was started.
 - Node, PostgreSQL scheduler integration, disposable DB, CI and Vercel deployment remain NOT VERIFIED. Keep scheduled publishing, first-user invitations and live payments blocked until owner-run runtime and staging acceptance.
+
+
+### Final reconciliation after strict scheduler test fixture alignment — 2026-11-18
+
+- Mainline follow-up corrected stale `schedule-worker.test.js` fixtures that had returned incomplete `ok: true` payloads or impossible multi-row results. Fixtures now match the strict one-row HTTP response contract; malformed response regressions remain present. Current test blob `ca4bf9a3635c1e29bd328ccc38c68d849772e0c0`; commit `ff8549114d407b66bcbca1e8ac40421bde238cfc`.
+- Scheduler audit updated with this fixture alignment and verification boundary; current audit blob `a09bb595bec2708c190df3b16e64bc9cf7b3bd46`; commit `df07d8e64173dc8528f7e059115b184aba59098d`.
+- Latest main branch at the time of reconciliation: `12bca69fe65b1021de99e4d033ff2a04eee448d9`. Current scheduler source blobs remain `scheduleResponse.js` `7170f77c44442bdf12a33c4b63996978d8705f80`, `pinterest.js` `d66d34f9042c55371c2a34ef8e74931b391a9e0c`, `scheduleWorker.js` `4eff5a721a8f5668876056109902e57ccb8ae1e5`.
+- Latest push Actions runs for fixture commit `ff8549114d407b66bcbca1e8ac40421bde238cfc`: `44319401720` (atomic payment) and `44319401655` (persisted boards), both failure; no runtime test steps/logs available. Vercel combined status remains `failure / build-rate-limit` on main. These platform failures do not prove the source tests failed, but no test/build/deploy PASS is evidenced.
+- Keep runtime acceptance and production readiness NOT VERIFIED. Next: restore CI runner/plan quota and execute focused Node + disposable PostgreSQL suites; no production data or live Pinterest/payment activity.
