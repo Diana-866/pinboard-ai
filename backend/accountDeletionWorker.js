@@ -149,6 +149,21 @@ async function inspectAccountForDeletion(client, userId) {
   return { ok: true, sectionsChecked: Object.keys(counts).length, counts };
 }
 
+function isValidDeletionJobBatch(jobs, limit = CLAIM_LIMIT) {
+  if (!Array.isArray(jobs) || !Number.isSafeInteger(limit) || limit < 1 || limit > 10 || jobs.length > limit) return false;
+  const ids = new Set();
+  for (const job of jobs) {
+    if (!job || typeof job !== "object" || Array.isArray(job)) return false;
+    if (!["job_id", "request_id", "user_id", "claim_token"].every((key) => typeof job[key] === "string" && job[key].trim()) ||
+        !["preflight", "erase_content", "finalize"].includes(job.step_key) ||
+        !Number.isSafeInteger(job.attempts) || job.attempts < 1 ||
+        typeof job.lease_expires_at !== "string" || !Number.isFinite(Date.parse(job.lease_expires_at))) return false;
+    if (ids.has(job.job_id)) return false;
+    ids.add(job.job_id);
+  }
+  return true;
+}
+
 function createAccountDeletionWorker({
   client,
   logger = { info: logInfo, error: logError },
@@ -376,14 +391,17 @@ function createAccountDeletionWorker({
         p_lease_seconds: LEASE_SECONDS,
       });
       if (error) throw error;
+      if (!isValidDeletionJobBatch(jobs, CLAIM_LIMIT)) {
+        throw new Error("Account deletion claim RPC returned an invalid job batch");
+      }
       let completed = 0;
       let retried = 0;
-      for (const job of jobs || []) {
+      for (const job of jobs) {
         const result = await processJob(job);
         if (result.status === "succeeded") completed += 1;
         if (result.status === "retry_scheduled") retried += 1;
       }
-      return { claimed: (jobs || []).length, completed, retried };
+      return { claimed: jobs.length, completed, retried };
     } finally {
       active = false;
     }
@@ -442,4 +460,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { safeErrorCode, countOwnedRows, fetchAllRows, chunkValues, countPinsForBoards, inspectAccountForDeletion, createAccountDeletionWorker };
+module.exports = { safeErrorCode, countOwnedRows, fetchAllRows, chunkValues, countPinsForBoards, inspectAccountForDeletion, isValidDeletionJobBatch, createAccountDeletionWorker };
