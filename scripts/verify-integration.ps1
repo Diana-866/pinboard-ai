@@ -98,7 +98,7 @@ try {
     }
 
     $sqlTests = @(Get-Content -LiteralPath $manifestPath | ForEach-Object { $_.Trim() } | Where-Object { $_ -and -not $_.StartsWith('#') })
-    if ($sqlTests.Count -ne 48 -or ($sqlTests | Select-Object -Unique).Count -ne 48) { throw "Expected 48 unique SQL integration tests; found $($sqlTests.Count)." }
+    if ($sqlTests.Count -ne 49 -or ($sqlTests | Select-Object -Unique).Count -ne 49) { throw "Expected 49 unique SQL integration tests; found $($sqlTests.Count)." }
     foreach ($test in $sqlTests) {
         if ([IO.Path]::GetFileName($test) -ne $test -or -not $test.EndsWith('.sql',[System.StringComparison]::OrdinalIgnoreCase)) {
             throw "Unsafe SQL test manifest entry: $test"
