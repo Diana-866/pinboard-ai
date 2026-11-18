@@ -27,7 +27,7 @@ function createReadClient({ account = { id: USER_ID, account_status: "deletion_p
           return Promise.resolve({ data: table === "users" ? account : null, error: null });
         },
         then(resolve, reject) {
-          if (table === nullTable) return Promise.resolve({ data: null, count: null, error: null }).then(resolve, reject);
+          if (table === nullTable) return Promise.resolve({ data: null, count: 0, error: null }).then(resolve, reject);
           if (table === failTable) return Promise.resolve({ data: null, error: { code: "XX000" } }).then(resolve, reject);
           if (table === "projects") return Promise.resolve({ data: [{ id: "project-1" }], count: 1, error: null }).then(resolve, reject);
           if (table === "boards") return Promise.resolve({ data: [{ id: "board-1" }], count: 1, error: null }).then(resolve, reject);
@@ -84,10 +84,19 @@ test("preflight paginates project and board identifiers beyond the API row cap",
           }
           if (table === "projects") return Promise.resolve({ data: [{ id: "p1000" }], error: null }).then(resolve, reject);
           if (table === "boards") {
+            // Exercise board pagination for a single project chunk: the first
+            // page returns exactly the API row cap and the second page the
+            // remainder, so the preflight must keep paging instead of
+            // accepting the first page as a complete board inventory.
             const projectFilter = this.filters.find(([column]) => column === "project_id");
-            const boardCount = projectFilter ? projectFilter[1].length : 0;
+            const isFirstProjectChunk = Array.isArray(projectFilter) &&
+              projectFilter[1][0] === "p0";
+            const pageStart = this.rangeArgs[0];
+            if (!isFirstProjectChunk) return Promise.resolve({ data: [], error: null }).then(resolve, reject);
+            const boardTotal = 1001;
+            const pageLength = Math.max(0, Math.min(1000, boardTotal - pageStart));
             return Promise.resolve({
-              data: Array.from({ length: boardCount }, (_, i) => ({ id: `b${this.rangeArgs[0]}-${i}` })),
+              data: Array.from({ length: pageLength }, (_, i) => ({ id: `b${pageStart + i}` })),
               error: null,
             }).then(resolve, reject);
           }
@@ -131,6 +140,7 @@ test("worker claims and finalizes only through fenced RPCs", async () => {
       if (name === "claim_account_deletion_jobs") {
         return { data: [{ job_id: "job-1",
           request_id: "request-job-1",
+          step_key: "preflight",
           attempts: 1,
           lease_expires_at: "2026-11-19T00:00:00.000Z", user_id: USER_ID, claim_token: "claim-1" }], error: null };
       }
@@ -168,6 +178,7 @@ test("worker never marks preflight complete after losing the inventory claim", a
       if (name === "claim_account_deletion_jobs") {
         return { data: [{ job_id: "job-lost",
           request_id: "request-job-lost",
+          step_key: "preflight",
           attempts: 1,
           lease_expires_at: "2026-11-19T00:00:00.000Z", user_id: USER_ID, claim_token: "claim-lost" }], error: null };
       }
@@ -191,6 +202,7 @@ test("worker persists only a successful bounded inventory before finalizing", as
       if (name === "claim_account_deletion_jobs") {
         return { data: [{ job_id: "job-inventory",
           request_id: "request-job-inventory",
+          step_key: "preflight",
           attempts: 1,
           lease_expires_at: "2026-11-19T00:00:00.000Z", user_id: USER_ID, claim_token: "claim-inventory" }], error: null };
       }
@@ -221,6 +233,7 @@ test("worker schedules retry when inventory is incomplete", async () => {
       if (name === "claim_account_deletion_jobs") {
         return { data: [{ job_id: "job-2",
           request_id: "request-job-2",
+          step_key: "preflight",
           attempts: 1,
           lease_expires_at: "2026-11-19T00:00:00.000Z", user_id: USER_ID, claim_token: "claim-2" }], error: null };
       }
@@ -251,6 +264,7 @@ test("worker retries and does not revoke credentials when Storage manifest persi
       if (name === "claim_account_deletion_jobs") {
         return { data: [{ job_id: "job-manifest-failed",
           request_id: "request-job-manifest-failed",
+          step_key: "preflight",
           attempts: 1,
           lease_expires_at: "2026-11-19T00:00:00.000Z", user_id: USER_ID, claim_token: "claim-manifest-failed" }], error: null };
       }
@@ -307,8 +321,11 @@ test("worker executes the separately claimed content-erasure stage", async () =>
   assert.equal(calls[1].name, "erase_account_deletion_content");
   assert.equal(calls[1].args.p_job_id, "job-erase");
   assert.equal(calls[1].args.p_claim_token, "claim-erase");
-  assert.equal(calls[2].name, "finish_account_deletion_job");
-  assert.equal(calls[2].args.p_outcome, "succeeded");
+  // Storage objects are removed (and confirmed empty) before the job may be
+  // finalized as succeeded.
+  assert.equal(calls[2].name, "list_account_deletion_storage_manifest");
+  assert.equal(calls[calls.length - 1].name, "finish_account_deletion_job");
+  assert.equal(calls[calls.length - 1].args.p_outcome, "succeeded");
 });
 
 test("worker retries content erasure unless the RPC explicitly confirms retained financial records", async () => {

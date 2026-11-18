@@ -1,6 +1,9 @@
 "use strict";
 
 const test = require("node:test");
+// billing.js requires the shared Supabase client at module load; the helper
+// supplies inert placeholder configuration. No network request is made.
+require("./helpers/env");
 const assert = require("node:assert/strict");
 const { normalizeAdminSubscriptionLimit } = require("../billing");
 

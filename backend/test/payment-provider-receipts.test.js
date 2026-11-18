@@ -142,7 +142,11 @@ test("decision updates use the durable state RPC and reject unconfirmed persiste
   await assert.rejects(
     setProviderDecision({ rpc: async () => ({ data: false, error: null }) }, {
       receiptId: "00000000-0000-4000-8000-000000000158",
-      decision: "granted",
+      decision: "rejected_mismatch",
+      reasonCode: "amount_mismatch",
+      paymentKind: "credits",
+      paymentId: "00000000-0000-4000-8000-000000000159",
+      userId: "owner-uuid",
     }),
     /did not confirm/
   );

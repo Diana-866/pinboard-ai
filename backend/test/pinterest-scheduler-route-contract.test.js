@@ -73,10 +73,11 @@ test("schedule API paginates the full calendar and chunks retry metadata lookups
   assert.notEqual(routeStart, -1, "authenticated schedule route exists");
   assert.ok(routeEnd > routeStart, "schedule route has a bounded source section");
   const route = index.slice(routeStart, routeEnd);
-  assert.match(route, /const pageSize = 500/);
-  assert.match(route, /\.range\(offset, offset \+ pageSize - 1\)/);
+  // The bounded shared pager replaces the previous hand-written page loop and
+  // enforces the 500-row page size plus the explicit 10,000-row ceiling.
+  assert.match(route, /fetchAllPages\(\(from, to\) =>/);
+  assert.match(route, /\.range\(from, to\)/);
   assert.match(route, /\.order\("scheduled_at", \{ ascending: true \}\)[\s\S]*\.order\("id", \{ ascending: true \}\)/);
-  assert.match(route, /if \(batch\.length < pageSize\) break/);
   assert.match(route, /chunksOf\(pinIds\)/);
   assert.match(route, /chunksOf\(accountIds\)/);
   assert.match(route, /flatMap\(\(result\) => result\.data \|\| \[\]\)/);
@@ -96,9 +97,14 @@ test("schedule creation persists and reconciles the resolved project destination
   assert.notEqual(end, -1, "pin schedule route boundary must exist");
   const route = source.slice(start, end);
 
-  assert.ok(route.includes("const snapshotDestinationUrl = destinationUrl || snapshotPin.boards?.projects?.website_url || null"));
-  assert.ok(route.includes("destination_url: snapshotDestinationUrl"));
-  assert.ok(route.includes('String(existing.destination_url || "") === String(snapshotDestinationUrl || "")'));
+  // The destination is resolved once (explicit request value, otherwise the
+  // project's website fallback), persisted with the snapshot, and reused by
+  // duplicate-request reconciliation so retries compare the same value.
+  assert.match(route, /let snapshotDestinationUrl = destinationUrl;/);
+  assert.match(route, /if \(!snapshotDestinationUrl && snapshotPin\.boards\?\.projects\?\.website_url\)/);
+  assert.match(route, /destination_url: snapshotDestinationUrl/);
+  assert.match(route, /destinationUrl: snapshotDestinationUrl/);
+  assert.match(route, /isSamePinScheduleRequest\(existing, \{[\s\S]*?destinationUrl: snapshotDestinationUrl/);
 });
 
 

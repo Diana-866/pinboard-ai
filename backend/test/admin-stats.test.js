@@ -13,6 +13,13 @@ function pagedDb(tables) {
         select(columns) {
           assert.ok(tables[table], `unexpected table: ${table}`);
           return {
+            order(column, options) {
+              // Pagination must be deterministic: offset paging without a
+              // unique ORDER BY can skip or repeat rows across page boundaries.
+              assert.equal(column, "id");
+              assert.deepEqual(options, { ascending: true });
+              return this;
+            },
             async range(start, end) {
               ranges.push({ table, columns, start, end });
               return { data: tables[table].slice(start, end + 1), error: null };

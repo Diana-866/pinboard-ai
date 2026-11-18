@@ -286,16 +286,26 @@ begin
      or not exists (select 1 from public.payment_entitlement_decisions where receipt_id = v_receipt and decision = 'rejected_mismatch') then
     raise exception 'mismatched payment granted entitlement or lost its decision';
   end if;
-  if not has_function_privilege(
-    'service_role',
-    'public.set_prodamus_payment_decision(uuid,text,text,text,uuid,text)',
-    'EXECUTE'
-  ) or has_function_privilege(
+  if has_function_privilege(
     'authenticated',
     'public.set_prodamus_payment_decision(uuid,text,text,text,uuid,text)',
     'EXECUTE'
   ) then
+    raise exception 'authenticated must not execute non-grant decision RPC';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.set_prodamus_payment_decision(uuid,text,text,text,uuid,text)',
+    'EXECUTE'
+  ) then
     raise exception 'only service_role may record non-grant payment decisions';
+  end if;
+  if has_function_privilege(
+    'authenticated',
+    'public.mark_prodamus_entitlement_granted(uuid,text,uuid,text)',
+    'EXECUTE'
+  ) then
+    raise exception 'authenticated must not execute private granted-decision helper';
   end if;
   if has_function_privilege(
     'service_role',

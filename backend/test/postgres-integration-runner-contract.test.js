@@ -15,12 +15,17 @@ function stripWorkflowIndent(source) {
 function extractHeredocAfter(marker) {
   const markerIndex = workflow.indexOf(marker);
   assert.notEqual(markerIndex, -1, 'workflow heredoc marker must exist');
-  const start = workflow.indexOf("<<'SQL'\n", markerIndex);
-  assert.notEqual(start, -1, 'workflow SQL heredoc must exist');
-  const bodyStart = start + "<<'SQL'\n".length;
-  const end = workflow.indexOf('\n          SQL', bodyStart);
-  assert.notEqual(end, -1, 'workflow SQL heredoc terminator must exist');
-  return stripWorkflowIndent(workflow.slice(bodyStart, end));
+  // The workflow is stored with CRLF line endings on Windows checkouts, so the
+  // heredoc opener and terminator must be matched line-ending agnostically.
+  const opener = /<<'SQL'\r?\n/g;
+  opener.lastIndex = markerIndex;
+  const openMatch = opener.exec(workflow);
+  assert.ok(openMatch, 'workflow SQL heredoc must exist');
+  const bodyStart = openMatch.index + openMatch[0].length;
+  const rest = workflow.slice(bodyStart);
+  const terminator = /^[ \t]*SQL[ \t]*\r?$/m.exec(rest);
+  assert.ok(terminator, 'workflow SQL heredoc terminator must exist');
+  return stripWorkflowIndent(rest.slice(0, terminator.index));
 }
 
 function extractInlineDoBlocks() {
@@ -274,14 +279,16 @@ test('migration 155 restores regeneration replay image references without weaken
   assert.match(migration, /r\.result_pin ->> 'image_url'[\s\S]*?into v_has_reference/i);
   assert.match(migration, /if v_state = 'deleting'[\s\S]*?stale_delete_quarantined[\s\S]*?if v_state = 'deleted'[\s\S]*?already_deleted/i);
   assert.match(migration, /pin_generation_requests[\s\S]*?boards[\s\S]*?pin_review_queue/i);
-  assert.ok(migration.includes('revoke all on function public.activate_paid_subscription') && migration.includes('from public, anon, authenticated'));
+  assert.ok(migration.includes('revoke all on function public.claim_pin_image_deletion') && migration.includes('from public, anon, authenticated'));
+  assert.match(migration, /grant execute on function public\.claim_pin_image_deletion[\s\S]*?to service_role/i);
 });
 
 test('migration 154 preserves deleted image path tombstones and migration 145 reference inventory', () => {
   const migration = read('db/migrations/154_restore_permanent_tombstone_guard_for_deleted_pin_image_uploads.sql');
   assert.match(migration, /if v_state = 'quarantined'[\s\S]*?reason', 'path_quarantined'[\s\S]*?if v_state = 'deleted'[\s\S]*?reason', 'already_deleted'/i);
   assert.match(migration, /pin_generation_requests[\s\S]*?boards[\s\S]*?pin_review_queue/i);
-  assert.ok(migration.includes('revoke all on function public.activate_paid_subscription') && migration.includes('from public, anon, authenticated'));
+  assert.ok(migration.includes('revoke all on function public.begin_pin_image_upload') && migration.includes('from public, anon, authenticated, service_role'));
+  assert.match(migration, /grant execute on function public\.begin_pin_image_upload[\s\S]*?to service_role/i);
 });
 
 
@@ -290,12 +297,13 @@ test('migration 156 restores regeneration replay image references to upload rese
   assert.match(migration, /r\.result_pin ->> 'image_url'[\s\S]*?into v_has_reference/i);
   assert.match(migration, /if v_state = 'quarantined'[\s\S]*?path_quarantined[\s\S]*?if v_state = 'deleted'[\s\S]*?already_deleted/i);
   assert.match(migration, /pin_generation_requests[\s\S]*?boards[\s\S]*?pin_review_queue/i);
-  assert.ok(migration.includes('revoke all on function public.activate_paid_subscription') && migration.includes('from public, anon, authenticated'));
+  assert.ok(migration.includes('revoke all on function public.begin_pin_image_upload') && migration.includes('from public, anon, authenticated, service_role'));
+  assert.match(migration, /grant execute on function public\.begin_pin_image_upload[\s\S]*?to service_role/i);
 });
 
 test('migration 152 revokes direct execution of the regeneration reservation trigger function', () => {
   const migration = read('db/migrations/152_revoke_direct_execution_of_regeneration_reservation_trigger.sql');
-  assert.ok(migration.includes('revoke all on function public.activate_paid_subscription') && migration.includes('from public, anon, authenticated'));
+  assert.ok(migration.includes('revoke all on function public.release_failed_pin_regeneration_reservation') && migration.includes('from public, anon, authenticated, service_role'));
   assert.match(migration, /from public, anon, authenticated, service_role/i);
 });
 
@@ -417,7 +425,7 @@ test('migration 157 aligns paid fulfillment lock order with account deletion and
   assert.ok(migration.includes('revoke all on function public.credit_paid_purchase') && migration.includes('from public, anon, authenticated'));
   assert.ok(migration.includes('revoke all on function public.activate_paid_subscription') && migration.includes('from public, anon, authenticated'));
   const integration = read('backend/test/payment-deletion-lifecycle-fence.integration.sql');
-  assert.match(integration, /account_status[\\s\\S]*?deletion_pending/i);
+  assert.match(integration, /account_status[\s\S]*?deletion_pending/i);
   assert.match(integration, /purchase is not active|purchase user is not active/i);
   assert.match(integration, /subscription user is not active/i);
   assert.match(integration, /balance_credited_at is null/i);

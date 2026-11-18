@@ -32,7 +32,8 @@ test("manual and scheduled publication reserve account then approved pin before 
   assert.ok(begin.indexOf("pinterest_accounts") < begin.indexOf("for update of p"));
   assert.match(begin, /v_pin_status is distinct from 'approved'[\s\S]*?pin_not_approved/);
   assert.ok(scheduled.indexOf("pinterest_accounts") < scheduled.indexOf("for update of p"));
-  assert.ok(scheduled.indexOf("for update of p") < scheduled.indexOf("public\.pin_schedules"));
+  assert.ok(scheduled.indexOf("for update of p") < scheduled.indexOf("from public.pin_schedules"),
+    'the approved pin is locked before the schedule row');
 });
 
 test("scheduled publication keeps the account-deletion fence from migration 128", () => {

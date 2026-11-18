@@ -320,6 +320,11 @@ async function createPaymentLink({
   if (!orderId) throw httpError(500, "Не удалось создать платёж: нет order_id");
   const price = formatAmount(amount);
   const sys = String(process.env.PRODAMUS_SYS || "").trim();
+  // Resolve and validate the configured endpoint before anything is signed or
+  // sent. A misconfigured PRODAMUS_URL is an operator error, not a provider
+  // outage: it must fail closed with its own 500 message instead of being
+  // masked as "provider unavailable" by the transport error handler below.
+  const endpoint = baseUrl();
 
   const payload = {
     do: "link",
@@ -353,7 +358,7 @@ async function createPaymentLink({
   if (isOffline()) {
     const qs = toFormEncoded(signedPayload);
     return {
-      url: `${baseUrl()}?${qs.toString()}`,
+      url: `${endpoint}?${qs.toString()}`,
       payload: signedPayload,
       raw: { offline: true },
     };
@@ -361,7 +366,7 @@ async function createPaymentLink({
 
   let res;
   try {
-    res = await axios.post(baseUrl(), toFormEncoded(signedPayload), {
+    res = await axios.post(endpoint, toFormEncoded(signedPayload), {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         Accept: "application/json",
