@@ -367,6 +367,7 @@ async function createPaymentLink({
         Accept: "application/json",
       },
       timeout: 20000,
+      maxRedirects: 0,
       validateStatus: () => true,
     });
   } catch (e) {
