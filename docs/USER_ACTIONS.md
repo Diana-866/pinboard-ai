@@ -2884,3 +2884,10 @@ The separate PostgreSQL integration owner action UA-035 remains open and unchang
 ### UA-036 update — Prodamus CI rerun is still failed; logs unavailable (2026-11-17)
 
 The failed-job rerun of <https://github.com/Diana-866/pinboard-ai/actions/runs/44171126761> completed with **FAILURE** on attempt 2. Latest job ID: `134350415751`; GitHub's Jobs API returned no step list or log URL, and log download returned 404 `BlobNotFound`. Exact failing step and cause remain unknown. Do not run another blind retry. Please open the Actions run URL, inspect/download the latest attempt's `checkout-regressions` job log, and provide the failed step and error output with secrets redacted. The workflow and regression-test changes are published but are NOT runtime-verified. Vercel currently reports `build-rate-limit` on the documentation HEAD; do not treat deployment as successful.
+
+
+### UA-037 — No owner action required for webhook audit persistence code change (2026-11-18)
+
+**Assistant implementation published:** webhook audit persistence now treats only a duplicate `event_hash` unique constraint as an idempotent webhook retry; unrelated unique violations and other DB errors propagate. Added tests and wired them into Prodamus checkout CI push/PR filters and Node command. Detailed report: `docs/audits/2026-11-18-prodamus-webhook-audit-persistence-guard.md`.
+
+**Owner action:** none for the code edit. Do not send credentials or access production systems. Runtime verification still depends on GitHub Actions obtaining a runner; the latest Prodamus run `44304664637` failed without job steps/logs. If this persists, UA-036 remains the owner action to inspect/download the run log from the GitHub UI and provide the failing step with secrets redacted. The independent PostgreSQL UA-035 remains open; it requires only the previously documented local disposable-DB runner and must not touch production/`PIN_TRIAL`.
