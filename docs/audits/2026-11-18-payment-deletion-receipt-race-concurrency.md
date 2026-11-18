@@ -250,3 +250,13 @@ Current re-fetched source blobs:
 Static validation against the current contract confirms all four scenario functions, four three-argument deletion RPC call sites, both entitlement RPCs, event/job count assertions, token fence, cleanup trap and no destructive deletion of immutable request rows. The runner still enumerates ten unique scripts. The three Node preflight files now contain **52** top-level tests (33 runner contract + 2 migration-chain + 17 verify-script contract), not 51. The SQL manifest remains **49** entries and matches the workflow exactly; the active migration sequence remains **151** migrations 010–160.
 
 This replaces earlier report text referring to two simultaneous payment waiters in one deletion-first case: the current test uses four separate lock-order scenarios, one payment-kind waiter per scenario. Bash syntax, Node tests, PostgreSQL races, migration replay, SQL suite and full CI remain **NOT RUN / NOT VERIFIED**. The latest Vercel status is still failure / build-rate-limit; no source build or deployment pass is confirmed.
+
+
+## Verification-count correction — Node preflight is 52 tests (2026-11-18)
+
+Recounted the exact current Node preflight files on `main`:
+- `backend/test/postgres-integration-runner-contract.test.js`: 33 tests.
+- `backend/test/db-migration-chain.test.js`: 2 tests.
+- `backend/test/verify-script-migration-chain.test.js`: 17 tests.
+
+Total: **52 tests**, not 51. The previous 51-test instruction is superseded. The SQL manifest remains 49 unique tests; migrations remain 151 (010–160); the disposable concurrency runner remains 10 unique scripts. These are expected counts only; none of the tests were executed in this session. The latest atomic workflow still failed before runner allocation, so runtime remains NOT VERIFIED.
