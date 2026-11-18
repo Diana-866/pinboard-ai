@@ -98,6 +98,7 @@ test("preflight paginates project and board identifiers beyond the API row cap",
   assert.equal(result.ok, true);
   assert.ok(ranges.some((r) => r.table === "projects" && r.start === 1000));
   assert.ok(ranges.filter((r) => r.order).every((r) => r.order[0] === "id" && r.order[1].ascending === true));
+  assert.ok(ranges.some((r) => r.table === "subscriptions" && r.order));
   assert.ok(ranges.some((r) => r.table === "projects" && r.order));
   assert.ok(ranges.some((r) => r.table === "boards" && r.order));
   assert.ok(ranges.some((r) => r.table === "boards" && r.start === 1000));
