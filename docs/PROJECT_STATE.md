@@ -2456,3 +2456,13 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - Added regressions for malformed `ok: true` responses and valid one-item response. Test blob `9757a340c8c2653aa4f71ef42c68a09feea88eb0`; commit `460a54ac3a1da36d728796a5af329fcbd994c941`.
 - Updated scheduler audit: `docs/audits/2026-11-18-pinterest-scheduler-claim-response.md`, latest audit commit `d24eebcf73a63285c898360d2552ca7349687328`.
 - Combined source and route validation remain static-only; Node runtime and disposable PostgreSQL scheduler tests NOT VERIFIED. Run the UA-056 focused tests and the existing scheduler-worker/health tests locally. Keep publishing and first-user release blocked pending runtime acceptance.
+
+
+### Scheduler claim/consumer hardening — final verification boundary (2026-11-18)
+
+- Main HEAD after this work period's source, test and documentation commits: `2468bccc99762afdc47306ffda0e06b2da846ead`.
+- Source fixes: `scheduleResponse.js` validates claimed schedule arrays and full fencing identity; `pinterest.js` fails the run on malformed claim RPC data before counting/processing; `scheduleWorker.js` validates the full response contract before recording success. Regression coverage is in schedule-response, Pinterest scheduler route-contract and schedule-worker tests.
+- Current blobs: `scheduleResponse.js` `7170f77c44442bdf12a33c4b63996978d8705f80`; `pinterest.js` `d66d34f9042c55371c2a34ef8e74931b391a9e0c`; `scheduleWorker.js` `4eff5a721a8f5668876056109902e57ccb8ae1e5`; tests `c5b4084903e96f5fa808e8fbff31e222a8dfd5f6`, `d7f8936167432a3444c0f444968318cf5c919b6c`, `9757a340c8c2653aa4f71ef42c68a09feea88eb0`.
+- Focused Node tests were NOT run in this environment. GitHub Actions push runs `44319160489` (atomic payment) and `44319160390` (persisted boards) both concluded failure; their jobs returned `steps: null`, so no test step execution or source failure is evidenced. Combined Vercel status on this HEAD is FAILURE / `build-rate-limit`. No build/deployment success is claimed.
+- The audit is `docs/audits/2026-11-18-pinterest-scheduler-claim-response.md`, latest commit `d24eebcf73a63285c898360d2552ca7349687328`; UA-056 contains local acceptance commands. No production DB, live Pinterest account, real publication, or payment was accessed.
+- Next: unblock GitHub Actions runner allocation and Vercel quota; then execute focused Node tests and disposable PostgreSQL scheduler/payment integration suites. Keep first-user invitations, live payments and scheduled publishing disabled until all runtime/staging gates pass.
