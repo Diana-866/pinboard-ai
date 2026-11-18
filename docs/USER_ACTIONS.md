@@ -3405,3 +3405,12 @@ The scheduler runner previously accepted `data.ok === true` without validating c
 ### UA-056 platform status addendum (2026-11-18)
 
 Latest observed push-triggered runs after scheduler hardening: atomic payment run `44319160489` / job `134853192142`, and persisted-boards run `44319160390` / jobs `134853191735`, `134853192203`. Both concluded failure; GitHub's jobs response returned `steps: null`, so no test command execution is evidenced. Combined Vercel status for main HEAD `2468bccc99762afdc47306ffda0e06b2da846ead` was `failure / build-rate-limit`. This is platform/runner evidence, not a source test failure or pass. Runtime acceptance remains blocked until the owner resolves runner allocation/quota and runs the focused Node/PostgreSQL commands above.
+
+
+### UA-057 — current platform status after scheduler response hardening (2026-11-18)
+
+- **Статус:** Vercel provider build limit; CI/runtime remain NOT VERIFIED.
+- Current main HEAD: `2468bccc99762afdc47306ffda0e06b2da846ead`; latest code/test commit: `460a54ac3a1da36d728796a5af329fcbd994c941` (worker response-contract regression) and implementation `68ef687186539530a37623dffaca28a73662970b`.
+- Combined status on both commits reports Vercel `failure` / `build-rate-limit`. This is not evidence of a source build/test failure; deployment is not confirmed.
+- Latest recorded atomic Actions run: `44318456320`; no job steps returned. Do not infer a test result or repeatedly rerun while the external runner/limit blocker persists.
+- Run the UA-056 scheduler-focused Node commands and the disposable PostgreSQL scheduler SQL tests only on the clean local environment. Do not run live Pinterest publishing or production cron.
