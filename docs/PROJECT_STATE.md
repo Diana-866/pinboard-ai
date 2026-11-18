@@ -2101,3 +2101,13 @@ The combined status for the later documentation HEAD `a201002b668d7a9c962979cbf4
 
 
 **Final status refresh (2026-11-18):** Vercel combined status for latest source/test commit `05bd81bbbb9775e2f671e8d730c9d5442fa8b9a8` is now `success`. This supersedes the earlier PENDING status for the same code/test/workflow series; it is not a production deployment confirmation. Prodamus Actions run `44307390644` remains a pre-runner FAILURE: job `134812379544`, `runner_id: 0`, no steps/log URL, two inaccessible annotations. Whether the Node test command ran is UNKNOWN. Current latest observed repository commit at this check is `3ef8abf4b6c7b01a83907222fce47d3b19cafec0` (documentation handoff); latest source/test commit remains `05bd81bbbb9775e2f671e8d730c9d5442fa8b9a8`. Runtime tests remain NOT VERIFIED.
+
+
+### 2026-11-18 — Prodamus signed-request redirect forwarding guard
+
+- Further review found Axios follows HTTP redirects by default. Even with an HTTPS `PRODAMUS_URL`, a provider-side 307/308 could forward the signed checkout POST body to another host before PinPosy rejects the resulting non-2xx response.
+- Set `maxRedirects: 0` on the Prodamus checkout POST so 3xx responses are surfaced to the existing ambiguous-outcome handler and the signed request is not automatically forwarded. Source commit `f89803b544a78ef15fc4d75220225d4f89edb53a`, blob `e9290bc314ae1c20b15d8d9a6b91877a1ed73535`.
+- Added a regression in `backend/test/prodamus-endpoint-security.test.js` that simulates 307 and asserts the Axios options contain `maxRedirects: 0`; test commit `facc0c992b122106f72d7adc80e70a0f28b82fff`, blob `1face096b814532e10a608fb4de8a53ec9b4b096`. Existing workflow already includes the test path and file in its six-file command.
+- Re-fetched source and test and inspected exact diffs. No local Node test was run; regression remains **NOT RUNTIME-VERIFIED**. Vercel combined status for test commit `facc0c992b122106f72d7adc80e70a0f28b82fff` was PENDING at last check; no Actions result for this latest commit was available. No deployment or test pass is claimed.
+- Detailed report: `docs/audits/2026-11-18-prodamus-api-endpoint-https-guard.md` (redirect guard follow-up commit `b044f43f8c4c08abf1f95799fa37311a4adf33c0`).
+- Owner verification is appended to UA-040. Existing UA-035 PostgreSQL and UA-036 Actions log gates remain independent. No production DB, PIN_TRIAL, real payment, provider account, live webhook, Pinterest API or deployment was accessed.
