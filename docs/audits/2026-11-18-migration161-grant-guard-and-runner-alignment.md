@@ -46,3 +46,14 @@ No Bash, Node, PowerShell, PostgreSQL migration replay, SQL integration suite, G
 ## Release impact / next step
 
 The migration-chain omission is corrected in source and in the CI command list. Before first-user invitations or live payments, run the full 152-migration disposable replay, 49 SQL integration tests (including the new grant-guard assertions), 52 Node preflight tests, ten concurrency scripts and frontend/backend builds. Keep live payments and first-user launch blocked until those actual results and external billing configuration are confirmed.
+
+
+## Follow-up — grant helper also binds exact amount and currency (2026-11-18)
+
+A subsequent source review tightened migration 161 further. The private `mark_prodamus_entitlement_granted` helper now rejects missing local payment amounts and validates receipt amount against the committed local payment amount (tolerance 0.01) and normalized currency for **both** credit purchases and subscriptions. It also rejects a receipt decision already bound to a different payment kind, local payment ID or user before attempting a grant. This is defense-in-depth inside the private helper, in addition to the outer fulfillment wrappers' checks.
+
+- Latest migration 161 blob: `039b778b89f8d592eda92a7f199176030a1eeb49`; hardening commit `6360f302eb5ef6a93c8c624523f1d5ea07eef852`.
+- Latest SQL receipt-journal privilege test blob: `8007fbfc84ade10d7dbe1b6fc4cdda3b5a7e872d`; commit `48495387d933fc93000ce0cbce9a5abca0aeb850`. It explicitly checks authenticated cannot execute the private helper or non-grant decision RPC, and checks direct grant rejection.
+- Latest Node runner contract blob: `252ab03a5146605a28cb01f465c17d7bf8947f97`; commit `bcc9e1fe68ee715dd8a244e06f95aedd0e7de1e4`. It now requires two missing-amount guards plus exact amount/currency and payment-identity checks in the private helper.
+
+Re-fetched the migration, both payment SQL integration files and the Node contract from main. Static checks confirm both credit/subscription branches validate local amount presence, amount equality, currency equality, receipt payment-kind/order identity, and existing decision binding. No runtime test was executed. Latest atomic Actions run `44317800999` / job `134848439716` failed before runner allocation; job steps were empty. Runtime remains NOT VERIFIED.
