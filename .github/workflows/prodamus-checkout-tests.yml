@@ -21,11 +21,13 @@ on:
       - "backend/prodamus.js"
       - "backend/billing.js"
       - "backend/creditsBilling.js"
+      - "backend/billingWebhookAudit.js"
       - "backend/paymentCreationIdempotency.js"
       - "backend/test/prodamus-webhook.test.js"
       - "backend/test/payment-creation-settlement.test.js"
       - "backend/test/prodamus-ambiguous-checkout.test.js"
       - "backend/test/billing-security-contract.test.js"
+      - "backend/test/billing-webhook-audit.test.js"
       - ".github/workflows/prodamus-checkout-tests.yml"
   workflow_dispatch:
 
