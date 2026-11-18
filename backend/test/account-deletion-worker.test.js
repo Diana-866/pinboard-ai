@@ -364,6 +364,71 @@ test("worker removes only manifested Storage objects and confirms lifecycle comp
 
 
 
+test("worker fails closed when the first Storage manifest response is not an array", async () => {
+  const calls = [];
+  const removedObjects = [];
+  const client = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_account_deletion_jobs") {
+        return { data: [{ job_id: "job-invalid-manifest", user_id: USER_ID, step_key: "erase_content", claim_token: "claim-invalid-manifest" }], error: null };
+      }
+      if (name === "erase_account_deletion_content") {
+        return { data: { erased: true, financial_records_retained: true }, error: null };
+      }
+      if (name === "list_account_deletion_storage_manifest") return { data: null, error: null };
+      if (name === "finish_account_deletion_job") return { data: true, error: null };
+      throw new Error("unexpected RPC: " + name);
+    },
+  };
+  const worker = createAccountDeletionWorker({
+    client,
+    deleteImageObject: async (args) => { removedObjects.push(args); return true; },
+    logger: { info() {}, error() {} },
+  });
+  const result = await worker.tick();
+  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1 });
+  assert.equal(removedObjects.length, 0, "no Storage object may be deleted from an invalid manifest response");
+  const finish = calls.find((call) => call.name === "finish_account_deletion_job");
+  assert.equal(finish.args.p_outcome, "retry");
+  assert.equal(finish.args.p_error_code, "invalid_storage_manifest_response");
+});
+
+test("worker fails closed when the remaining Storage manifest check is not an array", async () => {
+  const calls = [];
+  const removedObjects = [];
+  let listCalls = 0;
+  const client = {
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "claim_account_deletion_jobs") {
+        return { data: [{ job_id: "job-invalid-remaining-manifest", user_id: USER_ID, step_key: "erase_content", claim_token: "claim-invalid-remaining-manifest" }], error: null };
+      }
+      if (name === "erase_account_deletion_content") {
+        return { data: { erased: true, financial_records_retained: true }, error: null };
+      }
+      if (name === "list_account_deletion_storage_manifest") {
+        listCalls += 1;
+        return { data: listCalls === 1 ? [] : null, error: null };
+      }
+      if (name === "finish_account_deletion_job") return { data: true, error: null };
+      throw new Error("unexpected RPC: " + name);
+    },
+  };
+  const worker = createAccountDeletionWorker({
+    client,
+    deleteImageObject: async (args) => { removedObjects.push(args); return true; },
+    logger: { info() {}, error() {} },
+  });
+  const result = await worker.tick();
+  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1 });
+  assert.equal(listCalls, 2, "the remaining-manifest check must run");
+  assert.equal(removedObjects.length, 0);
+  const finish = calls.find((call) => call.name === "finish_account_deletion_job");
+  assert.equal(finish.args.p_outcome, "retry");
+  assert.equal(finish.args.p_error_code, "invalid_storage_manifest_response");
+});
+
 test("worker schedules a fast retry when more Storage manifest batches remain", async () => {
   const calls = [];
   const removedObjects = [];
