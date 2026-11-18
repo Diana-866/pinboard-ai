@@ -180,10 +180,10 @@ test('durable account deletion queue test expects the Storage manifest guard add
   assert.ok(stageGuards.indexOf("raise exception 'account deletion Storage manifest is required';") < stageGuards.indexOf('update public.account_deletion_jobs'));
 });
 
-test('CI migration list remains the complete contiguous 010-156 chain', () => {
+test('CI migration list remains the complete contiguous 010-157 chain', () => {
   const prefixes = [...workflow.matchAll(/db\/migrations\/(\d{3})_[A-Za-z0-9._-]+\.sql/g)]
     .map((match) => Number(match[1]));
-  assert.equal(prefixes.length, 147);
+  assert.equal(prefixes.length, 148);
   assert.deepEqual(prefixes, Array.from({ length: 148 }, (_, index) => index + 10));
 });
 
