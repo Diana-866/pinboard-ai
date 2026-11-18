@@ -2921,3 +2921,20 @@ Latest run for source/test HEAD `9e93163b7a6cd9c0a69ea206f26d9709fcce4f6d`: <htt
 - Detailed implementation, commit chronology and verification boundary: `docs/audits/2026-11-18-prodamus-webhook-url-https-guard.md`.
 
 **Owner action:** no local code-edit action is required. Do not send credentials or touch production. Runtime verification remains blocked because the latest Prodamus Actions run `44306613409` failed before any inspectable job step; job `134809710833` reported `runner_id: 0`, empty runner name and no steps. If this persists, use existing UA-036: inspect the latest run in GitHub UI and provide the failed step/annotation details with secrets redacted. Do not blindly rerun workflows. The independent PostgreSQL gate UA-035 remains open and unchanged; require its guarded local disposable DB runner, all 46/46 SQL tests and cleanup. The external Prodamus form webhook setting must also be verified in the owner account before real payments; this code cannot inspect that setting.
+
+
+### UA-040 — Prodamus outbound API endpoint HTTPS regression verification (2026-11-18)
+
+**Assistant implementation published:**
+- `backend/prodamus.js:baseUrl()` now rejects malformed, non-HTTPS and credential-bearing `PRODAMUS_URL` values before sending the HMAC-signed checkout request. A blank value continues to use the HTTPS shop-ID default.
+- Added `backend/test/prodamus-endpoint-security.test.js` and wired it into the Prodamus checkout workflow's push/PR filters and six-file Node command.
+- Source commit: `ff78fe371b83c4b2b7bfeb21462618461aa2337c`; test final blob: `6f6a7c9b6584977e4da3ca00d0cda6e39a4abe62`; workflow commit: `0db356d326fe2a1640291ff82f6596c7fe414b58`. Full chronology and verification boundary: `docs/audits/2026-11-18-prodamus-api-endpoint-https-guard.md`.
+
+**Owner action:**
+1. Do not change production environment variables or test against a real Prodamus account.
+2. Check the Prodamus checkout workflow on commit `0db356d326fe2a1640291ff82f6596c7fe414b58`. Require the job to show all six Node test files executing and passing, including `prodamus-endpoint-security.test.js`.
+3. If GitHub Actions again fails before runner allocation or exposes no steps/logs, use UA-036 to inspect the latest run in GitHub UI and provide the failed step/error with secrets redacted. Do not blindly rerun.
+4. If Actions remains unavailable, run from the local repository after syncing `main`: `cd backend`, then `npm ci`, then `node --test test/prodamus-endpoint-security.test.js`; for the full workflow-equivalent suite run `node --test test/prodamus-webhook.test.js test/payment-creation-settlement.test.js test/prodamus-ambiguous-checkout.test.js test/billing-webhook-audit.test.js test/billing-security-contract.test.js test/prodamus-endpoint-security.test.js`. Report only command output and exit code; never send secrets.
+5. UA-035 PostgreSQL integration and external Prodamus dashboard webhook URL verification remain independent gates.
+
+**Verification status:** source, test and workflow were re-fetched and diffs statically inspected. No local runtime test was executed by the assistant. Vercel status on the code/test/workflow HEAD was PENDING at last check; no deployment is confirmed. The new regression remains NOT RUNTIME-VERIFIED. No production resources or external services were touched.
