@@ -108,6 +108,18 @@ test("receipt persistence propagates database failures and rejects empty RPC res
   );
 });
 
+test("standalone decision helper cannot assert a financial grant", async () => {
+  let called = false;
+  await assert.rejects(
+    setProviderDecision({ rpc: async () => { called = true; return { data: true, error: null }; } }, {
+      receiptId: "00000000-0000-4000-8000-000000000158",
+      decision: "granted",
+    }),
+    /atomic fulfillment RPCs/
+  );
+  assert.equal(called, false, "grant decisions must not reach the general service-role RPC");
+});
+
 test("decision updates use the durable state RPC and reject unconfirmed persistence", async () => {
   let call;
   const db = {
@@ -118,13 +130,14 @@ test("decision updates use the durable state RPC and reject unconfirmed persiste
   };
   await setProviderDecision(db, {
     receiptId: "00000000-0000-4000-8000-000000000158",
-    decision: "granted",
+    decision: "rejected_mismatch",
+    reasonCode: "amount_mismatch",
     paymentKind: "credits",
     paymentId: "00000000-0000-4000-8000-000000000159",
     userId: "owner-uuid",
   });
   assert.equal(call.name, "set_prodamus_payment_decision");
-  assert.equal(call.args.p_decision, "granted");
+  assert.equal(call.args.p_decision, "rejected_mismatch");
   assert.equal(call.args.p_user_id, "owner-uuid");
   await assert.rejects(
     setProviderDecision({ rpc: async () => ({ data: false, error: null }) }, {
