@@ -2,7 +2,7 @@
 
 **Repository:** Diana-866/pinboard-ai  
 **Branch:** main  
-**Latest code/test/workflow change commit (runtime verification pending):** ce36d6ee38a3df4cc0fb450445bcf5ea02d3c0c8  
+**Latest code/test/workflow change commit (runtime verification pending):** 0db356d326fe2a1640291ff82f6596c7fe414b58  
 **Inventory refreshed:** 2026-11-18 (supplemental new files appended; full metadata inventory refresh not performed)  
 **Scope:** all documentation files under docs/ (Markdown and SQL), excluding this register itself.
 
@@ -1441,3 +1441,17 @@ Commits for URL hardening/tests: `8ee8bc5036ecabbbcb24341111b5f5b91ca56947`, `da
 | `docs/audits/2026-11-18-prodamus-webhook-url-https-guard.md` | Full root cause, source/test/workflow coverage, commits, Actions metadata and runtime verification boundary |
 
 Commits: `8ee8bc5036ecabbbcb24341111b5f5b91ca56947`, `dab469b742abcfcabd217c810298440bfd849a63`, `86a2c3978cddb36f44d9eb148ca63cf671c7098d`, `e57a0ea93e4206ebe848eb23fd6923865e7da17b`, `cc6f81ad0d0077878eba8a359fb3721ab5c60812`, `9e93163b7a6cd9c0a69ea206f26d9709fcce4f6d`; separate RUB amount metadata correction: `ce36d6ee38a3df4cc0fb450445bcf5ea02d3c0c8`. The existing Prodamus checkout workflow already watches and runs these paths. Latest Prodamus Actions run `44306613409` failed with job runner_id 0 and no steps; tests NOT RUNTIME-VERIFIED, exact failure cause UNKNOWN. Vercel status was SUCCESS on intermediate source/test commit `cc6f81ad0d0077878eba8a359fb3721ab5c60812`; no deployment is confirmed. No production resource or external service was touched.
+
+
+## Supplemental inventory — 2026-11-18 Prodamus API endpoint guard
+
+| Path | Blob SHA | Category / review status |
+|---|---|---|
+| `docs/audits/2026-11-18-prodamus-api-endpoint-https-guard.md` | `2c5344813a129f4fcf737543d66a23f81323f828` | Detailed root cause, implementation, regression coverage, workflow wiring, commit chronology and runtime verification boundary |
+
+Associated implementation references (outside the docs-only inventory scope):
+- `backend/prodamus.js` — `0643401d0d116a1117a8c15c7309e78708130d66`.
+- `backend/test/prodamus-endpoint-security.test.js` — `6f6a7c9b6584977e4da3ca00d0cda6e39a4abe62`.
+- `.github/workflows/prodamus-checkout-tests.yml` — `18f380c92619f923454defa85092798954ccd245`.
+
+Source commit: `ff78fe371b83c4b2b7bfeb21462618461aa2337c`; test correction commit: `210a8387770fc7c76e7ceba8b6631a387a662889`; workflow commit: `0db356d326fe2a1640291ff82f6596c7fe414b58`. The six-file Prodamus checkout test command is configured, but the new regression is NOT RUNTIME-VERIFIED. Vercel status on the latest code/test/workflow HEAD was PENDING at last check. No deployment or successful Actions run is confirmed.
