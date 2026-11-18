@@ -11,6 +11,10 @@ declare
   v_subscription uuid;
   v_deleted_purchase uuid;
   v_mismatch_purchase uuid;
+  v_conflict_user uuid;
+  v_conflict_purchase uuid;
+  v_conflict_subscription uuid;
+  v_terminal_conflict boolean := false;
   v_receipt uuid;
   v_duplicate_receipt uuid;
   v_result jsonb;
@@ -86,6 +90,36 @@ begin
     raise exception 'credit grant and decision were not committed together';
   end if;
 
+  -- A granted receipt must never be rebound to a different local credit purchase.
+  insert into public.users(email, credits_balance, account_status)
+  values ('migration159-credit-conflict@example.invalid', 7, 'active')
+  returning id into v_conflict_user;
+  insert into public.credit_purchases(
+    user_id, package_id, pack_title, credits, status, provider_payment_id, amount, currency
+  ) values (
+    v_conflict_user::text, 'pack_100', '100 credits', 100, 'pending',
+    'migration159-different-credit-order', 190.00, 'rub'
+  ) returning id into v_conflict_purchase;
+  begin
+    perform public.credit_paid_purchase_with_receipt(
+      v_conflict_purchase, '2026-11-18T10:00:00Z', 'conflicting receipt identity', v_receipt
+    );
+  exception when others then
+    if position('terminal receipt decision conflicts with local credit purchase' in sqlerrm) > 0 then
+      v_terminal_conflict := true;
+    else
+      raise;
+    end if;
+  end;
+  if not v_terminal_conflict then
+    raise exception 'granted credit receipt was rebound to a different local purchase';
+  end if;
+  select credits_balance into v_balance from public.users where id = v_conflict_user;
+  select count(*) into v_count from public.credit_transactions where purchase_id = v_conflict_purchase;
+  if v_balance <> 7 or v_count <> 0 then
+    raise exception 'conflicting credit receipt mutated a different user's entitlement';
+  end if;
+
   insert into public.users(email, account_status)
   values ('migration159-subscription@example.invalid', 'active')
   returning id into v_subscription_user;
@@ -125,6 +159,41 @@ begin
   );
   if v_result->>'decision' <> 'granted' or v_result->>'already_activated' <> 'true' then
     raise exception 'previously granted subscription was not idempotent after deletion fence: %', v_result;
+  end if;
+
+  -- A granted subscription receipt must not activate a different subscription.
+  insert into public.users(email, account_status)
+  values ('migration159-subscription-conflict@example.invalid', 'active')
+  returning id into v_conflict_user;
+  insert into public.subscriptions(
+    user_id, plan, status, provider_payment_id, amount, currency
+  ) values (
+    v_conflict_user::text, 'pro', 'canceled',
+    'migration159-different-subscription-order', 4990.00, 'rub'
+  ) returning id into v_conflict_subscription;
+  v_terminal_conflict := false;
+  begin
+    perform public.activate_paid_subscription_with_receipt(
+      v_conflict_subscription, '2026-11-18T10:00:00Z', v_receipt
+    );
+  exception when others then
+    if position('terminal receipt decision conflicts with local subscription' in sqlerrm) > 0 then
+      v_terminal_conflict := true;
+    else
+      raise;
+    end if;
+  end;
+  if not v_terminal_conflict then
+    raise exception 'granted subscription receipt was rebound to a different local subscription';
+  end if;
+  if not exists (
+    select 1 from public.subscriptions
+     where id = v_conflict_subscription and status = 'canceled'
+  ) or not exists (
+    select 1 from public.users
+     where id = v_conflict_user and tariff_plan = 'none'
+  ) then
+    raise exception 'conflicting subscription receipt mutated a different user's entitlement';
   end if;
 
   insert into public.users(email, credits_balance, account_status)
