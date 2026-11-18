@@ -3459,3 +3459,8 @@ After the email outbox source/test commits, Actions runs `44320063124`, `4432006
 - **Файлы:** `backend/accountDeletionWorker.js` blob `2b937219c865352e6b3f4167e9568c732c377a67`; `backend/test/account-deletion-worker.test.js` blob `351c77a749abed04b59aef3684568670ace9d802`; migration 130 blob `1dcf7844444b4a70be1be49946d5a4c4265ce40f`.
 - **Коммиты:** source `2cdf0c9fceca0f80d061de24c8a477daf0cd3cf1`; regression `ffad0d99dace0119afeb0b29d7c20844b675f315`; audit `a765c492764c56232b732cf61eb6bf70f4cced21`.
 - **Проверки владельца:** `node --test backend/test/account-deletion-worker.test.js`; затем durable queue/worker SQL integration tests в disposable PostgreSQL. Проверить, что malformed claim вызывает только claim RPC и ни одного stage RPC. Production запрещён.
+
+
+### UA-059 platform status addendum (2026-11-18)
+
+Latest Actions runs after account-deletion claim validation: `44320553737`, `44320553241`, `44320543687`, `44320543564`; all failed and job responses contained `steps: null`. Vercel remains `failure / build-rate-limit`. No Node/PostgreSQL test execution is evidenced. The worker remains disabled. Run UA-058/UA-059 focused tests and disposable SQL tests only after restoring runner/local runtime access; do not retry production actions.
