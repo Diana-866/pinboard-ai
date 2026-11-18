@@ -1850,3 +1850,16 @@ Commits: admin fix `ffdb871971c7e6702737e8c3bfc8828bd75696c9`; admin regression 
 - `backend/accountDeletionWorker.js`: `1df861ccc0f05cc8b787f51c5e111bc07d3660cb` — rejects null/non-array paginated inventory page and malformed Storage-manifest RPC results.
 - `backend/test/account-deletion-worker.test.js`: `292c619f9717f862589aecadfa9f9855662b7f9b` — covers null inventory page and malformed initial/final Storage-manifest responses; runtime NOT VERIFIED.
 - Fix commits: `031da170684d9ff5d5b2add436d9b9bcd18e2460`, `04bb175803eb2524834785d0599e4d37a77ed2e3`; regression commits `136c8d77706984f9c812986181b3be97d6308d3f`, `185d1d8015ee629dbd95a7da0a10de2db835241e`.
+
+
+## Latest deletion-worker fail-closed reconciliation (2026-11-18)
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `backend/accountDeletionWorker.js` | `1df861ccc0f05cc8b787f51c5e111bc07d3660cb` | Rejects non-array paginated inventory pages and both malformed Storage-manifest responses; retry instead of treating null as empty |
+| `backend/test/account-deletion-worker.test.js` | `292c619f9717f862589aecadfa9f9855662b7f9b` | Covers null inventory page, null initial manifest and null remaining-manifest response; runtime NOT VERIFIED |
+| `docs/audits/2026-11-18-account-deletion-preflight-stable-pagination.md` | `d0c94414069590d462a956c701d98c935654f217` | Addendum records the null-to-empty root cause, fail-closed correction and regression evidence |
+| `docs/PROJECT_STATE.md` | `db775813c6c6412c19af26a21a1ddf7fddec3ca2` | Current operational state includes worker and test source blobs |
+| `docs/USER_ACTIONS.md` | `956464e4040ed38db237d449cf20ae2a437336b2` | UA-053 current-source reconciliation and owner-only local test command |
+
+Implementation commits: `04bb175803eb2524834785d0599e4d37a77ed2e3` and `185d1d8015ee629dbd95a7da0a10de2db835241e`. Source-level verification only; Node runtime, PostgreSQL replay, Storage integration and deletion-worker rollout remain NOT VERIFIED. No real account or Storage object was touched.
