@@ -3426,3 +3426,11 @@ Mainline commit `ff8549114d407b66bcbca1e8ac40421bde238cfc` aligned legacy worker
 The worker now rejects malformed `ok: true` responses unless counters and result rows form a complete valid contract. Updated `backend/test/schedule-worker.test.js` so every successful mock uses a complete empty, published or scheduled response. The one-row lease test no longer claims three rows; it asserts one scheduled row. Current test blob `ca4bf9a3635c1e29bd328ccc38c68d849772e0c0`; fixture correction commit `ff8549114d407b66bcbca1e8ac40421bde238cfc`; audit blob `a09bb595bec2708c190df3b16e64bc9cf7b3bd46`.
 
 Run `node --test backend/test/schedule-worker.test.js` alongside the UA-056 route/claim tests. Runtime remains NOT VERIFIED; no live Pinterest publishing or production cron.
+
+
+### UA-057 final branch status — 2026-11-18
+
+- Current published main HEAD: `731efc620d19b624e073ca7991bc922a3e46a4c4`; latest code/test commit: `ff8549114d407b66bcbca1e8ac40421bde238cfc`.
+- Vercel combined status on main is `failure / build-rate-limit`; deployment is not confirmed and this is not evidence of source-test failure.
+- Latest recorded Actions runs: atomic payment `44319401720`, persisted boards `44319401655`; both have no job steps/logs returned. Runtime NOT VERIFIED.
+- Run owner-local focused Node tests (UA-053, UA-055, UA-056) and disposable PostgreSQL checks only after restoring runner access. No production DB, real payment, live Pinterest publication or real account deletion.
