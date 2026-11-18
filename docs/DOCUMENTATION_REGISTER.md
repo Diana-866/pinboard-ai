@@ -1704,3 +1704,14 @@ Commit: `641338e380fb13ce81eef0f8174d7e08f134e5ca`. Runtime remains NOT VERIFIED
 | `docs/USER_ACTIONS.md` | `a3e5af7ea584ab288b33e444e9cac4a4f0caea0e` | UA-050 refreshed with current script/contract/audit references |
 
 Implementation commits: `a816f858e302e1d2506e283f3a1d34feacaed77c`, `641338e380fb13ce81eef0f8174d7e08f134e5ca`. Documentation commits: see current main history. Static checks only; Bash, Node, PostgreSQL and CI remain NOT VERIFIED. The test intentionally retains append-only fixtures in the unique disposable clone; only the outer runner may drop that clone.
+
+
+## Supplemental inventory — Node preflight count 52 (2026-11-18)
+
+| Path | Current count | Purpose |
+|---|---:|---|
+| `backend/test/postgres-integration-runner-contract.test.js` | 33 | CI/manifest/Windows runner contract |
+| `backend/test/db-migration-chain.test.js` | 2 | Canonical migration sequence |
+| `backend/test/verify-script-migration-chain.test.js` | 17 | Linux/Windows replay script contract |
+
+Current Node preflight total: **52 tests** (supersedes prior 51). Other acceptance counts: 151 migrations 010–160, 49 SQL tests, 10 unique concurrency scripts. Runtime NOT VERIFIED. Count correction report blob `355f09b2374eb773962817ed1860c12435a3cfc5`; owner action UA-051.
