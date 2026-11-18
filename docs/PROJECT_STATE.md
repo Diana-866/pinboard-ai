@@ -2438,3 +2438,12 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - Re-fetched and inspected all four source/test files after publication. Node runtime and disposable PostgreSQL scheduler tests were NOT run; no runtime PASS is claimed.
 - Detailed report: `docs/audits/2026-11-18-pinterest-scheduler-claim-response.md`, audit commit `640e98efe152382524ff7815e8137ffd7ac586bb`.
 - No production DB, live Pinterest account, publication or external service was accessed. Next: run two focused Node test files, then scheduler heartbeat/completion-fencing/stale-recovery SQL tests in disposable PostgreSQL. Keep scheduled publishing and first-user launch blocked pending runtime acceptance.
+
+
+### 2026-11-18 — Pinterest scheduler malformed-claim fail-closed validation
+
+- Targeted review found the scheduler route treated a null/malformed successful claim RPC payload as an empty queue and could report success without processing due work. It also began processing claimed rows before validating the identity required for claim fencing and publication journaling.
+- Added `isValidClaimedScheduleRows`: requires an array bounded by the server's limit, complete nonblank identity fields (`id`, `user_id`, `pin_id`, `pinterest_account_id`, `pinterest_board_id`, `claim_token`) and unique schedule IDs. A valid empty RPC response is `[]`; null or malformed data fails the run. Route performs validation before claimed-count assignment, heartbeat and row processing.
+- Current source blobs: `backend/scheduleResponse.js` `7170f77c44442bdf12a33c4b63996978d8705f80`; `backend/pinterest.js` `d66d34f9042c55371c2a34ef8e74931b391a9e0c`; unit test `c5b4084903e96f5fa808e8fbff31e222a8dfd5f6`; route contract `d7f8936167432a3444c0f444968318cf5c919b6c`. Claim RPC returns `setof public.pin_schedules` in migration 049 blob `5ade3e2e7a3bd2c3161ef537486fb9101c7c2c05`.
+- Commits: `1acc3aa120a5b073afccf3132b0bf4ea9310f924`, `fb48f225540f4c2d9fa10251ae9faab4a9bee82c`, `793bc081efc6a27c442fe0faa41cacccbde49fa0`, `10f634594a774e963cf02caecfd263546347e094`.
+- Audit: `docs/audits/2026-11-18-pinterest-scheduler-claim-response.md`, blob `78cac2a515f45884780918f7cc4e651747ce53dc`. Owner action UA-056. Node, PostgreSQL scheduler integration and CI runtime remain NOT VERIFIED; no live Pinterest API or production cron was run. Scheduled publishing and first-user launch remain blocked pending runtime/staging acceptance.
