@@ -155,3 +155,22 @@ Further mainline review tightened the expanded race:
 Current source blobs after re-fetch: race script `308214f70ca518016aa6d39b33ce0e2ee466e081`; Node safety contract `12721cfaad66b32eddb68c023d4c426dff4db4a2`; migration 130 `1dcf7844444b4a70be1be49946d5a4c4265ce40f`. Relevant refinement commits: `38206948e01833f097602918583f629c9079ab30` (independent waiters), `95cacfef0f5d931c686b20a63afe2882247b0da3` (exact token version), `c14cb39e8cc25f7c98ab6d3beb61641589b3e3bd` (contract), `8a5653a13923b3756b709eac369aa04cc18aa65b` and `5cd54ee6ef54b7c17ce5ab016528c7a5ab54bee3` (contract alignment), followed by the RPC/cleanup correction commits listed above.
 
 Static re-fetch confirms both three-argument RPC calls, exact token version checks, two distinct lock-waiting application names, two simultaneous waiters, immutable-event assertion, EXIT child/temp cleanup, and absence of destructive deletion. Bash syntax, Node tests, PostgreSQL execution, migration replay, SQL suite and CI remain **NOT RUN / NOT VERIFIED**. No runtime pass is claimed.
+
+
+## Follow-up — exact token-version assertion and independent payment waiters (2026-11-18)
+
+Further review of the current race script and contract found two remaining synchronization/contract details:
+- The deletion RPC must be called with the fixture's captured token version in both payment-first and deletion-first orders, matching migration 130's three-argument signature.
+- In the deletion-first case, credit and subscription fulfillment must run in separate PostgreSQL sessions, and the test must observe **two** simultaneous lock waiters rather than merely one generic waiter.
+
+Current script `backend/test/payment-deletion-receipt-race-concurrency.sh` now has:
+- both `request_account_deletion(user_id, 'password_reauth', TOKEN_VERSION)` call sites;
+- exact token fence assertions: the user's token version is 1 and the request token version is 1 and matches the user;
+- exactly one `request_accepted` event;
+- independent credit and subscription payment sessions in the deletion-first order, with `wait_for_two_lock_waiters`;
+- the payment-first order executes both receipt-bound fulfillment RPCs while the payment transaction owns the user lock.
+
+Current script blob: `308214f70ca518016aa6d39b33ce0e2ee466e081`; update commit `95cacfef0f5d931c686b20a63afe2882247b0da3`.
+Current contract blob: `12721cfaad66b32eddb68c023d4c426dff4db4a2`; update commit `c14cb39e8cc25f7c98ab6d3beb61641589b3e3bd`.
+
+Static inspection also reconfirmed 10 unique concurrency runner entries, 49 unique SQL manifest entries, and 151 migrations 010–160. Latest atomic workflow run `44315382265`, job `134839972556`, failed before runner allocation (`runner_id=0`, no runner name, zero steps). Runtime remains **NOT VERIFIED**; none of the Bash, Node or PostgreSQL assertions can be treated as executed.
