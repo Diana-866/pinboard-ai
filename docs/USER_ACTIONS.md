@@ -3195,3 +3195,20 @@ The latest source supersedes UA-047's prior script/contract blob references. Cur
 Latest test strengthens the deletion-first case: credit and subscription fulfillment now wait in two separate PostgreSQL sessions simultaneously; the test requires both lock waiters to be observed before the deletion transaction is released. The acceptance request must increment token_version from 0 to exactly 1 on both user and request rows. The EXIT trap stops child processes and cleans temporary files; immutable deletion fixtures remain inside the disposable clone for outer drop.
 
 Run the UA-047 commands only after syncing to latest main. Runtime remains NOT VERIFIED; static inspection is not a substitute for Bash, Node and PostgreSQL execution.
+
+
+### UA-048 — current payment/deletion race script and CI status (2026-11-18)
+
+This supersedes the race-script and safety-contract blob references in UA-045/UA-047:
+- Race script: `backend/test/payment-deletion-receipt-race-concurrency.sh`, blob `308214f70ca518016aa6d39b33ce0e2ee466e081`.
+- Concurrency safety contract: `backend/test/postgres-concurrency-safety-contract.test.js`, blob `12721cfaad66b32eddb68c023d4c426dff4db4a2`.
+- Audit report: `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md`, blob `502235615aadaf1f0e345a0ac5e01ccfac48657a`.
+
+Current harness contract:
+- Both deletion call sites pass `request_account_deletion(uuid, 'password_reauth', token_version)`.
+- The accepted request must advance the user and request token versions from 0 to exactly 1 and emit one immutable `request_accepted` event.
+- Payment-first holds the user lock while both credit and subscription receipt-bound fulfillment RPCs run, then the deletion acceptance RPC proceeds.
+- Deletion-first starts credit and subscription fulfillment in separate sessions and requires both to be observed waiting on the deletion transaction's user-row lock before it commits.
+- The race fixtures are append-only and intentionally remain in the unique disposable clone; the outer runner must drop the clone. Do not invoke the race script against a persistent/shared database.
+
+Static counts remain 151 migrations (010–160), 49 unique SQL tests and 10 unique concurrency scripts. Latest observed atomic Actions run `44315382265`, job `134839972556`, failed before runner allocation (runner_id 0, no steps). Runtime remains NOT VERIFIED. Follow UA-046 for full owner acceptance and UA-047/UA-048 for the race harness; do not infer any test pass.
