@@ -2427,3 +2427,14 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - GitHub combined status for both the code/test commit and current main HEAD reports Vercel `failure`, target `build-rate-limit`. This is a provider build-limit status, not evidence that application source compilation or tests failed. No deployment success is confirmed.
 - Latest recorded atomic Actions run remains `44318275401` / job `134850094393`; no job steps were returned, so no runtime test result is evidenced. No new retry was started.
 - Source-level fixes remain published, but Node runtime, disposable PostgreSQL replay, Storage integration, CI and Vercel deployment remain NOT VERIFIED. Keep real payments, first-user invitations and deletion-worker rollout blocked.
+
+
+### 2026-11-18 — Pinterest scheduler claim RPC fail-closed validation
+
+- Found a scheduler reliability defect in `backend/pinterest.js`: after `claim_due_pin_schedules`, a successful Supabase response with `data: null` or malformed data was coerced through `(dueRows || [])` and counted as a successful empty queue. Due publications could remain unprocessed while the monitor recorded a successful run. Returned rows were also not validated for complete lease/publication identity before heartbeat and processing.
+- Added `isValidClaimedScheduleRows(rows, limit)` in `backend/scheduleResponse.js`: requires an array, respects the one-row server limit, validates nonblank `id/user_id/pin_id/pinterest_account_id/pinterest_board_id/claim_token`, and rejects duplicate schedule IDs. Empty `[]` remains valid.
+- The Pinterest route now fails the scheduler run on malformed claim data before setting the count, starting heartbeat or iterating rows. Files: response helper blob `7170f77c44442bdf12a33c4b63996978d8705f80`; route blob `d66d34f9042c55371c2a34ef8e74931b391a9e0c`.
+- Added unit regression for null/non-array/oversized/duplicate/incomplete identity responses (test blob `c5b4084903e96f5fa808e8fbff31e222a8dfd5f6`) and route ordering contract (test blob `d7f8936167432a3444c0f444968318cf5c919b6c`). Commits: `1acc3aa120a5b073afccf3132b0bf4ea9310f924`, `fb48f225540f4c2d9fa10251ae9faab4a9bee82c`, `793bc081efc6a27c442fe0faa41cacccbde49fa0`, `10f634594a774e963cf02caecfd263546347e094`.
+- Re-fetched and inspected all four source/test files after publication. Node runtime and disposable PostgreSQL scheduler tests were NOT run; no runtime PASS is claimed.
+- Detailed report: `docs/audits/2026-11-18-pinterest-scheduler-claim-response.md`, audit commit `640e98efe152382524ff7815e8137ffd7ac586bb`.
+- No production DB, live Pinterest account, publication or external service was accessed. Next: run two focused Node test files, then scheduler heartbeat/completion-fencing/stale-recovery SQL tests in disposable PostgreSQL. Keep scheduled publishing and first-user launch blocked pending runtime acceptance.
