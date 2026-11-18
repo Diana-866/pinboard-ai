@@ -3445,3 +3445,7 @@ Run `node --test backend/test/schedule-worker.test.js` alongside the UA-056 rout
 - **Коммиты:** `4bd9145198a643a5878652054cd41ae77cb529a1`, `c1fc19af5d217a58c29dcbda0d0bdf64ac761f0c`; audit commit `d8f6f6ae22469bd58cce46a8d2beb2f743870f18`.
 - **Команды на clean local checkout:** `node --test backend/test/email-outbox.test.js`; затем focused billing/webhook tests from the project manifest. PostgreSQL acceptance: run the email outbox claim/mark/retry SQL scenarios only against disposable PostgreSQL, checking empty result `[]`, claimed row identity, and stale-lease recovery. Не использовать production.
 - **Ограничение:** тесты в этой среде не запускались. No SMTP or real customer mail was sent. Do not mark this integration as verified until owner runtime evidence is recorded.
+
+### UA-058 platform status addendum (2026-11-18)
+
+After the email outbox source/test commits, Actions runs `44320063124`, `44320063459`, `44320068909`, and `44320069081` ended in failure; all returned job records had `steps: null`. Vercel remains `failure / build-rate-limit` on current main. These results do not prove tests ran or source failed. Node/PostgreSQL runtime remains NOT VERIFIED. Do not repeatedly retry while runner/quota blockers persist; run the UA-058 local commands and disposable PostgreSQL acceptance after the owner restores a working environment.
