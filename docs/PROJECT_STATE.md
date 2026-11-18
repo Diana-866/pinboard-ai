@@ -2247,3 +2247,12 @@ The combined status for the later documentation HEAD `a201002b668d7a9c962979cbf4
 - Audit current blob `905799b006802acd7e19c875467e15ec6ad30786`; UA-047 latest addendum in USER_ACTIONS blob `4be037b489f37d455ac4bc21ce87dab410914769`; register blob `77e92017a70b09739abeba2d6fdde802b184d352`.
 - **Verification performed:** source-level re-fetch confirmed both RPC calls pass TOKEN_VERSION, both waiters have separate application names, deletion-first waits for two PostgreSQL lock waiters, exact token version/event assertions exist, and the EXIT trap cleans child processes/temp files. **NOT RUN:** Bash syntax, Node contract, PostgreSQL concurrency suite, full 151-migration replay, 49 SQL integration tests, or CI. Vercel combined status on the latest observed main commit remains `failure / build-rate-limit`; it is not evidence of a source compilation result. No runtime pass or deployment is claimed.
 - Next: obtain an executed isolated CI run of all ten concurrency scripts and the four payment/deletion race paths; then continue remaining release gates. Live payments and first-user invitations remain blocked.
+
+
+### 2026-11-18 — Deletion queue preflight-job verification
+
+- Added an explicit assertion to the payment/deletion race that each accepted deletion request has exactly one durable `account_deletion_jobs` row with `step_key = 'preflight'` and `status = 'pending'`. This verifies queue enqueueing as well as request state, immutable acceptance event and token-version fence.
+- Deletion-first assertions also explicitly verify the user's credit balance through the loaded user row, zero ledger entries, unchanged canceled purchase/subscription, no paid subscription period/tariff, and withheld decisions for both credit and subscription receipts.
+- Race script current blob `805a076a23e40e0b7263c5a45bb88035d7c4603b`; safety contract current blob `e315d6cb694465e3ea116c2cf828ef13d8d1f268`; commit `e602d42894db555c6b97ed244bf9834b86bf3303`.
+- Detailed audit current blob `619402188b5bd00dea0a0c31e755fb5f154170e4`. Owner action UA-049 added.
+- Static verification only. Latest atomic workflow run `44315630744`, job `134840855489`, failed before runner allocation (runner_id 0, zero steps). Bash/Node/PostgreSQL runtime remains NOT VERIFIED.
