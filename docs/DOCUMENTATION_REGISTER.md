@@ -2,7 +2,7 @@
 
 **Repository:** Diana-866/pinboard-ai  
 **Branch:** main  
-**Latest code/test/workflow change commit (runtime verification pending):** 05bd81bbbb9775e2f671e8d730c9d5442fa8b9a8  
+**Latest code/test/workflow change commit (runtime verification pending):** facc0c992b122106f72d7adc80e70a0f28b82fff  
 **Inventory refreshed:** 2026-11-18 (supplemental new files appended; full metadata inventory refresh not performed)  
 **Scope:** all documentation files under docs/ (Markdown and SQL), excluding this register itself.
 
@@ -1468,3 +1468,12 @@ Correction commit: `05bd81bbbb9775e2f671e8d730c9d5442fa8b9a8`. Latest Prodamus r
 
 
 **Status refresh (2026-11-18):** Vercel combined status for latest source/test commit `05bd81bbbb9775e2f671e8d730c9d5442fa8b9a8` is SUCCESS. This supersedes the PENDING observation above but is not proof of a production deployment. Prodamus Actions run `44307390644` remains a pre-runner failure with no inspectable steps/logs; whether the Node suite executed is UNKNOWN. Runtime tests remain NOT VERIFIED.
+
+
+### Supplemental update — signed Prodamus redirect guard (2026-11-18)
+
+- `backend/prodamus.js` latest blob: `e9290bc314ae1c20b15d8d9a6b91877a1ed73535` — Prodamus POST disables automatic redirects (`maxRedirects: 0`).
+- `backend/test/prodamus-endpoint-security.test.js` latest blob: `1face096b814532e10a608fb4de8a53ec9b4b096` — includes the HTTP 307 redirect-forwarding regression.
+- `docs/audits/2026-11-18-prodamus-api-endpoint-https-guard.md` latest blob: `5490c071317008fbebcdbd09e0de29ec2470a3f4` — includes the redirect guard chronology and verification boundary.
+
+Source commit: `f89803b544a78ef15fc4d75220225d4f89edb53a`; test commit: `facc0c992b122106f72d7adc80e70a0f28b82fff`. The existing six-file workflow includes the updated test. Runtime verification remains NOT VERIFIED; Vercel was PENDING at last check and no Actions result for the latest commit was observed. No production deployment or payment operation is confirmed.
