@@ -114,7 +114,7 @@ test('runner refuses unsafe targets and documents the unexecuted Bash concurrenc
   assert.match(runner, /still exists after DROP DATABASE/);
   assert.match(runner, /finally\s*\{/);
   assert.match(runner, /pg_terminate_backend\(pid\).*DROP DATABASE/s);
-  assert.match(runner, /NOT RUN: nine Bash concurrency scripts/);
+  assert.match(runner, /NOT RUN: ten Bash concurrency scripts/);
 });
 
 test('runner logs migration progress and inspects the preferred-language constraint before migration 018', () => {
@@ -122,6 +122,10 @@ test('runner logs migration progress and inspects the preferred-language constra
   assert.match(runner, /Diagnostic: database and public\.users constraints immediately before migration 018:/);
   assert.match(runner, /users_preferred_language_check/);
   assert.match(runner, /pg_get_constraintdef\(c\.oid\)/);
+  assert.match(runner, /\$migrations\.Count -ne 151/);
+  assert.match(runner, /Expected 151 active migrations 010-160/);
+  assert.match(runner, /Applying 151 migrations 010-160/);
+  assert.match(runner, /\$sqlTests\.Count -ne 49/);
 });
 
 
