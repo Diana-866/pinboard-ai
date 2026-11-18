@@ -211,10 +211,13 @@ function getWebhookPaymentAmount(body, expectedCurrency = "rub") {
     return { ok: false, reason: "currency_missing" };
   }
 
+  // Prodamus's generic amount field is the RUB amount. The currency_sum
+  // field is meaningful only together with an explicit non-RUB currency;
+  // never infer RUB from currency_sum when currency is absent.
   const currencyAmount = body && body.currency_sum;
-  const rawAmount = currencyAmount != null && String(currencyAmount).trim() !== ""
-    ? currencyAmount
-    : expected === "rub" ? body && body.sum : null;
+  const rawAmount = expected === "rub"
+    ? body && body.sum
+    : currencyAmount;
   const amount = rawAmount == null || String(rawAmount).trim() === ""
     ? NaN
     : Number(rawAmount);
