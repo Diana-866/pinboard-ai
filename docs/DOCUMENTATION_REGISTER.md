@@ -1741,3 +1741,22 @@ Main HEAD at the start of this closeout: 4d215a56a0890d08ae5052cc640305f2cb52c90
 | Current mainline release gates | 151 migrations, 49 SQL tests, 52 Node preflight tests, 10 concurrency scripts; runtime NOT VERIFIED |
 
 Vercel remains failure / build-rate-limit. Latest observed atomic Actions run failed before runner allocation; no test steps ran. PR #91 is draft/diverged (13 ahead, 381 behind) and was not merged.
+
+
+## Migration 161 — atomic-only Prodamus grant decisions (2026-11-18)
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `db/migrations/161_restrict_granted_decisions_to_atomic_fulfillment.sql` | `1565937b13a668af8f894a6e3ee5a8d471c384b4` | Restricts service_role decision RPC to non-grant outcomes; private grant helper validates receipt and committed local entitlement; NOT RUNTIME-VERIFIED |
+| `backend/test/payment-provider-receipt-fulfillment.integration.sql` | `00fbe5af225daa0c9c81429a608b8e8240f2b5af` | Adds direct-grant denial, service_role/authenticated privilege and private helper regression assertions |
+| `backend/test/db-migration-chain.test.js` | `d2957ada44467ce1aecdef9147140ac4ab48aa4f` | Requires contiguous canonical migrations 010–161 |
+| `scripts/verify.sh` | `5f3d64a9e772d2246276dc83a619d23ea6ee9d68` | Linux replay expects 152 migrations 010–161 |
+| `scripts/verify.ps1` | `e8933c8a747f88df55bac7d26fe7905028c14a4e` | Windows migrations-only replay expects 152 migrations 010–161 |
+| `scripts/verify-integration.ps1` | `d7bc53a65409ea5e2dbc9a4b658768616f52ce8a` | Windows SQL runner expects 152 migrations 010–161 and 49 tests |
+| `backend/test/verify-script-migration-chain.test.js` | `3b7e75e070204262895cae42e36af38b83cca36c` | Static contract requires 010–161/152-file Linux and Windows runner range |
+| `backend/test/postgres-integration-runner-contract.test.js` | `3195cc594e97e03a34bb1303a2e275e199da6dfa` | CI workflow/Windows runner contract requires all 152 migration prefixes |
+| `.github/workflows/atomic-payment-integration.yml` | `9b407f46e4c7188623128738cdebb9fdcbb46b5f` | Applies migration 161 after migration 160 before SQL integration tests |
+| `docs/audits/2026-11-18-migration161-grant-guard-and-runner-alignment.md` | Created in audit commit (see main history) | Finding, fixes, exact source blobs and verification boundary |
+| `docs/USER_ACTIONS.md` | Updated with UA-052 | Owner runtime instructions for all 152 migrations and 49 SQL tests |
+
+Relevant implementation commits: migration 161 `520bd43630ad81f052b8d1a53e517d1c7fe010ef`; chain test `541b0cae9ea7ac284305cc9cec62c7ff33a80127`; Linux runner `1c3cf89b827427945ecb62ca265188af509885ca`; Windows runner `c51ba5d931b59d02fd2d3d7c18294979bc271dd0`; migration contract `1f623607e7b02fe3c68bcecd24c7e6bf175aa414`; integration contract `25d3dc99b71b026131431fa74b6bfa83f27bd0e3`; SQL regression `31882a973dd72d7ed3cedb8bf3f2d45c9b495a2f`; Node regression `417cec592382f88b8aaf1f05bb1a36ed2c501b54`. Expected totals now 152 migrations, 49 SQL tests, 52 Node preflight tests and 10 concurrency scripts. Static-only; runtime NOT VERIFIED.
