@@ -100,7 +100,7 @@ test("Prodamus CI runs ambiguous checkout and billing security regression covera
     "push and pull_request path filters must both include this workflow contract"
   );
   assert.ok(
-    workflow.includes("node --test test/prodamus-webhook.test.js test/payment-creation-settlement.test.js test/prodamus-ambiguous-checkout.test.js test/billing-webhook-audit.test.js test/billing-security-contract.test.js"),
+    workflow.includes("node --test test/prodamus-webhook.test.js test/payment-creation-settlement.test.js test/prodamus-ambiguous-checkout.test.js test/billing-webhook-audit.test.js test/billing-security-contract.test.js test/prodamus-endpoint-security.test.js"),
     "checkout job must execute all billing and ambiguous-checkout regression tests"
   );
   assert.equal(
@@ -116,6 +116,11 @@ test("Prodamus CI runs ambiguous checkout and billing security regression covera
   assert.ok(
     workflow.includes("test/billing-webhook-audit.test.js"),
     "checkout job must execute webhook audit persistence regressions"
+  );
+  assert.equal(
+    occurrences('"backend/test/prodamus-endpoint-security.test.js"'),
+    2,
+    "push and pull_request path filters must both include Prodamus endpoint security tests"
   );
   assert.doesNotMatch(workflow, /Test checkout idempotency and ambiguous provider failures/);
 });
