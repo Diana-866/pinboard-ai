@@ -178,6 +178,9 @@ begin
   if p_local_payment_id is not null and p_local_payment_kind is null then
     raise exception 'local payment kind is required with local payment id';
   end if;
+  if p_user_id is not null and length(p_user_id) > 200 then
+    raise exception 'invalid decision user id';
+  end if;
 
   select * into v_existing
     from public.payment_entitlement_decisions
