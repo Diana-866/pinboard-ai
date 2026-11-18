@@ -30,8 +30,8 @@ test('shared guard requires explicit opt-in and a local disposable database', ()
   assert.match(helper, /stop_test_children\(\)/);
 });
 
-test('all nine concurrency scripts use the shared target guard and isolated cleanup', () => {
-  assert.equal(scripts.length, 9);
+test('all ten concurrency scripts use the shared target guard and isolated cleanup', () => {
+  assert.equal(scripts.length, 10);
   for (const filename of scripts) {
     const script = read(path.join('backend/test', filename));
     assert.match(script, /source "\$\(dirname "\$\{BASH_SOURCE\[0\]\}"\)\/lib\/assert-disposable-postgres\.sh"/, filename);
