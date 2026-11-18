@@ -2375,3 +2375,12 @@ The combined status for the later documentation HEAD `a201002b668d7a9c962979cbf4
 - Latest observed atomic Actions run `44317872327` (commit `4c02b2afcd2240f08bb9903e5b9afb3cd7442f27`) failed before returning any job steps; no test execution is evidenced. Current main combined status remains Vercel FAILURE / `build-rate-limit`. These are infrastructure/platform statuses, not source test results.
 - Final docs references: USER_ACTIONS UA-052 (152 migrations / 49 SQL / 52 Node / 10 concurrency), UA-053 (deterministic account deletion inventory), UA-054 (symmetric Prodamus NULL amount guard). Audit reports cover migration/runner alignment, deletion pagination and Prodamus receipt path.
 - No Node, Bash, PowerShell, PostgreSQL, SQL integration, concurrency runtime, source build, production DB, live payment, external provider account or deployment was executed in this work period. Runtime and production readiness remain **NOT VERIFIED**. Keep first-user invitations, live payments and account-deletion worker rollout blocked until owner-controlled disposable runtime and staging acceptance are complete.
+
+
+### Live CI status refresh — 2026-11-18 (supersedes earlier platform status)
+
+- Final documentation HEAD before this status note: `06b7f9e7f72252e8d05bfdd14b9b0bdc0d16dbc2`. Latest GitHub tree and docs were re-fetched; migration inventory remains 152 contiguous migrations 010–161, SQL manifest 49/49 unique entries all referenced by the workflow, 52 Node preflight tests and 10 concurrency scripts.
+- Latest atomic Actions run: `44318275401`, job `134850094393`, conclusion `failure`; the job-step API returned an empty list. No test command or PostgreSQL step execution is evidenced. This must not be reported as a source-test failure or a pass.
+- Latest persisted-boards workflow run: `44318275331`, conclusion `failure`. No test result is inferred from the summary alone.
+- Vercel combined status for the then-current main HEAD is now `pending` with a deployment target, superseding the earlier `build-rate-limit` failure observed on older commits. Pending is not a deployment success; wait for a terminal status before claiming deployment.
+- No production DB, real payment, external account, or deployment action was initiated by this work period. Runtime and production readiness remain NOT VERIFIED; first-user invitations and live payments stay blocked.
