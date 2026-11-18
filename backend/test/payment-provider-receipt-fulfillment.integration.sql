@@ -1,4 +1,4 @@
--- Migrations 159-160: receipt identity, lifecycle fence, entitlement and decision commit atomically.
+-- Migrations 159-161: receipt identity, lifecycle fence, atomic entitlement grants and decision journal.
 begin;
 
 do $$
@@ -286,7 +286,51 @@ begin
      or not exists (select 1 from public.payment_entitlement_decisions where receipt_id = v_receipt and decision = 'rejected_mismatch') then
     raise exception 'mismatched payment granted entitlement or lost its decision';
   end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.set_prodamus_payment_decision(uuid,text,text,text,uuid,text)',
+    'EXECUTE'
+  ) or has_function_privilege(
+    'authenticated',
+    'public.set_prodamus_payment_decision(uuid,text,text,text,uuid,text)',
+    'EXECUTE'
+  ) then
+    raise exception 'only service_role may record non-grant payment decisions';
+  end if;
+  if has_function_privilege(
+    'service_role',
+    'public.mark_prodamus_entitlement_granted(uuid,text,uuid,text)',
+    'EXECUTE'
+  ) or has_function_privilege(
+    'authenticated',
+    'public.mark_prodamus_entitlement_granted(uuid,text,uuid,text)',
+    'EXECUTE'
+  ) then
+    raise exception 'direct granted-decision helper must remain private to SECURITY DEFINER wrappers';
+  end if;
+
+  v_terminal_conflict := false;
+  begin
+    perform public.set_prodamus_payment_decision(
+      v_receipt, 'granted', null, 'credits', v_mismatch_purchase, v_mismatch_user::text
+    );
+  exception when others then
+    if position('invalid entitlement decision' in sqlerrm) > 0 then
+      v_terminal_conflict := true;
+    else
+      raise;
+    end if;
+  end;
+  if not v_terminal_conflict then
+    raise exception 'service decision RPC accepted a direct granted transition';
+  end if;
+  if not exists (
+    select 1 from public.payment_entitlement_decisions
+     where receipt_id = v_receipt and decision = 'rejected_mismatch'
+  ) then
+    raise exception 'rejected mismatch decision changed after forbidden grant attempt';
+  end if;
 end;
-$$;
+$;
 
 rollback;
