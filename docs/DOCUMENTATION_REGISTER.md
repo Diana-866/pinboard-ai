@@ -1944,3 +1944,10 @@ Commits: worker `68ef687186539530a37623dffaca28a73662970b`; regression `460a54ac
 | `docs/audits/2026-11-18-pinterest-scheduler-claim-response.md` | `d24eebcf73a63285c898360d2552ca7349687328` | Includes the route claim-payload and worker response-contract reviews |
 
 Current main HEAD before this register update: `2468bccc99762afdc47306ffda0e06b2da846ead`; latest code/test commit: `460a54ac3a1da36d728796a5af329fcbd994c941`. Combined Vercel status is `failure` / `build-rate-limit` on both. Latest recorded atomic Actions run `44318456320` returned no job steps. Deployment and runtime remain NOT VERIFIED. State blob `a5f0607d53c64e7ce66ed55141168df533050512`; owner-action blob `94d14d522adebb86ca64e286dda8b678f8bf96f1`.
+
+
+### Scheduler strict-response fixture alignment (2026-11-18)
+
+- `backend/test/schedule-worker.test.js` current blob `ca4bf9a3635c1e29bd328ccc38c68d849772e0c0`; commit `ff8549114d407b66bcbca1e8ac40421bde238cfc`. Replaced stale incomplete `ok: true` and multi-row fixtures with complete empty/one-row responses compatible with the server's enforced batch limit. Malformed-response regression cases remain.
+- `docs/audits/2026-11-18-pinterest-scheduler-claim-response.md` current blob `a09bb595bec2708c190df3b16e64bc9cf7b3bd46`; audit commit `df07d8e64173dc8528f7e059115b184aba59098d`.
+- Latest recorded Actions runs `44319401720` and `44319401655` both failed without job steps/logs; Vercel remains `build-rate-limit`. No Node/PostgreSQL runtime PASS is evidenced.
