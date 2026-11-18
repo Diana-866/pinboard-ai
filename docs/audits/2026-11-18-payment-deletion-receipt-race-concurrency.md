@@ -92,3 +92,34 @@ Bash syntax, Node concurrency-safety contract, Node migration-runner contract, P
 Migration 160 now independently binds terminal decisions to local_payment_kind, local_payment_id and user_id, and repeated same-payment rejected_mismatch calls are idempotent. The two-session race remains compatible with the receipt-bound RPC and is wired as the tenth disposable concurrency script. Current inventory is 151 migrations 010–160, 49 SQL tests, 51 Node preflight tests and 10 Bash concurrency scripts. The updated owner sequence is UA-046.
 
 Migration 160 blob: 7005ec7ce7a802312bb1376284892309a67fa226; SQL regression blob: f7fdc7a05bba1bc45f2b4f78652a7365422b4778; guarded runner blob: a1af92050d64db66f5081c1425e49247ef074173. The local replay and concurrency suite have not been executed. The race still models the user-row account-status fence, not the full deletion queue/worker, and it covers credit fulfillment only.
+
+
+## Follow-up — race harness now calls the real deletion acceptance RPC and covers subscriptions (2026-11-18)
+
+The earlier test's scope limitation is superseded by the current harness revision.
+
+### Root cause addressed
+
+The original race harness simulated deletion acceptance by directly updating `users.account_status`. That tested the user-row lock, but did not prove that the production `request_account_deletion(uuid,text,bigint)` RPC, its token-version fence, request row, event and preflight job serialize correctly with payment fulfillment. It also tested only credit purchases.
+
+### Changes
+
+- Reworked `backend/test/payment-deletion-receipt-race-concurrency.sh` to call the actual `public.request_account_deletion(user_id, 'password_reauth', token_version)` RPC in the deletion session.
+- Added four independently isolated race cases: credit payment-first, credit deletion-first, subscription payment-first, subscription deletion-first.
+- Each case uses two distinct PostgreSQL sessions, unique `application_name` labels, explicit waits for the `pg_sleep` lock holder and a real PostgreSQL `wait_event_type = 'Lock'` waiter.
+- Assertions now include the durable account-deletion request and pending preflight job, plus:
+  - credit payment-first: balance 105, one ledger row, `granted`;
+  - credit deletion-first: balance 5, no ledger row, canceled purchase, `withheld_account_lifecycle`;
+  - subscription payment-first: tariff `pro`, paid period, `granted`;
+  - subscription deletion-first: tariff `none`, canceled subscription, `withheld_account_lifecycle`.
+- The test intentionally leaves immutable deletion-event fixtures in the cloned database. It must run through the existing disposable-clone runner, which drops the entire clone on exit; it must not be run against a shared persistent database.
+- Expanded the safety contract to require the actual deletion RPC and both receipt-bound fulfillment RPCs.
+
+### Commits and blobs
+
+- Expanded race script commit: `b5a0272430221c389fd5457d2f7874a420051a5e`; blob `005a431480d7ca7a9640d67689815f2aec53233e`.
+- Expanded contract commit: `8377f016f8070377f727113a34907be8f2999b33`; blob `ce734f544ffc0ec58c10f1dc4d4f4dd86a7238c9`.
+
+### Verification boundary
+
+Static review confirms the script calls `request_account_deletion`, `credit_paid_purchase_with_receipt`, and `activate_paid_subscription_with_receipt`; all four cases assert the expected terminal decision and entitlement state. The script is in the ten-entry unique concurrency suite and the safety contract checks these calls. No Bash syntax check, Node contract test, PostgreSQL race execution or CI pass has been observed. Runtime remains **NOT VERIFIED**.
