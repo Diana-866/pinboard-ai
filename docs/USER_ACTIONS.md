@@ -2944,3 +2944,62 @@ Latest run for source/test HEAD `9e93163b7a6cd9c0a69ea206f26d9709fcce4f6d`: <htt
 
 
 **UA-040 addendum — redirect forwarding guard (2026-11-18):** Further review found Axios follows redirects by default. Added `maxRedirects: 0` to the signed Prodamus checkout POST and a regression simulating HTTP 307 and asserting the redirect option is disabled. Source commit `f89803b544a78ef15fc4d75220225d4f89edb53a`; test commit `facc0c992b122106f72d7adc80e70a0f28b82fff`. Existing Prodamus workflow already executes this test file. Runtime test remains NOT VERIFIED. At last check Vercel status on test commit was PENDING and no Actions result for that commit was available. After syncing `main`, require a successful workflow run visibly executing all six files. If it fails before runner allocation/no steps, use UA-036 and provide the exact annotation/log with secrets redacted; do not blindly rerun. Do not change production settings or use real payments. Detailed report: `docs/audits/2026-11-18-prodamus-api-endpoint-https-guard.md`.
+
+
+### UA-035 addendum — migration 157 and expanded disposable PostgreSQL suite (2026-11-18)
+
+This supersedes the earlier UA-035 counts and migration range, without changing its safety rules.
+
+- Current canonical migration chain: baseline 001 + migrations 010–157 (**148 migrations**).
+- Current SQL integration manifest: **47 SQL tests** (previously 46).
+- Current Node preflight command still uses the same three files, but source now contains **50 top-level tests** by static count: runner contract 31, migration chain 2, verify-script contract 17. This is an expected source count only, not a runtime result.
+- Updated workflow `.github/workflows/atomic-payment-integration.yml`, `scripts/verify-integration.ps1`, `scripts/verify.sh`, `scripts/verify.ps1`, migration-chain test, runner-contract test and SQL manifest. New migration 157 is `db/migrations/157_payment_fulfillment_user_first_lifecycle_fence.sql`; new SQL test is `backend/test/payment-deletion-lifecycle-fence.integration.sql`.
+- Do not use the earlier expected counts 147 migrations / 46 SQL tests. Follow UA-041 for the exact current commands and acceptance criteria.
+- Latest owner-independent Actions attempt `44308754607` failed before exposing any job step: job `134817075814`, empty steps endpoint, logs download 404 `BlobNotFound`. It is unknown whether PostgreSQL provisioning began; no SQL test execution is evidenced. Do not blindly rerun. UA-036 remains the separate owner path for inspecting GitHub UI annotations/logs.
+
+### UA-041 — Verify payment fulfillment lifecycle fence on disposable PostgreSQL (2026-11-18)
+
+**Purpose:** runtime-verify migration 157 and its regression without touching production, staging, Supabase, or real payment-provider systems.
+
+**Published changes:**
+- Migration 157 changes `credit_paid_purchase` and `activate_paid_subscription` to lock `users` before the payment row and reject entitlement fulfillment when `account_status` is not `active`.
+- New SQL regression proves a canceled credit purchase and canceled subscription cannot grant entitlement to a deletion-pending account.
+- The disposable runner now applies 148 migrations (010–157) and executes 47 SQL integration tests.
+- Source migration commit `2f7ef442872c4c16d501f2d19a5ba9f0601533da`; final SQL test commit `63c02f2e7540e8f510e819c5728957c25e065931`. Full file/commit inventory: `docs/audits/2026-11-18-payment-fulfillment-account-lifecycle-fence.md`.
+
+**Owner steps (Windows PowerShell, local project directory):**
+
+1. Check worktree and synchronize safely:
+   ```powershell
+   git status --short
+   ```
+   If not clean, STOP and preserve local changes. If clean:
+   ```powershell
+   git pull --ff-only origin main
+   git rev-parse HEAD
+   git rev-parse origin/main
+   git status --short
+   ```
+   Require HEAD = origin/main and an empty status. Do not reset, stash, force-push, or overwrite local work.
+
+2. Run the exact Node preflight:
+   ```powershell
+   node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+   ```
+   Expected: **50 tests, 50 pass, 0 fail, 0 cancelled, 0 skipped, 0 todo**. This is a static expected count, not a claimed result. If count differs or any test fails, STOP; provide complete output and do not start PostgreSQL.
+
+3. Only after Node 50/50 PASS, run the guarded disposable PostgreSQL suite:
+   ```powershell
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+   ```
+   The runner must independently confirm its expected local-only PostgreSQL 18.6 cluster, listener 127.0.0.1:55439, expected PID/data directory, encoding, and temporary role. If any identity differs, STOP. Use only the runner's hidden password prompt; never paste passwords, connection strings, or secrets into chat or logs. Do not connect to Supabase, production, staging, or `PIN_TRIAL`.
+
+4. Stop on the first SQL failure. Preserve full output including cleanup. PASS requires the upgrade fixture, all **148 migrations 010–157**, both inline assertions, all **47/47 SQL tests**, and confirmed disposable database/role cleanup. Do not skip a test or weaken a safety preflight.
+
+5. The new regression specifically requires: both fulfillment RPCs reject a deletion-pending account; credit balance remains unchanged; canceled purchase remains uncredited with no ledger row; canceled subscription remains without paid period; user tariff stays at baseline `none`.
+
+6. Return full command output and exit codes with any accidental secrets redacted. If blocked by local PostgreSQL availability, role password, identity mismatch, or other environment issue, stop and report the exact blocker; do not try alternative clusters or remote databases.
+
+**Current runtime status:** NOT VERIFIED. GitHub Actions run `44308754607` failed before exposing any steps; job `134817075814` had no inspectable steps and logs endpoint returned 404 `BlobNotFound`. Vercel status on code/test HEAD `63c02f2e7540e8f510e819c5728957c25e065931` is FAILURE target `build-rate-limit`, not a build log. No production resource or real payment was accessed.
+
+**Important scope limitation:** migration 157 is only the first safety boundary. The immutable provider receipt / entitlement decision journal described in AUD-400/401 and a two-session deletion-vs-payment race harness are still unimplemented. Even after this local suite passes, do not enable live payments or invite first users until those remaining gates and the full application/runtime/deployment checks are complete.
