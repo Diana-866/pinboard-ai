@@ -1676,7 +1676,7 @@ Regression commit: `e602d42894db555c6b97ed244bf9834b86bf3303`. Runtime remains N
 |---|---|---|
 | `backend/test/payment-deletion-receipt-race-concurrency.sh` | `6f1c08950a4a449f5c041aebdf65ca257bd29b4e` | Four independent cases: credit/subscription × payment-first/deletion-first; real deletion RPC; per-case token/event/preflight-job and entitlement assertions; NOT RUNTIME-VERIFIED |
 | `backend/test/postgres-concurrency-safety-contract.test.js` | `91e53359eee7257279e45a6ede7f6d74f86a3ef8` | Requires four case functions, four token-bound deletion RPC calls, durable queue/event and cleanup assertions |
-| `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md` | `3610a1f854cec014e0c1372a5fc4e9ce14ff209b` | Records final four-case refactor and runtime boundary |
+| `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md` | `63a74e23ac2f2267b5242ff9db8fbc7800dbb19f` | Records final four-case refactor and runtime boundary |
 | `docs/USER_ACTIONS.md` | `d1d6a633400f58e2e704346c058e267e40c40fb6` | UA-050 owner runtime action |
 
 Refactor commits: `a816f858e302e1d2506e283f3a1d34feacaed77c`, `641338e380fb13ce81eef0f8174d7e08f134e5ca`; audit `28d0811144af18af639de8afba2825de96950707`; owner action `d415325560b0bd4de5b3d4cdd36215b64de806fa`. Static review only; Bash, Node, PostgreSQL and CI remain NOT VERIFIED.
@@ -1701,6 +1701,6 @@ Commit: `641338e380fb13ce81eef0f8174d7e08f134e5ca`. Runtime remains NOT VERIFIED
 | `backend/test/postgres-concurrency-safety-contract.test.js` | `91e53359eee7257279e45a6ede7f6d74f86a3ef8` | Requires all four named cases, exact RPC call count, balance/ledger/tariff/period/decision assertions and safe disposable-clone cleanup |
 | `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md` | `406e4bb08dda634feee750ffecc4b00523017b68` | Final follow-up describing the four independent race cases and runtime boundary |
 | `docs/PROJECT_STATE.md` | `00dc0c9b50475961feb2fbfd8bb64f6d41ae1ebb` | Current operational summary of the four-case harness |
-| `docs/USER_ACTIONS.md` | `917064c7737b4824d46a7dee28335790e90bca37` | UA-050 refreshed with current script/contract/audit references |
+| `docs/USER_ACTIONS.md` | `a3e5af7ea584ab288b33e444e9cac4a4f0caea0e` | UA-050 refreshed with current script/contract/audit references |
 
 Implementation commits: `a816f858e302e1d2506e283f3a1d34feacaed77c`, `641338e380fb13ce81eef0f8174d7e08f134e5ca`. Documentation commits: see current main history. Static checks only; Bash, Node, PostgreSQL and CI remain NOT VERIFIED. The test intentionally retains append-only fixtures in the unique disposable clone; only the outer runner may drop that clone.
