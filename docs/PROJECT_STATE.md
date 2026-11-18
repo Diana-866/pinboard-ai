@@ -2551,3 +2551,13 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - Re-fetched source/test from GitHub. Static scan confirms zero permissive `Number(count || 0)` conversions remain in the worker and strict normalization is used at each count site. Node runtime test and disposable PostgreSQL integration remain NOT VERIFIED.
 - No production DB, account data, Storage objects, external provider, worker enablement, SQL migration, or deployment was touched. Account deletion worker remains disabled.
 - Owner action UA-061 records the focused test command. Continue with independent RPC and lifecycle review; no production launch approval.
+
+
+### Work-period closeout — account deletion inventory exact-count hardening (2026-11-18)
+
+- Mainline source commit `84fd644bd1da61461af41925ed111e1b6be8fb22` added strict exact-count normalization; regression commit `2a356ba88c3aabdf2da5c57e534c67fd4612ed0d` added malformed count tests; audit commit `3dc4e48ef01daa03c2f684b787eff1585b47d091` records the root cause and verification boundary.
+- Current source blob `backend/accountDeletionWorker.js`: `3b045acd8600f372a712f0792760eb3145ea1e87`; test blob `backend/test/account-deletion-worker.test.js`: `ca4786fe629e75662715027c100664bfaa40254b`.
+- Re-fetched source/test and statically confirmed no `Number(count || 0)` remains in the account-deletion worker; exact counts for owned tables, email_outbox and pins all pass through `normalizeExactCount`. Focused test coverage includes valid zero and positive counts plus malformed values.
+- CI triggered for source/test commits: Actions runs `44321585302` and `44321591813` (atomic-payment integration), `44321585307` and `44321591809` (persisted boards). All concluded failure; latest job records had `steps: null`; direct log fetch returned `BlobNotFound`. Therefore no test-step execution or code-level failure is evidenced. Vercel still reports `failure / build-rate-limit`.
+- Runtime Node test, disposable PostgreSQL integration, full backend/frontend suite and deployment remain NOT VERIFIED. No runtime PASS claimed. Account deletion worker remains disabled. No production DB, real account, Storage object, live payment, SMTP or Pinterest action was used.
+- Owner acceptance UA-061: run `node --test backend/test/account-deletion-worker.test.js` and disposable PostgreSQL account-deletion queue/storage-manifest tests from clean checkout. Next independent work: continue fail-closed review of account deletion lifecycle and remaining RPC consumers. First-user launch and live payments remain blocked.
