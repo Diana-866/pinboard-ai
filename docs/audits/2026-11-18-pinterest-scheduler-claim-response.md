@@ -43,3 +43,8 @@ Changes:
 - `backend/test/schedule-worker.test.js` adds malformed `ok: true` cases (missing counters, claimed/results mismatch, contradictory counters) and a valid one-item contract case. Current blob `9757a340c8c2653aa4f71ef42c68a09feea88eb0`; commit `460a54ac3a1da36d728796a5af329fcbd994c941`.
 
 These are source/test changes, not runtime proof. Node tests were not executed.
+
+
+## Regression fixture alignment follow-up
+
+The strict worker response validator exposed stale test fixtures that returned incomplete `{ ok: true }` payloads or claimed more than the one-row endpoint can return. A mainline follow-up updated those fixtures to use complete empty/single-row response builders and changed the backlog fixture to match the actual one-row contract. Current test blob: `ca4bf9a3635c1e29bd328ccc38c68d849772e0c0`; commit `ff8549114d407b66bcbca1e8ac40421bde238cfc`. The new malformed-response regression cases remain in the same test file. This is fixture correction only; tests were not executed. Latest Actions runs for that commit (`44319401720` atomic payment and `44319401655` persisted boards) both failed before exposing any job steps; runtime remains unverified.
