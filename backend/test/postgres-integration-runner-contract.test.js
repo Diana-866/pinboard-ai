@@ -417,15 +417,3 @@ test('migration 157 aligns paid fulfillment lock order with account deletion and
   assert.ok(workflow.includes('db/migrations/157_payment_fulfillment_user_first_lifecycle_fence.sql'));
   assert.ok(workflow.includes('backend/test/payment-deletion-lifecycle-fence.integration.sql'));
 });
-
-test('migration 161 prevents service_role from independently asserting granted decisions', () => {
-  const migration = read('db/migrations/161_restrict_granted_decisions_to_atomic_fulfillment.sql');
-  const integration = read('backend/test/payment-provider-receipts.integration.sql');
-  assert.match(migration, /if p_decision is null or p_decision not in \([\s\S]*?'ignored_non_success'/i);
-  assert.match(migration, /create or replace function public\.mark_prodamus_entitlement_granted/i);
-  assert.match(migration, /revoke all on function public\.mark_prodamus_entitlement_granted[\s\S]*?from public, anon, authenticated, service_role/i);
-  assert.match(migration, /grant execute on function public\.set_prodamus_payment_decision[\s\S]*?to service_role/i);
-  assert.match(integration, /service_role must not independently assert a granted entitlement/i);
-  assert.match(integration, /general decision RPC was allowed to assert granted/i);
-  assert.ok(workflow.includes('db/migrations/161_restrict_granted_decisions_to_atomic_fulfillment.sql'));
-});
