@@ -61,3 +61,12 @@ Reviewing the final function against the newly added regression assertion expose
 Follow-up source commit: `ce36d6ee38a3df4cc0fb450445bcf5ea02d3c0c8`; source blob: `db96f8afb6fdfa29f2a4aa39fa63fde9ece358c1`. The regression test already asserts `amountField: "sum"` for the conflicting RUB callback. This follow-up was statically inspected but remains NOT RUNTIME-VERIFIED.
 
 At the time of the follow-up, Vercel status on documentation HEAD `16b7e65bfa03a2686603585e657d399bbcf164dc` was SUCCESS; this is not a GitHub Actions test result or proof of deployment. Current main advanced again with the source follow-up above; re-check CI/status on the final documentation HEAD.
+
+
+## Final CI observation for this work period
+
+Final observed documentation HEAD: `e352231794389a252835485ac5256d9ea922aa64`. The latest source/test commit remains `9e93163b7a6cd9c0a69ea206f26d9709fcce4f6d`; the final source blob is `db96f8afb6fdfa29f2a4aa39fa63fde9ece358c1`, and the test blob is `cda5c65104c626d28789573b46b2709a6bd5f97f`.
+
+GitHub Actions run `44306870084` for the Prodamus checkout workflow on source/test HEAD `9e93163b7a6cd9c0a69ea206f26d9709fcce4f6d` concluded FAILURE. Job `134810593751` (`checkout-regressions`) also concluded FAILURE, but GitHub returned `logs_url: null`, `steps: null`; the job-steps endpoint returned an empty list. Therefore the test command's execution and failure cause remain UNKNOWN. Related workflows on the same head (`44306870062` persisted boards and `44306870099` atomic payment) also concluded FAILURE; do not infer their cause without logs. No blind rerun was initiated.
+
+Vercel status on final documentation HEAD `e352231794389a252835485ac5256d9ea922aa64` is PENDING at the time of this check. Neither deployment nor runtime verification is confirmed. Owner UA-036 remains the route for inspecting the Actions UI logs; UA-035 remains the separate local disposable PostgreSQL gate.
