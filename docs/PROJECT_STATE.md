@@ -2274,3 +2274,13 @@ The combined status for the later documentation HEAD `a201002b668d7a9c962979cbf4
 - Current race script blob `6f1c08950a4a449f5c041aebdf65ca257bd29b4e`; Node concurrency contract blob `91e53359eee7257279e45a6ede7f6d74f86a3ef8`. Refactor commits `a816f858e302e1d2506e283f3a1d34feacaed77c`, `641338e380fb13ce81eef0f8174d7e08f134e5ca`.
 - Audit blob `3610a1f854cec014e0c1372a5fc4e9ce14ff209b`; owner action UA-050 in USER_ACTIONS blob `d1d6a633400f58e2e704346c058e267e40c40fb6`; register blob `bf3b235b2ec27a4cdda0783a479924ea0a463c8b`.
 - Static source re-fetch confirms four case functions, four token-version-bound deletion calls, per-case durable event/job assertions, entitlement checks, cleanup trap and disposable-runner wiring. Bash syntax, Node contract, PostgreSQL concurrency, 151 migration replay, 49 SQL tests and CI remain **NOT RUN**. Latest observed atomic Actions run failed before runner allocation (runner_id 0, no steps); Vercel reports `build-rate-limit`. Runtime remains NOT VERIFIED; no source build, deployment or test pass is claimed. Live payments and first-user invitations remain blocked.
+
+
+### 2026-11-18 — Four isolated payment/deletion lock-order cases
+
+- Reconciled the latest mainline race test and safety contract. The test is now four independent fixtures/cases rather than two combined transactions: credit payment-first, credit deletion-first, subscription payment-first, subscription deletion-first.
+- Every case invokes the real `request_account_deletion(uuid,text,bigint)` with the fixture token version and verifies the token version transition, one immutable `request_accepted` event, one pending `preflight` job, and the correct terminal payment decision/entitlement outcome.
+- Current race script blob `6f1c08950a4a449f5c041aebdf65ca257bd29b4e`; safety contract blob `91e53359eee7257279e45a6ede7f6d74f86a3ef8`; contract commit `641338e380fb13ce81eef0f8174d7e08f134e5ca`.
+- Detailed report blob `406e4bb08dda634feee750ffecc4b00523017b68`. Owner action UA-050 added below.
+- Latest atomic Actions run `44315808409`, job `134841470669`, and persisted-boards run `44315808507`, jobs `134841470967`/`134841471629`, failed before runner allocation (runner_id 0, no steps). Runtime remains NOT VERIFIED.
+- Static expected counts remain 151 migrations (010–160), 49 SQL integration tests, 51 Node preflight tests and 10 unique concurrency scripts. Keep payments and first-user invitations blocked pending actual runtime evidence.
