@@ -1977,3 +1977,9 @@ Current main HEAD before this register update: `2468bccc99762afdc47306ffda0e06b2
 | `docs/audits/2026-11-18-email-outbox-claim-contract.md` | `4b429b4a908d7c772a2c6de31cd657c86a21d19c` | Root cause, implementation and verification boundary |
 
 Commits: source `4bd9145198a643a5878652054cd41ae77cb529a1`; regression `c1fc19af5d217a58c29dcbda0d0bdf64ac761f0c`; audit `d8f6f6ae22469bd58cce46a8d2beb2f743870f18`. Runtime remains NOT VERIFIED.
+
+### Email outbox closeout and CI status (2026-11-18)
+
+- Main HEAD at closeout: `011fa84cb3b09f1f02a3241b32aa3e9be60e5f6e`.
+- Source blob `backend/billing.js`: `3818dedcfbbbac0fa6a1f36b9009328a07d97d67`; regression blob `backend/test/email-outbox.test.js`: `da9438ed59e9d3c3e791a1feee8ffb5ff25f12ad`; audit blob `4b429b4a908d7c772a2c6de31cd657c86a21d19c`.
+- Latest Actions runs `44320063124`, `44320063459`, `44320068909`, `44320069081` ended failure with no steps returned; Vercel `build-rate-limit`. No runtime test or deploy PASS is evidenced.
