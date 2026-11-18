@@ -1898,3 +1898,18 @@ Latest observed platform state: atomic Actions run `44318456320` failed with no 
 | `docs/audits/2026-11-18-pinterest-scheduler-claim-response.md` | audit commit `640e98efe152382524ff7815e8137ffd7ac586bb` | Root cause, implementation and runtime boundary |
 
 Commits: validator `1acc3aa120a5b073afccf3132b0bf4ea9310f924`; unit regression `fb48f225540f4c2d9fa10251ae9faab4a9bee82c`; route fix `793bc081efc6a27c442fe0faa41cacccbde49fa0`; route contract `10f634594a774e963cf02caecfd263546347e094`. Runtime remains NOT VERIFIED.
+
+
+## Pinterest scheduler malformed-claim validation (2026-11-18)
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `backend/scheduleResponse.js` | `7170f77c44442bdf12a33c4b63996978d8705f80` | Validates bounded arrays and complete unique schedule lease identity |
+| `backend/pinterest.js` | `d66d34f9042c55371c2a34ef8e74931b391a9e0c` | Validates claim RPC response before count, heartbeat and processing |
+| `backend/test/schedule-response.test.js` | `c5b4084903e96f5fa808e8fbff31e222a8dfd5f6` | Tests valid empty/one-row responses and null/malformed/oversized/duplicate/incomplete claims |
+| `backend/test/pinterest-scheduler-route-contract.test.js` | `d7f8936167432a3444c0f444968318cf5c919b6c` | Requires validation between claim RPC and count/iteration |
+| `db/migrations/049_pinterest_schedule_claim_fencing.sql` | `5ade3e2e7a3bd2c3161ef537486fb9101c7c2c05` | Claim RPC returns `setof public.pin_schedules`; source schema for expected identity |
+| `docs/audits/2026-11-18-pinterest-scheduler-claim-response.md` | `78cac2a515f45884780918f7cc4e651747ce53dc` | Root cause, source/test changes and runtime boundary |
+| `docs/USER_ACTIONS.md` | Updated with UA-056 | Owner Node and disposable scheduler SQL commands |
+
+Commits: `1acc3aa120a5b073afccf3132b0bf4ea9310f924`, `fb48f225540f4c2d9fa10251ae9faab4a9bee82c`, `793bc081efc6a27c442fe0faa41cacccbde49fa0`, `10f634594a774e963cf02caecfd263546347e094`. Static inspection only; Node/PostgreSQL/CI runtime NOT VERIFIED.
