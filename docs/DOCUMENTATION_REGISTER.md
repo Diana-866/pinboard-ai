@@ -2036,3 +2036,15 @@ Commits: source `84fd644bd1da61461af41925ed111e1b6be8fb22`; tests `2a356ba88c3aa
 - Audit `docs/audits/2026-11-18-account-deletion-exact-count-fail-closed.md`, commit `3dc4e48ef01daa03c2f684b787eff1585b47d091`.
 - Strict count normalization is applied to all three preflight count paths. Static scan passed; Node/PostgreSQL runtime NOT VERIFIED.
 - Actions runs `44321585302`, `44321591813`, `44321585307`, `44321591809` failed with no steps returned; logs unavailable (`BlobNotFound`). Vercel `build-rate-limit`. Owner action UA-061. Worker remains disabled.
+
+
+### Account deletion Storage manifest batch validation — 2026-11-18
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `backend/accountDeletionWorker.js` | `92ea2372231ea87988548776b5f4208d050b807a` | Validates the full bounded (≤100), path-safe, unique Storage manifest batch before any object deletion; bounds the one-row follow-up response |
+| `backend/test/account-deletion-worker.test.js` | `5539dbdb79daed9e325ded45610b9a29d4680dc1` | Tests empty/valid, oversized, duplicate, unsafe and wrong-bucket batches; worker duplicate regression asserts zero deletion calls |
+| `db/migrations/137_account_deletion_content_erasure_stage.sql` | `dab57a684b6a105f7d0d40b0796e61b498c0365b` | SQL RPC contract: manifest list limit 1..100 |
+| `docs/audits/2026-11-18-account-deletion-storage-manifest-batch-validation.md` | created in commit `211bb555b0d3a212d1322e39a8ce2e8b49ad3d3d` | Root cause, implementation and runtime boundary |
+
+Source commits: initial validation `0d558ec99aea53cb8ccc3b01f62cf7ef12da301d`; path guard correction `b068f9db69a114dd51f6bef7963c01c4bb3a807e`; final guard correction `d41c16d4caee20d5cd5ed01ecebb45123e255102`. Test commit `98a65d8669baf7349946063e5dcfd9d34859557f`. Static GitHub re-fetch only; Node/PostgreSQL runtime NOT VERIFIED. Owner action UA-062. Account-deletion worker remains disabled.
