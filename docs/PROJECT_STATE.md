@@ -2384,3 +2384,15 @@ The combined status for the later documentation HEAD `a201002b668d7a9c962979cbf4
 - Latest persisted-boards workflow run: `44318275331`, conclusion `failure`. No test result is inferred from the summary alone.
 - Vercel combined status for the then-current main HEAD is now `pending` with a deployment target, superseding the earlier `build-rate-limit` failure observed on older commits. Pending is not a deployment success; wait for a terminal status before claiming deployment.
 - No production DB, real payment, external account, or deployment action was initiated by this work period. Runtime and production readiness remain NOT VERIFIED; first-user invitations and live payments stay blocked.
+
+
+### 2026-11-18 — Deterministic admin statistics pagination
+
+- Found a second, independent offset-pagination correctness defect: `backend/admin.js` used shared `fetchAllPages` with `.range()` but no `ORDER BY` for both `users` and `credit_transactions`. PostgreSQL does not promise stable row order without an explicit unique order; page boundaries could omit or repeat rows and silently distort signup counts, tariff breakdown, credit sales and credit spend.
+- Fixed `fetchAllRows` to order each page by unique primary key `id ASC` before applying its range. Source blob `87bcb9d9d540a1ec4a0700d01f0f94f04a916faf`; commit `ffdb871971c7e6702737e8c3bfc8828bd75696c9`.
+- Added `backend/test/admin-stats-pagination.test.js`: covers three pages for each source table and asserts every range is preceded by `id ASC`. Test blob `7788913a7fa20eab951956661ac3d0b0d496866e`; commit `9779a201658a92b0b6b6f9a7b33c3035220768a4`.
+- Re-fetched both source and regression files after publication. Node runtime was not executed; the new test is NOT runtime-verified.
+- Detailed report: `docs/audits/2026-11-18-admin-statistics-pagination-determinism.md`, audit commit `d7a79b5ba87e7ff083d06b53d8e81269ec822237`.
+- Concurrent mainline hardening `031da170684d9ff5d5b2add436d9b9bcd18e2460` also made the account-deletion worker fail closed if either Storage-manifest RPC returns a non-array (previously null was silently treated as empty/complete). Its current worker blob is `d01f59307612b700e9873017da32d5c93025c60a`; existing regression test blob `5882650d115a31b5b6d472db183d6771e142947e` now covers both invalid initial and remaining manifest responses. This closes a distinct deletion safety edge at source level; worker runtime remains NOT VERIFIED and rollout remains disabled.
+- Latest combined status for the admin regression commit reports Vercel `build-rate-limit`; no push-triggered Actions execution has been independently confirmed. The earlier atomic run `44317800999` had zero steps; no runtime PASS is inferred.
+- Next: run `node --test backend/test/admin-stats-pagination.test.js backend/test/account-deletion-worker.test.js`, then the full Node and disposable PostgreSQL gates from UA-052/053/054. Keep first-user invitations, live payments and deletion-worker rollout blocked.
