@@ -2,7 +2,7 @@
 
 **Repository:** Diana-866/pinboard-ai  
 **Branch:** main  
-**Latest code/test/workflow change commit (runtime verification pending):** 0db356d326fe2a1640291ff82f6596c7fe414b58  
+**Latest code/test/workflow change commit (runtime verification pending):** 05bd81bbbb9775e2f671e8d730c9d5442fa8b9a8  
 **Inventory refreshed:** 2026-11-18 (supplemental new files appended; full metadata inventory refresh not performed)  
 **Scope:** all documentation files under docs/ (Markdown and SQL), excluding this register itself.
 
@@ -1455,3 +1455,13 @@ Associated implementation references (outside the docs-only inventory scope):
 - `.github/workflows/prodamus-checkout-tests.yml` — `18f380c92619f923454defa85092798954ccd245`.
 
 Source commit: `ff78fe371b83c4b2b7bfeb21462618461aa2337c`; test correction commit: `210a8387770fc7c76e7ceba8b6631a387a662889`; workflow commit: `0db356d326fe2a1640291ff82f6596c7fe414b58`. The six-file Prodamus checkout test command is configured, but the new regression is NOT RUNTIME-VERIFIED. Vercel status on the latest code/test/workflow HEAD was PENDING at last check. No deployment or successful Actions run is confirmed.
+
+
+### Prodamus endpoint CI source-contract follow-up — 2026-11-18
+
+| Path | Blob SHA / purpose |
+|---|---|
+| `backend/test/billing-security-contract.test.js` | `0823cb96a2c1ec4ee00c55e8524432dbfa2316e3` — asserts endpoint-security test appears in both push/PR filters and exact six-file Node command |
+| `docs/audits/2026-11-18-prodamus-api-endpoint-https-guard.md` | Follow-up section records the stale five-file contract expectation, correction, commit and latest Actions evidence |
+
+Correction commit: `05bd81bbbb9775e2f671e8d730c9d5442fa8b9a8`. Latest Prodamus run `44307390644` failed before any inspectable step (job `134812379544`, runner_id 0, empty runner name, no steps); exact cause unknown and tests NOT RUNTIME-VERIFIED. Do not claim Node tests ran or failed.
