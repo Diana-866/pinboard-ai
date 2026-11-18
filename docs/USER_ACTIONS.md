@@ -3255,3 +3255,22 @@ Run the UA-046/UA-047 acceptance sequence after synchronizing a clean local `mai
 
 
 **Latest correction (2026-11-18):** four cases are now separate functions with independent fixtures and independent payment sessions; script blob `6f1c08950a4a449f5c041aebdf65ca257bd29b4e`, contract blob `91e53359eee7257279e45a6ede7f6d74f86a3ef8`, audit blob `63a74e23ac2f2267b5242ff9db8fbc7800dbb19f`. The exact deletion RPC signature is `request_account_deletion(uuid,text,bigint)`; each call passes the fixture token version. Runtime remains NOT VERIFIED.
+
+
+### UA-051 — run the corrected 52-test Node preflight (2026-11-18)
+
+This supersedes all prior 51-test Node preflight counts in UA-042/UA-046/UA-050. The exact current expected breakdown is:
+- `backend/test/postgres-integration-runner-contract.test.js`: 33
+- `backend/test/db-migration-chain.test.js`: 2
+- `backend/test/verify-script-migration-chain.test.js`: 17
+- **Total: 52 tests.**
+
+From the clean synchronized local project directory, run:
+```powershell
+node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+```
+Require 52/52 PASS, zero failures, cancellations, skips or todo. Preserve full output and exit code. Do not alter or skip tests to force a pass.
+
+Other expected acceptance counts remain 151 migrations (010–160), 49 SQL integration tests and 10 unique concurrency scripts. The four independent payment/deletion race cases are covered in UA-050. Runtime remains NOT VERIFIED until these commands and the isolated PostgreSQL/CI suite visibly execute and pass.
+
+Count report: `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md`, blob `355f09b2374eb773962817ed1860c12435a3cfc5`.
