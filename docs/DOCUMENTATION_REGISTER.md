@@ -1691,3 +1691,16 @@ Refactor commits: `a816f858e302e1d2506e283f3a1d34feacaed77c`, `641338e380fb13ce8
 | `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md` | `406e4bb08dda634feee750ffecc4b00523017b68` | Documents four isolated cases and current pre-runner CI failure |
 
 Commit: `641338e380fb13ce81eef0f8174d7e08f134e5ca`. Runtime remains NOT VERIFIED. See UA-050.
+
+
+## Supplemental inventory — four isolated payment/deletion race cases (2026-11-18)
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `backend/test/payment-deletion-receipt-race-concurrency.sh` | `6f1c08950a4a449f5c041aebdf65ca257bd29b4e` | Four isolated credit/subscription × payment-first/deletion-first cases; real three-argument deletion RPC; token-version, immutable event and pending preflight job assertions; NOT RUNTIME-VERIFIED |
+| `backend/test/postgres-concurrency-safety-contract.test.js` | `91e53359eee7257279e45a6ede7f6d74f86a3ef8` | Requires all four named cases, exact RPC call count, balance/ledger/tariff/period/decision assertions and safe disposable-clone cleanup |
+| `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md` | `406e4bb08dda634feee750ffecc4b00523017b68` | Final follow-up describing the four independent race cases and runtime boundary |
+| `docs/PROJECT_STATE.md` | `00dc0c9b50475961feb2fbfd8bb64f6d41ae1ebb` | Current operational summary of the four-case harness |
+| `docs/USER_ACTIONS.md` | `917064c7737b4824d46a7dee28335790e90bca37` | UA-050 refreshed with current script/contract/audit references |
+
+Implementation commits: `a816f858e302e1d2506e283f3a1d34feacaed77c`, `641338e380fb13ce81eef0f8174d7e08f134e5ca`. Documentation commits: see current main history. Static checks only; Bash, Node, PostgreSQL and CI remain NOT VERIFIED. The test intentionally retains append-only fixtures in the unique disposable clone; only the outer runner may drop that clone.
