@@ -46,3 +46,18 @@ No production DB, PIN_TRIAL, real payment, Prodamus account, live webhook, Pinte
 ## Next step
 
 Require the Prodamus checkout workflow to execute all five configured test files successfully, including `prodamus-webhook.test.js`. Independently, owner PostgreSQL gate UA-035 remains open: the last supplied run passed SQL tests 1–37, failed at test 38, did not run tests 39–46, and did clean up its disposable DB. Do not enable live payments or invite first users until runtime and integration gates are green.
+
+
+## Follow-up inspection after concurrent main updates
+
+After the initial source/test commits, additional commits were present on `main` and were inspected rather than overwritten:
+- `8ee8bc5036ecabbbcb24341111b5f5b91ca56947`: validates per-request Prodamus notification URLs as HTTPS without embedded credentials.
+- `dab469b742abcfcabd217c810298440bfd849a63` and `86a2c3978cddb36f44d9eb148ca63cf671c7098d`: preflight the configured webhook URL before reserving subscription/credit checkout idempotency.
+- `e57a0ea93e4206ebe848eb23fd6923865e7da17b` and `cc6f81ad0d0077878eba8a359fb3721ab5c60812`: regression and source-contract coverage for URL validation.
+These changes were retained; the existing workflow already includes their source/test paths.
+
+Reviewing the final function against the newly added regression assertion exposed a second issue in the same change: `amountField` metadata still selected `currency_sum` whenever that property existed, even though RUB amount validation now uses `sum`. Corrected it to report the field actually used (`sum` for RUB, `currency_sum` for non-RUB).
+
+Follow-up source commit: `ce36d6ee38a3df4cc0fb450445bcf5ea02d3c0c8`; source blob: `db96f8afb6fdfa29f2a4aa39fa63fde9ece358c1`. The regression test already asserts `amountField: "sum"` for the conflicting RUB callback. This follow-up was statically inspected but remains NOT RUNTIME-VERIFIED.
+
+At the time of the follow-up, Vercel status on documentation HEAD `16b7e65bfa03a2686603585e657d399bbcf164dc` was SUCCESS; this is not a GitHub Actions test result or proof of deployment. Current main advanced again with the source follow-up above; re-check CI/status on the final documentation HEAD.
