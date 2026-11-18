@@ -1830,3 +1830,16 @@ Current inventory rechecked from the GitHub tree and manifests: 152 contiguous m
 - Latest persisted-boards run `44318275331`: failure summary; no runtime result inferred.
 - Vercel combined status on the then-current main HEAD: `pending`; supersedes older build-rate-limit status for earlier commits. Pending is not a successful deployment.
 - Source inventory unchanged: 152 migrations 010–161, 49 SQL tests, 52 Node preflight tests, 10 concurrency scripts. Runtime remains NOT VERIFIED.
+
+
+## Admin statistics pagination determinism and deletion manifest fail-closed guard (2026-11-18)
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `backend/admin.js` | `87bcb9d9d540a1ec4a0700d01f0f94f04a916faf` | Orders paged `users` and `credit_transactions` by unique `id ASC` before offsets |
+| `backend/test/admin-stats-pagination.test.js` | `7788913a7fa20eab951956661ac3d0b0d496866e` | Verifies deterministic order across six page requests (three pages per table); runtime NOT VERIFIED |
+| `docs/audits/2026-11-18-admin-statistics-pagination-determinism.md` | Audit commit `d7a79b5ba87e7ff083d06b53d8e81269ec822237` | Root cause, fix, regression design and runtime boundary |
+| `backend/accountDeletionWorker.js` | `d01f59307612b700e9873017da32d5c93025c60a` | Rejects non-array initial and final Storage-manifest RPC responses |
+| `backend/test/account-deletion-worker.test.js` | `5882650d115a31b5b6d472db183d6771e142947e` | Covers malformed initial and remaining manifest responses; runtime NOT VERIFIED |
+
+Commits: admin fix `ffdb871971c7e6702737e8c3bfc8828bd75696c9`; admin regression `9779a201658a92b0b6b6f9a7b33c3035220768a4`; deletion fail-closed fix `031da170684d9ff5d5b2add436d9b9bcd18e2460`. Node runtime and production readiness remain NOT VERIFIED.
