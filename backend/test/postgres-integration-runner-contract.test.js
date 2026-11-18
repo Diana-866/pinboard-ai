@@ -187,8 +187,8 @@ test('durable account deletion queue test expects the Storage manifest guard add
 test('CI migration list remains the complete contiguous 010-160 chain', () => {
   const prefixes = [...workflow.matchAll(/db\/migrations\/(\d{3})_[A-Za-z0-9._-]+\.sql/g)]
     .map((match) => Number(match[1]));
-  assert.equal(prefixes.length, 151);
-  assert.deepEqual(prefixes, Array.from({ length: 151 }, (_, index) => index + 10));
+  assert.equal(prefixes.length, 152);
+  assert.deepEqual(prefixes, Array.from({ length: 152 }, (_, index) => index + 10));
 });
 
 test('upgrade fixture preserves every canonical baseline column except fields introduced by later migrations', () => {
@@ -407,4 +407,16 @@ test('migration 157 aligns paid fulfillment lock order with account deletion and
   assert.match(integration, /balance_credited_at is null/i);
   assert.ok(workflow.includes('db/migrations/157_payment_fulfillment_user_first_lifecycle_fence.sql'));
   assert.ok(workflow.includes('backend/test/payment-deletion-lifecycle-fence.integration.sql'));
+});
+
+test('migration 161 prevents service_role from independently asserting granted decisions', () => {
+  const migration = read('db/migrations/161_restrict_granted_decisions_to_atomic_fulfillment.sql');
+  const integration = read('backend/test/payment-provider-receipts.integration.sql');
+  assert.match(migration, /if p_decision is null or p_decision not in \([\s\S]*?'ignored_non_success'/i);
+  assert.match(migration, /create or replace function public\.mark_prodamus_entitlement_granted/i);
+  assert.match(migration, /revoke all on function public\.mark_prodamus_entitlement_granted[\s\S]*?from public, anon, authenticated, service_role/i);
+  assert.match(migration, /grant execute on function public\.set_prodamus_payment_decision[\s\S]*?to service_role/i);
+  assert.match(integration, /service_role must not independently assert a granted entitlement/i);
+  assert.match(integration, /general decision RPC was allowed to assert granted/i);
+  assert.ok(workflow.includes('db/migrations/161_restrict_granted_decisions_to_atomic_fulfillment.sql'));
 });
