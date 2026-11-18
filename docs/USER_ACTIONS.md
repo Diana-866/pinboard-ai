@@ -3059,3 +3059,18 @@ Return the complete output and exit code. Do not change or skip assertions to ob
 - Regression commit: `40722066c0bcba996b6670299a14d490b6044d4d`; blob `c8e1a488c2a5effeffd0447011d3b5eb42aaa60e`.
 - Migration 159 runner alignment: `724ec0088c8f2b68920a0413486e4158b2d944f7`; manifest: `84544dd7a48b31f4b9b894ccba1f50b008b968d1`.
 - Full analysis: `docs/audits/2026-11-18-prodamus-webhook-audit-currency-and-migration159-runner-alignment.md`.
+
+
+### UA-044 — verify terminal receipt identity regression (2026-11-18)
+
+**Purpose:** runtime-check migration 159's guard against reusing a terminal Prodamus receipt for a different local payment.
+
+**Regression:** `backend/test/payment-provider-receipt-fulfillment.integration.sql` now attempts both:
+- reusing a granted credit receipt for a different credit purchase, requiring the terminal identity conflict and proving no balance/ledger mutation;
+- reusing a granted subscription receipt for a different subscription, requiring the terminal identity conflict and proving the second subscription stays canceled and the second user's tariff remains `none`.
+
+**Execution:** this test is already included in the 49-entry SQL manifest and the CI atomic-payment workflow. Follow UA-042: synchronize local `main`, require Node preflight 51/51 PASS, then run the guarded local disposable PostgreSQL runner. Require all 150 migrations 010–159 and 49/49 SQL tests plus cleanup PASS. Do not use production, staging, Supabase or PIN_TRIAL. Stop on the first failure and provide full output and exit codes.
+
+**Current runtime status:** NOT VERIFIED. GitHub Actions on commit `a6f10ab8ced8959a9bd008e782c6fd102de335df` failed before runner allocation: atomic job `134833780856`, persisted-board jobs `134833780522` and `134833780968`, all runner_id 0 with no steps. No evidence the SQL test executed.
+
+**References:** migration 159 blob `30519439d7423cbc84db1fbca2cc638b74c60723`; SQL regression blob `6c2bb6c9504c0c0f8ab0e6c940c92e19888b1500`; commit `3eb25129c89c49230bf2147f692c27884c112054` (migration) and `a6f10ab8ced8959a9bd008e782c6fd102de335df` (test).
