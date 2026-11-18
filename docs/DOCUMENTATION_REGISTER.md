@@ -1863,3 +1863,17 @@ Commits: admin fix `ffdb871971c7e6702737e8c3bfc8828bd75696c9`; admin regression 
 | `docs/USER_ACTIONS.md` | `18056e35326265c24301979461bbc1692b162914` | UA-053 current-source reconciliation and owner-only local test command |
 
 Implementation commits: `04bb175803eb2524834785d0599e4d37a77ed2e3` and `185d1d8015ee629dbd95a7da0a10de2db835241e`. Source-level verification only; Node runtime, PostgreSQL replay, Storage integration and deletion-worker rollout remain NOT VERIFIED. No real account or Storage object was touched.
+
+
+## Final deletion/admin and platform status reconciliation (2026-11-18)
+
+| Path | Current blob SHA | Scope |
+|---|---|---|
+| `backend/accountDeletionWorker.js` | `1df861ccc0f05cc8b787f51c5e111bc07d3660cb` | Stable ordered pagination; malformed inventory and Storage manifest responses fail closed |
+| `backend/test/account-deletion-worker.test.js` | `292c619f9717f862589aecadfa9f9855662b7f9b` | Null inventory, initial Storage manifest and remaining Storage manifest regressions |
+| `backend/admin.js` | `87bcb9d9d540a1ec4a0700d01f0f94f04a916faf` | Admin user/credit transaction stats ordered by unique id before pagination |
+| `backend/test/admin-stats-pagination.test.js` | `7788913a7fa20eab951956661ac3d0b0d496866e` | Six ordered page requests across both admin tables |
+| `docs/audits/2026-11-18-admin-statistics-pagination-determinism.md` | `7b3c6837c74770ad93d6001404557517225bc597` | Admin pagination root cause and test boundary |
+| `docs/audits/2026-11-18-account-deletion-preflight-stable-pagination.md` | `d0c94414069590d462a956c701d98c935654f217` | Deterministic order and fail-closed malformed/null response addendum |
+
+Latest observed platform state: atomic Actions run `44318456320` failed with no job steps returned; Vercel `build-rate-limit` failure on pre-note main HEAD `18056e35326265c24301979461bbc1692b162914`. No runtime PASS. Static release inventory remains 152 migrations, 49 SQL tests, 52 Node preflight tests and 10 concurrency scripts.
