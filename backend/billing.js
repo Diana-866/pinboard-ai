@@ -12,6 +12,7 @@ const prodamus = require("./prodamus");
 const { createPaymentOrderId } = require("./paymentOrderId");
 const { beginPaymentCreation, attachPaymentCreationOrder, denyUnsentPaymentRecord, completePaymentCreation, settlePaymentCreationRequest, markPaymentCreationUnknown, failPaymentCreation, handlePaymentProviderFailure } = require("./paymentCreationIdempotency");
 const { persistWebhookException } = require("./billingWebhookAudit");
+const { persistProviderReceipt, setProviderDecision } = require("./paymentProviderReceipts");
 const { httpError, validateEnum } = require("./validate");
 const { normalizePlan } = require("./tariff");
 
@@ -286,6 +287,16 @@ async function handleWebhook(req, res, dependencies = {}) {
     return res.status(403).json({ ok: false, error: `Подпись не принята: ${check.reason}` });
   }
 
+  // A verified provider fact must be durable before order lookup or entitlement work.
+  let receiptId;
+  try {
+    const receipt = await persistProviderReceipt(db, { paymentKind: "subscription", body });
+    receiptId = receipt.receiptId;
+  } catch (receiptError) {
+    logError("billing.event_025");
+    return res.status(500).json({ ok: false, error: "receipt storage failed" });
+  }
+
   if (prodamus.isDemoWebhookBlocked()) {
     // A demo payment form on a production deployment must never activate a plan.
     logError("billing.event_010");
@@ -300,6 +311,7 @@ async function handleWebhook(req, res, dependencies = {}) {
       await persistWebhookException(db, {
         paymentKind: "subscription", body, reason: "missing_order_id",
       });
+      await setProviderDecision(db, { receiptId, decision: "unmatched", reasonCode: "missing_order_id" });
     } catch (auditError) {
       logError("billing.event_010");
       return res.status(500).json({ ok: false, error: "audit storage failed" });
@@ -323,6 +335,7 @@ async function handleWebhook(req, res, dependencies = {}) {
       await persistWebhookException(db, {
         paymentKind: "subscription", body, reason: "unknown_order_id",
       });
+      await setProviderDecision(db, { receiptId, decision: "unmatched", reasonCode: "unknown_order_id" });
     } catch (auditError) {
       logError("billing.event_013");
       return res.status(500).json({ ok: false, error: "audit storage failed" });
@@ -351,6 +364,10 @@ async function handleWebhook(req, res, dependencies = {}) {
       return res.json({ ok: true, ignored: "unsupported payment_status", review_required: true });
     }
     const mapped = normalizedStatus;
+    await setProviderDecision(db, {
+      receiptId, decision: "ignored_non_success", reasonCode: "provider_payment_not_success",
+      paymentKind: "subscription", paymentId: sub.id, userId: sub.user_id,
+    });
     const { error: statusError } = await db.from("subscriptions")
       .update({ status: mapped }).eq("id", sub.id).neq("status", "success");
     if (statusError) return res.status(500).json({ ok: false, error: "db error" });
@@ -366,6 +383,11 @@ async function handleWebhook(req, res, dependencies = {}) {
         expectedAmount: Number.isFinite(Number(sub.amount)) ? Number(sub.amount) : null,
         reason: paymentAmount.reason,
       });
+      await setProviderDecision(db, {
+        receiptId, decision: "rejected_mismatch", reasonCode: "invalid_payment_amount",
+        paymentKind: "subscription", paymentId: sub.id, userId: sub.user_id,
+      });
+      await setProviderDecision(db, { receiptId, decision: "pending_review", reasonCode: "unsupported_payment_status" });
     } catch (auditError) {
       logError("billing.event_018");
       return res.status(500).json({ ok: false, error: "audit storage failed" });
@@ -380,6 +402,10 @@ async function handleWebhook(req, res, dependencies = {}) {
     try {
       await persistWebhookException(db, {
         paymentKind: "subscription", body, expectedAmount: expected, reason: "amount_mismatch",
+      });
+      await setProviderDecision(db, {
+        receiptId, decision: "rejected_mismatch", reasonCode: "amount_mismatch",
+        paymentKind: "subscription", paymentId: sub.id, userId: sub.user_id,
       });
     } catch (auditError) {
       logError("billing.event_020");
@@ -398,8 +424,29 @@ async function handleWebhook(req, res, dependencies = {}) {
     p_paid_at: new Date().toISOString(),
   });
   if (activationError || !activation) {
+    if (activationError && /not active|account lifecycle/i.test(String(activationError.message || ""))) {
+      try {
+        await setProviderDecision(db, {
+          receiptId, decision: "withheld_account_lifecycle", reasonCode: "account_not_active",
+          paymentKind: "subscription", paymentId: sub.id, userId: sub.user_id,
+        });
+      } catch (decisionError) {
+        logError("billing.event_026");
+        return res.status(500).json({ ok: false, error: "decision storage failed" });
+      }
+    }
     logError("billing.event_022");
     return res.status(500).json({ ok: false, error: "activation failed" });
+  }
+
+  try {
+    await setProviderDecision(db, {
+      receiptId, decision: "granted", paymentKind: "subscription",
+      paymentId: sub.id, userId: sub.user_id,
+    });
+  } catch (decisionError) {
+    logError("billing.event_026");
+    return res.status(500).json({ ok: false, error: "decision storage failed" });
   }
 
   // Close the matching checkout idempotency record only after the atomic
