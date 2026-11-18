@@ -260,3 +260,42 @@ test("pre-provider subscription failure is fenced and can be retried only with a
     prodamus.createPaymentLink = original;
   }
 });
+
+
+test("insecure per-request webhook configuration is rejected before either checkout is reserved", async () => {
+  const previous = {
+    PRODAMUS_SYS: process.env.PRODAMUS_SYS,
+    PUBLIC_BACKEND_URL: process.env.PUBLIC_BACKEND_URL,
+  };
+  const subscriptionCount = db.subscriptions.length;
+  const purchaseCount = db.credit_purchases.length;
+  const requestCount = db.paymentRequests.size;
+  try {
+    process.env.PRODAMUS_SYS = "pinposy_custom";
+    process.env.PUBLIC_BACKEND_URL = "http://api.pinposy.com";
+    await assert.rejects(
+      billing.createPayment(
+        "ambiguous-user",
+        { plan: "start", currency: "rub" },
+        "subscription-insecure-webhook-key"
+      ),
+      (error) => error.httpStatus === 500 && /HTTPS URL/.test(error.message)
+    );
+    await assert.rejects(
+      creditsBilling.createCreditsPayment(
+        "ambiguous-user",
+        { package_id: "pack_100" },
+        "credits-insecure-webhook-key"
+      ),
+      (error) => error.httpStatus === 500 && /HTTPS URL/.test(error.message)
+    );
+    assert.equal(db.subscriptions.length, subscriptionCount, "no subscription row may be created");
+    assert.equal(db.credit_purchases.length, purchaseCount, "no credit purchase row may be created");
+    assert.equal(db.paymentRequests.size, requestCount, "no idempotency reservation may be left behind");
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
