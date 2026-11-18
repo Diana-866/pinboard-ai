@@ -123,3 +123,22 @@ The original race harness simulated deletion acceptance by directly updating `us
 ### Verification boundary
 
 Static review confirms the script calls `request_account_deletion`, `credit_paid_purchase_with_receipt`, and `activate_paid_subscription_with_receipt`; all four cases assert the expected terminal decision and entitlement state. The script is in the ten-entry unique concurrency suite and the safety contract checks these calls. No Bash syntax check, Node contract test, PostgreSQL race execution or CI pass has been observed. Runtime remains **NOT VERIFIED**.
+
+
+## Follow-up — deletion RPC contract and disposable-fixture cleanup correction (2026-11-18)
+
+### Defects found during review of the expanded harness
+
+1. **RPC arity mismatch:** migration 130 defines only `public.request_account_deletion(uuid, text, bigint)`. The expanded race script had drifted to two-argument calls, which cannot invoke the deployed function contract. Both concurrent call sites now pass the fixture's exact `token_version`; fixtures explicitly initialize it to zero. The post-race assertions verify that the accepted request's token version matches the incremented user token version.
+2. **Unsafe/ineffective fixture cleanup:** the script attempted to delete `account_deletion_requests` and swallowed errors with `|| true`. Migration 130 makes deletion events append-only and the durable jobs reference requests with RESTRICT, so deleting accepted requests is invalid; the old cleanup could silently leave every fixture behind. Removed destructive request deletion and the other partial fixture deletes. The test intentionally leaves its rows in the unique disposable database clone; the outer concurrency runner drops that entire clone. Added an EXIT trap that always stops background sessions and removes the temporary directory.
+3. **Acceptance evidence:** strengthened the payment-first assertion to require exactly one `request_accepted` immutable event in addition to the pending request/job and token-version fence.
+
+### Changes
+
+- Race script final blob: `afc49ebe635d765bccec8af249f19f1ae6b1e504`; commits `f7b984347b474da06c33bea4b04e8e11748eeedd` and `b6b33ed8dcfffabedf9628136b03b56dc391e2dc`.
+- Concurrency safety contract final blob: `9250e28e4a891d8744a0d56a0c8422f03a4ea012`; commit `cbd03998f08576119af5aac29d55acb58bc8bb42`.
+- The contract now requires both deletion RPC call sites to pass `TOKEN_VERSION`, checks the immutable acceptance event, requires child/temp cleanup, and rejects direct deletion of durable request rows.
+
+### Verification boundary
+
+Re-fetched the exact migration 130 definition and confirmed its three-argument signature; re-fetched the updated script and Node contract from `main`, checked both call sites, cleanup trap, absence of destructive deletion and assertion wiring. No Bash syntax execution, Node contract execution, PostgreSQL concurrency execution, full migration replay, SQL integration suite or CI PASS was performed. Runtime remains **NOT VERIFIED**. The test must execute only via the existing unique disposable clone runner; no production or persistent shared database is permitted.
