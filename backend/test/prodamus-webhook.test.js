@@ -179,6 +179,28 @@ test("uses the amount and currency from the signed Prodamus callback", () => {
   );
 });
 
+test("RUB webhooks use sum and never reinterpret currency_sum without a currency pair", () => {
+  assert.deepEqual(
+    prodamus.getWebhookPaymentAmount({
+      sum: "3100.00",
+      currency_sum: "24.00",
+    }, "rub"),
+    { ok: true, amount: 3100, currency: "rub", amountField: "sum" }
+  );
+  assert.equal(
+    prodamus.getWebhookPaymentAmount({ currency_sum: "24.00" }, "rub").reason,
+    "amount_missing"
+  );
+  assert.equal(
+    prodamus.getWebhookPaymentAmount({
+      sum: "3100.00",
+      currency: "usd",
+      currency_sum: "24.00",
+    }, "rub").reason,
+    "currency_mismatch"
+  );
+});
+
 test("normalizes only documented final Prodamus webhook statuses", () => {
   assert.equal(prodamus.normalizePaymentStatus("success"), "success");
   assert.equal(prodamus.normalizePaymentStatus("order_canceled"), "canceled");
