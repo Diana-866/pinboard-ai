@@ -1409,3 +1409,20 @@ Commits: `d35733a03c2370971d3b41ea603c52186f6e2143` (source), `2cb3bc60a52f23a96
 
 
 **Follow-up update (2026-11-18):** reviewed Prodamus HTTPS callback URL hardening and checkout preflight commits `8ee8bc5036ecabbbcb24341111b5f5b91ca56947`, `dab469b742abcfcabd217c810298440bfd849a63`, `86a2c3978cddb36f44d9eb148ca63cf671c7098d`, with regression/source-contract commits `e57a0ea93e4206ebe848eb23fd6923865e7da17b`, `cc6f81ad0d0077878eba8a359fb3721ab5c60812`, `9e93163b7a6cd9c0a69ea206f26d9709fcce4f6d`. Follow-up source blob for actual amount-field metadata: `db96f8afb6fdfa29f2a4aa39fa63fde9ece358c1` (commit `ce36d6ee38a3df4cc0fb450445bcf5ea02d3c0c8`). Audit addendum: `docs/audits/2026-11-18-prodamus-rub-webhook-amount-selection.md`. Runtime test remains NOT VERIFIED.
+
+
+### 2026-11-18 — Prodamus per-request webhook URL HTTPS guard
+
+| Path | Purpose / evidence |
+|---|---|
+| `docs/audits/2026-11-18-prodamus-webhook-url-https-guard.md` | Detailed HTTPS/credential validation change, preflight ordering, tests, commit chronology and runtime/CI verification boundary |
+| `backend/prodamus.js` | `db96f8afb6fdfa29f2a4aa39fa63fde9ece358c1` — HTTPS callback URL validation and RUB amount-field metadata correction |
+| `backend/billing.js` | `82f24c63c31f63cb8d0586bb5a0c798b1593dc73` — validate callback URL before subscription checkout reservation |
+| `backend/creditsBilling.js` | `62cb1b27dbbedd1093d1062944f1b99a7154ce41` — validate callback URL before credit checkout reservation |
+| `backend/test/prodamus-webhook.test.js` | `cda5c65104c626d28789573b46b2709a6bd5f97f` — HTTPS callback validation and RUB amount-field regression tests |
+| `backend/test/prodamus-ambiguous-checkout.test.js` | `cdc64bf186ce2aa16c260225e2b1c0a0436cbe70` — both checkout handlers reject insecure config before writes/reservation |
+| `backend/test/billing-security-contract.test.js` | `7183451d356680463d852cdc29fc99826a31acfa` — source-contract assertion for preflight ordering |
+
+Commits for URL hardening/tests: `8ee8bc5036ecabbbcb24341111b5f5b91ca56947`, `dab469b742abcfcabd217c810298440bfd849a63`, `86a2c3978cddb36f44d9eb148ca63cf671c7098d`, `e57a0ea93e4206ebe848eb23fd6923865e7da17b`, `cc6f81ad0d0077878eba8a359fb3721ab5c60812`, `9e93163b7a6cd9c0a69ea206f26d9709fcce4f6d`. Detailed report records the runtime/CI boundary; tests remain NOT RUNTIME-VERIFIED.
+
+**Latest observed Prodamus Actions run:** `44306870084` failed; job `134810593751` returned no steps/log URL. Exact failure cause unknown. Owner UA-036 updated. Related report: `docs/audits/2026-11-18-prodamus-rub-webhook-amount-selection.md`.
