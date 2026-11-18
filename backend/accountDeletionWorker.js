@@ -18,12 +18,22 @@ function safeErrorCode(error) {
   return candidate || "preflight_failed";
 }
 
+function normalizeExactCount(count, table) {
+  if (!Number.isSafeInteger(count) || count < 0) {
+    const error = new Error("account deletion exact count response is invalid");
+    error.code = "invalid_exact_count";
+    error.table = table;
+    throw error;
+  }
+  return count;
+}
+
 async function countOwnedRows(client, table, userId) {
   const { count, error } = await client.from(table)
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId);
   if (error) throw error;
-  return Number(count || 0);
+  return normalizeExactCount(count, table);
 }
 
 // PostgREST applies a default row cap. Explicitly page every identifier query;
@@ -65,7 +75,7 @@ async function countOwnedEmailOutboxRows(client, userId) {
       .select("id", { count: "exact", head: true })
       .in("subscription_id", ids);
     if (error) throw error;
-    total += Number(count || 0);
+    total += normalizeExactCount(count, "email_outbox");
   }
   return total;
 }
@@ -77,7 +87,7 @@ async function countPinsForBoards(client, boardIds) {
       .select("id", { count: "exact", head: true })
       .in("board_id", ids);
     if (error) throw error;
-    total += Number(count || 0);
+    total += normalizeExactCount(count, "pins");
   }
   return total;
 }
@@ -460,4 +470,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { safeErrorCode, countOwnedRows, fetchAllRows, chunkValues, countPinsForBoards, inspectAccountForDeletion, isValidDeletionJobBatch, createAccountDeletionWorker };
+module.exports = { safeErrorCode, normalizeExactCount, countOwnedRows, fetchAllRows, chunkValues, countPinsForBoards, inspectAccountForDeletion, isValidDeletionJobBatch, createAccountDeletionWorker };
