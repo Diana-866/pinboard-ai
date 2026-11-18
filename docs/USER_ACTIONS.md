@@ -3026,3 +3026,36 @@ This supersedes the earlier UA-035 counts and migration range, without changing 
 **Current runtime status:** NOT VERIFIED. The above suites were not executed by the assistant. Vercel reports `build-rate-limit` on code/test HEAD; this is not a build result. No successful Actions run is evidenced. Nine Bash concurrency scripts and the two-session deletion-vs-payment race remain separate open gates.
 
 **Safety:** this action is exclusively local disposable PostgreSQL verification. Do not enable live payments, run production SQL, send real callbacks or invite first users based on static verification alone.
+
+
+### UA-042 addendum — migration 159 runner/manifest parity (2026-11-18)
+
+This supersedes UA-042's earlier 48-SQL-test expectation. Current verified source inventory:
+- Canonical migrations: **150 files, 010–159**.
+- Ordered SQL integration manifest: **49 unique tests**, including `payment-provider-receipt-fulfillment.integration.sql`.
+- Node preflight remains **51 expected tests** (32 runner-contract + 2 migration-chain + 17 verify-script contract).
+
+The assistant updated `scripts/verify-integration.ps1` to require 49 manifest entries and added the receipt-bound fulfillment integration test to `backend/test/postgres-integration-sql-manifest.txt`. The runner still validates a clean synchronized `main`, the expected local PostgreSQL 18.6 loopback instance and temporary database/role cleanup. Do not bypass any guard.
+
+Run the existing UA-042 sequence exactly as written, but require **49/49 SQL tests** (not 48/48). Stop on any Node preflight failure, identity mismatch, SQL failure or cleanup failure. No production, staging, Supabase or PIN_TRIAL database.
+
+### UA-043 — verify webhook audit amount-field regression (2026-11-18)
+
+**Purpose:** runtime-check that billing exception audit evidence uses the amount field matching explicit currency metadata.
+
+**Changes:** `backend/billingWebhookAudit.js` now uses `currency_sum` only when a non-empty explicit currency other than RUB is supplied; absent currency and RUB use `sum`. Three regressions cover absent currency with conflicting fields, explicit RUB with conflicting fields, and explicit USD.
+
+**Owner command (local project directory):**
+```powershell
+node --test backend/test/billing-webhook-audit.test.js
+```
+Return the complete output and exit code. Do not change or skip assertions to obtain a pass. This test is independent of UA-042's guarded PostgreSQL sequence.
+
+**Current runtime status:** NOT VERIFIED. The assistant did not execute Node locally. GitHub Actions runs `44312380107`, `44312445576`, and `44312456380` for Prodamus regression testing failed before runner allocation (runner_id 0, empty runner name, no steps). The exact failure cause is unknown; do not infer that this Node test ran.
+
+### UA-043 addendum — current source and runner references
+
+- Webhook audit source commit: `33b84fb7872c2739e1c2893f0917c1b398081c0b`; blob `4f5c63d83459731e6c4ced9cf04ed9718fab883a`.
+- Regression commit: `40722066c0bcba996b6670299a14d490b6044d4d`; blob `c8e1a488c2a5effeffd0447011d3b5eb42aaa60e`.
+- Migration 159 runner alignment: `724ec0088c8f2b68920a0413486e4158b2d944f7`; manifest: `84544dd7a48b31f4b9b894ccba1f50b008b968d1`.
+- Full analysis: `docs/audits/2026-11-18-prodamus-webhook-audit-currency-and-migration159-runner-alignment.md`.
