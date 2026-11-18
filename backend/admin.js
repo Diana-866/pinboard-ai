@@ -15,6 +15,10 @@ async function fetchAllRows(db, table, columns, pageSize = STATS_PAGE_SIZE, maxR
   return fetchAllPages((from, to) => db
     .from(table)
     .select(columns)
+    // Stable unique ordering is required before offset pagination. These
+    // inventory tables use UUID primary keys; without ORDER BY, rows can be
+    // skipped or repeated between pages and distort financial/admin totals.
+    .order("id", { ascending: true })
     .range(from, to), { pageSize, maxRows });
 }
 
