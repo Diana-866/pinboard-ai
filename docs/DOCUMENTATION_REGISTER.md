@@ -1380,3 +1380,16 @@ Commits: `f5594d0c401d90af49c6baf6f9e29af3710c8369`, `48ab7033ec661b798bf423f394
 
 
 Verification addendum: Prodamus Actions run `44171126761` rerun attempt 2 completed FAILURE; latest job ID `134350415751` returned no steps/log URL; log download returned 404 `BlobNotFound`. Root cause remains unknown and the Prodamus CI gate is not green. Vercel combined status for documentation HEAD `a201002b668d7a9c962979cbf43307526273c8de` is FAILURE / `build-rate-limit`. Owner must inspect the run UI and provide the failed job log; no blind rerun is recommended.
+
+
+### 2026-11-18 — Prodamus webhook audit persistence guard
+
+| Path | Blob SHA / purpose |
+|---|---|
+| `backend/billingWebhookAudit.js` | `0f965726eb37e85eccf518186748729e267d1701` — only suppress duplicate event_hash unique violations; propagate unrelated unique and DB errors |
+| `backend/test/billing-webhook-audit.test.js` | `1e9b0e1c14ec814b17c5182bab1d02e568ee3e3d` — persistence idempotency and error-propagation regressions |
+| `backend/test/billing-security-contract.test.js` | `cc692b0ac50fdf4645876fd9e2179667ea09067f` — source-contract checks for push/PR paths and invocation |
+| `.github/workflows/prodamus-checkout-tests.yml` | `300a7d69d55c58610d63ee68beeff4d008e47c2b` — executes the webhook audit test and watches both changed paths for push and pull_request |
+| `docs/audits/2026-11-18-prodamus-webhook-audit-persistence-guard.md` | Detailed root cause, implementation, tests, workflow wiring, assistant corrections, Actions result and verification boundary |
+
+Commits: `9356582342a4f0563f7bfc97485acb7fe6c8c143`, `b4dc0adc24a76a2cb97cf7d39f8714d8ecf6eec8`, `fefeff45d176d84a7a612b6dffeb2373057f0b7e`, `92451866e9640271972f32b8741f634d3a6caf67`, `7f34f05b180bb2f7aac4da50cc04b912834741c5`, `7cc4a2230dcb52bff1cd3f81a38e5ef91ca33a96`, `86d252baaa5569d8d3ebacff599e73792ab5de87`, `b99e158f73c2aa34537f9402d2870ce9973f0c1c`. Latest Prodamus Actions run `44304664637` failed without logs/steps; runtime verification NOT VERIFIED. Vercel status on final HEAD is SUCCESS; deployment is not confirmed. No local tests or production/external operations performed.
