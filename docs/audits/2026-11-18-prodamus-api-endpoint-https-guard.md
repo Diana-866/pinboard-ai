@@ -67,3 +67,16 @@ No production database, `PIN_TRIAL`, real payment, Prodamus account, live webhoo
 5. Added endpoint validation and transport-not-called regression coverage. Corrected the initial test to preserve the intentional blank-value default endpoint behavior.
 6. Added the test to the existing workflow's push/PR filters and explicit Node command.
 7. Re-fetched all final files, inspected diffs, checked the final branch head and Vercel status, and recorded that runtime verification remains outstanding.
+
+
+## Follow-up: source-contract alignment and final CI observation
+
+After the initial endpoint-security report was committed, the Prodamus workflow was expanded to execute the new endpoint-security test as a sixth Node test file. Static review then found that `backend/test/billing-security-contract.test.js` still expected the previous five-file command and did not assert that the new endpoint test appeared in both path filters. That mismatch would make the contract test fail once the workflow reached the Node runner.
+
+Corrected the source-contract test to expect the exact six-file command and assert that `backend/test/prodamus-endpoint-security.test.js` appears in both push and pull_request path filters. Commit: `05bd81bbbb9775e2f671e8d730c9d5442fa8b9a8`; final contract-test blob: `0823cb96a2c1ec4ee00c55e8524432dbfa2316e3`. The endpoint-security test itself remains at blob `6f6a7c9b6584977e4da3ca00d0cda6e39a4abe62`; workflow remains blob `18f380c92619f923454defa85092798954ccd245`.
+
+The source-contract test and workflow were re-fetched after the correction. The workflow command now lists all six files and both path filters contain the endpoint-security test path. This is static verification only; no local Node run was executed.
+
+Latest observed Prodamus Actions run for commit `05bd81bbbb9775e2f671e8d730c9d5442fa8b9a8`: run `44307390644`, job `134812379544`. The job completed FAILURE after approximately two seconds, with `runner_id: 0`, empty `runner_name`, and `steps: []`. GitHub reports two check-run annotations, but their content was not accessible through the available connector. Thus the six Node files are not proven to have executed; exact failure cause remains UNKNOWN. Do not treat this as a test failure or a pass, and do not blindly rerun.
+
+The docs/owner handoff is UA-040, updated to require visible execution of all six tests and to use UA-036 for inspectable failure logs. UA-035 PostgreSQL integration remains independent. No production system or external payment service was touched.
