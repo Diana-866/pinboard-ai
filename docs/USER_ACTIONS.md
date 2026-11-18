@@ -3353,3 +3353,6 @@ Mainline commit `031da170684d9ff5d5b2add436d9b9bcd18e2460` now fails closed if e
 ### UA-053 current-source reconciliation (2026-11-18)
 
 Further mainline hardening rejects non-array paginated inventory responses (including null) instead of treating them as empty. Current worker blob `1df861ccc0f05cc8b787f51c5e111bc07d3660cb`, test blob `292c619f9717f862589aecadfa9f9855662b7f9b`; commits `04bb175803eb2524834785d0599e4d37a77ed2e3` and `185d1d8015ee629dbd95a7da0a10de2db835241e`. These current blobs supersede earlier worker/test SHAs recorded in the initial UA-053 addendum. Run `node --test backend/test/account-deletion-worker.test.js` only locally; do not enable the worker or use real accounts.
+
+
+**UA-053 audit reference refresh (2026-11-18):** detailed report `docs/audits/2026-11-18-account-deletion-preflight-stable-pagination.md` current blob `d0c94414069590d462a956c701d98c935654f217`. It documents both the null paginated inventory-page guard and initial/final Storage-manifest array validation. No runtime or real-account execution is authorized by this note.
