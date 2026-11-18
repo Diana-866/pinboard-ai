@@ -2,8 +2,8 @@
 
 **Repository:** Diana-866/pinboard-ai  
 **Branch:** main  
-**Latest code/test/workflow change commit (runtime verification pending):** facc0c992b122106f72d7adc80e70a0f28b82fff  
-**Inventory refreshed:** 2026-11-18 (supplemental new files appended; full metadata inventory refresh not performed)  
+**Latest code/test/workflow change commit (runtime verification pending):** 48c3b2c0a56dd73412d0a39720ca853416c7b49f  
+**Inventory refreshed:** 2026-11-18 (supplemental receipt journal entries appended; full metadata inventory refresh not performed)  
 **Scope:** all documentation files under docs/ (Markdown and SQL), excluding this register itself.
 
 ## Interpretation
@@ -1498,3 +1498,22 @@ Additional chain references:
 - `backend/test/postgres-integration-sql-manifest.txt`: `e95890a97fe1da8cdbecd02f20cfab1fc57e2034`.
 
 Migration commit: `2f7ef442872c4c16d501f2d19a5ba9f0601533da`; test fixture final commit: `63c02f2e7540e8f510e819c5728957c25e065931`. Source-level consistency checks confirmed 148 migration prefixes and 47 SQL manifest entries. The three Node preflight files have 50 top-level tests by static count. No Node or PostgreSQL runtime test was executed. Actions run `44308754607` failed before exposing steps/logs (job `134817075814`, logs 404); Vercel status on code/test HEAD is FAILURE target `build-rate-limit`. Runtime remains NOT VERIFIED. Do not treat this inventory update as a production-readiness sign-off.
+
+
+## Supplemental inventory — Prodamus receipt journal and runner repair (2026-11-18)
+
+| Path | Blob SHA | Category / verification status |
+|---|---|---|
+| `docs/audits/2026-11-18-prodamus-receipt-journal-regression-and-runner-repair.md` | `65f0cb45e610ddfe6d67b579c3239d1d55dde22e` | Current audit: receipt decision regression, test-double repair, migration 158 runner coverage and runtime boundary |
+| `backend/test/prodamus-webhook.test.js` | `01d347e7b2adbc2df4571451de29e933ab354a71` | Receipt/decision RPC mock; invalid-amount and fail-closed handler regressions; NOT RUNTIME-VERIFIED |
+| `backend/test/billing-security-contract.test.js` | `5b0b7aed84426fd71e39d0f9f99220981c16761a` | Guards terminal mismatch decision against pending-review overwrite |
+| `backend/paymentProviderReceipts.js` | `af7d81560bb1b69ed0df79813fcc7c0e388aedee` | Unknown explicit currencies no longer inherit RUB amount |
+| `backend/test/payment-provider-receipts.test.js` | `ca3d03d747b2c402a197b30bfb58782a50e13f49` | Receipt normalization, idempotency and unknown-currency regression |
+| `scripts/verify-integration.ps1` | `be97f3c40a3f380fb31016fb9991e9fb713b9a9b` | Selects migrations 010–158 and requires 48 unique SQL tests; NOT RUNTIME-VERIFIED |
+| `scripts/verify.ps1` | `1d526769c3fd2fc139fbb70e42ccc60578ae2036` | Windows replay failure summary aligned with migration 158 |
+| `backend/test/verify-script-migration-chain.test.js` | `44c67e6c19a1bbe3d0a8a7d2c4505a1d95915448` | Linux/Windows replay contract aligned with 149 migrations |
+| `.github/workflows/prodamus-checkout-tests.yml` | `8c83c851a49258b9c45f6827b3ce9decfb45984e` | Receipt helper/test watched on push and pull_request; command includes receipt unit test |
+
+Relevant commits: `9f01a0e35432b931c57c15a329081857bde9e785`, `3926d6313322e21e9fd7fd672abc78ad1dc838b4`, `1152417abe6b126409e80e2fa7c15da8449ad84c`, `2773668fea8c9a4de4b435cb9017439db6d7fe76`, `461d07d441db487e391b5d583e8c1e9e8d898a6a`, `7f058e07bb1968eb4bcdc6c3f5c75e9f68dcddf2`, `48c3b2c0a56dd73412d0a39720ca853416c7b49f`, `3b82e1a3b87608aebca4a97e1782aadf4ee4d1a3`, `f194c08b44fe34ad137bafaba901be33af519601`.
+
+Superseding counts: 149 active migrations (010–158), 48 SQL integration tests, 51 Node preflight tests. Runtime remains NOT VERIFIED. Vercel status on code/test HEAD `48c3b2c0a56dd73412d0a39720ca853416c7b49f` is FAILURE / `build-rate-limit`; no deployment is confirmed.
