@@ -92,7 +92,7 @@ try {
     $migrations = @(Get-ChildItem -LiteralPath $migrationDirectory -Filter '*.sql' -File |
         Where-Object { $_.Name -match '^(\d{3})_' -and [int]$Matches[1] -ge 10 -and [int]$Matches[1] -le 161 } |
         Sort-Object { [int]($_.Name.Substring(0,3)) })
-    if ($migrations.Count -ne 152) { throw "Expected 151 active migrations 010-160; found $($migrations.Count)." }
+    if ($migrations.Count -ne 152) { throw "Expected 152 active migrations 010-161; found $($migrations.Count)." }
     for ($i = 0; $i -lt 152; $i++) {
         if ([int]$migrations[$i].Name.Substring(0,3) -ne ($i + 10)) { throw "Migration sequence gap at prefix $($i + 10)." }
     }
@@ -184,7 +184,7 @@ try {
         Write-Host "[$index/$($sqlTests.Count)] $test"
         Invoke-Psql -Database $createdDatabase -PsqlArguments @('-f',(Join-Path $repoRoot "backend/test/$test"))
     }
-    Write-Host 'PASS: upgrade fixture, migrations 010-160, two inline assertions and 49 SQL integration tests.'
+    Write-Host 'PASS: upgrade fixture, migrations 010-161, two inline assertions and 49 SQL integration tests.'
     Write-Host 'NOT RUN: ten Bash concurrency scripts; these require a separately validated Bash runtime.'
 }
 catch { $failure = $_ }
