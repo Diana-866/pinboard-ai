@@ -365,10 +365,15 @@ async function handleWebhook(req, res, dependencies = {}) {
       return res.json({ ok: true, ignored: "unsupported payment_status", review_required: true });
     }
     const mapped = normalizedStatus;
-    await setProviderDecision(db, {
-      receiptId, decision: "ignored_non_success", reasonCode: "provider_payment_not_success",
-      paymentKind: "subscription", paymentId: sub.id, userId: sub.user_id,
-    });
+    try {
+      await setProviderDecision(db, {
+        receiptId, decision: "ignored_non_success", reasonCode: "provider_payment_not_success",
+        paymentKind: "subscription", paymentId: sub.id, userId: sub.user_id,
+      });
+    } catch (decisionError) {
+      logError("billing.event_028");
+      return res.status(500).json({ ok: false, error: "decision storage failed" });
+    }
     const { error: statusError } = await db.from("subscriptions")
       .update({ status: mapped }).eq("id", sub.id).neq("status", "success");
     if (statusError) return res.status(500).json({ ok: false, error: "db error" });
