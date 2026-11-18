@@ -2572,3 +2572,9 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - Подробный отчёт `docs/audits/2026-11-18-account-deletion-storage-manifest-batch-validation.md`, commit `211bb555b0d3a212d1322e39a8ce2e8b49ad3d3d`; owner action UA-062 добавлен в `docs/USER_ACTIONS.md`.
 - Проверены повторным fetch из GitHub source/test и SQL contract. Это статическая проверка; Node tests, PostgreSQL integration, full suite, CI и deployment NOT VERIFIED. Account-deletion worker остаётся disabled; production DB/Storage/account не затрагивались.
 - Следующий шаг: owner-run UA-062 focused Node test и disposable PostgreSQL deletion/Storage-manifest integration; независимо продолжить проверку lifecycle SQL/worker на race/fencing/response-contract gaps.
+
+### Platform reconciliation — Storage manifest batch validation (2026-11-18)
+
+- Vercel combined status was `success` for test commit `98a65d8669baf7349946063e5dcfd9d34859557f` and documentation HEAD `3e641569209385fb8c9caaef3db0ead0065f5cbc` at check time. This is a provider status only; it is not treated as proof of production deployment.
+- GitHub workflow-run lookup returned an empty list for the source commit `d41c16d4caee20d5cd5ed01ecebb45123e255102` and test commit `98a65d8669baf7349946063e5dcfd9d34859557f`; no Node test execution evidence is available.
+- Focused Node tests, disposable PostgreSQL integration and production deployment acceptance remain NOT VERIFIED. Keep the deletion worker disabled.
