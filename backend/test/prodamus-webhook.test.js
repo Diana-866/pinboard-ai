@@ -263,7 +263,8 @@ function signedWebhook(body) {
 
 function createPaymentDb({ subscription, purchase, activate, credit, settle, cancel }) {
   const state = { subscription: structuredClone(subscription), purchase: structuredClone(purchase) };
-  const rpcCalls = { activate: 0, credit: 0, settle: 0 };
+  const rpcCalls = { activate: 0, credit: 0, settle: 0, receipt: 0, decision: 0 };
+  let receiptDecision = "pending_review";
   const db = {
     from(table) {
       const key = table === "subscriptions" ? "subscription" : "purchase";
@@ -298,6 +299,19 @@ function createPaymentDb({ subscription, purchase, activate, credit, settle, can
       return query;
     },
     async rpc(name, args) {
+      if (name === "record_prodamus_payment_receipt") {
+        rpcCalls.receipt++;
+        return { data: "00000000-0000-4000-8000-000000000158", error: null };
+      }
+      if (name === "set_prodamus_payment_decision") {
+        rpcCalls.decision++;
+        const nextDecision = args.p_decision;
+        if (!["pending_review", "unmatched"].includes(receiptDecision) && receiptDecision !== nextDecision) {
+          return { data: null, error: { message: "terminal entitlement decision cannot be overwritten" } };
+        }
+        receiptDecision = nextDecision;
+        return { data: true, error: null };
+      }
       if (name === "activate_paid_subscription") {
         rpcCalls.activate++;
         return activate(state, args, rpcCalls);
@@ -328,6 +342,7 @@ function createPaymentDb({ subscription, purchase, activate, credit, settle, can
     },
     state,
     rpcCalls,
+    get receiptDecision() { return receiptDecision; },
   };
   return db;
 }
@@ -448,6 +463,35 @@ test("subscription webhook retries checkout settlement after activation already 
   assert.equal(db.rpcCalls.settle, 2);
 });
 
+test("subscription webhook invalid signed amount records one terminal mismatch decision", async () => {
+  const db = createPaymentDb({
+    subscription: { id: "sub-invalid-amount", provider_payment_id: "pp-sub-invalid-amount", amount: 1990, currency: "rub", status: "pending" },
+    activate: async () => { throw new Error("invalid amount must not activate subscription"); },
+    credit: async () => ({ data: 0, error: null }),
+  });
+  const auditRecords = [];
+  const auditedDb = {
+    ...db,
+    from(table) {
+      if (table === "billing_webhook_exceptions") return { insert: async (record) => { auditRecords.push(record); return { error: null }; } };
+      return db.from(table);
+    },
+  };
+  const response = createWebhookResponse();
+  await require("../billing").handleWebhook(
+    signedWebhook({ order_id: "pp-sub-invalid-amount", payment_status: "success", currency: "rub" }),
+    response,
+    { supabase: auditedDb, dispatchPendingSubscriptionEmails: async () => ({}) }
+  );
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.review_required, true);
+  assert.equal(db.receiptDecision, "rejected_mismatch");
+  assert.equal(db.rpcCalls.decision, 1, "terminal mismatch decision must not be reopened as pending review");
+  assert.equal(db.rpcCalls.activate, 0);
+  assert.equal(db.state.subscription.status, "pending");
+  assert.equal(auditRecords[0].reason, "amount_missing");
+});
+
 test("subscription webhook amount mismatch is audited and never activates the plan", async () => {
   const db = createPaymentDb({
     subscription: {
@@ -498,6 +542,35 @@ test("subscription webhook amount mismatch is audited and never activates the pl
   assert.equal(auditRecords.length, 1);
   assert.equal(auditRecords[0].reason, "amount_mismatch");
   assert.equal(auditRecords[0].expected_amount, 1990);
+});
+
+test("credit webhook invalid signed amount records one terminal mismatch decision", async () => {
+  const db = createPaymentDb({
+    purchase: { id: "purchase-invalid-amount", provider_payment_id: "ppc-invalid-amount", amount: 490, currency: "rub", credits: 100, package_id: "pack_100", balance_credited_at: null, status: "pending" },
+    activate: async () => ({ data: null, error: null }),
+    credit: async () => { throw new Error("invalid amount must not credit balance"); },
+  });
+  const auditRecords = [];
+  const auditedDb = {
+    ...db,
+    from(table) {
+      if (table === "billing_webhook_exceptions") return { insert: async (record) => { auditRecords.push(record); return { error: null }; } };
+      return db.from(table);
+    },
+  };
+  const response = createWebhookResponse();
+  await require("../creditsBilling").handleCreditsWebhook(
+    signedWebhook({ order_id: "ppc-invalid-amount", payment_status: "success", currency: "rub" }),
+    response,
+    { supabase: auditedDb }
+  );
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.review_required, true);
+  assert.equal(db.receiptDecision, "rejected_mismatch");
+  assert.equal(db.rpcCalls.decision, 1, "terminal mismatch decision must not be reopened as pending review");
+  assert.equal(db.rpcCalls.credit, 0);
+  assert.equal(db.state.purchase.balance_credited_at, null);
+  assert.equal(auditRecords[0].reason, "amount_missing");
 });
 
 test("credit webhook concurrent duplicate callbacks credit once; retry after ambiguous commit is idempotent", async () => {
