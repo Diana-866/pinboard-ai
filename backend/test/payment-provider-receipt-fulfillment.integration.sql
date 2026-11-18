@@ -1,4 +1,4 @@
--- Migration 159: receipt identity, lifecycle fence, entitlement and decision commit atomically.
+-- Migrations 159-160: receipt identity, lifecycle fence, entitlement and decision commit atomically.
 begin;
 
 do $$
@@ -273,6 +273,12 @@ begin
   );
   if v_result->>'decision' <> 'rejected_mismatch' then
     raise exception 'receipt amount mismatch was not rejected: %', v_result;
+  end if;
+  v_result := public.credit_paid_purchase_with_receipt(
+    v_mismatch_purchase, '2026-11-18T10:00:00Z', 'duplicate mismatched payment', v_receipt
+  );
+  if v_result->>'decision' <> 'rejected_mismatch' or v_result->>'idempotent' <> 'true' then
+    raise exception 'duplicate rejected-mismatch receipt was not idempotent: %', v_result;
   end if;
   select credits_balance into v_balance from public.users where id = v_mismatch_user;
   select count(*) into v_count from public.credit_transactions where purchase_id = v_mismatch_purchase;
