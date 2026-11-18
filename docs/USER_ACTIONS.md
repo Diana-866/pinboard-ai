@@ -3325,3 +3325,8 @@ Migration 161 received a follow-up hardening commit. The private grant helper no
 Current migration 161 blob: `039b778b89f8d592eda92a7f199176030a1eeb49` (commit `6360f302eb5ef6a93c8c624523f1d5ea07eef852`). Payment receipt SQL privilege test blob: `8007fbfc84ade10d7dbe1b6fc4cdda3b5a7e872d` (commit `48495387d933fc93000ce0cbce9a5abca0aeb850`). PostgreSQL runner Node contract blob: `252ab03a5146605a28cb01f465c17d7bf8947f97` (commit `bcc9e1fe68ee715dd8a244e06f95aedd0e7de1e4`).
 
 The new static contract requires two missing-amount guards and exact amount/currency/payment identity checks. Runtime remains NOT VERIFIED. Latest observed atomic Actions run `44317800999` failed before runner allocation (job `134848439716`, zero steps); do not treat this as a test failure or a pass. Re-run the UA-052 clean local acceptance sequence after syncing latest main.
+
+
+### UA-052 final source-reference synchronization (2026-11-18)
+
+Older source blob references earlier in UA-052 are historical. Current exact blobs are indexed in the final reconciliation table at the end of `docs/DOCUMENTATION_REGISTER.md`. Current main has 152 migrations (010–161), 49 SQL tests, 52 Node preflight tests and 10 concurrency scripts. Latest atomic Actions run `44317872327` failed before job steps were available; no runtime result is claimed. Vercel remains `build-rate-limit`. Execute UA-052, UA-053 and UA-054 only on the clean local checkout and disposable PostgreSQL environment; do not use production or real accounts/payments.
