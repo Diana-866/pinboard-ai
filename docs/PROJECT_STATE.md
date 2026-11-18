@@ -2356,3 +2356,12 @@ The combined status for the later documentation HEAD `a201002b668d7a9c962979cbf4
 - Re-fetched both files after publication: source contains two guards and the static contract requires a count of two. This is not a Node or SQL runtime PASS. Bash/Node/PostgreSQL/PowerShell/CI remain NOT VERIFIED.
 - Detailed report: `docs/audits/2026-11-18-prodamus-receipt-webhook-static-review.md`, latest update commit `e41c98fb9b15a250b514659b5a674d462fdbaaeb`.
 - No production database, real payment, external account, or deployment was accessed. Next: owner-controlled local execution of the Node contract and disposable PostgreSQL payment regression; continue reviewing other independent launch blockers. Keep first-user invitations and live payments blocked.
+
+
+### 2026-11-18 — Migration 161 follow-up: exact amount/currency evidence in private grant helper
+
+- Mainline follow-up strengthened `mark_prodamus_entitlement_granted`: it now rejects a missing local payment amount, compares the immutable receipt amount with the committed local payment amount (tolerance 0.01), compares normalized currency, and checks existing decision payment-kind/payment-ID/user binding before a grant. Both credit and subscription branches have the checks.
+- Current migration 161 blob `039b778b89f8d592eda92a7f199176030a1eeb49`; hardening commit `6360f302eb5ef6a93c8c624523f1d5ea07eef852`. Receipt-journal SQL privilege test blob `8007fbfc84ade10d7dbe1b6fc4cdda3b5a7e872d`; commit `48495387d933fc93000ce0cbce9a5abca0aeb850`. Node runner contract blob `252ab03a5146605a28cb01f465c17d7bf8947f97`; commit `bcc9e1fe68ee715dd8a244e06f95aedd0e7de1e4`.
+- Latest static re-fetch confirms both branches check local amount presence, amount equality, normalized currency, receipt order identity and decision binding. The Node contract requires two missing-amount checks. The receipt-journal SQL test checks authenticated-role restrictions and direct grant rejection.
+- Latest atomic Actions run `44317800999` / job `134848439716` failed before runner allocation; zero steps were returned. This is infrastructure failure, not executed test evidence. Runtime remains NOT VERIFIED. Updated audit and UA-052 addendum; no production service or real payment was accessed.
+- Next: continue with the isolated 152-migration/49-SQL/52-Node/10-concurrency acceptance gate, then proceed to remaining release blockers. Live payments and first-user invitations remain blocked.
