@@ -1517,3 +1517,20 @@ Migration commit: `2f7ef442872c4c16d501f2d19a5ba9f0601533da`; test fixture final
 Relevant commits: `9f01a0e35432b931c57c15a329081857bde9e785`, `3926d6313322e21e9fd7fd672abc78ad1dc838b4`, `1152417abe6b126409e80e2fa7c15da8449ad84c`, `2773668fea8c9a4de4b435cb9017439db6d7fe76`, `461d07d441db487e391b5d583e8c1e9e8d898a6a`, `7f058e07bb1968eb4bcdc6c3f5c75e9f68dcddf2`, `48c3b2c0a56dd73412d0a39720ca853416c7b49f`, `3b82e1a3b87608aebca4a97e1782aadf4ee4d1a3`, `f194c08b44fe34ad137bafaba901be33af519601`.
 
 Superseding counts: 149 active migrations (010–158), 48 SQL integration tests, 51 Node preflight tests. Runtime remains NOT VERIFIED. Vercel status on code/test HEAD `48c3b2c0a56dd73412d0a39720ca853416c7b49f` is FAILURE / `build-rate-limit`; no deployment is confirmed.
+
+
+## Supplemental inventory — Prodamus webhook audit currency and migration 159 runner alignment (2026-11-18)
+
+| Path | Blob SHA | Purpose / verification |
+|---|---|---|
+| `docs/audits/2026-11-18-prodamus-webhook-audit-currency-and-migration159-runner-alignment.md` | Created in commit `917b56d4cfb1a1214948f74a2323c29a05d87a55` | Root cause, fixes, commits, CI evidence and runtime boundary |
+| `backend/billingWebhookAudit.js` | `4f5c63d83459731e6c4ced9cf04ed9718fab883a` | Selects amount field according to explicit currency context |
+| `backend/test/billing-webhook-audit.test.js` | `c8e1a488c2a5effeffd0447011d3b5eb42aaa60e` | Three regressions: absent currency, RUB, non-RUB |
+| `scripts/verify-integration.ps1` | `01c21f798062cee20790019a26bd6d581585cc3c` | Requires 49 SQL tests and 150 migrations 010–159 |
+| `backend/test/postgres-integration-sql-manifest.txt` | `dbba9ecacda55da7ea4b92e9928e075f7b5f1cf4` | Adds receipt-bound fulfillment SQL regression as test 49 |
+| `db/migrations/159_atomic_prodamus_receipt_entitlement_fulfillment.sql` | `29b2a8b7db98535f33b9eff72280f637e2f65480` | Atomic receipt-bound credit/subscription entitlement fulfillment |
+| `backend/test/payment-provider-receipt-fulfillment.integration.sql` | `a9677076ff5cb27330125f3f911e7e918a61e7d6` | Receipt identity, idempotency, entitlement and decision integration assertions |
+
+Relevant commits: `33b84fb7872c2739e1c2893f0917c1b398081c0b`, `40722066c0bcba996b6670299a14d490b6044d4d`, `28e36603c214412a432f1911f80859218587fc20`, `60c8f14bc7f1f1c2cf656f138edc60e58ac88e43`, `724ec0088c8f2b68920a0413486e4158b2d944f7`, `84544dd7a48b31f4b9b894ccba1f50b008b968d1`.
+
+Current expected counts: 150 migrations (010–159), 49 SQL integration tests, 51 Node preflight tests. Runtime remains NOT VERIFIED. Actions failed before runner allocation on the latest observed attempts; no deployment is confirmed. See UA-042/UA-043 for owner runtime steps.
