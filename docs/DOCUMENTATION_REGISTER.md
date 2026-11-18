@@ -1393,3 +1393,16 @@ Verification addendum: Prodamus Actions run `44171126761` rerun attempt 2 comple
 | `docs/audits/2026-11-18-prodamus-webhook-audit-persistence-guard.md` | Detailed root cause, implementation, tests, workflow wiring, assistant corrections, Actions result and verification boundary |
 
 Commits: `9356582342a4f0563f7bfc97485acb7fe6c8c143`, `b4dc0adc24a76a2cb97cf7d39f8714d8ecf6eec8`, `fefeff45d176d84a7a612b6dffeb2373057f0b7e`, `92451866e9640271972f32b8741f634d3a6caf67`, `7f34f05b180bb2f7aac4da50cc04b912834741c5`, `7cc4a2230dcb52bff1cd3f81a38e5ef91ca33a96`, `86d252baaa5569d8d3ebacff599e73792ab5de87`, `b99e158f73c2aa34537f9402d2870ce9973f0c1c`. Latest Prodamus Actions run `44304664637` failed without logs/steps; runtime verification NOT VERIFIED. Vercel status on final HEAD is SUCCESS; deployment is not confirmed. No local tests or production/external operations performed.
+
+
+### 2026-11-18 — Prodamus RUB webhook amount-field selection fix
+
+| Path | Blob SHA / purpose |
+|---|---|
+| `backend/prodamus.js` | `c57ff05dcb6c28436c226d4d69f3891b86873ee2` — RUB payment validation now uses `sum`, not `currency_sum`; foreign-currency checks remain paired with explicit currency |
+| `backend/test/prodamus-webhook.test.js` | `37374cbf496d4521cc088dfc32f30f62d75f2fb6` — regression coverage for conflicting amount fields, missing RUB sum and currency mismatch |
+| `docs/audits/2026-11-18-prodamus-rub-webhook-amount-selection.md` | Detailed defect analysis, fix, test scope and runtime verification boundary |
+| `docs/PROJECT_STATE.md` | Records the fix and preserves unverified runtime/SQL/CI gates |
+| `docs/USER_ACTIONS.md` | UA-038: require Prodamus checkout workflow verification; no owner code-edit action |
+
+Commits: `d35733a03c2370971d3b41ea603c52186f6e2143` (source), `2cb3bc60a52f23a96c5fdca7c3cc4e54dd7c5240` (regression test), `5637ec7331de75aed87c12101392212b65c1d279` (audit), `057e86c4016719e4686e50ae3ea5ba61d7c977c6` (project state), `342d4d83d957d09fff3c67d308c50b835d39fd9e` (owner actions). The regression was not executed locally in this session; CI outcome remains pending/unknown. No production database, payment, live webhook or deployment was used.
