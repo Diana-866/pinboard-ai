@@ -2294,3 +2294,11 @@ The combined status for the later documentation HEAD `a201002b668d7a9c962979cbf4
 - Current race script blob: `6f1c08950a4a449f5c041aebdf65ca257bd29b4e`; concurrency contract blob: `91e53359eee7257279e45a6ede7f6d74f86a3ef8`; detailed audit blob: `406e4bb08dda634feee750ffecc4b00523017b68`. Implementation commits: `a816f858e302e1d2506e283f3a1d34feacaed77c` and `641338e380fb13ce81eef0f8174d7e08f134e5ca`.
 - Static source checks confirmed four named cases, four three-argument deletion RPC calls, event/job assertions, lock-waiter wiring, no destructive deletion of append-only fixtures, and inclusion in the ten-script disposable concurrency suite. **NOT RUN:** Bash syntax, Node concurrency contract, PostgreSQL race execution, full migration replay, SQL integration suite and CI. Latest observed atomic workflow run `44315808409` / job `134841470669` failed before runner allocation (runner_id 0, zero steps); no test step ran. Runtime remains NOT VERIFIED.
 - Release gate unchanged: do not invite first users or enable real payments until the owner-run isolated PostgreSQL replay, SQL suite, Node checks, concurrency suite and external billing configuration are verified.
+
+
+### 2026-11-18 — Node preflight count corrected to 52
+
+- Recounted the exact current Node preflight files from main: runner contract 33 tests + migration-chain 2 + verify-script contract 17 = **52 tests**. Earlier 51-test references are superseded.
+- Other expected acceptance counts remain 151 migrations 010–160, 49 unique SQL integration tests and 10 unique concurrency scripts.
+- Count correction report blob: `355f09b2374eb773962817ed1860c12435a3cfc5`. Owner action UA-051 added.
+- These are inventory counts, not executed results. Node, Bash, PostgreSQL and CI runtime remain NOT VERIFIED; latest atomic workflow failed before runner allocation.
