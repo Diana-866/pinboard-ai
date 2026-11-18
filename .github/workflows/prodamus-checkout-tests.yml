@@ -10,6 +10,7 @@ on:
       - "backend/billingWebhookAudit.js"
       - "backend/paymentCreationIdempotency.js"
       - "backend/test/prodamus-webhook.test.js"
+      - "backend/test/prodamus-endpoint-security.test.js"
       - "backend/test/payment-creation-settlement.test.js"
       - "backend/test/prodamus-ambiguous-checkout.test.js"
       - "backend/test/billing-security-contract.test.js"
@@ -24,6 +25,7 @@ on:
       - "backend/billingWebhookAudit.js"
       - "backend/paymentCreationIdempotency.js"
       - "backend/test/prodamus-webhook.test.js"
+      - "backend/test/prodamus-endpoint-security.test.js"
       - "backend/test/payment-creation-settlement.test.js"
       - "backend/test/prodamus-ambiguous-checkout.test.js"
       - "backend/test/billing-security-contract.test.js"
@@ -53,4 +55,4 @@ jobs:
       - name: Install backend dependencies
         run: npm ci
       - name: Test Prodamus checkout encoding, signatures and webhook validation
-        run: node --test test/prodamus-webhook.test.js test/payment-creation-settlement.test.js test/prodamus-ambiguous-checkout.test.js test/billing-webhook-audit.test.js test/billing-security-contract.test.js
+        run: node --test test/prodamus-webhook.test.js test/payment-creation-settlement.test.js test/prodamus-ambiguous-checkout.test.js test/billing-webhook-audit.test.js test/billing-security-contract.test.js test/prodamus-endpoint-security.test.js
