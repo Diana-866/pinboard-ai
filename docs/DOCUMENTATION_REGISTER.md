@@ -1546,3 +1546,18 @@ Current expected counts: 150 migrations (010–159), 49 SQL integration tests, 5
 | `docs/audits/2026-11-18-prodamus-webhook-audit-currency-and-migration159-runner-alignment.md` | `2a90f3a98f9a2ff22057fc3b29b9884d26f71fd0` | Follow-up documents terminal receipt identity fence and SQL regression |
 
 Commits: `21b5e3b2bb6edfaab09163f9fefe28bb1d101e25`, `960098479cb1598bf3152556ab427585f0a7ad19`, `3eb25129c89c49230bf2147f692c27884c112054`, `a6f10ab8ced8959a9bd008e782c6fd102de335df`. Runtime remains NOT VERIFIED; latest CI jobs failed before runner allocation. See UA-042 and UA-044.
+
+
+## Supplemental inventory — payment/deletion receipt race concurrency (2026-11-18)
+
+| Path | Blob SHA | Purpose / verification |
+|---|---|---|
+| `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md` | Created in commit `aee9af9d43796a3a83c3dde4ccbb5cc561535044` | Lock-order analysis, two-session test design, exact scope limits and runtime boundary |
+| `backend/test/payment-deletion-receipt-race-concurrency.sh` | `0e2da4a83e2b0bda1d9f729868fca3fba04819c5` | Two independent sessions; both payment-first and deletion-first outcomes; runtime NOT VERIFIED |
+| `backend/test/run-disposable-concurrency-suite.sh` | `827a2cd063d64668102bdf36e97e4a73dffba0af` | Adds tenth concurrency test to unique disposable clone runner |
+| `backend/test/postgres-concurrency-safety-contract.test.js` | `ab84f345305ee793a74e30cb4ad9ff871b62e69c` | Requires ten guarded scripts and asserts both race outcomes; runtime NOT VERIFIED |
+| `db/migrations/159_atomic_prodamus_receipt_entitlement_fulfillment.sql` | `30519439d7423cbc84db1fbca2cc638b74c60723` | Current receipt identity/lifecycle-fenced credit and subscription fulfillment; terminal receipt reuse guard |
+
+Relevant commits: `19118c46429148b0b9c8e3fdb3a97b7d29dfa50f`, `2ef950263a9e22bc684f640c7beb4ace0f082aba`, `b590373f687dadc5cb39ddb33c9b99805304b1e1`, `4cfb2be7126110116c9da714722aa0781bd137a4`, `09b12d15d78cb07bab3d3ca95682f88488aed215`, report commit `aee9af9d43796a3a83c3dde4ccbb5cc561535044`.
+
+The atomic-payment workflow already syntax-checks all `*-concurrency.sh` files, runs the concurrency safety contract, and invokes the suite against a unique disposable database clone. Static re-fetch confirmed wiring; Bash syntax, Node contract, PostgreSQL concurrency, migration replay and all SQL tests remain NOT VERIFIED. The new test models the user-row lifecycle fence with an `account_status` update; it does not call the full account-deletion queue RPC/worker and does not yet test subscription fulfillment. See UA-045. No production or external payment resource was accessed.
