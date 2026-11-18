@@ -3400,3 +3400,8 @@ Detailed audit: `docs/audits/2026-11-18-pinterest-scheduler-claim-response.md` (
 ### UA-056 addendum — scheduler HTTP response consumer validation (2026-11-18)
 
 The scheduler runner previously accepted `data.ok === true` without validating counters/results, despite the existing shared contract helper. It now calls `isValidScheduleWorkerResponse` before treating a batch as successful. Current source blob `4eff5a721a8f5668876056109902e57ccb8ae1e5`, test blob `9757a340c8c2653aa4f71ef42c68a09feea88eb0`; commits `68ef687186539530a37623dffaca28a73662970b`, `460a54ac3a1da36d728796a5af329fcbd994c941`. Run `node --test backend/test/schedule-worker.test.js` together with schedule-response and route-contract tests. Runtime NOT VERIFIED.
+
+
+### UA-056 platform status addendum (2026-11-18)
+
+Latest observed push-triggered runs after scheduler hardening: atomic payment run `44319160489` / job `134853192142`, and persisted-boards run `44319160390` / jobs `134853191735`, `134853192203`. Both concluded failure; GitHub's jobs response returned `steps: null`, so no test command execution is evidenced. Combined Vercel status for main HEAD `2468bccc99762afdc47306ffda0e06b2da846ead` was `failure / build-rate-limit`. This is platform/runner evidence, not a source test failure or pass. Runtime acceptance remains blocked until the owner resolves runner allocation/quota and runs the focused Node/PostgreSQL commands above.
