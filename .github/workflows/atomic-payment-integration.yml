@@ -409,6 +409,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/156_restore_regeneration_replay_image_reference_to_upload_reservation.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/157_payment_fulfillment_user_first_lifecycle_fence.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/158_prodamus_immutable_receipt_and_decision_journal.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/159_atomic_prodamus_receipt_entitlement_fulfillment.sql
       - name: Verify Pinterest credentials are disconnected for deletion-pending accounts
         env:
           PGPASSWORD: postgres
@@ -526,6 +527,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/prodamus-credit-fulfillment.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/payment-deletion-lifecycle-fence.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/payment-provider-receipts.integration.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/payment-provider-receipt-fulfillment.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/payment-creation-idempotency.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/payment-creation-settlement.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-generation-credit-reservations.integration.sql
