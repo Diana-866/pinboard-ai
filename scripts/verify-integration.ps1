@@ -184,7 +184,7 @@ try {
         Write-Host "[$index/$($sqlTests.Count)] $test"
         Invoke-Psql -Database $createdDatabase -PsqlArguments @('-f',(Join-Path $repoRoot "backend/test/$test"))
     }
-    Write-Host 'PASS: upgrade fixture, migrations 010-157, two inline assertions and 48 SQL integration tests.'
+    Write-Host 'PASS: upgrade fixture, migrations 010-158, two inline assertions and 48 SQL integration tests.'
     Write-Host 'NOT RUN: nine Bash concurrency scripts; these require a separately validated Bash runtime.'
 }
 catch { $failure = $_ }
