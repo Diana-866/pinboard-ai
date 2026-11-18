@@ -85,3 +85,10 @@ Mainline added `db/migrations/160_prodamus_receipt_local_payment_binding_guard.s
 ### Verification boundary and next work
 
 Bash syntax, Node concurrency-safety contract, Node migration-runner contract, PostgreSQL race harness, 151-migration replay, 49 SQL tests and the ten-script concurrency suite were not executed by the assistant. Runtime remains **NOT VERIFIED**. The race harness still covers the credit receipt path and models the account-deletion fence by updating `users.account_status`; it does not yet invoke the full deletion acceptance queue RPC/worker or test subscription races. Continue by extending the race to the exact deletion acceptance RPC and subscription fulfillment, then obtain an executed isolated CI run. No production database or live payment was touched.
+
+
+## Follow-up — migration 160 and current replay inventory
+
+Migration 160 now independently binds terminal decisions to local_payment_kind, local_payment_id and user_id, and repeated same-payment rejected_mismatch calls are idempotent. The two-session race remains compatible with the receipt-bound RPC and is wired as the tenth disposable concurrency script. Current inventory is 151 migrations 010–160, 49 SQL tests, 51 Node preflight tests and 10 Bash concurrency scripts. The updated owner sequence is UA-046.
+
+Migration 160 blob: 7005ec7ce7a802312bb1376284892309a67fa226; SQL regression blob: f7fdc7a05bba1bc45f2b4f78652a7365422b4778; guarded runner blob: a1af92050d64db66f5081c1425e49247ef074173. The local replay and concurrency suite have not been executed. The race still models the user-row account-status fence, not the full deletion queue/worker, and it covers credit fulfillment only.
