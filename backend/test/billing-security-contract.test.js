@@ -70,8 +70,8 @@ test("payment fulfillment requires signed amount/currency match and records mism
     assert.match(source, /reason: "amount_mismatch"/);
     assert.match(source, /review_required: true/);
   }
-  assert.match(subscription, /db\.rpc\("activate_paid_subscription"/);
-  assert.match(credits, /db\.rpc\("credit_paid_purchase"/);
+  assert.match(subscription, /db\.rpc\("activate_paid_subscription_with_receipt"/);
+  assert.match(credits, /db\.rpc\("credit_paid_purchase_with_receipt"/);
 });
 
 test("credit fulfillment uses the atomic purchase marker and reconciles the exact checkout order", () => {
