@@ -77,6 +77,9 @@ begin
   end if;
 
   if v_decision = 'granted' then
+    if v_purchase.balance_credited_at is null then
+      raise exception 'granted credit receipt is missing the purchase credit marker';
+    end if;
     return jsonb_build_object(
       'decision', 'granted',
       'balance', coalesce(v_user.credits_balance, 0),
@@ -192,6 +195,9 @@ begin
   end if;
 
   if v_decision = 'granted' then
+    if v_sub.status <> 'success' or v_sub.period_end is null then
+      raise exception 'granted subscription receipt is missing the paid period';
+    end if;
     return jsonb_build_object(
       'decision', 'granted',
       'subscription_id', v_sub.id,
