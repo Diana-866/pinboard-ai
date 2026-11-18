@@ -337,3 +337,39 @@ test("worker drains a due backlog quickly but keeps the normal idle polling cade
   assert.equal(scheduled[1].delay, 30_000, "an empty queue should return to idle cadence");
   await worker.stop();
 });
+
+
+test("worker rejects ok responses with missing or contradictory scheduler counters", async () => {
+  const errors = [];
+  const malformedResponses = [
+    { ok: true, claimed: 0 },
+    { ok: true, claimed: 1, published: 0, failed: 0, scheduled: 0, unknown: 0, results: [] },
+    { ok: true, claimed: 0, published: 1, failed: 0, scheduled: 0, unknown: 0, results: [] },
+  ];
+  for (const data of malformedResponses) {
+    const worker = createWorker({
+      config: { endpoint: "https://api.example.com/internal/pinterest/schedule/run", secret: "secret-value" },
+      client: { post: async () => ({ data }) },
+      logger: { info() {}, error: (...args) => errors.push(args) },
+    });
+    await worker.tick();
+  }
+  assert.equal(errors.length, malformedResponses.length);
+  assert.ok(errors.every((entry) => entry[0] === "schedule_worker.batch_failed"));
+});
+
+test("worker accepts the complete one-item scheduler response contract", async () => {
+  const logs = [];
+  const worker = createWorker({
+    config: { endpoint: "https://api.example.com/internal/pinterest/schedule/run", secret: "secret-value" },
+    client: { post: async () => ({ data: {
+      ok: true, claimed: 1, published: 1, failed: 0, scheduled: 0, unknown: 0,
+      results: [{ schedule_id: "schedule-1", status: "published" }],
+    } }) },
+    logger: { info: (...args) => logs.push(args), error() {} },
+  });
+  await worker.tick();
+  assert.equal(logs.length, 1);
+  assert.equal(logs[0][0], "schedule_worker.batch_completed");
+  assert.equal(logs[0][1].published, 1);
+});
