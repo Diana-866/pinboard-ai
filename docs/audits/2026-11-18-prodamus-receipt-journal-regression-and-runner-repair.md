@@ -75,3 +75,16 @@ The active migration chain is now baseline 001 plus 149 numbered migrations 010â
 Updated owner action UA-042 supersedes the old migration/test counts in UA-041: synchronize clean `main`, run the three Node preflight files (expected 51/51), then run only `scripts/verify-integration.ps1` against the runner's explicitly verified disposable PostgreSQL 18.6 instance. Acceptance requires all 149 migrations 010â€“158, both inline assertions, 48/48 SQL tests and confirmed disposable DB/role cleanup. Never use production, staging, Supabase or PIN_TRIAL.
 
 Next independent engineering task: design and add a two-session deletion-vs-payment receipt/decision race integration regression, then run the complete runtime suites. Do not enable live payments or invite first users until all payment, database, application, deployment and operational release gates are green.
+
+
+## Follow-up reconciliation after the initial report snapshot
+
+The live branch advanced while this report was being documented. The following independently published follow-ups were re-fetched and included in the final state reconciliation:
+
+- `7f058e07bb1968eb4bcdc6c3f5c75e9f68dcddf2`: unknown explicit currencies no longer inherit the RUB `sum` as a foreign-currency receipt amount. Unsupported currency now records both amount and currency as null. Unit regression: `48c3b2c0a56dd73412d0a39720ca853416c7b49f`.
+- `461d07d441db487e391b5d583e8c1e9e8d898a6a`: webhook test double can simulate receipt-storage failure; subscription and credit tests assert HTTP 500 and prove order lookup/fulfillment do not happen before the durable receipt exists.
+- `3b82e1a3b87608aebca4a97e1782aadf4ee4d1a3` and `f194c08b44fe34ad137bafaba901be33af519601`: corrected the migration replay contract regex and aligned the Windows runner test expectations with 149 migrations through 158.
+
+The current branch HEAD at the time of this addendum is `48c3b2c0a56dd73412d0a39720ca853416c7b49f`. Latest relevant blobs re-fetched: `backend/paymentProviderReceipts.js` = `af7d81560bb1b69ed0df79813fcc7c0e388aedee`; `backend/test/payment-provider-receipts.test.js` = `ca3d03d747b2c402a197b30bfb58782a50e13f49`; `backend/test/prodamus-webhook.test.js` = `01d347e7b2adbc2df4571451de29e933ab354a71`; `backend/test/verify-script-migration-chain.test.js` = `44c67e6c19a1bbe3d0a8a7d2c4505a1d95915448`.
+
+These changes improve source-level and test-contract coverage; they do not change the verification boundary. No Node or PostgreSQL runtime suite was executed, and no deployment or real payment is confirmed.
