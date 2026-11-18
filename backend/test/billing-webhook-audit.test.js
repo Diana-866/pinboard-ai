@@ -141,3 +141,22 @@ test("persistWebhookException propagates non-unique database failures", async ()
     (error) => error === databaseError
   );
 });
+
+
+test("persistWebhookException recognizes an event_hash duplicate from PostgreSQL detail text", async () => {
+  const { persistWebhookException } = require("../billingWebhookAudit");
+  const expectedHash = buildWebhookException(exceptionDetails()).event_hash;
+  const duplicateError = {
+    code: "23505",
+    message: "duplicate key value violates unique constraint",
+    details: "Key (event_hash)=(abc) already exists.",
+  };
+  const db = {
+    from() {
+      return {
+        async insert() { return { error: duplicateError }; },
+      };
+    },
+  };
+  assert.equal(await persistWebhookException(db, exceptionDetails()), expectedHash);
+});
