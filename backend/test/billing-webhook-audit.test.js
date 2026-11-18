@@ -61,6 +61,50 @@ test("webhook exception stores the currency-denominated amount and currency", ()
   assert.equal(record.received_currency, "usd");
 });
 
+test("webhook exception does not select currency_sum when currency is absent", () => {
+  const record = buildWebhookException({
+    paymentKind: "subscription",
+    body: {
+      order_id: "pp-start-ambiguous-1",
+      sum: "3100.00",
+      currency_sum: "24.00",
+    },
+    reason: "currency_missing",
+  });
+  assert.equal(record.received_sum, "3100.00");
+  assert.equal(record.received_currency, null);
+});
+
+test("RUB webhook exception records sum even when currency_sum is also present", () => {
+  const record = buildWebhookException({
+    paymentKind: "subscription",
+    body: {
+      order_id: "pp-start-rub-1",
+      sum: "3100.00",
+      currency: "RUB",
+      currency_sum: "24.00",
+    },
+    reason: "amount_mismatch",
+  });
+  assert.equal(record.received_sum, "3100.00");
+  assert.equal(record.received_currency, "rub");
+});
+
+test("explicit non-RUB webhook exception records the matching currency_sum", () => {
+  const record = buildWebhookException({
+    paymentKind: "subscription",
+    body: {
+      order_id: "pp-start-usd-2",
+      sum: "3100.00",
+      currency: "usd",
+      currency_sum: "24.00",
+    },
+    reason: "amount_mismatch",
+  });
+  assert.equal(record.received_sum, "24.00");
+  assert.equal(record.received_currency, "usd");
+});
+
 test("webhook exception preserves malformed amounts without treating them as expected amounts", () => {
   const record = buildWebhookException({
     paymentKind: "subscription",
