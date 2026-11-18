@@ -683,10 +683,17 @@ test("schedule claim heartbeat renews while active, avoids overlap, and stops cl
     logger: { warn: (...args) => warnings.push(args) },
   });
 
-  await new Promise((resolve) => setTimeout(resolve, 75));
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  // Wait for the condition instead of assuming a fixed wall-clock window: under
+  // parallel test load a timer can be delayed and a fixed sleep would fail the
+  // suite for scheduling noise rather than a heartbeat defect.
+  const deadline = Date.now() + 5000;
+  while (calls < 2 && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
   await stop();
   const callsAtStop = calls;
-  await new Promise((resolve) => setTimeout(resolve, 35));
+  await new Promise((resolve) => setTimeout(resolve, 40));
 
   assert.ok(callsAtStop >= 2, "long-running work should renew its lease repeatedly");
   assert.equal(calls, callsAtStop, "stopped heartbeat must not schedule more renewals");
