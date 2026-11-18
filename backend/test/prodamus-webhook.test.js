@@ -893,3 +893,53 @@ test("accepts a valid checkout URL from a successful Prodamus HTTP response", as
     }
   }
 });
+
+
+test("per-request Prodamus webhook overrides require HTTPS and reject embedded credentials", () => {
+  assert.equal(
+    prodamus.validateWebhookNotificationUrl("https://api.pinposy.com/billing/webhook"),
+    "https://api.pinposy.com/billing/webhook"
+  );
+  for (const url of [
+    "http://api.pinposy.com/billing/webhook",
+    "ftp://api.pinposy.com/billing/webhook",
+    "https://user:pass@api.pinposy.com/billing/webhook",
+    "javascript:alert(1)",
+    "not a URL",
+    "",
+  ]) {
+    assert.throws(
+      () => prodamus.validateWebhookNotificationUrl(url),
+      (error) => error.httpStatus === 500 && /HTTPS URL/.test(error.message)
+    );
+  }
+});
+
+test("does not sign or return an insecure per-request webhook URL", async () => {
+  const previous = {
+    PRODAMUS_SECRET: process.env.PRODAMUS_SECRET,
+    PRODAMUS_OFFLINE: process.env.PRODAMUS_OFFLINE,
+    PRODAMUS_URL: process.env.PRODAMUS_URL,
+    PRODAMUS_SYS: process.env.PRODAMUS_SYS,
+  };
+  try {
+    process.env.PRODAMUS_SECRET = "shop-secret-test";
+    process.env.PRODAMUS_OFFLINE = "1";
+    process.env.PRODAMUS_URL = "https://example.payform.ru/";
+    process.env.PRODAMUS_SYS = "pinposy_custom";
+    await assert.rejects(
+      prodamus.createPaymentLink({
+        orderId: "pp-start-insecure-webhook",
+        amount: 1990,
+        description: "PinPosy / Старт",
+        urlNotification: "http://api.pinposy.com/billing/webhook",
+      }),
+      (error) => error.httpStatus === 500 && /HTTPS URL/.test(error.message)
+    );
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
