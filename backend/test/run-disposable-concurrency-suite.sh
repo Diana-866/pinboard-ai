@@ -39,6 +39,7 @@ scripts=(
   email-verification-concurrency.sh
   subscription-concurrency.sh
   credit-concurrency.sh
+  payment-deletion-receipt-race-concurrency.sh
   generation-concurrency.sh
   pinterest-oauth-concurrency.sh
   pinterest-publication-concurrency.sh
@@ -48,4 +49,4 @@ for script in "${scripts[@]}"; do
   echo "Running isolated concurrency test: $script"
   bash "backend/test/$script"
 done
-echo "All nine concurrency tests passed; disposable database cleanup follows."
+echo "All ten concurrency tests passed; disposable database cleanup follows."
