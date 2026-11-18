@@ -3475,3 +3475,14 @@ Latest Actions runs after account-deletion claim validation: `44320553737`, `443
 - **Коммиты:** test `33299508fcef9cab4141fec4a8974294e0f53a40`; audit `6bbcca306f65ba4c3fb0f170ef29c5ab535d5d4c`.
 - **Проверка владельца:** после clean `git pull --ff-only origin main` выполнить `node --test backend/test/account-deletion-worker.test.js`; сохранить полный вывод и exit code. Затем выполнить только disposable PostgreSQL integration tests для durable account-deletion queue/worker. Не запускать worker против production и не включать его в production.
 - **Ожидаемый результат:** Node test exit code 0; malformed claim payload вызывает только claim RPC; корректные preflight/erase/finalize fixtures проходят strict validator; SQL queue tests проходят на disposable DB. При любом падении приложить полный вывод, ничего не обходить.
+
+
+### UA-061 — account deletion exact-count runtime acceptance (2026-11-18)
+
+- **Статус:** fail-closed code and regression tests published; runtime Node/PostgreSQL NOT VERIFIED.
+- **Причина:** exact count response `null`/missing silently coerced to zero in account deletion preflight, potentially undercounting user data.
+- **Изменение:** strict `normalizeExactCount` accepts only non-negative safe integers across direct owned tables, email_outbox and pins.
+- **Файлы:** `backend/accountDeletionWorker.js` blob `3b045acd8600f372a712f0792760eb3145ea1e87`; `backend/test/account-deletion-worker.test.js` blob `ca4786fe629e75662715027c100664bfaa40254b`; audit `docs/audits/2026-11-18-account-deletion-exact-count-fail-closed.md`.
+- **Коммиты:** source `84fd644bd1da61461af41925ed111e1b6be8fb22`; test `2a356ba88c3aabdf2da5c57e534c67fd4612ed0d`; audit `3dc4e48ef01daa03c2f684b787eff1585b47d091`.
+- **Проверка владельца:** после `git pull --ff-only origin main` выполнить `cd backend; node --test test/account-deletion-worker.test.js`. Сохранить полный вывод и exit code. Затем выполнить только disposable PostgreSQL integration suite по account deletion durable queue/storage manifest. Production не использовать; worker не включать.
+- **Ожидаемый результат:** focused Node tests exit code 0; malformed count fails with `invalid_exact_count`, while true zero remains valid. Любое падение сохранить без обхода.
