@@ -174,3 +174,15 @@ Current script blob: `308214f70ca518016aa6d39b33ce0e2ee466e081`; update commit `
 Current contract blob: `12721cfaad66b32eddb68c023d4c426dff4db4a2`; update commit `c14cb39e8cc25f7c98ab6d3beb61641589b3e3bd`.
 
 Static inspection also reconfirmed 10 unique concurrency runner entries, 49 unique SQL manifest entries, and 151 migrations 010–160. Latest atomic workflow run `44315382265`, job `134839972556`, failed before runner allocation (`runner_id=0`, no runner name, zero steps). Runtime remains **NOT VERIFIED**; none of the Bash, Node or PostgreSQL assertions can be treated as executed.
+
+
+## Follow-up — durable deletion preflight job assertions (2026-11-18)
+
+The race harness and Node contract were extended to verify not only the pending deletion request and immutable `request_accepted` event, but also exactly one durable `account_deletion_jobs` row with `step_key = 'preflight'` and `status = 'pending'` after both lock orders.
+
+- Race script current blob: `805a076a23e40e0b7263c5a45bb88035d7c4603b`.
+- Contract current blob: `e315d6cb694465e3ea116c2cf828ef13d8d1f268`.
+- Regression commit: `e602d42894db555c6b97ed244bf9834b86bf3303`.
+- The deletion-first case also checks the user's balance through the loaded user row (`v_user.credits_balance = 5`) while requiring zero credit ledger rows, canceled credit purchase and subscription, no subscription period/tariff change, and both receipt decisions withheld.
+
+Static re-fetch confirms the new assertions are in the SQL script and Node contract. The latest atomic workflow run `44315630744`, job `134840855489`, failed before runner allocation (`runner_id=0`, empty runner name, zero steps). Runtime remains **NOT VERIFIED**; no test execution or CI pass is claimed.
