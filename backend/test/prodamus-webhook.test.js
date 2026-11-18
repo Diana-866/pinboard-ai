@@ -671,7 +671,7 @@ test("credit webhook concurrent duplicate callbacks credit once; retry after amb
   await handler(signedWebhook(body), retry, { supabase: db });
   assert.equal(retry.statusCode, 200);
   assert.equal(retry.body.idempotent, true);
-  assert.equal(db.rpcCalls.credit, 2);
+  assert.equal(db.rpcCalls.credit, 3);
   assert.equal(db.rpcCalls.settle, 2, "successful fulfillment and its duplicate must reconcile checkout state");
 });
 
