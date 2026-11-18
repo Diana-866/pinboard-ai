@@ -2,7 +2,7 @@
 
 **Repository:** Diana-866/pinboard-ai  
 **Branch:** main  
-**Latest code/test/workflow change commit (runtime verification pending):** 9e93163b7a6cd9c0a69ea206f26d9709fcce4f6d  
+**Latest code/test/workflow change commit (runtime verification pending):** ce36d6ee38a3df4cc0fb450445bcf5ea02d3c0c8  
 **Inventory refreshed:** 2026-11-18 (supplemental new files appended; full metadata inventory refresh not performed)  
 **Scope:** all documentation files under docs/ (Markdown and SQL), excluding this register itself.
 
@@ -1426,3 +1426,18 @@ Commits: `d35733a03c2370971d3b41ea603c52186f6e2143` (source), `2cb3bc60a52f23a96
 Commits for URL hardening/tests: `8ee8bc5036ecabbbcb24341111b5f5b91ca56947`, `dab469b742abcfcabd217c810298440bfd849a63`, `86a2c3978cddb36f44d9eb148ca63cf671c7098d`, `e57a0ea93e4206ebe848eb23fd6923865e7da17b`, `cc6f81ad0d0077878eba8a359fb3721ab5c60812`, `9e93163b7a6cd9c0a69ea206f26d9709fcce4f6d`. Detailed report records the runtime/CI boundary; tests remain NOT RUNTIME-VERIFIED.
 
 **Latest observed Prodamus Actions run:** `44306870084` failed; job `134810593751` returned no steps/log URL. Exact failure cause unknown. Owner UA-036 updated. Related report: `docs/audits/2026-11-18-prodamus-rub-webhook-amount-selection.md`.
+
+
+### 2026-11-18 — Prodamus per-request webhook URL HTTPS guard
+
+| Path | Blob SHA / purpose |
+|---|---|
+| `backend/prodamus.js` | `db96f8afb6fdfa29f2a4aa39fa63fde9ece358c1` — validates per-request notification URLs as HTTPS without embedded credentials; includes RUB amount-field metadata correction |
+| `backend/billing.js` | `82f24c63c31f63cb8d0586bb5a0c798b1593dc73` — preflights notification URL before subscription checkout idempotency reservation |
+| `backend/creditsBilling.js` | `62cb1b27dbbedd1093d1062944f1b99a7154ce41` — preflights notification URL before credit checkout idempotency reservation |
+| `backend/test/prodamus-webhook.test.js` | `cda5c65104c626d28789573b46b2709a6bd5f97f` — HTTPS, credentials, malformed URL and provider-payload regression coverage |
+| `backend/test/billing-security-contract.test.js` | `7183451d356680463d852cdc29fc99826a31acfa` — asserts both checkout handlers validate before reserving idempotency |
+| `backend/test/prodamus-ambiguous-checkout.test.js` | `cdc64bf186ce2aa16c260225e2b1c0a0436cbe70` — verifies invalid callback config creates no payment row or idempotency reservation |
+| `docs/audits/2026-11-18-prodamus-webhook-url-https-guard.md` | Full root cause, source/test/workflow coverage, commits, Actions metadata and runtime verification boundary |
+
+Commits: `8ee8bc5036ecabbbcb24341111b5f5b91ca56947`, `dab469b742abcfcabd217c810298440bfd849a63`, `86a2c3978cddb36f44d9eb148ca63cf671c7098d`, `e57a0ea93e4206ebe848eb23fd6923865e7da17b`, `cc6f81ad0d0077878eba8a359fb3721ab5c60812`, `9e93163b7a6cd9c0a69ea206f26d9709fcce4f6d`; separate RUB amount metadata correction: `ce36d6ee38a3df4cc0fb450445bcf5ea02d3c0c8`. The existing Prodamus checkout workflow already watches and runs these paths. Latest Prodamus Actions run `44306613409` failed with job runner_id 0 and no steps; tests NOT RUNTIME-VERIFIED, exact failure cause UNKNOWN. Vercel status was SUCCESS on intermediate source/test commit `cc6f81ad0d0077878eba8a359fb3721ab5c60812`; no deployment is confirmed. No production resource or external service was touched.
