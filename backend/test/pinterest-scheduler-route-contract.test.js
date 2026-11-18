@@ -96,7 +96,13 @@ test("schedule creation persists and reconciles the resolved project destination
   assert.notEqual(end, -1, "pin schedule route boundary must exist");
   const route = source.slice(start, end);
 
-  assert.ok(route.includes("const snapshotDestinationUrl = destinationUrl || snapshotPin.boards?.projects?.website_url || null"));
-  assert.ok(route.includes("destination_url: snapshotDestinationUrl"));
-  assert.ok(route.includes('String(existing.destination_url || "") === String(snapshotDestinationUrl || "")'));
+  // The route normalizes an explicit URL and, when omitted, validates the
+  // project's website URL before freezing the resolved destination snapshot.
+  assert.match(route, /let snapshotDestinationUrl = destinationUrl/);
+  assert.match(route, /if \(!snapshotDestinationUrl && snapshotPin\.boards\?\.projects\?\.website_url\)/);
+  assert.match(route, /normalizePinterestDestinationUrl\(snapshotPin\.boards\.projects\.website_url\)/);
+  assert.match(route, /У проекта сохранена некорректная ссылка для публикации/);
+  assert.match(route, /destination_url: snapshotDestinationUrl/);
+  assert.match(route, /destinationUrl: snapshotDestinationUrl/);
+  assert.match(route, /isSamePinScheduleRequest\(existing/);
 });
