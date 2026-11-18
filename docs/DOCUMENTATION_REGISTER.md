@@ -1477,3 +1477,24 @@ Correction commit: `05bd81bbbb9775e2f671e8d730c9d5442fa8b9a8`. Latest Prodamus r
 - `docs/audits/2026-11-18-prodamus-api-endpoint-https-guard.md` latest blob: `5490c071317008fbebcdbd09e0de29ec2470a3f4` — includes the redirect guard chronology and verification boundary.
 
 Source commit: `f89803b544a78ef15fc4d75220225d4f89edb53a`; test commit: `facc0c992b122106f72d7adc80e70a0f28b82fff`. The existing six-file workflow includes the updated test. Runtime verification remains NOT VERIFIED; Vercel was PENDING at last check and no Actions result for the latest commit was observed. No production deployment or payment operation is confirmed.
+
+
+## Supplemental inventory — payment fulfillment lifecycle fence (2026-11-18)
+
+| Path | Blob SHA | Purpose / verification status |
+|---|---|---|
+| `docs/audits/2026-11-18-payment-fulfillment-account-lifecycle-fence.md` | `5ff9e5fdc16bfc410c1e8325f2c5ffe617af706a` | Root cause, migration/test/runner changes, commits, CI evidence, safety boundary and remaining receipt-journal work |
+| `db/migrations/157_payment_fulfillment_user_first_lifecycle_fence.sql` | `3ca8d1a8c21afecfe0d61131da7168bfe1dff1e8` | User-first lock order and active-account gate for credit/subscription fulfillment RPCs |
+| `backend/test/payment-deletion-lifecycle-fence.integration.sql` | `5712883351ab84a914704578507bc8c12f910b4d` | Regression for canceled credit/subscription late success after deletion fence |
+| `.github/workflows/atomic-payment-integration.yml` | `524317f02b88939780056831f1e75ed555a44b03` | Applies migration 157 and runs the new SQL test |
+| `scripts/verify-integration.ps1` | `2a6a671649ececdfbe91cd6edfeb3cb641533589` | Guarded local disposable runner: 148 migrations / 47 SQL tests |
+
+Additional chain references:
+- `scripts/verify.sh`: `792e7de4b730f4540ef612892905be67edb2c10f`.
+- `scripts/verify.ps1`: `2a34f9e50b60c17e98e42295801b0060acca397b`.
+- `backend/test/db-migration-chain.test.js`: `7a36289cf8ad038873fcd05a984590b23be99767`.
+- `backend/test/postgres-integration-runner-contract.test.js`: `1a97bd975a1629e62c82433e5c1f1ae9861861fa`.
+- `backend/test/verify-script-migration-chain.test.js`: `7208d40d2b20fbc564103c36be58affe4c7a273d`.
+- `backend/test/postgres-integration-sql-manifest.txt`: `e95890a97fe1da8cdbecd02f20cfab1fc57e2034`.
+
+Migration commit: `2f7ef442872c4c16d501f2d19a5ba9f0601533da`; test fixture final commit: `63c02f2e7540e8f510e819c5728957c25e065931`. Source-level consistency checks confirmed 148 migration prefixes and 47 SQL manifest entries. The three Node preflight files have 50 top-level tests by static count. No Node or PostgreSQL runtime test was executed. Actions run `44308754607` failed before exposing steps/logs (job `134817075814`, logs 404); Vercel status on code/test HEAD is FAILURE target `build-rate-limit`. Runtime remains NOT VERIFIED. Do not treat this inventory update as a production-readiness sign-off.
