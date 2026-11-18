@@ -3228,3 +3228,12 @@ Current race script blob: `805a076a23e40e0b7263c5a45bb88035d7c4603b`; safety con
 The payment/deletion race now additionally requires exactly one `account_deletion_jobs` row for the user request, with `step_key='preflight'` and `status='pending'`, after both payment-first and deletion-first lock orders. The contract test requires this assertion. Deletion-first verifies both independent payment sessions wait on the user lock before release, then confirms the user balance/ledger, purchase/subscription states, tariff/period and both withheld receipt decisions.
 
 Run UA-047/UA-048's synchronization and runtime sequence. The full acceptance counts remain 151 migrations (010–160), 49 SQL tests, 51 Node preflight tests and 10 unique concurrency scripts. Require visible execution and cleanup PASS. Latest atomic run `44315630744`, job `134840855489`, failed before runner allocation; runtime remains NOT VERIFIED. Do not infer that any tests ran.
+
+
+### UA-050 — execute four isolated deletion/payment race cases (2026-11-18)
+
+Current race script blob: `6f1c08950a4a449f5c041aebdf65ca257bd29b4e`; Node concurrency contract blob: `91e53359eee7257279e45a6ede7f6d74f86a3ef8`; audit blob: `3610a1f854cec014e0c1372a5fc4e9ce14ff209b`.
+
+The race harness is now structured as four isolated cases, each with its own user/payment/receipt fixture: credit payment-first, credit deletion-first, subscription payment-first and subscription deletion-first. Each uses the actual three-argument deletion RPC, token-version fence, immutable acceptance event and pending preflight job assertions. Credit and subscription entitlements are asserted independently. The outer concurrency runner must drop the entire disposable DB clone because immutable deletion fixtures are intentionally retained.
+
+After syncing latest main, run UA-046 preflight and then Bash syntax + Node concurrency contract checks. Require the GitHub Actions atomic-payment workflow to visibly execute all ten concurrency scripts and all four race cases, then confirm disposable clone cleanup. Runtime remains NOT VERIFIED; no test pass is inferred from static checks or runner-allocation failures.
