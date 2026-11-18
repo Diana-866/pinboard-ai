@@ -2058,3 +2058,11 @@ The combined status for the later documentation HEAD `a201002b668d7a9c962979cbf4
 - Follow-up inspection of `getWebhookPaymentAmount` found that its returned `amountField` metadata still named `currency_sum` whenever that property existed, even though RUB amount validation now uses `sum`. Corrected metadata to report the actual field: `sum` for RUB and `currency_sum` for non-RUB. Commit `ce36d6ee38a3df4cc0fb450445bcf5ea02d3c0c8`, blob `db96f8afb6fdfa29f2a4aa39fa63fde9ece358c1`.
 - The existing regression test asserts the RUB result's `amountField: "sum"`; the follow-up source was re-fetched and statically checked against that assertion. No Node runtime test was executed. Detailed report addendum: `docs/audits/2026-11-18-prodamus-rub-webhook-amount-selection.md`, update commit `ed2d0d0b16a02a58912f375736c40b097a699ed3`.
 - Vercel SUCCESS was observed on intermediate docs HEAD `16b7e65bfa03a2686603585e657d399bbcf164dc`; this does not establish current HEAD deployment or GitHub Actions test success. Existing UA-035/UA-036 blockers remain.
+
+
+### 2026-11-18 — Prodamus CI outcome after webhook hardening commits
+
+- Reconciled latest `main`; source/test head `9e93163b7a6cd9c0a69ea206f26d9709fcce4f6d` includes the RUB amount-field regression and the HTTPS webhook URL preflight regression. Final source blob `db96f8afb6fdfa29f2a4aa39fa63fde9ece358c1`; Prodamus test blob `cda5c65104c626d28789573b46b2709a6bd5f97f`.
+- Prodamus Actions run `44306870084` concluded FAILURE; job `134810593751` (`checkout-regressions`) returned `logs_url: null`, `steps: null`, and the job-steps endpoint returned an empty list. Test command execution and failure cause are UNKNOWN. Related persisted-boards run `44306870062` and atomic-payment run `44306870099` also failed; causes are not established. No blind rerun initiated.
+- Vercel status on documentation HEAD `e352231794389a252835485ac5256d9ea922aa64` was PENDING at check time; no deployment confirmation. No local Node tests were executed. Audit report updated in commit `9c134bbb423ff5087719cae181925b821ca5a85d`.
+- UA-036 remains the owner path to inspect the Actions UI and provide logs; UA-035 PostgreSQL SQL integration remains separate and unresolved. Do not enable live payments or invite first users.
