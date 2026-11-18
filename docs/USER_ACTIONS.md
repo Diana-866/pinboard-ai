@@ -3434,3 +3434,14 @@ Run `node --test backend/test/schedule-worker.test.js` alongside the UA-056 rout
 - Vercel combined status on main is `failure / build-rate-limit`; deployment is not confirmed and this is not evidence of source-test failure.
 - Latest recorded Actions runs: atomic payment `44319401720`, persisted boards `44319401655`; both have no job steps/logs returned. Runtime NOT VERIFIED.
 - Run owner-local focused Node tests (UA-053, UA-055, UA-056) and disposable PostgreSQL checks only after restoring runner access. No production DB, real payment, live Pinterest publication or real account deletion.
+
+
+### UA-058 — email outbox claim RPC contract regression (2026-11-18)
+
+- **Статус:** код и регрессионные тесты опубликованы; Node/PostgreSQL runtime NOT VERIFIED.
+- **Первопричина:** `dispatchPendingSubscriptionEmails()` преобразовывал `data: null`/malformed response от `claim_email_outbox` в `[]`, затем возвращал успешный `processed: 0`. SQL migration 030 определяет RPC как `SETOF public.email_outbox`; корректная пустая очередь — массив `[]`.
+- **Исправление:** проверяется весь batch до SMTP/mark/retry: ограниченный массив, уникальные ID, `claim_token`, `subscription_id`, `recipient_email`, `template_key`, object `payload`. Некорректный ответ бросает ошибку, не отправляя ни одного письма.
+- **Файлы:** `backend/billing.js` blob `3818dedcfbbbac0fa6a1f36b9009328a07d97d67`; `backend/test/email-outbox.test.js` blob `da9438ed59e9d3c3e791a1feee8ffb5ff25f12ad`; migration 030 blob `75a4d24e85327384f6089e2d340c9841a857e8eb`.
+- **Коммиты:** `4bd9145198a643a5878652054cd41ae77cb529a1`, `c1fc19af5d217a58c29dcbda0d0bdf64ac761f0c`; audit commit `d8f6f6ae22469bd58cce46a8d2beb2f743870f18`.
+- **Команды на clean local checkout:** `node --test backend/test/email-outbox.test.js`; затем focused billing/webhook tests from the project manifest. PostgreSQL acceptance: run the email outbox claim/mark/retry SQL scenarios only against disposable PostgreSQL, checking empty result `[]`, claimed row identity, and stale-lease recovery. Не использовать production.
+- **Ограничение:** тесты в этой среде не запускались. No SMTP or real customer mail was sent. Do not mark this integration as verified until owner runtime evidence is recorded.
