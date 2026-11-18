@@ -2409,3 +2409,13 @@ The combined status for the later documentation HEAD `a201002b668d7a9c962979cbf4
 ### Deletion-worker manifest fail-closed audit reference refresh — 2026-11-18
 
 The detailed stable-pagination audit now includes the null/invalid inventory-page and Storage-manifest response addendum. Current audit blob: `d0c94414069590d462a956c701d98c935654f217` (documentation commit `d0c94414069590d462a956c701d98c935654f217`). Current source/test blobs remain worker `1df861ccc0f05cc8b787f51c5e111bc07d3660cb` and test `292c619f9717f862589aecadfa9f9855662b7f9b`; runtime remains NOT VERIFIED.
+
+
+### Latest platform status after deletion/admin pagination follow-ups — 2026-11-18
+
+- Current pre-note main HEAD: `18056e35326265c24301979461bbc1692b162914`. Re-fetched the current project state, owner actions, documentation register, worker, worker regression, admin statistics source and admin regression.
+- Account-deletion worker current blob `1df861ccc0f05cc8b787f51c5e111bc07d3660cb`: deterministic `id ASC` pagination; rejects non-array inventory pages and non-array initial/final Storage manifest responses. Regression blob `292c619f9717f862589aecadfa9f9855662b7f9b` covers all three malformed/null responses.
+- Admin stats current source/test blobs `87bcb9d9d540a1ec4a0700d01f0f94f04a916faf` / `7788913a7fa20eab951956661ac3d0b0d496866e`; both users and credit_transactions are paged by unique `id ASC`, with six page requests covered by the test.
+- Latest atomic Actions run `44318456320` / job `134850721164` failed; GitHub returned no job steps. Latest persisted-boards run `44318455249` also failed. No test execution is evidenced by these job summaries.
+- Vercel combined status for pre-note HEAD `18056e35326265c24301979461bbc1692b162914` is FAILURE / `build-rate-limit`. This is a platform quota status, not a source compilation diagnostic.
+- Static inventory remains 152 contiguous migrations 010–161, 49 unique SQL tests all referenced by the workflow, 52 Node preflight test declarations and 10 concurrency scripts. Node/Bash/PowerShell/PostgreSQL/SQL runtime remains NOT VERIFIED. No production data, live payments, Storage objects or real accounts were touched. Keep payments, first-user invitations and deletion-worker rollout blocked.
