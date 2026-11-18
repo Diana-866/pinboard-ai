@@ -90,7 +90,7 @@ try {
 
     $migrationDirectory = Join-Path $repoRoot 'db/migrations'
     $migrations = @(Get-ChildItem -LiteralPath $migrationDirectory -Filter '*.sql' -File |
-        Where-Object { $_.Name -match '^(\d{3})_' -and [int]$Matches[1] -ge 10 -and [int]$Matches[1] -le 157 } |
+        Where-Object { $_.Name -match '^(\d{3})_' -and [int]$Matches[1] -ge 10 -and [int]$Matches[1] -le 158 } |
         Sort-Object { [int]($_.Name.Substring(0,3)) })
     if ($migrations.Count -ne 149) { throw "Expected 149 active migrations 010-158; found $($migrations.Count)." }
     for ($i = 0; $i -lt 149; $i++) {
@@ -98,7 +98,7 @@ try {
     }
 
     $sqlTests = @(Get-Content -LiteralPath $manifestPath | ForEach-Object { $_.Trim() } | Where-Object { $_ -and -not $_.StartsWith('#') })
-    if ($sqlTests.Count -ne 47 -or ($sqlTests | Select-Object -Unique).Count -ne 47) { throw "Expected 47 unique SQL integration tests; found $($sqlTests.Count)." }
+    if ($sqlTests.Count -ne 48 -or ($sqlTests | Select-Object -Unique).Count -ne 48) { throw "Expected 48 unique SQL integration tests; found $($sqlTests.Count)." }
     foreach ($test in $sqlTests) {
         if ([IO.Path]::GetFileName($test) -ne $test -or -not $test.EndsWith('.sql',[System.StringComparison]::OrdinalIgnoreCase)) {
             throw "Unsafe SQL test manifest entry: $test"
