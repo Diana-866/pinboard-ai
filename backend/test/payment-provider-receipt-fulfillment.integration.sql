@@ -7,6 +7,8 @@ declare
   v_subscription_user uuid;
   v_deleted_user uuid;
   v_mismatch_user uuid;
+  v_deleted_subscription_user uuid;
+  v_deleted_subscription uuid;
   v_purchase uuid;
   v_subscription uuid;
   v_deleted_purchase uuid;
@@ -220,6 +222,38 @@ begin
      or not exists (select 1 from public.credit_purchases where id = v_deleted_purchase and status = 'canceled')
      or not exists (select 1 from public.payment_entitlement_decisions where receipt_id = v_receipt and decision = 'withheld_account_lifecycle') then
     raise exception 'withheld payment mutated account entitlements or lost its decision';
+  end if;
+
+  insert into public.users(email, account_status)
+  values ('migration159-deleted-subscription@example.invalid', 'deletion_pending')
+  returning id into v_deleted_subscription_user;
+  insert into public.subscriptions(
+    user_id, plan, status, provider_payment_id, amount, currency
+  ) values (
+    v_deleted_subscription_user::text, 'agency', 'canceled',
+    'migration159-deleted-subscription-order', 12990.00, 'rub'
+  ) returning id into v_deleted_subscription;
+  v_receipt := public.record_prodamus_payment_receipt(
+    'subscription', 'migration159-deleted-subscription-order', 'success',
+    12990.00, 'rub', repeat('f', 64)
+  );
+  v_result := public.activate_paid_subscription_with_receipt(
+    v_deleted_subscription, '2026-11-18T10:00:00Z', v_receipt
+  );
+  if v_result->>'decision' <> 'withheld_account_lifecycle' then
+    raise exception 'deletion-pending subscription was not durably withheld: %', v_result;
+  end if;
+  if not exists (
+    select 1 from public.subscriptions where id = v_deleted_subscription
+      and status = 'canceled' and period_start is null and period_end is null
+  ) or not exists (
+    select 1 from public.users where id = v_deleted_subscription_user
+      and tariff_plan = 'none' and tariff_period_end is null
+  ) or not exists (
+    select 1 from public.payment_entitlement_decisions
+     where receipt_id = v_receipt and decision = 'withheld_account_lifecycle'
+  ) then
+    raise exception 'withheld subscription mutated tariff or lost its decision';
   end if;
 
   insert into public.users(email, credits_balance, account_status)
