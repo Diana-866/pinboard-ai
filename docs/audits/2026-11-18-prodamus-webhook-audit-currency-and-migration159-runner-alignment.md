@@ -70,3 +70,40 @@ Both diffs were reviewed and retained. These changes bind receipt decision persi
 ## Next engineering step
 
 Review migration 159 and the webhook handler end-to-end for receipt-to-local-payment identity binding, duplicate/late callback behavior and account-deletion concurrency. Add a two-session disposable PostgreSQL race regression for deletion versus receipt-bound entitlement fulfillment. Keep live payments and first-user invitations blocked until runtime, SQL, CI, frontend/backend, deployment and operational gates are proven.
+
+
+## Follow-up — terminal receipt identity fencing and SQL regression (2026-11-18)
+
+Main advanced after the initial report. The following commits were reconciled and retained:
+
+- `21b5e3b2bb6edfaab09163f9fefe28bb1d101e25` updates the duplicate credit webhook regression to expect the third receipt-bound fulfillment RPC call on a retry.
+- `960098479cb1598bf3152556ab427585f0a7ad19` removes a duplicate copy of `payment-provider-receipt-fulfillment.integration.sql` from the SQL manifest. The final manifest is 49 unique entries; current blob `730cd86a5b3a0ce259fe1e2fb991fe4460b0079a`.
+- `3eb25129c89c49230bf2147f692c27884c112054` hardens migration 159 so a terminal receipt decision cannot be rebound to a different local credit purchase or subscription. Before returning a prior terminal decision, both RPCs revalidate provider order ID, amount and currency; a conflicting terminal receipt raises an exception. Migration 159 current blob: `30519439d7423cbc84db1fbca2cc638b74c60723`.
+
+### Added SQL regression
+
+Extended `backend/test/payment-provider-receipt-fulfillment.integration.sql` to:
+- attempt to reuse a previously granted credit receipt against a different local credit purchase and require the explicit terminal-identity conflict;
+- assert the second user's credit balance and ledger remain unchanged;
+- attempt to reuse a previously granted subscription receipt against a different local subscription and require the explicit terminal-identity conflict;
+- assert the second subscription remains canceled and the second user's tariff remains `none`.
+
+SQL test commit: `a6f10ab8ced8959a9bd008e782c6fd102de335df`; current blob `6c2bb6c9504c0c0f8ab0e6c940c92e19888b1500`. The test remains part of the existing 49-entry manifest and CI SQL workflow; no extra manifest entry is needed.
+
+### Current CI evidence
+
+On current test commit `a6f10ab8ced8959a9bd008e782c6fd102de335df`:
+- Atomic payment workflow run `44313603402`, job `134833780856`: FAILURE, `runner_id=0`, empty runner name, no steps.
+- Persisted boards workflow run `44313603407`, jobs `134833780522` and `134833780968`: FAILURE, `runner_id=0`, empty runner names, no steps.
+
+The failure is still before runner allocation; there is no evidence that migration replay or tests executed. Exact platform/queue cause remains UNKNOWN. Do not interpret these failures as test assertions failing, and do not blindly rerun.
+
+### Current verification boundary
+
+Static inspection confirms the terminal-identity checks are present in both migration 159 RPCs and the SQL regression covers both payment kinds. The new SQL test, Node preflight, Node webhook audit suite and complete PostgreSQL replay were not executed by the assistant. Runtime remains **NOT VERIFIED**. No production database, live payment, provider account, or deployment was touched.
+
+### Next steps
+
+- Owner: follow UA-042 (51 Node preflight tests, then guarded local disposable PostgreSQL with 150 migrations and 49 SQL tests) and UA-043 (billing webhook audit Node test).
+- Engineering: add a two-session concurrency regression for account deletion racing receipt-bound fulfillment; continue reviewing webhook identity and duplicate/late delivery handling.
+- Keep live payments and first-user invitations blocked until the required runtime and operational gates are demonstrated.
