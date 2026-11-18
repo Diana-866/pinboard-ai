@@ -1657,3 +1657,14 @@ Commits: `95cacfef0f5d931c686b20a63afe2882247b0da3`, `c14cb39e8cc25f7c98ab6d3beb
 | `docs/USER_ACTIONS.md` | `e25af37aabc1a0f1af208c6f1c43528d2d451d3d` | UA-048 addendum with latest runtime gate |
 
 Commits: `ccae989aeb7cbcd4425f16a6896667c9495787ee`, `e602d42894db555c6b97ed244bf9834b86bf3303`, audit `dcc90c97137dc611649f8ee4d1400860586ef74b`, owner action `916c868b82f4ef39cbf2f080347b0213e67293ac`. Static source review only; Bash/Node/PostgreSQL/CI remain NOT VERIFIED.
+
+
+## Supplemental inventory — durable deletion preflight enqueue assertion (2026-11-18)
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `backend/test/payment-deletion-receipt-race-concurrency.sh` | `805a076a23e40e0b7263c5a45bb88035d7c4603b` | Verifies one pending preflight job after both lock orders; includes independent credit/subscription waiters |
+| `backend/test/postgres-concurrency-safety-contract.test.js` | `e315d6cb694465e3ea116c2cf828ef13d8d1f268` | Requires account_deletion_jobs/preflight assertion and both payment-kind lock outcomes |
+| `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md` | `619402188b5bd00dea0a0c31e755fb5f154170e4` | Documents durable queue assertion and latest pre-runner CI evidence |
+
+Regression commit: `e602d42894db555c6b97ed244bf9834b86bf3303`. Runtime remains NOT VERIFIED. See UA-049.
