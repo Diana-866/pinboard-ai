@@ -364,6 +364,12 @@ test('migrations 159 and 161 atomically bind grants to receipt fulfillment and d
   assert.match(grantGuard, /revoke all on function public\.mark_prodamus_entitlement_granted\([\s\S]*?from public, anon, authenticated, service_role/i);
   assert.match(grantGuard, /grant execute on function public\.set_prodamus_payment_decision\([\s\S]*?to service_role/i);
   assert.match(grantGuard, /perform public\.mark_prodamus_entitlement_granted/i);
+  assert.match(grantGuard, /v_decision\.local_payment_id is distinct from p_local_payment_id/i);
+  assert.match(grantGuard, /v_payment_amount is null/i);
+  assert.match(grantGuard, /abs\(v_receipt\.received_amount - v_payment_amount\) > 0\.01/i);
+  assert.match(grantGuard, /coalesce\(v_receipt\.received_currency, 'rub'\)/i);
+  assert.match(integration, /authenticated must not execute private granted-decision helper/i);
+  assert.match(integration, /authenticated must not execute non-grant decision RPC/i);
   assert.match(integration, /direct granted transition/i);
   assert.match(integration, /direct granted-decision helper must remain private/i);
   assert.ok(workflow.includes('db/migrations/159_atomic_prodamus_receipt_entitlement_fulfillment.sql'));
