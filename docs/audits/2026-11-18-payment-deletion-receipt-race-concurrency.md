@@ -60,3 +60,28 @@ Added `backend/test/payment-deletion-receipt-race-concurrency.sh`:
 3. Extend race coverage to the full account-deletion acceptance RPC and subscription fulfillment path after inspecting the exact acceptance function contract.
 4. Update the documentation register with the current migration-159 blob and this report.
 5. Keep live payments and first-user invitations blocked until payment, database, application, deployment and operational release gates are all verified.
+
+
+## Follow-up — migration 160, concurrency-suite deduplication and runner alignment (2026-11-18)
+
+### Mainline migration 160
+
+Mainline added `db/migrations/160_prodamus_receipt_local_payment_binding_guard.sql` (blob `7005ec7ce7a802312bb1376284892309a67fa226`). It stores and validates the full terminal decision row (decision, local payment kind, local payment ID and user ID) before treating a receipt as terminal; repeated `rejected_mismatch` callbacks for the same payment are idempotent, while cross-payment reuse remains rejected. It also bounds the supplied user reference to 200 characters in the decision RPC (commit `1e85641290ba3c360856aad734d858a3150aed13`).
+- The receipt fulfillment integration SQL now covers the migration-160 rejected-mismatch retry and subscription lifecycle cases; current blob `f7fdc7a05bba1bc45f2b4f78652a7365422b4778`.
+- The active canonical migration chain is now **151 migrations, 010–160**. The SQL manifest remains **49 unique tests**.
+
+### Concurrency suite correction
+
+- The receipt/deletion race script was wired into the disposable suite, but reconciliation exposed that a concurrent edit had inserted it twice. The runner and safety-contract list were corrected to contain **10 unique scripts**, not 11 entries with a duplicate. Runner blob `827a2cd063d64668102bdf36e97e4a73dffba0af`; safety-contract blob `ab84f345305ee793a74e30cb4ad9ff871b62e69c`. The contract now explicitly asserts uniqueness.
+- The Windows disposable runner was advanced to 151 migrations, 010–160, and its stale error message was corrected from 150 to 151. The Node runner contract now checks the migration and SQL counts. Windows runner blob `a1af92050d64db66f5081c1425e49247ef074173`; Node contract blob `0f4f79af08145f19f64c76541be3de5fd5b88198`.
+- Static re-fetch checks confirmed: 10 runner entries / 10 unique names; 49 manifest entries / 49 unique names; runner checks 151 migrations, 49 SQL tests and ten Bash concurrency scripts.
+
+### Latest CI evidence
+
+- Atomic workflow run `44314411889`, job `134836635174`: FAILURE, `runner_id=0`, empty runner name, zero steps.
+- Persisted-boards workflow run `44314412188`, jobs `134836636827` and `134836637267`: FAILURE, `runner_id=0`, empty runner names, zero steps.
+- Exact cause remains UNKNOWN; these results do not show that migration replay, Node tests, SQL tests or concurrency scripts ran.
+
+### Verification boundary and next work
+
+Bash syntax, Node concurrency-safety contract, Node migration-runner contract, PostgreSQL race harness, 151-migration replay, 49 SQL tests and the ten-script concurrency suite were not executed by the assistant. Runtime remains **NOT VERIFIED**. The race harness still covers the credit receipt path and models the account-deletion fence by updating `users.account_status`; it does not yet invoke the full deletion acceptance queue RPC/worker or test subscription races. Continue by extending the race to the exact deletion acceptance RPC and subscription fulfillment, then obtain an executed isolated CI run. No production database or live payment was touched.
