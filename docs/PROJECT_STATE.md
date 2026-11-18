@@ -2226,3 +2226,14 @@ The combined status for the later documentation HEAD `a201002b668d7a9c962979cbf4
 - Audit: `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md`, blob `0985e2571d2ef5e612151e11ddb5184c2f7acd68`. Owner runtime action UA-047. Documentation register includes current blobs.
 - **Verification boundary:** re-fetched migration 130, script and contract; statically confirmed the three-argument signature, both call sites, the event assertion, cleanup trap and no deletion of immutable requests. Bash syntax, Node tests, PostgreSQL races, 151-migration replay, 49 SQL tests and CI execution were **NOT RUN**. Runtime remains NOT VERIFIED; no build/deployment or test pass is claimed. Run only through the unique disposable clone runner; never use a persistent shared or production database.
 - Next: obtain a real executed isolated CI run for the four race cases and all ten concurrency scripts; then continue the next open production-readiness item from the project passport. Live payments and first-user invitations remain blocked.
+
+
+### 2026-11-18 — Final payment/deletion race harness contract reconciliation
+
+- Re-fetched the current race script, concurrency safety contract, disposable suite, Windows migration runner, current docs and Actions job before recording this follow-up.
+- Tightened the race harness to pass the exact three-argument deletion RPC signature in both lock orders and assert the token-version transition exactly once (user token version 1, request token version 1, one immutable `request_accepted` event).
+- In the deletion-first order, credit and subscription fulfillment now execute in independent PostgreSQL sessions; the test waits for both sessions to be visible lock waiters before releasing the deletion transaction. The payment-first order holds the user lock while both receipt-bound fulfillment RPCs run before the actual deletion acceptance RPC can proceed.
+- Current race script blob `308214f70ca518016aa6d39b33ce0e2ee466e081`, commit `95cacfef0f5d931c686b20a63afe2882247b0da3`; current safety contract blob `12721cfaad66b32eddb68c023d4c426dff4db4a2`, commit `c14cb39e8cc25f7c98ab6d3beb61641589b3e3bd`.
+- Static re-fetch confirms 10 unique concurrency runner entries, 49 unique SQL tests and 151 canonical migrations 010–160. No runtime execution is claimed.
+- Latest atomic workflow run `44315382265`, job `134839972556`, failed before runner allocation (`runner_id=0`, empty runner name, zero steps). No test result can be inferred.
+- Detailed report updated: `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md`, blob `502235615aadaf1f0e345a0ac5e01ccfac48657a`. Owner action UA-048 below. Keep live payments and first-user invitations blocked.
