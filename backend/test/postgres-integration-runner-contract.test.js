@@ -180,11 +180,11 @@ test('durable account deletion queue test expects the Storage manifest guard add
   assert.ok(stageGuards.indexOf("raise exception 'account deletion Storage manifest is required';") < stageGuards.indexOf('update public.account_deletion_jobs'));
 });
 
-test('CI migration list remains the complete contiguous 010-157 chain', () => {
+test('CI migration list remains the complete contiguous 010-158 chain', () => {
   const prefixes = [...workflow.matchAll(/db\/migrations\/(\d{3})_[A-Za-z0-9._-]+\.sql/g)]
     .map((match) => Number(match[1]));
-  assert.equal(prefixes.length, 148);
-  assert.deepEqual(prefixes, Array.from({ length: 148 }, (_, index) => index + 10));
+  assert.equal(prefixes.length, 149);
+  assert.deepEqual(prefixes, Array.from({ length: 149 }, (_, index) => index + 10));
 });
 
 test('upgrade fixture preserves every canonical baseline column except fields introduced by later migrations', () => {
@@ -338,6 +338,22 @@ test('Pinterest publication fixtures satisfy the approved-pin precondition befor
     'fixture pin must be approved so the call reaches the later legacy-history guard');
 });
 
+
+test('migration 158 creates an immutable receipt journal with restricted RPC access', () => {
+  const migration = read('db/migrations/158_prodamus_immutable_receipt_and_decision_journal.sql');
+  const integration = read('backend/test/payment-provider-receipts.integration.sql');
+  assert.match(migration, /create table if not exists public\.payment_provider_receipts/i);
+  assert.match(migration, /create table if not exists public\.payment_entitlement_decisions/i);
+  assert.match(migration, /before update or delete on public\.payment_provider_receipts/i);
+  assert.match(migration, /on conflict \(provider, event_hash\) do nothing/i);
+  assert.match(migration, /revoke all on public\.payment_provider_receipts[\s\S]*?from public, anon, authenticated, service_role/i);
+  assert.match(migration, /grant execute on function public\.record_prodamus_payment_receipt[\s\S]*?to service_role/i);
+  assert.match(migration, /grant execute on function public\.set_prodamus_payment_decision[\s\S]*?to service_role/i);
+  assert.match(integration, /provider receipt UPDATE was not rejected/i);
+  assert.match(integration, /terminal decision was allowed to be overwritten/i);
+  assert.ok(workflow.includes('db/migrations/158_prodamus_immutable_receipt_and_decision_journal.sql'));
+  assert.ok(workflow.includes('backend/test/payment-provider-receipts.integration.sql'));
+});
 
 test('migration 157 aligns paid fulfillment lock order with account deletion and fences inactive accounts', () => {
   const migration = read('db/migrations/157_payment_fulfillment_user_first_lifecycle_fence.sql');
