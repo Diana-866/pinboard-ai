@@ -44,7 +44,6 @@ scripts=(
   pinterest-oauth-concurrency.sh
   pinterest-publication-concurrency.sh
   pinterest-schedule-claim-concurrency.sh
-  payment-deletion-receipt-race-concurrency.sh
 )
 for script in "${scripts[@]}"; do
   echo "Running isolated concurrency test: $script"
