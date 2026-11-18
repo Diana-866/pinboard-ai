@@ -103,8 +103,8 @@ begin
   select * into v_sub from public.subscriptions where id = '$SUBSCRIPTION_ID';
 
   if v_balance <> 105 or v_ledger_count <> 1 or v_status <> 'deletion_pending'
-     or v_token_version <= 0 or v_request_state <> 'pending'
-     or v_request_version <> v_token_version or v_event_count <> 1
+     or v_token_version <> 1 or v_request_state <> 'pending'
+     or v_request_version <> 1 or v_request_version <> v_token_version or v_event_count <> 1
      or v_credit_decision <> 'granted'
      or v_subscription_decision <> 'granted'
      or v_sub.status <> 'success' or v_sub.period_end is null then
@@ -167,7 +167,7 @@ begin
   select * into v_sub from public.subscriptions where id = '$SUBSCRIPTION_ID';
 
   if v_user.credits_balance <> 5 or v_ledger_count <> 0
-     or v_user.account_status <> 'deletion_pending' or v_user.token_version <= 0
+     or v_user.account_status <> 'deletion_pending' or v_user.token_version <> 1
      or v_purchase_status <> 'canceled' or v_sub.status <> 'canceled'
      or v_sub.period_start is not null or v_sub.period_end is not null
      or v_user.tariff_plan <> 'none' or v_user.tariff_period_end is not null
