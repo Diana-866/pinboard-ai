@@ -547,3 +547,24 @@ test("worker finalizes only through the fenced tombstone RPC", async () => {
   assert.equal(calls.some((call) => call.name === "finish_account_deletion_job"), false);
 });
 
+
+
+test("account deletion claim accepts only bounded jobs with complete unique lease identity", () => {
+  const { isValidDeletionJobBatch } = require("../accountDeletionWorker");
+  const valid = [{ job_id: "job-1", request_id: "request-1", user_id: USER_ID, step_key: "preflight", claim_token: "claim-1", attempts: 1, lease_expires_at: "2026-11-18T16:00:00.000Z" }];
+  assert.equal(isValidDeletionJobBatch([], 1), true);
+  assert.equal(isValidDeletionJobBatch(valid, 1), true);
+  for (const malformed of [null, undefined, {}, "not-an-array", [null], [{ ...valid[0], claim_token: "" }], [{ ...valid[0], user_id: null }], [{ ...valid[0], step_key: "unknown" }], [{ ...valid[0], attempts: 0 }], [{ ...valid[0], lease_expires_at: "not-a-date" }], [valid[0], valid[0]], [valid[0], { ...valid[0], job_id: "job-2", claim_token: "claim-2" }]]) {
+    assert.equal(isValidDeletionJobBatch(malformed, 1), false);
+  }
+});
+
+test("account deletion worker rejects malformed claim responses before any destructive stage RPC", async () => {
+  for (const data of [null, {}, "not-an-array", [{ job_id: "job-incomplete" }]]) {
+    const calls = [];
+    const client = { async rpc(name) { calls.push(name); if (name === "claim_account_deletion_jobs") return { data, error: null }; throw new Error("unexpected side effect RPC: " + name); } };
+    const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} } });
+    await assert.rejects(worker.tick(), /invalid job batch/);
+    assert.deepEqual(calls, ["claim_account_deletion_jobs"]);
+  }
+});
