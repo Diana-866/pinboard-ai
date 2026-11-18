@@ -195,7 +195,12 @@ function createAccountDeletionWorker({
           { p_job_id: job.job_id, p_claim_token: job.claim_token, p_limit: 100 }
         );
         if (storageListError) throw storageListError;
-        for (const object of storageObjects || []) {
+        if (!Array.isArray(storageObjects)) {
+          const error = new Error("account deletion Storage manifest response is not an array");
+          error.code = "invalid_storage_manifest_response";
+          throw error;
+        }
+        for (const object of storageObjects) {
           if (object.bucket_id !== "pin-images" ||
               typeof object.object_path !== "string" ||
               !/^pins\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp|gif)$/i.test(object.object_path)) {
@@ -231,7 +236,12 @@ function createAccountDeletionWorker({
           { p_job_id: job.job_id, p_claim_token: job.claim_token, p_limit: 1 }
         );
         if (remainingError) throw remainingError;
-        if (Array.isArray(remainingObjects) && remainingObjects.length > 0) {
+        if (!Array.isArray(remainingObjects)) {
+          const error = new Error("account deletion remaining Storage manifest response is not an array");
+          error.code = "invalid_storage_manifest_response";
+          throw error;
+        }
+        if (remainingObjects.length > 0) {
           const error = new Error("account deletion Storage manifest has more pending objects");
           error.code = "storage_manifest_batch_remaining";
           throw error;
