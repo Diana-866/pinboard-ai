@@ -2284,3 +2284,13 @@ The combined status for the later documentation HEAD `a201002b668d7a9c962979cbf4
 - Detailed report blob `406e4bb08dda634feee750ffecc4b00523017b68`. Owner action UA-050 added below.
 - Latest atomic Actions run `44315808409`, job `134841470669`, and persisted-boards run `44315808507`, jobs `134841470967`/`134841471629`, failed before runner allocation (runner_id 0, no steps). Runtime remains NOT VERIFIED.
 - Static expected counts remain 151 migrations (010–160), 49 SQL integration tests, 51 Node preflight tests and 10 unique concurrency scripts. Keep payments and first-user invitations blocked pending actual runtime evidence.
+
+
+### 2026-11-18 — Four independent payment/deletion race cases reconciled
+
+- Final race harness is split into four isolated cases, each with a fresh synthetic user/payment/receipt: credit payment-first, credit deletion-first, subscription payment-first and subscription deletion-first. This avoids treating two payment kinds inside one shared transaction as independent races.
+- Every case invokes the actual migration-130 `request_account_deletion(uuid,text,bigint)` RPC with the fixture's expected token version (0), observes a PostgreSQL lock waiter, and checks the resulting token version 0→1, one immutable `request_accepted` event and one pending `preflight` job.
+- Credit cases assert the exact balance, ledger count, purchase state and receipt decision. Subscription cases assert tariff, period, subscription state and receipt decision. The outer runner uses a unique disposable database clone; immutable request/event fixtures are intentionally retained until the clone is dropped.
+- Current race script blob: `6f1c08950a4a449f5c041aebdf65ca257bd29b4e`; concurrency contract blob: `91e53359eee7257279e45a6ede7f6d74f86a3ef8`; detailed audit blob: `406e4bb08dda634feee750ffecc4b00523017b68`. Implementation commits: `a816f858e302e1d2506e283f3a1d34feacaed77c` and `641338e380fb13ce81eef0f8174d7e08f134e5ca`.
+- Static source checks confirmed four named cases, four three-argument deletion RPC calls, event/job assertions, lock-waiter wiring, no destructive deletion of append-only fixtures, and inclusion in the ten-script disposable concurrency suite. **NOT RUN:** Bash syntax, Node concurrency contract, PostgreSQL race execution, full migration replay, SQL integration suite and CI. Latest observed atomic workflow run `44315808409` / job `134841470669` failed before runner allocation (runner_id 0, zero steps); no test step ran. Runtime remains NOT VERIFIED.
+- Release gate unchanged: do not invite first users or enable real payments until the owner-run isolated PostgreSQL replay, SQL suite, Node checks, concurrency suite and external billing configuration are verified.
