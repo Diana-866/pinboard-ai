@@ -343,9 +343,10 @@ test('Pinterest publication fixtures satisfy the approved-pin precondition befor
 });
 
 
-test('migration 159 atomically binds receipt decisions to credit and subscription fulfillment', () => {
+test('migrations 159 and 161 atomically bind grants to receipt fulfillment and deny direct grant RPCs', () => {
   const migration = read('db/migrations/159_atomic_prodamus_receipt_entitlement_fulfillment.sql');
   const integration = read('backend/test/payment-provider-receipt-fulfillment.integration.sql');
+  const grantGuard = read('db/migrations/161_restrict_granted_decisions_to_atomic_fulfillment.sql');
   assert.match(migration, /create or replace function public\.credit_paid_purchase_with_receipt/i);
   assert.match(migration, /create or replace function public\.activate_paid_subscription_with_receipt/i);
   for (const functionName of ['credit_paid_purchase_with_receipt', 'activate_paid_subscription_with_receipt']) {
@@ -358,7 +359,15 @@ test('migration 159 atomically binds receipt decisions to credit and subscriptio
   assert.match(integration, /withheld_account_lifecycle/i);
   assert.match(integration, /rejected_mismatch/i);
   assert.match(integration, /exactly once/i);
+  assert.match(grantGuard, /p_decision is null or p_decision not in \([\s\S]*?'ignored_non_success'/i);
+  assert.match(grantGuard, /create or replace function public\.mark_prodamus_entitlement_granted/i);
+  assert.match(grantGuard, /revoke all on function public\.mark_prodamus_entitlement_granted\([\s\S]*?from public, anon, authenticated, service_role/i);
+  assert.match(grantGuard, /grant execute on function public\.set_prodamus_payment_decision\([\s\S]*?to service_role/i);
+  assert.match(grantGuard, /perform public\.mark_prodamus_entitlement_granted/i);
+  assert.match(integration, /direct granted transition/i);
+  assert.match(integration, /direct granted-decision helper must remain private/i);
   assert.ok(workflow.includes('db/migrations/159_atomic_prodamus_receipt_entitlement_fulfillment.sql'));
+  assert.ok(workflow.includes('db/migrations/161_restrict_granted_decisions_to_atomic_fulfillment.sql'));
   assert.ok(workflow.includes('backend/test/payment-provider-receipt-fulfillment.integration.sql'));
 });
 
