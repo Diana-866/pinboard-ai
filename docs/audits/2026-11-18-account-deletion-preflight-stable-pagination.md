@@ -25,3 +25,23 @@ Re-fetched current worker and test sources after publication; statically confirm
 ## Next step
 
 Run `node --test backend/test/account-deletion-worker.test.js` in a clean local checkout. Before enabling the deletion worker in production, also require the isolated migration 010–161 replay, SQL integration suite and staging rehearsal to pass. The worker remains behind its explicit rollout gate.
+
+
+## Addendum — reject malformed/null inventory and Storage-manifest pages (2026-11-18)
+
+### Root cause
+
+The first pagination hardening made row order deterministic but still converted a non-array PostgREST page response into an empty array. The Storage erasure stage had the same fail-open behavior: it iterated `storageObjects || []` and only checked the remaining page when it happened to be an array. A malformed `data: null, error: null` response could therefore be interpreted as “there are no rows/objects,” allowing an incomplete preflight or deletion stage to progress.
+
+### Change
+
+- `fetchAllRows` now requires every page to be an array and throws `invalid_inventory_page` otherwise; no malformed page can be counted as empty.
+- The initial and remaining Storage-manifest RPC responses must both be arrays. A null/object response throws `invalid_storage_manifest_response`, leaving the erase job retryable and preventing lifecycle completion.
+- Regression tests cover a null paginated inventory response, a null initial Storage-manifest response, and a null final/remaining-manifest response. They assert a retry outcome and no Storage object deletion based on malformed data.
+
+### Source and regression evidence
+
+- Worker blob: `1df861ccc0f05cc8b787f51c5e111bc07d3660cb`; code commit `04bb175803eb2524834785d0599e4d37a77ed2e3`.
+- Worker test blob: `292c619f9717f862589aecadfa9f9855662b7f9b`; test commit `185d1d8015ee629dbd95a7da0a10de2db835241e`.
+- Static source inspection confirms the old null-to-empty coercions are absent and the three regression scenarios exist.
+- **NOT RUN:** Node runtime tests, disposable PostgreSQL replay, Storage integration, deletion worker rollout or real-account processing. The deletion worker remains disabled; only the owner-run local command in UA-053 may validate the test runtime.
