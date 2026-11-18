@@ -2090,3 +2090,11 @@ The combined status for the later documentation HEAD `a201002b668d7a9c962979cbf4
 - Final observed code/test/workflow HEAD: `0db356d326fe2a1640291ff82f6596c7fe414b58`. Audit report: `docs/audits/2026-11-18-prodamus-api-endpoint-https-guard.md` (commit `2d6a26e7a2c2106f15450758d9173001569c249b`).
 - Source/test/workflow diffs were re-fetched and statically inspected. No local Node/npm command was executed; new tests are **NOT RUNTIME-VERIFIED**. Vercel combined status on code/test/workflow HEAD was PENDING at last check; no deployment is confirmed and no successful Actions run for this new commit was observed. No production DB, PIN_TRIAL, real payment, provider account, live webhook, Pinterest API or external deployment was accessed.
 - Owner verification is tracked in UA-040. Existing UA-035 PostgreSQL integration and UA-036 Actions-log investigation remain separate open gates. Do not enable live payments or invite first users until runtime, database, webhook configuration and deployment gates are green.
+
+
+### 2026-11-18 — Prodamus endpoint CI contract follow-up
+
+- After adding `prodamus-endpoint-security.test.js` as the sixth Prodamus Node test, static review found `billing-security-contract.test.js` still expected the old five-file command and did not require the new test path in both push/PR filters. Corrected the expected command and added the two path-filter assertions. Commit `05bd81bbbb9775e2f671e8d730c9d5442fa8b9a8`; final contract-test blob `0823cb96a2c1ec4ee00c55e8524432dbfa2316e3`.
+- Re-fetched the workflow and contract test: the command now lists all six files, and the endpoint-security test is present in both path filters. This is static verification only; no Node runtime test was executed.
+- Latest Prodamus Actions run for that commit: `44307390644`; job `134812379544` completed FAILURE in about two seconds with `runner_id: 0`, empty runner name and no steps. Two annotations were reported but inaccessible. Exact failure cause remains UNKNOWN; this does not establish that the Node suite ran or failed. No blind rerun.
+- Updated audit: `docs/audits/2026-11-18-prodamus-api-endpoint-https-guard.md` (follow-up commit `da63fb4e1e306ae06e52680a9285a03c670384bc`). Owner handoff UA-040 must require visible execution of all six tests; UA-036 covers GitHub UI log retrieval if needed. UA-035 PostgreSQL remains independent.
