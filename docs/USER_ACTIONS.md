@@ -3502,3 +3502,9 @@ CI was triggered by the source/test commits. Atomic-payment integration runs `44
 - **Коммиты:** source final `d41c16d4caee20d5cd5ed01ecebb45123e255102`; tests `98a65d8669baf7349946063e5dcfd9d34859557f`; audit `211bb555b0d3a212d1322e39a8ce2e8b49ad3d3d`.
 - **Проверка владельца:** `git pull --ff-only origin main`; затем `cd backend`; `node --test test/account-deletion-worker.test.js`. Сохранить полный вывод и exit code. После этого выполнить только disposable PostgreSQL integration tests для durable deletion queue и Storage manifest.
 - **Ожидаемый результат:** duplicate/oversized/unsafe manifest response отвергается до первого `deleteImageObject`; valid empty/one-row manifest принимается. Не использовать production, не включать account-deletion worker, не обходить упавшие тесты.
+
+### UA-062 platform-status addendum (2026-11-18)
+
+- После публикации source/test изменений проверены combined statuses: Vercel context = `success` для test commit `98a65d8669baf7349946063e5dcfd9d34859557f` и для documentation HEAD `3e641569209385fb8c9caaef3db0ead0065f5cbc` на момент проверки.
+- `fetch_commit_workflow_runs` для test commit и source commit `d41c16d4caee20d5cd5ed01ecebb45123e255102` вернул пустой список workflow runs. Это не подтверждает запуск Node tests. Vercel check success сам по себе не доказывает успешный пользовательский production deploy.
+- Node test и PostgreSQL integration остаются NOT VERIFIED; сохранить worker disabled.
