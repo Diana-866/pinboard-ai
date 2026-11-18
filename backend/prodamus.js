@@ -229,7 +229,7 @@ function getWebhookPaymentAmount(body, expectedCurrency = "rub") {
     ok: true,
     amount,
     currency: receivedCurrency || expected,
-    amountField: currencyAmount != null && String(currencyAmount).trim() !== "" ? "currency_sum" : "sum",
+    amountField: expected === "rub" ? "sum" : "currency_sum",
   };
 }
 
