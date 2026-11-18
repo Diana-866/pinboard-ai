@@ -2404,3 +2404,8 @@ The combined status for the later documentation HEAD `a201002b668d7a9c962979cbf4
 - Admin pagination source/test remain current at blobs `87bcb9d9d540a1ec4a0700d01f0f94f04a916faf` and `7788913a7fa20eab951956661ac3d0b0d496866e`.
 - Latest observed combined status on current docs HEAD `c79c9aa9774b3ced08f225d8266fe9b91b5c344e` reports Vercel FAILURE / `build-rate-limit`. This status is newer than earlier pending observations; do not claim deployment success. No actual Node/PostgreSQL test runtime has been executed in this work period.
 - Owner actions UA-053 and UA-055 cover the local deletion worker and admin pagination regression commands. Continue only in a clean local checkout and disposable test database. Keep deletion worker rollout, first-user invitations and live payments blocked.
+
+
+### Deletion-worker manifest fail-closed audit reference refresh — 2026-11-18
+
+The detailed stable-pagination audit now includes the null/invalid inventory-page and Storage-manifest response addendum. Current audit blob: `d0c94414069590d462a956c701d98c935654f217` (documentation commit `d0c94414069590d462a956c701d98c935654f217`). Current source/test blobs remain worker `1df861ccc0f05cc8b787f51c5e111bc07d3660cb` and test `292c619f9717f862589aecadfa9f9855662b7f9b`; runtime remains NOT VERIFIED.
