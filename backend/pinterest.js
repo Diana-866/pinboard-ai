@@ -32,6 +32,7 @@ const supabase = require("./supabase");
 const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
 const { httpError } = require("./validate");
 const { getPinterestTokenExpiresAt } = require("./pinterestOAuth");
+const { isValidClaimedScheduleRows } = require("./scheduleResponse");
 const { buildScheduleWorkerFailureState, hasCompleteScheduleClaimIdentity, hasMatchingScheduleAttemptIdentity, isScheduleClaimUpdateConfirmed, resolvePublishedReservation, resolvePinScheduleSnapshot, normalizePinterestDestinationUrl, isPinterestPublishOutcomeUnknown, matchesConfirmedPublicationLedger, persistPublishFailureJournal, persistKnownRemotePublishOutcome, createScheduleClaimHeartbeat, isScheduleClaimLostError } = require("./pinterestSchedule");
 const {
   createBrowserBinding,
@@ -1165,10 +1166,15 @@ function registerRoutes(app, deps) {
         p_limit: limit,
       });
       if (claimError) throw claimError;
+      // PostgREST returns [] for a successful empty set. Null, malformed,
+      // oversized or identity-incomplete data is a failed claim, not an empty queue.
+      if (!isValidClaimedScheduleRows(dueRows, limit)) {
+        throw new Error("Scheduler claim RPC returned an invalid schedule batch");
+      }
 
-      claimedCount = (dueRows || []).length;
+      claimedCount = dueRows.length;
       const results = runResults;
-      for (const schedule of dueRows || []) {
+      for (const schedule of dueRows) {
         const stopClaimHeartbeat = createScheduleClaimHeartbeat({
           intervalMs: 60_000,
           renew: async () => {
