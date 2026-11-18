@@ -9,6 +9,7 @@ const helper = read('backend/test/lib/assert-disposable-postgres.sh');
 const scripts = [
   'auth-recovery-concurrency.sh',
   'credit-concurrency.sh',
+  'payment-deletion-receipt-race-concurrency.sh',
   'email-verification-concurrency.sh',
   'generation-concurrency.sh',
   'password-reset-issuance-concurrency.sh',
@@ -44,6 +45,20 @@ test('all ten concurrency scripts use the shared target guard and isolated clean
   }
 });
 
+
+test('payment/deletion race test proves both serialized lock orders with receipt-bound fulfillment', () => {
+  const script = read('backend/test/payment-deletion-receipt-race-concurrency.sh');
+  assert.match(script, /credit_paid_purchase_with_receipt/);
+  assert.match(script, /payment-deletion-after-payment/);
+  assert.match(script, /payment-after-deletion/);
+  assert.match(script, /wait_for_lock_waiter/);
+  assert.match(script, /decision <> 'granted'/);
+  assert.match(script, /decision <> 'withheld_account_lifecycle'/);
+  assert.match(script, /v_balance <> 105/);
+  assert.match(script, /v_balance <> 5/);
+  assert.match(script, /v_ledger_count <> 1/);
+  assert.match(script, /v_ledger_count <> 0/);
+});
 
 test('CI workflow routes concurrency tests through a unique disposable clone', () => {
   const workflow = read('.github/workflows/atomic-payment-integration.yml');
