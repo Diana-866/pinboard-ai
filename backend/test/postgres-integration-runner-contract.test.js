@@ -365,7 +365,8 @@ test('migrations 159 and 161 atomically bind grants to receipt fulfillment and d
   assert.match(grantGuard, /grant execute on function public\.set_prodamus_payment_decision\([\s\S]*?to service_role/i);
   assert.match(grantGuard, /perform public\.mark_prodamus_entitlement_granted/i);
   assert.match(grantGuard, /v_decision\.local_payment_id is distinct from p_local_payment_id/i);
-  assert.match(grantGuard, /v_payment_amount is null/i);
+  assert.equal((grantGuard.match(/v_payment_amount is null/gi) || []).length, 2,
+    'both credit and subscription grant checks must reject a missing local payment amount');
   assert.match(grantGuard, /abs\(v_receipt\.received_amount - v_payment_amount\) > 0\.01/i);
   assert.match(grantGuard, /coalesce\(v_receipt\.received_currency, 'rub'\)/i);
   assert.match(integration, /authenticated must not execute private granted-decision helper/i);
