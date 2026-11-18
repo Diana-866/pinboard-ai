@@ -2491,3 +2491,13 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - GitHub combined Vercel status on current main: `failure / build-rate-limit`. This is an external provider limit, not evidence that source tests failed; deployment is NOT CONFIRMED.
 - Latest recorded push Actions runs: atomic payment `44319401720` and persisted boards `44319401655`; both ended failure without job steps/logs. No runtime test result is evidenced.
 - All recent source changes are published, but Node, PostgreSQL, Storage, scheduler, CI and deployment runtime remain NOT VERIFIED. No production DB, live payment, live Pinterest publication or deletion-worker rollout was used. First-user launch remains blocked.
+
+
+### 2026-11-18 — Transactional email outbox claim RPC fail-closed validation
+
+- Found the same unsafe null-to-empty coercion in `dispatchPendingSubscriptionEmails()`: `claim_email_outbox` returns `SETOF public.email_outbox`, but the consumer used `rows || []` after checking only the RPC transport error. A malformed successful response could be reported as an idle queue, silently delaying activation emails.
+- Added `isValidEmailOutboxClaimRows(rows, limit)` and validate the complete batch before any SMTP send or mark/retry RPC. The validator requires a bounded array, unique IDs, nonblank `id/claim_token/subscription_id/recipient_email/template_key`, and an object payload; `[]` remains a valid idle result.
+- Source blob `3818dedcfbbbac0fa6a1f36b9009328a07d97d67`, commit `4bd9145198a643a5878652054cd41ae77cb529a1`; regression blob `da9438ed59e9d3c3e791a1feee8ffb5ff25f12ad`, commit `c1fc19af5d217a58c29dcbda0d0bdf64ac761f0c`. SQL contract inspected: migration 030 blob `75a4d24e85327384f6089e2d340c9841a857e8eb`.
+- Regression cases cover null/non-array/malformed/duplicate/oversized/incomplete claims and prove invalid data triggers no email send and no follow-up RPC. Runtime Node/PostgreSQL tests NOT VERIFIED.
+- Detailed audit `docs/audits/2026-11-18-email-outbox-claim-contract.md`, blob `4b429b4a908d7c772a2c6de31cd657c86a21d19c`, commit `d8f6f6ae22469bd58cce46a8d2beb2f743870f18`. Owner action UA-058 records commands and acceptance criteria.
+- No SMTP, production DB, customer data, payment or external provider was accessed. Keep first-user launch and live payments blocked pending owner-run Node and disposable PostgreSQL acceptance.
