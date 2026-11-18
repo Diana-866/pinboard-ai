@@ -119,6 +119,14 @@ begin
     raise exception 'subscription entitlement and decision were not committed together';
   end if;
 
+  update public.users set account_status = 'deletion_pending' where id = v_subscription_user;
+  v_result := public.activate_paid_subscription_with_receipt(
+    v_subscription, '2026-11-18T10:00:00Z', v_receipt
+  );
+  if v_result->>'decision' <> 'granted' or v_result->>'already_activated' <> 'true' then
+    raise exception 'previously granted subscription was not idempotent after deletion fence: %', v_result;
+  end if;
+
   insert into public.users(email, credits_balance, account_status)
   values ('migration159-deleted@example.invalid', 35, 'deletion_pending')
   returning id into v_deleted_user;
