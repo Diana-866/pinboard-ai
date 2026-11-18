@@ -48,4 +48,3 @@ pinterest-failed-schedule-retry-identity.integration.sql
 pin-regeneration-journal.integration.sql
 payment-provider-receipts.integration.sql
 payment-provider-receipt-fulfillment.integration.sql
-payment-provider-receipt-fulfillment.integration.sql
