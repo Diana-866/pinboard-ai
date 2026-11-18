@@ -35,6 +35,20 @@ test("both payment handlers authenticate the provider signature before reading a
   }
 });
 
+test("both handlers persist verified provider receipts before any local order lookup", () => {
+  for (const file of ["billing.js", "creditsBilling.js"]) {
+    const source = read(file);
+    const handler = source.slice(source.indexOf(file === "billing.js" ? "async function handleWebhook" : "async function handleCreditsWebhook"));
+    const signature = handler.indexOf("prodamus.verifyWebhook(body, req.headers)");
+    const receipt = handler.indexOf("persistProviderReceipt(db");
+    const lookup = handler.indexOf(file === "billing.js" ? '.from("subscriptions")' : '.from("credit_purchases")');
+    assert.ok(signature >= 0 && receipt > signature && lookup > receipt,
+      file + " must persist the authenticated provider event before local lookup");
+    assert.match(handler.slice(receipt, lookup), /receipt storage failed/);
+    assert.match(handler.slice(receipt, lookup), /return res\.status\(500\)/);
+  }
+});
+
 test("payment fulfillment requires signed amount/currency match and records mismatches", () => {
   const subscription = read("billing.js");
   const credits = read("creditsBilling.js");
@@ -99,8 +113,18 @@ test("Prodamus CI runs ambiguous checkout and billing security regression covera
     2,
     "push and pull_request path filters must both include this workflow contract"
   );
+  assert.equal(
+    occurrences('"backend/paymentProviderReceipts.js"'),
+    2,
+    "push and pull_request path filters must both include receipt persistence changes"
+  );
+  assert.equal(
+    occurrences('"backend/test/payment-provider-receipts.test.js"'),
+    2,
+    "push and pull_request path filters must both include receipt journal unit tests"
+  );
   assert.ok(
-    workflow.includes("node --test test/prodamus-webhook.test.js test/payment-creation-settlement.test.js test/prodamus-ambiguous-checkout.test.js test/billing-webhook-audit.test.js test/billing-security-contract.test.js test/prodamus-endpoint-security.test.js"),
+    workflow.includes("node --test test/prodamus-webhook.test.js test/payment-creation-settlement.test.js test/prodamus-ambiguous-checkout.test.js test/billing-webhook-audit.test.js test/billing-security-contract.test.js test/prodamus-endpoint-security.test.js test/payment-provider-receipts.test.js"),
     "checkout job must execute all billing and ambiguous-checkout regression tests"
   );
   assert.equal(
