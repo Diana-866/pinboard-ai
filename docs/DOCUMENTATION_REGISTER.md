@@ -2016,3 +2016,14 @@ Commits: source `2cdf0c9fceca0f80d061de24c8a477daf0cd3cf1`; regression `ffad0d99
 | `docs/audits/2026-11-18-account-deletion-claim-fixture-alignment.md` | created in commit `6bbcca306f65ba4c3fb0f170ef29c5ab535d5d4c` | Root cause, exact fixture changes and verification boundary |
 
 Test commit: `33299508fcef9cab4141fec4a8974294e0f53a40`. Static GitHub re-fetch/scan passed; Node and disposable PostgreSQL runtime NOT VERIFIED. Owner test instructions UA-060. Worker remains disabled.
+
+
+### Account deletion exact-count fail-closed validation — 2026-11-18
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `backend/accountDeletionWorker.js` | `3b045acd8600f372a712f0792760eb3145ea1e87` | Strict exact-count normalization used for direct user tables, email_outbox and pins; malformed counts throw `invalid_exact_count` |
+| `backend/test/account-deletion-worker.test.js` | `ca4786fe629e75662715027c100664bfaa40254b` | Covers valid 0/positive counts and null/missing/string/fractional/negative/infinite/unsafe counts; runtime NOT VERIFIED |
+| `docs/audits/2026-11-18-account-deletion-exact-count-fail-closed.md` | `e43ad28c4ce5df93f0971af4bf507dfdddfd51c1` | Root cause, changes and verification boundary |
+
+Commits: source `84fd644bd1da61461af41925ed111e1b6be8fb22`; tests `2a356ba88c3aabdf2da5c57e534c67fd4612ed0d`; audit `3dc4e48ef01daa03c2f684b787eff1585b47d091`. Static re-fetch/scan passed; Node/PostgreSQL runtime NOT VERIFIED. Owner action UA-061. Worker remains disabled.
