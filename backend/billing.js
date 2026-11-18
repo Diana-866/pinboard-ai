@@ -186,6 +186,23 @@ async function createPayment(userId, body, idempotencyKey) {
   return response;
 }
 
+function isValidEmailOutboxClaimRows(rows, limit = 10) {
+  if (!Array.isArray(rows) || !Number.isSafeInteger(limit) || limit < 1 || limit > 50 || rows.length > limit) return false;
+  const ids = new Set();
+  for (const row of rows) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) return false;
+    if (typeof row.id !== "string" || !row.id.trim() ||
+        typeof row.claim_token !== "string" || !row.claim_token.trim() ||
+        typeof row.subscription_id !== "string" || !row.subscription_id.trim() ||
+        typeof row.recipient_email !== "string" || !row.recipient_email.trim() ||
+        typeof row.template_key !== "string" || !row.template_key.trim() ||
+        !row.payload || typeof row.payload !== "object" || Array.isArray(row.payload)) return false;
+    if (ids.has(row.id)) return false;
+    ids.add(row.id);
+  }
+  return true;
+}
+
 async function dispatchPendingSubscriptionEmails(limit = 10, dependencies = {}) {
   const db = dependencies.supabase || supabase;
   const mailer = dependencies.mail || mail;
@@ -193,14 +210,20 @@ async function dispatchPendingSubscriptionEmails(limit = 10, dependencies = {}) 
     return { skipped: true, reason: "smtp_not_configured", processed: 0 };
   }
 
+  const claimLimit = Math.max(1, Math.min(Math.trunc(Number(limit) || 10), 50));
   const { data: rows, error } = await db.rpc("claim_email_outbox", {
-    p_limit: Math.max(1, Math.min(Number(limit) || 10, 50)),
+    p_limit: claimLimit,
   });
   if (error) throw error;
+  // A valid empty claim is []; null or malformed RPC data must not look like an idle queue.
+  // Validate the entire batch before sending any email.
+  if (!isValidEmailOutboxClaimRows(rows, claimLimit)) {
+    throw new Error("Email outbox claim RPC returned an invalid batch");
+  }
 
   let sent = 0;
   let failed = 0;
-  for (const row of rows || []) {
+  for (const row of rows) {
     try {
       if (row.template_key !== "subscription_activated") {
         const templateError = new Error("Unsupported outbox template");
@@ -267,7 +290,7 @@ async function dispatchPendingSubscriptionEmails(limit = 10, dependencies = {}) 
     }
   }
 
-  return { skipped: false, processed: (rows || []).length, sent, failed };
+  return { skipped: false, processed: rows.length, sent, failed };
 }
 
 /**
@@ -634,5 +657,6 @@ module.exports = {
   listAllSubscriptions,
   normalizeAdminSubscriptionLimit,
   dispatchPendingSubscriptionEmails,
+  isValidEmailOutboxClaimRows,
   getEmailOutboxHealth,
 };
