@@ -29,11 +29,22 @@ function buildWebhookException({ paymentKind, body, expectedAmount = null, reaso
   };
 }
 
+function isDuplicateWebhookEventHash(error) {
+  if (!error || error.code !== "23505") return false;
+  const constraint = String(error.constraint || "");
+  const message = String(error.message || "");
+  const details = String(error.details || "");
+  return constraint === "billing_webhook_exceptions_event_hash_key" ||
+    /billing_webhook_exceptions_event_hash_key/i.test(message) ||
+    /\\bKey \\(event_hash\\)=/i.test(details);
+}
+
 async function persistWebhookException(supabase, details) {
   const record = buildWebhookException(details);
   const { error } = await supabase.from("billing_webhook_exceptions").insert(record);
-  // A repeated delivery of the same signed payload is already durably recorded.
-  if (error && error.code !== "23505") throw error;
+  // Only the event_hash uniqueness fence represents a harmless duplicate
+  // delivery. Other unique violations mean the audit row was not persisted.
+  if (error && !isDuplicateWebhookEventHash(error)) throw error;
   return record.event_hash;
 }
 
