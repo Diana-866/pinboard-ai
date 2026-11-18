@@ -10,6 +10,8 @@ account-deletion-storage-manifest.integration.sql
 pinterest-refresh-disconnect-fencing.integration.sql
 prodamus-credit-fulfillment.integration.sql
 payment-deletion-lifecycle-fence.integration.sql
+payment-provider-receipts.integration.sql
+payment-provider-receipt-fulfillment.integration.sql
 payment-creation-idempotency.integration.sql
 payment-creation-settlement.integration.sql
 pin-generation-credit-reservations.integration.sql
@@ -46,5 +48,3 @@ admin-pinterest-inventory.integration.sql
 pinterest-failed-board-reassignment.integration.sql
 pinterest-failed-schedule-retry-identity.integration.sql
 pin-regeneration-journal.integration.sql
-payment-provider-receipts.integration.sql
-payment-provider-receipt-fulfillment.integration.sql
