@@ -1995,3 +1995,12 @@ Commits: source `4bd9145198a643a5878652054cd41ae77cb529a1`; regression `c1fc19af
 | `docs/audits/2026-11-18-account-deletion-claim-contract.md` | `9e4f6cd668cb5db50a23b3a658b29b6096f3599e` | Root cause, code/test changes and verification boundary |
 
 Commits: source `2cdf0c9fceca0f80d061de24c8a477daf0cd3cf1`; regression `ffad0d99dace0119afeb0b29d7c20844b675f315`; audit `a765c492764c56232b732cf61eb6bf70f4cced21`. Runtime NOT VERIFIED; worker remains disabled.
+
+
+### Queue claim hardening final status (2026-11-18)
+
+- Main HEAD before this register closeout: `05a2768b400f08290f69433bbdc5c5b307a3bd42`.
+- Email outbox: source blob `3818dedcfbbbac0fa6a1f36b9009328a07d97d67`, test blob `da9438ed59e9d3c3e791a1feee8ffb5ff25f12ad`.
+- Account deletion: source blob `2b937219c865352e6b3f4167e9568c732c377a67`, test blob `351c77a749abed04b59aef3684568670ace9d802`.
+- Audits: email outbox blob `4b429b4a908d7c772a2c6de31cd657c86a21d19c`; account deletion blob `9e4f6cd668cb5db50a23b3a658b29b6096f3599e`.
+- Latest Actions runs `44320553737`, `44320553241`, `44320543687`, `44320543564` failed with no steps returned; Vercel `build-rate-limit`. Node/PostgreSQL runtime NOT VERIFIED. Account deletion worker remains disabled.
