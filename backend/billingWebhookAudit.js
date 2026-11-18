@@ -36,7 +36,7 @@ function isDuplicateWebhookEventHash(error) {
   const details = String(error.details || "");
   return constraint === "billing_webhook_exceptions_event_hash_key" ||
     /billing_webhook_exceptions_event_hash_key/i.test(message) ||
-    /\\bKey \\(event_hash\\)=/i.test(details);
+    details.includes("Key (event_hash)=");
 }
 
 async function persistWebhookException(supabase, details) {
