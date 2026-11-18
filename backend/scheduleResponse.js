@@ -21,4 +21,22 @@ function isValidScheduleWorkerResponse(data) {
   return RESULT_STATUSES.every((status) => resultCounts[status] === data[status]);
 }
 
-module.exports = { isValidScheduleWorkerResponse };
+/**
+ * A successful empty claim is an empty array. Null/malformed RPC payloads
+ * must not be interpreted as an empty queue, and every claimed row must carry
+ * the complete identity required by the publication journal and fencing.
+ */
+function isValidClaimedScheduleRows(rows, limit = 1) {
+  if (!Array.isArray(rows) || !Number.isSafeInteger(limit) || limit < 0 || rows.length > limit) return false;
+  const ids = new Set();
+  for (const row of rows) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) return false;
+    const identity = ["id", "user_id", "pin_id", "pinterest_account_id", "pinterest_board_id", "claim_token"];
+    if (!identity.every((key) => typeof row[key] === "string" && row[key].trim().length > 0)) return false;
+    if (ids.has(row.id)) return false;
+    ids.add(row.id);
+  }
+  return true;
+}
+
+module.exports = { isValidScheduleWorkerResponse, isValidClaimedScheduleRows };
