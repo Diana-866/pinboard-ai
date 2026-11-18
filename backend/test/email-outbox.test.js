@@ -111,3 +111,31 @@ test("email outbox health reports counts and dead rows without customer PII or p
   assert.equal(JSON.stringify(health).includes("private@example.test"), false);
   assert.equal(JSON.stringify(health).includes("must-not-leak"), false);
 });
+
+test("email outbox claim accepts only bounded batches with complete unique lease identity", () => {
+  const { isValidEmailOutboxClaimRows } = require("../billing");
+  const valid = [{ id: "outbox-1", claim_token: "claim-1", subscription_id: "subscription-1", recipient_email: "customer@example.test", template_key: "subscription_activated", payload: { paid_plan: "pro" } }];
+  assert.equal(isValidEmailOutboxClaimRows([], 10), true);
+  assert.equal(isValidEmailOutboxClaimRows(valid, 10), true);
+  for (const malformed of [null, undefined, {}, "not-an-array", [null], [{ ...valid[0], claim_token: "" }], [{ ...valid[0], subscription_id: null }], [{ ...valid[0], recipient_email: "" }], [{ ...valid[0], payload: null }], [valid[0], valid[0]], [valid[0], { ...valid[0], id: "outbox-2", claim_token: "claim-2" }]]) {
+    assert.equal(isValidEmailOutboxClaimRows(malformed, 1), false);
+  }
+  assert.equal(isValidEmailOutboxClaimRows(valid, 0), false);
+});
+
+test("malformed email outbox claim responses fail before sending or retrying any row", async () => {
+  for (const data of [null, {}, "not-an-array", [{ id: "outbox-1" }]]) {
+    let sendCount = 0;
+    let followupRpcCount = 0;
+    const db = { async rpc(name) { if (name === "claim_email_outbox") return { data, error: null }; followupRpcCount += 1; return { data: true, error: null }; } };
+    const mailer = { transactionalMailConfigured: () => true, async sendMail() { sendCount += 1; } };
+    await assert.rejects(dispatchPendingSubscriptionEmails(10, { supabase: db, mail: mailer }), /invalid batch/);
+    assert.equal(sendCount, 0);
+    assert.equal(followupRpcCount, 0);
+  }
+});
+
+test("a valid empty email outbox claim is reported as an idle queue", async () => {
+  const result = await dispatchPendingSubscriptionEmails(10, { supabase: { rpc: async () => ({ data: [], error: null }) }, mail: { transactionalMailConfigured: () => true } });
+  assert.deepEqual(result, { skipped: false, processed: 0, sent: 0, failed: 0 });
+});
