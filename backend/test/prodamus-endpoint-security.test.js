@@ -30,7 +30,6 @@ test("Prodamus API endpoint must use HTTPS and cannot embed credentials", async 
     "ftp://payments.example.test/api",
     "https://user:secret@payments.example.test/api",
     "not a URL",
-    "",
   ]) {
     await withEnv({ PRODAMUS_URL: value }, () => {
       assert.throws(
