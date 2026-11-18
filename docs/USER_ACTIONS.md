@@ -3486,3 +3486,8 @@ Latest Actions runs after account-deletion claim validation: `44320553737`, `443
 - **Коммиты:** source `84fd644bd1da61461af41925ed111e1b6be8fb22`; test `2a356ba88c3aabdf2da5c57e534c67fd4612ed0d`; audit `3dc4e48ef01daa03c2f684b787eff1585b47d091`.
 - **Проверка владельца:** после `git pull --ff-only origin main` выполнить `cd backend; node --test test/account-deletion-worker.test.js`. Сохранить полный вывод и exit code. Затем выполнить только disposable PostgreSQL integration suite по account deletion durable queue/storage manifest. Production не использовать; worker не включать.
 - **Ожидаемый результат:** focused Node tests exit code 0; malformed count fails with `invalid_exact_count`, while true zero remains valid. Любое падение сохранить без обхода.
+
+
+### UA-061 CI status addendum (2026-11-18)
+
+CI was triggered by the source/test commits. Atomic-payment integration runs `44321585302` and `44321591813`, and persisted-boards runs `44321585307` and `44321591809`, all concluded failure. The latest jobs returned `steps: null`; log retrieval returned `BlobNotFound`, so there is no evidence that test commands ran. Vercel still reports `build-rate-limit`. Do not interpret these as a test PASS or a source regression. Owner must run the focused Node test and disposable PostgreSQL acceptance from UA-061 when local runtime is available.
