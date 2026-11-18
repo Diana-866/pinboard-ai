@@ -1577,3 +1577,25 @@ The atomic-payment workflow already syntax-checks all `*-concurrency.sh` files, 
 | `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md` | `a48c9661598991328d988c71c86bdea47985b126` | Updated with migration 160, runner deduplication, exact scope limits and CI evidence |
 
 Current expected counts: 151 migrations (010–160), 49 SQL integration tests, 10 unique Bash concurrency scripts, 51 Node migration preflight tests. Runtime remains NOT VERIFIED. Latest Actions attempts failed before runner allocation. See UA-046.
+
+## Supplemental inventory — migration 160 and current receipt fulfillment gates (2026-11-18)
+
+| Path | Blob SHA | Purpose / verification |
+|---|---|---|
+| db/migrations/160_prodamus_receipt_local_payment_binding_guard.sql | 7005ec7ce7a802312bb1376284892309a67fa226 | Binds terminal receipt decisions to local payment kind/ID/user; duplicate mismatch is idempotent |
+| backend/test/payment-provider-receipt-fulfillment.integration.sql | f7fdc7a05bba1bc45f2b4f78652a7365422b4778 | Cross-payment reuse and repeated rejected-mismatch regression; NOT RUNTIME-VERIFIED |
+| .github/workflows/atomic-payment-integration.yml | 11de973ebc95fba682b53b61ac787dc1a5ab1ca1 | Applies migration 160 and runs 49 ordered SQL tests plus isolated concurrency suite |
+| scripts/verify.sh | 19420342cd79d952a9fff1890896bd3fd3d3412e | Linux replay includes migrations 010–160 (151) |
+| scripts/verify.ps1 | d40d007c8aaf2ff9c51c97aa898bab28b3bc2e32 | Windows replay includes migrations 010–160 (151) |
+| scripts/verify-integration.ps1 | a1af92050d64db66f5081c1425e49247ef074173 | Guarded local disposable replay: 151 migrations, 49 SQL tests; Bash concurrency explicitly separate |
+| backend/test/db-migration-chain.test.js | 2e8fb064dc90e75e76bcece275781363f62f8883 | Canonical migration sequence includes 160 |
+| backend/test/verify-script-migration-chain.test.js | aa880e809d1555c00bb0d96355868f3fd4b78744 | Linux/Windows replay contract includes 151 migrations |
+| backend/test/postgres-integration-runner-contract.test.js | bd2f6066eb6ca3f920d6f48f44facac25ae65cb4 | CI workflow/manifest/runner contract for 151 migrations and 49 SQL tests |
+| backend/test/payment-deletion-receipt-race-concurrency.sh | 0e2da4a83e2b0bda1d9f729868fca3fba04819c5 | Two-session credit/deletion race in both lock orders; NOT RUNTIME-VERIFIED |
+| backend/test/run-disposable-concurrency-suite.sh | 827a2cd063d64668102bdf36e97e4a73dffba0af | Runs 10 scripts against a unique disposable database clone |
+| backend/test/postgres-concurrency-safety-contract.test.js | ab84f345305ee793a74e30cb4ad9ff871b62e69c | Guards all 10 scripts and asserts the race outcomes |
+| docs/audits/2026-11-18-prodamus-webhook-audit-currency-and-migration159-runner-alignment.md | b7fe0dfb41f645b0a0ba25149fcc89859d108593 | Includes migration160 follow-up, counts and runtime boundary |
+
+Relevant migration160 commits: 3e3706eb06819967c1b85079b861d28084e538f8, d17914fcf4e2a357de2b0b62c486baaeeeaacd9e, 24eccab7d451586b9ae0a6c05a4b3f722ba3ab6f, 973bcc582cd60e14537a6c9cfdee5b677cd795e0, 1b4a2b59f137eb1fe13749d3c54d6ed27f6734a2, 551fc64a2c0b9681db0469176ba4040fbe61bdb5, e79e7bc8d7d5ce64a55d738d2db9a392453fbded, 013b976de62e12cf9ab4f7ee0539927c86842fc5, 09336c3f6eaedbf466e25a845259af97c65e3c2b, 4e4de323841516093cffec1ae32a74b6b6d30d73.
+
+Current counts: 151 migrations (010–160), 49 SQL integration tests, 51 Node preflight tests, 10 disposable concurrency scripts. Runtime NOT VERIFIED. Vercel status on source head 1e85641290ba3c360856aad734d858a3150aed13 is failure / build-rate-limit; no deployment or Actions PASS is confirmed.
