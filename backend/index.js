@@ -2573,6 +2573,20 @@ app.post("/schedule/:id/cancel", requireAuth, pinterestScheduleLimiter, async (r
   }
 });
 
+// --- Аналитика ---
+
+// Публикационная аналитика по собственным данным сервиса. Метрики Pinterest
+// (impressions/saves/clicks) намеренно не возвращаются: они не собираются.
+app.get("/analytics/summary", requireAuth, async (req, res) => {
+  try {
+    const { getPublicationSummaryOrUnavailable } = require("./analytics");
+    const summary = await getPublicationSummaryOrUnavailable(req.userId);
+    res.json(summary);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 // --- Кредиты ---
 
 app.get("/credits", requireAuth, async (req, res) => {

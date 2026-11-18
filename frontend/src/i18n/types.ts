@@ -501,6 +501,21 @@ export interface TranslationSchema {
     topPerformingPins: string;
     seoHealthIndex: string;
     growthOpportunities: string;
+    // Publication activity recorded by PinPosy itself (not Pinterest metrics).
+    publishedWindow: string;
+    publishedTotal: string;
+    scheduledUpcoming: string;
+    publishingNow: string;
+    failedWindow: string;
+    cancelledWindow: string;
+    lastPublished: string;
+    neverPublished: string;
+    loading: string;
+    loadError: string;
+    retry: string;
+    pinterestMetricsUnavailable: string;
+    emptyTitle: string;
+    emptyBody: string;
     dataUnavailableTitle: string;
     dataUnavailableDescription: string;
   };

@@ -93,6 +93,7 @@ test("anonymous callers are rejected by the authenticated API surface", async (t
     ["GET", "/boards"],
     ["GET", "/schedule"],
     ["GET", "/review-queue"],
+    ["GET", "/analytics/summary"],
     ["GET", "/credits"],
     ["GET", "/account/export"],
     ["GET", "/billing/subscriptions"],
