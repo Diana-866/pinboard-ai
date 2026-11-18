@@ -284,7 +284,7 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
         receiptId, decision: "rejected_mismatch", reasonCode: "invalid_payment_amount",
         paymentKind: "credits", paymentId: purchase.id, userId: purchase.user_id,
       });
-      await setProviderDecision(db, { receiptId, decision: "pending_review", reasonCode: "unsupported_payment_status" });
+      
     } catch (auditError) {
       logError("creditsBilling.event_014");
       return res.status(500).json({ ok: false, error: "audit storage failed" });
