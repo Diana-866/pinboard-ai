@@ -3306,3 +3306,13 @@ The worker now applies ascending primary-key `id` ordering before every page ran
 Current worker blob: `446961d5b9a75c1007d07e76cefef4a548b943b8`; test blob: `5882650d115a31b5b6d472db183d6771e142947e`; audit: `docs/audits/2026-11-18-account-deletion-preflight-stable-pagination.md`.
 
 Owner verification: after clean main sync, run `node --test backend/test/account-deletion-worker.test.js`; require exit 0. Also include this test in the full backend Node suite. Do not run the account-deletion worker against production or real user accounts; it remains behind the explicit rollout gate. Runtime remains NOT VERIFIED.
+
+
+### UA-054 — проверить симметричную NULL amount-защиту Prodamus grant helper (2026-11-18)
+
+- **Статус:** [ ] Ожидает локального Node/PostgreSQL runtime; статический diff уже опубликован, runtime не подтверждён.
+- **Что исправлено:** в migration 161 добавлена явная проверка `v_payment_amount IS NULL` для subscription grant path; ранее такая проверка была только для credits. Canonical baseline сейчас объявляет `subscriptions.amount NOT NULL`, но helper теперь явно защищает обе ветви одинаково.
+- **Что добавлено:** Node static contract требует ровно два явных NULL amount guards — для credits и subscriptions.
+- **Файлы/коммиты:** migration blob `039b778b89f8d592eda92a7f199176030a1eeb49`, commit `2d3a478d17e4c17995cd2ba407f31b93224a906f`; test blob `252ab03a5146605a28cb01f465c17d7bf8947f97`, commit `4c02b2afcd2240f08bb9903e5b9afb3cd7442f27`.
+- **Выполнить после синхронизации main:** `node --test backend/test/postgres-integration-runner-contract.test.js`; затем полный backend Node suite и disposable PostgreSQL runner из UA-052. Требовать exit 0 и сохранить полный результат.
+- **Ограничения:** не применять миграцию к production/Supabase/PIN_TRIAL; не использовать реальные платежи или аккаунты; не передавать секреты. Статическая проверка двух guards не заменяет SQL runtime.
