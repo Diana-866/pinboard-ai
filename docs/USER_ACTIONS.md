@@ -3212,3 +3212,10 @@ Current harness contract:
 - The race fixtures are append-only and intentionally remain in the unique disposable clone; the outer runner must drop the clone. Do not invoke the race script against a persistent/shared database.
 
 Static counts remain 151 migrations (010–160), 49 unique SQL tests and 10 unique concurrency scripts. Latest observed atomic Actions run `44315382265`, job `134839972556`, failed before runner allocation (runner_id 0, no steps). Runtime remains NOT VERIFIED. Follow UA-046 for full owner acceptance and UA-047/UA-048 for the race harness; do not infer any test pass.
+
+
+### UA-048 addendum — latest durable deletion-queue assertions (2026-11-18)
+
+Current race script blob: `805a076a23e40e0b7263c5a45bb88035d7c4603b`; Node contract blob: `e315d6cb694465e3ea116c2cf828ef13d8d1f268`; updated audit blob: `af7c20792eda12fd547b934a93b0479a976505c8`.
+
+The latest test requires exactly one immutable `request_accepted` event and exactly one pending `preflight` job in both payment-first and deletion-first outcomes. Deletion-first still proves two independent payment sessions wait simultaneously. Runtime remains NOT VERIFIED; execute the Bash syntax, Node contract and full unique disposable-clone CI suite after syncing to latest main. Do not run the race script against a persistent database.
