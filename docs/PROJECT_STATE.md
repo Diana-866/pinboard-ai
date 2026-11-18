@@ -2038,3 +2038,15 @@ The combined status for the later documentation HEAD `a201002b668d7a9c962979cbf4
 - No local Node/npm test, frontend build/typecheck, PowerShell, PostgreSQL, psql or Bash test was executed. No production database, payment, live webhook or external service was touched. Runtime status for this change is NOT VERIFIED.
 - Existing blockers remain: owner UA-036 for inaccessible GitHub Actions logs if failure persists; owner UA-035 for guarded local PostgreSQL SQL integration (last evidence tests 1–37 PASS, test 38 FAIL, 39–46 NOT RUN, cleanup PASS). No live payments or first-user launch approved.
 - Detailed action chronology and verification boundary: `docs/audits/2026-11-18-prodamus-webhook-audit-persistence-guard.md`.
+
+
+### 2026-11-18 — Prodamus RUB webhook amount-field selection fix
+
+- Starting GitHub `main` HEAD: `77cf63740f6c68c1efe778527fccbce34130938a`. Reconciled this passport, owner actions, documentation register, current billing source/tests, Prodamus workflow and complete migration filename inventory (156 numbered migrations).
+- Found a payment-validation defect in `backend/prodamus.js:getWebhookPaymentAmount`: when an order was RUB, the function preferred `currency_sum` over the generic RUB `sum`, even when `currency` was absent. A signed callback carrying different `sum` and `currency_sum` values could therefore be validated against the wrong currency-denominated amount.
+- Fixed selection: RUB reads only `sum`; non-RUB still requires the explicit matching currency and `currency_sum`. Source commit `d35733a03c2370971d3b41ea603c52186f6e2143`, blob `c57ff05dcb6c28436c226d4d69f3891b86873ee2`.
+- Added regression coverage for conflicting RUB `sum`/`currency_sum`, missing RUB `sum`, and explicit currency mismatch. Test commit `2cb3bc60a52f23a96c5fdca7c3cc4e54dd7c5240`, blob `37374cbf496d4521cc088dfc32f30f62d75f2fb6`.
+- Existing Prodamus checkout workflow already watches and runs both changed paths; no workflow modification was needed. Regression test NOT EXECUTED in this session; do not mark runtime verification passed. No production database, PIN_TRIAL, payment, live webhook, provider or deployment was touched.
+- A preliminary suspicion that `received_currency` was missing from migration 029 was disproved: migration 037 adds it (blob `f532a94bb04e1a826b9363ab27e48999115f3e11`). No change was made for that false lead.
+- Detailed report: `docs/audits/2026-11-18-prodamus-rub-webhook-amount-selection.md` (created in commit `5637ec7331de75aed87c12101392212b65c1d279`).
+- Existing blockers remain: Prodamus Actions run `44304664637` failed without inspectable job steps/logs; owner UA-035 PostgreSQL integration still has last evidence tests 1–37 PASS, test 38 FAIL, tests 39–46 NOT RUN, cleanup PASS. No live payments or first-user launch approved.
