@@ -80,3 +80,16 @@ The source-contract test and workflow were re-fetched after the correction. The 
 Latest observed Prodamus Actions run for commit `05bd81bbbb9775e2f671e8d730c9d5442fa8b9a8`: run `44307390644`, job `134812379544`. The job completed FAILURE after approximately two seconds, with `runner_id: 0`, empty `runner_name`, and `steps: []`. GitHub reports two check-run annotations, but their content was not accessible through the available connector. Thus the six Node files are not proven to have executed; exact failure cause remains UNKNOWN. Do not treat this as a test failure or a pass, and do not blindly rerun.
 
 The docs/owner handoff is UA-040, updated to require visible execution of all six tests and to use UA-036 for inspectable failure logs. UA-035 PostgreSQL integration remains independent. No production system or external payment service was touched.
+
+
+## 8. Follow-up: disable HTTP redirects for signed checkout requests
+
+A further review of the outbound Axios request found a separate transport-boundary issue: even after requiring an HTTPS `PRODAMUS_URL`, Axios follows redirects by default. A provider endpoint returning a 307/308 to another host could cause the signed POST body to be forwarded, despite the application later rejecting the redirect response as an unsuccessful invoice creation.
+
+Set `maxRedirects: 0` on the Prodamus POST request. The existing non-2xx response handling now receives the 3xx response directly and treats it as an ambiguous provider outcome; the signed request is not automatically forwarded to the redirect target.
+
+Source commit: `f89803b544a78ef15fc4d75220225d4f89edb53a`; source blob: `e9290bc314ae1c20b15d8d9a6b91877a1ed73535`.
+
+Added a regression to `backend/test/prodamus-endpoint-security.test.js` that stubs Axios to return 307, verifies the checkout is rejected as ambiguous, and asserts `maxRedirects === 0` on the actual Axios options. Test commit: `facc0c992b122106f72d7adc80e70a0f28b82fff`; final test blob: `1face096b814532e10a608fb4de8a53ec9b4b096`. The existing workflow already includes this test path and executes the file; no workflow edit was required.
+
+Both files were re-fetched from main and the exact diffs inspected. The new regression is **NOT RUNTIME-VERIFIED**; no local Node test was run. Vercel status for test commit `facc0c992b122106f72d7adc80e70a0f28b82fff` was PENDING at last check. No Actions result for this latest commit was available at report time. No production or external service was accessed.
