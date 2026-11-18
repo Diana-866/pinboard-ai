@@ -239,6 +239,25 @@ function formatAmount(amount) {
   return n.toFixed(2);
 }
 
+/** Require HTTPS for a per-request payment notification endpoint. */
+function validateWebhookNotificationUrl(raw) {
+  let notificationUrl;
+  try {
+    notificationUrl = new URL(String(raw));
+  } catch {
+    throw httpError(500, "PRODAMUS urlNotification must be a valid HTTPS URL");
+  }
+  if (
+    notificationUrl.protocol !== "https:" ||
+    !notificationUrl.hostname ||
+    notificationUrl.username ||
+    notificationUrl.password
+  ) {
+    throw httpError(500, "PRODAMUS urlNotification must be a valid HTTPS URL without embedded credentials");
+  }
+  return notificationUrl.toString();
+}
+
 /** Accept only secure, syntactically valid checkout URLs without embedded credentials. */
 function validateCheckoutUrl(raw) {
   let checkoutUrl;
@@ -304,7 +323,7 @@ async function createPaymentLink({
     // Prodamus may require an issued integration code (SYS) for a per-request
     // notification URL. Without SYS, use the webhook URL configured in the
     // payment-form settings instead of sending an ineffective override.
-    ...(sys && urlNotification ? { urlNotification } : {}),
+    ...(sys && urlNotification ? { urlNotification: validateWebhookNotificationUrl(urlNotification) } : {}),
     ...(urlSuccess ? { urlSuccess } : {}),
     ...(isDemo() ? { demo_mode: "1" } : {}),
   };
@@ -379,6 +398,7 @@ module.exports = {
   normalizePaymentStatus,
   getWebhookPaymentAmount,
   validateCheckoutUrl,
+  validateWebhookNotificationUrl,
   verifyWebhook,
   createPaymentLink,
 };
