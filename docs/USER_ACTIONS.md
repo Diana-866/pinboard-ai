@@ -3123,3 +3123,35 @@ Return the complete output and exit code. Do not change or skip assertions to ob
 **Scope boundary:** the new payment/deletion race currently models the lifecycle acceptance fence with a direct `users.account_status` update and covers credit fulfillment. It does not invoke the full deletion queue RPC/worker or test subscription races. This remains an engineering task after the runtime suite is demonstrably executable.
 
 **References:** migration 160 blob `7005ec7ce7a802312bb1376284892309a67fa226`; SQL test blob `f7fdc7a05bba1bc45f2b4f78652a7365422b4778`; Windows runner blob `a1af92050d64db66f5081c1425e49247ef074173`; concurrency runner blob `827a2cd063d64668102bdf36e97e4a73dffba0af`; concurrency contract blob `ab84f345305ee793a74e30cb4ad9ff871b62e69c`; detailed report `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md`.
+
+
+### UA-046 — Verify migration 160, atomic Prodamus fulfillment and deletion-race suite (2026-11-18)
+
+Supersedes the older migration count in UA-042/UA-044/UA-045. Current expected inventory: baseline 001 + 151 migrations 010–160, 49/49 SQL integration tests, 51 Node preflight tests, and 10 Bash concurrency scripts.
+
+1. In the local project directory, run git status --short. If not clean, STOP and preserve local changes. If clean, run git pull --ff-only origin main; then require git rev-parse HEAD = git rev-parse origin/main and an empty worktree. Never reset, stash, rebase or force-push.
+2. Run the Node preflight:
+   powershell:
+   node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+   Require 51/51 PASS, zero failures/cancellations/skips/todo. Stop on any failure or count mismatch.
+3. Run the focused payment unit tests:
+   powershell:
+   node --test backend/test/prodamus-webhook.test.js backend/test/payment-provider-receipts.test.js backend/test/billing-webhook-audit.test.js backend/test/billing-security-contract.test.js
+   Require exit 0; preserve full output. Do not bypass a failing assertion.
+4. If Bash is available, run syntax and contract checks:
+   bash:
+   bash -n backend/test/lib/assert-disposable-postgres.sh backend/test/*-concurrency.sh
+   node --test backend/test/postgres-concurrency-safety-contract.test.js
+   Require exit 0 and 10 unique guarded scripts. This is not a substitute for actually running the race harness.
+5. Only after Node preflight passes, run the guarded local disposable PostgreSQL replay:
+   powershell:
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-integration.ps1
+   The runner must independently validate its expected local PostgreSQL 18.6 loopback instance (127.0.0.1:55439), PID/data directory, encoding and temporary role. Require upgrade fixture, 151 migrations 010–160, both inline assertions, 49/49 SQL tests, and confirmed disposable database/role cleanup. If any identity differs, STOP. Never use production, staging, Supabase or PIN_TRIAL.
+6. Inspect the GitHub Actions run for .github/workflows/atomic-payment-integration.yml. Require the SQL integration and unique disposable-clone concurrency suite to actually execute and pass, including both lock orders in payment-deletion-receipt-race-concurrency.sh. If the runner fails before allocation or exposes no steps/logs, classify runtime as UNKNOWN; do not infer a pass or blindly rerun.
+7. Return full outputs and exit codes, redacting secrets. Do not paste passwords, connection strings or tokens into chat.
+
+Important scope limitation: the race script currently tests the user-row lifecycle fence by updating account_status; it does not invoke the full account-deletion acceptance queue/worker and does not test subscription races. Those remain engineering gates.
+
+Current runtime status: NOT VERIFIED. Assistant performed static GitHub re-fetch only. Vercel reports build-rate-limit on source head 1e85641290ba3c360856aad734d858a3150aed13; this is not a source build or deployment result. No Actions PASS is evidenced.
+
+Safety: no production SQL, real payment callback, external provider account or live user data may be used for these checks.
