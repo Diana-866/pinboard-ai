@@ -2004,3 +2004,15 @@ Commits: source `2cdf0c9fceca0f80d061de24c8a477daf0cd3cf1`; regression `ffad0d99
 - Account deletion: source blob `2b937219c865352e6b3f4167e9568c732c377a67`, test blob `351c77a749abed04b59aef3684568670ace9d802`.
 - Audits: email outbox blob `4b429b4a908d7c772a2c6de31cd657c86a21d19c`; account deletion blob `9e4f6cd668cb5db50a23b3a658b29b6096f3599e`.
 - Latest Actions runs `44320553737`, `44320553241`, `44320543687`, `44320543564` failed with no steps returned; Vercel `build-rate-limit`. Node/PostgreSQL runtime NOT VERIFIED. Account deletion worker remains disabled.
+
+
+### Account deletion worker claim fixture alignment — 2026-11-18
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `backend/accountDeletionWorker.js` | `2b937219c865352e6b3f4167e9568c732c377a67` | Strictly validates complete migration 130 claim rows before stage RPC |
+| `backend/test/account-deletion-worker.test.js` | `94c7683aba347fb98293a2bb63d2328a4d3404d6` | All 14 valid worker fixtures now include request ID, attempts and lease expiry; intentionally incomplete negative fixture preserved; runtime NOT VERIFIED |
+| `db/migrations/130_account_deletion_durable_queue.sql` | `1dcf7844444b4a70be1be49946d5a4c4265ce40f` | Authoritative seven-column claim return contract |
+| `docs/audits/2026-11-18-account-deletion-claim-fixture-alignment.md` | created in commit `6bbcca306f65ba4c3fb0f170ef29c5ab535d5d4c` | Root cause, exact fixture changes and verification boundary |
+
+Test commit: `33299508fcef9cab4141fec4a8974294e0f53a40`. Static GitHub re-fetch/scan passed; Node and disposable PostgreSQL runtime NOT VERIFIED. Owner test instructions UA-060. Worker remains disabled.
