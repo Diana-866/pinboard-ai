@@ -1962,6 +1962,6 @@ Current main HEAD before this register update: `2468bccc99762afdc47306ffda0e06b2
 
 ## Final branch status — 2026-11-18
 
-- Current main HEAD before this register update: `731efc620d19b624e073ca7991bc922a3e46a4c4`; latest code/test commit `ff8549114d407b66bcbca1e8ac40421bde238cfc`.
+- Current main HEAD before this register update: `0b6a1d3a877ea8127afd4c5a40a92e02ede5b111`; latest code/test commit `ff8549114d407b66bcbca1e8ac40421bde238cfc`.
 - Vercel combined status: `failure / build-rate-limit`; no deployment success. Latest recorded Actions runs `44319401720` and `44319401655` failed without job steps/logs; no runtime PASS or source-test failure is inferred.
-- State blob `96e4275c34118e22b93a219d522a2a6b718fff37`; owner-action blob `700c4970468735daedec7d5b9ca3f94fb9abf830`. Release remains blocked pending owner-run Node/PostgreSQL and deployment acceptance.
+- State blob `405613543b69219fa1742beb9c3db8d0720bcc01`; owner-action blob `75c9e0b568584a981f01e790cc48640f76e91d01`. Release remains blocked pending owner-run Node/PostgreSQL and deployment acceptance.
