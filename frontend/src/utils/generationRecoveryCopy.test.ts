@@ -14,9 +14,9 @@ const keys = ['recoveryChecking', 'recoveryTitle', 'recoveryCheckAgain', 'recove
 test('generation recovery copy exists in every supported locale', () => {
   for (const [locale, copy] of Object.entries(locales)) {
     for (const key of keys) {
-      const value = copy.generator[key as keyof typeof copy.generator];
+      const value: unknown = copy.generator[key as keyof typeof copy.generator];
       assert.equal(typeof value, 'string', locale + ':' + key);
-      assert.ok(value.trim().length > 0, locale + ':' + key);
+      assert.ok(typeof value === 'string' && value.trim().length > 0, locale + ':' + key);
     }
     assert.match(copy.generator.recoveryCompletedTemplate, /\{count\}/, locale);
   }
