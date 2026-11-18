@@ -62,6 +62,20 @@ begin
    for update;
   if not found then raise exception 'provider receipt decision not found'; end if;
 
+  if v_receipt.provider_order_id is distinct from v_purchase.provider_payment_id
+     or v_receipt.received_amount is null
+     or abs(v_receipt.received_amount - v_purchase.amount) > 0.01
+     or coalesce(v_receipt.received_currency, 'rub') <> lower(coalesce(v_purchase.currency, 'rub')) then
+    if v_decision in ('granted', 'withheld_account_lifecycle', 'rejected_mismatch') then
+      raise exception 'terminal receipt decision conflicts with local credit purchase';
+    end if;
+    perform public.set_prodamus_payment_decision(
+      p_receipt_id, 'rejected_mismatch', 'local_payment_identity_mismatch',
+      'credits', v_purchase.id, v_purchase.user_id
+    );
+    return jsonb_build_object('decision', 'rejected_mismatch', 'idempotent', false);
+  end if;
+
   if v_decision = 'granted' then
     return jsonb_build_object(
       'decision', 'granted',
@@ -76,15 +90,12 @@ begin
     raise exception 'receipt decision is not eligible for credit fulfillment';
   end if;
 
-  if v_receipt.provider_order_id is distinct from v_purchase.provider_payment_id
-     or v_receipt.received_amount is null
-     or abs(v_receipt.received_amount - v_purchase.amount) > 0.01
-     or coalesce(v_receipt.received_currency, 'rub') <> lower(coalesce(v_purchase.currency, 'rub')) then
+  if v_purchase.balance_credited_at is not null then
+    v_balance := coalesce(v_user.credits_balance, 0);
     perform public.set_prodamus_payment_decision(
-      p_receipt_id, 'rejected_mismatch', 'local_payment_identity_mismatch',
-      'credits', v_purchase.id, v_purchase.user_id
+      p_receipt_id, 'granted', null, 'credits', v_purchase.id, v_purchase.user_id
     );
-    return jsonb_build_object('decision', 'rejected_mismatch', 'idempotent', false);
+    return jsonb_build_object('decision', 'granted', 'balance', v_balance, 'idempotent', true);
   end if;
 
   if v_user.account_status is distinct from 'active' then
@@ -95,7 +106,7 @@ begin
     return jsonb_build_object('decision', 'withheld_account_lifecycle', 'idempotent', false);
   end if;
 
-  v_idempotent := v_purchase.balance_credited_at is not null;
+  v_idempotent := false;
   v_balance := public.credit_paid_purchase(
     p_purchase_id, p_paid_at, p_description
   );
@@ -166,6 +177,20 @@ begin
    for update;
   if not found then raise exception 'provider receipt decision not found'; end if;
 
+  if v_receipt.provider_order_id is distinct from v_sub.provider_payment_id
+     or v_receipt.received_amount is null
+     or abs(v_receipt.received_amount - v_sub.amount) > 0.01
+     or coalesce(v_receipt.received_currency, 'rub') <> lower(coalesce(v_sub.currency, 'rub')) then
+    if v_decision in ('granted', 'withheld_account_lifecycle', 'rejected_mismatch') then
+      raise exception 'terminal receipt decision conflicts with local subscription';
+    end if;
+    perform public.set_prodamus_payment_decision(
+      p_receipt_id, 'rejected_mismatch', 'local_payment_identity_mismatch',
+      'subscription', v_sub.id, v_sub.user_id
+    );
+    return jsonb_build_object('decision', 'rejected_mismatch', 'subscription_id', v_sub.id);
+  end if;
+
   if v_decision = 'granted' then
     return jsonb_build_object(
       'decision', 'granted',
@@ -183,15 +208,19 @@ begin
     raise exception 'receipt decision is not eligible for subscription activation';
   end if;
 
-  if v_receipt.provider_order_id is distinct from v_sub.provider_payment_id
-     or v_receipt.received_amount is null
-     or abs(v_receipt.received_amount - v_sub.amount) > 0.01
-     or coalesce(v_receipt.received_currency, 'rub') <> lower(coalesce(v_sub.currency, 'rub')) then
+  if v_sub.status = 'success' and v_sub.period_end is not null then
     perform public.set_prodamus_payment_decision(
-      p_receipt_id, 'rejected_mismatch', 'local_payment_identity_mismatch',
-      'subscription', v_sub.id, v_sub.user_id
+      p_receipt_id, 'granted', null, 'subscription', v_sub.id, v_sub.user_id
     );
-    return jsonb_build_object('decision', 'rejected_mismatch', 'subscription_id', v_sub.id);
+    return jsonb_build_object(
+      'decision', 'granted',
+      'subscription_id', v_sub.id,
+      'plan', v_sub.plan,
+      'current_plan', v_user.tariff_plan,
+      'period_start', v_sub.period_start,
+      'period_end', v_sub.period_end,
+      'already_activated', true
+    );
   end if;
 
   if v_user.account_status is distinct from 'active' then
