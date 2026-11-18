@@ -35,3 +35,27 @@ test("rejects negative, unsafe and mismatched counters", () => {
     results: [{ schedule_id: "x", status: "published" }],
   }), false);
 });
+
+
+test("claimed schedule RPC accepts only bounded arrays with complete unique fencing identity", () => {
+  const valid = [{
+    id: "schedule-1", user_id: "user-1", pin_id: "pin-1",
+    pinterest_account_id: "account-1", pinterest_board_id: "board-1",
+    claim_token: "claim-1",
+  }];
+  const { isValidClaimedScheduleRows } = require("../scheduleResponse");
+  assert.equal(isValidClaimedScheduleRows([], 1), true);
+  assert.equal(isValidClaimedScheduleRows(valid, 1), true);
+  for (const malformed of [
+    null,
+    undefined,
+    {},
+    "not-an-array",
+    [null],
+    [{ ...valid[0], claim_token: "" }],
+    [{ ...valid[0], pinterest_board_id: null }],
+    [valid[0], valid[0]],
+    [valid[0], { ...valid[0], id: "schedule-2", claim_token: "claim-2" }],
+  ]) assert.equal(isValidClaimedScheduleRows(malformed, 1), false);
+  assert.equal(isValidClaimedScheduleRows(valid, 0), false);
+});
