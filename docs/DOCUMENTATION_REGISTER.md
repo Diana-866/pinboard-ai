@@ -2,7 +2,7 @@
 
 **Repository:** Diana-866/pinboard-ai  
 **Branch:** main  
-**Latest code/test/workflow change commit (runtime verification pending):** b99e158f73c2aa34537f9402d2870ce9973f0c1c  
+**Latest code/test/workflow change commit (runtime verification pending):** 9e93163b7a6cd9c0a69ea206f26d9709fcce4f6d  
 **Inventory refreshed:** 2026-11-18 (supplemental new files appended; full metadata inventory refresh not performed)  
 **Scope:** all documentation files under docs/ (Markdown and SQL), excluding this register itself.
 
@@ -1406,3 +1406,6 @@ Commits: `9356582342a4f0563f7bfc97485acb7fe6c8c143`, `b4dc0adc24a76a2cb97cf7d39f
 | `docs/USER_ACTIONS.md` | UA-038: require Prodamus checkout workflow verification; no owner code-edit action |
 
 Commits: `d35733a03c2370971d3b41ea603c52186f6e2143` (source), `2cb3bc60a52f23a96c5fdca7c3cc4e54dd7c5240` (regression test), `5637ec7331de75aed87c12101392212b65c1d279` (audit), `057e86c4016719e4686e50ae3ea5ba61d7c977c6` (project state), `342d4d83d957d09fff3c67d308c50b835d39fd9e` (owner actions). The regression was not executed locally in this session; CI outcome remains pending/unknown. No production database, payment, live webhook or deployment was used.
+
+
+**Follow-up update (2026-11-18):** reviewed Prodamus HTTPS callback URL hardening and checkout preflight commits `8ee8bc5036ecabbbcb24341111b5f5b91ca56947`, `dab469b742abcfcabd217c810298440bfd849a63`, `86a2c3978cddb36f44d9eb148ca63cf671c7098d`, with regression/source-contract commits `e57a0ea93e4206ebe848eb23fd6923865e7da17b`, `cc6f81ad0d0077878eba8a359fb3721ab5c60812`, `9e93163b7a6cd9c0a69ea206f26d9709fcce4f6d`. Follow-up source blob for actual amount-field metadata: `db96f8afb6fdfa29f2a4aa39fa63fde9ece358c1` (commit `ce36d6ee38a3df4cc0fb450445bcf5ea02d3c0c8`). Audit addendum: `docs/audits/2026-11-18-prodamus-rub-webhook-amount-selection.md`. Runtime test remains NOT VERIFIED.
