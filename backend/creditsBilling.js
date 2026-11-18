@@ -316,28 +316,13 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
     return res.json({ ok: true, ignored: "amount mismatch", review_required: true });
   }
 
-  // Validate every signed success callback, even after a prior credit, so a later
-  // duplicate with an unexpected amount is still durably recorded for reconciliation.
-  if (purchase.balance_credited_at) {
-    try {
-      await setProviderDecision(db, {
-        receiptId, decision: "granted", paymentKind: "credits",
-        paymentId: purchase.id, userId: purchase.user_id,
-      });
-      await settlePaymentCreationRequest(orderId, "credits", purchase.id, db);
-    } catch (settlementError) {
-      logError("creditsBilling.event_018");
-      return res.status(500).json({ ok: false, error: "payment reconciliation failed" });
-    }
-    return res.json({ ok: true, idempotent: true, credits: purchase.credits });
-  }
-
   // Баланс, журнал и отметка покупки фиксируются в одной транзакции PostgreSQL.
   const paidAt = new Date().toISOString();
-  const { data: newBalance, error: creditError } = await db.rpc("credit_paid_purchase", {
+  const { data: fulfillment, error: creditError } = await db.rpc("credit_paid_purchase_with_receipt", {
     p_purchase_id: purchase.id,
     p_paid_at: paidAt,
     p_description: `Пакет кредитов «${purchase.pack_title || purchase.package_id}» (+${purchase.credits}, не сгорают), заказ ${orderId}`,
+    p_receipt_id: receiptId,
   });
   if (creditError) {
     if (/not active|account lifecycle/i.test(String(creditError.message || ""))) {
@@ -355,11 +340,23 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
     return res.status(500).json({ ok: false, error: "crediting failed" });
   }
 
-  try {
-    await setProviderDecision(db, {
-      receiptId, decision: "granted", paymentKind: "credits",
-      paymentId: purchase.id, userId: purchase.user_id,
+  if (fulfillment && (
+      fulfillment.decision === "withheld_account_lifecycle" ||
+      fulfillment.decision === "rejected_mismatch"
+  )) {
+    return res.json({
+      ok: true,
+      status: "success",
+      decision: fulfillment.decision,
+      review_required: true,
     });
+  }
+  if (!fulfillment || fulfillment.decision !== "granted") {
+    logError("creditsBilling.event_024");
+    return res.status(500).json({ ok: false, error: "invalid fulfillment decision" });
+  }
+
+  try {
     await settlePaymentCreationRequest(orderId, "credits", purchase.id, db);
   } catch (settlementError) {
     logError("creditsBilling.event_020");
