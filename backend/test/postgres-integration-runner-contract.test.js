@@ -81,7 +81,7 @@ test('SQL manifest exactly preserves all CI SQL integration tests in order', () 
   const expected = [...workflow.matchAll(/-f backend\/test\/([A-Za-z0-9._-]+\.sql)/g)].map((match) => match[1]);
   const actual = read('backend/test/postgres-integration-sql-manifest.txt')
     .split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith('#'));
-  assert.equal(expected.length, 48);
+  assert.equal(expected.length, 49);
   assert.deepEqual(actual, expected);
   for (const filename of actual) assert.ok(fs.existsSync(path.join(root, 'backend/test', filename)), filename);
 });
@@ -180,11 +180,11 @@ test('durable account deletion queue test expects the Storage manifest guard add
   assert.ok(stageGuards.indexOf("raise exception 'account deletion Storage manifest is required';") < stageGuards.indexOf('update public.account_deletion_jobs'));
 });
 
-test('CI migration list remains the complete contiguous 010-158 chain', () => {
+test('CI migration list remains the complete contiguous 010-159 chain', () => {
   const prefixes = [...workflow.matchAll(/db\/migrations\/(\d{3})_[A-Za-z0-9._-]+\.sql/g)]
     .map((match) => Number(match[1]));
-  assert.equal(prefixes.length, 149);
-  assert.deepEqual(prefixes, Array.from({ length: 149 }, (_, index) => index + 10));
+  assert.equal(prefixes.length, 150);
+  assert.deepEqual(prefixes, Array.from({ length: 150 }, (_, index) => index + 10));
 });
 
 test('upgrade fixture preserves every canonical baseline column except fields introduced by later migrations', () => {
@@ -338,6 +338,25 @@ test('Pinterest publication fixtures satisfy the approved-pin precondition befor
     'fixture pin must be approved so the call reaches the later legacy-history guard');
 });
 
+
+test('migration 159 atomically binds receipt decisions to credit and subscription fulfillment', () => {
+  const migration = read('db/migrations/159_atomic_prodamus_receipt_entitlement_fulfillment.sql');
+  const integration = read('backend/test/payment-provider-receipt-fulfillment.integration.sql');
+  assert.match(migration, /create or replace function public\.credit_paid_purchase_with_receipt/i);
+  assert.match(migration, /create or replace function public\.activate_paid_subscription_with_receipt/i);
+  for (const functionName of ['credit_paid_purchase_with_receipt', 'activate_paid_subscription_with_receipt']) {
+    const start = migration.indexOf('function public.' + functionName);
+    assert.ok(start >= 0);
+    const body = migration.slice(start);
+    assert.match(body, /from public\.users[\s\S]*?for update[\s\S]*?from public\.(?:credit_purchases|subscriptions)[\s\S]*?for update[\s\S]*?from public\.payment_entitlement_decisions[\s\S]*?for update/i);
+  }
+  assert.match(integration, /decision.*granted/i);
+  assert.match(integration, /withheld_account_lifecycle/i);
+  assert.match(integration, /rejected_mismatch/i);
+  assert.match(integration, /exactly once/i);
+  assert.ok(workflow.includes('db/migrations/159_atomic_prodamus_receipt_entitlement_fulfillment.sql'));
+  assert.ok(workflow.includes('backend/test/payment-provider-receipt-fulfillment.integration.sql'));
+});
 
 test('migration 158 creates an immutable receipt journal with restricted RPC access', () => {
   const migration = read('db/migrations/158_prodamus_immutable_receipt_and_decision_journal.sql');
