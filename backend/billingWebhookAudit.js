@@ -17,7 +17,13 @@ function buildWebhookException({ paymentKind, body, expectedAmount = null, reaso
     payment_kind: paymentKind,
     order_id: payload.order_id == null ? null : String(payload.order_id).slice(0, 200),
     payment_status: payload.payment_status == null ? null : String(payload.payment_status).slice(0, 80),
-    received_sum: payload.currency_sum != null && String(payload.currency_sum).trim() !== ""
+    // currency_sum is meaningful only when Prodamus explicitly identifies a
+    // non-RUB currency. Without currency metadata, preserve the base sum rather
+    // than silently recording an unrelated/ambiguous currency_sum value.
+    received_sum: payload.currency != null &&
+      String(payload.currency).trim() !== "" &&
+      String(payload.currency).trim().toLowerCase() !== "rub" &&
+      payload.currency_sum != null && String(payload.currency_sum).trim() !== ""
       ? String(payload.currency_sum).slice(0, 80)
       : payload.sum == null ? null : String(payload.sum).slice(0, 80),
     received_currency: payload.currency == null ? null : String(payload.currency).slice(0, 12).toLowerCase(),
