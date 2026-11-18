@@ -49,6 +49,13 @@ test('all ten concurrency scripts use the shared target guard and isolated clean
 test('payment/deletion race test proves both serialized lock orders with receipt-bound fulfillment', () => {
   const script = read('backend/test/payment-deletion-receipt-race-concurrency.sh');
   assert.match(script, /request_account_deletion/);
+  assert.match(script, /request_account_deletion\([^)]*password_reauth[^)]*TOKEN_VERSION/);
+  assert.match(script, /token_version = 1/);
+  assert.match(script, /request_accepted/);
+  assert.match(script, /trap cleanup EXIT/);
+  assert.match(script, /stop_test_children/);
+  assert.match(script, /cleanup_test_tmp_dir/);
+  assert.doesNotMatch(script, /delete from public\.account_deletion_requests/i);
   assert.match(script, /credit_paid_purchase_with_receipt/);
   assert.match(script, /activate_paid_subscription_with_receipt/);
   assert.match(script, /payment-first/);
