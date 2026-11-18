@@ -168,10 +168,10 @@ function isValidStorageManifestBatch(objects, limit = 100) {
     if (!object || typeof object !== "object" || Array.isArray(object) ||
         object.bucket_id !== "pin-images" ||
         typeof object.object_path !== "string" ||
-        !/^pins\\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\\.(?:png|jpe?g|webp|gif)$/i.test(object.object_path)) {
+        !/^pins[/](?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})[.](?:png|jpe?g|webp|gif)$/i.test(object.object_path))
       return false;
     }
-    const key = object.bucket_id + "\\0" + object.object_path;
+    const key = JSON.stringify([object.bucket_id, object.object_path]);
     if (paths.has(key)) return false;
     paths.add(key);
   }
