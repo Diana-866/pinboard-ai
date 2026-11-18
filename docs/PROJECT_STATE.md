@@ -2483,3 +2483,11 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - Latest main branch at the time of reconciliation: `12bca69fe65b1021de99e4d033ff2a04eee448d9`. Current scheduler source blobs remain `scheduleResponse.js` `7170f77c44442bdf12a33c4b63996978d8705f80`, `pinterest.js` `d66d34f9042c55371c2a34ef8e74931b391a9e0c`, `scheduleWorker.js` `4eff5a721a8f5668876056109902e57ccb8ae1e5`.
 - Latest push Actions runs for fixture commit `ff8549114d407b66bcbca1e8ac40421bde238cfc`: `44319401720` (atomic payment) and `44319401655` (persisted boards), both failure; no runtime test steps/logs available. Vercel combined status remains `failure / build-rate-limit` on main. These platform failures do not prove the source tests failed, but no test/build/deploy PASS is evidenced.
 - Keep runtime acceptance and production readiness NOT VERIFIED. Next: restore CI runner/plan quota and execute focused Node + disposable PostgreSQL suites; no production data or live Pinterest/payment activity.
+
+
+### Final branch synchronization — 2026-11-18
+
+- Current published main HEAD: `731efc620d19b624e073ca7991bc922a3e46a4c4`; latest code/test commit: `ff8549114d407b66bcbca1e8ac40421bde238cfc` (scheduler worker response fixtures aligned with strict response validation).
+- GitHub combined Vercel status on current main: `failure / build-rate-limit`. This is an external provider limit, not evidence that source tests failed; deployment is NOT CONFIRMED.
+- Latest recorded push Actions runs: atomic payment `44319401720` and persisted boards `44319401655`; both ended failure without job steps/logs. No runtime test result is evidenced.
+- All recent source changes are published, but Node, PostgreSQL, Storage, scheduler, CI and deployment runtime remain NOT VERIFIED. No production DB, live payment, live Pinterest publication or deletion-worker rollout was used. First-user launch remains blocked.
