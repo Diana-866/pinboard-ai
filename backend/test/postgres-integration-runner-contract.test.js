@@ -81,7 +81,7 @@ test('SQL manifest exactly preserves all CI SQL integration tests in order', () 
   const expected = [...workflow.matchAll(/-f backend\/test\/([A-Za-z0-9._-]+\.sql)/g)].map((match) => match[1]);
   const actual = read('backend/test/postgres-integration-sql-manifest.txt')
     .split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith('#'));
-  assert.equal(expected.length, 46);
+  assert.equal(expected.length, 47);
   assert.deepEqual(actual, expected);
   for (const filename of actual) assert.ok(fs.existsSync(path.join(root, 'backend/test', filename)), filename);
 });
@@ -184,7 +184,7 @@ test('CI migration list remains the complete contiguous 010-156 chain', () => {
   const prefixes = [...workflow.matchAll(/db\/migrations\/(\d{3})_[A-Za-z0-9._-]+\.sql/g)]
     .map((match) => Number(match[1]));
   assert.equal(prefixes.length, 147);
-  assert.deepEqual(prefixes, Array.from({ length: 147 }, (_, index) => index + 10));
+  assert.deepEqual(prefixes, Array.from({ length: 148 }, (_, index) => index + 10));
 });
 
 test('upgrade fixture preserves every canonical baseline column except fields introduced by later migrations', () => {
@@ -336,4 +336,36 @@ test('Pinterest publication fixtures satisfy the approved-pin precondition befor
   const legacyHistoryGuard = functionBody.indexOf('Legacy publication history has no verified Pinterest account mapping');
   assert.ok(approvalGuard >= 0 && legacyHistoryGuard > approvalGuard,
     'fixture pin must be approved so the call reaches the later legacy-history guard');
+});
+
+
+test('migration 157 aligns paid fulfillment lock order with account deletion and fences inactive accounts', () => {
+  const migration = read('db/migrations/157_payment_fulfillment_user_first_lifecycle_fence.sql');
+  const creditStart = migration.indexOf('create or replace function public.credit_paid_purchase');
+  const subscriptionStart = migration.indexOf('create or replace function public.activate_paid_subscription');
+  assert.ok(creditStart >= 0 && subscriptionStart > creditStart);
+  const credit = migration.slice(creditStart, subscriptionStart);
+  const subscription = migration.slice(subscriptionStart);
+  for (const [name, body, paymentTable] of [
+    ['credit', credit, 'credit_purchases'],
+    ['subscription', subscription, 'subscriptions']
+  ]) {
+    const ownerLookup = body.indexOf(`select user_id into v_user_id`);
+    const userLock = body.indexOf('from public.users', ownerLookup);
+    const paymentLock = body.indexOf(`from public.${paymentTable}`, userLock + 1);
+    const lifecycleFence = body.indexOf("v_user.account_status is distinct from 'active'");
+    assert.ok(ownerLookup >= 0 && userLock > ownerLookup, name + ' resolves owner then locks user');
+    assert.ok(paymentLock > userLock, name + ' locks payment after user');
+    assert.ok(lifecycleFence > paymentLock, name + ' checks lifecycle before entitlement mutation');
+    assert.match(body, /set search_path = pg_catalog, public/i);
+  }
+  assert.match(migration, /revoke all on function public\\.credit_paid_purchase[\\s\\S]*?from public, anon, authenticated/i);
+  assert.match(migration, /revoke all on function public\\.activate_paid_subscription[\\s\\S]*?from public, anon, authenticated/i);
+  const integration = read('backend/test/payment-deletion-lifecycle-fence.integration.sql');
+  assert.match(integration, /account_status[\\s\\S]*?deletion_pending/i);
+  assert.match(integration, /purchase is not active|purchase user is not active/i);
+  assert.match(integration, /subscription user is not active/i);
+  assert.match(integration, /balance_credited_at is null/i);
+  assert.match(workflow, /db\\/migrations\\/157_payment_fulfillment_user_first_lifecycle_fence\\.sql/);
+  assert.match(workflow, /backend\\/test\\/payment-deletion-lifecycle-fence\\.integration\\.sql/);
 });
