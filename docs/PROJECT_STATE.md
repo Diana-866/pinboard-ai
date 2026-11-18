@@ -2501,3 +2501,11 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - Regression cases cover null/non-array/malformed/duplicate/oversized/incomplete claims and prove invalid data triggers no email send and no follow-up RPC. Runtime Node/PostgreSQL tests NOT VERIFIED.
 - Detailed audit `docs/audits/2026-11-18-email-outbox-claim-contract.md`, blob `4b429b4a908d7c772a2c6de31cd657c86a21d19c`, commit `d8f6f6ae22469bd58cce46a8d2beb2f743870f18`. Owner action UA-058 records commands and acceptance criteria.
 - No SMTP, production DB, customer data, payment or external provider was accessed. Keep first-user launch and live payments blocked pending owner-run Node and disposable PostgreSQL acceptance.
+
+### Work-period closeout — email outbox claim hardening and current CI (2026-11-18)
+
+- Current main HEAD at documentation closeout: `011fa84cb3b09f1f02a3241b32aa3e9be60e5f6e`.
+- Email outbox source fix and regression are published: `backend/billing.js` blob `3818dedcfbbbac0fa6a1f36b9009328a07d97d67`; `backend/test/email-outbox.test.js` blob `da9438ed59e9d3c3e791a1feee8ffb5ff25f12ad`. Audit blob `4b429b4a908d7c772a2c6de31cd657c86a21d19c`; owner instructions UA-058.
+- Latest observed Actions runs `44320063124`, `44320063459`, `44320068909`, and `44320069081` concluded failure; GitHub job responses returned `steps: null`, so no test execution or source failure can be inferred. Vercel combined status on latest main remains `failure / build-rate-limit`.
+- Source/test changes were re-fetched and statically inspected. Node email-outbox tests, PostgreSQL outbox SQL tests, full backend suite, frontend build and deployment remain NOT VERIFIED. Do not claim runtime PASS.
+- No production DB, SMTP provider, customer email, live payment, or external Pinterest action was used. First-user invitations and live payments remain blocked pending owner-run Node/PostgreSQL/staging acceptance and CI/Vercel quota resolution.
