@@ -4,6 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   inspectAccountForDeletion,
+  countOwnedRows,
   createAccountDeletionWorker,
   safeErrorCode,
 } = require("../accountDeletionWorker");
@@ -609,4 +610,42 @@ test("account deletion worker rejects malformed claim responses before any destr
     await assert.rejects(worker.tick(), /invalid job batch/);
     assert.deepEqual(calls, ["claim_account_deletion_jobs"]);
   }
+});
+
+test("account deletion exact row counts fail closed on null, missing, fractional, negative or unsafe values", async () => {
+  const makeClient = (count) => ({
+    from() {
+      return {
+        select() {
+          return {
+            eq() {
+              return Promise.resolve({ count, error: null });
+            },
+          };
+        },
+      };
+    },
+  });
+
+  assert.equal(await countOwnedRows(makeClient(0), "projects", USER_ID), 0);
+  assert.equal(await countOwnedRows(makeClient(7), "projects", USER_ID), 7);
+
+  for (const malformed of [null, undefined, "0", 1.5, -1, Number.MAX_SAFE_INTEGER + 1]) {
+    await assert.rejects(
+      countOwnedRows(makeClient(malformed), "projects", USER_ID),
+      (error) => error.code === "invalid_exact_count" && error.table === "projects"
+    );
+  }
+});
+
+test("account deletion exact count helper rejects malformed values instead of silently reporting zero", () => {
+  const { normalizeExactCount } = require("../accountDeletionWorker");
+  for (const malformed of [null, undefined, "0", NaN, Infinity, -1, 0.25, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.throws(
+      () => normalizeExactCount(malformed, "credit_transactions"),
+      (error) => error.code === "invalid_exact_count" && error.table === "credit_transactions"
+    );
+  }
+  assert.equal(normalizeExactCount(0, "credit_transactions"), 0);
+  assert.equal(normalizeExactCount(42, "credit_transactions"), 42);
 });
