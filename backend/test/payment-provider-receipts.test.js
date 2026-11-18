@@ -2,8 +2,6 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const crypto = require("node:crypto");
-const prodamus = require("../prodamus");
 const {
   buildProviderReceipt,
   persistProviderReceipt,
