@@ -1553,9 +1553,9 @@ Commits: `21b5e3b2bb6edfaab09163f9fefe28bb1d101e25`, `960098479cb1598bf3152556ab
 | Path | Blob SHA | Purpose / verification |
 |---|---|---|
 | `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md` | Created in commit `aee9af9d43796a3a83c3dde4ccbb5cc561535044` | Lock-order analysis, two-session test design, exact scope limits and runtime boundary |
-| `backend/test/payment-deletion-receipt-race-concurrency.sh` | `0e2da4a83e2b0bda1d9f729868fca3fba04819c5` | Two independent sessions; both payment-first and deletion-first outcomes; runtime NOT VERIFIED |
+| `backend/test/payment-deletion-receipt-race-concurrency.sh` | `005a431480d7ca7a9640d67689815f2aec53233e` | Two independent sessions; both payment-first and deletion-first outcomes; runtime NOT VERIFIED |
 | `backend/test/run-disposable-concurrency-suite.sh` | `827a2cd063d64668102bdf36e97e4a73dffba0af` | Adds tenth concurrency test to unique disposable clone runner |
-| `backend/test/postgres-concurrency-safety-contract.test.js` | `ab84f345305ee793a74e30cb4ad9ff871b62e69c` | Requires ten guarded scripts and asserts both race outcomes; runtime NOT VERIFIED |
+| `backend/test/postgres-concurrency-safety-contract.test.js` | `ce734f544ffc0ec58c10f1dc4d4f4dd86a7238c9` | Requires ten guarded scripts and asserts both race outcomes; runtime NOT VERIFIED |
 | `db/migrations/159_atomic_prodamus_receipt_entitlement_fulfillment.sql` | `30519439d7423cbc84db1fbca2cc638b74c60723` | Current receipt identity/lifecycle-fenced credit and subscription fulfillment; terminal receipt reuse guard |
 
 Relevant commits: `19118c46429148b0b9c8e3fdb3a97b7d29dfa50f`, `2ef950263a9e22bc684f640c7beb4ace0f082aba`, `b590373f687dadc5cb39ddb33c9b99805304b1e1`, `4cfb2be7126110116c9da714722aa0781bd137a4`, `09b12d15d78cb07bab3d3ca95682f88488aed215`, report commit `aee9af9d43796a3a83c3dde4ccbb5cc561535044`.
@@ -1574,7 +1574,7 @@ The atomic-payment workflow already syntax-checks all `*-concurrency.sh` files, 
 | `backend/test/run-disposable-concurrency-suite.sh` | `827a2cd063d64668102bdf36e97e4a73dffba0af` | Runs ten unique concurrency scripts against a disposable database clone |
 | `backend/test/postgres-concurrency-safety-contract.test.js` | `ab84f345305ee793a74e30cb4ad9ff871b62e69c` | Asserts ten unique scripts, disposable guard and both receipt/deletion lock orders |
 | `backend/test/payment-deletion-receipt-race-concurrency.sh` | `0e2da4a83e2b0bda1d9f729868fca3fba04819c5` | Two-session payment-first/deletion-first race; credits path only |
-| `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md` | `a48c9661598991328d988c71c86bdea47985b126` | Updated with migration 160, runner deduplication, exact scope limits and CI evidence |
+| `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md` | `09f2e9932bfb48ef112dbd59dbd53ac7709ecd12` | Updated with migration 160, runner deduplication, exact scope limits and CI evidence |
 
 Current expected counts: 151 migrations (010–160), 49 SQL integration tests, 10 unique Bash concurrency scripts, 51 Node migration preflight tests. Runtime remains NOT VERIFIED. Latest Actions attempts failed before runner allocation. See UA-046.
 
@@ -1599,3 +1599,14 @@ Current expected counts: 151 migrations (010–160), 49 SQL integration tests, 1
 Relevant migration160 commits: 3e3706eb06819967c1b85079b861d28084e538f8, d17914fcf4e2a357de2b0b62c486baaeeeaacd9e, 24eccab7d451586b9ae0a6c05a4b3f722ba3ab6f, 973bcc582cd60e14537a6c9cfdee5b677cd795e0, 1b4a2b59f137eb1fe13749d3c54d6ed27f6734a2, 551fc64a2c0b9681db0469176ba4040fbe61bdb5, e79e7bc8d7d5ce64a55d738d2db9a392453fbded, 013b976de62e12cf9ab4f7ee0539927c86842fc5, 09336c3f6eaedbf466e25a845259af97c65e3c2b, 4e4de323841516093cffec1ae32a74b6b6d30d73.
 
 Current counts: 151 migrations (010–160), 49 SQL integration tests, 51 Node preflight tests, 10 disposable concurrency scripts. Runtime NOT VERIFIED. Vercel status on source head 1e85641290ba3c360856aad734d858a3150aed13 is failure / build-rate-limit; no deployment or Actions PASS is confirmed.
+
+
+## Supplemental inventory — full deletion RPC and subscription race coverage (2026-11-18)
+
+| Path | Blob SHA | Purpose / verification |
+|---|---|---|
+| `backend/test/payment-deletion-receipt-race-concurrency.sh` | `005a431480d7ca7a9640d67689815f2aec53233e` | Four two-session races call the actual deletion acceptance RPC and exercise credit/subscription fulfillment in both lock orders |
+| `backend/test/postgres-concurrency-safety-contract.test.js` | `ce734f544ffc0ec58c10f1dc4d4f4dd86a7238c9` | Static contract requires deletion RPC, both receipt-bound fulfillment RPCs and both lock orders |
+| `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md` | `09f2e9932bfb48ef112dbd59dbd53ac7709ecd12` | Follow-up supersedes earlier direct-status-update/credits-only scope |
+
+Commits: `b5a0272430221c389fd5457d2f7874a420051a5e`, `8377f016f8070377f727113a34907be8f2999b33`. Runtime remains NOT VERIFIED; the test must run only in the isolated disposable CI clone. See UA-045/UA-046.
