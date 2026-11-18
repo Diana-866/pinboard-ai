@@ -52,6 +52,8 @@ test('payment/deletion race test proves both serialized lock orders with receipt
   assert.match(script, /request_account_deletion\([^)]*password_reauth[^)]*TOKEN_VERSION/);
   assert.equal((script.match(/select public\.request_account_deletion\([^;]*password_reauth[^;]*TOKEN_VERSION/g) || []).length, 2);
   assert.match(script, /v_event_count <> 1/);
+  assert.match(script, /account_deletion_jobs/);
+  assert.match(script, /v_job_count <> 1/);
   assert.match(script, /v_token_version <> 1/);
   assert.match(script, /v_user\.token_version <> 1/);
   assert.match(script, /v_request_version <> 1/);
@@ -70,7 +72,7 @@ test('payment/deletion race test proves both serialized lock orders with receipt
   assert.match(script, /payment-after-deletion-subscription/);
   assert.match(script, /withheld_account_lifecycle/);
   assert.match(script, /v_balance <> 105/);
-  assert.match(script, /v_balance <> 5/);
+  assert.match(script, /v_user\.credits_balance <> 5/);
   assert.match(script, /v_request_version <> v_token_version/);
   assert.match(script, /v_sub\.status <> 'success'/);
   assert.match(script, /v_user\.tariff_plan <> 'none'/);
