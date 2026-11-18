@@ -2910,3 +2910,14 @@ Additional commits on main validate per-request webhook override URLs as HTTPS w
 ### UA-036 update — latest Prodamus checkout run still fails without inspectable steps (2026-11-18)
 
 Latest run for source/test HEAD `9e93163b7a6cd9c0a69ea206f26d9709fcce4f6d`: <https://github.com/Diana-866/pinboard-ai/actions/runs/44306870084>. Conclusion FAILURE; job `134810593751` (`checkout-regressions`) has `logs_url: null`, `steps: null`, and the steps endpoint returns an empty list. The test command's execution and the exact failure cause remain UNKNOWN. Do not rerun blindly. Please inspect this latest run in the GitHub Actions UI, download/copy the complete failed-job log and provide the failed step/error with secrets redacted. Related persisted-boards run `44306870062` and atomic-payment run `44306870099` also failed without established causes; prioritize only the Prodamus log needed to verify the payment gate. The new RUB amount regression and HTTPS callback preflight are published but NOT RUNTIME-VERIFIED. UA-035 PostgreSQL remains independent.
+
+
+### UA-039 — Prodamus webhook URL HTTPS guard verification (2026-11-18)
+
+**Assistant implementation published:**
+- Per-request Prodamus notification URLs are now validated as HTTPS URLs without embedded credentials.
+- Subscription and credit checkout handlers validate configured callback URLs before reserving payment idempotency or creating local payment rows.
+- Added helper, handler-level no-side-effects and source-contract regressions. Existing Prodamus checkout workflow already includes the relevant paths and tests.
+- Detailed implementation, commit chronology and verification boundary: `docs/audits/2026-11-18-prodamus-webhook-url-https-guard.md`.
+
+**Owner action:** no local code-edit action is required. Do not send credentials or touch production. Runtime verification remains blocked because the latest Prodamus Actions run `44306613409` failed before any inspectable job step; job `134809710833` reported `runner_id: 0`, empty runner name and no steps. If this persists, use existing UA-036: inspect the latest run in GitHub UI and provide the failed step/annotation details with secrets redacted. Do not blindly rerun workflows. The independent PostgreSQL gate UA-035 remains open and unchanged; require its guarded local disposable DB runner, all 46/46 SQL tests and cleanup. The external Prodamus form webhook setting must also be verified in the owner account before real payments; this code cannot inspect that setting.
