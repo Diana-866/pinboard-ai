@@ -3316,3 +3316,12 @@ Owner verification: after clean main sync, run `node --test backend/test/account
 - **Файлы/коммиты:** migration blob `039b778b89f8d592eda92a7f199176030a1eeb49`, commit `2d3a478d17e4c17995cd2ba407f31b93224a906f`; test blob `252ab03a5146605a28cb01f465c17d7bf8947f97`, commit `4c02b2afcd2240f08bb9903e5b9afb3cd7442f27`.
 - **Выполнить после синхронизации main:** `node --test backend/test/postgres-integration-runner-contract.test.js`; затем полный backend Node suite и disposable PostgreSQL runner из UA-052. Требовать exit 0 и сохранить полный результат.
 - **Ограничения:** не применять миграцию к production/Supabase/PIN_TRIAL; не использовать реальные платежи или аккаунты; не передавать секреты. Статическая проверка двух guards не заменяет SQL runtime.
+
+
+### UA-052 addendum — latest private grant-helper evidence checks (2026-11-18)
+
+Migration 161 received a follow-up hardening commit. The private grant helper now verifies that the local amount is present, equals the immutable provider receipt amount within 0.01, and uses the same normalized currency for both credits and subscriptions. It also refuses a decision already bound to another payment kind, payment ID or user.
+
+Current migration 161 blob: `039b778b89f8d592eda92a7f199176030a1eeb49` (commit `6360f302eb5ef6a93c8c624523f1d5ea07eef852`). Payment receipt SQL privilege test blob: `8007fbfc84ade10d7dbe1b6fc4cdda3b5a7e872d` (commit `48495387d933fc93000ce0cbce9a5abca0aeb850`). PostgreSQL runner Node contract blob: `252ab03a5146605a28cb01f465c17d7bf8947f97` (commit `bcc9e1fe68ee715dd8a244e06f95aedd0e7de1e4`).
+
+The new static contract requires two missing-amount guards and exact amount/currency/payment identity checks. Runtime remains NOT VERIFIED. Latest observed atomic Actions run `44317800999` failed before runner allocation (job `134848439716`, zero steps); do not treat this as a test failure or a pass. Re-run the UA-052 clean local acceptance sequence after syncing latest main.
