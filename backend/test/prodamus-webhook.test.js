@@ -314,6 +314,28 @@ function createPaymentDb({ subscription, purchase, activate, credit, settle, can
         receiptDecision = nextDecision;
         return { data: true, error: null };
       }
+      if (name === "activate_paid_subscription_with_receipt") {
+        rpcCalls.activate++;
+        const result = await activate(state, args, rpcCalls);
+        if (result.error || !result.data) return result;
+        receiptDecision = "granted";
+        return { data: { ...result.data, decision: "granted" }, error: null };
+      }
+      if (name === "credit_paid_purchase_with_receipt") {
+        rpcCalls.credit++;
+        const wasCredited = Boolean(state.purchase && state.purchase.balance_credited_at);
+        const result = await credit(state, args, rpcCalls);
+        if (result.error) return result;
+        receiptDecision = "granted";
+        return {
+          data: {
+            decision: "granted",
+            balance: result.data,
+            idempotent: wasCredited,
+          },
+          error: null,
+        };
+      }
       if (name === "activate_paid_subscription") {
         rpcCalls.activate++;
         return activate(state, args, rpcCalls);
@@ -702,7 +724,7 @@ test("credit webhook retries checkout settlement without crediting twice", async
   assert.equal(second.statusCode, 200);
   assert.equal(second.body.idempotent, true);
   assert.equal(creditsApplied, 1, "retry must not apply the credit package twice");
-  assert.equal(db.rpcCalls.credit, 1);
+  assert.equal(db.rpcCalls.credit, 2);
   assert.equal(db.rpcCalls.settle, 2);
 });
 
