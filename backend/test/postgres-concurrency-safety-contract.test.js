@@ -16,7 +16,6 @@ const scripts = [
   'pinterest-oauth-concurrency.sh',
   'pinterest-publication-concurrency.sh',
   'pinterest-schedule-claim-concurrency.sh',
-  'payment-deletion-receipt-race-concurrency.sh',
   'subscription-concurrency.sh',
 ];
 
@@ -34,6 +33,7 @@ test('shared guard requires explicit opt-in and a local disposable database', ()
 
 test('all ten concurrency scripts use the shared target guard and isolated cleanup', () => {
   assert.equal(scripts.length, 10);
+  assert.equal(new Set(scripts).size, scripts.length, 'concurrency script list must not contain duplicates');
   for (const filename of scripts) {
     const script = read(path.join('backend/test', filename));
     assert.match(script, /source "\$\(dirname "\$\{BASH_SOURCE\[0\]\}"\)\/lib\/assert-disposable-postgres\.sh"/, filename);
