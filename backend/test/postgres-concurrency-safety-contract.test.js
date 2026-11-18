@@ -52,7 +52,9 @@ test('payment/deletion race test proves both serialized lock orders with receipt
   assert.match(script, /request_account_deletion\([^)]*password_reauth[^)]*TOKEN_VERSION/);
   assert.equal((script.match(/select public\.request_account_deletion\([^;]*password_reauth[^;]*TOKEN_VERSION/g) || []).length, 2);
   assert.match(script, /v_event_count <> 1/);
-  assert.match(script, /token_version = 1/);
+  assert.match(script, /v_token_version <> 1/);
+  assert.match(script, /v_user\.token_version <> 1/);
+  assert.match(script, /v_request_version <> 1/);
   assert.match(script, /request_accepted/);
   assert.match(script, /trap cleanup EXIT/);
   assert.match(script, /stop_test_children/);
