@@ -2,8 +2,8 @@
 
 **Repository:** Diana-866/pinboard-ai  
 **Branch:** main  
-**Latest source fix commit (runtime verification pending):** 0fd17599f4598559872965f07d5b01d2fadb19e2  
-**Inventory refreshed:** 2026-11-17  
+**Latest code/test/workflow change commit (runtime verification pending):** b99e158f73c2aa34537f9402d2870ce9973f0c1c  
+**Inventory refreshed:** 2026-11-18 (supplemental new files appended; full metadata inventory refresh not performed)  
 **Scope:** all documentation files under docs/ (Markdown and SQL), excluding this register itself.
 
 ## Interpretation
