@@ -32,3 +32,14 @@ After publication, re-fetched all four changed files and inspected the relevant 
 ## Next steps
 
 Run `node --test backend/test/schedule-response.test.js backend/test/pinterest-scheduler-route-contract.test.js`, then `node --test backend/test/schedule-worker.test.js backend/test/pinterest-scheduler-health.test.js`, followed by the disposable PostgreSQL scheduler heartbeat, completion-fencing and stale-recovery SQL tests. Keep scheduled publishing and first-user launch blocked until runtime and staging acceptance are complete.
+
+
+## Follow-up finding: runner accepted incomplete `ok: true` responses
+
+A second inspection found that the independent `backend/scheduleWorker.js` client validated only `data.ok === true`, despite the repository already providing `isValidScheduleWorkerResponse` in `scheduleResponse.js`. Consequently, a response with missing counters, a claimed count inconsistent with results, duplicate IDs or malformed result statuses could be treated as a successful batch by the runner, reset its failure backoff and delay another poll. The route contract validation alone did not protect the HTTP consumer.
+
+Changes:
+- `backend/scheduleWorker.js` now calls `isValidScheduleWorkerResponse(data)` before resetting failure state or logging success. Current blob `4eff5a721a8f5668876056109902e57ccb8ae1e5`; commit `68ef687186539530a37623dffaca28a73662970b`.
+- `backend/test/schedule-worker.test.js` adds malformed `ok: true` cases (missing counters, claimed/results mismatch, contradictory counters) and a valid one-item contract case. Current blob `9757a340c8c2653aa4f71ef42c68a09feea88eb0`; commit `460a54ac3a1da36d728796a5af329fcbd994c941`.
+
+These are source/test changes, not runtime proof. Node tests were not executed.
