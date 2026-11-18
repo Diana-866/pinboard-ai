@@ -37,7 +37,12 @@ async function fetchAllRows(query, pageSize = 1000) {
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await orderedQuery.range(offset, offset + pageSize - 1);
     if (error) throw error;
-    const page = Array.isArray(data) ? data : [];
+    if (!Array.isArray(data)) {
+      const error = new Error("account deletion inventory page response is not an array");
+      error.code = "invalid_inventory_page";
+      throw error;
+    }
+    const page = data;
     rows.push(...page);
     if (page.length < pageSize) return rows;
   }
