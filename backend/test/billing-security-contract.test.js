@@ -100,7 +100,7 @@ test("Prodamus CI runs ambiguous checkout and billing security regression covera
     "push and pull_request path filters must both include this workflow contract"
   );
   assert.ok(
-    workflow.includes("node --test test/prodamus-webhook.test.js test/payment-creation-settlement.test.js test/prodamus-ambiguous-checkout.test.js test/billing-security-contract.test.js"),
+    workflow.includes("node --test test/prodamus-webhook.test.js test/payment-creation-settlement.test.js test/prodamus-ambiguous-checkout.test.js test/billing-webhook-audit.test.js test/billing-security-contract.test.js"),
     "checkout job must execute all billing and ambiguous-checkout regression tests"
   );
   assert.equal(
