@@ -100,3 +100,16 @@ test("schedule creation persists and reconciles the resolved project destination
   assert.ok(route.includes("destination_url: snapshotDestinationUrl"));
   assert.ok(route.includes('String(existing.destination_url || "") === String(snapshotDestinationUrl || "")'));
 });
+
+
+test("scheduler rejects malformed claim RPC payloads before counting or processing rows", () => {
+  const pinterest = read("pinterest.js");
+  const claim = pinterest.indexOf('supabase.rpc("claim_due_pin_schedules"');
+  const validation = pinterest.indexOf("isValidClaimedScheduleRows(dueRows, limit)", claim);
+  const count = pinterest.indexOf("claimedCount = dueRows.length", claim);
+  const loop = pinterest.indexOf("for (const schedule of dueRows)", claim);
+  assert.ok(claim >= 0);
+  assert.ok(validation > claim, "claim payload validation follows the RPC");
+  assert.ok(count > validation, "claimed count is read only after validation");
+  assert.ok(loop > validation, "no row is processed before validation");
+});
