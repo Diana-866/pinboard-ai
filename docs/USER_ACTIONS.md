@@ -3232,7 +3232,7 @@ Run UA-047/UA-048's synchronization and runtime sequence. The full acceptance co
 
 ### UA-050 — execute four isolated deletion/payment race cases (2026-11-18)
 
-Current race script blob: `6f1c08950a4a449f5c041aebdf65ca257bd29b4e`; Node concurrency contract blob: `91e53359eee7257279e45a6ede7f6d74f86a3ef8`; audit blob: `3610a1f854cec014e0c1372a5fc4e9ce14ff209b`.
+Current race script blob: `6f1c08950a4a449f5c041aebdf65ca257bd29b4e`; Node concurrency contract blob: `91e53359eee7257279e45a6ede7f6d74f86a3ef8`; audit blob: `406e4bb08dda634feee750ffecc4b00523017b68`.
 
 The race harness is now structured as four isolated cases, each with its own user/payment/receipt fixture: credit payment-first, credit deletion-first, subscription payment-first and subscription deletion-first. Each uses the actual three-argument deletion RPC, token-version fence, immutable acceptance event and pending preflight job assertions. Credit and subscription entitlements are asserted independently. The outer concurrency runner must drop the entire disposable DB clone because immutable deletion fixtures are intentionally retained.
 
@@ -3252,3 +3252,6 @@ The script now runs four separate fixtures:
 Each case uses the real three-argument deletion RPC, the exact fixture token version, a PostgreSQL-observed lock waiter, one immutable `request_accepted` event, one pending `preflight` job and the appropriate receipt decision and entitlement checks. The test fixtures remain in the unique disposable database clone, which the outer runner drops.
 
 Run the UA-046/UA-047 acceptance sequence after synchronizing a clean local `main`: 51 Node preflight tests; focused payment Node tests; 151-migration Windows disposable replay and 49 SQL tests; Bash syntax and concurrency contract; then inspect the atomic CI run for all 10 scripts. Require actual steps and cleanup PASS. The latest atomic run `44315808409`, job `134841470669`, and persisted-board run `44315808507`, jobs `134841470967`/`134841471629`, failed before runner allocation. Runtime remains NOT VERIFIED; no test pass is claimed.
+
+
+**Latest correction (2026-11-18):** four cases are now separate functions with independent fixtures and independent payment sessions; script blob `6f1c08950a4a449f5c041aebdf65ca257bd29b4e`, contract blob `91e53359eee7257279e45a6ede7f6d74f86a3ef8`, audit blob `406e4bb08dda634feee750ffecc4b00523017b68`. The exact deletion RPC signature is `request_account_deletion(uuid,text,bigint)`; each call passes the fixture token version. Runtime remains NOT VERIFIED.
