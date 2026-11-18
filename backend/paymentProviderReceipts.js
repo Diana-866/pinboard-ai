@@ -23,8 +23,10 @@ function buildProviderReceipt({ paymentKind, body }) {
   const receivedCurrency = rawCurrency && ALLOWED_CURRENCIES.has(rawCurrency)
     ? rawCurrency
     : null;
-  const rawAmount = receivedCurrency && receivedCurrency !== "rub"
-    ? payload.currency_sum
+  const hasCurrency = rawCurrency !== "";
+  const rawAmount = hasCurrency
+    ? receivedCurrency === "rub" ? payload.sum
+      : receivedCurrency ? payload.currency_sum : null
     : payload.sum;
   const parsedAmount = rawAmount == null || String(rawAmount).trim() === ""
     ? NaN
