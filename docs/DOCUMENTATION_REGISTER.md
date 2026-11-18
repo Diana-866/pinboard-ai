@@ -1523,14 +1523,26 @@ Superseding counts: 149 active migrations (010–158), 48 SQL integration tests,
 
 | Path | Blob SHA | Purpose / verification |
 |---|---|---|
-| `docs/audits/2026-11-18-prodamus-webhook-audit-currency-and-migration159-runner-alignment.md` | Created in commit `917b56d4cfb1a1214948f74a2323c29a05d87a55` | Root cause, fixes, commits, CI evidence and runtime boundary |
+| `docs/audits/2026-11-18-prodamus-webhook-audit-currency-and-migration159-runner-alignment.md` | Blob `2a90f3a98f9a2ff22057fc3b29b9884d26f71fd0` | Root cause, fixes, commits, CI evidence and runtime boundary |
 | `backend/billingWebhookAudit.js` | `4f5c63d83459731e6c4ced9cf04ed9718fab883a` | Selects amount field according to explicit currency context |
 | `backend/test/billing-webhook-audit.test.js` | `c8e1a488c2a5effeffd0447011d3b5eb42aaa60e` | Three regressions: absent currency, RUB, non-RUB |
 | `scripts/verify-integration.ps1` | `01c21f798062cee20790019a26bd6d581585cc3c` | Requires 49 SQL tests and 150 migrations 010–159 |
-| `backend/test/postgres-integration-sql-manifest.txt` | `dbba9ecacda55da7ea4b92e9928e075f7b5f1cf4` | Adds receipt-bound fulfillment SQL regression as test 49 |
+| `backend/test/postgres-integration-sql-manifest.txt` | `730cd86a5b3a0ce259fe1e2fb991fe4460b0079a` | Adds receipt-bound fulfillment SQL regression as test 49 |
 | `db/migrations/159_atomic_prodamus_receipt_entitlement_fulfillment.sql` | `29b2a8b7db98535f33b9eff72280f637e2f65480` | Atomic receipt-bound credit/subscription entitlement fulfillment |
 | `backend/test/payment-provider-receipt-fulfillment.integration.sql` | `a9677076ff5cb27330125f3f911e7e918a61e7d6` | Receipt identity, idempotency, entitlement and decision integration assertions |
 
 Relevant commits: `33b84fb7872c2739e1c2893f0917c1b398081c0b`, `40722066c0bcba996b6670299a14d490b6044d4d`, `28e36603c214412a432f1911f80859218587fc20`, `60c8f14bc7f1f1c2cf656f138edc60e58ac88e43`, `724ec0088c8f2b68920a0413486e4158b2d944f7`, `84544dd7a48b31f4b9b894ccba1f50b008b968d1`.
 
 Current expected counts: 150 migrations (010–159), 49 SQL integration tests, 51 Node preflight tests. Runtime remains NOT VERIFIED. Actions failed before runner allocation on the latest observed attempts; no deployment is confirmed. See UA-042/UA-043 for owner runtime steps.
+
+
+## Supplemental inventory — migration 159 terminal receipt identity regression (2026-11-18)
+
+| Path | Blob SHA | Purpose / verification |
+|---|---|---|
+| `db/migrations/159_atomic_prodamus_receipt_entitlement_fulfillment.sql` | `30519439d7423cbc84db1fbca2cc638b74c60723` | Revalidates receipt order/amount/currency before returning terminal credit/subscription decisions |
+| `backend/test/payment-provider-receipt-fulfillment.integration.sql` | `6c2bb6c9504c0c0f8ab0e6c940c92e19888b1500` | Rejects cross-payment reuse of granted credit and subscription receipts; verifies no second entitlement |
+| `backend/test/postgres-integration-sql-manifest.txt` | `730cd86a5b3a0ce259fe1e2fb991fe4460b0079a` | 49 unique SQL integration tests; duplicate manifest entry removed |
+| `docs/audits/2026-11-18-prodamus-webhook-audit-currency-and-migration159-runner-alignment.md` | `2a90f3a98f9a2ff22057fc3b29b9884d26f71fd0` | Follow-up documents terminal receipt identity fence and SQL regression |
+
+Commits: `21b5e3b2bb6edfaab09163f9fefe28bb1d101e25`, `960098479cb1598bf3152556ab427585f0a7ad19`, `3eb25129c89c49230bf2147f692c27884c112054`, `a6f10ab8ced8959a9bd008e782c6fd102de335df`. Runtime remains NOT VERIFIED; latest CI jobs failed before runner allocation. See UA-042 and UA-044.
