@@ -1798,3 +1798,27 @@ Commits: migration `2d3a478d17e4c17995cd2ba407f31b93224a906f`; regression `4c02b
 | `docs/USER_ACTIONS.md` | Updated UA-052 addendum | Latest migration/test blobs and owner runtime gate |
 
 Follow-up commits: `6360f302eb5ef6a93c8c624523f1d5ea07eef852`, `48495387d933fc93000ce0cbce9a5abca0aeb850`, `bcc9e1fe68ee715dd8a244e06f95aedd0e7de1e4`. Static source review only; PostgreSQL/Node/CI runtime remains NOT VERIFIED.
+
+
+## Final source-blob reconciliation after migration 161 follow-ups (2026-11-18)
+
+The following entries supersede older blob references in earlier historical sections:
+
+| Path | Current main blob SHA |
+|---|---|
+| `db/migrations/161_restrict_granted_decisions_to_atomic_fulfillment.sql` | `039b778b89f8d592eda92a7f199176030a1eeb49` |
+| `backend/test/payment-provider-receipts.integration.sql` | `8007fbfc84ade10d7dbe1b6fc4cdda3b5a7e872d` |
+| `backend/test/payment-provider-receipt-fulfillment.integration.sql` | `00fbe5af225daa0c9c81429a608b8e8240f2b5af` |
+| `backend/test/postgres-integration-runner-contract.test.js` | `252ab03a5146605a28cb01f465c17d7bf8947f97` |
+| `backend/test/verify-script-migration-chain.test.js` | `4c75d22eba457d1d0a6ce6495552473cc68a2c15` |
+| `scripts/verify-integration.ps1` | `696260b5a0e1c45721984b78f05aee68827e2fdc` |
+| `scripts/verify.ps1` | `e8933c8a747f88df55bac7d26fe7905028c14a4e` |
+| `scripts/verify.sh` | `5f3d64a9e772d2246276dc83a619d23ea6ee9d68` |
+| `.github/workflows/atomic-payment-integration.yml` | `9b407f46e4c7188623128738cdebb9fdcbb46b5f` |
+| `backend/accountDeletionWorker.js` | `446961d5b9a75c1007d07e76cefef4a548b943b8` |
+| `backend/test/account-deletion-worker.test.js` | `5882650d115a31b5b6d472db183d6771e142947e` |
+| `docs/audits/2026-11-18-migration161-grant-guard-and-runner-alignment.md` | `a17651c2bef2d3f0f55c6da7ab4a087e9ddff531` |
+| `docs/audits/2026-11-18-account-deletion-preflight-stable-pagination.md` | `271c62509e720c8e95e0c84bae5e839ee9ebafac` |
+| `docs/audits/2026-11-18-prodamus-receipt-webhook-static-review.md` | `6e5db72d16a308ace06e4fa9422192e4bb18da69` |
+
+Current inventory rechecked from the GitHub tree and manifests: 152 contiguous migrations 010–161; 49 unique SQL manifest entries, all referenced by the atomic workflow; 52 Node preflight tests; 10 concurrency scripts. Runtime remains NOT VERIFIED.
