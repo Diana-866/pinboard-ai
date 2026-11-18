@@ -1885,3 +1885,16 @@ Latest observed platform state: atomic Actions run `44318456320` failed with no 
 - Combined Vercel status for both is `failure` / `build-rate-limit`; this is a provider limit, not a confirmed source build failure. Deployment is NOT CONFIRMED.
 - Latest recorded atomic Actions run `44318275401` / job `134850094393` returned no steps; no runtime result is evidenced.
 - State blob `145674491e1c8f628b0e0bdf064388308e137570`; owner-action blob `30412913a9ebc46d87f29a78acd11d5ce2ebbd03`. Keep runtime and release gates NOT VERIFIED.
+
+
+## Pinterest scheduler malformed claim RPC fail-closed validation (2026-11-18)
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `backend/scheduleResponse.js` | `7170f77c44442bdf12a33c4b63996978d8705f80` | Validates array, bounded batch, complete claim identity and unique IDs |
+| `backend/pinterest.js` | `d66d34f9042c55371c2a34ef8e74931b391a9e0c` | Rejects malformed claim RPC payload before counting, heartbeat or processing |
+| `backend/test/schedule-response.test.js` | `c5b4084903e96f5fa808e8fbff31e222a8dfd5f6` | Covers valid empty/single claims and malformed/duplicate/incomplete responses; runtime NOT VERIFIED |
+| `backend/test/pinterest-scheduler-route-contract.test.js` | `d7f8936167432a3444c0f444968318cf5c919b6c` | Asserts validation precedes count and iteration; runtime NOT VERIFIED |
+| `docs/audits/2026-11-18-pinterest-scheduler-claim-response.md` | audit commit `640e98efe152382524ff7815e8137ffd7ac586bb` | Root cause, implementation and runtime boundary |
+
+Commits: validator `1acc3aa120a5b073afccf3132b0bf4ea9310f924`; unit regression `fb48f225540f4c2d9fa10251ae9faab4a9bee82c`; route fix `793bc081efc6a27c442fe0faa41cacccbde49fa0`; route contract `10f634594a774e963cf02caecfd263546347e094`. Runtime remains NOT VERIFIED.
