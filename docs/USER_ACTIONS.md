@@ -3003,3 +3003,26 @@ This supersedes the earlier UA-035 counts and migration range, without changing 
 **Current runtime status:** NOT VERIFIED. GitHub Actions run `44308754607` failed before exposing any steps; job `134817075814` had no inspectable steps and logs endpoint returned 404 `BlobNotFound`. Vercel status on code/test HEAD `63c02f2e7540e8f510e819c5728957c25e065931` is FAILURE target `build-rate-limit`, not a build log. No production resource or real payment was accessed.
 
 **Important scope limitation:** migration 157 is only the first safety boundary. The immutable provider receipt / entitlement decision journal described in AUD-400/401 and a two-session deletion-vs-payment race harness are still unimplemented. Even after this local suite passes, do not enable live payments or invite first users until those remaining gates and the full application/runtime/deployment checks are complete.
+
+
+### UA-042 — Runtime verification of migration 158 and Prodamus receipt regressions (2026-11-18)
+
+**Supersedes UA-041's old migration and test counts.** Current canonical sequence: baseline 001 + 149 migrations 010–158; SQL manifest: 48 tests; Node preflight: 51 top-level tests (32 runner contract + 2 migration chain + 17 verify-script contract).
+
+1. In the local project directory, run `git status --short`. If not clean, STOP and preserve local changes. If clean, run `git pull --ff-only origin main`, then compare `git rev-parse HEAD` with `git rev-parse origin/main`; require equality and an empty status. Never reset, stash, rebase or force-push.
+2. Run:
+   ```powershell
+   node --test backend/test/postgres-integration-runner-contract.test.js backend/test/db-migration-chain.test.js backend/test/verify-script-migration-chain.test.js
+   ```
+   Expected: **51/51 pass**, zero failures/cancellations/skips/todo. If the count differs or any test fails, STOP and provide the complete output; do not start PostgreSQL.
+3. Only after Node 51/51 PASS, run:
+   ```powershell
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-integration.ps1
+   ```
+   The script must independently validate the expected local-only PostgreSQL 18.6 instance, loopback listener 127.0.0.1:55439, expected PID/data directory, encoding and temporary role. If any identity differs, STOP. Use only its hidden password prompt; never paste passwords, connection strings or secrets into chat/logs. Do not use production, staging, Supabase or PIN_TRIAL.
+4. PASS requires the upgrade fixture, **149 migrations 010–158**, both inline assertions, **48/48 SQL tests**, and confirmed disposable database/role cleanup. Stop on the first SQL failure; do not skip tests or weaken preflights. Receipt SQL coverage must prove deduplication, normalized facts, receipt UPDATE/DELETE rejection, restricted direct DML/RPC grants and terminal decision overwrite rejection.
+5. Return full stdout/stderr and exit codes, redacting accidental secrets. If blocked by local binaries, identity mismatch or cleanup failure, report the exact blocker; do not switch to a remote database.
+
+**Current runtime status:** NOT VERIFIED. The above suites were not executed by the assistant. Vercel reports `build-rate-limit` on code/test HEAD; this is not a build result. No successful Actions run is evidenced. Nine Bash concurrency scripts and the two-session deletion-vs-payment race remain separate open gates.
+
+**Safety:** this action is exclusively local disposable PostgreSQL verification. Do not enable live payments, run production SQL, send real callbacks or invite first users based on static verification alone.
