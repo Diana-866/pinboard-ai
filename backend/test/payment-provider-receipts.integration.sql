@@ -27,7 +27,7 @@ begin
     'public.mark_prodamus_entitlement_granted(uuid,text,uuid,text)',
     'EXECUTE'
   ) then
-    raise exception 'service_role must not independently assert a granted entitlement';
+    raise exception 'direct granted-decision helper must remain private';
   end if;
   if has_table_privilege('service_role', 'public.payment_provider_receipts', 'INSERT')
      or has_table_privilege('service_role', 'public.payment_provider_receipts', 'UPDATE')
@@ -121,7 +121,7 @@ begin
     end if;
   end;
   if not v_rejected then
-    raise exception 'general decision RPC was allowed to assert granted';
+    raise exception 'direct granted transition must be rejected';
   end if;
 
   if not public.set_prodamus_payment_decision(
