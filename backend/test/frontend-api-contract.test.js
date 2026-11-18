@@ -25,9 +25,11 @@ const BACKEND_DIR = path.join(ROOT, "backend");
 const FRONTEND_SRC = path.join(ROOT, "frontend", "src");
 
 // Comments contain illustrative route snippets; they must never count as routes.
+// A block comment is only recognised when it starts its own line: an inline `/*`
+// inside a line comment or a string literal must not swallow the rest of a file.
 function stripComments(source) {
   return source
-    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^[ \t]*\/\*[\s\S]*?\*\//gm, "")
     .replace(/(^|[^:])\/\/[^\n]*/g, "$1");
 }
 

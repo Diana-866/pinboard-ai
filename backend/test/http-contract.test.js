@@ -51,7 +51,7 @@ async function waitForHealth(port, child, deadlineMs = 20_000) {
   throw new Error(`server did not answer /health: ${lastError && lastError.message}`);
 }
 
-async function withServer(t) {
+async function withServer(t, { rateLimitMax = 1000 } = {}) {
   const port = await freePort();
   const child = spawn(process.execPath, [path.join(__dirname, "..", "index.js")], {
     cwd: path.join(__dirname, ".."),
@@ -66,6 +66,10 @@ async function withServer(t) {
       EMAIL_OUTBOX_DISPATCH_INTERVAL_MS: "0",
       ACCOUNT_DELETION_WORKER_ENABLED: "false",
       SCHEDULE_WORKER_ENABLED: "false",
+      // The default is deliberately high so flow tests are never throttled;
+      // the throttle test starts its own process with a small budget.
+      API_RATE_LIMIT_MAX: String(rateLimitMax),
+      API_RATE_LIMIT_WINDOW_MS: "60000",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -191,6 +195,26 @@ test("readiness reports an unreachable database instead of claiming health", asy
   const body = await ready.json();
   assert.equal(body.ok, false);
   assert.equal(body.error, "database_unavailable");
+});
+
+test("the global request budget throttles a single client with 429", async (t) => {
+  // Every authenticated read route is covered by one shared budget keyed by the
+  // bearer token (or the client IP when anonymous); without it a single account
+  // could exhaust the database quota for everyone.
+  const { base } = await withServer(t, { rateLimitMax: 5 });
+  const statuses = [];
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const response = await fetch(`${base}/definitely-not-a-route`);
+    statuses.push(response.status);
+  }
+
+  assert.deepEqual(statuses.slice(0, 5), [404, 404, 404, 404, 404]);
+  assert.equal(statuses[5], 429, `expected a throttle after the budget, got ${statuses.join(",")}`);
+  assert.equal(statuses[7], 429);
+
+  // Liveness probes are skipped so platform health checks keep working.
+  const health = await fetch(`${base}/health`);
+  assert.equal(health.status, 200);
 });
 
 test("public plan and credit-pack catalogues stay database-free", async (t) => {

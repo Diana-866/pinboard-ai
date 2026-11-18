@@ -5,7 +5,8 @@ const express = require("express");
 const crypto = require("crypto");
 const cors = require("cors");
 const helmet = require("helmet");
-const rateLimit = require("express-rate-limit");
+const rateLimit = require("express-rate-limit").rateLimit;
+const { ipKeyGenerator } = require("express-rate-limit");
 const { parseMultipartFields } = require("./prodamusWebhookBody");
 const { isOwnedByUser } = require("./resourceOwnership");
 const { serializeGenerationRecovery } = require("./generationRecovery");
@@ -83,6 +84,37 @@ app.use(
     },
   })
 );
+// Global request budget.
+//
+// Per-route limiters below only cover login, AI, payments, uploads and admin
+// actions. Every authenticated read route (/me, /projects, /boards, /schedule,
+// /analytics/summary and the admin reads) had no bound at all, so a single
+// account could exhaust the database quota and take the service down for
+// everyone.
+//
+// The key is the hashed bearer token when present and the normalized client IP
+// otherwise; the raw credential is never stored in the limiter's memory store.
+const API_RATE_LIMIT_MAX = Math.max(1, Number(process.env.API_RATE_LIMIT_MAX) || 300);
+const API_RATE_LIMIT_WINDOW_MS = Math.max(1000, Number(process.env.API_RATE_LIMIT_WINDOW_MS) || 60 * 1000);
+const apiLimiter = rateLimit({
+  windowMs: API_RATE_LIMIT_WINDOW_MS,
+  limit: API_RATE_LIMIT_MAX,
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Platform probes arrive frequently and must never be throttled.
+  skip: (req) => req.path === "/health" || req.path === "/ready",
+  keyGenerator: (req) => {
+    const header = String(req.headers.authorization || "");
+    const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+    if (token) {
+      return "token:" + crypto.createHash("sha256").update(token).digest("hex");
+    }
+    return ipKeyGenerator(req.ip);
+  },
+  message: { error: "Слишком много запросов. Подождите немного и повторите." },
+});
+app.use(apiLimiter);
+
 // Prodamus may send multipart/form-data (default), urlencoded, or JSON callbacks.
 function parseProdamusWebhook(req, res, next) {
   if (req.is("multipart/form-data")) {
