@@ -29,6 +29,27 @@ begin
   ) then
     raise exception 'direct granted-decision helper must remain private';
   end if;
+  if has_function_privilege(
+    'authenticated',
+    'public.mark_prodamus_entitlement_granted(uuid,text,uuid,text)',
+    'EXECUTE'
+  ) then
+    raise exception 'authenticated must not execute private granted-decision helper';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.set_prodamus_payment_decision(uuid,text,text,text,uuid,text)',
+    'EXECUTE'
+  ) then
+    raise exception 'service_role must execute non-grant decision RPC';
+  end if;
+  if has_function_privilege(
+    'authenticated',
+    'public.set_prodamus_payment_decision(uuid,text,text,text,uuid,text)',
+    'EXECUTE'
+  ) then
+    raise exception 'authenticated must not execute non-grant decision RPC';
+  end if;
   if has_table_privilege('service_role', 'public.payment_provider_receipts', 'INSERT')
      or has_table_privilege('service_role', 'public.payment_provider_receipts', 'UPDATE')
      or has_table_privilege('service_role', 'public.payment_provider_receipts', 'DELETE') then
