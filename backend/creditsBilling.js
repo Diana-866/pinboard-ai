@@ -14,6 +14,7 @@ const { logError, logWarning, logInfo } = require("./safeLogger");
 const supabase = require("./supabase");
 const prodamus = require("./prodamus");
 const { persistWebhookException } = require("./billingWebhookAudit");
+const { persistProviderReceipt, setProviderDecision } = require("./paymentProviderReceipts");
 const { httpError, validateEnum } = require("./validate");
 const { CREDIT_PACKS, normalizePackId, packAmount } = require("./creditPacks");
 const { createPaymentOrderId } = require("./paymentOrderId");
@@ -182,6 +183,16 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
     return res.status(403).json({ ok: false, error: `Подпись не принята: ${check.reason}` });
   }
 
+  // A verified provider fact must be durable before order lookup or entitlement work.
+  let receiptId;
+  try {
+    const receipt = await persistProviderReceipt(db, { paymentKind: "credits", body });
+    receiptId = receipt.receiptId;
+  } catch (receiptError) {
+    logError("creditsBilling.event_022");
+    return res.status(500).json({ ok: false, error: "receipt storage failed" });
+  }
+
   if (prodamus.isDemoWebhookBlocked()) {
     // A demo payment form on a production deployment must never credit real credits.
     logError("creditsBilling.event_007");
@@ -196,6 +207,7 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
       await persistWebhookException(db, {
         paymentKind: "credits", body, reason: "missing_order_id",
       });
+      await setProviderDecision(db, { receiptId, decision: "unmatched", reasonCode: "missing_order_id" });
     } catch (auditError) {
       logError("creditsBilling.event_007");
       return res.status(500).json({ ok: false, error: "audit storage failed" });
@@ -219,6 +231,7 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
       await persistWebhookException(db, {
         paymentKind: "credits", body, reason: "unknown_order_id",
       });
+      await setProviderDecision(db, { receiptId, decision: "unmatched", reasonCode: "unknown_order_id" });
     } catch (auditError) {
       logError("creditsBilling.event_010");
       return res.status(500).json({ ok: false, error: "audit storage failed" });
@@ -247,6 +260,10 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
       return res.json({ ok: true, ignored: "unsupported payment_status", review_required: true });
     }
     const mapped = normalizedStatus;
+    await setProviderDecision(db, {
+      receiptId, decision: "ignored_non_success", reasonCode: "provider_payment_not_success",
+      paymentKind: "credits", paymentId: purchase.id, userId: purchase.user_id,
+    });
     const { error: statusError } = await db.from("credit_purchases")
       .update({ status: mapped }).eq("id", purchase.id)
       .is("balance_credited_at", null).neq("status", "success");
@@ -262,6 +279,11 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
         expectedAmount: Number.isFinite(Number(purchase.amount)) ? Number(purchase.amount) : null,
         reason: paymentAmount.reason,
       });
+      await setProviderDecision(db, {
+        receiptId, decision: "rejected_mismatch", reasonCode: "invalid_payment_amount",
+        paymentKind: "credits", paymentId: purchase.id, userId: purchase.user_id,
+      });
+      await setProviderDecision(db, { receiptId, decision: "pending_review", reasonCode: "unsupported_payment_status" });
     } catch (auditError) {
       logError("creditsBilling.event_014");
       return res.status(500).json({ ok: false, error: "audit storage failed" });
@@ -276,6 +298,10 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
     try {
       await persistWebhookException(db, {
         paymentKind: "credits", body, expectedAmount: expected, reason: "amount_mismatch",
+      });
+      await setProviderDecision(db, {
+        receiptId, decision: "rejected_mismatch", reasonCode: "amount_mismatch",
+        paymentKind: "credits", paymentId: purchase.id, userId: purchase.user_id,
       });
     } catch (auditError) {
       logError("creditsBilling.event_016");
@@ -293,6 +319,10 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
   // duplicate with an unexpected amount is still durably recorded for reconciliation.
   if (purchase.balance_credited_at) {
     try {
+      await setProviderDecision(db, {
+        receiptId, decision: "granted", paymentKind: "credits",
+        paymentId: purchase.id, userId: purchase.user_id,
+      });
       await settlePaymentCreationRequest(orderId, "credits", purchase.id, db);
     } catch (settlementError) {
       logError("creditsBilling.event_018");
@@ -309,11 +339,26 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
     p_description: `Пакет кредитов «${purchase.pack_title || purchase.package_id}» (+${purchase.credits}, не сгорают), заказ ${orderId}`,
   });
   if (creditError) {
+    if (/not active|account lifecycle/i.test(String(creditError.message || ""))) {
+      try {
+        await setProviderDecision(db, {
+          receiptId, decision: "withheld_account_lifecycle", reasonCode: "account_not_active",
+          paymentKind: "credits", paymentId: purchase.id, userId: purchase.user_id,
+        });
+      } catch (decisionError) {
+        logError("creditsBilling.event_023");
+        return res.status(500).json({ ok: false, error: "decision storage failed" });
+      }
+    }
     logError("creditsBilling.event_019");
     return res.status(500).json({ ok: false, error: "crediting failed" });
   }
 
   try {
+    await setProviderDecision(db, {
+      receiptId, decision: "granted", paymentKind: "credits",
+      paymentId: purchase.id, userId: purchase.user_id,
+    });
     await settlePaymentCreationRequest(orderId, "credits", purchase.id, db);
   } catch (settlementError) {
     logError("creditsBilling.event_020");
