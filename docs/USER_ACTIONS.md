@@ -3127,7 +3127,7 @@ Return the complete output and exit code. Do not change or skip assertions to ob
 
 ### UA-046 — Verify migration 160, atomic Prodamus fulfillment and deletion-race suite (2026-11-18)
 
-Supersedes the older migration count in UA-042/UA-044/UA-045. Current expected inventory: baseline 001 + 151 migrations 010–160, 49/49 SQL integration tests, 51 Node preflight tests, and 10 Bash concurrency scripts.
+Supersedes the older migration count in UA-042/UA-044/UA-045. Current expected inventory: baseline 001 + 151 migrations 010–160, 49/49 SQL integration tests, 52 Node preflight tests, and 10 Bash concurrency scripts.
 
 1. In the local project directory, run git status --short. If not clean, STOP and preserve local changes. If clean, run git pull --ff-only origin main; then require git rev-parse HEAD = git rev-parse origin/main and an empty worktree. Never reset, stash, rebase or force-push.
 2. Run the Node preflight:
@@ -3183,7 +3183,7 @@ Updated blobs: race script `005a431480d7ca7a9640d67689815f2aec53233e`; safety co
 2. Run `bash -n backend/test/lib/assert-disposable-postgres.sh backend/test/*-concurrency.sh` and `node --test backend/test/postgres-concurrency-safety-contract.test.js`. Require exit 0 and ten unique guarded scripts.
 3. Run only the workflow's `backend/test/run-disposable-concurrency-suite.sh` against its unique disposable clone, or inspect the matching GitHub Actions job. Do not invoke the race script against a shared or persistent database: it deliberately leaves append-only deletion events, and the outer runner must drop the entire clone.
 4. Require all four race cases (credits/subscription × payment-first/deletion-first) to execute, each lock waiter to be observed, all balance/ledger/tariff/period/decision assertions to pass, and disposable database cleanup to be confirmed.
-5. Continue full acceptance only after 151 migrations, 49 SQL integration tests and the 51 Node preflight tests pass. Never use production, staging, Supabase or PIN_TRIAL.
+5. Continue full acceptance only after 151 migrations, 49 SQL integration tests and the 52 Node preflight tests pass. Never use production, staging, Supabase or PIN_TRIAL.
 
 **Current runtime status:** NOT VERIFIED. Assistant performed source re-fetch/static contract inspection only; Bash, Node, PostgreSQL and full CI were not run. No PASS is claimed.
 
@@ -3227,7 +3227,7 @@ Current race script blob: `805a076a23e40e0b7263c5a45bb88035d7c4603b`; safety con
 
 The payment/deletion race now additionally requires exactly one `account_deletion_jobs` row for the user request, with `step_key='preflight'` and `status='pending'`, after both payment-first and deletion-first lock orders. The contract test requires this assertion. Deletion-first verifies both independent payment sessions wait on the user lock before release, then confirms the user balance/ledger, purchase/subscription states, tariff/period and both withheld receipt decisions.
 
-Run UA-047/UA-048's synchronization and runtime sequence. The full acceptance counts remain 151 migrations (010–160), 49 SQL tests, 51 Node preflight tests and 10 unique concurrency scripts. Require visible execution and cleanup PASS. Latest atomic run `44315630744`, job `134840855489`, failed before runner allocation; runtime remains NOT VERIFIED. Do not infer that any tests ran.
+Run UA-047/UA-048's synchronization and runtime sequence. The full acceptance counts remain 151 migrations (010–160), 49 SQL tests, 52 Node preflight tests and 10 unique concurrency scripts. Require visible execution and cleanup PASS. Latest atomic run `44315630744`, job `134840855489`, failed before runner allocation; runtime remains NOT VERIFIED. Do not infer that any tests ran.
 
 
 ### UA-050 — execute four isolated deletion/payment race cases (2026-11-18)
@@ -3241,7 +3241,7 @@ After syncing latest main, run UA-046 preflight and then Bash syntax + Node conc
 
 ### UA-050 — verify four independent payment/deletion lock-order cases (2026-11-18)
 
-This supersedes the combined-session race-script descriptions in UA-045 through UA-049. Current race script blob `6f1c08950a4a449f5c041aebdf65ca257bd29b4e`; concurrency contract blob `91e53359eee7257279e45a6ede7f6d74f86a3ef8`; report blob `406e4bb08dda634feee750ffecc4b00523017b68`.
+This supersedes the combined-session race-script descriptions in UA-045 through UA-049. Current race script blob `6f1c08950a4a449f5c041aebdf65ca257bd29b4e`; concurrency contract blob `91e53359eee7257279e45a6ede7f6d74f86a3ef8`; report blob `63a74e23ac2f2267b5242ff9db8fbc7800dbb19f`.
 
 The script now runs four separate fixtures:
 1. Credit fulfillment wins the user-row lock; deletion acceptance waits.
@@ -3251,7 +3251,7 @@ The script now runs four separate fixtures:
 
 Each case uses the real three-argument deletion RPC, the exact fixture token version, a PostgreSQL-observed lock waiter, one immutable `request_accepted` event, one pending `preflight` job and the appropriate receipt decision and entitlement checks. The test fixtures remain in the unique disposable database clone, which the outer runner drops.
 
-Run the UA-046/UA-047 acceptance sequence after synchronizing a clean local `main`: 51 Node preflight tests; focused payment Node tests; 151-migration Windows disposable replay and 49 SQL tests; Bash syntax and concurrency contract; then inspect the atomic CI run for all 10 scripts. Require actual steps and cleanup PASS. The latest atomic run `44315808409`, job `134841470669`, and persisted-board run `44315808507`, jobs `134841470967`/`134841471629`, failed before runner allocation. Runtime remains NOT VERIFIED; no test pass is claimed.
+Run the UA-046/UA-047 acceptance sequence after synchronizing a clean local `main`: 52 Node preflight tests; focused payment Node tests; 151-migration Windows disposable replay and 49 SQL tests; Bash syntax and concurrency contract; then inspect the atomic CI run for all 10 scripts. Require actual steps and cleanup PASS. The latest atomic run `44315808409`, job `134841470669`, and persisted-board run `44315808507`, jobs `134841470967`/`134841471629`, failed before runner allocation. Runtime remains NOT VERIFIED; no test pass is claimed.
 
 
 **Latest correction (2026-11-18):** four cases are now separate functions with independent fixtures and independent payment sessions; script blob `6f1c08950a4a449f5c041aebdf65ca257bd29b4e`, contract blob `91e53359eee7257279e45a6ede7f6d74f86a3ef8`, audit blob `406e4bb08dda634feee750ffecc4b00523017b68`. The exact deletion RPC signature is `request_account_deletion(uuid,text,bigint)`; each call passes the fixture token version. Runtime remains NOT VERIFIED.
