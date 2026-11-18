@@ -2540,3 +2540,14 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - Static re-fetch/scan: 14 valid fixtures now carry all required added fields; deliberately malformed fixture remains malformed. Runtime Node tests and PostgreSQL integration are NOT VERIFIED.
 - No SQL, production source, worker enablement, production database, account data, Storage objects, payments, or external services were changed/accessed. Account deletion worker remains disabled.
 - Owner acceptance is recorded as UA-060. Continue reviewing remaining RPC consumers; do not claim runtime success or launch readiness.
+
+
+### 2026-11-18 — Account deletion exact-count fail-closed validation
+
+- Found three unsafe exact-count conversions in account-deletion preflight: direct owned-table counts, email_outbox counts, and pins-by-board counts used `Number(count || 0)`. A null/missing count without a transport error was treated as a confirmed zero and could understate the deletion inventory.
+- Added `normalizeExactCount(count, table)`: only non-negative safe integer values are accepted; malformed values throw `invalid_exact_count`. Applied consistently to all three count paths and exported the pure helper.
+- Added regression tests for valid zero/positive values and null, undefined, string, fractional, negative, infinite, and unsafe values. Source blob `3b045acd8600f372a712f0792760eb3145ea1e87`; test blob `ca4786fe629e75662715027c100664bfaa40254b`.
+- Source commit `84fd644bd1da61461af41925ed111e1b6be8fb22`; test commit `2a356ba88c3aabdf2da5c57e534c67fd4612ed0d`; audit commit `3dc4e48ef01daa03c2f684b787eff1585b47d091`.
+- Re-fetched source/test from GitHub. Static scan confirms zero permissive `Number(count || 0)` conversions remain in the worker and strict normalization is used at each count site. Node runtime test and disposable PostgreSQL integration remain NOT VERIFIED.
+- No production DB, account data, Storage objects, external provider, worker enablement, SQL migration, or deployment was touched. Account deletion worker remains disabled.
+- Owner action UA-061 records the focused test command. Continue with independent RPC and lifecycle review; no production launch approval.
