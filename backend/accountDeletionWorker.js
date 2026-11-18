@@ -159,6 +159,25 @@ async function inspectAccountForDeletion(client, userId) {
   return { ok: true, sectionsChecked: Object.keys(counts).length, counts };
 }
 
+function isValidStorageManifestBatch(objects, limit = 100) {
+  if (!Array.isArray(objects) || !Number.isSafeInteger(limit) || limit < 1 || limit > 100 || objects.length > limit) {
+    return false;
+  }
+  const paths = new Set();
+  for (const object of objects) {
+    if (!object || typeof object !== "object" || Array.isArray(object) ||
+        object.bucket_id !== "pin-images" ||
+        typeof object.object_path !== "string" ||
+        !/^pins\\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\\.(?:png|jpe?g|webp|gif)$/i.test(object.object_path)) {
+      return false;
+    }
+    const key = object.bucket_id + "\\0" + object.object_path;
+    if (paths.has(key)) return false;
+    paths.add(key);
+  }
+  return true;
+}
+
 function isValidDeletionJobBatch(jobs, limit = CLAIM_LIMIT) {
   if (!Array.isArray(jobs) || !Number.isSafeInteger(limit) || limit < 1 || limit > 10 || jobs.length > limit) return false;
   const ids = new Set();
@@ -225,19 +244,20 @@ function createAccountDeletionWorker({
           { p_job_id: job.job_id, p_claim_token: job.claim_token, p_limit: 100 }
         );
         if (storageListError) throw storageListError;
-        if (!Array.isArray(storageObjects)) {
-          const error = new Error("account deletion Storage manifest response is not an array");
+        if (!Array.isArray(storageObjects) || storageObjects.length > 100) {
+          const error = new Error("account deletion Storage manifest response is not a bounded array");
           error.code = "invalid_storage_manifest_response";
           throw error;
         }
+        // Validate the entire batch before the first object deletion. The SQL
+        // RPC is bounded to 100 unique manifest paths; a malformed successful
+        // response must not trigger partial destructive processing.
+        if (!isValidStorageManifestBatch(storageObjects, 100)) {
+          const error = new Error("account deletion Storage manifest entries are invalid or duplicated");
+          error.code = "invalid_storage_manifest_entry";
+          throw error;
+        }
         for (const object of storageObjects) {
-          if (object.bucket_id !== "pin-images" ||
-              typeof object.object_path !== "string" ||
-              !/^pins\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp|gif)$/i.test(object.object_path)) {
-            const error = new Error("invalid account deletion Storage manifest entry");
-            error.code = "invalid_storage_manifest_entry";
-            throw error;
-          }
           const removed = await deleteImageObject({
             supabase: client,
             bucket: object.bucket_id,
@@ -266,8 +286,8 @@ function createAccountDeletionWorker({
           { p_job_id: job.job_id, p_claim_token: job.claim_token, p_limit: 1 }
         );
         if (remainingError) throw remainingError;
-        if (!Array.isArray(remainingObjects)) {
-          const error = new Error("account deletion remaining Storage manifest response is not an array");
+        if (!Array.isArray(remainingObjects) || remainingObjects.length > 1) {
+          const error = new Error("account deletion remaining Storage manifest response is not a bounded array");
           error.code = "invalid_storage_manifest_response";
           throw error;
         }
@@ -470,4 +490,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { safeErrorCode, normalizeExactCount, countOwnedRows, fetchAllRows, chunkValues, countPinsForBoards, inspectAccountForDeletion, isValidDeletionJobBatch, createAccountDeletionWorker };
+module.exports = { safeErrorCode, normalizeExactCount, countOwnedRows, fetchAllRows, chunkValues, countPinsForBoards, inspectAccountForDeletion, isValidDeletionJobBatch, isValidStorageManifestBatch, createAccountDeletionWorker };
