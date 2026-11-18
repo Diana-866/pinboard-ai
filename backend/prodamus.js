@@ -141,7 +141,12 @@ function safeEqual(a, b) {
  * on a production deployment is not.
  */
 function isDemoWebhookBlocked() {
-  return isDemo() && String(process.env.NODE_ENV || "").trim().toLowerCase() === "production";
+  // Demo callbacks may only grant entitlements in an explicitly local
+  // environment. Treating every non-"production" NODE_ENV as safe would let a
+  // staging or misconfigured deployment with PRODAMUS_DEMO enabled grant real
+  // plans and credits from demo payments.
+  const nodeEnv = String(process.env.NODE_ENV || "").trim().toLowerCase();
+  return isDemo() && !["development", "test"].includes(nodeEnv);
 }
 
 function verifyWebhook(body, headers) {

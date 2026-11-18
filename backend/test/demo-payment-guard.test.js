@@ -25,7 +25,7 @@ function withEnv(patch, run) {
   }
 }
 
-test("demo payments are blocked only when a production deployment runs in demo mode", () => {
+test("demo payments may grant entitlements only in an explicitly local environment", () => {
   withEnv({ PRODAMUS_DEMO: "1", NODE_ENV: "production" }, () => {
     assert.equal(prodamus.isDemo(), true);
     assert.equal(prodamus.isDemoWebhookBlocked(), true);
@@ -34,6 +34,22 @@ test("demo payments are blocked only when a production deployment runs in demo m
   withEnv({ PRODAMUS_DEMO: "1", NODE_ENV: "development" }, () => {
     assert.equal(prodamus.isDemoWebhookBlocked(), false, "local end-to-end testing stays possible");
   });
+
+  withEnv({ PRODAMUS_DEMO: "1", NODE_ENV: "test" }, () => {
+    assert.equal(prodamus.isDemoWebhookBlocked(), false, "automated tests stay possible");
+  });
+
+  // Staging and any deployment that never set NODE_ENV must not hand out real
+  // entitlements from a demo payment form.
+  for (const nodeEnv of ["", "staging", "prod"]) {
+    withEnv({ PRODAMUS_DEMO: "1", NODE_ENV: nodeEnv }, () => {
+      assert.equal(
+        prodamus.isDemoWebhookBlocked(),
+        true,
+        `NODE_ENV=${nodeEnv} must block demo entitlement grants`
+      );
+    });
+  }
 
   withEnv({ PRODAMUS_DEMO: undefined, NODE_ENV: "production" }, () => {
     assert.equal(prodamus.isDemo(), false);

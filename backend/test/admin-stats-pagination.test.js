@@ -1,13 +1,11 @@
 "use strict";
 
 const test = require("node:test");
+// admin.js imports the shared Supabase client at module load. The helper only
+// supplies inert placeholder configuration; this test never makes a network
+// request.
+require("./helpers/env");
 const assert = require("node:assert/strict");
-
-// admin.js imports the shared Supabase client at module load. These inert
-// values are only used to construct that client; this test never makes a
-// network request.
-process.env.SUPABASE_URL ||= "https://example.supabase.co";
-process.env.SUPABASE_ANON_KEY ||= "test-anon-key";
 
 const { fetchAllRows } = require("../admin");
 

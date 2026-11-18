@@ -1,10 +1,9 @@
 const test = require("node:test");
+// tariff.js imports the shared Supabase client at load time; the helper supplies
+// inert configuration. These tests inject a fully mocked client and never make
+// network requests.
+require("./helpers/env");
 const assert = require("node:assert/strict");
-
-// Supabase client construction needs a syntactically valid URL even though
-// these tests inject a fully mocked client and never make network requests.
-process.env.SUPABASE_URL = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
-process.env.SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || "test-anon-key";
 
 const { getTariffState } = require("../tariff");
 
