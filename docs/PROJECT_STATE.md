@@ -2313,3 +2313,13 @@ The combined status for the later documentation HEAD `a201002b668d7a9c962979cbf4
 - Current main combined status: Vercel FAILURE / build-rate-limit. Latest observed atomic Actions run 44315808409 / job 134841470669 failed before runner allocation (runner_id 0, no steps). No GitHub Actions PASS, source build, deployment, Node run, Bash run, PostgreSQL replay or SQL runtime pass is evidenced.
 - Owner runtime action UA-051 is the current exact 52-test Node preflight; UA-050 covers the four race cases. The 151-migration disposable replay, 49 SQL tests and all ten concurrency scripts must visibly execute and pass before first-user invitations or live payments.
 - Detailed current report: docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md, blob 355f09b2374eb773962817ed1860c12435a3cfc5. No background work is claimed; next step is owner-run isolated verification and then any remaining production release blockers.
+
+
+### Final GitHub synchronization — 2026-11-18
+
+- Re-fetched 17 source, migration, workflow, runner, test and documentation artifacts from main. At the start of this final synchronization main HEAD was exactly 08d97687ba617e4a209d0fab94f4b0e06f1481ac; compare(main, that SHA) returned identical.
+- Final static inventory: migration 160 present; 151 active migrations 010–160; SQL manifest 49 entries exactly matching the workflow's 49 SQL invocations; Node preflight 52 tests (33 + 2 + 17); ten unique disposable concurrency scripts; four independently named deletion/payment lock-order cases. All current blob IDs are indexed in DOCUMENTATION_REGISTER.md.
+- Re-evaluated the current concurrency contract's required regexes against the current race script: four case functions, four real deletion RPC call sites with token-version arguments, account_deletion_jobs and account_deletion_events assertions, entitlement outcomes, cleanup trap and no deletion of append-only request rows all match. This remains static validation only.
+- Final combined status on main HEAD: Vercel FAILURE / build-rate-limit. The workflow-run lookup returned no PR-triggered run for this HEAD. Latest observed atomic Actions run 44315808409 / job 134841470669 failed before runner allocation (runner_id 0, zero steps); no runtime test step ran.
+- Open PR #91 remains draft and diverged from main (13 commits ahead, 381 behind); no merge was attempted because it is stale and unrelated to the completed mainline work.
+- No production database, production data, real payment, Prodamus account or external service was accessed. No tests are claimed as executed. Runtime remains NOT VERIFIED and first-user/live-payment release remains blocked.
