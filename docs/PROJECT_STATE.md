@@ -2519,3 +2519,13 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - Added tests that malformed claim responses trigger only the claim RPC and never invoke a destructive stage RPC. Node/PostgreSQL runtime NOT VERIFIED.
 - Detailed audit `docs/audits/2026-11-18-account-deletion-claim-contract.md`, blob `9e4f6cd668cb5db50a23b3a658b29b6096f3599e`, commit `a765c492764c56232b732cf61eb6bf70f4cced21`. Owner action UA-059 added.
 - Account deletion worker remains disabled. No production account, DB, Storage object or user data was accessed. Keep worker disabled until disposable runtime/staging acceptance.
+
+
+### Final work-period verification — queue claim contract sweep (2026-11-18)
+
+- Current main HEAD before this closeout note: `05a2768b400f08290f69433bbdc5c5b307a3bd42`.
+- This period closed two additional queue-consumer defects: email outbox claim validation (`backend/billing.js`, `4bd9145198a643a5878652054cd41ae77cb529a1`) and account deletion claim validation (`backend/accountDeletionWorker.js`, `2cdf0c9fceca0f80d061de24c8a477daf0cd3cf1`); regression commits `c1fc19af5d217a58c29dcbda0d0bdf64ac761f0c` and `ffad0d99dace0119afeb0b29d7c20844b675f315`.
+- Re-fetched current source/test files after publication. Email outbox batch now validates unique fenced rows before SMTP; account deletion batch validates full job identity/stage/lease before any stage RPC. Account deletion worker remains disabled.
+- Latest Actions runs after these changes: `44320553737` (atomic payment), `44320553241` (persisted boards), `44320543687` (atomic payment), `44320543564` (persisted boards). All failed and job API returned `steps: null`; no test step execution or source failure is evidenced. Vercel remains `failure / build-rate-limit` on main.
+- Node tests, PostgreSQL integration, full backend suite, frontend build and deployment are NOT VERIFIED. No runtime PASS is claimed. Owner steps UA-058 and UA-059 contain clean-checkout commands.
+- No production DB, SMTP, customer email, live payment, account deletion or Pinterest publishing was performed. Next: owner-run focused Node and disposable PostgreSQL acceptance after CI runner/Vercel quota is restored; continue reviewing remaining queue/RPC consumers. First-user launch remains blocked.
