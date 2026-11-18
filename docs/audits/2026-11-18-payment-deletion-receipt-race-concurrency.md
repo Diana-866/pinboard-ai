@@ -229,3 +229,24 @@ Each case creates its own user/payment/receipt fixture, passes the exact token v
 - Durable queue assertions are retained: exactly one pending `preflight` job and one `request_accepted` event in every case.
 
 Latest atomic workflow run `44315808409`, job `134841470669`, failed before runner allocation (`runner_id=0`, empty runner name, zero steps). Latest persisted-boards run `44315808507`, jobs `134841470967` and `134841471629`, also failed before runner allocation. No steps were exposed. Runtime remains **NOT VERIFIED**; do not infer Bash, Node or PostgreSQL execution.
+
+
+## Latest follow-up — four isolated race cases and durable preflight-job assertions (2026-11-18)
+
+The current mainline race harness was further simplified into four independently isolated scenarios instead of combining both payment kinds in a single transaction:
+
+1. Credit payment first, then deletion acceptance.
+2. Deletion acceptance first, then credit payment.
+3. Subscription payment first, then deletion acceptance.
+4. Deletion acceptance first, then subscription payment.
+
+Each case creates its own user/payment/receipt fixture. Every deletion acceptance uses the three-argument request RPC with the captured token version. Each outcome checks the exact user/request token-version fence, one immutable request_accepted event, exactly one pending preflight job, and the relevant credit ledger/balance or subscription status/period/tariff. The outer runner still drops the unique disposable clone; the script's EXIT trap only stops child processes and removes temporary logs.
+
+Current re-fetched source blobs:
+- Race harness: 6f1c08950a4a449f5c041aebdf65ca257bd29b4e.
+- Node concurrency contract: 91e53359eee7257279e45a6ede7f6d74f86a3ef8.
+- Disposable runner: 827a2cd063d64668102bdf36e97e4a73dffba0af.
+
+Static validation against the current contract confirms all four scenario functions, four three-argument deletion RPC call sites, both entitlement RPCs, event/job count assertions, token fence, cleanup trap and no destructive deletion of immutable request rows. The runner still enumerates ten unique scripts. The three Node preflight files now contain **52** top-level tests (33 runner contract + 2 migration-chain + 17 verify-script contract), not 51. The SQL manifest remains **49** entries and matches the workflow exactly; the active migration sequence remains **151** migrations 010–160.
+
+This replaces earlier report text referring to two simultaneous payment waiters in one deletion-first case: the current test uses four separate lock-order scenarios, one payment-kind waiter per scenario. Bash syntax, Node tests, PostgreSQL races, migration replay, SQL suite and full CI remain **NOT RUN / NOT VERIFIED**. The latest Vercel status is still failure / build-rate-limit; no source build or deployment pass is confirmed.
