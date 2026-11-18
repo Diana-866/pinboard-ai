@@ -114,7 +114,7 @@ SUBSCRIPTION_RECEIPT_ID=""
 # fence first. Both independent receipt-bound fulfillment RPCs must wait, then
 # durably withhold without changing either entitlement.
 create_case "deletion-first"
-PGAPPNAME=payment-deletion-deletion-first-locker "${psql_base[@]}" -c "begin; select public.request_account_deletion('$USER_ID', 'password_reauth'); select pg_sleep(5); commit;" >"${TEST_TMP_DIR}/deletion-first-locker.log" 2>&1 &
+PGAPPNAME=payment-deletion-deletion-first-locker "${psql_base[@]}" -c "begin; select public.request_account_deletion('$USER_ID', 'password_reauth', $TOKEN_VERSION); select pg_sleep(5); commit;" >"${TEST_TMP_DIR}/deletion-first-locker.log" 2>&1 &
 DELETION_LOCK_PID=$!
 wait_for_query "payment-deletion-deletion-first-locker" "pg_sleep"
 
