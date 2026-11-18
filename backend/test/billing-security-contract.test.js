@@ -119,3 +119,16 @@ test("Prodamus CI runs ambiguous checkout and billing security regression covera
   );
   assert.doesNotMatch(workflow, /Test checkout idempotency and ambiguous provider failures/);
 });
+
+
+test("subscription and credit checkout validate per-request webhook URLs before reserving payment idempotency", () => {
+  for (const file of ["billing.js", "creditsBilling.js"]) {
+    const source = read(file);
+    const validation = source.indexOf("prodamus.validateWebhookNotificationUrl(notificationUrl)");
+    const reservation = source.indexOf("beginPaymentCreation(userId, idempotencyKey");
+    assert.notEqual(validation, -1, file + " must validate configured webhook URL");
+    assert.notEqual(reservation, -1, file + " must reserve checkout idempotency");
+    assert.ok(validation < reservation, file + " must reject insecure callback configuration before reserving a payment");
+    assert.match(source, /urlNotification: notificationUrl/);
+  }
+});
