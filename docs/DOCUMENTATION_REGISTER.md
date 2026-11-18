@@ -1859,8 +1859,8 @@ Commits: admin fix `ffdb871971c7e6702737e8c3bfc8828bd75696c9`; admin regression 
 | `backend/accountDeletionWorker.js` | `1df861ccc0f05cc8b787f51c5e111bc07d3660cb` | Rejects non-array paginated inventory pages and both malformed Storage-manifest responses; retry instead of treating null as empty |
 | `backend/test/account-deletion-worker.test.js` | `292c619f9717f862589aecadfa9f9855662b7f9b` | Covers null inventory page, null initial manifest and null remaining-manifest response; runtime NOT VERIFIED |
 | `docs/audits/2026-11-18-account-deletion-preflight-stable-pagination.md` | `d0c94414069590d462a956c701d98c935654f217` | Addendum records the null-to-empty root cause, fail-closed correction and regression evidence |
-| `docs/PROJECT_STATE.md` | `a5f0607d53c64e7ce66ed55141168df533050512` | Current operational state includes worker and test source blobs |
-| `docs/USER_ACTIONS.md` | `94d14d522adebb86ca64e286dda8b678f8bf96f1` | UA-053 current-source reconciliation and owner-only local test command |
+| `docs/PROJECT_STATE.md` | `96e4275c34118e22b93a219d522a2a6b718fff37` | Current operational state includes worker and test source blobs |
+| `docs/USER_ACTIONS.md` | `700c4970468735daedec7d5b9ca3f94fb9abf830` | UA-053 current-source reconciliation and owner-only local test command |
 
 Implementation commits: `04bb175803eb2524834785d0599e4d37a77ed2e3` and `185d1d8015ee629dbd95a7da0a10de2db835241e`. Source-level verification only; Node runtime, PostgreSQL replay, Storage integration and deletion-worker rollout remain NOT VERIFIED. No real account or Storage object was touched.
 
@@ -1958,3 +1958,10 @@ Current main HEAD before this register update: `2468bccc99762afdc47306ffda0e06b2
 - `backend/scheduleWorker.js`: `4eff5a721a8f5668876056109902e57ccb8ae1e5` — enforces the shared full response validator.
 - `backend/test/schedule-worker.test.js`: `ca4bf9a3635c1e29bd328ccc38c68d849772e0c0` — all success stubs now use complete response objects; no incomplete inline `{ok:true}` stubs remain. Commit `ff8549114d407b66bcbca1e8ac40421bde238cfc`.
 - Scheduler audit current blob: `a09bb595bec2708c190df3b16e64bc9cf7b3bd46`; fixture-alignment addendum records this correction. Node runtime remains NOT VERIFIED.
+
+
+## Final branch status — 2026-11-18
+
+- Current main HEAD before this register update: `731efc620d19b624e073ca7991bc922a3e46a4c4`; latest code/test commit `ff8549114d407b66bcbca1e8ac40421bde238cfc`.
+- Vercel combined status: `failure / build-rate-limit`; no deployment success. Latest recorded Actions runs `44319401720` and `44319401655` failed without job steps/logs; no runtime PASS or source-test failure is inferred.
+- State blob `96e4275c34118e22b93a219d522a2a6b718fff37`; owner-action blob `700c4970468735daedec7d5b9ca3f94fb9abf830`. Release remains blocked pending owner-run Node/PostgreSQL and deployment acceptance.
