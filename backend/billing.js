@@ -79,6 +79,12 @@ async function createPayment(userId, body, idempotencyKey) {
   }
 
   const amount = PLANS[plan][currency];
+  const notificationBase = publicBase();
+  const notificationUrl = notificationBase ? notificationBase + "/billing/webhook" : undefined;
+  if (String(process.env.PRODAMUS_SYS || "").trim() && notificationUrl) {
+    // Validate configuration before reserving an idempotency key or creating a local order.
+    prodamus.validateWebhookNotificationUrl(notificationUrl);
+  }
   const intent = await beginPaymentCreation(userId, idempotencyKey, "subscription", plan, currency);
   if (!intent.started) return intent.result;
 
@@ -141,7 +147,6 @@ async function createPayment(userId, body, idempotencyKey) {
     throw httpError(503, "Не удалось безопасно подготовить заказ. Счёт провайдеру не отправлялся; статус заказа требует проверки.");
   }
 
-  const base = publicBase();
   let link;
   try {
     link = await prodamus.createPaymentLink({
@@ -151,7 +156,7 @@ async function createPayment(userId, body, idempotencyKey) {
       email: user.email,
       description: `PinPosy — тариф «${PLANS[plan].title}», 30 дней`,
       plan,
-      urlNotification: base ? `${base}/billing/webhook` : undefined,
+      urlNotification: notificationUrl,
       urlSuccess: `${frontendBase()}/app?payment=success`,
     });
   } catch (error) {
