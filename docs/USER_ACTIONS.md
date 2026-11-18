@@ -3219,3 +3219,12 @@ Static counts remain 151 migrations (010–160), 49 unique SQL tests and 10 uniq
 Current race script blob: `805a076a23e40e0b7263c5a45bb88035d7c4603b`; Node contract blob: `e315d6cb694465e3ea116c2cf828ef13d8d1f268`; updated audit blob: `af7c20792eda12fd547b934a93b0479a976505c8`.
 
 The latest test requires exactly one immutable `request_accepted` event and exactly one pending `preflight` job in both payment-first and deletion-first outcomes. Deletion-first still proves two independent payment sessions wait simultaneously. Runtime remains NOT VERIFIED; execute the Bash syntax, Node contract and full unique disposable-clone CI suite after syncing to latest main. Do not run the race script against a persistent database.
+
+
+### UA-049 — verify durable deletion preflight enqueueing in payment races (2026-11-18)
+
+Current race script blob: `805a076a23e40e0b7263c5a45bb88035d7c4603b`; safety contract blob: `e315d6cb694465e3ea116c2cf828ef13d8d1f268`; audit blob: `619402188b5bd00dea0a0c31e755fb5f154170e4`.
+
+The payment/deletion race now additionally requires exactly one `account_deletion_jobs` row for the user request, with `step_key='preflight'` and `status='pending'`, after both payment-first and deletion-first lock orders. The contract test requires this assertion. Deletion-first verifies both independent payment sessions wait on the user lock before release, then confirms the user balance/ledger, purchase/subscription states, tariff/period and both withheld receipt decisions.
+
+Run UA-047/UA-048's synchronization and runtime sequence. The full acceptance counts remain 151 migrations (010–160), 49 SQL tests, 51 Node preflight tests and 10 unique concurrency scripts. Require visible execution and cleanup PASS. Latest atomic run `44315630744`, job `134840855489`, failed before runner allocation; runtime remains NOT VERIFIED. Do not infer that any tests ran.
