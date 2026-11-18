@@ -252,6 +252,7 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
             : null,
           reason: "unsupported_payment_status",
         });
+        await setProviderDecision(db, { receiptId, decision: "pending_review", reasonCode: "unsupported_payment_status" });
       } catch (auditError) {
         logError("creditsBilling.event_012");
         return res.status(500).json({ ok: false, error: "audit storage failed" });
