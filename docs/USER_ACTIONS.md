@@ -3348,3 +3348,8 @@ Latest atomic Actions run `44318275401` / job `134850094393` concluded failure, 
 ### UA-053 addendum — invalid Storage manifest RPC response regression (2026-11-18)
 
 Mainline commit `031da170684d9ff5d5b2add436d9b9bcd18e2460` now fails closed if either initial or final Storage-manifest RPC returns a non-array (including null), instead of treating a malformed/null response as an empty manifest. Regression coverage exists in `backend/test/account-deletion-worker.test.js` for both cases. Current worker blob `d01f59307612b700e9873017da32d5c93025c60a`; test blob `5882650d115a31b5b6d472db183d6771e142947e`. Execute `node --test backend/test/account-deletion-worker.test.js` on local test environment only. Do not enable the worker or process real user accounts.
+
+
+### UA-053 current-source reconciliation (2026-11-18)
+
+Further mainline hardening rejects non-array paginated inventory responses (including null) instead of treating them as empty. Current worker blob `1df861ccc0f05cc8b787f51c5e111bc07d3660cb`, test blob `292c619f9717f862589aecadfa9f9855662b7f9b`; commits `04bb175803eb2524834785d0599e4d37a77ed2e3` and `185d1d8015ee629dbd95a7da0a10de2db835241e`. These current blobs supersede earlier worker/test SHAs recorded in the initial UA-053 addendum. Run `node --test backend/test/account-deletion-worker.test.js` only locally; do not enable the worker or use real accounts.
