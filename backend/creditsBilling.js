@@ -261,10 +261,15 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
       return res.json({ ok: true, ignored: "unsupported payment_status", review_required: true });
     }
     const mapped = normalizedStatus;
-    await setProviderDecision(db, {
-      receiptId, decision: "ignored_non_success", reasonCode: "provider_payment_not_success",
-      paymentKind: "credits", paymentId: purchase.id, userId: purchase.user_id,
-    });
+    try {
+      await setProviderDecision(db, {
+        receiptId, decision: "ignored_non_success", reasonCode: "provider_payment_not_success",
+        paymentKind: "credits", paymentId: purchase.id, userId: purchase.user_id,
+      });
+    } catch (decisionError) {
+      logError("creditsBilling.event_025");
+      return res.status(500).json({ ok: false, error: "decision storage failed" });
+    }
     const { error: statusError } = await db.from("credit_purchases")
       .update({ status: mapped }).eq("id", purchase.id)
       .is("balance_credited_at", null).neq("status", "success");
