@@ -3419,3 +3419,10 @@ Latest observed push-triggered runs after scheduler hardening: atomic payment ru
 ### UA-056 addendum — strict response fixtures and latest CI status (2026-11-18)
 
 Mainline commit `ff8549114d407b66bcbca1e8ac40421bde238cfc` aligned legacy worker test fixtures with the strict one-row response contract; current test blob `ca4bf9a3635c1e29bd328ccc38c68d849772e0c0`. Audit updated at commit `df07d8e64173dc8528f7e059115b184aba59098d`. Latest push runs `44319401720` (atomic payment) and `44319401655` (persisted boards) failed without job steps/logs; no test execution is evidenced. Vercel status remains `build-rate-limit`. Do not infer runtime failure or success; run focused Node tests and disposable PostgreSQL suites after runner/plan quota is restored.
+
+
+### UA-056 addendum — scheduler worker fixtures aligned to strict response validation (2026-11-18)
+
+The worker now rejects malformed `ok: true` responses unless counters and result rows form a complete valid contract. Updated `backend/test/schedule-worker.test.js` so every successful mock uses a complete empty, published or scheduled response. The one-row lease test no longer claims three rows; it asserts one scheduled row. Current test blob `ca4bf9a3635c1e29bd328ccc38c68d849772e0c0`; fixture correction commit `ff8549114d407b66bcbca1e8ac40421bde238cfc`; audit blob `a09bb595bec2708c190df3b16e64bc9cf7b3bd46`.
+
+Run `node --test backend/test/schedule-worker.test.js` alongside the UA-056 route/claim tests. Runtime remains NOT VERIFIED; no live Pinterest publishing or production cron.
