@@ -89,6 +89,8 @@ declare
   v_payment_status text;
   v_credit_marker timestamptz;
   v_period_end timestamptz;
+  v_payment_amount numeric(12,2);
+  v_payment_currency text;
 begin
   if p_receipt_id is null or p_local_payment_id is null
      or p_local_payment_kind is null or p_local_payment_kind not in ('credits', 'subscription')
@@ -110,6 +112,15 @@ begin
    for update;
   if not found then raise exception 'provider receipt decision not found'; end if;
 
+  if (v_decision.local_payment_kind is not null
+      and v_decision.local_payment_kind is distinct from p_local_payment_kind)
+     or (v_decision.local_payment_id is not null
+      and v_decision.local_payment_id is distinct from p_local_payment_id)
+     or (v_decision.user_id is not null
+      and v_decision.user_id is distinct from p_user_id) then
+    raise exception 'receipt decision is already bound to another local payment';
+  end if;
+
   if v_decision.decision = 'granted' then
     if v_decision.local_payment_kind is distinct from p_local_payment_kind
        or v_decision.local_payment_id is distinct from p_local_payment_id
@@ -123,23 +134,31 @@ begin
   end if;
 
   if p_local_payment_kind = 'credits' then
-    select user_id, provider_payment_id, status, balance_credited_at
-      into v_payment_user_id, v_provider_order_id, v_payment_status, v_credit_marker
+    select user_id, provider_payment_id, status, balance_credited_at, amount, currency
+      into v_payment_user_id, v_provider_order_id, v_payment_status, v_credit_marker,
+           v_payment_amount, v_payment_currency
       from public.credit_purchases
      where id = p_local_payment_id;
     if not found or v_payment_user_id is distinct from p_user_id
        or v_provider_order_id is distinct from v_receipt.provider_order_id
-       or v_payment_status <> 'success' or v_credit_marker is null then
+       or v_payment_status <> 'success' or v_credit_marker is null
+       or v_receipt.received_amount is null
+       or abs(v_receipt.received_amount - v_payment_amount) > 0.01
+       or coalesce(v_receipt.received_currency, 'rub') <> lower(coalesce(v_payment_currency, 'rub')) then
       raise exception 'credit entitlement is not committed for this receipt';
     end if;
   else
-    select user_id, provider_payment_id, status, period_end
-      into v_payment_user_id, v_provider_order_id, v_payment_status, v_period_end
+    select user_id, provider_payment_id, status, period_end, amount, currency
+      into v_payment_user_id, v_provider_order_id, v_payment_status, v_period_end,
+           v_payment_amount, v_payment_currency
       from public.subscriptions
      where id = p_local_payment_id;
     if not found or v_payment_user_id is distinct from p_user_id
        or v_provider_order_id is distinct from v_receipt.provider_order_id
-       or v_payment_status <> 'success' or v_period_end is null then
+       or v_payment_status <> 'success' or v_period_end is null
+       or v_receipt.received_amount is null
+       or abs(v_receipt.received_amount - v_payment_amount) > 0.01
+       or coalesce(v_receipt.received_currency, 'rub') <> lower(coalesce(v_payment_currency, 'rub')) then
       raise exception 'subscription entitlement is not committed for this receipt';
     end if;
   end if;
