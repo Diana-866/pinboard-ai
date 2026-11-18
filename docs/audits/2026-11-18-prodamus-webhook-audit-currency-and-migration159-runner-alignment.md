@@ -107,3 +107,34 @@ Static inspection confirms the terminal-identity checks are present in both migr
 - Owner: follow UA-042 (51 Node preflight tests, then guarded local disposable PostgreSQL with 150 migrations and 49 SQL tests) and UA-043 (billing webhook audit Node test).
 - Engineering: add a two-session concurrency regression for account deletion racing receipt-bound fulfillment; continue reviewing webhook identity and duplicate/late delivery handling.
 - Keep live payments and first-user invitations blocked until the required runtime and operational gates are demonstrated.
+
+
+## Follow-up — migration 160 terminal receipt-decision binding (2026-11-18)
+
+### Root cause and correction
+
+Migration 159 revalidated provider order ID, amount and currency before returning a terminal decision, but the decision row's own local-payment reference was not independently compared with the payment row supplied to the RPC. Migration 160 now locks and reads the full decision row and requires terminal decisions to remain bound to the same `local_payment_kind`, `local_payment_id` and `user_id`. This prevents a receipt decision from being reused against another local purchase/subscription even if provider facts are otherwise similar. Repeated `rejected_mismatch` callbacks for the same bound payment now return an idempotent rejection instead of raising a terminal-conflict error.
+
+### Changes published
+
+- Migration `db/migrations/160_prodamus_receipt_local_payment_binding_guard.sql`: commit `3e3706eb06819967c1b85079b861d28084e538f8`; follow-up error-contract alignment `d17914fcf4e2a357de2b0b62c486baaeeeaacd9e`; current blob `7005ec7ce7a802312bb1376284892309a67fa226`.
+- SQL regression `backend/test/payment-provider-receipt-fulfillment.integration.sql`: commit `24eccab7d451586b9ae0a6c05a4b3f722ba3ab6f`; current blob `f7fdc7a05bba1bc45f2b4f78652a7365422b4778`. It asserts cross-payment reuse is rejected for both credit purchases and subscriptions, and a repeated same-payment mismatch is idempotent.
+- CI applies migration 160: `.github/workflows/atomic-payment-integration.yml`, commit `973bcc582cd60e14537a6c9cfdee5b677cd795e0`, blob `11de973ebc95fba682b53b61ac787dc1a5ab1ca1`.
+- Linux replay: commit `1b4a2b59f137eb1fe13749d3c54d6ed27f6734a2`, blob `19420342cd79d952a9fff1890896bd3fd3d3412e`.
+- Windows replay: commit `551fc64a2c0b9681db0469176ba4040fbe61bdb5`, blob `d40d007c8aaf2ff9c51c97aa898bab28b3bc2e32`.
+- Guarded local runner: commit `e79e7bc8d7d5ce64a55d738d2db9a392453fbded`, blob `a1af92050d64db66f5081c1425e49247ef074173`.
+- Migration-chain contracts: commits `013b976de62e12cf9ab4f7ee0539927c86842fc5`, `09336c3f6eaedbf466e25a845259af97c65e3c2b`, `4e4de323841516093cffec1ae32a74b6b6d30d73`; current blobs `2e8fb064dc90e75e76bcece275781363f62f8883`, `aa880e809d1555c00bb0d96355868f3fd4b78744`, `bd2f6066eb6ca3f920d6f48f44facac25ae65cb4`.
+
+### Current static inventory and verification boundary
+
+- Canonical migrations: 001 baseline plus **151 active migrations 010–160**.
+- SQL integration manifest: **49 unique entries**, exactly matching the workflow order.
+- Node preflight: **51** top-level tests across the three documented preflight files.
+- Disposable concurrency suite: **10 scripts**, including payment-first and deletion-first receipt-bound credit races. That race currently models the account-status row-lock fence; it does not call the full account-deletion acceptance queue/worker and does not cover subscription fulfillment.
+- Static re-fetch confirms the migration, SQL regression, workflow migration application, runner counts and migration-chain contracts. **No runtime PASS is claimed.** The Node suites, Bash syntax/race tests, 151-migration PostgreSQL replay and 49 SQL tests remain NOT VERIFIED.
+- Current main HEAD observed for this reconciliation: `b38434d6e5f891db76ba4c6b7e163bf277a894e1`. Combined status reports Vercel `failure / build-rate-limit`; no deployment is confirmed. The available workflow-run lookup returned no PR-triggered run for this push HEAD; prior observed Actions failures before runner allocation remain UNKNOWN, not test failures.
+- Open PR #91 remains a draft on `fix/migration-156-contract-regex`, behind main and not mergeable; no merge was attempted.
+
+### Next engineering step
+
+Extend the existing two-session race to call the actual account-deletion acceptance RPC/queue contract and add the subscription receipt-bound path, while preserving both lock orders and isolated cleanup. Then obtain an executed CI run with runner allocation and run the documented local disposable replay. Keep live payments and first-user invitations blocked until runtime, SQL, application, deployment and operational gates are green.
