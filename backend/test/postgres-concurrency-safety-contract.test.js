@@ -15,6 +15,7 @@ const scripts = [
   'pinterest-oauth-concurrency.sh',
   'pinterest-publication-concurrency.sh',
   'pinterest-schedule-claim-concurrency.sh',
+  'payment-deletion-receipt-race-concurrency.sh',
   'subscription-concurrency.sh',
 ];
 
