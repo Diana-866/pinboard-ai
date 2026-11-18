@@ -54,12 +54,12 @@ test('payment/deletion race test proves both serialized lock orders with receipt
   assert.match(script, /payment-first/);
   assert.match(script, /deletion-first/);
   assert.match(script, /wait_for_lock_waiter/);
-  assert.match(script, /assert_deletion_request_pending/);
   assert.match(script, /withheld_account_lifecycle/);
   assert.match(script, /v_balance <> 105/);
   assert.match(script, /v_balance <> 5/);
-  assert.match(script, /v_balance_plan <> 'pro'/);
-  assert.match(script, /v_balance_plan <> 'none'/);
+  assert.match(script, /v_request_version <> v_token_version/);
+  assert.match(script, /v_sub\.status <> 'success'/);
+  assert.match(script, /v_user\.tariff_plan <> 'none'/);
   assert.match(script, /v_ledger_count <> 1/);
   assert.match(script, /v_ledger_count <> 0/);
 });
