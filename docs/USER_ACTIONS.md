@@ -3155,3 +3155,18 @@ Important scope limitation: the race script currently tests the user-row lifecyc
 Current runtime status: NOT VERIFIED. Assistant performed static GitHub re-fetch only. Vercel reports build-rate-limit on source head 1e85641290ba3c360856aad734d858a3150aed13; this is not a source build or deployment result. No Actions PASS is evidenced.
 
 Safety: no production SQL, real payment callback, external provider account or live user data may be used for these checks.
+
+
+### UA-045 addendum — actual deletion acceptance RPC and subscription race coverage (2026-11-18)
+
+The current `payment-deletion-receipt-race-concurrency.sh` supersedes the earlier test scope. It no longer simulates deletion with a direct `UPDATE users.account_status`; it invokes `request_account_deletion(user_id, 'password_reauth', token_version)`. It now exercises four lock-order cases:
+1. credit payment first, then deletion request;
+2. deletion request first, then credit payment;
+3. subscription payment first, then deletion request;
+4. deletion request first, then subscription payment.
+
+The assertions require a persisted pending deletion request/preflight job and the correct credit ledger/balance or subscription tariff/period, together with the terminal receipt decision. The script leaves immutable deletion event rows in the disposable clone; run only through the unique-clone CI suite, which drops the database after completion.
+
+Updated blobs: race script `005a431480d7ca7a9640d67689815f2aec53233e`; safety contract `ce734f544ffc0ec58c10f1dc4d4f4dd86a7238c9`; report `09f2e9932bfb48ef112dbd59dbd53ac7709ecd12`.
+
+**Runtime status remains NOT VERIFIED.** The Bash syntax and Node contract checks have not been executed in this session, and no PostgreSQL race result is available. Require visible CI execution and cleanup PASS; no inference from pre-runner failures.
