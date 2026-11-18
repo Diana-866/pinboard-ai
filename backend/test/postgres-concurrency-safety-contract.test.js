@@ -50,6 +50,8 @@ test('payment/deletion race test proves both serialized lock orders with receipt
   const script = read('backend/test/payment-deletion-receipt-race-concurrency.sh');
   assert.match(script, /request_account_deletion/);
   assert.match(script, /request_account_deletion\([^)]*password_reauth[^)]*TOKEN_VERSION/);
+  assert.equal((script.match(/select public\.request_account_deletion\([^;]*password_reauth[^;]*TOKEN_VERSION/g) || []).length, 2);
+  assert.match(script, /v_event_count <> 1/);
   assert.match(script, /token_version = 1/);
   assert.match(script, /request_accepted/);
   assert.match(script, /trap cleanup EXIT/);
