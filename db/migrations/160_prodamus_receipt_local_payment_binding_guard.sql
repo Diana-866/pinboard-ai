@@ -67,7 +67,7 @@ begin
      and (v_decision_row.local_payment_kind is distinct from 'credits'
        or v_decision_row.local_payment_id is distinct from v_purchase.id
        or v_decision_row.user_id is distinct from v_purchase.user_id) then
-    raise exception 'terminal receipt decision is bound to a different local credit purchase';
+    raise exception 'terminal receipt decision conflicts with local credit purchase';
   end if;
 
   if v_receipt.provider_order_id is distinct from v_purchase.provider_payment_id
@@ -196,7 +196,7 @@ begin
      and (v_decision_row.local_payment_kind is distinct from 'subscription'
        or v_decision_row.local_payment_id is distinct from v_sub.id
        or v_decision_row.user_id is distinct from v_sub.user_id) then
-    raise exception 'terminal receipt decision is bound to a different local subscription';
+    raise exception 'terminal receipt decision conflicts with local subscription';
   end if;
 
   if v_receipt.provider_order_id is distinct from v_sub.provider_payment_id
