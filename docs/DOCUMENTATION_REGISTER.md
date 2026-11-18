@@ -2027,3 +2027,12 @@ Test commit: `33299508fcef9cab4141fec4a8974294e0f53a40`. Static GitHub re-fetch/
 | `docs/audits/2026-11-18-account-deletion-exact-count-fail-closed.md` | `e43ad28c4ce5df93f0971af4bf507dfdddfd51c1` | Root cause, changes and verification boundary |
 
 Commits: source `84fd644bd1da61461af41925ed111e1b6be8fb22`; tests `2a356ba88c3aabdf2da5c57e534c67fd4612ed0d`; audit `3dc4e48ef01daa03c2f684b787eff1585b47d091`. Static re-fetch/scan passed; Node/PostgreSQL runtime NOT VERIFIED. Owner action UA-061. Worker remains disabled.
+
+
+### Account deletion inventory exact-count hardening closeout (2026-11-18)
+
+- Source `backend/accountDeletionWorker.js`: blob `3b045acd8600f372a712f0792760eb3145ea1e87`, commit `84fd644bd1da61461af41925ed111e1b6be8fb22`.
+- Regression `backend/test/account-deletion-worker.test.js`: blob `ca4786fe629e75662715027c100664bfaa40254b`, commit `2a356ba88c3aabdf2da5c57e534c67fd4612ed0d`.
+- Audit `docs/audits/2026-11-18-account-deletion-exact-count-fail-closed.md`, commit `3dc4e48ef01daa03c2f684b787eff1585b47d091`.
+- Strict count normalization is applied to all three preflight count paths. Static scan passed; Node/PostgreSQL runtime NOT VERIFIED.
+- Actions runs `44321585302`, `44321591813`, `44321585307`, `44321591809` failed with no steps returned; logs unavailable (`BlobNotFound`). Vercel `build-rate-limit`. Owner action UA-061. Worker remains disabled.
