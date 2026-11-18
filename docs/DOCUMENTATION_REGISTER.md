@@ -1965,3 +1965,15 @@ Current main HEAD before this register update: `2468bccc99762afdc47306ffda0e06b2
 - Current main HEAD before this register update: `0b6a1d3a877ea8127afd4c5a40a92e02ede5b111`; latest code/test commit `ff8549114d407b66bcbca1e8ac40421bde238cfc`.
 - Vercel combined status: `failure / build-rate-limit`; no deployment success. Latest recorded Actions runs `44319401720` and `44319401655` failed without job steps/logs; no runtime PASS or source-test failure is inferred.
 - State blob `405613543b69219fa1742beb9c3db8d0720bcc01`; owner-action blob `75c9e0b568584a981f01e790cc48640f76e91d01`. Release remains blocked pending owner-run Node/PostgreSQL and deployment acceptance.
+
+
+### Transactional email outbox claim validation — 2026-11-18
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `backend/billing.js` | `3818dedcfbbbac0fa6a1f36b9009328a07d97d67` | Validates bounded `claim_email_outbox` results before SMTP/mark/retry; no `rows || []` fallback |
+| `backend/test/email-outbox.test.js` | `da9438ed59e9d3c3e791a1feee8ffb5ff25f12ad` | Covers malformed/null/non-array/duplicate/incomplete claims, no side effects, and valid empty queue; runtime NOT VERIFIED |
+| `db/migrations/030_transactional_email_outbox.sql` | `75a4d24e85327384f6089e2d340c9841a857e8eb` | Defines `claim_email_outbox` as `SETOF public.email_outbox` |
+| `docs/audits/2026-11-18-email-outbox-claim-contract.md` | `4b429b4a908d7c772a2c6de31cd657c86a21d19c` | Root cause, implementation and verification boundary |
+
+Commits: source `4bd9145198a643a5878652054cd41ae77cb529a1`; regression `c1fc19af5d217a58c29dcbda0d0bdf64ac761f0c`; audit `d8f6f6ae22469bd58cce46a8d2beb2f743870f18`. Runtime remains NOT VERIFIED.
