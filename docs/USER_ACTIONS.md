@@ -3373,3 +3373,13 @@ Further mainline hardening rejects non-array paginated inventory responses (incl
 - GitHub combined status on both commits reports Vercel `failure` / `build-rate-limit`. Do not interpret this as a source build or test failure; deployment is not confirmed.
 - Latest recorded atomic Actions run: `44318275401`, job `134850094393`; GitHub returned no steps. No test command is evidenced as started. Do not repeatedly rerun until the account/runner limitation is resolved.
 - Continue with owner-local Node and disposable PostgreSQL commands from UA-052, UA-053 and UA-055. Do not use production, real payments or real accounts.
+
+
+### UA-056 — Pinterest scheduler claim RPC malformed response regression (2026-11-18)
+
+- **Статус:** [ ] Код и регрессионные тесты опубликованы; Node/PostgreSQL runtime NOT VERIFIED.
+- **Первопричина:** успешный RPC response с `data: null` или не-массивом ошибочно считался пустой очередью из-за `(dueRows || [])`. Это могло скрыть сбой выдачи задач и отметить scheduler run успешным, оставив публикации необработанными.
+- **Исправление:** `backend/scheduleResponse.js` экспортирует `isValidClaimedScheduleRows`; `backend/pinterest.js` проверяет массив, лимит 1, полную идентичность и уникальные schedule IDs до подсчёта/heartbeat/обработки.
+- **Тесты:** `backend/test/schedule-response.test.js` и `backend/test/pinterest-scheduler-route-contract.test.js`.
+- **Blobs:** helper `7170f77c44442bdf12a33c4b63996978d8705f80`; route `d66d34f9042c55371c2a34ef8e74931b391a9e0c`; unit test `c5b4084903e96f5fa808e8fbff31e222a8dfd5f6`; route test `d7f8936167432a3444c0f444968318cf5c919b6c`.
+- **Команды на clean local checkout:** `node --test backend/test/schedule-response.test.js backend/test/pinterest-scheduler-route-contract.test.js`; затем `node --test backend/test/schedule-worker.test.js backend/test/pinterest-scheduler-health.test.js`. После Node PASS — scheduler SQL integration tests в disposable PostgreSQL: `pinterest-schedule-claim-heartbeat.integration.sql`, `pinterest-scheduler-completion-fencing.integration.sql`, `pinterest-stale-schedule-recovery.integration.sql`. Не использовать production.
