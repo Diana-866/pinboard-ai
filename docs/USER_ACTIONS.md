@@ -3491,3 +3491,14 @@ Latest Actions runs after account-deletion claim validation: `44320553737`, `443
 ### UA-061 CI status addendum (2026-11-18)
 
 CI was triggered by the source/test commits. Atomic-payment integration runs `44321585302` and `44321591813`, and persisted-boards runs `44321585307` and `44321591809`, all concluded failure. The latest jobs returned `steps: null`; log retrieval returned `BlobNotFound`, so there is no evidence that test commands ran. Vercel still reports `build-rate-limit`. Do not interpret these as a test PASS or a source regression. Owner must run the focused Node test and disposable PostgreSQL acceptance from UA-061 when local runtime is available.
+
+
+### UA-062 — account deletion Storage manifest batch acceptance (2026-11-18)
+
+- **Статус:** fail-closed validation and regression tests published; Node/PostgreSQL runtime NOT VERIFIED.
+- **Причина:** worker ранее проверял Storage manifest по одной записи непосредственно перед удалением. Некорректный успешный RPC-ответ мог привести к частичному удалению до обнаружения следующей плохой/дублирующей записи; размер ответа не сверялся с контрактным пределом 100.
+- **Изменение:** полная проверка массива до первого Storage side effect: максимум 100 записей, только bucket `pin-images`, разрешённый managed path, уникальные пары bucket/path. Ответ контрольного запроса с лимитом 1 также отклоняется при размере больше 1.
+- **Файлы:** `backend/accountDeletionWorker.js` blob `92ea2372231ea87988548776b5f4208d050b807a`; `backend/test/account-deletion-worker.test.js` blob `5539dbdb79daed9e325ded45610b9a29d4680dc1`; audit `docs/audits/2026-11-18-account-deletion-storage-manifest-batch-validation.md`.
+- **Коммиты:** source final `d41c16d4caee20d5cd5ed01ecebb45123e255102`; tests `98a65d8669baf7349946063e5dcfd9d34859557f`; audit `211bb555b0d3a212d1322e39a8ce2e8b49ad3d3d`.
+- **Проверка владельца:** `git pull --ff-only origin main`; затем `cd backend`; `node --test test/account-deletion-worker.test.js`. Сохранить полный вывод и exit code. После этого выполнить только disposable PostgreSQL integration tests для durable deletion queue и Storage manifest.
+- **Ожидаемый результат:** duplicate/oversized/unsafe manifest response отвергается до первого `deleteImageObject`; valid empty/one-row manifest принимается. Не использовать production, не включать account-deletion worker, не обходить упавшие тесты.
