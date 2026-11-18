@@ -3170,3 +3170,19 @@ The assertions require a persisted pending deletion request/preflight job and th
 Updated blobs: race script `005a431480d7ca7a9640d67689815f2aec53233e`; safety contract `ce734f544ffc0ec58c10f1dc4d4f4dd86a7238c9`; report `09f2e9932bfb48ef112dbd59dbd53ac7709ecd12`.
 
 **Runtime status remains NOT VERIFIED.** The Bash syntax and Node contract checks have not been executed in this session, and no PostgreSQL race result is available. Require visible CI execution and cleanup PASS; no inference from pre-runner failures.
+
+
+### UA-047 — Verify corrected full deletion/payment race harness (2026-11-18)
+
+**Supersedes the earlier race-script blobs in UA-045/UA-046.** Current script blob: `afc49ebe635d765bccec8af249f19f1ae6b1e504`; concurrency contract blob: `9250e28e4a891d8744a0d56a0c8422f03a4ea012`; detailed correction report: `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md` (blob `0985e2571d2ef5e612151e11ddb5184c2f7acd68`).
+
+**Review corrections:** migration 130's actual deletion RPC signature is `request_account_deletion(uuid, text, bigint)`; both race call sites now pass the fixture token version. The test no longer attempts to delete immutable deletion requests/events or suppress FK failures. It intentionally leaves fixtures inside the unique disposable database clone, and its EXIT trap stops background sessions and removes temporary files. The payment-first assertion verifies the immutable `request_accepted` event and the token-version fence.
+
+**Owner runtime sequence (local project directory):**
+1. Run `git status --short`; stop if dirty. If clean, `git pull --ff-only origin main`; verify HEAD equals origin/main and worktree is clean.
+2. Run `bash -n backend/test/lib/assert-disposable-postgres.sh backend/test/*-concurrency.sh` and `node --test backend/test/postgres-concurrency-safety-contract.test.js`. Require exit 0 and ten unique guarded scripts.
+3. Run only the workflow's `backend/test/run-disposable-concurrency-suite.sh` against its unique disposable clone, or inspect the matching GitHub Actions job. Do not invoke the race script against a shared or persistent database: it deliberately leaves append-only deletion events, and the outer runner must drop the entire clone.
+4. Require all four race cases (credits/subscription × payment-first/deletion-first) to execute, each lock waiter to be observed, all balance/ledger/tariff/period/decision assertions to pass, and disposable database cleanup to be confirmed.
+5. Continue full acceptance only after 151 migrations, 49 SQL integration tests and the 51 Node preflight tests pass. Never use production, staging, Supabase or PIN_TRIAL.
+
+**Current runtime status:** NOT VERIFIED. Assistant performed source re-fetch/static contract inspection only; Bash, Node, PostgreSQL and full CI were not run. No PASS is claimed.
