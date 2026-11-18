@@ -2509,3 +2509,13 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - Latest observed Actions runs `44320063124`, `44320063459`, `44320068909`, and `44320069081` concluded failure; GitHub job responses returned `steps: null`, so no test execution or source failure can be inferred. Vercel combined status on latest main remains `failure / build-rate-limit`.
 - Source/test changes were re-fetched and statically inspected. Node email-outbox tests, PostgreSQL outbox SQL tests, full backend suite, frontend build and deployment remain NOT VERIFIED. Do not claim runtime PASS.
 - No production DB, SMTP provider, customer email, live payment, or external Pinterest action was used. First-user invitations and live payments remain blocked pending owner-run Node/PostgreSQL/staging acceptance and CI/Vercel quota resolution.
+
+
+### 2026-11-18 — Account deletion worker claim RPC fail-closed validation
+
+- Continued the queue-contract sweep and found `createAccountDeletionWorker().tick()` also coerced malformed `claim_account_deletion_jobs` results through `jobs || []`, reporting a successful empty batch. The SQL function in migration 130 returns a table with seven required fields; a malformed job could reach destructive account-erasure processing without validating the lease identity or stage.
+- Added `isValidDeletionJobBatch()` and reject null/non-array/oversized/duplicate/incomplete rows, unsupported stages, invalid attempts and invalid lease expiry before processing any job. Valid `[]` remains a safe idle result. The worker claims one job per tick.
+- Source blob `2b937219c865352e6b3f4167e9568c732c377a67`, commit `2cdf0c9fceca0f80d061de24c8a477daf0cd3cf1`; regression blob `351c77a749abed04b59aef3684568670ace9d802`, commit `ffad0d99dace0119afeb0b29d7c20844b675f315`. SQL contract migration 130 blob `1dcf7844444b4a70be1be49946d5a4c4265ce40f`.
+- Added tests that malformed claim responses trigger only the claim RPC and never invoke a destructive stage RPC. Node/PostgreSQL runtime NOT VERIFIED.
+- Detailed audit `docs/audits/2026-11-18-account-deletion-claim-contract.md`, blob `9e4f6cd668cb5db50a23b3a658b29b6096f3599e`, commit `a765c492764c56232b732cf61eb6bf70f4cced21`. Owner action UA-059 added.
+- Account deletion worker remains disabled. No production account, DB, Storage object or user data was accessed. Keep worker disabled until disposable runtime/staging acceptance.
