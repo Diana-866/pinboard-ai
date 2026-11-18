@@ -1634,3 +1634,14 @@ Commits: `f7b984347b474da06c33bea4b04e8e11748eeedd`, `b6b33ed8dcfffabedf9628136b
 | `docs/USER_ACTIONS.md` | `4be037b489f37d455ac4bc21ce87dab410914769` | UA-047 latest owner runtime instructions |
 
 Runtime remains NOT VERIFIED; no Bash, Node, PostgreSQL or CI execution is claimed. Relevant refinements: `38206948e01833f097602918583f629c9079ab30`, `95cacfef0f5d931c686b20a63afe2882247b0da3`, `c14cb39e8cc25f7c98ab6d3beb61641589b3e3bd`, `8a5653a13923b3756b709eac369aa04cc18aa65b`, `5cd54ee6ef54b7c17ce5ab016528c7a5ab54bee3`, `f7b984347b474da06c33bea4b04e8e11748eeedd`, `b6b33ed8dcfffabedf9628136b03b56dc391e2dc`, `cbd03998f08576119af5aac29d55acb58bc8bb42`, `6c179b59c184eacad597214813ffa06dd40ef6ed`, `be4c6252905779eb07df0d9f7fd18a8a76588007`.
+
+
+## Supplemental inventory — final payment/deletion race contract (2026-11-18)
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `backend/test/payment-deletion-receipt-race-concurrency.sh` | `308214f70ca518016aa6d39b33ce0e2ee466e081` | Token-version-bound deletion RPC in both orders; both payment RPCs; independent credit/subscription lock waiters; immutable acceptance event |
+| `backend/test/postgres-concurrency-safety-contract.test.js` | `12721cfaad66b32eddb68c023d4c426dff4db4a2` | Requires both three-argument deletion calls, exact token version 1, event assertion, both lock waiters and no destructive request deletion |
+| `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md` | `502235615aadaf1f0e345a0ac5e01ccfac48657a` | Final follow-up on token version and independent payment waiters |
+
+Commits: `95cacfef0f5d931c686b20a63afe2882247b0da3`, `c14cb39e8cc25f7c98ab6d3beb61641589b3e3bd`. Static checks only; runtime remains NOT VERIFIED. See UA-048.
