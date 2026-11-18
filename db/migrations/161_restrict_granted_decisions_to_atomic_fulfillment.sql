@@ -21,7 +21,7 @@ as $$
 declare
   v_existing public.payment_entitlement_decisions%rowtype;
 begin
-  if p_decision not in (
+  if p_decision is null or p_decision not in (
     'pending_review', 'withheld_account_lifecycle',
     'rejected_mismatch', 'unmatched', 'ignored_non_success'
   ) then
@@ -91,8 +91,8 @@ declare
   v_period_end timestamptz;
 begin
   if p_receipt_id is null or p_local_payment_id is null
-     or p_local_payment_kind not in ('credits', 'subscription')
-     or p_user_id is null or length(p_user_id) > 200 then
+     or p_local_payment_kind is null or p_local_payment_kind not in ('credits', 'subscription')
+     or p_user_id is null or length(p_user_id) < 1 or length(p_user_id) > 200 then
     raise exception 'invalid granted entitlement identity';
   end if;
 
