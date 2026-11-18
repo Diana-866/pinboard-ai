@@ -2447,3 +2447,12 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - Current source blobs: `backend/scheduleResponse.js` `7170f77c44442bdf12a33c4b63996978d8705f80`; `backend/pinterest.js` `d66d34f9042c55371c2a34ef8e74931b391a9e0c`; unit test `c5b4084903e96f5fa808e8fbff31e222a8dfd5f6`; route contract `d7f8936167432a3444c0f444968318cf5c919b6c`. Claim RPC returns `setof public.pin_schedules` in migration 049 blob `5ade3e2e7a3bd2c3161ef537486fb9101c7c2c05`.
 - Commits: `1acc3aa120a5b073afccf3132b0bf4ea9310f924`, `fb48f225540f4c2d9fa10251ae9faab4a9bee82c`, `793bc081efc6a27c442fe0faa41cacccbde49fa0`, `10f634594a774e963cf02caecfd263546347e094`.
 - Audit: `docs/audits/2026-11-18-pinterest-scheduler-claim-response.md`, blob `78cac2a515f45884780918f7cc4e651747ce53dc`. Owner action UA-056. Node, PostgreSQL scheduler integration and CI runtime remain NOT VERIFIED; no live Pinterest API or production cron was run. Scheduled publishing and first-user launch remain blocked pending runtime/staging acceptance.
+
+
+### 2026-11-18 — Scheduler HTTP consumer now validates the full response contract
+
+- Follow-up review found `backend/scheduleWorker.js` accepted any response with `data.ok === true`, despite the existing `isValidScheduleWorkerResponse` contract helper. A malformed success response (missing counters, contradictory counts, duplicate/missing result identity) could reset retry backoff and be logged as a successful batch.
+- Worker now validates the complete response contract before resetting failure state or logging success. Source blob `4eff5a721a8f5668876056109902e57ccb8ae1e5`; commit `68ef687186539530a37623dffaca28a73662970b`.
+- Added regressions for malformed `ok: true` responses and valid one-item response. Test blob `9757a340c8c2653aa4f71ef42c68a09feea88eb0`; commit `460a54ac3a1da36d728796a5af329fcbd994c941`.
+- Updated scheduler audit: `docs/audits/2026-11-18-pinterest-scheduler-claim-response.md`, latest audit commit `d24eebcf73a63285c898360d2552ca7349687328`.
+- Combined source and route validation remain static-only; Node runtime and disposable PostgreSQL scheduler tests NOT VERIFIED. Run the UA-056 focused tests and the existing scheduler-worker/health tests locally. Keep publishing and first-user release blocked pending runtime acceptance.
