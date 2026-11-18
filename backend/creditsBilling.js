@@ -364,7 +364,7 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
   }
 
   logInfo("creditsBilling.event_021");
-  return res.json({ ok: true, status: "success", credits: purchase.credits, order_id: orderId });
+  return res.json({ ok: true, status: "success", credits: purchase.credits, order_id: orderId, idempotent: fulfillment.idempotent === true });
 }
 
 /** История покупок кредитов пользователя (кабинет → «Тарифы» → «Кредиты») */
