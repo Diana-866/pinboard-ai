@@ -3074,3 +3074,29 @@ Return the complete output and exit code. Do not change or skip assertions to ob
 **Current runtime status:** NOT VERIFIED. GitHub Actions on commit `a6f10ab8ced8959a9bd008e782c6fd102de335df` failed before runner allocation: atomic job `134833780856`, persisted-board jobs `134833780522` and `134833780968`, all runner_id 0 with no steps. No evidence the SQL test executed.
 
 **References:** migration 159 blob `30519439d7423cbc84db1fbca2cc638b74c60723`; SQL regression blob `6c2bb6c9504c0c0f8ab0e6c940c92e19888b1500`; commit `3eb25129c89c49230bf2147f692c27884c112054` (migration) and `a6f10ab8ced8959a9bd008e782c6fd102de335df` (test).
+
+
+### UA-045 — Verify receipt-bound payment/account-deletion concurrency (2026-11-18)
+
+**Purpose:** runtime-check the new two-session race harness for both payment-first and deletion-first lock ordering.
+
+**Changes:** added `backend/test/payment-deletion-receipt-race-concurrency.sh` and wired it into the guarded disposable PostgreSQL suite. The test waits for real PostgreSQL lock holders/waiters and checks:
+- Payment-first: exactly one credit ledger row, balance 105, receipt decision `granted`, and the deletion lifecycle update commits only after payment.
+- Deletion-first: unchanged balance 5, no credit ledger row, canceled purchase unchanged, and receipt decision `withheld_account_lifecycle`.
+
+**Important scope boundary:** the test models the account-deletion acceptance fence with an update to `users.account_status` under the same user-row lock; it does not call the full deletion-request queue RPC or worker. It currently covers credits, not subscriptions.
+
+**Owner verification (local project directory):**
+1. Run `git status --short`. If not clean, stop and preserve local changes. If clean, run `git pull --ff-only origin main`; verify `git rev-parse HEAD` equals `git rev-parse origin/main`.
+2. Run:
+   ```bash
+   bash -n backend/test/lib/assert-disposable-postgres.sh backend/test/*-concurrency.sh
+   node --test backend/test/postgres-concurrency-safety-contract.test.js
+   ```
+   Require both commands to exit 0. Do not edit assertions to obtain a pass.
+3. Inspect the GitHub Actions run for `.github/workflows/atomic-payment-integration.yml` on the synchronized commit. Require the SQL integration steps and the isolated concurrency suite to execute and pass; the suite now runs **10** scripts. The workflow creates a unique disposable clone and drops it on exit. If the job fails before runner allocation or exposes no steps/logs, report runtime as UNKNOWN; do not infer a test result or blindly rerun.
+4. Full database acceptance still requires baseline plus **150 migrations 010–159**, **49/49 SQL integration tests**, all **10 concurrency scripts**, and confirmed disposable database cleanup. Stop on the first failure. Never use production, staging, Supabase or PIN_TRIAL.
+
+**Current runtime status:** NOT VERIFIED. The assistant re-fetched the test, runner and contract from main but did not execute Bash, Node or PostgreSQL. Vercel reports `build-rate-limit` on source head `1e85641290ba3c360856aad734d858a3150aed13`; this is not a build or deployment result.
+
+**References:** race test blob `0e2da4a83e2b0bda1d9f729868fca3fba04819c5`; runner blob `827a2cd063d64668102bdf36e97e4a73dffba0af`; contract blob `ab84f345305ee793a74e30cb4ad9ff871b62e69c`; report `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md`.
