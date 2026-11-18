@@ -71,3 +71,73 @@ test("webhook exception preserves malformed amounts without treating them as exp
   assert.equal(record.received_sum, "not-a-number");
   assert.equal(record.expected_amount, null);
 });
+
+
+function exceptionDetails(overrides = {}) {
+  return {
+    paymentKind: "credits",
+    body: { order_id: "ppc-pack_100-123", payment_status: "success", sum: "190.00" },
+    expectedAmount: 190,
+    reason: "amount_mismatch",
+    ...overrides,
+  };
+}
+
+test("persistWebhookException treats only an event_hash uniqueness conflict as a duplicate delivery", async () => {
+  const { persistWebhookException } = require("../billingWebhookAudit");
+  const details = exceptionDetails();
+  const expectedHash = buildWebhookException(details).event_hash;
+  const duplicateError = {
+    code: "23505",
+    message: 'duplicate key value violates unique constraint "billing_webhook_exceptions_event_hash_key"',
+    details: "Key (event_hash)=(abc) already exists.",
+  };
+  const db = {
+    from(table) {
+      assert.equal(table, "billing_webhook_exceptions");
+      return {
+        async insert(record) {
+          assert.equal(record.event_hash, expectedHash);
+          return { error: duplicateError };
+        },
+      };
+    },
+  };
+  assert.equal(await persistWebhookException(db, details), expectedHash);
+});
+
+test("persistWebhookException propagates unrelated unique-constraint violations", async () => {
+  const { persistWebhookException } = require("../billingWebhookAudit");
+  const primaryKeyError = {
+    code: "23505",
+    message: 'duplicate key value violates unique constraint "billing_webhook_exceptions_pkey"',
+    details: "Key (id)=(00000000-0000-0000-0000-000000000001) already exists.",
+  };
+  const db = {
+    from() {
+      return {
+        async insert() { return { error: primaryKeyError }; },
+      };
+    },
+  };
+  await assert.rejects(
+    persistWebhookException(db, exceptionDetails()),
+    (error) => error === primaryKeyError
+  );
+});
+
+test("persistWebhookException propagates non-unique database failures", async () => {
+  const { persistWebhookException } = require("../billingWebhookAudit");
+  const databaseError = { code: "08006", message: "connection failure" };
+  const db = {
+    from() {
+      return {
+        async insert() { return { error: databaseError }; },
+      };
+    },
+  };
+  await assert.rejects(
+    persistWebhookException(db, exceptionDetails()),
+    (error) => error === databaseError
+  );
+});
