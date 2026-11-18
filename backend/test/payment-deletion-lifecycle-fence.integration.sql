@@ -103,7 +103,7 @@ begin
   select count(*) into v_count
     from public.users
    where id = v_subscription_user
-     and tariff_plan is null
+     and tariff_plan = 'none'
      and tariff_period_end is null;
   if v_count <> 1 then
     raise exception 'fenced subscription changed user entitlement';
