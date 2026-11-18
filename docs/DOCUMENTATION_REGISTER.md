@@ -1622,3 +1622,15 @@ Commits: `b5a0272430221c389fd5457d2f7874a420051a5e`, `8377f016f8070377f727113a34
 | `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md` | `0985e2571d2ef5e612151e11ddb5184c2f7acd68` | Documents RPC arity mismatch, unsafe swallowed cleanup, fixes and runtime boundary |
 
 Commits: `f7b984347b474da06c33bea4b04e8e11748eeedd`, `b6b33ed8dcfffabedf9628136b03b56dc391e2dc`, `cbd03998f08576119af5aac29d55acb58bc8bb42`, audit `2e0f3e3dc98fcd36c0cfd68db1b9de9960e1cbac`, owner action `0a9c4f4ba8f1e442fc82c25ffdf9e2aec6bf1fd2`. Runtime remains NOT VERIFIED; only source-level inspection was performed. The test intentionally retains append-only fixtures inside the disposable clone, which must be dropped by the outer suite. See UA-047.
+
+
+## Current correction — independent deletion/payment lock waiters and token fence (2026-11-18)
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `backend/test/payment-deletion-receipt-race-concurrency.sh` | `308214f70ca518016aa6d39b33ce0e2ee466e081` | Real three-argument deletion RPC; both payment types; deletion-first verifies two independent simultaneous lock waiters; exact token version 0→1; safe disposable clone cleanup; NOT RUNTIME-VERIFIED |
+| `backend/test/postgres-concurrency-safety-contract.test.js` | `12721cfaad66b32eddb68c023d4c426dff4db4a2` | Static contract checks both RPC calls, exact token fence, both lock waiters, event and cleanup assertions |
+| `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md` | `905799b006802acd7e19c875467e15ec6ad30786` | Documents arity/cleanup defects and final concurrency strengthening |
+| `docs/USER_ACTIONS.md` | `4be037b489f37d455ac4bc21ce87dab410914769` | UA-047 latest owner runtime instructions |
+
+Runtime remains NOT VERIFIED; no Bash, Node, PostgreSQL or CI execution is claimed. Relevant refinements: `38206948e01833f097602918583f629c9079ab30`, `95cacfef0f5d931c686b20a63afe2882247b0da3`, `c14cb39e8cc25f7c98ab6d3beb61641589b3e3bd`, `8a5653a13923b3756b709eac369aa04cc18aa65b`, `5cd54ee6ef54b7c17ce5ab016528c7a5ab54bee3`, `f7b984347b474da06c33bea4b04e8e11748eeedd`, `b6b33ed8dcfffabedf9628136b03b56dc391e2dc`, `cbd03998f08576119af5aac29d55acb58bc8bb42`, `6c179b59c184eacad597214813ffa06dd40ef6ed`, `be4c6252905779eb07df0d9f7fd18a8a76588007`.
