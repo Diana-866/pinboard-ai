@@ -176,6 +176,20 @@ test("malformed request bodies and unknown routes map to documented statuses", a
   assert.equal(health.status, 200);
   const healthBody = await health.json();
   assert.equal(healthBody.ok, true);
+  assert.equal(typeof healthBody.uptime_seconds, "number");
+});
+
+test("readiness reports an unreachable database instead of claiming health", async (t) => {
+  // The booted process points at a non-resolvable Supabase host, so readiness
+  // must fail closed with 503 while liveness stays 200. A health endpoint that
+  // always answers ok would keep a broken deployment in the load balancer.
+  const { base } = await withServer(t);
+
+  const ready = await fetch(`${base}/ready`);
+  assert.equal(ready.status, 503);
+  const body = await ready.json();
+  assert.equal(body.ok, false);
+  assert.equal(body.error, "database_unavailable");
 });
 
 test("public plan and credit-pack catalogues stay database-free", async (t) => {

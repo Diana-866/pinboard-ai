@@ -295,9 +295,40 @@ app.get("/", (req, res) => {
   res.send("OK");
 });
 
-// Health-check для мониторинга/автопробуждения (B15)
+// Liveness probe: cheap, dependency-free, safe for platform health checks.
+// It intentionally does not touch the database, so a slow query can never turn
+// a healthy process into a restart loop.
 app.get("/health", (req, res) => {
-  res.json({ ok: true });
+  res.json({
+    ok: true,
+    uptime_seconds: Math.floor(process.uptime()),
+  });
+});
+
+// Readiness probe: proves the process can actually serve requests that need the
+// database. Without it a deployment whose database credentials or network are
+// broken still reports healthy and receives traffic that must fail.
+const READINESS_TIMEOUT_MS = 2500;
+app.get("/ready", async (req, res) => {
+  let timer = null;
+  try {
+    const probe = supabase
+      .from("users")
+      .select("id")
+      .limit(1);
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error("readiness probe timed out")), READINESS_TIMEOUT_MS);
+      if (typeof timer.unref === "function") timer.unref();
+    });
+    const { error } = await Promise.race([probe, timeout]);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (e) {
+    logError("index.event_023", e);
+    res.status(503).json({ ok: false, error: "database_unavailable" });
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 });
 
 // --- Аутентификация ---
