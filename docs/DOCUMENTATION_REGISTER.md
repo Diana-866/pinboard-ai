@@ -2,8 +2,8 @@
 
 **Repository:** Diana-866/pinboard-ai  
 **Branch:** main  
-**Latest code/test/workflow change commit (runtime verification pending):** 48c3b2c0a56dd73412d0a39720ca853416c7b49f  
-**Inventory refreshed:** 2026-11-18 (supplemental receipt journal entries appended; full metadata inventory refresh not performed)  
+**Latest code/test/workflow change commit (runtime verification pending):** 7242e5b137d641de27d57e4b88a4e9eb31a0a639  
+**Inventory refreshed:** 2026-11-18 (supplemental PROJECT_STATE/USER_ACTIONS entries for PR #92; full metadata inventory refresh not performed)  
 **Scope:** all documentation files under docs/ (Markdown and SQL), excluding this register itself.
 
 ## Interpretation
@@ -21,8 +21,8 @@ Current operational status and release gates are in docs/PROJECT_STATE.md; owner
 | 3 | `docs/MASTER_REQUIREMENTS.md` | `0891fc83d68de51acb298d1ad4da4f733a0499aa` | Reviewed/reconciled 2026-11-16; see audit reports |
 | 4 | `docs/PIN_TRIAL_MIGRATION_STATUS.md` | `2e0f66ccfa1ab9aeb71f80d299a5c4465e347d9e` | Owner-provided DB evidence; incomplete inventory |
 | 5 | `docs/PRODUCTION_READINESS_AUDIT.md` | `777ce34d539b3264b10554aa2cd731d436f080e2` | Reviewed/reconciled 2026-11-16; see audit reports |
-| 6 | `docs/PROJECT_STATE.md` | `a9b480d0dfd9158e4bb0241f554342b996efa388` | Current operational source of truth; records the latest owner run and nine-fixture correction; SQL integration remains NOT PASSED |
-| 7 | `docs/USER_ACTIONS.md` | `e285440b6d181672332b95710a3de7ad194bd17f` | Owner actions; UA-034: sync, rerun Node 47/47, then guarded PostgreSQL rerun |
+| 6 | `docs/PROJECT_STATE.md` | `e9d3c8d524671c90d5d6bdacfe908c50a7ad9488` | Current operational source of truth; records fail-closed pagination fix in PR #92; runtime verification pending |
+| 7 | `docs/USER_ACTIONS.md` | `0cf4c042361d5f65516c0dead1b272a4589c96b5` | Owner actions; UA-062: run focused pagination and admin statistics Node tests for PR #92 |
 | 8 | `docs/architecture/pin-image-deletion-claim-protocol.md` | `0957b13bae0632ce8e34a5675b4a06f6ef8477a4` | Inventory only; content review pending |
 | 9 | `docs/audits/2026-11-16-account-deletion-runbook-reconciliation.md` | `4d1fa6f8e78162abbb29a3487a776c2b1c3cf319` | Historical audit/evidence; applicability must be checked against current main/tests |
 | 10 | `docs/audits/2026-11-16-ci-concurrency-harness-isolation-fix.md` | `dc050c2c7d0aa1415a5585e6820b1a2e8772fbd9` | Historical audit/evidence; applicability must be checked against current main/tests |

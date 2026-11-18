@@ -2561,3 +2561,13 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - CI triggered for source/test commits: Actions runs `44321585302` and `44321591813` (atomic-payment integration), `44321585307` and `44321591809` (persisted boards). All concluded failure; latest job records had `steps: null`; direct log fetch returned `BlobNotFound`. Therefore no test-step execution or code-level failure is evidenced. Vercel still reports `failure / build-rate-limit`.
 - Runtime Node test, disposable PostgreSQL integration, full backend/frontend suite and deployment remain NOT VERIFIED. No runtime PASS claimed. Account deletion worker remains disabled. No production DB, real account, Storage object, live payment, SMTP or Pinterest action was used.
 - Owner acceptance UA-061: run `node --test backend/test/account-deletion-worker.test.js` and disposable PostgreSQL account-deletion queue/storage-manifest tests from clean checkout. Next independent work: continue fail-closed review of account deletion lifecycle and remaining RPC consumers. First-user launch and live payments remain blocked.
+
+
+### 2026-11-18 — Shared pagination response validation
+
+- Continued the remaining RPC/query-consumer review and found that `backend/fetchAllPages.js` converted a successful `data: null` or non-array page into `[]`. The same permissive check on the exact-cap overflow probe treated a malformed response as proof that no additional rows existed. The helper is used by admin statistics to page `users` and `credit_transactions`, so this could silently undercount users and financial aggregates.
+- Updated the helper to require a valid result object and array-valued `data` for every page, including the overflow probe. Database errors still propagate unchanged; a legitimate empty array remains valid. Malformed successful responses now fail with HTTP 502 / `invalid_pagination_response`.
+- Added regressions for null, missing, non-array page payloads and malformed overflow responses, including assertions that pagination stops immediately.
+- Source blob: `9be70291c0e1e95e08fa137acab528bb4d2fbc70`; test blob: `b05577a7ef6401ca4f61b7162c48846fbbf21550`; code/test commit: `7242e5b137d641de27d57e4b88a4e9eb31a0a639`; Draft PR #92: https://github.com/Diana-866/pinboard-ai/pull/92.
+- Runtime Node tests were not executed in this environment. PR Actions runs failed before runner assignment (`runner_id=0`, no steps); this is not a source-test failure or PASS. Main Vercel status remains `build-rate-limit`.
+- No database, migration, production, Supabase, payment, Pinterest, DNS or deployment settings were changed. Next owner gate is the focused Node command in UA-062; no PostgreSQL or WSL is required for this pure helper/test change.

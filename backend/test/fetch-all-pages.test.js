@@ -37,3 +37,37 @@ test("fetchAllPages propagates database errors and rejects invalid settings", as
   await assert.rejects(fetchAllPages(async () => ({ data: [], error: null }), { pageSize: 0 }), /pageSize/);
   await assert.rejects(fetchAllPages(async () => ({ data: [], error: null }), { maxRows: 0 }), /maxRows/);
 });
+
+test("fetchAllPages rejects malformed successful page responses instead of treating them as empty", async () => {
+  const malformedResponses = [
+    null,
+    {},
+    { data: null, error: null },
+    { data: { id: "not-an-array" }, error: null },
+  ];
+
+  for (const response of malformedResponses) {
+    let calls = 0;
+    await assert.rejects(
+      fetchAllPages(async () => {
+        calls += 1;
+        return response;
+      }),
+      (error) => error && error.code === "invalid_pagination_response" && error.httpStatus === 502
+    );
+    assert.equal(calls, 1, "pagination must stop immediately after an invalid page");
+  }
+});
+
+test("fetchAllPages rejects a malformed successful overflow probe", async () => {
+  let calls = 0;
+  await assert.rejects(
+    fetchAllPages(async (from) => {
+      calls += 1;
+      if (from === 0) return { data: [0, 1], error: null };
+      return { data: null, error: null };
+    }, { pageSize: 2, maxRows: 2 }),
+    (error) => error && error.code === "invalid_pagination_response" && error.httpStatus === 502
+  );
+  assert.equal(calls, 2, "the exact-cap overflow probe must be validated");
+});

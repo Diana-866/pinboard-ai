@@ -3491,3 +3491,21 @@ Latest Actions runs after account-deletion claim validation: `44320553737`, `443
 ### UA-061 CI status addendum (2026-11-18)
 
 CI was triggered by the source/test commits. Atomic-payment integration runs `44321585302` and `44321591813`, and persisted-boards runs `44321585307` and `44321591809`, all concluded failure. The latest jobs returned `steps: null`; log retrieval returned `BlobNotFound`, so there is no evidence that test commands ran. Vercel still reports `build-rate-limit`. Do not interpret these as a test PASS or a source regression. Owner must run the focused Node test and disposable PostgreSQL acceptance from UA-061 when local runtime is available.
+
+
+### UA-062 — Fail-closed paginated query response contract (2026-11-18)
+
+- **Статус:** source and regression tests published in Draft PR [#92](https://github.com/Diana-866/pinboard-ai/pull/92); Node runtime NOT VERIFIED.
+- **Finding:** `fetchAllPages` previously converted a successful null/non-array page to an empty page. The exact-cap overflow probe also treated malformed data as no overflow, which could silently undercount admin users and credit transactions.
+- **Fix:** require a query-result object and array-valued `data` for every page and overflow probe. Database errors propagate unchanged; valid `[]` remains a legitimate empty result. Malformed successful responses fail with HTTP 502 / `invalid_pagination_response`.
+- **Files:** `backend/fetchAllPages.js` blob `9be70291c0e1e95e08fa137acab528bb4d2fbc70`; `backend/test/fetch-all-pages.test.js` blob `b05577a7ef6401ca4f61b7162c48846fbbf21550`; commit `7242e5b137d641de27d57e4b88a4e9eb31a0a639`.
+
+**Owner verification on a clean checkout:**
+
+```powershell
+git fetch origin
+git switch --track origin/fix/admin-pagination-fail-closed-20261118
+node --test backend/test/fetch-all-pages.test.js backend/test/admin-stats-pagination.test.js
+```
+
+Require exit code 0. On any failure, stop and preserve the full output. These tests use an in-memory/mocked query client; no database, Supabase credentials, WSL, PostgreSQL, production data or external provider is required. Do not merge PR #92 until this gate and CI are reviewed.
