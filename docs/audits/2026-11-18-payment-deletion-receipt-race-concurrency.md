@@ -186,3 +186,12 @@ The race harness and Node contract were extended to verify not only the pending 
 - The deletion-first case also checks the user's balance through the loaded user row (`v_user.credits_balance = 5`) while requiring zero credit ledger rows, canceled credit purchase and subscription, no subscription period/tariff change, and both receipt decisions withheld.
 
 Static re-fetch confirms the new assertions are in the SQL script and Node contract. The latest atomic workflow run `44315630744`, job `134840855489`, failed before runner allocation (`runner_id=0`, empty runner name, zero steps). Runtime remains **NOT VERIFIED**; no test execution or CI pass is claimed.
+
+
+## Latest assertion follow-up — durable preflight job in both lock orders (2026-11-18)
+
+The current race script additionally verifies the durable queue contract after the real deletion RPC in **both** payment-first and deletion-first cases: exactly one `request_accepted` event and exactly one pending `preflight` job must exist. This closes a gap where the earlier assertion verified the request/token fence but did not prove that the worker queue row survived the payment race. The Node contract now requires the job-count assertion and the exact deletion-first balance expression.
+
+Current re-fetched blobs: race script `805a076a23e40e0b7263c5a45bb88035d7c4603b`; Node concurrency contract `e315d6cb694465e3ea116c2cf828ef13d8d1f268`. Refinement commits: `ccae989aeb7cbcd4425f16a6896667c9495787ee` (event/job assertions in both outcomes), `e602d42894db555c6b97ed244bf9834b86bf3303` (Node contract guard).
+
+Static inspection confirms the four core outcomes, two independent deletion-first lock waiters, token-version 0→1, immutable event and pending preflight-job assertions in both outcomes, safe EXIT cleanup and no deletion of durable request/event rows. Bash, Node, PostgreSQL and full CI remain **NOT RUN / NOT VERIFIED**.
