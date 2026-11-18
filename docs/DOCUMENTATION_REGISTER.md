@@ -1843,3 +1843,10 @@ Current inventory rechecked from the GitHub tree and manifests: 152 contiguous m
 | `backend/test/account-deletion-worker.test.js` | `5882650d115a31b5b6d472db183d6771e142947e` | Covers malformed initial and remaining manifest responses; runtime NOT VERIFIED |
 
 Commits: admin fix `ffdb871971c7e6702737e8c3bfc8828bd75696c9`; admin regression `9779a201658a92b0b6b6f9a7b33c3035220768a4`; deletion fail-closed fix `031da170684d9ff5d5b2add436d9b9bcd18e2460`. Node runtime and production readiness remain NOT VERIFIED.
+
+
+### Latest account-deletion inventory source/test blobs (2026-11-18)
+
+- `backend/accountDeletionWorker.js`: `1df861ccc0f05cc8b787f51c5e111bc07d3660cb` — rejects null/non-array paginated inventory page and malformed Storage-manifest RPC results.
+- `backend/test/account-deletion-worker.test.js`: `292c619f9717f862589aecadfa9f9855662b7f9b` — covers null inventory page and malformed initial/final Storage-manifest responses; runtime NOT VERIFIED.
+- Fix commits: `031da170684d9ff5d5b2add436d9b9bcd18e2460`, `04bb175803eb2524834785d0599e4d37a77ed2e3`; regression commits `136c8d77706984f9c812986181b3be97d6308d3f`, `185d1d8015ee629dbd95a7da0a10de2db835241e`.
