@@ -1610,3 +1610,15 @@ Current counts: 151 migrations (010–160), 49 SQL integration tests, 51 Node pr
 | `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md` | `09f2e9932bfb48ef112dbd59dbd53ac7709ecd12` | Follow-up supersedes earlier direct-status-update/credits-only scope |
 
 Commits: `b5a0272430221c389fd5457d2f7874a420051a5e`, `8377f016f8070377f727113a34907be8f2999b33`. Runtime remains NOT VERIFIED; the test must run only in the isolated disposable CI clone. See UA-045/UA-046.
+
+
+## Supplemental inventory — corrected deletion/payment race harness (2026-11-18)
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `backend/test/payment-deletion-receipt-race-concurrency.sh` | `afc49ebe635d765bccec8af249f19f1ae6b1e504` | Four two-session cases use the real three-argument deletion RPC, receipt-bound credit/subscription RPCs, immutable event assertion, and safe disposable-clone cleanup; NOT RUNTIME-VERIFIED |
+| `backend/test/postgres-concurrency-safety-contract.test.js` | `9250e28e4a891d8744a0d56a0c8422f03a4ea012` | Requires both token-version-bound deletion calls, event assertion, child/temp cleanup and absence of destructive request deletion |
+| `db/migrations/130_account_deletion_durable_queue.sql` | `1dcf7844444b4a70be1be49946d5a4c4265ce40f` | Source contract: `request_account_deletion(uuid,text,bigint)`; deletion events append-only and job/request FK RESTRICT |
+| `docs/audits/2026-11-18-payment-deletion-receipt-race-concurrency.md` | `0985e2571d2ef5e612151e11ddb5184c2f7acd68` | Documents RPC arity mismatch, unsafe swallowed cleanup, fixes and runtime boundary |
+
+Commits: `f7b984347b474da06c33bea4b04e8e11748eeedd`, `b6b33ed8dcfffabedf9628136b03b56dc391e2dc`, `cbd03998f08576119af5aac29d55acb58bc8bb42`, audit `2e0f3e3dc98fcd36c0cfd68db1b9de9960e1cbac`, owner action `0a9c4f4ba8f1e442fc82c25ffdf9e2aec6bf1fd2`. Runtime remains NOT VERIFIED; only source-level inspection was performed. The test intentionally retains append-only fixtures inside the disposable clone, which must be dropped by the outer suite. See UA-047.
