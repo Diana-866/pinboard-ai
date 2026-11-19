@@ -22,6 +22,7 @@ import { AI_CONTENT_LANGUAGES, useI18n } from '../../i18n/i18nContext';
 import { useNotifications } from '../../context/NotificationContext';
 import type { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
+import { GENERATION_REQUEST_TIMEOUT_MS } from '../../lib/apiResilience';
 import { getExplicitGenerationTopic } from '../../utils/generationTopic';
 import { addCalendarDaysInTimezone, formatInstantInTimezone, getDefaultTimezone, resolveScheduleSlotTime } from '../../utils/timezone';
 import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure } from '../../utils/generationRetry';
@@ -560,10 +561,14 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         // Restore the durable request identity after a remount or page reload.
         generationKeyRef.current = storedRequest.idempotencyKey;
       }
+      // The backend generates up to ten images sequentially (up to ~90 s each), so this
+      // request can legitimately run for several minutes. The default request deadline
+      // would abort it while the server kept working and charging credits.
       const rows = await apiRequest(`/boards/${encodeURIComponent(selectedBoard.id)}/pins/generate`, {
         method: 'POST',
         headers: { 'Idempotency-Key': generationKeyRef.current || '' },
         body: JSON.stringify(requestBody),
+        timeoutMs: GENERATION_REQUEST_TIMEOUT_MS,
       });
 
       // Do not discard the recovery identity until every returned pin has the

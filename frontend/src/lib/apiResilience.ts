@@ -23,6 +23,13 @@ export const MAX_TRANSPARENT_RETRY_SECONDS = 3;
 export const REQUEST_TIMEOUT_MS = 45_000;
 
 /**
+ * Budget for the image-generation endpoint, which works through up to ten sequential
+ * provider tasks (each polled for up to 30 × 3 s on the server side). Stated per call
+ * site rather than raised globally, so an ordinary request still fails fast.
+ */
+export const GENERATION_REQUEST_TIMEOUT_MS = 15 * 60_000;
+
+/**
  * Read `Retry-After` in both forms the spec allows: delta-seconds and an HTTP date.
  * Returns whole seconds clamped to 0..MAX_RETRY_AFTER_SECONDS, or null when the header is
  * absent or unusable — the caller then falls back to a duration-free message.

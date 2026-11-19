@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import {
+  GENERATION_REQUEST_TIMEOUT_MS,
   MAX_RETRY_AFTER_SECONDS,
   MAX_TRANSPARENT_RETRY_SECONDS,
   REQUEST_TIMEOUT_MS,
@@ -107,6 +108,25 @@ test('the timeout is bounded and its abort is distinguishable from a network err
   assert.equal(isAbortError({ name: 'TypeError' }), false);
   assert.equal(isAbortError(null), false);
   assert.equal(isAbortError('boom'), false);
+});
+
+test('the image-generation endpoint states its own longer budget', () => {
+  // The backend generates up to ten images sequentially, so this request can run for
+  // several minutes. The default deadline would abort the client while the server kept
+  // working and charging credits.
+  assert.ok(
+    GENERATION_REQUEST_TIMEOUT_MS >= 10 * 60_000,
+    'generation must be allowed at least ten minutes'
+  );
+  const generator = readFileSync(path.join(SRC, 'components/pins/PinGenerator.tsx'), 'utf8');
+  assert.match(generator, /timeoutMs: GENERATION_REQUEST_TIMEOUT_MS/);
+});
+
+test('the per-call deadline overrides the default and is not forwarded to fetch', () => {
+  const source = readFileSync(path.join(SRC, 'lib/api.ts'), 'utf8');
+  assert.match(source, /options\.timeoutMs \?\? REQUEST_TIMEOUT_MS/, 'a call must be able to override the deadline');
+  assert.match(source, /const \{ timeoutMs: _timeoutMs, signal: _signal, \.\.\.fetchOptions \} = options/);
+  assert.match(source, /\.\.\.fetchOptions,/);
 });
 
 test('the request wrapper actually uses the timeout, the 429 branch and the abort check', () => {

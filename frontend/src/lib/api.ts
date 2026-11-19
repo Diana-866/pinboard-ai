@@ -34,9 +34,10 @@ function delay(ms: number) {
  * сам. Внешний signal (если передан) по-прежнему уважается — оба источника отменяют
  * один и тот же контроллер.
  */
-async function sendOnce(path: string, options: RequestInit, token: string | null) {
+async function sendOnce(path: string, options: ApiRequestOptions, token: string | null) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   const external = options.signal;
   const forwardAbort = () => controller.abort();
   if (external) {
@@ -45,8 +46,9 @@ async function sendOnce(path: string, options: RequestInit, token: string | null
   }
 
   try {
+    const { timeoutMs: _timeoutMs, signal: _signal, ...fetchOptions } = options;
     return await fetch(`${API_URL}${path}`, {
-      ...options,
+      ...fetchOptions,
       signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
@@ -68,7 +70,17 @@ async function readBody(res: Response) {
   }
 }
 
-export async function apiRequest(path: string, options: RequestInit = {}) {
+/**
+ * Request options plus an optional deadline override.
+ *
+ * The default deadline protects against a connection that never settles. A few endpoints
+ * legitimately run far longer than that — image generation works through up to ten
+ * sequential provider tasks — and aborting those would cancel the client side while the
+ * server kept spending credits, so those call sites state their own budget.
+ */
+export type ApiRequestOptions = RequestInit & { timeoutMs?: number };
+
+export async function apiRequest(path: string, options: ApiRequestOptions = {}) {
   const token = readAuthToken();
   let attempt = 0;
 
