@@ -63,7 +63,11 @@ function frontendBase() {
  */
 async function createPayment(userId, body, idempotencyKey) {
   const plan = normalizePlan(body && body.plan);
-  if (!PLANS[plan]) {
+  // Own property only: PLANS is an object literal, so `!PLANS[plan]` also accepted every member
+  // of Object.prototype. `plan: "constructor"` then produced `amount = undefined`, the order row
+  // fell back to the column default 0, and the provider's refusal parked the customer's request
+  // as unknown - a dead end for a plan that does not exist.
+  if (!Object.prototype.hasOwnProperty.call(PLANS, plan)) {
     throw httpError(422, "plan: допустимые значения — analytics, start, pro, agency");
   }
   const currency = validateEnum(

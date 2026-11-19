@@ -12,6 +12,6 @@ const PLAN_NAMES={en:{analytics:"Analytics",start:"Start",pro:"Pro",agency:"Agen
 const LOCALES={en:"en-US",ru:"ru-RU",es:"es-ES",pt:"pt-BR",de:"de-DE",fr:"fr-FR",zh:"zh-CN"};
 function normalizeLanguage(value){const l=String(value||"en").toLowerCase().split("-")[0];return SUPPORTED.includes(l)?l:"en";}
 function getEmailCopy(language){return COPY[normalizeLanguage(language)];}
-function getPlanTitle(plan,language){const l=normalizeLanguage(language);return PLAN_NAMES[l][String(plan||"").toLowerCase()]||String(plan||"");}
+function getPlanTitle(plan,language){const names=PLAN_NAMES[normalizeLanguage(language)];const key=String(plan||"").toLowerCase();return Object.prototype.hasOwnProperty.call(names,key)?names[key]:String(plan||"");}
 function getLocale(language){return LOCALES[normalizeLanguage(language)];}
 module.exports={normalizeLanguage,getEmailCopy,getPlanTitle,getLocale};
