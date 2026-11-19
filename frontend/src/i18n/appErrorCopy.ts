@@ -13,6 +13,9 @@ import { readLocalStorageValue } from '../lib/authStorage';
 type Language = 'en' | 'ru' | 'es' | 'pt' | 'de' | 'fr' | 'zh';
 
 export type AppErrorMessageKey =
+  | 'pinterestNotConnected'
+  | 'pinAlreadyScheduled'
+  | 'publicationNotFailed'
   | 'boardNameRequired'
   | 'invalidScheduleTime'
   | 'scheduleTooFar'
@@ -55,6 +58,9 @@ export type AppErrorMessageKey =
 
 const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
   en: {
+    pinterestNotConnected: "Connect your Pinterest account first, then schedule the publication.",
+    pinAlreadyScheduled: "This pin is already scheduled or published. Check the calendar before scheduling it again.",
+    publicationNotFailed: "This action is only available for a publication with the Failed status.",
     boardNameRequired: "A board name is required.",
     invalidScheduleTime: "Check the publication date and time — it cannot be empty or in the past.",
     scheduleTooFar: "A publication cannot be scheduled more than a year ahead.",
@@ -96,6 +102,9 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "The server did not return the data needed for a secure connection.",
   },
   ru: {
+    pinterestNotConnected: "Сначала подключите Pinterest-аккаунт, затем запланируйте публикацию.",
+    pinAlreadyScheduled: "Этот пин уже в расписании или опубликован. Проверьте календарь перед повторным планированием.",
+    publicationNotFailed: "Действие доступно только для публикации со статусом «Ошибка».",
     boardNameRequired: "Название доски обязательно.",
     invalidScheduleTime: "Проверьте дату и время публикации — они не могут быть пустыми или в прошлом.",
     scheduleTooFar: "Публикацию нельзя запланировать более чем на год вперёд.",
@@ -137,6 +146,9 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Сервер не вернул данные для безопасного подключения.",
   },
   es: {
+    pinterestNotConnected: "Conecta primero tu cuenta de Pinterest y luego programa la publicación.",
+    pinAlreadyScheduled: "Este pin ya está programado o publicado. Revisa el calendario antes de programarlo de nuevo.",
+    publicationNotFailed: "Esta acción solo está disponible para una publicación con el estado «Error».",
     boardNameRequired: "El nombre del tablero es obligatorio.",
     invalidScheduleTime: "Comprueba la fecha y la hora de publicación: no pueden estar vacías ni en el pasado.",
     scheduleTooFar: "No se puede programar una publicación con más de un año de antelación.",
@@ -178,6 +190,9 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "El servidor no devolvió los datos necesarios para una conexión segura.",
   },
   pt: {
+    pinterestNotConnected: "Ligue primeiro a sua conta do Pinterest e depois agende a publicação.",
+    pinAlreadyScheduled: "Este pin já está agendado ou publicado. Verifique o calendário antes de o agendar novamente.",
+    publicationNotFailed: "Esta ação só está disponível para uma publicação com o estado «Erro».",
     boardNameRequired: "O nome do quadro é obrigatório.",
     invalidScheduleTime: "Verifique a data e a hora de publicação: não podem estar vazias nem no passado.",
     scheduleTooFar: "Não é possível agendar uma publicação com mais de um ano de antecedência.",
@@ -219,6 +234,9 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "O servidor não devolveu os dados necessários para uma ligação segura.",
   },
   de: {
+    pinterestNotConnected: "Verbinden Sie zuerst Ihr Pinterest-Konto und planen Sie dann die Veröffentlichung.",
+    pinAlreadyScheduled: "Dieser Pin ist bereits geplant oder veröffentlicht. Prüfen Sie den Kalender, bevor Sie ihn erneut planen.",
+    publicationNotFailed: "Diese Aktion ist nur für eine Veröffentlichung mit dem Status „Fehler“ verfügbar.",
     boardNameRequired: "Ein Board-Name ist erforderlich.",
     invalidScheduleTime: "Prüfen Sie Datum und Uhrzeit der Veröffentlichung — sie dürfen nicht leer oder in der Vergangenheit liegen.",
     scheduleTooFar: "Eine Veröffentlichung kann nicht mehr als ein Jahr im Voraus geplant werden.",
@@ -260,6 +278,9 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Der Server hat die für eine sichere Verbindung nötigen Daten nicht zurückgegeben.",
   },
   fr: {
+    pinterestNotConnected: "Connectez d’abord votre compte Pinterest, puis programmez la publication.",
+    pinAlreadyScheduled: "Ce pin est déjà programmé ou publié. Vérifiez le calendrier avant de le programmer à nouveau.",
+    publicationNotFailed: "Cette action n’est disponible que pour une publication au statut « Échec ».",
     boardNameRequired: "Le nom du tableau est obligatoire.",
     invalidScheduleTime: "Vérifiez la date et l’heure de publication — elles ne peuvent pas être vides ni passées.",
     scheduleTooFar: "Une publication ne peut pas être programmée plus d’un an à l’avance.",
@@ -301,6 +322,9 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Le serveur n’a pas renvoyé les données nécessaires à une connexion sécurisée.",
   },
   zh: {
+    pinterestNotConnected: "请先连接 Pinterest 账号，再安排发布。",
+    pinAlreadyScheduled: "该 Pin 已在排期中或已发布，请先查看日历再重新安排。",
+    publicationNotFailed: "该操作仅适用于状态为“失败”的发布记录。",
     boardNameRequired: "画板名称不能为空。",
     invalidScheduleTime: "请检查发布日期和时间，不能为空且不能早于现在。",
     scheduleTooFar: "发布排期不能超过一年之后。",
@@ -383,6 +407,12 @@ const VALIDATION_CODES: Record<string, AppErrorMessageKey> = {
   image_upload_required: 'imageUploadRequired',
 };
 
+const CONFLICT_CODES: Record<string, AppErrorMessageKey> = {
+  pinterest_not_connected: 'pinterestNotConnected',
+  pin_already_scheduled: 'pinAlreadyScheduled',
+  publication_not_failed: 'publicationNotFailed',
+};
+
 export function getLocalizedApiError(code: unknown, status: unknown): string | null {
   if (typeof code !== 'string') return null;
   if (code === 'insufficient_credits' && Number(status) === 402) {
@@ -393,6 +423,9 @@ export function getLocalizedApiError(code: unknown, status: unknown): string | n
   }
   if (Number(status) === 422 && Object.prototype.hasOwnProperty.call(VALIDATION_CODES, code)) {
     return getAppErrorMessage(VALIDATION_CODES[code]);
+  }
+  if (Number(status) === 409 && Object.prototype.hasOwnProperty.call(CONFLICT_CODES, code)) {
+    return getAppErrorMessage(CONFLICT_CODES[code]);
   }
   return null;
 }

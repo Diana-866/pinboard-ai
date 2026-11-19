@@ -283,6 +283,16 @@ const { requireTariff, getTariffState, normalizePlan } = require("./tariff");
  * A 422 the customer can act on carries a code so the interface can explain it in the
  * person's own language. Internal contract violations keep the server text only.
  */
+/**
+ * A 409 that names a precondition the customer can satisfy carries a code; the Russian text
+ * stays for logs, support and existing clients.
+ */
+function conflictError(code, message) {
+  const error = httpError(409, message);
+  error.details = { ...(error.details || {}), code };
+  return error;
+}
+
 function validationError(code, message) {
   const error = httpError(422, message);
   error.details = { ...(error.details || {}), code };
@@ -2244,7 +2254,7 @@ app.post("/schedule/:id/reconcile-account", requireAuth, pinterestScheduleLimite
       requestedAccountId
     );
     if (resolution.status === "no_account") {
-      throw httpError(409, "Сначала подключите Pinterest-аккаунт.");
+      throw conflictError("pinterest_not_connected", "Сначала подключите Pinterest-аккаунт.");
     }
     if (resolution.status === "selection_required") {
       throw httpError(422, "У вас несколько Pinterest-аккаунтов. Выберите, в какой аккаунт восстановить расписание.");
@@ -2474,7 +2484,7 @@ app.post("/pins/:id/schedule", requireAuth, pinterestScheduleLimiter, requireTar
       if (sameRequest) {
         return res.status(200).json(sanitizeScheduleForClient(existing));
       }
-      throw httpError(409, "Этот пин уже находится в расписании или был опубликован. Проверьте календарь перед повторным планированием.");
+      throw conflictError("pin_already_scheduled", "Этот пин уже находится в расписании или был опубликован. Проверьте календарь перед повторным планированием.");
     }
     if (error) throw error;
     res.status(201).json(sanitizeScheduleForClient(data));
@@ -2499,7 +2509,7 @@ app.post("/schedule/:id/change-board", requireAuth, pinterestScheduleLimiter, re
     if (scheduleError) throw scheduleError;
     if (!schedule) throw notFoundError("schedule_not_found", "Расписание не найдено");
     if (schedule.status !== "failed") {
-      throw httpError(409, "Заменить доску можно только у публикации со статусом «Ошибка».");
+      throw conflictError("publication_not_failed", "Заменить доску можно только у публикации со статусом «Ошибка».");
     }
     if (!schedule.pinterest_account_id) {
       throw httpError(409, "У расписания не указан Pinterest-аккаунт. Сначала восстановите привязку аккаунта.");
@@ -2561,7 +2571,7 @@ app.post("/schedule/:id/retry", requireAuth, pinterestScheduleLimiter, requireTa
     if (scheduleError) throw scheduleError;
     if (!schedule) throw notFoundError("schedule_not_found", "Расписание не найдено");
     if (schedule.status !== "failed") {
-      throw httpError(409, "Повторить можно только публикацию со статусом «Ошибка»");
+      throw conflictError("publication_not_failed", "Повторить можно только публикацию со статусом «Ошибка»");
     }
     if (!schedule.pinterest_account_id || !schedule.pinterest_board_id) {
       throw httpError(422, "Для повтора требуется подключённый Pinterest-аккаунт и выбранная доска");
