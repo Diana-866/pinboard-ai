@@ -12,6 +12,50 @@ const POLL_INTERVAL_MS = Math.max(5000, Number(process.env.ACCOUNT_DELETION_WORK
 const LEASE_SECONDS = 900;
 const CLAIM_LIMIT = 1;
 
+// Retry ceilings enforced by finish_account_deletion_job in
+// db/migrations/137_account_deletion_content_erasure_stage.sql. The RPC returns a
+// bare boolean, so a job that exhausted its attempts is reported exactly like a
+// successfully scheduled retry. Mirrored here so the worker can tell an operator the
+// truth; backend/test/account-deletion-retry-policy.test.js fails if the two drift.
+const MAX_PREFLIGHT_ATTEMPTS = 8;
+const MAX_ERASE_ATTEMPTS = 100;
+
+// One stalled provider call must not stop the polling loop. Undici eventually times
+// out on its own, but the loop would be dead for minutes while every queued deletion
+// waits, so each step is bounded here as well.
+const DEFAULT_STEP_TIMEOUT_MS = 120_000;
+// Shutdown must terminate: the standalone entrypoint has no outer force-exit.
+const DEFAULT_SHUTDOWN_TIMEOUT_MS = 10_000;
+
+function stepTimeoutError(code) {
+  const error = new Error("account deletion worker step timed out");
+  error.code = code;
+  return error;
+}
+
+/** Bound one worker step. Non-positive or non-finite values disable the bound. */
+function withStepTimeout(promise, timeoutMs, code) {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return promise;
+  let timer = null;
+  const bound = new Promise((_, reject) => {
+    // Deliberately not unref()'d: the timeout is the only thing that can settle a
+    // stalled step, so letting the event loop drain first would leave the race (and
+    // the worker loop) unresolved.
+    timer = setTimeout(() => reject(stepTimeoutError(code)), timeoutMs);
+  });
+  return Promise.race([promise, bound]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
+/** Attempts at which the SQL marks the job blocked instead of scheduling a retry. */
+function isRetryCeilingReached(stepKey, attempts) {
+  if (stepKey === "erase_content") return Number(attempts) >= MAX_ERASE_ATTEMPTS;
+  if (stepKey === "preflight") return Number(attempts) >= MAX_PREFLIGHT_ATTEMPTS;
+  // finalize has no attempt ceiling in the SQL; it is only blocked explicitly.
+  return false;
+}
+
 function safeErrorCode(error) {
   const candidate = String(error && (error.code || error.name) || "preflight_failed")
     .toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 64);
@@ -199,6 +243,8 @@ function createAccountDeletionWorker({
   schedule = setTimeout,
   cancelSchedule = clearTimeout,
   intervalMs = POLL_INTERVAL_MS,
+  stepTimeoutMs = DEFAULT_STEP_TIMEOUT_MS,
+  shutdownTimeoutMs = DEFAULT_SHUTDOWN_TIMEOUT_MS,
   deleteImageObject = deleteManagedPinImageObject,
   supabaseUrl = process.env.SUPABASE_URL || (client && client.supabaseUrl),
 }) {
@@ -393,6 +439,10 @@ function createAccountDeletionWorker({
       return { status: "succeeded" };
     } catch (error) {
       const code = safeErrorCode(error);
+      // The SQL blocks a job once its attempts are exhausted. Reporting that as
+      // "retry_scheduled" told an operator the pipeline was still working on an
+      // account that will never progress, which is the one state that needs a human.
+      const exhausted = isRetryCeilingReached(job.step_key, job.attempts);
       try {
         const { data, error: finishError } = await client.rpc("finish_account_deletion_job", {
           p_job_id: job.job_id,
@@ -401,13 +451,23 @@ function createAccountDeletionWorker({
           p_error_code: code,
         });
         if (finishError) throw finishError;
-        return { status: data === true ? "retry_scheduled" : "claim_lost", error_code: code };
+        if (data !== true) return { status: "claim_lost", error_code: code, blocked: exhausted };
+        if (exhausted) {
+          logger.error("account_deletion_worker.job_blocked", {
+            job_id: job.job_id,
+            step_key: job.step_key,
+            attempts: job.attempts,
+            error_code: code,
+          });
+          return { status: "blocked", error_code: code, blocked: true };
+        }
+        return { status: "retry_scheduled", error_code: code, blocked: false };
       } catch (finishError) {
         logger.error("account_deletion_worker.finalize_failed", {
           job_id: job.job_id,
           error_code: safeErrorCode(finishError),
         });
-        return { status: "finalize_failed", error_code: code };
+        return { status: "finalize_failed", error_code: code, blocked: exhausted };
       }
     }
   }
@@ -416,22 +476,45 @@ function createAccountDeletionWorker({
     if (active || stopped) return { claimed: 0 };
     active = true;
     try {
-      const { data: jobs, error } = await client.rpc("claim_account_deletion_jobs", {
-        p_limit: CLAIM_LIMIT,
-        p_lease_seconds: LEASE_SECONDS,
-      });
+      const { data: jobs, error } = await withStepTimeout(
+        client.rpc("claim_account_deletion_jobs", {
+          p_limit: CLAIM_LIMIT,
+          p_lease_seconds: LEASE_SECONDS,
+        }),
+        stepTimeoutMs,
+        "claim_timeout"
+      );
       if (error) throw error;
       if (!isValidDeletionJobBatch(jobs, CLAIM_LIMIT)) {
         throw new Error("Account deletion claim RPC returned an invalid job batch");
       }
       let completed = 0;
       let retried = 0;
+      let blocked = 0;
+      let stalled = 0;
       for (const job of jobs) {
-        const result = await processJob(job);
+        // A step that stops responding must not hold `active` forever: the loop
+        // would stop claiming while every queued deletion waits behind it. The lease
+        // and claim_token fencing make abandoning a stalled step safe — the job is
+        // reclaimed after the lease expires and every stage RPC is idempotent.
+        let result;
+        try {
+          result = await withStepTimeout(processJob(job), stepTimeoutMs, "step_timeout");
+        } catch (error) {
+          if (!error || error.code !== "step_timeout") throw error;
+          stalled += 1;
+          logger.error("account_deletion_worker.step_stalled", {
+            job_id: job.job_id,
+            step_key: job.step_key,
+            error_code: "step_timeout",
+          });
+          continue;
+        }
         if (result.status === "succeeded") completed += 1;
         if (result.status === "retry_scheduled") retried += 1;
+        if (result.status === "blocked") blocked += 1;
       }
-      return { claimed: jobs.length, completed, retried };
+      return { claimed: jobs.length, completed, retried, blocked, stalled };
     } finally {
       active = false;
     }
@@ -459,7 +542,16 @@ function createAccountDeletionWorker({
     stopped = true;
     if (timer) cancelSchedule(timer);
     timer = null;
-    while (active) await new Promise((resolve) => setTimeout(resolve, 50));
+    // Drain, but never indefinitely: the standalone entrypoint awaits this with no
+    // outer force-exit, so an unbounded wait would hang process shutdown forever.
+    const deadline = Date.now() + Math.max(0, Number(shutdownTimeoutMs) || 0);
+    while (active && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    if (active) {
+      logger.error("account_deletion_worker.shutdown_not_drained");
+      return false;
+    }
     return true;
   }
 
@@ -490,4 +582,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { safeErrorCode, normalizeExactCount, countOwnedRows, fetchAllRows, chunkValues, countPinsForBoards, inspectAccountForDeletion, isValidDeletionJobBatch, isValidStorageManifestBatch, createAccountDeletionWorker };
+module.exports = { safeErrorCode, normalizeExactCount, countOwnedRows, fetchAllRows, chunkValues, countPinsForBoards, inspectAccountForDeletion, isValidDeletionJobBatch, isValidStorageManifestBatch, isRetryCeilingReached, withStepTimeout, MAX_PREFLIGHT_ATTEMPTS, MAX_ERASE_ATTEMPTS, createAccountDeletionWorker };

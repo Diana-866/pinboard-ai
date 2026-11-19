@@ -154,7 +154,7 @@ test("worker claims and finalizes only through fenced RPCs", async () => {
   };
   const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} } });
   const result = await worker.tick();
-  assert.deepEqual(result, { claimed: 1, completed: 1, retried: 0 });
+  assert.deepEqual(result, { claimed: 1, completed: 1, retried: 0, blocked: 0, stalled: 0 });
   assert.equal(calls[0].name, "claim_account_deletion_jobs");
   assert.deepEqual(calls[0].args, { p_limit: 1, p_lease_seconds: 900 });
   assert.equal(calls[1].name, "record_account_deletion_preflight");
@@ -189,7 +189,7 @@ test("worker never marks preflight complete after losing the inventory claim", a
   };
   const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} } });
   const result = await worker.tick();
-  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 0 });
+  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 0, blocked: 0, stalled: 0 });
   assert.equal(calls.some((call) => call.name === "finish_account_deletion_job"), false);
 });
 
@@ -245,7 +245,7 @@ test("worker schedules retry when inventory is incomplete", async () => {
   };
   const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} } });
   const result = await worker.tick();
-  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1 });
+  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1, blocked: 0, stalled: 0 });
   assert.equal(calls[1].args.p_outcome, "retry");
   assert.equal(calls[1].args.p_error_code, "xx000");
 });
@@ -278,7 +278,7 @@ test("worker retries and does not revoke credentials when Storage manifest persi
   };
   const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} } });
   const result = await worker.tick();
-  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1 });
+  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1, blocked: 0, stalled: 0 });
   assert.equal(calls.some((call) => call.name === "disconnect_pinterest_for_account_deletion"), false);
   const finish = calls.find((call) => call.name === "finish_account_deletion_job");
   assert.equal(finish.args.p_outcome, "retry");
@@ -317,7 +317,7 @@ test("worker executes the separately claimed content-erasure stage", async () =>
   };
   const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} } });
   const result = await worker.tick();
-  assert.deepEqual(result, { claimed: 1, completed: 1, retried: 0 });
+  assert.deepEqual(result, { claimed: 1, completed: 1, retried: 0, blocked: 0, stalled: 0 });
   assert.equal(calls[1].name, "erase_account_deletion_content");
   assert.equal(calls[1].args.p_job_id, "job-erase");
   assert.equal(calls[1].args.p_claim_token, "claim-erase");
@@ -353,7 +353,7 @@ test("worker retries content erasure unless the RPC explicitly confirms retained
   };
   const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} } });
   const result = await worker.tick();
-  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1 });
+  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1, blocked: 0, stalled: 0 });
   const finish = calls.find((call) => call.name === "finish_account_deletion_job");
   assert.equal(finish.args.p_outcome, "retry");
   assert.equal(finish.args.p_error_code, "content_erasure_unconfirmed");
@@ -403,7 +403,7 @@ test("worker removes only manifested Storage objects and confirms lifecycle comp
     logger: { info() {}, error() {} },
   });
   const result = await worker.tick();
-  assert.deepEqual(result, { claimed: 1, completed: 1, retried: 0 });
+  assert.deepEqual(result, { claimed: 1, completed: 1, retried: 0, blocked: 0, stalled: 0 });
   assert.equal(removedObjects.length, 2);
   assert.equal(removedObjects[0].bucket, "pin-images");
   assert.equal(removedObjects[0].objectPath, "pins/123-0123456789abcdef0123456789abcdef.webp");
@@ -441,7 +441,7 @@ test("worker fails closed when the first Storage manifest response is not an arr
     logger: { info() {}, error() {} },
   });
   const result = await worker.tick();
-  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1 });
+  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1, blocked: 0, stalled: 0 });
   assert.equal(removedObjects.length, 0, "no Storage object may be deleted from an invalid manifest response");
   const finish = calls.find((call) => call.name === "finish_account_deletion_job");
   assert.equal(finish.args.p_outcome, "retry");
@@ -478,7 +478,7 @@ test("worker fails closed when the remaining Storage manifest check is not an ar
     logger: { info() {}, error() {} },
   });
   const result = await worker.tick();
-  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1 });
+  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1, blocked: 0, stalled: 0 });
   assert.equal(listCalls, 2, "the remaining-manifest check must run");
   assert.equal(removedObjects.length, 0);
   const finish = calls.find((call) => call.name === "finish_account_deletion_job");
@@ -529,7 +529,7 @@ test("worker schedules a fast retry when more Storage manifest batches remain", 
     logger: { info() {}, error() {} },
   });
   const result = await worker.tick();
-  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1 });
+  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1, blocked: 0, stalled: 0 });
   assert.equal(removedObjects.length, 100);
   const finish = calls.find((call) => call.name === "finish_account_deletion_job");
   assert.equal(finish.args.p_outcome, "retry");
@@ -569,7 +569,7 @@ test("worker refuses unsafe Storage manifest paths without deleting objects", as
     logger: { info() {}, error() {} },
   });
   const result = await worker.tick();
-  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1 });
+  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1, blocked: 0, stalled: 0 });
   assert.equal(removedObjects.length, 0);
   const finish = calls.find((call) => call.name === "finish_account_deletion_job");
   assert.equal(finish.args.p_outcome, "retry");
@@ -599,7 +599,7 @@ test("worker finalizes only through the fenced tombstone RPC", async () => {
   };
   const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} } });
   const result = await worker.tick();
-  assert.deepEqual(result, { claimed: 1, completed: 1, retried: 0 });
+  assert.deepEqual(result, { claimed: 1, completed: 1, retried: 0, blocked: 0, stalled: 0 });
   assert.equal(calls[1].name, "finalize_account_deletion");
   assert.equal(calls[1].args.p_claim_token, "claim-finalize");
   assert.equal(calls.some((call) => call.name === "finish_account_deletion_job"), false);
@@ -719,9 +719,204 @@ test("worker rejects duplicate Storage manifest paths before deleting any object
     logger: { info() {}, error() {} },
   });
   const result = await worker.tick();
-  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1 });
+  assert.deepEqual(result, { claimed: 1, completed: 0, retried: 1, blocked: 0, stalled: 0 });
   assert.equal(removedObjects.length, 0, "the whole malformed batch must be rejected before side effects");
   const finish = calls.find((call) => call.name === "finish_account_deletion_job");
   assert.equal(finish.args.p_outcome, "retry");
   assert.equal(finish.args.p_error_code, "invalid_storage_manifest_entry");
+});
+
+// --- Operational visibility and liveness -------------------------------------
+//
+// Three states used to be invisible: a job whose attempts were exhausted still
+// reported "retry_scheduled", a step that stopped responding held the polling loop
+// shut, and stop() waited without a bound.
+
+const { isRetryCeilingReached, MAX_PREFLIGHT_ATTEMPTS, MAX_ERASE_ATTEMPTS } = require("../accountDeletionWorker");
+
+function jobBatch(attempts, stepKey = "preflight") {
+  return [{
+    job_id: "job-1",
+    request_id: "req-1",
+    user_id: USER_ID,
+    step_key: stepKey,
+    claim_token: "tok-1",
+    attempts,
+    lease_expires_at: new Date(Date.now() + 600_000).toISOString(),
+  }];
+}
+
+/** Client whose claim returns one job and whose stage RPCs fail as instructed. */
+function createFailingClient({ attempts, stepKey = "preflight", onRpc = () => null } = {}) {
+  const calls = [];
+  return {
+    calls,
+    supabaseUrl: "https://project.supabase.co",
+    async rpc(name, params) {
+      calls.push({ name, params });
+      const override = onRpc(name, params);
+      if (override !== null && override !== undefined) return override;
+      if (name === "claim_account_deletion_jobs") return { data: jobBatch(attempts, stepKey), error: null };
+      if (name === "finish_account_deletion_job") return { data: true, error: null };
+      return { data: null, error: { message: "unexpected rpc", code: "XX000" } };
+    },
+  };
+}
+
+test("an exhausted job is reported as blocked, not as a scheduled retry", async () => {
+  const events = [];
+  const logger = { info: (event) => events.push(event), error: (event) => events.push(event) };
+  const client = createFailingClient({ attempts: MAX_PREFLIGHT_ATTEMPTS });
+  const worker = createAccountDeletionWorker({ client, logger, supabaseUrl: client.supabaseUrl });
+
+  const result = await worker.tick();
+
+  // finish_account_deletion_job returns true for a blocked job too, so a worker that
+  // trusts the boolean alone tells an operator the account is still being processed.
+  assert.equal(result.blocked, 1);
+  assert.equal(result.retried, 0);
+  assert.ok(events.includes("account_deletion_worker.job_blocked"));
+});
+
+test("a job below the ceiling still reports a scheduled retry", async () => {
+  const events = [];
+  const logger = { info: (event) => events.push(event), error: (event) => events.push(event) };
+  const client = createFailingClient({ attempts: MAX_PREFLIGHT_ATTEMPTS - 1 });
+  const worker = createAccountDeletionWorker({ client, logger, supabaseUrl: client.supabaseUrl });
+
+  const result = await worker.tick();
+
+  assert.equal(result.retried, 1);
+  assert.equal(result.blocked, 0);
+  assert.equal(events.includes("account_deletion_worker.job_blocked"), false);
+});
+
+test("the retry ceilings match the ones the SQL enforces", () => {
+  assert.equal(isRetryCeilingReached("preflight", MAX_PREFLIGHT_ATTEMPTS), true);
+  assert.equal(isRetryCeilingReached("preflight", MAX_PREFLIGHT_ATTEMPTS - 1), false);
+  assert.equal(isRetryCeilingReached("erase_content", MAX_ERASE_ATTEMPTS), true);
+  assert.equal(isRetryCeilingReached("erase_content", MAX_ERASE_ATTEMPTS - 1), false);
+  // finalize is not capped by the SQL; only an exhausted preflight/erase blocks.
+  assert.equal(isRetryCeilingReached("finalize", 10_000), false);
+});
+
+test("a step that never settles does not stop the polling loop", async () => {
+  const events = [];
+  const logger = { info: () => {}, error: (event) => events.push(event) };
+  let claimed = 0;
+  let scheduledCount = 0;
+  let secondSchedule;
+  const sawSecondSchedule = new Promise((resolve) => { secondSchedule = resolve; });
+  const client = {
+    supabaseUrl: "https://project.supabase.co",
+    rpc(name) {
+      if (name === "claim_account_deletion_jobs") {
+        claimed += 1;
+        return new Promise(() => {}); // never resolves
+      }
+      return Promise.resolve({ data: null, error: null });
+    },
+  };
+  const worker = createAccountDeletionWorker({
+    client,
+    logger,
+    supabaseUrl: client.supabaseUrl,
+    intervalMs: 1,
+    stepTimeoutMs: 20,
+    // The stub must actually run the scheduled callback, otherwise the test would
+    // only prove that one attempt was scheduled, not that polling continues.
+    schedule: (callback) => {
+      scheduledCount += 1;
+      const handle = setTimeout(callback, 1);
+      if (scheduledCount >= 2) secondSchedule();
+      return { unref() {}, handle };
+    },
+    cancelSchedule: (stub) => clearTimeout(stub && stub.handle),
+  });
+
+  try {
+    worker.start();
+    // Waiting for the observable event instead of a fixed delay keeps this test from
+    // depending on how fast the test runner starts timers.
+    await Promise.race([
+      sawSecondSchedule,
+      new Promise((resolve) => setTimeout(resolve, 500)),
+    ]);
+
+    assert.equal(claimed >= 2, true, `expected the claim to be retried, saw ${claimed}`);
+    // Before the bound existed, run() awaited a promise that never settled, so the
+    // finally block never ran and no further tick was ever scheduled.
+    assert.equal(scheduledCount >= 2, true, `expected the loop to keep scheduling, saw ${scheduledCount}`);
+    assert.ok(events.includes("account_deletion_worker.batch_failed"));
+  } finally {
+    // Always stop the worker: a failing assertion here used to leave an infinite
+    // polling loop alive, which made the whole suite hang instead of failing.
+    await worker.stop();
+  }
+});
+
+test("a stalled step is counted and logged without killing the batch", async () => {
+  const events = [];
+  const logger = { info: () => {}, error: (event) => events.push(event) };
+  // The preflight step needs a readable client (inspectAccountForDeletion) and one RPC
+  // that never answers, so the stall is caused by the step itself.
+  const readClient = createReadClient();
+  const client = {
+    supabaseUrl: readClient.supabaseUrl,
+    from: readClient.from,
+    rpc(name, params) {
+      if (name === "claim_account_deletion_jobs") return Promise.resolve({ data: jobBatch(1), error: null });
+      if (name === "record_account_deletion_preflight") return new Promise(() => {});
+      return Promise.resolve({ data: null, error: { message: "unexpected rpc", code: "XX000" } });
+    },
+  };
+  const worker = createAccountDeletionWorker({
+    client,
+    logger,
+    supabaseUrl: client.supabaseUrl,
+    stepTimeoutMs: 30,
+  });
+
+  const result = await worker.tick();
+
+  assert.equal(result.stalled, 1);
+  assert.equal(result.completed, 0);
+  assert.ok(events.includes("account_deletion_worker.step_stalled"));
+});
+
+test("stop() is bounded and reports that it did not drain", async () => {
+  const events = [];
+  const logger = { info: () => {}, error: (event) => events.push(event) };
+  const client = {
+    supabaseUrl: "https://project.supabase.co",
+    rpc(name) {
+      if (name === "claim_account_deletion_jobs") return new Promise(() => {});
+      return Promise.resolve({ data: null, error: null });
+    },
+  };
+  const worker = createAccountDeletionWorker({
+    client,
+    logger,
+    supabaseUrl: client.supabaseUrl,
+    stepTimeoutMs: 0, // disable the per-step bound to simulate a genuinely hung call
+    shutdownTimeoutMs: 100,
+  });
+  const pending = worker.tick();
+  const startedAt = Date.now();
+  const drained = await worker.stop();
+  const elapsed = Date.now() - startedAt;
+
+  assert.equal(drained, false);
+  assert.ok(elapsed < 1000, `stop() must return promptly, took ${elapsed}ms`);
+  assert.ok(events.includes("account_deletion_worker.shutdown_not_drained"));
+  void pending;
+});
+
+test("stop() reports a clean drain when no step is active", async () => {
+  const worker = createAccountDeletionWorker({
+    client: createFailingClient({ attempts: 1 }),
+    logger: { info: () => {}, error: () => {} },
+    shutdownTimeoutMs: 100,
+  });
+  assert.equal(await worker.stop(), true);
 });
