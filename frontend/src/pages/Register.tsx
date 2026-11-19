@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiRequest } from '../lib/api';
 import { useI18n } from '../i18n/i18nContext';
-import { getAuthCopy } from '../i18n/authCopy';
+import { getAuthCopy, getAuthErrorMessage } from '../i18n/authCopy';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -66,7 +66,7 @@ export const Register: React.FC = () => {
       }
       navigate('/check-email', { replace: true });
     } catch (err: any) {
-      setError(err.message || t.registerError);
+      setError(getAuthErrorMessage(err?.data?.code, language) || err.message || t.registerError);
       setLoading(false);
     }
   }

@@ -3,7 +3,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { apiRequest } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/i18nContext';
-import { getAuthCopy } from '../i18n/authCopy';
+import { getAuthCopy, getAuthErrorMessage } from '../i18n/authCopy';
 import { writeAuthToken } from '../lib/authStorage';
 
 export const Login: React.FC = () => {
@@ -44,7 +44,8 @@ export const Login: React.FC = () => {
       }
       navigate('/app');
     } catch (err: any) {
-      const message = err?.message || t.loginError;
+      // The backend answers in Russian; a known code is rendered in the user's language.
+      const message = getAuthErrorMessage(err?.data?.code, language) || err?.message || t.loginError;
       // Бэкенд отвечает 403 «Подтвердите email…», если users.email_verified=false,
       // и при этом сам высылает письмо повторно (не чаще раза в 5 минут).
       if (err?.status === 403 && (err?.data?.code === 'email_not_verified' || /подтвердите email/i.test(message))) {

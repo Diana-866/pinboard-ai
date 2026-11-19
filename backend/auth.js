@@ -3,6 +3,16 @@ const bcrypt = require("bcryptjs");
 const { signSessionToken, verifySessionToken } = require("./sessionToken");
 const supabase = require("./supabase");
 const { httpError, validateEmail, validatePassword } = require("./validate");
+
+/**
+ * Attach a stable machine-readable code to an error the client shows to a person. The
+ * Russian message stays the default (older clients and logs rely on it); the code lets
+ * the web client render the same failure in the user's own language.
+ */
+function withCode(error, code, defaults = {}) {
+  error.details = { ...(error.details || {}), code, ...defaults };
+  return error;
+}
 const emailVerify = require("./email-verify");
 
 // Точное сообщение для 403 при неподтверждённом email (ТЗ, п.3).
@@ -30,7 +40,7 @@ async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage)
     throw httpError(503, "Не удалось проверить данные аккаунта — попробуйте позже");
   }
   if (existing) {
-    throw httpError(409, "Пользователь с таким email уже существует");
+    throw withCode(httpError(409, "Пользователь с таким email уже существует"), "email_already_registered");
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
@@ -63,7 +73,7 @@ async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage)
       /\b(name|surname|preferred_language)\b/i.test(result.error.message || "");
 
     if (result.error.code === "23505") {
-      throw httpError(409, "Пользователь с таким email уже существует");
+      throw withCode(httpError(409, "Пользователь с таким email уже существует"), "email_already_registered");
     }
     if (!missingOptionalColumn) {
       logError("auth.event_002");
@@ -77,7 +87,7 @@ async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage)
     });
     if (result.error) {
       if (result.error.code === "23505") {
-        throw httpError(409, "Пользователь с таким email уже существует");
+        throw withCode(httpError(409, "Пользователь с таким email уже существует"), "email_already_registered");
       }
       logError("auth.event_003");
       throw httpError(503, "Не удалось создать аккаунт — попробуйте позже");
@@ -122,14 +132,14 @@ async function login(rawEmail, rawPassword) {
   // можно было бы отличить существующий неподтверждённый аккаунт от несуществующего.
   const isValid = await bcrypt.compare(rawPassword, user?.password_hash || DUMMY_HASH);
   if (!user || !isValid) {
-    throw httpError(401, "Неверный email или пароль");
+    throw withCode(httpError(401, "Неверный email или пароль"), "invalid_credentials");
   }
 
   // Аккаунт в процессе удаления (миграция 127): вход запрещён. Колонки может
   // ещё не быть в схеме — тогда `undefined` и проверка пропускается, поэтому
   // деплой кода не ломает вход до применения миграции.
   if (user.account_status && user.account_status !== "active") {
-    throw httpError(403, "Аккаунт удаляется — вход недоступен");
+    throw withCode(httpError(403, "Аккаунт удаляется — вход недоступен"), "account_pending_deletion");
   }
 
   // Email не подтверждён: вход запрещён (JWT не выдаём), письмо высылаем повторно —
