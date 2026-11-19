@@ -1,6 +1,6 @@
 {
-  "files": 136,
-  "total": 1001,
+  "files": 137,
+  "total": 1013,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -58,6 +58,7 @@
     "image-validation.test.js": 6,
     "keyword-ideas.test.js": 8,
     "login-lockout.test.js": 10,
+    "mail-delivery.test.js": 12,
     "mail-input-validation.test.js": 3,
     "mail-transport.test.js": 7,
     "password-reset.test.js": 11,

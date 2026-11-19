@@ -73,15 +73,22 @@ async function listInbox(limit = 30) {
           total++;
         }
       }
+      // An empty mailbox has no message 0, so "1:*" is an invalid sequence range that some
+      // servers reject - the admin inbox page would answer 500 instead of "no messages".
       const startUid = Math.max(1, total - safeLimit + 1);
-      for await (const msg of client.fetch({ seq: `${startUid}:*` }, { envelope: true, flags: true }, { uid: true })) {
-        messages.push({
-          uid: msg.uid,
-          from: msg.envelope?.from?.map((a) => `${a.name || ""} <${a.address || ""}>`).join(", ") || "",
-          subject: msg.envelope?.subject || "(без темы)",
-          date: msg.envelope?.date || null,
-          seen: (msg.flags || []).has ? (msg.flags).has("\\Seen") : false,
-        });
+      if (total > 0) {
+        for await (const msg of client.fetch({ seq: `${startUid}:*` }, { envelope: true, flags: true }, { uid: true })) {
+          messages.push({
+            uid: msg.uid,
+            from: msg.envelope?.from
+              ?.map((a) => (a.name ? `${a.name} <${a.address || ""}>` : String(a.address || "")))
+              .filter(Boolean)
+              .join(", ") || "",
+            subject: msg.envelope?.subject || "(без темы)",
+            date: msg.envelope?.date || null,
+            seen: (msg.flags || []).has ? (msg.flags).has("\\Seen") : false,
+          });
+        }
       }
     } finally {
       lock.release();
@@ -140,7 +147,9 @@ async function replyToMessage(to, subject, text) {
   await transporter.sendMail({
     from: config.from,
     to: reply.to,
-    subject: reply.subject.startsWith("Re:") ? reply.subject : `Re: ${reply.subject}`,
+    // Normalize rather than test one spelling: mail clients send RE:, re: and Re:, and a
+    // case-sensitive check turned "RE: Refund" into "Re: RE: Refund".
+    subject: `Re: ${reply.subject.replace(/^re:\s*/i, "")}`,
     text: reply.text,
   });
   return { ok: true };
