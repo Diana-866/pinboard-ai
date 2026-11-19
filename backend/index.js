@@ -47,7 +47,7 @@ const MODEL_PRICES = {
 const MARKUP = 1.5;
 const ASPECT_RATIOS = ["2:3", "9:16", "4:5", "3:4", "1:1"];
 
-const { fetchAllPages } = require("./fetchAllPages");
+const { fetchAllPages, readArrayQueryResult } = require("./fetchAllPages");
 const { assertJwtSecret } = require("./startupConfig");
 // Authentication cannot work without a strong signing key. Fail startup rather
 // than reporting a healthy API that cannot issue or verify user sessions.
@@ -1311,10 +1311,8 @@ app.get("/review-queue", requireAuth, async (req, res) => {
         ));
         pinResults.push(...batchResults);
       }
-      const pinsError = pinResults.find((result) => result.error)?.error;
-      if (pinsError) throw pinsError;
       for (const result of pinResults) {
-        for (const pin of result.data || []) pinsById.set(String(pin.id), pin);
+        for (const pin of readArrayQueryResult(result)) pinsById.set(String(pin.id), pin);
       }
 
       // A queue row can survive if scheduling succeeded but the follow-up
@@ -1332,10 +1330,8 @@ app.get("/review-queue", requireAuth, async (req, res) => {
         ));
         scheduleResults.push(...batchResults);
       }
-      const schedulesError = scheduleResults.find((result) => result.error)?.error;
-      if (schedulesError) throw schedulesError;
       for (const result of scheduleResults) {
-        for (const schedule of result.data || []) scheduledPinIds.add(String(schedule.pin_id));
+        for (const schedule of readArrayQueryResult(result)) scheduledPinIds.add(String(schedule.pin_id));
       }
     }
 

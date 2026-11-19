@@ -2,7 +2,25 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { fetchAllPages } = require("../fetchAllPages");
+const { fetchAllPages, readArrayQueryResult } = require("../fetchAllPages");
+
+test("readArrayQueryResult propagates database errors and rejects malformed envelopes", () => {
+  const dbError = new Error("database unavailable");
+  assert.throws(
+    () => readArrayQueryResult({ data: null, error: dbError }),
+    (error) => error === dbError
+  );
+
+  for (const malformed of [null, undefined, {}, [], "rows", { data: null, error: null }, { data: {}, error: null }, { data: "rows", error: null }]) {
+    assert.throws(
+      () => readArrayQueryResult(malformed),
+      (error) => error && error.httpStatus === 502,
+      "malformed query result must fail closed"
+    );
+  }
+
+  assert.deepEqual(readArrayQueryResult({ data: [], error: null }), []);
+});
 
 test("fetchAllPages reads every page and preserves order", async () => {
   const rows = Array.from({ length: 7 }, (_, id) => ({ id }));
@@ -36,6 +54,13 @@ test("fetchAllPages propagates database errors and rejects invalid settings", as
   await assert.rejects(fetchAllPages(async () => ({ data: null, error: dbError })), dbError);
   await assert.rejects(fetchAllPages(async () => ({ data: [], error: null }), { pageSize: 0 }), /pageSize/);
   await assert.rejects(fetchAllPages(async () => ({ data: [], error: null }), { maxRows: 0 }), /maxRows/);
+});
+
+test("fetchAllPages rejects a missing query-result envelope", async () => {
+  await assert.rejects(
+    fetchAllPages(async () => null),
+    (error) => error && error.httpStatus === 502
+  );
 });
 
 test("fetchAllPages fails closed on a malformed page instead of truncating the list", async () => {

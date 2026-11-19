@@ -2054,3 +2054,15 @@ Source commits: initial validation `0d558ec99aea53cb8ccc3b01f62cf7ef12da301d`; p
 - Vercel combined status: `success` on test commit `98a65d8669baf7349946063e5dcfd9d34859557f` and on then-current docs HEAD `3e641569209385fb8c9caaef3db0ead0065f5cbc`. Do not equate provider check success with a confirmed production deployment.
 - GitHub workflow-run lookup for source commit `d41c16d4caee20d5cd5ed01ecebb45123e255102` and test commit `98a65d8669baf7349946063e5dcfd9d34859557f` returned no runs; Node runtime tests are not evidenced.
 - Node/PostgreSQL runtime and deployment acceptance remain NOT VERIFIED; worker remains disabled. Owner action UA-062.
+
+### Manual-review queue reconciliation fail-closed query envelopes — AUD-402 (2026-11-19)
+
+| Path | Blob SHA | Purpose / verification |
+|---|---|---|
+| backend/fetchAllPages.js | 5612e5e12ecb01f56f545641f3bd81beb8836deb | Shared query-result validator; preserves DB errors and rejects malformed/missing/non-array data with HTTP 502; used by normal and overflow page reads |
+| backend/index.js | c1e4f5ffbf841560785e64f612749ae21570114e | Both pins and pin_schedules batches in GET /review-queue validated before reconciliation/cleanup |
+| backend/test/fetch-all-pages.test.js | bc55fda280e16284f724169cb68b0ad7ade99dab | Covers valid empty arrays, malformed response envelopes and DB error propagation |
+| backend/test/review-queue-route-contract.test.js | 4fd08d330df3266ed4d9466233dd638ddd1bdafb | Requires both secondary batches to use the validator before stale-row deletion |
+| docs/audits/AUD-402-review-queue-malformed-reconciliation-reads.md | d4bd94f7da7a231997d0d8f79c1b8f611d50c99c | Root cause, impact, implementation and verification boundary |
+
+Runtime Node tests were not run in the automation environment. Owner acceptance is UA-064. No database or production state was changed.
