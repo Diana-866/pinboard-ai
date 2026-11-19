@@ -34,8 +34,24 @@ function commitExists(hash) {
   }
 }
 
+/** The action register is one table inside a long document. Parsing every `| N |` row in
+ *  the file would also pick up numbered tables in the analysis sections (the forbidden
+ *  credential patterns table has a row numbered 429), so the register is sliced out by
+ *  its own heading and its rows must end where the next heading starts. */
+function registerRows(source) {
+  const heading = source.search(/^#{2,3}\s*.*реестр действий/im);
+  assert.notEqual(heading, -1, "the action register heading must exist");
+  const rest = source.slice(heading);
+  const tableStart = rest.indexOf("\n| ");
+  assert.notEqual(tableStart, -1, "the register table must follow its heading");
+  const tableText = rest.slice(tableStart);
+  const nextHeading = tableText.search(/\n#{2,3}\s/);
+  const body = nextHeading === -1 ? tableText : tableText.slice(0, nextHeading);
+  return [...body.matchAll(/^\| (\d+) \|/gm)].map((match) => Number(match[1]));
+}
+
 test("the action register is numbered without gaps", () => {
-  const numbers = [...audit.matchAll(/^\| (\d+) \|/gm)].map((match) => Number(match[1]));
+  const numbers = registerRows(audit);
   assert.ok(numbers.length >= 40, `expected the register, found ${numbers.length} rows`);
   numbers.forEach((number, index) => {
     assert.equal(number, index + 1, `register row ${index + 1} is numbered ${number}`);
