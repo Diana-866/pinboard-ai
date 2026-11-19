@@ -50,6 +50,17 @@ const API_BASE = "https://api.pinterest.com/v5";
 const SCOPES = ["boards:read", "boards:write", "pins:read", "pins:write", "user_accounts:read"];
 
 const TIMEOUT_MS = 10000;
+
+/**
+ * Pinterest-side transient failure. The code tells the interface to explain, in the user's
+ * language, that the provider is unavailable and the action can be retried — a Russian-only
+ * sentence left six of the seven languages with no explanation at all.
+ */
+function pinterestTransientError(code, message, status = 503) {
+  const error = httpError(status, message);
+  error.details = { ...(error.details || {}), code };
+  return error;
+}
 // When another instance holds the refresh lease we wait for its rotation instead of calling
 // Pinterest with a refresh token that is about to be invalidated.
 const REFRESH_CONCURRENCY_WAIT_MS = 10000;
@@ -304,7 +315,7 @@ async function refreshAccessToken(account, timing = {}) {
   });
   if (leaseError) {
     logError("pinterest.event_003");
-    throw httpError(503, "Не удалось безопасно обновить Pinterest-доступ. Попробуйте позже.");
+    throw pinterestTransientError("pinterest_unavailable", "Не удалось безопасно обновить Pinterest-доступ. Попробуйте позже.");
   }
 
   if (!acquired) {
@@ -427,9 +438,9 @@ async function refreshAccessToken(account, timing = {}) {
           .maybeSingle();
         if (restoreError || !restored) {
           logError("pinterest.event_008");
-          throw httpError(503, "Pinterest временно ограничил обновление доступа. Состояние подключения не удалось безопасно восстановить; повторите позже.");
+          throw pinterestTransientError("pinterest_rate_limited", "Pinterest временно ограничил обновление доступа. Состояние подключения не удалось безопасно восстановить; повторите позже.");
         }
-        throw httpError(503, "Pinterest временно ограничил частоту обновления доступа. Подождите немного и повторите действие.");
+        throw pinterestTransientError("pinterest_rate_limited", "Pinterest временно ограничил частоту обновления доступа. Подождите немного и повторите действие.");
       }
       // Other HTTP failures may still have an ambiguous provider outcome.
       // Keep the uncertainty fence: never replay the old refresh token.
@@ -557,7 +568,7 @@ async function verifyPinterestBoard(userId, pinterestBoardId, accountId = null) 
       error.retryable = false;
       throw error;
     }
-    throw httpError(502, "Не удалось проверить выбранную доску Pinterest. Попробуйте позже.");
+    throw pinterestTransientError("pinterest_unavailable", "Не удалось проверить выбранную доску Pinterest. Попробуйте позже.", 502);
   }
 
   const verifiedBoardId = String((boardResult.data && boardResult.data.id) || "");
@@ -954,7 +965,7 @@ function registerRoutes(app, deps) {
         p_token_version: Number(account.token_version || 0),
       });
       if (beginError) throw beginError;
-      if (generation == null) throw httpError(503, "Не удалось начать подключение Pinterest. Попробуйте позже.");
+      if (generation == null) throw pinterestTransientError("pinterest_unavailable", "Не удалось начать подключение Pinterest. Попробуйте позже.");
       // Bind this short-lived OAuth state to the browser that initiated the flow.
       // Only the hash is signed into state; the raw secret stays in an HttpOnly cookie.
       const browserBinding = createBrowserBinding();

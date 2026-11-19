@@ -13,6 +13,8 @@ import { readLocalStorageValue } from '../lib/authStorage';
 type Language = 'en' | 'ru' | 'es' | 'pt' | 'de' | 'fr' | 'zh';
 
 export type AppErrorMessageKey =
+  | 'pinterestUnavailable'
+  | 'pinterestRateLimited'
   | 'pinterestNotConnected'
   | 'pinAlreadyScheduled'
   | 'publicationNotFailed'
@@ -58,6 +60,8 @@ export type AppErrorMessageKey =
 
 const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
   en: {
+    pinterestUnavailable: "Pinterest is temporarily unavailable. Nothing was lost — try this again in a minute.",
+    pinterestRateLimited: "Pinterest is limiting how often this can be done. Wait a moment and try again.",
     pinterestNotConnected: "Connect your Pinterest account first, then schedule the publication.",
     pinAlreadyScheduled: "This pin is already scheduled or published. Check the calendar before scheduling it again.",
     publicationNotFailed: "This action is only available for a publication with the Failed status.",
@@ -102,6 +106,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "The server did not return the data needed for a secure connection.",
   },
   ru: {
+    pinterestUnavailable: "Pinterest временно недоступен. Ничего не потеряно — повторите через минуту.",
+    pinterestRateLimited: "Pinterest ограничил частоту действий. Подождите немного и повторите.",
     pinterestNotConnected: "Сначала подключите Pinterest-аккаунт, затем запланируйте публикацию.",
     pinAlreadyScheduled: "Этот пин уже в расписании или опубликован. Проверьте календарь перед повторным планированием.",
     publicationNotFailed: "Действие доступно только для публикации со статусом «Ошибка».",
@@ -146,6 +152,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Сервер не вернул данные для безопасного подключения.",
   },
   es: {
+    pinterestUnavailable: "Pinterest no está disponible temporalmente. No se ha perdido nada: inténtalo de nuevo en un minuto.",
+    pinterestRateLimited: "Pinterest está limitando la frecuencia de esta acción. Espera un momento e inténtalo de nuevo.",
     pinterestNotConnected: "Conecta primero tu cuenta de Pinterest y luego programa la publicación.",
     pinAlreadyScheduled: "Este pin ya está programado o publicado. Revisa el calendario antes de programarlo de nuevo.",
     publicationNotFailed: "Esta acción solo está disponible para una publicación con el estado «Error».",
@@ -190,6 +198,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "El servidor no devolvió los datos necesarios para una conexión segura.",
   },
   pt: {
+    pinterestUnavailable: "O Pinterest está temporariamente indisponível. Nada foi perdido — tente novamente dentro de um minuto.",
+    pinterestRateLimited: "O Pinterest está a limitar a frequência desta ação. Aguarde um momento e tente novamente.",
     pinterestNotConnected: "Ligue primeiro a sua conta do Pinterest e depois agende a publicação.",
     pinAlreadyScheduled: "Este pin já está agendado ou publicado. Verifique o calendário antes de o agendar novamente.",
     publicationNotFailed: "Esta ação só está disponível para uma publicação com o estado «Erro».",
@@ -234,6 +244,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "O servidor não devolveu os dados necessários para uma ligação segura.",
   },
   de: {
+    pinterestUnavailable: "Pinterest ist vorübergehend nicht erreichbar. Es ist nichts verloren gegangen — versuchen Sie es in einer Minute erneut.",
+    pinterestRateLimited: "Pinterest begrenzt, wie oft diese Aktion möglich ist. Warten Sie kurz und versuchen Sie es erneut.",
     pinterestNotConnected: "Verbinden Sie zuerst Ihr Pinterest-Konto und planen Sie dann die Veröffentlichung.",
     pinAlreadyScheduled: "Dieser Pin ist bereits geplant oder veröffentlicht. Prüfen Sie den Kalender, bevor Sie ihn erneut planen.",
     publicationNotFailed: "Diese Aktion ist nur für eine Veröffentlichung mit dem Status „Fehler“ verfügbar.",
@@ -278,6 +290,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Der Server hat die für eine sichere Verbindung nötigen Daten nicht zurückgegeben.",
   },
   fr: {
+    pinterestUnavailable: "Pinterest est temporairement indisponible. Rien n’est perdu — réessayez dans une minute.",
+    pinterestRateLimited: "Pinterest limite la fréquence de cette action. Patientez un instant, puis réessayez.",
     pinterestNotConnected: "Connectez d’abord votre compte Pinterest, puis programmez la publication.",
     pinAlreadyScheduled: "Ce pin est déjà programmé ou publié. Vérifiez le calendrier avant de le programmer à nouveau.",
     publicationNotFailed: "Cette action n’est disponible que pour une publication au statut « Échec ».",
@@ -322,6 +336,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Le serveur n’a pas renvoyé les données nécessaires à une connexion sécurisée.",
   },
   zh: {
+    pinterestUnavailable: "Pinterest 暂时不可用，数据没有丢失，请稍后重试。",
+    pinterestRateLimited: "Pinterest 限制了该操作的频率，请稍等片刻后重试。",
     pinterestNotConnected: "请先连接 Pinterest 账号，再安排发布。",
     pinAlreadyScheduled: "该 Pin 已在排期中或已发布，请先查看日历再重新安排。",
     publicationNotFailed: "该操作仅适用于状态为“失败”的发布记录。",
@@ -413,6 +429,11 @@ const CONFLICT_CODES: Record<string, AppErrorMessageKey> = {
   publication_not_failed: 'publicationNotFailed',
 };
 
+const TRANSIENT_CODES: Record<string, AppErrorMessageKey> = {
+  pinterest_unavailable: 'pinterestUnavailable',
+  pinterest_rate_limited: 'pinterestRateLimited',
+};
+
 export function getLocalizedApiError(code: unknown, status: unknown): string | null {
   if (typeof code !== 'string') return null;
   if (code === 'insufficient_credits' && Number(status) === 402) {
@@ -426,6 +447,12 @@ export function getLocalizedApiError(code: unknown, status: unknown): string | n
   }
   if (Number(status) === 409 && Object.prototype.hasOwnProperty.call(CONFLICT_CODES, code)) {
     return getAppErrorMessage(CONFLICT_CODES[code]);
+  }
+  // A provider-side failure is reported the same way whatever status the backend chose for
+  // it (502 and 503 both mean "not our customer's fault, retry shortly").
+  if ((Number(status) === 502 || Number(status) === 503) &&
+      Object.prototype.hasOwnProperty.call(TRANSIENT_CODES, code)) {
+    return getAppErrorMessage(TRANSIENT_CODES[code]);
   }
   return null;
 }
