@@ -13,6 +13,14 @@ import { readLocalStorageValue } from '../lib/authStorage';
 type Language = 'en' | 'ru' | 'es' | 'pt' | 'de' | 'fr' | 'zh';
 
 export type AppErrorMessageKey =
+  | 'projectNotFound'
+  | 'boardNotFound'
+  | 'pinNotFound'
+  | 'scheduleNotFound'
+  | 'publicationNotFound'
+  | 'generationRequestNotFound'
+  | 'pinterestAccountNotFound'
+  | 'userNotFound'
   | 'insufficientCredits'
   | 'paymentLinkMissing'
   | 'userNotIdentified'
@@ -38,6 +46,14 @@ export type AppErrorMessageKey =
 
 const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
   en: {
+    projectNotFound: "This project was not found. It may have been deleted, or it belongs to another account.",
+    boardNotFound: "This board was not found. Refresh the list and choose a board again.",
+    pinNotFound: "This pin no longer exists. Refresh the list to see the current pins.",
+    scheduleNotFound: "This schedule entry was not found. Refresh the calendar and try again.",
+    publicationNotFound: "This publication was not found. Refresh the calendar and try again.",
+    generationRequestNotFound: "This generation request was not found. Start a new generation.",
+    pinterestAccountNotFound: "The selected Pinterest account was not found or is disconnected. Reconnect Pinterest.",
+    userNotFound: "Your account was not found. Sign in again.",
     insufficientCredits: "Not enough credits for this action. Top up your balance and try again.",
     paymentLinkMissing: "The server did not return a payment link. Try again or contact support.",
     userNotIdentified: "Could not identify the user. Reload the page and sign in again.",
@@ -62,6 +78,14 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "The server did not return the data needed for a secure connection.",
   },
   ru: {
+    projectNotFound: "Проект не найден. Возможно, он удалён или принадлежит другому аккаунту.",
+    boardNotFound: "Доска не найдена. Обновите список и выберите доску заново.",
+    pinNotFound: "Этот пин больше не существует. Обновите список, чтобы увидеть актуальные пины.",
+    scheduleNotFound: "Запись расписания не найдена. Обновите календарь и попробуйте снова.",
+    publicationNotFound: "Публикация не найдена. Обновите календарь и попробуйте снова.",
+    generationRequestNotFound: "Запрос генерации не найден. Запустите новую генерацию.",
+    pinterestAccountNotFound: "Выбранный Pinterest-аккаунт не найден или отключён. Подключите Pinterest заново.",
+    userNotFound: "Аккаунт не найден. Войдите заново.",
     insufficientCredits: "Недостаточно кредитов для этого действия. Пополните баланс и повторите.",
     paymentLinkMissing: "Сервер не вернул ссылку на оплату. Попробуйте ещё раз или напишите в поддержку.",
     userNotIdentified: "Не удалось определить пользователя. Обновите страницу и войдите снова.",
@@ -86,6 +110,14 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Сервер не вернул данные для безопасного подключения.",
   },
   es: {
+    projectNotFound: "No se encontró este proyecto. Puede que se haya eliminado o que pertenezca a otra cuenta.",
+    boardNotFound: "No se encontró este tablero. Actualiza la lista y elige un tablero de nuevo.",
+    pinNotFound: "Este pin ya no existe. Actualiza la lista para ver los pines actuales.",
+    scheduleNotFound: "No se encontró esta entrada de la programación. Actualiza el calendario e inténtalo de nuevo.",
+    publicationNotFound: "No se encontró esta publicación. Actualiza el calendario e inténtalo de nuevo.",
+    generationRequestNotFound: "No se encontró esta solicitud de generación. Inicia una nueva generación.",
+    pinterestAccountNotFound: "La cuenta de Pinterest seleccionada no se encontró o está desconectada. Vuelve a conectar Pinterest.",
+    userNotFound: "No se encontró tu cuenta. Inicia sesión de nuevo.",
     insufficientCredits: "No hay créditos suficientes para esta acción. Recarga tu saldo e inténtalo de nuevo.",
     paymentLinkMissing: "El servidor no devolvió ningún enlace de pago. Inténtalo de nuevo o escribe al soporte.",
     userNotIdentified: "No se pudo identificar al usuario. Recarga la página e inicia sesión de nuevo.",
@@ -110,6 +142,14 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "El servidor no devolvió los datos necesarios para una conexión segura.",
   },
   pt: {
+    projectNotFound: "Este projeto não foi encontrado. Pode ter sido eliminado ou pertencer a outra conta.",
+    boardNotFound: "Este quadro não foi encontrado. Atualize a lista e escolha um quadro novamente.",
+    pinNotFound: "Este pin já não existe. Atualize a lista para ver os pins atuais.",
+    scheduleNotFound: "Esta entrada da programação não foi encontrada. Atualize o calendário e tente novamente.",
+    publicationNotFound: "Esta publicação não foi encontrada. Atualize o calendário e tente novamente.",
+    generationRequestNotFound: "Este pedido de geração não foi encontrado. Inicie uma nova geração.",
+    pinterestAccountNotFound: "A conta do Pinterest selecionada não foi encontrada ou está desligada. Volte a ligar o Pinterest.",
+    userNotFound: "A sua conta não foi encontrada. Entre novamente.",
     insufficientCredits: "Não há créditos suficientes para esta ação. Carregue o saldo e tente novamente.",
     paymentLinkMissing: "O servidor não devolveu qualquer link de pagamento. Tente novamente ou contacte o suporte.",
     userNotIdentified: "Não foi possível identificar o utilizador. Recarregue a página e entre novamente.",
@@ -134,6 +174,14 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "O servidor não devolveu os dados necessários para uma ligação segura.",
   },
   de: {
+    projectNotFound: "Dieses Projekt wurde nicht gefunden. Möglicherweise wurde es gelöscht oder gehört zu einem anderen Konto.",
+    boardNotFound: "Dieses Board wurde nicht gefunden. Aktualisieren Sie die Liste und wählen Sie erneut ein Board.",
+    pinNotFound: "Dieser Pin existiert nicht mehr. Aktualisieren Sie die Liste, um die aktuellen Pins zu sehen.",
+    scheduleNotFound: "Dieser Zeitplan-Eintrag wurde nicht gefunden. Aktualisieren Sie den Kalender und versuchen Sie es erneut.",
+    publicationNotFound: "Diese Veröffentlichung wurde nicht gefunden. Aktualisieren Sie den Kalender und versuchen Sie es erneut.",
+    generationRequestNotFound: "Diese Generierungsanfrage wurde nicht gefunden. Starten Sie eine neue Generierung.",
+    pinterestAccountNotFound: "Das gewählte Pinterest-Konto wurde nicht gefunden oder ist getrennt. Verbinden Sie Pinterest erneut.",
+    userNotFound: "Ihr Konto wurde nicht gefunden. Melden Sie sich erneut an.",
     insufficientCredits: "Nicht genügend Credits für diese Aktion. Laden Sie Ihr Guthaben auf und versuchen Sie es erneut.",
     paymentLinkMissing: "Der Server hat keinen Zahlungslink zurückgegeben. Versuchen Sie es erneut oder wenden Sie sich an den Support.",
     userNotIdentified: "Der Benutzer konnte nicht ermittelt werden. Laden Sie die Seite neu und melden Sie sich erneut an.",
@@ -158,6 +206,14 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Der Server hat die für eine sichere Verbindung nötigen Daten nicht zurückgegeben.",
   },
   fr: {
+    projectNotFound: "Ce projet est introuvable. Il a peut-être été supprimé ou appartient à un autre compte.",
+    boardNotFound: "Ce tableau est introuvable. Actualisez la liste et choisissez à nouveau un tableau.",
+    pinNotFound: "Ce pin n’existe plus. Actualisez la liste pour voir les pins actuels.",
+    scheduleNotFound: "Cette entrée de programmation est introuvable. Actualisez le calendrier et réessayez.",
+    publicationNotFound: "Cette publication est introuvable. Actualisez le calendrier et réessayez.",
+    generationRequestNotFound: "Cette demande de génération est introuvable. Lancez une nouvelle génération.",
+    pinterestAccountNotFound: "Le compte Pinterest sélectionné est introuvable ou déconnecté. Reconnectez Pinterest.",
+    userNotFound: "Votre compte est introuvable. Reconnectez-vous.",
     insufficientCredits: "Crédits insuffisants pour cette action. Rechargez votre solde et réessayez.",
     paymentLinkMissing: "Le serveur n’a pas renvoyé de lien de paiement. Réessayez ou contactez le support.",
     userNotIdentified: "Impossible d’identifier l’utilisateur. Rechargez la page et reconnectez-vous.",
@@ -182,6 +238,14 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Le serveur n’a pas renvoyé les données nécessaires à une connexion sécurisée.",
   },
   zh: {
+    projectNotFound: "未找到该项目，可能已被删除或属于其他账号。",
+    boardNotFound: "未找到该画板，请刷新列表后重新选择。",
+    pinNotFound: "该 Pin 已不存在，请刷新列表查看当前 Pin。",
+    scheduleNotFound: "未找到该排期记录，请刷新日历后重试。",
+    publicationNotFound: "未找到该发布记录，请刷新日历后重试。",
+    generationRequestNotFound: "未找到该生成请求，请重新发起生成。",
+    pinterestAccountNotFound: "所选 Pinterest 账号不存在或已断开，请重新连接 Pinterest。",
+    userNotFound: "未找到你的账号，请重新登录。",
     insufficientCredits: "额度不足，请充值后重试。",
     paymentLinkMissing: "服务器未返回支付链接，请重试或联系客服。",
     userNotIdentified: "无法识别用户，请刷新页面后重新登录。",
@@ -224,10 +288,24 @@ export function getAppErrorMessage(key: AppErrorMessageKey): string {
  * and an unknown one returns null so the caller keeps the server text instead of inventing
  * a meaning for a failure we do not understand.
  */
+const NOT_FOUND_CODES: Record<string, AppErrorMessageKey> = {
+  project_not_found: 'projectNotFound',
+  board_not_found: 'boardNotFound',
+  pin_not_found: 'pinNotFound',
+  schedule_not_found: 'scheduleNotFound',
+  publication_not_found: 'publicationNotFound',
+  generation_request_not_found: 'generationRequestNotFound',
+  pinterest_account_not_found: 'pinterestAccountNotFound',
+  user_not_found: 'userNotFound',
+};
+
 export function getLocalizedApiError(code: unknown, status: unknown): string | null {
   if (typeof code !== 'string') return null;
   if (code === 'insufficient_credits' && Number(status) === 402) {
     return getAppErrorMessage('insufficientCredits');
+  }
+  if (Number(status) === 404 && Object.prototype.hasOwnProperty.call(NOT_FOUND_CODES, code)) {
+    return getAppErrorMessage(NOT_FOUND_CODES[code]);
   }
   return null;
 }

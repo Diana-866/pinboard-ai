@@ -274,6 +274,17 @@ const { requireTariff, getTariffState, normalizePlan } = require("./tariff");
  * operation — so it always carries the same code. The detailed Russian message is kept for
  * logs and support; the client renders the code in the user's own language.
  */
+/**
+ * A 404 always means "this object is gone or is not yours", so it always carries a code
+ * naming the entity. The message is kept, including the deliberate refusal to reveal whether
+ * a foreign object exists.
+ */
+function notFoundError(code, message) {
+  const error = httpError(404, message);
+  error.details = { ...(error.details || {}), code };
+  return error;
+}
+
 function insufficientCreditsError(message) {
   const error = httpError(402, message);
   error.details = { ...(error.details || {}), code: "insufficient_credits" };
@@ -526,7 +537,7 @@ app.get("/me", requireAuth, async (req, res) => {
       .eq("id", req.userId)
       .single();
 
-    if (error || !row) throw httpError(404, "Пользователь не найден");
+    if (error || !row) throw notFoundError("user_not_found", "Пользователь не найден");
 
     // Keep the profile payload aligned with the same authoritative entitlement
     // resolver used by protected API routes. Raw users.* fields can be stale
@@ -765,7 +776,7 @@ app.get("/projects/:id", requireAuth, async (req, res) => {
       .eq("id", req.params.id)
       .eq("user_id", req.userId)
       .single();
-    if (error || !data) throw httpError(404, "Проект не найден");
+    if (error || !data) throw notFoundError("project_not_found", "Проект не найден");
     res.json(serializeProjectForClient(data));
   } catch (e) {
     handleError(res, e);
@@ -781,7 +792,7 @@ app.post("/projects/:id/analyze", requireAuth, aiLimiter, async (req, res) => {
       .eq("user_id", req.userId)
       .single();
 
-    if (fetchError || !project) throw httpError(404, "Проект не найден");
+    if (fetchError || !project) throw notFoundError("project_not_found", "Проект не найден");
     if (!project.website_url) throw httpError(422, "У проекта не указан URL сайта");
 
     const analysis = await analyzeSite(project.website_url);
@@ -876,7 +887,7 @@ app.post("/projects/:id/boards/generate", requireAuth, aiLimiter, requireTariff(
       .eq("id", req.params.id)
       .eq("user_id", req.userId)
       .single();
-    if (fetchError || !project) throw httpError(404, "Проект не найден");
+    if (fetchError || !project) throw notFoundError("project_not_found", "Проект не найден");
 
     const ideas = await generateBoards(project);
 
@@ -906,7 +917,7 @@ app.get("/projects/:id/boards", requireAuth, async (req, res) => {
       .eq("id", req.params.id)
       .eq("user_id", req.userId)
       .single();
-    if (fetchError || !project) throw httpError(404, "Проект не найден");
+    if (fetchError || !project) throw notFoundError("project_not_found", "Проект не найден");
 
     const data = await fetchAllPages((from, to) => supabase
       .from("boards")
@@ -930,8 +941,8 @@ async function getBoardWithOwnerCheck(boardId, userId) {
     .select("*, projects(user_id, niche, tone, goal, language)")
     .eq("id", boardId)
     .single();
-  if (error || !board) throw httpError(404, "Доска не найдена");
-  if (!isOwnedByUser(board.projects && board.projects.user_id, userId)) throw httpError(404, "Доска не найдена");
+  if (error || !board) throw notFoundError("board_not_found", "Доска не найдена");
+  if (!isOwnedByUser(board.projects && board.projects.user_id, userId)) throw notFoundError("board_not_found", "Доска не найдена");
   return board;
 }
 
@@ -941,8 +952,8 @@ async function getPinWithOwnerCheck(pinId, userId) {
     .select("*, boards(id, title, description, projects(user_id, niche, tone))")
     .eq("id", pinId)
     .single();
-  if (error || !pin) throw httpError(404, "Пин не найден");
-  if (!isOwnedByUser(pin.boards && pin.boards.projects && pin.boards.projects.user_id, userId)) throw httpError(404, "Пин не найден");
+  if (error || !pin) throw notFoundError("pin_not_found", "Пин не найден");
+  if (!isOwnedByUser(pin.boards && pin.boards.projects && pin.boards.projects.user_id, userId)) throw notFoundError("pin_not_found", "Пин не найден");
   return pin;
 }
 
@@ -961,7 +972,7 @@ app.patch("/pins/:id", requireAuth, async (req, res) => {
       .select()
       .maybeSingle();
     if (error) throw error;
-    if (!data) throw httpError(404, "Пин больше не существует");
+    if (!data) throw notFoundError("pin_not_found", "Пин больше не существует");
     res.json(data);
   } catch (e) {
     handleError(res, e);
@@ -988,7 +999,7 @@ app.post("/pins/:id/status", requireAuth, async (req, res) => {
       .select()
       .maybeSingle();
     if (error) throw error;
-    if (!data) throw httpError(404, "Пин больше не существует");
+    if (!data) throw notFoundError("pin_not_found", "Пин больше не существует");
     res.json(data);
   } catch (e) {
     handleError(res, e);
@@ -1497,7 +1508,7 @@ app.post("/boards", requireAuth, async (req, res) => {
       .eq("user_id", req.userId)
       .single();
 
-    if (projectError || !project) throw httpError(404, "Проект не найден");
+    if (projectError || !project) throw notFoundError("project_not_found", "Проект не найден");
 
     // Legacy clients may omit the key. New clients reuse one UUID for every
     // retry of the same logical create operation. The database unique index
@@ -1570,7 +1581,7 @@ app.patch("/boards/:id", requireAuth, async (req, res) => {
       .maybeSingle();
 
     if (error) throw error;
-    if (!data) throw httpError(404, "Доска больше не существует");
+    if (!data) throw notFoundError("board_not_found", "Доска больше не существует");
     res.json(serializeBoardForClient(data));
   } catch (e) {
     handleError(res, e);
@@ -1681,7 +1692,7 @@ app.get("/generation/requests/:key", requireAuth, async (req, res) => {
       .eq("idempotency_key", idempotencyKey)
       .maybeSingle();
     if (error) throw error;
-    if (!request) throw httpError(404, "Запрос генерации не найден");
+    if (!request) throw notFoundError("generation_request_not_found", "Запрос генерации не найден");
     if (request.replay_expired_at) {
       return res.status(410).json({
         error: "Срок хранения результата генерации истёк. Используйте новый ключ идемпотентности для новой операции.",
@@ -2206,7 +2217,7 @@ app.post("/schedule/:id/reconcile-account", requireAuth, pinterestScheduleLimite
       .eq("user_id", String(req.userId))
       .maybeSingle();
     if (scheduleError) throw scheduleError;
-    if (!schedule) throw httpError(404, "Расписание не найдено");
+    if (!schedule) throw notFoundError("schedule_not_found", "Расписание не найдено");
     if (schedule.pinterest_account_id) {
       throw httpError(409, "Для этого расписания Pinterest-аккаунт уже назначен");
     }
@@ -2229,7 +2240,7 @@ app.post("/schedule/:id/reconcile-account", requireAuth, pinterestScheduleLimite
       throw httpError(422, "У вас несколько Pinterest-аккаунтов. Выберите, в какой аккаунт восстановить расписание.");
     }
     if (resolution.status === "invalid_selection") {
-      throw httpError(404, "Выбранный Pinterest-аккаунт не найден или отключён.");
+      throw notFoundError("pinterest_account_not_found", "Выбранный Pinterest-аккаунт не найден или отключён.");
     }
 
     // The saved remote board must be readable through the exact selected identity.
@@ -2476,7 +2487,7 @@ app.post("/schedule/:id/change-board", requireAuth, pinterestScheduleLimiter, re
       .eq("user_id", String(req.userId))
       .maybeSingle();
     if (scheduleError) throw scheduleError;
-    if (!schedule) throw httpError(404, "Расписание не найдено");
+    if (!schedule) throw notFoundError("schedule_not_found", "Расписание не найдено");
     if (schedule.status !== "failed") {
       throw httpError(409, "Заменить доску можно только у публикации со статусом «Ошибка».");
     }
@@ -2538,7 +2549,7 @@ app.post("/schedule/:id/retry", requireAuth, pinterestScheduleLimiter, requireTa
       .eq("user_id", String(req.userId))
       .maybeSingle();
     if (scheduleError) throw scheduleError;
-    if (!schedule) throw httpError(404, "Расписание не найдено");
+    if (!schedule) throw notFoundError("schedule_not_found", "Расписание не найдено");
     if (schedule.status !== "failed") {
       throw httpError(409, "Повторить можно только публикацию со статусом «Ошибка»");
     }
@@ -2610,7 +2621,7 @@ app.post("/schedule/:id/cancel", requireAuth, pinterestScheduleLimiter, async (r
         .eq("user_id", String(req.userId))
         .maybeSingle();
       if (currentError) throw currentError;
-      if (!current) throw httpError(404, "Запланированная публикация не найдена");
+      if (!current) throw notFoundError("publication_not_found", "Запланированная публикация не найдена");
       if (current.status === "cancelled") {
         // A previous cancellation may have committed while its HTTP response was
         // lost. Repeating cleanup is safe because it rechecks every live reference.
@@ -2676,7 +2687,7 @@ app.post("/credits/dev-topup", authLimiter, async (req, res) => {
   try {
     const { email, amount } = validateDevTopupRequest(req.body);
     const { data: user, error } = await supabase.from("users").select("id").eq("email", email).single();
-    if (error || !user) throw httpError(404, "Пользователь не найден");
+    if (error || !user) throw notFoundError("user_not_found", "Пользователь не найден");
 
     const newBalance = await adjustBalance(user.id, amount, "topup", "Тестовое пополнение");
     res.json({ balance: newBalance });
