@@ -194,12 +194,35 @@ app.post("/billing/webhook", webhookLimiter, parseProdamusWebhook, async (req, r
 
 app.use(express.json({ limit: "100kb" })); // ограничение размера тела (B12)
 
+const AUTH_RATE_LIMIT_MAX = Math.max(1, Number(process.env.AUTH_RATE_LIMIT_MAX) || 10);
+const LOGIN_ACCOUNT_RATE_LIMIT_MAX = Math.max(3, Number(process.env.LOGIN_ACCOUNT_RATE_LIMIT_MAX) || 10);
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 10,
+  limit: AUTH_RATE_LIMIT_MAX,
   standardHeaders: true,
   legacyHeaders: false,
   handler: rateLimitedHandler("Слишком много попыток. Попробуйте через 15 минут."),
+});
+
+// The IP budget above cannot protect one account: an attacker with many addresses, or a
+// deployment with several instances, multiplies it. Brute force targets a specific account, so
+// the budget is keyed on the normalized email as well. Case and surrounding spaces must not
+// open a new bucket, or the guard is decorative.
+// The store is process-local (see aiLimiter); a per-account lockout in the database is the
+// durable fix and needs a migration.
+const loginAccountLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: LOGIN_ACCOUNT_RATE_LIMIT_MAX,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const raw = req && req.body && req.body.email;
+    const email = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+    // Requests without an email share one bucket: they are cheap to send and never legitimate.
+    return email ? `email:${email}` : "email:missing";
+  },
+  handler: rateLimitedHandler("Слишком много попыток входа в этот аккаунт. Попробуйте через 15 минут."),
 });
 
 // One shared per-account budget for every billable AI route. These routes run
@@ -448,7 +471,7 @@ app.post("/register", authLimiter, async (req, res) => {
   }
 });
 
-app.post("/login", authLimiter, async (req, res) => {
+app.post("/login", authLimiter, loginAccountLimiter, async (req, res) => {
   try {
     const email = validateEmail(req.body && req.body.email);
     const password = validatePassword(req.body && req.body.password);

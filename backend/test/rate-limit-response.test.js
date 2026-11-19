@@ -98,7 +98,7 @@ test("a throttled request states when to come back and why", async () => {
 
 test("every limiter in index.js uses the shared responder", () => {
   const limiterBlocks = INDEX.split("rateLimit({").slice(1);
-  assert.equal(limiterBlocks.length, 9, "expected nine limiters: the payment webhook has its own");
+  assert.equal(limiterBlocks.length, 10, "expected ten limiters: the payment webhook and the per-account login budget have their own");
   for (const block of limiterBlocks) {
     // Bound each block where it actually ends. A fixed character window silently drifted onto
     // the next limiter once a comment grew, which is how a scanner stops seeing its subject.

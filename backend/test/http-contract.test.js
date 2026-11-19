@@ -51,7 +51,7 @@ async function waitForHealth(port, child, deadlineMs = 20_000) {
   throw new Error(`server did not answer /health: ${lastError && lastError.message}`);
 }
 
-async function withServer(t, { rateLimitMax = 1000 } = {}) {
+async function withServer(t, { rateLimitMax = 1000, authRateLimitMax = null, loginAccountRateLimitMax = null } = {}) {
   const port = await freePort();
   const child = spawn(process.execPath, [path.join(__dirname, "..", "index.js")], {
     cwd: path.join(__dirname, ".."),
@@ -70,6 +70,8 @@ async function withServer(t, { rateLimitMax = 1000 } = {}) {
       // the throttle test starts its own process with a small budget.
       API_RATE_LIMIT_MAX: String(rateLimitMax),
       API_RATE_LIMIT_WINDOW_MS: "60000",
+      ...(authRateLimitMax === null ? {} : { AUTH_RATE_LIMIT_MAX: String(authRateLimitMax) }),
+      ...(loginAccountRateLimitMax === null ? {} : { LOGIN_ACCOUNT_RATE_LIMIT_MAX: String(loginAccountRateLimitMax) }),
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -244,6 +246,37 @@ test("the global request budget throttles a single client with 429", async (t) =
   // Liveness probes are skipped so platform health checks keep working.
   const health = await fetch(`${base}/health`);
   assert.equal(health.status, 200);
+});
+
+test("login attempts are throttled per account, not only per address", async (t) => {
+  // Keyed on the normalized email: brute force targets one account, and an attacker with many
+  // addresses (or a deployment with several instances) multiplies an address-only budget.
+  // The address budget is raised here so the assertion can only be satisfied by the account one.
+  const { base } = await withServer(t, { authRateLimitMax: 1000, loginAccountRateLimitMax: 3 });
+
+  const attempt = (email) => fetch(`${base}/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password: "some-password-1" }),
+  });
+
+  const statuses = [];
+  for (let index = 0; index < 3; index += 1) statuses.push((await attempt("victim@example.com")).status);
+  assert.deepEqual(statuses, [503, 503, 503], `the account still has its budget, got ${statuses.join(",")}`);
+
+  const blocked = await attempt("victim@example.com");
+  assert.equal(blocked.status, 429, "a fourth attempt must be refused");
+  const body = await blocked.json();
+  assert.equal(body.code, "rate_limited", "the refusal must carry the machine code the client maps");
+  assert.match(body.error, /аккаунт/i, "the message must say the account is throttled, not the address");
+
+  // Case and surrounding spaces must not open a new bucket, or the guard is decorative.
+  const disguised = await attempt("  Victim@Example.COM  ");
+  assert.equal(disguised.status, 429, "a case or whitespace variant must share the bucket");
+
+  // Another account from the same address is unaffected.
+  const other = await attempt("someone-else@example.com");
+  assert.equal(other.status, 503, "one account's lockout must not block another");
 });
 
 test("public plan and credit-pack catalogues stay database-free", async (t) => {
