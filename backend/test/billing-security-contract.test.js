@@ -14,7 +14,11 @@ test("the public Prodamus webhook parses bounded supported bodies and dispatches
   assert.match(index, /req\.is\("multipart\/form-data"\)/);
   assert.match(index, /req\.is\("application\/x-www-form-urlencoded"\)/);
   assert.match(index, /req\.is\("application\/json"\)/);
-  assert.match(index, /app\.post\("\/billing\/webhook", parseProdamusWebhook/);
+  // The callback carries its own generous budget and is parsed only after it, so a flood is
+  // bounded while a legitimate retry storm is never dropped.
+  assert.match(index, /app\.post\("\/billing\/webhook", webhookLimiter, parseProdamusWebhook/);
+  assert.match(index, /const webhookLimiter = rateLimit\(\{/);
+  assert.match(index, /req\.path === "\/billing\/webhook"/);
   assert.match(index, /startsWith\(\s*creditsBilling\.ORDER_PREFIX \+ "-"/);
   assert.match(index, /creditsBilling\.handleCreditsWebhook : billing\.handleWebhook/);
 });

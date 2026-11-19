@@ -98,10 +98,14 @@ test("a throttled request states when to come back and why", async () => {
 
 test("every limiter in index.js uses the shared responder", () => {
   const limiterBlocks = INDEX.split("rateLimit({").slice(1);
-  assert.equal(limiterBlocks.length, 8, "expected eight limiters");
+  assert.equal(limiterBlocks.length, 9, "expected nine limiters: the payment webhook has its own");
   for (const block of limiterBlocks) {
-    const head = block.slice(0, 600);
-    assert.match(head, /handler: rateLimitedHandler\(/, `a limiter still has no explicit 429 responder:\n${head.slice(0, 200)}`);
+    // Bound each block where it actually ends. A fixed character window silently drifted onto
+    // the next limiter once a comment grew, which is how a scanner stops seeing its subject.
+    const end = block.indexOf("\n});");
+    assert.ok(end > 0, "a limiter config must close on its own line");
+    const head = block.slice(0, end);
+    assert.match(head, /handler: rateLimitedHandler\(/, "a limiter has no explicit 429 responder");
     assert.doesNotMatch(head, /message: \{ error:/, "the default responder drops Retry-After; use the shared handler");
   }
 });

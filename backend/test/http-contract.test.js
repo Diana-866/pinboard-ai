@@ -163,6 +163,35 @@ test("the payment webhook refuses unsigned and unsupported requests", async (t) 
   );
 });
 
+test("payment notifications are not throttled by the browser request budget", async (t) => {
+  // A provider retry storm after an outage is legitimate traffic, and dropping a payment
+  // notification is worse than any flood this budget protects against. The webhook must
+  // therefore ignore the global per-client budget, while still being bounded itself and
+  // still refusing an unsigned body.
+  const { base } = await withServer(t, { rateLimitMax: 5 });
+
+  const statuses = [];
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const response = await fetch(`${base}/billing/webhook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ order_id: `pp-${attempt}`, payment_status: "success" }),
+    });
+    statuses.push(response.status);
+  }
+
+  assert.equal(statuses.includes(429), false, `the webhook must not inherit the browser budget: ${statuses.join(",")}`);
+  // Every one of them is still rejected as unsigned.
+  assert.equal(statuses.every((status) => status >= 400 && status < 500), true, statuses.join(","));
+  // Meanwhile the ordinary API surface is throttled by the same small budget.
+  let sawThrottle = false;
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const response = await fetch(`${base}/me`);
+    if (response.status === 429) { sawThrottle = true; break; }
+  }
+  assert.equal(sawThrottle, true, "the global budget must still apply to browser traffic");
+});
+
 test("malformed request bodies and unknown routes map to documented statuses", async (t) => {
   const { base } = await withServer(t);
 

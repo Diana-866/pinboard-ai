@@ -128,8 +128,12 @@ const apiLimiter = rateLimit({
   limit: API_RATE_LIMIT_MAX,
   standardHeaders: true,
   legacyHeaders: false,
-  // Platform probes arrive frequently and must never be throttled.
-  skip: (req) => req.path === "/health" || req.path === "/ready",
+  // Platform probes arrive frequently and must never be throttled. The payment webhook is
+  // exempt as well: it is authenticated by a provider signature and carries money
+  // notifications, which must not be dropped because a browser budget is exhausted. It has
+  // its own, far more generous budget below.
+  skip: (req) =>
+    req.path === "/health" || req.path === "/ready" || req.path === "/billing/webhook",
   keyGenerator: (req) => {
     const header = String(req.headers.authorization || "");
     const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
@@ -141,6 +145,18 @@ const apiLimiter = rateLimit({
   handler: rateLimitedHandler("Слишком много запросов. Подождите немного и повторите."),
 });
 app.use(apiLimiter);
+
+// A provider callback is not browser traffic: a burst of legitimate payment notifications
+// (a retry storm after an outage) must not be refused. The budget is generous but finite, so
+// a flood of forged callbacks is still bounded, and an unsigned request is rejected by
+// signature verification before any state is written.
+const webhookLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: Math.max(60, Number(process.env.WEBHOOK_RATE_LIMIT_MAX) || 600),
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: rateLimitedHandler("Слишком много платёжных уведомлений. Повторите позже."),
+});
 
 // Prodamus may send multipart/form-data (default), urlencoded, or JSON callbacks.
 function parseProdamusWebhook(req, res, next) {
@@ -164,7 +180,7 @@ function parseProdamusWebhook(req, res, next) {
   return res.status(415).json({ ok: false, error: "unsupported content type" });
 }
 
-app.post("/billing/webhook", parseProdamusWebhook, async (req, res) => {
+app.post("/billing/webhook", webhookLimiter, parseProdamusWebhook, async (req, res) => {
   try {
     const isCreditsOrder = String((req.body && req.body.order_id) || "").startsWith(
       creditsBilling.ORDER_PREFIX + "-"
