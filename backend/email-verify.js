@@ -66,21 +66,6 @@ async function canResend(userId) {
   return (await secondsUntilResend(userId)) === 0;
 }
 
-// Гасит все неиспользованные email_verify-токены пользователя.
-// Нужно, чтобы в ящике не оставалось нескольких живых ссылок.
-async function revokeUnused(userId) {
-  const { error } = await supabase
-    .from("auth_tokens")
-    .update({ used_at: new Date().toISOString() })
-    .eq("user_id", String(userId))
-    .eq("purpose", PURPOSE)
-    .is("used_at", null);
-  if (error) {
-    // не критично: старая ссылка просто останется действительной до TTL
-    logWarning("email-verify.event_008");
-  }
-}
-
 // Создаёт email_verify-токен (TTL 24 часа) и отправляет письмо.
 // Возвращает true, если письмо реально ушло. Исключений не бросает:
 // регистрация и вход не должны падать из-за почты — письмо можно запросить повторно.
