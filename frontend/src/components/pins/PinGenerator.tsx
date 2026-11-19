@@ -34,6 +34,7 @@ import { clearPendingGenerationRequest, createGenerationFingerprint, listPending
 import { requireSavedPinsArray } from '../../utils/savedPinsResponse';
 import { requireGeneratedPinsArray } from '../../utils/generatedPinsResponse';
 import { isExpiredGenerationRecoveryError } from '../../utils/generationRecovery';
+import { getGenerationInProgressWait, runGenerationWithRecovery } from '../../utils/generationPolling';
 import { isCurrentBillingOwner } from '../../utils/billingOwner';
 import { rollbackPinAspectRatioIfUnchanged } from '../../utils/pinAspectRatio';
 import { resolvePinterestDestination } from '../../utils/pinterestDestination';
@@ -564,12 +565,25 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       // The backend generates up to ten images sequentially (up to ~90 s each), so this
       // request can legitimately run for several minutes. The default request deadline
       // would abort it while the server kept working and charging credits.
-      const rows = await apiRequest(`/boards/${encodeURIComponent(selectedBoard.id)}/pins/generate`, {
-        method: 'POST',
-        headers: { 'Idempotency-Key': generationKeyRef.current || '' },
-        body: JSON.stringify(requestBody),
-        timeoutMs: GENERATION_REQUEST_TIMEOUT_MS,
-      });
+      // A reload during generation, a double submit, or a second tab replaying the stored
+      // request all produce 409 "generation_in_progress". The same idempotency key must be
+      // replayed — rotating it would start and charge a second generation — so wait the
+      // time the server asks for and try again.
+      const generationKey = generationKeyRef.current || '';
+      const rows = await runGenerationWithRecovery(
+        () =>
+          apiRequest(`/boards/${encodeURIComponent(selectedBoard.id)}/pins/generate`, {
+            method: 'POST',
+            headers: { 'Idempotency-Key': generationKey },
+            body: JSON.stringify(requestBody),
+            timeoutMs: GENERATION_REQUEST_TIMEOUT_MS,
+          }),
+        {
+          sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+          now: () => Date.now(),
+          getWaitSeconds: getGenerationInProgressWait,
+        }
+      );
 
       // Do not discard the recovery identity until every returned pin has the
       // durable fields required by the canvas. A malformed success payload is

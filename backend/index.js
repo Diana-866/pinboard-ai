@@ -1060,7 +1060,7 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
     if (state.status === "completed") return res.status(200).json(state.pin);
     if (state.status === "processing") {
       res.set("Retry-After", "5");
-      return res.status(409).json({ error: "Перегенерация уже выполняется. Повторите запрос с тем же ключом.", code: "regeneration_in_progress" });
+      return res.status(409).json({ error: "Перегенерация уже выполняется. Повторите запрос с тем же ключом.", code: "regeneration_in_progress", retryAfterSeconds: 5 });
     }
     if (state.status === "unknown" || state.status === "failed") {
       return res.status(409).json({ error: "Исход предыдущей перегенерации не подтверждён. Автоматический новый запуск заблокирован.", code: "regeneration_outcome_unknown" });
@@ -1193,7 +1193,7 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
         const task = await checkImage(state.provider_task_id);
         if (task && (task.status === "queued" || task.status === "running")) {
           res.set("Retry-After", "10");
-          return res.status(202).json({ status: "processing", code: "regeneration_pending" });
+          return res.status(202).json({ status: "processing", code: "regeneration_pending", retryAfterSeconds: 10 });
         }
         if (task && task.status === "failed") {
           throw providerTaskError({ ...task, id: state.provider_task_id });
@@ -1738,7 +1738,7 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
     if (requestState.status === "completed") return res.status(200).json(requestState.pins || []);
     if (requestState.status === "processing") {
       res.set("Retry-After", "5");
-      return res.status(409).json({ error: "Такая генерация уже выполняется. Повторите запрос с тем же ключом через несколько секунд.", code: "generation_in_progress" });
+      return res.status(409).json({ error: "Такая генерация уже выполняется. Повторите запрос с тем же ключом через несколько секунд.", code: "generation_in_progress", retryAfterSeconds: 5 });
     }
     if (requestState.status === "unknown") {
       return res.status(409).json({ error: "Результат предыдущей генерации не подтверждён. Повторный запуск без сохранённого журнала заблокирован.", code: "generation_outcome_unknown" });
