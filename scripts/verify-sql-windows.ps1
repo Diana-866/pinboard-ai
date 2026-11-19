@@ -42,8 +42,24 @@ param(
     [string]$PsqlPath = "psql",
     [switch]$SkipIntegration,
     [switch]$KeepDatabase,
-    [switch]$KeepGoing
+    [switch]$KeepGoing,
+    [switch]$Concurrency
 )
+
+function Find-Bash {
+    $candidates = @()
+    $command = Get-Command bash -ErrorAction SilentlyContinue
+    if ($command) { $candidates += $command.Source }
+    $candidates += @(
+        "C:\Program Files\Git\bin\bash.exe",
+        "C:\Program Files\Git\usr\bin\bash.exe",
+        "C:\Program Files (x86)\Git\bin\bash.exe"
+    )
+    foreach ($candidate in $candidates) {
+        if ($candidate -and (Test-Path $candidate)) { return $candidate }
+    }
+    return $null
+}
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
@@ -218,7 +234,12 @@ try {
     if (-not $preflight.Ok) {
         Fail "SQL files failed the static checks above. Fix them before touching a database."
     }
-    Write-Host "Static SQL check OK ($($preflight.Output | Where-Object { $_ -match '^SQL_STATIC_CHECKED ' } | ForEach-Object { ($_ -split ' ')[1] }) files)." -ForegroundColor Green
+    $staticCount = $preflight.Output |
+        Where-Object { $_ -match '^SQL_STATIC_CHECKED ' } |
+        ForEach-Object { ($_ -split ' ')[1] } |
+        Select-Object -First 1
+    if (-not $staticCount) { $staticCount = "unknown" }
+    Write-Host "Static SQL check OK ($staticCount files)." -ForegroundColor Green
 
     # ── Credentials (interactive, never written anywhere) ────────────────────
     $SecurePassword = Read-Host -AsSecureString "Password for PostgreSQL user '$PostgresUser'"
@@ -328,6 +349,65 @@ try {
     }
 
     Write-Host "PASS: baseline + $Migrated migrations applied; $TestsRun SQL integration files passed." -ForegroundColor Green
+
+    # ── Isolated concurrency tests (optional) ────────────────────────
+    if ($Concurrency) {
+        $bash = Find-Bash
+        if (-not $bash) {
+            Fail "-Concurrency needs bash. Install Git for Windows (Git Bash) or run without -Concurrency."
+        }
+        $runner = Join-Path $Root "backend/test/run-disposable-concurrency-suite.sh"
+        if (-not (Test-Path $runner)) { Fail "Missing backend/test/run-disposable-concurrency-suite.sh" }
+        # Read the list from the runner so the two can never drift apart.
+        $concurrencyScripts = [System.Collections.Generic.List[string]]::new()
+        foreach ($match in [regex]::Matches((Get-Content $runner -Raw), '(?m)^\s*([a-z0-9-]+\.sh)\s*$')) {
+            if (-not $concurrencyScripts.Contains($match.Groups[1].Value)) {
+                $concurrencyScripts.Add($match.Groups[1].Value)
+            }
+        }
+        if ($concurrencyScripts.Count -lt 10) {
+            Fail "Only $($concurrencyScripts.Count) concurrency scripts were found in the runner; refusing a partial suite."
+        }
+
+        # The shared preflight requires these variables and refuses anything that
+        # is not an explicitly opted-in loopback disposable database.
+        $env:PGHOST = $PostgresHost
+        $env:PGPORT = [string]$PostgresPort
+        $env:PGUSER = $PostgresUser
+        $env:PGDATABASE = $DatabaseName
+        $env:PINPOSY_ALLOW_DISPOSABLE_DB_TESTS = "1"
+
+        Write-Host ""
+        Write-Host "Running $($concurrencyScripts.Count) isolated concurrency tests against $DatabaseName" -ForegroundColor Cyan
+        $concurrencyFailed = [System.Collections.Generic.List[string]]::new()
+        foreach ($name in $concurrencyScripts) {
+            Write-Host ("  {0}" -f $name)
+            $previousErrorActionPreference = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            try {
+                $output = @(& $bash "backend/test/$name" 2>&1 | ForEach-Object { "$_" })
+                $exitCode = $LASTEXITCODE
+            }
+            finally {
+                $ErrorActionPreference = $previousErrorActionPreference
+            }
+            if ($exitCode -ne 0) {
+                $output | ForEach-Object { Write-Host $_ }
+                $concurrencyFailed.Add($name)
+                if (-not $KeepGoing) { Fail "Concurrency test failed: backend/test/$name" }
+                Write-Host ("  ^^ FAILED: {0} (continuing because -KeepGoing)" -f $name) -ForegroundColor Red
+            }
+        }
+
+        $env:PINPOSY_ALLOW_DISPOSABLE_DB_TESTS = $null
+        Write-Host ""
+        if ($concurrencyFailed.Count -gt 0) {
+            Write-Host "FAIL: $($concurrencyFailed.Count) concurrency test(s) failed:" -ForegroundColor Red
+            $concurrencyFailed | ForEach-Object { Write-Host "  backend/test/$_" -ForegroundColor Red }
+            exit 1
+        }
+        Write-Host "PASS: $($concurrencyScripts.Count) isolated concurrency tests passed." -ForegroundColor Green
+    }
 }
 catch {
     Write-Host ""

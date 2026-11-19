@@ -94,3 +94,26 @@ test('the static pre-flight also refuses a mistyped PL/pgSQL variable', () => {
   assert.match(script, /findUndeclaredVariables/);
   assert.match(script, /is used but never declared/);
 });
+
+test("the optional concurrency phase keeps the safety preflight intact", () => {
+  assert.match(script, /\[switch\]\$Concurrency/);
+  // The shared library requires these; they must point at the disposable database.
+  assert.match(script, /\$env:PGDATABASE = \$DatabaseName/);
+  assert.match(script, /\$env:PINPOSY_ALLOW_DISPOSABLE_DB_TESTS = "1"/);
+  assert.match(script, /\$env:PINPOSY_ALLOW_DISPOSABLE_DB_TESTS = \$null/, "the opt-in is cleared afterwards");
+  // The list comes from the runner with a floor, so a partial suite cannot pass.
+  assert.match(script, /run-disposable-concurrency-suite\.sh/);
+  assert.match(script, /if \(\$concurrencyScripts\.Count -lt 10\)/);
+  // The password must never be placed on a command line: the only allowed uses are
+  // assignments to PGPASSWORD (and its clearing).
+  const passwordUsages = script.split("\n").filter((line) => line.includes("$PlainPassword"));
+  assert.ok(passwordUsages.length >= 1);
+  for (const line of passwordUsages) {
+    assert.match(
+      line.trim(),
+      /^\$env:PGPASSWORD = \$PlainPassword$|^Remove-Variable PlainPassword -ErrorAction SilentlyContinue$|^\$PlainPassword = \$credential\.GetNetworkCredential\(\)\.Password$|^\$PlainPassword = \$null$|^if \(\$PlainPassword\) \{$/,
+      `unexpected use of the password: ${line.trim()}`
+    );
+  }
+  assert.match(script, /-Concurrency needs bash/);
+});
