@@ -25,6 +25,7 @@ const { buildAccountExport, requestAccountDeletion } = require("./accountLifecyc
 const { getBalance, adjustBalance } = require("./credits");
 const { requireAdmin, getStats } = require("./admin");
 const { getFinancialOperationsQueue } = require("./adminFinancialOperations");
+const { getAccountDeletionInventory } = require("./adminAccountDeletionInventory");
 const adminPaymentCreationRequests = require("./adminPaymentCreationRequests");
 const adminProviderRefundActions = require("./adminProviderRefundActions");
 const adminPinterestReconciliation = require("./adminPinterestReconciliation");
@@ -2966,6 +2967,18 @@ app.get("/admin/financial-operations/unresolved", requireAuth, requireAdmin, asy
     const limit = Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 50;
     const queue = await getFinancialOperationsQueue({ olderThanMinutes, limit });
     res.json(queue);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// Read-only operator view of the account-deletion pipeline: counts by state, the oldest
+// pending request and the jobs that need a person (blocked or exhausted). The worker
+// reports those only in its structured log, and a stalled deletion has a legal deadline.
+app.get("/admin/account-deletion/inventory", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const inventory = await getAccountDeletionInventory({ limit: req.query.limit });
+    res.json(inventory);
   } catch (e) {
     handleError(res, e);
   }
