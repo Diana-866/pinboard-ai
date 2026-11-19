@@ -279,6 +279,16 @@ const { requireTariff, getTariffState, normalizePlan } = require("./tariff");
  * naming the entity. The message is kept, including the deliberate refusal to reveal whether
  * a foreign object exists.
  */
+/**
+ * A 422 the customer can act on carries a code so the interface can explain it in the
+ * person's own language. Internal contract violations keep the server text only.
+ */
+function validationError(code, message) {
+  const error = httpError(422, message);
+  error.details = { ...(error.details || {}), code };
+  return error;
+}
+
 function notFoundError(code, message) {
   const error = httpError(404, message);
   error.details = { ...(error.details || {}), code };
@@ -793,7 +803,7 @@ app.post("/projects/:id/analyze", requireAuth, aiLimiter, async (req, res) => {
       .single();
 
     if (fetchError || !project) throw notFoundError("project_not_found", "Проект не найден");
-    if (!project.website_url) throw httpError(422, "У проекта не указан URL сайта");
+    if (!project.website_url) throw validationError("project_url_required", "У проекта не указан URL сайта");
 
     const analysis = await analyzeSite(project.website_url);
 
@@ -1021,7 +1031,7 @@ function handlePinImageUpload(req, res, next) {
 app.post("/pins/:id/image", requireAuth, imageUploadLimiter, handlePinImageUpload, async (req, res) => {
   try {
     const pin = await getPinWithOwnerCheck(req.params.id, req.userId);
-    if (!req.file) throw httpError(422, "Передайте файл в поле image (PNG/JPG/WebP/GIF, до 5 МиБ)");
+    if (!req.file) throw validationError("image_upload_required", "Передайте файл в поле image (PNG/JPG/WebP/GIF, до 5 МиБ)");
     const url = await uploadPinImage(req.file);
     let updateQuery = supabase
       .from("pins")
@@ -1496,7 +1506,7 @@ app.post("/boards", requireAuth, async (req, res) => {
     const requestId = optionalString(req.body && req.body.create_request_id, { max: 36 });
 
     if (!projectId) throw httpError(422, "Укажите project_id");
-    if (!title) throw httpError(422, "Название доски обязательно");
+    if (!title) throw validationError("board_name_required", "Название доски обязательно");
     if (requestId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)) {
       throw httpError(422, "Некорректный ключ создания доски");
     }
@@ -2364,36 +2374,36 @@ app.post("/pins/:id/schedule", requireAuth, pinterestScheduleLimiter, requireTar
     if (pin.status !== "approved") {
       throw httpError(409, "Запланировать можно только одобренные пины");
     }
-    if (!pin.image_url) throw httpError(422, "У пина нет сохранённого изображения");
+    if (!pin.image_url) throw validationError("pin_image_missing", "У пина нет сохранённого изображения");
     const scheduledAtRaw = String((req.body && req.body.scheduled_at) || "").trim();
     const scheduledAt = new Date(scheduledAtRaw);
     if (!scheduledAtRaw || Number.isNaN(scheduledAt.getTime())) {
-      throw httpError(422, "Укажите корректные дату и время публикации");
+      throw validationError("invalid_schedule_time", "Укажите корректные дату и время публикации");
     }
     if (scheduledAt.getTime() < Date.now() - 10 * 60 * 1000) {
-      throw httpError(422, "Время публикации не может быть в прошлом");
+      throw validationError("invalid_schedule_time", "Время публикации не может быть в прошлом");
     }
     if (scheduledAt.getTime() > Date.now() + 366 * 24 * 60 * 60 * 1000) {
-      throw httpError(422, "Нельзя планировать публикацию более чем на год вперёд");
+      throw validationError("schedule_too_far", "Нельзя планировать публикацию более чем на год вперёд");
     }
     const pinterestBoardId = String(
       (req.body && (req.body.pinterest_board_id || req.body.board_id)) || ""
     ).trim();
     if (!pinterestBoardId || pinterestBoardId.length > 128) {
-      throw httpError(422, "Выберите существующую доску Pinterest перед планированием публикации");
+      throw validationError("board_selection_required", "Выберите существующую доску Pinterest перед планированием публикации");
     }
     const timezone = String((req.body && req.body.timezone) || "Europe/Moscow").trim();
     try {
       new Intl.DateTimeFormat("en-US", { timeZone: timezone });
     } catch {
-      throw httpError(422, "Некорректный часовой пояс");
+      throw validationError("invalid_timezone", "Некорректный часовой пояс");
     }
     let destinationUrl = null;
     if (req.body && req.body.destination_url) {
       try {
         destinationUrl = normalizePinterestDestinationUrl(req.body.destination_url);
       } catch {
-        throw httpError(422, "Укажите корректную HTTP- или HTTPS-ссылку длиной до 2048 символов без логина и пароля.");
+        throw validationError("project_url_invalid", "Укажите корректную HTTP- или HTTPS-ссылку длиной до 2048 символов без логина и пароля.");
       }
     }
 
@@ -2421,7 +2431,7 @@ app.post("/pins/:id/schedule", requireAuth, pinterestScheduleLimiter, requireTar
       try {
         snapshotDestinationUrl = normalizePinterestDestinationUrl(snapshotPin.boards.projects.website_url);
       } catch {
-        throw httpError(422, "У проекта сохранена некорректная ссылка для публикации. Исправьте адрес сайта в настройках проекта.");
+        throw validationError("project_url_invalid", "У проекта сохранена некорректная ссылка для публикации. Исправьте адрес сайта в настройках проекта.");
       }
     }
 
@@ -2477,7 +2487,7 @@ app.post("/schedule/:id/change-board", requireAuth, pinterestScheduleLimiter, re
   try {
     const newBoardId = String((req.body && req.body.pinterest_board_id) || "").trim();
     if (!newBoardId || newBoardId.length > 128) {
-      throw httpError(422, "Выберите доску Pinterest из списка доступных досок.");
+      throw validationError("board_selection_required", "Выберите доску Pinterest из списка доступных досок.");
     }
 
     const { data: schedule, error: scheduleError } = await supabase

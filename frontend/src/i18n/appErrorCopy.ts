@@ -13,6 +13,15 @@ import { readLocalStorageValue } from '../lib/authStorage';
 type Language = 'en' | 'ru' | 'es' | 'pt' | 'de' | 'fr' | 'zh';
 
 export type AppErrorMessageKey =
+  | 'boardNameRequired'
+  | 'invalidScheduleTime'
+  | 'scheduleTooFar'
+  | 'invalidTimezone'
+  | 'projectUrlRequired'
+  | 'projectUrlInvalid'
+  | 'pinImageMissing'
+  | 'boardSelectionRequired'
+  | 'imageUploadRequired'
   | 'projectNotFound'
   | 'boardNotFound'
   | 'pinNotFound'
@@ -46,6 +55,15 @@ export type AppErrorMessageKey =
 
 const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
   en: {
+    boardNameRequired: "A board name is required.",
+    invalidScheduleTime: "Check the publication date and time — it cannot be empty or in the past.",
+    scheduleTooFar: "A publication cannot be scheduled more than a year ahead.",
+    invalidTimezone: "That time zone is not recognized. Check the time zone in your profile.",
+    projectUrlRequired: "Add your site URL in the project settings before publishing.",
+    projectUrlInvalid: "The site URL is invalid. Use a full HTTP or HTTPS address without a login or password.",
+    pinImageMissing: "This pin has no saved image. Generate or upload an image first.",
+    boardSelectionRequired: "Choose a Pinterest board before scheduling the publication.",
+    imageUploadRequired: "Attach an image file (PNG/JPG/WebP/GIF, up to 5 MB).",
     projectNotFound: "This project was not found. It may have been deleted, or it belongs to another account.",
     boardNotFound: "This board was not found. Refresh the list and choose a board again.",
     pinNotFound: "This pin no longer exists. Refresh the list to see the current pins.",
@@ -78,6 +96,15 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "The server did not return the data needed for a secure connection.",
   },
   ru: {
+    boardNameRequired: "Название доски обязательно.",
+    invalidScheduleTime: "Проверьте дату и время публикации — они не могут быть пустыми или в прошлом.",
+    scheduleTooFar: "Публикацию нельзя запланировать более чем на год вперёд.",
+    invalidTimezone: "Часовой пояс не распознан. Проверьте часовой пояс в профиле.",
+    projectUrlRequired: "Укажите адрес сайта в настройках проекта перед публикацией.",
+    projectUrlInvalid: "Ссылка сайта некорректна. Укажите полный адрес HTTP или HTTPS без логина и пароля.",
+    pinImageMissing: "У пина нет сохранённого изображения. Сначала сгенерируйте или загрузите его.",
+    boardSelectionRequired: "Выберите доску Pinterest перед планированием публикации.",
+    imageUploadRequired: "Прикрепите файл изображения (PNG/JPG/WebP/GIF, до 5 МБ).",
     projectNotFound: "Проект не найден. Возможно, он удалён или принадлежит другому аккаунту.",
     boardNotFound: "Доска не найдена. Обновите список и выберите доску заново.",
     pinNotFound: "Этот пин больше не существует. Обновите список, чтобы увидеть актуальные пины.",
@@ -110,6 +137,15 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Сервер не вернул данные для безопасного подключения.",
   },
   es: {
+    boardNameRequired: "El nombre del tablero es obligatorio.",
+    invalidScheduleTime: "Comprueba la fecha y la hora de publicación: no pueden estar vacías ni en el pasado.",
+    scheduleTooFar: "No se puede programar una publicación con más de un año de antelación.",
+    invalidTimezone: "Esa zona horaria no se reconoce. Comprueba la zona horaria de tu perfil.",
+    projectUrlRequired: "Añade la URL de tu sitio en los ajustes del proyecto antes de publicar.",
+    projectUrlInvalid: "La URL del sitio no es válida. Usa una dirección HTTP o HTTPS completa, sin usuario ni contraseña.",
+    pinImageMissing: "Este pin no tiene imagen guardada. Genera o sube una imagen primero.",
+    boardSelectionRequired: "Elige un tablero de Pinterest antes de programar la publicación.",
+    imageUploadRequired: "Adjunta un archivo de imagen (PNG/JPG/WebP/GIF, hasta 5 MB).",
     projectNotFound: "No se encontró este proyecto. Puede que se haya eliminado o que pertenezca a otra cuenta.",
     boardNotFound: "No se encontró este tablero. Actualiza la lista y elige un tablero de nuevo.",
     pinNotFound: "Este pin ya no existe. Actualiza la lista para ver los pines actuales.",
@@ -142,6 +178,15 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "El servidor no devolvió los datos necesarios para una conexión segura.",
   },
   pt: {
+    boardNameRequired: "O nome do quadro é obrigatório.",
+    invalidScheduleTime: "Verifique a data e a hora de publicação: não podem estar vazias nem no passado.",
+    scheduleTooFar: "Não é possível agendar uma publicação com mais de um ano de antecedência.",
+    invalidTimezone: "Esse fuso horário não é reconhecido. Verifique o fuso horário no seu perfil.",
+    projectUrlRequired: "Adicione o endereço do seu site nas definições do projeto antes de publicar.",
+    projectUrlInvalid: "O endereço do site é inválido. Use um endereço HTTP ou HTTPS completo, sem utilizador nem palavra-passe.",
+    pinImageMissing: "Este pin não tem imagem guardada. Gere ou carregue uma imagem primeiro.",
+    boardSelectionRequired: "Escolha um quadro do Pinterest antes de agendar a publicação.",
+    imageUploadRequired: "Anexe um ficheiro de imagem (PNG/JPG/WebP/GIF, até 5 MB).",
     projectNotFound: "Este projeto não foi encontrado. Pode ter sido eliminado ou pertencer a outra conta.",
     boardNotFound: "Este quadro não foi encontrado. Atualize a lista e escolha um quadro novamente.",
     pinNotFound: "Este pin já não existe. Atualize a lista para ver os pins atuais.",
@@ -174,6 +219,15 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "O servidor não devolveu os dados necessários para uma ligação segura.",
   },
   de: {
+    boardNameRequired: "Ein Board-Name ist erforderlich.",
+    invalidScheduleTime: "Prüfen Sie Datum und Uhrzeit der Veröffentlichung — sie dürfen nicht leer oder in der Vergangenheit liegen.",
+    scheduleTooFar: "Eine Veröffentlichung kann nicht mehr als ein Jahr im Voraus geplant werden.",
+    invalidTimezone: "Diese Zeitzone ist unbekannt. Prüfen Sie die Zeitzone in Ihrem Profil.",
+    projectUrlRequired: "Tragen Sie die Website-Adresse in den Projekteinstellungen ein, bevor Sie veröffentlichen.",
+    projectUrlInvalid: "Die Website-Adresse ist ungültig. Verwenden Sie eine vollständige HTTP- oder HTTPS-Adresse ohne Benutzername und Passwort.",
+    pinImageMissing: "Dieser Pin hat kein gespeichertes Bild. Erzeugen oder laden Sie zuerst ein Bild hoch.",
+    boardSelectionRequired: "Wählen Sie ein Pinterest-Board, bevor Sie die Veröffentlichung planen.",
+    imageUploadRequired: "Fügen Sie eine Bilddatei hinzu (PNG/JPG/WebP/GIF, bis 5 MB).",
     projectNotFound: "Dieses Projekt wurde nicht gefunden. Möglicherweise wurde es gelöscht oder gehört zu einem anderen Konto.",
     boardNotFound: "Dieses Board wurde nicht gefunden. Aktualisieren Sie die Liste und wählen Sie erneut ein Board.",
     pinNotFound: "Dieser Pin existiert nicht mehr. Aktualisieren Sie die Liste, um die aktuellen Pins zu sehen.",
@@ -206,6 +260,15 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Der Server hat die für eine sichere Verbindung nötigen Daten nicht zurückgegeben.",
   },
   fr: {
+    boardNameRequired: "Le nom du tableau est obligatoire.",
+    invalidScheduleTime: "Vérifiez la date et l’heure de publication — elles ne peuvent pas être vides ni passées.",
+    scheduleTooFar: "Une publication ne peut pas être programmée plus d’un an à l’avance.",
+    invalidTimezone: "Ce fuseau horaire n’est pas reconnu. Vérifiez le fuseau horaire de votre profil.",
+    projectUrlRequired: "Ajoutez l’adresse de votre site dans les réglages du projet avant de publier.",
+    projectUrlInvalid: "L’adresse du site est invalide. Utilisez une adresse HTTP ou HTTPS complète, sans identifiant ni mot de passe.",
+    pinImageMissing: "Ce pin n’a pas d’image enregistrée. Générez ou importez d’abord une image.",
+    boardSelectionRequired: "Choisissez un tableau Pinterest avant de programmer la publication.",
+    imageUploadRequired: "Joignez un fichier image (PNG/JPG/WebP/GIF, jusqu’à 5 Mo).",
     projectNotFound: "Ce projet est introuvable. Il a peut-être été supprimé ou appartient à un autre compte.",
     boardNotFound: "Ce tableau est introuvable. Actualisez la liste et choisissez à nouveau un tableau.",
     pinNotFound: "Ce pin n’existe plus. Actualisez la liste pour voir les pins actuels.",
@@ -238,6 +301,15 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Le serveur n’a pas renvoyé les données nécessaires à une connexion sécurisée.",
   },
   zh: {
+    boardNameRequired: "画板名称不能为空。",
+    invalidScheduleTime: "请检查发布日期和时间，不能为空且不能早于现在。",
+    scheduleTooFar: "发布排期不能超过一年之后。",
+    invalidTimezone: "无法识别该时区，请检查个人资料中的时区设置。",
+    projectUrlRequired: "发布前请在项目设置中填写网站地址。",
+    projectUrlInvalid: "网站地址无效，请填写不含用户名和密码的完整 HTTP 或 HTTPS 地址。",
+    pinImageMissing: "该 Pin 没有已保存的图片，请先生成或上传图片。",
+    boardSelectionRequired: "在安排发布前请选择 Pinterest 画板。",
+    imageUploadRequired: "请附加图片文件（PNG/JPG/WebP/GIF，最大 5 MB）。",
     projectNotFound: "未找到该项目，可能已被删除或属于其他账号。",
     boardNotFound: "未找到该画板，请刷新列表后重新选择。",
     pinNotFound: "该 Pin 已不存在，请刷新列表查看当前 Pin。",
@@ -299,6 +371,18 @@ const NOT_FOUND_CODES: Record<string, AppErrorMessageKey> = {
   user_not_found: 'userNotFound',
 };
 
+const VALIDATION_CODES: Record<string, AppErrorMessageKey> = {
+  board_name_required: 'boardNameRequired',
+  invalid_schedule_time: 'invalidScheduleTime',
+  schedule_too_far: 'scheduleTooFar',
+  invalid_timezone: 'invalidTimezone',
+  project_url_required: 'projectUrlRequired',
+  project_url_invalid: 'projectUrlInvalid',
+  pin_image_missing: 'pinImageMissing',
+  board_selection_required: 'boardSelectionRequired',
+  image_upload_required: 'imageUploadRequired',
+};
+
 export function getLocalizedApiError(code: unknown, status: unknown): string | null {
   if (typeof code !== 'string') return null;
   if (code === 'insufficient_credits' && Number(status) === 402) {
@@ -306,6 +390,9 @@ export function getLocalizedApiError(code: unknown, status: unknown): string | n
   }
   if (Number(status) === 404 && Object.prototype.hasOwnProperty.call(NOT_FOUND_CODES, code)) {
     return getAppErrorMessage(NOT_FOUND_CODES[code]);
+  }
+  if (Number(status) === 422 && Object.prototype.hasOwnProperty.call(VALIDATION_CODES, code)) {
+    return getAppErrorMessage(VALIDATION_CODES[code]);
   }
   return null;
 }
