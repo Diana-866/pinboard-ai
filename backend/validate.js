@@ -15,6 +15,12 @@ function validateEmail(raw) {
   if (email.length < 6 || email.length > 254 || !EMAIL_RE.test(email)) {
     throw httpError(422, "Введите корректный email");
   }
+  // The regex cannot see an empty domain label: "a@b..c" satisfies it. Such an address can never
+  // receive mail, so accepting it would create an account that can never be verified.
+  const domain = email.slice(email.lastIndexOf("@") + 1);
+  if (domain.split(".").some((label) => label.length === 0 || label.length > 63)) {
+    throw httpError(422, "Введите корректный email");
+  }
   return email;
 }
 
@@ -56,7 +62,19 @@ function validateEnum(raw, list, def, name = "Значение") {
 }
 
 function validateInt(raw, { min, max, def, name = "Значение" } = {}) {
-  if ((raw === undefined || raw === null || raw === "") && def !== undefined) return def;
+  // Number("") , Number(null) and Number(" ") are all 0, so an empty value used to pass as a
+  // valid zero whenever min <= 0. Missing is missing: it either takes the default or is an
+  // error, exactly like validateEnum above.
+  const missing = raw === undefined || raw === null || (typeof raw === "string" && raw.trim() === "");
+  if (missing && def !== undefined) return def;
+  if (missing) {
+    throw httpError(422, `${name}: должно быть целым числом от ${min} до ${max}`);
+  }
+  // Booleans, arrays and objects coerce to numbers too; only the two types a client can
+  // actually mean are accepted.
+  if (typeof raw !== "number" && typeof raw !== "string") {
+    throw httpError(422, `${name}: должно быть целым числом от ${min} до ${max}`);
+  }
   const n = Number(raw);
   if (!Number.isInteger(n) || n < min || n > max) {
     throw httpError(422, `${name}: должно быть целым числом от ${min} до ${max}`);
