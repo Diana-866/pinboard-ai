@@ -39,6 +39,9 @@ const JSON_CODE_CALL = /(?<![_a-zA-Z])code:\s*["']([a-z0-9_]+)["']/g;
  */
 const RUSSIAN_ONLY = {
   rate_limited: "the request layer answers every 429 by status, with a localized wait message",
+  email_not_requeueable:
+    "reached only from the admin outbox panel: the operator reads the Russian refusal and the row "
+    + "status that caused it, and no customer request can produce this code",
 };
 
 function emittedCodes() {

@@ -3094,6 +3094,19 @@ app.get("/admin/billing/email-outbox", requireAuth, requireAdmin, async (req, re
   }
 });
 
+// A dead transactional email is otherwise lost forever: the dispatcher gives up after max_attempts
+// and nothing in the product could put the message back, so a paying customer whose activation email
+// died was simply never told. Operator-only, one row at a time, and the database decides what is
+// requeueable so a refusal can never be reported as success.
+app.post("/admin/billing/email-outbox/:id/requeue", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await billing.requeueEmailOutbox(req.params && req.params.id);
+    res.json(result);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 // Operator visibility and recovery for the durable login lockout (migration 164).
 // Without this, an attacker who knows the operator's address can lock the account and the owner has
 // no supported way back in; a customer who mistyped a password five times would also have to wait.

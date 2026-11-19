@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Clock3, Mail, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock3, Mail, RefreshCw, RotateCcw } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
 
 interface OutboxHealth {
@@ -35,6 +35,8 @@ export const AdminEmailOutbox: React.FC = () => {
   const [health, setHealth] = useState<OutboxHealth | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [requeueing, setRequeueing] = useState<string | null>(null);
+  const [requeued, setRequeued] = useState<Record<string, { previous_attempts: number | null; template_key: string | null }>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -48,6 +50,36 @@ export const AdminEmailOutbox: React.FC = () => {
       setLoading(false);
     }
   }, []);
+
+  // A dead email is otherwise lost: the dispatcher gave up and nothing else could put it back.
+  // The row id comes from the health payload above, and the server decides whether it is requeueable —
+  // the panel only reports what the server confirmed, because "requeued" that is not true is worse
+  // than no button at all.
+  const requeue = useCallback(async (id: string) => {
+    setRequeueing(id);
+    setError('');
+    try {
+      const result = await apiRequest(`/admin/billing/email-outbox/${encodeURIComponent(id)}/requeue`, {
+        method: 'POST',
+      });
+      const confirmed = result as { requeued?: boolean; previous_attempts?: number | null; template_key?: string | null };
+      if (confirmed?.requeued !== true) {
+        throw new Error('Сервер не подтвердил возврат письма в очередь.');
+      }
+      setRequeued((previous) => ({
+        ...previous,
+        [id]: {
+          previous_attempts: confirmed.previous_attempts ?? null,
+          template_key: confirmed.template_key ?? null,
+        },
+      }));
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось вернуть письмо в очередь');
+    } finally {
+      setRequeueing(null);
+    }
+  }, [load]);
 
   useEffect(() => {
     void load();
@@ -133,6 +165,7 @@ export const AdminEmailOutbox: React.FC = () => {
                       <th className="p-3 font-semibold">Попытки</th>
                       <th className="p-3 font-semibold">Код ошибки</th>
                       <th className="p-3 font-semibold">Последнее изменение</th>
+                      <th className="p-3 font-semibold">Действие</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -142,6 +175,23 @@ export const AdminEmailOutbox: React.FC = () => {
                         <td className="p-3 text-primary-theme">{item.attempts}/{item.max_attempts}</td>
                         <td className="p-3 font-mono text-secondary-theme">{item.last_error_code || 'не указан'}</td>
                         <td className="p-3 text-secondary-theme">{formatDate(item.updated_at)}</td>
+                        <td className="p-3">
+                          {requeued[item.id] ? (
+                            <span className="text-emerald-600 dark:text-emerald-400">
+                              В очереди
+                              {requeued[item.id].template_key ? ` · ${requeued[item.id].template_key}` : ''}
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => void requeue(item.id)}
+                              disabled={requeueing !== null}
+                              className="px-2 py-1 rounded-lg border border-subtle text-[11px] font-semibold flex items-center gap-1 hover:bg-subtle disabled:opacity-50"
+                            >
+                              <RotateCcw className={`w-3 h-3 ${requeueing === item.id ? 'animate-spin' : ''}`} />
+                              Вернуть в очередь
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -150,7 +200,9 @@ export const AdminEmailOutbox: React.FC = () => {
             )}
             <p className="px-4 pb-4 text-[11px] text-muted-theme">
               Показаны последние 50 записей. Адреса получателей и содержимое писем не запрашиваются и не отображаются.
-              Для ручного восстановления сначала требуется проверить, не принял ли SMTP предыдущую попытку.
+              Возврат в очередь сбрасывает счётчик попыток: письмо уйдёт повторно. Перед возвратом убедитесь,
+              что SMTP не принял предыдущую попытку, иначе получатель увидит письмо дважды — это допустимо для
+              активации подписки, но не для одноразовых кодов.
             </p>
           </div>
         </>

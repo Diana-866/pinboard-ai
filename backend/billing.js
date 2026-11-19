@@ -516,6 +516,59 @@ async function handleWebhook(req, res, dependencies = {}) {
 }
 
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * Puts one dead transactional email back into the queue (migration 165).
+ *
+ * The outbox retries with backoff and then marks a row dead; until now that was the end of the line,
+ * so a paying customer whose activation email died was simply never told. This is the operator's only
+ * supported way back, and it is deliberately narrow: one row, chosen by id, only from 'dead'.
+ *
+ * The database decides what is requeueable and reports why it refused; this layer must not turn a
+ * refusal into a success, because the operator would then believe an email is on its way.
+ */
+async function requeueEmailOutbox(id, dependencies = {}) {
+  const db = dependencies.supabase || supabase;
+  const rowId = typeof id === "string" ? id.trim() : "";
+  if (!UUID_PATTERN.test(rowId)) {
+    throw httpError(422, "Укажите корректный идентификатор письма");
+  }
+
+  const { data, error } = await db.rpc("requeue_email_outbox", { p_id: rowId });
+  if (error) {
+    // A deployment where migration 165 has not run yet must say so: the operator is asking for a
+    // recovery action, and a generic failure would be indistinguishable from a real one.
+    const missing = error.code === "PGRST202" || error.code === "42883"
+      || /could not find the function|does not exist/i.test(String(error.message || ""));
+    if (missing) {
+      logError("billing.event_029");
+      throw httpError(503, "Переотправка писем недоступна: примените миграцию 165");
+    }
+    logError("billing.event_030");
+    throw httpError(503, "Не удалось поставить письмо в очередь — попробуйте позже");
+  }
+
+  const result = data && typeof data === "object" ? data : {};
+  if (result.requeued !== true) {
+    const reason = typeof result.reason === "string" ? result.reason : "unknown";
+    // Every refusal is a conflict with the current state, not a client mistake in the request.
+    const refusal = httpError(409, `Письмо не поставлено в очередь (${reason})`);
+    refusal.details = {
+      code: "email_not_requeueable",
+      reason,
+      status: typeof result.status === "string" ? result.status : null,
+    };
+    throw refusal;
+  }
+
+  return {
+    requeued: true,
+    previous_attempts: Number.isSafeInteger(result.previous_attempts) ? result.previous_attempts : null,
+    template_key: typeof result.template_key === "string" ? result.template_key : null,
+  };
+}
+
 async function getEmailOutboxHealth(limit = 20, dependencies = {}) {
   const db = dependencies.supabase || supabase;
   const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 100));
@@ -666,4 +719,5 @@ module.exports = {
   dispatchPendingSubscriptionEmails,
   isValidEmailOutboxClaimRows,
   getEmailOutboxHealth,
+  requeueEmailOutbox,
 };

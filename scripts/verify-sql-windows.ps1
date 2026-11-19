@@ -265,7 +265,7 @@ try {
     if (-not (Test-Path $baseline)) { Fail "Missing canonical baseline db/migrations/001_baseline.sql" }
     if (-not (Test-Path $stubs)) { Fail "Missing Supabase stubs db/supabase-stub.sql" }
 
-    # Active numbered migrations must be exactly the contiguous 010..164 chain.
+    # Active numbered migrations must be exactly the contiguous 010..165 chain.
     $migrations = Get-ChildItem (Join-Path $Root "db/migrations") -Filter "*.sql" |
         Where-Object { $_.Name -match '^\d{3}_' } |
         ForEach-Object {

@@ -77,3 +77,20 @@ test('the login lockout panel uses the two admin endpoints, not a client-side gu
   // No secrets, no direct table access from the browser.
   assert.doesNotMatch(panel, /SUPABASE|service_role/i);
 });
+
+test('a dead outbox email can be requeued from the panel, and only a server confirmation counts', () => {
+  // The outbox panel used to be diagnostics-only, so a dead activation email stayed dead. The button
+  // must call the admin route with the row id, and must not show "requeued" without the server saying so.
+  const panel = readFileSync(
+    resolve(process.cwd(), 'src/components/admin/AdminEmailOutbox.tsx'),
+    'utf8'
+  );
+  assert.match(panel, /\/admin\/billing\/email-outbox\/\$\{encodeURIComponent\(id\)\}\/requeue/);
+  assert.match(panel, /method: 'POST',/);
+  assert.match(panel, /confirmed\?\.requeued !== true/);
+  assert.match(panel, /throw new Error\('Сервер не подтвердил возврат письма в очередь\.'\)/);
+  // The operator must be warned that a resend can duplicate a message SMTP already accepted.
+  assert.match(panel, /увидит письмо дважды/);
+  // The panel still must not reveal recipients or payloads.
+  assert.doesNotMatch(panel, /recipient_email/);
+});

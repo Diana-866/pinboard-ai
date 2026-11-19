@@ -39,6 +39,10 @@ const OWNERSHIP_FILTER = /\.eq\(\s*["'`]user_id["'`]\s*,|\.eq\(\s*["'`]projects\
 // Routes whose :param is not a customer resource. Each needs a reason.
 const NO_OWNERSHIP_NEEDED = new Map([
   ["GET /admin/mail/:uid", "admin-only; the uid is the account being inspected"],
+  [
+    "POST /admin/billing/email-outbox/:id/requeue",
+    "admin-only; the id is an outbox row, not a customer resource",
+  ],
 ]);
 
 function parseRoutes(source) {

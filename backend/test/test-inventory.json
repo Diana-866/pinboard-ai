@@ -1,6 +1,6 @@
 {
-  "files": 141,
-  "total": 1055,
+  "files": 142,
+  "total": 1061,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -38,6 +38,7 @@
     "dev-topup.test.js": 7,
     "documentation-integrity.test.js": 6,
     "email-locales.test.js": 4,
+    "email-outbox-requeue.test.js": 6,
     "email-outbox.test.js": 5,
     "email-verification.test.js": 11,
     "env-documentation.test.js": 4,
