@@ -2623,3 +2623,15 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - Владельцу добавлено действие UA-063 в `docs/USER_ACTIONS.md` с точными командами и ограничениями.
 - `git push origin main` не выполнен: операция отклонена политикой среды. Коммиты `d77100b7`, `b670602a`, `ff6dddc4`, `e61a937e`, `3cc7f4e2` и коммит этого документа остаются локальными и требуют `git push` со стороны владельца.
 - Блокировки сохраняются: живые платежи, приглашения первых пользователей, планируемая публикация и account-deletion worker — до прохождения SQL/staging-гейтов.
+
+
+### 2026-11-19 — Manual-review queue reconciliation fails closed on malformed query results (AUD-402)
+
+- Review base: current main HEAD ab7a44f576c91a6fcb45fe35b8a88a3caf0de3d7.
+- Found a data-integrity defect in GET /review-queue: the secondary pins and pin_schedules batch queries treated result.data || [] as a valid empty result. A malformed successful pin response could make every pin-linked queue row look stale and trigger deletion; a malformed schedule response could make an already scheduled pin reappear for approval.
+- Added readArrayQueryResult to backend/fetchAllPages.js. It preserves database errors and requires a valid object response with array data; malformed envelopes fail with HTTP 502. The shared pager now uses the same validator for regular pages and overflow probes.
+- GET /review-queue now validates every pin and schedule batch before reconciliation and stale-row cleanup. Added tests for malformed envelopes, valid empty arrays, database-error propagation, and validation-before-cleanup route wiring.
+- Code/test files and the audit note are in branch fix/review-queue-query-envelope-20261119; PR will remain Draft until owner-side runtime verification. Node tests were not run in this automation environment.
+- Current-main verification reconciliation: commit ab7a44f records backend node --test 742/742 pass in its commit message. This supersedes the older 729/729 entry and the earlier statement that the verification commits were unpushed. This automation did not rerun Node tests.
+- Current-main GitHub Actions runs 44389804267 (atomic payment) and 44389804406 (Prodamus checkout) ended in failure, but their job records have steps: null and logs_url: null; no test-step execution or source-code failure is evidenced. The Vercel combined status for ab7a44f is success; this is not proof of a production deployment.
+- SQL migration/integration and concurrency acceptance remain NOT VERIFIED under UA-063. No SQL migration, production database, Supabase, payment, Pinterest, DNS or deployment was changed.

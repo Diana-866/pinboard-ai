@@ -3521,3 +3521,20 @@ CI was triggered by the source/test commits. Atomic-payment integration runs `44
 - **Ограничения:** не запускать на production, на PIN_TRIAL или на существующей рабочей БД; не включать account-deletion worker; не проводить реальных платежей; не публиковать пароли и строки подключения в переписке/документации.
 - **Ожидаемый результат:** миграции применяются без ошибок, 49 SQL-файлов проходят, disposable БД удалена. Любое падение прислать целиком — обходить или «подгонять» тесты не нужно.
 - **После получения результата:** ассистент обновит `docs/PROJECT_STATE.md`, зафиксирует фактические результаты и перейдёт к staging/E2E-сценариям.
+
+
+### UA-064 — Manual-review queue reconciliation malformed-response acceptance (2026-11-19)
+
+- Статус: ожидает локального Node runtime-подтверждения; SQL/production не требуются.
+- Дефект: GET /review-queue раньше трактовал malformed data от связанных запросов pins/pin_schedules как пустые массивы. Это могло удалить queue rows как stale или повторно показать уже запланированный pin.
+- Исправление: общий readArrayQueryResult сохраняет DB errors и требует массив data; оба связанных batch-read проходят проверку до stale-row cleanup.
+- Ветка: fix/review-queue-query-envelope-20261119.
+- Проверка на чистой рабочей копии:
+  1. git status --short — сохранить/закоммитить свои изменения до переключения.
+  2. git fetch origin.
+  3. git switch --track origin/fix/review-queue-query-envelope-20261119 (если ветка уже существует локально, git switch fix/review-queue-query-envelope-20261119).
+  4. Из корня репозитория выполнить: node --test backend/test/fetch-all-pages.test.js backend/test/review-queue-route-contract.test.js.
+  5. При успешном focused gate выполнить полный backend suite: npm --prefix backend test.
+- Ожидается: malformed/null/missing/non-array query envelope → HTTP 502; DB error сохраняется; корректный data: [] принимается; route validates both secondary result batches before any stale-row delete.
+- Ограничения: не запускать против production/Supabase; база данных для этих Node tests не нужна. Не менять SQL, worker enablement, payments, Pinterest credentials или deployment.
+- Если любой тест падает, прислать полный вывод и exit code; не ослаблять проверки и не обходить упавший сценарий.
