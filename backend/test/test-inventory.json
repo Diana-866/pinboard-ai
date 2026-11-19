@@ -1,6 +1,6 @@
 {
-  "files": 139,
-  "total": 1035,
+  "files": 140,
+  "total": 1049,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -75,6 +75,7 @@
     "pin-patch.test.js": 5,
     "pin-status-guard.test.js": 4,
     "pin-status-publication-fencing.test.js": 6,
+    "pins-journal-branches.test.js": 14,
     "pins-provider-boundary.test.js": 26,
     "pinterest-account-record.test.js": 6,
     "pinterest-account-request.test.js": 8,
