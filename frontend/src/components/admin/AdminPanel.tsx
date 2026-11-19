@@ -4,6 +4,7 @@ import {
   CalendarClock,
   CreditCard,
   LogOut,
+  LockKeyhole,
   Mail,
   Receipt,
   Send,
@@ -15,6 +16,7 @@ import { PinPosyLogo } from '../common/PinPosyLogo';
 import { useAuth } from '../../context/AuthContext';
 import { AdminMail } from './AdminMail';
 import { AdminEmailOutbox } from './AdminEmailOutbox';
+import { AdminLoginLockout } from './AdminLoginLockout';
 import { AdminSubscriptions } from './AdminSubscriptions';
 import { AdminBillingExceptions } from './AdminBillingExceptions';
 import { AdminFinancialOperations } from './AdminFinancialOperations';
@@ -32,7 +34,8 @@ type AdminTab =
   | 'financial_operations'
   | 'pinterest'
   | 'mail'
-  | 'email_outbox';
+  | 'email_outbox'
+  | 'login_lockout';
 
 const TABS: Array<{ id: AdminTab; label: string; icon: LucideIcon }> = [
   { id: 'subscriptions', label: 'Подписки', icon: Receipt },
@@ -42,6 +45,7 @@ const TABS: Array<{ id: AdminTab; label: string; icon: LucideIcon }> = [
   { id: 'pinterest', label: 'Pinterest', icon: CalendarClock },
   { id: 'mail', label: 'Почта поддержки', icon: Mail },
   { id: 'email_outbox', label: 'Исходящие письма', icon: Send },
+  { id: 'login_lockout', label: 'Замок входа', icon: LockKeyhole },
 ];
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
@@ -136,6 +140,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
           {activeTab === 'pinterest' && <AdminPinterestSchedules />}
           {activeTab === 'mail' && <AdminMail />}
           {activeTab === 'email_outbox' && <AdminEmailOutbox />}
+          {activeTab === 'login_lockout' && <AdminLoginLockout />}
         </div>
       </main>
     </div>
