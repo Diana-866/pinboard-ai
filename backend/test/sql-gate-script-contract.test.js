@@ -117,3 +117,22 @@ test("the optional concurrency phase keeps the safety preflight intact", () => {
   }
   assert.match(script, /-Concurrency needs bash/);
 });
+
+test("bash detection refuses the WSL launcher and smoke-tests every candidate", () => {
+  // Get-Command bash resolves to C:\Windows\System32\bash.exe in a standalone
+  // PowerShell session; on a machine without a WSL distribution that launcher only
+  // prints an error and exits non-zero, so all ten concurrency tests "failed"
+  // without ever running. The stub must be excluded and each candidate proven.
+  assert.match(script, /-like "\*Windows\\System32\*"/);
+  assert.match(script, /-like "\*Windows\\SysWOW64\*"/);
+  assert.match(script, /PINPOSY_POSIX_SHELL_OK/);
+  assert.match(script, /not a usable POSIX shell/);
+  // A known Git-for-Windows location must be tried even when bash is not on PATH.
+  assert.match(script, /Programs\\Git\\bin\\bash[.]exe/);
+});
+
+test("the static-check file count is computed by PowerShell, not parsed from stdout", () => {
+  assert.match(script, /\$sqlFileCount = @\(Get-ChildItem/);
+  assert.match(script, /Static SQL check OK \(\$sqlFileCount files\)/);
+  assert.doesNotMatch(script, /\$staticCount/);
+});

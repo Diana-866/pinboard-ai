@@ -46,17 +46,38 @@ param(
     [switch]$Concurrency
 )
 
+# C:\Windows\System32\bash.exe is the WSL launcher, not a POSIX shell: on a machine
+# without a WSL distribution it only exists to print 'Windows Subsystem for Linux
+# has no installed distributions' and exits non-zero. It shadows Git Bash on PATH,
+# so every candidate is smoke-tested before it is accepted.
 function Find-Bash {
-    $candidates = @()
-    $command = Get-Command bash -ErrorAction SilentlyContinue
-    if ($command) { $candidates += $command.Source }
-    $candidates += @(
-        "C:\Program Files\Git\bin\bash.exe",
-        "C:\Program Files\Git\usr\bin\bash.exe",
-        "C:\Program Files (x86)\Git\bin\bash.exe"
+    $candidates = @(
+        (Join-Path $env:ProgramFiles "Git\bin\bash.exe"),
+        (Join-Path ${env:ProgramFiles(x86)} "Git\bin\bash.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\Git\bin\bash.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\deepai-code-desktop\resources\git\bin\bash.exe")
     )
+    $onPath = Get-Command bash -ErrorAction SilentlyContinue
+    if ($onPath) { $candidates += $onPath.Source }
+
     foreach ($candidate in $candidates) {
-        if ($candidate -and (Test-Path $candidate)) { return $candidate }
+        if (-not $candidate -or -not (Test-Path $candidate)) { continue }
+        $directory = Split-Path $candidate -Parent
+        if ($directory -like "*Windows\System32*" -or $directory -like "*Windows\SysWOW64*") { continue }
+
+        $previousErrorActionPreference = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            $probe = @(& $candidate -c "echo PINPOSY_POSIX_SHELL_OK" 2>&1 | ForEach-Object { "$_" })
+            $exitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
+        if ($exitCode -eq 0 -and (($probe -join "`n") -match "PINPOSY_POSIX_SHELL_OK")) {
+            return $candidate
+        }
+        Write-Host "Skipping $candidate : not a usable POSIX shell." -ForegroundColor Yellow
     }
     return $null
 }
@@ -234,12 +255,11 @@ try {
     if (-not $preflight.Ok) {
         Fail "SQL files failed the static checks above. Fix them before touching a database."
     }
-    $staticCount = $preflight.Output |
-        Where-Object { $_ -match '^SQL_STATIC_CHECKED ' } |
-        ForEach-Object { ($_ -split ' ')[1] } |
-        Select-Object -First 1
-    if (-not $staticCount) { $staticCount = "unknown" }
-    Write-Host "Static SQL check OK ($staticCount files)." -ForegroundColor Green
+    # Count the corpus in PowerShell: the number is informational, and parsing it
+    # out of the child's stdout depended on the pipeline shape.
+    $sqlFileCount = @(Get-ChildItem -Path (Join-Path $Root "db") -Recurse -Filter "*.sql" -File).Count +
+        @(Get-ChildItem -Path (Join-Path $Root "backend/test") -Recurse -Filter "*.sql" -File).Count
+    Write-Host "Static SQL check OK ($sqlFileCount files)." -ForegroundColor Green
 
     # ── Credentials (interactive, never written anywhere) ────────────────────
     $SecurePassword = Read-Host -AsSecureString "Password for PostgreSQL user '$PostgresUser'"
