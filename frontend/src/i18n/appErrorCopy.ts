@@ -13,6 +13,8 @@ import { readLocalStorageValue } from '../lib/authStorage';
 type Language = 'en' | 'ru' | 'es' | 'pt' | 'de' | 'fr' | 'zh';
 
 export type AppErrorMessageKey =
+  | 'generationOutcomeUnknown'
+  | 'generationCostUnconfirmed'
   | 'paymentProviderUnavailable'
   | 'paymentLinkNotSaved'
   | 'paymentOrderPreparationFailed'
@@ -65,6 +67,8 @@ export type AppErrorMessageKey =
 
 const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
   en: {
+    generationOutcomeUnknown: "The previous generation has not been confirmed yet, so we did not start another one. Check the review queue in a minute, and try again if nothing appears.",
+    generationCostUnconfirmed: "The generation could not be completed and no pins were created. Try again in a few minutes.",
     paymentProviderUnavailable: "The payment service is not responding right now. Nothing has been charged - try again in a few minutes.",
     paymentLinkNotSaved: "Your invoice was created but we could not save its link. Do not start another payment - contact support and we will find your invoice by email.",
     paymentOrderPreparationFailed: "We could not prepare your order safely, and nothing was sent to the payment provider. Try again in a few minutes.",
@@ -116,6 +120,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "The server did not return the data needed for a secure connection.",
   },
   ru: {
+    generationOutcomeUnknown: "Результат предыдущей генерации ещё не подтверждён, поэтому новая не запущена. Проверьте очередь проверки через минуту — если ничего не появилось, попробуйте снова.",
+    generationCostUnconfirmed: "Генерация не завершилась, пины не созданы. Повторите попытку через несколько минут.",
     paymentProviderUnavailable: "Платёжный сервис сейчас не отвечает. Деньги не списаны — повторите попытку через несколько минут.",
     paymentLinkNotSaved: "Счёт создан, но ссылку на него сохранить не удалось. Не создавайте новый платёж — напишите в поддержку, мы найдём счёт по email.",
     paymentOrderPreparationFailed: "Не удалось безопасно подготовить заказ, провайдеру ничего не отправлялось. Повторите попытку через несколько минут.",
@@ -167,6 +173,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Сервер не вернул данные для безопасного подключения.",
   },
   es: {
+    generationOutcomeUnknown: "La generación anterior aún no está confirmada, así que no iniciamos otra. Revisa la cola de revisión en un minuto y vuelve a intentarlo si no aparece nada.",
+    generationCostUnconfirmed: "La generación no pudo completarse y no se creó ningún pin. Inténtalo de nuevo en unos minutos.",
     paymentProviderUnavailable: "El servicio de pago no responde en este momento. No se ha cobrado nada: inténtalo de nuevo en unos minutos.",
     paymentLinkNotSaved: "La factura se creó, pero no pudimos guardar su enlace. No inicies otro pago: escribe al soporte y la encontraremos por tu email.",
     paymentOrderPreparationFailed: "No pudimos preparar tu pedido de forma segura y no se envió nada al proveedor de pago. Inténtalo de nuevo en unos minutos.",
@@ -218,6 +226,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "El servidor no devolvió los datos necesarios para una conexión segura.",
   },
   pt: {
+    generationOutcomeUnknown: "A geração anterior ainda não foi confirmada, então não iniciamos outra. Verifique a fila de revisão em um minuto e tente novamente se nada aparecer.",
+    generationCostUnconfirmed: "A geração não foi concluída e nenhum pin foi criado. Tente novamente em alguns minutos.",
     paymentProviderUnavailable: "O serviço de pagamento não está respondendo agora. Nada foi cobrado — tente novamente em alguns minutos.",
     paymentLinkNotSaved: "A fatura foi criada, mas não conseguimos salvar o link dela. Não inicie outro pagamento — fale com o suporte e a encontraremos pelo seu email.",
     paymentOrderPreparationFailed: "Não conseguimos preparar seu pedido com segurança e nada foi enviado ao provedor de pagamento. Tente novamente em alguns minutos.",
@@ -269,6 +279,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "O servidor não devolveu os dados necessários para uma ligação segura.",
   },
   de: {
+    generationOutcomeUnknown: "Die vorherige Generierung ist noch nicht bestätigt, deshalb haben wir keine neue gestartet. Prüfe die Prüf-Warteschlange in einer Minute und versuche es erneut, wenn nichts erscheint.",
+    generationCostUnconfirmed: "Die Generierung konnte nicht abgeschlossen werden und es wurden keine Pins erstellt. Versuche es in ein paar Minuten erneut.",
     paymentProviderUnavailable: "Der Zahlungsdienst antwortet gerade nicht. Es wurde nichts belastet - versuche es in ein paar Minuten erneut.",
     paymentLinkNotSaved: "Die Rechnung wurde erstellt, aber wir konnten ihren Link nicht speichern. Starte keine zweite Zahlung - schreibe dem Support, wir finden sie über deine E-Mail.",
     paymentOrderPreparationFailed: "Wir konnten deine Bestellung nicht sicher vorbereiten, an den Zahlungsanbieter wurde nichts gesendet. Versuche es in ein paar Minuten erneut.",
@@ -320,6 +332,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Der Server hat die für eine sichere Verbindung nötigen Daten nicht zurückgegeben.",
   },
   fr: {
+    generationOutcomeUnknown: "La génération précédente n'est pas encore confirmée, nous n'en avons donc pas lancé une autre. Vérifiez la file de relecture dans une minute et réessayez si rien n'apparaît.",
+    generationCostUnconfirmed: "La génération n'a pas pu être terminée et aucune épingle n'a été créée. Réessayez dans quelques minutes.",
     paymentProviderUnavailable: "Le service de paiement ne répond pas pour le moment. Rien n'a été débité : réessayez dans quelques minutes.",
     paymentLinkNotSaved: "La facture a été créée, mais nous n'avons pas pu enregistrer son lien. Ne lancez pas un autre paiement : écrivez au support et nous la retrouverons grâce à votre email.",
     paymentOrderPreparationFailed: "Nous n'avons pas pu préparer votre commande en toute sécurité et rien n'a été envoyé au prestataire de paiement. Réessayez dans quelques minutes.",
@@ -371,6 +385,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Le serveur n’a pas renvoyé les données nécessaires à une connexion sécurisée.",
   },
   zh: {
+    generationOutcomeUnknown: "上一次生成尚未确认，因此我们没有启动新的生成。请稍后查看待审核列表，如果没有结果再重试。",
+    generationCostUnconfirmed: "生成未能完成，没有创建任何 Pin。请几分钟后重试。",
     paymentProviderUnavailable: "支付服务暂时无法响应，尚未扣款。请几分钟后重试。",
     paymentLinkNotSaved: "账单已创建，但我们无法保存其链接。请不要再次发起支付，请联系客服，我们会通过邮箱找到这笔账单。",
     paymentOrderPreparationFailed: "我们无法安全地准备您的订单，也没有向支付服务商发送任何内容。请几分钟后重试。",
@@ -479,6 +495,16 @@ const CONFLICT_CODES: Record<string, AppErrorMessageKey> = {
  * nothing was sent, an invoice exists without a link, or the service is down. The cheapest wrong
  * reaction to "we could not save your invoice link" is starting a second payment.
  */
+/**
+ * 409 is used both for "still running" (which the polling layer waits out) and for "the
+ * previous outcome is unconfirmed, so a new run is blocked". The second is a real answer the
+ * customer must understand, not something to retry blindly.
+ */
+const GENERATION_CODES: Record<string, AppErrorMessageKey> = {
+  generation_outcome_unknown: 'generationOutcomeUnknown',
+  regeneration_outcome_unknown: 'generationOutcomeUnknown',
+};
+
 const PAYMENT_CODES: Record<string, AppErrorMessageKey> = {
   payment_provider_unavailable: 'paymentProviderUnavailable',
   payment_link_not_saved: 'paymentLinkNotSaved',
@@ -491,6 +517,7 @@ const TARIFF_CODES: Record<string, AppErrorMessageKey> = {
 };
 
 const TRANSIENT_CODES: Record<string, AppErrorMessageKey> = {
+  gptunnel_text_cost_missing: 'generationCostUnconfirmed',
   pinterest_unavailable: 'pinterestUnavailable',
   pinterest_rate_limited: 'pinterestRateLimited',
 };
@@ -505,6 +532,9 @@ export function getLocalizedApiError(code: unknown, status: unknown): string | n
   }
   if (Number(status) === 422 && Object.prototype.hasOwnProperty.call(VALIDATION_CODES, code)) {
     return getAppErrorMessage(VALIDATION_CODES[code]);
+  }
+  if (Number(status) === 409 && Object.prototype.hasOwnProperty.call(GENERATION_CODES, code)) {
+    return getAppErrorMessage(GENERATION_CODES[code]);
   }
   if ((Number(status) === 502 || Number(status) === 503) &&
       Object.prototype.hasOwnProperty.call(PAYMENT_CODES, code)) {
