@@ -1456,6 +1456,9 @@ module.exports = {
   readState,
   getAccounts,
   resolveAccount,
+  // Exported for regression tests: the refresh path rotates a credential the provider
+  // invalidates on use, so its failure branches must be verifiable without a provider.
+  refreshAccessToken,
   publishPin,
   verifyPinterestBoard,
   SCOPES,
