@@ -8,6 +8,8 @@ declare
   v_project uuid;
   v_board uuid;
   v_pin uuid;
+  v_no_creative_pin uuid;
+  v_no_creative_schedule uuid;
   v_account uuid;
   v_schedule uuid;
   v_result jsonb;
@@ -63,15 +65,25 @@ begin
   end if;
 
   -- Without either a live image or a durable snapshot, retry must remain blocked.
-  update public.pin_schedules
-     set status='failed', snapshot_image_url=null
-   where id=v_schedule;
-  v_result:=public.retry_failed_pin_schedule(v_user::text,v_schedule);
+  -- The snapshot is immutable once captured (migration 087), so the "no creative"
+  -- case is a schedule that never captured one: the pin had no image when it was
+  -- queued.
+  insert into public.pins(board_id, image_url, title, description, status, model_used, credits_cost)
+  values (v_board, null, 'no creative', '', 'approved', 'flux-schnell', 0)
+  returning id into v_no_creative_pin;
+  insert into public.pin_schedules(
+    user_id, pin_id, pinterest_account_id, scheduled_at, timezone,
+    pinterest_board_id, status
+  ) values (
+    v_user::text, v_no_creative_pin, v_account, now() + interval '1 day',
+    'UTC', 'schedule-board', 'failed'
+  ) returning id into v_no_creative_schedule;
+  v_result:=public.retry_failed_pin_schedule(v_user::text,v_no_creative_schedule);
   if v_result->>'ok' <> 'false'
      or v_result->>'reason' <> 'pin_unavailable' then
     raise exception 'retry proceeded without any available creative: %',v_result;
   end if;
-  if (select status from public.pin_schedules where id=v_schedule)<>'failed' then
+  if (select status from public.pin_schedules where id=v_no_creative_schedule)<>'failed' then
     raise exception 'retry without a creative changed schedule status';
   end if;
 

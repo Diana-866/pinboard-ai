@@ -671,9 +671,15 @@ begin
   end if;
 
   -- A claimed/in-flight job is not cancelled underneath its remote request.
+  -- The late 2xx above was reconciled after the disconnect, so the schedule must
+  -- still carry its published result rather than being failed or re-queued by the
+  -- disconnect.
   if (select status from public.pin_schedules
        where user_id=v_user::text and pin_id=v_inflight_pin
-         and pinterest_account_id=v_account_a) <> 'publishing' then
+         and pinterest_account_id=v_account_a) <> 'published'
+     or (select pinterest_pin_id from public.pin_schedules
+          where user_id=v_user::text and pin_id=v_inflight_pin
+            and pinterest_account_id=v_account_a) <> 'remote-after-disconnect' then
     raise exception 'disconnecting account A rewrote an in-flight schedule';
   end if;
 

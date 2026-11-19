@@ -119,7 +119,7 @@ begin
   select credits_balance into v_balance from public.users where id = v_conflict_user;
   select count(*) into v_count from public.credit_transactions where purchase_id = v_conflict_purchase;
   if v_balance <> 7 or v_count <> 0 then
-    raise exception 'conflicting credit receipt mutated a different user's entitlement';
+    raise exception 'conflicting credit receipt mutated a different user''s entitlement';
   end if;
 
   insert into public.users(email, account_status)
@@ -195,7 +195,7 @@ begin
     select 1 from public.users
      where id = v_conflict_user and tariff_plan = 'none'
   ) then
-    raise exception 'conflicting subscription receipt mutated a different user's entitlement';
+    raise exception 'conflicting subscription receipt mutated a different user''s entitlement';
   end if;
 
   insert into public.users(email, credits_balance, account_status)

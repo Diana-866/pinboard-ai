@@ -126,10 +126,37 @@ begin
     raise exception 'recorded provider task was not returned for immediate polling: %', v_replayed;
   end if;
 
-  -- A provider-confirmed failure is terminal for this idempotency key.
-  perform public.update_pin_regeneration_request(
+  -- A provider-confirmed failure cannot become terminal by a direct status
+  -- change: the refund reconciliation guard blocks it (migration 072), because a
+  -- charged provider task must record whether the charge came back.
+  begin
+    perform public.update_pin_regeneration_request(
+      v_user_id::text, 'regen-test-key-0003', (v_replayed->>'claim_token')::uuid,
+      'failed', null, null, null, null, 'provider_generation_failed'
+    );
+    raise exception 'unreconciled provider failure became terminal';
+  exception when others then
+    if sqlerrm = 'unreconciled provider failure became terminal' then raise; end if;
+    if position('regeneration provider refund reconciliation is incomplete' in sqlerrm) = 0 then
+      raise;
+    end if;
+  end;
+
+  -- The supported path: record the provider failure, reconcile the refund, then
+  -- finalize. The reservation is released and the request becomes terminal.
+  perform public.reserve_pin_regeneration_credits(
+    v_user_id::text, 'regen-test-key-0003', (v_replayed->>'claim_token')::uuid
+  );
+  perform public.record_pin_regeneration_provider_outcome(
     v_user_id::text, 'regen-test-key-0003', (v_replayed->>'claim_token')::uuid,
-    'failed', null, null, null, null, 'provider_generation_failed'
+    '0123456789abcdef01234567', 'failed', 15, null, 500, 'UPSTREAM_ERROR'
+  );
+  perform public.reconcile_pin_regeneration_provider_refund(
+    v_user_id::text, 'regen-test-key-0003', '0123456789abcdef01234567', true,
+    'provider-ticket-regen-0003'
+  );
+  perform public.finalize_reconciled_pin_regeneration_failure(
+    v_user_id::text, 'regen-test-key-0003'
   );
   v_replayed := public.begin_pin_regeneration_request(
     v_user_id::text, v_pin_id, 'regen-test-key-0003',
