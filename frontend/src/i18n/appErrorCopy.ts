@@ -13,6 +13,8 @@ import { readLocalStorageValue } from '../lib/authStorage';
 type Language = 'en' | 'ru' | 'es' | 'pt' | 'de' | 'fr' | 'zh';
 
 export type AppErrorMessageKey =
+  | 'tariffRequired'
+  | 'tariffInsufficient'
   | 'pinterestUnavailable'
   | 'pinterestRateLimited'
   | 'pinterestNotConnected'
@@ -60,6 +62,8 @@ export type AppErrorMessageKey =
 
 const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
   en: {
+    tariffRequired: "Your plan is not active right now. Choose a plan to create pins again.",
+    tariffInsufficient: "This section is not included in your current plan. Upgrade to continue.",
     pinterestUnavailable: "Pinterest is temporarily unavailable. Nothing was lost — try this again in a minute.",
     pinterestRateLimited: "Pinterest is limiting how often this can be done. Wait a moment and try again.",
     pinterestNotConnected: "Connect your Pinterest account first, then schedule the publication.",
@@ -106,6 +110,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "The server did not return the data needed for a secure connection.",
   },
   ru: {
+    tariffRequired: "Подписка не активна. Выберите тариф, чтобы снова создавать пины.",
+    tariffInsufficient: "Этот раздел не входит в ваш тариф. Перейдите на другой, чтобы продолжить.",
     pinterestUnavailable: "Pinterest временно недоступен. Ничего не потеряно — повторите через минуту.",
     pinterestRateLimited: "Pinterest ограничил частоту действий. Подождите немного и повторите.",
     pinterestNotConnected: "Сначала подключите Pinterest-аккаунт, затем запланируйте публикацию.",
@@ -152,6 +158,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Сервер не вернул данные для безопасного подключения.",
   },
   es: {
+    tariffRequired: "Tu plan no está activo ahora mismo. Elige un plan para volver a crear pines.",
+    tariffInsufficient: "Esta sección no está incluida en tu plan actual. Mejora el plan para continuar.",
     pinterestUnavailable: "Pinterest no está disponible temporalmente. No se ha perdido nada: inténtalo de nuevo en un minuto.",
     pinterestRateLimited: "Pinterest está limitando la frecuencia de esta acción. Espera un momento e inténtalo de nuevo.",
     pinterestNotConnected: "Conecta primero tu cuenta de Pinterest y luego programa la publicación.",
@@ -198,6 +206,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "El servidor no devolvió los datos necesarios para una conexión segura.",
   },
   pt: {
+    tariffRequired: "Seu plano não está ativo agora. Escolha um plano para voltar a criar pins.",
+    tariffInsufficient: "Esta seção não está incluída no seu plano atual. Faça upgrade para continuar.",
     pinterestUnavailable: "O Pinterest está temporariamente indisponível. Nada foi perdido — tente novamente dentro de um minuto.",
     pinterestRateLimited: "O Pinterest está a limitar a frequência desta ação. Aguarde um momento e tente novamente.",
     pinterestNotConnected: "Ligue primeiro a sua conta do Pinterest e depois agende a publicação.",
@@ -244,6 +254,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "O servidor não devolveu os dados necessários para uma ligação segura.",
   },
   de: {
+    tariffRequired: "Dein Tarif ist derzeit nicht aktiv. Wähle einen Tarif, um wieder Pins zu erstellen.",
+    tariffInsufficient: "Dieser Bereich ist in deinem aktuellen Tarif nicht enthalten. Führe ein Upgrade durch.",
     pinterestUnavailable: "Pinterest ist vorübergehend nicht erreichbar. Es ist nichts verloren gegangen — versuchen Sie es in einer Minute erneut.",
     pinterestRateLimited: "Pinterest begrenzt, wie oft diese Aktion möglich ist. Warten Sie kurz und versuchen Sie es erneut.",
     pinterestNotConnected: "Verbinden Sie zuerst Ihr Pinterest-Konto und planen Sie dann die Veröffentlichung.",
@@ -290,6 +302,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Der Server hat die für eine sichere Verbindung nötigen Daten nicht zurückgegeben.",
   },
   fr: {
+    tariffRequired: "Votre offre n'est pas active pour le moment. Choisissez une offre pour créer à nouveau des épingles.",
+    tariffInsufficient: "Cette section n'est pas incluse dans votre offre actuelle. Passez à une offre supérieure.",
     pinterestUnavailable: "Pinterest est temporairement indisponible. Rien n’est perdu — réessayez dans une minute.",
     pinterestRateLimited: "Pinterest limite la fréquence de cette action. Patientez un instant, puis réessayez.",
     pinterestNotConnected: "Connectez d’abord votre compte Pinterest, puis programmez la publication.",
@@ -336,6 +350,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Le serveur n’a pas renvoyé les données nécessaires à une connexion sécurisée.",
   },
   zh: {
+    tariffRequired: "您的套餐当前未生效。请选择套餐以继续创建 Pin。",
+    tariffInsufficient: "当前套餐不包含此功能。请升级套餐后继续。",
     pinterestUnavailable: "Pinterest 暂时不可用，数据没有丢失，请稍后重试。",
     pinterestRateLimited: "Pinterest 限制了该操作的频率，请稍等片刻后重试。",
     pinterestNotConnected: "请先连接 Pinterest 账号，再安排发布。",
@@ -429,6 +445,16 @@ const CONFLICT_CODES: Record<string, AppErrorMessageKey> = {
   publication_not_failed: 'publicationNotFailed',
 };
 
+/**
+ * 403 is the product's paywall. Both answers are customer-fixable — choose a plan, or choose
+ * a different plan — so they get codes and a localized message; any other 403 (for example an
+ * unverified email) keeps its own handling.
+ */
+const TARIFF_CODES: Record<string, AppErrorMessageKey> = {
+  tariff_required: 'tariffRequired',
+  tariff_insufficient: 'tariffInsufficient',
+};
+
 const TRANSIENT_CODES: Record<string, AppErrorMessageKey> = {
   pinterest_unavailable: 'pinterestUnavailable',
   pinterest_rate_limited: 'pinterestRateLimited',
@@ -444,6 +470,9 @@ export function getLocalizedApiError(code: unknown, status: unknown): string | n
   }
   if (Number(status) === 422 && Object.prototype.hasOwnProperty.call(VALIDATION_CODES, code)) {
     return getAppErrorMessage(VALIDATION_CODES[code]);
+  }
+  if (Number(status) === 403 && Object.prototype.hasOwnProperty.call(TARIFF_CODES, code)) {
+    return getAppErrorMessage(TARIFF_CODES[code]);
   }
   if (Number(status) === 409 && Object.prototype.hasOwnProperty.call(CONFLICT_CODES, code)) {
     return getAppErrorMessage(CONFLICT_CODES[code]);
