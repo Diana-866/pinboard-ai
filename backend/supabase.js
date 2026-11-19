@@ -1,4 +1,5 @@
 const { createClient } = require("@supabase/supabase-js");
+const { buildTimedFetch, readSupabaseTimeoutMs } = require("./supabaseTimeout");
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -19,7 +20,12 @@ if (!supabaseUrl) {
 
 const supabase = createClient(
   supabaseUrl,
-  serviceRoleKey || fallbackKey
+  serviceRoleKey || fallbackKey,
+  {
+    // Without this every database call can hang until the platform's TCP timeout, which is
+    // far longer than any caller's own deadline.
+    global: { fetch: buildTimedFetch(globalThis.fetch, readSupabaseTimeoutMs()) },
+  }
 );
 
 module.exports = supabase;
