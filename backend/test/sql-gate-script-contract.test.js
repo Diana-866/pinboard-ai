@@ -88,3 +88,9 @@ test("-KeepGoing collects every failure instead of hiding them behind the first"
   assert.match(script, /\$failed\.Add\(\$name\)/);
   assert.match(script, /SQL integration file\(s\) failed/);
 });
+
+test('the static pre-flight also refuses a mistyped PL/pgSQL variable', () => {
+  assert.match(script, /sql-plpgsql-vars[.]cjs/);
+  assert.match(script, /findUndeclaredVariables/);
+  assert.match(script, /is used but never declared/);
+});

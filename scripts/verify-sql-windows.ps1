@@ -186,30 +186,37 @@ try {
     }
     Write-Host "Active migrations: $($migrations.Count) (010..$('{0:d3}' -f ($expected - 1)))"
 
-    # ── Static pre-flight (no database, no password) ─────────────────────────
-    # A file whose dollar-quoted string lost one '$' fails at its last line with
-    # 'unterminated $$'. Discovering that without a password keeps the owner out
-    # of a password prompt for a defect that has nothing to do with the server.
+    # ── Static pre-flight (no database, no password) ──────
+    # Two defects cost a full schema replay before this check existed: a
+    # dollar-quoted string that lost one '$' (unterminated at the end of the file)
+    # and a mistyped PL/pgSQL variable. Both are detectable without a server, so
+    # the owner is never asked for a password to discover them.
     $lexer = Join-Path $Root "scripts/lib/sql-lexer.cjs"
+    $variables = Join-Path $Root "scripts/lib/sql-plpgsql-vars.cjs"
     if (-not (Test-Path $lexer)) { Fail "Missing scripts/lib/sql-lexer.cjs" }
+    if (-not (Test-Path $variables)) { Fail "Missing scripts/lib/sql-plpgsql-vars.cjs" }
     $preflight = Invoke-Node -Arguments @(
         "-e",
         "const fs=require('fs'),path=require('path');" +
         "const {findUnbalancedDollarQuotes}=require(process.argv[1]);" +
+        "const {findUndeclaredVariables}=require(process.argv[2]);" +
         "function walk(d,o=[]){for(const e of fs.readdirSync(d,{withFileTypes:true})){" +
         "if(e.name==='node_modules'||e.name==='.git')continue;const p=path.join(d,e.name);" +
         "if(e.isDirectory())walk(p,o);else if(e.name.endsWith('.sql'))o.push(p);}return o;}" +
-        "const files=[...walk('db'),...walk('backend/test')];let bad=0;" +
-        "for(const f of files){const prob=findUnbalancedDollarQuotes(fs.readFileSync(f,'utf8'));" +
+        "const all=[...walk('db'),...walk('backend/test')];const tests=walk('backend/test');let bad=0;" +
+        "for(const f of all){const prob=findUnbalancedDollarQuotes(fs.readFileSync(f,'utf8'));" +
         "if(prob.length){bad++;for(const m of prob)console.log('SQL_STATIC_FAIL '+f+': '+m);}}" +
-        "console.log('SQL_STATIC_CHECKED '+files.length);process.exit(bad?1:0);",
-        $lexer
+        "for(const f of tests){for(const n of findUndeclaredVariables(fs.readFileSync(f,'utf8'))){" +
+        "bad++;console.log('SQL_STATIC_FAIL '+f+': variable '+n+' is used but never declared');}}" +
+        "console.log('SQL_STATIC_CHECKED '+all.length);process.exit(bad?1:0);",
+        $lexer,
+        $variables
     )
     $preflight.Output | ForEach-Object {
         if ($_ -match '^SQL_STATIC_FAIL ') { Write-Host $_ -ForegroundColor Red }
     }
     if (-not $preflight.Ok) {
-        Fail "SQL files failed the static dollar-quote check above. Fix them before touching a database."
+        Fail "SQL files failed the static checks above. Fix them before touching a database."
     }
     Write-Host "Static SQL check OK ($($preflight.Output | Where-Object { $_ -match '^SQL_STATIC_CHECKED ' } | ForEach-Object { ($_ -split ' ')[1] }) files)." -ForegroundColor Green
 
