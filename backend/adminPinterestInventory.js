@@ -69,6 +69,20 @@ async function listPinterestSchedules(query = {}, now = Date.now(), operatorUser
       Date.parse(row.scheduled_at) <= now &&
       (!row.next_attempt_at || Date.parse(row.next_attempt_at) <= now)) category = "overdue_scheduled";
 
+    // The RPC returns claim_present (migration 163) instead of the claim token
+    // itself. An unexpected type is refused rather than guessed: reading "no
+    // claim" while a worker still holds the lease would offer the schedule as
+    // reconcilable and could produce a duplicate remote pin.
+    let claimPresent;
+    if (typeof row.claim_present === "boolean") {
+      claimPresent = row.claim_present;
+    } else if (Object.prototype.hasOwnProperty.call(row, "claim_present")) {
+      throw httpError(500, "Не удалось загрузить очередь Pinterest");
+    } else {
+      // A database without migration 163 applied still returns the raw token.
+      claimPresent = row.claim_token !== null && row.claim_token !== undefined;
+    }
+
     return {
       schedule_id: row.id,
       pin_id: row.pin_id,
@@ -89,7 +103,7 @@ async function listPinterestSchedules(query = {}, now = Date.now(), operatorUser
       attempts: row.attempts,
       next_attempt_at: row.next_attempt_at,
       last_error: sanitizeOperationalError(row.last_error),
-      claim_present: Boolean(row.claim_token),
+      claim_present: claimPresent,
       category,
       attempt: attempt ? {
         status: attempt.status,
@@ -101,7 +115,7 @@ async function listPinterestSchedules(query = {}, now = Date.now(), operatorUser
         pinterest_board_id: attempt.pinterest_board_id,
       } : null,
       actionable_reconciliation: row.status === "unknown" &&
-        !row.claim_token &&
+        !claimPresent &&
         Date.parse(row.updated_at) <= staleBefore &&
         Boolean(attempt &&
           ["unknown", "processing"].includes(attempt.status) &&

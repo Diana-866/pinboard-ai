@@ -173,7 +173,7 @@ migration_replay() {
   local expected_sequence=""
   local actual_sequence=""
   local version expected_prefix
-  for ((version=10; version<=162; version++)); do
+  for ((version=10; version<=163; version++)); do
     printf -v expected_prefix '%03d' "$version"
     expected_sequence+="$expected_prefix,"
   done
@@ -182,7 +182,7 @@ migration_replay() {
     actual_sequence+="${base%%_*},"
   done
   if (("${#active_migrations[@]}" != 152)) || [[ "$actual_sequence" != "$expected_sequence" ]]; then
-    echo "Expected exactly the contiguous migration sequence 010-162 (153 files); found ${#active_migrations[@]} files: ${actual_sequence%,}. Refusing replay."
+    echo "Expected exactly the contiguous migration sequence 010-163 (154 files); found ${#active_migrations[@]} files: ${actual_sequence%,}. Refusing replay."
     return 1
   fi
 

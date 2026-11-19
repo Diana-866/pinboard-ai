@@ -141,3 +141,49 @@ test("empty page is returned without a second unbounded journal query", async ()
   assert.equal(result.count, 0);
   assert.equal(calls.length, 1);
 });
+
+test("a held claim makes a stale unknown schedule non-reconcilable and never leaks the token", async () => {
+  reset();
+  // Migration 163 returns a boolean; the token itself must not appear anywhere.
+  rows[0].claim_present = true;
+  delete rows[0].claim_token;
+  const result = await inventory.listPinterestSchedules({}, NOW, ADMIN_ID);
+  assert.equal(result.items[0].claim_present, true);
+  assert.equal(result.items[0].actionable_reconciliation, false);
+  assert.equal(JSON.stringify(result).includes("claim_token"), false);
+});
+
+test("a free claim leaves the stale unknown schedule actionable", async () => {
+  reset();
+  rows[0].claim_present = false;
+  delete rows[0].claim_token;
+  const result = await inventory.listPinterestSchedules({}, NOW, ADMIN_ID);
+  assert.equal(result.items[0].claim_present, false);
+  assert.equal(result.items[0].actionable_reconciliation, true);
+});
+
+test("a database that has not applied migration 163 still yields a boolean, not a token", async () => {
+  reset();
+  // Legacy payload: the RPC still returns the raw lease token.
+  delete rows[0].claim_present;
+  rows[0].claim_token = "3f2b1c9e-lease-token-must-not-escape";
+  const result = await inventory.listPinterestSchedules({}, NOW, ADMIN_ID);
+  assert.equal(result.items[0].claim_present, true);
+  assert.equal(result.items[0].actionable_reconciliation, false);
+  assert.equal(JSON.stringify(result).includes("lease-token-must-not-escape"), false);
+
+  reset();
+  delete rows[0].claim_present;
+  rows[0].claim_token = null;
+  const free = await inventory.listPinterestSchedules({}, NOW, ADMIN_ID);
+  assert.equal(free.items[0].claim_present, false);
+});
+
+test("a malformed claim flag is refused instead of guessing that the lease is free", async () => {
+  reset();
+  rows[0].claim_present = "true";
+  await assert.rejects(
+    inventory.listPinterestSchedules({}, NOW, ADMIN_ID),
+    { httpStatus: 500 },
+  );
+});
