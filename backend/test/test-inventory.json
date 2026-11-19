@@ -1,6 +1,6 @@
 {
-  "files": 137,
-  "total": 1013,
+  "files": 138,
+  "total": 1025,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -127,6 +127,7 @@
     "sql-gate-script-contract.test.js": 16,
     "startup-config.test.js": 3,
     "storage-rehost.test.js": 8,
+    "storage-upload.test.js": 12,
     "subscription-purchase.test.js": 11,
     "supabase-config.test.js": 4,
     "supabase-timeout.test.js": 7,
