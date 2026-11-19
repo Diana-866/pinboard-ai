@@ -4,6 +4,7 @@ import { apiRequest, ApiError } from '../../lib/api';
 import { useI18n } from '../../i18n/i18nContext';
 import { useAuth } from '../../context/AuthContext';
 import { reconcileDisconnectedPinterestAccount } from './pinterestAccountState';
+import { getAppErrorMessage } from '../../i18n/appErrorCopy';
 
 interface PinterestAccount {
   id: string;
@@ -161,7 +162,7 @@ export const PinterestCard: React.FC<PinterestCardProps> = ({ onAccountsChanged 
     try {
       const data = await apiRequest('/integrations/pinterest/link', { method: 'POST' });
       if (!data?.start_url || !data?.state || !data?.browser_binding_secret) {
-        throw new Error('Сервер не вернул данные для безопасного подключения');
+        throw new Error(getAppErrorMessage('pinterestLinkDataMissing'));
       }
       // A top-level form POST makes the API cookie first-party; ordinary
       // cross-origin fetch cookies can be blocked by browser privacy controls.

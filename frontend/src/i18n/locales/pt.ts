@@ -358,6 +358,13 @@ export const pt: TranslationSchema = {
     sessionChangedRefresh: "A sua sessão mudou. Recarregue a página e tente novamente.",
     sessionChangedDuringSave: "A sua sessão mudou enquanto guardava.",
   },
+  publishing: {
+    accountsLoadFailed: "Não foi possível carregar as suas contas do Pinterest.",
+    boardUnavailableForAccount: "O quadro selecionado não está disponível para esta conta do Pinterest. Escolha outro quadro.",
+    noBoardsInAccount: "Esta conta do Pinterest não tem quadros disponíveis.",
+    boardsLoadFailed: "Não foi possível carregar os quadros do Pinterest.",
+    publishFailed: "Não foi possível publicar o pin.",
+  },
   calendar: {
     missingSavedPin: 'Este pin ainda não tem ID guardado. Guarde-o primeiro no gerador.',
     invalidScheduleTime: 'Verifique a data e a hora de publicação.',

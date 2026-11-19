@@ -385,6 +385,13 @@ export interface TranslationSchema {
     sessionChangedRefresh: string;
     sessionChangedDuringSave: string;
   };
+  publishing: {
+    accountsLoadFailed: string;
+    boardUnavailableForAccount: string;
+    noBoardsInAccount: string;
+    boardsLoadFailed: string;
+    publishFailed: string;
+  };
   calendar: {
     missingSavedPin: string;
     invalidScheduleTime: string;

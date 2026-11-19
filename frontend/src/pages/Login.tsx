@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/i18nContext';
 import { getAuthCopy, getAuthErrorMessage } from '../i18n/authCopy';
 import { writeAuthToken } from '../lib/authStorage';
+import { getAppErrorMessage } from '../i18n/appErrorCopy';
 
 export const Login: React.FC = () => {
   const [params] = useSearchParams();
@@ -35,7 +36,7 @@ export const Login: React.FC = () => {
         body: JSON.stringify({ email, password }),
       });
       if (!writeAuthToken(data.token)) {
-        throw new Error("Браузер не разрешил сохранить сессию. Разрешите хранилище сайта и войдите снова.");
+        throw new Error(getAppErrorMessage('sessionNotStored'));
       }
       const sessionReady = await refreshUser();
       if (!sessionReady) {

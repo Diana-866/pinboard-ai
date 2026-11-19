@@ -6,6 +6,7 @@ import { readConfirmedPinterestPublish } from '../../utils/pinterestPublishRespo
 import { isAmbiguousPinterestPublishStatus } from '../../utils/pinterestPublishOutcome';
 import { buildPinterestPinUrl } from '../../utils/pinterestPinUrl';
 import { useAuth } from '../../context/AuthContext';
+import { useI18n } from '../../i18n/i18nContext';
 
 interface PinterestAccount {
   id: string;
@@ -27,6 +28,7 @@ interface PublishPinButtonProps {
 export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, boardId, className }) => {
   const { user } = useAuth();
   const userId = user?.id || '';
+  const { t } = useI18n();
   const publishOwnerIdRef = useRef(userId);
   publishOwnerIdRef.current = userId;
   const [accounts, setAccounts] = useState<PinterestAccount[]>([]);
@@ -72,7 +74,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
         setAccountId(list.length === 1 ? list[0].id : '');
       })
       .catch(() => {
-        if (active) setError('Не удалось загрузить Pinterest-аккаунты');
+        if (active) setError(t.publishing.accountsLoadFailed);
       })
       .finally(() => {
         if (active) setAccountsLoading(false);
@@ -102,9 +104,9 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
         const resolvedBoardId = resolvePublishBoardId(list, boardId);
         setSelectedBoard(resolvedBoardId);
         if (boardId && !resolvedBoardId) {
-          setError('Выбранная доска недоступна для этого Pinterest-аккаунта. Выберите другую доску.');
+          setError(t.publishing.boardUnavailableForAccount);
         } else if (!list.length) {
-          setError('В выбранном Pinterest-аккаунте нет доступных досок.');
+          setError(t.publishing.noBoardsInAccount);
         }
       })
       .catch((e) => {
@@ -112,7 +114,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
         const err = e as ApiError;
         setBoards([]);
         setSelectedBoard('');
-        setError(err?.message || 'Не удалось загрузить доски Pinterest');
+        setError(err?.message || t.publishing.boardsLoadFailed);
       })
       .finally(() => {
         if (active) setBoardsLoading(false);
@@ -158,7 +160,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
       if (isAmbiguousPinterestPublishStatus(err?.status)) {
         setUncertain(true);
       } else {
-        setError(err?.message || 'Не удалось опубликовать пин');
+        setError(err?.message || t.publishing.publishFailed);
       }
     } finally {
       if (publishOwnerIdRef.current === requestOwnerId) {

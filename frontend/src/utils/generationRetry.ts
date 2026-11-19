@@ -1,3 +1,4 @@
+import { getAppErrorMessage } from '../i18n/appErrorCopy';
 /**
  * A failed generation request is safe to retry with a fresh idempotency key
  * only when the backend explicitly confirms a definitive failure. In-progress
@@ -16,7 +17,7 @@ export function createGenerationIdempotencyKey(
     const bytes = cryptoApi.getRandomValues(new Uint8Array(16));
     return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
   }
-  throw new Error('Безопасная генерация ключа недоступна. Откройте PinPosy через защищённое HTTPS-соединение и повторите попытку.');
+  throw new Error(getAppErrorMessage('secureKeyUnavailable'));
 }
 
 export function isDefinitiveGenerationFailure(error: unknown): boolean {

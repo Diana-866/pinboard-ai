@@ -358,6 +358,13 @@ export const de: TranslationSchema = {
     sessionChangedRefresh: "Ihre Sitzung hat sich geändert. Laden Sie die Seite neu und versuchen Sie es erneut.",
     sessionChangedDuringSave: "Ihre Sitzung hat sich während des Speicherns geändert.",
   },
+  publishing: {
+    accountsLoadFailed: "Ihre Pinterest-Konten konnten nicht geladen werden.",
+    boardUnavailableForAccount: "Das gewählte Board ist für dieses Pinterest-Konto nicht verfügbar. Wählen Sie ein anderes Board.",
+    noBoardsInAccount: "Dieses Pinterest-Konto hat keine verfügbaren Boards.",
+    boardsLoadFailed: "Pinterest-Boards konnten nicht geladen werden.",
+    publishFailed: "Der Pin konnte nicht veröffentlicht werden.",
+  },
   calendar: {
     missingSavedPin: 'Dieser Pin hat noch keine gespeicherte ID. Speichern Sie ihn zuerst im Generator.',
     invalidScheduleTime: 'Bitte prüfen Sie Datum und Uhrzeit der Veröffentlichung.',

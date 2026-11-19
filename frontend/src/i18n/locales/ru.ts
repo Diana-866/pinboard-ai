@@ -358,6 +358,13 @@ export const ru: TranslationSchema = {
     sessionChangedRefresh: "Сессия пользователя изменилась. Обновите страницу и повторите попытку.",
     sessionChangedDuringSave: "Сессия пользователя изменилась во время сохранения.",
   },
+  publishing: {
+    accountsLoadFailed: "Не удалось загрузить Pinterest-аккаунты.",
+    boardUnavailableForAccount: "Выбранная доска недоступна для этого Pinterest-аккаунта. Выберите другую доску.",
+    noBoardsInAccount: "В выбранном Pinterest-аккаунте нет доступных досок.",
+    boardsLoadFailed: "Не удалось загрузить доски Pinterest.",
+    publishFailed: "Не удалось опубликовать пин.",
+  },
   calendar: {
     missingSavedPin: 'У пина ещё нет сохранённого ID. Сначала сохраните его в генераторе.',
     invalidScheduleTime: 'Проверьте дату и время публикации.',

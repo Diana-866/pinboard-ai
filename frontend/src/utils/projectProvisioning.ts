@@ -1,3 +1,5 @@
+import { getAppErrorMessage } from '../i18n/appErrorCopy';
+
 type ProjectRecord = { id?: unknown } | null | undefined;
 
 type LoadProjects = () => Promise<unknown>;
@@ -17,7 +19,7 @@ export function getOrCreateProject(
   createProject: CreateProject,
 ): Promise<{ id: string }> {
   const ownerId = String(userId || '').trim();
-  if (!ownerId) return Promise.reject(new Error('Не удалось определить пользователя. Обновите страницу и войдите снова.'));
+  if (!ownerId) return Promise.reject(new Error(getAppErrorMessage('userNotIdentified')));
 
   const existing = inFlightProjectProvisioning.get(ownerId);
   if (existing) return existing;
@@ -25,7 +27,7 @@ export function getOrCreateProject(
   const operation = (async () => {
     const projects = await loadProjects();
     if (!Array.isArray(projects)) {
-      throw new Error('Сервер вернул некорректный список проектов. Обновите страницу и попробуйте ещё раз.');
+      throw new Error(getAppErrorMessage('projectsListInvalid'));
     }
 
     let project: ProjectRecord;
@@ -39,7 +41,7 @@ export function getOrCreateProject(
       ? String(project.id).trim()
       : '';
     if (!id) {
-      throw new Error('Не удалось подтвердить проект для новой доски. Обновите список и попробуйте ещё раз.');
+      throw new Error(getAppErrorMessage('projectNotConfirmed'));
     }
     return { id };
   })();

@@ -358,6 +358,13 @@ export const zh: TranslationSchema = {
     sessionChangedRefresh: "登录会话已变更，请刷新页面后重试。",
     sessionChangedDuringSave: "保存过程中登录会话已变更。",
   },
+  publishing: {
+    accountsLoadFailed: "无法加载你的 Pinterest 账号。",
+    boardUnavailableForAccount: "该画板对此 Pinterest 账号不可用，请选择其他画板。",
+    noBoardsInAccount: "此 Pinterest 账号没有可用画板。",
+    boardsLoadFailed: "无法加载 Pinterest 画板。",
+    publishFailed: "无法发布该 Pin。",
+  },
   calendar: {
     missingSavedPin: '该 Pin 还没有保存 ID，请先在生成器中保存。',
     invalidScheduleTime: '请检查发布日期和时间。',

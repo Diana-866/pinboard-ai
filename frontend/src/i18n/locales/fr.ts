@@ -358,6 +358,13 @@ export const fr: TranslationSchema = {
     sessionChangedRefresh: "Votre session a changé. Rechargez la page et réessayez.",
     sessionChangedDuringSave: "Votre session a changé pendant l’enregistrement.",
   },
+  publishing: {
+    accountsLoadFailed: "Impossible de charger vos comptes Pinterest.",
+    boardUnavailableForAccount: "Le tableau sélectionné n’est pas disponible pour ce compte Pinterest. Choisissez un autre tableau.",
+    noBoardsInAccount: "Ce compte Pinterest n’a aucun tableau disponible.",
+    boardsLoadFailed: "Impossible de charger les tableaux Pinterest.",
+    publishFailed: "Impossible de publier le pin.",
+  },
   calendar: {
     missingSavedPin: 'Ce pin n’a pas encore d’identifiant enregistré. Enregistrez-le d’abord dans le générateur.',
     invalidScheduleTime: 'Vérifiez la date et l’heure de publication.',

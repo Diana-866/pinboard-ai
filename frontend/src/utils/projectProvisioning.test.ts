@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getOrCreateProject } from './projectProvisioning';
+import { getAppErrorMessage } from '../i18n/appErrorCopy';
 
 test('concurrent board creates for one user share one project provisioning request', async () => {
   let loadCount = 0;
@@ -63,7 +64,7 @@ test('a failed attempt is released so a later retry can read the committed proje
 });
 
 test('rejects malformed project list and missing owner/project identity', async () => {
-  await assert.rejects(getOrCreateProject('', async () => [], async () => ({ id: 'p' })), /пользователя/i);
-  await assert.rejects(getOrCreateProject('user-invalid-1', async () => ({}), async () => ({ id: 'p' })), /некорректный список/i);
-  await assert.rejects(getOrCreateProject('user-invalid-2', async () => [], async () => ({})), /подтвердить проект/i);
+  await assert.rejects(getOrCreateProject('', async () => [], async () => ({ id: 'p' })), { message: getAppErrorMessage('userNotIdentified') });
+  await assert.rejects(getOrCreateProject('user-invalid-1', async () => ({}), async () => ({ id: 'p' })), { message: getAppErrorMessage('projectsListInvalid') });
+  await assert.rejects(getOrCreateProject('user-invalid-2', async () => [], async () => ({})), { message: getAppErrorMessage('projectNotConfirmed') });
 });
