@@ -5,7 +5,7 @@ require("./helpers/env");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { respondWithError } = require("../httpErrorResponse");
+const { respondWithError, sendError } = require("../httpErrorResponse");
 
 /**
  * The error boundary decides what the customer and the client code can see. Two rules matter:
@@ -124,4 +124,49 @@ test("a thrown non-object does not crash the boundary", () => {
     assert.ok(Number.isInteger(res.statusCode), `${String(thrown)} must still produce a status`);
     assert.ok(res.body && typeof res.body.error === "string");
   }
+});
+
+test("sendError writes one shape, and extra fields cannot replace the message or the code", () => {
+  const plain = capture();
+  sendError(plain, 409, "уже выполняется", "generation_in_progress", { retryAfterSeconds: 5 });
+  assert.equal(plain.statusCode, 409);
+  assert.deepEqual(plain.body, {
+    retryAfterSeconds: 5,
+    error: "уже выполняется",
+    code: "generation_in_progress",
+  });
+
+  // A caller cannot accidentally hide the failure, nor invent a code by passing an object.
+  const hostile = capture();
+  sendError(hostile, 400, "плохой запрос", "invalid_schedule_time", { error: "", code: "ok", status: 200 });
+  assert.equal(hostile.body.error, "плохой запрос");
+  assert.equal(hostile.body.code, "invalid_schedule_time");
+  assert.equal(hostile.statusCode, 400);
+
+  // No code means no code field: an empty string must not become one.
+  for (const missing of [undefined, null, "", "   ", 42]) {
+    const res = capture();
+    sendError(res, 422, "проверьте поле", missing);
+    assert.equal(Object.prototype.hasOwnProperty.call(res.body, "code"), false, `${String(missing)} must not create a code`);
+    assert.equal(res.body.error, "проверьте поле");
+  }
+});
+
+test("every machine code that reaches a customer goes through one writer", () => {
+  // Ad-hoc response bodies were why the code inventory was only a lower bound: a code assembled
+  // inline is invisible to the drift guard, and an invisible code is one nobody notices is
+  // untranslated. Error bodies with a code must be written by sendError or by handleError.
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const backend = path.join(__dirname, "..");
+  const offenders = [];
+  for (const name of fs.readdirSync(backend).filter((file) => file.endsWith(".js"))) {
+    const source = fs.readFileSync(path.join(backend, name), "utf8");
+    for (const [index, line] of source.split(String.fromCharCode(10)).entries()) {
+      // Only failures: a 202 that reports progress is not an error body.
+      if (!/res\.status\([45]\d\d\)\.json\(/.test(line)) continue;
+      if (/code:/.test(line)) offenders.push(`${name}:${index + 1}`);
+    }
+  }
+  assert.deepEqual(offenders, [], `these responses build an error body by hand: ${offenders.join(", ")}`);
 });

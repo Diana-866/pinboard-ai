@@ -27,7 +27,8 @@ const path = require("node:path");
 const BACKEND = path.join(__dirname, "..");
 const FRONTEND_SRC = path.join(BACKEND, "..", "frontend", "src");
 
-const CODE_CALLS = /\b(notFoundError|conflictError|validationError|insufficientCreditsError|paymentProviderUnavailable|paymentLinkNotSaved|paymentOrderPreparationFailed|pinterestTransientError|withCode)\(\s*(?:error,\s*)?["']([a-z0-9_]+)["']/g;
+// sendError(res, status, message, code, extra) is the single writer for an error body.
+const CODE_CALLS = /\b(sendError|notFoundError|conflictError|validationError|insufficientCreditsError|paymentProviderUnavailable|paymentLinkNotSaved|paymentOrderPreparationFailed|pinterestTransientError|withCode)\(\s*(?:error,\s*)?(?:res,\s*\d+\s*,\s*[^,]+,\s*)?["']([a-z0-9_]+)["']/g;
 const PAYMENT_ERROR_CALL = /\bpaymentError\(\s*[^,]+,\s*[^,]+,\s*["']([a-z0-9_]+)["']/g;
 // `code:` but not `p_error_code:` or `reasonCode:` - a SQL parameter is not a client code.
 const JSON_CODE_CALL = /(?<![_a-zA-Z])code:\s*["']([a-z0-9_]+)["']/g;
@@ -74,7 +75,7 @@ function mentionedByFrontend(code) {
 test("the scanner really sees both sides", () => {
   // Without this, a broken pattern would make every other assertion below trivially true.
   assert.ok(EMITTED.size >= 25, `expected a substantial set of codes, found ${EMITTED.size}`);
-  for (const code of ["project_not_found", "insufficient_credits", "tariff_required", "payment_link_not_saved", "pinterest_unavailable"]) {
+  for (const code of ["project_not_found", "insufficient_credits", "tariff_required", "payment_link_not_saved", "pinterest_unavailable", "generation_in_progress"]) {
     assert.ok(EMITTED.has(code), `${code} must be found on the backend`);
     assert.ok(mentionedByFrontend(code), `${code} must be found on the client`);
   }
@@ -131,7 +132,7 @@ test("the generation codes are mapped at 409, where the backend sends them", () 
   // And the backend really answers those codes with 409.
   const index = fs.readFileSync(path.join(BACKEND, "index.js"), "utf8");
   for (const code of ["generation_outcome_unknown", "regeneration_outcome_unknown"]) {
-    const pattern = new RegExp(`res\\.status\\(409\\)\\.json\\(\\{[^}]*${code}`);
+    const pattern = new RegExp(`sendError\\(res,\\s*409\\s*,\\s*[^,]+,\\s*"${code}"`);
     assert.match(index, pattern, `${code} must be a 409`);
   }
 });

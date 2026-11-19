@@ -38,4 +38,19 @@ function respondWithError(res, e, publicMessage, status) {
   });
 }
 
-module.exports = { respondWithError };
+
+/**
+ * The single writer for an error body, so every machine code crosses the boundary the same way.
+ *
+ * Ad-hoc `res.status(...).json({ error, code })` calls are what made the code inventory a lower
+ * bound: a code assembled inline is invisible to the drift guard, and a code that is invisible to
+ * the guard is a code nobody will notice is untranslated.
+ */
+function sendError(res, status, message, code, extra) {
+  const body = { ...(extra && typeof extra === "object" ? extra : {}) };
+  body.error = message;
+  if (typeof code === "string" && code.trim()) body.code = code;
+  return res.status(status).json(body);
+}
+
+module.exports = { respondWithError, sendError };

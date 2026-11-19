@@ -390,7 +390,7 @@ async function requireAuth(req, res, next) {
 // Единый обработчик: коды 4xx отдают понятное сообщение, 5xx — не раскрывают внутренности (B10)
 // The responder lives in its own module so it can be tested directly: a boundary that
 // silently dropped machine codes was invisible while it was an inner function here.
-const { respondWithError: handleError } = require("./httpErrorResponse");
+const { respondWithError: handleError, sendError } = require("./httpErrorResponse");
 
 app.get("/", (req, res) => {
   res.send("OK");
@@ -1102,10 +1102,10 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
     if (state.status === "completed") return res.status(200).json(state.pin);
     if (state.status === "processing") {
       res.set("Retry-After", "5");
-      return res.status(409).json({ error: "Перегенерация уже выполняется. Повторите запрос с тем же ключом.", code: "regeneration_in_progress", retryAfterSeconds: 5 });
+      return sendError(res, 409, "Перегенерация уже выполняется. Повторите запрос с тем же ключом.", "regeneration_in_progress", { retryAfterSeconds: 5 });
     }
     if (state.status === "unknown" || state.status === "failed") {
-      return res.status(409).json({ error: "Исход предыдущей перегенерации не подтверждён. Автоматический новый запуск заблокирован.", code: "regeneration_outcome_unknown" });
+      return sendError(res, 409, "Исход предыдущей перегенерации не подтверждён. Автоматический новый запуск заблокирован.", "regeneration_outcome_unknown");
     }
     if (state.status !== "started" && state.status !== "resume") throw httpError(500, "Неизвестное состояние перегенерации");
     claimToken = state.claim_token;
@@ -1780,13 +1780,13 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
     if (requestState.status === "completed") return res.status(200).json(requestState.pins || []);
     if (requestState.status === "processing") {
       res.set("Retry-After", "5");
-      return res.status(409).json({ error: "Такая генерация уже выполняется. Повторите запрос с тем же ключом через несколько секунд.", code: "generation_in_progress", retryAfterSeconds: 5 });
+      return sendError(res, 409, "Такая генерация уже выполняется. Повторите запрос с тем же ключом через несколько секунд.", "generation_in_progress", { retryAfterSeconds: 5 });
     }
     if (requestState.status === "unknown") {
-      return res.status(409).json({ error: "Результат предыдущей генерации не подтверждён. Повторный запуск без сохранённого журнала заблокирован.", code: "generation_outcome_unknown" });
+      return sendError(res, 409, "Результат предыдущей генерации не подтверждён. Повторный запуск без сохранённого журнала заблокирован.", "generation_outcome_unknown");
     }
     if (requestState.status === "failed") {
-      return res.status(409).json({ error: "Предыдущий запрос завершился до подтверждённого результата. Для новой попытки создайте новый ключ идемпотентности.", code: "generation_request_failed" });
+      return sendError(res, 409, "Предыдущий запрос завершился до подтверждённого результата. Для новой попытки создайте новый ключ идемпотентности.", "generation_request_failed");
     }
     if (requestState.status !== "started" && requestState.status !== "resume") {
       throw httpError(500, "Неизвестное состояние запроса генерации");
