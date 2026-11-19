@@ -89,7 +89,10 @@ Set-Location $Root
 $Migrated = 0
 $TestsRun = 0
 $DatabaseName = ""
-$DatabaseCreated = $false
+$ConcurrencyDatabaseName = ""
+# Every database this script creates, in creation order. Cleanup walks it backwards
+# so a clone is removed before the database it was cloned from.
+$CreatedDatabases = [System.Collections.Generic.List[string]]::new()
 $SecurePassword = $null
 $PlainPassword = $null
 
@@ -150,22 +153,84 @@ function Invoke-Node {
     return @{ Ok = ($exitCode -eq 0); Output = $output }
 }
 
-function Remove-DisposableDatabase {
-    if (-not $DatabaseCreated) { return }
+function Remove-DisposableDatabases {
+    if ($CreatedDatabases.Count -eq 0) { return }
     Write-Host ""
-    Write-Host "Dropping disposable database $DatabaseName" -ForegroundColor Cyan
-    # Terminate leftovers, then drop only the database this script created.
-    [void](Invoke-Psql -Database "postgres" -Arguments @(
-        "-c", "select pg_terminate_backend(pid) from pg_stat_activity where datname = '$DatabaseName'"
-    ) -AllowFailure)
-    $dropped = Invoke-Psql -Database "postgres" -Arguments @("-c", "drop database if exists `"$DatabaseName`"")
-    if ($dropped.Ok) {
-        $DatabaseCreated = $false
-        Write-Host "Disposable database removed." -ForegroundColor Green
+    for ($index = $CreatedDatabases.Count - 1; $index -ge 0; $index -= 1) {
+        $name = $CreatedDatabases[$index]
+        Write-Host "Dropping disposable database $name" -ForegroundColor Cyan
+        # Terminate leftovers, then drop only a database this script created.
+        [void](Invoke-Psql -Database "postgres" -Arguments @(
+            "-c", "select pg_terminate_backend(pid) from pg_stat_activity where datname = '$name'"
+        ) -AllowFailure)
+        $dropped = Invoke-Psql -Database "postgres" -Arguments @("-c", "drop database if exists `"$name`"")
+        if ($dropped.Ok) {
+            Write-Host "Disposable database removed: $name" -ForegroundColor Green
+        }
+        else {
+            Write-Host "WARNING: could not remove $name; remove it manually." -ForegroundColor Yellow
+        }
     }
-    else {
-        Write-Host "WARNING: could not remove $DatabaseName; remove it manually." -ForegroundColor Yellow
+    $CreatedDatabases.Clear()
+}
+
+# Concurrency scenarios are extracted so -SkipIntegration can still run them.
+function Invoke-ConcurrencyPhase {
+    $bash = Find-Bash
+    if (-not $bash) {
+        Fail "-Concurrency needs bash. Install Git for Windows (Git Bash) or run without -Concurrency."
     }
+    $runner = Join-Path $Root "backend/test/run-disposable-concurrency-suite.sh"
+    if (-not (Test-Path $runner)) { Fail "Missing backend/test/run-disposable-concurrency-suite.sh" }
+    # Read the list from the runner so the two can never drift apart.
+    $concurrencyScripts = [System.Collections.Generic.List[string]]::new()
+    foreach ($match in [regex]::Matches((Get-Content $runner -Raw), '(?m)^\s*([a-z0-9-]+\.sh)\s*$')) {
+        if (-not $concurrencyScripts.Contains($match.Groups[1].Value)) {
+            $concurrencyScripts.Add($match.Groups[1].Value)
+        }
+    }
+    if ($concurrencyScripts.Count -lt 10) {
+        Fail "Only $($concurrencyScripts.Count) concurrency scripts were found in the runner; refusing a partial suite."
+    }
+
+    # The shared preflight requires these variables and refuses anything that
+    # is not an explicitly opted-in loopback disposable database.
+    $env:PGHOST = $PostgresHost
+    $env:PGPORT = [string]$PostgresPort
+    $env:PGUSER = $PostgresUser
+    $env:PGDATABASE = $ConcurrencyDatabaseName
+    $env:PINPOSY_ALLOW_DISPOSABLE_DB_TESTS = "1"
+
+    Write-Host ""
+    Write-Host "Running $($concurrencyScripts.Count) isolated concurrency tests against $ConcurrencyDatabaseName" -ForegroundColor Cyan
+    $concurrencyFailed = [System.Collections.Generic.List[string]]::new()
+    foreach ($name in $concurrencyScripts) {
+        Write-Host ("  {0}" -f $name)
+        $previousErrorActionPreference = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            $output = @(& $bash "backend/test/$name" 2>&1 | ForEach-Object { "$_" })
+            $exitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
+        if ($exitCode -ne 0) {
+            $output | ForEach-Object { Write-Host $_ }
+            $concurrencyFailed.Add($name)
+            if (-not $KeepGoing) { Fail "Concurrency test failed: backend/test/$name" }
+            Write-Host ("  ^^ FAILED: {0} (continuing because -KeepGoing)" -f $name) -ForegroundColor Red
+        }
+    }
+
+    $env:PINPOSY_ALLOW_DISPOSABLE_DB_TESTS = $null
+    Write-Host ""
+    if ($concurrencyFailed.Count -gt 0) {
+        Write-Host "FAIL: $($concurrencyFailed.Count) concurrency test(s) failed:" -ForegroundColor Red
+        $concurrencyFailed | ForEach-Object { Write-Host "  backend/test/$_" -ForegroundColor Red }
+        exit 1
+    }
+    Write-Host "PASS: $($concurrencyScripts.Count) isolated concurrency tests passed." -ForegroundColor Green
 }
 
 try {
@@ -279,7 +344,7 @@ try {
     $DatabaseName = "pinposy_verify_$suffix"
     $created = Invoke-Psql -Database "postgres" -Arguments @("-c", "create database `"$DatabaseName`"")
     if (-not $created.Ok) { Fail "Could not create the disposable database $DatabaseName." }
-    $DatabaseCreated = $true
+    $CreatedDatabases.Add($DatabaseName)
     Write-Host "Created disposable database: $DatabaseName" -ForegroundColor Green
 
     # ── Schema replay ────────────────────────────────────────────────────────
@@ -311,9 +376,24 @@ try {
     }
     Write-Host "Schema replay OK: baseline + $($migrations.Count) migrations" -ForegroundColor Green
 
+    # The concurrency scenarios are destructive and expect a pristine schema. CI
+    # clones the freshly migrated fixture before running them, so the integration
+    # files below cannot leave rows behind that collide with a hardcoded fixture
+    # value. Clone now, while the database is exactly "schema + migrations".
+    if ($Concurrency) {
+        $ConcurrencyDatabaseName = "pinposy_verify_conc_$suffix"
+        $cloned = Invoke-Psql -Database "postgres" -Arguments @(
+            "-c", "create database `"$ConcurrencyDatabaseName`" template `"$DatabaseName`""
+        )
+        if (-not $cloned.Ok) { Fail "Could not clone the migrated schema into $ConcurrencyDatabaseName." }
+        $CreatedDatabases.Add($ConcurrencyDatabaseName)
+        Write-Host "Cloned the migrated schema for concurrency tests: $ConcurrencyDatabaseName" -ForegroundColor Green
+    }
+
     if ($SkipIntegration) {
         Write-Host ""
         Write-Host "Skipping SQL integration files (-SkipIntegration)." -ForegroundColor Yellow
+        if ($Concurrency) { Invoke-ConcurrencyPhase }
         return
     }
 
@@ -370,64 +450,7 @@ try {
 
     Write-Host "PASS: baseline + $Migrated migrations applied; $TestsRun SQL integration files passed." -ForegroundColor Green
 
-    # ── Isolated concurrency tests (optional) ────────────────────────
-    if ($Concurrency) {
-        $bash = Find-Bash
-        if (-not $bash) {
-            Fail "-Concurrency needs bash. Install Git for Windows (Git Bash) or run without -Concurrency."
-        }
-        $runner = Join-Path $Root "backend/test/run-disposable-concurrency-suite.sh"
-        if (-not (Test-Path $runner)) { Fail "Missing backend/test/run-disposable-concurrency-suite.sh" }
-        # Read the list from the runner so the two can never drift apart.
-        $concurrencyScripts = [System.Collections.Generic.List[string]]::new()
-        foreach ($match in [regex]::Matches((Get-Content $runner -Raw), '(?m)^\s*([a-z0-9-]+\.sh)\s*$')) {
-            if (-not $concurrencyScripts.Contains($match.Groups[1].Value)) {
-                $concurrencyScripts.Add($match.Groups[1].Value)
-            }
-        }
-        if ($concurrencyScripts.Count -lt 10) {
-            Fail "Only $($concurrencyScripts.Count) concurrency scripts were found in the runner; refusing a partial suite."
-        }
-
-        # The shared preflight requires these variables and refuses anything that
-        # is not an explicitly opted-in loopback disposable database.
-        $env:PGHOST = $PostgresHost
-        $env:PGPORT = [string]$PostgresPort
-        $env:PGUSER = $PostgresUser
-        $env:PGDATABASE = $DatabaseName
-        $env:PINPOSY_ALLOW_DISPOSABLE_DB_TESTS = "1"
-
-        Write-Host ""
-        Write-Host "Running $($concurrencyScripts.Count) isolated concurrency tests against $DatabaseName" -ForegroundColor Cyan
-        $concurrencyFailed = [System.Collections.Generic.List[string]]::new()
-        foreach ($name in $concurrencyScripts) {
-            Write-Host ("  {0}" -f $name)
-            $previousErrorActionPreference = $ErrorActionPreference
-            $ErrorActionPreference = "Continue"
-            try {
-                $output = @(& $bash "backend/test/$name" 2>&1 | ForEach-Object { "$_" })
-                $exitCode = $LASTEXITCODE
-            }
-            finally {
-                $ErrorActionPreference = $previousErrorActionPreference
-            }
-            if ($exitCode -ne 0) {
-                $output | ForEach-Object { Write-Host $_ }
-                $concurrencyFailed.Add($name)
-                if (-not $KeepGoing) { Fail "Concurrency test failed: backend/test/$name" }
-                Write-Host ("  ^^ FAILED: {0} (continuing because -KeepGoing)" -f $name) -ForegroundColor Red
-            }
-        }
-
-        $env:PINPOSY_ALLOW_DISPOSABLE_DB_TESTS = $null
-        Write-Host ""
-        if ($concurrencyFailed.Count -gt 0) {
-            Write-Host "FAIL: $($concurrencyFailed.Count) concurrency test(s) failed:" -ForegroundColor Red
-            $concurrencyFailed | ForEach-Object { Write-Host "  backend/test/$_" -ForegroundColor Red }
-            exit 1
-        }
-        Write-Host "PASS: $($concurrencyScripts.Count) isolated concurrency tests passed." -ForegroundColor Green
-    }
+    if ($Concurrency) { Invoke-ConcurrencyPhase }
 }
 catch {
     Write-Host ""
@@ -436,11 +459,11 @@ catch {
 }
 finally {
     if (-not $KeepDatabase) {
-        Remove-DisposableDatabase
+        Remove-DisposableDatabases
     }
-    elseif ($DatabaseCreated) {
+    elseif ($CreatedDatabases.Count -gt 0) {
         Write-Host ""
-        Write-Host "Keeping disposable database $DatabaseName (-KeepDatabase)." -ForegroundColor Yellow
+        Write-Host "Keeping disposable database(s): $($CreatedDatabases -join ', ') (-KeepDatabase)." -ForegroundColor Yellow
     }
     # Clear the in-process credential copy.
     if ($PlainPassword) {

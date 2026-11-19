@@ -54,7 +54,7 @@ RECONCILIATION_PID=$!
 
 waiters=0
 for _ in $(seq 1 100); do
-  waiters="$("${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name in ('pinterest-publication-race-completion', 'pinterest-publication-race-reconciliation') and wait_event_type = 'Lock')"
+  waiters="$("${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name in ('pinterest-publication-race-completion', 'pinterest-publication-race-reconciliation') and wait_event_type = 'Lock'")"
   if [[ "$waiters" == "2" ]]; then break; fi
   sleep 0.1
 done
@@ -132,7 +132,7 @@ STALE_RECOVERY_PID=$!
 
 recovery_waiters=0
 for _ in $(seq 1 100); do
-  recovery_waiters="$("${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name in ('pinterest-stale-recovery-race-completion', 'pinterest-stale-recovery-race-recovery') and wait_event_type = 'Lock')"
+  recovery_waiters="$("${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name in ('pinterest-stale-recovery-race-completion', 'pinterest-stale-recovery-race-recovery') and wait_event_type = 'Lock'")"
   if [[ "$recovery_waiters" == "2" ]]; then break; fi
   sleep 0.1
 done

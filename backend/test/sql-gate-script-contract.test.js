@@ -98,7 +98,7 @@ test('the static pre-flight also refuses a mistyped PL/pgSQL variable', () => {
 test("the optional concurrency phase keeps the safety preflight intact", () => {
   assert.match(script, /\[switch\]\$Concurrency/);
   // The shared library requires these; they must point at the disposable database.
-  assert.match(script, /\$env:PGDATABASE = \$DatabaseName/);
+  assert.match(script, /\$env:PGDATABASE = \$ConcurrencyDatabaseName/);
   assert.match(script, /\$env:PINPOSY_ALLOW_DISPOSABLE_DB_TESTS = "1"/);
   assert.match(script, /\$env:PINPOSY_ALLOW_DISPOSABLE_DB_TESTS = \$null/, "the opt-in is cleared afterwards");
   // The list comes from the runner with a floor, so a partial suite cannot pass.
@@ -135,4 +135,26 @@ test("the static-check file count is computed by PowerShell, not parsed from std
   assert.match(script, /\$sqlFileCount = @\(Get-ChildItem/);
   assert.match(script, /Static SQL check OK \(\$sqlFileCount files\)/);
   assert.doesNotMatch(script, /\$staticCount/);
+});
+
+test("concurrency runs against a pristine clone, as CI does", () => {
+  // The integration files leave rows behind (a hardcoded token hash in
+  // auth-recovery-concurrency.sh collided with them). CI clones the freshly
+  // migrated fixture before the destructive scenarios, so the clone must be taken
+  // while the database is exactly "schema + migrations", i.e. before the files run.
+  assert.match(script, /create database `"\$ConcurrencyDatabaseName`" template `"\$DatabaseName`"/);
+  const cloneAt = script.indexOf("template `\"$DatabaseName`\"");
+  const integrationAt = script.indexOf("SQL integration files, in CI order");
+  assert.ok(cloneAt > 0 && integrationAt > 0);
+  assert.ok(cloneAt < integrationAt, "the clone must be created before the SQL files run");
+  assert.match(script, /pinposy_verify_conc_\$suffix/);
+});
+
+test("cleanup drops every database it created, the clone first", () => {
+  assert.match(script, /function Remove-DisposableDatabases/);
+  assert.match(script, /for \(\$index = \$CreatedDatabases\.Count - 1; \$index -ge 0; \$index -= 1\)/);
+  assert.match(script, /\$CreatedDatabases\.Add\(\$DatabaseName\)/);
+  assert.match(script, /\$CreatedDatabases\.Add\(\$ConcurrencyDatabaseName\)/);
+  // A requested concurrency phase must not be skipped by -SkipIntegration.
+  assert.match(script, /if \(\$Concurrency\) \{ Invoke-ConcurrencyPhase \}\n        return/);
 });

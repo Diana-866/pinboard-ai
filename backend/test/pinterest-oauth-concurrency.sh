@@ -45,7 +45,7 @@ DISCONNECT_PID=$!
 
 waiters=0
 for _ in $(seq 1 100); do
-  waiters="$("${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name in ('pinterest-oauth-race-callback', 'pinterest-oauth-race-disconnect') and wait_event_type = 'Lock')"
+  waiters="$("${psql_base[@]}" -At -c "select count(*) from pg_stat_activity where application_name in ('pinterest-oauth-race-callback', 'pinterest-oauth-race-disconnect') and wait_event_type = 'Lock'")"
   if [[ "$waiters" == "2" ]]; then break; fi
   sleep 0.1
 done
