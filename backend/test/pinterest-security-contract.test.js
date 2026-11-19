@@ -33,7 +33,12 @@ test("Pinterest account and publication routes require an authenticated user", (
 test("public OAuth entry points are protected by signed state and browser binding", () => {
   const pinterest = read("pinterest.js");
   assert.match(pinterest, /purpose: "pinterest_oauth"/);
-  assert.match(pinterest, /jwt\.verify\(String\(state \|\| ""\), process\.env\.JWT_SECRET\)/);
+  // The state is verified with a pinned algorithm: it shares its secret with session
+  // tokens, so an alternative HMAC size must not be accepted here.
+  assert.match(
+    pinterest,
+    /jwt\.verify\(String\(state \|\| ""\), process\.env\.JWT_SECRET, \{\s*algorithms: \["HS256"\],\s*\}\)/
+  );
   assert.match(pinterest, /matchesBrowserBinding\(secret, stateClaims\.browserBindingHash\)/);
   assert.match(pinterest, /matchesBrowserBinding\(browserBindingSecret, stateClaims\.browserBindingHash\)/);
   assert.match(pinterest, /begin_pinterest_oauth_attempt/);

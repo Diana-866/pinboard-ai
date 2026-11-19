@@ -106,15 +106,22 @@ function createState(userId, tokenVersion = 0, attemptId, generation, browserBin
 
 function readStateClaims(state) {
   try {
-    const decoded = jwt.verify(String(state || ""), process.env.JWT_SECRET);
+    // The signing algorithm is pinned: the same secret signs session tokens, so an
+    // alternative HMAC size must not be acceptable here either.
+    const decoded = jwt.verify(String(state || ""), process.env.JWT_SECRET, {
+      algorithms: ["HS256"],
+    });
     if (
       !decoded ||
       decoded.purpose !== "pinterest_oauth" ||
       !decoded.userId ||
       typeof decoded.attemptId !== "string" ||
       !/^[0-9a-f-]{36}$/i.test(decoded.attemptId) ||
-      !Number.isSafeInteger(Number(decoded.generation)) ||
-      Number(decoded.generation) < 1 ||
+      // Strict types: every claim here is minted by createState from a number, so a
+      // string or a float means the token did not come from this code path.
+      typeof decoded.generation !== "number" ||
+      !Number.isSafeInteger(decoded.generation) ||
+      decoded.generation < 1 ||
       typeof decoded.browserBindingHash !== "string" ||
       !/^[a-f0-9]{64}$/i.test(decoded.browserBindingHash)
     ) {
