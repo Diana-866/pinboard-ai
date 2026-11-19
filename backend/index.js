@@ -95,6 +95,32 @@ app.use(
 //
 // The key is the hashed bearer token when present and the normalized client IP
 // otherwise; the raw credential is never stored in the limiter's memory store.
+/**
+ * Shared 429 responder.
+ *
+ * express-rate-limit 8 does send Retry-After on its own, but its default body is the English
+ * "Too many requests" string and carries no machine-readable field. The API answers in
+ * Russian everywhere else, so a throttled request looked like an unknown failure to the web
+ * client, which could only show a generic message. This responder keeps the per-limiter
+ * message, states the same wait in the body that the header carries (a test pins the two
+ * together), and adds a code the client can localize.
+ */
+function rateLimitedHandler(message) {
+  return (req, res, _next, options) => {
+    const resetTime = req.rateLimit && req.rateLimit.resetTime;
+    const seconds =
+      resetTime instanceof Date
+        ? Math.max(1, Math.ceil((resetTime.getTime() - Date.now()) / 1000))
+        : Math.max(1, Math.ceil((Number(options && options.windowMs) || 60000) / 1000));
+    res.set("Retry-After", String(seconds));
+    res.status((options && options.statusCode) || 429).json({
+      error: message,
+      code: "rate_limited",
+      retryAfterSeconds: seconds,
+    });
+  };
+}
+
 const API_RATE_LIMIT_MAX = Math.max(1, Number(process.env.API_RATE_LIMIT_MAX) || 300);
 const API_RATE_LIMIT_WINDOW_MS = Math.max(1000, Number(process.env.API_RATE_LIMIT_WINDOW_MS) || 60 * 1000);
 const apiLimiter = rateLimit({
@@ -112,7 +138,7 @@ const apiLimiter = rateLimit({
     }
     return ipKeyGenerator(req.ip);
   },
-  message: { error: "Слишком много запросов. Подождите немного и повторите." },
+  handler: rateLimitedHandler("Слишком много запросов. Подождите немного и повторите."),
 });
 app.use(apiLimiter);
 
@@ -157,7 +183,7 @@ const authLimiter = rateLimit({
   limit: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "Слишком много попыток. Попробуйте через 15 минут." },
+  handler: rateLimitedHandler("Слишком много попыток. Попробуйте через 15 минут."),
 });
 
 // One shared per-account budget for every billable AI route. These routes run
@@ -170,7 +196,7 @@ const aiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => String(req.userId),
-  message: { error: "Слишком много запросов. Подождите минуту." },
+  handler: rateLimitedHandler("Слишком много запросов. Подождите минуту."),
 });
 
 // Лимит для одноразовых ссылок из писем: попыток перебора токенов быть не должно
@@ -179,7 +205,7 @@ const verifyLimiter = rateLimit({
   limit: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "Слишком много запросов. Попробуйте через 15 минут." },
+  handler: rateLimitedHandler("Слишком много запросов. Попробуйте через 15 минут."),
 });
 
 // Resending verification emails triggers outbound mail and needs a tighter budget.
@@ -188,7 +214,7 @@ const resendVerificationLimiter = rateLimit({
   limit: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "Слишком много запросов на отправку письма. Попробуйте позже." },
+  handler: rateLimitedHandler("Слишком много запросов на отправку письма. Попробуйте позже."),
 });
 
 // Payment creation writes pending orders and calls the external payment provider.
@@ -198,7 +224,7 @@ const paymentCreationLimiter = rateLimit({
   limit: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "Слишком много попыток создать платёж. Попробуйте через 15 минут." },
+  handler: rateLimitedHandler("Слишком много попыток создать платёж. Попробуйте через 15 минут."),
 });
 
 const adminActionLimiter = rateLimit({
@@ -208,7 +234,7 @@ const adminActionLimiter = rateLimit({
   legacyHeaders: false,
   // Run before authentication so invalid-token traffic is rate-limited too.
   // express-rate-limit's default IP key normalizes IPv6 addresses safely.
-  message: { error: "Слишком много административных операций. Попробуйте позже." },
+  handler: rateLimitedHandler("Слишком много административных операций. Попробуйте позже."),
 });
 
 const imageUploadLimiter = rateLimit({
@@ -217,7 +243,7 @@ const imageUploadLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: buildPinImageRateLimitKey,
-  message: { error: "Слишком много загрузок изображений. Попробуйте позже." },
+  handler: rateLimitedHandler("Слишком много загрузок изображений. Попробуйте позже."),
 });
 
 const { generateImage, checkImage, imageTaskResult, providerTaskError, quoteImageTask } = require("./gptunnel");

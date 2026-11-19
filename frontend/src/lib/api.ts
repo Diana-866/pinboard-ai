@@ -1,5 +1,14 @@
-import { clearAuthToken, readAuthToken, readLocalStorageValue } from "./authStorage";
+import { clearAuthToken, readAuthToken } from "./authStorage";
 import { getApiFallbackMessage } from "./apiErrorMessages";
+import {
+  REQUEST_TIMEOUT_MS,
+  currentLocale,
+  getRateLimitMessage,
+  getRateLimitWait,
+  getTimeoutMessage,
+  isAbortError,
+  shouldRetryTransparently,
+} from "./apiResilience";
 
 const API_URL = (import.meta as any).env?.VITE_API_URL || "https://pinboard-ai-backend.onrender.com";
 
@@ -15,46 +24,100 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiRequest(path: string, options: RequestInit = {}) {
-  const token = readAuthToken();
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-  let res: Response;
+/**
+ * Один запрос без повторов. Отдельный таймаут нужен потому, что раньше зависшее
+ * соединение оставляло спиннер включённым навсегда: fetch без сигнала не завершается
+ * сам. Внешний signal (если передан) по-прежнему уважается — оба источника отменяют
+ * один и тот же контроллер.
+ */
+async function sendOnce(path: string, options: RequestInit, token: string | null) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const external = options.signal;
+  const forwardAbort = () => controller.abort();
+  if (external) {
+    if (external.aborted) controller.abort();
+    else external.addEventListener("abort", forwardAbort, { once: true });
+  }
+
   try {
-    res = await fetch(`${API_URL}${path}`, {
+    return await fetch(`${API_URL}${path}`, {
       ...options,
+      signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options.headers || {}),
       },
     });
-  } catch {
-    // обрыв сети / сервер спит — понятное сообщение вместо краша res.json() (E9)
-    throw new ApiError(getApiFallbackMessage("network", readLocalStorageValue("pinposy_lang")), 0);
+  } finally {
+    clearTimeout(timer);
+    if (external) external.removeEventListener("abort", forwardAbort);
   }
+}
 
-  let data: any = null;
+async function readBody(res: Response) {
   try {
-    data = await res.json();
+    return await res.json();
   } catch {
-    if (!res.ok) throw new ApiError(getApiFallbackMessage("invalidResponse", readLocalStorageValue("pinposy_lang")), res.status);
-    data = null;
+    return null;
   }
+}
 
-  if (!res.ok) {
-    // Просроченный/битый токен: разлогиниваем и отправляем на вход (E8).
-    // НО 401 от самих /login и /register — это ошибка ввода (неверный пароль),
-    // а не повод для редиректа: раньше страница молча перезагружалась и
-    // пользователь не видел сообщение «Неверный email или пароль».
-    const isAuthAttempt = path === "/login" || path === "/register";
-    if (res.status === 401 && !isAuthAttempt && typeof window !== "undefined") {
-      clearAuthToken();
-      if (!window.location.pathname.startsWith("/login")) {
-        window.location.href = "/login";
+export async function apiRequest(path: string, options: RequestInit = {}) {
+  const token = readAuthToken();
+  let attempt = 0;
+
+  for (;;) {
+    let res: Response;
+    try {
+      res = await sendOnce(path, options, token);
+    } catch (error) {
+      // Наш собственный таймаут — отдельное сообщение: «сервер не отвечает» и «сервер
+      // слишком долго думает» для пользователя разные ситуации.
+      if (isAbortError(error) && !options.signal?.aborted) {
+        throw new ApiError(getTimeoutMessage(currentLocale()), 0);
       }
+      // обрыв сети / сервер спит — понятное сообщение вместо краша res.json() (E9)
+      throw new ApiError(getApiFallbackMessage("network", currentLocale()), 0);
     }
-    throw new ApiError(data?.error || getApiFallbackMessage("generic", readLocalStorageValue("pinposy_lang")), res.status, data);
-  }
 
-  return data;
+    const data = await readBody(res);
+
+    if (res.status === 429) {
+      const seconds = getRateLimitWait(res.headers, data);
+      // Короткое ожидание повторяем молча; длинное — сообщаем, сколько ждать.
+      if (shouldRetryTransparently(seconds, attempt)) {
+        attempt += 1;
+        await delay((seconds as number) * 1000);
+        continue;
+      }
+      throw new ApiError(getRateLimitMessage(seconds, currentLocale()), 429, data);
+    }
+
+    if (!res.ok) {
+      // Просроченный/битый токен: разлогиниваем и отправляем на вход (E8).
+      // НО 401 от самих /login и /register — это ошибка ввода (неверный пароль),
+      // а не повод для редиректа: раньше страница молча перезагружалась и
+      // пользователь не видел сообщение «Неверный email или пароль».
+      const isAuthAttempt = path === "/login" || path === "/register";
+      if (res.status === 401 && !isAuthAttempt && typeof window !== "undefined") {
+        clearAuthToken();
+        if (!window.location.pathname.startsWith("/login")) {
+          window.location.href = "/login";
+        }
+      }
+      throw new ApiError(
+        data?.error || getApiFallbackMessage("generic", currentLocale()),
+        res.status,
+        data
+      );
+    }
+
+    return data;
+  }
 }
