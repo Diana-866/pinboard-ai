@@ -3,7 +3,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { apiRequest } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/i18nContext';
-import { getAuthCopy, getAuthErrorMessage } from '../i18n/authCopy';
+import { getAuthCopy, getAuthErrorMessage, withLockoutWait } from '../i18n/authCopy';
 import { writeAuthToken } from '../lib/authStorage';
 import { getAppErrorMessage } from '../i18n/appErrorCopy';
 
@@ -46,7 +46,14 @@ export const Login: React.FC = () => {
       navigate('/app');
     } catch (err: any) {
       // The backend answers in Russian; a known code is rendered in the user's language.
-      const message = getAuthErrorMessage(err?.data?.code, language) || err?.message || t.loginError;
+      const mapped = getAuthErrorMessage(err?.data?.code, language);
+      // A lockout carries its wait, so the message tells the customer how long it lasts instead of
+      // leaving a placeholder on screen.
+      const message = mapped
+        ? (err?.data?.code === 'login_locked'
+            ? withLockoutWait(mapped, Number(err?.data?.retryAfterSeconds) || 0)
+            : mapped)
+        : (err?.message || t.loginError);
       // Бэкенд отвечает 403 «Подтвердите email…», если users.email_verified=false,
       // и при этом сам высылает письмо повторно (не чаще раза в 5 минут).
       if (err?.status === 403 && (err?.data?.code === 'email_not_verified' || /подтвердите email/i.test(message))) {

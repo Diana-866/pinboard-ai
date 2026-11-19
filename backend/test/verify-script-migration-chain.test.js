@@ -29,7 +29,7 @@ test("Linux replay uses an explicit local socket and port, not inherited PGHOST 
 });
 
 test("Linux replay rejects incomplete or out-of-range migration sequences", () => {
-  assert.match(script, /version=10; version<=163/);
+  assert.match(script, /version=10; version<=164/);
   assert.match(script, /active_migrations\[@\].*152/s);
   assert.match(script, /actual_sequence.*expected_sequence/s);
 });
@@ -91,7 +91,7 @@ test("Windows replay applies stubs, canonical baseline, then exactly 152 active 
   assert.match(windowsScript, /foreach \(\$migration in \$activeMigrations\)/);
 });
 
-test("Windows replay rejects gaps or out-of-range migrations in the 010-163 chain", () => {
+test("Windows replay rejects gaps or out-of-range migrations in the 010-164 chain", () => {
   assert.match(windowsScript, /10\.\.161/);
   assert.match(windowsScript, /expectedMigrationSequence/);
   assert.match(windowsScript, /actualMigrationSequence/);

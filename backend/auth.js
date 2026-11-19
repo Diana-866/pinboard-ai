@@ -14,6 +14,7 @@ function withCode(error, code, defaults = {}) {
   return error;
 }
 const emailVerify = require("./email-verify");
+const loginLockout = require("./loginLockout");
 
 // Точное сообщение для 403 при неподтверждённом email (ТЗ, п.3).
 const MSG_NEED_VERIFY = "Подтвердите email — письмо отправлено повторно";
@@ -117,6 +118,13 @@ async function login(rawEmail, rawPassword) {
   const email = validateEmail(rawEmail);
   validatePassword(rawPassword); // единая проверка формата, чтобы не раскрывать наличие аккаунта
 
+  // Durable lockout first: a locked account must not even reach the password comparison, so the
+  // check cannot be used as a timing or response oracle and a distributed guess hits a real wall.
+  const lock = await loginLockout.lockState(email);
+  if (lock.locked) {
+    throw loginLockout.lockedError(lock.retryAfterSeconds);
+  }
+
   const { data: user, error: lookupError } = await supabase
     .from("users")
     .select("*")
@@ -132,8 +140,14 @@ async function login(rawEmail, rawPassword) {
   // можно было бы отличить существующий неподтверждённый аккаунт от несуществующего.
   const isValid = await bcrypt.compare(rawPassword, user?.password_hash || DUMMY_HASH);
   if (!user || !isValid) {
+    // Count the failure only when the address exists. The answer stays "invalid credentials":
+    // telling an attacker that this attempt just locked the account would confirm the address.
+    if (user) await loginLockout.recordFailure(email);
     throw withCode(httpError(401, "Неверный email или пароль"), "invalid_credentials");
   }
+
+  // Correct password: the counter starts again from zero.
+  await loginLockout.clearFailures(user.id);
 
   // Аккаунт в процессе удаления (миграция 127): вход запрещён. Колонки может
   // ещё не быть в схеме — тогда `undefined` и проверка пропускается, поэтому
