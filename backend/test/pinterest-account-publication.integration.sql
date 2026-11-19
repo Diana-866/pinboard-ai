@@ -775,7 +775,10 @@ begin
   begin
     delete from public.pins where id=v_snapshot_pin;
     raise exception 'source pin deletion was unexpectedly accepted while scheduled';
-  exception when foreign_key_violation then
+  -- Migration 087 re-created pin_schedules_pin_id_fkey as ON DELETE RESTRICT, and a
+  -- RESTRICT violation raises 23001 (restrict_violation), not 23503. Accept both:
+  -- the assertion is that the delete is refused, not which flavour of refusal.
+  exception when foreign_key_violation or restrict_violation then
     null;
   end;
   if not exists (select 1 from public.pin_schedules where id=v_delete_before_schedule and status='scheduled') then
@@ -835,7 +838,10 @@ begin
   begin
     delete from public.pins where id=v_delete_before_pin;
     raise exception 'source pin deletion unexpectedly removed a queued schedule';
-  exception when foreign_key_violation then
+  -- Migration 087 re-created pin_schedules_pin_id_fkey as ON DELETE RESTRICT, and a
+  -- RESTRICT violation raises 23001 (restrict_violation), not 23503. Accept both:
+  -- the assertion is that the delete is refused, not which flavour of refusal.
+  exception when foreign_key_violation or restrict_violation then
     null;
   end;
   if not exists (select 1 from public.pin_schedules where id=v_delete_before_schedule and status='scheduled')
@@ -866,7 +872,10 @@ begin
   begin
     delete from public.pins where id=v_delete_after_pin;
     raise exception 'source pin deletion unexpectedly removed an in-flight schedule';
-  exception when foreign_key_violation then
+  -- Migration 087 re-created pin_schedules_pin_id_fkey as ON DELETE RESTRICT, and a
+  -- RESTRICT violation raises 23001 (restrict_violation), not 23503. Accept both:
+  -- the assertion is that the delete is refused, not which flavour of refusal.
+  exception when foreign_key_violation or restrict_violation then
     null;
   end;
   if not exists (select 1 from public.pin_schedules where id=v_delete_after_schedule and status='publishing')

@@ -105,3 +105,31 @@ test("every function-body fragment the SQL tests inspect still exists", () => {
   }
   assert.deepEqual(missing, [], `function bodies no longer contain what the SQL tests require:\n${missing.join("\n")}`);
 });
+
+test("a blocked pin deletion accepts the RESTRICT violation it actually raises", () => {
+  // Migration 087 re-created pin_schedules_pin_id_fkey as ON DELETE RESTRICT so a
+  // pin can never be cascade-deleted while a schedule references it. PostgreSQL
+  // raises 23001 (restrict_violation) for RESTRICT, not 23503 (foreign_key_violation),
+  // so a handler that only names the latter lets the error escape and fails the file.
+  // This happened for real: pinterest-account-publication.integration.sql passed
+  // review and only failed on a database at its 774th line.
+  const offenders = [];
+  let guarded = 0;
+  for (const file of testFiles) {
+    const source = fs.readFileSync(file, "utf8");
+    const relative = path.relative(ROOT, file);
+    for (const match of source.matchAll(/begin([\s\S]*?)exception\s+when\s+([^\n]*?)\s+then/gi)) {
+      const body = match[1];
+      const condition = match[2];
+      if (!/delete\s+from\s+public\.pins\b/i.test(body)) continue;
+      guarded += 1;
+      // Only handlers that rely on foreign_key_violation are the defect; a block
+      // guarding a different error (for example the 55000 lifecycle guard) is not.
+      if (/foreign_key_violation/i.test(condition) && !/restrict_violation/i.test(condition)) {
+        offenders.push(`${relative}: '${condition}' must also catch restrict_violation`);
+      }
+    }
+  }
+  assert.ok(guarded >= 3, `expected the guarded pin-deletion fixtures, found ${guarded}`);
+  assert.deepEqual(offenders, [], `pin deletion guarded with the wrong SQLSTATE:\n${offenders.join("\n")}`);
+});
