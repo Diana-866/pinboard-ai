@@ -161,11 +161,44 @@ begin
 end;
 $$;
 
+-- Operator recovery: an account lockout is also a denial-of-service lever against a known address,
+-- including the operator's own admin account. Clearing it is an operator action, not a customer one,
+-- so it takes the address directly and is granted to service_role only (reached through the
+-- admin-only API route). Deliberately separate from clear_login_failures, which takes a user id and
+-- is called by the login path itself.
+create or replace function public.clear_login_failures_by_email(
+  p_email text
+) returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  v_email text := lower(btrim(coalesce(p_email, '')));
+  v_cleared integer := 0;
+begin
+  if v_email = '' then
+    return jsonb_build_object('cleared', false, 'reason', 'email_required');
+  end if;
+
+  update public.users
+     set failed_login_count = 0,
+         login_locked_until = null
+   where lower(email) = v_email
+     and (failed_login_count <> 0 or login_locked_until is not null);
+  get diagnostics v_cleared = row_count;
+
+  return jsonb_build_object('cleared', true, 'rows', v_cleared);
+end;
+$$;
+
 revoke all on function public.login_lock_state(text) from public, anon, authenticated;
 revoke all on function public.record_failed_login(text, integer, integer) from public, anon, authenticated;
 revoke all on function public.clear_login_failures(text) from public, anon, authenticated;
 grant execute on function public.login_lock_state(text) to service_role;
 grant execute on function public.record_failed_login(text, integer, integer) to service_role;
 grant execute on function public.clear_login_failures(text) to service_role;
+revoke all on function public.clear_login_failures_by_email(text) from public, anon, authenticated;
+grant execute on function public.clear_login_failures_by_email(text) to service_role;
 
 commit;

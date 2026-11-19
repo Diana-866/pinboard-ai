@@ -413,6 +413,7 @@ async function requireAuth(req, res, next) {
 // Единый обработчик: коды 4xx отдают понятное сообщение, 5xx — не раскрывают внутренности (B10)
 // The responder lives in its own module so it can be tested directly: a boundary that
 // silently dropped machine codes was invisible while it was an inner function here.
+const loginLockout = require("./loginLockout");
 const { respondWithError: handleError, sendError } = require("./httpErrorResponse");
 
 app.get("/", (req, res) => {
@@ -3088,6 +3089,29 @@ app.get("/admin/billing/email-outbox", requireAuth, requireAdmin, async (req, re
     const limit = Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 20;
     const health = await billing.getEmailOutboxHealth(limit);
     res.json(health);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// Operator visibility and recovery for the durable login lockout (migration 164).
+// Without this, an attacker who knows the operator's address can lock the account and the owner has
+// no supported way back in; a customer who mistyped a password five times would also have to wait.
+app.get("/admin/accounts/login-lockout", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const email = validateEmail(req.query && req.query.email);
+    const state = await loginLockout.adminState(email);
+    res.json({ email, ...state });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+app.post("/admin/accounts/login-lockout/reset", adminActionLimiter, requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const email = validateEmail(req.body && req.body.email);
+    const result = await loginLockout.adminReset(email);
+    res.json({ email, ...result });
   } catch (e) {
     handleError(res, e);
   }

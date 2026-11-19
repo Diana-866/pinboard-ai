@@ -99,6 +99,48 @@ async function clearFailures(userId, db = supabase) {
   return true;
 }
 
+/**
+ * Operator view of one account's lockout state.
+ *
+ * Unlike the login path, an admin endpoint must not degrade silently when the migration is missing:
+ * the operator is asking a direct question and a wrong "not locked" would hide a real lockout. A
+ * missing function is therefore a 503 that says which migration to apply.
+ */
+async function adminState(email, db = supabase) {
+  const { data, error } = await db.rpc("login_lock_state", { p_email: String(email || "") });
+  if (error) {
+    if (isMissingFeature(error)) {
+      throw httpError(503, "Замок входа недоступен: примените миграцию 164");
+    }
+    logError("login_lockout.admin_state_failed");
+    throw httpError(503, "Не удалось получить состояние замка — попробуйте позже");
+  }
+  return normalizeState(data);
+}
+
+/**
+ * Operator recovery: clears the counter and the lock for one address. The owner needs this to get
+ * back into an account that an attacker deliberately locked, and to unblock a customer who cannot
+ * log in. Granted to service_role only and reachable through the admin-only route.
+ */
+async function adminReset(email, db = supabase) {
+  const { data, error } = await db.rpc("clear_login_failures_by_email", { p_email: String(email || "") });
+  if (error) {
+    if (isMissingFeature(error)) {
+      throw httpError(503, "Сброс замка недоступен: примените миграцию 164");
+    }
+    logError("login_lockout.admin_reset_failed");
+    throw httpError(503, "Не удалось сбросить замок — попробуйте позже");
+  }
+  const cleared = !!(data && data.cleared === true);
+  const affected = Number(data && data.rows);
+  return {
+    cleared,
+    affectedRows: Number.isSafeInteger(affected) && affected >= 0 ? affected : 0,
+    reason: data && typeof data.reason === "string" ? data.reason : null,
+  };
+}
+
 /** The refusal a locked account receives, with the wait the client can show. */
 function lockedError(retryAfterSeconds) {
   const wait = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0 ? Math.ceil(retryAfterSeconds) : lockSeconds();
@@ -116,4 +158,6 @@ module.exports = {
   recordFailure,
   clearFailures,
   lockedError,
+  adminState,
+  adminReset,
 };
