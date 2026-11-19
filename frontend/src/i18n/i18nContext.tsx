@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { apiRequest } from '../lib/api';
+import { hasStoredAuthToken } from '../lib/authStorage';
 import { en } from './locales/en';
 import { ru } from './locales/ru';
 import { es } from './locales/es';
@@ -105,15 +106,13 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // ignore
     }
 
-    try {
-      if (localStorage.getItem("token")) {
-        void apiRequest("/me", {
-          method: "PATCH",
-          body: JSON.stringify({ preferred_language: lang }),
-        }).catch((error) => console.warn("[i18n] Could not save preferred language:", error));
-      }
-    } catch {
-      // The local UI language remains usable if storage is unavailable.
+    // The shared helper treats blocked browser storage as "no session" instead of
+    // throwing; the local UI language stays usable either way.
+    if (hasStoredAuthToken()) {
+      void apiRequest("/me", {
+        method: "PATCH",
+        body: JSON.stringify({ preferred_language: lang }),
+      }).catch((error) => console.warn("[i18n] Could not save preferred language:", error));
     }
   };
 

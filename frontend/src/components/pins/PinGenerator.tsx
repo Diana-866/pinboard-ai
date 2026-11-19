@@ -47,6 +47,7 @@ import {
 } from '../../types/pinGeneration';
 import { PinCanvas, PinCanvasData, ASPECT_RATIO_SPECS } from './PinCanvas';
 import { useAuth } from '../../context/AuthContext';
+import { readAuthToken } from '../../lib/authStorage';
 
 interface PinGeneratorProps {
   boards: BoardItem[];
@@ -317,8 +318,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   useEffect(() => {
     let active = true;
     const ownerId = userId;
-    let token = '';
-    try { token = localStorage.getItem('token') || ''; } catch { /* storage may be blocked */ }
+    // Blocked browser storage must read as "no session" here, exactly like the
+    // shared helper used by the API client and the route guard.
+    const token = readAuthToken() || '';
     if (!ownerId || !token) {
       setRecoverableGenerations([]);
       setIsCheckingRecoveries(false);
