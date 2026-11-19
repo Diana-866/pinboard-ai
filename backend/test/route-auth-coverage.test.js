@@ -53,9 +53,14 @@ const PUBLIC_ROUTES = new Map([
 
 function parseRoutes(source) {
   const routes = [];
-  for (const match of source.matchAll(ROUTE_SCANNER)) {
+  // Bound each registration by the next one: a fixed window can include a neighbouring
+  // route, and its guard would then be credited to this one.
+  const matches = [...source.matchAll(ROUTE_SCANNER)];
+  const boundaries = [...matches.map((match) => match.index), source.length];
+  for (const [index, match] of matches.entries()) {
     const start = match.index;
-    const window = source.slice(start, start + MAX_ROUTE_WINDOW);
+    const end = Math.min(boundaries[index + 1], start + MAX_ROUTE_WINDOW);
+    const window = source.slice(start, end);
     const pathMatch = /^app\.\w+\(\s*["'`]([^"'`]+)["'`]/.exec(window);
     if (!pathMatch) continue;
     const handlerStart = HANDLER_START.exec(window);
