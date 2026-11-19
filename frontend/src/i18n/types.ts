@@ -370,7 +370,28 @@ export interface TranslationSchema {
   };
 
   // Publishing Calendar
+  appErrors: {
+    sessionChanged: string;
+    pinTitleRequired: string;
+    pinEditNotConfirmed: string;
+    pinApproveNotConfirmed: string;
+    scheduleSaveNotConfirmed: string;
+    accountLinkNotConfirmed: string;
+    publicationStateNotConfirmed: string;
+    cancelNotConfirmed: string;
+    boardSaveNotConfirmed: string;
+    boardSaveFailed: string;
+    boardUpdateNotConfirmed: string;
+    sessionChangedRefresh: string;
+    sessionChangedDuringSave: string;
+  };
   calendar: {
+    missingSavedPin: string;
+    invalidScheduleTime: string;
+    scheduleRestoreFailed: string;
+    boardChangeFailed: string;
+    retryPublishFailed: string;
+    cancelPublishFailed: string;
     title: string;
     subtitle: string;
     monthTab: string;

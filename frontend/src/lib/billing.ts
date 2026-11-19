@@ -1,5 +1,6 @@
 import { buildPaymentIdempotencyStorageKey } from '../utils/paymentIdempotencyStorageKey';
 import { apiRequest, ApiError } from './api';
+import { getAppErrorMessage } from '../i18n/appErrorCopy';
 
 export type PayablePlan = 'analytics' | 'start' | 'pro' | 'agency';
 
@@ -82,7 +83,7 @@ export async function startPayment(
     throw error;
   }
   if (!data?.payment_url) {
-    throw new Error('Сервер не вернул ссылку на оплату. Попробуйте ещё раз или напишите в поддержку.');
+    throw new Error(getAppErrorMessage('paymentLinkMissing'));
   }
   // Keep the key while the checkout is open. If the browser fails to navigate
   // or the user reloads the page, retrying must reuse the same provider invoice.
@@ -168,7 +169,7 @@ export async function startCreditsPurchase(packageId: string, ownerId: string): 
     throw error;
   }
   if (!data?.payment_url) {
-    throw new Error('Сервер не вернул ссылку на оплату. Попробуйте ещё раз или напишите в поддержку.');
+    throw new Error(getAppErrorMessage('paymentLinkMissing'));
   }
   // Keep the key while the checkout is open so a retry or page reload
   // reuses the same provider invoice instead of creating a second one.

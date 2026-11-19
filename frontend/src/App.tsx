@@ -443,7 +443,7 @@ const MainApp: React.FC = () => {
       generation: pendingReviewOwnerGenerationRef.current,
     });
     // Ignore callbacks from a child rendered for the previous account.
-    if (!isCurrentOwner()) return Promise.reject(new Error('Сессия пользователя изменилась.'));
+    if (!isCurrentOwner()) return Promise.reject(new Error(t.appErrors.sessionChanged));
  
     const previous = pendingReviewPinsRef.current;
     const next = updater(previous);
@@ -507,7 +507,7 @@ const MainApp: React.FC = () => {
     const requestOwnerId = String(user?.id || '');
     if (!isCurrentScheduleOwner(requestOwnerId)) return;
     if (!pin.pinId) {
-      window.alert('Не найден ID сохранённого пина. Сначала сохраните пин в генераторе.');
+      window.alert(t.calendar.missingSavedPin);
       return;
     }
     const timezone = getDefaultTimezone();
@@ -515,14 +515,14 @@ const MainApp: React.FC = () => {
     try {
       localDateTime = localDateTimeToDate(pin.scheduledDate, pin.scheduledTime, timezone);
     } catch {
-      window.alert('Проверьте дату и время публикации.');
+      window.alert(t.calendar.invalidScheduleTime);
       return;
     }
     // Approval from the review desk is a real persisted transition, not just
     // a local queue animation. Persist edited creative fields before freezing
     // the immutable schedule snapshot.
     const approvedTitle = String(pin.title || '').trim().slice(0, 100);
-    if (!approvedTitle) throw new Error('Название пина не может быть пустым.');
+    if (!approvedTitle) throw new Error(t.appErrors.pinTitleRequired);
     const approvedDescription = typeof pin.description === 'string'
       ? pin.description.trim().slice(0, 500)
       : undefined;
@@ -536,7 +536,7 @@ const MainApp: React.FC = () => {
     if (!updatedPin || updatedPin.id !== pin.pinId ||
         updatedPin.title !== approvedTitle ||
         (approvedDescription !== undefined && updatedPin.description !== approvedDescription)) {
-      throw new Error('Сервер не подтвердил сохранение изменений пина.');
+      throw new Error(t.appErrors.pinEditNotConfirmed);
     }
     const approvedPin = await apiRequest(`/pins/${encodeURIComponent(pin.pinId)}/status`, {
       method: 'POST',
@@ -544,7 +544,7 @@ const MainApp: React.FC = () => {
     });
     if (!isCurrentScheduleOwner(requestOwnerId)) return;
     if (!approvedPin || approvedPin.id !== pin.pinId || approvedPin.status !== 'approved') {
-      throw new Error('Сервер не подтвердил одобрение пина.');
+      throw new Error(t.appErrors.pinApproveNotConfirmed);
     }
 
     const schedulePayload = {
@@ -571,7 +571,7 @@ const MainApp: React.FC = () => {
       // A 2xx response is not enough: only accept the exact persisted row that
       // the calendar would later load. Malformed success responses are ambiguous.
       saved = findPersistedScheduleRequest([response], expectedRequest);
-      if (!saved) throw new Error('Сервер не подтвердил сохранение расписания.');
+      if (!saved) throw new Error(t.appErrors.scheduleSaveNotConfirmed);
     } catch (originalError) {
       if (!isCurrentScheduleOwner(requestOwnerId)) return;
       // The server may have committed the schedule even when the response was
@@ -624,7 +624,7 @@ const MainApp: React.FC = () => {
         });
         if (!isCurrentScheduleOwner(requestOwnerId)) return;
         if (!isPersistedScheduleMutationResponse(response, expected)) {
-          throw new Error('Сервер не подтвердил привязку аккаунта к этому расписанию.');
+          throw new Error(t.appErrors.accountLinkNotConfirmed);
         }
         saved = response;
       } catch (originalError) {
@@ -656,7 +656,7 @@ const MainApp: React.FC = () => {
     } catch (error) {
       if (!isCurrentScheduleOwner(requestOwnerId)) return;
       console.error('[schedule] Не удалось восстановить старое расписание:', error);
-      window.alert(error instanceof Error ? error.message : 'Не удалось восстановить расписание');
+      window.alert(error instanceof Error ? error.message : t.calendar.scheduleRestoreFailed);
       throw error;
     }
   };
@@ -683,7 +683,7 @@ const MainApp: React.FC = () => {
         });
         if (!isCurrentScheduleOwner(requestOwnerId)) return;
         if (!isPersistedScheduleMutationResponse(response, expected)) {
-          throw new Error('Сервер не подтвердил новое состояние публикации.');
+          throw new Error(t.appErrors.publicationStateNotConfirmed);
         }
         saved = response;
       } catch (originalError) {
@@ -718,7 +718,7 @@ const MainApp: React.FC = () => {
     } catch (error) {
       if (!isCurrentScheduleOwner(requestOwnerId)) return;
       console.error('[schedule] Не удалось сменить Pinterest-доску:', error);
-      window.alert(error instanceof Error ? error.message : 'Не удалось сменить доску Pinterest');
+      window.alert(error instanceof Error ? error.message : t.calendar.boardChangeFailed);
       throw error;
     }
   };
@@ -740,7 +740,7 @@ const MainApp: React.FC = () => {
         });
         if (!isCurrentScheduleOwner(requestOwnerId)) return;
         if (!isPersistedScheduleMutationResponse(response, expected)) {
-          throw new Error('Сервер не подтвердил новое состояние публикации.');
+          throw new Error(t.appErrors.publicationStateNotConfirmed);
         }
         saved = response;
       } catch (originalError) {
@@ -776,7 +776,7 @@ const MainApp: React.FC = () => {
     } catch (error) {
       if (!isCurrentScheduleOwner(requestOwnerId)) return;
       console.error('[schedule] Не удалось повторить публикацию:', error);
-      window.alert(error instanceof Error ? error.message : 'Не удалось повторить публикацию');
+      window.alert(error instanceof Error ? error.message : t.calendar.retryPublishFailed);
       throw error;
     }
   };
@@ -790,7 +790,7 @@ const MainApp: React.FC = () => {
       });
       if (!isCurrentScheduleOwner(requestOwnerId)) return;
       if (!isPersistedScheduleCancellationResponse(response, pin.id)) {
-        throw new Error('Сервер не подтвердил отмену именно этой публикации. Проверяем сохранённое расписание.');
+        throw new Error(t.appErrors.cancelNotConfirmed);
       }
       setScheduledPins((prev) => prev.filter((item) => item.id !== pin.id));
     } catch (originalError) {
@@ -806,7 +806,7 @@ const MainApp: React.FC = () => {
       } catch {
         if (!isCurrentScheduleOwner(requestOwnerId)) return;
         console.error('[schedule] Не удалось подтвердить отмену публикации:', originalError);
-        window.alert(originalError instanceof Error ? originalError.message : 'Не удалось отменить публикацию');
+        window.alert(originalError instanceof Error ? originalError.message : t.calendar.cancelPublishFailed);
         throw originalError;
       }
     }
@@ -834,7 +834,7 @@ const MainApp: React.FC = () => {
         }),
       });
       if (!saved || saved.id == null) {
-        throw new Error('Сервер не подтвердил сохранение доски. Обновите список перед повторной попыткой.');
+        throw new Error(t.appErrors.boardSaveNotConfirmed);
       }
 
       const persisted: BoardItem = {
@@ -853,7 +853,7 @@ const MainApp: React.FC = () => {
       console.error('[boards] Не удалось создать доску:', error);
       throw error instanceof Error
         ? error
-        : new Error('Не удалось сохранить доску. Проверьте соединение и попробуйте ещё раз.');
+        : new Error(t.appErrors.boardSaveFailed);
     }
   };
 
@@ -863,7 +863,7 @@ const MainApp: React.FC = () => {
       body: JSON.stringify(patch),
     });
     if (!saved || String(saved.id) !== String(boardId)) {
-      throw new Error('Сервер не подтвердил обновление этой доски. Обновите список перед повторной попыткой.');
+      throw new Error(t.appErrors.boardUpdateNotConfirmed);
     }
     setBoards((prev) => prev.map((item) => item.id === boardId
       ? { ...item, name: saved.title || patch.title, category: saved.category || patch.category }
@@ -999,7 +999,7 @@ const MainApp: React.FC = () => {
                   generation: pendingReviewOwnerGenerationRef.current,
                 });
                 if (!ownerSnapshot.userId || !isCurrentOwner()) {
-                  throw new Error('Сессия пользователя изменилась. Обновите страницу и повторите попытку.');
+                  throw new Error(t.appErrors.sessionChangedRefresh);
                 }
                 const existing = pendingReviewPinsRef.current.find((item) => item.pinId === pin.pinId);
                 if (existing) {
@@ -1011,7 +1011,7 @@ const MainApp: React.FC = () => {
                   body: JSON.stringify({ pin }),
                 });
                 if (!isCurrentOwner()) {
-                  throw new Error('Сессия пользователя изменилась во время сохранения.');
+                  throw new Error(t.appErrors.sessionChangedDuringSave);
                 }
                 if (reviewQueueHydratingRef.current) reviewQueueTouchedIdsRef.current.add(pin.id);
                 const next = [...pendingReviewPinsRef.current, pin];
