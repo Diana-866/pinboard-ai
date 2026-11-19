@@ -242,7 +242,9 @@ async function dispatchPendingSubscriptionEmails(limit = 10, dependencies = {}) 
       const paidPlanTitle = getPlanTitle(payload.paid_plan, language);
       const currentPlanTitle = getPlanTitle(payload.current_plan, language);
       const periodEnd = new Date(payload.period_end);
-      if (!Number.isFinite(periodEnd.getTime())) {
+      // new Date(null) and new Date(0) are the epoch and perfectly finite, so a missing period end
+      // used to render as "access valid until 01 January 1970" in a paying customer's email.
+      if (!Number.isFinite(periodEnd.getTime()) || periodEnd.getTime() <= 0) {
         const payloadError = new Error("Invalid outbox period_end");
         payloadError.code = "invalid_payload";
         throw payloadError;
