@@ -36,6 +36,7 @@ function createSupabaseDouble() {
     rpcCalls: [],
     rpcResults: {},
     activeLeaseRow: null,
+    activeLeaseError: null,
   };
 
   function query(kind) {
@@ -58,13 +59,13 @@ function createSupabaseDouble() {
           }
           return scripted;
         }
-        if (kind === "lease") return { data: state.activeLeaseRow, error: null };
+        if (kind === "lease") return { data: state.activeLeaseRow, error: state.activeLeaseError };
         state.accountReads += 1;
         return { data: state.account, error: null };
       },
       then(resolve, reject) {
         if (kind === "lease") {
-          return Promise.resolve({ data: state.activeLeaseRow, error: null }).then(resolve, reject);
+          return Promise.resolve({ data: state.activeLeaseRow, error: state.activeLeaseError }).then(resolve, reject);
         }
         state.accountReads += 1;
         return Promise.resolve({ data: state.account ? [state.account] : [], error: null }).then(resolve, reject);
@@ -149,6 +150,7 @@ async function reset({ account, acquire = true } = {}) {
     acquire_pinterest_account_refresh_lease: { data: acquire, error: null },
   };
   db.state.activeLeaseRow = null;
+  db.state.activeLeaseError = null;
   axiosCalls.length = 0;
   axiosResponder = () => ({
     status: 200,
@@ -357,4 +359,131 @@ test("a stored account is returned with decrypted credentials", async () => {
   const account = await resolveAccount(USER_ID, ACCOUNT_ID);
   assert.equal(account.access_token, "old-access");
   assert.equal(account.refresh_token, "old-refresh");
+});
+
+// ---------------------------------------------------------------------------
+// The branch where another instance holds the refresh lease.
+//
+// This is the only place that decides whether we are allowed to contact Pinterest at all.
+// Calling with the old refresh token while another instance is rotating it would log the
+// customer out (the provider invalidates the pair on every refresh), so the code waits for
+// the other instance's committed result instead. The wait used real timers and a real
+// clock, which made every case here untestable; it now accepts injected timing.
+// ---------------------------------------------------------------------------
+
+function movieClock() {
+  let current = Date.parse("2026-11-18T00:00:00.000Z");
+  return {
+    now: () => current,
+    advance: (ms) => { current += ms; },
+    sleep: async (ms) => { current += ms; },
+    onSleep: null,
+  };
+}
+
+function timingWith(clock, overrides = {}) {
+  return {
+    now: clock.now,
+    sleep: async (ms) => {
+      clock.advance(ms);
+      if (clock.onSleep) clock.onSleep(ms);
+    },
+    maxWaitMs: 1000,
+    pollMs: 250,
+    ...overrides,
+  };
+}
+
+test("a lease held elsewhere is waited out and the rotated pair is used without calling Pinterest", async () => {
+  const snapshot = await reset({ acquire: false });
+  const clock = movieClock();
+  // The other instance commits on the second poll. Nothing here talks to Pinterest.
+  clock.onSleep = (() => {
+    let polls = 0;
+    return () => {
+      polls += 1;
+      if (polls === 2) {
+        db.state.account = accountRow({
+          access_token: encryptToken("rotated-access"),
+          refresh_token: encryptToken("rotated-refresh"),
+        });
+      }
+    };
+  })();
+
+  const current = await refreshAccessToken(snapshot, timingWith(clock));
+
+  assert.equal(current.access_token, "rotated-access");
+  assert.equal(current.refresh_token, "rotated-refresh");
+  assert.equal(axiosCalls.length, 0, "a concurrent rotation must never be duplicated");
+  assert.equal(rpcNames().includes("commit_pinterest_account_token_refresh"), false);
+});
+
+test("a live lease on an uncertain row is waited out, then reported as still running", async () => {
+  const snapshot = await reset({ acquire: false });
+  db.state.account = accountRow({ refresh_state: "uncertain" });
+  db.state.activeLeaseRow = { lease_until: "2026-11-18T00:10:00.000Z" };
+  const clock = movieClock();
+
+  await assert.rejects(
+    () => refreshAccessToken(snapshot, timingWith(clock)),
+    (error) => error.httpStatus === 503 && /уже выполняется/.test(error.message)
+  );
+  assert.equal(axiosCalls.length, 0);
+  // The budget really was consumed in polls of the configured size.
+  assert.ok(clock.now() >= Date.parse("2026-11-18T00:00:01.000Z"));
+});
+
+test("an uncertain row with no live lease asks for a reconnect instead of waiting", async () => {
+  const snapshot = await reset({ acquire: false });
+  db.state.account = accountRow({ refresh_state: "uncertain" });
+  db.state.activeLeaseRow = null;
+  const clock = movieClock();
+
+  await assert.rejects(
+    () => refreshAccessToken(snapshot, timingWith(clock)),
+    (error) => error.httpStatus === 409 && /Подключите аккаунт заново/.test(error.message)
+  );
+  assert.equal(axiosCalls.length, 0);
+});
+
+test("an unreadable lease state fails closed rather than guessing", async () => {
+  const snapshot = await reset({ acquire: false });
+  db.state.account = accountRow({ refresh_state: "uncertain" });
+  db.state.activeLeaseError = { code: "08006", message: "connection failure" };
+  const clock = movieClock();
+
+  await assert.rejects(
+    () => refreshAccessToken(snapshot, timingWith(clock)),
+    (error) => error.httpStatus === 503 && /Не удалось проверить состояние/.test(error.message)
+  );
+  assert.equal(axiosCalls.length, 0);
+});
+
+test("an account disconnected while waiting stops the wait immediately", async () => {
+  const snapshot = await reset({ acquire: false });
+  const clock = movieClock();
+  clock.onSleep = () => { db.state.account = null; };
+
+  await assert.rejects(
+    () => refreshAccessToken(snapshot, timingWith(clock)),
+    (error) => error.httpStatus === 409 && /Pinterest отключён/.test(error.message)
+  );
+  assert.equal(axiosCalls.length, 0);
+});
+
+test("an already rotated pair in the row is used without waiting the full budget", async () => {
+  const snapshot = await reset({ acquire: false });
+  db.state.account = accountRow({
+    access_token: encryptToken("fresh-access"),
+    refresh_token: encryptToken("fresh-refresh"),
+  });
+  const clock = movieClock();
+
+  const current = await refreshAccessToken(snapshot, timingWith(clock));
+
+  assert.equal(current.access_token, "fresh-access");
+  assert.equal(axiosCalls.length, 0);
+  // One poll at most: the row already proves the rotation finished.
+  assert.ok(clock.now() < Date.parse("2026-11-18T00:00:01.000Z"));
 });

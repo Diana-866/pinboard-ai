@@ -50,6 +50,10 @@ const API_BASE = "https://api.pinterest.com/v5";
 const SCOPES = ["boards:read", "boards:write", "pins:read", "pins:write", "user_accounts:read"];
 
 const TIMEOUT_MS = 10000;
+// When another instance holds the refresh lease we wait for its rotation instead of calling
+// Pinterest with a refresh token that is about to be invalidated.
+const REFRESH_CONCURRENCY_WAIT_MS = 10000;
+const REFRESH_CONCURRENCY_POLL_MS = 250;
 const STATE_TTL = "15m";
 
 // ---------- конфигурация ----------
@@ -269,11 +273,25 @@ async function exchangeCode(code) {
   return res.data;
 }
 
-async function refreshAccessToken(account) {
+async function refreshAccessToken(account, timing = {}) {
   requireConfigured();
   if (!account.refresh_token) {
     throw httpError(409, "Pinterest-доступ истёк. Подключите аккаунт заново.");
   }
+
+  // The wait for another instance's rotation is injectable so that branch — the riskiest
+  // one, because it decides whether we may talk to Pinterest at all — can be tested without
+  // sleeping for ten real seconds.
+  const now = typeof timing.now === "function" ? timing.now : Date.now;
+  const sleep = typeof timing.sleep === "function"
+    ? timing.sleep
+    : (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const maxWaitMs = Number.isFinite(timing.maxWaitMs) && timing.maxWaitMs >= 0
+    ? timing.maxWaitMs
+    : REFRESH_CONCURRENCY_WAIT_MS;
+  const pollMs = Number.isFinite(timing.pollMs) && timing.pollMs >= 0
+    ? timing.pollMs
+    : REFRESH_CONCURRENCY_POLL_MS;
 
   // A process-local mutex is not enough: Render may run multiple instances.
   // The database lease serializes refresh-token rotation across all instances.
@@ -292,9 +310,9 @@ async function refreshAccessToken(account) {
   if (!acquired) {
     // Another instance may already have rotated and saved the credentials.
     // Prefer its fresh access token; never send the same refresh token concurrently.
-    const waitUntil = Date.now() + 10000;
-    while (Date.now() < waitUntil) {
-      await new Promise((resolve) => setTimeout(resolve, 250));
+    const waitUntil = now() + maxWaitMs;
+    while (now() < waitUntil) {
+      await sleep(pollMs);
       const latest = await getAccount(account.user_id, account.id);
       if (!latest) throw httpError(409, "Pinterest отключён. Подключите аккаунт заново.");
       if (latest.refresh_state === "uncertain") {
@@ -308,13 +326,13 @@ async function refreshAccessToken(account) {
           .select("lease_until")
           .eq("pinterest_account_id", account.id)
           .eq("user_id", String(account.user_id))
-          .gt("lease_until", new Date().toISOString())
+          .gt("lease_until", new Date(now()).toISOString())
           .maybeSingle();
         if (activeLeaseError) {
           logError("pinterest.event_004");
           throw httpError(503, "Не удалось проверить состояние обновления Pinterest-доступа. Повторите запрос позже.");
         }
-        if (!hasActiveRefreshLease(activeLease)) {
+        if (!hasActiveRefreshLease(activeLease, now())) {
           throw httpError(409, "Не удалось подтвердить обновление Pinterest-доступа. Подключите аккаунт заново.");
         }
       }
