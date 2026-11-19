@@ -180,6 +180,9 @@
 | 167 | `upgrade_url: "/pricing"` при отсутствии маршрута | Пейвол отправлял клиента на лендинг | `/pricing` — реальный маршрут (вкладка для своих, лендинг для гостей) | `6dcc8b61` |
 | 168 | Deep-link `?tab=` | Даже существующий путь не открыл бы нужную вкладку | Валидация по `APP_TABS`, неизвестное игнорируется | `6dcc8b61` |
 | 169 | Страж «адреса API ↔ маршруты UI» | Никто не сверял обещание с реализацией | 3 теста: маршруты, вкладки, `?payment=success` | `6dcc8b61` |
+| 170 | `1d63579d`: дедлайн запроса убивал генерацию | Общий дедлайн 30 с обрывал законную многошаговую генерацию | `timeoutMs` на месте вызова, 15 минут для генерации | `1d63579d` |
+| 171 | `8d234c5f`: дымовая проверка запущенного бэкенда | `/health` мог отвечать «здоров», ничего не проверив | `scripts/smoke-backend.sh` + контрактный тест, проверен на живом процессе | `8d234c5f` |
+| 172 | `422efd34`: страж реестра ломался на нумерованных таблицах | Нумерованная таблица внутри раздела анализа попадала в проверку, и строки дописывались в конец файла | Реестр вырезается по своему заголовку; проверено удалением строки | `422efd34` |
 });` | `b66bedae` |
 
 ## 0. Исходная точка и правила сессии
@@ -2017,3 +2020,156 @@ backend **958/958**, frontend **308/308**, `tsc` чисто, `vite build` усп
 ### 55.4. Побочная находка
 
 Рефактор §53 (`sendError`) изменил форму тела 409, и фронтенд-страж, читавший `code: "generation_in_progress", retryAfterSeconds: 5`, перестал находить строку — то есть упал **на рефакторе**, а не на регрессии. Это правильное поведение стража: он завязан на инвариант «в теле есть ожидание, и оно совпадает с заголовком». Тест обновлён под новую форму с сохранением инварианта; старый шаблон больше не совпадает, поэтому забыть об этой связи нельзя.
+
+<!-- session-base: ebc30e92 -->
+
+## 56. Полнота записи: каждый коммит сессии имеет адрес, где объяснено «зачем»
+
+### 56.1. Найдено
+
+Требование владельца — восстановимая последовательность разработки — выполнялось не полностью: из 109 коммитов сессии **49 не были упомянуты ни в реестре действий, ни в истории состояний**. Большинство из них — парные `docs:`-коммиты (они и есть запись раздела, который вводят), но два **кодовых** коммита вообще не имели строки с обоснованием: `8d234c5f` (скрипт дымовой проверки запущенного бэкенда) и `1d63579d` (таймаут на месте вызова, чтобы дедлайн запроса не убивал генерацию изображения). То есть по этим двум изменениям нельзя было узнать, зачем они сделаны, не читая diff.
+
+Проверка была устроена так, что этого не замечала: она валидировала **упомянутые** коммиты (существуют ли, нет ли пробелов в нумерации), но не проверяла, что **каждый** коммит упомянут. Это классическая асимметрия стража — «что записано, то верно» вместо «записано всё».
+
+### 56.2. Сделано
+
+1. Добавлены недостающие строки реестра: 170 (`1d63579d`) и 171 (`8d234c5f`).
+2. Добавлено приложение с полной хронологией (56.4): одна строка на каждый из 109 коммитов — дата, суть и **адрес, где объяснено «зачем»**: номер строки реестра, раздел, который этот коммит написал, либо запись в `docs/USER_ACTIONS.md`. Ни одна строка не выдумана: адрес вычислен из самого репозитория (наличие хеша в реестре, заголовки разделов, добавленные диффом этого коммита).
+3. В документ добавлен маркер `<!-- session-base: ebc30e92 -->`, чтобы страж знал, откуда считать сессию, и не зависел от `origin/main` (публикация запрещена, локальных коммитов много).
+4. Новый страж в `documentation-integrity.test.js`: каждый коммит сессии обязан иметь запись, а освобождение для `docs:`-коммитов (коммит не может процитировать себя) **самопроверяющееся** — оно допускается только если коммит действительно трогает лишь `docs/`. Иначе префикс `docs:` стал бы способом протащить код без записи.
+
+### 56.3. Мутации (каждая отдельной командой)
+
+Первая версия стража оказалась **вакуумной**: приложение уже содержало все хеши, поэтому проверка «хеш упомянут» проходила всегда, что бы я ни удалял. Страж переписан: он требует не упоминания, а **разрешимого адреса** обоснования (существующая строка реестра, которая ссылается на этот коммит; существующий раздел; запись в `PROJECT_STATE`; существующий UA-номер).
+
+1. у строки `1d63579d` адрес заменён на `—` → `1d63579d: no address`;
+2. адрес `§31` заменён на `§999` → `8d234c5f: section 999 does not exist`;
+3. удалена строка хронологии `8d234c5f` → `commits with no row in the chronology: 8d234c5f feat(ops): smoke check…`;
+4. освобождение для `docs:`-коммитов объявлено для всех коммитов → проверка «освобождение не маскирует код» **сразу нашла реальный случай**: `422efd34` с заголовком `docs:` менял страж `documentation-integrity.test.js` (строка 172 реестра добавлена задним числом). Инвариант «`docs:`-коммит трогает только `docs/`» теперь проверяется для **каждого** такого коммита, а не только для освобождённого.
+
+### 56.4. Приложение. Полная хронология коммитов сессии (109)
+
+Каждая строка: хеш, дата, суть и адрес, где объяснено «зачем». Разделы — в этом документе, строки — в реестре действий, UA — в `docs/USER_ACTIONS.md`.
+
+| Коммит | Дата | Суть | Где объяснено «зачем» |
+| --- | --- | --- | --- |
+| `d77100b7` | 2026-11-18 | fix(backend): restore green backend test suite and unmarket Prodamus config errors | реестр, строка 4 |
+| `b670602a` | 2026-11-18 | fix(frontend): repair sign-in page crash on password visibility toggle | реестр, строка 5 |
+| `ff6dddc4` | 2026-11-18 | fix(backend): fail closed when a paginated page payload is malformed | реестр, строка 7 |
+| `e61a937e` | 2026-11-18 | docs(state): record first executed backend/frontend verification period and SQL blocker | PROJECT_STATE |
+| `3cc7f4e2` | 2026-11-18 | test: add real HTTP contract coverage and typecheck the frontend build | реестр, строка 9 |
+| `0d29dc30` | 2026-11-18 | test(frontend): guard auth copy keys across locales; docs: full session chronology | реестр, строка 6 |
+| `9aa3e7a2` | 2026-11-18 | test(contract): verify every frontend API call matches a registered backend route | реестр, строка 11 |
+| `519b5c7a` | 2026-11-18 | fix(billing): fail closed on dev credit top-up outside explicit dev/test | реестр, строка 12 |
+| `31ff0305` | 2026-11-18 | fix(config): fail closed on unset NODE_ENV for service key and demo payments | реестр, строка 13 |
+| `ab7a44f5` | 2026-11-18 | feat(ops): add a real readiness probe and a dependency-free liveness probe | реестр, строка 14 |
+| `2c38ed2d` | 2026-11-18 | feat(analytics): replace the placeholder screen with real publication analytics | реестр, строка 15 |
+| `9eb25339` | 2026-11-18 | docs: record the continuation (route contract, config hardening, readiness, analytics) | §12, §12.1, §12.2, §12.3, §12.4, §12.5, §12.6 — написаны этим коммитом |
+| `e484d1a1` | 2026-11-18 | test(i18n): verify every locale keeps the English key structure | реестр, строка 16 |
+| `ca9bfe10` | 2026-11-18 | feat(security): bound the whole API with a global request budget | реестр, строка 17 |
+| `d2ad6b93` | 2026-11-18 | docs: record the global request budget and the route-parser hardening | §13 — написаны этим коммитом |
+| `d09e3baf` | 2026-11-18 | feat(verify): owner-run SQL gate script plus safety contract; de-flake the heartbeat test | реестр, строка 18 |
+| `fc965609` | 2026-11-18 | docs(owner): add UA-064 one-command SQL gate and record the script safety contract | docs/USER_ACTIONS.md UA-064 — добавлено этим коммитом |
+| `b4882674` | 2026-11-18 | fix(db): repair an unterminated dollar quote that made a SQL file unrunnable | реестр, строка 21 |
+| `444990ae` | 2026-11-19 | docs: record the first real SQL gate run and add a full action register | §14 — написаны этим коммитом |
+| `c9a12e41` | 2026-11-19 | fix(billing): make the credit-pack catalogue fail closed and test it | реестр, строка 25 |
+| `603978b9` | 2026-11-19 | test(db): catch SQL expectation drift without a database | реестр, строка 26 |
+| `36d06868` | 2026-11-19 | docs: record credit-pack hardening and the static SQL drift check | §15, §15.1, §15.2, §15.3, §15.4 — написаны этим коммитом |
+| `07731b93` | 2026-11-19 | docs: extend the action register with the credit-pack and SQL-drift steps | реестр — расширен этим коммитом |
+| `9428ff8a` | 2026-11-19 | fix(billing): restore the activation email the migration chain silently dropped | реестр, строка 28 |
+| `0deb25c2` | 2026-11-19 | fix(admin): stop the operator inventory from returning a worker lease token | реестр, строка 31 |
+| `3f893feb` | 2026-11-19 | test(db): refuse a mistyped PL/pgSQL variable without a database | реестр, строка 32 |
+| `521c1f3c` | 2026-11-19 | docs: record the second SQL gate run, the lost activation email and the token leak | §16, §16.1, §16.2, §16.3, §16.4, §16.5, §16.6, §16.7, §16.8, §16.9 — написаны этим коммитом |
+| `df69fd1a` | 2026-11-19 | fix(db): catch the RESTRICT violation a blocked pin deletion actually raises | реестр, строка 34 |
+| `6a269899` | 2026-11-19 | docs: record the third gate run (154 migrations, 52/53) and the RESTRICT fix | §17, §17.1, §17.2, §17.3, §17.4, §17.5 — написаны этим коммитом |
+| `0fe53b02` | 2026-11-19 | feat(verify): optional concurrency phase and a readable static-check count | реестр, строка 37 |
+| `1597ba24` | 2026-11-19 | docs: the SQL gate passed - 154 migrations and 53 of 53 SQL files | §18, §18.1, §18.2, §18.3, §18.4, §18.5 — написаны этим коммитом |
+| `3cf24aee` | 2026-11-19 | fix(verify): do not mistake the WSL launcher for a POSIX shell | реестр, строка 40 |
+| `5aa1ba11` | 2026-11-19 | docs: record the repeat gate pass and the WSL launcher mistake | §19, §19.1, §19.2, §19.3, §19.4, §19.5 — написаны этим коммитом |
+| `86c7c700` | 2026-11-19 | fix(test): repair two unparseable concurrency scripts and isolate the phase | реестр, строка 43 |
+| `28d269e2` | 2026-11-19 | docs: record the first real concurrency run (7/10) and its three causes | §20, §20.1, §20.2, §20.3, §20.4, §20.5, §20.6 — написаны этим коммитом |
+| `6e46bb4e` | 2026-11-19 | docs: the gate and the concurrency suite both pass completely | §21, §21.1, §21.2, §21.3, §21.4, §21.5 — написаны этим коммитом |
+| `3294597b` | 2026-11-19 | test(auth): no route may ship without a guard or an explicit public reason | реестр, строка 48 |
+| `d4f955ce` | 2026-11-19 | test(docs): keep the development record honest by checking it | реестр, строка 49 |
+| `d9e134f8` | 2026-11-19 | docs: record the web-security pass and the documentation guards | §22, §22.1, §22.2, §22.3, §22.4, §22.5, §22.6 — написаны этим коммитом |
+| `b63157c6` | 2026-11-19 | fix(account): export the generation, payment and publishing data the account owns | реестр, строка 51 |
+| `8305ca40` | 2026-11-19 | docs: record the incomplete account export fix and my overwritten test file | §23, §23.1, §23.2, §23.3, §23.4, §23.5, §23.6 — написаны этим коммитом |
+| `666cf83c` | 2026-11-19 | fix(worker): report blocked deletion jobs, bound every step and every shutdown | реестр, строка 56 |
+| `94e833fa` | 2026-11-19 | docs: record the account deletion worker fixes and the flaky test trap | §24, §24.1, §24.2, §24.3, §24.4, §24.5, §24.6, §24.7 — написаны этим коммитом |
+| `7996c41f` | 2026-11-19 | fix(auth): stop a Pinterest OAuth state from working as a session token | реестр, строка 63 |
+| `75edd790` | 2026-11-19 | docs: record the OAuth state token-confusion fix | §25, §25.1, §25.2, §25.3, §25.4, §25.5 — написаны этим коммитом |
+| `fdf346f7` | 2026-11-19 | test(pinterest): cover the credential refresh path, the riskiest write in the app | реестр, строка 68 |
+| `422efd34` | 2026-11-19 | docs: record the refresh-path test suite and the register scoping fix | реестр, строка 172 |
+| `3ceb876c` | 2026-11-19 | fix(frontend): route every auth token read through the defensive helper | реестр, строка 74 |
+| `f4ba2893` | 2026-11-19 | docs: record the frontend token-access fix and its static guard | §27, §27.1, §27.2, §27.3, §27.4 — написаны этим коммитом |
+| `e73052ea` | 2026-11-19 | feat(admin): read-only inventory for the account deletion pipeline | реестр, строка 76 |
+| `43ae62bd` | 2026-11-19 | docs: record the account deletion inventory endpoint | §28, §28.1, §28.2, §28.3, §28.4 — написаны этим коммитом |
+| `dc6f13e4` | 2026-11-19 | test(routes): require an ownership proof on every parameterised route | реестр, строка 81 |
+| `0eae6bdc` | 2026-11-19 | docs: record the route ownership guard and the weak check it exposed | §29, §29.1, §29.2, §29.3, §29.4 — написаны этим коммитом |
+| `5c06746a` | 2026-11-19 | docs: add the push action and the deletion-inventory operator action | docs/USER_ACTIONS.md UA-067, UA-068 — добавлено этим коммитом |
+| `66be779b` | 2026-11-19 | test(ops): every environment variable the backend reads must be documented | реестр, строка 85 |
+| `470496d7` | 2026-11-19 | docs: record the environment documentation gap and its guard | §30, §30.1, §30.2, §30.3, §30.4 — написаны этим коммитом |
+| `8d234c5f` | 2026-11-19 | feat(ops): smoke check for a running backend, verified against a live process | реестр, строка 171 |
+| `888cdf97` | 2026-11-19 | test(contract): every path the frontend calls must exist on the backend | реестр, строка 90 |
+| `2dea8a01` | 2026-11-19 | feat(i18n): render the common auth failures in the user's own language | реестр, строка 92 |
+| `ff3b432f` | 2026-11-19 | docs: раздел 32 — контракт маршрутов и локализация ошибок входа | §32, §32.1, §32.2, §32.3, §32.4 — написаны этим коммитом |
+| `9b3daf71` | 2026-11-19 | feat(api): a request now has a deadline and a 429 now says how long to wait | реестр, строка 94 |
+| `625e37f5` | 2026-11-19 | docs: раздел 33 — дедлайн запроса и явный ответ 429 (включая исправленную предпосылку) | §33, §33.1, §33.2, §33.3, §33.4, §33.5 — написаны этим коммитом |
+| `1d63579d` | 2026-11-19 | fix(api): the new request deadline must not abort image generation | реестр, строка 170 |
+| `fa96b968` | 2026-11-19 | docs: раздел 34 — таймаут на месте вызова и риск синхронной генерации | §34, §34.1, §34.2, §34.3, §34.4 — написаны этим коммитом |
+| `9d47c115` | 2026-11-19 | feat(generation): wait out a generation that is already running instead of failing | реестр, строка 100 |
+| `cccfc121` | 2026-11-19 | docs: раздел 35 — ожидание уже идущей генерации | реестр, строка 103 |
+| `aa1226eb` | 2026-11-19 | docs: раздел 35.5 — работа переведена в ветку main (fast-forward, 56 коммитов) | §35.5 — написаны этим коммитом |
+| `053ca218` | 2026-11-19 | test(pinterest): cover the branch that decides whether a rotation may touch Pinterest | реестр, строка 104 |
+| `a7193156` | 2026-11-19 | docs: раздел 36 — покрытие ветки чужого refresh-lease | §36, §36.1, §36.2, §36.3, §36.4 — написаны этим коммитом |
+| `233ec540` | 2026-11-19 | feat(i18n): localize the app-shell and payment errors a customer actually sees | реестр, строка 108 |
+| `79b05be3` | 2026-11-19 | docs: раздел 37 — локализация ошибок приложения и оплаты | §37, §37.1, §37.2, §37.3, §37.4 — написаны этим коммитом |
+| `e4521cfc` | 2026-11-19 | feat(i18n): finish the customer-facing messages and pin the invariant with a guard | реестр, строка 111 |
+| `b111be56` | 2026-11-19 | docs: раздел 38 — завершение локализации клиентских сообщений и страж | §38, §38.1, §38.2, §38.3, §38.4 — написаны этим коммитом |
+| `875db3ea` | 2026-11-19 | feat(billing): every 402 says the balance is short, in the customer's language | реестр, строка 114 |
+| `f0b99066` | 2026-11-19 | docs: раздел 39 — код 402 и локализация в слое запросов | §39, §39.1, §39.2, §39.3, §39.4 — написаны этим коммитом |
+| `eb73fbde` | 2026-11-19 | feat(i18n): a not-found answer now names the entity, in the customer's language | реестр, строка 117 |
+| `2aed55b8` | 2026-11-19 | docs: раздел 40 — коды 404 по сущностям и перевод | §40, §40.1, §40.2, §40.3, §40.4, §40.5 — написаны этим коммитом |
+| `46a87136` | 2026-11-19 | feat(i18n): translate the validation failures a customer can fix | реестр, строка 120 |
+| `82448d39` | 2026-11-19 | docs: раздел 41 — гибрид кодов 422 и перевод исправимых ошибок | §41, §41.1, §41.2, §41.3, §41.4 — написаны этим коммитом |
+| `272ef3d0` | 2026-11-19 | feat(i18n): the publishing preconditions speak the customer's language | реестр, строка 123 |
+| `b9243e06` | 2026-11-19 | docs: раздел 42 — предусловия публикации с кодами | §42, §42.1, §42.2, §42.3, §42.4 — написаны этим коммитом |
+| `4e48296e` | 2026-11-19 | fix(mail): give every SMTP transport a deadline and stop leaking deployment config | реестр, строка 126 |
+| `c313fac6` | 2026-11-19 | docs: раздел 43 — таймауты SMTP и утечка конфигурации | §43, §43.1, §43.2, §43.3, §43.4 — написаны этим коммитом |
+| `048c0f60` | 2026-11-19 | fix(mail): bound the IMAP client too | реестр, строка 129 |
+| `00d7679a` | 2026-11-19 | docs: раздел 43.5 — таймауты IMAP-клиента | §43.5 — написаны этим коммитом |
+| `8164adda` | 2026-11-19 | fix(db): every database call now has a deadline | реестр, строка 130 |
+| `1a1fd2d7` | 2026-11-19 | docs: раздел 44 — дедлайн обращений к базе | §44, §44.1, §44.2, §44.3, §44.4, §44.5 — написаны этим коммитом |
+| `0647af2c` | 2026-11-19 | feat(i18n): tell the customer that Pinterest itself is having trouble | реестр, строка 133 |
+| `fabbc428` | 2026-11-19 | docs: раздел 45 — отказы Pinterest с кодами и честными формулировками | §45, §45.1, §45.2, §45.3, §45.4 — написаны этим коммитом |
+| `b66bedae` | 2026-11-19 | fix(billing): a payment callback must not be throttled by the browser budget | реестр, строка 136 |
+| `59e410a4` | 2026-11-19 | docs: раздел 46 — платёжный вебхук вне браузерного бюджета | §46, §46.1, §46.2, §46.3 — написаны этим коммитом |
+| `da974c98` | 2026-11-19 | test(password-reset): cover the most security-sensitive public flow | реестр, строка 139 |
+| `4ae24111` | 2026-11-19 | docs: раздел 47 — покрытие свойств сброса пароля | §47, §47.1, §47.2, §47.3, §47.4 — написаны этим коммитом |
+| `35589f33` | 2026-11-19 | test(email-verify): pin the verification properties and drop dead security code | реестр, строка 142 |
+| `28b6e655` | 2026-11-19 | docs: раздел 48 — подтверждение email и удалённый мёртвый код | §48, §48.1, §48.2, §48.3 — написаны этим коммитом |
+| `584ef2eb` | 2026-11-19 | feat(paywall): localize the two 403 refusals and cover the tariff guard | реестр, строка 146 |
+| `3d9f34ec` | 2026-11-19 | docs: раздел 49 — пейвол, локализация 403 и первый замер покрытия | §49, §49.1, §49.2, §49.3, §49.4, §49.5 — написаны этим коммитом |
+| `caa32b1d` | 2026-11-19 | fix(validate): an absent integer is not zero, and an unfetchable email is refused | реестр, строка 150 |
+| `963e0758` | 2026-11-19 | docs: раздел 50 — два дефекта валидатора входа | §50, §50.1, §50.2, §50.3, §50.4 — написаны этим коммитом |
+| `330e2ad8` | 2026-11-19 | feat(errors): machine codes on payment failures, and stop dropping codes at the 5xx boundary | реестр, строка 153 |
+| `f6eed026` | 2026-11-19 | docs: раздел 51 — коды денежных отказов и граница 5xx | §51, §51.1, §51.2, §51.3, §51.4, §51.5 — написаны этим коммитом |
+| `cffe3c5e` | 2026-11-19 | feat(errors): localize the generation dead-ends, and guard the whole code set against drift | реестр, строка 158 |
+| `cfee07c0` | 2026-11-19 | docs: раздел 52 — тупики генерации и страж дрейфа кодов | §52, §52.1, §52.2, §52.3, §52.4 — написаны этим коммитом |
+| `b5c37801` | 2026-11-19 | refactor(errors): one writer for error bodies, so the code inventory is complete | реестр, строка 162 |
+| `30912b89` | 2026-11-19 | docs: раздел 53 — один писатель тела ошибки | §53, §53.1, §53.2, §53.3, §53.4 — написаны этим коммитом |
+| `29b95e13` | 2026-11-19 | fix(auth): throttle login attempts per account, not only per address | реестр, строка 164 |
+| `11e72d50` | 2026-11-19 | docs: раздел 54 — бюджет попыток входа на аккаунт | §54, §54.1, §54.2, §54.3, §54.4 — написаны этим коммитом |
+| `6dcc8b61` | 2026-11-19 | fix(ui): serve the /pricing URL the API promises, and honour a validated ?tab= deep link | реестр, строка 167 |
+| `9c8f6ead` | 2026-11-19 | docs: раздел 55 — адреса API и маршруты UI | §55, §55.1, §55.2, §55.3, §55.4 — написаны этим коммитом |
+
+### 56.5. Что это даёт владельцу
+
+Последовательность разработки восстанавливается двумя способами: по реестру (логические действия с обоснованием и результатом проверки) и по приложению (каждый коммит с адресом обоснования). Страж не даёт приложению отстать: следующий кодовый коммит без строки в реестре ломает прогон тестов.
+
+### 56.6. Честные ограничения
+
+1. **Самый новый коммит всегда без строки** — он физически не может процитировать себя. Страж требует записи для каждого коммита, кроме `HEAD`, и следующая запись догоняет предыдущую. Поэтому приложение отстаёт ровно на один коммит, а не на 49.
+2. **Хеш-адрес не равен обоснованию.** Строка `реестр, строка N` резолвится только если строка N существует и действительно ссылается на этот коммит; `§N` — только если раздел существует; UA — только если такой номер есть в `docs/USER_ACTIONS.md`. Но *качество* текста страж не оценит: он ловит отсутствие и битые ссылки, а не бессодержательность.
+3. **Известное нарушение префикса:** коммит `422efd34` с заголовком `docs:` менял ещё и страж `documentation-integrity.test.js`. История не переписывается, поэтому он внесён в списке исключений с причиной; список самопроверяющийся — исключение, которое перестало трогать код, роняет тест.
+4. **Инструмент требует git.** Если история недоступна (архив, shallow-клон), страж пропускается с явным `skip`, а не притворяется пройденным.

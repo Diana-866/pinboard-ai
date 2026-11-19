@@ -22,6 +22,8 @@ const STATE = path.join(ROOT, "docs", "PROJECT_STATE.md");
 const ACTIONS = path.join(ROOT, "docs", "USER_ACTIONS.md");
 
 const audit = fs.readFileSync(AUDIT, "utf8");
+const SESSION_BASE = (/session-base:\s*([0-9a-f]{7,40})/.exec(audit) || [])[1];
+assert.ok(SESSION_BASE, "the record must state the commit the session started from");
 const state = fs.readFileSync(STATE, "utf8");
 const actions = fs.readFileSync(ACTIONS, "utf8");
 
@@ -100,6 +102,126 @@ test("the recorded documentation carries no credentials", () => {
     }
   }
   assert.deepEqual(hits, [], `possible credentials in documentation:\n${hits.join("\n")}`);
+});
+
+/** Rows of the chronology appendix: commit, date, subject, and where the reasoning lives. */
+function chronologyRows(source) {
+  const heading = source.search(/^#{3,4} .*Полная хронология/im);
+  if (heading === -1) return [];
+  const body = source.slice(heading);
+  const rows = [];
+  for (const line of body.split("\n")) {
+    const match = /^\| `([0-9a-f]{7,40})` \| (\d{4}-\d{2}-\d{2}) \| (.+?) \| (.+?) \|$/.exec(line);
+    if (match) rows.push({ hash: match[1], date: match[2], subject: match[3], address: match[4].trim() });
+  }
+  return rows;
+}
+
+/** Files a commit touched, as repository-relative paths. */
+function commitFiles(hash) {
+  const output = execFileSync("git", ["show", "--name-only", "--pretty=format:", hash], { cwd: ROOT, encoding: "utf8" });
+  return output.split("\n").map((line) => line.trim()).filter(Boolean);
+}
+
+/**
+ * A commit titled "docs:" that also changed code, kept as a recorded exception instead of a
+ * silent one. History is never rewritten, so the honest move is to name it: the guard fix landed
+ * under a documentation subject and got its register row (172) afterwards. Each entry must still
+ * be a real commit that still touches a non-docs path, so the list cannot rot.
+ */
+const CODE_IN_DOCS_COMMITS = new Map([
+  ["422efd34", "the register-scoping guard fix shipped under a docs subject; row 172 records it"],
+]);
+
+test("every change of this session has a row, and every row points at a reason", (t) => {
+  // The owner needs the whole development sequence reconstructed. An earlier version of this
+  // guard only validated the commits the record happened to mention, so it passed while 49 of
+  // 109 commits had no entry at all, two of them behaviour changes. It now runs in both
+  // directions: no commit without a row, and no row without a place that explains why.
+  let log;
+  try {
+    log = execFileSync("git", ["log", "--pretty=%h\u001f%s", `${SESSION_BASE}..HEAD`], { cwd: ROOT, encoding: "utf8" });
+  } catch {
+    t.skip("git history is unavailable in this checkout");
+    return;
+  }
+  const commits = log.split("\n").map((line) => line.trim()).filter(Boolean).map((line) => {
+    const [hash, subject] = line.split("\u001f");
+    return { hash, subject };
+  });
+  assert.ok(commits.length > 20, `expected the session history, found ${commits.length} commits`);
+
+  const rows = chronologyRows(audit);
+  assert.ok(rows.length > 20, `expected the chronology appendix, found ${rows.length} rows`);
+  const byHash = new Map(rows.map((row) => [row.hash, row]));
+  const head = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
+
+  // Direction one: a commit that the appendix does not list.
+  const missing = [];
+  for (const { hash, subject } of commits) {
+    const isDocs = /^docs(\(|:)/.test(subject);
+    if (isDocs) {
+      // Checked for every documentation commit, not only for the exempt ones: the exemption
+      // (a commit cannot cite itself) must not become a way to land behaviour without a reason,
+      // so a "docs" commit may only touch docs/.
+      const codeFiles = commitFiles(hash).filter((file) => !file.startsWith("docs/"));
+      if (codeFiles.length > 0) {
+        assert.ok(
+          CODE_IN_DOCS_COMMITS.has(hash),
+          `${hash} claims to be documentation only but touched ${codeFiles.join(", ")}`
+        );
+      }
+    }
+    if (byHash.has(hash)) continue;
+    // The newest commit cannot cite itself, so the record catches up on the next one.
+    if (hash === head) continue;
+    missing.push(`${hash} ${subject}`);
+  }
+  assert.deepEqual(missing, [], `commits with no row in the chronology:\n${missing.join("\n")}`);
+
+  for (const [hash, reason] of CODE_IN_DOCS_COMMITS) {
+    assert.ok(commitFiles(hash).some((file) => !file.startsWith("docs/")), `${hash} no longer touches code: drop the exception (${reason})`);
+    assert.ok(byHash.has(hash), `${hash} is exempted but has no chronology row`);
+  }
+
+  // Direction two: a row whose address does not resolve, which would be a decorative entry.
+  const numbers = new Set(registerRows(audit));
+  const sections = new Set([...audit.matchAll(/^#{2,3} (\d+(?:\.\d+)*)\./gm)].map((match) => match[1]));
+  const registerText = new Map();
+  for (const line of audit.split("\n")) {
+    const match = /^\| (\d+) \|/.exec(line);
+    if (match) registerText.set(Number(match[1]), line);
+  }
+
+  const unresolved = [];
+  for (const row of rows) {
+    const address = row.address;
+    if (address === "—" || address === "-" || address === "") {
+      unresolved.push(`${row.hash}: no address`);
+      continue;
+    }
+    const registerRow = /реестр, строк(?:а|и) ([\d,\sи]+)/.exec(address);
+    if (registerRow) {
+      const cited = [...registerRow[1].matchAll(/\d+/g)].map((m) => Number(m[0]));
+      for (const number of cited) {
+        const text = registerText.get(number);
+        if (!numbers.has(number) || !text) unresolved.push(`${row.hash}: register row ${number} does not exist`);
+        else if (!text.includes(row.hash)) unresolved.push(`${row.hash}: register row ${number} does not cite it`);
+      }
+    }
+    for (const section of address.matchAll(/§(\d+(?:\.\d+)*)/g)) {
+      if (!sections.has(section[1])) unresolved.push(`${row.hash}: section ${section[1]} does not exist`);
+    }
+    if (/PROJECT_STATE/.test(address) && !state.includes(row.hash)) {
+      unresolved.push(`${row.hash}: PROJECT_STATE does not mention it`);
+    }
+    for (const action of address.matchAll(/(UA-\d+)/g)) {
+      if (!actions.includes(action[1])) unresolved.push(`${row.hash}: ${action[1]} does not exist`);
+    }
+    const known = /реестр|§|PROJECT_STATE|UA-\d+|USER_ACTIONS/.test(address);
+    if (!known) unresolved.push(`${row.hash}: address "${address}" names no place in the record`);
+  }
+  assert.deepEqual(unresolved, [], `chronology rows whose reason cannot be found:\n${unresolved.join("\n")}`);
 });
 
 test("the record never claims verification for something it marks unverified", () => {
