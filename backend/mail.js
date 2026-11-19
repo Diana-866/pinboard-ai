@@ -57,13 +57,7 @@ async function listInbox(limit = 30) {
     throw httpError(503, "Почтовый ящик временно недоступен. Попробуйте позже.");
   }
   const { ImapFlow } = require("imapflow");
-  const client = new ImapFlow({
-    host: process.env.MAIL_IMAP_HOST,
-    port: Number(process.env.MAIL_IMAP_PORT || 993),
-    secure: true,
-    auth: getImapAuth(),
-    logger: false,
-  });
+  const client = new ImapFlow(buildImapClientOptions());
 
   await client.connect();
   try {
@@ -106,13 +100,7 @@ async function fetchMessageBody(uid) {
     throw httpError(503, "Почтовый ящик временно недоступен. Попробуйте позже.");
   }
   const { ImapFlow } = require("imapflow");
-  const client = new ImapFlow({
-    host: process.env.MAIL_IMAP_HOST,
-    port: Number(process.env.MAIL_IMAP_PORT || 993),
-    secure: true,
-    auth: getImapAuth(),
-    logger: false,
-  });
+  const client = new ImapFlow(buildImapClientOptions());
   await client.connect();
   try {
     const lock = await client.getMailboxLock("INBOX");
@@ -167,6 +155,27 @@ const MAIL_SOCKET_TIMEOUT_MS = 30_000;
  * до десяти минут, и зависший SMTP держал бы запрос регистрации или сброса пароля открытым
  * намного дольше, чем клиент готов ждать.
  */
+const MAIL_IMAP_CONNECTION_TIMEOUT_MS = 10_000;
+const MAIL_IMAP_GREETING_TIMEOUT_MS = 10_000;
+const MAIL_IMAP_SOCKET_TIMEOUT_MS = 60_000;
+
+/**
+ * Параметры IMAP-клиента. Без них действуют значения imapflow (сокет — 5 минут), и
+ * зависший почтовый сервер держал бы админский запрос почти всё это время.
+ */
+function buildImapClientOptions() {
+  return {
+    host: process.env.MAIL_IMAP_HOST,
+    port: Number(process.env.MAIL_IMAP_PORT || 993),
+    secure: true,
+    auth: getImapAuth(),
+    logger: false,
+    connectionTimeout: MAIL_IMAP_CONNECTION_TIMEOUT_MS,
+    greetingTimeout: MAIL_IMAP_GREETING_TIMEOUT_MS,
+    socketTimeout: MAIL_IMAP_SOCKET_TIMEOUT_MS,
+  };
+}
+
 function mailTransportTimeouts() {
   return {
     connectionTimeout: MAIL_CONNECTION_TIMEOUT_MS,
@@ -241,6 +250,10 @@ module.exports = {
   sendMail,
   buildTransactionalTransportOptions,
   buildReplyTransportOptions,
+  buildImapClientOptions,
+  MAIL_IMAP_CONNECTION_TIMEOUT_MS,
+  MAIL_IMAP_GREETING_TIMEOUT_MS,
+  MAIL_IMAP_SOCKET_TIMEOUT_MS,
   MAIL_CONNECTION_TIMEOUT_MS,
   MAIL_GREETING_TIMEOUT_MS,
   MAIL_SOCKET_TIMEOUT_MS,

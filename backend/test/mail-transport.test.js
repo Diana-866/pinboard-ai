@@ -111,6 +111,28 @@ test("every sender builds its transport from a tested builder, never from an inl
   }
 });
 
+test("the IMAP client is bounded too, so an inbox request cannot hang for minutes", () => {
+  const options = withEnv({ MAIL_IMAP_HOST: "imap.example.com", MAIL_IMAP_PORT: undefined }, () =>
+    mail.buildImapClientOptions()
+  );
+  for (const key of ["connectionTimeout", "greetingTimeout", "socketTimeout"]) {
+    const value = options[key];
+    assert.ok(Number.isInteger(value) && value > 0, `${key} must be a positive integer, got ${value}`);
+  }
+  // imapflow defaults to a five minute socket; the ceiling here is far lower.
+  assert.ok(options.socketTimeout <= 120_000, "an idle IMAP socket must be dropped");
+  assert.equal(options.host, "imap.example.com");
+  assert.equal(options.port, 993);
+  assert.equal(options.secure, true);
+
+  const source = require("node:fs").readFileSync(require.resolve("../mail.js"), "utf8");
+  const clients = [...source.matchAll(/new ImapFlow(([^;]*));/g)].map((match) => match[1].trim());
+  assert.equal(clients.length, 2, "listing and reading a message");
+  for (const call of clients) {
+    assert.equal(call, "(buildImapClientOptions())", `inline IMAP options: ${call}`);
+  }
+});
+
 test("the support-reply transport carries the same timeouts", () => {
   const options = mail.buildReplyTransportOptions({
     host: "smtp.example.com",
