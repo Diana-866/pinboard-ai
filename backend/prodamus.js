@@ -11,6 +11,7 @@ const { logError } = require("./safeLogger");
 const crypto = require("crypto");
 const axios = require("axios");
 const { httpError } = require("./validate");
+const { paymentProviderUnavailable } = require("./paymentErrors");
 
 function isConfigured() {
   return !!(process.env.PRODAMUS_SHOP_ID && process.env.PRODAMUS_SECRET);
@@ -382,14 +383,14 @@ async function createPaymentLink({
     });
   } catch (e) {
     logError("prodamus.event_002");
-    throw httpError(502, "Платёжный сервис не отвечает — попробуйте позже");
+    throw paymentProviderUnavailable();
   }
 
   // Never accept a checkout URL from a non-2xx response. A provider error body
   // is not evidence that the invoice was successfully created.
   if (!res || !Number.isInteger(res.status) || res.status < 200 || res.status >= 300) {
     logError("prodamus.event_003");
-    const error = httpError(502, "Prodamus не подтвердил создание счёта — попробуйте позже");
+    const error = paymentProviderUnavailable("Prodamus не подтвердил создание счёта — попробуйте позже");
     // Only an explicit 4xx is treated as a definitive rejection. Redirects,
     // 5xx responses and malformed status remain ambiguous to avoid duplicates.
     error.providerRejected = Number.isInteger(res && res.status) && res.status >= 400 && res.status < 500;

@@ -388,25 +388,9 @@ async function requireAuth(req, res, next) {
 }
 
 // Единый обработчик: коды 4xx отдают понятное сообщение, 5xx — не раскрывают внутренности (B10)
-function handleError(res, e, publicMessage, status) {
-  const code = status || (e && e.httpStatus) || (publicMessage ? 400 : 500);
-  if (code >= 500) logError("http.request_failed", e, code);
-  else logWarning("http.request_rejected", e, code);
-
-  // Дополнительные поля (например, 403 email_not_verified: retryAfterSeconds/emailSent)
-  // отдаём рядом с error — фронт показывает точное сообщение без повторных запросов.
-  const extra = e && e.details && typeof e.details === "object" ? e.details : null;
-
-  if (code >= 500) {
-    return res.status(code).json({
-      error: publicMessage || "Внутренняя ошибка сервера, попробуйте позже",
-    });
-  }
-  return res.status(code).json({
-    error: publicMessage || (e && e.message) || "Ошибка запроса",
-    ...(extra || {}),
-  });
-}
+// The responder lives in its own module so it can be tested directly: a boundary that
+// silently dropped machine codes was invisible while it was an inner function here.
+const { respondWithError: handleError } = require("./httpErrorResponse");
 
 app.get("/", (req, res) => {
   res.send("OK");

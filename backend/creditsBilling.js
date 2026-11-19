@@ -16,6 +16,7 @@ const prodamus = require("./prodamus");
 const { persistWebhookException } = require("./billingWebhookAudit");
 const { persistProviderReceipt, setProviderDecision } = require("./paymentProviderReceipts");
 const { httpError, validateEnum } = require("./validate");
+const { paymentLinkNotSaved, paymentOrderPreparationFailed } = require("./paymentErrors");
 const { CREDIT_PACKS, normalizePackId, packAmount } = require("./creditPacks");
 const { createPaymentOrderId } = require("./paymentOrderId");
 const { beginPaymentCreation, attachPaymentCreationOrder, denyUnsentPaymentRecord, completePaymentCreation, settlePaymentCreationRequest, markPaymentCreationUnknown, failPaymentCreation, handlePaymentProviderFailure } = require("./paymentCreationIdempotency");
@@ -131,7 +132,7 @@ async function createCreditsPayment(userId, body, idempotencyKey) {
       await failPaymentCreation(userId, idempotencyKey, error);
     }
     logError("creditsBilling.event_003");
-    throw httpError(503, "Не удалось безопасно подготовить заказ. Счёт провайдеру не отправлялся; статус заказа требует проверки.");
+    throw paymentOrderPreparationFailed();
   }
 
   let link;
@@ -168,7 +169,7 @@ async function createCreditsPayment(userId, body, idempotencyKey) {
   } catch (error) {
     await markPaymentCreationUnknown(userId, idempotencyKey, error);
     logError("creditsBilling.event_005");
-    throw httpError(503, "Счёт создан, но не удалось сохранить ссылку. Не создавайте новый платёж; обратитесь в поддержку.");
+    throw paymentLinkNotSaved();
   }
   return response;
 }

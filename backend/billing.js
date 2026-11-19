@@ -14,6 +14,7 @@ const { beginPaymentCreation, attachPaymentCreationOrder, denyUnsentPaymentRecor
 const { persistWebhookException } = require("./billingWebhookAudit");
 const { persistProviderReceipt, setProviderDecision } = require("./paymentProviderReceipts");
 const { httpError, validateEnum } = require("./validate");
+const { paymentLinkNotSaved, paymentOrderPreparationFailed } = require("./paymentErrors");
 const { normalizePlan } = require("./tariff");
 
 // Каталог тарифов: цены те же, что на лендинге и в PricingView.
@@ -145,7 +146,7 @@ async function createPayment(userId, body, idempotencyKey) {
       await failPaymentCreation(userId, idempotencyKey, error);
     }
     logError("billing.event_003");
-    throw httpError(503, "Не удалось безопасно подготовить заказ. Счёт провайдеру не отправлялся; статус заказа требует проверки.");
+    throw paymentOrderPreparationFailed();
   }
 
   let link;
@@ -181,7 +182,7 @@ async function createPayment(userId, body, idempotencyKey) {
   } catch (error) {
     await markPaymentCreationUnknown(userId, idempotencyKey, error);
     logError("billing.event_005");
-    throw httpError(503, "Счёт создан, но не удалось сохранить ссылку. Не создавайте новый платёж; обратитесь в поддержку.");
+    throw paymentLinkNotSaved();
   }
   return response;
 }

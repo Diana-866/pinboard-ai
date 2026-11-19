@@ -13,6 +13,9 @@ import { readLocalStorageValue } from '../lib/authStorage';
 type Language = 'en' | 'ru' | 'es' | 'pt' | 'de' | 'fr' | 'zh';
 
 export type AppErrorMessageKey =
+  | 'paymentProviderUnavailable'
+  | 'paymentLinkNotSaved'
+  | 'paymentOrderPreparationFailed'
   | 'tariffRequired'
   | 'tariffInsufficient'
   | 'pinterestUnavailable'
@@ -62,6 +65,9 @@ export type AppErrorMessageKey =
 
 const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
   en: {
+    paymentProviderUnavailable: "The payment service is not responding right now. Nothing has been charged - try again in a few minutes.",
+    paymentLinkNotSaved: "Your invoice was created but we could not save its link. Do not start another payment - contact support and we will find your invoice by email.",
+    paymentOrderPreparationFailed: "We could not prepare your order safely, and nothing was sent to the payment provider. Try again in a few minutes.",
     tariffRequired: "Your plan is not active right now. Choose a plan to create pins again.",
     tariffInsufficient: "This section is not included in your current plan. Upgrade to continue.",
     pinterestUnavailable: "Pinterest is temporarily unavailable. Nothing was lost — try this again in a minute.",
@@ -110,6 +116,9 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "The server did not return the data needed for a secure connection.",
   },
   ru: {
+    paymentProviderUnavailable: "Платёжный сервис сейчас не отвечает. Деньги не списаны — повторите попытку через несколько минут.",
+    paymentLinkNotSaved: "Счёт создан, но ссылку на него сохранить не удалось. Не создавайте новый платёж — напишите в поддержку, мы найдём счёт по email.",
+    paymentOrderPreparationFailed: "Не удалось безопасно подготовить заказ, провайдеру ничего не отправлялось. Повторите попытку через несколько минут.",
     tariffRequired: "Подписка не активна. Выберите тариф, чтобы снова создавать пины.",
     tariffInsufficient: "Этот раздел не входит в ваш тариф. Перейдите на другой, чтобы продолжить.",
     pinterestUnavailable: "Pinterest временно недоступен. Ничего не потеряно — повторите через минуту.",
@@ -158,6 +167,9 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Сервер не вернул данные для безопасного подключения.",
   },
   es: {
+    paymentProviderUnavailable: "El servicio de pago no responde en este momento. No se ha cobrado nada: inténtalo de nuevo en unos minutos.",
+    paymentLinkNotSaved: "La factura se creó, pero no pudimos guardar su enlace. No inicies otro pago: escribe al soporte y la encontraremos por tu email.",
+    paymentOrderPreparationFailed: "No pudimos preparar tu pedido de forma segura y no se envió nada al proveedor de pago. Inténtalo de nuevo en unos minutos.",
     tariffRequired: "Tu plan no está activo ahora mismo. Elige un plan para volver a crear pines.",
     tariffInsufficient: "Esta sección no está incluida en tu plan actual. Mejora el plan para continuar.",
     pinterestUnavailable: "Pinterest no está disponible temporalmente. No se ha perdido nada: inténtalo de nuevo en un minuto.",
@@ -206,6 +218,9 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "El servidor no devolvió los datos necesarios para una conexión segura.",
   },
   pt: {
+    paymentProviderUnavailable: "O serviço de pagamento não está respondendo agora. Nada foi cobrado — tente novamente em alguns minutos.",
+    paymentLinkNotSaved: "A fatura foi criada, mas não conseguimos salvar o link dela. Não inicie outro pagamento — fale com o suporte e a encontraremos pelo seu email.",
+    paymentOrderPreparationFailed: "Não conseguimos preparar seu pedido com segurança e nada foi enviado ao provedor de pagamento. Tente novamente em alguns minutos.",
     tariffRequired: "Seu plano não está ativo agora. Escolha um plano para voltar a criar pins.",
     tariffInsufficient: "Esta seção não está incluída no seu plano atual. Faça upgrade para continuar.",
     pinterestUnavailable: "O Pinterest está temporariamente indisponível. Nada foi perdido — tente novamente dentro de um minuto.",
@@ -254,6 +269,9 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "O servidor não devolveu os dados necessários para uma ligação segura.",
   },
   de: {
+    paymentProviderUnavailable: "Der Zahlungsdienst antwortet gerade nicht. Es wurde nichts belastet - versuche es in ein paar Minuten erneut.",
+    paymentLinkNotSaved: "Die Rechnung wurde erstellt, aber wir konnten ihren Link nicht speichern. Starte keine zweite Zahlung - schreibe dem Support, wir finden sie über deine E-Mail.",
+    paymentOrderPreparationFailed: "Wir konnten deine Bestellung nicht sicher vorbereiten, an den Zahlungsanbieter wurde nichts gesendet. Versuche es in ein paar Minuten erneut.",
     tariffRequired: "Dein Tarif ist derzeit nicht aktiv. Wähle einen Tarif, um wieder Pins zu erstellen.",
     tariffInsufficient: "Dieser Bereich ist in deinem aktuellen Tarif nicht enthalten. Führe ein Upgrade durch.",
     pinterestUnavailable: "Pinterest ist vorübergehend nicht erreichbar. Es ist nichts verloren gegangen — versuchen Sie es in einer Minute erneut.",
@@ -302,6 +320,9 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Der Server hat die für eine sichere Verbindung nötigen Daten nicht zurückgegeben.",
   },
   fr: {
+    paymentProviderUnavailable: "Le service de paiement ne répond pas pour le moment. Rien n'a été débité : réessayez dans quelques minutes.",
+    paymentLinkNotSaved: "La facture a été créée, mais nous n'avons pas pu enregistrer son lien. Ne lancez pas un autre paiement : écrivez au support et nous la retrouverons grâce à votre email.",
+    paymentOrderPreparationFailed: "Nous n'avons pas pu préparer votre commande en toute sécurité et rien n'a été envoyé au prestataire de paiement. Réessayez dans quelques minutes.",
     tariffRequired: "Votre offre n'est pas active pour le moment. Choisissez une offre pour créer à nouveau des épingles.",
     tariffInsufficient: "Cette section n'est pas incluse dans votre offre actuelle. Passez à une offre supérieure.",
     pinterestUnavailable: "Pinterest est temporairement indisponible. Rien n’est perdu — réessayez dans une minute.",
@@ -350,6 +371,9 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Le serveur n’a pas renvoyé les données nécessaires à une connexion sécurisée.",
   },
   zh: {
+    paymentProviderUnavailable: "支付服务暂时无法响应，尚未扣款。请几分钟后重试。",
+    paymentLinkNotSaved: "账单已创建，但我们无法保存其链接。请不要再次发起支付，请联系客服，我们会通过邮箱找到这笔账单。",
+    paymentOrderPreparationFailed: "我们无法安全地准备您的订单，也没有向支付服务商发送任何内容。请几分钟后重试。",
     tariffRequired: "您的套餐当前未生效。请选择套餐以继续创建 Pin。",
     tariffInsufficient: "当前套餐不包含此功能。请升级套餐后继续。",
     pinterestUnavailable: "Pinterest 暂时不可用，数据没有丢失，请稍后重试。",
@@ -450,6 +474,17 @@ const CONFLICT_CODES: Record<string, AppErrorMessageKey> = {
  * a different plan — so they get codes and a localized message; any other 403 (for example an
  * unverified email) keeps its own handling.
  */
+/**
+ * Payment failures are the class where the customer must understand the exact situation:
+ * nothing was sent, an invoice exists without a link, or the service is down. The cheapest wrong
+ * reaction to "we could not save your invoice link" is starting a second payment.
+ */
+const PAYMENT_CODES: Record<string, AppErrorMessageKey> = {
+  payment_provider_unavailable: 'paymentProviderUnavailable',
+  payment_link_not_saved: 'paymentLinkNotSaved',
+  payment_order_preparation_failed: 'paymentOrderPreparationFailed',
+};
+
 const TARIFF_CODES: Record<string, AppErrorMessageKey> = {
   tariff_required: 'tariffRequired',
   tariff_insufficient: 'tariffInsufficient',
@@ -470,6 +505,10 @@ export function getLocalizedApiError(code: unknown, status: unknown): string | n
   }
   if (Number(status) === 422 && Object.prototype.hasOwnProperty.call(VALIDATION_CODES, code)) {
     return getAppErrorMessage(VALIDATION_CODES[code]);
+  }
+  if ((Number(status) === 502 || Number(status) === 503) &&
+      Object.prototype.hasOwnProperty.call(PAYMENT_CODES, code)) {
+    return getAppErrorMessage(PAYMENT_CODES[code]);
   }
   if (Number(status) === 403 && Object.prototype.hasOwnProperty.call(TARIFF_CODES, code)) {
     return getAppErrorMessage(TARIFF_CODES[code]);

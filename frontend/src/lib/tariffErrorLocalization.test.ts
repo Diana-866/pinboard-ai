@@ -18,7 +18,10 @@ import { getLocalizedApiError } from '../i18n/appErrorCopy';
 
 const SRC = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const REPO_ROOT = path.dirname(path.dirname(SRC));
+// Normalized: the working tree is checked out with CRLF on Windows, and a block boundary that
+// only matches LF would make this scan silently find nothing.
 const COPY_SOURCE = readFileSync(path.join(SRC, 'i18n', 'appErrorCopy.ts'), 'utf8');
+const NORMALIZED_COPY_SOURCE = COPY_SOURCE.split('\r\n').join('\n');
 const LANGUAGES = ['en', 'ru', 'es', 'pt', 'de', 'fr', 'zh'];
 
 const KEYS = ['tariffRequired', 'tariffInsufficient'];
@@ -41,11 +44,12 @@ function withStoredLanguage<T>(language: string | null, run: () => T): T {
 }
 
 function block(language: string): string {
-  const start = COPY_SOURCE.indexOf(`\n  ${language}: {\n`);
+  const source = NORMALIZED_COPY_SOURCE;
+  const start = source.indexOf(`\n  ${language}: {\n`);
   assert.ok(start > -1, `language block ${language} must exist`);
-  const end = COPY_SOURCE.indexOf('\n  },', start);
+  const end = source.indexOf('\n  },', start);
   assert.ok(end > start, `language block ${language} must be closed`);
-  return COPY_SOURCE.slice(start, end);
+  return source.slice(start, end);
 }
 
 test('every language carries both paywall messages', () => {
