@@ -53,7 +53,8 @@ function transactionalMailConfigured() {
 async function listInbox(limit = 30) {
   const safeLimit = normalizeInboxLimit(limit);
   if (!mailConfigured()) {
-    throw httpError(503, "Почта не настроена: задайте MAIL_IMAP_HOST, MAIL_IMAP_USER и MAIL_IMAP_PASS на сервере");
+    logError("mail.event_005");
+    throw httpError(503, "Почтовый ящик временно недоступен. Попробуйте позже.");
   }
   const { ImapFlow } = require("imapflow");
   const client = new ImapFlow({
@@ -101,7 +102,8 @@ async function listInbox(limit = 30) {
 async function fetchMessageBody(uid) {
   const safeUid = normalizeImapUid(uid);
   if (!mailConfigured()) {
-    throw httpError(503, "Почта не настроена: задайте MAIL_IMAP_HOST, MAIL_IMAP_USER и MAIL_IMAP_PASS на сервере");
+    logError("mail.event_005");
+    throw httpError(503, "Почтовый ящик временно недоступен. Попробуйте позже.");
   }
   const { ImapFlow } = require("imapflow");
   const client = new ImapFlow({
@@ -141,16 +143,11 @@ async function replyToMessage(to, subject, text) {
   const reply = normalizeSupportReply(to, subject, text);
   const config = getReplySmtpConfig();
   if (!config.host || !config.auth.user || !config.auth.pass) {
-    throw httpError(503, "SMTP ответов поддержки не настроен: задайте MAIL_REPLY_SMTP_HOST, MAIL_REPLY_SMTP_USER и MAIL_REPLY_SMTP_PASS");
+    logError("mail.event_004");
+    throw httpError(503, "Ответы поддержки временно недоступны. Попробуйте позже.");
   }
   const nodemailer = require("nodemailer");
-  const transporter = nodemailer.createTransport({
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    requireTLS: config.requireTLS,
-    auth: config.auth,
-  });
+  const transporter = nodemailer.createTransport(buildReplyTransportOptions(config));
 
   await transporter.sendMail({
     from: config.from,
@@ -161,6 +158,47 @@ async function replyToMessage(to, subject, text) {
   return { ok: true };
 }
 
+const MAIL_CONNECTION_TIMEOUT_MS = 10_000;
+const MAIL_GREETING_TIMEOUT_MS = 10_000;
+const MAIL_SOCKET_TIMEOUT_MS = 30_000;
+
+/**
+ * Параметры транспорта. Таймауты обязательны: значения по умолчанию у nodemailer доходят
+ * до десяти минут, и зависший SMTP держал бы запрос регистрации или сброса пароля открытым
+ * намного дольше, чем клиент готов ждать.
+ */
+function mailTransportTimeouts() {
+  return {
+    connectionTimeout: MAIL_CONNECTION_TIMEOUT_MS,
+    greetingTimeout: MAIL_GREETING_TIMEOUT_MS,
+    socketTimeout: MAIL_SOCKET_TIMEOUT_MS,
+  };
+}
+
+/** Параметры транспорта для ответов поддержки: те же таймауты, что и у транзакционной почты. */
+function buildReplyTransportOptions(config) {
+  return {
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    requireTLS: config.requireTLS,
+    auth: config.auth,
+    ...mailTransportTimeouts(),
+  };
+}
+
+function buildTransactionalTransportOptions() {
+  const port = Number(process.env.MAIL_SMTP_PORT || 465);
+  return {
+    host: process.env.MAIL_SMTP_HOST,
+    port,
+    secure: port === 465,
+    requireTLS: port === 587,
+    auth: getTransactionalSmtpAuth(),
+    ...mailTransportTimeouts(),
+  };
+}
+
 // Универсальная отправка письма (используется биллингом: «Тариф активирован»).
 // Не бросает исключение наружу без needThrow — вызывающий код сам решает, критично ли это.
 async function sendMail({ to, subject, text, html, messageId }, { needThrow = true } = {}) {
@@ -169,17 +207,11 @@ async function sendMail({ to, subject, text, html, messageId }, { needThrow = tr
       logWarning("mail.event_002");
       return { ok: false, skipped: true };
     }
-    throw httpError(503, "Транзакционная почта не настроена: задайте MAIL_SMTP_HOST, MAIL_SMTP_USER и MAIL_SMTP_PASS на сервере");
+    logError("mail.event_003");
+    throw httpError(503, "Отправка писем временно недоступна. Попробуйте позже.");
   }
   const nodemailer = require("nodemailer");
-  const port = Number(process.env.MAIL_SMTP_PORT || 465);
-  const transporter = nodemailer.createTransport({
-    host: process.env.MAIL_SMTP_HOST,
-    port,
-    secure: port === 465,
-    requireTLS: port === 587,
-    auth: getTransactionalSmtpAuth(),
-  });
+  const transporter = nodemailer.createTransport(buildTransactionalTransportOptions());
 
   try {
     await transporter.sendMail({
@@ -200,4 +232,16 @@ async function sendMail({ to, subject, text, html, messageId }, { needThrow = tr
   }
 }
 
-module.exports = { listInbox, fetchMessageBody, replyToMessage, mailConfigured, transactionalMailConfigured, sendMail };
+module.exports = {
+  listInbox,
+  fetchMessageBody,
+  replyToMessage,
+  mailConfigured,
+  transactionalMailConfigured,
+  sendMail,
+  buildTransactionalTransportOptions,
+  buildReplyTransportOptions,
+  MAIL_CONNECTION_TIMEOUT_MS,
+  MAIL_GREETING_TIMEOUT_MS,
+  MAIL_SOCKET_TIMEOUT_MS,
+};
