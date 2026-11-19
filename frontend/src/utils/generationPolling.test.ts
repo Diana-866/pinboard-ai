@@ -155,7 +155,9 @@ test('the generator replays the same idempotency key instead of rotating it', ()
 
 test('the backend states the wait in the body, not only in a header', () => {
   const backend = readFileSync(path.join(SRC, '../../../backend/index.js'), 'utf8');
-  const bodyLine = /code: "generation_in_progress", retryAfterSeconds: (\d+)/.exec(backend);
+  // The body is written by sendError(res, status, message, code, extra), so the wait sits in the
+  // extra object next to the code the client reads.
+  const bodyLine = /sendError\(res, 409, [^,]+,\s*"generation_in_progress",\s*\{ retryAfterSeconds: (\d+)/.exec(backend);
   assert.ok(bodyLine, 'the 409 body must carry retryAfterSeconds');
   assert.ok(Number(bodyLine[1]) > 0 && Number(bodyLine[1]) <= 60);
   // The header and the body must agree, or a client reading either one sees different waits.

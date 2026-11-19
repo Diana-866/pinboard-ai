@@ -60,6 +60,17 @@ import { TermsOfService } from './pages/TermsOfService';
 import { Contacts } from './pages/Contacts';
 import { EmailVerifyBanner } from './components/auth/EmailVerifyBanner';
 
+/**
+ * /pricing is offered to customers by the API (paywall upgrade_url) and is a natural public URL.
+ * Without this route the catch-all sent everyone to the landing page.
+ */
+const PricingEntry: React.FC = () =>
+  hasStoredAuthToken()
+    ? <Navigate to="/app?tab=pricing" replace />
+    : <Navigate to="/" replace />;
+
+const APP_TABS = ['dashboard', 'generator', 'boards', 'calendar', 'review', 'analytics', 'keywords', 'pricing', 'settings'];
+
 const MainApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [initialPricingPlan, setInitialPricingPlan] = useState<string | null>(null);
@@ -235,6 +246,19 @@ const MainApp: React.FC = () => {
   const isTariffUnlocked =
     subscriptionActive && ['start', 'pro', 'agency'].includes(normalizedPlan);
   const isSectionLocked = !isTariffUnlocked && activeTab !== 'analytics' && activeTab !== 'pricing';
+
+  // Ссылка из API (например upgrade_url при пейволе) должна открывать тот раздел, который
+  // обещает. Неизвестное значение игнорируем: адрес приходит извне, доверять ему нельзя.
+  React.useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('tab');
+    if (!requested) return;
+    if (!APP_TABS.includes(requested)) return;
+    setActiveTab(requested);
+    // Чистим query, чтобы обновление страницы не возвращало пользователя назад.
+    const url = new URL(window.location.href);
+    url.searchParams.delete('tab');
+    window.history.replaceState({}, '', url.toString());
+  }, []);
 
   // Возврат со страницы оплаты Prodamus: ?payment=success (urlSuccess в billing.js).
   // Вебхук и редирект идут параллельно, поэтому обновляем /me несколько раз:
@@ -1171,6 +1195,7 @@ export default function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/check-email" element={<CheckEmail />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/pricing" element={<PricingEntry />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/contacts" element={<Contacts />} />
