@@ -16,8 +16,10 @@ const USER_ID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
 // actually builds (select/eq/in/limit/maybeSingle) plus rpc().
 function fakeDb(tables, { rpcResult } = {}) {
   const rpcCalls = [];
+  const orderCalls = [];
   const db = {
     rpcCalls,
+    orderCalls,
     from(table) {
       const filters = [];
       let limit = null;
@@ -45,7 +47,7 @@ function fakeDb(tables, { rpcResult } = {}) {
         eq(column, value) { filters.push([column, value, "eq"]); return builder; },
         in(column, value) { filters.push([column, value, "in"]); return builder; },
         limit(value) { limit = value; return builder; },
-        order() { return builder; },
+        order(column, options) { orderCalls.push({ table, column, options }); return builder; },
         range(start, end) { rangeStart = start; rangeEnd = end; return builder; },
         maybeSingle() { return resolve().then((rows) => ({ data: rows.data[0] ?? null, error: rows.error })); },
         then(onFulfilled, onRejected) { return resolve().then(onFulfilled, onRejected); },
@@ -114,8 +116,17 @@ test("account export never leaks credentials and follows the ownership graph", a
   assert.equal(JSON.stringify(exported).includes("ACCESS-SECRET"), false);
   assert.equal(JSON.stringify(exported).includes("REFRESH-SECRET"), false);
 
-  assert.deepEqual(exported.degradedSections, []);
-  assert.equal(exported.formatVersion, 1);
+  // Sections backed by tables in this fixture were read; the ones this fixture does
+  // not provide (the generation, payment and deletion tables added later) are
+  // correctly reported as degraded instead of passing as empty.
+  for (const section of [
+    "projects", "boards", "pins", "creditTransactions", "subscriptions",
+    "creditPurchases", "pinterestAccounts", "pinterestPublications",
+    "pinSchedules", "reviewQueue",
+  ]) {
+    assert.equal(exported.degradedSections.includes(section), false, `${section} should have been read`);
+  }
+  assert.equal(exported.formatVersion, 2);
 });
 
 test("account export paginates sections beyond the PostgREST 1,000-row cap", async () => {
@@ -135,10 +146,17 @@ test("account export paginates sections beyond the PostgREST 1,000-row cap", asy
   assert.equal(exported.creditTransactions.length, 1005);
   assert.equal(exported.creditTransactions[0].id, "0001");
   assert.equal(exported.creditTransactions[1004].id, "1005");
-  assert.deepEqual(exported.degradedSections, [
+  // The fixture provides only three tables, so every other section must be reported
+  // as degraded rather than presented as an empty (but complete) result.
+  for (const section of [
     "subscriptions", "creditPurchases", "pinterestAccounts",
     "pinterestPublications", "pinSchedules", "reviewQueue",
-  ]);
+    "generationRequests", "generationTasks", "regenerationRequests",
+    "generationCreditReservations", "generationTextUsage", "paymentRequests",
+    "paymentDecisions", "publishAttempts", "deletionRequests",
+  ]) {
+    assert.ok(exported.degradedSections.includes(section), section);
+  }
 });
 
 test("account export reports unreadable sections instead of failing outright", async () => {
@@ -251,4 +269,102 @@ test("deletion RPC errors map to stable HTTP statuses", () => {
     503
   );
   assert.equal(mapDeletionRpcError({ message: "connection reset" }).httpStatus, 503);
+});
+
+// --- Sections that were missing from the export entirely -----------------------
+//
+// The export used to stop at pin_review_queue. Everything the user authored through
+// generation (prompts, per-image tasks, regenerations), the credit reservations, the
+// payment and entitlement history, publishing attempts and the deletion request itself
+// were left out while the frontend still presented the file as the account's data.
+
+const SECRET_AND_INTERNAL_COLUMNS = [
+  "password_hash",
+  "access_token",
+  "refresh_token",
+  "claim_token",
+  "token_version",
+  "provider_idempotency_key",
+  "provider_task_id",
+  "provider_price",
+  "request_fingerprint",
+  "idempotency_key",
+];
+
+function ownedRow(extra) {
+  const row = { user_id: USER_ID };
+  for (const column of SECRET_AND_INTERNAL_COLUMNS) row[column] = `SENSITIVE-${column}`;
+  return { ...row, ...extra };
+}
+
+function generationTables() {
+  return {
+    users: [{ id: USER_ID, email: "user@example.com" }],
+    projects: [{ id: "p1", user_id: USER_ID }],
+    boards: [{ id: "b1", project_id: "p1", user_id: USER_ID }],
+    pins: [{ id: "pin1", board_id: "b1", user_id: USER_ID }],
+    credit_transactions: [],
+    subscriptions: [],
+    credit_purchases: [],
+    pinterest_accounts: [],
+    pinterest_publications: [],
+    pin_schedules: [],
+    pin_review_queue: [],
+    pin_generation_requests: [ownedRow({ id: "gr1", board_id: "b1", status: "completed", pins: [{ title: "Pumpkin latte" }] })],
+    pin_generation_tasks: [ownedRow({ id: "gt1", generation_request_id: "gr1", board_id: "b1", task_index: 1, title: "Pumpkin", description: "Cozy", prompt: "autumn coffee table", model: "flux-schnell", aspect_ratio: "2:3", status: "succeeded" })],
+    pin_regeneration_requests: [ownedRow({ id: "rr1", pin_id: "pin1", status: "completed", model: "flux-schnell", prompt: "make it warmer", result_pin: { title: "Warmer" } })],
+    pin_generation_credit_reservations: [ownedRow({ id: "res1", amount: 3, status: "settled" })],
+    pin_generation_text_usage: [ownedRow({ id: "use1", provider_model: "gpt-4o-mini", prompt_tokens: 90, completion_tokens: 30, total_tokens: 120, usage_status: "recorded" })],
+    payment_creation_requests: [ownedRow({ id: "pr1", request_kind: "credits", status: "ready" })],
+    payment_entitlement_decisions: [ownedRow({ receipt_id: "rc1", local_payment_kind: "credits", local_payment_id: "lp1", decision: "granted", safe_reason_code: "matched_receipt" })],
+    pinterest_publish_attempts: [ownedRow({ id: "pa1", pin_id: "pin1", pinterest_board_id: "pb1", status: "published", attempt_count: 1, pinterest_pin_id: "remote-1" })],
+    account_deletion_requests: [ownedRow({ state: "pending", confirmation_method: "password_reauth", requested_at: "2026-11-18T10:00:00Z" })],
+  };
+}
+
+test("account export includes generated content, payment history and the deletion request", async () => {
+  const exported = await buildAccountExport(USER_ID, fakeDb(generationTables()));
+
+  assert.deepEqual(exported.degradedSections, []);
+  assert.deepEqual(exported.generationRequests.map((row) => row.pins[0].title), ["Pumpkin latte"]);
+  // The prompt is user content: it was typed by the customer and must be returned.
+  assert.equal(exported.generationTasks[0].prompt, "autumn coffee table");
+  assert.equal(exported.generationTasks[0].description, "Cozy");
+  assert.equal(exported.regenerationRequests[0].prompt, "make it warmer");
+  assert.equal(exported.generationCreditReservations[0].amount, 3);
+  assert.equal(exported.generationTextUsage[0].total_tokens, 120);
+  assert.equal(exported.paymentRequests[0].request_kind, "credits");
+  assert.equal(exported.paymentDecisions[0].decision, "granted");
+  assert.equal(exported.publishAttempts[0].pinterest_pin_id, "remote-1");
+  assert.equal(exported.deletionRequests[0].state, "pending");
+});
+
+test("the new sections never export credentials, lease tokens or internal counters", async () => {
+  const exported = await buildAccountExport(USER_ID, fakeDb(generationTables()));
+  const serialized = JSON.stringify(exported);
+
+  for (const column of SECRET_AND_INTERNAL_COLUMNS) {
+    assert.equal(serialized.includes(`SENSITIVE-${column}`), false, `${column} leaked into the export`);
+  }
+  // Using a deny list alone could pass by exporting nothing, so the positive
+  // assertions in the previous test keep this honest.
+  assert.equal(exported.generationTasks.length, 1);
+});
+
+test("every export section is an array so a new section cannot be dropped silently", async () => {
+  const exported = await buildAccountExport(USER_ID, fakeDb(generationTables()));
+  for (const [section, value] of Object.entries(exported)) {
+    if (section === "generatedAt" || section === "formatVersion" || section === "account") continue;
+    assert.ok(Array.isArray(value), `export section ${section} must be an array`);
+  }
+});
+
+test("payment decisions are ordered by their real primary key", async () => {
+  const db = fakeDb(generationTables());
+  await buildAccountExport(USER_ID, db);
+  const decisionOrder = db.orderCalls.find((call) => call.table === "payment_entitlement_decisions");
+  // payment_entitlement_decisions has no `id` column; ordering by one would make
+  // PostgREST reject the query and mark the section degraded on every export.
+  assert.equal(decisionOrder.column, "receipt_id");
+  assert.deepEqual(decisionOrder.options, { ascending: true });
 });

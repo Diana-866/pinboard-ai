@@ -6,7 +6,11 @@ const defaultSupabase = require("./supabase");
 const { httpError } = require("./validate");
 const { isAccountDeletionWorkerEnabled } = require("./accountDeletionWorkerGate");
 
-const EXPORT_FORMAT_VERSION = 1;
+// Version 2 adds the generation, payment, publishing and deletion sections that
+// version 1 omitted. The bump is deliberate: a consumer can tell a file that
+// should contain them from one produced before they existed, instead of guessing
+// from the presence of a key.
+const EXPORT_FORMAT_VERSION = 2;
 
 // Guard against a timing oracle when the account does not exist.
 const DUMMY_HASH = bcrypt.hashSync("invalid-placeholder-password", 10);
@@ -43,6 +47,114 @@ const PINTEREST_ACCOUNT_COLUMNS = [
   "updated_at",
 ];
 
+// Generation output is user-authored content: it was produced from the user's own
+// brief and is stored on the user's boards. It has to appear in the export.
+const GENERATION_REQUEST_COLUMNS = [
+  "id",
+  "board_id",
+  "status",
+  "pins",
+  "error_code",
+  "created_at",
+  "updated_at",
+];
+
+// The per-image journal keeps the exact prompt that was sent to the provider.
+// provider_idempotency_key, provider_task_id and provider_price stay private.
+const GENERATION_TASK_COLUMNS = [
+  "id",
+  "generation_request_id",
+  "board_id",
+  "task_index",
+  "title",
+  "description",
+  "prompt",
+  "model",
+  "aspect_ratio",
+  "status",
+  "storage_url",
+  "error_code",
+  "created_at",
+  "updated_at",
+];
+
+// claim_token is a live lease credential and must never leave the database.
+const REGENERATION_REQUEST_COLUMNS = [
+  "id",
+  "pin_id",
+  "status",
+  "model",
+  "prompt",
+  "result_pin",
+  "error_code",
+  "created_at",
+  "updated_at",
+];
+
+const CREDIT_RESERVATION_COLUMNS = [
+  "id",
+  "amount",
+  "status",
+  "created_at",
+  "updated_at",
+];
+
+// Token counts are the user's own consumption. Provider cost in rubles is our
+// cost of goods and stays out of the customer-facing export.
+const TEXT_USAGE_COLUMNS = [
+  "id",
+  "provider_model",
+  "prompt_tokens",
+  "completion_tokens",
+  "total_tokens",
+  "cached_prompt_tokens",
+  "cache_write_tokens",
+  "usage_status",
+  "created_at",
+];
+
+// The payment link itself (result) is re-creatable and can contain provider
+// identifiers, so only the request outcome is exported.
+const PAYMENT_REQUEST_COLUMNS = [
+  "id",
+  "request_kind",
+  "status",
+  "error_code",
+  "created_at",
+  "updated_at",
+];
+
+const PAYMENT_DECISION_COLUMNS = [
+  "receipt_id",
+  "local_payment_kind",
+  "local_payment_id",
+  "decision",
+  "safe_reason_code",
+  "decided_at",
+];
+
+const PUBLISH_ATTEMPT_COLUMNS = [
+  "id",
+  "pin_id",
+  "pinterest_board_id",
+  "status",
+  "attempt_count",
+  "pinterest_pin_id",
+  "last_error",
+  "created_at",
+  "updated_at",
+];
+
+// token_version is a session counter, not user data: exporting it would hand out
+// the current fencing value of the account.
+const DELETION_REQUEST_COLUMNS = [
+  "state",
+  "confirmation_method",
+  "requested_at",
+  "completed_at",
+  "created_at",
+];
+
 function pickColumns(row, columns) {
   const out = {};
   for (const column of columns) {
@@ -60,11 +172,13 @@ function requireUserId(userId) {
   return userId;
 }
 
-async function selectRows(query, pageSize = 1000) {
+async function selectRows(query, pageSize = 1000, orderBy = "id") {
   // PostgREST applies a default row cap. Stable ordering plus explicit ranges
   // ensures account exports never silently omit records after the first page.
+  // orderBy is explicit because a few user-owned tables have no `id` column
+  // (payment_entitlement_decisions is keyed by receipt_id).
   const orderedQuery = typeof query.order === "function"
-    ? query.order("id", { ascending: true })
+    ? query.order(orderBy, { ascending: true })
     : query;
   const rows = [];
   for (let offset = 0; ; offset += pageSize) {
@@ -175,6 +289,72 @@ async function buildAccountExport(userId, client = defaultSupabase) {
   const reviewQueue = await loadSection("reviewQueue", () =>
     selectRows(client.from("pin_review_queue").select("*").eq("user_id", id)), degraded);
 
+  // Everything below was missing from the export while the frontend still labelled
+  // the file as the account's complete data. Prompts and generated copy are user
+  // content; payment and deletion records are the user's own history.
+  const generationRequests = await loadSection("generationRequests", async () => {
+    const rows = await selectRows(
+      client.from("pin_generation_requests").select("*").eq("user_id", id)
+    );
+    return rows.map((row) => pickColumns(row, GENERATION_REQUEST_COLUMNS));
+  }, degraded);
+
+  const generationTasks = await loadSection("generationTasks", async () => {
+    const rows = await selectRows(
+      client.from("pin_generation_tasks").select("*").eq("user_id", id), 500
+    );
+    return rows.map((row) => pickColumns(row, GENERATION_TASK_COLUMNS));
+  }, degraded);
+
+  const regenerationRequests = await loadSection("regenerationRequests", async () => {
+    const rows = await selectRows(
+      client.from("pin_regeneration_requests").select("*").eq("user_id", id)
+    );
+    return rows.map((row) => pickColumns(row, REGENERATION_REQUEST_COLUMNS));
+  }, degraded);
+
+  const generationCreditReservations = await loadSection("generationCreditReservations", async () => {
+    const rows = await selectRows(
+      client.from("pin_generation_credit_reservations").select("*").eq("user_id", id)
+    );
+    return rows.map((row) => pickColumns(row, CREDIT_RESERVATION_COLUMNS));
+  }, degraded);
+
+  const generationTextUsage = await loadSection("generationTextUsage", async () => {
+    const rows = await selectRows(
+      client.from("pin_generation_text_usage").select("*").eq("user_id", id)
+    );
+    return rows.map((row) => pickColumns(row, TEXT_USAGE_COLUMNS));
+  }, degraded);
+
+  const paymentRequests = await loadSection("paymentRequests", async () => {
+    const rows = await selectRows(
+      client.from("payment_creation_requests").select("*").eq("user_id", id)
+    );
+    return rows.map((row) => pickColumns(row, PAYMENT_REQUEST_COLUMNS));
+  }, degraded);
+
+  const paymentDecisions = await loadSection("paymentDecisions", async () => {
+    const rows = await selectRows(
+      client.from("payment_entitlement_decisions").select("*").eq("user_id", id), 1000, "receipt_id"
+    );
+    return rows.map((row) => pickColumns(row, PAYMENT_DECISION_COLUMNS));
+  }, degraded);
+
+  const publishAttempts = await loadSection("publishAttempts", async () => {
+    const rows = await selectRows(
+      client.from("pinterest_publish_attempts").select("*").eq("user_id", id)
+    );
+    return rows.map((row) => pickColumns(row, PUBLISH_ATTEMPT_COLUMNS));
+  }, degraded);
+
+  const deletionRequests = await loadSection("deletionRequests", async () => {
+    const rows = await selectRows(
+      client.from("account_deletion_requests").select("*").eq("user_id", id)
+    );
+    return rows.map((row) => pickColumns(row, DELETION_REQUEST_COLUMNS));
+  }, degraded);
+
   return {
     formatVersion: EXPORT_FORMAT_VERSION,
     generatedAt: new Date().toISOString(),
@@ -189,6 +369,15 @@ async function buildAccountExport(userId, client = defaultSupabase) {
     pinterestPublications,
     pinSchedules,
     reviewQueue,
+    generationRequests,
+    generationTasks,
+    regenerationRequests,
+    generationCreditReservations,
+    generationTextUsage,
+    paymentRequests,
+    paymentDecisions,
+    publishAttempts,
+    deletionRequests,
     degradedSections: degraded,
   };
 }
