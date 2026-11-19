@@ -13,6 +13,7 @@ import { readLocalStorageValue } from '../lib/authStorage';
 type Language = 'en' | 'ru' | 'es' | 'pt' | 'de' | 'fr' | 'zh';
 
 export type AppErrorMessageKey =
+  | 'insufficientCredits'
   | 'paymentLinkMissing'
   | 'userNotIdentified'
   | 'projectsListInvalid'
@@ -37,6 +38,7 @@ export type AppErrorMessageKey =
 
 const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
   en: {
+    insufficientCredits: "Not enough credits for this action. Top up your balance and try again.",
     paymentLinkMissing: "The server did not return a payment link. Try again or contact support.",
     userNotIdentified: "Could not identify the user. Reload the page and sign in again.",
     projectsListInvalid: "The server returned an invalid project list. Reload the page and try again.",
@@ -60,6 +62,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "The server did not return the data needed for a secure connection.",
   },
   ru: {
+    insufficientCredits: "Недостаточно кредитов для этого действия. Пополните баланс и повторите.",
     paymentLinkMissing: "Сервер не вернул ссылку на оплату. Попробуйте ещё раз или напишите в поддержку.",
     userNotIdentified: "Не удалось определить пользователя. Обновите страницу и войдите снова.",
     projectsListInvalid: "Сервер вернул некорректный список проектов. Обновите страницу и попробуйте ещё раз.",
@@ -83,6 +86,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Сервер не вернул данные для безопасного подключения.",
   },
   es: {
+    insufficientCredits: "No hay créditos suficientes para esta acción. Recarga tu saldo e inténtalo de nuevo.",
     paymentLinkMissing: "El servidor no devolvió ningún enlace de pago. Inténtalo de nuevo o escribe al soporte.",
     userNotIdentified: "No se pudo identificar al usuario. Recarga la página e inicia sesión de nuevo.",
     projectsListInvalid: "El servidor devolvió una lista de proyectos no válida. Recarga la página e inténtalo de nuevo.",
@@ -106,6 +110,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "El servidor no devolvió los datos necesarios para una conexión segura.",
   },
   pt: {
+    insufficientCredits: "Não há créditos suficientes para esta ação. Carregue o saldo e tente novamente.",
     paymentLinkMissing: "O servidor não devolveu qualquer link de pagamento. Tente novamente ou contacte o suporte.",
     userNotIdentified: "Não foi possível identificar o utilizador. Recarregue a página e entre novamente.",
     projectsListInvalid: "O servidor devolveu uma lista de projetos inválida. Recarregue a página e tente novamente.",
@@ -129,6 +134,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "O servidor não devolveu os dados necessários para uma ligação segura.",
   },
   de: {
+    insufficientCredits: "Nicht genügend Credits für diese Aktion. Laden Sie Ihr Guthaben auf und versuchen Sie es erneut.",
     paymentLinkMissing: "Der Server hat keinen Zahlungslink zurückgegeben. Versuchen Sie es erneut oder wenden Sie sich an den Support.",
     userNotIdentified: "Der Benutzer konnte nicht ermittelt werden. Laden Sie die Seite neu und melden Sie sich erneut an.",
     projectsListInvalid: "Der Server hat eine ungültige Projektliste zurückgegeben. Laden Sie die Seite neu und versuchen Sie es erneut.",
@@ -152,6 +158,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Der Server hat die für eine sichere Verbindung nötigen Daten nicht zurückgegeben.",
   },
   fr: {
+    insufficientCredits: "Crédits insuffisants pour cette action. Rechargez votre solde et réessayez.",
     paymentLinkMissing: "Le serveur n’a pas renvoyé de lien de paiement. Réessayez ou contactez le support.",
     userNotIdentified: "Impossible d’identifier l’utilisateur. Rechargez la page et reconnectez-vous.",
     projectsListInvalid: "Le serveur a renvoyé une liste de projets invalide. Rechargez la page et réessayez.",
@@ -175,6 +182,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestLinkDataMissing: "Le serveur n’a pas renvoyé les données nécessaires à une connexion sécurisée.",
   },
   zh: {
+    insufficientCredits: "额度不足，请充值后重试。",
     paymentLinkMissing: "服务器未返回支付链接，请重试或联系客服。",
     userNotIdentified: "无法识别用户，请刷新页面后重新登录。",
     projectsListInvalid: "服务器返回了无效的项目列表，请刷新页面后重试。",
@@ -206,4 +214,20 @@ export function currentInterfaceLanguage(): Language {
 
 export function getAppErrorMessage(key: AppErrorMessageKey): string {
   return MESSAGES[currentInterfaceLanguage()][key];
+}
+
+/**
+ * Translate a machine-readable API error code into the user's language.
+ *
+ * The backend answers in Russian with a code. Every screen would otherwise have to map the
+ * code itself, so the request layer does it once: a known code becomes a localized message,
+ * and an unknown one returns null so the caller keeps the server text instead of inventing
+ * a meaning for a failure we do not understand.
+ */
+export function getLocalizedApiError(code: unknown, status: unknown): string | null {
+  if (typeof code !== 'string') return null;
+  if (code === 'insufficient_credits' && Number(status) === 402) {
+    return getAppErrorMessage('insufficientCredits');
+  }
+  return null;
 }

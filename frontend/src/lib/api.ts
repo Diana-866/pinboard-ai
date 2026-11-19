@@ -1,5 +1,6 @@
 import { clearAuthToken, readAuthToken } from "./authStorage";
 import { getApiFallbackMessage } from "./apiErrorMessages";
+import { getLocalizedApiError } from "../i18n/appErrorCopy";
 import {
   REQUEST_TIMEOUT_MS,
   currentLocale,
@@ -123,8 +124,10 @@ export async function apiRequest(path: string, options: ApiRequestOptions = {}) 
           window.location.href = "/login";
         }
       }
+      // A known code wins over the server's Russian text; an unknown one keeps it.
+      const localized = getLocalizedApiError(data?.code, res.status);
       throw new ApiError(
-        data?.error || getApiFallbackMessage("generic", currentLocale()),
+        localized || data?.error || getApiFallbackMessage("generic", currentLocale()),
         res.status,
         data
       );

@@ -268,6 +268,17 @@ const creditsBilling = require("./creditsBilling");
 const creditPacks = require("./creditPacks");
 const prodamus = require("./prodamus");
 const { requireTariff, getTariffState, normalizePlan } = require("./tariff");
+
+/**
+ * A 402 always means the same thing to the customer — the balance cannot cover this
+ * operation — so it always carries the same code. The detailed Russian message is kept for
+ * logs and support; the client renders the code in the user's own language.
+ */
+function insufficientCreditsError(message) {
+  const error = httpError(402, message);
+  error.details = { ...(error.details || {}), code: "insufficient_credits" };
+  return error;
+}
 const { isTariffSelfSelectEnabled } = require("./tariffSelfSelect");
 
 // Загрузка своих изображений пинов (замена временных ссылок GPTunnel на постоянные)
@@ -1132,7 +1143,7 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
         }).catch((journalError) => logError("index.event_011"));
         requestStarted = false;
         if (/insufficient available credits/i.test(reservationError.message || "")) {
-          throw httpError(402, "Недостаточно доступных кредитов для перегенерации");
+          throw insufficientCreditsError("Недостаточно доступных кредитов для перегенерации");
         }
         throw reservationError;
       }
@@ -1206,7 +1217,7 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
         // Check balance only before a new billable provider submission. Never
         // block recovery/polling of a task that may already have been charged.
         const balance = await getBalance(req.userId);
-        if (balance < quotedCreditCost) throw httpError(402, "Недостаточно кредитов для перегенерации");
+        if (balance < quotedCreditCost) throw insufficientCreditsError("Недостаточно кредитов для перегенерации");
         image = await generateImage(prompt, model, "2:3", state.provider_idempotency_key, {
           // Persist the provider task ID as soon as the provider accepts it,
           // before the first poll or any later network operation can fail.
@@ -1263,7 +1274,7 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
     });
     if (settlementResizeError) {
       if (/insufficient available credits/i.test(settlementResizeError.message || "")) {
-        throw httpError(402, "Фактическая стоимость выше резерва. Пополните баланс и повторите перегенерацию с тем же ключом.");
+        throw insufficientCreditsError("Фактическая стоимость выше резерва. Пополните баланс и повторите перегенерацию с тем же ключом.");
       }
       throw settlementResizeError;
     }
@@ -1273,7 +1284,7 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
       p_claim_token: claimToken, p_storage_url: storedUrl,
     });
     if (completeError) {
-      if (/insufficient credits/i.test(completeError.message || "")) throw httpError(402, "Недостаточно кредитов для перегенерации");
+      if (/insufficient credits/i.test(completeError.message || "")) throw insufficientCreditsError("Недостаточно кредитов для перегенерации");
       if (/claim mismatch/i.test(completeError.message || "")) throw httpError(409, "Перегенерация уже обрабатывается другим запросом");
       throw completeError;
     }
@@ -1766,9 +1777,7 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
     if (requestState.status !== "resume") {
       const balance = await getBalance(req.userId);
       if (balance < estimatedCost) {
-        const error = httpError(402, "Недостаточно кредитов для этой генерации");
-        error.details = { code: "generation_insufficient_credits" };
-        throw error;
+        throw insufficientCreditsError("Недостаточно кредитов для этой генерации");
       }
     }
     // Create the initial estimate reservation only once. A resumed request may
@@ -1784,9 +1793,7 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
       });
       if (reservationError) {
         if (/insufficient available credits/i.test(reservationError.message || "")) {
-          const error = httpError(402, "Недостаточно доступных кредитов: часть баланса уже зарезервирована для других генераций.");
-          error.details = { code: "generation_insufficient_credits" };
-          throw error;
+          throw insufficientCreditsError("Недостаточно доступных кредитов: часть баланса уже зарезервирована для других генераций.");
         }
         throw reservationError;
       }
@@ -1928,7 +1935,7 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
           });
           if (error) {
             if (/insufficient available credits/i.test(error.message || "")) {
-              throw httpError(402, "Недостаточно доступных кредитов для подтверждённой стоимости генерации.");
+              throw insufficientCreditsError("Недостаточно доступных кредитов для подтверждённой стоимости генерации.");
             }
             throw error;
           }
@@ -2030,7 +2037,7 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
       });
       if (finalResizeError) {
         if (/insufficient available credits/i.test(finalResizeError.message || "")) {
-          throw httpError(402, "Фактическая стоимость генерации выше резерва. Пополните баланс и повторите этот же запрос.");
+          throw insufficientCreditsError("Фактическая стоимость генерации выше резерва. Пополните баланс и повторите этот же запрос.");
         }
         throw finalResizeError;
       }
@@ -2054,7 +2061,7 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
 
     if (saveError) {
       if (/insufficient credits/i.test(saveError.message || "")) {
-        throw httpError(402, "Баланс изменился во время генерации. Недостаточно кредитов для сохранения результата.");
+        throw insufficientCreditsError("Баланс изменился во время генерации. Недостаточно кредитов для сохранения результата.");
       }
       throw saveError;
     }
