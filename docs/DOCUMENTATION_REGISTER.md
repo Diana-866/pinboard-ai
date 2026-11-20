@@ -2063,9 +2063,9 @@ Source commits: initial validation `0d558ec99aea53cb8ccc3b01f62cf7ef12da301d`; p
 | `backend/index.js` | `a976c906ad7e44cbb8c60209fce0861274106bb8` | Both pins and pin_schedules batches in GET /review-queue validated before reconciliation/cleanup. |
 | `backend/test/fetch-all-pages.test.js` | `2609ebf98e6edb5b231abf344450b7029b332541` | Covers malformed envelopes, DB error propagation, valid empty arrays and missing result envelope. |
 | `backend/test/review-queue-route-contract.test.js` | `4fd08d330df3266ed4d9466233dd638ddd1bdafb` | Requires both secondary reads to use the validator before stale-row deletion. |
-| `docs/audits/AUD-403-review-queue-malformed-query-results.md` | `63901ae837c2a8b65cbf979335a95f2d56e81781` | AUD-403 root cause, impact, implementation and runtime-verification boundary. |
-| `docs/PROJECT_STATE.md` | `53e721beb799bacd3e36a73e1a30ca3dba76451b` | Current-main status and AUD-403 implementation record. |
-| `docs/USER_ACTIONS.md` | `278c7897b484f43ef9eb200cc5ab47e4b8a3318f` | UA-073 owner-side focused Node acceptance command. |
+| `docs/audits/AUD-403-review-queue-malformed-query-results.md` | `d6e69fad405e63fb8ae664b36a4a21e2df55c436` | AUD-403 root cause, impact, implementation and runtime-verification boundary. |
+| `docs/PROJECT_STATE.md` | `5f4569a96d5e618bc3b5187e359c6aba7ca735f4` | Current-main status and AUD-403 implementation record. |
+| `docs/USER_ACTIONS.md` | `9c4266c85fbf43313a66bcd573c0e9b097eed598` | UA-073 owner-side focused Node acceptance command. |
 
 Code/test commits are on branch `fix/review-queue-fail-closed-20261120`, based on main HEAD `8102f14711db3c49ca246a547e09704f0ef146fd`. Static GitHub re-fetch is the only verification performed here; Node runtime tests NOT VERIFIED. Owner action UA-073. No SQL, production or deployment changes.
 
