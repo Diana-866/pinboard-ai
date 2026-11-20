@@ -19,6 +19,9 @@ test("review queue reads every page and bounds reconciliation requests", () => {
   assert.match(route, /pinIds\.slice\(index \* 200, \(index \+ 1\) \* 200\)/);
   assert.match(route, /reconciled\.staleIds\.slice\(offset, offset \+ 200\)/);
   assert.match(route, /\.eq\("user_id", userId\)/);
+  assert.equal((route.match(/readArrayQueryResult\(result\)/g) || []).length, 2);
+  assert.doesNotMatch(route, /result\.data\s*\|\|\s*\[\]/);
+  assert.ok(route.indexOf("readArrayQueryResult") < route.indexOf(".delete()"), "all reconciliation reads must validate before stale-row cleanup");
 });
 
 test("review queue excludes pins with active or uncertain persisted schedules", () => {
