@@ -3141,3 +3141,131 @@ test("clearing a lockout for an invalid address is a validation error, not a 500
     await backend.stop();
   }
 });
+test("the deletion request is refused while no worker can process it", async () => {
+  // The child runs with ACCOUNT_DELETION_WORKER_ENABLED empty, which is the deployed default.
+  const backend = await startBackend();
+  try {
+    const answer = await backend.send("POST", "/account/deletion-request", { password: "correct horse" });
+    assert.equal(answer.status, 503, `expected 503, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    // A 5xx body is generic (section 72); what matters is that the request was refused, not how it reads.
+    // Fail-closed means the account was not looked up for deletion and nothing was fenced.
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.method === "GET" && entry.path === "/rest/v1/users" &&
+        String(entry.query.select || "").replace(/\s+/g, "") === "id,password_hash,token_version").length,
+      0,
+      "a disabled worker must not even look the account up for deletion"
+    );
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.path.includes("request_account_deletion")).length,
+      0
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+/** A child process where the deletion worker is enabled, so the route's own checks are reachable. */
+async function startBackendWithDeletionWorker() {
+  const backend = await startBackend({ extraEnv: { ACCOUNT_DELETION_WORKER_ENABLED: "true" } });
+  const bcrypt = require("bcryptjs");
+  const hash = bcrypt.hashSync("correct horse battery", 4);
+  backend.db.table("GET", "users", ({ query }) => {
+    const select = String(query.select || "").replace(/\s+/g, "");
+    if (select === "token_version") return { status: 200, body: [{ token_version: 0 }] };
+    if (select === "tariff_plan,tariff_period_end") {
+      return { status: 200, body: [{ tariff_plan: "none", tariff_period_end: null }] };
+    }
+    if (select === "id,password_hash,token_version") {
+      return { status: 200, body: [{ id: USER_ID, password_hash: hash, token_version: 3 }] };
+    }
+    return { status: 200, body: [{ id: USER_ID, email: "owner@example.com", credits_balance: 0 }] };
+  });
+  return backend;
+}
+
+test("a deletion request without the password is refused before any account read", async () => {
+  const backend = await startBackendWithDeletionWorker();
+  try {
+    for (const payload of [{}, { password: "" }, { password: 12345 }]) {
+      const answer = await backend.send("POST", "/account/deletion-request", payload);
+      assert.equal(answer.status, 422, `payload ${JSON.stringify(payload)} answered ${answer.status}`);
+      assert.match(String(answer.body.error), /пароль/);
+    }
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.method === "GET" && entry.path === "/rest/v1/users" &&
+        String(entry.query.select || "").replace(/\s+/g, "") === "id,password_hash,token_version").length,
+      0,
+      "a request without a password must not read the password hash"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a wrong password is a 403 that leaves the session alone", async () => {
+  const backend = await startBackendWithDeletionWorker();
+  try {
+    const answer = await backend.send("POST", "/account/deletion-request", { password: "wrong password" });
+    assert.equal(answer.status, 403, `expected 403, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.equal(answer.body.code, undefined, "this is not a token problem");
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.path.includes("request_account_deletion")).length,
+      0,
+      "a wrong password must never fence the account"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a confirmed deletion request fences the account through the database, not in JS", async () => {
+  const backend = await startBackendWithDeletionWorker();
+  try {
+    backend.db.rpc("request_account_deletion", {
+      status: 200,
+      body: { requestId: "request-1", state: "deletion_pending", requestedAt: "2026-01-01T00:00:00Z", alreadyRequested: false },
+    });
+
+    const answer = await backend.send("POST", "/account/deletion-request", { password: "correct horse battery" });
+
+    assert.equal(answer.status, 200, `expected 200, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.equal(answer.body.ok, true);
+    assert.equal(answer.body.request.requestId, "request-1");
+    assert.equal(answer.body.request.state, "deletion_pending");
+    assert.equal(JSON.stringify(answer.body).includes("password"), false, "no credential may come back");
+
+    const rpc = backend.db.requests.find((entry) => entry.path.includes("request_account_deletion"));
+    assert.ok(rpc, "the request must be made by the database function");
+    const params = JSON.parse(rpc.body);
+    assert.equal(params.p_user_id, USER_ID);
+    assert.equal(params.p_confirmation_method, "password_reauth");
+    assert.equal(params.p_expected_token_version, 3,
+      "the token version read from the account fences concurrent sessions inside the same statement");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a database failure while looking the account up is a 503, not a wrong password", async () => {
+  const backend = await startBackendWithDeletionWorker();
+  try {
+    backend.db.table("GET", "users", ({ query }) => {
+      const select = String(query.select || "").replace(/\s+/g, "");
+      if (select === "token_version") return { status: 200, body: [{ token_version: 0 }] };
+      if (select === "tariff_plan,tariff_period_end") {
+        return { status: 200, body: [{ tariff_plan: "none", tariff_period_end: null }] };
+      }
+      return { status: 500, body: { code: "XX000", message: "connection lost" } };
+    });
+
+    const answer = await backend.send("POST", "/account/deletion-request", { password: "correct horse battery" });
+
+    assert.equal(answer.status, 503, `expected 503, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.path.includes("request_account_deletion")).length,
+      0
+    );
+  } finally {
+    await backend.stop();
+  }
+});
