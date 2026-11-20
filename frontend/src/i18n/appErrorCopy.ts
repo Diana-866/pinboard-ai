@@ -34,6 +34,7 @@ export type AppErrorMessageKey =
   | 'pinImageMissing'
   | 'boardSelectionRequired'
   | 'imageUploadRequired'
+  | 'websiteUnreachable'
   | 'projectNotFound'
   | 'boardNotFound'
   | 'pinNotFound'
@@ -88,6 +89,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinImageMissing: "This pin has no saved image. Generate or upload an image first.",
     boardSelectionRequired: "Choose a Pinterest board before scheduling the publication.",
     imageUploadRequired: "Attach an image file (PNG/JPG/WebP/GIF, up to 5 MB).",
+    websiteUnreachable: "The site could not be read: it is unreachable or blocks automated checks. Open the address in a browser — if it opens there, the site is refusing automated access.",
     projectNotFound: "This project was not found. It may have been deleted, or it belongs to another account.",
     boardNotFound: "This board was not found. Refresh the list and choose a board again.",
     pinNotFound: "This pin no longer exists. Refresh the list to see the current pins.",
@@ -141,6 +143,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinImageMissing: "У пина нет сохранённого изображения. Сначала сгенерируйте или загрузите его.",
     boardSelectionRequired: "Выберите доску Pinterest перед планированием публикации.",
     imageUploadRequired: "Прикрепите файл изображения (PNG/JPG/WebP/GIF, до 5 МБ).",
+    websiteUnreachable: "Не удалось прочитать сайт: он недоступен или закрыт от автоматической проверки. Откройте адрес в браузере — если он открывается, значит сайт блокирует автоматический доступ.",
     projectNotFound: "Проект не найден. Возможно, он удалён или принадлежит другому аккаунту.",
     boardNotFound: "Доска не найдена. Обновите список и выберите доску заново.",
     pinNotFound: "Этот пин больше не существует. Обновите список, чтобы увидеть актуальные пины.",
@@ -194,6 +197,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinImageMissing: "Este pin no tiene imagen guardada. Genera o sube una imagen primero.",
     boardSelectionRequired: "Elige un tablero de Pinterest antes de programar la publicación.",
     imageUploadRequired: "Adjunta un archivo de imagen (PNG/JPG/WebP/GIF, hasta 5 MB).",
+    websiteUnreachable: "No se pudo leer el sitio: no está disponible o bloquea las comprobaciones automáticas. Abre la dirección en el navegador; si allí se abre, el sitio está bloqueando el acceso automático.",
     projectNotFound: "No se encontró este proyecto. Puede que se haya eliminado o que pertenezca a otra cuenta.",
     boardNotFound: "No se encontró este tablero. Actualiza la lista y elige un tablero de nuevo.",
     pinNotFound: "Este pin ya no existe. Actualiza la lista para ver los pines actuales.",
@@ -247,6 +251,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinImageMissing: "Este pin não tem imagem guardada. Gere ou carregue uma imagem primeiro.",
     boardSelectionRequired: "Escolha um quadro do Pinterest antes de agendar a publicação.",
     imageUploadRequired: "Anexe um ficheiro de imagem (PNG/JPG/WebP/GIF, até 5 MB).",
+    websiteUnreachable: "Não foi possível ler o site: está indisponível ou bloqueia verificações automáticas. Abra o endereço no navegador — se abrir aí, o site está a bloquear o acesso automático.",
     projectNotFound: "Este projeto não foi encontrado. Pode ter sido eliminado ou pertencer a outra conta.",
     boardNotFound: "Este quadro não foi encontrado. Atualize a lista e escolha um quadro novamente.",
     pinNotFound: "Este pin já não existe. Atualize a lista para ver os pins atuais.",
@@ -300,6 +305,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinImageMissing: "Dieser Pin hat kein gespeichertes Bild. Erzeugen oder laden Sie zuerst ein Bild hoch.",
     boardSelectionRequired: "Wählen Sie ein Pinterest-Board, bevor Sie die Veröffentlichung planen.",
     imageUploadRequired: "Fügen Sie eine Bilddatei hinzu (PNG/JPG/WebP/GIF, bis 5 MB).",
+    websiteUnreachable: "Die Website konnte nicht gelesen werden: Sie ist nicht erreichbar oder blockiert automatische Prüfungen. Öffnen Sie die Adresse im Browser — öffnet sie sich dort, blockiert die Website den automatischen Zugriff.",
     projectNotFound: "Dieses Projekt wurde nicht gefunden. Möglicherweise wurde es gelöscht oder gehört zu einem anderen Konto.",
     boardNotFound: "Dieses Board wurde nicht gefunden. Aktualisieren Sie die Liste und wählen Sie erneut ein Board.",
     pinNotFound: "Dieser Pin existiert nicht mehr. Aktualisieren Sie die Liste, um die aktuellen Pins zu sehen.",
@@ -353,6 +359,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinImageMissing: "Ce pin n’a pas d’image enregistrée. Générez ou importez d’abord une image.",
     boardSelectionRequired: "Choisissez un tableau Pinterest avant de programmer la publication.",
     imageUploadRequired: "Joignez un fichier image (PNG/JPG/WebP/GIF, jusqu’à 5 Mo).",
+    websiteUnreachable: "Impossible de lire le site : il est injoignable ou bloque les vérifications automatiques. Ouvrez l’adresse dans un navigateur — si elle s’ouvre, le site bloque l’accès automatique.",
     projectNotFound: "Ce projet est introuvable. Il a peut-être été supprimé ou appartient à un autre compte.",
     boardNotFound: "Ce tableau est introuvable. Actualisez la liste et choisissez à nouveau un tableau.",
     pinNotFound: "Ce pin n’existe plus. Actualisez la liste pour voir les pins actuels.",
@@ -406,6 +413,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinImageMissing: "该 Pin 没有已保存的图片，请先生成或上传图片。",
     boardSelectionRequired: "在安排发布前请选择 Pinterest 画板。",
     imageUploadRequired: "请附加图片文件（PNG/JPG/WebP/GIF，最大 5 MB）。",
+    websiteUnreachable: "无法读取该网站：网站不可访问，或阻止自动检查。请在浏览器中打开该地址——如果浏览器能打开，说明网站阻止了自动访问。",
     projectNotFound: "未找到该项目，可能已被删除或属于其他账号。",
     boardNotFound: "未找到该画板，请刷新列表后重新选择。",
     pinNotFound: "该 Pin 已不存在，请刷新列表查看当前 Pin。",
@@ -477,6 +485,7 @@ const VALIDATION_CODES: Record<string, AppErrorMessageKey> = {
   pin_image_missing: 'pinImageMissing',
   board_selection_required: 'boardSelectionRequired',
   image_upload_required: 'imageUploadRequired',
+  website_unreachable: 'websiteUnreachable',
 };
 
 const CONFLICT_CODES: Record<string, AppErrorMessageKey> = {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { getLocalizedApiError } from '../i18n/appErrorCopy';
@@ -82,10 +82,23 @@ test('a validation code is only translated for 422', () => {
   });
 });
 
+/** Every backend module, not just the entrypoint: a code emitted from `analyze.js` is just as real. */
+function backendSource(): string {
+  const root = path.join(SRC, '../../backend');
+  return readdirSync(root)
+    .filter((name) => name.endsWith('.js'))
+    .map((name) => readFileSync(path.join(root, name), 'utf8'))
+    .join('\n');
+}
+
 test('the backend emits exactly the codes the client can render', () => {
-  const backend = readFileSync(path.join(SRC, '../../backend/index.js'), 'utf8');
-  const emitted = new Set([...backend.matchAll(/validationError\("([a-z_]+)"/g)].map((match) => match[1]));
+  // This used to read only index.js, while `validationError` already lived there and nowhere else.
+  // The helper moved next to `httpError` because a second module needed it, and a scanner pinned to
+  // one file would then have reported the new code as "mapped but never emitted".
+  const backend = backendSource();
+  const emitted = new Set([...backend.matchAll(/validationError\(\s*"([a-z_]+)"/g)].map((match) => match[1]));
   assert.ok(emitted.size > 0, 'the backend must emit validation codes');
+  assert.ok(emitted.size >= 9, `the scanner must see the whole set, saw ${[...emitted].join(',')}`);
 
   // The mapping table itself is read from source, not assumed from the list above: a code the
   // client maps but the backend never emits is dead weight that rots silently.
@@ -106,7 +119,7 @@ test('the backend emits exactly the codes the client can render', () => {
 });
 
 test('the codes cover the failures a customer can actually fix, not internal contract breaches', () => {
-  const backend = readFileSync(path.join(SRC, '../../backend/index.js'), 'utf8');
+  const backend = backendSource();
   // Internal contracts stay uncoded on purpose: the person cannot act on them, so a
   // translated message would add nothing and a code would be dead weight.
   for (const internalMessage of [

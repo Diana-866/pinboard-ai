@@ -3,10 +3,33 @@ const cheerio = require("cheerio");
 const http = require("node:http");
 const https = require("node:https");
 const { generateText } = require("./gptunnel");
-const { httpError } = require("./validate");
+const { validationError } = require("./validate");
 const { parseAnalysisResponse } = require("./textOutputValidation");
 const { assertPublicUrl, createPinnedLookup } = require("./publicUrl");
 const { serializeUntrustedPromptContext } = require("./promptContext");
+
+/**
+ * Why a site could not be read, as an answer the customer can act on.
+ *
+ * These used to be 502 with a helpful Russian sentence - and a 502 never carries its message:
+ * `respondWithError` replaces everything except a machine code, so the first step of onboarding
+ * told the customer "внутренняя ошибка сервера, попробуйте позже" when their site actually answered
+ * 403. A site that refuses an automated read, or does not resolve, is a condition about the
+ * customer's own input, not a server fault: 422 with a code, localized by the client. The site's
+ * own status still crosses in `websiteStatus` so support can tell "blocked by Cloudflare" from
+ * "the address does not exist".
+ */
+function siteFetchFailure(error) {
+  const status = error && error.response && error.response.status;
+  const websiteStatus = Number.isInteger(status) && status >= 100 && status <= 599 ? status : null;
+  return validationError(
+    "website_unreachable",
+    websiteStatus
+      ? `Сайт ответил ошибкой ${websiteStatus} — откройте его вручную и проверьте`
+      : "Сайт недоступен — проверьте адрес или попробуйте позже",
+    websiteStatus ? { websiteStatus } : undefined
+  );
+}
 
 async function fetchSiteContent(url) {
   const validated = await assertPublicUrl(url);
@@ -28,10 +51,7 @@ async function fetchSiteContent(url) {
       validateStatus: (s) => s >= 200 && s < 300,
     });
   } catch (e) {
-    if (e && e.response) {
-      throw httpError(502, `Сайт ответил ошибкой ${e.response.status} — откройте его вручную и проверьте`);
-    }
-    throw httpError(502, "Сайт недоступен — проверьте адрес или попробуйте позже");
+    throw siteFetchFailure(e);
   } finally {
     httpAgent.destroy();
     httpsAgent.destroy();
@@ -99,4 +119,4 @@ async function analyzeSite(url) {
   return parseAnalysisResponse(aiResponse);
 }
 
-module.exports = { analyzeSite, buildAnalysisPrompt };
+module.exports = { analyzeSite, buildAnalysisPrompt, siteFetchFailure };

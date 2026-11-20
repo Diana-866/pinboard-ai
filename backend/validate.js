@@ -7,6 +7,21 @@ function httpError(status, message) {
   return e;
 }
 
+/**
+ * A 422 the customer can act on: it carries a machine code so the client can say it in the
+ * person's own language, plus any extra fields that belong next to the message.
+ *
+ * This lives here, next to httpError, because more than one module needs it: `analyze.js` answers
+ * "the site could not be read" with it, and a hand-built copy of the same shape in that file would
+ * be a second definition of one rule - and invisible to the guard that compares emitted codes with
+ * the client's translations.
+ */
+function validationError(code, message, extra) {
+  const error = httpError(422, message);
+  error.details = { ...(extra && typeof extra === "object" ? extra : {}), code };
+  return error;
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 function validateEmail(raw) {
@@ -92,6 +107,7 @@ function validateLen(raw, max, label) {
 
 module.exports = { validateLen,
   httpError,
+  validationError,
   validateEmail,
   validatePassword,
   optionalString,

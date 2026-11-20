@@ -32,15 +32,7 @@ const adminPaymentCreationRequests = require("./adminPaymentCreationRequests");
 const adminProviderRefundActions = require("./adminProviderRefundActions");
 const adminPinterestReconciliation = require("./adminPinterestReconciliation");
 const adminPinterestInventory = require("./adminPinterestInventory");
-const {
-  httpError,
-  validateEmail,
-  validatePassword,
-  optionalString,
-  validateUrl,
-  validateEnum,
-  validateInt,
-} = require("./validate");
+const { httpError, optionalString, validateEmail, validateEnum, validateInt, validatePassword, validateUrl, validationError } = require("./validate");
 
 const MODEL_PRICES = {
   "flux-schnell": 0.6,
@@ -334,12 +326,6 @@ const { requireTariff, getTariffState, normalizePlan } = require("./tariff");
  */
 function conflictError(code, message) {
   const error = httpError(409, message);
-  error.details = { ...(error.details || {}), code };
-  return error;
-}
-
-function validationError(code, message) {
-  const error = httpError(422, message);
   error.details = { ...(error.details || {}), code };
   return error;
 }
