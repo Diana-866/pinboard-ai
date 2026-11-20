@@ -28,7 +28,7 @@ function sessionToken(tokenVersion = 0) {
   return signSessionToken({ id: USER_ID, token_version: tokenVersion }, SECRET);
 }
 
-async function startBackend({ tokenVersion = 0 } = {}) {
+async function startBackend({ tokenVersion = 0, extraEnv = {} } = {}) {
   const db = startFakePostgrest();
   const dbUrl = await db.listen();
   const port = 36000 + Math.floor(Math.random() * 2000);
@@ -98,6 +98,7 @@ async function startBackend({ tokenVersion = 0 } = {}) {
       JWT_SECRET: SECRET,
       FRONTEND_URL: "https://app.example.com",
       ACCOUNT_DELETION_WORKER_ENABLED: "",
+      ...extraEnv,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -319,6 +320,74 @@ test("a failed board lookup is an outage, not a vanished board", async () => {
     const board = await backend.get(`/boards/${BOARD_ID}`);
     assert.equal(board.status, 503, "a database error must not tell the customer their board is gone");
     assert.notEqual(board.body.code, "board_not_found");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a failed single-project lookup is an outage, not a deleted project", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.table("GET", "projects", { status: 500, body: { code: "57014", message: "canceling statement due to statement timeout" } });
+    const project = await backend.get(`/projects/${PROJECT_ID}`);
+    assert.equal(project.status, 503, "a database error must not tell the owner their project is gone");
+    assert.notEqual(project.body.code, "project_not_found");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a single project that does not exist is still a 404 with its code", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.table("GET", "projects", { status: 200, body: [] });
+    const project = await backend.get(`/projects/${PROJECT_ID}`);
+    assert.equal(project.status, 404);
+    assert.equal(project.body.code, "project_not_found");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("the developer top-up reports an outage as an outage, and a missing account as a missing account", async () => {
+  // The route only exists outside production and only with an explicit flag plus a matching
+  // ADMIN_SECRET, so the test turns it on deliberately instead of relying on the default.
+  const adminSecret = "test-admin-secret-that-is-long-enough";
+  const backend = await startBackend({ extraEnv: { ENABLE_DEV_TOPUP: "true", ADMIN_SECRET: adminSecret } });
+  const topUp = (email) => backend.base && fetch(`${backend.base}/credits/dev-topup`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ adminSecret, email, amount: 5 }),
+  }).then(async (response) => ({ status: response.status, body: JSON.parse(await response.text() || "null") }));
+  try {
+    backend.db.table("GET", "users", { status: 500, body: { code: "57014", message: "canceling statement due to statement timeout" } });
+    const outage = await topUp("owner@example.com");
+    assert.equal(outage.status, 503, "an operator must not be told the account is missing when the database failed");
+    assert.notEqual(outage.body.code, "user_not_found");
+
+    backend.db.table("GET", "users", { status: 200, body: [] });
+    const missing = await topUp("nobody@example.com");
+    assert.equal(missing.status, 404);
+    assert.equal(missing.body.code, "user_not_found");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("the developer top-up refuses a wrong secret before looking anybody up", async () => {
+  const backend = await startBackend({ extraEnv: { ENABLE_DEV_TOPUP: "true", ADMIN_SECRET: "test-admin-secret-that-is-long-enough" } });
+  try {
+    const response = await fetch(`${backend.base}/credits/dev-topup`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ adminSecret: "wrong-secret-of-the-same-length!!!", email: "owner@example.com", amount: 5 }),
+    });
+    assert.equal(response.status, 401);
+    assert.deepEqual(
+      backend.db.requests.filter((entry) => entry.path === "/rest/v1/users" && !String(entry.query.select || "").includes("token_version")),
+      [],
+      "a rejected secret must not reach a user lookup"
+    );
   } finally {
     await backend.stop();
   }

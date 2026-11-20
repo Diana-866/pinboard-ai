@@ -827,7 +827,13 @@ app.get("/projects/:id", requireAuth, async (req, res) => {
       .eq("id", req.params.id)
       .eq("user_id", req.userId)
       .single();
-    if (error || !data) throw notFoundError("project_not_found", "Проект не найден");
+    // Same distinction as /me: zero rows is a missing project, a failed query is an outage that
+    // must not be reported to the owner as "your project is gone".
+    if (error && error.code !== "PGRST116") {
+      logError("index.event_026", error);
+      throw httpError(503, "Сервис проектов временно недоступен — попробуйте позже");
+    }
+    if (!data) throw notFoundError("project_not_found", "Проект не найден");
     res.json(serializeProjectForClient(data));
   } catch (e) {
     handleError(res, e);
@@ -2748,7 +2754,13 @@ app.post("/credits/dev-topup", authLimiter, async (req, res) => {
   try {
     const { email, amount } = validateDevTopupRequest(req.body);
     const { data: user, error } = await supabase.from("users").select("id").eq("email", email).single();
-    if (error || !user) throw notFoundError("user_not_found", "Пользователь не найден");
+    // An operator running this by hand must not be told "no such user" by a failed query: they
+    // would go and check the account instead of the database.
+    if (error && error.code !== "PGRST116") {
+      logError("index.event_026", error);
+      throw httpError(503, "Сервис кредитов временно недоступен — повторите позже");
+    }
+    if (!user) throw notFoundError("user_not_found", "Пользователь не найден");
 
     const newBalance = await adjustBalance(user.id, amount, "topup", "Тестовое пополнение");
     res.json({ balance: newBalance });
