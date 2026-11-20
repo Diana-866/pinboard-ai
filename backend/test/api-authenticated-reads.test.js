@@ -1598,3 +1598,251 @@ test("a valid saved quote is used instead of asking the provider for a new price
     });
   }
 });
+test("a resumed regeneration settles the stored result and never submits a second task", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+    activatePaidPlan(backend);
+    backend.db.table("GET", "pins", {
+      status: 200,
+      body: [{
+        id: PIN_ID,
+        title: "Заголовок",
+        description: "Описание",
+        model_used: "flux-schnell",
+        image_url: null,
+        board_id: BOARD_ID,
+        boards: { id: BOARD_ID, title: "Доска", description: "", projects: { user_id: USER_ID } },
+      }],
+    });
+    backend.db.rpc("begin_pin_regeneration_request", {
+      status: 200,
+      body: {
+        status: "resume",
+        claim_token: "11111111-1111-4111-8111-111111111111",
+        storage_url: "https://cdn.example.com/already-stored.png",
+        provider_task_id: "task-already-billed",
+        provider_price: 10,
+        provider_idempotency_key: "provider-key-0001",
+      },
+    });
+    backend.db.rpc("record_pin_regeneration_provider_outcome", { status: 200, body: { status: 200 } });
+    backend.db.rpc("resize_pin_regeneration_credit_reservation", { status: 200, body: { status: 200 } });
+    const settledPin = { id: PIN_ID, image_url: "https://cdn.example.com/already-stored.png" };
+    backend.db.rpc("complete_pin_regeneration_request", { status: 200, body: { pin: settledPin } });
+
+    const answer = await backend.send(
+      "POST",
+      `/pins/${PIN_ID}/regenerate`,
+      {},
+      sessionToken(),
+      { "idempotency-key": "regeneration-key-0006" }
+    );
+    assert.equal(answer.status, 200, `expected the stored result, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.deepEqual(answer.body, settledPin);
+
+    const rpcCalls = backend.db.requests.map((entry) => entry.path.split("/rpc/")[1]).filter(Boolean);
+    assert.equal(rpcCalls.includes("reserve_pin_regeneration_credits"), false,
+      "a task the provider already charged must not be reserved a second time");
+    assert.equal(rpcCalls.includes("record_pin_regeneration_quote"), false,
+      "a resumed request must not be re-quoted");
+
+    const outcome = backend.db.requests
+      .filter((entry) => entry.path.includes("record_pin_regeneration_provider_outcome"))
+      .map((entry) => JSON.parse(entry.body));
+    assert.equal(outcome.length, 1);
+    assert.equal(outcome[0].p_provider_task_id, "task-already-billed");
+    assert.equal(outcome[0].p_provider_status, "done");
+    assert.equal(outcome[0].p_provider_price, 10);
+
+    const resize = backend.db.requests
+      .filter((entry) => entry.path.includes("resize_pin_regeneration_credit_reservation"))
+      .map((entry) => JSON.parse(entry.body));
+    assert.equal(resize.length, 1);
+    assert.equal(resize[0].p_amount, 15, "the charge must come from the provider price (10 * 1.5), not an estimate");
+
+    const completed = backend.db.requests
+      .filter((entry) => entry.path.includes("complete_pin_regeneration_request"))
+      .map((entry) => JSON.parse(entry.body));
+    assert.equal(completed.length, 1);
+    assert.equal(completed[0].p_storage_url, "https://cdn.example.com/already-stored.png");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a regenerated result that costs more than the reservation asks for a top-up instead of finishing", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+    activatePaidPlan(backend);
+    backend.db.table("GET", "pins", {
+      status: 200,
+      body: [{
+        id: PIN_ID,
+        title: "Заголовок",
+        description: "Описание",
+        model_used: "flux-schnell",
+        image_url: null,
+        board_id: BOARD_ID,
+        boards: { id: BOARD_ID, title: "Доска", description: "", projects: { user_id: USER_ID } },
+      }],
+    });
+    backend.db.rpc("begin_pin_regeneration_request", {
+      status: 200,
+      body: {
+        status: "resume",
+        claim_token: "11111111-1111-4111-8111-111111111111",
+        storage_url: "https://cdn.example.com/already-stored.png",
+        provider_task_id: "task-already-billed",
+        provider_price: 100,
+        provider_idempotency_key: "provider-key-0002",
+      },
+    });
+    backend.db.rpc("record_pin_regeneration_provider_outcome", { status: 200, body: { status: 200 } });
+    backend.db.rpc("resize_pin_regeneration_credit_reservation", {
+      status: 400,
+      body: { code: "P0001", message: "insufficient available credits" },
+    });
+
+    const answer = await backend.send(
+      "POST",
+      `/pins/${PIN_ID}/regenerate`,
+      {},
+      sessionToken(),
+      { "idempotency-key": "regeneration-key-0007" }
+    );
+    assert.equal(answer.status, 402);
+    assert.equal(answer.body.code, "insufficient_credits");
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.path.includes("complete_pin_regeneration_request")).length,
+      0,
+      "an unpaid result must not be completed"
+    );
+    const journal = backend.db.requests
+      .filter((entry) => entry.path.includes("update_pin_regeneration_request"))
+      .map((entry) => JSON.parse(entry.body));
+    assert.equal(journal.length >= 1, true, "the failed settlement must be journalled");
+    assert.equal(journal[journal.length - 1].p_status, "unknown",
+      "the provider result stays recoverable under the same key");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a lost claim at completion is reported as a conflict, not as a new regeneration", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+    activatePaidPlan(backend);
+    backend.db.table("GET", "pins", {
+      status: 200,
+      body: [{
+        id: PIN_ID,
+        title: "Заголовок",
+        description: "Описание",
+        model_used: "flux-schnell",
+        image_url: null,
+        board_id: BOARD_ID,
+        boards: { id: BOARD_ID, title: "Доска", description: "", projects: { user_id: USER_ID } },
+      }],
+    });
+    backend.db.rpc("begin_pin_regeneration_request", {
+      status: 200,
+      body: {
+        status: "resume",
+        claim_token: "11111111-1111-4111-8111-111111111111",
+        storage_url: "https://cdn.example.com/already-stored.png",
+        provider_task_id: "task-already-billed",
+        provider_price: 10,
+        provider_idempotency_key: "provider-key-0003",
+      },
+    });
+    backend.db.rpc("record_pin_regeneration_provider_outcome", { status: 200, body: { status: 200 } });
+    backend.db.rpc("resize_pin_regeneration_credit_reservation", { status: 200, body: { status: 200 } });
+    backend.db.rpc("complete_pin_regeneration_request", {
+      status: 400,
+      body: { code: "P0001", message: "claim mismatch" },
+    });
+
+    const answer = await backend.send(
+      "POST",
+      `/pins/${PIN_ID}/regenerate`,
+      {},
+      sessionToken(),
+      { "idempotency-key": "regeneration-key-0008" }
+    );
+    assert.equal(answer.status, 409, `expected a conflict, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.match(String(answer.body.error), /другим запросом/);
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("resuming a running provider task tells the client to poll instead of submitting another image", async () => {
+  const providerCalls = [];
+  const provider = http.createServer((req, res) => {
+    providerCalls.push(`${req.method} ${req.url}`);
+    req.resume();
+    req.on("end", () => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ status: "running" }));
+    });
+  });
+  const providerUrl = await new Promise((resolve) => {
+    provider.listen(0, "127.0.0.1", () => resolve(`http://127.0.0.1:${provider.address().port}`));
+  });
+  const backend = await startBackend({
+    extraEnv: { AI_PROVIDER_BASE_URL: providerUrl, GPTUNNEL_API_KEY: "test-provider-key" },
+  });
+  try {
+    backend.db.ownedBy = USER_ID;
+    activatePaidPlan(backend);
+    backend.db.table("GET", "pins", {
+      status: 200,
+      body: [{
+        id: PIN_ID,
+        title: "Заголовок",
+        description: "Описание",
+        model_used: "flux-schnell",
+        image_url: null,
+        board_id: BOARD_ID,
+        boards: { id: BOARD_ID, title: "Доска", description: "", projects: { user_id: USER_ID } },
+      }],
+    });
+    backend.db.rpc("begin_pin_regeneration_request", {
+      status: 200,
+      body: {
+        status: "resume",
+        claim_token: "11111111-1111-4111-8111-111111111111",
+        provider_task_id: "task-in-flight",
+        provider_idempotency_key: "provider-key-0004",
+      },
+    });
+    backend.db.rpc("update_pin_regeneration_request", { status: 200, body: { status: 200 } });
+
+    const answer = await backend.send(
+      "POST",
+      `/pins/${PIN_ID}/regenerate`,
+      {},
+      sessionToken(),
+      { "idempotency-key": "regeneration-key-0009" }
+    );
+    assert.equal(answer.status, 202);
+    assert.equal(answer.body.code, "regeneration_pending");
+    assert.equal(answer.body.retryAfterSeconds, 10);
+    assert.deepEqual(providerCalls, ["GET /api/v2/media/tasks/task-in-flight"],
+      "a task that is still running is polled, never submitted again");
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.path.includes("reserve_pin_regeneration_credits")).length,
+      0,
+      "an in-flight task must not be reserved again"
+    );
+  } finally {
+    await backend.stop();
+    await new Promise((resolve) => {
+      provider.closeAllConnections?.();
+      provider.close(resolve);
+    });
+  }
+});
