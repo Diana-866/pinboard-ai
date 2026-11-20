@@ -34,6 +34,7 @@ const state = {
   updateError: null,
   mails: [],
   mailError: null,
+  mailConfigured: true,
 };
 
 function resetState() {
@@ -49,6 +50,7 @@ function resetState() {
   state.updateError = null;
   state.mails = [];
   state.mailError = null;
+  state.mailConfigured = true;
 }
 
 const supabaseDouble = {
@@ -98,7 +100,7 @@ require.cache[mailPath] = {
   filename: mailPath,
   loaded: true,
   exports: {
-    transactionalMailConfigured: () => true,
+    transactionalMailConfigured: () => state.mailConfigured,
     sendMail: async (message) => {
       if (state.mailError) throw state.mailError;
       state.mails.push(message);
@@ -264,4 +266,82 @@ test("a missing, non-string or oversized token is refused before the database", 
     );
     assert.equal(state.rpcCalls.length, 0);
   }
+});
+
+test("a failed issuance is reported as false and no mail is attempted", async () => {
+  resetState();
+  state.rpcResults.issue_email_verification_token = { data: null, error: { code: "08006", message: "down" } };
+
+  const sent = await emailVerify.issueVerificationToken({
+    id: USER_ID, email: "somebody@example.com", email_verified: false, preferred_language: "en",
+  });
+
+  assert.equal(sent, false, "a database failure must not look like a delivered email");
+  assert.equal(state.mails.length, 0, "no link is sent when its hash was not stored: it could never work");
+});
+
+test("without transactional mail the link is not issued and nothing is sent", async () => {
+  resetState();
+  state.mailConfigured = false;
+
+  const sent = await emailVerify.issueVerificationToken({
+    id: USER_ID, email: "somebody@example.com", email_verified: false, preferred_language: "en",
+  });
+
+  assert.equal(sent, false);
+  assert.equal(state.mails.length, 0);
+});
+
+test("the authenticated resend reports an already verified account instead of sending another link", async () => {
+  resetState();
+  state.user = { id: USER_ID, email: "somebody@example.com", email_verified: true, preferred_language: "en" };
+
+  const answer = await emailVerify.resendVerification(null, USER_ID);
+
+  assert.equal(answer.ok, true);
+  assert.equal(answer.alreadyVerified, true);
+  assert.equal(state.rpcCalls.length, 0, "no token for an account that has nothing to verify");
+  assert.equal(state.mails.length, 0);
+});
+
+test("the authenticated resend says the letter was sent only when it actually was", async () => {
+  resetState();
+  state.user = { id: USER_ID, email: "somebody@example.com", email_verified: false, preferred_language: "en" };
+  state.lastTokenRow = null;
+
+  const sent = await emailVerify.resendVerification(null, USER_ID);
+  assert.equal(sent.ok, true);
+  assert.equal(sent.sent, true);
+  assert.match(sent.message, /Письмо отправлено/);
+  assert.equal(state.mails.length, 1);
+
+  // ...and says so honestly when the issuing transaction refuses.
+  resetState();
+  state.user = { id: USER_ID, email: "somebody@example.com", email_verified: false, preferred_language: "en" };
+  state.rpcResults.issue_email_verification_token = { data: false, error: null };
+  const refused = await emailVerify.resendVerification(null, USER_ID);
+  assert.equal(refused.ok, true);
+  assert.equal(refused.sent, false);
+  assert.match(refused.message, /Не удалось отправить/);
+});
+
+test("a database failure during either resend is a server error, not a quiet success", async () => {
+  // Authenticated mode: the customer is known, so an honest 503 is better than a fake "sent".
+  resetState();
+  state.user = { id: USER_ID, email: "somebody@example.com", email_verified: false, preferred_language: "en" };
+  state.lookupError = { code: "08006", message: "down" };
+  await assert.rejects(
+    () => emailVerify.resendVerification(null, USER_ID),
+    (error) => error.httpStatus === 503
+  );
+  assert.equal(state.mails.length, 0);
+
+  // Anonymous mode: the address is looked up, and a failed lookup must not be answered with "ok".
+  resetState();
+  state.lookupError = { code: "08006", message: "down" };
+  await assert.rejects(
+    () => emailVerify.resendVerification("somebody@example.com", null),
+    (error) => error.httpStatus === 503
+  );
+  assert.equal(state.mails.length, 0);
 });
