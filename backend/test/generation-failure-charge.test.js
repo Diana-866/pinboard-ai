@@ -6,7 +6,12 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { GENERATION_NOT_CHARGED, markGenerationFailure } = require("../generationFailure");
+const {
+  GENERATION_NOT_CHARGED,
+  GENERATION_SAVE_FAILED,
+  generationSaveFailedError,
+  markGenerationFailure,
+} = require("../generationFailure");
 
 /**
  * Section 115. When generation fails before the first billable image request, the database returns
@@ -67,4 +72,17 @@ test("the generation route uses the marker, and only with the real provider stat
     (source.match(/providerGenerationStarted/g) || []).length >= 5,
     "the provider state must still be tracked on every path"
   );
+});
+
+test("a save failure after the images exist is coded, retryable-looking statuses are not reserved for it", () => {
+  // Section 118: the reservation is kept, so the customer must be sent to support, not to a retry.
+  const error = generationSaveFailedError();
+  assert.equal(error.httpStatus, 500);
+  assert.equal(error.details.code, "generation_save_failed");
+  assert.equal(GENERATION_SAVE_FAILED, "generation_save_failed");
+
+  // The route must raise that helper where the pins could not be written, not a bare 500.
+  const index = fs.readFileSync(path.join(__dirname, "..", "index.js"), "utf8").replace(/\r\n/g, "\n");
+  assert.match(index, /throw generationSaveFailedError\(\);/);
+  assert.doesNotMatch(index, /throw httpError\(500, "Не удалось сохранить сгенерированные пины"\)/);
 });

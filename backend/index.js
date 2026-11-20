@@ -293,7 +293,7 @@ const { suggestKeywords } = require("./keywordIdeas");
 const { asError } = require("./dbErrors");
 const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
-const { markGenerationFailure } = require("./generationFailure");
+const { markGenerationFailure, generationSaveFailedError } = require("./generationFailure");
 const { calculateGenerationReservation, calculateQuotedGenerationPricing, ceilCredits } = require("./generationPricing");
 const { uploadPinImage, rehostImage, deletePinImageIfUnreferenced } = require("./storage");
 const { reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects, inspectBlockedPinImageRetentionQueue, retryFailedPinImageDeletions, processPendingPinImageRetentionQueue } = require("./pinImageLifecycle");
@@ -2174,7 +2174,7 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
 
     const inserted = savedResult && savedResult.pins;
     if (!Array.isArray(inserted) || inserted.length === 0) {
-      throw httpError(500, "Не удалось сохранить сгенерированные пины");
+      throw generationSaveFailedError();
     }
     generationRequestStarted = false;
     res.status(201).json(inserted);

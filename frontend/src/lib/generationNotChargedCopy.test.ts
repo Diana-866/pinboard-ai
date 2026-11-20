@@ -98,3 +98,24 @@ test('the message states the money fact and never invents the cause', () => {
   assert.match(english, /nothing was charged/i);
   assert.match(english, /back in your balance/i);
 });
+
+test('an unsaved generation says "do not retry", not "check the queue"', () => {
+  // Section 118. The images exist and the provider was paid; the write that would show them failed.
+  // The request is fenced as `unknown` and its reservation is kept, so a blind retry generates and
+  // charges again. The fenced copy ("check the review queue") is wrong here: nothing will appear.
+  for (const language of LANGUAGES) {
+    const message = withStoredLanguage(language, () => getLocalizedApiError('generation_save_failed', 500));
+    assert.ok(message && message.trim().length > 0, `${language} must translate generation_save_failed`);
+  }
+  const english = withStoredLanguage('en', () => getLocalizedApiError('generation_save_failed', 500))!;
+  assert.match(english, /could not be saved|saving them failed/i);
+  assert.match(english, /support/i, 'the customer must be sent to a human, not to a retry button');
+  assert.doesNotMatch(english, /review queue/i, 'nothing will appear in the queue: the save failed');
+  assert.doesNotMatch(english, /nothing was charged/i, 'the credits are still reserved');
+
+  withStoredLanguage('en', () => {
+    for (const status of [200, 402, 409, 422]) {
+      assert.equal(getLocalizedApiError('generation_save_failed', status), null, `status ${status}`);
+    }
+  });
+});

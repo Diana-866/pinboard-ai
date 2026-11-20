@@ -17,6 +17,7 @@
 
 const GENERATION_NOT_CHARGED = "generation_not_charged";
 const GENERATION_OUTCOME_UNKNOWN = "generation_outcome_unknown";
+const GENERATION_SAVE_FAILED = "generation_save_failed";
 
 /**
  * Attaches `generation_not_charged` to a failure that provably spent nothing.
@@ -24,6 +25,21 @@ const GENERATION_OUTCOME_UNKNOWN = "generation_outcome_unknown";
  * @param {unknown} error the thrown value, returned unchanged when it cannot carry details
  * @param {{ providerStarted?: boolean }} state whether any billable provider request was made
  */
+const { httpError } = require("./validate");
+
+/**
+ * The images exist, the provider was paid, and the write that would have shown them to the customer
+ * failed. That is not "try again in a minute": the request is fenced as `unknown` and its credit
+ * reservation is kept until reconciliation, so a blind retry generates (and charges) again while the
+ * first result is still unaccounted for. Section 118 - the customer must hear exactly that, not the
+ * generic "internal server error" that loses it on a 5xx.
+ */
+function generationSaveFailedError() {
+  const error = httpError(500, "Не удалось сохранить сгенерированные пины");
+  error.details = { code: GENERATION_SAVE_FAILED };
+  return error;
+}
+
 function markGenerationFailure(error, state = {}) {
   if (!error || typeof error !== "object") return error;
   const details = error.details && typeof error.details === "object" ? error.details : null;
@@ -36,4 +52,10 @@ function markGenerationFailure(error, state = {}) {
   return error;
 }
 
-module.exports = { GENERATION_NOT_CHARGED, GENERATION_OUTCOME_UNKNOWN, markGenerationFailure };
+module.exports = {
+  GENERATION_NOT_CHARGED,
+  GENERATION_OUTCOME_UNKNOWN,
+  GENERATION_SAVE_FAILED,
+  generationSaveFailedError,
+  markGenerationFailure,
+};
