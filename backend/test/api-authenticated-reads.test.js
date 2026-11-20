@@ -25,6 +25,7 @@ const OTHER_USER_ID = "22222222-2222-4222-8222-222222222222";
 const PROJECT_ID = "33333333-3333-4333-8333-333333333333";
 const BOARD_ID = "44444444-4444-4444-8444-444444444444";
 const PIN_ID = "55555555-5555-4555-8555-555555555555";
+const SCHEDULE_ID = "66666666-6666-4666-8666-666666666666";
 
 function sessionToken(tokenVersion = 0) {
   return signSessionToken({ id: USER_ID, token_version: tokenVersion }, SECRET);
@@ -171,6 +172,8 @@ async function startBackend({ tokenVersion = 0, extraEnv = {} } = {}) {
 
   return {
     base,
+    // The child's SUPABASE_URL: managed image URLs must share its origin to be recognised as ours.
+    supabaseUrl: dbUrl,
     db,
     output: () => output,
     get(pathname, token = sessionToken()) {
@@ -2476,5 +2479,187 @@ test("a non-http onboarding link is refused before any write", async () => {
     assert.equal(writes.projects.length, 0);
   } finally {
     await backend.stop();
+  }
+});
+/** A schedule row as the database stores it, including fields the API must not return. */
+function scheduleRow(overrides = {}) {
+  return {
+    id: SCHEDULE_ID,
+    user_id: USER_ID,
+    pin_id: PIN_ID,
+    pinterest_account_id: "99999999-9999-4999-8999-999999999999",
+    pinterest_board_id: "remote-board-1",
+    status: "scheduled",
+    next_attempt_at: "2030-01-01T00:00:00Z",
+    snapshot_image_url: null,
+    last_error: "provider said: token abc123",
+    claim_token: "claim-capability-token",
+    attempts: 0,
+    ...overrides,
+  };
+}
+
+test("cancelling a scheduled publication marks it cancelled and hides server-only fields", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.table("PATCH", "pin_schedules", ({ body }) => ({
+      status: 200,
+      body: [scheduleRow({ ...JSON.parse(body || "{}"), status: "cancelled" })],
+    }));
+
+    const answer = await backend.send("POST", `/schedule/${SCHEDULE_ID}/cancel`, {});
+
+    assert.equal(answer.status, 200, `expected 200, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.equal(answer.body.status, "cancelled");
+    assert.equal(answer.body.claim_token, undefined, "the worker's fencing token must never reach the browser");
+    assert.equal(answer.body.last_error, undefined, "provider diagnostics are server-only");
+    assert.equal(answer.body.next_attempt_at, null);
+
+    const update = backend.db.requests.find((entry) => entry.method === "PATCH" && entry.path === "/rest/v1/pin_schedules");
+    assert.ok(update, "the cancellation must be a conditional update");
+    assert.equal(String(update.query.user_id), `eq.${USER_ID}`, "the update must stay inside the caller's account");
+    assert.equal(String(update.query.status), "eq.scheduled",
+      "only a still-scheduled row may be flipped: a worker claim must win");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("cancelling somebody else's publication is a 404, not a silent update", async () => {
+  const backend = await startBackend();
+  try {
+    // The conditional update matches nothing, and the follow-up read is scoped by user_id too.
+    backend.db.table("PATCH", "pin_schedules", { status: 200, body: [] });
+    backend.db.table("GET", "pin_schedules", { status: 200, body: [] });
+
+    const answer = await backend.send("POST", `/schedule/${SCHEDULE_ID}/cancel`, {});
+
+    assert.equal(answer.status, 404);
+    assert.equal(answer.body.code, "publication_not_found");
+    const reads = backend.db.requests.filter((entry) => entry.method === "GET" && entry.path === "/rest/v1/pin_schedules");
+    assert.equal(reads.length, 1);
+    assert.equal(String(reads[0].query.user_id), `eq.${USER_ID}`,
+      "the explanation read must not be able to see another account's row");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a publication the worker already claimed cannot be cancelled", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.table("PATCH", "pin_schedules", { status: 200, body: [] });
+    backend.db.table("GET", "pin_schedules", {
+      status: 200,
+      body: [scheduleRow({ status: "publishing", claim_token: "claim-capability-token" })],
+    });
+
+    const answer = await backend.send("POST", `/schedule/${SCHEDULE_ID}/cancel`, {});
+
+    assert.equal(answer.status, 409, `expected 409, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.match(String(answer.body.error), /Публикация уже началась/);
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.method === "PATCH" && entry.path === "/rest/v1/pin_schedules").length,
+      1,
+      "a refused cancellation must not issue a second, unconditional update"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a published pin cannot be cancelled either", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.table("PATCH", "pin_schedules", { status: 200, body: [] });
+    backend.db.table("GET", "pin_schedules", { status: 200, body: [scheduleRow({ status: "published" })] });
+
+    const answer = await backend.send("POST", `/schedule/${SCHEDULE_ID}/cancel`, {});
+
+    assert.equal(answer.status, 409);
+    assert.match(String(answer.body.error), /уже отправлена в Pinterest/);
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("an unexpected schedule status is reported as a conflict that asks for a refresh", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.table("PATCH", "pin_schedules", { status: 200, body: [] });
+    backend.db.table("GET", "pin_schedules", { status: 200, body: [scheduleRow({ status: "unknown" })] });
+
+    const answer = await backend.send("POST", `/schedule/${SCHEDULE_ID}/cancel`, {});
+
+    assert.equal(answer.status, 409);
+    assert.match(String(answer.body.error), /Статус публикации уже изменился/);
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("repeating a cancellation is safe and still cleans up the snapshot image", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.table("PATCH", "pin_schedules", { status: 200, body: [] });
+    backend.db.table("GET", "pin_schedules", {
+      status: 200,
+      body: [scheduleRow({
+        status: "cancelled",
+        snapshot_image_url: `${backend.supabaseUrl}/storage/v1/object/public/pin-images/pins/1700000000000-abcdefabcdefabcdefabcdefabcdefab.png`,
+      })],
+    });
+    backend.db.rpc("claim_pin_image_deletion", { status: 200, body: { claimed: true, claim_token: "delete-token-1" } });
+    backend.db.rpc("finalize_pin_image_deletion", { status: 200, body: true });
+    backend.db.routeMatching(
+      ({ method, path }) => method === "DELETE" && path === "/storage/v1/object/pin-images",
+      { status: 200, body: [] }
+    );
+
+    const answer = await backend.send("POST", `/schedule/${SCHEDULE_ID}/cancel`, {});
+
+    assert.equal(answer.status, 200, `a repeated cancel must be idempotent, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.equal(answer.body.status, "cancelled");
+    const removals = backend.db.requests.filter(
+      (entry) => entry.method === "DELETE" && entry.path === "/storage/v1/object/pin-images"
+    );
+    assert.equal(removals.length, 1, "the snapshot that only this schedule used must be released");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("retrying a publication refuses everything that is not a failed attempt with a destination", async () => {
+  const cases = [
+    { schedule: null, status: 404, code: "schedule_not_found" },
+    { schedule: scheduleRow({ status: "scheduled" }), status: 409, code: "publication_not_failed" },
+    { schedule: scheduleRow({ status: "published" }), status: 409, code: "publication_not_failed" },
+    { schedule: scheduleRow({ status: "failed", pinterest_board_id: null }), status: 422 },
+    { schedule: scheduleRow({ status: "failed", pinterest_account_id: null }), status: 422 },
+  ];
+
+  for (const item of cases) {
+    const backend = await startBackend();
+    try {
+      activatePaidPlan(backend, { plan: "pro" });
+      // The stub honours the owner filter: a route that forgets it would still see no row, so the test
+      // cannot pass by accident on a double that answers every query with the same row.
+      backend.db.table("GET", "pin_schedules", ({ query }) => {
+        const scopedToCaller = String(query.user_id || "") === `eq.${USER_ID}`;
+        return { status: 200, body: scopedToCaller && item.schedule ? [item.schedule] : [] };
+      });
+
+      const answer = await backend.send("POST", `/schedule/${SCHEDULE_ID}/retry`, {});
+      assert.equal(answer.status, item.status, `schedule ${JSON.stringify(item.schedule && item.schedule.status)} answered ${answer.status}: ${JSON.stringify(answer.body)}`);
+      if (item.code) assert.equal(answer.body.code, item.code);
+      // Nothing may be made due before the destination has been revalidated.
+      assert.equal(
+        backend.db.requests.filter((entry) => entry.path.includes("retry_failed_pin_schedule")).length,
+        0,
+        "a refused retry must not reach the retry RPC"
+      );
+    } finally {
+      await backend.stop();
+    }
   }
 });

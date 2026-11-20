@@ -1,4 +1,5 @@
 const axios = require("axios");
+const { resolveServiceBaseUrl } = require("./serviceBaseUrl");
 
 const DEFAULT_API_BASE = "https://gptunnel.ru";
 const REQUEST_TIMEOUT_MS = 30000;
@@ -16,19 +17,7 @@ const REQUEST_TIMEOUT_MS = 30000;
  * header - to whatever address the variable names.
  */
 function resolveApiBase(env = process.env) {
-  const override = String((env && env.AI_PROVIDER_BASE_URL) || "").trim();
-  if (!override) return DEFAULT_API_BASE;
-  const nodeEnv = String((env && env.NODE_ENV) || "").trim().toLowerCase();
-  if (!["development", "test"].includes(nodeEnv)) return DEFAULT_API_BASE;
-
-  let parsed;
-  try {
-    parsed = new URL(override);
-  } catch {
-    return DEFAULT_API_BASE;
-  }
-  if (!parsed.protocol || parsed.username || parsed.password || !parsed.hostname) return DEFAULT_API_BASE;
-  return override.replace(/\/+$/, "");
+  return resolveServiceBaseUrl({ env, variable: "AI_PROVIDER_BASE_URL", defaultBase: DEFAULT_API_BASE });
 }
 
 const API_BASE = resolveApiBase();

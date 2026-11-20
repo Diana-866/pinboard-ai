@@ -49,6 +49,11 @@ function referencedKeys() {
     for (const match of source.matchAll(/(?:^|[^\w.])env\.([A-Z][A-Z0-9_]{2,})/g)) {
       if (!keys.has(match[1])) keys.set(match[1], entry);
     }
+    // Provider seams name their variable as a string literal: resolveServiceBaseUrl({ variable: "X" }).
+    // Without this rule a new seam would look undocumented in one direction and missing in the other.
+    for (const match of source.matchAll(/resolveServiceBaseUrl\(\{[^}]*variable:\s*["']([A-Z0-9_]+)["']/g)) {
+      if (!keys.has(match[1])) keys.set(match[1], entry);
+    }
   }
   return keys;
 }

@@ -1,5 +1,6 @@
 const { logError, logWarning, logInfo } = require("./safeLogger");
 const { settleQuery } = require("./settleQuery");
+const { resolveServiceBaseUrl } = require("./serviceBaseUrl");
 // Pinterest API v5: OAuth 2.0 (вход через Pinterest) и публикация пинов.
 // Документация:
 //   авторизация: https://developers.pinterest.com/docs/getting-started/set-up-authentication-and-authorization/
@@ -45,7 +46,20 @@ const {
 
 const AUTHORIZE_URL = "https://www.pinterest.com/oauth/";
 const TOKEN_URL = "https://api.pinterest.com/v5/oauth/token";
-const API_BASE = "https://api.pinterest.com/v5";
+const DEFAULT_API_BASE = "https://api.pinterest.com/v5";
+
+/**
+ * The Pinterest API address, with the same narrow, fail-closed test seam the AI provider has.
+ *
+ * Retrying a failed publication is duplicate-risk work: the route revalidates the account and the remote
+ * board before making the schedule due again, and that validation could not be exercised at all while the
+ * address was a constant. `PINTEREST_API_BASE_URL` is honoured only in development and test.
+ */
+function resolvePinterestApiBase(env = process.env) {
+  return resolveServiceBaseUrl({ env, variable: "PINTEREST_API_BASE_URL", defaultBase: DEFAULT_API_BASE });
+}
+
+const API_BASE = resolvePinterestApiBase();
 
 // Минимально необходимые права: читать доски, публиковать пины, читать свой аккаунт.
 const SCOPES = ["boards:read", "boards:write", "pins:read", "pins:write", "user_accounts:read"];
@@ -1491,5 +1505,7 @@ module.exports = {
   refreshAccessToken,
   publishPin,
   verifyPinterestBoard,
+  resolvePinterestApiBase,
+  DEFAULT_API_BASE,
   SCOPES,
 };
