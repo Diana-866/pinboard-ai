@@ -1,4 +1,5 @@
 const { logError, logWarning, logInfo } = require("./safeLogger");
+const { settleQuery } = require("./settleQuery");
 // Pinterest API v5: OAuth 2.0 (вход через Pinterest) и публикация пинов.
 // Документация:
 //   авторизация: https://developers.pinterest.com/docs/getting-started/set-up-authentication-and-authorization/
@@ -880,7 +881,7 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
       };
     }
 
-    await persistKnownRemotePublishOutcome(
+    await settleQuery(persistKnownRemotePublishOutcome(
       (name, params) => supabase.rpc(name, params),
       {
         p_user_id: String(userId),
@@ -890,17 +891,17 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
         p_pinterest_pin_id: remoteId,
         p_error: "Pinterest created pin " + remoteId + " but local commit failed: " + completeError.message,
       }
-    ).catch(async (journalError) => {
+    ), async (journalError) => {
       // Fall back to the existing unknown-outcome fence if the new structured
       // journal write itself is unavailable. Never retry the remote POST.
       logError("pinterest.event_019");
-      await persistFailedPublishAttempt({
+      await settleQuery(persistFailedPublishAttempt({
         userId,
         pinId,
         accountId,
         message: "Pinterest created pin " + remoteId + " but local commit failed: " + completeError.message,
         outcomeUnknown: true,
-      }).catch((fallbackError) => {
+      }), () => {
         // The completion may have committed despite its transport error.
         logError("pinterest.event_020");
       });

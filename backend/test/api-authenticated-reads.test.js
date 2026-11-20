@@ -24,6 +24,7 @@ const USER_ID = "11111111-1111-4111-8111-111111111111";
 const OTHER_USER_ID = "22222222-2222-4222-8222-222222222222";
 const PROJECT_ID = "33333333-3333-4333-8333-333333333333";
 const BOARD_ID = "44444444-4444-4444-8444-444444444444";
+const PIN_ID = "55555555-5555-4555-8555-555555555555";
 
 function sessionToken(tokenVersion = 0) {
   return signSessionToken({ id: USER_ID, token_version: tokenVersion }, SECRET);
@@ -1271,6 +1272,327 @@ test("generation stops at the balance before reserving or calling the provider",
     await new Promise((resolve) => {
       // A keep-alive socket from the child would otherwise hold the server open and keep the whole
       // test file alive after its last assertion.
+      provider.closeAllConnections?.();
+      provider.close(resolve);
+    });
+  }
+});
+test("regeneration answers every claim state before quoting or charging", async () => {
+  const cases = [
+    { state: { status: "processing" }, expectedStatus: 409, expectedCode: "regeneration_in_progress", retryAfter: 5 },
+    { state: { status: "unknown" }, expectedStatus: 409, expectedCode: "regeneration_outcome_unknown" },
+    { state: { status: "failed" }, expectedStatus: 409, expectedCode: "regeneration_outcome_unknown" },
+    { state: { status: "expired" }, expectedStatus: 410, expectedCode: "idempotency_result_expired" },
+  ];
+
+  for (const item of cases) {
+    const backend = await startBackend();
+    try {
+      backend.db.ownedBy = USER_ID;
+      activatePaidPlan(backend);
+      backend.db.table("GET", "pins", {
+        status: 200,
+        body: [{
+          id: PIN_ID,
+          title: "Заголовок",
+          description: "Описание",
+          model_used: "flux-schnell",
+          image_url: null,
+          board_id: BOARD_ID,
+          // The owner check walks pins -> boards -> projects; without the nested project the pin
+          // reads as someone else's and every assertion below would be about a 404.
+          boards: { id: BOARD_ID, title: "Доска", description: "", projects: { user_id: USER_ID } },
+        }],
+      });
+      backend.db.rpc("begin_pin_regeneration_request", { status: 200, body: item.state });
+      const answer = await backend.send(
+        "POST",
+        `/pins/${PIN_ID}/regenerate`,
+        {},
+        sessionToken(),
+        { "idempotency-key": "regeneration-key-0001" }
+      );
+      assert.equal(answer.status, item.expectedStatus, `state ${item.state.status}`);
+      assert.equal(answer.body.code, item.expectedCode);
+      if (item.retryAfter) assert.equal(answer.body.retryAfterSeconds, item.retryAfter);
+      assert.deepEqual(
+        backend.db.requests.filter((entry) => entry.path.includes("reserve_pin_regeneration_credits")),
+        [],
+        `state ${item.state.status} must not reserve credits`
+      );
+    } finally {
+      await backend.stop();
+    }
+  }
+});
+
+test("a completed regeneration returns the saved pin without quoting again", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+    activatePaidPlan(backend);
+    backend.db.table("GET", "pins", {
+      status: 200,
+      body: [{
+        id: PIN_ID,
+        title: "Заголовок",
+        description: "Описание",
+        model_used: "flux-schnell",
+        image_url: null,
+        board_id: BOARD_ID,
+        // The owner check walks pins -> boards -> projects; without the nested project the pin
+        // reads as someone else's and every assertion below would be about a 404.
+        boards: { id: BOARD_ID, title: "Доска", description: "", projects: { user_id: USER_ID } },
+        }],
+    });
+    const savedPin = { id: PIN_ID, title: "Перегенерированный", image_url: "https://cdn.example/pin.png" };
+    backend.db.rpc("begin_pin_regeneration_request", { status: 200, body: { status: "completed", pin: savedPin } });
+    const answer = await backend.send(
+      "POST",
+      `/pins/${PIN_ID}/regenerate`,
+      {},
+      sessionToken(),
+      { "idempotency-key": "regeneration-key-0002" }
+    );
+    assert.equal(answer.status, 200);
+    assert.deepEqual(answer.body, savedPin);
+    assert.deepEqual(
+      backend.db.requests.filter((entry) => entry.path.includes("/rpc/") && !entry.path.includes("begin_pin_regeneration_request")),
+      [],
+      "an answer taken from the journal must not quote, reserve or settle"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("regeneration refuses a corrupt saved quote before any charge or provider call", async () => {
+  const providerCalls = [];
+  const provider = http.createServer((req, res) => {
+    providerCalls.push(req.url);
+    req.resume();
+    req.on("end", () => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({}));
+    });
+  });
+  const providerUrl = await new Promise((resolve) => {
+    provider.listen(0, "127.0.0.1", () => resolve(`http://127.0.0.1:${provider.address().port}`));
+  });
+  const backend = await startBackend({
+    extraEnv: { AI_PROVIDER_BASE_URL: providerUrl, GPTUNNEL_API_KEY: "test-provider-key" },
+  });
+  try {
+    backend.db.ownedBy = USER_ID;
+    activatePaidPlan(backend);
+    backend.db.table("GET", "pins", {
+      status: 200,
+      body: [{
+        id: PIN_ID,
+        title: "Заголовок",
+        description: "Описание",
+        model_used: "flux-schnell",
+        image_url: null,
+        board_id: BOARD_ID,
+        // The owner check walks pins -> boards -> projects; without the nested project the pin
+        // reads as someone else's and every assertion below would be about a 404.
+        boards: { id: BOARD_ID, title: "Доска", description: "", projects: { user_id: USER_ID } },
+        }],
+    });
+    // A saved quote that does not match the request: the amount may not be trusted.
+    backend.db.table("GET", "pin_regeneration_requests", {
+      status: 200,
+      body: [{
+        provider_quote_price: 12.5,
+        provider_quote_currency: "USD",
+        provider_quote_model: "flux-schnell",
+        provider_quote_aspect_ratio: "2:3",
+        amount: 19,
+      }],
+    });
+    backend.db.rpc("begin_pin_regeneration_request", {
+      status: 200,
+      body: { status: "started", claim_token: "11111111-1111-4111-8111-111111111111" },
+    });
+
+    let answer;
+    try {
+      answer = await backend.send(
+        "POST",
+        `/pins/${PIN_ID}/regenerate`,
+        {},
+        sessionToken(),
+        { "idempotency-key": "regeneration-key-0003" }
+      );
+    } catch (fetchError) {
+      assert.fail(`the backend died answering a corrupt quote: ${fetchError.message}
+${backend.output()}`);
+    }
+    assert.equal(answer.status, 502, `expected a corrupt-quote refusal, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.deepEqual(providerCalls, [], "a corrupt quote must not be re-quoted at the provider");
+    assert.deepEqual(
+      backend.db.requests.filter((entry) => entry.path.includes("reserve_pin_regeneration_credits")),
+      [],
+      "a corrupt quote must not reserve credits"
+    );
+  } finally {
+    await backend.stop();
+    await new Promise((resolve) => {
+      provider.closeAllConnections?.();
+      provider.close(resolve);
+    });
+  }
+});
+
+test("a rejected reservation is journalled once as unknown and never reaches the provider", async () => {
+  const providerCalls = [];
+  const provider = http.createServer((req, res) => {
+    providerCalls.push(req.url);
+    req.resume();
+    req.on("end", () => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({}));
+    });
+  });
+  const providerUrl = await new Promise((resolve) => {
+    provider.listen(0, "127.0.0.1", () => resolve(`http://127.0.0.1:${provider.address().port}`));
+  });
+  const backend = await startBackend({
+    extraEnv: { AI_PROVIDER_BASE_URL: providerUrl, GPTUNNEL_API_KEY: "test-provider-key" },
+  });
+  try {
+    backend.db.ownedBy = USER_ID;
+    activatePaidPlan(backend);
+    backend.db.table("GET", "pins", {
+      status: 200,
+      body: [{
+        id: PIN_ID,
+        title: "Заголовок",
+        description: "Описание",
+        model_used: "flux-schnell",
+        image_url: null,
+        board_id: BOARD_ID,
+        // The owner check walks pins -> boards -> projects; without the nested project the pin
+        // reads as someone else's and every assertion below would be about a 404.
+        boards: { id: BOARD_ID, title: "Доска", description: "", projects: { user_id: USER_ID } },
+        }],
+    });
+    backend.db.table("GET", "pin_regeneration_requests", {
+      status: 200,
+      body: [{
+        provider_quote_price: 12.5,
+        provider_quote_currency: "RUB",
+        provider_quote_model: "flux-schnell",
+        provider_quote_aspect_ratio: "2:3",
+        amount: 19,
+      }],
+    });
+    backend.db.rpc("begin_pin_regeneration_request", {
+      status: 200,
+      body: { status: "started", claim_token: "11111111-1111-4111-8111-111111111111" },
+    });
+    backend.db.rpc("reserve_pin_regeneration_credits", {
+      status: 400,
+      body: { code: "P0001", message: "insufficient available credits" },
+    });
+
+    const answer = await backend.send(
+      "POST",
+      `/pins/${PIN_ID}/regenerate`,
+      {},
+      sessionToken(),
+      { "idempotency-key": "regeneration-key-0004" }
+    );
+    assert.equal(answer.status, 402);
+    assert.equal(answer.body.code, "insufficient_credits");
+    assert.deepEqual(providerCalls, [], "an unaffordable regeneration must not reach the provider");
+
+    const journals = backend.db.requests
+      .filter((entry) => entry.path.includes("update_pin_regeneration_request"))
+      .map((entry) => (typeof entry.body === "string" ? JSON.parse(entry.body) : entry.body));
+    assert.equal(journals.length, 1, `the request must be journalled exactly once, got ${JSON.stringify(journals)}`);
+    assert.equal(journals[0].p_status, "unknown", "a reservation refusal is not a confirmed provider failure");
+    assert.equal(journals[0].p_error_code, "regeneration_reservation_failed");
+  } finally {
+    await backend.stop();
+    await new Promise((resolve) => {
+      provider.closeAllConnections?.();
+      provider.close(resolve);
+    });
+  }
+});
+
+test("a valid saved quote is used instead of asking the provider for a new price", async () => {
+  const providerCalls = [];
+  const provider = http.createServer((req, res) => {
+    providerCalls.push(req.url);
+    req.resume();
+    req.on("end", () => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({}));
+    });
+  });
+  const providerUrl = await new Promise((resolve) => {
+    provider.listen(0, "127.0.0.1", () => resolve(`http://127.0.0.1:${provider.address().port}`));
+  });
+  const backend = await startBackend({
+    extraEnv: { AI_PROVIDER_BASE_URL: providerUrl, GPTUNNEL_API_KEY: "test-provider-key" },
+  });
+  try {
+    backend.db.ownedBy = USER_ID;
+    activatePaidPlan(backend);
+    backend.db.table("GET", "pins", {
+      status: 200,
+      body: [{
+        id: PIN_ID,
+        title: "Заголовок",
+        description: "Описание",
+        model_used: "flux-schnell",
+        image_url: null,
+        board_id: BOARD_ID,
+        // The owner check walks pins -> boards -> projects; without the nested project the pin
+        // reads as someone else's and every assertion below would be about a 404.
+        boards: { id: BOARD_ID, title: "Доска", description: "", projects: { user_id: USER_ID } },
+        }],
+    });
+    backend.db.table("GET", "pin_regeneration_requests", {
+      status: 200,
+      body: [{
+        provider_quote_price: 12.5,
+        provider_quote_currency: "RUB",
+        provider_quote_model: "flux-schnell",
+        provider_quote_aspect_ratio: "2:3",
+        amount: 19,
+      }],
+    });
+    backend.db.rpc("begin_pin_regeneration_request", {
+      status: 200,
+      body: { status: "started", claim_token: "11111111-1111-4111-8111-111111111111" },
+    });
+    backend.db.rpc("reserve_pin_regeneration_credits", {
+      status: 400,
+      body: { code: "P0001", message: "insufficient available credits" },
+    });
+
+    const answer = await backend.send(
+      "POST",
+      `/pins/${PIN_ID}/regenerate`,
+      {},
+      sessionToken(),
+      { "idempotency-key": "regeneration-key-0005" }
+    );
+    // The refusal itself is proven by the reservation test; here the point is the absence of a
+    // second provider quote, which would both cost money and change the price mid-request.
+    assert.equal(answer.status, 402);
+    assert.deepEqual(providerCalls, []);
+    assert.deepEqual(
+      backend.db.requests.filter((entry) => entry.path.includes("record_pin_regeneration_quote")),
+      [],
+      "an already-quoted request must not record a second quote"
+    );
+  } finally {
+    await backend.stop();
+    await new Promise((resolve) => {
       provider.closeAllConnections?.();
       provider.close(resolve);
     });

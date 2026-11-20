@@ -1,4 +1,5 @@
 const { installFatalProcessHandlers } = require("./fatalProcessHandlers");
+const { settleQuery } = require("./settleQuery");
 installFatalProcessHandlers();
 
 const express = require("express");
@@ -1230,7 +1231,7 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
         p_claim_token: claimToken,
       });
       if (reservationError) {
-        await supabase.rpc("update_pin_regeneration_request", {
+        await settleQuery(supabase.rpc("update_pin_regeneration_request", {
           p_user_id: String(req.userId),
           p_idempotency_key: idempotencyKey,
           p_claim_token: claimToken,
@@ -1238,7 +1239,7 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
           // resumable so a top-up or transient DB recovery can retry safely.
           p_status: "unknown",
           p_error_code: "regeneration_reservation_failed",
-        }).catch((journalError) => logError("index.event_011"));
+        }), () => logError("index.event_011"));
         requestStarted = false;
         if (/insufficient available credits/i.test(reservationError.message || "")) {
           throw insufficientCreditsError("Недостаточно доступных кредитов для перегенерации");
@@ -1428,14 +1429,14 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
           logError("index.event_009");
         }
       }
-      await supabase.rpc("update_pin_regeneration_request", {
+      await settleQuery(supabase.rpc("update_pin_regeneration_request", {
         p_user_id: String(req.userId), p_idempotency_key: idempotencyKey, p_claim_token: claimToken,
         // Only a provider-confirmed failure with a persisted terminal outcome
         // may become failed. Otherwise retain unknown and block a fresh task.
         p_status: providerFailureRecorded ? "failed" : "unknown",
         p_error_code: providerFailureRecorded ? "provider_generation_failed" :
           (e && e.status === 402 ? "insufficient_balance" : "regeneration_outcome_unknown"),
-      }).catch((journalError) => logError("index.event_008"));
+      }), () => logError("index.event_008"));
     }
     handleError(res, e);
   }

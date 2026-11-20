@@ -635,6 +635,31 @@ test("when the remote-id journal also fails, the unknown-outcome fence is writte
   assert.equal(fallback[0].params.p_outcome_unknown, true);
 });
 
+/** A supabase-js builder is a thenable with `then` only - the real client has no `.catch` (2.116.0). */
+function builderThatRejects(message) {
+  return { then: (onFulfilled, onRejected) => Promise.reject(new Error(message)).then(onFulfilled, onRejected) };
+}
+
+test("a journal builder that rejects without a catch method still writes the fallback fence", async () => {
+  const { pinterest, state } = loadPinterest();
+  withRpcs(state, {
+    complete_pinterest_publish_v2: async () => ({ data: null, error: { message: "connection lost" } }),
+    // The honest double: a builder rejects and has no `.catch`, exactly like @supabase/postgrest-js. A
+    // plain async function here would hide the defect, because it does have `.catch`.
+    record_pinterest_publish_unknown_v2: () => builderThatRejects("journal transport down"),
+    fail_pinterest_publish_v2: async () => ({ data: null, error: null }),
+  });
+  state.postResponses.push({ status: 201, data: { id: REMOTE_PIN_ID } });
+
+  const error = await rejection(pinterest.publishPin(USER_ID, PIN_ID, BOARD_ID));
+  assert.equal(error.httpStatus, 503, `expected the pin-exists refusal, got ${error.message}`);
+  const fallback = state.rpcCalls.filter((call) => call.name === "fail_pinterest_publish_v2");
+  assert.equal(fallback.length, 1, "the fence must still be written when the builder rejects without .catch");
+  assert.equal(fallback[0].params.p_outcome_unknown, true);
+  assert.equal(state.axiosCalls.filter((call) => String(call.url).endsWith("/pins")).length, 1,
+    "a journal failure must never repeat the remote POST");
+});
+
 test("even when both journal writes fail the caller is told the pin exists", async () => {
   const { pinterest, state } = loadPinterest();
   withRpcs(state, {
