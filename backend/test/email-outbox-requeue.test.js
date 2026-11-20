@@ -88,6 +88,9 @@ test("a deployment without migration 165 says which migration is missing", async
   const error = await billing.requeueEmailOutbox(DEAD_ID).then(() => null, (caught) => caught);
   assert.equal(error.httpStatus, 503);
   assert.match(error.message, /миграцию 165/);
+  // Section 126: a 503 never carries its text, so the migration number only reaches the operator
+  // through the code. Without it this answer is the generic "internal server error".
+  assert.equal(error.details?.code, "email_requeue_migration_missing");
 });
 
 test("a real database failure is a generic 503 and does not leak the cause", async () => {

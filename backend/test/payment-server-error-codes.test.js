@@ -27,10 +27,8 @@ const MODULES = ["billing.js", "creditsBilling.js", "credits.js", "creditPacks.j
  * The key is a distinctive fragment of the message in the source.
  */
 const EXEMPT = {
-  "Переотправка писем недоступна: примените миграцию 165":
-    "Admin-only requeue route: the reader is the owner, and the migration number is exactly what they need.",
   "Не удалось поставить письмо в очередь":
-    "Same admin route: an operator-level failure, retryable, and the generic text is accurate.",
+    "Same admin route: an operator-level failure, retryable, and the generic text is accurate - nothing is lost that a code could name.",
   "Не удалось получить подписки — примените миграцию 006":
     "Our own read failed (customer and admin list). The customer cannot act and the migration hint is for the log; a code would only dress up a server fault.",
   "Не удалось получить покупки — примените миграцию 007":

@@ -20,6 +20,7 @@ export type AppErrorMessageKey =
   | 'aiOutputInvalid'
   | 'loginLockoutMigrationMissing'
   | 'loginLockoutUnavailable'
+  | 'emailRequeueMigrationMissing'
   | 'paymentProviderUnavailable'
   | 'paymentLinkNotSaved'
   | 'paymentOrderPreparationFailed'
@@ -88,6 +89,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     aiOutputInvalid: "The model answered with something we could not use, so this attempt was stopped. Nothing was charged for it — try again.",
     loginLockoutMigrationMissing: "The login lockout is not available: migration 164 has not been applied in this environment. Until it is, nobody is locked out after repeated failed sign-ins.",
     loginLockoutUnavailable: "The login lockout service did not answer, so the lock state could not be read or cleared. Try again in a minute.",
+    emailRequeueMigrationMissing: "Email requeue is not available: migration 165 has not been applied in this environment. Until it is, a dead transactional email cannot be put back in the queue.",
     paymentProviderUnavailable: "The payment service is not responding right now. Nothing has been charged - try again in a few minutes.",
     paymentLinkNotSaved: "Your invoice was created but we could not save its link. Do not start another payment - contact support and we will find your invoice by email.",
     paymentOrderPreparationFailed: "We could not prepare your order safely, and nothing was sent to the payment provider. Try again in a few minutes.",
@@ -155,6 +157,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     aiOutputInvalid: "Нейросеть ответила так, что использовать это нельзя, поэтому попытка остановлена. За неё ничего не списано — попробуйте снова.",
     loginLockoutMigrationMissing: "Замок входа недоступен: миграция 164 не применена в этом окружении. Пока её нет, блокировка после неудачных попыток входа не работает.",
     loginLockoutUnavailable: "Сервис замка входа не ответил, поэтому состояние блокировки не удалось ни прочитать, ни снять. Повторите через минуту.",
+    emailRequeueMigrationMissing: "Переотправка писем недоступна: миграция 165 не применена в этом окружении. Пока её нет, потерянное письмо нельзя вернуть в очередь.",
     paymentProviderUnavailable: "Платёжный сервис сейчас не отвечает. Деньги не списаны — повторите попытку через несколько минут.",
     paymentLinkNotSaved: "Счёт создан, но ссылку на него сохранить не удалось. Не создавайте новый платёж — напишите в поддержку, мы найдём счёт по email.",
     paymentOrderPreparationFailed: "Не удалось безопасно подготовить заказ, провайдеру ничего не отправлялось. Повторите попытку через несколько минут.",
@@ -222,6 +225,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     aiOutputInvalid: "El modelo respondió con algo que no podemos usar, así que esta tentativa se detuvo. No se ha cobrado nada por ella; inténtalo de nuevo.",
     loginLockoutMigrationMissing: "El bloqueo de acceso no está disponible: la migración 164 no se ha aplicado en este entorno. Mientras falte, nadie queda bloqueado tras varios intentos fallidos.",
     loginLockoutUnavailable: "El servicio de bloqueo de acceso no respondió, así que no se pudo leer ni borrar el estado del bloqueo. Inténtalo de nuevo en un minuto.",
+    emailRequeueMigrationMissing: "La reencolación de correos no está disponible: la migración 165 no se ha aplicado en este entorno. Mientras falte, un correo perdido no puede volver a la cola.",
     paymentProviderUnavailable: "El servicio de pago no responde en este momento. No se ha cobrado nada: inténtalo de nuevo en unos minutos.",
     paymentLinkNotSaved: "La factura se creó, pero no pudimos guardar su enlace. No inicies otro pago: escribe al soporte y la encontraremos por tu email.",
     paymentOrderPreparationFailed: "No pudimos preparar tu pedido de forma segura y no se envió nada al proveedor de pago. Inténtalo de nuevo en unos minutos.",
@@ -289,6 +293,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     aiOutputInvalid: "O modelo respondeu algo que não podemos usar, por isso esta tentativa foi interrompida. Nada foi cobrado por ela — tente novamente.",
     loginLockoutMigrationMissing: "O bloqueio de acesso não está disponível: a migração 164 não foi aplicada neste ambiente. Enquanto faltar, ninguém é bloqueado após tentativas falhadas.",
     loginLockoutUnavailable: "O serviço de bloqueio de acesso não respondeu, por isso não foi possível ler nem limpar o estado do bloqueio. Tente novamente num minuto.",
+    emailRequeueMigrationMissing: "O reenfileiramento de e-mails não está disponível: a migração 165 não foi aplicada neste ambiente. Enquanto faltar, um e-mail perdido não pode voltar à fila.",
     paymentProviderUnavailable: "O serviço de pagamento não está respondendo agora. Nada foi cobrado — tente novamente em alguns minutos.",
     paymentLinkNotSaved: "A fatura foi criada, mas não conseguimos salvar o link dela. Não inicie outro pagamento — fale com o suporte e a encontraremos pelo seu email.",
     paymentOrderPreparationFailed: "Não conseguimos preparar seu pedido com segurança e nada foi enviado ao provedor de pagamento. Tente novamente em alguns minutos.",
@@ -356,6 +361,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     aiOutputInvalid: "Das Modell hat etwas geantwortet, das wir nicht verwenden können; dieser Versuch wurde beendet. Es wurde nichts dafür belastet — versuchen Sie es erneut.",
     loginLockoutMigrationMissing: "Die Login-Sperre ist nicht verfügbar: Migration 164 wurde in dieser Umgebung nicht eingespielt. Solange sie fehlt, wird nach fehlgeschlagenen Anmeldungen niemand gesperrt.",
     loginLockoutUnavailable: "Der Dienst der Login-Sperre antwortete nicht, daher konnte der Sperrzustand weder gelesen noch aufgehoben werden. Versuchen Sie es in einer Minute erneut.",
+    emailRequeueMigrationMissing: "Das erneute Einreihen von E-Mails ist nicht verfügbar: Migration 165 wurde in dieser Umgebung nicht eingespielt. Solange sie fehlt, kann eine verlorene E-Mail nicht zurück in die Warteschlange.",
     paymentProviderUnavailable: "Der Zahlungsdienst antwortet gerade nicht. Es wurde nichts belastet - versuche es in ein paar Minuten erneut.",
     paymentLinkNotSaved: "Die Rechnung wurde erstellt, aber wir konnten ihren Link nicht speichern. Starte keine zweite Zahlung - schreibe dem Support, wir finden sie über deine E-Mail.",
     paymentOrderPreparationFailed: "Wir konnten deine Bestellung nicht sicher vorbereiten, an den Zahlungsanbieter wurde nichts gesendet. Versuche es in ein paar Minuten erneut.",
@@ -423,6 +429,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     aiOutputInvalid: "Le modèle a répondu quelque chose que nous ne pouvons pas utiliser : cette tentative a été arrêtée. Rien n’a été débité pour elle — réessayez.",
     loginLockoutMigrationMissing: "Le verrouillage de connexion n’est pas disponible : la migration 164 n’a pas été appliquée dans cet environnement. Tant qu’elle manque, personne n’est bloqué après plusieurs échecs.",
     loginLockoutUnavailable: "Le service de verrouillage de connexion n’a pas répondu : l’état du verrouillage n’a pu être ni lu ni levé. Réessayez dans une minute.",
+    emailRequeueMigrationMissing: "La remise en file des e-mails n’est pas disponible : la migration 165 n’a pas été appliquée dans cet environnement. Tant qu’elle manque, un e-mail perdu ne peut pas revenir dans la file.",
     paymentProviderUnavailable: "Le service de paiement ne répond pas pour le moment. Rien n'a été débité : réessayez dans quelques minutes.",
     paymentLinkNotSaved: "La facture a été créée, mais nous n'avons pas pu enregistrer son lien. Ne lancez pas un autre paiement : écrivez au support et nous la retrouverons grâce à votre email.",
     paymentOrderPreparationFailed: "Nous n'avons pas pu préparer votre commande en toute sécurité et rien n'a été envoyé au prestataire de paiement. Réessayez dans quelques minutes.",
@@ -490,6 +497,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     aiOutputInvalid: "模型返回了无法使用的内容，本次尝试已停止，没有扣费。请重试。",
     loginLockoutMigrationMissing: "登录锁定不可用：此环境尚未应用迁移 164。在迁移之前，多次登录失败不会被锁定。",
     loginLockoutUnavailable: "登录锁定服务没有响应，因此无法读取或解除锁定状态。请在一分钟后重试。",
+    emailRequeueMigrationMissing: "邮件重新入队不可用：此环境尚未应用迁移 165。在迁移之前，丢失的邮件无法回到队列。",
     paymentProviderUnavailable: "支付服务暂时无法响应，尚未扣款。请几分钟后重试。",
     paymentLinkNotSaved: "账单已创建，但我们无法保存其链接。请不要再次发起支付，请联系客服，我们会通过邮箱找到这笔账单。",
     paymentOrderPreparationFailed: "我们无法安全地准备您的订单，也没有向支付服务商发送任何内容。请几分钟后重试。",
@@ -662,6 +670,7 @@ export function getLocalizedApiError(code: unknown, status: unknown): string | n
   if ([500, 502, 503].includes(Number(status))) {
     if (code === 'login_lockout_migration_missing') return getAppErrorMessage('loginLockoutMigrationMissing');
     if (code === 'login_lockout_unavailable') return getAppErrorMessage('loginLockoutUnavailable');
+    if (code === 'email_requeue_migration_missing') return getAppErrorMessage('emailRequeueMigrationMissing');
   }
   // The model gave unusable output: no image was requested for it, so nothing was charged (section 119).
   if (code === 'ai_output_invalid' && [502, 503].includes(Number(status))) {

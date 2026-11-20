@@ -160,3 +160,20 @@ test('an operator refusal names the deployment mistake instead of "internal erro
     }
   });
 });
+
+test('an admin requeue refusal names the migration instead of "internal error"', () => {
+  // Section 126. The exemption covering this site claimed the operator would read the migration number
+  // in the message - impossible on a 5xx, which replaces its body with the generic sentence.
+  for (const language of LANGUAGES) {
+    const message = withStoredLanguage(language, () => getLocalizedApiError('email_requeue_migration_missing', 503));
+    assert.ok(message && message.trim().length > 0, `${language} must translate email_requeue_migration_missing`);
+  }
+  const english = withStoredLanguage('en', () => getLocalizedApiError('email_requeue_migration_missing', 503))!;
+  assert.match(english, /migration 165/i, 'the operator needs the migration number');
+  assert.doesNotMatch(english, /try again in a minute/i, 'a missing migration is not fixed by waiting');
+  withStoredLanguage('en', () => {
+    for (const status of [200, 409, 422]) {
+      assert.equal(getLocalizedApiError('email_requeue_migration_missing', status), null, `status ${status}`);
+    }
+  });
+});

@@ -548,7 +548,12 @@ async function requeueEmailOutbox(id, dependencies = {}) {
       || /could not find the function|does not exist/i.test(String(error.message || ""));
     if (missing) {
       logError("billing.event_029");
-      throw httpError(503, "Переотправка писем недоступна: примените миграцию 165");
+      // Section 126. This text names the migration the operator must run, and a 503 never carries its
+      // text - the exemption that used to cover this site claimed the reader would see the number,
+      // which was false. The code is what crosses, so the number travels in the client's copy.
+      const migrationMissing = httpError(503, "Переотправка писем недоступна: примените миграцию 165");
+      migrationMissing.details = { code: "email_requeue_migration_missing" };
+      throw migrationMissing;
     }
     logError("billing.event_030");
     throw httpError(503, "Не удалось поставить письмо в очередь — попробуйте позже");
