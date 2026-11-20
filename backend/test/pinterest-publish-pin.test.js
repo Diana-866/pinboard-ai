@@ -219,6 +219,10 @@ test("a pin without an image is refused and never reaches Pinterest", async () =
   const error = await rejection(pinterest.publishPin(USER_ID, PIN_ID, BOARD_ID));
   assert.equal(error.httpStatus, 422);
   assert.match(error.message, /изображения/);
+  // The client can only localize what it is told: the same refusal was coded in the schedule
+  // routes and uncoded here, so one customer read German and the other read Russian.
+  assert.equal(error.details && error.details.code, "pin_image_missing");
+  assert.equal(error.retryable, false);
   assert.deepEqual(state.rpcCalls, []);
 });
 
@@ -229,6 +233,8 @@ test("an empty board id is refused instead of posting to an unspecified board", 
   const error = await rejection(pinterest.publishPin(USER_ID, PIN_ID, "   "));
   assert.equal(error.httpStatus, 422);
   assert.match(error.message, /board_id/);
+  assert.equal(error.details && error.details.code, "board_selection_required");
+  assert.equal(error.retryable, false);
   assert.deepEqual(state.axiosCalls, []);
 });
 

@@ -32,7 +32,7 @@ const { hasEncryptionKey, isEncryptedToken, isEncryptedWithActiveKey, encryptTok
 const jwt = require("jsonwebtoken");
 const supabase = require("./supabase");
 const { getTariffState, normalizePlan, GENERATION_PLANS } = require("./tariff");
-const { httpError } = require("./validate");
+const { httpError, validationError } = require("./validate");
 const { getPinterestTokenExpiresAt } = require("./pinterestOAuth");
 const { isValidClaimedScheduleRows } = require("./scheduleResponse");
 const { buildScheduleWorkerFailureState, hasCompleteScheduleClaimIdentity, hasMatchingScheduleAttemptIdentity, isScheduleClaimUpdateConfirmed, resolvePublishedReservation, resolvePinScheduleSnapshot, normalizePinterestDestinationUrl, isPinterestPublishOutcomeUnknown, matchesConfirmedPublicationLedger, persistPublishFailureJournal, persistKnownRemotePublishOutcome, createScheduleClaimHeartbeat, isScheduleClaimLostError } = require("./pinterestSchedule");
@@ -637,7 +637,9 @@ async function persistFailedPublishAttempt({ userId, pinId, accountId, message, 
 async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationUrl, accountId = null, scheduleClaim = null, scheduleSnapshot = null) {
   const boardId = String(pinterestBoardId || "").trim();
   if (!boardId) {
-    const error = httpError(422, "board_id обязателен: выберите доску Pinterest");
+    // The same refusal already existed in the schedule routes with a code, so a customer working in
+    // German read one sentence in German and this one in Russian. One rule, one code.
+    const error = validationError("board_selection_required", "board_id обязателен: выберите доску Pinterest");
     error.retryable = false;
     throw error;
   }
@@ -658,7 +660,7 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
     image_url: resolvedSnapshot.image_url,
   };
   if (!publishPinData.image_url) {
-    const error = httpError(422, "У пина нет изображения — сначала сгенерируйте картинку");
+    const error = validationError("pin_image_missing", "У пина нет изображения — сначала сгенерируйте картинку");
     error.retryable = false;
     throw error;
   }
