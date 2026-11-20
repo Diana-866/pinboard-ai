@@ -20,7 +20,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const MODULES = ["billing.js", "creditsBilling.js", "credits.js", "creditPacks.js"];
+const MODULES = ["billing.js", "creditsBilling.js", "credits.js", "creditPacks.js", "prodamus.js"];
 
 /**
  * Each exemption states who reads the message and why a code would not help them.

@@ -1047,7 +1047,9 @@ test("per-request Prodamus webhook overrides require HTTPS and reject embedded c
   ]) {
     assert.throws(
       () => prodamus.validateWebhookNotificationUrl(url),
-      (error) => error.httpStatus === 500 && /HTTPS URL/.test(error.message)
+      // Section 114: a missing or unusable payment configuration is "payments are off here",
+      // not "our bug", so the answer is 503 with the code the client localizes.
+      (error) => error.httpStatus === 503 && error.details.code === "payments_not_configured" && /HTTPS URL/.test(error.message)
     );
   }
 });
@@ -1071,7 +1073,7 @@ test("does not sign or return an insecure per-request webhook URL", async () => 
         description: "PinPosy / Старт",
         urlNotification: "http://api.pinposy.com/billing/webhook",
       }),
-      (error) => error.httpStatus === 500 && /HTTPS URL/.test(error.message)
+      (error) => error.httpStatus === 503 && error.details.code === "payments_not_configured" && /HTTPS URL/.test(error.message)
     );
   } finally {
     for (const [key, value] of Object.entries(previous)) {

@@ -629,7 +629,10 @@ export function getLocalizedApiError(code: unknown, status: unknown): string | n
       Object.prototype.hasOwnProperty.call(PAYMENT_CODES, code)) {
     return getAppErrorMessage(PAYMENT_CODES[code]);
   }
-  if (Number(status) === 500 && Object.prototype.hasOwnProperty.call(PAYMENT_NOT_STARTED_CODES, code)) {
+  // "Nothing was charged" is the same fact whatever integer carries it: our own failure to create
+  // the invoice (500) and a provider that answered with an unusable link (502) both mean it.
+  if ([500, 502, 503].includes(Number(status)) &&
+      Object.prototype.hasOwnProperty.call(PAYMENT_NOT_STARTED_CODES, code)) {
     return getAppErrorMessage(PAYMENT_NOT_STARTED_CODES[code]);
   }
   if (Number(status) === 403 && Object.prototype.hasOwnProperty.call(TARIFF_CODES, code)) {

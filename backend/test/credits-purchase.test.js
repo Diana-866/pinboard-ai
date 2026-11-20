@@ -352,7 +352,8 @@ test("a webhook URL that the provider would reject stops the request before the 
   try {
     await assert.rejects(
       () => creditsBilling.createCreditsPayment("buyer-1", { package_id: "pack_100" }, KEY),
-      (error) => error.httpStatus === 500 && /urlNotification/.test(error.message)
+      (error) => error.httpStatus === 503 && error.details && error.details.code === "payments_not_configured"
+        && /urlNotification/.test(error.message)
     );
   } finally {
     if (previous === undefined) delete process.env.PRODAMUS_SYS; else process.env.PRODAMUS_SYS = previous;

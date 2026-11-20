@@ -30,7 +30,7 @@ const CASES = [
   // one answers 500 on purpose - the status is ours to choose, the customer only needs to know that
   // no money moved.
   { code: 'payments_not_configured', key: 'paymentsNotConfigured', statuses: [503] },
-  { code: 'payment_not_started', key: 'paymentNotStarted', statuses: [500] },
+  { code: 'payment_not_started', key: 'paymentNotStarted', statuses: [500, 502] },
 ];
 
 function withStoredLanguage<T>(language: string | null, run: () => T): T {

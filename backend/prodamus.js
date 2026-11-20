@@ -11,7 +11,7 @@ const { logError } = require("./safeLogger");
 const crypto = require("crypto");
 const axios = require("axios");
 const { httpError } = require("./validate");
-const { paymentProviderUnavailable } = require("./paymentErrors");
+const { paymentError, paymentProviderUnavailable, paymentsNotConfigured } = require("./paymentErrors");
 
 function isConfigured() {
   return !!(process.env.PRODAMUS_SHOP_ID && process.env.PRODAMUS_SECRET);
@@ -37,7 +37,7 @@ function baseUrl() {
   try {
     paymentUrl = new URL(value);
   } catch {
-    throw httpError(500, "PRODAMUS_URL must be a valid HTTPS URL");
+    throw paymentsNotConfigured("PRODAMUS_URL must be a valid HTTPS URL");
   }
   // The signed request contains a digest derived from the shop secret. Never
   // send it over cleartext HTTP or to a URL with embedded credentials.
@@ -47,7 +47,7 @@ function baseUrl() {
     paymentUrl.username ||
     paymentUrl.password
   ) {
-    throw httpError(500, "PRODAMUS_URL must be a valid HTTPS URL without embedded credentials");
+    throw paymentsNotConfigured("PRODAMUS_URL must be a valid HTTPS URL without embedded credentials");
   }
   if (!paymentUrl.pathname.endsWith("/")) paymentUrl.pathname += "/";
   return paymentUrl.toString();
@@ -114,7 +114,7 @@ function toFormEncoded(params) {
  */
 function signPayload(params) {
   const secret = process.env.PRODAMUS_SECRET;
-  if (!secret) throw httpError(500, "PRODAMUS_SECRET не задан");
+  if (!secret) throw paymentsNotConfigured("PRODAMUS_SECRET не задан");
   return crypto
     .createHmac("sha256", secret)
     .update(canonicalString(params), "utf8")
@@ -269,7 +269,7 @@ function validateWebhookNotificationUrl(raw) {
   try {
     notificationUrl = new URL(String(raw));
   } catch {
-    throw httpError(500, "PRODAMUS urlNotification must be a valid HTTPS URL");
+    throw paymentsNotConfigured("PRODAMUS urlNotification must be a valid HTTPS URL");
   }
   if (
     notificationUrl.protocol !== "https:" ||
@@ -277,7 +277,7 @@ function validateWebhookNotificationUrl(raw) {
     notificationUrl.username ||
     notificationUrl.password
   ) {
-    throw httpError(500, "PRODAMUS urlNotification must be a valid HTTPS URL without embedded credentials");
+    throw paymentsNotConfigured("PRODAMUS urlNotification must be a valid HTTPS URL without embedded credentials");
   }
   return notificationUrl.toString();
 }
@@ -288,7 +288,7 @@ function validateCheckoutUrl(raw) {
   try {
     checkoutUrl = new URL(String(raw));
   } catch {
-    throw httpError(502, "Prodamus вернул некорректную ссылку на оплату");
+    throw paymentError(502, "Prodamus вернул некорректную ссылку на оплату", "payment_not_started");
   }
   const configuredHost = new URL(baseUrl()).hostname.toLowerCase();
   const checkoutHost = checkoutUrl.hostname.toLowerCase();
@@ -303,7 +303,7 @@ function validateCheckoutUrl(raw) {
     checkoutUrl.password ||
     !isProviderHost
   ) {
-    throw httpError(502, "Prodamus вернул небезопасную ссылку на оплату");
+    throw paymentError(502, "Prodamus вернул небезопасную ссылку на оплату", "payment_not_started");
   }
   return checkoutUrl.toString();
 }
@@ -323,7 +323,7 @@ async function createPaymentLink({
   urlNotification,
   urlSuccess,
 }) {
-  if (!orderId) throw httpError(500, "Не удалось создать платёж: нет order_id");
+  if (!orderId) throw paymentError(500, "Не удалось создать платёж: нет order_id", "payment_not_started");
   const price = formatAmount(amount);
   const sys = String(process.env.PRODAMUS_SYS || "").trim();
   // Resolve and validate the configured endpoint before anything is signed or
@@ -404,9 +404,12 @@ async function createPaymentLink({
 
   if (!url) {
     logError("prodamus.event_001");
-    throw httpError(
+    // No invoice exists at the provider, so the customer must be told that no money moved - the
+    // variable names stay in the log, where the operator reads them.
+    throw paymentError(
       502,
-      "Prodamus не вернул ссылку на оплату. Проверьте PRODAMUS_SHOP_ID / PRODAMUS_SECRET / PRODAMUS_URL."
+      "Prodamus не вернул ссылку на оплату. Проверьте PRODAMUS_SHOP_ID / PRODAMUS_SECRET / PRODAMUS_URL.",
+      "payment_not_started"
     );
   }
 

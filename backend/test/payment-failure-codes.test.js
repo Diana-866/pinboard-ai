@@ -136,3 +136,42 @@ test("the provider failures keep their codes instead of a bare httpError", () =>
   assert.doesNotMatch(source, /httpError\(502, "Prodamus не подтвердил создание счёта/);
   assert.match(source, /paymentProviderUnavailable\(/);
 });
+
+test("the provider client never hides the two money facts behind a bare 5xx", async () => {
+  // Section 114. `prodamus.js` is the last module on the checkout path, and it raised six bare 5xx
+  // for "this deployment has no payment configuration" and three for "the provider gave us no usable
+  // link". The customer read "внутренняя ошибка сервера" and had no idea whether money had moved.
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const source = fs.readFileSync(path.join(__dirname, "..", "prodamus.js"), "utf8").replace(/\r\n/g, "\n");
+  const bare = [...source.matchAll(/throw\s+httpError\(([\s\S]*?)\);\n/g)]
+    .filter((match) => {
+      const status = Number(match[1].split(",")[0]);
+      return Number.isInteger(status) && status >= 500;
+    });
+  assert.deepEqual(bare.map((match) => match[1].slice(0, 50)), [], "no bare 5xx may remain in the provider client");
+
+  // A missing configuration means "payments are off here", not "our bug": the customer must be told
+  // nothing was charged, and the deployment detail stays in the log.
+  assert.match(source, /throw paymentsNotConfigured\("PRODAMUS_SECRET не задан"\)/);
+  // A provider that answers without a usable link leaves no invoice behind.
+  assert.match(source, /"payment_not_started"/);
+  assert.ok(
+    (source.match(/"payment_not_started"/g) || []).length >= 3,
+    "every invoice-less failure must name the money fact"
+  );
+  // A count alone cannot say *which* failure kept the code: these three block the checkout, and each
+  // one must still name the money fact in the same call. The list has a floor of its own, so an empty
+  // list cannot make this check pass by checking nothing.
+  const blockingRefusals = [
+    "некорректную ссылку на оплату",
+    "небезопасную ссылку на оплату",
+    "не вернул ссылку на оплату",
+  ];
+  assert.ok(blockingRefusals.length >= 3, "the list of blocking refusals must not shrink silently");
+  const carrying = blockingRefusals.filter((message) => {
+    const at = source.indexOf(message);
+    return at > 0 && /"payment_not_started"/.test(source.slice(at, at + 220));
+  });
+  assert.deepEqual(blockingRefusals.filter((message) => !carrying.includes(message)), [], "a blocking refusal lost the money fact");
+});

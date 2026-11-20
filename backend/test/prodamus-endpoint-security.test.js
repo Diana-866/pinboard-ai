@@ -34,7 +34,7 @@ test("Prodamus API endpoint must use HTTPS and cannot embed credentials", async 
     await withEnv({ PRODAMUS_URL: value }, () => {
       assert.throws(
         () => prodamus.baseUrl(),
-        (error) => error.httpStatus === 500 && /PRODAMUS_URL/.test(error.message)
+        (error) => error.httpStatus === 503 && error.details.code === "payments_not_configured" && /PRODAMUS_URL/.test(error.message)
       );
     });
   }
@@ -60,7 +60,7 @@ test("Prodamus never sends the signed checkout request to an insecure configured
           amount: 1990,
           description: "PinPosy / Start",
         }),
-        (error) => error.httpStatus === 500 && /PRODAMUS_URL/.test(error.message)
+        (error) => error.httpStatus === 503 && error.details.code === "payments_not_configured" && /PRODAMUS_URL/.test(error.message)
       );
     });
     assert.equal(providerCalls, 0, "axios must not receive a signed request over HTTP");

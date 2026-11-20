@@ -279,7 +279,7 @@ test("insecure per-request webhook configuration is rejected before either check
         { plan: "start", currency: "rub" },
         "subscription-insecure-webhook-key"
       ),
-      (error) => error.httpStatus === 500 && /HTTPS URL/.test(error.message)
+      (error) => error.httpStatus === 503 && error.details.code === "payments_not_configured" && /HTTPS URL/.test(error.message)
     );
     await assert.rejects(
       creditsBilling.createCreditsPayment(
@@ -287,7 +287,7 @@ test("insecure per-request webhook configuration is rejected before either check
         { package_id: "pack_100" },
         "credits-insecure-webhook-key"
       ),
-      (error) => error.httpStatus === 500 && /HTTPS URL/.test(error.message)
+      (error) => error.httpStatus === 503 && error.details.code === "payments_not_configured" && /HTTPS URL/.test(error.message)
     );
     assert.equal(db.subscriptions.length, subscriptionCount, "no subscription row may be created");
     assert.equal(db.credit_purchases.length, purchaseCount, "no credit purchase row may be created");
