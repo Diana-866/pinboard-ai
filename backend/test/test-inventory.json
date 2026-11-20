@@ -1,6 +1,6 @@
 {
   "files": 149,
-  "total": 1177,
+  "total": 1185,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -22,7 +22,7 @@
     "api-authenticated-reads.test.js": 13,
     "api-wiring.test.js": 9,
     "app-boot.test.js": 2,
-    "auth.test.js": 12,
+    "auth.test.js": 20,
     "bearer-token.test.js": 3,
     "billing-security-contract.test.js": 11,
     "billing-webhook-audit.test.js": 11,

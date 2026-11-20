@@ -17,6 +17,9 @@ const state = {
   tokens: [],
   lookups: 0,
   insertError: null,
+  // Each insert attempt may fail differently: the profile-column retry needs a scripted sequence.
+  insertErrors: [],
+  inserts: [],
   lookupError: null,
 };
 
@@ -40,7 +43,9 @@ function from(table) {
     },
     single() {
       if (query.pendingInsert) {
-        if (state.insertError) return Promise.resolve({ data: null, error: state.insertError });
+        state.inserts.push({ ...query.pendingInsert });
+        const scripted = state.insertErrors.length > 0 ? state.insertErrors.shift() : state.insertError;
+        if (scripted) return Promise.resolve({ data: null, error: scripted });
         const row = { id: `user-${state.users.length + 1}`, ...query.pendingInsert };
         state.users.push(row);
         return Promise.resolve({ data: { ...row }, error: null });
@@ -93,6 +98,8 @@ function reset() {
   state.tokens = [];
   state.lookups = 0;
   state.insertError = null;
+  state.insertErrors = [];
+  state.inserts = [];
   state.lookupError = null;
   issuedFor = [];
   resendWait = 0;
@@ -232,4 +239,90 @@ test("verifyToken rejects a token signed with another secret", () => {
 test.after(() => {
   if (originalEmailVerify) require.cache[emailVerifyPath] = originalEmailVerify;
   else delete require.cache[emailVerifyPath];
+});
+
+test("a database that cannot even be consulted is an outage, not a duplicate account", async () => {
+  reset();
+  state.lookupError = { code: "08006", message: "connection failure" };
+  const error = await catchError(register("new@example.test", "StrongPass123", "", "", "en"));
+  assert.equal(error.httpStatus, 503);
+  assert.equal(state.inserts.length, 0, "a failed lookup must not be followed by an insert");
+});
+
+test("two simultaneous registrations of one email end with one account and one conflict", async () => {
+  reset();
+  // The lookup saw nobody, so the insert is the only place that can notice the race.
+  state.insertError = { code: "23505", message: "duplicate key value violates unique constraint \"users_email_key\"" };
+  const error = await catchError(register("racer@example.test", "StrongPass123", "", "", "en"));
+  assert.equal(error.httpStatus, 409, "a lost race is a conflict the client can explain, not a server error");
+  assert.equal(error.details && error.details.code, "email_already_registered");
+  assert.equal(state.users.length, 0);
+});
+
+test("a deployment without the optional profile columns still registers the account", async () => {
+  reset();
+  // Migration 003 may not be applied yet: PostgREST answers 42703 naming the column.
+  state.insertErrors = [{ code: "42703", message: 'column "name" does not exist' }];
+  const result = await register("early@example.test", "StrongPass123", "Анна", "Иванова", "ru");
+
+  assert.equal(result.needVerification, true);
+  assert.equal(state.users.length, 1);
+  assert.equal(state.inserts.length, 2, "the account must be retried once without the optional columns");
+  assert.equal(Object.hasOwn(state.inserts[1], "name"), false, "the retry must drop the missing column, not send it again");
+  assert.equal(Object.hasOwn(state.inserts[1], "preferred_language"), false);
+});
+
+test("the profile-column retry still reports a duplicate and an outage correctly", async () => {
+  reset();
+  state.insertErrors = [
+    { code: "PGRST204", message: "Could not find the 'surname' column of 'users' in the schema cache" },
+    { code: "23505", message: "duplicate key value violates unique constraint" },
+  ];
+  const duplicate = await catchError(register("twice@example.test", "StrongPass123", "", "Иванова", "ru"));
+  assert.equal(duplicate.httpStatus, 409);
+
+  reset();
+  state.insertErrors = [
+    { code: "42703", message: 'column "preferred_language" does not exist' },
+    { code: "08006", message: "connection failure" },
+  ];
+  const outage = await catchError(register("again@example.test", "StrongPass123", "", "", "ru"));
+  assert.equal(outage.httpStatus, 503);
+  assert.equal(state.inserts.length, 2);
+});
+
+test("an insert failure that is not about a missing column is never retried", async () => {
+  reset();
+  // A foreign-key or any other failure must not be treated as "the schema is old": a second insert
+  // could hide the real error or create partial state.
+  state.insertError = { code: "23503", message: "insert or update violates foreign key constraint" };
+  const error = await catchError(register("fk@example.test", "StrongPass123", "Анна", "", "ru"));
+  assert.equal(error.httpStatus, 503);
+  assert.equal(state.inserts.length, 1, "exactly one insert attempt is allowed for a non-migration failure");
+});
+
+test("a missing schema column in the error text alone does not trigger the retry", async () => {
+  reset();
+  // The code requires both a migration-shaped code and a column name; a message alone is not proof.
+  state.insertError = { code: "08006", message: 'column "name" does not exist' };
+  const error = await catchError(register("mixed@example.test", "StrongPass123", "Анна", "", "ru"));
+  assert.equal(error.httpStatus, 503);
+  assert.equal(state.inserts.length, 1);
+});
+
+test("an account that is being deleted cannot sign in", async () => {
+  reset();
+  addUser({ account_status: "pending_deletion" });
+  const error = await catchError(login("customer@example.test", "StrongPass123"));
+  assert.equal(error.httpStatus, 403);
+  assert.equal(error.details && error.details.code, "account_pending_deletion");
+  assert.equal(Object.hasOwn(error, "token"), false);
+});
+
+test("a deployment without the verification column does not lock every customer out", async () => {
+  reset();
+  // Before migration 005 the column is absent: `undefined` must not be read as "unverified".
+  addUser({ email_verified: null });
+  const result = await login("customer@example.test", "StrongPass123");
+  assert.ok(result.token, "a missing column must not block sign-in for everybody");
 });
