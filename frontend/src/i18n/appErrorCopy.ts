@@ -635,7 +635,11 @@ export function getLocalizedApiError(code: unknown, status: unknown): string | n
   if (Number(status) === 422 && Object.prototype.hasOwnProperty.call(VALIDATION_CODES, code)) {
     return getAppErrorMessage(VALIDATION_CODES[code]);
   }
-  if (Number(status) === 409 && Object.prototype.hasOwnProperty.call(GENERATION_CODES, code)) {
+  // An unconfirmed outcome is the same fact whether the route fenced it with a 409 (a repeat was
+  // refused) or reported it with a 500/502 (the run failed after the provider was asked). Section 116:
+  // the credits stay reserved in that case, so the customer must not read "nothing was charged".
+  if ([409, 500, 502, 503].includes(Number(status)) &&
+      Object.prototype.hasOwnProperty.call(GENERATION_CODES, code)) {
     return getAppErrorMessage(GENERATION_CODES[code]);
   }
   if ((Number(status) === 502 || Number(status) === 503) &&

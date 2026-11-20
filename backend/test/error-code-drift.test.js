@@ -130,7 +130,12 @@ test("the generation codes are mapped at 409, where the backend sends them", () 
   for (const code of ["generation_outcome_unknown", "regeneration_outcome_unknown"]) {
     assert.ok(block[0].includes(code), `${code} must be mapped`);
   }
-  assert.match(source, /Number\(status\) === 409 && Object\.prototype\.hasOwnProperty\.call\(GENERATION_CODES/);
+  // Section 116 widened the status set: an unconfirmed outcome can also arrive as a 500/502 when
+  // the run failed after the provider was asked. The code must still be gated by GENERATION_CODES.
+  assert.match(
+    source,
+    /\[409, 500, 502, 503\]\.includes\(Number\(status\)\)[\s\S]{0,80}GENERATION_CODES/
+  );
 
   // And the backend really answers those codes with 409.
   const index = fs.readFileSync(path.join(BACKEND, "index.js"), "utf8");

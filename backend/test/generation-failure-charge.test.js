@@ -22,11 +22,13 @@ test("a failure that never reached the image provider says nothing was charged",
   assert.equal(marked.details.code, GENERATION_NOT_CHARGED);
 });
 
-test("a failure after the provider was asked stays silent, because the outcome is not ours to claim", () => {
+test("a failure after the provider was asked is fenced, not promised away", () => {
+  // The request is marked `unknown` in that case and the reservation is kept until reconciliation,
+  // so "nothing was charged" would be a lie the customer would act on.
   const error = Object.assign(new Error("provider failed"), { httpStatus: 502 });
   const marked = markGenerationFailure(error, { providerStarted: true });
   assert.equal(marked, error);
-  assert.equal(marked.details, undefined, "an ambiguous outcome must not promise a refund");
+  assert.equal(marked.details.code, "generation_outcome_unknown");
 });
 
 test("a specific code already on the failure is never overwritten", () => {

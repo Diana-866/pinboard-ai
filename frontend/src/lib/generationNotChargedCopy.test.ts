@@ -53,3 +53,19 @@ test('it never promises a refund', () => {
   const english = withStoredLanguage('en', () => getLocalizedApiError('generation_not_charged', 502))!;
   assert.doesNotMatch(english, /refund/i, 'the reservation was released; nothing is being refunded');
 });
+
+test('an unconfirmed outcome is never turned into "nothing was charged"', () => {
+  // Section 116. When the provider was asked, the reservation is kept until reconciliation; the
+  // customer must read the fenced message, on whatever status carried it.
+  withStoredLanguage('en', () => {
+    for (const status of [409, 500, 502, 503]) {
+      const message = getLocalizedApiError('generation_outcome_unknown', status);
+      assert.ok(message, `status ${status} must be localized`);
+      assert.doesNotMatch(message!, /nothing was charged/i, `status ${status} must not promise a refund`);
+      assert.match(message!, /not been confirmed|not confirmed/i, `status ${status}`);
+    }
+    for (const status of [200, 402, 422]) {
+      assert.equal(getLocalizedApiError('generation_outcome_unknown', status), null, `status ${status}`);
+    }
+  });
+});
