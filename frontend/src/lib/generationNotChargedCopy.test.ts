@@ -69,3 +69,32 @@ test('an unconfirmed outcome is never turned into "nothing was charged"', () => 
     }
   });
 });
+
+test('the message states the money fact and never invents the cause', () => {
+  // Section 117. The same code covers two different causes: the model answered with unusable output
+  // before any image was requested, and every image task came back failed. The first copy claimed
+  // "stopped before any image was requested", which was false in the second case - a paying customer
+  // reading a wrong explanation of what happened to their credits.
+  // "The credits are back" is the money fact; a translation that loses it says nothing useful.
+  const balanceWord: Record<string, RegExp> = {
+    en: /balance/i,
+    ru: /баланс/i,
+    es: /saldo/i,
+    pt: /saldo/i,
+    de: /Guthaben/i,
+    fr: /solde/i,
+    zh: /余额/,
+  };
+  for (const language of LANGUAGES) {
+    const message = withStoredLanguage(language, () => getLocalizedApiError('generation_not_charged', 502))!;
+    assert.doesNotMatch(
+      message,
+      /before any image|до запроса изображений|antes de solicitar|antes de pedir|bevor ein Bild|avant toute demande|图片请求之前/i,
+      `${language} must not claim a cause it cannot know`
+    );
+    assert.match(message, balanceWord[language], `${language} must say the credits are back`);
+  }
+  const english = withStoredLanguage('en', () => getLocalizedApiError('generation_not_charged', 502))!;
+  assert.match(english, /nothing was charged/i);
+  assert.match(english, /back in your balance/i);
+});

@@ -79,7 +79,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
   en: {
     generationOutcomeUnknown: "The previous generation has not been confirmed yet, so we did not start another one. Check the review queue in a minute, and try again if nothing appears.",
     generationCostUnconfirmed: "The generation could not be completed and no pins were created. Try again in a few minutes.",
-    generationNotCharged: "The generation stopped before any image was requested, so nothing was charged. The reserved credits are back in your balance — try again.",
+    generationNotCharged: "Nothing was charged for this generation: the reserved credits are back in your balance. Try again — the second attempt starts from scratch.",
     paymentProviderUnavailable: "The payment service is not responding right now. Nothing has been charged - try again in a few minutes.",
     paymentLinkNotSaved: "Your invoice was created but we could not save its link. Do not start another payment - contact support and we will find your invoice by email.",
     paymentOrderPreparationFailed: "We could not prepare your order safely, and nothing was sent to the payment provider. Try again in a few minutes.",
@@ -142,7 +142,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
   ru: {
     generationOutcomeUnknown: "Результат предыдущей генерации ещё не подтверждён, поэтому новая не запущена. Проверьте очередь проверки через минуту — если ничего не появилось, попробуйте снова.",
     generationCostUnconfirmed: "Генерация не завершилась, пины не созданы. Повторите попытку через несколько минут.",
-    generationNotCharged: "Генерация остановилась до запроса изображений, поэтому ничего не списано. Зарезервированные кредиты вернулись на баланс — попробуйте снова.",
+    generationNotCharged: "За эту генерацию ничего не списано: зарезервированные кредиты вернулись на баланс. Попробуйте снова — вторая попытка начинается с нуля.",
     paymentProviderUnavailable: "Платёжный сервис сейчас не отвечает. Деньги не списаны — повторите попытку через несколько минут.",
     paymentLinkNotSaved: "Счёт создан, но ссылку на него сохранить не удалось. Не создавайте новый платёж — напишите в поддержку, мы найдём счёт по email.",
     paymentOrderPreparationFailed: "Не удалось безопасно подготовить заказ, провайдеру ничего не отправлялось. Повторите попытку через несколько минут.",
@@ -205,7 +205,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
   es: {
     generationOutcomeUnknown: "La generación anterior aún no está confirmada, así que no iniciamos otra. Revisa la cola de revisión en un minuto y vuelve a intentarlo si no aparece nada.",
     generationCostUnconfirmed: "La generación no pudo completarse y no se creó ningún pin. Inténtalo de nuevo en unos minutos.",
-    generationNotCharged: "La generación se detuvo antes de solicitar ninguna imagen, así que no se ha cobrado nada. Los créditos reservados han vuelto a tu saldo; inténtalo de nuevo.",
+    generationNotCharged: "No se ha cobrado nada por esta generación: los créditos reservados han vuelto a tu saldo. Inténtalo de nuevo; el segundo intento empieza desde cero.",
     paymentProviderUnavailable: "El servicio de pago no responde en este momento. No se ha cobrado nada: inténtalo de nuevo en unos minutos.",
     paymentLinkNotSaved: "La factura se creó, pero no pudimos guardar su enlace. No inicies otro pago: escribe al soporte y la encontraremos por tu email.",
     paymentOrderPreparationFailed: "No pudimos preparar tu pedido de forma segura y no se envió nada al proveedor de pago. Inténtalo de nuevo en unos minutos.",
@@ -268,7 +268,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
   pt: {
     generationOutcomeUnknown: "A geração anterior ainda não foi confirmada, então não iniciamos outra. Verifique a fila de revisão em um minuto e tente novamente se nada aparecer.",
     generationCostUnconfirmed: "A geração não foi concluída e nenhum pin foi criado. Tente novamente em alguns minutos.",
-    generationNotCharged: "A geração parou antes de pedir qualquer imagem, por isso nada foi cobrado. Os créditos reservados voltaram ao seu saldo — tente novamente.",
+    generationNotCharged: "Nada foi cobrado por esta geração: os créditos reservados voltaram ao seu saldo. Tente novamente — a segunda tentativa começa do zero.",
     paymentProviderUnavailable: "O serviço de pagamento não está respondendo agora. Nada foi cobrado — tente novamente em alguns minutos.",
     paymentLinkNotSaved: "A fatura foi criada, mas não conseguimos salvar o link dela. Não inicie outro pagamento — fale com o suporte e a encontraremos pelo seu email.",
     paymentOrderPreparationFailed: "Não conseguimos preparar seu pedido com segurança e nada foi enviado ao provedor de pagamento. Tente novamente em alguns minutos.",
@@ -331,7 +331,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
   de: {
     generationOutcomeUnknown: "Die vorherige Generierung ist noch nicht bestätigt, deshalb haben wir keine neue gestartet. Prüfe die Prüf-Warteschlange in einer Minute und versuche es erneut, wenn nichts erscheint.",
     generationCostUnconfirmed: "Die Generierung konnte nicht abgeschlossen werden und es wurden keine Pins erstellt. Versuche es in ein paar Minuten erneut.",
-    generationNotCharged: "Die Generierung endete, bevor ein Bild angefordert wurde — es wurde nichts belastet. Die reservierten Credits sind wieder auf Ihrem Guthaben; versuchen Sie es erneut.",
+    generationNotCharged: "Für diese Generierung wurde nichts belastet: Die reservierten Credits sind wieder auf Ihrem Guthaben. Versuchen Sie es erneut — der zweite Versuch beginnt von vorn.",
     paymentProviderUnavailable: "Der Zahlungsdienst antwortet gerade nicht. Es wurde nichts belastet - versuche es in ein paar Minuten erneut.",
     paymentLinkNotSaved: "Die Rechnung wurde erstellt, aber wir konnten ihren Link nicht speichern. Starte keine zweite Zahlung - schreibe dem Support, wir finden sie über deine E-Mail.",
     paymentOrderPreparationFailed: "Wir konnten deine Bestellung nicht sicher vorbereiten, an den Zahlungsanbieter wurde nichts gesendet. Versuche es in ein paar Minuten erneut.",
@@ -394,7 +394,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
   fr: {
     generationOutcomeUnknown: "La génération précédente n'est pas encore confirmée, nous n'en avons donc pas lancé une autre. Vérifiez la file de relecture dans une minute et réessayez si rien n'apparaît.",
     generationCostUnconfirmed: "La génération n'a pas pu être terminée et aucune épingle n'a été créée. Réessayez dans quelques minutes.",
-    generationNotCharged: "La génération s’est arrêtée avant toute demande d’image : rien n’a été débité. Les crédits réservés sont revenus sur votre solde — réessayez.",
+    generationNotCharged: "Rien n’a été débité pour cette génération : les crédits réservés sont revenus sur votre solde. Réessayez — la seconde tentative repart de zéro.",
     paymentProviderUnavailable: "Le service de paiement ne répond pas pour le moment. Rien n'a été débité : réessayez dans quelques minutes.",
     paymentLinkNotSaved: "La facture a été créée, mais nous n'avons pas pu enregistrer son lien. Ne lancez pas un autre paiement : écrivez au support et nous la retrouverons grâce à votre email.",
     paymentOrderPreparationFailed: "Nous n'avons pas pu préparer votre commande en toute sécurité et rien n'a été envoyé au prestataire de paiement. Réessayez dans quelques minutes.",
@@ -457,7 +457,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
   zh: {
     generationOutcomeUnknown: "上一次生成尚未确认，因此我们没有启动新的生成。请稍后查看待审核列表，如果没有结果再重试。",
     generationCostUnconfirmed: "生成未能完成，没有创建任何 Pin。请几分钟后重试。",
-    generationNotCharged: "生成在任何图片请求之前就停止了，因此没有扣费。预留的积分已退回余额，请重试。",
+    generationNotCharged: "本次生成没有扣费：预留的积分已退回余额。请重试，第二次将从头开始。",
     paymentProviderUnavailable: "支付服务暂时无法响应，尚未扣款。请几分钟后重试。",
     paymentLinkNotSaved: "账单已创建，但我们无法保存其链接。请不要再次发起支付，请联系客服，我们会通过邮箱找到这笔账单。",
     paymentOrderPreparationFailed: "我们无法安全地准备您的订单，也没有向支付服务商发送任何内容。请几分钟后重试。",
