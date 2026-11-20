@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { apiRequest } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/i18nContext';
 import { getAuthCopy, getAuthErrorMessage, withLockoutWait } from '../i18n/authCopy';
+import { lockoutCountdownText, lockoutDeadline, lockoutState } from '../lib/lockoutCountdown';
 import { writeAuthToken } from '../lib/authStorage';
 import { getAppErrorMessage } from '../i18n/appErrorCopy';
 
@@ -18,11 +19,30 @@ export const Login: React.FC = () => {
   const [unverified, setUnverified] = useState(false); // 403: email не подтверждён
   const [resent, setResent] = useState(false);
   const [resendWait, setResendWait] = useState(0);
+  // A lockout is a wait, not a sentence: the page counts it down and re-enables the form by itself,
+  // so the customer is not left with a stale "locked" message after the wait has passed.
+  const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
+  const [lockoutLeft, setLockoutLeft] = useState(0);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { refreshUser } = useAuth();
   const { language } = useI18n();
   const t = getAuthCopy(language);
+
+  useEffect(() => {
+    if (lockoutUntil === null) return;
+    const tick = () => {
+      const next = lockoutState(lockoutUntil, Date.now());
+      setLockoutLeft(next.remainingSeconds);
+      if (next.untilMs === null) {
+        setLockoutUntil(null);
+        setError('');
+      }
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [lockoutUntil]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -54,6 +74,9 @@ export const Login: React.FC = () => {
             ? withLockoutWait(mapped, Number(err?.data?.retryAfterSeconds) || 0)
             : mapped)
         : (err?.message || t.loginError);
+      if (err?.data?.code === 'login_locked') {
+        setLockoutUntil(lockoutDeadline(err?.data?.retryAfterSeconds, Date.now()));
+      }
       // Бэкенд отвечает 403 «Подтвердите email…», если users.email_verified=false,
       // и при этом сам высылает письмо повторно (не чаще раза в 5 минут).
       if (err?.status === 403 && (err?.data?.code === 'email_not_verified' || /подтвердите email/i.test(message))) {
@@ -100,7 +123,7 @@ export const Login: React.FC = () => {
 
         {error && (
           <div role="alert" className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
-            {error}
+            {lockoutLeft > 0 ? lockoutCountdownText(t.errorLoginLockedCountdown, lockoutLeft) : error}
           </div>
         )}
 
@@ -174,7 +197,7 @@ export const Login: React.FC = () => {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || lockoutLeft > 0}
           className="mt-6 w-full rounded-xl bg-[#C25E6F] py-3 text-sm font-bold text-white hover:bg-[#B14E60] transition hover:opacity-90 disabled:opacity-50"
         >
           {loading ? t.signingIn : t.signIn}
