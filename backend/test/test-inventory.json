@@ -1,6 +1,6 @@
 {
-  "files": 147,
-  "total": 1138,
+  "files": 148,
+  "total": 1157,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -32,6 +32,7 @@
     "board-serialization.test.js": 5,
     "credit-packs.test.js": 7,
     "credits-purchase.test.js": 13,
+    "credits-webhook.test.js": 19,
     "credits.test.js": 5,
     "data-access-boundary-contract.test.js": 5,
     "db-errors.test.js": 4,
