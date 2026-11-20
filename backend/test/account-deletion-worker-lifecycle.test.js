@@ -3,6 +3,8 @@
 require("./helpers/env");
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const path = require("node:path");
+const { spawn } = require("node:child_process");
 const { createAccountDeletionWorker, runStandaloneWorker } = require("../accountDeletionWorker");
 
 /**
@@ -190,4 +192,48 @@ test("the standalone entrypoint exits 0 only when the worker really drained", as
   });
   await cleanListeners.SIGTERM();
   assert.deepEqual(cleanExits, [0]);
+});
+
+test("the standalone worker asks for a timer that keeps its process alive", () => {
+  // Section 86 fixed the signal path (exit 75 instead of a clean exit while a job is abandoned).
+  // The normal path had the same cause and no test: the poll timer was unreferenced, so the
+  // standalone process drained one batch and exited with code 0, while every deletion request kept
+  // waiting in the queue and the supervisor saw a healthy exit.
+  const seen = [];
+  const { worker } = runStandaloneWorker({
+    client: { rpc: async () => ({ data: [], error: null }) },
+    createWorker: (options) => {
+      seen.push(options);
+      return { start: () => {}, stop: async () => true, tick: async () => ({ claimed: 0 }) };
+    },
+    processObject: { once: () => {} },
+    exit: () => {},
+  });
+
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].keepProcessAlive, true, "the standalone entrypoint must hold the event loop open");
+  assert.ok(worker, "the entrypoint must still return the worker it started");
+});
+
+test("the standalone entrypoint keeps polling instead of exiting after its first batch", async () => {
+  // The child stops itself after 7.5 s and prints how many batches it ran; a leaked child cannot
+  // keep the suite alive, and the assertion is about the loop, not about the parent's ability to
+  // kill a process (Windows cannot even deliver SIGTERM, section UA-072).
+  const child = spawn(process.execPath, [path.join(__dirname, "helpers", "account-deletion-worker-child.cjs")], {
+    cwd: path.join(__dirname, ".."),
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  let output = "";
+  child.stdout.on("data", (chunk) => { output += String(chunk); });
+  child.stderr.on("data", (chunk) => { output += String(chunk); });
+  const exit = await new Promise((resolve) => child.on("exit", (code, signal) => resolve({ code, signal })));
+
+  const claims = (output.match(/^claim \d+$/gm) || []).length;
+  const alive = /^alive (\d+)$/m.exec(output);
+
+  assert.equal(exit.code, 0, `the fixture must stop itself cleanly, got ${JSON.stringify(exit)}: ${output.slice(-200)}`);
+  assert.ok(alive, `the fixture never reported that it was still running: ${output.slice(-200)}`);
+  assert.ok(Number(alive[1]) >= 2, `the worker claimed only ${alive[1]} time(s) before the deadline`);
+  assert.ok(claims >= 2, `only ${claims} claim line(s) were printed`);
 });

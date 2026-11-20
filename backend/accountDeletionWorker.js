@@ -243,6 +243,11 @@ function createAccountDeletionWorker({
   schedule = setTimeout,
   cancelSchedule = clearTimeout,
   intervalMs = POLL_INTERVAL_MS,
+  // A pending poll must not decide whether the process lives. An unreferenced timer is right for
+  // the embedded worker (the web process must be free to exit); the standalone entrypoint needs a
+  // referenced one, otherwise it drained one batch and exited with code 0 while the deletion queue
+  // kept growing - a clean exit, so nothing looked wrong.
+  keepProcessAlive = false,
   stepTimeoutMs = DEFAULT_STEP_TIMEOUT_MS,
   shutdownTimeoutMs = DEFAULT_SHUTDOWN_TIMEOUT_MS,
   deleteImageObject = deleteManagedPinImageObject,
@@ -537,7 +542,7 @@ function createAccountDeletionWorker({
         logger.error("account_deletion_worker.batch_failed", { error_code: safeErrorCode(error) });
       } finally {
         if (!stopped) timer = schedule(run, intervalMs);
-        if (timer && typeof timer.unref === "function") timer.unref();
+        if (!keepProcessAlive && timer && typeof timer.unref === "function") timer.unref();
       }
     };
     void run();
@@ -576,7 +581,8 @@ function runStandaloneWorker({
   processObject = process,
   exit = (code) => process.exit(code),
 } = {}) {
-  const worker = createWorker({ client });
+  // The standalone process is the one place where the timer must hold the event loop open.
+  const worker = createWorker({ client, keepProcessAlive: true });
   worker.start();
   let shuttingDown = false;
   const shutdown = async () => {
