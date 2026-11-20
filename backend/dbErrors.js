@@ -33,4 +33,18 @@ function asError(error, fallbackMessage = "database error") {
   return wrapped;
 }
 
-module.exports = { asError };
+/**
+ * True when the error means "the query ran and matched no row".
+ *
+ * `error || !row` reads a database outage as an absence, and the price is different per caller: a
+ * customer is told their project was deleted, or an administrator is told they lack the right to
+ * change a tariff. PostgREST answers zero rows for `.single()` with PGRST116, so that code alone is
+ * a missing row; everything else is a failure to look.
+ */
+function isMissingRow(error) {
+  if (!error) return false;
+  const code = String((error && (error.code || error.status)) || "");
+  return code === "PGRST116";
+}
+
+module.exports = { asError, isMissingRow };

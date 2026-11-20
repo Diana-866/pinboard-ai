@@ -415,6 +415,7 @@ async function requireAuth(req, res, next) {
 // silently dropped machine codes was invisible while it was an inner function here.
 const loginLockout = require("./loginLockout");
 const { respondWithError: handleError, sendError } = require("./httpErrorResponse");
+const { isMissingRow } = require("./dbErrors");
 
 app.get("/", (req, res) => {
   res.send("OK");
@@ -755,7 +756,13 @@ app.patch("/me/tariff", requireAuth, async (req, res) => {
         .select("is_admin")
         .eq("id", req.userId)
         .single();
-      if (adminLookupError || !me || !me.is_admin) {
+      // A failed lookup must not be answered as "you have no right": an administrator whose
+      // connection dropped would be told they lack permission, and would stop asking for the fix.
+      if (adminLookupError && !isMissingRow(adminLookupError)) {
+        logError("index.event_028", adminLookupError);
+        throw httpError(503, "Сервис тарифов временно недоступен — попробуйте позже");
+      }
+      if (!me || !me.is_admin) {
         throw httpError(
           403,
           "Тариф меняется после оплаты. Выберите тариф на странице «Тарифы» — ссылка на оплату придёт с сервера."
@@ -849,7 +856,12 @@ app.post("/projects/:id/analyze", requireAuth, aiLimiter, async (req, res) => {
       .eq("user_id", req.userId)
       .single();
 
-    if (fetchError || !project) throw notFoundError("project_not_found", "Проект не найден");
+    // A failed query is an outage, not a deleted project: the same rule as /me and the board lookups.
+    if (fetchError && !isMissingRow(fetchError)) {
+      logError("index.event_027", fetchError);
+      throw httpError(503, "Сервис проектов временно недоступен — попробуйте позже");
+    }
+    if (!project) throw notFoundError("project_not_found", "Проект не найден");
     if (!project.website_url) throw validationError("project_url_required", "У проекта не указан URL сайта");
 
     const analysis = await analyzeSite(project.website_url);
@@ -944,7 +956,11 @@ app.post("/projects/:id/boards/generate", requireAuth, aiLimiter, requireTariff(
       .eq("id", req.params.id)
       .eq("user_id", req.userId)
       .single();
-    if (fetchError || !project) throw notFoundError("project_not_found", "Проект не найден");
+    if (fetchError && !isMissingRow(fetchError)) {
+      logError("index.event_027", fetchError);
+      throw httpError(503, "Сервис проектов временно недоступен — попробуйте позже");
+    }
+    if (!project) throw notFoundError("project_not_found", "Проект не найден");
 
     const ideas = await generateBoards(project);
 
@@ -974,7 +990,11 @@ app.get("/projects/:id/boards", requireAuth, async (req, res) => {
       .eq("id", req.params.id)
       .eq("user_id", req.userId)
       .single();
-    if (fetchError || !project) throw notFoundError("project_not_found", "Проект не найден");
+    if (fetchError && !isMissingRow(fetchError)) {
+      logError("index.event_027", fetchError);
+      throw httpError(503, "Сервис проектов временно недоступен — попробуйте позже");
+    }
+    if (!project) throw notFoundError("project_not_found", "Проект не найден");
 
     const data = await fetchAllPages((from, to) => supabase
       .from("boards")
@@ -1575,7 +1595,11 @@ app.post("/boards", requireAuth, async (req, res) => {
       .eq("user_id", req.userId)
       .single();
 
-    if (projectError || !project) throw notFoundError("project_not_found", "Проект не найден");
+    if (projectError && !isMissingRow(projectError)) {
+      logError("index.event_027", projectError);
+      throw httpError(503, "Сервис проектов временно недоступен — попробуйте позже");
+    }
+    if (!project) throw notFoundError("project_not_found", "Проект не найден");
 
     // Legacy clients may omit the key. New clients reuse one UUID for every
     // retry of the same logical create operation. The database unique index

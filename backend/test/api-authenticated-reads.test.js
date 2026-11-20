@@ -787,3 +787,106 @@ test("the review queue list drops stale entries and never shows another account'
     await backend.stop();
   }
 });
+test("a failed project read on the board list is an outage, not a missing project", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.table("GET", "projects", { status: 500, body: { code: "57014", message: "canceling statement due to statement timeout" } });
+    const listed = await backend.get(`/projects/${PROJECT_ID}/boards`);
+    assert.equal(listed.status, 503, "a database error must not tell the owner their project is gone");
+    assert.notEqual(listed.body.code, "project_not_found");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a failed project read while creating a board is an outage, not a missing project", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.table("GET", "projects", { status: 500, body: { code: "XX000", message: "connection refused" } });
+    const created = await backend.send("POST", "/boards", { project_id: PROJECT_ID, title: "Доска" });
+    assert.equal(created.status, 503);
+    assert.notEqual(created.body.code, "project_not_found");
+    assert.deepEqual(
+      backend.db.requests.filter((entry) => entry.method === "POST" && entry.path === "/rest/v1/boards"),
+      [],
+      "no board may be created when the project could not be read"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a failed project read during site analysis is an outage, not a missing project", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.table("GET", "projects", { status: 500, body: { code: "XX000", message: "connection refused" } });
+    const analyzed = await backend.send("POST", `/projects/${PROJECT_ID}/analyze`, {});
+    assert.equal(analyzed.status, 503);
+    assert.notEqual(analyzed.body.code, "project_not_found");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a project whose site analysis is refused for a private address is refused, not fetched", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.table("GET", "projects", {
+      status: 200,
+      body: [{
+        id: PROJECT_ID,
+        user_id: USER_ID,
+        website_url: "http://127.0.0.1:9/",
+        niche: "home",
+      }],
+    });
+    const analyzed = await backend.send("POST", `/projects/${PROJECT_ID}/analyze`, {});
+    assert.ok(
+      analyzed.status >= 400 && analyzed.status < 500,
+      `a loopback website must be refused with a client error, got ${analyzed.status}`
+    );
+    assert.notEqual(analyzed.body.code, "project_not_found");
+    // The analysis promise is the point: nothing may be written back to the project.
+    assert.deepEqual(
+      backend.db.requests.filter((entry) => entry.method === "PATCH" || entry.method === "PUT"),
+      [],
+      "a refused analysis must not update the project"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a tariff change is not answered as a permission error when the admin check itself failed", async () => {
+  const backend = await startBackend({ extraEnv: { ALLOW_TARIFF_SELF_SELECT: "" } });
+  try {
+    // requireAuth reads token_version first; the admin flag read is the one that fails here.
+    backend.db.table("GET", "users", ({ query }) => {
+      if (String(query.select || "").replace(/\s+/g, "") === "token_version") {
+        return { status: 200, body: [{ token_version: 0 }] };
+      }
+      return { status: 500, body: { code: "XX000", message: "connection refused" } };
+    });
+    const changed = await backend.send("PATCH", "/me/tariff", { plan: "pro" });
+    assert.equal(changed.status, 503, "an administrator whose lookup failed must be told it is unavailable, not refused");
+    assert.notEqual(changed.status, 403);
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a customer who is not an administrator still cannot self-select a tariff", async () => {
+  const backend = await startBackend({ extraEnv: { ALLOW_TARIFF_SELF_SELECT: "" } });
+  try {
+    backend.db.table("GET", "users", ({ query }) => {
+      if (String(query.select || "").replace(/\s+/g, "") === "token_version") {
+        return { status: 200, body: [{ token_version: 0 }] };
+      }
+      return { status: 200, body: [{ is_admin: false }] };
+    });
+    const changed = await backend.send("PATCH", "/me/tariff", { plan: "pro" });
+    assert.equal(changed.status, 403);
+  } finally {
+    await backend.stop();
+  }
+});

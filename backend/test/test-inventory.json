@@ -1,6 +1,6 @@
 {
-  "files": 149,
-  "total": 1210,
+  "files": 150,
+  "total": 1219,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -19,7 +19,7 @@
     "admin-storage-rate-limit.test.js": 10,
     "admin-subscription-limit.test.js": 1,
     "analytics.test.js": 8,
-    "api-authenticated-reads.test.js": 27,
+    "api-authenticated-reads.test.js": 33,
     "api-wiring.test.js": 9,
     "app-boot.test.js": 2,
     "auth.test.js": 20,
@@ -67,6 +67,7 @@
     "mail-delivery.test.js": 12,
     "mail-input-validation.test.js": 3,
     "mail-transport.test.js": 7,
+    "missing-row-vs-error.test.js": 3,
     "password-reset.test.js": 11,
     "payment-creation-idempotency.test.js": 1,
     "payment-creation-settlement.test.js": 11,
