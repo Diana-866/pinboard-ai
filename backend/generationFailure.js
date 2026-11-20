@@ -33,9 +33,13 @@ const { httpError } = require("./validate");
  * reservation is kept until reconciliation, so a blind retry generates (and charges) again while the
  * first result is still unaccounted for. Section 118 - the customer must hear exactly that, not the
  * generic "internal server error" that loses it on a 5xx.
+ *
+ * Section 121: the same category has a second door. When the provider generated an image but its
+ * authoritative price came back unusable, the result exists and cannot be posted either, so the
+ * customer needs the same answer. The log message differs; the code and the consequence do not.
  */
-function generationSaveFailedError() {
-  const error = httpError(500, "Не удалось сохранить сгенерированные пины");
+function generationSaveFailedError(message) {
+  const error = httpError(500, message || "Не удалось сохранить сгенерированные пины");
   error.details = { code: GENERATION_SAVE_FAILED };
   return error;
 }

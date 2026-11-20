@@ -1365,7 +1365,9 @@ app.post("/pins/:id/regenerate", requireAuth, aiLimiter, requireTariff(["standar
       ? Number(state.provider_price)
       : Number(image && image.price);
     if (!Number.isFinite(actualPrice) || actualPrice <= 0) {
-      throw httpError(502, "Провайдер не вернул корректную фактическую стоимость изображения.");
+      // Section 121: the image exists on the provider side and cannot be posted - same consequence as
+      // an unsaved result, so it must not invite a retry that generates (and charges) again.
+      throw generationSaveFailedError("Провайдер не вернул корректную фактическую стоимость изображения.");
     }
     const actualCharge = ceilCredits(actualPrice * MARKUP);
     const { error: settlementResizeError } = await supabase.rpc("resize_pin_regeneration_credit_reservation", {

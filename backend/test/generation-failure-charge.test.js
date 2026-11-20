@@ -85,4 +85,18 @@ test("a save failure after the images exist is coded, retryable-looking statuses
   const index = fs.readFileSync(path.join(__dirname, "..", "index.js"), "utf8").replace(/\r\n/g, "\n");
   assert.match(index, /throw generationSaveFailedError\(\);/);
   assert.doesNotMatch(index, /throw httpError\(500, "Не удалось сохранить сгенерированные пины"\)/);
+
+  // Section 121: the second door - an image whose authoritative price came back unusable. It is the
+  // same category (the result exists, it cannot be posted, the reservation is kept) with a different
+  // log line, and it must not be a bare 502 that invites a retry.
+  assert.match(
+    index,
+    /throw generationSaveFailedError\("Провайдер не вернул корректную фактическую стоимость изображения\."\);/,
+    "the unusable-price refusal must carry the same code"
+  );
+  assert.doesNotMatch(index, /throw httpError\(502, "Провайдер не вернул корректную фактическую стоимость/);
+  const custom = generationSaveFailedError("Провайдер не вернул корректную фактическую стоимость изображения.");
+  assert.equal(custom.details.code, GENERATION_SAVE_FAILED);
+  assert.match(custom.message, /фактическую стоимость/, "the log keeps the real reason");
+  assert.equal(generationSaveFailedError().message, "Не удалось сохранить сгенерированные пины");
 });
