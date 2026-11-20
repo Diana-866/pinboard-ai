@@ -3693,9 +3693,9 @@ wait $!; echo "exit=$?"   # ожидается 0 и строка shutdown_comple
   3. Выполнить `git switch --track origin/fix/review-queue-fail-closed-20261120`. Если локальная ветка уже существует: `git switch fix/review-queue-fail-closed-20261120`.
   4. Из корня проекта выполнить:
      ```powershell
-     node --test backend/test/fetch-all-pages.test.js backend/test/review-queue-route-contract.test.js
+     node --test backend/test/fetch-all-pages.test.js backend/test/review-queue-route-contract.test.js backend/test/api-authenticated-reads.test.js
      ```
   5. Только при успешном focused gate выполнить полный backend suite: `npm --prefix backend test`.
-- **Ожидается:** ошибки базы пробрасываются; `data: []` допустим; null/missing/non-array query envelope возвращает HTTP 502; обе связанные выборки проверяются до stale-row cleanup.
+- **Ожидается:** ошибки базы пробрасываются; `data: []` допустим; null/missing/non-array query envelope возвращает HTTP 502; обе связанные выборки проверяются до stale-row cleanup. HTTP-level tests должны подтвердить 502 и ноль DELETE-запросов для malformed pins и pin_schedules.
 - **Ограничения:** для этих Node tests база не нужна. Не запускать против production/Supabase. Не применять SQL, не включать worker и не менять Pinterest/Prodamus credentials или deployment.
 - **Если тест падает:** прислать полный вывод и exit code; не ослаблять assertions и не обходить сценарий.
