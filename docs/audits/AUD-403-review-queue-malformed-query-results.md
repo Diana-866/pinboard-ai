@@ -19,12 +19,12 @@ A malformed successful response with `data: null`, a missing `data` property, or
 - Reused the validator for every normal page and the overflow probe in `fetchAllPages`.
 - Applied the validator to every `pins` and `pin_schedules` batch in `GET /review-queue`.
 - All secondary reads are validated before reconciliation and stale-row deletion.
-- Added regression tests for database-error propagation, valid empty arrays, missing/null/non-array envelopes, both route reads, and validation-before-cleanup ordering.
+- Added regression tests for database-error propagation, valid empty arrays, missing/null/non-array envelopes, both route reads, and validation-before-cleanup ordering. Added two HTTP-level tests using the existing fake PostgREST server: malformed `pins` and `pin_schedules` responses must return 502 and issue zero queue-row DELETE requests.
 
 ## Verification boundary
 
 - Branch base: current `main` HEAD `8102f14711db3c49ca246a547e09704f0ef146fd`.
 - Branch: `fix/review-queue-fail-closed-20261120`.
-- Focused Node tests have **not** been executed in the automation environment. Owner-side acceptance is recorded in UA-073.
+- Focused and HTTP-level Node tests have **not** been executed in the automation environment. Owner-side acceptance is recorded in UA-073.
 - GitHub Actions on the current main HEAD and the previous PR #93 head failed before creating runnable steps; this does not evidence a test failure in this change.
 - No SQL migration, production database, Supabase project, user data, Pinterest, Prodamus, DNS, or deployment was changed.
