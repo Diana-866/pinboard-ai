@@ -174,7 +174,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
     const publishedUrl = buildPinterestPinUrl(done);
     return (
       <span className="inline-flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-        <CheckCircle2 className="w-3.5 h-3.5" /> Опубликован в Pinterest
+        <CheckCircle2 className="w-3.5 h-3.5" /> {t.publishing.published}
         {publishedUrl && (
           <a
             href={publishedUrl}
@@ -182,7 +182,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
             rel="noopener noreferrer"
             className="underline underline-offset-2 hover:opacity-80"
           >
-            Открыть пин
+            {t.publishing.openPin}
           </a>
         )}
       </span>
@@ -192,7 +192,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
   if (uncertain) {
     return (
       <p role="status" className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
-        Pinterest мог создать пин, но PinPosy не подтвердил результат. Не отправляйте его повторно: обновите страницу и проверьте Pinterest.
+        {t.publishing.publishUncertain}
       </p>
     );
   }
@@ -201,7 +201,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
     <div className={`space-y-2 ${className || ''}`}>
       {!accountsLoading && accounts.length === 0 && !error && (
         <p className="text-[11px] text-secondary-theme">
-          Подключите Pinterest-аккаунт в настройках, чтобы публиковать пины.
+          {t.publishing.connectAccountFirst}
         </p>
       )}
 
@@ -212,7 +212,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
           onChange={(e) => handleAccountChange(e.target.value)}
           className="w-full text-[11px] rounded-lg border border-subtle bg-surface px-2 py-1.5 text-primary-theme"
         >
-          <option value="">Выберите Pinterest-аккаунт</option>
+          <option value="">{t.publishing.selectAccount}</option>
           {accounts.map((account) => (
             <option key={account.id} value={account.id}>
               {account.username ? `@${account.username}` : account.id}
@@ -231,7 +231,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
             }}
             className="w-full text-[11px] rounded-lg border border-subtle bg-surface px-2 py-1.5 text-primary-theme"
           >
-            <option value="">Выберите доску Pinterest</option>
+            <option value="">{t.publishing.selectBoard}</option>
             {boards.map((board) => (
               <option key={board.id} value={board.id}>{board.name}</option>
             ))}
@@ -245,7 +245,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold accent-btn disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-        <span>{busy ? 'Публикуем…' : boardsLoading || accountsLoading ? 'Загружаем…' : 'Опубликовать в Pinterest'}</span>
+        <span>{busy ? t.publishing.publishingNowButton : boardsLoading || accountsLoading ? t.publishing.loadingNow : t.publishing.publishAction}</span>
       </button>
 
       {error && (

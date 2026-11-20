@@ -391,6 +391,15 @@ export interface TranslationSchema {
     noBoardsInAccount: string;
     boardsLoadFailed: string;
     publishFailed: string;
+    publishUncertain: string;
+    published: string;
+    openPin: string;
+    connectAccountFirst: string;
+    selectAccount: string;
+    selectBoard: string;
+    publishingNowButton: string;
+    loadingNow: string;
+    publishAction: string;
   };
   calendar: {
     missingSavedPin: string;
