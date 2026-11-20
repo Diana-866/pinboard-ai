@@ -11,7 +11,7 @@ import {
   shouldRetryTransparently,
 } from "./apiResilience";
 
-const API_URL = (import.meta as any).env?.VITE_API_URL || "https://pinboard-ai-backend.onrender.com";
+export const API_URL = (import.meta as any).env?.VITE_API_URL || "https://pinboard-ai-backend.onrender.com";
 
 export class ApiError extends Error {
   status: number;
@@ -135,4 +135,100 @@ export async function apiRequest(path: string, options: ApiRequestOptions = {}) 
 
     return data;
   }
+}
+
+/**
+ * Uploading a pin image.
+ *
+ * This used to be an inline `fetch` inside the approval desk with its own copy of the backend
+ * host, no deadline and no session handling: on a deployment the copy went stale and uploads
+ * aimed at the old host, a half-open upload left the control disabled forever, a 401 was reported
+ * as "the image could not be replaced" instead of signing the customer out, and the server's own
+ * message (409/422 with a localized code) was thrown away. The upload now goes through the same
+ * base URL, the same timeout semantics and the same error mapping as every other request.
+ *
+ * Multipart is the reason this cannot simply use apiRequest: that wrapper forces a JSON
+ * content type, which destroys the multipart boundary.
+ */
+export const PIN_IMAGE_UPLOAD_TIMEOUT_MS = 60_000;
+
+export function buildPinImageUploadUrl(pinId: string): string {
+  return `${API_URL}/pins/${encodeURIComponent(pinId)}/image`;
+}
+
+/** No Content-Type on purpose: the browser sets the multipart boundary. */
+export function buildPinImageUploadInit(file: File, token: string | null): RequestInit {
+  const body = new FormData();
+  body.append("image", file);
+  return {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body,
+  };
+}
+
+export type PinImageUploadDeps = {
+  fetchImpl?: typeof fetch;
+  token?: string | null;
+  timeoutMs?: number;
+  signal?: AbortSignal;
+};
+
+export async function uploadPinImage(
+  pinId: string,
+  file: File,
+  deps: PinImageUploadDeps = {}
+): Promise<{ imageUrl: string }> {
+  const token = deps.token !== undefined ? deps.token : readAuthToken();
+  if (!token) {
+    // No token means the session is gone; the caller redirects instead of showing an upload error.
+    throw new ApiError(getApiFallbackMessage("generic", currentLocale()), 401, { requiresLogin: true });
+  }
+
+  const fetchImpl = deps.fetchImpl ?? fetch;
+  const timeoutMs = deps.timeoutMs ?? PIN_IMAGE_UPLOAD_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const external = deps.signal;
+  const forwardAbort = () => controller.abort();
+  if (external) {
+    if (external.aborted) controller.abort();
+    else external.addEventListener("abort", forwardAbort, { once: true });
+  }
+
+  let res: Response;
+  try {
+    res = await fetchImpl(buildPinImageUploadUrl(pinId), {
+      ...buildPinImageUploadInit(file, token),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (isAbortError(error) && !external?.aborted) {
+      throw new ApiError(getTimeoutMessage(currentLocale()), 0);
+    }
+    throw new ApiError(getApiFallbackMessage("network", currentLocale()), 0);
+  } finally {
+    clearTimeout(timer);
+    if (external) external.removeEventListener("abort", forwardAbort);
+  }
+
+  const data = await readBody(res);
+
+  if (!res.ok) {
+    const requiresLogin = res.status === 401;
+    if (requiresLogin) clearAuthToken();
+    const localized = getLocalizedApiError(data?.code, res.status);
+    throw new ApiError(
+      localized || data?.error || getApiFallbackMessage("generic", currentLocale()),
+      res.status,
+      { ...(data && typeof data === "object" ? data : {}), requiresLogin }
+    );
+  }
+
+  const imageUrl = data && typeof data.image_url === "string" ? data.image_url.trim() : "";
+  if (!imageUrl) {
+    // A 2xx without a stored image would leave the desk showing a picture that does not exist.
+    throw new ApiError(getApiFallbackMessage("generic", currentLocale()), 502);
+  }
+  return { imageUrl };
 }

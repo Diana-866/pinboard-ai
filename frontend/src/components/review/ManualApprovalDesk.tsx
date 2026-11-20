@@ -22,8 +22,7 @@ import {
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
 import type { BoardItem, ScheduledPinItem } from '../../data/mockData';
-import { apiRequest } from '../../lib/api';
-import { readAuthToken } from '../../lib/authStorage';
+import { apiRequest, uploadPinImage } from '../../lib/api';
 import { applyCurrentReviewEdits } from '../../utils/reviewApproval';
 import { createGenerationIdempotencyKey } from '../../utils/generationRetry';
 
@@ -617,35 +616,13 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                     if (!currentPin.pinId) {
                       throw new Error(t.review.imageReplaceRequiresSavedPin);
                     }
-                    const fd = new FormData();
-                    fd.append('image', file);
-                    const API = (import.meta as any).env?.VITE_API_URL || 'https://pinboard-ai-backend.onrender.com';
-                    // Read the token through the safe helper: in privacy modes even
-                    // accessing window.localStorage throws, and a raw read here used to
-                    // surface as "image could not be replaced" (or send "Bearer null")
-                    // instead of the real cause.
-                    const token = readAuthToken();
-                    if (!token) {
-                      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-                        window.location.href = '/login';
-                      }
-                      throw new Error(t.review.imageReplaceFailed);
-                    }
-                    const response = await fetch(API + '/pins/' + encodeURIComponent(currentPin.pinId) + '/image', {
-                      method: 'POST',
-                      headers: { Authorization: 'Bearer ' + token },
-                      body: fd,
-                    });
-                    if (!response.ok) {
-                      throw new Error(t.review.imageReplaceFailed);
-                    }
-                    const savedPin = await response.json();
-                    if (typeof savedPin.image_url !== 'string' || !savedPin.image_url) {
-                      throw new Error(t.review.imageReplaceFailed);
-                    }
+                    // One implementation for the upload: shared base URL, deadline, session
+                    // handling and the server's own error text. The inline copy here used to
+                    // carry its own hardcoded host and swallowed every 4xx into one message.
+                    const { imageUrl } = await uploadPinImage(currentPin.pinId, file);
 
                     await updateQueue((prev) =>
-                      prev.map((p) => (p.id === currentPin.id ? { ...p, imageUrl: savedPin.image_url } : p))
+                      prev.map((p) => (p.id === currentPin.id ? { ...p, imageUrl } : p))
                     );
                   } catch (error) {
                     window.alert(error instanceof Error ? error.message : t.review.imageReplaceFailed);
