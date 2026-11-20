@@ -14,7 +14,7 @@ const { beginPaymentCreation, attachPaymentCreationOrder, denyUnsentPaymentRecor
 const { persistWebhookException } = require("./billingWebhookAudit");
 const { persistProviderReceipt, setProviderDecision } = require("./paymentProviderReceipts");
 const { httpError, validateEnum } = require("./validate");
-const { paymentLinkNotSaved, paymentOrderPreparationFailed } = require("./paymentErrors");
+const { paymentLinkNotSaved, paymentOrderPreparationFailed, paymentsNotConfigured, paymentNotStarted } = require("./paymentErrors");
 const { normalizePlan } = require("./tariff");
 
 // Каталог тарифов: цены те же, что на лендинге и в PricingView.
@@ -78,10 +78,9 @@ async function createPayment(userId, body, idempotencyKey) {
   );
 
   if (!prodamus.isConfigured()) {
-    throw httpError(
-      503,
-      "Приём платежей не настроен: задайте PRODAMUS_SHOP_ID и PRODAMUS_SECRET в переменных окружения Render"
-    );
+    // The customer must not be told "internal error, try later" for a switch the operator has not
+    // flipped: they would retry a payment that cannot start. The variable names stay in the log.
+    throw paymentsNotConfigured();
   }
 
   const amount = PLANS[plan][currency];
@@ -128,10 +127,10 @@ async function createPayment(userId, body, idempotencyKey) {
   } catch (error) {
     logError("billing.event_001");
     await failPaymentCreation(userId, idempotencyKey, error);
-    throw httpError(
-      500,
-      "Не удалось создать платёж. Проверьте, что миграция 006 (db/migrations/006_subscriptions.sql) применена."
-    );
+    // The one fact this customer needs is that no money moved, so they do not pay twice out of
+    // fear and do not wait for a charge that will never come.
+    logError("billing.event_026");
+    throw paymentNotStarted();
   }
 
   try {

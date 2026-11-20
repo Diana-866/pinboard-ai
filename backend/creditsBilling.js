@@ -16,7 +16,7 @@ const prodamus = require("./prodamus");
 const { persistWebhookException } = require("./billingWebhookAudit");
 const { persistProviderReceipt, setProviderDecision } = require("./paymentProviderReceipts");
 const { httpError, validateEnum } = require("./validate");
-const { paymentLinkNotSaved, paymentOrderPreparationFailed } = require("./paymentErrors");
+const { paymentLinkNotSaved, paymentOrderPreparationFailed, paymentsNotConfigured, paymentNotStarted } = require("./paymentErrors");
 const { CREDIT_PACKS, normalizePackId, packAmount } = require("./creditPacks");
 const { createPaymentOrderId } = require("./paymentOrderId");
 const { beginPaymentCreation, attachPaymentCreationOrder, denyUnsentPaymentRecord, completePaymentCreation, settlePaymentCreationRequest, markPaymentCreationUnknown, failPaymentCreation, handlePaymentProviderFailure } = require("./paymentCreationIdempotency");
@@ -57,10 +57,9 @@ async function createCreditsPayment(userId, body, idempotencyKey) {
   );
 
   if (!prodamus.isConfigured()) {
-    throw httpError(
-      503,
-      "Приём платежей не настроен: задайте PRODAMUS_SHOP_ID и PRODAMUS_SECRET в переменных окружения Render"
-    );
+    // Same switch as the subscription path: the customer must not be told "internal error, try
+    // later" for a variable the operator has not set, and must not retry a payment that cannot start.
+    throw paymentsNotConfigured();
   }
 
   const pack = CREDIT_PACKS[packageId];
@@ -110,10 +109,9 @@ async function createCreditsPayment(userId, body, idempotencyKey) {
   } catch (error) {
     logError("creditsBilling.event_001");
     await failPaymentCreation(userId, idempotencyKey, error);
-    throw httpError(
-      500,
-      "Не удалось создать покупку. Проверьте, что миграция 007 (db/migrations/007_credit_purchases.sql) применена."
-    );
+    // Buying credits is the same promise as buying a plan: say that no money moved.
+    logError("creditsBilling.event_013");
+    throw paymentNotStarted("Не удалось создать покупку. Деньги не списаны — повторите попытку позже.");
   }
 
   try {

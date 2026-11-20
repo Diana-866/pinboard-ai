@@ -257,7 +257,7 @@ test("an unknown user fails the request so the customer can retry with the same 
   assert.equal(calls.length, 0);
 });
 
-test("a failed order insert is reported with the migration hint and leaves the provider untouched", async () => {
+test("a failed order insert says no money moved and leaves the provider untouched", async () => {
   const db = createDb();
   db.state.failInsert = { message: "relation credit_purchases does not exist" };
   const { creditsBilling, prodamus } = loadModules(db);
@@ -265,7 +265,7 @@ test("a failed order insert is reported with the migration hint and leaves the p
 
   await assert.rejects(
     () => creditsBilling.createCreditsPayment("buyer-1", { package_id: "pack_100" }, KEY),
-    (error) => error.httpStatus === 500 && /миграция 007/.test(error.message)
+    (error) => error.httpStatus === 500 && error.details && error.details.code === "payment_not_started"
   );
   assert.equal(db.state.requests.get("buyer-1:" + KEY).status, "failed");
   assert.equal(calls.length, 0, "no invoice may be created when the local order does not exist");

@@ -1,6 +1,6 @@
 {
-  "files": 161,
-  "total": 1369,
+  "files": 162,
+  "total": 1371,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -81,6 +81,7 @@
     "payment-order-id.test.js": 3,
     "payment-provider-receipts.test.js": 8,
     "payment-record-cleanup.test.js": 5,
+    "payment-server-error-codes.test.js": 2,
     "pin-image-access-contract.test.js": 3,
     "pin-image-compare-and-swap.test.js": 2,
     "pin-image-lifecycle.test.js": 52,

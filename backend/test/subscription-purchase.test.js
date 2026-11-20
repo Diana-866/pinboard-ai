@@ -238,7 +238,9 @@ test("an unknown user, a failed insert and a failed link storage each leave a cl
   broken.state.failInsert = { message: "relation subscriptions does not exist" };
   const second = loadBilling(broken);
   await assert.rejects(() => second.billing.createPayment("buyer-1", { plan: "start" }, KEY),
-    (error) => error.httpStatus === 500 && /миграция 006/.test(error.message));
+    // Section 112: the customer cannot read "миграция 006" and the important fact is that no money
+    // moved, so the answer carries a code the client can say in the customer's own language.
+    (error) => error.httpStatus === 500 && error.details && error.details.code === "payment_not_started");
   assert.equal(broken.state.requests.get(`buyer-1:${KEY}`).status, "failed");
   assert.equal(second.calls.length, 0);
 

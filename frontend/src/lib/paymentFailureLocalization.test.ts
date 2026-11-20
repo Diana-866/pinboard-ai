@@ -26,6 +26,11 @@ const CASES = [
   { code: 'payment_provider_unavailable', key: 'paymentProviderUnavailable', statuses: [502, 503] },
   { code: 'payment_link_not_saved', key: 'paymentLinkNotSaved', statuses: [503] },
   { code: 'payment_order_preparation_failed', key: 'paymentOrderPreparationFailed', statuses: [503] },
+  // Section 112: a switched-off payment provider and an invoice that was never created. The second
+  // one answers 500 on purpose - the status is ours to choose, the customer only needs to know that
+  // no money moved.
+  { code: 'payments_not_configured', key: 'paymentsNotConfigured', statuses: [503] },
+  { code: 'payment_not_started', key: 'paymentNotStarted', statuses: [500] },
 ];
 
 function withStoredLanguage<T>(language: string | null, run: () => T): T {
@@ -85,6 +90,7 @@ test('each payment code is localized at the status the backend uses', () => {
       }
       // The same code at a status the backend does not use is not this failure.
       for (const status of [400, 401, 402, 403, 404, 409, 422, 500]) {
+        if (statuses.includes(status)) continue;
         assert.equal(getLocalizedApiError(code, status), null, `${code} at ${status} must stay unmapped`);
       }
     }
@@ -93,10 +99,11 @@ test('each payment code is localized at the status the backend uses', () => {
   });
 });
 
-test('the three failures read differently and say what to do', () => {
+test('the payment failures read differently and say what to do', () => {
+  // Each code is asked at its own status: `payment_not_started` answers 500 by design.
   const messages = withStoredLanguage('en', () =>
-    CASES.map(({ code }) => getLocalizedApiError(code, 503))!);
-  assert.equal(new Set(messages).size, 3, 'three different situations need three different sentences');
+    CASES.map(({ code, statuses }) => getLocalizedApiError(code, statuses[0])!));
+  assert.equal(new Set(messages).size, CASES.length, 'every situation needs its own sentence');
 
   // "do not pay twice" must be explicit: that is the expensive mistake.
   assert.match(messages[1]!, /not.*another payment|could not save/i);
@@ -112,7 +119,9 @@ test('the backend emits each payment code the client maps', () => {
   const sources = ['billing.js', 'creditsBilling.js', 'prodamus.js', 'paymentErrors.js']
     .map((file) => readFileSync(path.join(REPO_ROOT, 'backend', file), 'utf8'))
     .join('\n');
-  const mapped = [...COPY_SOURCE.matchAll(/^\s{2}(payment_[a-z_]+):/gm)].map((match) => match[1]);
+  // `payments_not_configured` is plural, so the prefix must allow it: a scanner pinned to
+  // `payment_` would have reported a mapped code as never emitted.
+  const mapped = [...COPY_SOURCE.matchAll(/^\s{2}(payment[a-z]*_[a-z_]+):/gm)].map((match) => match[1]);
 
   assert.deepEqual(mapped.sort(), CASES.map(({ code }) => code).sort());
   for (const code of mapped) {

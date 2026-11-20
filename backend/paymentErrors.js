@@ -33,9 +33,27 @@ function paymentOrderPreparationFailed(message = "Не удалось безоп
   return paymentError(503, message, "payment_order_preparation_failed");
 }
 
+/**
+ * Payments are switched off in this deployment. The operator forgot a variable; the customer would
+ * otherwise be told "internal error, try later" and retry a payment that cannot start.
+ */
+function paymentsNotConfigured(message = "Приём платежей не настроен: задайте PRODAMUS_SHOP_ID и PRODAMUS_SECRET в переменных окружения Render") {
+  return paymentError(503, message, "payments_not_configured");
+}
+
+/**
+ * The invoice was never created. The one fact this customer needs is that no money moved, so they
+ * do not pay twice out of fear and do not wait for a charge that will never come.
+ */
+function paymentNotStarted(message = "Не удалось создать платёж. Деньги не списаны — повторите попытку позже.") {
+  return paymentError(500, message, "payment_not_started");
+}
+
 module.exports = {
   paymentError,
   paymentProviderUnavailable,
   paymentLinkNotSaved,
   paymentOrderPreparationFailed,
+  paymentsNotConfigured,
+  paymentNotStarted,
 };

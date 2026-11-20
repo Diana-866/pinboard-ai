@@ -40,6 +40,8 @@ export type AppErrorMessageKey =
   | 'pinterestReconnectRequired'
   | 'pinterestPublicationRejected'
   | 'pinterestRefreshInProgress'
+  | 'paymentsNotConfigured'
+  | 'paymentNotStarted'
   | 'projectNotFound'
   | 'boardNotFound'
   | 'pinNotFound'
@@ -98,6 +100,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     accountDeletionUnavailable: "Account deletion is not available in this installation yet. Your data has not been touched — write to support and the request will be handled manually.",
     publicationReconciliationRequired: "We could not confirm whether this pin reached Pinterest. Do not publish it again — a repeat could create a duplicate. We are checking the result and will update the calendar.",
     pinterestReconnectRequired: "The Pinterest connection could not be saved. Connect Pinterest again — until then publishing is not possible.",
+    paymentsNotConfigured: "Payments are temporarily unavailable in this installation. Nothing was charged — try again later or write to support.",
+    paymentNotStarted: "The payment could not be created and nothing was charged. Try again in a minute, or write to support if it repeats.",
     pinterestPublicationRejected: "Pinterest refused this pin (board, image or text). Change the pin and try again — repeating it unchanged is refused for the same reason.",
     pinterestRefreshInProgress: "Pinterest access is being refreshed right now. Try again in a few seconds — nothing was lost.",
     projectNotFound: "This project was not found. It may have been deleted, or it belongs to another account.",
@@ -157,6 +161,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     accountDeletionUnavailable: "Удаление аккаунта в этой установке пока не включено. Ваши данные не тронуты — напишите в поддержку, и запрос выполнят вручную.",
     publicationReconciliationRequired: "Не удалось подтвердить, дошёл ли пин до Pinterest. Не публикуйте его повторно — повтор может создать дубликат. Мы сверяем результат и обновим календарь.",
     pinterestReconnectRequired: "Не удалось сохранить подключение Pinterest. Подключите Pinterest заново — до этого публикация невозможна.",
+    paymentsNotConfigured: "Оплата в этой установке временно недоступна. Деньги не списаны — попробуйте позже или напишите в поддержку.",
+    paymentNotStarted: "Платёж не создан, деньги не списаны. Повторите через минуту или напишите в поддержку, если это повторится.",
     pinterestPublicationRejected: "Pinterest отклонил этот пин (доска, изображение или текст). Исправьте пин и повторите — тот же пин отклонят снова.",
     pinterestRefreshInProgress: "Доступ к Pinterest сейчас обновляется. Повторите через несколько секунд — ничего не потеряно.",
     projectNotFound: "Проект не найден. Возможно, он удалён или принадлежит другому аккаунту.",
@@ -216,6 +222,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     accountDeletionUnavailable: "La eliminación de la cuenta aún no está disponible en esta instalación. Tus datos no se han tocado: escribe a soporte y la solicitud se tramitará manualmente.",
     publicationReconciliationRequired: "No se pudo confirmar si el pin llegó a Pinterest. No lo publiques otra vez: una repetición puede crear un duplicado. Estamos verificando el resultado y actualizaremos el calendario.",
     pinterestReconnectRequired: "No se pudo guardar la conexión con Pinterest. Vuelve a conectar Pinterest; hasta entonces no se puede publicar.",
+    paymentsNotConfigured: "Los pagos no están disponibles temporalmente en esta instalación. No se ha cobrado nada; inténtalo más tarde o escribe a soporte.",
+    paymentNotStarted: "No se pudo crear el pago y no se ha cobrado nada. Inténtalo de nuevo en un minuto o escribe a soporte si se repite.",
     pinterestPublicationRejected: "Pinterest rechazó este pin (tablero, imagen o texto). Corrige el pin y vuelve a intentarlo; sin cambios lo rechazará otra vez.",
     pinterestRefreshInProgress: "El acceso a Pinterest se está actualizando ahora. Inténtalo de nuevo en unos segundos; no se ha perdido nada.",
     projectNotFound: "No se encontró este proyecto. Puede que se haya eliminado o que pertenezca a otra cuenta.",
@@ -275,6 +283,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     accountDeletionUnavailable: "A eliminação da conta ainda não está disponível nesta instalação. Os seus dados não foram tocados — escreva para o suporte e o pedido será tratado manualmente.",
     publicationReconciliationRequired: "Não foi possível confirmar se o pin chegou ao Pinterest. Não o publique novamente — repetir pode criar um duplicado. Estamos a verificar o resultado e atualizaremos o calendário.",
     pinterestReconnectRequired: "Não foi possível guardar a ligação ao Pinterest. Ligue o Pinterest novamente — até lá não é possível publicar.",
+    paymentsNotConfigured: "Os pagamentos estão temporariamente indisponíveis nesta instalação. Nada foi cobrado — tente mais tarde ou escreva para o suporte.",
+    paymentNotStarted: "O pagamento não foi criado e nada foi cobrado. Tente novamente dentro de um minuto ou escreva para o suporte se repetir.",
     pinterestPublicationRejected: "O Pinterest recusou este pin (painel, imagem ou texto). Corrija o pin e tente de novo — sem alterações será recusado outra vez.",
     pinterestRefreshInProgress: "O acesso ao Pinterest está a ser atualizado agora. Tente novamente dentro de alguns segundos — nada foi perdido.",
     projectNotFound: "Este projeto não foi encontrado. Pode ter sido eliminado ou pertencer a outra conta.",
@@ -334,6 +344,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     accountDeletionUnavailable: "Die Kontolöschung ist in dieser Installation noch nicht verfügbar. Ihre Daten wurden nicht angetastet — schreiben Sie dem Support, dann wird die Anfrage manuell bearbeitet.",
     publicationReconciliationRequired: "Ob der Pin Pinterest erreicht hat, konnte nicht bestätigt werden. Veröffentlichen Sie ihn nicht erneut — eine Wiederholung kann ein Duplikat erzeugen. Wir prüfen das Ergebnis und aktualisieren den Kalender.",
     pinterestReconnectRequired: "Die Pinterest-Verbindung konnte nicht gespeichert werden. Verbinden Sie Pinterest erneut — bis dahin ist keine Veröffentlichung möglich.",
+    paymentsNotConfigured: "Zahlungen sind in dieser Installation vorübergehend nicht verfügbar. Es wurde nichts belastet — versuchen Sie es später erneut oder schreiben Sie dem Support.",
+    paymentNotStarted: "Die Zahlung konnte nicht erstellt werden, es wurde nichts belastet. Versuchen Sie es in einer Minute erneut oder schreiben Sie dem Support, wenn es sich wiederholt.",
     pinterestPublicationRejected: "Pinterest hat diesen Pin abgelehnt (Board, Bild oder Text). Korrigieren Sie den Pin und versuchen Sie es erneut — unverändert wird er wieder abgelehnt.",
     pinterestRefreshInProgress: "Der Pinterest-Zugang wird gerade erneuert. Versuchen Sie es in einigen Sekunden erneut — es ist nichts verloren.",
     projectNotFound: "Dieses Projekt wurde nicht gefunden. Möglicherweise wurde es gelöscht oder gehört zu einem anderen Konto.",
@@ -393,6 +405,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     accountDeletionUnavailable: "La suppression de compte n’est pas encore disponible dans cette installation. Vos données n’ont pas été touchées — écrivez au support, la demande sera traitée manuellement.",
     publicationReconciliationRequired: "Impossible de confirmer si l’épingle a atteint Pinterest. Ne la republiez pas — une répétition peut créer un doublon. Nous vérifions le résultat et mettrons le calendrier à jour.",
     pinterestReconnectRequired: "La connexion Pinterest n’a pas pu être enregistrée. Reconnectez Pinterest — d’ici là aucune publication n’est possible.",
+    paymentsNotConfigured: "Les paiements sont temporairement indisponibles dans cette installation. Rien n’a été débité — réessayez plus tard ou écrivez au support.",
+    paymentNotStarted: "Le paiement n’a pas pu être créé et rien n’a été débité. Réessayez dans une minute ou écrivez au support si cela se répète.",
     pinterestPublicationRejected: "Pinterest a refusé cette épingle (tableau, image ou texte). Corrigez-la et réessayez — sans changement elle sera refusée de nouveau.",
     pinterestRefreshInProgress: "L’accès Pinterest est en cours d’actualisation. Réessayez dans quelques secondes — rien n’est perdu.",
     projectNotFound: "Ce projet est introuvable. Il a peut-être été supprimé ou appartient à un autre compte.",
@@ -452,6 +466,8 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     accountDeletionUnavailable: "此安装尚未启用账户删除。您的数据未被改动——请联系支持，请求将人工处理。",
     publicationReconciliationRequired: "无法确认该 Pin 是否已到达 Pinterest。请勿再次发布——重复发布可能产生重复内容。我们正在核对结果，并会更新日历。",
     pinterestReconnectRequired: "无法保存 Pinterest 连接。请重新连接 Pinterest，在此之前无法发布。",
+    paymentsNotConfigured: "此安装的支付功能暂时不可用。未扣款——请稍后重试或联系支持。",
+    paymentNotStarted: "无法创建支付，未扣款。请一分钟后重试，若再次出现请联系支持。",
     pinterestPublicationRejected: "Pinterest 拒绝了这个 Pin（画板、图片或文字）。请修正后重试，原样重复仍会被拒绝。",
     pinterestRefreshInProgress: "Pinterest 访问权限正在刷新。请几秒后重试，数据没有丢失。",
     projectNotFound: "未找到该项目，可能已被删除或属于其他账号。",
@@ -558,6 +574,16 @@ const PAYMENT_CODES: Record<string, AppErrorMessageKey> = {
   payment_provider_unavailable: 'paymentProviderUnavailable',
   payment_link_not_saved: 'paymentLinkNotSaved',
   payment_order_preparation_failed: 'paymentOrderPreparationFailed',
+  payments_not_configured: 'paymentsNotConfigured',
+};
+
+/**
+ * The one payment code that answers 500: the invoice was never created. It names a fact about the
+ * money, so the customer must read it whatever status class carries it - and the rest of the payment
+ * codes keep their 502/503 rule, because a 500 there would be our own bug rather than a payment state.
+ */
+const PAYMENT_NOT_STARTED_CODES: Record<string, AppErrorMessageKey> = {
+  payment_not_started: 'paymentNotStarted',
 };
 
 const TARIFF_CODES: Record<string, AppErrorMessageKey> = {
@@ -593,6 +619,9 @@ export function getLocalizedApiError(code: unknown, status: unknown): string | n
   if ((Number(status) === 502 || Number(status) === 503) &&
       Object.prototype.hasOwnProperty.call(PAYMENT_CODES, code)) {
     return getAppErrorMessage(PAYMENT_CODES[code]);
+  }
+  if (Number(status) === 500 && Object.prototype.hasOwnProperty.call(PAYMENT_NOT_STARTED_CODES, code)) {
+    return getAppErrorMessage(PAYMENT_NOT_STARTED_CODES[code]);
   }
   if (Number(status) === 403 && Object.prototype.hasOwnProperty.call(TARIFF_CODES, code)) {
     return getAppErrorMessage(TARIFF_CODES[code]);
