@@ -3394,3 +3394,14 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Содержательно закреплено:** путь возобновления регенерации, жизненный цикл воркера удаления, загрузка изображения пина, ветки `ensureBucket`, язык проекта в онбординге и запрет loopback-адресов, отмена/повтор расписания, смена доски, успешный повтор, восемь админских списков, запрос на удаление аккаунта, профиль, сверка публикации, два маршрута обслуживания Storage, подтверждение email.
 - **Покрытие:** все backend-модули ≥ 96 % строк, кроме `index.js` (8.66 %, измеряется только через дочерний процесс) и `email-verify.js`/`billing.js`, доведённых до 100/97.79.
 - **Не изменилось и остаётся за владельцем:** UA-066 (staging end-to-end), UA-067 (push 30 коммитов), UA-070 (миграции 164/165), UA-072 (POSIX shutdown), внешний алертинг, продуктовые пробелы (метрики Pinterest не собираются, стор лимитера в памяти процесса, нет письма «кто-то пытался войти»).
+
+
+### 2026-11-20 — Review queue reconciliation fails closed on malformed query envelopes (AUD-403)
+
+- Base: current `main` HEAD `8102f14711db3c49ca246a547e09704f0ef146fd`.
+- Found: `GET /review-queue` treated malformed successful `pins` and `pin_schedules` query results as empty arrays. A malformed pins response could mark pin-linked rows stale and permit deletion; a malformed schedules response could re-expose an already scheduled pin for approval.
+- Changed: added `readArrayQueryResult` to `backend/fetchAllPages.js`; it preserves database errors, requires a valid object envelope with array-valued `data`, and returns HTTP 502 for malformed responses. Reused it for pagination pages/overflow and both review-queue secondary batch reads. All reads validate before stale-row cleanup.
+- Added regression coverage for valid empty arrays, malformed/missing/null/non-array envelopes, error propagation, both secondary reads and validation-before-cleanup ordering. Two HTTP-level tests with fake PostgREST assert that malformed pins/schedules responses return 502 and perform zero queue-row DELETEs.
+- Focused Node runtime tests were **not run** in this automation environment. Owner acceptance is UA-073. No SQL or production state was changed.
+- Current main Actions runs `44773990048` and `44773989972` failed with jobs containing no execution steps; the PR #93 jobs likewise had no steps. Do not interpret these as application test failures.
+- Previous PR #93 is based on `ab7a44f` and is now 184 commits behind current main; this branch is a fresh, narrow port of the still-present defect onto the current mainline. Do not merge PR #93.

@@ -3534,3 +3534,71 @@ test("a stale upload is reported, never resolved, and a missing object is not pr
     await backend.stop();
   }
 });
+
+
+test("review queue list fails closed when the pins reconciliation response is malformed", async () => {
+  const backend = await startBackend();
+  try {
+    const pinId = "99999999-9999-4999-8999-999999999999";
+    backend.db.table("GET", "pin_review_queue", {
+      status: 200,
+      body: [{
+        id: "q-malformed-pins",
+        pin_id: pinId,
+        payload: { id: "q-malformed-pins", title: "Не удалять при ошибке чтения" },
+        created_at: "2026-01-01T00:00:00Z",
+      }],
+    });
+    backend.db.table("GET", "pins", { status: 200, body: null });
+
+    const listed = await backend.get("/review-queue");
+    assert.equal(listed.status, 502, "a malformed successful pin lookup is not an empty result");
+    assert.deepEqual(
+      backend.db.requests.filter((entry) => entry.method === "DELETE"),
+      [],
+      "the route must not delete queue rows when pin reconciliation data is malformed"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("review queue list fails closed when the schedule reconciliation response is malformed", async () => {
+  const backend = await startBackend();
+  try {
+    const pinId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    backend.db.table("GET", "pin_review_queue", {
+      status: 200,
+      body: [{
+        id: "q-malformed-schedules",
+        pin_id: pinId,
+        payload: { id: "q-malformed-schedules", title: "Не возвращать на одобрение" },
+        created_at: "2026-01-01T00:00:00Z",
+      }],
+    });
+    backend.db.table("GET", "pins", ({ query }) => {
+      if (String(query.select || "").includes("boards(")) {
+        return {
+          status: 200,
+          body: [{
+            id: pinId,
+            status: "approved",
+            boards: { id: BOARD_ID, projects: { user_id: USER_ID } },
+          }],
+        };
+      }
+      return { status: 200, body: [] };
+    });
+    backend.db.table("GET", "pin_schedules", { status: 200, body: null });
+
+    const listed = await backend.get("/review-queue");
+    assert.equal(listed.status, 502, "a malformed successful schedule lookup is not an empty result");
+    assert.deepEqual(
+      backend.db.requests.filter((entry) => entry.method === "DELETE"),
+      [],
+      "the route must not delete queue rows when schedule reconciliation data is malformed"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
