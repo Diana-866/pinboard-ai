@@ -46,8 +46,14 @@ function startFakePostgrest() {
 
       let scripted = routes.get(key) || routes.get(`${lookupMethod} ${path.replace(/^\/rest\/v1\//, "")}`);
       if (!scripted && matchers.length) {
-        const matched = matchers.find((matcher) => matcher.test({ method: lookupMethod, path, query, headers: req.headers }));
-        if (matched) scripted = matched.answer;
+        // Last registered wins, like the exact routes: a test that scripts a bucket override must be
+        // able to replace the default one registered by a helper.
+        for (let index = matchers.length - 1; index >= 0; index -= 1) {
+          if (matchers[index].test({ method: lookupMethod, path, query, headers: req.headers })) {
+            scripted = matchers[index].answer;
+            break;
+          }
+        }
       }
       const answer = typeof scripted === "function"
         ? scripted({ url, query, body, headers: req.headers })

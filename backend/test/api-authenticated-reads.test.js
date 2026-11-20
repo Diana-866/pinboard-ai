@@ -2177,3 +2177,152 @@ test("an image sent under the wrong field name is refused by the upload parser",
     await backend.stop();
   }
 });
+test("a missing bucket is created once with the configuration the app validates", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+    backend.db.table("GET", "pins", { status: 200, body: ownerPin(null) });
+    const storage = scriptPinImageStorage(backend);
+    // The project has no pin-images bucket yet.
+    backend.db.routeMatching(
+      ({ method, path }) => method === "GET" && path === "/storage/v1/bucket",
+      { status: 200, body: [] }
+    );
+    const created = [];
+    backend.db.routeMatching(
+      ({ method, path }) => method === "POST" && path === "/storage/v1/bucket",
+      ({ body }) => {
+        created.push(JSON.parse(body));
+        return {
+          status: 200,
+          body: { name: "pin-images", public: true, file_size_limit: 5 * 1024 * 1024, allowed_mime_types: ["image/png", "image/jpeg", "image/webp", "image/gif"] },
+        };
+      }
+    );
+    backend.db.rpc("begin_pin_image_upload", { status: 200, body: { reserved: true, upload_token: "upload-token-5" } });
+    backend.db.rpc("finalize_pin_image_upload", { status: 200, body: true });
+    backend.db.table("PATCH", "pins", ({ body }) => ({ status: 200, body: [{ ...ownerPin(null)[0], ...JSON.parse(body || "{}") }] }));
+
+    const { body, contentType } = multipartBody();
+    const answer = await backend.upload(`/pins/${PIN_ID}/image`, body, contentType);
+
+    assert.equal(answer.status, 200, `expected the upload to succeed, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.equal(created.length, 1, "the bucket must be created exactly once");
+    assert.equal(created[0].name, "pin-images");
+    assert.equal(created[0].public, true, "a private bucket cannot serve Pinterest-compatible URLs");
+    assert.deepEqual(
+      (created[0].allowed_mime_types || []).slice().sort(),
+      ["image/gif", "image/jpeg", "image/png", "image/webp"]
+    );
+    assert.ok(Number(created[0].file_size_limit) >= 5 * 1024 * 1024);
+    assert.equal(storage.uploads.length, 1);
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a private bucket stops the upload with an actionable 503 instead of a broken image URL", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+    backend.db.table("GET", "pins", { status: 200, body: ownerPin(null) });
+    const storage = scriptPinImageStorage(backend);
+    backend.db.routeMatching(
+      ({ method, path }) => method === "GET" && path === "/storage/v1/bucket",
+      { status: 200, body: [{ name: "pin-images", public: false, file_size_limit: 5 * 1024 * 1024, allowed_mime_types: ["image/gif", "image/jpeg", "image/png", "image/webp"] }] }
+    );
+
+    const { body, contentType } = multipartBody();
+    const answer = await backend.upload(`/pins/${PIN_ID}/image`, body, contentType);
+
+    assert.equal(answer.status, 503, `expected 503, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    // A 5xx body is deliberately generic (section 72): the bucket's configuration is operator
+    // information, and the customer is only told that storage is temporarily unavailable.
+    assert.equal(String(answer.body.error).includes("bucket"), false, "internal storage detail must not leak");
+    assert.deepEqual(storage.uploads, [], "nothing may be written into a bucket that cannot serve it");
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.path.includes("begin_pin_image_upload")).length,
+      0,
+      "an unusable bucket must not consume a lifecycle reservation"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a bucket with a narrower MIME allow-list is refused rather than silently breaking GIF pins", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+    backend.db.table("GET", "pins", { status: 200, body: ownerPin(null) });
+    const storage = scriptPinImageStorage(backend);
+    backend.db.routeMatching(
+      ({ method, path }) => method === "GET" && path === "/storage/v1/bucket",
+      { status: 200, body: [{ name: "pin-images", public: true, file_size_limit: 5 * 1024 * 1024, allowed_mime_types: ["image/jpeg", "image/png"] }] }
+    );
+
+    const { body, contentType } = multipartBody();
+    const answer = await backend.upload(`/pins/${PIN_ID}/image`, body, contentType);
+
+    assert.equal(answer.status, 503);
+    assert.equal(String(answer.body.error).includes("MIME"), false, "the bucket's allow-list must not leak");
+    assert.deepEqual(storage.uploads, []);
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a bucket listing that fails is a 503 that leaks no storage detail", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+    backend.db.table("GET", "pins", { status: 200, body: ownerPin(null) });
+    const storage = scriptPinImageStorage(backend);
+    backend.db.routeMatching(
+      ({ method, path }) => method === "GET" && path === "/storage/v1/bucket",
+      { status: 500, body: { statusCode: "500", error: "Internal", message: "storage is unreachable" } }
+    );
+
+    const { body, contentType } = multipartBody();
+    const answer = await backend.upload(`/pins/${PIN_ID}/image`, body, contentType);
+
+    assert.equal(answer.status, 503);
+    assert.deepEqual(storage.uploads, []);
+    // A failed listing says nothing about whether the bucket exists, so creating one would be a guess
+    // that could collide with the project's real bucket configuration.
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.method === "POST" && entry.path === "/storage/v1/bucket").length,
+      0,
+      "a listing failure must not be treated as an absent bucket"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("an image over the 5 MiB limit is refused by the parser with 413 and never stored", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+    backend.db.table("GET", "pins", { status: 200, body: ownerPin(null) });
+    const storage = scriptPinImageStorage(backend);
+
+    // One byte over the limit, with a valid PNG signature so only the size is wrong.
+    const oversized = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(5 * 1024 * 1024 + 1),
+    ]);
+    const { body, contentType } = multipartBody({ bytes: oversized });
+    const answer = await backend.upload(`/pins/${PIN_ID}/image`, body, contentType);
+
+    assert.equal(answer.status, 413, `expected 413, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.equal(answer.body.code, "LIMIT_FILE_SIZE");
+    assert.deepEqual(storage.uploads, []);
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.path.includes("begin_pin_image_upload")).length,
+      0
+    );
+  } finally {
+    await backend.stop();
+  }
+});
