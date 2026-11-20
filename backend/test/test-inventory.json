@@ -1,6 +1,6 @@
 {
   "files": 149,
-  "total": 1202,
+  "total": 1210,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -9,7 +9,7 @@
     "admin-access.test.js": 3,
     "admin-account-deletion-inventory.test.js": 9,
     "admin-financial-operations.test.js": 3,
-    "admin-payment-creation-requests.test.js": 7,
+    "admin-payment-creation-requests.test.js": 10,
     "admin-pinterest-inventory.test.js": 12,
     "admin-pinterest-reconciliation.test.js": 8,
     "admin-provider-refund-actions.test.js": 5,
@@ -19,7 +19,7 @@
     "admin-storage-rate-limit.test.js": 10,
     "admin-subscription-limit.test.js": 1,
     "analytics.test.js": 8,
-    "api-authenticated-reads.test.js": 22,
+    "api-authenticated-reads.test.js": 27,
     "api-wiring.test.js": 9,
     "app-boot.test.js": 2,
     "auth.test.js": 20,

@@ -129,3 +129,45 @@ test("payment detail query errors are propagated", async () => {
   queryErrors.subscriptions = { message: "subscription lookup failed" };
   await assert.rejects(listPaymentCreationRequests({}, Date.now(), db), /subscription lookup failed/);
 });
+
+test("one provider order linked to two local payment records is an error, not a choice", async () => {
+  reset();
+  // The same order id existing as both a subscription and a credit purchase means the local ledger is
+  // ambiguous; picking one would show an operator a match that may be the wrong payment.
+  relatedRows.credit_purchases = [{
+    id: "purchase-1", user_id: "user-1", provider_payment_id: "pp-test-order-0001",
+    package_id: "pack_50", status: "pending", amount: 190, currency: "rub",
+  }];
+  await assert.rejects(
+    listPaymentCreationRequests({}, Date.now(), db),
+    /linked to multiple local payment records/
+  );
+});
+
+test("a payment of the wrong kind is a mismatch even for the same user", async () => {
+  reset();
+  // The request is a subscription; the only local record with that order id is a credit purchase.
+  relatedRows.subscriptions = [];
+  relatedRows.credit_purchases = [{
+    id: "purchase-1", user_id: "user-1", provider_payment_id: "pp-test-order-0001",
+    package_id: "pack_50", status: "pending", amount: 190, currency: "rub",
+  }];
+  const result = await listPaymentCreationRequests({}, Date.now(), db);
+  assert.equal(result.items[0].local_payment_match, "identity_mismatch");
+  assert.equal(result.items[0].expected_amount, undefined, "a mismatch must not expose the other record's amount");
+  assert.equal(result.items[0].local_payment_record_id, undefined);
+});
+
+test("a matched payment is shown without the internal owner column", async () => {
+  reset();
+  const result = await listPaymentCreationRequests({}, Date.now(), db);
+  const item = result.items[0];
+  assert.equal(item.local_payment_match, "matched");
+  assert.equal(item.local_payment_record_id, "subscription-1");
+  assert.equal(item.local_payment_status, "pending");
+  assert.equal(item.expected_amount, 4990);
+  // Both join columns stay internal: the match signal is local_payment_match, and neither the owner
+  // id nor the record kind is needed to act on the row.
+  assert.equal(Object.hasOwn(item, "local_user_id"), false, "the join column must not reach the admin payload");
+  assert.equal(Object.hasOwn(item, "matched_record_kind"), false);
+});

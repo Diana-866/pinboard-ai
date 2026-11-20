@@ -98,6 +98,15 @@ async function startBackend({ tokenVersion = 0, extraEnv = {} } = {}) {
     };
   });
 
+  // The review queue writes back whatever it stored, which is what the route returns.
+  db.table("PUT", "review-queue", () => ({ status: 200, body: [] }));
+  db.table("POST", "pin_review_queue", ({ body }) => {
+    const payload = JSON.parse(body || "{}");
+    return { status: 201, body: [{ ...payload, created_at: "2026-01-04T00:00:00Z", updated_at: "2026-01-04T00:00:00Z" }] };
+  });
+  db.table("GET", "pin_review_queue", { status: 200, body: [] });
+  db.table("DELETE", "pin_review_queue", { status: 204, body: [] });
+
   // Write routes answer with the row they "stored": the pin/board/project the handler then reads back.
   db.table("POST", "projects", ({ body }) => ({ status: 201, body: [{ id: PROJECT_ID, ...JSON.parse(body || "{}") }] }));
   db.table("POST", "boards", ({ body }) => ({ status: 201, body: [{ id: BOARD_ID, ...JSON.parse(body || "{}") }] }));
@@ -600,6 +609,180 @@ test("a pin of another account cannot be approved or rejected", async () => {
       [],
       "a foreign pin must not be updated"
     );
+  } finally {
+    await backend.stop();
+  }
+});
+test("the review queue refuses an entry that points at another account's pin", async () => {
+  const backend = await startBackend();
+  const queueId = "queue-1";
+  try {
+    backend.db.ownedBy = OTHER_USER_ID;
+    const saved = await backend.send("PUT", `/review-queue/${queueId}`, {
+      pin: { id: queueId, title: "Чужой пин", description: "", pinId: "55555555-5555-4555-8555-555555555555" },
+    });
+    assert.equal(saved.status, 404, "a queue entry may only reference a pin the caller owns");
+    assert.equal(saved.body.code, "pin_not_found");
+    assert.deepEqual(
+      backend.db.requests.filter((entry) => entry.method === "POST" && entry.path === "/rest/v1/pin_review_queue"),
+      [],
+      "a refused entry must not be written"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a review queue entry is stored under the token's user, not under the body's", async () => {
+  const backend = await startBackend();
+  const queueId = "queue-2";
+  try {
+    backend.db.ownedBy = USER_ID;
+    backend.db.table("GET", "pins", ({ query }) => (
+      String(query.select || "").includes("boards(")
+        ? {
+            status: 200,
+            body: [{
+              id: "55555555-5555-4555-8555-555555555555",
+              board_id: BOARD_ID,
+              status: "pending",
+              boards: { id: BOARD_ID, project_id: PROJECT_ID, projects: { user_id: USER_ID } },
+            }],
+          }
+        : { status: 200, body: [] }
+    ));
+    const saved = await backend.send("PUT", `/review-queue/${queueId}`, {
+      user_id: OTHER_USER_ID,
+      pin: { id: queueId, title: "Мой пин", description: "Описание", pinId: "55555555-5555-4555-8555-555555555555" },
+    });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.body.id, queueId);
+    assert.equal(saved.body.title, "Мой пин");
+
+    const upsert = backend.db.requests.find((entry) => entry.method === "POST" && entry.path === "/rest/v1/pin_review_queue");
+    assert.ok(upsert, "the entry was not stored");
+    const payload = JSON.parse(upsert.body);
+    assert.equal(payload.user_id, USER_ID, "the row owner comes from the token");
+    assert.equal(payload.id, queueId);
+    assert.equal(payload.payload.title, "Мой пин");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a queue entry without a pin id needs no pin lookup, and a malformed one is refused", async () => {
+  const backend = await startBackend();
+  try {
+    const draft = await backend.send("PUT", "/review-queue/draft-1", {
+      pin: { id: "draft-1", title: "Черновик", description: "" },
+    });
+    assert.equal(draft.status, 200, "a draft preview entry is allowed");
+    assert.deepEqual(
+      backend.db.requests.filter((entry) => entry.path === "/rest/v1/pins"),
+      [],
+      "a draft entry must not trigger a pin lookup it has no pin for"
+    );
+
+    const before = backend.db.requests.filter((entry) => entry.method === "POST").length;
+    for (const [id, pin] of [
+      ["queue-3", { id: "queue-3", title: "", description: "" }],
+      ["queue-4", { id: "another-id", title: "Заголовок", description: "" }],
+      ["queue-5", null],
+      // A path that is only whitespace reaches the handler (an empty path segment is a 404 route).
+      ["%20", { id: "", title: "Заголовок", description: "" }],
+    ]) {
+      const answer = await backend.send("PUT", `/review-queue/${id}`, { pin });
+      assert.equal(answer.status, 422, `payload ${JSON.stringify(pin)} with id ${JSON.stringify(id)} was accepted`);
+    }
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.method === "POST").length,
+      before,
+      "a rejected entry must not be stored"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("deleting a queue entry is scoped to the caller and reports a database failure as a failure", async () => {
+  const backend = await startBackend();
+  try {
+    const removed = await backend.send("DELETE", "/review-queue/queue-9", undefined);
+    assert.equal(removed.status, 200);
+    assert.deepEqual(removed.body, { ok: true });
+    const deletion = backend.db.requests.find((entry) => entry.method === "DELETE");
+    assert.equal(deletion.query.id, "eq.queue-9");
+    assert.equal(deletion.query.user_id, `eq.${USER_ID}`, "a delete must never cross accounts");
+
+    // A failed delete that answered ok:true would tell the customer the entry is gone while the pin
+    // keeps reappearing on every refresh.
+    backend.db.table("DELETE", "pin_review_queue", { status: 500, body: { code: "XX000", message: "boom" } });
+    const failed = await backend.send("DELETE", "/review-queue/queue-10", undefined);
+    assert.equal(failed.status, 500);
+    assert.notDeepEqual(failed.body, { ok: true });
+
+    const badId = await backend.send("DELETE", `/review-queue/${"x".repeat(101)}`, undefined);
+    assert.equal(badId.status, 422, "an over-long id is refused before the delete");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("the review queue list drops stale entries and never shows another account's pin", async () => {
+  const backend = await startBackend();
+  try {
+    const ownPin = "55555555-5555-4555-8555-555555555555";
+    const foreignPin = "66666666-6666-4666-8666-666666666666";
+    const scheduledPin = "77777777-7777-4777-8777-777777777777";
+    const rejectedPin = "88888888-8888-4888-8888-888888888888";
+
+    backend.db.table("GET", "pin_review_queue", {
+      status: 200,
+      body: [
+        { id: "q-own", pin_id: ownPin, payload: { id: "q-own", title: "Свой" }, created_at: "2026-01-01T00:00:00Z" },
+        { id: "q-foreign", pin_id: foreignPin, payload: { id: "q-foreign", title: "Чужой" }, created_at: "2026-01-02T00:00:00Z" },
+        { id: "q-scheduled", pin_id: scheduledPin, payload: { id: "q-scheduled", title: "Уже в расписании" }, created_at: "2026-01-03T00:00:00Z" },
+        { id: "q-rejected", pin_id: rejectedPin, payload: { id: "q-rejected", title: "Отклонён" }, created_at: "2026-01-04T00:00:00Z" },
+        { id: "q-draft", pin_id: null, payload: { id: "q-draft", title: "Черновик" }, created_at: "2026-01-05T00:00:00Z" },
+      ],
+    });
+    backend.db.table("GET", "pins", ({ query }) => {
+      if (String(query.select || "").includes("boards(")) {
+        return {
+          status: 200,
+          body: [
+            { id: ownPin, status: "pending", boards: { id: BOARD_ID, projects: { user_id: USER_ID } } },
+            { id: foreignPin, status: "pending", boards: { id: BOARD_ID, projects: { user_id: OTHER_USER_ID } } },
+            { id: scheduledPin, status: "approved", boards: { id: BOARD_ID, projects: { user_id: USER_ID } } },
+            { id: rejectedPin, status: "rejected", boards: { id: BOARD_ID, projects: { user_id: USER_ID } } },
+          ],
+        };
+      }
+      return { status: 200, body: [] };
+    });
+    backend.db.table("GET", "pin_schedules", {
+      status: 200,
+      body: [{ pin_id: scheduledPin }],
+    });
+
+    const listed = await backend.get("/review-queue");
+    assert.equal(listed.status, 200);
+    const ids = listed.body.map((row) => row.id).sort();
+    assert.deepEqual(ids, ["q-draft", "q-own"], "only the caller's live, unscheduled pins belong in the queue");
+    assert.equal(
+      listed.body.every((row) => row.title !== "Чужой"),
+      true,
+      "another account's pin must never appear in the list"
+    );
+
+    const cleanup = backend.db.requests.filter((entry) => entry.method === "DELETE");
+    assert.equal(cleanup.length, 1, "stale rows must be cleaned up in one bounded delete");
+    assert.equal(cleanup[0].query.user_id, `eq.${USER_ID}`, "cleanup must not delete across accounts");
+    const cleanedIds = cleanup[0].query.id;
+    for (const stale of ["q-foreign", "q-scheduled", "q-rejected"]) {
+      assert.ok(String(cleanedIds).includes(stale), `stale row ${stale} was not cleaned up`);
+    }
+    assert.equal(String(cleanedIds).includes("q-own"), false, "a live entry must not be deleted");
   } finally {
     await backend.stop();
   }
