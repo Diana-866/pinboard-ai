@@ -62,7 +62,7 @@ function accountRow(overrides = {}) {
   return {
     id: ACCOUNT_ID,
     user_id: USER_ID,
-    pinterest_username: "pinposy",
+    username: "pinposy",
     access_token: encryptToken(TOKEN),
     refresh_token: encryptToken("rtoken-live-1"),
     token_expires_at: new Date(Date.now() + 3_600_000).toISOString(),
