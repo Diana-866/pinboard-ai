@@ -724,9 +724,10 @@ test("schedule claim heartbeat warns once when fencing token is no longer curren
     renew: async () => false,
     logger: { warn: (...args) => warnings.push(args) },
   });
-  assert.equal(stop.isLeaseLost(), false);
+  // Section 124: the heartbeat no longer carries a lease-lost flag - the fence is
+  // `assertClaimCurrent`, run immediately before POST /pins. The warning is the observable.
+  assert.equal(typeof stop.isLeaseLost, "undefined", "a flag nobody reads must not sit on a safety object");
   await new Promise((resolve) => setTimeout(resolve, 45));
-  assert.equal(stop.isLeaseLost(), true);
   await stop();
   assert.equal(warnings.length, 1);
   assert.match(warnings[0][0], /claim is no longer current/);
@@ -740,7 +741,6 @@ test("schedule claim heartbeat does not declare lease lost on a transient renewa
     logger: { warn: () => {} },
   });
   await new Promise((resolve) => setTimeout(resolve, 25));
-  assert.equal(stop.isLeaseLost(), false, "a transport error is not proof that the fencing token was replaced");
   await stop();
 });
 

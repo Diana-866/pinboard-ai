@@ -242,12 +242,17 @@ module.exports = {
 // Renew a single claimed row while its worker is still processing it. Failed
 // heartbeats are observable but never treated as proof that a remote publish
 // did not happen; the durable publish journal remains the source of truth.
+//
+// Section 124: this used to also expose `stop.isLeaseLost()` and nothing called it. A flag that is
+// sampled once a minute cannot fence a remote publish - the real fence is `assertClaimCurrent`,
+// which renews and checks the token immediately before POST /pins - and leaving the flag on the
+// object invites the belief that a lost lease stops the worker. It does not: the warning is the
+// observable, and the pre-POST fence is the protection.
 function createScheduleClaimHeartbeat({ renew, logger = console, intervalMs = 60_000 }) {
   if (typeof renew !== "function") throw new TypeError("schedule claim renew callback is required");
   let stopped = false;
   let inFlight = false;
   let warningLogged = false;
-  let leaseLost = false;
   let pendingRenewal = null;
   const timer = setInterval(() => {
     if (stopped || inFlight) return;
@@ -256,7 +261,6 @@ function createScheduleClaimHeartbeat({ renew, logger = console, intervalMs = 60
       try {
         const renewed = await renew();
         if (!renewed) {
-          leaseLost = true;
           if (!warningLogged) {
             warningLogged = true;
             logger.warn("[pinterest-worker] schedule claim is no longer current; publication outcome remains journal-controlled");
@@ -280,7 +284,6 @@ function createScheduleClaimHeartbeat({ renew, logger = console, intervalMs = 60
     // Do not let a renewal request outlive the schedule's final state transition.
     if (pendingRenewal) await pendingRenewal;
   };
-  stop.isLeaseLost = () => leaseLost;
   return stop;
 }
 
