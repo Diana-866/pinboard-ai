@@ -132,6 +132,7 @@ function commitFiles(hash) {
 const CODE_IN_DOCS_COMMITS = new Map([
   ["422efd34", "the register-scoping guard fix shipped under a docs subject; row 172 records it"],
   ["34ab6514", "the completeness guard and its tool shipped under a docs subject; the code in it is the record's own checker"],
+  ["8623e91d", "the docs commit also corrected that guard's own scanner, which mistook quoted history for a live reference; section 122.6 records it and 122.7 the shared-command mistake that let it through"],
 ]);
 
 test("every change of this session has a row, and every row points at a reason", (t) => {
