@@ -2370,6 +2370,7 @@ backend **958/958**, frontend **308/308**, `tsc` чисто, `vite build` усп
 | `595c007f` | 2026-11-20 | test(storage): the two maintenance routes, and why "visible" is not "settled" | реестр, строка 292 |
 | `a5b6070a` | 2026-11-20 | docs: раздел 96 — маршруты обслуживания Storage; UA-067 обновлён | §96, §96.1, §96.2, §96.3, §96.4 — написаны этим коммитом |
 | `a30b590e` | 2026-11-20 | test(email): finish the verification module, the last one below 92 per cent | реестр, строка 295 |
+| `1dd1b4ba` | 2026-11-20 | docs: раздел 97 — подтверждение email до 100 % строк | §97, §97.1, §97.2, §97.3, §97.4, §97.5 — написаны этим коммитом |
 
 ### 56.5. Что это даёт владельцу
 
