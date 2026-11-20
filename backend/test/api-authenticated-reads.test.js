@@ -2851,3 +2851,122 @@ test("the database's refusal of a board change is reported by reason, never as s
     await pinterest.close();
   }
 });
+test("retrying a failed publication revalidates the destination and makes it due again", async () => {
+  const pinterest = await startFakePinterest();
+  const backend = await startBackendWithPinterest(pinterest);
+  try {
+    activatePaidPlan(backend, { plan: "pro" });
+    scriptPinterestAccount(backend);
+    backend.db.table("GET", "pin_schedules", ({ query }) => {
+      if (String(query.select || "").includes("pins(")) {
+        return { status: 200, body: [scheduleRow({ status: "scheduled" })] };
+      }
+      const scoped = String(query.user_id || "") === `eq.${USER_ID}`;
+      return { status: 200, body: scoped ? [scheduleRow({ status: "failed", pinterest_board_id: "board-1" })] : [] };
+    });
+    backend.db.rpc("retry_failed_pin_schedule", { status: 200, body: { ok: true } });
+
+    const answer = await backend.send("POST", `/schedule/${SCHEDULE_ID}/retry`, {});
+
+    assert.equal(answer.status, 200, `expected 200, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.equal(answer.body.claim_token, undefined, "the worker's fencing token must never reach the browser");
+    assert.deepEqual(pinterest.calls, ["GET /v5/boards/board-1"],
+      "the original board must be verified against the same account before the retry is queued");
+    const rpc = backend.db.requests.find((entry) => entry.path.includes("retry_failed_pin_schedule"));
+    assert.ok(rpc, "the retry must go through the database RPC");
+    const params = JSON.parse(rpc.body);
+    assert.equal(params.p_schedule_id, SCHEDULE_ID);
+    assert.equal(params.p_user_id, USER_ID);
+  } finally {
+    await backend.stop();
+    await pinterest.close();
+  }
+});
+
+test("a retry whose board no longer exists stops before the retry RPC", async () => {
+  const pinterest = await startFakePinterest({ boardStatus: 404, boardBody: { message: "Board not found" } });
+  const backend = await startBackendWithPinterest(pinterest);
+  try {
+    activatePaidPlan(backend, { plan: "pro" });
+    scriptPinterestAccount(backend);
+    backend.db.table("GET", "pin_schedules", ({ query }) => {
+      const scoped = String(query.user_id || "") === `eq.${USER_ID}`;
+      return { status: 200, body: scoped ? [scheduleRow({ status: "failed", pinterest_board_id: "board-1" })] : [] };
+    });
+
+    const answer = await backend.send("POST", `/schedule/${SCHEDULE_ID}/retry`, {});
+
+    assert.equal(answer.status, 422, `expected 422, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.match(String(answer.body.error), /не найдена или недоступна/);
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.path.includes("retry_failed_pin_schedule")).length,
+      0,
+      "a destination that cannot be revalidated must never be retried"
+    );
+  } finally {
+    await backend.stop();
+    await pinterest.close();
+  }
+});
+
+test("every refusal the retry RPC can give is reported by reason, never as success", async () => {
+  const pinterest = await startFakePinterest();
+  const backend = await startBackendWithPinterest(pinterest);
+  try {
+    activatePaidPlan(backend, { plan: "pro" });
+    scriptPinterestAccount(backend);
+    backend.db.table("GET", "pin_schedules", ({ query }) => {
+      const scoped = String(query.user_id || "") === `eq.${USER_ID}`;
+      return { status: 200, body: scoped ? [scheduleRow({ status: "failed", pinterest_board_id: "board-1" })] : [] };
+    });
+
+    const cases = [
+      { reason: "account_unavailable", status: 409, pattern: /Подключите его заново/ },
+      { reason: "schedule_not_retryable", status: 409, pattern: /больше не доступно для повтора/ },
+      { reason: "publication_attempt_exists", status: 409, pattern: /Повтор заблокирован во избежание дубликата/ },
+      { reason: "attempt_identity_mismatch", status: 409, pattern: /требуется сверка/ },
+      { reason: "active_schedule_exists", status: 409, pattern: /другое активное расписание/ },
+      { reason: "board_missing", status: 422, pattern: /не указана доска Pinterest/ },
+      { reason: "pin_unavailable", status: 404, pattern: /Пин больше недоступен/ },
+      { reason: "schedule_not_found", status: 404, pattern: /Расписание не найдено/ },
+      { reason: "something_new", status: 409, pattern: /Не удалось безопасно повторить публикацию/ },
+    ];
+
+    for (const item of cases) {
+      backend.db.rpc("retry_failed_pin_schedule", { status: 200, body: { ok: false, reason: item.reason } });
+      const answer = await backend.send("POST", `/schedule/${SCHEDULE_ID}/retry`, {});
+      assert.equal(answer.status, item.status, `reason ${item.reason} answered ${answer.status}: ${JSON.stringify(answer.body)}`);
+      assert.match(String(answer.body.error), item.pattern, `reason ${item.reason}`);
+    }
+  } finally {
+    await backend.stop();
+    await pinterest.close();
+  }
+});
+
+test("a retry that the database confirms but cannot be read back is a server error, not a silent success", async () => {
+  const pinterest = await startFakePinterest();
+  const backend = await startBackendWithPinterest(pinterest);
+  try {
+    activatePaidPlan(backend, { plan: "pro" });
+    scriptPinterestAccount(backend);
+    let reads = 0;
+    backend.db.table("GET", "pin_schedules", ({ query }) => {
+      if (String(query.select || "").includes("pins(")) {
+        reads += 1;
+        return { status: 500, body: { code: "XX000", message: "connection lost" } };
+      }
+      const scoped = String(query.user_id || "") === `eq.${USER_ID}`;
+      return { status: 200, body: scoped ? [scheduleRow({ status: "failed", pinterest_board_id: "board-1" })] : [] };
+    });
+    backend.db.rpc("retry_failed_pin_schedule", { status: 200, body: { ok: true } });
+
+    const answer = await backend.send("POST", `/schedule/${SCHEDULE_ID}/retry`, {});
+
+    assert.equal(reads, 1, "the route must read the updated schedule back");
+    assert.equal(answer.status, 500, `expected a server error, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+  } finally {
+    await backend.stop();
+    await pinterest.close();
+  }
+});
