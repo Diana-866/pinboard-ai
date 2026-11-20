@@ -2068,3 +2068,12 @@ Source commits: initial validation `0d558ec99aea53cb8ccc3b01f62cf7ef12da301d`; p
 | `docs/USER_ACTIONS.md` | `278c7897b484f43ef9eb200cc5ab47e4b8a3318f` | UA-073 owner-side focused Node acceptance command. |
 
 Code/test commits are on branch `fix/review-queue-fail-closed-20261120`, based on main HEAD `8102f14711db3c49ca246a547e09704f0ef146fd`. Static GitHub re-fetch is the only verification performed here; Node runtime tests NOT VERIFIED. Owner action UA-073. No SQL, production or deployment changes.
+
+
+AUD-403 route-level regression follow-up — 2026-11-20:
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `backend/test/api-authenticated-reads.test.js` | `5e0a9837f1750eb1ac608066e9d3f122c8741b03` | Two HTTP-level regressions: malformed `pins` and `pin_schedules` responses return 502 and produce no queue-row DELETE requests. Runtime NOT VERIFIED. |
+
+UA-073 now includes this test file in the focused Node command.
