@@ -1,6 +1,6 @@
 {
-  "files": 168,
-  "total": 1394,
+  "files": 169,
+  "total": 1396,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -137,6 +137,7 @@
     "route-auth-coverage.test.js": 5,
     "route-ownership-coverage.test.js": 5,
     "safe-logger.test.js": 12,
+    "schedule-claim-heartbeat-window.test.js": 2,
     "schedule-cron.test.js": 4,
     "schedule-response.test.js": 4,
     "schedule-route-pagination-contract.test.js": 1,
