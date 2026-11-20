@@ -19,6 +19,7 @@ const http = require("node:http");
 function startFakePostgrest() {
   const requests = [];
   const routes = new Map();
+  const matchers = [];
 
   const send = (res, status, payload, extraHeaders, headOnly) => {
     res.writeHead(status, {
@@ -43,7 +44,11 @@ function startFakePostgrest() {
       const key = `${lookupMethod} ${path}`;
       requests.push({ method: req.method, path, query, body, headers: req.headers });
 
-      const scripted = routes.get(key) || routes.get(`${lookupMethod} ${path.replace(/^\/rest\/v1\//, "")}`);
+      let scripted = routes.get(key) || routes.get(`${lookupMethod} ${path.replace(/^\/rest\/v1\//, "")}`);
+      if (!scripted && matchers.length) {
+        const matched = matchers.find((matcher) => matcher.test({ method: lookupMethod, path, query, headers: req.headers }));
+        if (matched) scripted = matched.answer;
+      }
       const answer = typeof scripted === "function"
         ? scripted({ url, query, body, headers: req.headers })
         : scripted;
@@ -73,6 +78,11 @@ function startFakePostgrest() {
 
   return {
     requests,
+    /**
+     * Answers any request a predicate accepts. Storage objects are addressed by an unpredictable name
+     * (`pins/<timestamp>-<random>.png`), so an exact route key cannot script them.
+     */
+    routeMatching(test, answer) { matchers.push({ test, answer }); return this; },
     /** Set when a test needs the ownership check to see another account's row. */
     ownedBy: null,
     route(key, answer) { routes.set(key, answer); return this; },

@@ -177,6 +177,17 @@ async function startBackend({ tokenVersion = 0, extraEnv = {} } = {}) {
       return fetch(`${base}${pathname}`, { headers: token ? { authorization: `Bearer ${token}` } : {} })
         .then(async (response) => ({ status: response.status, body: JSON.parse(await response.text() || "null") }));
     },
+    /** Multipart upload: the body is a raw buffer with its own content type. */
+    upload(pathname, body, contentType, token = sessionToken()) {
+      return fetch(`${base}${pathname}`, {
+        method: "POST",
+        headers: {
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+          "content-type": contentType,
+        },
+        body,
+      }).then(async (response) => ({ status: response.status, body: JSON.parse(await response.text() || "null") }));
+    },
     send(method, pathname, payload, token = sessionToken(), extraHeaders = {}) {
       return fetch(`${base}${pathname}`, {
         method,
@@ -1844,5 +1855,325 @@ test("resuming a running provider task tells the client to poll instead of submi
       provider.closeAllConnections?.();
       provider.close(resolve);
     });
+  }
+});
+/** A one-pixel PNG: the signature is all validateImageBuffer needs, and Storage is scripted. */
+const PNG_BYTES = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
+
+function multipartBody({ fieldName = "image", filename = "pin.png", mime = "image/png", bytes = PNG_BYTES, extraPart = null } = {}) {
+  const boundary = "----pinposy-test-boundary";
+  const parts = [];
+  if (extraPart) parts.push(Buffer.from(extraPart));
+  parts.push(Buffer.from(
+    `--${boundary}\r\n` +
+    `Content-Disposition: form-data; name="${fieldName}"; filename="${filename}"\r\n` +
+    `Content-Type: ${mime}\r\n\r\n`
+  ));
+  parts.push(bytes);
+  parts.push(Buffer.from(`\r\n--${boundary}--\r\n`));
+  return { body: Buffer.concat(parts), contentType: `multipart/form-data; boundary=${boundary}` };
+}
+
+/** The Storage side of an upload: a ready bucket, a scripted object write, and a scripted remove. */
+function scriptPinImageStorage(backend, overrides = {}) {
+  const uploads = [];
+  backend.db.routeMatching(
+    ({ method, path }) => method === "GET" && path === "/storage/v1/bucket",
+    {
+      status: 200,
+      body: [{
+        name: "pin-images",
+        public: true,
+        file_size_limit: 5 * 1024 * 1024,
+        allowed_mime_types: ["image/png", "image/jpeg", "image/webp", "image/gif"],
+      }],
+    }
+  );
+  backend.db.routeMatching(
+    ({ method, path }) => method === "POST" && path.startsWith("/storage/v1/object/pin-images/"),
+    ({ url }) => {
+      const objectPath = url.pathname.replace("/storage/v1/object/pin-images/", "");
+      uploads.push({ path: objectPath });
+      return overrides.uploadAnswer || { status: 200, body: { Key: objectPath } };
+    }
+  );
+  backend.db.routeMatching(
+    ({ method, path }) => method === "DELETE" && path === "/storage/v1/object/pin-images",
+    { status: 200, body: [] }
+  );
+  return { uploads };
+}
+
+function ownerPin(imageUrl = null) {
+  return [{
+    id: PIN_ID,
+    title: "Заголовок",
+    description: "Описание",
+    model_used: "flux-schnell",
+    image_url: imageUrl,
+    board_id: BOARD_ID,
+    boards: { id: BOARD_ID, title: "Доска", description: "", projects: { user_id: USER_ID } },
+  }];
+}
+
+test("an owner uploads their own image: stored once, confirmed, and written to the pin", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+    backend.db.table("GET", "pins", { status: 200, body: ownerPin(null) });
+    const storage = scriptPinImageStorage(backend);
+    backend.db.rpc("begin_pin_image_upload", { status: 200, body: { reserved: true, upload_token: "upload-token-1" } });
+    backend.db.rpc("finalize_pin_image_upload", { status: 200, body: true });
+    backend.db.table("PATCH", "pins", ({ body }) => ({
+      status: 200,
+      body: [{ ...ownerPin(null)[0], ...JSON.parse(body || "{}") }],
+    }));
+
+    const { body, contentType } = multipartBody();
+    const answer = await backend.upload(`/pins/${PIN_ID}/image`, body, contentType);
+
+    assert.equal(answer.status, 200, `expected the updated pin, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.match(String(answer.body.image_url), /\/storage\/v1\/object\/public\/pin-images\/pins\/.+\.png$/);
+
+    assert.equal(storage.uploads.length, 1, "the image must be written exactly once");
+    const begin = backend.db.requests.filter((entry) => entry.path.includes("begin_pin_image_upload"));
+    assert.equal(begin.length, 1);
+    assert.equal(JSON.parse(begin[0].body).p_bucket_id, "pin-images");
+    const finalize = backend.db.requests.filter((entry) => entry.path.includes("finalize_pin_image_upload"));
+    assert.equal(finalize.length, 1);
+    const finalized = JSON.parse(finalize[0].body);
+    assert.equal(finalized.p_uploaded, true);
+    assert.equal(finalized.p_upload_token, "upload-token-1");
+
+    const patch = backend.db.requests.find((entry) => entry.method === "PATCH" && entry.path === "/rest/v1/pins");
+    assert.ok(patch, "the pin must be updated");
+    assert.equal(String(patch.query.image_url), "is.null",
+      "the update must only win against the image the upload started from (compare-and-swap)");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a pin without a file is refused before any storage work", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+    backend.db.table("GET", "pins", { status: 200, body: ownerPin(null) });
+    const storage = scriptPinImageStorage(backend);
+
+    // A multipart body with no file part at all: multer accepts it and req.file stays undefined.
+    const empty = Buffer.from("------pinposy-empty\r\n------pinposy-empty--\r\n");
+    const answer = await backend.upload(
+      `/pins/${PIN_ID}/image`,
+      empty,
+      "multipart/form-data; boundary=----pinposy-empty"
+    );
+
+    assert.equal(answer.status, 422, `expected 422, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.equal(answer.body.code, "image_upload_required",
+      "the client must be told the request had no image, not that its bytes were wrong");
+    assert.deepEqual(storage.uploads, [], "a request without an image must not write to Storage");
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.path.includes("begin_pin_image_upload")).length,
+      0,
+      "no upload may be reserved"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a file whose declared type is not a supported image is refused with 415", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+    backend.db.table("GET", "pins", { status: 200, body: ownerPin(null) });
+    const storage = scriptPinImageStorage(backend);
+
+    const { body, contentType } = multipartBody({ mime: "text/plain", filename: "notes.txt", bytes: Buffer.from("hello") });
+    const answer = await backend.upload(`/pins/${PIN_ID}/image`, body, contentType);
+
+    assert.equal(answer.status, 415);
+    assert.equal(answer.body.code, "unsupported_image_type");
+    assert.deepEqual(storage.uploads, []);
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a file that only claims to be a PNG is refused after the bytes are checked", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+    backend.db.table("GET", "pins", { status: 200, body: ownerPin(null) });
+    const storage = scriptPinImageStorage(backend);
+
+    const { body, contentType } = multipartBody({ bytes: Buffer.from("not really a png") });
+    const answer = await backend.upload(`/pins/${PIN_ID}/image`, body, contentType);
+
+    assert.equal(answer.status, 422, `expected 422, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.match(String(answer.body.error), /растровым изображением/);
+    assert.deepEqual(storage.uploads, [], "a mislabelled file must never reach Storage");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("uploading into another account's pin is a 404 before any storage reservation", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = OTHER_USER_ID;
+    backend.db.table("GET", "pins", {
+      status: 200,
+      body: [{ ...ownerPin(null)[0], boards: { id: BOARD_ID, title: "Доска", description: "", projects: { user_id: OTHER_USER_ID } } }],
+    });
+    const storage = scriptPinImageStorage(backend);
+
+    const { body, contentType } = multipartBody();
+    const answer = await backend.upload(`/pins/${PIN_ID}/image`, body, contentType);
+
+    assert.equal(answer.status, 404);
+    assert.equal(answer.body.code, "pin_not_found");
+    assert.deepEqual(storage.uploads, []);
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("an upload that loses the compare-and-swap is a conflict and its object is removed again", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+    backend.db.table("GET", "pins", { status: 200, body: ownerPin(null) });
+    const storage = scriptPinImageStorage(backend);
+    backend.db.rpc("begin_pin_image_upload", { status: 200, body: { reserved: true, upload_token: "upload-token-2" } });
+    backend.db.rpc("finalize_pin_image_upload", { status: 200, body: true });
+    // Another request set image_url first, so the compare-and-swap updates no row.
+    backend.db.table("PATCH", "pins", { status: 200, body: [] });
+    backend.db.rpc("claim_pin_image_deletion", { status: 200, body: { claimed: true, claim_token: "delete-token-1" } });
+    backend.db.rpc("finalize_pin_image_deletion", { status: 200, body: true });
+
+    const { body, contentType } = multipartBody();
+    const answer = await backend.upload(`/pins/${PIN_ID}/image`, body, contentType);
+
+    assert.equal(answer.status, 409, `expected a conflict, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.match(String(answer.body.error), /уже изменилось/);
+    assert.equal(storage.uploads.length, 1);
+    const removals = backend.db.requests.filter(
+      (entry) => entry.method === "DELETE" && entry.path === "/storage/v1/object/pin-images"
+    );
+    assert.equal(removals.length, 1, "the orphaned object must not be left behind paying for storage");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a reservation refusal from the lifecycle table becomes a conflict, not an upload", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+    backend.db.table("GET", "pins", { status: 200, body: ownerPin(null) });
+    const storage = scriptPinImageStorage(backend);
+    backend.db.rpc("begin_pin_image_upload", {
+      status: 200,
+      body: { reserved: false, reason: "referenced" },
+    });
+
+    const { body, contentType } = multipartBody();
+    const answer = await backend.upload(`/pins/${PIN_ID}/image`, body, contentType);
+
+    assert.equal(answer.status, 409);
+    assert.match(String(answer.body.error), /уже используется/);
+    assert.deepEqual(storage.uploads, [], "an object that may not be written must not be written");
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.path.includes("finalize_pin_image_upload")).length,
+      0,
+      "there is no reservation to finalize"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("an ambiguous Storage failure keeps the reservation fenced and never touches the pin", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+    backend.db.table("GET", "pins", { status: 200, body: ownerPin(null) });
+    scriptPinImageStorage(backend, {
+      uploadAnswer: { status: 500, body: { statusCode: "500", error: "Internal", message: "storage is down" } },
+    });
+    backend.db.rpc("begin_pin_image_upload", { status: 200, body: { reserved: true, upload_token: "upload-token-3" } });
+    backend.db.rpc("finalize_pin_image_upload", { status: 200, body: true });
+
+    const { body, contentType } = multipartBody();
+    const answer = await backend.upload(`/pins/${PIN_ID}/image`, body, contentType);
+
+    assert.equal(answer.status, 500, `expected a server error, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+
+    const finalized = backend.db.requests
+      .filter((entry) => entry.path.includes("finalize_pin_image_upload"))
+      .map((entry) => JSON.parse(entry.body));
+    // A 5xx may follow a committed write, so the reservation must stay fenced for reconciliation:
+    // closing it out here would let a later upload overwrite an object that already exists.
+    assert.equal(finalized.length, 0, "an ambiguous Storage error must not release the reservation");
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.method === "PATCH" && entry.path === "/rest/v1/pins").length,
+      0,
+      "a failed upload must never point the pin at an image that does not exist"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a definite Storage rejection releases the reservation and reports why", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+    backend.db.table("GET", "pins", { status: 200, body: ownerPin(null) });
+    scriptPinImageStorage(backend, {
+      // 403 is a definite rejection: Storage did not write, so the reservation can be released.
+      uploadAnswer: { status: 403, body: { statusCode: "403", error: "Unauthorized", message: "new row violates policy" } },
+    });
+    backend.db.rpc("begin_pin_image_upload", { status: 200, body: { reserved: true, upload_token: "upload-token-4" } });
+    backend.db.rpc("finalize_pin_image_upload", { status: 200, body: true });
+
+    const { body, contentType } = multipartBody();
+    const answer = await backend.upload(`/pins/${PIN_ID}/image`, body, contentType);
+
+    assert.equal(answer.status, 500, `expected a server error, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    const finalized = backend.db.requests
+      .filter((entry) => entry.path.includes("finalize_pin_image_upload"))
+      .map((entry) => JSON.parse(entry.body));
+    assert.equal(finalized.length, 1, "a definite rejection must not leave the path fenced forever");
+    assert.equal(finalized[0].p_uploaded, false);
+    // supabase-js supplies `error.name` as the code for a Storage API error; what matters here is that a
+    // reason reaches the lifecycle row instead of a silent timeout.
+    assert.equal(finalized[0].p_error_code, "StorageApiError");
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.method === "PATCH" && entry.path === "/rest/v1/pins").length,
+      0
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("an image sent under the wrong field name is refused by the upload parser", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+    backend.db.table("GET", "pins", { status: 200, body: ownerPin(null) });
+    const storage = scriptPinImageStorage(backend);
+
+    const { body, contentType } = multipartBody({ fieldName: "not_image" });
+    const answer = await backend.upload(`/pins/${PIN_ID}/image`, body, contentType);
+
+    assert.equal(answer.status, 422);
+    assert.equal(answer.body.code, "LIMIT_UNEXPECTED_FILE");
+    assert.deepEqual(storage.uploads, []);
+  } finally {
+    await backend.stop();
   }
 });
