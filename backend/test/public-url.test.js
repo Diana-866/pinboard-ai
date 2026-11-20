@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { isPrivateIp, createPinnedLookup, assertPublicUrl, resolvePublicAddresses } = require("../publicUrl");
+const { isPrivateIp, createPinnedLookup, assertPublicUrl, resolvePublicAddresses, assertPublicWebsiteAddress } = require("../publicUrl");
 
 test("blocks private, loopback, link-local, CGNAT and reserved IPv4 ranges", () => {
   for (const ip of [
@@ -187,4 +187,34 @@ test("only plain http(s) URLs are analysed, and an accepted URL is returned norm
   } finally {
     dns.promises.lookup = original;
   }
+});
+
+test("a website address that can never be analysed is refused at write time", () => {
+  for (const url of [
+    "http://127.0.0.1:8080/",
+    "http://localhost/",
+    "http://app.localhost/",
+    "http://printer.local/",
+    "http://intranet.internal/",
+    "http://192.168.1.5/",
+    "http://10.0.0.1/",
+    "http://172.16.4.4/",
+    "http://169.254.169.254/latest/meta-data",
+    "http://[::1]/",
+    "http://[fe80::1]/",
+    "http://0.0.0.0/",
+  ]) {
+    assert.throws(
+      () => assertPublicWebsiteAddress(url),
+      (error) => error.httpStatus === 422 && /публичный адрес/.test(error.message),
+      `address ${url} must be refused`
+    );
+  }
+});
+
+test("an ordinary public address passes the write-time check unchanged", () => {
+  assert.equal(assertPublicWebsiteAddress("https://example.com/"), "https://example.com/");
+  assert.equal(assertPublicWebsiteAddress("https://shop.blumen.de/katalog"), "https://shop.blumen.de/katalog");
+  // A domain is accepted as written: only assertPublicUrl resolves it, right before the request.
+  assert.equal(assertPublicWebsiteAddress("https://does-not-exist.invalid/"), "https://does-not-exist.invalid/");
 });

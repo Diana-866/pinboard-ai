@@ -4,6 +4,7 @@ import { apiRequest } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useI18n } from '../../i18n/i18nContext';
 import { getOnboardingCopy } from '../../i18n/onboardingCopy';
+import { buildOnboardingPayload } from '../../lib/onboardingPayload';
 
 /** Three-step onboarding shown until the user's profile is configured. */
 
@@ -101,10 +102,9 @@ export const OnboardingWizard: React.FC = () => {
       }
       await apiRequest('/me/onboarding', {
         method: 'PATCH',
-        body: JSON.stringify({
-          websiteUrl: url || null,
-          productComment: productComment.trim() || '',
-        }),
+        body: JSON.stringify(
+          buildOnboardingPayload(language, url, productComment)
+        ),
       });
       if (ownerIdRef.current !== requestOwnerId) return;
       // Keep the wizard mounted until its completion screen is acknowledged.

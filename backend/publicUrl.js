@@ -101,6 +101,29 @@ function createPinnedLookup(expectedHostname, addresses) {
   };
 }
 
+/**
+ * Refuse a website address that can never be analysed, without a DNS lookup.
+ *
+ * `resolvePublicAddresses` answers the same question but needs the network, and it is used where the site is
+ * actually fetched. The write paths (project creation and the onboarding wizard) should not accept an
+ * address the analyser will always reject: a customer who saves http://192.168.1.5 or http://localhost gets a
+ * project that fails every analysis with "this address is unavailable" and no way to understand why.
+ *
+ * Only literal hosts are checked here; an ordinary domain is accepted as written and still validated by
+ * assertPublicUrl before any request is made.
+ */
+function assertPublicWebsiteAddress(rawUrl, name = "Адрес сайта") {
+  const url = new URL(rawUrl);
+  const host = normalizeHost(url.hostname);
+  if (!host) throw httpError(422, `${name}: укажите адрес`);
+  const literalPrivate = net.isIP(host) ? isPrivateIp(host) : false;
+  if (literalPrivate || host === "localhost" || host.endsWith(".localhost") ||
+      host.endsWith(".local") || host.endsWith(".internal")) {
+    throw httpError(422, `${name}: укажите публичный адрес сайта, а не локальный или служебный`);
+  }
+  return url.toString();
+}
+
 async function assertPublicUrl(rawUrl) {
   let url;
   try {
@@ -119,4 +142,4 @@ async function assertPublicUrl(rawUrl) {
   return { url: url.toString(), host, addresses };
 }
 
-module.exports = { isPrivateIp, resolvePublicAddresses, createPinnedLookup, assertPublicUrl };
+module.exports = { isPrivateIp, resolvePublicAddresses, createPinnedLookup, assertPublicUrl, assertPublicWebsiteAddress };

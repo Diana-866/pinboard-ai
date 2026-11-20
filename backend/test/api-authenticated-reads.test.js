@@ -495,6 +495,23 @@ test("a project website that is not http(s) is refused before any insert", async
   }
 });
 
+test("a project website that can only ever fail analysis is refused before any insert", async () => {
+  const backend = await startBackend();
+  try {
+    for (const websiteUrl of ["http://127.0.0.1:8080", "http://localhost", "http://192.168.0.10", "http://[::1]/"]) {
+      const created = await backend.send("POST", "/projects", { website_url: websiteUrl });
+      assert.equal(created.status, 422, `url ${websiteUrl} was accepted with ${created.status}: ${JSON.stringify(created.body)}`);
+    }
+    assert.deepEqual(
+      backend.db.requests.filter((entry) => entry.method === "POST" && entry.path === "/rest/v1/projects"),
+      [],
+      "a project that could never be analysed must not be created"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
 test("a board cannot be created inside somebody else's project", async () => {
   const backend = await startBackend();
   try {
@@ -2322,6 +2339,141 @@ test("an image over the 5 MiB limit is refused by the parser with 413 and never 
       backend.db.requests.filter((entry) => entry.path.includes("begin_pin_image_upload")).length,
       0
     );
+  } finally {
+    await backend.stop();
+  }
+});
+/** Onboarding: the project it creates is what every later generation takes its language from. */
+function scriptOnboarding(backend, { preferredLanguage = "ru", existingProjects = [] } = {}) {
+  const writes = { users: [], projects: [], projectPatches: [] };
+  backend.db.table("PATCH", "users", ({ body }) => {
+    writes.users.push(JSON.parse(body || "{}"));
+    return {
+      status: 200,
+      body: [{
+        id: USER_ID,
+        email: "owner@example.com",
+        onboarded: true,
+        tariff_plan: "none",
+        preferred_language: preferredLanguage,
+      }],
+    };
+  });
+  backend.db.table("GET", "projects", ({ query }) => {
+    if (String(query.select || "").replace(/\s+/g, "") === "id") {
+      return { status: 200, body: existingProjects.map((id) => ({ id })) };
+    }
+    return { status: 200, body: [] };
+  });
+  backend.db.table("POST", "projects", ({ body }) => {
+    writes.projects.push(JSON.parse(body || "{}"));
+    return { status: 201, body: [{ id: PROJECT_ID, ...JSON.parse(body || "{}") }] };
+  });
+  backend.db.table("PATCH", "projects", ({ body, query }) => {
+    writes.projectPatches.push({ body: JSON.parse(body || "{}"), query });
+    return { status: 200, body: [] };
+  });
+  return writes;
+}
+
+test("onboarding creates the first project in the language the customer asked for", async () => {
+  const backend = await startBackend();
+  try {
+    const writes = scriptOnboarding(backend, { preferredLanguage: "ru" });
+
+    const answer = await backend.send("PATCH", "/me/onboarding", {
+      websiteUrl: "https://blumen.example",
+      productComment: "Saatgut für Balkonblumen",
+      language: "de",
+    });
+
+    assert.equal(answer.status, 200, `expected 200, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.equal(writes.users.length, 1);
+    assert.equal(writes.users[0].onboarded, true);
+    assert.equal(writes.projects.length, 1);
+    assert.equal(writes.projects[0].language, "de", "the project must not be created in Russian for a German customer");
+    assert.equal(writes.projects[0].user_id, USER_ID);
+    // validateUrl normalises the address (trailing slash), so the stored value is the canonical one.
+    assert.equal(writes.projects[0].website_url, "https://blumen.example/");
+    assert.equal(writes.projects[0].goal, "Saatgut für Balkonblumen");
+    assert.equal(answer.body.password_hash, undefined, "the profile response must not carry the password hash");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("without an explicit language the project follows the profile", async () => {
+  const backend = await startBackend();
+  try {
+    const writes = scriptOnboarding(backend, { preferredLanguage: "fr" });
+
+    const answer = await backend.send("PATCH", "/me/onboarding", {
+      websiteUrl: null,
+      productComment: "",
+    });
+
+    assert.equal(answer.status, 200);
+    assert.equal(writes.projects.length, 1);
+    assert.equal(writes.projects[0].language, "fr");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("an unsupported onboarding language is refused before anything is written", async () => {
+  const backend = await startBackend();
+  try {
+    const writes = scriptOnboarding(backend);
+
+    const answer = await backend.send("PATCH", "/me/onboarding", {
+      websiteUrl: "https://example.com",
+      productComment: "",
+      language: "klingon",
+    });
+
+    assert.equal(answer.status, 422, `expected 422, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.equal(writes.users.length, 0, "a rejected language must not mark onboarding complete");
+    assert.equal(writes.projects.length, 0);
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a customer who already has a project keeps its language when finishing onboarding", async () => {
+  const backend = await startBackend();
+  try {
+    const writes = scriptOnboarding(backend, { preferredLanguage: "de", existingProjects: [PROJECT_ID] });
+
+    const answer = await backend.send("PATCH", "/me/onboarding", {
+      websiteUrl: "https://example.com",
+      productComment: "Kommentar",
+      language: "de",
+    });
+
+    assert.equal(answer.status, 200);
+    assert.equal(writes.projects.length, 0, "the wizard must not create a second project");
+    assert.equal(writes.projectPatches.length, 1);
+    assert.equal(writes.projectPatches[0].body.language, undefined,
+      "an existing project's language is the customer's choice, not the wizard's");
+    assert.equal(writes.projectPatches[0].body.website_url, "https://example.com/");
+    assert.equal(writes.projectPatches[0].body.goal, "Kommentar");
+    assert.equal(String(writes.projectPatches[0].query.user_id), `eq.${USER_ID}`,
+      "the project update must stay inside the caller's own account");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a non-http onboarding link is refused before any write", async () => {
+  const backend = await startBackend();
+  try {
+    const writes = scriptOnboarding(backend);
+    for (const websiteUrl of ["ftp://example.com", "javascript:alert(1)", "example.com", "http://127.0.0.1:8080"]) {
+      const answer = await backend.send("PATCH", "/me/onboarding", { websiteUrl, productComment: "" });
+      assert.equal(answer.status, 422, `url ${websiteUrl} was accepted with ${answer.status}`);
+    }
+    assert.equal(writes.users.length, 0);
+    assert.equal(writes.projects.length, 0);
   } finally {
     await backend.stop();
   }

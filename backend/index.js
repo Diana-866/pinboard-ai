@@ -10,6 +10,7 @@ const rateLimit = require("express-rate-limit").rateLimit;
 const { ipKeyGenerator } = require("express-rate-limit");
 const { parseMultipartFields } = require("./prodamusWebhookBody");
 const { isOwnedByUser } = require("./resourceOwnership");
+const { assertPublicWebsiteAddress } = require("./publicUrl");
 const { serializeGenerationRecovery } = require("./generationRecovery");
 const { isAllowedPinImageUploadMime } = require("./imageUploadValidation");
 const { serializePinImageUploadError } = require("./imageUploadErrors");
@@ -48,6 +49,10 @@ const MODEL_PRICES = {
   "nano-banana-pro": 15,
 };
 const MARKUP = 1.5;
+// Every language the product can generate content in. The onboarding project and each generation
+// request use the same list, so a customer cannot end up with a project in a language the generator
+// cannot write.
+const PIN_CONTENT_LANGUAGES = ["ru", "en", "de", "fr", "es", "pt", "zh", "it", "ja"];
 const ASPECT_RATIOS = ["2:3", "9:16", "4:5", "3:4", "1:1"];
 
 const { fetchAllPages } = require("./fetchAllPages");
@@ -687,14 +692,24 @@ app.patch("/me/onboarding", requireAuth, async (req, res) => {
 
     // website_url belongs to projects, not users. Writing it to users caused
     // HTTP 500 on installations where that optional column does not exist.
-    const normalizedWebsiteUrl = websiteUrl ? validateUrl(websiteUrl) : null;
+    // The same rule as project creation: an address that can never be analysed is refused now, not after
+    // the customer has finished onboarding and every analysis has failed.
+    const normalizedWebsiteUrl = websiteUrl ? assertPublicWebsiteAddress(validateUrl(websiteUrl)) : null;
+    // The project created below is what every later generation takes its content language from, so it
+    // must be the language the customer actually reads. "ru" was hard-coded here, which handed every
+    // non-Russian customer a Russian-language project until they noticed and fixed it by hand.
+    const requestedLanguage = optionalString(req.body && (req.body.language || req.body.preferredLanguage), { max: 8 });
+    // validateEnum has no "absent" mode: an omitted language must fall through to the profile, not fail.
+    const projectLanguage = requestedLanguage
+      ? validateEnum(requestedLanguage.toLowerCase(), PIN_CONTENT_LANGUAGES, undefined, "Язык")
+      : null;
     const upd = { onboarded: true };
 
     const { data, error } = await supabase
       .from("users")
       .update(upd)
       .eq("id", req.userId)
-      .select("id, email, onboarded, tariff_plan")
+      .select("id, email, onboarded, tariff_plan, preferred_language")
       .single();
 
     if (error) {
@@ -715,7 +730,8 @@ app.patch("/me/onboarding", requireAuth, async (req, res) => {
         user_id: req.userId,
         website_url: normalizedWebsiteUrl,
         goal: productComment,
-        language: "ru",
+        // Explicit choice, then the profile's language, then the historical default.
+        language: projectLanguage || (data && data.preferred_language) || "ru",
       });
       if (projError) {
         // Онбординг уже сохранён — проект можно создать позже из кабинета.
@@ -794,7 +810,7 @@ app.patch("/me/tariff", requireAuth, async (req, res) => {
 app.post("/projects", requireAuth, async (req, res) => {
   try {
     let website_url = optionalString(req.body && req.body.website_url, { max: 2048 });
-    if (website_url) website_url = validateUrl(website_url);
+    if (website_url) website_url = assertPublicWebsiteAddress(validateUrl(website_url), "Адрес сайта");
     const niche = optionalString(req.body && req.body.niche, { max: 120 }) || "";
     const language = optionalString(req.body && req.body.language, { max: 10 }) || "en";
     const goal = optionalString(req.body && req.body.goal, { max: 500 }) || "";
@@ -1828,7 +1844,7 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
     const tone = optionalString(req.body && req.body.tone, { max: 80 }) || board.projects.tone || "нейтральный";
     const contentLanguage = validateEnum(
       req.body && req.body.content_language,
-      ["ru", "en", "de", "fr", "es", "pt", "zh", "it", "ja"],
+      PIN_CONTENT_LANGUAGES,
       board.projects.language || "en",
       "Язык"
     );
