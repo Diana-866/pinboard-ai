@@ -28,6 +28,15 @@ function docFiles(dir) {
   return found;
 }
 
+/**
+ * A number inside «guillemets» is quoted history, not an instruction: the register records that it
+ * once pointed at "«прогон UA-065»", an action that was never written. Live references are the ones
+ * outside the quotes, and those are what the owner will actually look up.
+ */
+function stripQuoted(text) {
+  return text.replace(/«[^»]*»/g, " ");
+}
+
 function headings(file) {
   const text = fs.readFileSync(file, "utf8").replace(/\r\n/g, "\n");
   return [...text.matchAll(/^#{2,4}\s+(UA-\d{3})\s+—/gm)].map((match) => match[1]);
@@ -36,7 +45,7 @@ function headings(file) {
 function references(files) {
   const seen = new Map();
   for (const file of files) {
-    const text = fs.readFileSync(file, "utf8").replace(/\r\n/g, "\n");
+    const text = stripQuoted(fs.readFileSync(file, "utf8").replace(/\r\n/g, "\n"));
     for (const match of text.matchAll(/\bUA-\d{3}\b/g)) {
       const list = seen.get(match[0]) || [];
       list.push(path.relative(ROOT, file));
@@ -62,6 +71,9 @@ test("the scanner really sees a heading and a reference, so a green run means so
     ["UA-999"]
   );
   assert.deepEqual([...sample.matchAll(/\bUA-\d{3}\b/g)].map((m) => m[0]), ["UA-999", "UA-998"]);
+  // A quoted number is history, and the scanner must not treat it as a live instruction.
+  const quoted = stripQuoted("реестр ссылался на «прогон UA-065», которого нет; живое действие — UA-073");
+  assert.deepEqual([...quoted.matchAll(/\bUA-\d{3}\b/g)].map((m) => m[0]), ["UA-073"]);
 });
 
 test("the push instruction keeps a real count, not a placeholder", () => {
