@@ -252,6 +252,10 @@ function createAccountDeletionWorker({
   let timer = null;
   let active = false;
   let stopped = false;
+  // `timer` is null while a batch is running, so it cannot be the "already started" flag: a second
+  // start() during an in-flight batch would install a second self-rescheduling loop and double the
+  // polling rate for the rest of the process's life.
+  let started = false;
 
   async function processJob(job) {
     try {
@@ -521,7 +525,8 @@ function createAccountDeletionWorker({
   }
 
   function start() {
-    if (stopped || timer) return;
+    if (stopped || started) return;
+    started = true;
     const run = async () => {
       timer = null;
       if (stopped) return;
@@ -558,6 +563,34 @@ function createAccountDeletionWorker({
   return { start, stop, tick, processJob };
 }
 
+/**
+ * The standalone entrypoint: start one worker, and shut down once, on the first signal.
+ *
+ * A process that exits 0 while a job it claimed is still running tells the supervisor that everything
+ * finished. It did not: the erased-but-unfinished account keeps its lease and must be retried, so the
+ * abandoned case exits 75 (EX_TEMPFAIL) instead of pretending to be a clean shutdown.
+ */
+function runStandaloneWorker({
+  client,
+  createWorker = createAccountDeletionWorker,
+  processObject = process,
+  exit = (code) => process.exit(code),
+} = {}) {
+  const worker = createWorker({ client });
+  worker.start();
+  let shuttingDown = false;
+  const shutdown = async () => {
+    if (shuttingDown) return undefined;
+    shuttingDown = true;
+    const drained = await worker.stop();
+    exit(drained ? 0 : 75);
+    return drained;
+  };
+  processObject.once("SIGTERM", () => { void shutdown(); });
+  processObject.once("SIGINT", () => { void shutdown(); });
+  return { worker, shutdown };
+}
+
 if (require.main === module) {
   const { isAccountDeletionWorkerEnabled } = require("./accountDeletionWorkerGate");
   if (!isAccountDeletionWorkerEnabled()) {
@@ -567,19 +600,8 @@ if (require.main === module) {
     process.exitCode = 1;
   } else {
     require("./fatalProcessHandlers").installFatalProcessHandlers();
-    const supabase = require("./supabase");
-    const worker = createAccountDeletionWorker({ client: supabase });
-    worker.start();
-    let shuttingDown = false;
-    const shutdown = async () => {
-      if (shuttingDown) return;
-      shuttingDown = true;
-      await worker.stop();
-      process.exit(0);
-    };
-    process.once("SIGTERM", () => { void shutdown(); });
-    process.once("SIGINT", () => { void shutdown(); });
+    void runStandaloneWorker({ client: require("./supabase") });
   }
 }
 
-module.exports = { safeErrorCode, normalizeExactCount, countOwnedRows, fetchAllRows, chunkValues, countPinsForBoards, inspectAccountForDeletion, isValidDeletionJobBatch, isValidStorageManifestBatch, isRetryCeilingReached, withStepTimeout, MAX_PREFLIGHT_ATTEMPTS, MAX_ERASE_ATTEMPTS, createAccountDeletionWorker };
+module.exports = { runStandaloneWorker, safeErrorCode, normalizeExactCount, countOwnedRows, fetchAllRows, chunkValues, countPinsForBoards, inspectAccountForDeletion, isValidDeletionJobBatch, isValidStorageManifestBatch, isRetryCeilingReached, withStepTimeout, MAX_PREFLIGHT_ATTEMPTS, MAX_ERASE_ATTEMPTS, createAccountDeletionWorker };
