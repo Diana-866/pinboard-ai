@@ -1,7 +1,37 @@
 const axios = require("axios");
 
-const API_BASE = "https://gptunnel.ru";
+const DEFAULT_API_BASE = "https://gptunnel.ru";
 const REQUEST_TIMEOUT_MS = 30000;
+
+/**
+ * The provider address, with a deliberately narrow test seam.
+ *
+ * The AI routes are the largest untested surface in the product - they are where credits are spent -
+ * and they could not be exercised at all because every provider call goes to a hard-wired address.
+ * `AI_PROVIDER_BASE_URL` exists so a test can point one child process at a local stand-in.
+ *
+ * It fails closed: an override is honoured only when the environment is explicitly development or
+ * test, exactly like the dev top-up. In production, staging, or with NODE_ENV unset the constant wins,
+ * because a redirected provider would send customer prompts - and the API key in the Authorization
+ * header - to whatever address the variable names.
+ */
+function resolveApiBase(env = process.env) {
+  const override = String((env && env.AI_PROVIDER_BASE_URL) || "").trim();
+  if (!override) return DEFAULT_API_BASE;
+  const nodeEnv = String((env && env.NODE_ENV) || "").trim().toLowerCase();
+  if (!["development", "test"].includes(nodeEnv)) return DEFAULT_API_BASE;
+
+  let parsed;
+  try {
+    parsed = new URL(override);
+  } catch {
+    return DEFAULT_API_BASE;
+  }
+  if (!parsed.protocol || parsed.username || parsed.password || !parsed.hostname) return DEFAULT_API_BASE;
+  return override.replace(/\/+$/, "");
+}
+
+const API_BASE = resolveApiBase();
 
 function finiteUsageNumber(value) {
   if (typeof value === "number") {
@@ -242,4 +272,4 @@ async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3"
   return waitForImageTask(taskId, callbacks);
 }
 
-module.exports = { providerTaskError, generateText, generateTextWithUsage, quoteImageTask, normalizeMediaQuote, generateImage, waitForImageTask, listModels, checkImage, buildImageTaskPayload, imageTaskResult };
+module.exports = { resolveApiBase, DEFAULT_API_BASE, providerTaskError, generateText, generateTextWithUsage, quoteImageTask, normalizeMediaQuote, generateImage, waitForImageTask, listModels, checkImage, buildImageTaskPayload, imageTaskResult };
