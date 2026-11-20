@@ -3434,3 +3434,103 @@ test("the deletion retry is administrator-only and clamps its limit", async () =
     await admin.stop();
   }
 });
+test("the storage maintenance routes are administrator-only and touch nothing for a customer", async () => {
+  const backend = await startBackend();
+  try {
+    scriptAdminFlag(backend, false);
+    const answers = [
+      await backend.send("GET", "/admin/storage/retention-candidates?days=30&limit=10"),
+      await backend.send("POST", "/admin/storage/reconcile-stale-uploads"),
+    ];
+    for (const answer of answers) assert.equal(answer.status, 403, `expected 403, got ${answer.status}`);
+    const maintenance = backend.db.requests.filter((entry) => entry.path.includes("pin_image") ||
+      entry.path.includes("pin-images") || entry.path.includes("/storage/"));
+    assert.deepEqual(maintenance, [], "a refused maintenance call must not reach the database or Storage");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("the retention inventory is read-only and clamps absurd windows", async () => {
+  const backend = await startBackend();
+  try {
+    scriptAdminFlag(backend, true);
+    backend.db.rpc("list_pin_image_retention_candidates", { status: 200, body: [{ object_path: "pins/1-abc.png" }] });
+
+    const absurd = await backend.send("GET", "/admin/storage/retention-candidates?days=999999&limit=999999");
+    assert.equal(absurd.status, 200, `expected 200, got ${absurd.status}: ${JSON.stringify(absurd.body)}`);
+    assert.equal(absurd.body.read_only, true, "the caller must be told this does not delete anything");
+    const call = backend.db.requests.find((entry) => entry.path.includes("list_pin_image_retention_candidates"));
+    const params = JSON.parse(call.body);
+    assert.ok(params.p_retention_days >= 30 && params.p_retention_days <= 3650,
+      `retention window must be clamped, got ${params.p_retention_days}`);
+    assert.ok(params.p_limit >= 1 && params.p_limit <= 100, `limit must be clamped, got ${params.p_limit}`);
+    assert.deepEqual(absurd.body.candidates, [{ object_path: "pins/1-abc.png" }]);
+
+    // A too-small window is raised to the documented floor, and nonsense falls back to the default.
+    for (const query of ["?days=1", "?days=abc", ""]) {
+      const answer = await backend.send("GET", "/admin/storage/retention-candidates" + query);
+      assert.equal(answer.status, 200);
+      assert.ok(answer.body.retention_days >= 30, `window for ${query || "empty"} was ${answer.body.retention_days}`);
+    }
+
+    // Nothing in this route may delete, expire or write anything.
+    const mutations = backend.db.requests.filter((entry) => ["DELETE", "PATCH", "PUT"].includes(entry.method));
+    assert.deepEqual(mutations, [], "a read-only inventory must never issue a mutating request");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a stale upload is reported, never resolved, and a missing object is not proof the upload died", async () => {
+  const backend = await startBackend();
+  try {
+    scriptAdminFlag(backend, true);
+    backend.db.rpc("list_stale_pin_image_uploads", {
+      status: 200,
+      body: [
+        // A well-formed row whose object is visible in Storage: still only reported.
+        { bucket_id: "pin-images", object_path: "pins/1-abc.png", upload_token: "token-1", attempts: 1,
+          claim_expires_at: new Date(Date.now() - 3600_000).toISOString(), updated_at: "2026-01-01T00:00:00Z" },
+        // A row the endpoint cannot even inspect.
+        { bucket_id: "pin-images", object_path: "pins/2-def.png", upload_token: null, attempts: 1,
+          claim_expires_at: null, updated_at: null },
+        // A well-formed row whose object is NOT in Storage: absence is not proof of anything either.
+        { bucket_id: "pin-images", object_path: "pins/3-ghi.png", upload_token: "token-3", attempts: 2,
+          claim_expires_at: new Date(Date.now() - 7200_000).toISOString(), updated_at: "2026-01-01T00:00:00Z" },
+      ],
+    });
+    backend.db.routeMatching(
+      ({ method, path }) => method === "POST" && path.includes("/storage/v1/object/list/"),
+      ({ body }) => ({ status: 200, body: String(body || "").includes("3-ghi.png") ? [] : [{ name: "1-abc.png" }] })
+    );
+
+    const answer = await backend.send("POST", "/admin/storage/reconcile-stale-uploads");
+
+    assert.equal(answer.status, 200, `expected 200, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.equal(answer.body.inspected, 3);
+    assert.equal(answer.body.objectVisible, 1, "a visible object is counted as visible, not finalised");
+    assert.equal(answer.body.objectMissing, 1, "a missing object is counted as missing, not as completed");
+    const unresolved = answer.body.unresolved;
+    // Every inspected row is reported: neither visibility nor absence is proof that the upload stopped.
+    assert.equal(unresolved.length, 3);
+    const reasons = unresolved.map((item) => item.reason).sort();
+    assert.deepEqual(reasons, [
+      "invalid_inventory_row",
+      "object_missing_keep_fenced",
+      "object_visible_requires_operator_confirmation",
+    ]);
+    for (const item of unresolved) {
+      assert.ok(item.safe_action, "an operator must be told what the safe next step is");
+      assert.equal(item.resolved, undefined, "nothing may be reported as resolved by this endpoint");
+    }
+
+    // The endpoint is deliberately observational: no object may be removed and no reservation reopened.
+    const destructive = backend.db.requests.filter((entry) =>
+      ["DELETE", "PATCH", "PUT"].includes(entry.method) ||
+      (entry.method === "POST" && entry.path.includes("/storage/v1/object/") && !entry.path.includes("/list/")));
+    assert.deepEqual(destructive, [], "reconciliation must not change Storage or the database");
+  } finally {
+    await backend.stop();
+  }
+});
