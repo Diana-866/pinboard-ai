@@ -1081,6 +1081,11 @@ app.post("/pins/:id/status", requireAuth, async (req, res) => {
       const { assertPinCanBeRejected } = require("./pinStatusGuard");
       await assertPinCanBeRejected(supabase, req.userId, req.params.id);
     }
+    // Section 129: nor let a pin that already went out come back as "approved".
+    if (status === "approved") {
+      const { assertPinCanBeApproved } = require("./pinStatusGuard");
+      await assertPinCanBeApproved(supabase, req.userId, req.params.id);
+    }
 
     const { data, error } = await supabase
       .from("pins")
