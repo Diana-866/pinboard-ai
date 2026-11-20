@@ -1,6 +1,6 @@
 {
-  "files": 156,
-  "total": 1337,
+  "files": 157,
+  "total": 1342,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -21,6 +21,7 @@
     "admin-subscription-limit.test.js": 1,
     "ai-provider-base.test.js": 3,
     "analytics.test.js": 8,
+    "analyze-prompt-context.test.js": 5,
     "api-authenticated-reads.test.js": 106,
     "api-wiring.test.js": 9,
     "app-boot.test.js": 2,
