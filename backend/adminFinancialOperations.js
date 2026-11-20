@@ -9,7 +9,17 @@ function operationKey(userId, idempotencyKey) {
   return `${String(userId)}\u0000${String(idempotencyKey)}`;
 }
 
-function summarizeGenerationTasks(tasks) {
+/**
+ * Section 127. Tasks are read in batches with a REST row cap. When a batch comes back full, the view is
+ * incomplete - and an incomplete view of a request whose visible tasks all look reconciled reads as
+ * "ready to finalize" while a hidden task may still be running at the provider. For an operator
+ * deciding about money, that is the worst possible direction to be wrong in, so truncation outranks
+ * every derived reason and says so in its own words.
+ */
+const TASK_FETCH_LIMIT = 500;
+const TASKS_TRUNCATED_REASON = "task_journal_truncated_integrity_review";
+
+function summarizeGenerationTasks(tasks, options = {}) {
   const rows = Array.isArray(tasks) ? tasks : [];
   const counts = { total: rows.length, pending: 0, running: 0, succeeded: 0, failed: 0, unknown: 0 };
   let refundFactMissing = false;
@@ -33,7 +43,8 @@ function summarizeGenerationTasks(tasks) {
   }
 
   let reason = "provider_outcome_unresolved";
-  if (rows.length === 0) reason = "task_journal_missing_or_legacy";
+  if (options.truncated === true) reason = TASKS_TRUNCATED_REASON;
+  else if (rows.length === 0) reason = "task_journal_missing_or_legacy";
   else if (refundFactMissing) reason = "provider_refund_fact_unresolved";
   else if (awaitingFinalization) reason = "reconciled_failure_awaiting_finalization";
   else if (counts.succeeded > 0) reason = "generation_completion_or_settlement_review";
@@ -83,6 +94,7 @@ async function getFinancialOperationsQueue(options = {}) {
   const reservations = (reservationsResult.data || []).slice(0, limit);
   const generationIds = generationRequests.map((row) => row.id);
   let taskRows = [];
+  let tasksTruncated = false;
 
   if (generationIds.length) {
     // Keep each REST response below the common 1,000-row API cap (up to 10 tasks/request).
@@ -94,11 +106,14 @@ async function getFinancialOperationsQueue(options = {}) {
       supabase.from("pin_generation_tasks")
         .select("generation_request_id,status,provider_outcome_status,provider_refunded,provider_reconciled_at")
         .in("generation_request_id", batch)
-        .limit(500)
+        .limit(TASK_FETCH_LIMIT)
     ));
     for (const result of taskResults) {
       if (result.error) throw result.error;
-      taskRows.push(...(result.data || []));
+      const rows = result.data || [];
+      // A full batch is the REST cap, not proof that the journal ended there.
+      if (rows.length >= TASK_FETCH_LIMIT) tasksTruncated = true;
+      taskRows.push(...rows);
     }
   }
 
@@ -137,7 +152,7 @@ async function getFinancialOperationsQueue(options = {}) {
 
   const nowMs = Date.now();
   const generation = generationRequests.map((row) => {
-    const summary = summarizeGenerationTasks(tasksByRequest.get(String(row.id)) || []);
+    const summary = summarizeGenerationTasks(tasksByRequest.get(String(row.id)) || [], { truncated: tasksTruncated });
     return {
       request_id: String(row.id),
       operation: "generation",
@@ -203,6 +218,7 @@ async function getFinancialOperationsQueue(options = {}) {
       generation: (generationResult.data || []).length > limit,
       regeneration: (regenerationResult.data || []).length > limit,
       reservations: (reservationsResult.data || []).length > limit,
+      tasks: tasksTruncated,
     },
     counts: {
       generation: generation.length,
@@ -217,4 +233,4 @@ async function getFinancialOperationsQueue(options = {}) {
   };
 }
 
-module.exports = { getFinancialOperationsQueue, summarizeGenerationTasks, clampInteger };
+module.exports = { getFinancialOperationsQueue, summarizeGenerationTasks, clampInteger, TASKS_TRUNCATED_REASON, TASK_FETCH_LIMIT };

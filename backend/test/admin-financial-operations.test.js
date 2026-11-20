@@ -81,3 +81,71 @@ test("query parameter clamps are bounded and deterministic", () => {
   assert.equal(clampInteger("-10", 50, 1, 100), 1);
   assert.equal(clampInteger("not-a-number", 50, 1, 100), 50);
 });
+
+/**
+ * Section 127. The task journal is read in batches under a REST row cap. A full batch means the view is
+ * incomplete, and an incomplete view whose visible tasks all look reconciled reads as "ready to
+ * finalize" - the worst direction for an operator deciding about a refund.
+ */
+const { TASKS_TRUNCATED_REASON, TASK_FETCH_LIMIT } = require("../adminFinancialOperations");
+
+function loadQueueWithTasks(taskRows) {
+  const modulePathFresh = require.resolve("../adminFinancialOperations");
+  const supabaseFresh = require.resolve("../supabase");
+  const previousSupabase = require.cache[supabaseFresh];
+  const previousModule = require.cache[modulePathFresh];
+  require.cache[supabaseFresh] = {
+    id: supabaseFresh,
+    filename: supabaseFresh,
+    loaded: true,
+    exports: {
+      from(table) {
+        const query = {
+          select() { return this; },
+          eq() { return this; },
+          lt() { return this; },
+          order() { return this; },
+          limit() { return this; },
+          in(column, values) { this.filterColumn = column; this.filterValues = values; return this; },
+          then(resolve, reject) {
+            let data = fixtures[table] || [];
+            if (table === "pin_generation_tasks") data = taskRows;
+            if (this.filterColumn) data = data.filter((row) => this.filterValues.includes(row[this.filterColumn]));
+            return Promise.resolve({ data, error: null }).then(resolve, reject);
+          },
+        };
+        return query;
+      },
+    },
+  };
+  delete require.cache[modulePathFresh];
+  try {
+    return require("../adminFinancialOperations").getFinancialOperationsQueue({ limit: 10 });
+  } finally {
+    require.cache[supabaseFresh] = previousSupabase;
+    if (previousModule) require.cache[modulePathFresh] = previousModule;
+  }
+}
+
+test("a capped task batch never claims the request is ready to finalize", async () => {
+  const resolved = { status: "failed", provider_outcome_status: "failed", provider_refunded: true, provider_reconciled_at: oldTimestamp };
+  const capped = Array.from({ length: TASK_FETCH_LIMIT }, () => ({ generation_request_id: 11, ...resolved }));
+  const result = await loadQueueWithTasks(capped);
+  assert.equal(result.truncated.tasks, true, "a full batch is the row cap, not the end of the journal");
+  assert.equal(result.generation[0].reason, TASKS_TRUNCATED_REASON);
+  assert.notEqual(result.generation[0].reason, "reconciled_failure_awaiting_finalization");
+});
+
+test("a complete task batch keeps the derived reason", async () => {
+  const resolved = { generation_request_id: 11, status: "failed", provider_outcome_status: "failed", provider_refunded: true, provider_reconciled_at: oldTimestamp };
+  const result = await loadQueueWithTasks([resolved]);
+  assert.equal(result.truncated.tasks, false);
+  assert.equal(result.generation[0].reason, "reconciled_failure_awaiting_finalization");
+});
+
+test("truncation outranks every derived reason", () => {
+  const tasks = [{ status: "failed", provider_outcome_status: "failed", provider_refunded: null, provider_reconciled_at: null }];
+  assert.equal(summarizeGenerationTasks(tasks, { truncated: true }).reason, TASKS_TRUNCATED_REASON);
+  assert.equal(summarizeGenerationTasks([], { truncated: true }).reason, TASKS_TRUNCATED_REASON);
+  assert.equal(summarizeGenerationTasks([], {}).reason, "task_journal_missing_or_legacy");
+});
