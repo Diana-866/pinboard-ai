@@ -26,6 +26,7 @@ const PROJECT_ID = "33333333-3333-4333-8333-333333333333";
 const BOARD_ID = "44444444-4444-4444-8444-444444444444";
 const PIN_ID = "55555555-5555-4555-8555-555555555555";
 const SCHEDULE_ID = "66666666-6666-4666-8666-666666666666";
+const PIN_ACCOUNT_ID = "77777777-7777-4777-8777-777777777777";
 
 function sessionToken(tokenVersion = 0) {
   return signSessionToken({ id: USER_ID, token_version: tokenVersion }, SECRET);
@@ -2661,5 +2662,192 @@ test("retrying a publication refuses everything that is not a failed attempt wit
     } finally {
       await backend.stop();
     }
+  }
+});
+/** A Pinterest stand-in: the account token is legacy plaintext, the board endpoint answers by id. */
+function startFakePinterest({ boardStatus = 200, boardBody = null } = {}) {
+  const calls = [];
+  const server = require("node:http").createServer((req, res) => {
+    calls.push(`${req.method} ${req.url}`);
+    req.resume();
+    req.on("end", () => {
+      res.writeHead(boardStatus, { "content-type": "application/json" });
+      res.end(JSON.stringify(boardBody || { id: String(req.url).split("/boards/")[1] }));
+    });
+  });
+  return new Promise((resolve) => {
+    server.listen(0, "127.0.0.1", () => {
+      resolve({
+        base: `http://127.0.0.1:${server.address().port}/v5`,
+        calls,
+        close: () => new Promise((done) => {
+          server.closeAllConnections?.();
+          server.close(() => done());
+        }),
+      });
+    });
+  });
+}
+
+/** The connected account the schedule points at: a plaintext token works without an encryption key. */
+function scriptPinterestAccount(backend) {
+  backend.db.table("GET", "pinterest_accounts", {
+    status: 200,
+    body: [{
+      id: PIN_ACCOUNT_ID,
+      user_id: USER_ID,
+      pinterest_user_id: "pinterest-user-1",
+      access_token: "plain-access-token",
+      refresh_token: null,
+      token_expires_at: "2099-01-01T00:00:00Z",
+      disconnected_at: null,
+      created_at: "2026-01-01T00:00:00Z",
+    }],
+  });
+}
+
+async function startBackendWithPinterest(pinterest, extra = {}) {
+  return startBackend({
+    extraEnv: {
+      PINTEREST_API_BASE_URL: pinterest.base,
+      // The Pinterest module refuses to touch an account until its OAuth configuration is complete:
+      // a half-configured integration would otherwise fail later, in the middle of a publication.
+      PINTEREST_CLIENT_ID: "pinterest-client-id",
+      PINTEREST_CLIENT_SECRET: "pinterest-client-secret",
+      PINTEREST_REDIRECT_URI: "https://app.example.com/api/pinterest/callback",
+      PINTEREST_TOKEN_ENCRYPTION_KEY: "a".repeat(64),
+      ...extra,
+    },
+  });
+}
+
+test("changing the board of a failed publication revalidates it and re-queues it", async () => {
+  const pinterest = await startFakePinterest();
+  const backend = await startBackendWithPinterest(pinterest);
+  try {
+    activatePaidPlan(backend, { plan: "pro" });
+    scriptPinterestAccount(backend);
+    backend.db.table("GET", "pin_schedules", ({ query }) => {
+      if (String(query.select || "").includes("pins(")) {
+        return { status: 200, body: [scheduleRow({ status: "failed", pinterest_board_id: "old-board", ...JSON.parse("{}") })] };
+      }
+      const scoped = String(query.user_id || "") === `eq.${USER_ID}`;
+      return {
+        status: 200,
+        body: scoped ? [scheduleRow({ status: "failed", pinterest_board_id: "old-board" })] : [],
+      };
+    });
+    backend.db.rpc("change_failed_pin_schedule_board", { status: 200, body: { ok: true } });
+
+    const answer = await backend.send("POST", `/schedule/${SCHEDULE_ID}/change-board`, { pinterest_board_id: "new-board" });
+
+    assert.equal(answer.status, 200, `expected 200, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.deepEqual(pinterest.calls, ["GET /v5/boards/new-board"],
+      "the replacement board must be verified against the same connected account before re-queueing");
+    const rpc = backend.db.requests.find((entry) => entry.path.includes("change_failed_pin_schedule_board"));
+    assert.ok(rpc, "the board change must go through the database RPC");
+    const params = JSON.parse(rpc.body);
+    assert.equal(params.p_new_board_id, "new-board");
+    assert.equal(params.p_schedule_id, SCHEDULE_ID);
+  } finally {
+    await backend.stop();
+    await pinterest.close();
+  }
+});
+
+test("a board the account cannot see is refused before the schedule is re-queued", async () => {
+  const pinterest = await startFakePinterest({ boardStatus: 404, boardBody: { message: "Board not found" } });
+  const backend = await startBackendWithPinterest(pinterest);
+  try {
+    activatePaidPlan(backend, { plan: "pro" });
+    scriptPinterestAccount(backend);
+    backend.db.table("GET", "pin_schedules", {
+      status: 200,
+      body: [scheduleRow({ status: "failed", pinterest_board_id: "old-board" })],
+    });
+
+    const answer = await backend.send("POST", `/schedule/${SCHEDULE_ID}/change-board`, { pinterest_board_id: "foreign-board" });
+
+    assert.equal(answer.status, 422, `expected 422, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.match(String(answer.body.error), /не найдена или недоступна/);
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.path.includes("change_failed_pin_schedule_board")).length,
+      0,
+      "a board that failed verification must never reach the re-queue RPC"
+    );
+  } finally {
+    await backend.stop();
+    await pinterest.close();
+  }
+});
+
+test("a publication that is not failed cannot have its board changed", async () => {
+  const pinterest = await startFakePinterest();
+  const backend = await startBackendWithPinterest(pinterest);
+  try {
+    activatePaidPlan(backend, { plan: "pro" });
+    scriptPinterestAccount(backend);
+    backend.db.table("GET", "pin_schedules", ({ query }) => {
+      const scoped = String(query.user_id || "") === `eq.${USER_ID}`;
+      return { status: 200, body: scoped ? [scheduleRow({ status: "published" })] : [] };
+    });
+
+    const answer = await backend.send("POST", `/schedule/${SCHEDULE_ID}/change-board`, { pinterest_board_id: "new-board" });
+
+    assert.equal(answer.status, 409);
+    assert.equal(answer.body.code, "publication_not_failed");
+    assert.deepEqual(pinterest.calls, [], "no board may be verified for a publication that already went out");
+  } finally {
+    await backend.stop();
+    await pinterest.close();
+  }
+});
+
+test("changing the board needs an actual board id", async () => {
+  const pinterest = await startFakePinterest();
+  const backend = await startBackendWithPinterest(pinterest);
+  try {
+    activatePaidPlan(backend, { plan: "pro" });
+    for (const payload of [{}, { pinterest_board_id: "" }, { pinterest_board_id: "   " }, { pinterest_board_id: "x".repeat(129) }]) {
+      const answer = await backend.send("POST", `/schedule/${SCHEDULE_ID}/change-board`, payload);
+      assert.equal(answer.status, 422, `payload ${JSON.stringify(payload).slice(0, 40)} was accepted`);
+      assert.equal(answer.body.code, "board_selection_required");
+    }
+    assert.deepEqual(pinterest.calls, []);
+  } finally {
+    await backend.stop();
+    await pinterest.close();
+  }
+});
+
+test("the database's refusal of a board change is reported by reason, never as success", async () => {
+  const pinterest = await startFakePinterest();
+  const backend = await startBackendWithPinterest(pinterest);
+  try {
+    activatePaidPlan(backend, { plan: "pro" });
+    scriptPinterestAccount(backend);
+    backend.db.table("GET", "pin_schedules", ({ query }) => {
+      const scoped = String(query.user_id || "") === `eq.${USER_ID}`;
+      return { status: 200, body: scoped ? [scheduleRow({ status: "failed", pinterest_board_id: "old-board" })] : [] };
+    });
+
+    const cases = [
+      { reason: "publication_attempt_exists", status: 409, pattern: /могла состояться/ },
+      { reason: "attempt_identity_mismatch", status: 409, pattern: /требуется сверка/ },
+      { reason: "board_change_not_applicable", status: 409, pattern: /подтверждённой ошибки доступа/ },
+      { reason: "invalid_board", status: 422, pattern: /Некорректный идентификатор/ },
+      { reason: "pin_unavailable", status: 404, pattern: /больше недоступен/ },
+      { reason: "something_new", status: 409, pattern: /Не удалось безопасно изменить доску/ },
+    ];
+
+    for (const item of cases) {
+      backend.db.rpc("change_failed_pin_schedule_board", { status: 200, body: { ok: false, reason: item.reason } });
+      const answer = await backend.send("POST", `/schedule/${SCHEDULE_ID}/change-board`, { pinterest_board_id: "new-board" });
+      assert.equal(answer.status, item.status, `reason ${item.reason} answered ${answer.status}: ${JSON.stringify(answer.body)}`);
+      assert.match(String(answer.body.error), item.pattern, `reason ${item.reason}`);
+    }
+  } finally {
+    await backend.stop();
+    await pinterest.close();
   }
 });
