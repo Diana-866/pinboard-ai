@@ -1,6 +1,6 @@
 {
   "files": 169,
-  "total": 1400,
+  "total": 1401,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -103,7 +103,7 @@
     "pinterest-oauth.test.js": 5,
     "pinterest-public-account.test.js": 8,
     "pinterest-publish-pin.test.js": 28,
-    "pinterest-rate-limit.test.js": 3,
+    "pinterest-rate-limit.test.js": 4,
     "pinterest-refresh-recovery.test.js": 10,
     "pinterest-refresh.test.js": 21,
     "pinterest-routes-behaviour.test.js": 17,
