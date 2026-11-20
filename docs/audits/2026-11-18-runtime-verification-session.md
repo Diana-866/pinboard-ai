@@ -2397,6 +2397,7 @@ backend **958/958**, frontend **308/308**, `tsc` чисто, `vite build` усп
 | `4ee452fd` | 2026-11-20 | fix(analyze): the analysed page was interpolated into the prompt as instructions | реестр, строка 307 |
 | `6994f3d1` | 2026-11-20 | docs: раздел 100 — разбор сайта и недоверенный промпт | §100, §100.1, §100.2, §100.3, §100.4, §100.5, §100.6, §100.7 — написаны этим коммитом |
 | `895767da` | 2026-11-20 | fix(keywords): the fourth prompt builder was still interpolating untrusted text, and a guard now covers all of them | реестр, строка 310 |
+| `6c65a436` | 2026-11-20 | docs: раздел 101 — четвёртый построитель промпта и системный страж | §101, §101.1, §101.2, §101.3, §101.4, §101.5 — написаны этим коммитом |
 
 ### 56.5. Что это даёт владельцу
 
