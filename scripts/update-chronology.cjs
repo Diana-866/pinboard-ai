@@ -24,13 +24,13 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
+const { buildTable, spliceTable, compareAppendix } = require("./lib/chronology-appendix.cjs");
 
 const ROOT = path.resolve(__dirname, "..");
 const AUDIT_REL = "docs/audits/2026-11-18-runtime-verification-session.md";
 const AUDIT = path.join(ROOT, AUDIT_REL);
 const STATE_REL = "docs/PROJECT_STATE.md";
 const ACTIONS_REL = "docs/USER_ACTIONS.md";
-const APPENDIX_HEADING = /^### 56\.4\. Приложение\. Полная хронология/m;
 
 const argv = process.argv.slice(2);
 const checkOnly = argv.includes("--check");
@@ -119,38 +119,31 @@ const commits = git(["log", "--reverse", "--pretty=%h\u001f%ad\u001f%s", "--date
     return { hash, date, subject, address: addressFor(hash) };
   });
 
-const table = commits
-  .map(({ hash, date, subject, address }) => `| \`${hash}\` | ${date} | ${subject.replace(/\|/g, "\\|")} | ${address} |`)
-  .join("\n");
-
-const headingMatch = APPENDIX_HEADING.exec(audit);
-if (!headingMatch) {
+const table = buildTable(commits);
+const updated = spliceTable(audit, table);
+if (updated === null) {
   console.error("The record has no chronology appendix heading (### 56.4. Приложение. Полная хронология…).");
   process.exit(1);
 }
-// The appendix ends where the next heading of the same or a higher level starts.
-const afterHeading = audit.slice(headingMatch.index + headingMatch[0].length);
-const endOffset = afterHeading.search(/^#{1,4} /m);
-const appendixBody = endOffset === -1 ? afterHeading : afterHeading.slice(0, endOffset);
-const tableStart = appendixBody.indexOf("| Коммит |");
-const tableHeader = appendixBody.slice(tableStart, appendixBody.indexOf("\n", appendixBody.indexOf("| --- |")));
-const replacement = `${tableHeader}\n${table}\n\n`;
-const before = audit.slice(0, headingMatch.index + headingMatch[0].length) + afterHeading.slice(0, tableStart);
-const after = endOffset === -1 ? "" : afterHeading.slice(endOffset);
-const updated = before + replacement + after;
 
 const unexplained = commits.filter((commit) => commit.address === "—");
 
 if (checkOnly) {
-  if (updated !== audit) {
-    console.error("The chronology appendix is out of date: run node scripts/update-chronology.cjs");
+  const verdict = compareAppendix(audit, commits);
+  if (verdict.status === "no-appendix") {
+    console.error(`The record has no usable chronology appendix: ${verdict.detail}`);
+    process.exit(1);
+  }
+  if (verdict.status === "stale") {
+    console.error(`The chronology appendix is out of date: ${verdict.detail}`);
     process.exit(1);
   }
   if (unexplained.length > 0) {
     console.error(`Commits with no recorded reason:\n${unexplained.map((c) => `  ${c.hash} ${c.subject}`).join("\n")}`);
     process.exit(1);
   }
-  console.log(`OK: ${commits.length} commits, every one has a recorded reason.`);
+  const note = verdict.status === "head-lag" ? ` (${verdict.detail})` : "";
+  console.log(`OK: ${commits.length} commits, every one has a recorded reason${note}.`);
   process.exit(0);
 }
 

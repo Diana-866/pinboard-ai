@@ -1,6 +1,6 @@
 {
-  "files": 155,
-  "total": 1324,
+  "files": 156,
+  "total": 1333,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -33,6 +33,7 @@
     "board-pins-pagination-contract.test.js": 1,
     "board-pins-pagination.test.js": 2,
     "board-serialization.test.js": 5,
+    "chronology-appendix.test.js": 9,
     "credit-packs.test.js": 7,
     "credits-purchase.test.js": 13,
     "credits-webhook.test.js": 19,
