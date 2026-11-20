@@ -80,11 +80,27 @@ async function startBackend({ tokenVersion = 0, extraEnv = {} } = {}) {
       // Exact head-count for the board list: the count lives in the Content-Range header.
       return { status: 200, body: null, headers: { "Content-Range": "*/2" } };
     }
+    if (String(query.select || "").includes("boards(")) {
+      // The ownership check reads one pin; the test scripts which owner it carries.
+      return {
+        status: 200,
+        body: [{
+          id: "55555555-5555-4555-8555-555555555555",
+          board_id: BOARD_ID,
+          status: "pending",
+          boards: { id: BOARD_ID, project_id: PROJECT_ID, projects: { user_id: db.ownedBy } },
+        }],
+      };
+    }
     return {
       status: 200,
       body: [{ id: "55555555-5555-4555-8555-555555555555", board_id: BOARD_ID, title: "Пин", created_at: "2026-01-03T00:00:00Z" }],
     };
   });
+
+  // Write routes answer with the row they "stored": the pin/board/project the handler then reads back.
+  db.table("POST", "projects", ({ body }) => ({ status: 201, body: [{ id: PROJECT_ID, ...JSON.parse(body || "{}") }] }));
+  db.table("POST", "boards", ({ body }) => ({ status: 201, body: [{ id: BOARD_ID, ...JSON.parse(body || "{}") }] }));
 
   const child = spawn(process.execPath, [ENTRY], {
     cwd: BACKEND,
@@ -132,6 +148,16 @@ async function startBackend({ tokenVersion = 0, extraEnv = {} } = {}) {
     get(pathname, token = sessionToken()) {
       return fetch(`${base}${pathname}`, { headers: token ? { authorization: `Bearer ${token}` } : {} })
         .then(async (response) => ({ status: response.status, body: JSON.parse(await response.text() || "null") }));
+    },
+    send(method, pathname, payload, token = sessionToken()) {
+      return fetch(`${base}${pathname}`, {
+        method,
+        headers: {
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+          "content-type": "application/json",
+        },
+        body: payload === undefined ? undefined : JSON.stringify(payload),
+      }).then(async (response) => ({ status: response.status, body: JSON.parse(await response.text() || "null") }));
     },
     async stop() {
       if (child.exitCode === null) {
@@ -387,6 +413,192 @@ test("the developer top-up refuses a wrong secret before looking anybody up", as
       backend.db.requests.filter((entry) => entry.path === "/rest/v1/users" && !String(entry.query.select || "").includes("token_version")),
       [],
       "a rejected secret must not reach a user lookup"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+test("creating a project takes the owner from the token, never from the request", async () => {
+  const backend = await startBackend();
+  try {
+    const created = await backend.send("POST", "/projects", {
+      // A client that sends an owner must not be able to write into another account.
+      user_id: OTHER_USER_ID,
+      website_url: "https://example.com",
+      niche: "home",
+    });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.id, PROJECT_ID);
+    assert.equal(Object.hasOwn(created.body, "user_id"), false, "the owner column must not come back to the client");
+
+    const insert = backend.db.requests.find((entry) => entry.method === "POST" && entry.path === "/rest/v1/projects");
+    assert.ok(insert, "the project was not inserted");
+    const payload = JSON.parse(insert.body);
+    assert.equal(payload.user_id, USER_ID, "the insert must carry the token's user, not the body's");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a project website that is not http(s) is refused before any insert", async () => {
+  const backend = await startBackend();
+  try {
+    const created = await backend.send("POST", "/projects", { website_url: "javascript:alert(1)" });
+    assert.equal(created.status, 422);
+    assert.deepEqual(
+      backend.db.requests.filter((entry) => entry.method === "POST" && entry.path === "/rest/v1/projects"),
+      [],
+      "a rejected URL must not reach the database"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a board cannot be created inside somebody else's project", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.table("GET", "projects", { status: 200, body: [] });
+    const created = await backend.send("POST", "/boards", {
+      project_id: PROJECT_ID,
+      title: "Чужая доска",
+    });
+    assert.equal(created.status, 404);
+    assert.equal(created.body.code, "project_not_found");
+    assert.deepEqual(
+      backend.db.requests.filter((entry) => entry.method === "POST" && entry.path === "/rest/v1/boards"),
+      [],
+      "no board may be written into a project the caller does not own"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a board created with an idempotency key converges, and the same key with another title is a conflict", async () => {
+  const backend = await startBackend();
+  const key = "88888888-8888-4888-8888-888888888888";
+  try {
+    backend.db.table("GET", "projects", { status: 200, body: [{ id: PROJECT_ID }] });
+
+    // A real `ignoreDuplicates` upsert leaves the existing row untouched, so the read-back carries
+    // the fingerprint of the FIRST create, not of the retry. That is what makes a retry with other
+    // content detectable at all.
+    let storedFingerprint = null;
+    let storedTitle = "Доска";
+    backend.db.table("POST", "boards", ({ body }) => {
+      const payload = JSON.parse(body || "{}");
+      if (storedFingerprint === null) storedFingerprint = payload.create_request_fingerprint;
+      return { status: 201, body: [{ id: BOARD_ID, ...payload }] };
+    });
+    backend.db.table("GET", "boards", () => ({
+      status: 200,
+      body: [{ id: BOARD_ID, project_id: PROJECT_ID, title: storedTitle, create_request_id: key, create_request_fingerprint: storedFingerprint }],
+    }));
+
+    const first = await backend.send("POST", "/boards", { project_id: PROJECT_ID, title: "Доска", create_request_id: key });
+    assert.equal(first.status, 200);
+    assert.equal(
+      Object.hasOwn(first.body, "create_request_fingerprint"),
+      false,
+      "the internal fingerprint is not client data"
+    );
+
+    const retry = await backend.send("POST", "/boards", { project_id: PROJECT_ID, title: "Доска", create_request_id: key });
+    assert.equal(retry.status, 200, "a retry of the same logical create must return the same board");
+
+    storedTitle = "Другая доска";
+    const conflicting = await backend.send("POST", "/boards", { project_id: PROJECT_ID, title: "Другая доска", create_request_id: key });
+    assert.equal(conflicting.status, 409, "the same key with other content must not create or return another board");
+    assert.match(conflicting.body.error, /уже использован/);
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a board update cannot carry fields the builder does not allow", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+    const patched = await backend.send("PATCH", `/boards/${BOARD_ID}`, {
+      title: "Новое имя",
+      // Mass assignment: neither owner nor project may be reassigned through a patch.
+      user_id: OTHER_USER_ID,
+      project_id: "99999999-9999-4999-8999-999999999999",
+    });
+    assert.equal(patched.status, 422);
+    assert.match(patched.body.error, /Неизвестные поля/);
+    assert.deepEqual(
+      backend.db.requests.filter((entry) => entry.method === "PATCH"),
+      [],
+      "a refused patch must not reach the database"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("an allowed board patch is applied only to the caller's board", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+    backend.db.table("PATCH", "boards", { status: 200, body: [{ id: BOARD_ID, title: "Новое имя" }] });
+    const patched = await backend.send("PATCH", `/boards/${BOARD_ID}`, { title: "Новое имя" });
+    assert.equal(patched.status, 200);
+    assert.equal(patched.body.id, BOARD_ID);
+
+    const update = backend.db.requests.find((entry) => entry.method === "PATCH");
+    assert.ok(update);
+    assert.deepEqual(JSON.parse(update.body), { title: "Новое имя" });
+    assert.equal(update.query.id, `eq.${BOARD_ID}`);
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a foreign board cannot be patched at all", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = OTHER_USER_ID;
+    const patched = await backend.send("PATCH", `/boards/${BOARD_ID}`, { title: "Захват" });
+    assert.equal(patched.status, 404);
+    assert.equal(patched.body.code, "board_not_found");
+    assert.deepEqual(backend.db.requests.filter((entry) => entry.method === "PATCH"), []);
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a pin status that is not one of the two decisions is refused", async () => {
+  const backend = await startBackend();
+  const pinId = "55555555-5555-4555-8555-555555555555";
+  try {
+    backend.db.ownedBy = USER_ID;
+    for (const status of ["published", "deleted", "", null]) {
+      const answer = await backend.send("POST", `/pins/${pinId}/status`, { status });
+      assert.equal(answer.status, 422, `status ${JSON.stringify(status)} was accepted`);
+    }
+    assert.deepEqual(
+      backend.db.requests.filter((entry) => entry.method === "PATCH"),
+      [],
+      "an invalid status must not be written"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a pin of another account cannot be approved or rejected", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = OTHER_USER_ID;
+    const answer = await backend.send("POST", "/pins/55555555-5555-4555-8555-555555555555/status", { status: "approved" });
+    assert.equal(answer.status, 404);
+    assert.equal(answer.body.code, "pin_not_found");
+    assert.deepEqual(
+      backend.db.requests.filter((entry) => entry.method === "PATCH"),
+      [],
+      "a foreign pin must not be updated"
     );
   } finally {
     await backend.stop();
