@@ -581,7 +581,14 @@ app.get("/me", requireAuth, async (req, res) => {
       .eq("id", req.userId)
       .single();
 
-    if (error || !row) throw notFoundError("user_not_found", "Пользователь не найден");
+    // A missing row means the account is gone; a failed query does not. Answering 404 for a
+    // database blink told a signed-in customer their account had disappeared, and hid a real
+    // outage behind a code the UI presents as "sign in again". PGRST116 is PostgREST's "no rows".
+    if (error && error.code !== "PGRST116") {
+      logError("index.event_024", error);
+      throw httpError(503, "Сервис профиля временно недоступен — попробуйте позже");
+    }
+    if (!row) throw notFoundError("user_not_found", "Пользователь не найден");
 
     // Keep the profile payload aligned with the same authoritative entitlement
     // resolver used by protected API routes. Raw users.* fields can be stale
@@ -985,7 +992,13 @@ async function getBoardWithOwnerCheck(boardId, userId) {
     .select("*, projects(user_id, niche, tone, goal, language)")
     .eq("id", boardId)
     .single();
-  if (error || !board) throw notFoundError("board_not_found", "Доска не найдена");
+  // Same distinction as /me: a failed lookup is an outage, not a deleted board. A customer who
+  // reads "доска не найдена" during a database blink concludes their work is gone.
+  if (error && error.code !== "PGRST116") {
+    logError("index.event_025", error);
+    throw httpError(503, "Сервис досок временно недоступен — попробуйте позже");
+  }
+  if (!board) throw notFoundError("board_not_found", "Доска не найдена");
   if (!isOwnedByUser(board.projects && board.projects.user_id, userId)) throw notFoundError("board_not_found", "Доска не найдена");
   return board;
 }
@@ -996,7 +1009,11 @@ async function getPinWithOwnerCheck(pinId, userId) {
     .select("*, boards(id, title, description, projects(user_id, niche, tone))")
     .eq("id", pinId)
     .single();
-  if (error || !pin) throw notFoundError("pin_not_found", "Пин не найден");
+  if (error && error.code !== "PGRST116") {
+    logError("index.event_025", error);
+    throw httpError(503, "Сервис досок временно недоступен — попробуйте позже");
+  }
+  if (!pin) throw notFoundError("pin_not_found", "Пин не найден");
   if (!isOwnedByUser(pin.boards && pin.boards.projects && pin.boards.projects.user_id, userId)) throw notFoundError("pin_not_found", "Пин не найден");
   return pin;
 }
