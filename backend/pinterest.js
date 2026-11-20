@@ -1148,7 +1148,15 @@ function registerRoutes(app, deps) {
           return callPinterest("GET", `/boards?${params.toString()}`, { token });
         }), accountId);
       if (!result.ok) {
-        throw httpError(502, `Pinterest не отдал доски: ${pinterestMessage(result.data, "неизвестная ошибка")}`);
+        // The button that opens the board picker must be able to say "Pinterest is unavailable":
+        // a plain httpError carried no machine code, so respondWithError replaced the honest cause
+        // with "internal server error" and the client had nothing to localize. The code already
+        // exists in every locale, so the message stays inside the server and the code crosses.
+        throw pinterestTransientError(
+          "pinterest_unavailable",
+          `Pinterest не отдал доски: ${pinterestMessage(result.data, "неизвестная ошибка")}`,
+          502
+        );
       }
       const items = (result.data && result.data.items) || [];
       res.json({

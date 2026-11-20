@@ -3534,3 +3534,44 @@ test("a stale upload is reported, never resolved, and a missing object is not pr
     await backend.stop();
   }
 });
+
+test("a malformed Pinterest board page is reported, not shown as an empty board list", async () => {
+  // Section 105. A 200 from Pinterest without an items array used to be spread into an empty list and
+  // answered with `{ boards: [] }`: the customer saw "no boards" and the real cause never surfaced.
+  const pinterest = await startFakePinterest({ boardBody: {} });
+  const backend = await startBackendWithPinterest(pinterest);
+  try {
+    scriptPinterestAccount(backend);
+    const answer = await backend.send("GET", "/integrations/pinterest/boards");
+    assert.equal(answer.status, 502, `expected 502, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.equal(answer.body.boards, undefined, "a refused page must not be answered as an empty board list");
+    // A server-side failure never carries its cause; it carries a machine code the client can
+    // localize. The cause itself stays in the log.
+    assert.equal(answer.body.code, "pinterest_unavailable");
+    assert.match(String(answer.body.error || ""), /Внутренняя ошибка сервера/);
+  } finally {
+    await backend.stop();
+    await pinterest.close();
+  }
+});
+
+test("a complete Pinterest board page is mapped for the board picker", async () => {
+  const pinterest = await startFakePinterest({
+    boardBody: { items: [{ id: "board-1", name: "Recipes", pin_count: 12 }, { id: 42, name: "Numeric" }] },
+  });
+  const backend = await startBackendWithPinterest(pinterest);
+  try {
+    scriptPinterestAccount(backend);
+    const answer = await backend.send("GET", "/integrations/pinterest/boards");
+    assert.equal(answer.status, 200, JSON.stringify(answer.body));
+    assert.deepEqual(answer.body.boards, [
+      { id: "board-1", name: "Recipes", pin_count: 12 },
+      { id: "42", name: "Numeric", pin_count: null },
+    ]);
+    assert.equal(pinterest.calls.length, 1);
+    assert.match(pinterest.calls[0], /^GET \/v5\/boards\?page_size=250$/);
+  } finally {
+    await backend.stop();
+    await pinterest.close();
+  }
+});

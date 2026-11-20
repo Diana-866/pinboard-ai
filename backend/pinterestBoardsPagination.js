@@ -1,5 +1,20 @@
 const MAX_PINTEREST_BOARD_PAGES = 20;
 
+const MALFORMED_PAGE = "Pinterest вернул страницу досок без списка";
+const MALFORMED_ITEM = "Pinterest вернул доску без идентификатора";
+
+function malformed(message, extra = {}) {
+  return { ok: false, status: 502, data: { message, ...extra } };
+}
+
+/** A board the rest of the app can use: it must carry an id the customer's schedule can reference. */
+function isUsableBoard(item) {
+  if (!item || typeof item !== "object") return false;
+  const { id } = item;
+  if (typeof id === "string") return id.trim().length > 0;
+  return typeof id === "number" && Number.isFinite(id);
+}
+
 async function fetchAllPinterestBoards(fetchPage, maxPages = MAX_PINTEREST_BOARD_PAGES) {
   const items = [];
   const requestedBookmarks = new Set();
@@ -8,26 +23,30 @@ async function fetchAllPinterestBoards(fetchPage, maxPages = MAX_PINTEREST_BOARD
 
   for (let page = 0; page < maxPages; page += 1) {
     if (bookmark && requestedBookmarks.has(bookmark)) {
-      return {
-        ok: false,
-        status: 502,
-        data: { message: "Pinterest вернул повторяющийся курсор страниц досок" },
-      };
+      return malformed("Pinterest вернул повторяющийся курсор страниц досок");
     }
     if (bookmark) requestedBookmarks.add(bookmark);
 
     const result = await fetchPage(bookmark);
     lastResult = result;
-    if (!result || !result.ok) return result || {
-      ok: false,
-      status: 502,
-      data: { message: "Pinterest вернул пустой ответ при загрузке досок" },
-    };
+    if (!result || !result.ok) return result || malformed("Pinterest вернул пустой ответ при загрузке досок");
 
-    const pageItems = result.data && Array.isArray(result.data.items) ? result.data.items : [];
+    // A 200 without a list used to read as "this account has no boards": the customer saw an empty
+    // board picker instead of an error, and the real cause (a changed response shape) never reached
+    // support. A page whose items cannot be used is refused for the same reason - it used to become
+    // a 500 from the mapping in the route, which is also the wrong answer.
+    const pageData = result.data;
+    if (!pageData || !Array.isArray(pageData.items)) {
+      return malformed(MALFORMED_PAGE, { lastStatus: result.status });
+    }
+    const pageItems = pageData.items;
+    if (pageItems.some((item) => !isUsableBoard(item))) {
+      return malformed(MALFORMED_ITEM, { lastStatus: result.status, page: page + 1 });
+    }
+
     items.push(...pageItems);
-    bookmark = result.data && result.data.bookmark;
-    if (!bookmark) return { ...result, data: { ...result.data, items } };
+    bookmark = pageData.bookmark;
+    if (!bookmark) return { ...result, data: { ...pageData, items } };
   }
 
   return {

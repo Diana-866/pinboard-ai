@@ -1,6 +1,6 @@
 {
   "files": 159,
-  "total": 1353,
+  "total": 1359,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -23,7 +23,7 @@
     "ai-provider-base.test.js": 3,
     "analytics.test.js": 8,
     "analyze-prompt-context.test.js": 5,
-    "api-authenticated-reads.test.js": 106,
+    "api-authenticated-reads.test.js": 108,
     "api-wiring.test.js": 9,
     "app-boot.test.js": 2,
     "auth.test.js": 20,
@@ -91,7 +91,7 @@
     "pins-provider-boundary.test.js": 26,
     "pinterest-account-record.test.js": 6,
     "pinterest-account-request.test.js": 8,
-    "pinterest-boards-pagination.test.js": 4,
+    "pinterest-boards-pagination.test.js": 8,
     "pinterest-oauth-browser-binding.test.js": 3,
     "pinterest-oauth-state.test.js": 13,
     "pinterest-oauth.test.js": 5,
