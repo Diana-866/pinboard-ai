@@ -39,18 +39,8 @@ const EXEMPT = {
     "Unreachable by construction: assertCatalogIntegrity refuses to start a catalogue with a missing price. Kept as the fail-closed branch that must never sell a free pack.",
 };
 
-/** Every bare 5xx in the module, bound by the end of the statement. */
-function scan(source) {
-  const text = source.replace(/\r\n/g, "\n");
-  const uncoded = [];
-  for (const match of text.matchAll(/throw\s+httpError\(([\s\S]*?)\);\n/g)) {
-    const args = match[1];
-    const status = Number(args.split(",")[0]);
-    if (!Number.isInteger(status) || status < 500) continue;
-    uncoded.push(args);
-  }
-  return uncoded;
-}
+// Section 113 moved the scanner into test/helpers/bare-5xx-inventory.js: three modules use it now.
+const { scanBareServerErrors: scan } = require("./helpers/bare-5xx-inventory");
 
 test("every bare 5xx in the payment modules is exempted with a reason", () => {
   let total = 0;

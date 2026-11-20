@@ -103,10 +103,24 @@ module.exports = { uploadPinImage, rehostImage, deletePinImageIfUnreferenced };
 // Скачивает картинку по URL (например, временную ссылку GPTunnel) и кладёт её в хранилище.
 // URL из ответа внешнего провайдера считается недоверенным: запрещаем private IP,
 // DNS rebinding и redirects, чтобы не превратить сервер в SSRF-прокси.
+/**
+ * "The image is already stored, do not send it again" - a fact the customer cannot infer.
+ *
+ * These two answers used to be bare 5xx with exactly that sentence, and a 5xx never carries its
+ * message: the customer read "внутренняя ошибка сервера, попробуйте позже" and did the one thing the
+ * sentence forbids - uploaded the picture again. The code lets the client say it in the customer's
+ * language and keep the control disabled.
+ */
+function imageAlreadyStoredError(message) {
+  const error = httpError(503, message);
+  error.details = { ...(error.details || {}), code: "image_already_stored" };
+  return error;
+}
+
 function getManagedPinImagePublicUrl(objectPath) {
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(objectPath);
   if (!data || typeof data.publicUrl !== "string" || !data.publicUrl.trim()) {
-    throw httpError(503, "Изображение уже сохранено, но ссылка на него временно недоступна. Повторите восстановление позже");
+    throw imageAlreadyStoredError("Изображение уже сохранено, но ссылка на него временно недоступна. Повторите восстановление позже");
   }
   return data.publicUrl;
 }
@@ -121,7 +135,7 @@ async function rehostImage(sourceUrl, options = {}) {
       // already owns a completed object. Do not download/re-upload blindly:
       // preserve the journaled provider result and let the same request retry.
       logWarning("storage.event_002");
-      throw httpError(503, "Не удалось проверить ранее сохранённое изображение. Повторите восстановление позже");
+      throw imageAlreadyStoredError("Не удалось проверить ранее сохранённое изображение. Повторите восстановление позже");
     }
     // A completed object must never fall through to a new upload just because
     // URL construction is temporarily unavailable.

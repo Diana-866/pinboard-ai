@@ -42,6 +42,7 @@ export type AppErrorMessageKey =
   | 'pinterestRefreshInProgress'
   | 'paymentsNotConfigured'
   | 'paymentNotStarted'
+  | 'imageAlreadyStored'
   | 'projectNotFound'
   | 'boardNotFound'
   | 'pinNotFound'
@@ -102,6 +103,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestReconnectRequired: "The Pinterest connection could not be saved. Connect Pinterest again — until then publishing is not possible.",
     paymentsNotConfigured: "Payments are temporarily unavailable in this installation. Nothing was charged — try again later or write to support.",
     paymentNotStarted: "The payment could not be created and nothing was charged. Try again in a minute, or write to support if it repeats.",
+    imageAlreadyStored: "The image is already saved — you do not need to upload it again. The link to it is temporarily unavailable; try again in a minute.",
     pinterestPublicationRejected: "Pinterest refused this pin (board, image or text). Change the pin and try again — repeating it unchanged is refused for the same reason.",
     pinterestRefreshInProgress: "Pinterest access is being refreshed right now. Try again in a few seconds — nothing was lost.",
     projectNotFound: "This project was not found. It may have been deleted, or it belongs to another account.",
@@ -163,6 +165,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestReconnectRequired: "Не удалось сохранить подключение Pinterest. Подключите Pinterest заново — до этого публикация невозможна.",
     paymentsNotConfigured: "Оплата в этой установке временно недоступна. Деньги не списаны — попробуйте позже или напишите в поддержку.",
     paymentNotStarted: "Платёж не создан, деньги не списаны. Повторите через минуту или напишите в поддержку, если это повторится.",
+    imageAlreadyStored: "Изображение уже сохранено — загружать его повторно не нужно. Ссылка на него временно недоступна; повторите через минуту.",
     pinterestPublicationRejected: "Pinterest отклонил этот пин (доска, изображение или текст). Исправьте пин и повторите — тот же пин отклонят снова.",
     pinterestRefreshInProgress: "Доступ к Pinterest сейчас обновляется. Повторите через несколько секунд — ничего не потеряно.",
     projectNotFound: "Проект не найден. Возможно, он удалён или принадлежит другому аккаунту.",
@@ -224,6 +227,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestReconnectRequired: "No se pudo guardar la conexión con Pinterest. Vuelve a conectar Pinterest; hasta entonces no se puede publicar.",
     paymentsNotConfigured: "Los pagos no están disponibles temporalmente en esta instalación. No se ha cobrado nada; inténtalo más tarde o escribe a soporte.",
     paymentNotStarted: "No se pudo crear el pago y no se ha cobrado nada. Inténtalo de nuevo en un minuto o escribe a soporte si se repite.",
+    imageAlreadyStored: "La imagen ya está guardada: no hace falta subirla otra vez. El enlace no está disponible temporalmente; inténtalo de nuevo en un minuto.",
     pinterestPublicationRejected: "Pinterest rechazó este pin (tablero, imagen o texto). Corrige el pin y vuelve a intentarlo; sin cambios lo rechazará otra vez.",
     pinterestRefreshInProgress: "El acceso a Pinterest se está actualizando ahora. Inténtalo de nuevo en unos segundos; no se ha perdido nada.",
     projectNotFound: "No se encontró este proyecto. Puede que se haya eliminado o que pertenezca a otra cuenta.",
@@ -285,6 +289,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestReconnectRequired: "Não foi possível guardar a ligação ao Pinterest. Ligue o Pinterest novamente — até lá não é possível publicar.",
     paymentsNotConfigured: "Os pagamentos estão temporariamente indisponíveis nesta instalação. Nada foi cobrado — tente mais tarde ou escreva para o suporte.",
     paymentNotStarted: "O pagamento não foi criado e nada foi cobrado. Tente novamente dentro de um minuto ou escreva para o suporte se repetir.",
+    imageAlreadyStored: "A imagem já está guardada — não é necessário carregá-la novamente. A ligação está temporariamente indisponível; tente novamente dentro de um minuto.",
     pinterestPublicationRejected: "O Pinterest recusou este pin (painel, imagem ou texto). Corrija o pin e tente de novo — sem alterações será recusado outra vez.",
     pinterestRefreshInProgress: "O acesso ao Pinterest está a ser atualizado agora. Tente novamente dentro de alguns segundos — nada foi perdido.",
     projectNotFound: "Este projeto não foi encontrado. Pode ter sido eliminado ou pertencer a outra conta.",
@@ -346,6 +351,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestReconnectRequired: "Die Pinterest-Verbindung konnte nicht gespeichert werden. Verbinden Sie Pinterest erneut — bis dahin ist keine Veröffentlichung möglich.",
     paymentsNotConfigured: "Zahlungen sind in dieser Installation vorübergehend nicht verfügbar. Es wurde nichts belastet — versuchen Sie es später erneut oder schreiben Sie dem Support.",
     paymentNotStarted: "Die Zahlung konnte nicht erstellt werden, es wurde nichts belastet. Versuchen Sie es in einer Minute erneut oder schreiben Sie dem Support, wenn es sich wiederholt.",
+    imageAlreadyStored: "Das Bild ist bereits gespeichert — Sie müssen es nicht erneut hochladen. Der Link ist vorübergehend nicht verfügbar; versuchen Sie es in einer Minute erneut.",
     pinterestPublicationRejected: "Pinterest hat diesen Pin abgelehnt (Board, Bild oder Text). Korrigieren Sie den Pin und versuchen Sie es erneut — unverändert wird er wieder abgelehnt.",
     pinterestRefreshInProgress: "Der Pinterest-Zugang wird gerade erneuert. Versuchen Sie es in einigen Sekunden erneut — es ist nichts verloren.",
     projectNotFound: "Dieses Projekt wurde nicht gefunden. Möglicherweise wurde es gelöscht oder gehört zu einem anderen Konto.",
@@ -407,6 +413,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestReconnectRequired: "La connexion Pinterest n’a pas pu être enregistrée. Reconnectez Pinterest — d’ici là aucune publication n’est possible.",
     paymentsNotConfigured: "Les paiements sont temporairement indisponibles dans cette installation. Rien n’a été débité — réessayez plus tard ou écrivez au support.",
     paymentNotStarted: "Le paiement n’a pas pu être créé et rien n’a été débité. Réessayez dans une minute ou écrivez au support si cela se répète.",
+    imageAlreadyStored: "L’image est déjà enregistrée — inutile de la téléverser à nouveau. Le lien est temporairement indisponible ; réessayez dans une minute.",
     pinterestPublicationRejected: "Pinterest a refusé cette épingle (tableau, image ou texte). Corrigez-la et réessayez — sans changement elle sera refusée de nouveau.",
     pinterestRefreshInProgress: "L’accès Pinterest est en cours d’actualisation. Réessayez dans quelques secondes — rien n’est perdu.",
     projectNotFound: "Ce projet est introuvable. Il a peut-être été supprimé ou appartient à un autre compte.",
@@ -468,6 +475,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     pinterestReconnectRequired: "无法保存 Pinterest 连接。请重新连接 Pinterest，在此之前无法发布。",
     paymentsNotConfigured: "此安装的支付功能暂时不可用。未扣款——请稍后重试或联系支持。",
     paymentNotStarted: "无法创建支付，未扣款。请一分钟后重试，若再次出现请联系支持。",
+    imageAlreadyStored: "图片已保存，无需重新上传。链接暂时不可用，请一分钟后重试。",
     pinterestPublicationRejected: "Pinterest 拒绝了这个 Pin（画板、图片或文字）。请修正后重试，原样重复仍会被拒绝。",
     pinterestRefreshInProgress: "Pinterest 访问权限正在刷新。请几秒后重试，数据没有丢失。",
     projectNotFound: "未找到该项目，可能已被删除或属于其他账号。",
@@ -593,6 +601,7 @@ const TARIFF_CODES: Record<string, AppErrorMessageKey> = {
 
 const TRANSIENT_CODES: Record<string, AppErrorMessageKey> = {
   account_deletion_unavailable: 'accountDeletionUnavailable',
+  image_already_stored: 'imageAlreadyStored',
   publication_reconciliation_required: 'publicationReconciliationRequired',
   pinterest_reconnect_required: 'pinterestReconnectRequired',
   pinterest_publication_rejected: 'pinterestPublicationRejected',
