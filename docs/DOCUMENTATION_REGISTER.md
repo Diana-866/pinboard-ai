@@ -2054,3 +2054,17 @@ Source commits: initial validation `0d558ec99aea53cb8ccc3b01f62cf7ef12da301d`; p
 - Vercel combined status: `success` on test commit `98a65d8669baf7349946063e5dcfd9d34859557f` and on then-current docs HEAD `3e641569209385fb8c9caaef3db0ead0065f5cbc`. Do not equate provider check success with a confirmed production deployment.
 - GitHub workflow-run lookup for source commit `d41c16d4caee20d5cd5ed01ecebb45123e255102` and test commit `98a65d8669baf7349946063e5dcfd9d34859557f` returned no runs; Node runtime tests are not evidenced.
 - Node/PostgreSQL runtime and deployment acceptance remain NOT VERIFIED; worker remains disabled. Owner action UA-062.
+
+### Review-queue malformed query-envelope hardening — AUD-403 (2026-11-20)
+
+| Path | Current blob SHA | Purpose / verification |
+|---|---|---|
+| `backend/fetchAllPages.js` | `34663150a3c4c9ca657d719461f7529df7f6f335` | Shared strict query-envelope validator; pagination and overflow probe fail closed. |
+| `backend/index.js` | `a976c906ad7e44cbb8c60209fce0861274106bb8` | Both pins and pin_schedules batches in GET /review-queue validated before reconciliation/cleanup. |
+| `backend/test/fetch-all-pages.test.js` | `2609ebf98e6edb5b231abf344450b7029b332541` | Covers malformed envelopes, DB error propagation, valid empty arrays and missing result envelope. |
+| `backend/test/review-queue-route-contract.test.js` | `4fd08d330df3266ed4d9466233dd638ddd1bdafb` | Requires both secondary reads to use the validator before stale-row deletion. |
+| `docs/audits/AUD-403-review-queue-malformed-query-results.md` | `63901ae837c2a8b65cbf979335a95f2d56e81781` | AUD-403 root cause, impact, implementation and runtime-verification boundary. |
+| `docs/PROJECT_STATE.md` | `53e721beb799bacd3e36a73e1a30ca3dba76451b` | Current-main status and AUD-403 implementation record. |
+| `docs/USER_ACTIONS.md` | `278c7897b484f43ef9eb200cc5ab47e4b8a3318f` | UA-073 owner-side focused Node acceptance command. |
+
+Code/test commits are on branch `fix/review-queue-fail-closed-20261120`, based on main HEAD `8102f14711db3c49ca246a547e09704f0ef146fd`. Static GitHub re-fetch is the only verification performed here; Node runtime tests NOT VERIFIED. Owner action UA-073. No SQL, production or deployment changes.
