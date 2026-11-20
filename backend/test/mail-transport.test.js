@@ -147,3 +147,77 @@ test("the support-reply transport carries the same timeouts", () => {
   assert.equal(options.host, "smtp.example.com");
   assert.equal(options.secure, true);
 });
+
+test("every port but 465 must negotiate STARTTLS, not hope for it", () => {
+  // nodemailer has no "do not authenticate over cleartext" switch, so requireTLS is the only
+  // thing standing between AUTH PLAIN and the wire. Encryption was derived from a port guess:
+  // requireTLS was true only on 587, so 25, 2525 or a provider-specific port authenticated in
+  // cleartext whenever the server did not advertise STARTTLS - or when the advertisement was
+  // stripped on the way. Every port that is not implicit TLS must require the upgrade.
+  for (const port of ["25", "2525", "2465", "587"]) {
+    const options = withEnv({ ...SMTP_ENV, MAIL_SMTP_PORT: port }, () => mail.buildTransactionalTransportOptions());
+    assert.equal(options.port, Number(port));
+    assert.equal(options.secure, false, `port ${port} is not implicit TLS`);
+    assert.equal(options.requireTLS, true, `port ${port} must require STARTTLS before authenticating`);
+  }
+
+  // 465 is encrypted from the first byte, so STARTTLS would be nonsense there.
+  const implicit = withEnv({ ...SMTP_ENV, MAIL_SMTP_PORT: "465" }, () => mail.buildTransactionalTransportOptions());
+  assert.equal(implicit.secure, true);
+  assert.equal(implicit.requireTLS, false);
+});
+
+test("the support reply channel follows the same TLS policy", () => {
+  const replyEnv = {
+    MAIL_REPLY_SMTP_HOST: "smtp.example.com",
+    MAIL_REPLY_SMTP_USER: "support@example.com",
+    MAIL_REPLY_SMTP_PASS: "secret",
+  };
+
+  const starttls = withEnv({ ...replyEnv, MAIL_REPLY_SMTP_PORT: "2525" }, () => mail.getReplySmtpConfig());
+  assert.equal(starttls.port, 2525);
+  assert.equal(starttls.requireTLS, true, "answering a customer must not expose the mailbox password");
+
+  const implicit = withEnv({ ...replyEnv, MAIL_REPLY_SMTP_PORT: "465" }, () => mail.getReplySmtpConfig());
+  assert.equal(implicit.secure, true);
+  assert.equal(implicit.requireTLS, false);
+
+  // And the transport builder must pass the policy through rather than re-deriving it.
+  const transport = mail.buildReplyTransportOptions(starttls);
+  assert.equal(transport.requireTLS, true);
+});
+
+test("a mail port the server cannot use is refused, not turned into NaN or a default", () => {
+  // Number("0") || 465 used to send mail to a port nobody configured, and Number("abc") failed
+  // later inside the transport with a message naming neither the variable nor the reason.
+  for (const bad of ["abc", "0", "70000", "587.5", "-1"]) {
+    assert.throws(
+      () => withEnv({ ...SMTP_ENV, MAIL_SMTP_PORT: bad }, () => mail.buildTransactionalTransportOptions()),
+      (error) => error.httpStatus === 503,
+      `MAIL_SMTP_PORT=${bad} must be refused`
+    );
+    assert.throws(
+      () => withEnv({ MAIL_REPLY_SMTP_HOST: "smtp.example.com", MAIL_REPLY_SMTP_PORT: bad }, () => mail.getReplySmtpConfig()),
+      (error) => error.httpStatus === 503,
+      `MAIL_REPLY_SMTP_PORT=${bad} must be refused`
+    );
+    assert.throws(
+      () => withEnv({ MAIL_IMAP_HOST: "imap.example.com", MAIL_IMAP_PORT: bad }, () => mail.buildImapClientOptions()),
+      (error) => error.httpStatus === 503,
+      `MAIL_IMAP_PORT=${bad} must be refused`
+    );
+  }
+
+  // An empty or absent value still means "the documented default".
+  const fallback = withEnv({ ...SMTP_ENV, MAIL_SMTP_PORT: "" }, () => mail.buildTransactionalTransportOptions());
+  assert.equal(fallback.port, 465);
+  assert.equal(fallback.secure, true);
+});
+
+test("a misconfigured port costs one honest 503, not a transport aimed at port NaN", async () => {
+  const error = await withEnv({ ...SMTP_ENV, MAIL_SMTP_PORT: "smtp" }, () =>
+    mail.sendMail({ to: "a@example.com", subject: "s", text: "t" }).then(() => null, (caught) => caught)
+  );
+  assert.ok(error, "sending must fail rather than silently succeed");
+  assert.equal(error.httpStatus, 503);
+});

@@ -25,13 +25,44 @@ function getTransactionalSmtpAuth() {
   };
 }
 
+/**
+ * Port number from the environment, or the fallback when the variable is absent.
+ *
+ * A value the mail server cannot use must be refused here rather than turned into `NaN` or
+ * silently replaced by the default: `Number("0") || 465` used to send mail to a port nobody
+ * configured, and `Number("abc")` failed later inside the transport with a message that names
+ * neither the variable nor the reason.
+ */
+function mailPort(raw, fallback) {
+  if (raw === undefined || raw === null || String(raw).trim() === "") return fallback;
+  const port = Number(String(raw).trim());
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    logError("mail.event_005");
+    throw httpError(503, "Отправка писем временно недоступна. Попробуйте позже.");
+  }
+  return port;
+}
+
+/**
+ * Encryption policy, derived from the port only where the protocol fixes it.
+ *
+ * 465 is implicit TLS. Every other port must negotiate STARTTLS explicitly: nodemailer has no
+ * "refuse to authenticate without TLS" switch, so `requireTLS: false` means a server - or a
+ * network path that strips the STARTTLS advertisement - receives AUTH PLAIN and the message
+ * body in cleartext. The previous rule (`requireTLS: port === 587`) did exactly that for every
+ * port other than 465 and 587, for example 25, 2525 or a provider-specific one.
+ */
+function smtpTlsPolicy(port) {
+  const secure = port === 465;
+  return { secure, requireTLS: !secure };
+}
+
 function getReplySmtpConfig() {
-  const port = Number(process.env.MAIL_REPLY_SMTP_PORT || 465);
+  const port = mailPort(process.env.MAIL_REPLY_SMTP_PORT, 465);
   return {
     host: process.env.MAIL_REPLY_SMTP_HOST,
     port,
-    secure: port === 465,
-    requireTLS: port === 587,
+    ...smtpTlsPolicy(port),
     auth: {
       user: process.env.MAIL_REPLY_SMTP_USER || process.env.MAIL_USER,
       pass: process.env.MAIL_REPLY_SMTP_PASS || process.env.MAIL_PASS,
@@ -175,7 +206,7 @@ const MAIL_IMAP_SOCKET_TIMEOUT_MS = 60_000;
 function buildImapClientOptions() {
   return {
     host: process.env.MAIL_IMAP_HOST,
-    port: Number(process.env.MAIL_IMAP_PORT || 993),
+    port: mailPort(process.env.MAIL_IMAP_PORT, 993),
     secure: true,
     auth: getImapAuth(),
     logger: false,
@@ -206,12 +237,11 @@ function buildReplyTransportOptions(config) {
 }
 
 function buildTransactionalTransportOptions() {
-  const port = Number(process.env.MAIL_SMTP_PORT || 465);
+  const port = mailPort(process.env.MAIL_SMTP_PORT, 465);
   return {
     host: process.env.MAIL_SMTP_HOST,
     port,
-    secure: port === 465,
-    requireTLS: port === 587,
+    ...smtpTlsPolicy(port),
     auth: getTransactionalSmtpAuth(),
     ...mailTransportTimeouts(),
   };
@@ -259,6 +289,7 @@ module.exports = {
   sendMail,
   buildTransactionalTransportOptions,
   buildReplyTransportOptions,
+  getReplySmtpConfig,
   buildImapClientOptions,
   MAIL_IMAP_CONNECTION_TIMEOUT_MS,
   MAIL_IMAP_GREETING_TIMEOUT_MS,
