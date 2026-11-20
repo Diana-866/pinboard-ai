@@ -920,3 +920,214 @@ test("stop() reports a clean drain when no step is active", async () => {
   });
   assert.equal(await worker.stop(), true);
 });
+
+/**
+ * The preflight stage is a ladder of "did the database confirm that?" questions. Every unconfirmed
+ * answer must fail the job: reporting success for a tombstone or a Storage removal the database never
+ * confirmed either tells an operator the data is gone or double-deletes it later. These branches had
+ * no executed test - they were the 11% of accountDeletionWorker.js nobody had run.
+ */
+
+/** Client for the preflight ladder: the read double plus scripted RPC answers. */
+function createPreflightClient(onRpc, overrides = {}) {
+  const calls = [];
+  const client = {
+    ...createReadClient(overrides),
+    supabaseUrl: "https://project.supabase.co",
+    async rpc(name, params) {
+      calls.push({ name, params });
+      const override = onRpc(name, params);
+      if (override !== null && override !== undefined) return override;
+      if (name === "claim_account_deletion_jobs") return { data: jobBatch(1), error: null };
+      if (name === "finish_account_deletion_job") return { data: true, error: null };
+      return { data: null, error: { message: "unexpected rpc", code: "XX000" } };
+    },
+  };
+  client.calls = calls;
+  return client;
+}
+
+test("finalize is not reported as succeeded unless the tombstone RPC confirms it", async () => {
+  for (const answer of [false, null, "true", 1]) {
+    const client = createFailingClient({
+      attempts: 1,
+      stepKey: "finalize",
+      onRpc: (name) => (name === "finalize_account_deletion" ? { data: answer, error: null } : null),
+    });
+    const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} }, supabaseUrl: client.supabaseUrl });
+    const result = await worker.tick();
+    assert.equal(result.completed, 0, `finalize answered ${JSON.stringify(answer)} and the worker still called it done`);
+    assert.equal(result.retried + result.blocked, 1);
+    const finish = client.calls.find((call) => call.name === "finish_account_deletion_job");
+    assert.equal(finish.params.p_error_code, "account_finalization_unconfirmed");
+  }
+});
+
+// The "unsupported step" branch is deliberately not tested: the claim validator rejects a batch
+// whose step_key is not one of the three known stages before any stage code runs, so the branch is
+// unreachable through the claim path. Recorded here instead of writing a test that pretends to
+// reach it.
+test("a claim with an unknown step is rejected before any stage runs", async () => {
+  const client = createFailingClient({
+    attempts: 1,
+    stepKey: "erase_everything",
+    onRpc: (name) => (name === "record_account_deletion_preflight" ? { data: true, error: null } : null),
+  });
+  const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} }, supabaseUrl: client.supabaseUrl });
+  // The batch is refused as malformed, which is the stronger answer: no stage code runs at all.
+  await assert.rejects(worker.tick(), /invalid job batch/i);
+  assert.equal(
+    client.calls.some((call) => call.name === "disconnect_pinterest_for_account_deletion"),
+    false,
+    "an unrecognised step must not touch credentials"
+  );
+});
+
+test("a Storage manifest that is not confirmed as recorded stops the preflight", async () => {
+  const shapes = [null, {}, { recorded: false, total: 0 }, { recorded: true, total: -1 }, { recorded: true, total: "3" }];
+  for (const shape of shapes) {
+    const client = createPreflightClient((name) => {
+      if (name === "record_account_deletion_preflight") return { data: true, error: null };
+      if (name === "materialize_account_deletion_storage_manifest") return { data: shape, error: null };
+      return null;
+    });
+    const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} }, supabaseUrl: client.supabaseUrl });
+    const result = await worker.tick();
+    assert.equal(result.completed, 0, `manifest shape ${JSON.stringify(shape)} was accepted`);
+    const finish = client.calls.find((call) => call.name === "finish_account_deletion_job");
+    assert.equal(finish.params.p_error_code, "storage_manifest_not_recorded");
+    assert.equal(client.calls.some((call) => call.name === "disconnect_pinterest_for_account_deletion"), false);
+  }
+});
+
+test("a Storage manifest whose completion is not fenced stops the preflight", async () => {
+  const client = createPreflightClient((name) => {
+    if (name === "record_account_deletion_preflight") return { data: true, error: null };
+    if (name === "materialize_account_deletion_storage_manifest") return { data: { recorded: true, total: 0 }, error: null };
+    if (name === "mark_account_deletion_storage_manifest") return { data: false, error: null };
+    return null;
+  });
+  const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} }, supabaseUrl: client.supabaseUrl });
+  const result = await worker.tick();
+  const finish = client.calls.find((call) => call.name === "finish_account_deletion_job");
+  assert.equal(result.completed, 0);
+  assert.equal(finish.params.p_error_code, "storage_manifest_mark_failed");
+});
+
+test("a Pinterest disconnect that does not report a count stops the preflight", async () => {
+  for (const answer of [null, -1, "0", 1.5]) {
+    const client = createPreflightClient((name) => {
+      if (name === "record_account_deletion_preflight") return { data: true, error: null };
+      if (name === "materialize_account_deletion_storage_manifest") return { data: { recorded: true, total: 0 }, error: null };
+      if (name === "mark_account_deletion_storage_manifest") return { data: true, error: null };
+      if (name === "disconnect_pinterest_for_account_deletion") return { data: answer, error: null };
+      return null;
+    });
+    const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} }, supabaseUrl: client.supabaseUrl });
+    const result = await worker.tick();
+    assert.equal(result.completed, 0, `disconnect answered ${JSON.stringify(answer)} and the preflight finished`);
+    const finish = client.calls.find((call) => call.name === "finish_account_deletion_job");
+    assert.equal(finish.params.p_error_code, "invalid_disconnect_result");
+  }
+});
+
+test("a deployment without the project URL cannot inventory Storage and says why", async () => {
+  const client = createPreflightClient(
+    (name) => (name === "record_account_deletion_preflight" ? { data: true, error: null } : null)
+  );
+  const worker = createAccountDeletionWorker({ client, logger: { info() {}, error() {} }, supabaseUrl: "   " });
+  const result = await worker.tick();
+  const finish = client.calls.find((call) => call.name === "finish_account_deletion_job");
+  assert.equal(result.completed, 0);
+  assert.equal(finish.params.p_error_code, "supabase_url_missing");
+  assert.equal(
+    client.calls.some((call) => call.name === "materialize_account_deletion_storage_manifest"),
+    false,
+    "the manifest cannot be built without a project URL"
+  );
+});
+
+test("an unconfirmed Storage removal stops the stage instead of being counted as deleted", async () => {
+  // `removed` must be literally true or false: anything else (undefined, "ok", a thrown value turned
+  // into an object) means the deletion was not confirmed, and the manifest row must stay open so the
+  // object is retried rather than silently orphaned in the bucket.
+  for (const removed of [undefined, "ok", 1, null]) {
+    const calls = [];
+    let listCalls = 0;
+    const client = {
+      async rpc(name, args) {
+        calls.push({ name, args });
+        if (name === "claim_account_deletion_jobs") {
+          return { data: [{
+            job_id: "job-unconfirmed",
+            request_id: "request-job-unconfirmed",
+            attempts: 1,
+            lease_expires_at: "2026-11-19T00:00:00.000Z",
+            user_id: USER_ID,
+            step_key: "erase_content",
+            claim_token: "claim-unconfirmed",
+          }], error: null };
+        }
+        if (name === "erase_account_deletion_content") {
+          return { data: { erased: true, financial_records_retained: true }, error: null };
+        }
+        if (name === "list_account_deletion_storage_manifest") {
+          listCalls += 1;
+          return {
+            data: listCalls === 1
+              ? [{ bucket_id: "pin-images", object_path: "pins/123-0123456789abcdef0123456789abcdef.webp" }]
+              : [],
+            error: null,
+          };
+        }
+        if (name === "mark_account_deletion_storage_object_deleted") return { data: true, error: null };
+        if (name === "finish_account_deletion_job") return { data: true, error: null };
+        throw new Error("unexpected RPC: " + name);
+      },
+    };
+    const worker = createAccountDeletionWorker({
+      client,
+      deleteImageObject: async () => removed,
+      logger: { info() {}, error() {} },
+    });
+    const result = await worker.tick();
+    assert.equal(result.completed, 0, `removal answered ${JSON.stringify(removed)} and the stage still completed`);
+    const finish = calls.find((call) => call.name === "finish_account_deletion_job");
+    assert.equal(finish.args.p_error_code, "storage_object_not_deleted");
+  }
+});
+
+test("the inventory counts queued emails through the owner's subscriptions", async () => {
+  const countedTables = [];
+  const client = {
+    ...createReadClient(),
+    from(table) {
+      if (table === "subscriptions") {
+        const query = {
+          select() { return query; },
+          eq() { return query; },
+          order() { return query; },
+          range() { return query; },
+          then(resolve) {
+            countedTables.push(table);
+            return Promise.resolve({ data: [{ id: "sub-1" }, { id: "sub-2" }], count: 2, error: null }).then(resolve);
+          },
+        };
+        return query;
+      }
+      if (table === "email_outbox") {
+        const query = {
+          select() { countedTables.push(table); return query; },
+          in() { return query; },
+          then(resolve) { return Promise.resolve({ data: null, count: 3, error: null }).then(resolve); },
+        };
+        return query;
+      }
+      return createReadClient().from(table);
+    },
+  };
+  const inventory = await inspectAccountForDeletion(client, USER_ID);
+  assert.equal(inventory.ok, true);
+  assert.equal(countedTables.includes("email_outbox"), true, "queued emails must be inventoried, not discovered after deletion");
+  assert.equal(inventory.counts.email_outbox, 3);
+});
