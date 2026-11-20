@@ -1,5 +1,20 @@
 const { generateText } = require("./gptunnel");
 const { httpError } = require("./validate");
+
+/**
+ * Section 119. Every refusal in this module means the same thing to the customer: the language model
+ * answered with something we cannot use, and no image was requested for it. A 502 without a code loses
+ * that message on the way out, so the screen said "internal server error" and the person could not tell
+ * whether the attempt had cost them credits. The code names the category, the text stays in the log.
+ */
+const AI_OUTPUT_INVALID = "ai_output_invalid";
+
+function invalidAiOutput(message) {
+  const error = httpError(502, message);
+  error.details = { code: AI_OUTPUT_INVALID };
+  return error;
+}
+
 const { serializeUntrustedPromptContext } = require("./promptContext");
 
 /**
@@ -21,11 +36,11 @@ const INTENTS = Object.freeze(["inspiration", "how_to", "product", "style", "sea
 
 function boundedText(value, max, label) {
   if (typeof value !== "string") {
-    throw httpError(502, `Некорректный ответ нейросети: поле «${label}» должно быть строкой`);
+    throw invalidAiOutput(`Некорректный ответ нейросети: поле «${label}» должно быть строкой`);
   }
   const normalized = value.replace(/\s+/g, " ").trim();
   if (!normalized || normalized.length > max) {
-    throw httpError(502, `Некорректный ответ нейросети: поле «${label}» должно содержать от 1 до ${max} символов`);
+    throw invalidAiOutput(`Некорректный ответ нейросети: поле «${label}» должно содержать от 1 до ${max} символов`);
   }
   return normalized;
 }
@@ -36,7 +51,7 @@ function validateKeywordIdeas(value, requestedCount) {
     : KEYWORD_LIMITS.count;
 
   if (!Array.isArray(value) || value.length === 0) {
-    throw httpError(502, "Нейросеть не вернула ни одной идеи ключевого слова");
+    throw invalidAiOutput("Нейросеть не вернула ни одной идеи ключевого слова");
   }
 
   const seen = new Set();
@@ -44,7 +59,7 @@ function validateKeywordIdeas(value, requestedCount) {
   for (const [index, item] of value.entries()) {
     if (ideas.length >= limit) break;
     if (!item || typeof item !== "object" || Array.isArray(item)) {
-      throw httpError(502, `Некорректная идея ключевого слова №${index + 1}`);
+      throw invalidAiOutput(`Некорректная идея ключевого слова №${index + 1}`);
     }
     const keyword = boundedText(item.keyword, KEYWORD_LIMITS.keyword, `keyword №${index + 1}`);
     const fingerprint = keyword.toLocaleLowerCase();
@@ -61,14 +76,14 @@ function validateKeywordIdeas(value, requestedCount) {
   }
 
   if (ideas.length === 0) {
-    throw httpError(502, "Нейросеть вернула только повторы ключевых слов");
+    throw invalidAiOutput("Нейросеть вернула только повторы ключевых слов");
   }
   return ideas;
 }
 
 function parseKeywordIdeasResponse(raw, requestedCount) {
   if (typeof raw !== "string" || !raw.trim()) {
-    throw httpError(502, "Нейросеть вернула пустой ответ при подборе ключевых слов");
+    throw invalidAiOutput("Нейросеть вернула пустой ответ при подборе ключевых слов");
   }
   try {
     // The model sometimes wraps the array in prose or a code fence.
@@ -76,7 +91,7 @@ function parseKeywordIdeasResponse(raw, requestedCount) {
     return validateKeywordIdeas(JSON.parse(match ? match[0] : raw), requestedCount);
   } catch (error) {
     if (error && error.httpStatus) throw error;
-    throw httpError(502, "Не удалось разобрать идеи ключевых слов от нейросети");
+    throw invalidAiOutput("Не удалось разобрать идеи ключевых слов от нейросети");
   }
 }
 

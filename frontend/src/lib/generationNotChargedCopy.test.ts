@@ -119,3 +119,22 @@ test('an unsaved generation says "do not retry", not "check the queue"', () => {
     }
   });
 });
+
+test('unusable model output says the attempt was free, in every language', () => {
+  // Section 119: /analyze, /boards, /pins and /keyword-ideas all refused unusable output with a bare
+  // 502, so the screen said "internal server error" and the person could not tell whether it had cost
+  // them credits.
+  for (const language of LANGUAGES) {
+    const message = withStoredLanguage(language, () => getLocalizedApiError('ai_output_invalid', 502));
+    assert.ok(message && message.trim().length > 0, `${language} must translate ai_output_invalid`);
+  }
+  const english = withStoredLanguage('en', () => getLocalizedApiError('ai_output_invalid', 502))!;
+  assert.match(english, /nothing was charged/i);
+  assert.match(english, /try again/i);
+  withStoredLanguage('en', () => {
+    assert.ok(getLocalizedApiError('ai_output_invalid', 503));
+    for (const status of [200, 402, 409, 422]) {
+      assert.equal(getLocalizedApiError('ai_output_invalid', status), null, `status ${status}`);
+    }
+  });
+});

@@ -17,6 +17,7 @@ export type AppErrorMessageKey =
   | 'generationCostUnconfirmed'
   | 'generationNotCharged'
   | 'generationSaveFailed'
+  | 'aiOutputInvalid'
   | 'paymentProviderUnavailable'
   | 'paymentLinkNotSaved'
   | 'paymentOrderPreparationFailed'
@@ -82,6 +83,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     generationCostUnconfirmed: "The generation could not be completed and no pins were created. Try again in a few minutes.",
     generationNotCharged: "Nothing was charged for this generation: the reserved credits are back in your balance. Try again — the second attempt starts from scratch.",
     generationSaveFailed: "The images were generated, but saving them failed. Your credits for this run are still reserved and a new run would generate — and charge — again, so write to support before retrying.",
+    aiOutputInvalid: "The model answered with something we could not use, so this attempt was stopped. Nothing was charged for it — try again.",
     paymentProviderUnavailable: "The payment service is not responding right now. Nothing has been charged - try again in a few minutes.",
     paymentLinkNotSaved: "Your invoice was created but we could not save its link. Do not start another payment - contact support and we will find your invoice by email.",
     paymentOrderPreparationFailed: "We could not prepare your order safely, and nothing was sent to the payment provider. Try again in a few minutes.",
@@ -146,6 +148,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     generationCostUnconfirmed: "Генерация не завершилась, пины не созданы. Повторите попытку через несколько минут.",
     generationNotCharged: "За эту генерацию ничего не списано: зарезервированные кредиты вернулись на баланс. Попробуйте снова — вторая попытка начинается с нуля.",
     generationSaveFailed: "Изображения сгенерированы, но сохранить их не удалось. Кредиты за этот запуск всё ещё зарезервированы, а новый запуск сгенерирует и спишет их заново — напишите в поддержку, прежде чем повторять.",
+    aiOutputInvalid: "Нейросеть ответила так, что использовать это нельзя, поэтому попытка остановлена. За неё ничего не списано — попробуйте снова.",
     paymentProviderUnavailable: "Платёжный сервис сейчас не отвечает. Деньги не списаны — повторите попытку через несколько минут.",
     paymentLinkNotSaved: "Счёт создан, но ссылку на него сохранить не удалось. Не создавайте новый платёж — напишите в поддержку, мы найдём счёт по email.",
     paymentOrderPreparationFailed: "Не удалось безопасно подготовить заказ, провайдеру ничего не отправлялось. Повторите попытку через несколько минут.",
@@ -210,6 +213,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     generationCostUnconfirmed: "La generación no pudo completarse y no se creó ningún pin. Inténtalo de nuevo en unos minutos.",
     generationNotCharged: "No se ha cobrado nada por esta generación: los créditos reservados han vuelto a tu saldo. Inténtalo de nuevo; el segundo intento empieza desde cero.",
     generationSaveFailed: "Las imágenes se generaron, pero no se pudieron guardar. Tus créditos de esta ejecución siguen reservados y una nueva ejecución volvería a generar y a cobrar, así que escribe al soporte antes de reintentar.",
+    aiOutputInvalid: "El modelo respondió con algo que no podemos usar, así que esta tentativa se detuvo. No se ha cobrado nada por ella; inténtalo de nuevo.",
     paymentProviderUnavailable: "El servicio de pago no responde en este momento. No se ha cobrado nada: inténtalo de nuevo en unos minutos.",
     paymentLinkNotSaved: "La factura se creó, pero no pudimos guardar su enlace. No inicies otro pago: escribe al soporte y la encontraremos por tu email.",
     paymentOrderPreparationFailed: "No pudimos preparar tu pedido de forma segura y no se envió nada al proveedor de pago. Inténtalo de nuevo en unos minutos.",
@@ -274,6 +278,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     generationCostUnconfirmed: "A geração não foi concluída e nenhum pin foi criado. Tente novamente em alguns minutos.",
     generationNotCharged: "Nada foi cobrado por esta geração: os créditos reservados voltaram ao seu saldo. Tente novamente — a segunda tentativa começa do zero.",
     generationSaveFailed: "As imagens foram geradas, mas não foi possível salvá-las. Os seus créditos desta execução continuam reservados e uma nova execução voltaria a gerar e a cobrar — escreva ao suporte antes de tentar novamente.",
+    aiOutputInvalid: "O modelo respondeu algo que não podemos usar, por isso esta tentativa foi interrompida. Nada foi cobrado por ela — tente novamente.",
     paymentProviderUnavailable: "O serviço de pagamento não está respondendo agora. Nada foi cobrado — tente novamente em alguns minutos.",
     paymentLinkNotSaved: "A fatura foi criada, mas não conseguimos salvar o link dela. Não inicie outro pagamento — fale com o suporte e a encontraremos pelo seu email.",
     paymentOrderPreparationFailed: "Não conseguimos preparar seu pedido com segurança e nada foi enviado ao provedor de pagamento. Tente novamente em alguns minutos.",
@@ -338,6 +343,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     generationCostUnconfirmed: "Die Generierung konnte nicht abgeschlossen werden und es wurden keine Pins erstellt. Versuche es in ein paar Minuten erneut.",
     generationNotCharged: "Für diese Generierung wurde nichts belastet: Die reservierten Credits sind wieder auf Ihrem Guthaben. Versuchen Sie es erneut — der zweite Versuch beginnt von vorn.",
     generationSaveFailed: "Die Bilder wurden erzeugt, konnten aber nicht gespeichert werden. Ihre Credits für diesen Lauf sind weiterhin reserviert, und ein neuer Lauf würde erneut erzeugen und belasten — schreiben Sie dem Support, bevor Sie es erneut versuchen.",
+    aiOutputInvalid: "Das Modell hat etwas geantwortet, das wir nicht verwenden können; dieser Versuch wurde beendet. Es wurde nichts dafür belastet — versuchen Sie es erneut.",
     paymentProviderUnavailable: "Der Zahlungsdienst antwortet gerade nicht. Es wurde nichts belastet - versuche es in ein paar Minuten erneut.",
     paymentLinkNotSaved: "Die Rechnung wurde erstellt, aber wir konnten ihren Link nicht speichern. Starte keine zweite Zahlung - schreibe dem Support, wir finden sie über deine E-Mail.",
     paymentOrderPreparationFailed: "Wir konnten deine Bestellung nicht sicher vorbereiten, an den Zahlungsanbieter wurde nichts gesendet. Versuche es in ein paar Minuten erneut.",
@@ -402,6 +408,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     generationCostUnconfirmed: "La génération n'a pas pu être terminée et aucune épingle n'a été créée. Réessayez dans quelques minutes.",
     generationNotCharged: "Rien n’a été débité pour cette génération : les crédits réservés sont revenus sur votre solde. Réessayez — la seconde tentative repart de zéro.",
     generationSaveFailed: "Les images ont été générées, mais leur enregistrement a échoué. Vos crédits pour cette exécution restent réservés et une nouvelle exécution régénérerait — et facturerait — de nouveau : écrivez au support avant de réessayer.",
+    aiOutputInvalid: "Le modèle a répondu quelque chose que nous ne pouvons pas utiliser : cette tentative a été arrêtée. Rien n’a été débité pour elle — réessayez.",
     paymentProviderUnavailable: "Le service de paiement ne répond pas pour le moment. Rien n'a été débité : réessayez dans quelques minutes.",
     paymentLinkNotSaved: "La facture a été créée, mais nous n'avons pas pu enregistrer son lien. Ne lancez pas un autre paiement : écrivez au support et nous la retrouverons grâce à votre email.",
     paymentOrderPreparationFailed: "Nous n'avons pas pu préparer votre commande en toute sécurité et rien n'a été envoyé au prestataire de paiement. Réessayez dans quelques minutes.",
@@ -466,6 +473,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     generationCostUnconfirmed: "生成未能完成，没有创建任何 Pin。请几分钟后重试。",
     generationNotCharged: "本次生成没有扣费：预留的积分已退回余额。请重试，第二次将从头开始。",
     generationSaveFailed: "图片已生成，但保存失败。本次运行的积分仍处于预留状态，重新运行会再次生成并再次扣费——请先联系客服再重试。",
+    aiOutputInvalid: "模型返回了无法使用的内容，本次尝试已停止，没有扣费。请重试。",
     paymentProviderUnavailable: "支付服务暂时无法响应，尚未扣款。请几分钟后重试。",
     paymentLinkNotSaved: "账单已创建，但我们无法保存其链接。请不要再次发起支付，请联系客服，我们会通过邮箱找到这笔账单。",
     paymentOrderPreparationFailed: "我们无法安全地准备您的订单，也没有向支付服务商发送任何内容。请几分钟后重试。",
@@ -634,6 +642,10 @@ export function getLocalizedApiError(code: unknown, status: unknown): string | n
   }
   // "Nothing was charged" is true on any failure status the generation route can choose - 402, 422,
   // 500, 502 - so this one is not gated by the status class, only by being a failure.
+  // The model gave unusable output: no image was requested for it, so nothing was charged (section 119).
+  if (code === 'ai_output_invalid' && [502, 503].includes(Number(status))) {
+    return getAppErrorMessage('aiOutputInvalid');
+  }
   // The images exist but could not be saved: the reservation is held, a blind retry charges again.
   if (code === 'generation_save_failed' && [500, 502, 503].includes(Number(status))) {
     return getAppErrorMessage('generationSaveFailed');
