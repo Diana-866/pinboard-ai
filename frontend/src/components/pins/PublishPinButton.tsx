@@ -157,7 +157,7 @@ export const PublishPinButton: React.FC<PublishPinButtonProps> = ({ pinId, board
       // A lost connection or server-side failure after POST /pins is ambiguous:
       // Pinterest may have created the pin even though the browser got no reply.
       // 409 also means the backend has fenced an in-flight/unknown attempt.
-      if (isAmbiguousPinterestPublishStatus(err?.status)) {
+      if (isAmbiguousPinterestPublishStatus(err?.status, err?.data?.code)) {
         setUncertain(true);
       } else {
         setError(err?.message || t.publishing.publishFailed);
