@@ -382,6 +382,20 @@ async function buildAccountExport(userId, client = defaultSupabase) {
   };
 }
 
+/**
+ * "The deletion pipeline is not running" is not a server fault the customer can retry past.
+ *
+ * It used to be a bare 503 with a Russian sentence, and a 503 never carries its message: the
+ * customer read "внутренняя ошибка сервера, попробуйте позже" for a feature that is switched off in
+ * the deployment, and kept retrying a request that could never succeed. The code lets the client
+ * say what is actually true - the request has to be sent to support instead.
+ */
+function unavailableDeletionError(message) {
+  const error = httpError(503, message);
+  error.details = { ...(error.details || {}), code: "account_deletion_unavailable" };
+  return error;
+}
+
 function mapDeletionRpcError(error) {
   const message = (error && error.message) || "";
   if (/user not found/i.test(message)) {
@@ -398,7 +412,7 @@ function mapDeletionRpcError(error) {
   }
   // Function missing means migration 127 has not been applied yet.
   if (/could not find the function|does not exist|PGRST202/i.test(message)) {
-    return httpError(503, "Удаление аккаунта ещё не активировано — попробуйте позже");
+    return unavailableDeletionError("Удаление аккаунта ещё не активировано — попробуйте позже");
   }
   return httpError(503, "Не удалось создать запрос на удаление — попробуйте позже");
 }
@@ -418,7 +432,7 @@ async function requestAccountDeletion(
   // is enabled to process it. This is fail-closed for every caller, not just
   // the HTTP route.
   if (workerEnabled !== true) {
-    throw httpError(503, "Удаление аккаунта временно недоступно — попробуйте позже");
+    throw unavailableDeletionError("Удаление аккаунта временно недоступно — попробуйте позже");
   }
   const id = requireUserId(userId);
 

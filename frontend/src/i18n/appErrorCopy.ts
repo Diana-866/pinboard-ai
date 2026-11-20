@@ -35,6 +35,7 @@ export type AppErrorMessageKey =
   | 'boardSelectionRequired'
   | 'imageUploadRequired'
   | 'websiteUnreachable'
+  | 'accountDeletionUnavailable'
   | 'projectNotFound'
   | 'boardNotFound'
   | 'pinNotFound'
@@ -90,6 +91,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     boardSelectionRequired: "Choose a Pinterest board before scheduling the publication.",
     imageUploadRequired: "Attach an image file (PNG/JPG/WebP/GIF, up to 5 MB).",
     websiteUnreachable: "The site could not be read: it is unreachable or blocks automated checks. Open the address in a browser — if it opens there, the site is refusing automated access.",
+    accountDeletionUnavailable: "Account deletion is not available in this installation yet. Your data has not been touched — write to support and the request will be handled manually.",
     projectNotFound: "This project was not found. It may have been deleted, or it belongs to another account.",
     boardNotFound: "This board was not found. Refresh the list and choose a board again.",
     pinNotFound: "This pin no longer exists. Refresh the list to see the current pins.",
@@ -144,6 +146,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     boardSelectionRequired: "Выберите доску Pinterest перед планированием публикации.",
     imageUploadRequired: "Прикрепите файл изображения (PNG/JPG/WebP/GIF, до 5 МБ).",
     websiteUnreachable: "Не удалось прочитать сайт: он недоступен или закрыт от автоматической проверки. Откройте адрес в браузере — если он открывается, значит сайт блокирует автоматический доступ.",
+    accountDeletionUnavailable: "Удаление аккаунта в этой установке пока не включено. Ваши данные не тронуты — напишите в поддержку, и запрос выполнят вручную.",
     projectNotFound: "Проект не найден. Возможно, он удалён или принадлежит другому аккаунту.",
     boardNotFound: "Доска не найдена. Обновите список и выберите доску заново.",
     pinNotFound: "Этот пин больше не существует. Обновите список, чтобы увидеть актуальные пины.",
@@ -198,6 +201,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     boardSelectionRequired: "Elige un tablero de Pinterest antes de programar la publicación.",
     imageUploadRequired: "Adjunta un archivo de imagen (PNG/JPG/WebP/GIF, hasta 5 MB).",
     websiteUnreachable: "No se pudo leer el sitio: no está disponible o bloquea las comprobaciones automáticas. Abre la dirección en el navegador; si allí se abre, el sitio está bloqueando el acceso automático.",
+    accountDeletionUnavailable: "La eliminación de la cuenta aún no está disponible en esta instalación. Tus datos no se han tocado: escribe a soporte y la solicitud se tramitará manualmente.",
     projectNotFound: "No se encontró este proyecto. Puede que se haya eliminado o que pertenezca a otra cuenta.",
     boardNotFound: "No se encontró este tablero. Actualiza la lista y elige un tablero de nuevo.",
     pinNotFound: "Este pin ya no existe. Actualiza la lista para ver los pines actuales.",
@@ -252,6 +256,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     boardSelectionRequired: "Escolha um quadro do Pinterest antes de agendar a publicação.",
     imageUploadRequired: "Anexe um ficheiro de imagem (PNG/JPG/WebP/GIF, até 5 MB).",
     websiteUnreachable: "Não foi possível ler o site: está indisponível ou bloqueia verificações automáticas. Abra o endereço no navegador — se abrir aí, o site está a bloquear o acesso automático.",
+    accountDeletionUnavailable: "A eliminação da conta ainda não está disponível nesta instalação. Os seus dados não foram tocados — escreva para o suporte e o pedido será tratado manualmente.",
     projectNotFound: "Este projeto não foi encontrado. Pode ter sido eliminado ou pertencer a outra conta.",
     boardNotFound: "Este quadro não foi encontrado. Atualize a lista e escolha um quadro novamente.",
     pinNotFound: "Este pin já não existe. Atualize a lista para ver os pins atuais.",
@@ -306,6 +311,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     boardSelectionRequired: "Wählen Sie ein Pinterest-Board, bevor Sie die Veröffentlichung planen.",
     imageUploadRequired: "Fügen Sie eine Bilddatei hinzu (PNG/JPG/WebP/GIF, bis 5 MB).",
     websiteUnreachable: "Die Website konnte nicht gelesen werden: Sie ist nicht erreichbar oder blockiert automatische Prüfungen. Öffnen Sie die Adresse im Browser — öffnet sie sich dort, blockiert die Website den automatischen Zugriff.",
+    accountDeletionUnavailable: "Die Kontolöschung ist in dieser Installation noch nicht verfügbar. Ihre Daten wurden nicht angetastet — schreiben Sie dem Support, dann wird die Anfrage manuell bearbeitet.",
     projectNotFound: "Dieses Projekt wurde nicht gefunden. Möglicherweise wurde es gelöscht oder gehört zu einem anderen Konto.",
     boardNotFound: "Dieses Board wurde nicht gefunden. Aktualisieren Sie die Liste und wählen Sie erneut ein Board.",
     pinNotFound: "Dieser Pin existiert nicht mehr. Aktualisieren Sie die Liste, um die aktuellen Pins zu sehen.",
@@ -360,6 +366,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     boardSelectionRequired: "Choisissez un tableau Pinterest avant de programmer la publication.",
     imageUploadRequired: "Joignez un fichier image (PNG/JPG/WebP/GIF, jusqu’à 5 Mo).",
     websiteUnreachable: "Impossible de lire le site : il est injoignable ou bloque les vérifications automatiques. Ouvrez l’adresse dans un navigateur — si elle s’ouvre, le site bloque l’accès automatique.",
+    accountDeletionUnavailable: "La suppression de compte n’est pas encore disponible dans cette installation. Vos données n’ont pas été touchées — écrivez au support, la demande sera traitée manuellement.",
     projectNotFound: "Ce projet est introuvable. Il a peut-être été supprimé ou appartient à un autre compte.",
     boardNotFound: "Ce tableau est introuvable. Actualisez la liste et choisissez à nouveau un tableau.",
     pinNotFound: "Ce pin n’existe plus. Actualisez la liste pour voir les pins actuels.",
@@ -414,6 +421,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     boardSelectionRequired: "在安排发布前请选择 Pinterest 画板。",
     imageUploadRequired: "请附加图片文件（PNG/JPG/WebP/GIF，最大 5 MB）。",
     websiteUnreachable: "无法读取该网站：网站不可访问，或阻止自动检查。请在浏览器中打开该地址——如果浏览器能打开，说明网站阻止了自动访问。",
+    accountDeletionUnavailable: "此安装尚未启用账户删除。您的数据未被改动——请联系支持，请求将人工处理。",
     projectNotFound: "未找到该项目，可能已被删除或属于其他账号。",
     boardNotFound: "未找到该画板，请刷新列表后重新选择。",
     pinNotFound: "该 Pin 已不存在，请刷新列表查看当前 Pin。",
@@ -526,6 +534,7 @@ const TARIFF_CODES: Record<string, AppErrorMessageKey> = {
 };
 
 const TRANSIENT_CODES: Record<string, AppErrorMessageKey> = {
+  account_deletion_unavailable: 'accountDeletionUnavailable',
   gptunnel_text_cost_missing: 'generationCostUnconfirmed',
   pinterest_unavailable: 'pinterestUnavailable',
   pinterest_rate_limited: 'pinterestRateLimited',

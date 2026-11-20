@@ -368,3 +368,31 @@ test("payment decisions are ordered by their real primary key", async () => {
   assert.equal(decisionOrder.column, "receipt_id");
   assert.deepEqual(decisionOrder.options, { ascending: true });
 });
+
+test("a switched-off deletion pipeline is a machine code, not a bare server error", async () => {
+  // Section 107. The customer read "внутренняя ошибка сервера, попробуйте позже" for a feature that
+  // is off in the deployment, and retried a request that could never succeed.
+  const db = fakeDb({
+    users: [{ id: USER_ID, password_hash: bcrypt.hashSync("correct-horse-battery", 10), token_version: 12 }],
+  });
+  const failure = await requestAccountDeletion(
+    { userId: USER_ID, password: "correct-horse-battery" },
+    db,
+    false
+  ).then(() => null, (error) => error);
+  assert.equal(failure.httpStatus, 503);
+  assert.equal(failure.details && failure.details.code, "account_deletion_unavailable");
+  assert.equal(db.rpcCalls.length, 0, "a disabled pipeline must not create a job");
+});
+
+test("the missing-migration answer carries the same code, so the client says one thing", () => {
+  const missing = mapDeletionRpcError({ message: "Could not find the function public.request_account_deletion" });
+  assert.equal(missing.httpStatus, 503);
+  assert.equal(missing.details && missing.details.code, "account_deletion_unavailable");
+
+  // A genuine server failure stays uncoded: the customer cannot act on it, so it keeps the
+  // generic text instead of pretending to be a feature switch.
+  const other = mapDeletionRpcError({ message: "connection reset" });
+  assert.equal(other.httpStatus, 503);
+  assert.equal(other.details, undefined);
+});
