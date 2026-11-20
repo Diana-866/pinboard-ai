@@ -122,7 +122,7 @@ test("a successful send is localized, stable and marked as sent", async () => {
   const { billing, mail, calls } = loadBilling({ claimResult: [row()] });
   const result = await billing.dispatchPendingSubscriptionEmails(10, { mail });
 
-  assert.deepEqual(result, { skipped: false, processed: 1, sent: 1, failed: 0 });
+  assert.deepEqual(result, { skipped: false, processed: 1, sent: 1, failed: 0, unconfirmed: 0 });
   assert.equal(calls.sent.length, 1);
   const message = calls.sent[0];
   assert.equal(message.to, "customer@example.invalid");
@@ -149,7 +149,7 @@ test("an unsupported template is retried with a safe code and never sent", async
   const { billing, mail, calls } = loadBilling({ claimResult: [row({ template_key: "password_changed" })] });
   const result = await billing.dispatchPendingSubscriptionEmails(10, { mail });
 
-  assert.deepEqual(result, { skipped: false, processed: 1, sent: 0, failed: 1 });
+  assert.deepEqual(result, { skipped: false, processed: 1, sent: 0, failed: 1, unconfirmed: 0 });
   assert.equal(calls.sent.length, 0);
   const retry = calls.rpc.find((entry) => entry.name === "retry_email_outbox");
   assert.equal(retry.args.p_error_code, "unsupported_template");
@@ -168,11 +168,28 @@ test("a payload without a usable period end is retried instead of sending a brok
   }
 });
 
-test("a claim that is no longer ours is not counted as sent", async () => {
+test("a claim that is no longer ours is counted as unconfirmed, not silently dropped", async () => {
+  // Section 125. The mail went out, but the write that would confirm it was refused because another
+  // worker holds the row now. Neither "sent" nor "failed" describes it, and leaving it out of every
+  // counter made the batch summary not add up: processed 1, sent 0, failed 0 reads like a bug.
   const { billing, mail } = loadBilling({ claimResult: [row()], markResult: false });
   const result = await billing.dispatchPendingSubscriptionEmails(10, { mail });
   assert.equal(result.sent, 0, "another worker took the row; counting it as sent would hide a lost email");
   assert.equal(result.failed, 0);
+  assert.equal(result.unconfirmed, 1, "the batch must say that one message has no confirmed outcome");
+  assert.equal(
+    result.sent + result.failed + result.unconfirmed,
+    result.processed,
+    "every claimed row must be accounted for in exactly one counter"
+  );
+});
+
+test("a confirmed batch leaves nothing unconfirmed", async () => {
+  const { billing, mail } = loadBilling({ claimResult: [row(), row({ id: "outbox-2", claim_token: "claim-token-2", subscription_id: "sub-2" })] });
+  const result = await billing.dispatchPendingSubscriptionEmails(10, { mail });
+  assert.equal(result.sent, 2);
+  assert.equal(result.unconfirmed, 0);
+  assert.equal(result.sent + result.failed + result.unconfirmed, result.processed);
 });
 
 test("a failed retry write does not stop the rest of the batch", async () => {

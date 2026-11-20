@@ -137,5 +137,5 @@ test("malformed email outbox claim responses fail before sending or retrying any
 
 test("a valid empty email outbox claim is reported as an idle queue", async () => {
   const result = await dispatchPendingSubscriptionEmails(10, { supabase: { rpc: async () => ({ data: [], error: null }) }, mail: { transactionalMailConfigured: () => true } });
-  assert.deepEqual(result, { skipped: false, processed: 0, sent: 0, failed: 0 });
+  assert.deepEqual(result, { skipped: false, processed: 0, sent: 0, failed: 0, unconfirmed: 0 });
 });

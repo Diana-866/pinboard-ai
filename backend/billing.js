@@ -227,6 +227,11 @@ async function dispatchPendingSubscriptionEmails(limit = 10, dependencies = {}) 
 
   let sent = 0;
   let failed = 0;
+  // Section 125. A send that succeeded but whose confirmation was refused (another worker holds the
+  // row now) is neither "sent" nor "failed". Leaving it uncounted made the batch summary silently
+  // not add up, so an operator reading {processed: 10, sent: 8, failed: 1} could not tell that one
+  // message was unaccounted for - and that is the one case where a customer may get two emails.
+  let unconfirmed = 0;
   for (const row of rows) {
     try {
       if (row.template_key !== "subscription_activated") {
@@ -276,6 +281,7 @@ async function dispatchPendingSubscriptionEmails(limit = 10, dependencies = {}) 
       });
       if (markError) throw markError;
       if (!marked) {
+        unconfirmed += 1;
         logWarning("billing.event_006");
       } else {
         sent += 1;
@@ -296,7 +302,7 @@ async function dispatchPendingSubscriptionEmails(limit = 10, dependencies = {}) 
     }
   }
 
-  return { skipped: false, processed: rows.length, sent, failed };
+  return { skipped: false, processed: rows.length, sent, failed, unconfirmed };
 }
 
 /**
