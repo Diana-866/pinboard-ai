@@ -29,6 +29,23 @@ function sessionToken(tokenVersion = 0) {
   return signSessionToken({ id: USER_ID, token_version: tokenVersion }, SECRET);
 }
 
+/**
+ * Give the signed-in customer an active paid plan with enough credits for the generation guard to
+ * pass on its own merits - the tariff gate runs before the handler, so a test that skipped it would
+ * assert against `tariff_required` instead of the behaviour it names.
+ */
+function activatePaidPlan(backend, { credits = 500, plan = "pro" } = {}) {
+  backend.db.table("GET", "users", ({ query }) => {
+    const select = String(query.select || "").replace(/\s+/g, "");
+    if (select === "token_version") return { status: 200, body: [{ token_version: 0 }] };
+    if (select === "tariff_plan,tariff_period_end") {
+      return { status: 200, body: [{ tariff_plan: plan, tariff_period_end: null }] };
+    }
+    return { status: 200, body: [{ id: USER_ID, credits_balance: credits, tariff_plan: plan }] };
+  });
+  backend.db.table("GET", "subscriptions", { status: 200, body: [] });
+}
+
 async function startBackend({ tokenVersion = 0, extraEnv = {} } = {}) {
   const db = startFakePostgrest();
   const dbUrl = await db.listen();
@@ -159,12 +176,13 @@ async function startBackend({ tokenVersion = 0, extraEnv = {} } = {}) {
       return fetch(`${base}${pathname}`, { headers: token ? { authorization: `Bearer ${token}` } : {} })
         .then(async (response) => ({ status: response.status, body: JSON.parse(await response.text() || "null") }));
     },
-    send(method, pathname, payload, token = sessionToken()) {
+    send(method, pathname, payload, token = sessionToken(), extraHeaders = {}) {
       return fetch(`${base}${pathname}`, {
         method,
         headers: {
           ...(token ? { authorization: `Bearer ${token}` } : {}),
           "content-type": "application/json",
+          ...extraHeaders,
         },
         body: payload === undefined ? undefined : JSON.stringify(payload),
       }).then(async (response) => ({ status: response.status, body: JSON.parse(await response.text() || "null") }));
@@ -996,7 +1014,12 @@ test("the board-generation route runs end to end against a stand-in provider", a
     );
   } finally {
     await backend.stop();
-    await new Promise((resolve) => provider.close(resolve));
+    await new Promise((resolve) => {
+      // A keep-alive socket from the child would otherwise hold the server open and keep the whole
+      // test file alive after its last assertion.
+      provider.closeAllConnections?.();
+      provider.close(resolve);
+    });
   }
 });
 
@@ -1040,6 +1063,216 @@ test("a provider failure during board generation creates nothing and says so", a
     assert.equal(/provider is down/.test(raw), false, `the provider's own message must not reach the customer: ${raw}`);
   } finally {
     await backend.stop();
-    await new Promise((resolve) => provider.close(resolve));
+    await new Promise((resolve) => {
+      // A keep-alive socket from the child would otherwise hold the server open and keep the whole
+      // test file alive after its last assertion.
+      provider.closeAllConnections?.();
+      provider.close(resolve);
+    });
+  }
+});
+test("the generation route answers every claim state without charging or starting work", async () => {
+  // The states of `begin_pin_generation_request` are the money contract: a request that already
+  // completed must return the saved pins, one that is running must make the client poll, and one
+  // whose outcome is unknown must never start a second billable generation.
+  const cases = [
+    { state: { status: "expired" }, expectedStatus: 410, expectedCode: "idempotency_result_expired" },
+    { state: { status: "unknown" }, expectedStatus: 409, expectedCode: "generation_outcome_unknown" },
+    { state: { status: "failed" }, expectedStatus: 409, expectedCode: "generation_request_failed" },
+  ];
+
+  for (const item of cases) {
+    const backend = await startBackend();
+    try {
+      backend.db.ownedBy = USER_ID;
+      activatePaidPlan(backend);
+      backend.db.rpc("begin_pin_generation_request", { status: 200, body: item.state });
+      const answer = await backend.send(
+        "POST",
+        `/boards/${BOARD_ID}/pins/generate`,
+        {},
+        sessionToken(),
+        { "idempotency-key": "generation-key-0001" }
+      );
+      assert.equal(answer.status, item.expectedStatus, `state ${item.state.status}`);
+      assert.equal(answer.body.code, item.expectedCode);
+      assert.deepEqual(
+        backend.db.requests.filter((entry) => entry.path.includes("/rpc/reserve_pin_generation_credits")),
+        [],
+        `state ${item.state.status} must not reserve credits`
+      );
+    } finally {
+      await backend.stop();
+    }
+  }
+});
+
+test("a completed generation is returned as the saved pins, not regenerated", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+      activatePaidPlan(backend);
+    const savedPins = [{ id: "pin-1", title: "Сохранённый" }, { id: "pin-2", title: "Тоже сохранённый" }];
+    backend.db.rpc("begin_pin_generation_request", { status: 200, body: { status: "completed", pins: savedPins } });
+    const answer = await backend.send(
+      "POST",
+      `/boards/${BOARD_ID}/pins/generate`,
+      {},
+      sessionToken(),
+      { "idempotency-key": "generation-key-0002" }
+    );
+    assert.equal(answer.status, 200);
+    assert.deepEqual(answer.body, savedPins);
+    assert.deepEqual(
+      backend.db.requests.filter((entry) => entry.path.includes("/rpc/reserve_pin_generation_credits")),
+      [],
+      "returning saved pins must not reserve credits again"
+    );
+    assert.deepEqual(
+      backend.db.requests.filter((entry) => entry.method === "POST" && entry.path === "/rest/v1/pins"),
+      [],
+      "no pin may be created for an answer taken from the journal"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a generation that is still running makes the client wait instead of starting a second one", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+      activatePaidPlan(backend);
+    backend.db.rpc("begin_pin_generation_request", {
+      status: 200,
+      body: { status: "processing", claim_token: "11111111-1111-4111-8111-111111111111" },
+    });
+    const answer = await backend.send(
+      "POST",
+      `/boards/${BOARD_ID}/pins/generate`,
+      {},
+      sessionToken(),
+      { "idempotency-key": "generation-key-0003" }
+    );
+    assert.equal(answer.status, 409);
+    assert.equal(answer.body.code, "generation_in_progress");
+    assert.equal(answer.body.retryAfterSeconds, 5, "the client needs a concrete wait to show");
+    assert.deepEqual(
+      backend.db.requests.filter((entry) => entry.path.includes("/rpc/reserve_pin_generation_credits")),
+      [],
+      "a running generation must not be reserved twice"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a generation without a usable idempotency key is refused before any database work", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = USER_ID;
+    activatePaidPlan(backend);
+    for (const key of [undefined, "", "short", "bad key with spaces", "x".repeat(200)]) {
+      const answer = await backend.send(
+        "POST",
+        `/boards/${BOARD_ID}/pins/generate`,
+        {},
+        sessionToken(),
+        key === undefined ? {} : { "idempotency-key": key }
+      );
+      assert.equal(answer.status, 422, `key ${JSON.stringify(key)} was accepted with ${answer.status}: ${JSON.stringify(answer.body)}`);
+    }
+    assert.deepEqual(
+      backend.db.requests.filter((entry) => entry.path.includes("/rpc/")),
+      [],
+      "a rejected key must not reach any generation RPC"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("generating pins inside another account's board is a 404 before any claim", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.ownedBy = OTHER_USER_ID;
+    // The tariff gate runs before the ownership check, so the plan must be active for the 404 to
+    // be the answer under test.
+    activatePaidPlan(backend);
+    const answer = await backend.send(
+      "POST",
+      `/boards/${BOARD_ID}/pins/generate`,
+      {},
+      sessionToken(),
+      { "idempotency-key": "generation-key-0004" }
+    );
+    assert.equal(answer.status, 404);
+    assert.equal(answer.body.code, "board_not_found");
+    assert.deepEqual(
+      backend.db.requests.filter((entry) => entry.path.includes("/rpc/")),
+      [],
+      "a foreign board must not consume an idempotency key"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("generation stops at the balance before reserving or calling the provider", async () => {
+  const providerCalls = [];
+  const provider = http.createServer((req, res) => {
+    providerCalls.push(req.url);
+    req.resume();
+    req.on("end", () => {
+      res.writeHead(500, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "should not be reached" }));
+    });
+  });
+  const providerUrl = await new Promise((resolve) => {
+    provider.listen(0, "127.0.0.1", () => resolve(`http://127.0.0.1:${provider.address().port}`));
+  });
+  const funded = await startBackend({
+    extraEnv: { AI_PROVIDER_BASE_URL: providerUrl, GPTUNNEL_API_KEY: "test-provider-key" },
+  });
+  try {
+    funded.db.ownedBy = USER_ID;
+    funded.db.table("GET", "users", ({ query }) => {
+      const select = String(query.select || "").replace(/\s+/g, "");
+      if (select === "token_version") return { status: 200, body: [{ token_version: 0 }] };
+      if (select === "tariff_plan,tariff_period_end") {
+        return { status: 200, body: [{ tariff_plan: "pro", tariff_period_end: null }] };
+      }
+      // A customer with an active plan and no credits.
+      return { status: 200, body: [{ credits_balance: 0, tariff_plan: "pro" }] };
+    });
+    funded.db.table("GET", "subscriptions", { status: 200, body: [] });
+    funded.db.rpc("begin_pin_generation_request", {
+      status: 200,
+      body: { status: "started", claim_token: "11111111-1111-4111-8111-111111111111" },
+    });
+
+    const answer = await funded.send(
+      "POST",
+      `/boards/${BOARD_ID}/pins/generate`,
+      { count: 2 },
+      sessionToken(),
+      { "idempotency-key": "generation-key-0005" }
+    );
+    assert.equal(answer.status, 402, `expected a payment requirement, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.equal(answer.body.code, "insufficient_credits");
+    assert.deepEqual(
+      funded.db.requests.filter((entry) => entry.path.includes("/rpc/reserve_pin_generation_credits")),
+      [],
+      "an unaffordable generation must not reserve anything"
+    );
+    assert.deepEqual(providerCalls, [], "an unaffordable generation must not reach the provider at all");
+  } finally {
+    await funded.stop();
+    await new Promise((resolve) => {
+      // A keep-alive socket from the child would otherwise hold the server open and keep the whole
+      // test file alive after its last assertion.
+      provider.closeAllConnections?.();
+      provider.close(resolve);
+    });
   }
 });
