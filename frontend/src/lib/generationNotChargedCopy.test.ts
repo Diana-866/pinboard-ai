@@ -138,3 +138,25 @@ test('unusable model output says the attempt was free, in every language', () =>
     }
   });
 });
+
+test('an operator refusal names the deployment mistake instead of "internal error"', () => {
+  // Section 120: on a 5xx only the code crosses, so "migration 164 is not applied" and "the database
+  // did not answer" both arrived as the generic sentence unless they carry distinct codes.
+  for (const language of LANGUAGES) {
+    for (const code of ['login_lockout_migration_missing', 'login_lockout_unavailable']) {
+      const message = withStoredLanguage(language, () => getLocalizedApiError(code, 503));
+      assert.ok(message && message.trim().length > 0, `${language} must translate ${code}`);
+    }
+  }
+  const missing = withStoredLanguage('en', () => getLocalizedApiError('login_lockout_migration_missing', 503))!;
+  assert.match(missing, /migration 164/i, 'the operator needs the migration number');
+  assert.doesNotMatch(missing, /try again/i, 'a missing migration is not fixed by retrying');
+  const unavailable = withStoredLanguage('en', () => getLocalizedApiError('login_lockout_unavailable', 503))!;
+  assert.match(unavailable, /try again/i);
+  assert.notEqual(missing, unavailable, 'two different causes must not share one sentence');
+  withStoredLanguage('en', () => {
+    for (const status of [200, 402, 409, 422]) {
+      assert.equal(getLocalizedApiError('login_lockout_migration_missing', status), null, `status ${status}`);
+    }
+  });
+});

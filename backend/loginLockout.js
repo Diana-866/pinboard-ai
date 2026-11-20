@@ -20,6 +20,22 @@ const { httpError } = require("./validate");
  *     lockout we cannot enforce, and quietly ignoring it would silently drop the protection.
  */
 
+/**
+ * Section 120. The operator refusals below are the only place where a 5xx carries an instruction the
+ * reader can act on: "this environment is missing migration 164" is not the same answer as "the
+ * database did not reply". A 5xx never carries its message, so without a code both arrived as
+ * "внутренняя ошибка сервера" and the operator could not tell a deployment mistake from a transient
+ * fault - while the UI was silently reporting "not locked" for an account an attacker had locked.
+ */
+const LOCKOUT_MIGRATION_MISSING = "login_lockout_migration_missing";
+const LOCKOUT_UNAVAILABLE = "login_lockout_unavailable";
+
+function lockoutUnavailable(message, code) {
+  const error = httpError(503, message);
+  error.details = { code };
+  return error;
+}
+
 const DEFAULT_MAX_ATTEMPTS = 5;
 const DEFAULT_LOCK_SECONDS = 900;
 
@@ -110,10 +126,10 @@ async function adminState(email, db = supabase) {
   const { data, error } = await db.rpc("login_lock_state", { p_email: String(email || "") });
   if (error) {
     if (isMissingFeature(error)) {
-      throw httpError(503, "Замок входа недоступен: примените миграцию 164");
+      throw lockoutUnavailable("Замок входа недоступен: примените миграцию 164", LOCKOUT_MIGRATION_MISSING);
     }
     logError("login_lockout.admin_state_failed");
-    throw httpError(503, "Не удалось получить состояние замка — попробуйте позже");
+    throw lockoutUnavailable("Не удалось получить состояние замка — попробуйте позже", LOCKOUT_UNAVAILABLE);
   }
   return normalizeState(data);
 }
@@ -127,10 +143,10 @@ async function adminReset(email, db = supabase) {
   const { data, error } = await db.rpc("clear_login_failures_by_email", { p_email: String(email || "") });
   if (error) {
     if (isMissingFeature(error)) {
-      throw httpError(503, "Сброс замка недоступен: примените миграцию 164");
+      throw lockoutUnavailable("Сброс замка недоступен: примените миграцию 164", LOCKOUT_MIGRATION_MISSING);
     }
     logError("login_lockout.admin_reset_failed");
-    throw httpError(503, "Не удалось сбросить замок — попробуйте позже");
+    throw lockoutUnavailable("Не удалось сбросить замок — попробуйте позже", LOCKOUT_UNAVAILABLE);
   }
   const cleared = !!(data && data.cleared === true);
   const affected = Number(data && data.rows);
