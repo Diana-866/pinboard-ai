@@ -1,6 +1,6 @@
 {
-  "files": 160,
-  "total": 1366,
+  "files": 161,
+  "total": 1369,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -109,6 +109,7 @@
     "pinterest-scheduler-route-contract.test.js": 8,
     "pinterest-scheduler-worker.test.js": 11,
     "pinterest-security-contract.test.js": 5,
+    "pinterest-server-error-codes.test.js": 3,
     "pinterest-token-crypto.test.js": 7,
     "postgres-concurrency-safety-contract.test.js": 4,
     "postgres-integration-runner-contract.test.js": 32,

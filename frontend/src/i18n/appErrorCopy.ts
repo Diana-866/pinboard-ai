@@ -37,6 +37,9 @@ export type AppErrorMessageKey =
   | 'websiteUnreachable'
   | 'accountDeletionUnavailable'
   | 'publicationReconciliationRequired'
+  | 'pinterestReconnectRequired'
+  | 'pinterestPublicationRejected'
+  | 'pinterestRefreshInProgress'
   | 'projectNotFound'
   | 'boardNotFound'
   | 'pinNotFound'
@@ -94,6 +97,9 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     websiteUnreachable: "The site could not be read: it is unreachable or blocks automated checks. Open the address in a browser — if it opens there, the site is refusing automated access.",
     accountDeletionUnavailable: "Account deletion is not available in this installation yet. Your data has not been touched — write to support and the request will be handled manually.",
     publicationReconciliationRequired: "We could not confirm whether this pin reached Pinterest. Do not publish it again — a repeat could create a duplicate. We are checking the result and will update the calendar.",
+    pinterestReconnectRequired: "The Pinterest connection could not be saved. Connect Pinterest again — until then publishing is not possible.",
+    pinterestPublicationRejected: "Pinterest refused this pin (board, image or text). Change the pin and try again — repeating it unchanged is refused for the same reason.",
+    pinterestRefreshInProgress: "Pinterest access is being refreshed right now. Try again in a few seconds — nothing was lost.",
     projectNotFound: "This project was not found. It may have been deleted, or it belongs to another account.",
     boardNotFound: "This board was not found. Refresh the list and choose a board again.",
     pinNotFound: "This pin no longer exists. Refresh the list to see the current pins.",
@@ -150,6 +156,9 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     websiteUnreachable: "Не удалось прочитать сайт: он недоступен или закрыт от автоматической проверки. Откройте адрес в браузере — если он открывается, значит сайт блокирует автоматический доступ.",
     accountDeletionUnavailable: "Удаление аккаунта в этой установке пока не включено. Ваши данные не тронуты — напишите в поддержку, и запрос выполнят вручную.",
     publicationReconciliationRequired: "Не удалось подтвердить, дошёл ли пин до Pinterest. Не публикуйте его повторно — повтор может создать дубликат. Мы сверяем результат и обновим календарь.",
+    pinterestReconnectRequired: "Не удалось сохранить подключение Pinterest. Подключите Pinterest заново — до этого публикация невозможна.",
+    pinterestPublicationRejected: "Pinterest отклонил этот пин (доска, изображение или текст). Исправьте пин и повторите — тот же пин отклонят снова.",
+    pinterestRefreshInProgress: "Доступ к Pinterest сейчас обновляется. Повторите через несколько секунд — ничего не потеряно.",
     projectNotFound: "Проект не найден. Возможно, он удалён или принадлежит другому аккаунту.",
     boardNotFound: "Доска не найдена. Обновите список и выберите доску заново.",
     pinNotFound: "Этот пин больше не существует. Обновите список, чтобы увидеть актуальные пины.",
@@ -206,6 +215,9 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     websiteUnreachable: "No se pudo leer el sitio: no está disponible o bloquea las comprobaciones automáticas. Abre la dirección en el navegador; si allí se abre, el sitio está bloqueando el acceso automático.",
     accountDeletionUnavailable: "La eliminación de la cuenta aún no está disponible en esta instalación. Tus datos no se han tocado: escribe a soporte y la solicitud se tramitará manualmente.",
     publicationReconciliationRequired: "No se pudo confirmar si el pin llegó a Pinterest. No lo publiques otra vez: una repetición puede crear un duplicado. Estamos verificando el resultado y actualizaremos el calendario.",
+    pinterestReconnectRequired: "No se pudo guardar la conexión con Pinterest. Vuelve a conectar Pinterest; hasta entonces no se puede publicar.",
+    pinterestPublicationRejected: "Pinterest rechazó este pin (tablero, imagen o texto). Corrige el pin y vuelve a intentarlo; sin cambios lo rechazará otra vez.",
+    pinterestRefreshInProgress: "El acceso a Pinterest se está actualizando ahora. Inténtalo de nuevo en unos segundos; no se ha perdido nada.",
     projectNotFound: "No se encontró este proyecto. Puede que se haya eliminado o que pertenezca a otra cuenta.",
     boardNotFound: "No se encontró este tablero. Actualiza la lista y elige un tablero de nuevo.",
     pinNotFound: "Este pin ya no existe. Actualiza la lista para ver los pines actuales.",
@@ -262,6 +274,9 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     websiteUnreachable: "Não foi possível ler o site: está indisponível ou bloqueia verificações automáticas. Abra o endereço no navegador — se abrir aí, o site está a bloquear o acesso automático.",
     accountDeletionUnavailable: "A eliminação da conta ainda não está disponível nesta instalação. Os seus dados não foram tocados — escreva para o suporte e o pedido será tratado manualmente.",
     publicationReconciliationRequired: "Não foi possível confirmar se o pin chegou ao Pinterest. Não o publique novamente — repetir pode criar um duplicado. Estamos a verificar o resultado e atualizaremos o calendário.",
+    pinterestReconnectRequired: "Não foi possível guardar a ligação ao Pinterest. Ligue o Pinterest novamente — até lá não é possível publicar.",
+    pinterestPublicationRejected: "O Pinterest recusou este pin (painel, imagem ou texto). Corrija o pin e tente de novo — sem alterações será recusado outra vez.",
+    pinterestRefreshInProgress: "O acesso ao Pinterest está a ser atualizado agora. Tente novamente dentro de alguns segundos — nada foi perdido.",
     projectNotFound: "Este projeto não foi encontrado. Pode ter sido eliminado ou pertencer a outra conta.",
     boardNotFound: "Este quadro não foi encontrado. Atualize a lista e escolha um quadro novamente.",
     pinNotFound: "Este pin já não existe. Atualize a lista para ver os pins atuais.",
@@ -318,6 +333,9 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     websiteUnreachable: "Die Website konnte nicht gelesen werden: Sie ist nicht erreichbar oder blockiert automatische Prüfungen. Öffnen Sie die Adresse im Browser — öffnet sie sich dort, blockiert die Website den automatischen Zugriff.",
     accountDeletionUnavailable: "Die Kontolöschung ist in dieser Installation noch nicht verfügbar. Ihre Daten wurden nicht angetastet — schreiben Sie dem Support, dann wird die Anfrage manuell bearbeitet.",
     publicationReconciliationRequired: "Ob der Pin Pinterest erreicht hat, konnte nicht bestätigt werden. Veröffentlichen Sie ihn nicht erneut — eine Wiederholung kann ein Duplikat erzeugen. Wir prüfen das Ergebnis und aktualisieren den Kalender.",
+    pinterestReconnectRequired: "Die Pinterest-Verbindung konnte nicht gespeichert werden. Verbinden Sie Pinterest erneut — bis dahin ist keine Veröffentlichung möglich.",
+    pinterestPublicationRejected: "Pinterest hat diesen Pin abgelehnt (Board, Bild oder Text). Korrigieren Sie den Pin und versuchen Sie es erneut — unverändert wird er wieder abgelehnt.",
+    pinterestRefreshInProgress: "Der Pinterest-Zugang wird gerade erneuert. Versuchen Sie es in einigen Sekunden erneut — es ist nichts verloren.",
     projectNotFound: "Dieses Projekt wurde nicht gefunden. Möglicherweise wurde es gelöscht oder gehört zu einem anderen Konto.",
     boardNotFound: "Dieses Board wurde nicht gefunden. Aktualisieren Sie die Liste und wählen Sie erneut ein Board.",
     pinNotFound: "Dieser Pin existiert nicht mehr. Aktualisieren Sie die Liste, um die aktuellen Pins zu sehen.",
@@ -374,6 +392,9 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     websiteUnreachable: "Impossible de lire le site : il est injoignable ou bloque les vérifications automatiques. Ouvrez l’adresse dans un navigateur — si elle s’ouvre, le site bloque l’accès automatique.",
     accountDeletionUnavailable: "La suppression de compte n’est pas encore disponible dans cette installation. Vos données n’ont pas été touchées — écrivez au support, la demande sera traitée manuellement.",
     publicationReconciliationRequired: "Impossible de confirmer si l’épingle a atteint Pinterest. Ne la republiez pas — une répétition peut créer un doublon. Nous vérifions le résultat et mettrons le calendrier à jour.",
+    pinterestReconnectRequired: "La connexion Pinterest n’a pas pu être enregistrée. Reconnectez Pinterest — d’ici là aucune publication n’est possible.",
+    pinterestPublicationRejected: "Pinterest a refusé cette épingle (tableau, image ou texte). Corrigez-la et réessayez — sans changement elle sera refusée de nouveau.",
+    pinterestRefreshInProgress: "L’accès Pinterest est en cours d’actualisation. Réessayez dans quelques secondes — rien n’est perdu.",
     projectNotFound: "Ce projet est introuvable. Il a peut-être été supprimé ou appartient à un autre compte.",
     boardNotFound: "Ce tableau est introuvable. Actualisez la liste et choisissez à nouveau un tableau.",
     pinNotFound: "Ce pin n’existe plus. Actualisez la liste pour voir les pins actuels.",
@@ -430,6 +451,9 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     websiteUnreachable: "无法读取该网站：网站不可访问，或阻止自动检查。请在浏览器中打开该地址——如果浏览器能打开，说明网站阻止了自动访问。",
     accountDeletionUnavailable: "此安装尚未启用账户删除。您的数据未被改动——请联系支持，请求将人工处理。",
     publicationReconciliationRequired: "无法确认该 Pin 是否已到达 Pinterest。请勿再次发布——重复发布可能产生重复内容。我们正在核对结果，并会更新日历。",
+    pinterestReconnectRequired: "无法保存 Pinterest 连接。请重新连接 Pinterest，在此之前无法发布。",
+    pinterestPublicationRejected: "Pinterest 拒绝了这个 Pin（画板、图片或文字）。请修正后重试，原样重复仍会被拒绝。",
+    pinterestRefreshInProgress: "Pinterest 访问权限正在刷新。请几秒后重试，数据没有丢失。",
     projectNotFound: "未找到该项目，可能已被删除或属于其他账号。",
     boardNotFound: "未找到该画板，请刷新列表后重新选择。",
     pinNotFound: "该 Pin 已不存在，请刷新列表查看当前 Pin。",
@@ -544,6 +568,9 @@ const TARIFF_CODES: Record<string, AppErrorMessageKey> = {
 const TRANSIENT_CODES: Record<string, AppErrorMessageKey> = {
   account_deletion_unavailable: 'accountDeletionUnavailable',
   publication_reconciliation_required: 'publicationReconciliationRequired',
+  pinterest_reconnect_required: 'pinterestReconnectRequired',
+  pinterest_publication_rejected: 'pinterestPublicationRejected',
+  pinterest_refresh_in_progress: 'pinterestRefreshInProgress',
   gptunnel_text_cost_missing: 'generationCostUnconfirmed',
   pinterest_unavailable: 'pinterestUnavailable',
   pinterest_rate_limited: 'pinterestRateLimited',

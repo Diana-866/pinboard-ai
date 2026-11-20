@@ -208,7 +208,10 @@ async function callPinterest(method, path, { token, body } = {}) {
   } catch (e) {
     // сеть/таймаут
     logError("pinterest.event_001");
-    throw httpError(502, "Pinterest не отвечает. Попробуйте позже.");
+    // A provider outage is the one case where the customer's action is obvious and identical every
+    // time: wait and repeat. The code exists and is translated, so the generic sentence is the
+    // wrong answer here.
+    throw pinterestTransientError("pinterest_unavailable", "Pinterest не отвечает. Попробуйте позже.", 502);
   }
 }
 
@@ -309,7 +312,7 @@ async function exchangeCode(code) {
   );
   if (res.status < 200 || res.status >= 300) {
     logError("pinterest.event_002");
-    throw httpError(502, "Pinterest не принял код авторизации. Попробуйте подключить заново.");
+    throw pinterestTransientError("pinterest_reconnect_required", "Pinterest не принял код авторизации. Попробуйте подключить заново.", 502);
   }
   return res.data;
 }
@@ -384,7 +387,11 @@ async function refreshAccessToken(account, timing = {}) {
         if (latest.refresh_state === "ready") return latest;
       }
     }
-    throw httpError(503, "Обновление Pinterest-доступа уже выполняется на другом сервере. Повторите запрос через несколько секунд.");
+    throw pinterestTransientError(
+      "pinterest_refresh_in_progress",
+      "Обновление Pinterest-доступа уже выполняется на другом сервере. Повторите запрос через несколько секунд.",
+      503
+    );
   }
 
   try {
@@ -535,7 +542,7 @@ async function refreshAccessToken(account, timing = {}) {
         return reconciled;
       }
       logError("pinterest.event_012");
-      throw httpError(503, "Pinterest обновил доступ, но PinPosy не смог подтвердить сохранение токенов. Повторите запрос; если ошибка повторится, подключите Pinterest заново.");
+      throw pinterestTransientError("pinterest_reconnect_required", "Pinterest обновил доступ, но PinPosy не смог подтвердить сохранение токенов. Повторите запрос; если ошибка повторится, подключите Pinterest заново.", 503);
     }
     if (!committed) {
       // OAuth reconnect or lease expiry won the race. Never overwrite its row.
@@ -854,7 +861,14 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
     if (outcomeUnknown) {
       throw publicationReconciliationError("Pinterest не подтвердил результат. Повторная публикация заблокирована во избежание дубликата.", 502);
     }
-    throw httpError(502, `Pinterest отклонил публикацию: ${pinterestMessage(result.data, "неизвестная ошибка")}`);
+    // The provider refused the pin itself (board gone, image rejected, text refused). Nothing is
+    // wrong with our server and a silent retry will be refused again: the customer has to change
+    // something. The provider's own words stay in the log.
+    throw pinterestTransientError(
+      "pinterest_publication_rejected",
+      `Pinterest отклонил публикацию: ${pinterestMessage(result.data, "неизвестная ошибка")}`,
+      502
+    );
   }
 
   const remoteId = String((result.data && result.data.id) || "");
@@ -1086,10 +1100,10 @@ function registerRoutes(app, deps) {
         expiresAt = getPinterestTokenExpiresAt(tokenResponse && tokenResponse.expires_in);
       } catch (expiryError) {
         logError("pinterest.event_024");
-        throw httpError(502, "Pinterest вернул некорректный срок действия токена. Подключение не сохранено.");
+        throw pinterestTransientError("pinterest_reconnect_required", "Pinterest вернул некорректный срок действия токена. Подключение не сохранено.", 502);
       }
       if (!profile || !profile.id) {
-        throw httpError(502, "Pinterest не вернул идентификатор аккаунта. Подключение не сохранено.");
+        throw pinterestTransientError("pinterest_reconnect_required", "Pinterest не вернул идентификатор аккаунта. Подключение не сохранено.", 502);
       }
 
       const tariff = await getTariffState(userId);

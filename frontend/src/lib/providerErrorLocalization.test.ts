@@ -33,7 +33,15 @@ function withStoredLanguage<T>(language: string | null, run: () => T): T {
   }
 }
 
-const CODES = ['pinterest_unavailable', 'pinterest_rate_limited'];
+// Section 110 added the three answers the customer can act on: reconnect, fix the pin,
+// wait a few seconds while the access is refreshed.
+const CODES = [
+  'pinterest_unavailable',
+  'pinterest_rate_limited',
+  'pinterest_reconnect_required',
+  'pinterest_publication_rejected',
+  'pinterest_refresh_in_progress',
+];
 
 test('both provider failures are translated and the two differ', () => {
   for (const language of LANGUAGES) {
@@ -72,7 +80,7 @@ test('the messages promise nothing about credits or publications', () => {
 
 test('the backend marks every provider-side failure with these codes', () => {
   const backend = readFileSync(path.join(SRC, '../../backend/pinterest.js'), 'utf8');
-  const emitted = new Set([...backend.matchAll(/pinterestTransientError\("([a-z_]+)"/g)].map((m) => m[1]));
+  const emitted = new Set([...backend.matchAll(/pinterestTransientError\(\s*"([a-z_]+)"/g)].map((m) => m[1]));
   assert.ok(emitted.size > 0, 'the backend must mark provider failures');
   assert.deepEqual([...emitted].sort(), [...CODES].sort());
 
