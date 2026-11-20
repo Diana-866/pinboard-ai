@@ -2970,3 +2970,174 @@ test("a retry that the database confirms but cannot be read back is a server err
     await pinterest.close();
   }
 });
+/** Make the signed-in customer an administrator (or not): requireAdmin reads users.is_admin. */
+function scriptAdminFlag(backend, isAdmin) {
+  const previous = backend.db.routes ? null : null;
+  void previous;
+  backend.db.table("GET", "users", ({ query }) => {
+    const select = String(query.select || "").replace(/\s+/g, "");
+    if (select === "token_version") return { status: 200, body: [{ token_version: 0 }] };
+    if (select === "tariff_plan,tariff_period_end") {
+      return { status: 200, body: [{ tariff_plan: "none", tariff_period_end: null }] };
+    }
+    if (select === "is_admin") return { status: 200, body: [{ is_admin: isAdmin }] };
+    return { status: 200, body: [{ id: USER_ID, email: "owner@example.com", credits_balance: 0, is_admin: isAdmin }] };
+  });
+}
+
+const ADMIN_LISTINGS = [
+  "/admin/subscriptions",
+  "/admin/billing/payment-creation-requests",
+  "/admin/billing/webhook-exceptions",
+  "/admin/billing/pending-orders",
+  "/admin/financial-operations/unresolved",
+  "/admin/storage/quarantined-objects",
+  "/admin/account-deletion/inventory",
+  "/admin/billing/email-outbox",
+];
+
+test("every administrative listing refuses an ordinary customer", async () => {
+  const backend = await startBackend();
+  try {
+    scriptAdminFlag(backend, false);
+    for (const route of ADMIN_LISTINGS) {
+      const answer = await backend.get(route);
+      assert.equal(answer.status, 403, `${route} answered ${answer.status} for a non-admin`);
+      assert.equal(answer.body.error, "Доступ запрещён");
+    }
+    const reset = await backend.send("POST", "/admin/accounts/login-lockout/reset", { email: "owner@example.com" });
+    assert.equal(reset.status, 403, "an ordinary customer must not be able to clear a lockout");
+
+    // Nothing behind the gate may have been queried: the guard answers before the handler runs.
+    for (const table of ["subscriptions", "billing_webhook_exceptions", "credit_purchases", "pin_schedules"]) {
+      assert.equal(
+        backend.db.requests.filter((entry) => entry.method === "GET" && entry.path === `/rest/v1/${table}`).length,
+        0,
+        `a refused request must not read ${table}`
+      );
+    }
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("an administrator's subscription list is bounded and carries no credentials", async () => {
+  const backend = await startBackend();
+  try {
+    scriptAdminFlag(backend, true);
+    backend.db.table("GET", "subscriptions", {
+      status: 200,
+      body: [{
+        id: "sub-1",
+        user_id: USER_ID,
+        plan: "pro",
+        status: "active",
+        amount: 1990,
+        currency: "RUB",
+        period_start: "2026-01-01T00:00:00Z",
+        period_end: "2026-02-01T00:00:00Z",
+        created_at: "2026-01-01T00:00:00Z",
+        provider_payment_id: "payment-1",
+      }],
+    });
+    backend.db.table("GET", "users", ({ query }) => {
+      const select = String(query.select || "").replace(/\s+/g, "");
+      if (select === "token_version") return { status: 200, body: [{ token_version: 0 }] };
+      if (select === "is_admin") return { status: 200, body: [{ is_admin: true }] };
+      if (select === "id,email") return { status: 200, body: [{ id: USER_ID, email: "owner@example.com" }] };
+      return { status: 200, body: [{ id: USER_ID }] };
+    });
+
+    const answer = await backend.get("/admin/subscriptions?limit=1000000");
+
+    assert.equal(answer.status, 200, `expected 200, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    const rows = Array.isArray(answer.body) ? answer.body : answer.body.subscriptions;
+    assert.ok(Array.isArray(rows), `expected a list, got ${JSON.stringify(answer.body).slice(0, 120)}`);
+    const read = backend.db.requests.find((entry) => entry.method === "GET" && entry.path === "/rest/v1/subscriptions");
+    const requestedLimit = Number(read.query.limit);
+    assert.ok(requestedLimit > 0 && requestedLimit <= 1000,
+      `an absurd limit must be clamped, request asked for ${read.query.limit}`);
+    assert.equal(JSON.stringify(answer.body).includes("password"), false, "no credential field may leave the server");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("the webhook exception log returns only the documented columns", async () => {
+  const backend = await startBackend();
+  try {
+    scriptAdminFlag(backend, true);
+    backend.db.table("GET", "billing_webhook_exceptions", {
+      status: 200,
+      body: [{
+        id: "exc-1",
+        provider: "prodamus",
+        payment_kind: "subscription",
+        order_id: "order-1",
+        payment_status: "success",
+        received_sum: 1990,
+        received_currency: "RUB",
+        expected_amount: 1990,
+        reason: "amount_mismatch",
+        created_at: "2026-01-01T00:00:00Z",
+        raw_payload: "{\"card\":\"4242\"}",
+        signature: "secret-signature",
+      }],
+    });
+
+    const answer = await backend.get("/admin/billing/webhook-exceptions?limit=99999");
+
+    assert.equal(answer.status, 200);
+    assert.equal(answer.body.exceptions.length, 1);
+    assert.equal(answer.body.exceptions[0].reason, "amount_mismatch");
+    assert.equal(answer.body.exceptions[0].raw_payload, undefined, "a stored provider payload must not be echoed");
+    assert.equal(answer.body.exceptions[0].signature, undefined, "the signature must never be returned");
+    const read = backend.db.requests.find((entry) => entry.method === "GET" && entry.path === "/rest/v1/billing_webhook_exceptions");
+    assert.equal(read.query.select.includes("raw_payload"), false, "the query itself must not fetch the payload");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("the pending-order inventory clamps its window and merges both payment kinds", async () => {
+  const backend = await startBackend();
+  try {
+    scriptAdminFlag(backend, true);
+    backend.db.table("GET", "subscriptions", {
+      status: 200,
+      body: [{ id: "sub-1", user_id: USER_ID, provider_payment_id: "p-1", plan: "pro", amount: 1990, currency: "RUB", created_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString() }],
+    });
+    backend.db.table("GET", "credit_purchases", {
+      status: 200,
+      body: [{ id: "cp-1", user_id: USER_ID, provider_payment_id: "p-2", package_id: "pack-10", credits: 10, amount: 490, currency: "RUB", created_at: new Date(Date.now() - 3 * 3600 * 1000).toISOString() }],
+    });
+
+    const answer = await backend.get("/admin/billing/pending-orders?older_than_hours=999999&limit=999999");
+
+    assert.equal(answer.status, 200, `expected 200, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    const orders = answer.body.orders || answer.body;
+    assert.equal(Array.isArray(orders), true);
+    assert.deepEqual(orders.map((order) => order.kind).sort(), ["credits", "subscription"]);
+    for (const read of backend.db.requests.filter((entry) => entry.method === "GET" && /pending/.test(String(entry.query.status)))) {
+      assert.ok(Number(read.query.limit) <= 100, `limit must be clamped, got ${read.query.limit}`);
+    }
+    const cutoff = new Date(String(backend.db.requests.find((entry) => entry.path === "/rest/v1/subscriptions").query.created_at.replace("lt.", "")));
+    assert.ok(cutoff.getTime() > Date.now() - 31 * 24 * 3600 * 1000,
+      "an absurd age window must be clamped to a month, not accepted");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("clearing a lockout for an invalid address is a validation error, not a 500", async () => {
+  const backend = await startBackend();
+  try {
+    scriptAdminFlag(backend, true);
+    for (const payload of [{}, { email: "" }, { email: "not-an-email" }]) {
+      const answer = await backend.send("POST", "/admin/accounts/login-lockout/reset", payload);
+      assert.equal(answer.status, 422, `payload ${JSON.stringify(payload)} answered ${answer.status}`);
+    }
+  } finally {
+    await backend.stop();
+  }
+});

@@ -58,11 +58,31 @@ function startFakePostgrest() {
       const answer = typeof scripted === "function"
         ? scripted({ url, query, body, headers: req.headers })
         : scripted;
+      // PostgREST projects the requested columns: a route that trusts the selection (it does not strip
+      // anything itself) would otherwise look safe against a double that echoes every stored field.
+      // Only a plain column list is projected; `*` and embedded resources are left for the script.
       const isRpc = path.startsWith("/rest/v1/rpc/");
       const status = (answer && answer.status) || 200;
       let payload = answer && "body" in answer
         ? answer.body
         : isRpc ? null : [];
+      const selection = query.select;
+      const projectsColumns = typeof selection === "string" &&
+        selection.trim() !== "" &&
+        !selection.includes("*") &&
+        !selection.includes("(") &&
+        /^[A-Za-z0-9_"',\s]+$/.test(selection);
+      if (projectsColumns && Array.isArray(payload) && req.method !== "HEAD") {
+        const columns = String(selection).split(",").map((name) => name.trim().replace(/"/g, "")).filter(Boolean);
+        payload = payload.map((row) => {
+          if (!row || typeof row !== "object") return row;
+          const projected = {};
+          for (const column of columns) {
+            if (Object.hasOwn(row, column)) projected[column] = row[column];
+          }
+          return projected;
+        });
+      }
 
       const wantsObject = String(req.headers.accept || "").includes("vnd.pgrst.object+json");
       if (wantsObject && Array.isArray(payload)) {
