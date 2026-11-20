@@ -71,6 +71,21 @@ const TIMEOUT_MS = 10000;
  * language, that the provider is unavailable and the action can be retried — a Russian-only
  * sentence left six of the seven languages with no explanation at all.
  */
+/**
+ * "Do not send this again; we are checking what actually happened" - the one message on the
+ * publication path that must reach the customer.
+ *
+ * These four answers mean the pin may already exist on Pinterest and a retry could create a
+ * duplicate, so the refusal has to be visible in the person's own language. They used to be plain
+ * 5xx with a Russian sentence, and a 5xx never carries its message: the customer read "внутренняя
+ * ошибка сервера, попробуйте позже" - the exact advice that makes the duplicate.
+ */
+function publicationReconciliationError(message, status = 503) {
+  const error = httpError(status, message);
+  error.details = { ...(error.details || {}), code: "publication_reconciliation_required" };
+  return error;
+}
+
 function pinterestTransientError(code, message, status = 503) {
   const error = httpError(status, message);
   error.details = { ...(error.details || {}), code };
@@ -734,7 +749,7 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
         .maybeSingle();
 
       if (finalized.error) {
-        throw httpError(503, "Публикация уже подтверждена, но не удалось обновить расписание. Повторная отправка заблокирована; требуется сверка.");
+        throw publicationReconciliationError("Публикация уже подтверждена, но не удалось обновить расписание. Повторная отправка заблокирована; требуется сверка.", 503);
       }
       if (!isScheduleClaimUpdateConfirmed(finalized)) {
         // A concurrent late-success completion may have finalized the row
@@ -747,7 +762,7 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
           .eq("user_id", String(userId))
           .maybeSingle();
         if (current.error) {
-          throw httpError(503, "Не удалось проверить итог расписания Pinterest. Повторная отправка заблокирована.");
+          throw publicationReconciliationError("Не удалось проверить итог расписания Pinterest. Повторная отправка заблокирована.", 503);
         }
         const row = current.data;
         if (
@@ -775,7 +790,7 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
     throw httpError(409, "Публикация уже выполняется. Не запускайте её повторно.");
   }
   if (reservationStatus === "unknown") {
-    throw httpError(409, "Pinterest мог уже создать этот пин, но результат не подтверждён. Повторная публикация заблокирована во избежание дубликата.");
+    throw publicationReconciliationError("Pinterest мог уже создать этот пин, но результат не подтверждён. Повторная публикация заблокирована во избежание дубликата.", 409);
   }
   if (reservationStatus === "failed") {
     throw httpError(409, "Предыдущий отказ Pinterest не подтверждён как безопасный для повтора. Требуется сверка.");
@@ -837,7 +852,7 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
     });
     logError("pinterest.event_016");
     if (outcomeUnknown) {
-      throw httpError(502, "Pinterest не подтвердил результат. Повторная публикация заблокирована во избежание дубликата.");
+      throw publicationReconciliationError("Pinterest не подтвердил результат. Повторная публикация заблокирована во избежание дубликата.", 502);
     }
     throw httpError(502, `Pinterest отклонил публикацию: ${pinterestMessage(result.data, "неизвестная ошибка")}`);
   }
@@ -851,7 +866,7 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
       message: "Pinterest returned success without a pin id",
       outcomeUnknown: true,
     });
-    throw httpError(502, "Pinterest не вернул ID созданного пина. Повторная публикация заблокирована.");
+    throw publicationReconciliationError("Pinterest не вернул ID созданного пина. Повторная публикация заблокирована.", 502);
   }
 
   const { error: completeError } = await supabase.rpc("complete_pinterest_publish_v2", {
@@ -923,7 +938,7 @@ async function publishPin(userId, pinId, pinterestBoardId, scheduledDestinationU
       });
     });
     logError("pinterest.event_021");
-    throw httpError(503, "Pinterest создал пин, но PinPosy не смог сохранить подтверждение. Повторная публикация заблокирована; требуется сверка.");
+    throw publicationReconciliationError("Pinterest создал пин, но PinPosy не смог сохранить подтверждение. Повторная публикация заблокирована; требуется сверка.", 503);
   }
 
   return { ok: true, pinterest_pin_id: remoteId, board_id: boardId };
