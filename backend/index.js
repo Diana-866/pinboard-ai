@@ -293,6 +293,7 @@ const { suggestKeywords } = require("./keywordIdeas");
 const { asError } = require("./dbErrors");
 const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
+const { markGenerationFailure } = require("./generationFailure");
 const { calculateGenerationReservation, calculateQuotedGenerationPricing, ceilCredits } = require("./generationPricing");
 const { uploadPinImage, rehostImage, deletePinImageIfUnreferenced } = require("./storage");
 const { reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects, inspectBlockedPinImageRetentionQueue, retryFailedPinImageDeletions, processPendingPinImageRetentionQueue } = require("./pinImageLifecycle");
@@ -2194,7 +2195,9 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
     const publicMessage = e && e.code === "GPTUNNEL_TEXT_COST_MISSING"
       ? "GPTunnel временно не подтвердил стоимость текстовой генерации. Создание изображений остановлено; попробуйте позже."
       : undefined;
-    handleError(res, e, publicMessage);
+    // The database has already returned the reservation when the provider was never asked for an
+    // image; without this the customer cannot tell a free failure from a charged one.
+    handleError(res, markGenerationFailure(e, { providerStarted: providerGenerationStarted }), publicMessage);
   }
 });
 
