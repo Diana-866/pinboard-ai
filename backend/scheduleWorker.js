@@ -100,6 +100,12 @@ function createWorker({
   drainTimeoutMs = DEFAULT_DRAIN_TIMEOUT_MS,
   schedule = setTimeout,
   cancelSchedule = clearTimeout,
+  // A pending timer must not decide whether the process lives. Unreferenced timers are right for
+  // an embedded worker (tests, the web process) because they must not hold the loop open; the
+  // standalone entrypoint needs the opposite, and without it the process finished its first poll
+  // and exited with code 0 - every scheduled publication silently stopped, and nothing looked
+  // broken because a clean exit is what a supervisor calls healthy.
+  keepProcessAlive = false,
 }) {
   let timer = null;
   let active = false;
@@ -118,7 +124,7 @@ function createWorker({
       timer = null;
       void tick();
     }, delayMs);
-    if (timer && typeof timer.unref === "function") timer.unref();
+    if (!keepProcessAlive && timer && typeof timer.unref === "function") timer.unref();
   }
 
   async function tick() {
@@ -197,7 +203,7 @@ if (require.main === module) {
   }
 
   if (config) {
-    const worker = createWorker({ config });
+    const worker = createWorker({ config, keepProcessAlive: true });
     worker.start();
     let shuttingDown = false;
     const shutdown = async (signal) => {

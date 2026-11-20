@@ -24,12 +24,6 @@ const BACKEND_FILES = [
   path.join(ROOT, "backend", "mail.js"),
 ];
 
-// A concrete client-side path whose prefix is assembled at runtime (`"/pins/" + id`)
-// normalises to a bare prefix and has no route of its own.
-const RUNTIME_PREFIX_PATHS = new Map([
-  ["/pins", "built as '/pins/' + pinId in the approval desk"],
-]);
-
 function normalize(rawPath) {
   return String(rawPath)
     .replace(/\$\{[^}]+\}/g, ":x")
@@ -64,6 +58,10 @@ function frontendPaths() {
     for (const match of source.matchAll(/apiRequest\(\s*[`'"]([^`'"]+)[`'"]/g)) add(match[1]);
     for (const match of source.matchAll(/fetch\(\s*(?:API\s*\+\s*)?[`'"]([^`'"]*\/[^`'"]*)[`'"]/g)) add(match[1]);
     for (const match of source.matchAll(/fetch\(\s*`\$\{[^}]+\}([^`]+)`/g)) add(match[1]);
+    // URLs built from the single owner of the API base (lib/api.ts) are real calls even when they
+    // are returned from a helper instead of passed to fetch inline. Without this rule the image
+    // upload left the contract entirely as soon as its URL moved into a function.
+    for (const match of source.matchAll(/`\$\{(?:API_URL|API)\}([^`]+)`/g)) add(match[1]);
   }
   return paths;
 }
@@ -90,23 +88,27 @@ test("both sides of the contract were parsed", () => {
 
 test("every path the frontend calls exists on the backend", () => {
   const missing = [...called.keys()]
-    .filter((key) => !registered.has(key) && !RUNTIME_PREFIX_PATHS.has(key))
+    .filter((key) => !registered.has(key))
     .sort()
     .map((key) => `${key} <- ${[...called.get(key)].join(", ")}`);
   assert.deepEqual(missing, [], `frontend calls with no backend route:\n${missing.join("\n")}`);
 });
 
-test("the runtime-prefix exemptions are real prefixes, not silently lost routes", () => {
-  for (const [key, reason] of RUNTIME_PREFIX_PATHS) {
-    assert.equal(called.has(key), true, `${key} is exempted (${reason}) but the frontend no longer calls it`);
-    assert.equal(registered.has(key), false, `${key} now has a real route; drop the exemption`);
-  }
+test("the URL builder is parsed, so a path built in a helper is still a call", () => {
+  // The image upload builds its URL in lib/api.ts and hands it to a function, not to fetch
+  // directly. This asserts the rule that reads such builders, so the path cannot fall out of the
+  // contract again the next time the call moves.
+  assert.equal(called.has("/pins/:x/image"), true, "the image upload path must be parsed from its builder");
+  assert.ok(
+    [...(called.get("/pins/:x/image") || [])].some((file) => file === "lib/api.ts"),
+    `the upload path must be attributed to lib/api.ts, found ${[...(called.get("/pins/:x/image") || [])].join(", ")}`
+  );
 });
 
 test("the interesting resources are covered in both directions", () => {
   // Sampling the contract keeps the two parsers honest: a broken regex on either side
   // would empty one set and make the comparison vacuous.
-  for (const key of ["/me", "/projects", "/boards", "/pins/:x", "/schedule", "/review-queue"]) {
+  for (const key of ["/me", "/projects", "/boards", "/pins/:x", "/pins/:x/image", "/schedule", "/review-queue"]) {
     assert.equal(called.has(key), true, `frontend should call ${key}`);
     assert.equal(registered.has(key), true, `backend should register ${key}`);
   }
