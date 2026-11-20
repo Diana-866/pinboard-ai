@@ -3681,3 +3681,21 @@ wait $!; echo "exit=$?"   # ожидается 0 и строка shutdown_comple
 
 Если код выхода не 0 или в логе нет `shutdown_completed` — это дефект, который нужно чинить до
 первого деплоя с rolling restart.
+
+
+### UA-073 — Проверить fail-closed чтение очереди одобрения (AUD-403)
+
+- **Зачем:** `GET /review-queue` использует связанные выборки `pins` и `pin_schedules`. Некорректный успешный ответ раньше трактовался как пустой массив и мог привести к удалению устаревших строк очереди или повторному показу уже запланированного пина.
+- **Ветка:** `fix/review-queue-fail-closed-20261120`, создана от текущего `main` HEAD `8102f14711db3c49ca246a547e09704f0ef146fd`.
+- **Проверка на чистой рабочей копии:**
+  1. Выполнить `git status --short`; сохранить/закоммитить свои изменения до переключения.
+  2. Выполнить `git fetch origin`.
+  3. Выполнить `git switch --track origin/fix/review-queue-fail-closed-20261120`. Если локальная ветка уже существует: `git switch fix/review-queue-fail-closed-20261120`.
+  4. Из корня проекта выполнить:
+     ```powershell
+     node --test backend/test/fetch-all-pages.test.js backend/test/review-queue-route-contract.test.js
+     ```
+  5. Только при успешном focused gate выполнить полный backend suite: `npm --prefix backend test`.
+- **Ожидается:** ошибки базы пробрасываются; `data: []` допустим; null/missing/non-array query envelope возвращает HTTP 502; обе связанные выборки проверяются до stale-row cleanup.
+- **Ограничения:** для этих Node tests база не нужна. Не запускать против production/Supabase. Не применять SQL, не включать worker и не менять Pinterest/Prodamus credentials или deployment.
+- **Если тест падает:** прислать полный вывод и exit code; не ослаблять assertions и не обходить сценарий.
