@@ -1,0 +1,108 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+
+/**
+ * Section 132. The publication button taught the lesson: user-facing Russian sentences lived inside
+ * components, so a customer reading the product in German or Chinese met text they may not understand -
+ * on the most consequential screens, in the messages that explain what happened to their money or their
+ * pins. Section 131 fixed one component; this record makes sure the next one cannot be added silently.
+ *
+ * It is a ceiling, not a promise. 604 lines of Cyrillic remain in 27 files, mostly the landing page and
+ * the admin panel. Every listed file may shrink and none may grow; a file that disappears from the list
+ * has been fixed and must be removed here so the record stays true.
+ */
+const SRC = path.join(process.cwd(), 'src');
+
+const CEILING: Record<string, number> = {
+  'App.tsx': 18,
+  'components/admin/AdminBillingExceptions.tsx': 14,
+  'components/admin/AdminEmailOutbox.tsx': 34,
+  'components/admin/AdminFinancialOperations.tsx': 36,
+  'components/admin/AdminLoginLockout.tsx': 24,
+  'components/admin/AdminMail.tsx': 13,
+  'components/admin/AdminPanel.tsx': 16,
+  'components/admin/AdminPaymentCreationRequests.tsx': 33,
+  'components/admin/AdminPinterestSchedules.tsx': 62,
+  'components/admin/AdminSubscriptions.tsx': 25,
+  'components/auth/AuthModal.tsx': 23,
+  'components/auth/PrivacyPolicyModal.tsx': 2,
+  'components/bot/FloatingStrategistBot.tsx': 1,
+  'components/calendar/PublishingCalendar.tsx': 2,
+  'components/common/LockedSection.tsx': 2,
+  'components/layout/Sidebar.tsx': 6,
+  'components/onboarding/OnboardingWizard.tsx': 5,
+  'components/pins/PinGenerator.tsx': 18,
+  'components/pricing/PricingView.tsx': 43,
+  'components/review/ManualApprovalDesk.tsx': 1,
+  'components/review/SwipeReviewModal.tsx': 33,
+  'pages/CheckEmail.tsx': 1,
+  'pages/Contacts.tsx': 41,
+  'pages/Landing.tsx': 147,
+  'pages/LegalPage.tsx': 1,
+  'pages/Login.tsx': 2,
+  'pages/VerifyEmail.tsx': 1,
+};
+const CEILING_TOTAL = 604;
+
+function walk(dir: string, acc: string[] = []): string[] {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) walk(full, acc);
+    else if (/\.tsx?$/.test(entry.name) && !/\.test\./.test(entry.name)) acc.push(full);
+  }
+  return acc;
+}
+
+/** Lines carrying Cyrillic outside a comment: the shapes a customer can actually read. */
+function countHardcodedCyrillic(source: string): number {
+  return source
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .filter((line) => /[А-яЁё]/.test(line) && !/^\s*(\/\/|\*|\/\*)/.test(line))
+    .length;
+}
+
+function measured(): Record<string, number> {
+  const files = [
+    ...walk(path.join(SRC, 'components')),
+    ...walk(path.join(SRC, 'pages')),
+    path.join(SRC, 'App.tsx'),
+  ];
+  const counts: Record<string, number> = {};
+  for (const file of files) {
+    const count = countHardcodedCyrillic(fs.readFileSync(file, 'utf8'));
+    if (count > 0) counts[path.relative(SRC, file).split(path.sep).join('/')] = count;
+  }
+  return counts;
+}
+
+test('the scanner sees a real Russian literal and ignores comments', () => {
+  assert.equal(countHardcodedCyrillic("const label = 'Опубликовать';"), 1);
+  assert.equal(countHardcodedCyrillic('// комментарий на русском'), 0);
+  assert.equal(countHardcodedCyrillic("const label = t.publishing.publishAction;"), 0);
+});
+
+test('no component gained a hardcoded Russian line', () => {
+  const current = measured();
+  const grown: string[] = [];
+  for (const [file, count] of Object.entries(current)) {
+    const ceiling = CEILING[file];
+    if (ceiling === undefined) grown.push(`${file}: new file with ${count} line(s)`);
+    else if (count > ceiling) grown.push(`${file}: ${count} > ${ceiling}`);
+  }
+  assert.deepEqual(grown, [], `hardcoded Russian grew:\n${grown.join('\n')}`);
+});
+
+test('the record stays true: fixed files leave the list, the total only shrinks', () => {
+  const current = measured();
+  const stale = Object.keys(CEILING).filter((file) => current[file] === undefined);
+  assert.deepEqual(
+    stale,
+    [],
+    `these files no longer carry hardcoded Russian; remove them from the ceiling: ${stale.join(', ')}`
+  );
+  const total = Object.values(current).reduce((sum, value) => sum + value, 0);
+  assert.ok(total <= CEILING_TOTAL, `total hardcoded lines grew to ${total}, ceiling is ${CEILING_TOTAL}`);
+});
