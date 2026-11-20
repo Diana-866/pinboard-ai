@@ -83,9 +83,20 @@ export function mapPublicationSummary(raw: unknown): PublicationSummary {
   };
 }
 
-/** True when the account has no publication activity at all. */
+/**
+ * True when the account has no publication activity at all.
+ *
+ * Section 130. This used to look only at successes and upcoming work, so an account whose window held
+ * five *failed* publications - and nothing else - was told "you have not published anything yet". That
+ * is the same lie the payload mapper refuses to tell with zeros: the customer's problem is on screen
+ * and the screen says there is nothing. Failures, cancellations and a recorded last publication all
+ * mean the account has a history, whether or not anything is pending right now.
+ */
 export function isEmptySummary(summary: PublicationSummary): boolean {
   return summary.publications.total === 0 &&
     summary.schedules.scheduledUpcoming === 0 &&
-    summary.schedules.publishing === 0;
+    summary.schedules.publishing === 0 &&
+    summary.schedules.failedWindow === 0 &&
+    summary.schedules.cancelledWindow === 0 &&
+    summary.lastPublishedAt === null;
 }

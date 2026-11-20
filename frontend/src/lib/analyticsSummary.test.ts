@@ -36,12 +36,12 @@ test('treats a missing last publication as null, not as an epoch date', () => {
   assert.equal(summary.lastPublishedAt, null);
 });
 
-test('an account with no activity is recognised as empty', () => {
+test('an account with no activity at all is recognised as empty', () => {
   const summary = mapPublicationSummary({
     ...valid,
+    last_published_at: null,
     publications: { total: 0, window: 0 },
     schedules: { scheduled_upcoming: 0, publishing: 0, failed_window: 0, cancelled_window: 0 },
-    last_published_at: null,
   });
   assert.equal(isEmptySummary(summary), true);
 });
@@ -80,4 +80,34 @@ test('an unavailable Pinterest metrics reason is preserved but blank values are 
     mapPublicationSummary({ ...valid, pinterest_metrics: { available: false, reason: '   ' } }).pinterestMetrics.reason,
     null
   );
+});
+
+test('an account whose only activity in the window is failure is not "empty"', () => {
+  // Section 130: the empty state says "you have not published anything yet". An account whose five
+  // publications failed this window has a problem on screen; showing it "nothing here" hides it.
+  const summary = mapPublicationSummary({
+    ...valid,
+    last_published_at: null,
+    publications: { total: 0, window: 0 },
+    schedules: { scheduled_upcoming: 0, publishing: 0, failed_window: 5, cancelled_window: 0 },
+  });
+  assert.equal(isEmptySummary(summary), false);
+});
+
+test('a cancellation and a past publication also make the account non-empty', () => {
+  const cancelled = mapPublicationSummary({
+    ...valid,
+    last_published_at: null,
+    publications: { total: 0, window: 0 },
+    schedules: { scheduled_upcoming: 0, publishing: 0, failed_window: 0, cancelled_window: 2 },
+  });
+  assert.equal(isEmptySummary(cancelled), false, 'a cancelled publication is part of the history');
+
+  const publishedOnce = mapPublicationSummary({
+    ...valid,
+    publications: { total: 0, window: 0 },
+    schedules: { scheduled_upcoming: 0, publishing: 0, failed_window: 0, cancelled_window: 0 },
+  });
+  assert.equal(publishedOnce.lastPublishedAt, '2026-11-17T06:30:00.000Z');
+  assert.equal(isEmptySummary(publishedOnce), false, 'a recorded last publication is history, not emptiness');
 });
