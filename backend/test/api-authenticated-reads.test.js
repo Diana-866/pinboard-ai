@@ -3269,3 +3269,168 @@ test("a database failure while looking the account up is a 503, not a wrong pass
     await backend.stop();
   }
 });
+test("a profile update writes only the three allowed fields", async () => {
+  const backend = await startBackend();
+  try {
+    scriptAdminFlag(backend, false);
+    const writes = [];
+    backend.db.table("PATCH", "users", ({ body }) => {
+      writes.push(JSON.parse(body || "{}"));
+      return { status: 200, body: [{ id: USER_ID, email: "owner@example.com", name: "Анна", surname: null, preferred_language: "de", is_admin: false }] };
+    });
+
+    const answer = await backend.send("PATCH", "/me", {
+      name: "Анна",
+      surname: "Мюллер",
+      preferred_language: "DE",
+      // Everything below is a privilege or billing field a client must not be able to set.
+      is_admin: true,
+      tariff_plan: "agency",
+      credits_balance: 100000,
+      token_version: 99,
+      email: "attacker@example.com",
+    });
+
+    assert.equal(answer.status, 200, `expected 200, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    assert.equal(writes.length, 1);
+    assert.deepEqual(Object.keys(writes[0]).sort(), ["name", "preferred_language", "surname"],
+      "only name, surname and preferred_language may reach the database");
+    assert.equal(writes[0].preferred_language, "de", "the language is normalized to lower case");
+    assert.equal(answer.body.is_admin, false, "the response must not echo a privilege the request asked for");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a profile update refuses values the product cannot use", async () => {
+  const backend = await startBackend();
+  try {
+    scriptAdminFlag(backend, false);
+    const writes = [];
+    backend.db.table("PATCH", "users", ({ body }) => {
+      writes.push(JSON.parse(body || "{}"));
+      return { status: 200, body: [{ id: USER_ID }] };
+    });
+
+    const cases = [
+      [{}, 422],
+      [{ preferred_language: "it" }, 422],
+      [{ preferred_language: "" }, 422],
+      [{ name: 42 }, 422],
+      [{ surname: { evil: true } }, 422],
+    ];
+    for (const [payload, status] of cases) {
+      const answer = await backend.send("PATCH", "/me", payload);
+      assert.equal(answer.status, status, `payload ${JSON.stringify(payload).slice(0, 40)} answered ${answer.status}`);
+    }
+    assert.deepEqual(writes, [], "a rejected profile update must not reach the database");
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("a profile name cannot be stored unbounded", async () => {
+  const backend = await startBackend();
+  try {
+    scriptAdminFlag(backend, false);
+    const writes = [];
+    backend.db.table("PATCH", "users", ({ body }) => {
+      writes.push(JSON.parse(body || "{}"));
+      return { status: 200, body: [{ id: USER_ID }] };
+    });
+
+    // The route trims long values instead of rejecting them (validateLen), so the property worth pinning is
+    // that a client cannot store an unbounded string through this door.
+    const answer = await backend.send("PATCH", "/me", { name: "x".repeat(5000), surname: "  Мюллер  " });
+    assert.equal(answer.status, 200);
+    assert.equal(writes.length, 1);
+    assert.equal(writes[0].name.length, 80, "the stored name must be bounded");
+    assert.equal(writes[0].surname, "Мюллер", "surrounding whitespace is trimmed");
+    assert.equal(writes[0].name, "x".repeat(80));
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("the reconciliation of an unknown publication is administrator-only and cannot report success without proof", async () => {
+  const backend = await startBackend();
+  try {
+    scriptAdminFlag(backend, false);
+    const asCustomer = await backend.send("POST", "/admin/pinterest/reconcile-unknown-publication", {
+      schedule_id: SCHEDULE_ID,
+      pinterest_pin_id: "remote-1",
+      pinterest_board_id: "board-1",
+      evidence_type: "pinterest_api",
+      evidence_reference: "pin-1-abcd1234",
+      action_id: "88888888-8888-4888-8888-888888888888",
+    });
+    assert.equal(asCustomer.status, 403, "a customer must not be able to declare their pin published");
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.path.includes("admin_reconcile_pinterest_unknown_publication")).length,
+      0
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("an administrator's reconciliation refuses to claim success without a persisted timestamp", async () => {
+  const backend = await startBackend();
+  try {
+    scriptAdminFlag(backend, true);
+    const payload = {
+      schedule_id: SCHEDULE_ID,
+      pinterest_pin_id: "remote-1",
+      pinterest_board_id: "board-1",
+      evidence_type: "pinterest_api",
+      evidence_reference: "pin-1-abcd1234",
+      action_id: "88888888-8888-4888-8888-888888888888",
+    };
+
+    // A proxy error body or an unexpected RPC shape must not be read as "published".
+    for (const answerBody of [null, {}, "not-a-date", 42]) {
+      backend.db.rpc("admin_reconcile_pinterest_unknown_publication", { status: 200, body: answerBody });
+      const answer = await backend.send("POST", "/admin/pinterest/reconcile-unknown-publication", payload);
+      assert.equal(answer.status, 500, `answer ${JSON.stringify(answerBody)} produced ${answer.status}: ${JSON.stringify(answer.body)}`);
+      assert.equal(answer.body.status, undefined, "a failed reconciliation must not state a publication status");
+    }
+
+    backend.db.rpc("admin_reconcile_pinterest_unknown_publication", { status: 200, body: "2026-01-01T10:00:00Z" });
+    const confirmed = await backend.send("POST", "/admin/pinterest/reconcile-unknown-publication", payload);
+    assert.equal(confirmed.status, 200);
+    assert.equal(confirmed.body.status, "published");
+    assert.equal(confirmed.body.recorded_at, "2026-01-01T10:00:00.000Z");
+    assert.equal(confirmed.body.action_id, payload.action_id);
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("the deletion retry is administrator-only and clamps its limit", async () => {
+  const backend = await startBackend();
+  try {
+    scriptAdminFlag(backend, false);
+    const asCustomer = await backend.send("POST", "/admin/storage/retry-failed-deletions", { limit: 10 });
+    assert.equal(asCustomer.status, 403);
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.path.includes("list_failed_pin_image_deletions")).length,
+      0,
+      "a refused request must not even list deletable objects"
+    );
+  } finally {
+    await backend.stop();
+  }
+
+  const admin = await startBackend();
+  try {
+    scriptAdminFlag(admin, true);
+    admin.db.rpc("list_failed_pin_image_deletions", { status: 200, body: [] });
+    const answer = await admin.send("POST", "/admin/storage/retry-failed-deletions", { limit: 999999 });
+    assert.equal(answer.status, 200, `expected 200, got ${answer.status}: ${JSON.stringify(answer.body)}`);
+    const call = admin.db.requests.find((entry) => entry.path.includes("list_failed_pin_image_deletions"));
+    const requested = Number(JSON.parse(call.body).p_limit);
+    assert.ok(requested >= 1 && requested <= 100, `an absurd limit must be clamped, got ${requested}`);
+  } finally {
+    await admin.stop();
+  }
+});
