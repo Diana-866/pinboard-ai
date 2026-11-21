@@ -3869,3 +3869,11 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Найдено:** PowerShell 5.1 блокирует `npm start` политикой выполнения (`npm.ps1`, `UnauthorizedAccess`) — обход `npm.cmd start` или `Set-ExecutionPolicy -Scope Process -Bypass`, записано как UA-074.
 - **Реестр:** 448–449. Раздел 149.
 - **Осталось:** запустить бэкенд и проверить `429 login_locked` (UA-071); staging UA-066 — 0 %.
+
+### 2026-11-21 — Найден корень падений: `backend/.env` не читался
+
+- **Дефект:** `.env.example`, инструкции и `.gitignore` требуют/защищают `backend/.env`, но `npm start` = `node index.js` без `dotenv` — файл был декоративным. Владелец заполнил ключи, они игнорировались, процесс падал с безымянным `{"level":"fatal","event":"process.uncaught_exception"}`.
+- **Решение:** `--env-file-if-exists=.env` в `start`, `worker`, `worker:account-deletion`, `cron:schedule`; `test` намеренно не читает `.env`. Зависимость не добавлена.
+- **Проверено:** до — fatal без причины; после — `GET /health` → `{"ok":true,"uptime_seconds":7}`. Новый страж `startup-loads-env.test.js` (3 проверки), мутация (убран флаг) роняет 2 из 3.
+- **Не сделано:** замок входа вживую — в базе 0 пользователей, нужен тестовый аккаунт; диагностика фатальных ошибок всё ещё скрывает причину.
+- **Реестр:** 450–452. Раздел 150.

@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "node --env-file-if-exists=.env index.js",
     "test": "node --test",
-    "worker": "node scheduleWorker.js",
-    "worker:account-deletion": "node accountDeletionWorker.js",
-    "cron:schedule": "node scheduleCron.js"
+    "worker": "node --env-file-if-exists=.env scheduleWorker.js",
+    "worker:account-deletion": "node --env-file-if-exists=.env accountDeletionWorker.js",
+    "cron:schedule": "node --env-file-if-exists=.env scheduleCron.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

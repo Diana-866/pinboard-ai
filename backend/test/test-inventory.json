@@ -1,6 +1,6 @@
 {
-  "files": 170,
-  "total": 1408,
+  "files": 171,
+  "total": 1411,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -154,6 +154,7 @@
     "sql-expectation-drift.test.js": 4,
     "sql-gate-script-contract.test.js": 16,
     "startup-config.test.js": 3,
+    "startup-loads-env.test.js": 3,
     "storage-rehost.test.js": 8,
     "storage-server-error-codes.test.js": 3,
     "storage-upload.test.js": 12,
