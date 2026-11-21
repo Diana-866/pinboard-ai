@@ -28,18 +28,17 @@ const CEILING: Record<string, number> = {
   'components/admin/AdminLoginLockout.tsx': 24,
   'components/admin/AdminMail.tsx': 13,
   'components/admin/AdminPanel.tsx': 16,
-  'components/admin/AdminPaymentCreationRequests.tsx': 32,
+  'components/admin/AdminPaymentCreationRequests.tsx': 31,
   'components/admin/AdminPinterestSchedules.tsx': 61,
   'components/admin/AdminSubscriptions.tsx': 25,
   'components/auth/AuthModal.tsx': 23,
-  'components/auth/PrivacyPolicyModal.tsx': 2,
   'components/pricing/PricingView.tsx': 12,
   'components/review/SwipeReviewModal.tsx': 33,
   'pages/Contacts.tsx': 36,
   'pages/Landing.tsx': 126,
   'pages/VerifyEmail.tsx': 1,
 };
-const CEILING_TOTAL = 487;
+const CEILING_TOTAL = 484;
 
 function walk(dir: string, acc: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

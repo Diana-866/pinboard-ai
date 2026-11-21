@@ -11,7 +11,7 @@ interface PrivacyPolicyModalProps {
 }
 
 export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, onClose }) => {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const isRussian = resolveLegalLanguage(language) === 'ru';
   if (!isOpen) return null;
 
@@ -22,11 +22,11 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, 
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-primary-theme">{isRussian ? 'Политика конфиденциальности' : 'Privacy Policy'}</h2>
+          <h2 className="text-lg font-semibold text-primary-theme">{t.terms.privacyPolicyTitle}</h2>
           <button
             onClick={onClose}
             className="rounded-lg px-3 py-1 text-sm text-secondary-theme hover:text-primary-theme"
-            aria-label={isRussian ? 'Закрыть' : 'Close'}
+            aria-label={t.terms.closeLabel}
           >
             ✕
           </button>

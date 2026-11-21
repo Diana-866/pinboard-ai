@@ -842,6 +842,8 @@ export const es: TranslationSchema = {
     peakLoadTitle: 'Aviso Operativo por Alta Demanda y SLA',
     peakLoadNotice: 'En periodos de alta demanda (por ejemplo, en los primeros días tras anuncios públicos del servicio), la generación de pines puede demorarse más de lo habitual: hasta 24–48 horas en lugar de unos pocos minutos. El acceso a su cuenta, el chat con el asistente de estrategia y las herramientas analíticas permanecen disponibles de forma inmediata tras el pago. Le notificaremos en la interfaz si su solicitud ingresa en la cola por alta demanda.',
     termsOfServiceTitle: 'Términos del Servicio y Acuerdo de Nivel de Servicio (SLA)',
+    privacyPolicyTitle: "Política de privacidad",
+    closeLabel: "Cerrar",
   },
   adminAccess: {
     title: "Acceso denegado",

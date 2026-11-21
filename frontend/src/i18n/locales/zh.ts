@@ -843,6 +843,8 @@ export const zh: TranslationSchema = {
     peakLoadTitle: '高峰负载运营说明与服务等级协议 (SLA)',
     peakLoadNotice: '在系统访问与生成高峰期（例如平台公开宣布活动后数日内），Pin 生成任务的处理时间可能延长至 24–48 小时（常规情况下仅需数分钟）。账户权限、AI 策略咨询助理以及所有数据分析工具在订阅后立即生效可用。若您的任务因高峰负载进入排期队列，系统将第一时间在界面向您发送通知提醒。',
     termsOfServiceTitle: '服务条款与 SLA 协议',
+    privacyPolicyTitle: "隐私政策",
+    closeLabel: "关闭",
   },
   adminAccess: {
     title: "访问被拒绝",

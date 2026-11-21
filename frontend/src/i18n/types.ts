@@ -886,5 +886,7 @@ export interface TranslationSchema {
     peakLoadTitle: string;
     peakLoadNotice: string;
     termsOfServiceTitle: string;
+    privacyPolicyTitle: string;
+    closeLabel: string;
   };
 }

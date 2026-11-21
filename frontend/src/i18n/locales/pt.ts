@@ -842,6 +842,8 @@ export const pt: TranslationSchema = {
     peakLoadTitle: 'Aviso Operacional de Alta Demanda e SLA',
     peakLoadNotice: 'Em períodos de alta demanda (como nos primeiros dias após lançamentos públicos do serviço), a geração de pins pode levar mais tempo que o habitual — até 24 a 48 horas em vez de poucos minutos. O acesso à sua conta, o assistente de chat e as ferramentas analíticas permanecem imediatamente disponíveis após a confirmação. Notificaremos você na interface se sua solicitação entrar na fila por motivo de sobrecarga.',
     termsOfServiceTitle: 'Termos de Serviço e Acordo de Nível de Serviço (SLA)',
+    privacyPolicyTitle: "Política de privacidade",
+    closeLabel: "Fechar",
   },
   adminAccess: {
     title: "Acesso negado",

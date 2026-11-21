@@ -842,6 +842,8 @@ export const fr: TranslationSchema = {
     peakLoadTitle: 'Avis opérationnel de forte charge & SLA',
     peakLoadNotice: 'En période de forte demande (par exemple durant les premiers jours suivant les annonces publiques du service), le traitement des demandes de génération d’épingles peut requérir jusqu’à 24 à 48 heures au lieu de quelques minutes. L’accès au compte, le chat avec l’assistant stratège et tous les outils d’analyse restent disponibles immédiatement après le paiement. Vous serez notifié dans l’interface dès qu’une demande entre en file d’attente pour cause de forte charge.',
     termsOfServiceTitle: 'Conditions Générales d’Utilisation et SLA',
+    privacyPolicyTitle: "Politique de confidentialité",
+    closeLabel: "Fermer",
   },
   adminAccess: {
     title: "Accès refusé",
