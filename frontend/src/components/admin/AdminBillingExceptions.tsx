@@ -1,3 +1,5 @@
+import { EMPTY_TIMESTAMP, formatTimestamp } from '../../lib/dateFormat';
+import { formattingLocale } from '../../lib/intlLocale';
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, RefreshCw, ShieldAlert } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
@@ -90,7 +92,7 @@ export const AdminBillingExceptions: React.FC = () => {
             {rows.map((row) => (
               <tr key={row.id} className="border-b border-subtle/60 hover:bg-subtle/40">
                 <td className="py-2.5 px-3 whitespace-nowrap font-mono text-[10px] text-muted-theme">
-                  {new Date(row.created_at).toLocaleString()}
+                  {formatTimestamp(row.created_at, 'ru')}
                 </td>
                 <td className="py-2.5 px-3">{row.payment_kind === 'credits' ? 'Кредиты' : 'Подписка'}</td>
                 <td className="py-2.5 px-3 font-mono text-[10px] max-w-[180px] truncate">{row.order_id || '—'}</td>
@@ -99,7 +101,7 @@ export const AdminBillingExceptions: React.FC = () => {
                   {row.received_sum || '—'} {row.received_currency?.toUpperCase() || ''}
                 </td>
                 <td className="py-2.5 px-3 text-right font-mono whitespace-nowrap">
-                  {row.expected_amount == null ? '—' : row.expected_amount.toLocaleString()}
+                  {row.expected_amount == null ? EMPTY_TIMESTAMP : new Intl.NumberFormat(formattingLocale('ru')).format(row.expected_amount)}
                 </td>
                 <td className="py-2.5 px-3 max-w-[220px] break-words">{row.reason}</td>
               </tr>

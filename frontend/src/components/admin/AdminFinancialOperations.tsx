@@ -1,3 +1,4 @@
+import { EMPTY_TIMESTAMP, formatTimestamp } from '../../lib/dateFormat';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Activity, Clock3, RefreshCw, ShieldCheck } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
@@ -85,7 +86,7 @@ function OperationTable({ title, rows, empty, rowLabel }: { title: string; rows:
                   </td>
                   <td className="max-w-[320px] px-4 py-3 align-top text-secondary-theme">{REASONS[row.reason] || row.reason}</td>
                   <td className="whitespace-nowrap px-4 py-3 align-top font-mono text-[10px] text-secondary-theme">{ageLabel(row.age_minutes)}</td>
-                  <td className="whitespace-nowrap px-4 py-3 align-top text-[10px] text-muted-theme">{new Date(row.updated_at).toLocaleString()}</td>
+                  <td className="whitespace-nowrap px-4 py-3 align-top text-[10px] text-muted-theme">{formatTimestamp(row.updated_at, 'ru')}</td>
                 </tr>
               ))}
             </tbody>

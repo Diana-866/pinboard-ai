@@ -1,3 +1,4 @@
+import { EMPTY_TIMESTAMP, formatTimestamp } from '../../lib/dateFormat';
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, Clock, RefreshCw, ShieldCheck } from "lucide-react";
 import { apiRequest } from "../../lib/api";
@@ -70,7 +71,7 @@ function formatDate(value: string | null | undefined): string {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString();
+  return formatTimestamp(date, 'ru');
 }
 
 function safeError(value: string | null | undefined): string {

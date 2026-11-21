@@ -1,3 +1,4 @@
+import { EMPTY_TIMESTAMP, formatTimestamp } from '../../lib/dateFormat';
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Clock3, Mail, RefreshCw, RotateCcw } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
@@ -20,7 +21,7 @@ interface OutboxHealth {
 function formatDate(value: string | null) {
   if (!value) return '—';
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? EMPTY_TIMESTAMP : formatTimestamp(date, 'ru');
 }
 
 function formatAge(seconds: number | null) {

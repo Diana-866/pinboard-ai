@@ -1,3 +1,4 @@
+import { EMPTY_TIMESTAMP, formatTimestamp } from '../../lib/dateFormat';
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Clock3, RefreshCw, ShieldCheck } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
@@ -36,7 +37,7 @@ type QueueResponse = {
 
 function formatDate(value: string): string {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? 'Дата неизвестна' : date.toLocaleString();
+  return formatTimestamp(date, 'ru');
 }
 
 export const AdminPaymentCreationRequests: React.FC = () => {
