@@ -29,3 +29,14 @@ test("measures secret strength in bytes rather than JavaScript characters", () =
   assert.equal(assertJwtSecret({ JWT_SECRET: "я".repeat(16) }), true);
   assert.equal(assertJwtSecret({ JWT_SECRET: "я".repeat(16) + "a".repeat(16) }), true);
 });
+
+test("a missing JWT secret carries a machine code that is safe to log", () => {
+  // Section 151: код отказа - единственное, что попадает в журнал вместо текста ошибки.
+  const { assertJwtSecret, JWT_SECRET_MISSING } = require("../startupConfig");
+  assert.equal(JWT_SECRET_MISSING, "config_jwt_secret_missing");
+  assert.throws(
+    () => assertJwtSecret({ JWT_SECRET: "too-short" }),
+    (error) => error.code === JWT_SECRET_MISSING
+  );
+  assert.equal(assertJwtSecret({ JWT_SECRET: "a".repeat(32) }), true);
+});

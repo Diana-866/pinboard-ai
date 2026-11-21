@@ -9,11 +9,11 @@ function installFatalProcessHandlers({
 } = {}) {
   let terminating = false;
 
-  function terminate(event) {
+  function terminate(event, reason) {
     if (terminating) return;
     terminating = true;
     try {
-      writeFatal(event);
+      writeFatal(event, reason);
     } catch {
       // A failed diagnostic write must never prevent fail-fast termination.
     }
@@ -22,8 +22,8 @@ function installFatalProcessHandlers({
 
   // Do not resume after a fatal exception or an unhandled rejection. Continuing
   // could leave the server/worker in an unknown state. The host should restart it.
-  const onUncaughtException = () => terminate("process.uncaught_exception");
-  const onUnhandledRejection = () => terminate("process.unhandled_rejection");
+  const onUncaughtException = (error) => terminate("process.uncaught_exception", error);
+  const onUnhandledRejection = (error) => terminate("process.unhandled_rejection", error);
   processObject.on("uncaughtException", onUncaughtException);
   processObject.on("unhandledRejection", onUnhandledRejection);
 

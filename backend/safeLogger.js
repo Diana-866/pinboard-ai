@@ -35,7 +35,10 @@ function safeEventName(value) {
 function safeErrorCode(error) {
   try {
     const code = error && typeof error === "object" ? error.code : null;
-    return typeof code === "string" && SAFE_ERROR_CODES.has(code) ? code : undefined;
+    if (typeof code !== "string") return undefined;
+    // Коды отказа конфигурации статичны: они называют, ЧЕГО не хватает, и не содержат значений.
+    if (/^config_[a-z0-9_]{1,48}$/.test(code)) return code;
+    return SAFE_ERROR_CODES.has(code) ? code : undefined;
   } catch {
     return undefined;
   }
@@ -69,8 +72,16 @@ function logWarning(event, error, status) {
   return logEvent("warn", event, error, status);
 }
 
-function logFatalSync(event) {
+function logFatalSync(event, error) {
   const record = { level: "fatal", event: safeEventName(event) };
+  // Section 151: без этого падение при старте было безымянным. Пишем только белый список:
+  // имя класса и статический код. Текст ошибки, стек и причина rejection не попадают никогда.
+  const errorName = error && typeof error.name === "string" && /^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(error.name)
+    ? error.name
+    : undefined;
+  if (errorName) record.error_name = errorName;
+  const code = safeErrorCode(error);
+  if (code) record.error_code = code;
   const correlationId = currentCorrelationId();
   if (correlationId) record.correlation_id = correlationId;
   // Fatal diagnostics must be synchronously written before fail-fast process exit.

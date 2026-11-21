@@ -12,10 +12,14 @@ const fallbackKey = process.env.SUPABASE_ANON_KEY;
 const isLocalEnv = ["development", "test"]
   .includes(String(process.env.NODE_ENV || "").trim().toLowerCase());
 if (!isLocalEnv && !serviceRoleKey) {
-  throw new Error("SUPABASE_SERVICE_ROLE_KEY is required outside local development or test");
+  const error = new Error("SUPABASE_SERVICE_ROLE_KEY is required outside local development or test");
+  error.code = "config_supabase_service_role_missing";
+  throw error;
 }
 if (!supabaseUrl) {
-  throw new Error("SUPABASE_URL is required");
+  const error = new Error("SUPABASE_URL is required");
+  error.code = "config_supabase_url_missing";
+  throw error;
 }
 
 const supabase = createClient(

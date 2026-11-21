@@ -1,6 +1,6 @@
 {
   "files": 171,
-  "total": 1411,
+  "total": 1415,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -54,7 +54,7 @@
     "email-verification.test.js": 16,
     "env-documentation.test.js": 4,
     "error-code-drift.test.js": 5,
-    "fatal-process-handlers.test.js": 2,
+    "fatal-process-handlers.test.js": 5,
     "fetch-all-pages.test.js": 4,
     "frontend-api-contract.test.js": 3,
     "frontend-route-contract.test.js": 4,
@@ -153,7 +153,7 @@
     "sql-dollar-quote-balance.test.js": 3,
     "sql-expectation-drift.test.js": 4,
     "sql-gate-script-contract.test.js": 16,
-    "startup-config.test.js": 3,
+    "startup-config.test.js": 4,
     "startup-loads-env.test.js": 3,
     "storage-rehost.test.js": 8,
     "storage-server-error-codes.test.js": 3,

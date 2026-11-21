@@ -3877,3 +3877,12 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Проверено:** до — fatal без причины; после — `GET /health` → `{"ok":true,"uptime_seconds":7}`. Новый страж `startup-loads-env.test.js` (3 проверки), мутация (убран флаг) роняет 2 из 3.
 - **Не сделано:** замок входа вживую — в базе 0 пользователей, нужен тестовый аккаунт; диагностика фатальных ошибок всё ещё скрывает причину.
 - **Реестр:** 450–452. Раздел 150.
+
+### 2026-11-21 — Фатальные ошибки теперь называют причину
+
+- **Дефект:** `{"level":"fatal","event":"process.uncaught_exception"}` без причины — владелец не мог узнать, чего не хватает; именно поэтому §150 дважды остался незамеченным.
+- **Решение:** в журнал идут `error_name` + статический код (`config_jwt_secret_missing`, `config_supabase_service_role_missing`, `config_supabase_url_missing`); текст ошибки, стек и причина rejection не пишутся.
+- **Проверено вживую:** `"error_code":"config_supabase_service_role_missing"`; сервер с рабочим `.env` отвечает `/health` → `{"ok":true,"uptime_seconds":474}`.
+- **Мутации:** 4, все падают. Свои ошибки: два теста не покрывали обработчик и `startupConfig`; мутация дважды била не в то вхождение `record.error_code` (повтор §123/§126).
+- **Реестр:** 453–454. Раздел 151.
+- **Осталось:** замок входа вживую (нужен тестовый аккаунт), staging UA-066 — 0 %.
