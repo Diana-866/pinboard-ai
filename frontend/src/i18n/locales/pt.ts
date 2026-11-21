@@ -700,6 +700,14 @@ export const pt: TranslationSchema = {
     statusCanceled: 'Cancelado',
     statusDenied: 'Recusado',
     neverBurn: 'Os créditos dos pacotes pagos são adicionados ao saldo e não expiram.',
+    loadTariffsError: "Não foi possível carregar os preços atuais dos planos. A compra está temporariamente indisponível.",
+    loadPacksError: "Não foi possível carregar os preços atuais dos pacotes. Tente novamente mais tarde.",
+    loadHistoryError: "Não foi possível carregar o histórico de compras. Verifique sua conexão e tente novamente.",
+    historyLoading: "Carregando o histórico de compras…",
+    retry: "Tentar novamente",
+    emptyHistory: "Ainda não há compras. Os pacotes pagos aparecerão aqui após a confirmação do pagamento.",
+    orderLabel: "Pedido",
+    demoLabel: "Demonstração",
   },
 
   review: {

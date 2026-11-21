@@ -738,6 +738,14 @@ export interface TranslationSchema {
     statusCanceled: string;
     statusDenied: string;
     neverBurn: string;
+    loadTariffsError: string;
+    loadPacksError: string;
+    loadHistoryError: string;
+    historyLoading: string;
+    retry: string;
+    emptyHistory: string;
+    orderLabel: string;
+    demoLabel: string;
   };
 
 

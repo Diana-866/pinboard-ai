@@ -85,3 +85,24 @@ test('the pricing component no longer carries these labels as literals', () => {
     assert.equal(source.includes(literal), false, `PricingView still hardcodes ${literal}`);
   }
 });
+
+test('the purchase history speaks every language, without a two-language branch', () => {
+  // Двухъязычные ветки `language === 'ru' ? … : …` отдавали английский пяти языкам (§139).
+  const keys = ['loadTariffsError', 'loadPacksError', 'loadHistoryError', 'historyLoading', 'retry', 'emptyHistory', 'orderLabel', 'demoLabel'];
+  const problems: string[] = [];
+  for (const language of LANGUAGES) {
+    for (const key of keys) {
+      const value = (LOCALE_TABLES as Record<string, any>)[language].purchases[key];
+      if (typeof value !== 'string' || !value.trim()) problems.push(`${language}.purchases.${key} missing`);
+      else if (language !== 'ru' && /[А-яЁё]/.test(value)) problems.push(`${language}.purchases.${key}: ${value}`);
+    }
+  }
+  assert.deepEqual(problems, [], problems.join('\n'));
+});
+
+test('the purchase history copy is no longer chosen between two languages in the component', () => {
+  const source = readFileSync(path.join(process.cwd(), 'src', 'components', 'pricing', 'PricingView.tsx'), 'utf8');
+  for (const literal of ["'Загружаем историю покупок…'", "'Повторить'", "'Демонстрация'", "'Заказ'", "'Не удалось загрузить историю покупок."]) {
+    assert.equal(source.includes(literal), false, `PricingView still hardcodes ${literal}`);
+  }
+});

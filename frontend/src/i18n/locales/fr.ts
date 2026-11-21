@@ -700,6 +700,14 @@ export const fr: TranslationSchema = {
     statusCanceled: 'Annulé',
     statusDenied: 'Refusé',
     neverBurn: 'Les crédits des packs payés sont ajoutés au solde et n’expirent pas.',
+    loadTariffsError: "Impossible de charger les prix actuels des offres. L’achat est temporairement indisponible.",
+    loadPacksError: "Impossible de charger les prix actuels des packs. Réessayez plus tard.",
+    loadHistoryError: "Impossible de charger l’historique des achats. Vérifiez votre connexion et réessayez.",
+    historyLoading: "Chargement de l’historique des achats…",
+    retry: "Réessayer",
+    emptyHistory: "Aucun achat pour l’instant. Les packs payés apparaîtront ici après confirmation du paiement.",
+    orderLabel: "Commande",
+    demoLabel: "Démonstration",
   },
 
   review: {

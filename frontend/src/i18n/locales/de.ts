@@ -700,6 +700,14 @@ export const de: TranslationSchema = {
     statusCanceled: 'Storniert',
     statusDenied: 'Abgelehnt',
     neverBurn: 'Credits aus bezahlten Paketen werden dem Guthaben gutgeschrieben und verfallen nicht.',
+    loadTariffsError: "Die aktuellen Tarifpreise konnten nicht geladen werden. Der Kauf ist vorübergehend nicht möglich.",
+    loadPacksError: "Die aktuellen Preise der Pakete konnten nicht geladen werden. Versuchen Sie es später erneut.",
+    loadHistoryError: "Der Kaufverlauf konnte nicht geladen werden. Prüfen Sie die Verbindung und versuchen Sie es erneut.",
+    historyLoading: "Kaufverlauf wird geladen…",
+    retry: "Erneut versuchen",
+    emptyHistory: "Noch keine Käufe. Bezahlte Pakete erscheinen hier nach der Zahlungsbestätigung.",
+    orderLabel: "Bestellung",
+    demoLabel: "Demo",
   },
 
   review: {

@@ -84,9 +84,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
       })
       .catch(() => {
         setPlanPrices({});
-        setPlanPricesError(language === 'ru'
-          ? 'Не удалось загрузить актуальные цены тарифов. Покупка временно недоступна.'
-          : 'Could not load current plan prices. Purchasing is temporarily unavailable.');
+        setPlanPricesError(t.purchases.loadTariffsError);
       });
   }, [language]);
 
@@ -124,9 +122,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
       })
       .catch(() => {
         setCreditPacks([]);
-        setCreditPacksError(language === 'ru'
-          ? 'Не удалось загрузить актуальные цены пакетов. Обновите страницу позже.'
-          : 'Could not load current credit pack prices. Please try again later.');
+        setCreditPacksError(t.purchases.loadPacksError);
       });
   }, [language, t.pricing.popularBadge]);
 
@@ -182,9 +178,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
       })
       .catch(() => {
         if (active && isCurrentBillingOwner(billingOwnerIdRef.current, user.id)) {
-          setPurchasesError(language === 'ru'
-            ? 'Не удалось загрузить историю покупок. Проверьте соединение и повторите попытку.'
-            : 'Could not load purchase history. Check your connection and try again.');
+          setPurchasesError(t.purchases.loadHistoryError);
         }
       })
       .finally(() => {
@@ -912,7 +906,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
               </h4>
               {purchasesLoading && (
                 <p className="text-xs text-secondary-theme" role="status">
-                  {language === 'ru' ? 'Загружаем историю покупок…' : 'Loading purchase history…'}
+                  {t.purchases.historyLoading}
                 </p>
               )}
               {purchasesError && (
@@ -924,15 +918,13 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
                     disabled={purchasesLoading}
                     className="text-xs font-semibold underline underline-offset-2 disabled:opacity-50"
                   >
-                    {language === 'ru' ? 'Повторить' : 'Retry'}
+                    {t.purchases.retry}
                   </button>
                 </div>
               )}
               {!purchasesLoading && !purchasesError && purchases.length === 0 && (
                 <p className="text-xs text-secondary-theme">
-                  {language === 'ru'
-                    ? 'Покупок пока нет. Оплаченные пакеты появятся здесь после подтверждения платежа.'
-                    : 'No purchases yet. Paid credit packs will appear here after payment confirmation.'}
+                  {t.purchases.emptyHistory}
                 </p>
               )}
               {purchases.length > 0 && (
@@ -957,7 +949,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
                               className="mt-1 text-[10px] font-mono font-normal text-secondary-theme select-all"
                               title={p.provider_payment_id}
                             >
-                              {language === 'ru' ? 'Заказ' : 'Order'}: {p.provider_payment_id}
+                              {t.purchases.orderLabel}: {p.provider_payment_id}
                             </div>
                           )}
                         </td>
@@ -1019,7 +1011,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
             </p>
           </div>
           <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 self-start">
-            {language === 'ru' ? 'Демонстрация' : 'Demo'}
+            {t.purchases.demoLabel}
           </span>
         </div>
 

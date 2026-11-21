@@ -700,6 +700,14 @@ export const en: TranslationSchema = {
     statusCanceled: 'Cancelled',
     statusDenied: 'Declined',
     neverBurn: 'Credits from paid packs are added to your balance and never expire.',
+    loadTariffsError: "Could not load current plan prices. Purchasing is temporarily unavailable.",
+    loadPacksError: "Could not load current credit pack prices. Please try again later.",
+    loadHistoryError: "Could not load purchase history. Check your connection and try again.",
+    historyLoading: "Loading purchase history…",
+    retry: "Retry",
+    emptyHistory: "No purchases yet. Paid credit packs will appear here after payment confirmation.",
+    orderLabel: "Order",
+    demoLabel: "Demo",
   },
 
   review: {

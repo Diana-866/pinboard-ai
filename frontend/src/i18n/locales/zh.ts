@@ -700,6 +700,14 @@ export const zh: TranslationSchema = {
     statusCanceled: '已取消',
     statusDenied: '已拒绝',
     neverBurn: '付费套餐购买的积分会计入余额，且不会过期。',
+    loadTariffsError: "无法加载当前的套餐价格，暂时无法购买。",
+    loadPacksError: "无法加载当前的积分包价格，请稍后再试。",
+    loadHistoryError: "无法加载购买记录，请检查网络连接后重试。",
+    historyLoading: "正在加载购买记录…",
+    retry: "重试",
+    emptyHistory: "暂无购买记录。付款确认后，已购积分包会显示在这里。",
+    orderLabel: "订单",
+    demoLabel: "演示",
   },
 
   review: {
