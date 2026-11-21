@@ -18,7 +18,7 @@ test('API fallback messages default safely to English for unsupported locales', 
   );
   assert.equal(
     getApiFallbackMessage('network', null),
-    'The server is unavailable. It may be waking up after inactivity. Please wait a moment and try again.'
+    'The server is not responding. Check your connection and try again in a minute.'
   );
 });
 

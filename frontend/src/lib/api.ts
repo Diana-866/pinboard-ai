@@ -11,7 +11,17 @@ import {
   shouldRetryTransparently,
 } from "./apiResilience";
 
-export const API_URL = (import.meta as any).env?.VITE_API_URL || "https://pinboard-ai-backend.onrender.com";
+const configuredApiUrl = (import.meta as any).env?.VITE_API_URL;
+export const API_URL = configuredApiUrl || "https://pinboard-ai-backend.onrender.com";
+
+// Раздел 157. Без этой строки отсутствие VITE_API_URL не видно никому: браузер молча уходит на
+// чужой (уже развёрнутый) сервер, а клиент получает «сервер не отвечает». Владелец потратил на этот
+// поиск три круга. Только в режиме разработки и только латиницей — это сообщение для разработчика.
+if ((import.meta as any).env?.DEV && !configuredApiUrl) {
+  console.warn(
+    "[api] VITE_API_URL is not set; requests go to " + API_URL + ". Set it in frontend/.env (and restart the dev server)."
+  );
+}
 
 export class ApiError extends Error {
   status: number;
