@@ -51,23 +51,32 @@ test('the unused alternative login window stays deleted', () => {
   assert.equal(existsSync(path.join(root, 'src', 'components', 'auth', 'AuthModal.tsx')), false);
 });
 
-test('every component in components/auth is imported somewhere', () => {
+test('every component in the tree is imported somewhere', () => {
+  // Раздел 163. Раньше проверка смотрела только `components/auth`, и поэтому не видела
+  // `PublishPinButton` (единственный путь публикации, не смонтированный нигде) и `SwipeReviewModal`
+  // (364 строки с выдуманными русскими пинами в начальном состоянии). Теперь проверяется весь `components`.
   const files = sourceFiles();
-  // Список берётся с диска, а не из `git ls-files`: иначе новый файл, ещё не добавленный в git,
-  // для проверки невидим (первая версия этого теста именно так и пропустила сироту).
-  const authFiles = readdirSync(path.join(root, 'src', 'components', 'auth'))
-    .filter((name) => /\.tsx?$/.test(name))
-    .map((name) => `src/components/auth/${name}`);
-  assert.ok(authFiles.length >= 1, 'expected at least one auth component');
+  const componentFiles: string[] = [];
+  const collect = (dir: string) => {
+    for (const name of readdirSync(path.join(root, dir), { withFileTypes: true })) {
+      const rel = `${dir}/${name.name}`;
+      if (name.isDirectory()) collect(rel);
+      else if (/\.tsx?$/.test(name.name) && !/\.test\.tsx?$/.test(name.name)) componentFiles.push(rel);
+    }
+  };
+  collect('src/components');
+  assert.ok(componentFiles.length > 20, `expected the whole component tree, got ${componentFiles.length}`);
   const sources = new Map(files.map((file) => [file, readFileSync(path.join(root, file), 'utf8')]));
   const orphans: string[] = [];
-  for (const file of authFiles) {
+  for (const file of componentFiles) {
     const base = path.basename(file).replace(/\.tsx?$/, '');
-    const imported = files.some((other) => {
-      if (other === file) return false;
-      return new RegExp(`from ['"][^'"]*${base}['"]`).test(sources.get(other) ?? '');
-    });
+    const imported = [...sources].some(
+      ([other, text]) => other !== file && new RegExp(`from ['"][^'"]*${base}['"]`).test(text)
+    );
     if (!imported) orphans.push(file);
   }
-  assert.deepEqual(orphans, [], `these auth components are mounted nowhere:\n${orphans.join('\n')}`);
+  assert.deepEqual(orphans, [], `these components are mounted nowhere:\n${orphans.join('\n')}`);
+
+  // Публикация должна оставаться доступной из живого экрана (раздел 162).
+  assert.equal((orphans as string[]).includes("src/components/pins/PublishPinButton.tsx"), false);
 });
