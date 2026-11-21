@@ -30,3 +30,15 @@ test("review queue excludes pins with active or uncertain persisted schedules", 
   assert.match(route, /\.in\("status", \["scheduled", "publishing", "published", "unknown"\]\)/);
   assert.match(route, /reconcileReviewQueueRows\(rows, pinsById, userId, scheduledPinIds\)/);
 });
+
+test("review queue validates secondary query envelopes before reconciliation", () => {
+  const source = fs.readFileSync(path.join(__dirname, "..", "index.js"), "utf8");
+  const start = source.indexOf('app.get("/review-queue", requireAuth');
+  const end = source.indexOf("\\napp.", start + 10);
+  const route = source.slice(start, end);
+
+  assert.match(route, /readArrayQueryResult\\(result\\)/);
+  assert.doesNotMatch(route, /result\\.data\\s*\\|\\|\\s*\\[\\]/);
+  assert.ok(route.indexOf("readArrayQueryResult(result)") < route.indexOf("reconcileReviewQueueRows"),
+    "malformed related reads must be rejected before reconciliation or cleanup");
+});
