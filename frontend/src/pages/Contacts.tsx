@@ -1,3 +1,4 @@
+import { formattingLocale } from '../lib/intlLocale';
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Mail, Receipt, ShieldCheck, FileText, Globe2, Coins } from 'lucide-react';
@@ -79,7 +80,7 @@ export const Contacts: React.FC = () => {
   }, []);
 
   const formatPrice = (amount: number, currency: 'rub' | 'usd') =>
-    new Intl.NumberFormat(ru ? 'ru-RU' : 'en-US', {
+    new Intl.NumberFormat(formattingLocale(language), {
       minimumFractionDigits: currency === 'usd' ? 2 : 0,
       maximumFractionDigits: currency === 'usd' ? 2 : 0,
     }).format(amount) + (currency === 'rub' ? ' ₽' : ' $');
@@ -191,7 +192,7 @@ export const Contacts: React.FC = () => {
               </span>
               <span className="whitespace-nowrap text-[13.5px] font-semibold text-[#A94D5F]">
                 {creditPackMin !== null
-                  ? `${ru ? 'от' : 'from'} ${new Intl.NumberFormat(ru ? 'ru-RU' : 'en-US').format(creditPackMin)} ₽`
+                  ? `${ru ? 'от' : 'from'} ${new Intl.NumberFormat(formattingLocale(language)).format(creditPackMin)} ₽`
                   : '—'}
               </span>
             </div>

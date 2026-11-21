@@ -1,3 +1,4 @@
+import { formattingLocale } from '../lib/intlLocale';
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, useMotionValue, useSpring, useTransform, MotionValue } from 'motion/react';
@@ -827,7 +828,7 @@ export const Landing: React.FC = () => {
       ];
 
   const formatLandingPrice = (amount: number, currency: 'rub' | 'usd') =>
-    new Intl.NumberFormat(ru ? 'ru-RU' : 'en-US', {
+    new Intl.NumberFormat(formattingLocale(lang), {
       minimumFractionDigits: 0,
       maximumFractionDigits: currency === 'usd' ? 2 : 0,
     }).format(amount) + (currency === 'rub' ? ' ₽' : ' $');

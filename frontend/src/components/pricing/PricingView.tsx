@@ -20,6 +20,7 @@ import {
   History,
   ReceiptText,
 } from 'lucide-react';
+import { formattingLocale } from '../../lib/intlLocale';
 import { useI18n } from '../../i18n/i18nContext';
 import { useAuth } from '../../context/AuthContext';
 import { startPayment, PayablePlan, SubscriptionRow, startCreditsPurchase, CreditPurchaseRow, releasePaymentIdempotencyKey } from '../../lib/billing';
@@ -94,10 +95,10 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
     apiRequest('/billing/credit-packs')
       .then((res: any) => {
         if (!Array.isArray(res?.packs)) throw new Error('Invalid credit pack catalog');
-        const formatter = new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', {
+        const formatter = new Intl.NumberFormat(formattingLocale(language), {
           maximumFractionDigits: 0,
         });
-        const perCreditFormatter = new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', {
+        const perCreditFormatter = new Intl.NumberFormat(formattingLocale(language), {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         });
@@ -435,7 +436,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
 
 
   const formatPlanPrice = (amount: number, currencyCode: 'rub' | 'usd') => {
-    const formatted = new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', {
+    const formatted = new Intl.NumberFormat(formattingLocale(language), {
       minimumFractionDigits: currencyCode === 'usd' ? 2 : 0,
       maximumFractionDigits: currencyCode === 'usd' ? 2 : 0,
     }).format(amount);

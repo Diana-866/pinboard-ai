@@ -1,3 +1,4 @@
+import { formattingLocale } from '../../lib/intlLocale';
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowRight, ArrowLeft, Check, Sparkles, Rocket, PartyPopper, CreditCard } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
@@ -34,10 +35,10 @@ export const OnboardingWizard: React.FC = () => {
   const [planPrices, setPlanPrices] = useState<Record<PlanId, { rub: number; usd: number }> | null>(null);
   const [planPricesError, setPlanPricesError] = useState(false);
   const plans: PlanCard[] = [
-    { id: 'analytics', name: t.planAnalytics, price: planPrices ? new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', { style: 'currency', currency: language === 'ru' ? 'RUB' : 'USD', maximumFractionDigits: 2 }).format(planPrices.analytics[language === 'ru' ? 'rub' : 'usd']) : null, tagline: t.planAnalyticsTag, features: [...t.planAnalyticsFeatures] },
-    { id: 'start', name: t.planStart, price: planPrices ? new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', { style: 'currency', currency: language === 'ru' ? 'RUB' : 'USD', maximumFractionDigits: 2 }).format(planPrices.start[language === 'ru' ? 'rub' : 'usd']) : null, tagline: t.planStartTag, features: [...t.planStartFeatures] },
-    { id: 'pro', name: t.planPro, price: planPrices ? new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', { style: 'currency', currency: language === 'ru' ? 'RUB' : 'USD', maximumFractionDigits: 2 }).format(planPrices.pro[language === 'ru' ? 'rub' : 'usd']) : null, tagline: t.planProTag, features: [...t.planProFeatures], highlight: true },
-    { id: 'agency', name: t.planAgency, price: planPrices ? new Intl.NumberFormat(language === 'ru' ? 'ru-RU' : 'en-US', { style: 'currency', currency: language === 'ru' ? 'RUB' : 'USD', maximumFractionDigits: 2 }).format(planPrices.agency[language === 'ru' ? 'rub' : 'usd']) : null, tagline: t.planAgencyTag, features: [...t.planAgencyFeatures] },
+    { id: 'analytics', name: t.planAnalytics, price: planPrices ? new Intl.NumberFormat(formattingLocale(language), { style: 'currency', currency: language === 'ru' ? 'RUB' : 'USD', maximumFractionDigits: 2 }).format(planPrices.analytics[language === 'ru' ? 'rub' : 'usd']) : null, tagline: t.planAnalyticsTag, features: [...t.planAnalyticsFeatures] },
+    { id: 'start', name: t.planStart, price: planPrices ? new Intl.NumberFormat(formattingLocale(language), { style: 'currency', currency: language === 'ru' ? 'RUB' : 'USD', maximumFractionDigits: 2 }).format(planPrices.start[language === 'ru' ? 'rub' : 'usd']) : null, tagline: t.planStartTag, features: [...t.planStartFeatures] },
+    { id: 'pro', name: t.planPro, price: planPrices ? new Intl.NumberFormat(formattingLocale(language), { style: 'currency', currency: language === 'ru' ? 'RUB' : 'USD', maximumFractionDigits: 2 }).format(planPrices.pro[language === 'ru' ? 'rub' : 'usd']) : null, tagline: t.planProTag, features: [...t.planProFeatures], highlight: true },
+    { id: 'agency', name: t.planAgency, price: planPrices ? new Intl.NumberFormat(formattingLocale(language), { style: 'currency', currency: language === 'ru' ? 'RUB' : 'USD', maximumFractionDigits: 2 }).format(planPrices.agency[language === 'ru' ? 'rub' : 'usd']) : null, tagline: t.planAgencyTag, features: [...t.planAgencyFeatures] },
   ];
 
   useEffect(() => {
