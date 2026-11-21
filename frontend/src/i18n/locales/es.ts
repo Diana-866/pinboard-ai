@@ -686,6 +686,12 @@ export const es: TranslationSchema = {
     packM: "Paquete M",
     packL: "Paquete L",
     bestValue: "Mejor precio",
+    pendingSupportHint: "Si cerraste la página de pago o el pago sigue pendiente, escribe al soporte indicando el número de pedido. No realices otra compra hasta que se haya comprobado el estado.",
+    demoPreviewLabel: "Vista previa de una conversación de ejemplo",
+    demoStaticNote: "Este es un ejemplo estático de la interfaz. Los mensajes de abajo no se envían a ningún servidor y las respuestas no las genera una IA.",
+    demoQuestion: "¿Cómo elijo un plan para varias cuentas de clientes?",
+    demoAnswer: "Compara el límite de cuentas conectadas, el volumen mensual de créditos y las funciones que necesitas. Las tarjetas de arriba muestran esos datos.",
+    extendPlan: "Ampliar el plan",
   },
 
   purchases: {

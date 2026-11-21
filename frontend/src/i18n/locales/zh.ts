@@ -686,6 +686,12 @@ export const zh: TranslationSchema = {
     packM: "套餐 M",
     packL: "套餐 L",
     bestValue: "最划算",
+    pendingSupportHint: "如果您关闭了支付页面，或付款长时间处于待确认状态，请联系客服并提供订单号。在状态核实之前，请不要再次下单。",
+    demoPreviewLabel: "示例对话预览",
+    demoStaticNote: "这是界面的静态示例。下方的消息不会发送到服务器，回复也不是由 AI 生成的。",
+    demoQuestion: "多个客户账户时该如何选择套餐？",
+    demoAnswer: "请比较可连接账户数量上限、每月积分额度以及您需要的功能。上方套餐卡片中列出了这些参数。",
+    extendPlan: "续订套餐",
   },
 
   purchases: {

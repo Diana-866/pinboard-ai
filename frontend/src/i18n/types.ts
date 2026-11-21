@@ -723,6 +723,12 @@ export interface TranslationSchema {
     packM: string;
     packL: string;
     bestValue: string;
+    pendingSupportHint: string;
+    demoPreviewLabel: string;
+    demoStaticNote: string;
+    demoQuestion: string;
+    demoAnswer: string;
+    extendPlan: string;
   };
 
   // История покупок пакетов кредитов (переводится только в ru; остальные локали берут фолбэк в UI)

@@ -686,6 +686,12 @@ export const de: TranslationSchema = {
     packM: "Paket M",
     packL: "Paket L",
     bestValue: "Bestes Angebot",
+    pendingSupportHint: "Wenn Sie die Zahlungsseite geschlossen haben oder die Zahlung lange aussteht, wenden Sie sich mit der Bestellnummer an den Support. Starten Sie keinen weiteren Kauf, bevor der Status geprüft wurde.",
+    demoPreviewLabel: "Vorschau eines Beispielgesprächs",
+    demoStaticNote: "Dies ist ein statisches Beispiel der Oberfläche. Die Nachrichten unten werden nicht an einen Server gesendet und die Antworten nicht von einer KI erzeugt.",
+    demoQuestion: "Wie wähle ich einen Tarif für mehrere Kundenkonten?",
+    demoAnswer: "Vergleichen Sie das Limit verbundener Konten, das monatliche Guthaben an Credits und die benötigten Funktionen. Die Tarifkarten oben nennen diese Angaben.",
+    extendPlan: "Tarif verlängern",
   },
 
   purchases: {

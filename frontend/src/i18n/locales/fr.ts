@@ -686,6 +686,12 @@ export const fr: TranslationSchema = {
     packM: "Pack M",
     packL: "Pack L",
     bestValue: "Meilleur prix",
+    pendingSupportHint: "Si vous avez fermé la page de paiement ou si le paiement reste en attente, contactez le support en indiquant le numéro de commande. Ne lancez pas un autre achat avant vérification du statut.",
+    demoPreviewLabel: "Aperçu d’une conversation d’exemple",
+    demoStaticNote: "Ceci est un exemple statique de l’interface. Les messages ci-dessous ne sont pas envoyés à un serveur et les réponses ne sont pas générées par une IA.",
+    demoQuestion: "Comment choisir une offre pour plusieurs comptes clients ?",
+    demoAnswer: "Comparez la limite de comptes connectés, le volume mensuel de crédits et les fonctions dont vous avez besoin. Les cartes ci-dessus indiquent ces caractéristiques.",
+    extendPlan: "Prolonger l’offre",
   },
 
   purchases: {

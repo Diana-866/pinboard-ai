@@ -106,3 +106,42 @@ test('the purchase history copy is no longer chosen between two languages in the
     assert.equal(source.includes(literal), false, `PricingView still hardcodes ${literal}`);
   }
 });
+
+test('the demo dialog and the pending-payment advice speak every language', () => {
+  const keys = ['pendingSupportHint', 'demoPreviewLabel', 'demoStaticNote', 'demoQuestion', 'demoAnswer', 'extendPlan'];
+  const problems: string[] = [];
+  for (const language of LANGUAGES) {
+    for (const key of keys) {
+      const value = (LOCALE_TABLES as Record<string, any>)[language].pricing[key];
+      if (typeof value !== 'string' || !value.trim()) problems.push(`${language}.pricing.${key} missing`);
+      else if (language !== 'ru' && /[А-яЁё]/.test(value)) problems.push(`${language}.pricing.${key}: ${value}`);
+    }
+  }
+  // Совет при зависшем платеже обязан удерживать от повторной покупки: это деньги, не текст.
+  for (const language of LANGUAGES) {
+    const hint = (LOCALE_TABLES as Record<string, any>)[language].pricing.pendingSupportHint as string;
+    const forbids = {
+      en: /(do not|don.t) start another purchase/i,
+      ru: /не создавайте повторную покупку/i,
+      es: /no realices otra compra/i,
+      pt: /n.o fa.a outra compra/i,
+      de: /keinen weiteren kauf/i,
+      fr: /ne lancez pas un autre achat/i,
+      zh: /请不要再次下单/,
+    }[language];
+    if (!forbids || !forbids.test(hint)) problems.push(`${language}: pending hint does not forbid a repeat purchase`);
+  }
+  assert.deepEqual(problems, [], problems.join('\n'));
+});
+
+test('no two-language branch in the pricing component returns Russian copy', () => {
+  // `language === 'ru' ? 'ru-RU' : 'en-US'` — выбор локали форматирования, это законно.
+  // `language === 'ru' ? 'Русский текст' : 'English text'` — дефект: пять языков получают английский.
+  const source = readFileSync(path.join(process.cwd(), 'src', 'components', 'pricing', 'PricingView.tsx'), 'utf8');
+  const offenders = source
+    .split('\n')
+    .filter((line) => line.includes("language === 'ru' ?"))
+    .filter((line) => /[А-яЁё]/.test(line));
+  assert.deepEqual(offenders, [], `two-language copy branches returned:
+${offenders.join('\n')}`);
+});

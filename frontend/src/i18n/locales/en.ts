@@ -686,6 +686,12 @@ export const en: TranslationSchema = {
     packM: "Pack M",
     packL: "Pack L",
     bestValue: "Best value",
+    pendingSupportHint: "If you closed the checkout page or the payment stays pending, contact support with the order reference. Do not start another purchase until the status has been checked.",
+    demoPreviewLabel: "A preview of an example conversation",
+    demoStaticNote: "This is a static interface example. Messages below are not sent to a server and the replies are not AI-generated.",
+    demoQuestion: "How should I choose a plan for several client accounts?",
+    demoAnswer: "Compare the connected-account limit, the monthly credit volume and the features you need. The plan cards above list these details.",
+    extendPlan: "Extend the plan",
   },
 
   purchases: {

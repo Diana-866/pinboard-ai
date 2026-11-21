@@ -686,6 +686,12 @@ export const pt: TranslationSchema = {
     packM: "Pacote M",
     packL: "Pacote L",
     bestValue: "Melhor preço",
+    pendingSupportHint: "Se você fechou a página de pagamento ou o pagamento continua pendente, fale com o suporte informando o número do pedido. Não faça outra compra até o status ser verificado.",
+    demoPreviewLabel: "Prévia de uma conversa de exemplo",
+    demoStaticNote: "Este é um exemplo estático da interface. As mensagens abaixo não são enviadas a nenhum servidor e as respostas não são geradas por IA.",
+    demoQuestion: "Como escolho um plano para várias contas de clientes?",
+    demoAnswer: "Compare o limite de contas conectadas, o volume mensal de créditos e os recursos de que você precisa. Os cartões acima mostram esses dados.",
+    extendPlan: "Renovar o plano",
   },
 
   purchases: {

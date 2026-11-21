@@ -310,7 +310,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
     } catch (e: any) {
       if (!isCurrentBillingOwner(requestOwnerId, billingOwnerIdRef.current)) return;
       checkoutInProgressRef.current = false;
-      setPayError(e?.message || t.pricing.paymentError || 'Не удалось создать платёж');
+      setPayError(e?.message || t.pricing.paymentError);
       setPayingId(null);
     }
   };
@@ -463,7 +463,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
     } catch (e: any) {
       if (!isCurrentBillingOwner(requestOwnerId, billingOwnerIdRef.current)) return;
       checkoutInProgressRef.current = false;
-      setPayError(e?.message || t.pricing.paymentError || 'Не удалось создать платёж');
+      setPayError(e?.message || t.pricing.paymentError);
       setPayingPackId(null);
     }
   };
@@ -692,9 +692,9 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
                     }`}
                   >
                     {payingId === plan.id
-                      ? t.pricing.paymentCreating || 'Создаём счёт…'
+                      ? t.pricing.paymentCreating
                       : isCurrent
-                      ? 'Продлить тариф'
+                      ? t.pricing.extendPlan
                       : `${t.pricing.choosePlan} «${plan.name}»`}
                   </button>
                 </div>
@@ -846,7 +846,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
                     <Coins className="w-3.5 h-3.5" />
                     <span>
                       {payingPackId === pack.id
-                        ? t.pricing.paymentCreating || 'Создаём счёт…'
+                        ? t.pricing.paymentCreating
                         : `${t.pricing.buyCreditsBtn} (+${pack.credits})`}
                     </span>
                   </button>
@@ -987,9 +987,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
               </p>
               {purchases.some((purchase) => purchase.status === 'pending') && (
                 <p className="text-[11px] text-amber-700 dark:text-amber-300" role="status">
-                  {language === 'ru'
-                    ? 'Если вы закрыли страницу оплаты или платёж долго ожидает подтверждения, обратитесь в поддержку и укажите номер заказа. Не создавайте повторную покупку, пока статус не проверен.'
-                    : 'If you closed the checkout page or the payment remains pending, contact support with the order reference. Do not create another purchase until the status has been checked.'}
+                  {t.pricing.pendingSupportHint}
                 </p>
               )}
             </div>
@@ -1005,9 +1003,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
               <span>{t.pricing.aiBotTitle}</span>
             </h3>
             <p className="text-xs text-muted-theme mt-1">
-              {language === 'ru'
-                ? 'Предварительный просмотр примера диалога'
-                : 'A preview of an example conversation'}
+              {t.pricing.demoPreviewLabel}
             </p>
           </div>
           <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 self-start">
@@ -1016,24 +1012,18 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
         </div>
 
         <p className="text-xs leading-relaxed text-secondary-theme" role="note">
-          {language === 'ru'
-            ? 'Это статический пример интерфейса. Сообщения ниже не отправляются на сервер, а ответы не генерируются ИИ.'
-            : 'This is a static interface example. Messages below are not sent to a server and the replies are not AI-generated.'}
+          {t.pricing.demoStaticNote}
         </p>
 
         <div className="space-y-3 p-4 rounded-2xl bg-subtle">
           <div className="flex justify-end">
             <div className="max-w-lg p-3 rounded-2xl rounded-br-xs accent-btn text-xs md:text-sm leading-relaxed">
-              {language === 'ru'
-                ? 'Как выбрать тариф для нескольких клиентских аккаунтов?'
-                : 'How should I choose a plan for several client accounts?'}
+              {t.pricing.demoQuestion}
             </div>
           </div>
           <div className="flex justify-start">
             <div className="max-w-lg p-3 rounded-2xl rounded-bl-xs bg-surface border border-subtle text-primary-theme shadow-xs text-xs md:text-sm leading-relaxed">
-              {language === 'ru'
-                ? 'Сравните лимит подключённых аккаунтов, месячный объём кредитов и нужные функции. Параметры тарифов указаны в карточках выше.'
-                : 'Compare connected-account limits, monthly credits, and the features you need. The plan cards above list these details.'}
+              {t.pricing.demoAnswer}
             </div>
           </div>
         </div>
