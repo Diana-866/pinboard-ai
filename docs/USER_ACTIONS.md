@@ -3702,3 +3702,23 @@ wait $!; echo "exit=$?"   # ожидается 0 и строка shutdown_comple
 - **Ожидаемый результат:** две строки `PASS` — схема с 53 SQL-файлами и затем сценарии конкуренции. Если bash не найден, скрипт скажет это прямо: тогда запустите без `-Concurrency` и сообщите, чтобы я искал другую дорогу.
 - **Если упало:** пришлите вывод — по нему видно, какой сценарий и какая таблица. Не перезапускайте «на удачу»: тест гонки, который иногда проходит, ничего не доказывает.
 - **Статус: ВЫПОЛНЕНО (2026-11-21).** Владелец запустил гейт с ключом `-Concurrency`: `Active migrations: 156 (010..165)`, одноразовые базы `pinposy_verify_462a0a89` и `pinposy_verify_conc_462a0a89` созданы и удалены, `PASS: baseline + 157 migrations applied; 53 SQL integration files passed.` и `PASS: 10 isolated concurrency tests passed.` PostgreSQL 18.6. Сценарии гонок впервые прошли против схемы с миграциями 164 и 165.
+
+### UA-074 — запуск бэкенда из PowerShell 5.1: `npm.ps1` заблокирован политикой
+
+`npm start` падает с `UnauthorizedAccess` / «выполнение сценариев отключено в этой системе» ещё до Node. Это политика PowerShell, а не дефект проекта.
+
+**Что сделать** — любой из двух вариантов:
+
+```powershell
+cd X:\!PROGECT\pinboard-ai\backend
+npm.cmd start
+```
+
+или разрешить скрипты только для текущего окна (системная политика не меняется):
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+npm start
+```
+
+Проверка, что сервер поднялся: `Invoke-RestMethod http://127.0.0.1:8080/health`.

@@ -3862,3 +3862,10 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Не подтверждено (честно):** полный список четырёх функций замка — до запуска исправленного запроса.
 - **Реестр:** 447. Раздел 148.
 - **Дальше:** `5 rows` → `backend\.env` → `npm start` → `429 login_locked` → staging UA-066.
+
+### 2026-11-21 — 164/165 подтверждены в рабочей базе; найдена блокировка `npm start`
+
+- **Проверено владельцем:** запрос вернул **5 rows** — все четыре функции замка (`login_lock_state`, `record_failed_login`, `clear_login_failures`, `clear_login_failures_by_email`) и `requeue_email_outbox`. Миграции 164/165 в Supabase применены.
+- **Найдено:** PowerShell 5.1 блокирует `npm start` политикой выполнения (`npm.ps1`, `UnauthorizedAccess`) — обход `npm.cmd start` или `Set-ExecutionPolicy -Scope Process -Bypass`, записано как UA-074.
+- **Реестр:** 448–449. Раздел 149.
+- **Осталось:** запустить бэкенд и проверить `429 login_locked` (UA-071); staging UA-066 — 0 %.
