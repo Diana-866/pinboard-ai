@@ -121,18 +121,33 @@ async function getPublicationSummary(userId, db = supabase, now = Date.now()) {
   };
 }
 
+/**
+ * Section 137. This used to turn every failure into one 503 with no machine code, so the analytics screen
+ * could only show the generic "internal error" while nothing was wrong with the customer's data. The
+ * unavailability now carries a code the client localizes, and a caller-side bug (an empty owner id) is no
+ * longer dressed up as an outage: it stays a server error, because "try again later" would be a lie.
+ */
+const ANALYTICS_UNAVAILABLE = "analytics_unavailable";
+
 async function getPublicationSummaryOrUnavailable(userId, db = supabase, now = Date.now()) {
   try {
     return await getPublicationSummary(userId, db, now);
   } catch (error) {
+    if (error && error.code === "invalid_owner_id") {
+      // Не сбой сервиса, а ошибка вызова: подставлять «попробуйте позже» значит скрыть дефект.
+      logError("analytics.event_002", error);
+      throw error;
+    }
     logError("analytics.event_001", error);
     const unavailable = new Error("Аналитика публикаций временно недоступна — попробуйте позже");
     unavailable.httpStatus = 503;
+    unavailable.details = { code: ANALYTICS_UNAVAILABLE };
     throw unavailable;
   }
 }
 
 module.exports = {
+  ANALYTICS_UNAVAILABLE,
   WINDOW_DAYS,
   getPublicationSummary,
   getPublicationSummaryOrUnavailable,

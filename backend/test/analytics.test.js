@@ -10,6 +10,7 @@ const {
   getPublicationSummary,
   getPublicationSummaryOrUnavailable,
   normalizeCount,
+  ANALYTICS_UNAVAILABLE,
 } = require("../analytics");
 
 /**
@@ -170,6 +171,28 @@ test("a database failure is surfaced as 503 rather than empty analytics", async 
   await assert.rejects(
     getPublicationSummaryOrUnavailable(USER_ID, db, NOW),
     (error) => error.httpStatus === 503 && /недоступна/.test(error.message)
+  );
+});
+
+test("the analytics outage carries a machine code the client can translate", async () => {
+  // Без кода клиент показывал общее «внутренняя ошибка» на экране, у которого просто не загрузились данные.
+  const db = createDb({ failTable: "pin_schedules" });
+  await assert.rejects(
+    getPublicationSummaryOrUnavailable(USER_ID, db, NOW),
+    (error) =>
+      error.httpStatus === 503 &&
+      error.details &&
+      error.details.code === ANALYTICS_UNAVAILABLE &&
+      ANALYTICS_UNAVAILABLE === "analytics_unavailable"
+  );
+});
+
+test("an empty owner id is not dressed up as an outage", async () => {
+  // Ошибка вызова не должна превращаться в «сервис недоступен»: оператор искал бы сбой там, где дефект.
+  const db = createDb();
+  await assert.rejects(
+    getPublicationSummaryOrUnavailable("   ", db, NOW),
+    (error) => error.code === "invalid_owner_id" && error.httpStatus === undefined
   );
 });
 
