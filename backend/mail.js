@@ -11,6 +11,36 @@ const { logWarning, logError } = require("./safeLogger");
 const { httpError } = require("./validate");
 const { normalizeInboxLimit, normalizeImapUid, normalizeSupportReply } = require("./mailInputValidation");
 
+/**
+ * Раздел 155. Переменная, заполненная заглушкой, выглядит заполненной: `MAIL_SMTP_HOST=smtp.<provider>`
+ * имеет длину 15 символов, проходит любую проверку «не пусто» и падает только в момент отправки письма,
+ * оставляя в журнале безымянный `email-verify.event_004`. Владелец при этом видит «письмо не пришло».
+ *
+ * Поэтому заглушки распознаются явно и по имени: угловые скобки, слова-маркеры, повторяющиеся символы.
+ */
+const MAIL_PLACEHOLDER_MARKERS = ["<", ">", "provider", "example", "changeme", "change_me", "your-", "yoursmtp", "xxx", "placeholder", "todo"];
+
+const EMAIL_SHAPE = /^[^\s@<>]+@[^\s@<>]+\.[a-z]{2,}$/;
+
+function looksLikePlaceholder(value) {
+  const text = String(value == null ? "" : value).trim().toLowerCase();
+  if (!text) return true;
+  // Угловые скобки бывают двумя разными вещами: `PinPosy <support@pinposy.com>` — настоящий
+  // отправитель с отображаемым именем, а `smtp.<provider>` — заглушка. Различаем по содержимому.
+  const angled = text.match(/<([^>]*)>/);
+  if (angled) {
+    const inside = angled[1].trim();
+    return !EMAIL_SHAPE.test(inside) || MAIL_PLACEHOLDER_MARKERS.some((m) => m !== "<" && m !== ">" && inside.includes(m));
+  }
+  return MAIL_PLACEHOLDER_MARKERS.some((marker) => text.includes(marker));
+}
+
+/** Имена почтовых переменных, которые заполнены заглушкой. Пустой список — конфигурация правдоподобна. */
+function unresolvedMailPlaceholders(env = process.env) {
+  const names = ["MAIL_SMTP_HOST", "MAIL_SMTP_USER", "MAIL_SMTP_PASS", "MAIL_FROM"];
+  return names.filter((name) => looksLikePlaceholder(env && env[name]));
+}
+
 function getImapAuth() {
   return {
     user: process.env.MAIL_IMAP_USER || process.env.MAIL_USER,
@@ -281,6 +311,8 @@ async function sendMail({ to, subject, text, html, messageId }, { needThrow = tr
 }
 
 module.exports = {
+  unresolvedMailPlaceholders,
+  looksLikePlaceholder,
   listInbox,
   fetchMessageBody,
   replyToMessage,

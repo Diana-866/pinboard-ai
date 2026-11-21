@@ -3349,6 +3349,10 @@ if (isAccountDeletionWorkerEnabled()) {
 
 const server = app.listen(PORT, () => {
   logInfo("index.event_001");
+  // Раздел 155: почтовая переменная, заполненная заглушкой, выглядит заполненной. Без этой строки
+  // первое письмо молча не уходит, а в журнале остаётся безымянный email-verify.event_004.
+  const mailPlaceholders = require("./mail").unresolvedMailPlaceholders();
+  if (mailPlaceholders.length > 0) logWarning("mail.config_placeholder");
   dispatchSubscriptionEmailOutbox();
 });
 
