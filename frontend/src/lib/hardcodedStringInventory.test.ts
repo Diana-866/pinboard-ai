@@ -33,13 +33,13 @@ const CEILING: Record<string, number> = {
   'components/admin/AdminSubscriptions.tsx': 25,
   'components/auth/AuthModal.tsx': 23,
   'components/auth/PrivacyPolicyModal.tsx': 2,
-  'components/pricing/PricingView.tsx': 39,
+  'components/pricing/PricingView.tsx': 30,
   'components/review/SwipeReviewModal.tsx': 33,
   'pages/Contacts.tsx': 36,
   'pages/Landing.tsx': 126,
   'pages/VerifyEmail.tsx': 1,
 };
-const CEILING_TOTAL = 514;
+const CEILING_TOTAL = 505;
 
 function walk(dir: string, acc: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

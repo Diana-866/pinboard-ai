@@ -679,6 +679,13 @@ export const zh: TranslationSchema = {
     aiBotOnline: '24/7 全天候在线',
     paymentError: '无法创建支付订单，请重试或联系客服。',
     paymentCreating: '正在创建订单…',
+    perMonth: "/ 月",
+    accountsUpTo: "最多 {count} 个",
+    accountsUnlimited: "不限*",
+    packS: "套餐 S",
+    packM: "套餐 M",
+    packL: "套餐 L",
+    bestValue: "最划算",
   },
 
   purchases: {

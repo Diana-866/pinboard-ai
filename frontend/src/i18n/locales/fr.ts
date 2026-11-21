@@ -679,6 +679,13 @@ export const fr: TranslationSchema = {
     aiBotOnline: 'En ligne 24h/7j',
     paymentError: "Impossible de créer le paiement. Réessayez ou contactez le support.",
     paymentCreating: 'Création de la facture…',
+    perMonth: "/ mois",
+    accountsUpTo: "jusqu’à {count}",
+    accountsUnlimited: "illimités*",
+    packS: "Pack S",
+    packM: "Pack M",
+    packL: "Pack L",
+    bestValue: "Meilleur prix",
   },
 
   purchases: {

@@ -111,11 +111,11 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
           }
           return {
             id: String(pack.id),
-            name: pack.id === 'pack_100' ? 'Пакет S' : pack.id === 'pack_500' ? 'Пакет M' : 'Пакет L',
+            name: pack.id === 'pack_100' ? t.pricing.packS : pack.id === 'pack_500' ? t.pricing.packM : t.pricing.packL,
             credits,
             pricePerCredit: `${perCreditFormatter.format(amount / credits)} ₽`,
             priceRub: `${formatter.format(amount)} ₽`,
-            badge: pack.id === 'pack_500' ? t.pricing.popularBadge : pack.id === 'pack_1000' ? (language === 'ru' ? 'Выгодно' : 'Best value') : null,
+            badge: pack.id === 'pack_500' ? t.pricing.popularBadge : pack.id === 'pack_1000' ? t.pricing.bestValue : null,
             popular: pack.id === 'pack_500',
           };
         });
@@ -341,7 +341,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
       summary: t.pricing.planAnalyticsDesc,
       priceRub: '990 ₽',
       priceUsd: '$11,9',
-      period: '/ мес',
+      period: t.pricing.perMonth,
       credits: 0,
       accounts: '1',
       popular: false,
@@ -369,9 +369,9 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
       summary: t.pricing.planStartDesc,
       priceRub: '1 990 ₽',
       priceUsd: '$24,0',
-      period: '/ мес',
+      period: t.pricing.perMonth,
       credits: 400,
-      accounts: 'до 3',
+      accounts: t.pricing.accountsUpTo.replace('{count}', '3'),
       popular: false,
       badge: null,
       features: [
@@ -395,9 +395,9 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
       summary: t.pricing.planProDesc,
       priceRub: '4 990 ₽',
       priceUsd: '$60,1',
-      period: '/ мес',
+      period: t.pricing.perMonth,
       credits: 1500,
-      accounts: 'до 10',
+      accounts: t.pricing.accountsUpTo.replace('{count}', '10'),
       popular: true,
       badge: t.pricing.popularBadge,
       features: [
@@ -421,9 +421,9 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
       summary: t.pricing.planAgencyDesc,
       priceRub: '12 990 ₽',
       priceUsd: '$156,5',
-      period: '/ мес',
+      period: t.pricing.perMonth,
       credits: 6000,
-      accounts: 'безлимит*',
+      accounts: t.pricing.accountsUnlimited,
       popular: false,
       badge: 'Agency Pro',
       features: [

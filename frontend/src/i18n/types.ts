@@ -716,6 +716,13 @@ export interface TranslationSchema {
     aiBotOnline: string;
     paymentError: string;
     paymentCreating: string;
+    perMonth: string;
+    accountsUpTo: string;
+    accountsUnlimited: string;
+    packS: string;
+    packM: string;
+    packL: string;
+    bestValue: string;
   };
 
   // История покупок пакетов кредитов (переводится только в ru; остальные локали берут фолбэк в UI)

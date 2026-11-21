@@ -679,6 +679,13 @@ export const ru: TranslationSchema = {
     aiBotOnline: 'Онлайн 24/7',
     paymentError: 'Не удалось создать платёж. Попробуйте ещё раз или напишите в поддержку.',
     paymentCreating: 'Создаём счёт…',
+    perMonth: "/ мес",
+    accountsUpTo: "до {count}",
+    accountsUnlimited: "безлимит*",
+    packS: "Пакет S",
+    packM: "Пакет M",
+    packL: "Пакет L",
+    bestValue: "Выгодно",
   },
 
   purchases: {

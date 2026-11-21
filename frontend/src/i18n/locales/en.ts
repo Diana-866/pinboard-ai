@@ -679,6 +679,13 @@ export const en: TranslationSchema = {
     aiBotOnline: 'Online 24/7',
     paymentError: 'Could not create the payment. Please try again or contact support.',
     paymentCreating: 'Creating invoice…',
+    perMonth: "/ mo",
+    accountsUpTo: "up to {count}",
+    accountsUnlimited: "unlimited*",
+    packS: "Pack S",
+    packM: "Pack M",
+    packL: "Pack L",
+    bestValue: "Best value",
   },
 
   purchases: {
