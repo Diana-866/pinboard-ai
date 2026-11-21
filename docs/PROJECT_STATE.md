@@ -3854,3 +3854,11 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Чего это не доказывает:** рабочая база — Supabase; 164/165 туда ещё не применены (UA-070/071). Одноразовый кластер удаляется в конце гейта.
 - **Реестр:** 445–446. Раздел 147. Коммит — docs §147.
 - **Следующее:** применить 164/165 в рабочей базе → проверить `429 login_locked` → staging по UA-066.
+
+### 2026-11-21 — Миграции 164/165 применены в Supabase; моя проверка называла несуществующие функции
+
+- **Проверено владельцем:** 164 (`Success`) и 165 (`Success`) выполнены в SQL Editor проекта Supabase; `requeue_email_outbox` виден в `pg_proc`.
+- **Моя ошибка:** в инструкции я назвал функции `register_failed_login`/`clear_failed_logins` — таких нет. Реальные: `login_lock_state`, `record_failed_login`, `clear_login_failures`, `clear_login_failures_by_email` (проверено `grep` по миграции и по `loginLockout.js`). Ложный `0 rows` читался как «миграция не применилась».
+- **Не подтверждено (честно):** полный список четырёх функций замка — до запуска исправленного запроса.
+- **Реестр:** 447. Раздел 148.
+- **Дальше:** `5 rows` → `backend\.env` → `npm start` → `429 login_locked` → staging UA-066.
