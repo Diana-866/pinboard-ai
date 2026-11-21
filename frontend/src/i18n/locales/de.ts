@@ -41,6 +41,8 @@ export const de: TranslationSchema = {
     show: 'Anzeigen',
     hide: 'Ausblenden',
     refresh: 'Aktualisieren',
+    untitled: "Ohne Titel",
+    noBoard: "Kein Board",
     status: 'Status',
     actions: 'Aktionen',
     back: 'Zurück',
@@ -357,6 +359,7 @@ export const de: TranslationSchema = {
     boardUpdateNotConfirmed: "Der Server hat die Aktualisierung dieses Boards nicht bestätigt. Aktualisieren Sie die Liste, bevor Sie es erneut versuchen.",
     sessionChangedRefresh: "Ihre Sitzung hat sich geändert. Laden Sie die Seite neu und versuchen Sie es erneut.",
     sessionChangedDuringSave: "Ihre Sitzung hat sich während des Speicherns geändert.",
+    scheduleLoadError: "Der Zeitplan konnte nicht geladen werden. Prüfen Sie die Verbindung und versuchen Sie es erneut. Bestehende Veröffentlichungen wurden nicht gelöscht.",
   },
   publishing: {
     accountsLoadFailed: "Ihre Pinterest-Konten konnten nicht geladen werden.",
@@ -818,5 +821,10 @@ export const de: TranslationSchema = {
     peakLoadTitle: 'Betriebshinweis bei hoher Auslastung & SLA',
     peakLoadNotice: 'In Zeiten hoher Nachfrage (z. B. in den ersten Tagen nach öffentlichen Ankündigungen des Dienstes) kann die Pin-Generierung mehr Zeit als gewöhnlich in Anspruch nehmen – bis zu 24–48 Stunden statt weniger Minuten. Der Kontozugang, der KI-Strategie-Chatassistent und alle Analysetools bleiben unmittelbar nach der Buchung verfügbar. Wir benachrichtigen Sie direkt in der Benutzeroberfläche, wenn Ihre Anfrage aufgrund hoher Auslastung in die Warteschlange eingereiht wird.',
     termsOfServiceTitle: 'Nutzungsbedingungen und SLA-Vereinbarung',
+  },
+  adminAccess: {
+    title: "Zugriff verweigert",
+    body: "Sie haben keine Administratorrechte.",
+    backToApp: "Zurück zur Anwendung",
   },
 };

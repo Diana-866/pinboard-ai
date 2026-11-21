@@ -41,6 +41,8 @@ export const zh: TranslationSchema = {
     show: '显示',
     hide: '隐藏',
     refresh: '刷新',
+    untitled: "无标题",
+    noBoard: "未选择画板",
     status: '状态',
     actions: '操作',
     back: '返回',
@@ -357,6 +359,7 @@ export const zh: TranslationSchema = {
     boardUpdateNotConfirmed: "服务器未确认该画板已更新，请刷新列表后重试。",
     sessionChangedRefresh: "登录会话已变更，请刷新页面后重试。",
     sessionChangedDuringSave: "保存过程中登录会话已变更。",
+    scheduleLoadError: "无法加载发布计划。请检查网络连接后重试。已有的发布内容未被删除。",
   },
   publishing: {
     accountsLoadFailed: "无法加载你的 Pinterest 账号。",
@@ -819,5 +822,10 @@ export const zh: TranslationSchema = {
     peakLoadTitle: '高峰负载运营说明与服务等级协议 (SLA)',
     peakLoadNotice: '在系统访问与生成高峰期（例如平台公开宣布活动后数日内），Pin 生成任务的处理时间可能延长至 24–48 小时（常规情况下仅需数分钟）。账户权限、AI 策略咨询助理以及所有数据分析工具在订阅后立即生效可用。若您的任务因高峰负载进入排期队列，系统将第一时间在界面向您发送通知提醒。',
     termsOfServiceTitle: '服务条款与 SLA 协议',
+  },
+  adminAccess: {
+    title: "访问被拒绝",
+    body: "您没有管理员权限。",
+    backToApp: "返回应用",
   },
 };

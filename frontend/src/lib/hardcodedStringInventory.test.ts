@@ -16,7 +16,6 @@ import path from 'node:path';
 const SRC = path.join(process.cwd(), 'src');
 
 const CEILING: Record<string, number> = {
-  'App.tsx': 7,
   'components/admin/AdminBillingExceptions.tsx': 14,
   'components/admin/AdminEmailOutbox.tsx': 33,
   'components/admin/AdminFinancialOperations.tsx': 36,
@@ -35,7 +34,7 @@ const CEILING: Record<string, number> = {
   'pages/Landing.tsx': 126,
   'pages/VerifyEmail.tsx': 1,
 };
-const CEILING_TOTAL = 529;
+const CEILING_TOTAL = 522;
 
 function walk(dir: string, acc: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -122,4 +121,26 @@ test('the record stays true: fixed files leave the list, the total only shrinks'
   );
   const total = Object.values(current).reduce((sum, value) => sum + value, 0);
   assert.ok(total <= CEILING_TOTAL, `total hardcoded lines grew to ${total}, ceiling is ${CEILING_TOTAL}`);
+});
+
+const LANGUAGES = ['en', 'es', 'pt', 'de', 'fr', 'zh'] as const;
+
+test('no locale other than Russian carries Cyrillic', () => {
+  // Немецкая, французская или китайская строка, оставленная по-русски, - это не перевод,
+  // а забытая заглушка. Проверка ловит именно её: кириллица допустима только в ru.ts.
+  const offenders: string[] = [];
+  for (const lang of LANGUAGES) {
+    const source = fs.readFileSync(path.join(SRC, 'i18n', 'locales', `${lang}.ts`), 'utf8');
+    const hits = source.split('\n').filter((line) => /[А-яЁё]/.test(line)).length;
+    if (hits > 0) offenders.push(`${lang}: ${hits} line(s)`);
+  }
+  assert.deepEqual(offenders, [], `non-Russian locales carry Cyrillic:\n${offenders.join('\n')}`);
+});
+
+test('the app shell itself carries no hardcoded Russian', () => {
+  // App.tsx ведёт пользователя через весь продукт: фолбэки названий, ошибка загрузки
+  // расписания, экран отказа в доступе и кнопка обновления. Он переведён целиком,
+  // поэтому нулевой потолок здесь - требование, а не пожелание.
+  const shell = countHardcodedCyrillic(fs.readFileSync(path.join(SRC, 'App.tsx'), 'utf8'));
+  assert.equal(shell, 0, `App.tsx gained ${shell} hardcoded Russian line(s)`);
 });

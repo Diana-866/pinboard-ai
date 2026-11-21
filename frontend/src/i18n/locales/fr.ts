@@ -41,6 +41,8 @@ export const fr: TranslationSchema = {
     show: 'Afficher',
     hide: 'Masquer',
     refresh: 'Actualiser',
+    untitled: "Sans titre",
+    noBoard: "Sans tableau",
     status: 'Statut',
     actions: 'Actions',
     back: 'Retour',
@@ -357,6 +359,7 @@ export const fr: TranslationSchema = {
     boardUpdateNotConfirmed: "Le serveur n’a pas confirmé la mise à jour de ce tableau. Actualisez la liste avant de réessayer.",
     sessionChangedRefresh: "Votre session a changé. Rechargez la page et réessayez.",
     sessionChangedDuringSave: "Votre session a changé pendant l’enregistrement.",
+    scheduleLoadError: "Impossible de charger le calendrier. Vérifiez votre connexion et réessayez. Les publications existantes n’ont pas été supprimées.",
   },
   publishing: {
     accountsLoadFailed: "Impossible de charger vos comptes Pinterest.",
@@ -818,5 +821,10 @@ export const fr: TranslationSchema = {
     peakLoadTitle: 'Avis opérationnel de forte charge & SLA',
     peakLoadNotice: 'En période de forte demande (par exemple durant les premiers jours suivant les annonces publiques du service), le traitement des demandes de génération d’épingles peut requérir jusqu’à 24 à 48 heures au lieu de quelques minutes. L’accès au compte, le chat avec l’assistant stratège et tous les outils d’analyse restent disponibles immédiatement après le paiement. Vous serez notifié dans l’interface dès qu’une demande entre en file d’attente pour cause de forte charge.',
     termsOfServiceTitle: 'Conditions Générales d’Utilisation et SLA',
+  },
+  adminAccess: {
+    title: "Accès refusé",
+    body: "Vous n’avez pas de droits d’administrateur.",
+    backToApp: "Retour à l’application",
   },
 };

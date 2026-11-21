@@ -41,6 +41,8 @@ export const en: TranslationSchema = {
     show: 'Show',
     hide: 'Hide',
     refresh: 'Refresh',
+    untitled: "Untitled",
+    noBoard: "No board",
     status: 'Status',
     actions: 'Actions',
     back: 'Back',
@@ -357,6 +359,7 @@ export const en: TranslationSchema = {
     boardUpdateNotConfirmed: "The server did not confirm this board was updated. Refresh the list before trying again.",
     sessionChangedRefresh: "Your session changed. Reload the page and try again.",
     sessionChangedDuringSave: "Your session changed while saving.",
+    scheduleLoadError: "Could not load the schedule. Check your connection and try again. Existing publications have not been deleted.",
   },
   publishing: {
     accountsLoadFailed: "Could not load your Pinterest accounts.",
@@ -818,5 +821,10 @@ export const en: TranslationSchema = {
     peakLoadTitle: 'Peak Load Operational Notice & SLA',
     peakLoadNotice: 'During periods of high demand (such as the initial days following public announcements), pin generation requests may experience processing times up to 24–48 hours instead of a few minutes. Account access, the AI strategist chat assistant, and all analytics intelligence tools remain immediately accessible upon subscription. You will receive an in-app notification whenever a request enters the queue due to peak traffic.',
     termsOfServiceTitle: 'Terms of Service & SLA Agreement',
+  },
+  adminAccess: {
+    title: "Access denied",
+    body: "You do not have administrator rights.",
+    backToApp: "Back to the app",
   },
 };

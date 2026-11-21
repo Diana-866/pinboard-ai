@@ -204,9 +204,9 @@ const MainApp: React.FC = () => {
           return {
             id: String(row.id),
             pinId: String(row.pin_id),
-            title: row.snapshot_image_url ? (row.snapshot_title || 'Без названия') : (row.pins?.title || 'Без названия'),
+            title: row.snapshot_image_url ? (row.snapshot_title || t.common.untitled) : (row.pins?.title || t.common.untitled),
             boardId: String(row.pins?.board_id || ''),
-            boardName: row.pins?.boards?.title || 'Без доски',
+            boardName: row.pins?.boards?.title || t.common.noBoard,
             imageUrl: row.snapshot_image_url || row.pins?.image_url || '',
             scheduledDate: local.date,
             scheduledTime: local.time,
@@ -225,7 +225,7 @@ const MainApp: React.FC = () => {
         setScheduledPins(mapped);
       } catch (error) {
         console.error('[schedule] Не удалось загрузить расписание:', error);
-        if (!cancelled) setScheduleLoadError('Не удалось загрузить расписание. Проверьте соединение и попробуйте ещё раз. Существующие публикации не удалены.');
+        if (!cancelled) setScheduleLoadError(t.appErrors.scheduleLoadError);
       } finally {
         if (!cancelled) setScheduleLoading(false);
       }
@@ -911,13 +911,13 @@ const MainApp: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-page">
         <div className="text-center">
-          <p className="text-lg font-semibold text-primary-theme">Доступ запрещён</p>
-          <p className="mt-2 text-sm text-secondary-theme">У вас нет прав администратора.</p>
+          <p className="text-lg font-semibold text-primary-theme">{t.adminAccess.title}</p>
+          <p className="mt-2 text-sm text-secondary-theme">{t.adminAccess.body}</p>
           <button
             onClick={handleBackToPublicSite}
             className="mt-4 rounded-xl bg-accent px-4 py-2 text-sm text-white"
           >
-            Вернуться в приложение
+            {t.adminAccess.backToApp}
           </button>
         </div>
       </div>
@@ -1134,7 +1134,7 @@ const MainApp: React.FC = () => {
               onClick={() => window.location.reload()}
               className="text-xs font-semibold text-accent hover:underline whitespace-nowrap"
             >
-              Обновить
+              {t.common.refresh}
             </button>
           )}
           <button

@@ -41,6 +41,8 @@ export const pt: TranslationSchema = {
     show: 'Mostrar',
     hide: 'Ocultar',
     refresh: 'Atualizar',
+    untitled: "Sem título",
+    noBoard: "Sem pasta",
     status: 'Status',
     actions: 'Ações',
     back: 'Voltar',
@@ -357,6 +359,7 @@ export const pt: TranslationSchema = {
     boardUpdateNotConfirmed: "O servidor não confirmou a atualização deste quadro. Atualize a lista antes de tentar novamente.",
     sessionChangedRefresh: "A sua sessão mudou. Recarregue a página e tente novamente.",
     sessionChangedDuringSave: "A sua sessão mudou enquanto guardava.",
+    scheduleLoadError: "Não foi possível carregar a programação. Verifique sua conexão e tente novamente. As publicações existentes não foram excluídas.",
   },
   publishing: {
     accountsLoadFailed: "Não foi possível carregar as suas contas do Pinterest.",
@@ -818,5 +821,10 @@ export const pt: TranslationSchema = {
     peakLoadTitle: 'Aviso Operacional de Alta Demanda e SLA',
     peakLoadNotice: 'Em períodos de alta demanda (como nos primeiros dias após lançamentos públicos do serviço), a geração de pins pode levar mais tempo que o habitual — até 24 a 48 horas em vez de poucos minutos. O acesso à sua conta, o assistente de chat e as ferramentas analíticas permanecem imediatamente disponíveis após a confirmação. Notificaremos você na interface se sua solicitação entrar na fila por motivo de sobrecarga.',
     termsOfServiceTitle: 'Termos de Serviço e Acordo de Nível de Serviço (SLA)',
+  },
+  adminAccess: {
+    title: "Acesso negado",
+    body: "Você não tem direitos de administrador.",
+    backToApp: "Voltar ao aplicativo",
   },
 };

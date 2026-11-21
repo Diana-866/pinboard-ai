@@ -61,6 +61,8 @@ export interface TranslationSchema {
     show: string;
     hide: string;
     refresh: string;
+    untitled: string;
+    noBoard: string;
     status: string;
     actions: string;
     back: string;
@@ -370,6 +372,11 @@ export interface TranslationSchema {
   };
 
   // Publishing Calendar
+  adminAccess: {
+    title: string;
+    body: string;
+    backToApp: string;
+  };
   appErrors: {
     sessionChanged: string;
     pinTitleRequired: string;
@@ -384,6 +391,7 @@ export interface TranslationSchema {
     boardUpdateNotConfirmed: string;
     sessionChangedRefresh: string;
     sessionChangedDuringSave: string;
+    scheduleLoadError: string;
   };
   publishing: {
     accountsLoadFailed: string;
