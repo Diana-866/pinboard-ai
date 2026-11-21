@@ -27,7 +27,16 @@ const DUMMY_HASH = bcrypt.hashSync("invalid-placeholder-password", 10);
 // Вместо токена — письмо со ссылкой подтверждения (users.email_verified, миграция 005).
 // Почтовый сбой не ломает регистрацию: письмо можно запросить повторно на /login
 // или из кабинета (POST /resend-verification).
-async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage) {
+async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage, termsAccepted) {
+  // Раздел 164. Галочка согласия существовала только в браузере: `POST /register` принимал запрос
+  // без неё, и сервер не знал, что клиент согласился с условиями. Согласие — юридический факт,
+  // он должен требоваться на сервере и сохраняться, а не жить в состоянии React.
+  if (termsAccepted !== true) {
+    throw withCode(
+      httpError(422, "Подтвердите согласие с условиями использования и политикой конфиденциальности"),
+      "terms_not_accepted"
+    );
+  }
   const email = validateEmail(rawEmail);
   const password = validatePassword(rawPassword);
 
@@ -46,7 +55,11 @@ async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage)
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  const profile = { preferred_language: require('./email-locales').normalizeLanguage(rawLanguage) };
+  const profile = {
+    preferred_language: require('./email-locales').normalizeLanguage(rawLanguage),
+    // Момент согласия фиксируется на сервере: без него согласие невозможно доказать.
+    terms_accepted_at: new Date().toISOString(),
+  };
   if ((rawName || "").trim()) profile.name = rawName.trim().slice(0, 80);
   if ((rawSurname || "").trim()) profile.surname = rawSurname.trim().slice(0, 80);
 
@@ -71,7 +84,7 @@ async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage)
   if (result.error) {
     const missingOptionalColumn =
       ["42703", "PGRST204"].includes(result.error.code) &&
-      /\b(name|surname|preferred_language)\b/i.test(result.error.message || "");
+      /\b(name|surname|preferred_language|terms_accepted_at)\b/i.test(result.error.message || "");
 
     if (result.error.code === "23505") {
       throw withCode(httpError(409, "Пользователь с таким email уже существует"), "email_already_registered");
@@ -81,6 +94,9 @@ async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage)
       throw httpError(503, "Не удалось создать аккаунт — попробуйте позже");
     }
 
+    // Согласие требуется всегда, но запись отметки деградирует, пока миграция 166 не применена:
+    // регистрация не должна ломаться из-за отсутствующей колонки.
+    if (/terms_accepted_at/i.test(result.error.message || "")) logWarning("auth.consent_not_persisted");
     result = await insertUser({
       email,
       password_hash: passwordHash,

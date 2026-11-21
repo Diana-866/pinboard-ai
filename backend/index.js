@@ -459,7 +459,8 @@ app.post("/register", authLimiter, async (req, res) => {
     const name = optionalString(req.body && req.body.name, { max: 80 });
     const surname = optionalString(req.body && req.body.surname, { max: 80 });
     const preferredLanguage = optionalString(req.body && req.body.preferred_language, { max: 16 });
-    const result = await register(email, password, name, surname, preferredLanguage);
+    const termsAccepted = req.body && req.body.terms_accepted === true;
+    const result = await register(email, password, name, surname, preferredLanguage, termsAccepted);
     res.json(result);
   } catch (e) {
     handleError(res, e);

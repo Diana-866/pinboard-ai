@@ -2,6 +2,9 @@
 
 require("./helpers/env");
 
+// Окружение может содержать заглушку (<gptunnel-key>), поэтому значение задаётся безусловно.
+process.env.GPTUNNEL_API_KEY = "gpt_8f3a9c2b7d1e5a6f";
+
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { spawn } = require("node:child_process");
@@ -972,7 +975,7 @@ test("the board-generation route runs end to end against a stand-in provider", a
   });
 
   const backend = await startBackend({
-    extraEnv: { AI_PROVIDER_BASE_URL: providerUrl, GPTUNNEL_API_KEY: "test-provider-key" },
+    extraEnv: { AI_PROVIDER_BASE_URL: providerUrl, GPTUNNEL_API_KEY: "gpt_8f3a9c2b7d1e5a6f" },
   });
   try {
     // Active paid plan: the guard must pass on its own merits, not because the check is stubbed.
@@ -1019,7 +1022,7 @@ test("the board-generation route runs end to end against a stand-in provider", a
     assert.equal(providerCalls.length, 1, "exactly one provider call per generation");
     const call = providerCalls[0];
     assert.equal(call.path, "/v1/chat/completions");
-    assert.equal(call.headers.authorization, "test-provider-key", "the provider key travels in the header");
+    assert.equal(call.headers.authorization, "gpt_8f3a9c2b7d1e5a6f", "the provider key travels in the header");
     const prompt = call.body.messages[0].content;
     assert.match(prompt, /<project_context_json>/, "the project context is framed as data, not instructions");
     assert.match(prompt, /домашний декор/);
@@ -1068,7 +1071,7 @@ test("a provider failure during board generation creates nothing and says so", a
     provider.listen(0, "127.0.0.1", () => resolve(`http://127.0.0.1:${provider.address().port}`));
   });
   const backend = await startBackend({
-    extraEnv: { AI_PROVIDER_BASE_URL: providerUrl, GPTUNNEL_API_KEY: "test-provider-key" },
+    extraEnv: { AI_PROVIDER_BASE_URL: providerUrl, GPTUNNEL_API_KEY: "gpt_8f3a9c2b7d1e5a6f" },
   });
   try {
     backend.db.table("GET", "users", ({ query }) => {
@@ -1265,7 +1268,7 @@ test("generation stops at the balance before reserving or calling the provider",
     provider.listen(0, "127.0.0.1", () => resolve(`http://127.0.0.1:${provider.address().port}`));
   });
   const funded = await startBackend({
-    extraEnv: { AI_PROVIDER_BASE_URL: providerUrl, GPTUNNEL_API_KEY: "test-provider-key" },
+    extraEnv: { AI_PROVIDER_BASE_URL: providerUrl, GPTUNNEL_API_KEY: "gpt_8f3a9c2b7d1e5a6f" },
   });
   try {
     funded.db.ownedBy = USER_ID;
@@ -1412,7 +1415,7 @@ test("regeneration refuses a corrupt saved quote before any charge or provider c
     provider.listen(0, "127.0.0.1", () => resolve(`http://127.0.0.1:${provider.address().port}`));
   });
   const backend = await startBackend({
-    extraEnv: { AI_PROVIDER_BASE_URL: providerUrl, GPTUNNEL_API_KEY: "test-provider-key" },
+    extraEnv: { AI_PROVIDER_BASE_URL: providerUrl, GPTUNNEL_API_KEY: "gpt_8f3a9c2b7d1e5a6f" },
   });
   try {
     backend.db.ownedBy = USER_ID;
@@ -1490,7 +1493,7 @@ test("a rejected reservation is journalled once as unknown and never reaches the
     provider.listen(0, "127.0.0.1", () => resolve(`http://127.0.0.1:${provider.address().port}`));
   });
   const backend = await startBackend({
-    extraEnv: { AI_PROVIDER_BASE_URL: providerUrl, GPTUNNEL_API_KEY: "test-provider-key" },
+    extraEnv: { AI_PROVIDER_BASE_URL: providerUrl, GPTUNNEL_API_KEY: "gpt_8f3a9c2b7d1e5a6f" },
   });
   try {
     backend.db.ownedBy = USER_ID;
@@ -1568,7 +1571,7 @@ test("a valid saved quote is used instead of asking the provider for a new price
     provider.listen(0, "127.0.0.1", () => resolve(`http://127.0.0.1:${provider.address().port}`));
   });
   const backend = await startBackend({
-    extraEnv: { AI_PROVIDER_BASE_URL: providerUrl, GPTUNNEL_API_KEY: "test-provider-key" },
+    extraEnv: { AI_PROVIDER_BASE_URL: providerUrl, GPTUNNEL_API_KEY: "gpt_8f3a9c2b7d1e5a6f" },
   });
   try {
     backend.db.ownedBy = USER_ID;
@@ -1825,7 +1828,7 @@ test("resuming a running provider task tells the client to poll instead of submi
     provider.listen(0, "127.0.0.1", () => resolve(`http://127.0.0.1:${provider.address().port}`));
   });
   const backend = await startBackend({
-    extraEnv: { AI_PROVIDER_BASE_URL: providerUrl, GPTUNNEL_API_KEY: "test-provider-key" },
+    extraEnv: { AI_PROVIDER_BASE_URL: providerUrl, GPTUNNEL_API_KEY: "gpt_8f3a9c2b7d1e5a6f" },
   });
   try {
     backend.db.ownedBy = USER_ID;

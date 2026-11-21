@@ -123,7 +123,7 @@ function addUser(overrides = {}) {
 
 test("register normalizes the email and never returns credential material", async () => {
   reset();
-  const result = await register("  Customer@Example.Test  ", "StrongPass123", "Анна", "Иванова", "ru");
+  const result = await register("  Customer@Example.Test  ", "StrongPass123", "Анна", "Иванова", "ru", true);
 
   assert.equal(result.needVerification, true);
   assert.equal(result.user.email, "customer@example.test");
@@ -142,7 +142,7 @@ test("register refuses a duplicate email with a conflict, not a server error", a
   reset();
   addUser();
   await assert.rejects(
-    register("customer@example.test", "StrongPass123", "", "", "ru"),
+    register("customer@example.test", "StrongPass123", "", "", "ru", true),
     (error) => error.httpStatus === 409
   );
   assert.equal(state.users.length, 1);
@@ -150,22 +150,22 @@ test("register refuses a duplicate email with a conflict, not a server error", a
 
 test("register refuses a weak password and an invalid email before touching the database", async () => {
   reset();
-  await assert.rejects(register("customer@example.test", "123", "", "", "ru"), (error) => error.httpStatus === 422);
-  await assert.rejects(register("not-an-email", "StrongPass123", "", "", "ru"), (error) => error.httpStatus === 422);
+  await assert.rejects(register("customer@example.test", "123", "", "", "ru", true), (error) => error.httpStatus === 422);
+  await assert.rejects(register("not-an-email", "StrongPass123", "", "", "ru", true), (error) => error.httpStatus === 422);
   assert.equal(state.users.length, 0);
 });
 
 test("register reports a database outage as 503 instead of creating a partial account", async () => {
   reset();
   state.insertError = { code: "08006", message: "connection failure" };
-  await assert.rejects(register("new@example.test", "StrongPass123", "", "", "ru"), (error) => error.httpStatus === 503);
+  await assert.rejects(register("new@example.test", "StrongPass123", "", "", "ru", true), (error) => error.httpStatus === 503);
   assert.equal(state.users.length, 0);
 });
 
 test("a missing verification email does not fail the registration", async () => {
   reset();
   issueResult = false;
-  const result = await register("quiet@example.test", "StrongPass123", "", "", "en");
+  const result = await register("quiet@example.test", "StrongPass123", "", "", "en", true);
   assert.equal(result.ok, true);
   assert.equal(result.verificationEmailSent, false);
 });
@@ -244,7 +244,7 @@ test.after(() => {
 test("a database that cannot even be consulted is an outage, not a duplicate account", async () => {
   reset();
   state.lookupError = { code: "08006", message: "connection failure" };
-  const error = await catchError(register("new@example.test", "StrongPass123", "", "", "en"));
+  const error = await catchError(register("new@example.test", "StrongPass123", "", "", "en", true));
   assert.equal(error.httpStatus, 503);
   assert.equal(state.inserts.length, 0, "a failed lookup must not be followed by an insert");
 });
@@ -253,7 +253,7 @@ test("two simultaneous registrations of one email end with one account and one c
   reset();
   // The lookup saw nobody, so the insert is the only place that can notice the race.
   state.insertError = { code: "23505", message: "duplicate key value violates unique constraint \"users_email_key\"" };
-  const error = await catchError(register("racer@example.test", "StrongPass123", "", "", "en"));
+  const error = await catchError(register("racer@example.test", "StrongPass123", "", "", "en", true));
   assert.equal(error.httpStatus, 409, "a lost race is a conflict the client can explain, not a server error");
   assert.equal(error.details && error.details.code, "email_already_registered");
   assert.equal(state.users.length, 0);
@@ -263,7 +263,7 @@ test("a deployment without the optional profile columns still registers the acco
   reset();
   // Migration 003 may not be applied yet: PostgREST answers 42703 naming the column.
   state.insertErrors = [{ code: "42703", message: 'column "name" does not exist' }];
-  const result = await register("early@example.test", "StrongPass123", "Анна", "Иванова", "ru");
+  const result = await register("early@example.test", "StrongPass123", "Анна", "Иванова", "ru", true);
 
   assert.equal(result.needVerification, true);
   assert.equal(state.users.length, 1);
@@ -278,7 +278,7 @@ test("the profile-column retry still reports a duplicate and an outage correctly
     { code: "PGRST204", message: "Could not find the 'surname' column of 'users' in the schema cache" },
     { code: "23505", message: "duplicate key value violates unique constraint" },
   ];
-  const duplicate = await catchError(register("twice@example.test", "StrongPass123", "", "Иванова", "ru"));
+  const duplicate = await catchError(register("twice@example.test", "StrongPass123", "", "Иванова", "ru", true));
   assert.equal(duplicate.httpStatus, 409);
 
   reset();
@@ -286,7 +286,7 @@ test("the profile-column retry still reports a duplicate and an outage correctly
     { code: "42703", message: 'column "preferred_language" does not exist' },
     { code: "08006", message: "connection failure" },
   ];
-  const outage = await catchError(register("again@example.test", "StrongPass123", "", "", "ru"));
+  const outage = await catchError(register("again@example.test", "StrongPass123", "", "", "ru", true));
   assert.equal(outage.httpStatus, 503);
   assert.equal(state.inserts.length, 2);
 });
@@ -296,7 +296,7 @@ test("an insert failure that is not about a missing column is never retried", as
   // A foreign-key or any other failure must not be treated as "the schema is old": a second insert
   // could hide the real error or create partial state.
   state.insertError = { code: "23503", message: "insert or update violates foreign key constraint" };
-  const error = await catchError(register("fk@example.test", "StrongPass123", "Анна", "", "ru"));
+  const error = await catchError(register("fk@example.test", "StrongPass123", "Анна", "", "ru", true));
   assert.equal(error.httpStatus, 503);
   assert.equal(state.inserts.length, 1, "exactly one insert attempt is allowed for a non-migration failure");
 });
@@ -305,7 +305,7 @@ test("a missing schema column in the error text alone does not trigger the retry
   reset();
   // The code requires both a migration-shaped code and a column name; a message alone is not proof.
   state.insertError = { code: "08006", message: 'column "name" does not exist' };
-  const error = await catchError(register("mixed@example.test", "StrongPass123", "Анна", "", "ru"));
+  const error = await catchError(register("mixed@example.test", "StrongPass123", "Анна", "", "ru", true));
   assert.equal(error.httpStatus, 503);
   assert.equal(state.inserts.length, 1);
 });

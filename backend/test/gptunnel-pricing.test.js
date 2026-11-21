@@ -1,5 +1,8 @@
 "use strict";
 
+// Окружение может содержать заглушку (<gptunnel-key>), поэтому значение задаётся безусловно.
+process.env.GPTUNNEL_API_KEY = "gpt_8f3a9c2b7d1e5a6f";
+
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const axios = require("axios");

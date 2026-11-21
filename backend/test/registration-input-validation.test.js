@@ -25,5 +25,6 @@ test("registration route validates name, surname and language before calling aut
   assert.match(source, /const name = optionalString\(req\.body && req\.body\.name, \{ max: 80 \}\)/);
   assert.match(source, /const surname = optionalString\(req\.body && req\.body\.surname, \{ max: 80 \}\)/);
   assert.match(source, /const preferredLanguage = optionalString\(req\.body && req\.body\.preferred_language, \{ max: 16 \}\)/);
-  assert.match(source, /register\(email, password, name, surname, preferredLanguage\)/);
+  assert.match(source, /register\(email, password, name, surname, preferredLanguage, termsAccepted\)/);
+  assert.match(source, /req\.body\.terms_accepted === true/);
 });
