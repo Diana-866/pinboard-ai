@@ -19,6 +19,7 @@ export type AppErrorMessageKey =
   | 'generationSaveFailed'
   | 'aiOutputInvalid'
   | 'analyticsUnavailable'
+  | 'aiProviderNotConfigured'
   | 'loginLockoutMigrationMissing'
   | 'loginLockoutUnavailable'
   | 'emailRequeueMigrationMissing'
@@ -89,6 +90,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     generationSaveFailed: "The images were generated, but saving them failed. Your credits for this run are still reserved and a new run would generate — and charge — again, so write to support before retrying.",
     aiOutputInvalid: "The model answered with something we could not use, so this attempt was stopped. Nothing was charged for it — try again.",
     analyticsUnavailable: "Analytics is temporarily unavailable. Your publication history is not lost - try again in a minute.",
+    aiProviderNotConfigured: "Generation is not available right now because the AI service is not configured on the server. Nothing was charged for this attempt. We already know about it - please try again later.",
     loginLockoutMigrationMissing: "The login lockout is not available: migration 164 has not been applied in this environment. Until it is, nobody is locked out after repeated failed sign-ins.",
     loginLockoutUnavailable: "The login lockout service did not answer, so the lock state could not be read or cleared. Try again in a minute.",
     emailRequeueMigrationMissing: "Email requeue is not available: migration 165 has not been applied in this environment. Until it is, a dead transactional email cannot be put back in the queue.",
@@ -158,6 +160,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     generationSaveFailed: "Изображения сгенерированы, но сохранить их не удалось. Кредиты за этот запуск всё ещё зарезервированы, а новый запуск сгенерирует и спишет их заново — напишите в поддержку, прежде чем повторять.",
     aiOutputInvalid: "Нейросеть ответила так, что использовать это нельзя, поэтому попытка остановлена. За неё ничего не списано — попробуйте снова.",
     analyticsUnavailable: "Аналитика временно недоступна. История публикаций не потеряна — попробуйте через минуту.",
+    aiProviderNotConfigured: "Генерация сейчас недоступна: сервис генерации не настроен на сервере. За эту попытку кредиты не списываются. Мы уже знаем о проблеме — попробуйте позже.",
     loginLockoutMigrationMissing: "Замок входа недоступен: миграция 164 не применена в этом окружении. Пока её нет, блокировка после неудачных попыток входа не работает.",
     loginLockoutUnavailable: "Сервис замка входа не ответил, поэтому состояние блокировки не удалось ни прочитать, ни снять. Повторите через минуту.",
     emailRequeueMigrationMissing: "Переотправка писем недоступна: миграция 165 не применена в этом окружении. Пока её нет, потерянное письмо нельзя вернуть в очередь.",
@@ -227,6 +230,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     generationSaveFailed: "Las imágenes se generaron, pero no se pudieron guardar. Tus créditos de esta ejecución siguen reservados y una nueva ejecución volvería a generar y a cobrar, así que escribe al soporte antes de reintentar.",
     aiOutputInvalid: "El modelo respondió con algo que no podemos usar, así que esta tentativa se detuvo. No se ha cobrado nada por ella; inténtalo de nuevo.",
     analyticsUnavailable: "Los análisis no están disponibles temporalmente. Tu historial de publicaciones no se ha perdido: inténtalo de nuevo en un minuto.",
+    aiProviderNotConfigured: "La generación no está disponible ahora porque el servicio de IA no está configurado en el servidor. No se ha cobrado nada por este intento. Ya conocemos el problema: inténtalo más tarde.",
     loginLockoutMigrationMissing: "El bloqueo de acceso no está disponible: la migración 164 no se ha aplicado en este entorno. Mientras falte, nadie queda bloqueado tras varios intentos fallidos.",
     loginLockoutUnavailable: "El servicio de bloqueo de acceso no respondió, así que no se pudo leer ni borrar el estado del bloqueo. Inténtalo de nuevo en un minuto.",
     emailRequeueMigrationMissing: "La reencolación de correos no está disponible: la migración 165 no se ha aplicado en este entorno. Mientras falte, un correo perdido no puede volver a la cola.",
@@ -296,6 +300,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     generationSaveFailed: "As imagens foram geradas, mas não foi possível salvá-las. Os seus créditos desta execução continuam reservados e uma nova execução voltaria a gerar e a cobrar — escreva ao suporte antes de tentar novamente.",
     aiOutputInvalid: "O modelo respondeu algo que não podemos usar, por isso esta tentativa foi interrompida. Nada foi cobrado por ela — tente novamente.",
     analyticsUnavailable: "As análises estão temporariamente indisponíveis. Seu histórico de publicações não foi perdido — tente novamente em um minuto.",
+    aiProviderNotConfigured: "A geração não está disponível agora porque o serviço de IA não está configurado no servidor. Nada foi cobrado por esta tentativa. Já conhecemos o problema - tente novamente mais tarde.",
     loginLockoutMigrationMissing: "O bloqueio de acesso não está disponível: a migração 164 não foi aplicada neste ambiente. Enquanto faltar, ninguém é bloqueado após tentativas falhadas.",
     loginLockoutUnavailable: "O serviço de bloqueio de acesso não respondeu, por isso não foi possível ler nem limpar o estado do bloqueio. Tente novamente num minuto.",
     emailRequeueMigrationMissing: "O reenfileiramento de e-mails não está disponível: a migração 165 não foi aplicada neste ambiente. Enquanto faltar, um e-mail perdido não pode voltar à fila.",
@@ -365,6 +370,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     generationSaveFailed: "Die Bilder wurden erzeugt, konnten aber nicht gespeichert werden. Ihre Credits für diesen Lauf sind weiterhin reserviert, und ein neuer Lauf würde erneut erzeugen und belasten — schreiben Sie dem Support, bevor Sie es erneut versuchen.",
     aiOutputInvalid: "Das Modell hat etwas geantwortet, das wir nicht verwenden können; dieser Versuch wurde beendet. Es wurde nichts dafür belastet — versuchen Sie es erneut.",
     analyticsUnavailable: "Die Auswertung ist vorübergehend nicht verfügbar. Ihre Veröffentlichungshistorie ist nicht verloren – versuchen Sie es in einer Minute erneut.",
+    aiProviderNotConfigured: "Die Generierung ist derzeit nicht verfügbar, weil der KI-Dienst auf dem Server nicht eingerichtet ist. Für diesen Versuch wurde nichts berechnet. Wir kennen das Problem bereits - bitte versuche es später erneut.",
     loginLockoutMigrationMissing: "Die Login-Sperre ist nicht verfügbar: Migration 164 wurde in dieser Umgebung nicht eingespielt. Solange sie fehlt, wird nach fehlgeschlagenen Anmeldungen niemand gesperrt.",
     loginLockoutUnavailable: "Der Dienst der Login-Sperre antwortete nicht, daher konnte der Sperrzustand weder gelesen noch aufgehoben werden. Versuchen Sie es in einer Minute erneut.",
     emailRequeueMigrationMissing: "Das erneute Einreihen von E-Mails ist nicht verfügbar: Migration 165 wurde in dieser Umgebung nicht eingespielt. Solange sie fehlt, kann eine verlorene E-Mail nicht zurück in die Warteschlange.",
@@ -434,6 +440,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     generationSaveFailed: "Les images ont été générées, mais leur enregistrement a échoué. Vos crédits pour cette exécution restent réservés et une nouvelle exécution régénérerait — et facturerait — de nouveau : écrivez au support avant de réessayer.",
     aiOutputInvalid: "Le modèle a répondu quelque chose que nous ne pouvons pas utiliser : cette tentative a été arrêtée. Rien n’a été débité pour elle — réessayez.",
     analyticsUnavailable: "Les statistiques sont temporairement indisponibles. Votre historique de publications n’est pas perdu : réessayez dans une minute.",
+    aiProviderNotConfigured: "La génération est indisponible pour le moment car le service d'IA n'est pas configuré sur le serveur. Rien n'a été facturé pour cette tentative. Nous connaissons déjà le problème - réessayez plus tard.",
     loginLockoutMigrationMissing: "Le verrouillage de connexion n’est pas disponible : la migration 164 n’a pas été appliquée dans cet environnement. Tant qu’elle manque, personne n’est bloqué après plusieurs échecs.",
     loginLockoutUnavailable: "Le service de verrouillage de connexion n’a pas répondu : l’état du verrouillage n’a pu être ni lu ni levé. Réessayez dans une minute.",
     emailRequeueMigrationMissing: "La remise en file des e-mails n’est pas disponible : la migration 165 n’a pas été appliquée dans cet environnement. Tant qu’elle manque, un e-mail perdu ne peut pas revenir dans la file.",
@@ -503,6 +510,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     generationSaveFailed: "图片已生成，但保存失败。本次运行的积分仍处于预留状态，重新运行会再次生成并再次扣费——请先联系客服再重试。",
     aiOutputInvalid: "模型返回了无法使用的内容，本次尝试已停止，没有扣费。请重试。",
     analyticsUnavailable: "数据分析暂时不可用。您的发布历史没有丢失，请稍后再试。",
+    aiProviderNotConfigured: "目前无法生成内容：服务器上的 AI 服务尚未配置。本次尝试未扣除任何点数。我们已了解该问题，请稍后再试。",
     loginLockoutMigrationMissing: "登录锁定不可用：此环境尚未应用迁移 164。在迁移之前，多次登录失败不会被锁定。",
     loginLockoutUnavailable: "登录锁定服务没有响应，因此无法读取或解除锁定状态。请在一分钟后重试。",
     emailRequeueMigrationMissing: "邮件重新入队不可用：此环境尚未应用迁移 165。在迁移之前，丢失的邮件无法回到队列。",
@@ -665,6 +673,7 @@ const TRANSIENT_CODES: Record<string, AppErrorMessageKey> = {
   gptunnel_text_cost_missing: 'generationCostUnconfirmed',
   pinterest_unavailable: 'pinterestUnavailable',
   pinterest_rate_limited: 'pinterestRateLimited',
+  ai_provider_not_configured: 'aiProviderNotConfigured',
 };
 
 export function getLocalizedApiError(code: unknown, status: unknown): string | null {
