@@ -207,7 +207,7 @@ export const FloatingStrategistBot: React.FC<FloatingStrategistBotProps> = ({
             title={t.bot.undock}
           >
             <Bot className="w-3.5 h-3.5 text-inherit" />
-            <span className="hidden sm:inline">ИИ-Стратег</span>
+            <span className="hidden sm:inline">{t.bot.floatingButton}</span>
           </button>
         )}
       </div>

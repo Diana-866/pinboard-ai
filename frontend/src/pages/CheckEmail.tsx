@@ -39,9 +39,7 @@ export const CheckEmail: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const { language } = useI18n();
   const t = getAuthCopy(language);
-  const missingEmailMessage = language === 'ru'
-    ? 'Адрес не найден в этой вкладке. Вернитесь к регистрации и отправьте форму ещё раз.'
-    : 'The email address is unavailable in this tab. Return to registration and submit the form again.';
+  const missingEmailMessage = t.checkEmailMissingAddress;
 
   async function handleResend() {
     setError('');

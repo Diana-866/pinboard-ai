@@ -85,7 +85,7 @@ interface LegalPageProps {
 }
 
 export const LegalPage: React.FC<LegalPageProps> = ({ ru, en }) => {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const [lang, setLang] = useState<Lang>(() => resolveLegalLanguage(language));
   useEffect(() => {
     setLang(resolveLegalLanguage(language));
@@ -102,7 +102,7 @@ export const LegalPage: React.FC<LegalPageProps> = ({ ru, en }) => {
       <div className="max-w-3xl mx-auto bg-surface border border-subtle rounded-2xl p-6 md:p-12">
         <div className="flex items-center justify-between mb-6">
           <Link to="/" onClick={(e) => { e.preventDefault(); back(); }} className="text-sm text-accent">
-            {lang === 'ru' ? '← Назад' : '← Back'}
+            ← {t.common.back}
           </Link>
           <div className="flex items-center gap-1 text-sm font-extrabold">
             <button

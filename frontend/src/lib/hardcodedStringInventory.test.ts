@@ -16,35 +16,26 @@ import path from 'node:path';
 const SRC = path.join(process.cwd(), 'src');
 
 const CEILING: Record<string, number> = {
-  'App.tsx': 18,
+  'App.tsx': 7,
   'components/admin/AdminBillingExceptions.tsx': 14,
-  'components/admin/AdminEmailOutbox.tsx': 34,
+  'components/admin/AdminEmailOutbox.tsx': 33,
   'components/admin/AdminFinancialOperations.tsx': 36,
   'components/admin/AdminLoginLockout.tsx': 24,
   'components/admin/AdminMail.tsx': 13,
   'components/admin/AdminPanel.tsx': 16,
-  'components/admin/AdminPaymentCreationRequests.tsx': 33,
-  'components/admin/AdminPinterestSchedules.tsx': 62,
+  'components/admin/AdminPaymentCreationRequests.tsx': 32,
+  'components/admin/AdminPinterestSchedules.tsx': 61,
   'components/admin/AdminSubscriptions.tsx': 25,
   'components/auth/AuthModal.tsx': 23,
   'components/auth/PrivacyPolicyModal.tsx': 2,
-  'components/bot/FloatingStrategistBot.tsx': 1,
-  'components/calendar/PublishingCalendar.tsx': 2,
-  'components/common/LockedSection.tsx': 2,
-  'components/layout/Sidebar.tsx': 6,
-  'components/onboarding/OnboardingWizard.tsx': 5,
-  'components/pins/PinGenerator.tsx': 18,
-  'components/pricing/PricingView.tsx': 43,
-  'components/review/ManualApprovalDesk.tsx': 1,
+  'components/pins/PinGenerator.tsx': 8,
+  'components/pricing/PricingView.tsx': 39,
   'components/review/SwipeReviewModal.tsx': 33,
-  'pages/CheckEmail.tsx': 1,
-  'pages/Contacts.tsx': 41,
-  'pages/Landing.tsx': 147,
-  'pages/LegalPage.tsx': 1,
-  'pages/Login.tsx': 2,
+  'pages/Contacts.tsx': 36,
+  'pages/Landing.tsx': 126,
   'pages/VerifyEmail.tsx': 1,
 };
-const CEILING_TOTAL = 604;
+const CEILING_TOTAL = 529;
 
 function walk(dir: string, acc: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -56,11 +47,37 @@ function walk(dir: string, acc: string[] = []): string[] {
 }
 
 /** Lines carrying Cyrillic outside a comment: the shapes a customer can actually read. */
+function stripComments(source: string): string {
+  let out = '';
+  let index = 0;
+  let state: 'code' | 'block' | 'line' = 'code';
+  while (index < source.length) {
+    const char = source[index];
+    const next = source[index + 1];
+    if (state === 'code') {
+      if (char === '/' && next === '*') { state = 'block'; index += 2; continue; }
+      if (char === '/' && next === '/') { state = 'line'; index += 2; continue; }
+      out += char; index += 1; continue;
+    }
+    if (state === 'block') {
+      if (char === '*' && next === '/') { state = 'code'; index += 2; continue; }
+      out += char === '\n' ? '\n' : ' ';
+      index += 1; continue;
+    }
+    if (char === '\n') { state = 'code'; out += '\n'; index += 1; continue; }
+    index += 1;
+  }
+  return out;
+}
+
+/** Lines carrying Cyrillic that a customer could read, and nothing else. */
 function countHardcodedCyrillic(source: string): number {
-  return source
-    .replace(/\r\n/g, "\n")
-    .split("\n")
-    .filter((line) => /[А-яЁё]/.test(line) && !/^\s*(\/\/|\*|\/\*)/.test(line))
+  return stripComments(source.replace(/\r\n/g, '\n'))
+    .split('\n')
+    .filter((line) => /[А-яЁё]/.test(line))
+    .filter((line) => !/^\s*(console\.(log|warn|error|info)|throw new Error)/.test(line))
+    // A regex that matches a Russian backend message is not untranslated UI copy.
+    .filter((line) => !/\/\^?[^/]*[А-яЁё][^/]*\/[a-z]*\.test\(/.test(line))
     .length;
 }
 
