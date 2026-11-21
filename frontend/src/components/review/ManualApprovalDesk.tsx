@@ -23,6 +23,7 @@ import {
 import { useI18n } from '../../i18n/i18nContext';
 import type { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest, uploadPinImage } from '../../lib/api';
+import { PublishPinButton } from '../pins/PublishPinButton';
 import { applyCurrentReviewEdits } from '../../utils/reviewApproval';
 import { createGenerationIdempotencyKey } from '../../utils/generationRetry';
 
@@ -543,6 +544,17 @@ export const ManualApprovalDesk: React.FC<ManualApprovalDeskProps> = ({
                 ? t.review.bulkAddingTemplate.replace('{completed}', String(bulkApprovalProgress.completed)).replace('{total}', String(bulkApprovalProgress.total))
                 : isDecisionInFlight ? t.review.savingDecision : t.review.approveAllTemplate.replace('{count}', String(queue.length))}</span>
             </button>
+          )}
+
+          {currentPin.pinId && (
+            // Раздел 162. Единственная кнопка публикации (`PublishPinButton`) не была смонтирована ни в
+            // одном экране: опубликовать пин из интерфейса было невозможно, а сообщение о неопределённом
+            // исходе (§131) жило в мёртвом компоненте. Здесь пин уже проверен человеком и имеет серверный id.
+            <PublishPinButton
+              pinId={currentPin.pinId}
+              boardId={currentPin.boardId || undefined}
+              className="px-3 py-1.5 text-xs"
+            />
           )}
 
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-subtle bg-subtle font-mono">
