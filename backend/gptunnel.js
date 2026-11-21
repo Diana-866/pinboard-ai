@@ -1,5 +1,7 @@
 const axios = require("axios");
 const { resolveServiceBaseUrl } = require("./serviceBaseUrl");
+const { httpError } = require("./validate");
+const { looksLikePlaceholder } = require("./mail");
 
 const DEFAULT_API_BASE = "https://gptunnel.ru";
 const REQUEST_TIMEOUT_MS = 30000;
@@ -31,10 +33,21 @@ function finiteUsageNumber(value) {
   return Number.isFinite(number) ? number : null;
 }
 
-function providerRequestConfig() {
+/**
+ * Раздел 159. Ключ провайдера, заполненный заглушкой (`GPTUNNEL_API_KEY=<gptunnel-key>`), раньше
+ * уходил в заголовок как есть: провайдер отвечал 401, axios бросал ошибку, и клиент получал
+ * невнятный отказ на самом дорогом действии продукта. Проверка до запроса называет причину.
+ */
+function providerRequestConfig(env = process.env) {
+  const key = env && env.GPTUNNEL_API_KEY;
+  if (looksLikePlaceholder(key)) {
+    const error = httpError(503, "Генерация недоступна: ключ AI-провайдера не настроен на сервере");
+    error.details = { ...(error.details || {}), code: "ai_provider_not_configured" };
+    throw error;
+  }
   return {
     timeout: REQUEST_TIMEOUT_MS,
-    headers: { Authorization: process.env.GPTUNNEL_API_KEY },
+    headers: { Authorization: key },
   };
 }
 
@@ -261,4 +274,4 @@ async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3"
   return waitForImageTask(taskId, callbacks);
 }
 
-module.exports = { resolveApiBase, DEFAULT_API_BASE, providerTaskError, generateText, generateTextWithUsage, quoteImageTask, normalizeMediaQuote, generateImage, waitForImageTask, listModels, checkImage, buildImageTaskPayload, imageTaskResult };
+module.exports = { providerRequestConfig, resolveApiBase, DEFAULT_API_BASE, providerTaskError, generateText, generateTextWithUsage, quoteImageTask, normalizeMediaQuote, generateImage, waitForImageTask, listModels, checkImage, buildImageTaskPayload, imageTaskResult };

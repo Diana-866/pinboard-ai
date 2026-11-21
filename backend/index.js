@@ -3347,12 +3347,15 @@ if (isAccountDeletionWorkerEnabled()) {
   logWarning("account_deletion_worker.disabled_in_production");
 }
 
+// Раздел 159: проверки конфигурации печатаются ДО попытки занять порт. Раньше они стояли внутри
+// колбэка app.listen и при занятом порту не появлялись вовсе — то есть именно тогда, когда сервер
+// не поднялся и его диагностика нужнее всего.
+const mailPlaceholders = require("./mail").unresolvedMailPlaceholders();
+if (mailPlaceholders.length > 0) logWarning("mail.config_placeholder");
+if (require("./mail").looksLikePlaceholder(process.env.GPTUNNEL_API_KEY)) logWarning("ai.provider_placeholder");
+
 const server = app.listen(PORT, () => {
   logInfo("index.event_001");
-  // Раздел 155: почтовая переменная, заполненная заглушкой, выглядит заполненной. Без этой строки
-  // первое письмо молча не уходит, а в журнале остаётся безымянный email-verify.event_004.
-  const mailPlaceholders = require("./mail").unresolvedMailPlaceholders();
-  if (mailPlaceholders.length > 0) logWarning("mail.config_placeholder");
   dispatchSubscriptionEmailOutbox();
 });
 
