@@ -37,9 +37,7 @@ interface AuthContextType {
   isPrivacyModalOpen: boolean;
   closePrivacyModal: () => void;
   openPrivacyModal: () => void;
-  isAuthModalOpen: boolean;
   openAuthModal: (mode?: string) => void;
-  closeAuthModal: () => void;
   refreshUser: () => Promise<boolean>;
   logout: () => void;
   updateUserAvatar: (url: string) => boolean;
@@ -77,7 +75,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [activeViewMode, setActiveViewMode] = useState<"client" | "admin">("client");
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const refreshRequestIdRef = useRef(0);
 
   async function refreshUser() {
@@ -201,9 +198,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isPrivacyModalOpen,
         closePrivacyModal: () => setIsPrivacyModalOpen(false),
         openPrivacyModal: () => setIsPrivacyModalOpen(true),
-        isAuthModalOpen,
         openAuthModal,
-        closeAuthModal: () => setIsAuthModalOpen(false),
         refreshUser,
         logout,
         updateUserAvatar,
