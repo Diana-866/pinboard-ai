@@ -20,6 +20,7 @@ import {
   saveUserTimezone,
   SUPPORTED_TIMEZONES,
 } from '../../utils/timezone';
+import { timezoneDisplayName } from '../../utils/timezoneNames';
 import {
   buildAccountExportFilename,
   downloadJsonFile,
@@ -178,7 +179,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onGoToPricing, onPin
             )}
             {SUPPORTED_TIMEZONES.map((zone) => (
               <option key={zone.value} value={zone.value}>
-                {language === 'ru' ? zone.nameRu : zone.nameEn}
+                {timezoneDisplayName(zone, language)}
               </option>
             ))}
           </select>

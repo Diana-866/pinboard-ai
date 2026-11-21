@@ -1,5 +1,6 @@
 // Timezone Utilities for PinPosy
 // Supports localized user time and transparent Russian server execution (MSK, UTC+3)
+// Клиентские подписи часовых поясов живут в timezoneNames.ts (§136): здесь только вычисления.
 
 export interface TimezoneOption {
   value: string;
@@ -183,94 +184,12 @@ export const convertLocalToMoscow = (timeStr: string, timeZone: string): string 
 /**
  * Converts a HH:mm string from Moscow server time into user's local timezone (HH:mm)
  */
-export const convertMoscowToLocal = (timeStr: string, timeZone: string): string => {
-  if (!timeStr || timeZone === 'Europe/Moscow') return timeStr || '01:00';
-
-  const [hours, minutes] = (timeStr || '01:00').split(':').map(Number);
-  const diffMinutes = getOffsetDiffMinutesToMoscow(timeZone);
-
-  let totalMinutes = (hours * 60 + minutes - diffMinutes) % (24 * 60);
-  if (totalMinutes < 0) totalMinutes += 24 * 60;
-
-  const localHour = Math.floor(totalMinutes / 60)
-    .toString()
-    .padStart(2, '0');
-  const localMinute = (totalMinutes % 60).toString().padStart(2, '0');
-
-  return `${localHour}:${localMinute}`;
-};
-
-export const getTimezoneInfo = (timeZone: string) => {
-  const known = SUPPORTED_TIMEZONES.find((t) => t.value === timeZone);
-  try {
-    const abbreviation = new Intl.DateTimeFormat('en-US', {
-      timeZone,
-      timeZoneName: 'short',
-    }).formatToParts(new Date()).find((part) => part.type === 'timeZoneName')?.value;
-
-    if (known) return { ...known, abbr: abbreviation || known.abbr };
-    return {
-      value: timeZone,
-      nameEn: timeZone,
-      nameRu: timeZone,
-      abbr: abbreviation || timeZone,
-      offsetHoursFromUtc: 0,
-    };
-  } catch {
-    return known || {
-      value: timeZone,
-      nameEn: timeZone,
-      nameRu: timeZone,
-      abbr: timeZone.includes('Moscow') ? 'MSK' : timeZone,
-      offsetHoursFromUtc: 0,
-    };
-  }
-};
 
 /**
  * Returns formatted labels for both Russian and international audiences.
  * - Russian user: "01:00 МСК"
  * - International user: "01:00 EST (09:00 MSK на сервере)"
  */
-export const formatTimeDisplay = (
-  timeStr: string,
-  timeZone: string,
-  language: string
-): {
-  displayText: string;
-  badgeText: string;
-  serverText: string;
-  descriptionText: string;
-} => {
-  const cleanTime = timeStr || '01:00';
-  const isMsk = timeZone === 'Europe/Moscow';
-  const tzInfo = getTimezoneInfo(timeZone);
-  const mskServerTime = convertLocalToMoscow(cleanTime, timeZone);
-
-  if (isMsk || language === 'ru' && isMsk) {
-    return {
-      displayText: `${cleanTime} МСК`,
-      badgeText: `${cleanTime} МСК`,
-      serverText: `${cleanTime} МСК`,
-      descriptionText:
-        language === 'ru'
-          ? `Автогенерация запускается в ${cleanTime} по московскому времени.`
-          : `Auto-generation runs daily at ${cleanTime} MSK.`,
-    };
-  }
-
-  // Non-Moscow timezone (e.g. American user on EST / PST)
-  const isRussianLang = language === 'ru';
-  return {
-    displayText: `${cleanTime} ${tzInfo.abbr} (${mskServerTime} МСК)`,
-    badgeText: `${cleanTime} ${tzInfo.abbr}`,
-    serverText: `${mskServerTime} MSK`,
-    descriptionText: isRussianLang
-      ? `Генерация запускается в ${cleanTime} по вашему времени (${tzInfo.abbr}), что соответствует ${mskServerTime} МСК на серверах PinPosy.`
-      : `Executes at ${cleanTime} in your local timezone (${tzInfo.abbr}). Synced to ${mskServerTime} MSK on Russian PinPosy servers.`,
-  };
-};
-
 
 /**
  * Convert a wall-clock date/time in an IANA timezone to an absolute instant.
@@ -412,7 +331,6 @@ export const getCalendarMonthGrid = (
     };
   });
 };
-
 
 /**
  * Pick a valid future wall-clock slot for the calendar quick-add action.
