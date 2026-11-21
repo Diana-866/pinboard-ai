@@ -15,6 +15,12 @@ import path from 'node:path';
  */
 const SRC = path.join(process.cwd(), 'src');
 
+/**
+ * Scope: components, pages and the app shell. `src/lib` and `src/utils` are deliberately outside the
+ * ceiling because they host per-language tables (`appErrorCopy`, `scheduleRetryReason`) where Russian is a
+ * translation, not a leak. Their customer-facing Russian is handled separately - see section 136 for
+ * `timezone.ts` and `apiErrorMessages.ts`.
+ */
 const CEILING: Record<string, number> = {
   'components/admin/AdminBillingExceptions.tsx': 14,
   'components/admin/AdminEmailOutbox.tsx': 33,
@@ -27,14 +33,13 @@ const CEILING: Record<string, number> = {
   'components/admin/AdminSubscriptions.tsx': 25,
   'components/auth/AuthModal.tsx': 23,
   'components/auth/PrivacyPolicyModal.tsx': 2,
-  'components/pins/PinGenerator.tsx': 8,
   'components/pricing/PricingView.tsx': 39,
   'components/review/SwipeReviewModal.tsx': 33,
   'pages/Contacts.tsx': 36,
   'pages/Landing.tsx': 126,
   'pages/VerifyEmail.tsx': 1,
 };
-const CEILING_TOTAL = 522;
+const CEILING_TOTAL = 514;
 
 function walk(dir: string, acc: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

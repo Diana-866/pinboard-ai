@@ -23,6 +23,7 @@ import { useNotifications } from '../../context/NotificationContext';
 import type { BoardItem, ScheduledPinItem } from '../../data/mockData';
 import { apiRequest } from '../../lib/api';
 import { GENERATION_REQUEST_TIMEOUT_MS } from '../../lib/apiResilience';
+import { pickRecommendedBoard } from '../../lib/boardRecommendation';
 import { getExplicitGenerationTopic } from '../../utils/generationTopic';
 import { addCalendarDaysInTimezone, formatInstantInTimezone, getDefaultTimezone, resolveScheduleSlotTime } from '../../utils/timezone';
 import { createGenerationIdempotencyKey, isDefinitiveGenerationFailure } from '../../utils/generationRetry';
@@ -202,43 +203,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     '1:1': false,
   });
 
-  // Intelligent Board Recommendation
-  const recommendedBoard = useMemo(() => {
-    const lower = topic.toLowerCase();
-    if (
-      lower.includes('recipe') ||
-      lower.includes('food') ||
-      lower.includes('matcha') ||
-      lower.includes('drink') ||
-      lower.includes('куриц') ||
-      lower.includes('рецепт') ||
-      lower.includes('кофе')
-    ) {
-      return boards.find((b) => b.category.toLowerCase().includes('recipe')) || boards[1] || boards[0];
-    }
-    if (
-      lower.includes('skin') ||
-      lower.includes('beauty') ||
-      lower.includes('glow') ||
-      lower.includes('serum') ||
-      lower.includes('уход') ||
-      lower.includes('кожа') ||
-      lower.includes('косметик')
-    ) {
-      return boards.find((b) => b.category.toLowerCase().includes('wellness')) || boards[2] || boards[0];
-    }
-    if (
-      lower.includes('travel') ||
-      lower.includes('positano') ||
-      lower.includes('italy') ||
-      lower.includes('hotel') ||
-      lower.includes('путешеств') ||
-      lower.includes('тур')
-    ) {
-      return boards.find((b) => b.category.toLowerCase().includes('travel')) || boards[3] || boards[0];
-    }
-    return boards[0];
-  }, [topic, boards]);
+  // Intelligent Board Recommendation (правило вынесено в src/lib/boardRecommendation.ts, §135)
+  const recommendedBoard = useMemo(() => pickRecommendedBoard(boards, topic), [topic, boards]);
 
   const [selectedBoardId, setSelectedBoardId] = useState<string>(initialBoardId || recommendedBoard?.id || boards[0]?.id || '');
 
