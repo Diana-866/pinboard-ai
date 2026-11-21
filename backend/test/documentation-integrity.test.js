@@ -40,7 +40,8 @@ function commitExists(hash) {
  *  the file would also pick up numbered tables in the analysis sections (the forbidden
  *  credential patterns table has a row numbered 429), so the register is sliced out by
  *  its own heading and its rows must end where the next heading starts. */
-function registerRows(source) {
+/** The register table's own text: sliced out by its heading, ended by the next heading. */
+function registerBody(source) {
   const heading = source.search(/^#{2,3}\s*.*реестр действий/im);
   assert.notEqual(heading, -1, "the action register heading must exist");
   const rest = source.slice(heading);
@@ -48,8 +49,11 @@ function registerRows(source) {
   assert.notEqual(tableStart, -1, "the register table must follow its heading");
   const tableText = rest.slice(tableStart);
   const nextHeading = tableText.search(/\n#{2,3}\s/);
-  const body = nextHeading === -1 ? tableText : tableText.slice(0, nextHeading);
-  return [...body.matchAll(/^\| (\d+) \|/gm)].map((match) => Number(match[1]));
+  return nextHeading === -1 ? tableText : tableText.slice(0, nextHeading);
+}
+
+function registerRows(source) {
+  return [...registerBody(source).matchAll(/^\| (\d+) \|/gm)].map((match) => Number(match[1]));
 }
 
 test("the action register is numbered without gaps", () => {
@@ -189,8 +193,12 @@ test("every change of this session has a row, and every row points at a reason",
   // Direction two: a row whose address does not resolve, which would be a decorative entry.
   const numbers = new Set(registerRows(audit));
   const sections = new Set([...audit.matchAll(/^#{2,3} (\d+(?:\.\d+)*)\./gm)].map((match) => match[1]));
+  // Section 141: this map used to be built from every `| N |` line in the document, so a numbering
+  // collision with a status-code table (row `429` is both a register row and an HTTP status) silently
+  // replaced the real row and made a correct citation look broken. The register is sliced out by its own
+  // heading now, exactly as the numbering guard already did.
   const registerText = new Map();
-  for (const line of audit.split("\n")) {
+  for (const line of registerBody(audit).split("\n")) {
     const match = /^\| (\d+) \|/.exec(line);
     if (match) registerText.set(Number(match[1]), line);
   }
