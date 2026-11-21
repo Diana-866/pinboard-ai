@@ -28,6 +28,9 @@ import { apiRequest } from '../../lib/api';
 import { isTerminalCreditPurchaseStatus, isTerminalSubscriptionPaymentStatus } from '../../utils/paymentTerminalStatus';
 import { isCurrentBillingOwner } from '../../utils/billingOwner';
 
+const formatCredits = (value: number, language: string) =>
+  new Intl.NumberFormat(formattingLocale(language)).format(value);
+
 export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initialPlanId = null }) => {
   const { t, language } = useI18n();
   const { user, refreshUser } = useAuth();
@@ -555,7 +558,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
               <span>{t.pricing.balanceTitle}</span>
             </span>
             <span className="font-mono text-lg font-black text-primary-theme">
-              {totalBalance.toLocaleString()} {t.nav.creditsLeft}
+              {formatCredits(totalBalance, language)} {t.nav.creditsLeft}
             </span>
           </div>
 
@@ -642,7 +645,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
                           {t.pricing.creditsPerMonth}
                         </span>
                         <span className="font-mono font-bold text-primary-theme">
-                          {plan.credits === 0 ? '0' : plan.credits.toLocaleString()}
+                          {plan.credits === 0 ? '0' : formatCredits(plan.credits, language)}
                         </span>
                         <span className="text-[9px] text-amber-500 block leading-none mt-0.5">
                           {t.pricing.burnsNotice}
@@ -817,7 +820,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
                     <div>
                       <div className="flex items-baseline gap-1.5">
                         <span className="text-3xl font-extrabold font-mono text-primary-theme">
-                          +{pack.credits.toLocaleString()}
+                          +{formatCredits(pack.credits, language)}
                         </span>
                         <span className="text-xs text-muted-theme font-medium">{t.nav.creditsLeft}</span>
                       </div>
@@ -879,7 +882,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
                     <tr key={row.id} className="hover:bg-subtle/50 transition-colors">
                       <td className="py-3 px-3 font-bold text-primary-theme">{row.name}</td>
                       <td className="py-3 px-3 font-mono font-bold text-primary-theme">
-                        +{row.credits.toLocaleString()}
+                        +{formatCredits(row.credits, language)}
                       </td>
                       <td className="py-3 px-3 font-mono text-secondary-theme">{row.pricePerCredit}</td>
                       <td className="py-3 px-3 font-mono font-semibold text-primary-theme">{row.priceRub}</td>
@@ -955,7 +958,7 @@ export const PricingView: React.FC<{ initialPlanId?: string | null }> = ({ initi
                           )}
                         </td>
                         <td className="py-3 px-3 font-mono font-bold text-primary-theme">
-                          +{p.credits.toLocaleString()}
+                          +{formatCredits(p.credits, language)}
                         </td>
                         <td className="py-3 px-3 font-mono font-semibold text-primary-theme">
                           {Number(p.amount).toFixed(0)} ₽

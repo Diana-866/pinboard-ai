@@ -1,3 +1,4 @@
+import { EMPTY_TIMESTAMP, formatTimestamp } from '../../lib/dateFormat';
 import React, { useEffect, useState } from 'react';
 import { Mail, RefreshCw, Send, ChevronLeft } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
@@ -120,7 +121,7 @@ export const AdminMail: React.FC = () => {
                 <span className="block text-[11px] text-secondary-theme truncate">{m.from}</span>
               </span>
               <span className="text-[10px] text-muted-theme shrink-0">
-                {m.date ? new Date(m.date).toLocaleDateString() : ''}
+                {m.date ? formatTimestamp(m.date, 'ru') : EMPTY_TIMESTAMP}
               </span>
             </button>
           ))}

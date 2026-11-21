@@ -48,11 +48,12 @@ test('the admin panel no longer formats timestamps with the browser locale', () 
     'src/components/admin/AdminFinancialOperations.tsx',
     'src/components/admin/AdminPaymentCreationRequests.tsx',
     'src/components/admin/AdminPinterestSchedules.tsx',
+    'src/components/admin/AdminMail.tsx',
   ];
   const offenders: string[] = [];
   for (const file of files) {
     const source = readFileSync(path.join(process.cwd(), file), 'utf8');
-    if (/\.toLocaleString\(\)/.test(source)) offenders.push(file);
+    if (/\.toLocaleString\(\)|\.toLocaleDateString\(\)/.test(source)) offenders.push(file);
   }
   assert.deepEqual(offenders, [], `modules still using the browser locale:\n${offenders.join('\n')}`);
 });

@@ -62,6 +62,8 @@ test('no screen chooses between exactly two formatting locales any more', () => 
   for (const file of files) {
     const source = readFileSync(path.join(process.cwd(), file), 'utf8');
     if (source.includes("'ru-RU' : 'en-US'")) offenders.push(file);
+    // Кредиты тоже числа: они не должны зависеть от локали браузера.
+    if (file.includes('PricingView') && /\.toLocaleString\(\)/.test(source)) offenders.push(`${file} (credits)`);
   }
   assert.deepEqual(offenders, [], `files still branching on two locales:\n${offenders.join('\n')}`);
 });
